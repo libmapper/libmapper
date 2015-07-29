@@ -6,7 +6,8 @@ import Mapper.TimeTag;
 
 public class Device
 {
-    public Device(long devprops) {
+    public Device(long db, long devprops) {
+        _db = db;
         _devprops = devprops;
 
         _name = mdb_device_get_name(_devprops);
@@ -68,5 +69,63 @@ public class Device
     private native PropertyValue mdb_device_property_lookup(
         long p, String property);
 
+    // Signal
+    public native Mapper.Db.Signal signalByName(String name);
+    public native Mapper.Db.Signal inputByName(String name);
+    public native Mapper.Db.Signal outputByName(String name);
+
+    // Signals
+    private native long mdb_device_signals(long db, long device, String pattern,
+                                           int direction);
+    public Mapper.Db.SignalCollection signals()
+    {
+        long _s = mdb_device_signals(_db, _devprops, null, 0);
+        return new Mapper.Db.SignalCollection(_s);
+    }
+    public Mapper.Db.SignalCollection inputs()
+    {
+        long _s = mdb_device_signals(_db, _devprops, null, 1);
+        return new Mapper.Db.SignalCollection(_s);
+    }
+    public Mapper.Db.SignalCollection outputs()
+    {
+        long _s = mdb_device_signals(_db, _devprops, null, 2);
+        return new Mapper.Db.SignalCollection(_s);
+    }
+    public Mapper.Db.SignalCollection signalsByNameMatch(String pattern)
+    {
+        long _s = mdb_device_signals(_db, _devprops, pattern, 0);
+        return new Mapper.Db.SignalCollection(_s);
+    }
+    public Mapper.Db.SignalCollection inputsByNameMatch(String pattern)
+    {
+        long _s = mdb_device_signals(_db, _devprops, pattern, 1);
+        return new Mapper.Db.SignalCollection(_s);
+    }
+    public Mapper.Db.SignalCollection outputsByNameMatch(String pattern)
+    {
+        long _s = mdb_device_signals(_db, _devprops, pattern, 2);
+        return new Mapper.Db.SignalCollection(_s);
+    }
+
+    // Maps
+    private native long mdb_device_maps(long db, long device, int direction);
+    public Mapper.Db.MapCollection maps()
+    {
+        long _m = mdb_device_maps(_db, _devprops, 0);
+        return new Mapper.Db.MapCollection(_m);
+    }
+    public Mapper.Db.MapCollection incomingMaps()
+    {
+        long _m = mdb_device_maps(_db, _devprops, 1);
+        return new Mapper.Db.MapCollection(_m);
+    }
+    public Mapper.Db.MapCollection outgoingMaps()
+    {
+        long _m = mdb_device_maps(_db, _devprops, 2);
+        return new Mapper.Db.MapCollection(_m);
+    }
+
+    private long _db;
     private long _devprops;
 }

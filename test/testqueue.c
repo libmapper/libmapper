@@ -37,18 +37,18 @@ int received = 0;
 
 int setup_source()
 {
-    source = mdev_new("testsend", port, 0);
+    source = mapper_device_new("testsend", port, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=1;
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
-    sendsig1= mdev_add_output(source, "/outsig1", 1, 'f', 0, &mn, &mx);
+    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
+    sendsig1= mapper_device_add_output(source, "/outsig1", 1, 'f', 0, &mn, &mx);
 
     eprintf("Output signal /outsig registered.\n");
-    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
     return 0;
 
   error:
@@ -60,7 +60,7 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
@@ -77,20 +77,20 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 
 int setup_destination()
 {
-    destination = mdev_new("testrecv", port, 0);
+    destination = mapper_device_new("testrecv", port, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mdev_add_input(destination, "/insig", 1, 'f', 0,
-                             &mn, &mx, insig_handler, 0);
-	recvsig1= mdev_add_input(destination, "/insig1", 1, 'f', 0,
-                             &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f', 0,
+                                      &mn, &mx, insig_handler, 0);
+	recvsig1= mapper_device_add_input(destination, "/insig1", 1, 'f', 0,
+                                      &mn, &mx, insig_handler, 0);
 
     eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
     return 0;
 
   error:
@@ -102,7 +102,7 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
@@ -117,9 +117,9 @@ int create_maps()
     mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig->props));
 
     // wait until mapping has been established
-    while (!done && !mdev_num_outgoing_maps(source)) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
+    while (!done && !mapper_device_num_outgoing_maps(source)) {
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
     }
 
     mmon_free(mon);
@@ -129,9 +129,10 @@ int create_maps()
 
 void wait_ready()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
         usleep(500 * 1000);
     }
 }
@@ -144,16 +145,16 @@ void loop()
 	while ((!terminate || i < 50) && !done) {
         j=i;
         mapper_timetag_t now;
-        mdev_now(source, &now);
-        mdev_start_queue(source, now);
-		mdev_poll(source, 0);
+        mapper_device_now(source, &now);
+        mapper_device_start_queue(source, now);
+		mapper_device_poll(source, 0);
         eprintf("Updating signal %s to %f\n",
                 sendsig->props.name, j);
-        msig_update(sendsig, &j, 0, now);
-		msig_update(sendsig1, &j, 0, now);
-		mdev_send_queue(sendsig->device, now);
+        mapper_signal_update(sendsig, &j, 0, now);
+		mapper_signal_update(sendsig1, &j, 0, now);
+		mapper_device_send_queue(sendsig->device, now);
 		sent = sent+2;
-        mdev_poll(destination, 100);
+        mapper_device_poll(destination, 100);
         i++;
 
         if (!verbose) {

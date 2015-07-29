@@ -10,7 +10,8 @@ public class Signal
     public static final int DI_INCOMING = 2;
     public static final int DI_BOTH     = 3;
 
-    public Signal(long sigprops) {
+    public Signal(long db, long sigprops) {
+        _db = db;
         _sigprops = sigprops;
 
         _name = mdb_signal_get_name(_sigprops);
@@ -75,5 +76,24 @@ public class Signal
     private native PropertyValue mdb_signal_property_lookup(
         long p, String property);
 
+    // Maps
+    private native long mdb_signal_maps(long db, long signal, int direction);
+    public Mapper.Db.MapCollection maps()
+    {
+        long _m = mdb_signal_maps(_db, _sigprops, 0);
+        return new Mapper.Db.MapCollection(_m);
+    }
+    public Mapper.Db.MapCollection incomingMaps()
+    {
+        long _m = mdb_signal_maps(_db, _sigprops, 1);
+        return new Mapper.Db.MapCollection(_m);
+    }
+    public Mapper.Db.MapCollection outgoingMaps()
+    {
+        long _m = mdb_signal_maps(_db, _sigprops, 2);
+        return new Mapper.Db.MapCollection(_m);
+    }
+
+    private long _db;
     private long _sigprops;
 }

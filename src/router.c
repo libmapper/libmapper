@@ -24,27 +24,28 @@ static int map_in_scope(mapper_map map, uint64_t id)
     return 0;
 }
 
-static void mapper_link_free(mapper_link l)
+static void mapper_link_free(mapper_link link)
 {
-    if (l) {
-        if (l->props.host)
-            free(l->props.host);
-        if (l->props.name)
-            free(l->props.name);
-        if (l->admin_addr)
-            lo_address_free(l->admin_addr);
-        if (l->data_addr)
-            lo_address_free(l->data_addr);
-        while (l->queues) {
-            mapper_queue q = l->queues;
-            lo_bundle_free_messages(q->bundle);
-            l->queues = q->next;
-            free(q);
+    if (link) {
+        if (link->remote_device->host)
+            free(link->remote_device->host);
+        if (link->remote_device->name)
+            free(link->remote_device->name);
+        if (link->admin_addr)
+            lo_address_free(link->admin_addr);
+        if (link->data_addr)
+            lo_address_free(link->data_addr);
+        while (link->queues) {
+            mapper_queue queue = link->queues;
+            lo_bundle_free_messages(queue->bundle);
+            link->queues = queue->next;
+            free(queue);
         }
-        free(l);
+        free(link);
     }
 }
 
+// TODO: reuse device listed in db for remote
 mapper_link mapper_router_add_link(mapper_router router, const char *host,
                                    int admin_port, int data_port,
                                    const char *name)
@@ -53,43 +54,44 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
         return 0;
 
     char str[16];
-    mapper_link l = (mapper_link) calloc(1, sizeof(struct _mapper_link));
+    mapper_link link = (mapper_link) calloc(1, sizeof(struct _mapper_link));
+    link->remote_device = (mapper_device) calloc(1, sizeof(mapper_device_t));
     if (host) {
-        l->props.host = strdup(host);
-        l->props.port = data_port;
+        link->remote_device->host = strdup(host);
+        link->remote_device->port = data_port;
         snprintf(str, 16, "%d", data_port);
-        l->data_addr = lo_address_new(host, str);
+        link->data_addr = lo_address_new(host, str);
         snprintf(str, 16, "%d", admin_port);
-        l->admin_addr = lo_address_new(host, str);
+        link->admin_addr = lo_address_new(host, str);
     }
     name += (name[0]=='/');
-    l->props.name = strdup(name);
-    l->props.id = crc32(0L, (const Bytef *)name, strlen(name) << 32);
+    link->remote_device->name = strdup(name);
+    link->remote_device->id = crc32(0L, (const Bytef *)name, strlen(name) << 32);
 
-    l->device = router->device;
-    l->props.num_incoming_maps = 0;
-    l->props.num_outgoing_maps = 0;
+    link->local_device = router->device;
+    link->num_incoming_maps = 0;
+    link->num_outgoing_maps = 0;
 
-    if (name == mdev_name(router->device)) {
+    if (name == mapper_device_name(router->device)) {
         /* Add data_addr for use by self-connections. In the future we may
          * decide to call local handlers directly, however this could result in
          * unfortunate loops/stack overflow. Sending data for self-connections
          * to localhost adds the messages to liblo's stack and imposes a delay
-         * since the receiving handler will not be called until mdev_poll(). */
-        snprintf(str, 16, "%d", router->device->props.port);
-        l->data_addr = lo_address_new("localhost", str);
-        l->self_link = 1;
+         * since the receiving handler will not be called until
+         * mapper_device_poll(). */
+        snprintf(str, 16, "%d", router->device->port);
+        link->data_addr = lo_address_new("localhost", str);
     }
 
-    l->clock.new = 1;
-    l->clock.sent.message_id = 0;
-    l->clock.response.message_id = -1;
-    mapper_clock_t *clock = &router->device->admin->clock;
+    link->clock.new = 1;
+    link->clock.sent.message_id = 0;
+    link->clock.response.message_id = -1;
+    mapper_clock_t *clock = &router->device->db->admin->clock;
     mapper_clock_now(clock, &clock->now);
-    l->clock.response.timetag.sec = clock->now.sec + 10;
+    link->clock.response.timetag.sec = clock->now.sec + 10;
 
-    l->next = router->links;
-    router->links = l;
+    link->next = router->links;
+    router->links = link;
 
     if (!host) {
         // request missing metadata
@@ -98,21 +100,21 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
         lo_message m = lo_message_new();
         if (m) {
             lo_message_add_string(m, "device");
-            mapper_admin_set_bundle_dest_bus(router->device->admin);
-            lo_bundle_add_message(router->device->admin->bundle, cmd, m);
-            mapper_admin_send_bundle(router->device->admin);
+            mapper_admin_set_bundle_dest_bus(router->device->db->admin);
+            lo_bundle_add_message(router->device->db->admin->bundle, cmd, m);
+            mapper_admin_send_bundle(router->device->db->admin);
         }
     }
 
-    return l;
+    return link;
 }
 
 void mapper_router_update_link(mapper_router router, mapper_link link,
                                const char *host, int admin_port, int data_port)
 {
     char str[16];
-    link->props.host = strdup(host);
-    link->props.port = data_port;
+    link->remote_device->host = strdup(host);
+    link->remote_device->port = data_port;
     sprintf(str, "%d", data_port);
     link->data_addr = lo_address_new(host, str);
     sprintf(str, "%d", admin_port);
@@ -142,13 +144,13 @@ void mapper_router_remove_link(mapper_router router, mapper_link link)
         }
         rs = rs->next;
     }
-    mapper_link *l = &router->links;
-    while (*l) {
-        if (*l == link) {
-            *l = (*l)->next;
+    mapper_link *links = &router->links;
+    while (*links) {
+        if (*links == link) {
+            *links = (*links)->next;
             break;
         }
-        l = &(*l)->next;
+        links = &(*links)->next;
     }
     mapper_link_free(link);
 }
@@ -216,13 +218,12 @@ static void reallocate_map_instances(mapper_map map, int size)
 }
 
 // TODO: check for mismatched instance counts when using multiple sources
-void mapper_router_num_instances_changed(mapper_router r,
-                                         mapper_signal sig,
+void mapper_router_num_instances_changed(mapper_router rtr, mapper_signal sig,
                                          int size)
 {
     int i;
     // check if we have a reference to this signal
-    mapper_router_signal rs = r->signals;
+    mapper_router_signal rs = rtr->signals;
     while (rs) {
         if (rs->signal == sig)
             break;
@@ -242,15 +243,15 @@ void mapper_router_num_instances_changed(mapper_router r,
     }
 }
 
-void mapper_router_process_signal(mapper_router r, mapper_signal sig,
+void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                                   int instance, void *value, int count,
                                   mapper_timetag_t tt)
 {
-    mapper_id_map id_map = sig->id_maps[instance].map;
+    mapper_id_map id_map = sig->local->id_maps[instance].map;
     lo_message msg;
 
     // find the router signal
-    mapper_router_signal rs = r->signals;
+    mapper_router_signal rs = rtr->signals;
     while (rs) {
         if (rs->signal == sig)
             break;
@@ -259,7 +260,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
     if (!rs)
         return;
 
-    int i, j, k, id = sig->id_maps[instance].instance->index;
+    int i, j, k, id = sig->local->id_maps[instance].instance->index;
     mapper_map map;
 
     if (!value) {
@@ -321,7 +322,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
     // if count > 1, we need to allocate sufficient memory for largest output
     // vector so that we can store calculated values before sending
     // TODO: calculate max_output_size, cache in link_signal
-    void *out_value_p = count == 1 ? 0 : alloca(count * sig->props.length
+    void *out_value_p = count == 1 ? 0 : alloca(count * sig->length
                                                 * sizeof(double));
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i])
@@ -348,7 +349,7 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
         k = 0;
         for (j = 0; j < count; j++) {
             // copy input history
-            size_t n = msig_vector_bytes(&sig->props);
+            size_t n = mapper_signal_vector_bytes(sig);
             islot->history[id].position = ((islot->history[id].position + 1)
                                            % islot->history[id].size);
             memcpy(mapper_history_value_ptr(islot->history[id]), value + n * j, n);
@@ -412,17 +413,15 @@ void mapper_router_process_signal(mapper_router r, mapper_signal sig,
     }
 }
 
-int mapper_router_send_query(mapper_router r,
-                             mapper_signal sig,
+int mapper_router_send_query(mapper_router rtr, mapper_signal sig,
                              mapper_timetag_t tt)
 {
-    // TODO: cache the response string
-    if (!sig->handler) {
+    if (!sig->local->handler) {
         trace("not sending queries since signal has no handler.\n");
         return 0;
     }
     // find the corresponding router_signal
-    mapper_router_signal rs = r->signals;
+    mapper_router_signal rs = rtr->signals;
     while (rs && rs->signal != sig)
         rs = rs->next;
 
@@ -432,9 +431,6 @@ int mapper_router_send_query(mapper_router r,
 
     // for each map, query remote signals
     int i, j, count = 0;
-    int len = (int) strlen(sig->props.path) + 5;
-    char *response_string = (char*) malloc(len);
-    snprintf(response_string, len, "%s/got", sig->props.path);
     char query_string[256];
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i])
@@ -445,9 +441,9 @@ int mapper_router_send_query(mapper_router r,
         lo_message msg = lo_message_new();
         if (!msg)
             continue;
-        lo_message_add_string(msg, response_string);
-        lo_message_add_int32(msg, sig->props.length);
-        lo_message_add_char(msg, sig->props.type);
+        lo_message_add_string(msg, sig->path);
+        lo_message_add_int32(msg, sig->length);
+        lo_message_add_char(msg, sig->type);
         // TODO: include response address as argument to allow TCP queries?
         // TODO: always use TCP for queries?
 
@@ -463,7 +459,6 @@ int mapper_router_send_query(mapper_router r,
         }
         count++;
     }
-    free(response_string);
     return count;
 }
 
@@ -490,66 +485,65 @@ void send_or_bundle_message(mapper_link link, const char *path,
         // Send message immediately
         lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, m);
-        lo_send_bundle_from(link->data_addr, link->device->server, b);
+        lo_send_bundle_from(link->data_addr,
+                            link->local_device->local->server, b);
         lo_bundle_free_messages(b);
     }
 }
 
-void mapper_router_start_queue(mapper_router r,
-                               mapper_timetag_t tt)
+void mapper_router_start_queue(mapper_router rtr, mapper_timetag_t tt)
 {
     // first check if queue already exists
-    mapper_link l = r->links;
-    while (l) {
-        mapper_queue q = l->queues;
-        while (q) {
-            if (memcmp(&q->tt, &tt,
-                       sizeof(mapper_timetag_t))==0)
+    mapper_link link = rtr->links;
+    while (link) {
+        mapper_queue queue = link->queues;
+        while (queue) {
+            if (memcmp(&queue->tt, &tt, sizeof(mapper_timetag_t))==0)
                 return;
-            q = q->next;
+            queue = queue->next;
         }
 
         // need to create new queue
-        q = malloc(sizeof(struct _mapper_queue));
-        memcpy(&q->tt, &tt, sizeof(mapper_timetag_t));
-        q->bundle = lo_bundle_new(tt);
-        q->next = l->queues;
-        l->queues = q;
-        l = l->next;
+        queue = malloc(sizeof(struct _mapper_queue));
+        memcpy(&queue->tt, &tt, sizeof(mapper_timetag_t));
+        queue->bundle = lo_bundle_new(tt);
+        queue->next = link->queues;
+        link->queues = queue;
+        link = link->next;
     }
 }
 
-void mapper_router_send_queue(mapper_router r,
-                              mapper_timetag_t tt)
+void mapper_router_send_queue(mapper_router rtr, mapper_timetag_t tt)
 {
-    mapper_link l = r->links;
-    while (l) {
-        mapper_queue *q = &l->queues;
-        while (*q) {
-            if (memcmp(&(*q)->tt, &tt, sizeof(mapper_timetag_t))==0)
+    mapper_link link = rtr->links;
+    while (link) {
+        mapper_queue *queue = &link->queues;
+        while (*queue) {
+            if (memcmp(&(*queue)->tt, &tt, sizeof(mapper_timetag_t))==0)
                 break;
-            q = &(*q)->next;
+            queue = &(*queue)->next;
         }
-        if (*q) {
+        if (*queue) {
 #ifdef HAVE_LIBLO_BUNDLE_COUNT
-            if (lo_bundle_count((*q)->bundle))
+            if (lo_bundle_count((*queue)->bundle))
 #endif
-                lo_send_bundle_from(l->data_addr,
-                                    l->device->server, (*q)->bundle);
-            lo_bundle_free_messages((*q)->bundle);
-            mapper_queue temp = *q;
-            *q = (*q)->next;
+                lo_send_bundle_from(link->data_addr,
+                                    link->local_device->local->server,
+                                    (*queue)->bundle);
+            lo_bundle_free_messages((*queue)->bundle);
+            mapper_queue temp = *queue;
+            *queue = (*queue)->next;
             free(temp);
         }
-        l = l->next;
+        link = link->next;
     }
 }
 
-static mapper_router_signal find_or_add_router_signal(mapper_router r,
+static mapper_router_signal find_or_add_router_signal(mapper_router rtr,
                                                       mapper_signal sig)
 {
     // find signal in router_signal list
-    mapper_router_signal rs = r->signals;
+    mapper_router_signal rs = rtr->signals;
     while (rs && rs->signal != sig)
         rs = rs->next;
 
@@ -561,8 +555,8 @@ static mapper_router_signal find_or_add_router_signal(mapper_router r,
         rs->num_slots = 1;
         rs->slots = malloc(sizeof(mapper_slot_internal *));
         rs->slots[0] = 0;
-        rs->next = r->signals;
-        r->signals = rs;
+        rs->next = rtr->signals;
+        rtr->signals = rs;
     }
     return rs;
 }
@@ -594,7 +588,7 @@ static uint64_t unused_map_id(mapper_device dev, mapper_router rtr)
     uint64_t id;
     while (!done) {
         done = 1;
-        id = mdev_unique_id(dev);
+        id = mapper_device_unique_id(dev);
         // check if map exists with this id
         mapper_router_signal rs = rtr->signals;
         while (rs) {
@@ -633,7 +627,7 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
     imap->router = rtr;
 
     // TODO: configure number of instances available for each slot
-    imap->num_var_instances = sig->props.num_instances;
+    imap->num_var_instances = sig->num_instances;
 
     map->num_sources = num_sources;
     map->sources = (mapper_slot) calloc(1, sizeof(struct _mapper_slot)
@@ -666,12 +660,12 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
             rtr_sig2 = find_or_add_router_signal(rtr, local_sigs[i]);
             map->sources[i].local->router_sig = rtr_sig2;
             slot = &map->sources[i];
-            slot->signal = &local_sigs[i]->props;
-            slot->type = local_sigs[i]->props.type;
-            slot->length = local_sigs[i]->props.length;
+            slot->signal = local_sigs[i];
+            slot->type = local_sigs[i]->type;
+            slot->length = local_sigs[i]->length;
             slot->local->status = MAPPER_READY;
             slot->direction = DI_OUTGOING;
-            slot->num_instances = local_sigs[i]->props.num_instances;
+            slot->num_instances = local_sigs[i]->num_instances;
             if (slot->num_instances > imap->num_var_instances)
                 imap->num_var_instances = slot->num_instances;
 
@@ -691,13 +685,13 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
         strncpy(devname, devnamep, devnamelen);
         devname[devnamelen] = 0;
         slot = &map->destination;
-        slot->signal = calloc(1, sizeof(mapper_db_signal_t));
+        slot->signal = calloc(1, sizeof(mapper_signal_t));
         int signamelen = strlen(signame)+2;
         slot->signal->path = malloc(signamelen);
         snprintf(slot->signal->path, signamelen, "/%s", signame);
         slot->signal->name = slot->signal->path+1;
         slot->direction = DI_OUTGOING;
-        slot->num_instances = sig->props.num_instances;
+        slot->num_instances = sig->num_instances;
 
         link = mapper_router_find_link_by_remote_name(rtr, devname);
         if (link) {
@@ -706,21 +700,21 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
         else
             map->destination.local->link = mapper_router_add_link(rtr, 0, 0,
                                                                   0, devname);
-        slot->signal->device = &map->destination.local->link->props;
+        slot->signal->device = map->destination.local->link->remote_device;
 
         // apply local scope as default
-        map->scope.names[0] = strdup(mdev_name(rtr->device));
-        map->scope.hashes[0] = mdev_id(rtr->device) >> 32;
+        map->scope.names[0] = strdup(mapper_device_name(rtr->device));
+        map->scope.hashes[0] = mapper_device_id(rtr->device) >> 32;
     }
     else {
         map->destination.local->router_sig = rtr_sig;
         slot = &map->destination;
-        slot->signal = &sig->props;
-        slot->type = sig->props.type;
-        slot->length = sig->props.length;
+        slot->signal = sig;
+        slot->type = sig->type;
+        slot->length = sig->length;
         slot->local->status = MAPPER_READY;
         slot->direction = DI_INCOMING;
-        slot->num_instances = sig->props.num_instances;
+        slot->num_instances = sig->num_instances;
         slot->id = rtr_sig->id_counter++;
 
         router_signal_store_slot(rtr_sig, &map->destination);
@@ -729,17 +723,17 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
             slot = &map->sources[i];
             slot->id = i;
             if (local_sigs && local_sigs[i]) {
-                remote_devname_ptr = mdev_name(rtr->device);
+                remote_devname_ptr = mapper_device_name(rtr->device);
 
                 // find router_signal
                 rtr_sig2 = find_or_add_router_signal(rtr, local_sigs[i]);
                 slot->local->router_sig = rtr_sig2;
-                slot->signal = &local_sigs[i]->props;
-                slot->type = local_sigs[i]->props.type;
-                slot->length = local_sigs[i]->props.length;
+                slot->signal = local_sigs[i];
+                slot->type = local_sigs[i]->type;
+                slot->length = local_sigs[i]->length;
                 slot->local->status = MAPPER_READY;
                 slot->direction = DI_OUTGOING;
-                slot->num_instances = local_sigs[i]->props.num_instances;
+                slot->num_instances = local_sigs[i]->num_instances;
 
                 if (slot->num_instances > imap->num_var_instances)
                     imap->num_var_instances = slot->num_instances;
@@ -767,13 +761,13 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
                 strncpy(devname, devnamep, devnamelen);
                 devname[devnamelen] = 0;
                 remote_devname_ptr = devname;
-                slot->signal = calloc(1, sizeof(mapper_db_signal_t));
+                slot->signal = calloc(1, sizeof(mapper_signal_t));
                 int signamelen = strlen(signame)+2;
                 slot->signal->path = malloc(signamelen);
                 snprintf(slot->signal->path, signamelen, "/%s", signame);
                 slot->signal->name = slot->signal->path+1;
                 slot->direction = DI_INCOMING;
-                slot->num_instances = sig->props.num_instances;
+                slot->num_instances = sig->num_instances;
 
                 // TODO: check that scope is not added multiple times
                 map->scope.names[scope_count] = strdup(devname);
@@ -791,7 +785,7 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
                                                            remote_devname_ptr);
 
             if (!slot->local->router_sig)
-                slot->signal->device = &slot->local->link->props;
+                slot->signal->device = slot->local->link->remote_device;
         }
         if (scope_count != num_sources) {
             map->scope.size = scope_count;
@@ -846,7 +840,7 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
     return map;
 }
 
-static void check_link(mapper_router r, mapper_link l)
+static void check_link(mapper_router rtr, mapper_link link)
 {
     /* We could remove link the link here if it has no associated maps,
      * however under normal usage it is likely that users will add new
@@ -856,11 +850,11 @@ static void check_link(mapper_router r, mapper_link l)
      * after the link ping timeout period. */
 }
 
-void mapper_router_remove_signal(mapper_router r, mapper_router_signal rs)
+void mapper_router_remove_signal(mapper_router rtr, mapper_router_signal rs)
 {
-    if (r && rs) {
+    if (rtr && rs) {
         // No maps remaining – we can remove the router_signal also
-        mapper_router_signal *rstemp = &r->signals;
+        mapper_router_signal *rstemp = &rtr->signals;
         while (*rstemp) {
             if (*rstemp == rs) {
                 *rstemp = rs->next;
@@ -896,7 +890,7 @@ static void free_slot_memory(mapper_slot slot)
     }
 }
 
-int mapper_router_remove_map(mapper_router r, mapper_map map)
+int mapper_router_remove_map(mapper_router rtr, mapper_map map)
 {
     // do not free local names since they point to signal's copy
     int i, j;
@@ -913,13 +907,13 @@ int mapper_router_remove_map(mapper_router r, mapper_map map)
             }
         }
         if (map->local->status >= MAPPER_READY && map->destination.local->link) {
-            map->destination.local->link->props.num_incoming_maps--;
-            check_link(r, map->destination.local->link);
+            map->destination.local->link->num_incoming_maps--;
+            check_link(rtr, map->destination.local->link);
         }
     }
     else if (map->local->status >= MAPPER_READY && map->destination.local->link) {
-        map->destination.local->link->props.num_outgoing_maps--;
-        check_link(r, map->destination.local->link);
+        map->destination.local->link->num_outgoing_maps--;
+        check_link(rtr, map->destination.local->link);
     }
     free_slot_memory(&map->destination);
     for (i = 0; i < map->num_sources; i++) {
@@ -932,8 +926,8 @@ int mapper_router_remove_map(mapper_router r, mapper_map map)
             }
         }
         if (map->local->status >= MAPPER_READY && map->sources[i].local->link) {
-            map->sources[i].local->link->props.num_incoming_maps--;
-            check_link(r, map->sources[i].local->link);
+            map->sources[i].local->link->num_incoming_maps--;
+            check_link(rtr, map->sources[i].local->link);
         }
         free_slot_memory(&map->sources[i]);
     }
@@ -970,7 +964,7 @@ int mapper_router_remove_map(mapper_router r, mapper_map map)
     return 0;
 }
 
-static int match_slot(mapper_device md, mapper_slot slot, const char *full_name)
+static int match_slot(mapper_device dev, mapper_slot slot, const char *full_name)
 {
     if (!full_name)
         return 1;
@@ -979,11 +973,11 @@ static int match_slot(mapper_device md, mapper_slot slot, const char *full_name)
     if (!sig_name)
         return 1;
     int len = sig_name - full_name;
-    const char *local_devname = (slot->local->router_sig ? mdev_name(md)
-                                 : slot->local->link->props.name);
+    const char *slot_devname = (slot->local->router_sig ? mapper_device_name(dev)
+                                : slot->local->link->remote_device->name);
 
     // first compare device name
-    if (strlen(local_devname) != len || strncmp(full_name, local_devname, len))
+    if (strlen(slot_devname) != len || strncmp(full_name, slot_devname, len))
         return 1;
 
     if (strcmp(sig_name+1, slot->signal->name) == 0)
@@ -1131,15 +1125,16 @@ mapper_slot mapper_router_find_slot(mapper_router router, mapper_signal signal,
     return NULL;
 }
 
-mapper_link mapper_router_find_link_by_remote_address(mapper_router r,
+mapper_link mapper_router_find_link_by_remote_address(mapper_router rtr,
                                                       const char *host,
                                                       int port)
 {
-    mapper_link l = r->links;
-    while (l) {
-        if (l->props.port == port && (strcmp(l->props.host, host)==0))
-            return l;
-        l = l->next;
+    mapper_link link = rtr->links;
+    while (link) {
+        if (link->remote_device->port == port
+            && (strcmp(link->remote_device->host, host)==0))
+            return link;
+        link = link->next;
     }
     return 0;
 }
@@ -1152,11 +1147,12 @@ mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
     if (slash)
         n = slash - name;
 
-    mapper_link l = router->links;
-    while (l) {
-        if (strncmp(l->props.name, name, n)==0 && l->props.name[n]==0)
-            return l;
-        l = l->next;
+    mapper_link link = router->links;
+    while (link) {
+        if (strncmp(link->remote_device->name, name, n)==0
+            && link->remote_device->name[n]==0)
+            return link;
+        link = link->next;
     }
     return 0;
 }
@@ -1164,11 +1160,11 @@ mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
 mapper_link mapper_router_find_link_by_remote_id(mapper_router router,
                                                  uint32_t id)
 {
-    mapper_link l = router->links;
-    while (l) {
-        if (id == l->props.id)
-            return l;
-        l = l->next;
+    mapper_link link = router->links;
+    while (link) {
+        if (id == link->remote_device->id)
+            return link;
+        link = link->next;
     }
     return 0;
 }

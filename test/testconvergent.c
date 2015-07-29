@@ -38,21 +38,21 @@ int setup_sources()
     for (i = 0; i < NUM_SOURCES; i++)
         sources[i] = 0;
     for (i = 0; i < NUM_SOURCES; i++) {
-        sources[i] = mdev_new("testsend", 0, 0);
+        sources[i] = mapper_device_new("testsend", 0, 0);
         if (!sources[i])
             goto error;
         eprintf("source %d created.\n", i);
-        sendsig[i][0] = mdev_add_output(sources[i], "/sendsig1", 1,
-                                        'i', 0, &mni, &mxi);
-        sendsig[i][1] = mdev_add_output(sources[i], "/sendsig2", 1,
-                                        'f', 0, &mnf, &mxf);
+        sendsig[i][0] = mapper_device_add_output(sources[i], "/sendsig1", 1,
+                                                 'i', 0, &mni, &mxi);
+        sendsig[i][1] = mapper_device_add_output(sources[i], "/sendsig2", 1,
+                                                 'f', 0, &mnf, &mxf);
     }
     return 0;
 
   error:
     for (i = 0; i < NUM_SOURCES; i++) {
         if (sources[i])
-            mdev_free(sources[i]);
+            mapper_device_free(sources[i]);
     }
     return 1;
 }
@@ -63,14 +63,13 @@ void cleanup_source()
         if (sources[i]) {
             eprintf("Freeing source %d... ", i);
             fflush(stdout);
-            mdev_free(sources[i]);
+            mapper_device_free(sources[i]);
             eprintf("ok\n");
         }
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
@@ -84,17 +83,17 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 
 int setup_destination()
 {
-    destination = mdev_new("testrecv", 0, 0);
+    destination = mapper_device_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = mdev_add_input(destination, "/recvsig", 1, 'f', 0,
-                             &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "/recvsig", 1, 'f', 0,
+                                      &mn, &mx, insig_handler, 0);
 
     eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
     return 0;
 
   error:
@@ -106,23 +105,23 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 int setup_maps()
 {
-    mapper_monitor mon = mmon_new(sources[0]->admin, 0);
+    mapper_monitor mon = mmon_new(sources[0]->db->admin, 0);
 
-    mapper_db_signal all_sources[2] = {msig_properties(sendsig[0][0]), msig_properties(sendsig[1][1])};
+    mapper_signal all_sources[2] = {sendsig[0][0], sendsig[1][1]};
 
-    mapper_map map = mmon_add_map(mon, 2, all_sources, msig_properties(recvsig));
+    mapper_map map = mmon_add_map(mon, 2, all_sources, recvsig);
     mapper_map_set_mode(map, MO_EXPRESSION);
 
     // build expression string
-    mapper_slot slot1 = mapper_map_slot_by_signal(map, msig_properties(sendsig[0][0]));
-    mapper_slot slot2 = mapper_map_slot_by_signal(map, msig_properties(sendsig[1][1]));
+    mapper_slot slot1 = mapper_map_slot_by_signal(map, sendsig[0][0]);
+    mapper_slot slot2 = mapper_map_slot_by_signal(map, sendsig[1][1]);
     char expr[64];
     snprintf(expr, 64, "y=x%d-x%d", mapper_slot_index(slot1), mapper_slot_index(slot2));
     mapper_map_set_expression(map, expr);
@@ -134,10 +133,10 @@ int setup_maps()
 
     // wait until mappings have been established
     int i;
-    while (!done && !mdev_num_incoming_maps(destination)) {
+    while (!done && !mapper_device_num_incoming_maps(destination)) {
         for (i = 0; i < NUM_SOURCES; i++)
-            mdev_poll(sources[i], 10);
-        mdev_poll(destination, 10);
+            mapper_device_poll(sources[i], 10);
+        mapper_device_poll(destination, 10);
     }
 
     return 0;
@@ -149,14 +148,14 @@ void wait_ready()
     while (!done && !ready) {
         ready = 1;
         for (i = 0; i < NUM_SOURCES; i++) {
-            mdev_poll(sources[i], 10);
-            if (!mdev_ready(sources[i])) {
+            mapper_device_poll(sources[i], 10);
+            if (!mapper_device_ready(sources[i])) {
                 ready = 0;
                 break;
             }
         }
-        mdev_poll(destination, 10);
-        if (!mdev_ready(destination))
+        mapper_device_poll(destination, 10);
+        if (!mapper_device_ready(destination))
             ready = 0;
     }
 }
@@ -168,20 +167,20 @@ void loop()
     float f = 0.;
     while ((!terminate || i < 50) && !done) {
         for (j = 0; j < NUM_SOURCES; j++) {
-            mdev_poll(sources[j], 0);
+            mapper_device_poll(sources[j], 0);
         }
 
         eprintf("Updating signals: %s = %i, %s = %f\n",
-                sendsig[0][0]->props.name, i,
-                sendsig[0][1]->props.name, i * 2.f);
-        msig_update_int(sendsig[0][0], i);
-        msig_update_int(sendsig[1][0], i);
+                sendsig[0][0]->name, i,
+                sendsig[0][1]->name, i * 2.f);
+        mapper_signal_update_int(sendsig[0][0], i);
+        mapper_signal_update_int(sendsig[1][0], i);
         f = i * 2;
-        msig_update_float(sendsig[0][1], f);
-        msig_update_float(sendsig[1][1], f);
+        mapper_signal_update_float(sendsig[0][1], f);
+        mapper_signal_update_float(sendsig[1][1], f);
 
         sent++;
-        mdev_poll(destination, 100);
+        mapper_device_poll(destination, 100);
         i++;
 
         if (!verbose) {

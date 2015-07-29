@@ -608,10 +608,10 @@ static PyObject *prop_to_py(char type, int length, const void *value)
             if (length > 1) {
                 for (i=0; i<length; i++)
                     PyList_SetItem(v, i, Py_BuildValue("d",
-                        mapper_timetag_get_double(vect[i])));
+                        mapper_timetag_double(vect[i])));
             }
             else
-                v = Py_BuildValue("d", mapper_timetag_get_double(*vect));
+                v = Py_BuildValue("d", mapper_timetag_double(*vect));
             break;
         }
         default:
@@ -869,7 +869,7 @@ static void msig_handler_py(struct _mapper_signal *msig,
     PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
                                           SWIGTYPE_p__signal, 0);
 
-    double timetag = mapper_timetag_get_double(*tt);
+    double timetag = mapper_timetag_double(*tt);
 
     if (v) {
         if (props->type == 'i') {
@@ -1419,16 +1419,16 @@ typedef struct _admin {} admin;
     int get_num_outgoing_maps()
         { return mdev_num_outgoing_maps((mapper_device)$self); }
     signal *input(const char *name) {
-        return (signal *)mdev_get_input_by_name((mapper_device)$self, name, 0);
+        return (signal *)mdev_input_by_name((mapper_device)$self, name, 0);
     }
     signal *output(const char *name) {
-        return (signal *)mdev_get_output_by_name((mapper_device)$self, name, 0);
+        return (signal *)mdev_output_by_name((mapper_device)$self, name, 0);
     }
     signal *input(int index) {
-        return (signal *)mdev_get_input_by_index((mapper_device)$self, index);
+        return (signal *)mdev_input_by_index((mapper_device)$self, index);
     }
     signal *output(int index) {
-        return (signal *)mdev_get_output_by_index((mapper_device)$self, index);
+        return (signal *)mdev_output_by_index((mapper_device)$self, index);
     }
     mapper_db_device get_properties() {
         return mdev_properties((mapper_device)$self);
@@ -1446,14 +1446,14 @@ typedef struct _admin {} admin;
     double now() {
         mapper_timetag_t tt;
         mdev_now((mapper_device)$self, &tt);
-        return mapper_timetag_get_double(tt);
+        return mapper_timetag_double(tt);
     }
     double start_queue(double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
         mdev_start_queue((mapper_device)$self, tt);
-        return mapper_timetag_get_double(tt);
+        return mapper_timetag_double(tt);
     }
     void send_queue(double timetag) {
         mapper_timetag_t tt;
@@ -1498,18 +1498,6 @@ typedef struct _admin {} admin;
 %extend _signal {
     const char *get_name() {
         return ((mapper_signal)$self)->props.name;
-    }
-    const char *get_full_name() {
-        mapper_signal sig = (mapper_signal)$self;
-        char s[1024];
-        int len = msig_full_name(sig, s, 1024);
-        if (len) {
-            // TODO: memory leak
-            char *str = (char*)malloc(len+1);
-            strncpy(str, s, len+1);
-            return str;
-        }
-        return 0;
     }
     void update(maybePropVal val=0, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
@@ -1767,7 +1755,7 @@ typedef struct _admin {} admin;
         return rc;
     }
     db *get_db() {
-        return (db *)mmon_get_db((mapper_monitor)$self);
+        return (db *)mmon_db((mapper_monitor)$self);
     }
     void subscribe(const char *name, int subscribe_flags=0, int timeout=0) {
         return mmon_subscribe((mapper_monitor)$self, name,
@@ -1807,7 +1795,7 @@ typedef struct _admin {} admin;
     double now() {
         mapper_timetag_t tt;
         mmon_now((mapper_monitor)$self, &tt);
-        return mapper_timetag_get_double(tt);
+        return mapper_timetag_double(tt);
     }
     void flush(int timeout = ADMIN_TIMEOUT_SEC, int quiet = 1) {
         mmon_flush_db((mapper_monitor)$self, timeout, quiet);
@@ -1847,118 +1835,117 @@ typedef struct _admin {} admin;
         Py_XDECREF(PyFunc);
     }
     mapper_db_device device(const char *device_name) {
-        return mapper_db_get_device_by_name((mapper_db)$self, device_name);
+        return mapper_db_device_by_name((mapper_db)$self, device_name);
     }
     mapper_db_device_t **__get_devices() {
-        return mapper_db_get_all_devices((mapper_db)$self);
+        return mapper_db_devices((mapper_db)$self);
     }
     mapper_db_device_t **__get_devices(const char *device) {
-        return mapper_db_match_devices_by_name((mapper_db)$self, device);
+        return mapper_db_devices_by_name_match((mapper_db)$self, device);
     }
     mapper_db_device_t **device_next(long iterator) {
         return mapper_db_device_next((mapper_db_device_t**)iterator);
     }
     mapper_db_signal_t **__get_inputs() {
-        return mapper_db_get_all_inputs((mapper_db)$self);
+        return mapper_db_inputs((mapper_db)$self);
     }
     mapper_db_signal_t **__get_inputs(const char *device_name) {
-        return mapper_db_get_inputs_by_device_name((mapper_db)$self,
-                                                   device_name);
+        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
+                                                        device_name);
+        return mapper_db_device_inputs((mapper_db)$self, dev);
     }
     mapper_db_signal_t **__get_outputs() {
-        return mapper_db_get_all_outputs((mapper_db)$self);
+        return mapper_db_outputs((mapper_db)$self);
     }
     mapper_db_signal_t **__get_outputs(const char *device_name) {
-        return mapper_db_get_outputs_by_device_name((mapper_db)$self,
-                                                    device_name);
+        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
+                                                        device_name);
+        return mapper_db_device_outputs((mapper_db)$self, dev);
     }
     mapper_db_signal input(const char *device_name, const char *signal_name) {
-        return mapper_db_get_input_by_device_and_signal_names((mapper_db)$self,
-                                                              device_name,
-                                                              signal_name);
+        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
+                                                        device_name);
+        return mapper_db_device_input_by_name((mapper_db)$self, dev, signal_name);
     }
     mapper_db_signal output(const char *device_name, const char *signal_name) {
-        return mapper_db_get_output_by_device_and_signal_names((mapper_db)$self,
-                                                               device_name,
-                                                               signal_name);
+        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
+                                                        device_name);
+        return mapper_db_device_output_by_name((mapper_db)$self, dev, signal_name);
     }
-    mapper_db_signal_t **__match_inputs_by_device_name(
-        const char *device_name, const char *input_pattern) {
-        return mapper_db_match_inputs_by_device_name((mapper_db)$self,
-                                                     device_name,
-                                                     input_pattern);
+    mapper_db_signal_t **__match_inputs_by_device_name(const char *device_name,
+                                                       const char *pattern) {
+        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
+                                                        device_name);
+        return mapper_db_device_inputs_by_name_match((mapper_db)$self, dev,
+                                                     pattern);
     }
-    mapper_db_signal_t **__match_outputs_by_device_name(
-        const char *device_name, char const *output_pattern) {
-        return mapper_db_match_outputs_by_device_name((mapper_db)$self,
-                                                      device_name,
-                                                      output_pattern);
+    mapper_db_signal_t **__match_outputs_by_device_name(const char *device_name,
+                                                        char const *pattern) {
+        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
+                                                        device_name);
+        return mapper_db_device_outputs_by_name_match((mapper_db)$self, dev,
+                                                      pattern);
     }
     mapper_db_signal_t **signal_next(long iterator) {
         return mapper_db_signal_next((mapper_db_signal_t**)iterator);
     }
-    mapper_db_map_t **get_all_maps() {
-        return mapper_db_get_all_maps((mapper_db)$self);
+    mapper_db_map_t **get_maps() {
+        return mapper_db_maps((mapper_db)$self);
     }
-    mapper_db_map_t **get_maps_by_device_name(
-        const char *device_name) {
-        return mapper_db_get_maps_by_device_name((mapper_db)$self, device_name);
+    mapper_db_map_t **get_maps_by_device_name(const char *device_name) {
+        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
+                                                        device_name);
+        return mapper_db_device_maps((mapper_db)$self, dev);
     }
-    mapper_db_map_t **get_maps_by_src_signal_name(
-        const char *src_signal) {
-        return mapper_db_get_maps_by_src_signal_name((mapper_db)$self, src_signal);
-    }
-    mapper_db_map_t **get_maps_by_src_device_and_signal_names(
-        const char *src_device, const char *src_signal) {
-        return mapper_db_get_maps_by_src_device_and_signal_names(
-            (mapper_db)$self, src_device, src_signal);
-    }
-    mapper_db_map_t **get_maps_by_dest_signal_name(
-        const char *dest_signal) {
-        return mapper_db_get_maps_by_dest_signal_name((mapper_db)$self,
-                                                      dest_signal);
-    }
-    mapper_db_map_t **get_maps_by_dest_device_and_signal_names(
-        const char *dest_device, const char *dest_signal) {
-        return mapper_db_get_maps_by_dest_device_and_signal_names(
-            (mapper_db)$self, dest_device, dest_signal);
-    }
-    mapper_db_map_t **get_maps_by_device_and_signal_names(
-        const char *src_device,  const char *src_signal,
-        const char *dest_device, const char *dest_signal) {
-        return mapper_db_get_maps_by_device_and_signal_names(
-            (mapper_db)$self, 1, &src_device, &src_signal,
-            dest_device, dest_signal);
-    }
-    mapper_db_map_t **get_maps_by_device_and_signal_names(
-        int num_sources, const char **src_devices,  const char **src_signals,
-        const char *dest_device, const char *dest_signal) {
-        return mapper_db_get_maps_by_device_and_signal_names(
-            (mapper_db)$self, num_sources, src_devices, src_signals,
-            dest_device, dest_signal);
-    }
-    mapper_db_map map_by_signal_full_names(
-        const char *src_name, const char *dest_name) {
-        return mapper_db_get_map_by_signal_full_names(
-            (mapper_db)$self, 1, &src_name, dest_name);
-    }
-    mapper_db_map map_by_signal_full_names(
-        int num_sources, const char **src_names, const char *dest_name) {
-        return mapper_db_get_map_by_signal_full_names(
-             (mapper_db)$self, num_sources, src_names, dest_name);
-    }
-    mapper_db_map_t **get_maps_by_src_dest_device_names(
-        const char *src_device_name, const char *dest_device_name) {
-        return mapper_db_get_maps_by_src_dest_device_names(
-            (mapper_db)$self, 1, &src_device_name, dest_device_name);
-    }
-    mapper_db_map_t **get_maps_by_src_dest_device_names(
-        int num_sources, const char **src_dev_names, const char *dest_dev_name) {
-        return mapper_db_get_maps_by_src_dest_device_names(
-            (mapper_db)$self, num_sources, src_dev_names, dest_dev_name);
-    }
+//    mapper_db_map_t **get_maps_by_src_signal_name(const char *src_signal) {
+//        return mapper_db_signal_outgoing_maps((mapper_db)$self, src_signal);
+//    }
+//    mapper_db_map_t **get_maps_by_src_device_and_signal_names(
+//        const char *src_device, const char *src_signal) {
+//        return mapper_db_maps_by_src_device_and_signal_names(
+//            (mapper_db)$self, src_device, src_signal);
+//    }
+//    mapper_db_map_t **get_maps_by_dest_signal_name(const char *dest_signal) {
+//        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
+//                                                            device_name);
+//        return mapper_db_signal_incoming_maps((mapper_db)$self, dest_signal);
+//    }
+//    mapper_db_map_t **get_maps_by_dest_device_and_signal_names(
+//        const char *dest_device, const char *dest_signal) {
+//        return mapper_db_maps_by_dest_device_and_signal_names(
+//            (mapper_db)$self, dest_device, dest_signal);
+//    }
+//    mapper_db_map_t **get_maps_by_device_and_signal_names(
+//        const char *src_device,  const char *src_signal,
+//        const char *dest_device, const char *dest_signal) {
+//        return mapper_db_maps_by_device_and_signal_names(
+//            (mapper_db)$self, 1, &src_device, &src_signal,
+//            dest_device, dest_signal);
+//    }
+//    mapper_db_map_t **get_maps_by_device_and_signal_names(
+//        int num_sources, const char **src_devices,  const char **src_signals,
+//        const char *dest_device, const char *dest_signal) {
+//        return mapper_db_maps_by_device_and_signal_names(
+//            (mapper_db)$self, num_sources, src_devices, src_signals,
+//            dest_device, dest_signal);
+//    }
+//    mapper_db_map map_by_signal_full_names(
+//        int num_sources, const char **src_names, const char *dest_name) {
+//        return mapper_db_map_by_signal_full_names(
+//             (mapper_db)$self, num_sources, src_names, dest_name);
+//    }
+//    mapper_db_map_t **get_maps_by_src_dest_device_names(
+//        const char *src_device_name, const char *dest_device_name) {
+//        return mapper_db_maps_by_src_dest_device_names(
+//            (mapper_db)$self, 1, &src_device_name, dest_device_name);
+//    }
+//    mapper_db_map_t **get_maps_by_src_dest_device_names(
+//        int num_sources, const char **src_dev_names, const char *dest_dev_name) {
+//        return mapper_db_maps_by_src_dest_device_names(
+//            (mapper_db)$self, num_sources, src_dev_names, dest_dev_name);
+//    }
     mapper_db_map map_by_hash(int hash) {
-        return mapper_db_get_map_by_hash((mapper_db)$self, hash);
+        return mapper_db_map_by_hash((mapper_db)$self, hash);
     }
     mapper_db_map_t **map_next(long iterator) {
         return mapper_db_map_next((mapper_db_map_t**)iterator);
@@ -1978,18 +1965,18 @@ typedef struct _admin {} admin;
         match_outputs = make_iterator(__match_outputs_by_device_name, signal_next)
         maps = make_iterator(get_all_maps, map_next)
         maps_by_device_name = make_iterator(get_maps_by_device_name, map_next)
-        maps_by_src_signal_name = make_iterator(get_maps_by_src_signal_name,
-                                                map_next)
-        maps_by_src_device_and_signal_names = make_iterator(
-            get_maps_by_src_device_and_signal_names, map_next)
-        maps_by_dest_signal_name = make_iterator(get_maps_by_dest_signal_name,
-                                                 map_next)
-        maps_by_dest_device_and_signal_names = make_iterator(
-            get_maps_by_dest_device_and_signal_names, map_next)
-        maps_by_device_and_signal_names = make_iterator(
-            get_maps_by_device_and_signal_names, map_next)
-        maps_by_src_dest_device_names = make_iterator(
-            get_maps_by_src_dest_device_names, map_next)
+//        maps_by_src_signal_name = make_iterator(get_maps_by_src_signal_name,
+//                                                map_next)
+//        maps_by_src_device_and_signal_names = make_iterator(
+//            get_maps_by_src_device_and_signal_names, map_next)
+//        maps_by_dest_signal_name = make_iterator(get_maps_by_dest_signal_name,
+//                                                 map_next)
+//        maps_by_dest_device_and_signal_names = make_iterator(
+//            get_maps_by_dest_device_and_signal_names, map_next)
+//        maps_by_device_and_signal_names = make_iterator(
+//            get_maps_by_device_and_signal_names, map_next)
+//        maps_by_src_dest_device_names = make_iterator(
+//            get_maps_by_src_dest_device_names, map_next)
     }
 }
 

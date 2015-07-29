@@ -93,8 +93,8 @@ int main(int argc, char **argv)
         }
     }
 
-    mapper_signal sig = msig_new("test", 1, 'f', 1, "Hz", 0, 0, 0, 0);
-    mapper_db_signal sigprop = msig_properties(sig);
+    mapper_signal sig = mapper_signal_new("test", 1, 'f', 1, "Hz", 0, 0, 0, 0);
+    mapper_db_signal sigprop = mapper_signal_properties(sig);
 
     /* Test that default parameters are all listed. */
     eprintf("Test 1:  checking default parameters... ");
@@ -111,7 +111,7 @@ int main(int argc, char **argv)
 
     /* Test that adding maximum causes it to be listed. */
     float mx = 35.0;
-    msig_set_maximum(sig, &mx);
+    mapper_signal_set_maximum(sig, &mx);
     eprintf("Test 2:  adding static property 'maximum'... ");
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
     /* Test that adding an extra parameter causes the extra parameter
      * to be listed. */
     char *str = "test_value";
-    msig_set_property(sig, "test", 's', str, 1);
+    mapper_signal_set_property(sig, "test", 's', str, 1);
     eprintf("Test 3:  adding extra string property 'test'... ");
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 
     /* Test that removing an extra parameter causes the extra
      * parameter to _not_ be listed. */
-    msig_remove_property(sig, "test");
+    mapper_signal_remove_property(sig, "test");
     eprintf("Test 5:  removing extra property 'test'... ");
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
@@ -195,9 +195,9 @@ int main(int argc, char **argv)
 
     /* Test that adding two more properties works as expected. */
     int x = 123;
-    msig_set_property(sig, "x", 'i', &x, 1);
+    mapper_signal_set_property(sig, "x", 'i', &x, 1);
     int y = 234;
-    msig_set_property(sig, "y", 'i', &y, 1);
+    mapper_signal_set_property(sig, "y", 'i', &y, 1);
     eprintf("Test 6:  adding extra integer properties 'x' and 'y'... ");
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
@@ -373,7 +373,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test that removing maximum causes it to _not_ be listed. */
-    msig_set_maximum(sig, 0);
+    mapper_signal_set_maximum(sig, 0);
     eprintf("Test 12: removing optional property 'max'... ");
     seen = check_keys(sigprop);
     if (seen & SEEN_MAX)
@@ -397,7 +397,7 @@ int main(int argc, char **argv)
     /* Test adding and retrieving an integer vector property. */
     eprintf("Test 14: adding an extra integer vector property 'test'... ");
     int set_int[] = {1, 2, 3, 4, 5};
-    msig_set_property(sig, "test", 'i', &set_int, 5);
+    mapper_signal_set_property(sig, "test", 'i', &set_int, 5);
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
                  | SEEN_TYPE | SEEN_UNIT | SEEN_X
@@ -457,7 +457,7 @@ int main(int argc, char **argv)
     /* Test rewriting 'test' as float vector property. */
     eprintf("Test 16: rewriting 'test' as vector float property... ");
     float set_float[] = {10., 20., 30., 40., 50.};
-    msig_set_property(sig, "test", 'f', &set_float, 5);
+    mapper_signal_set_property(sig, "test", 'f', &set_float, 5);
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
                  | SEEN_TYPE | SEEN_UNIT | SEEN_X
@@ -517,7 +517,7 @@ int main(int argc, char **argv)
     /* Test rewriting property 'test' as string vector property. */
     eprintf("Test 18: rewriting 'test' as vector string property... ");
     char *set_string[] = {"foo", "bar"};
-    msig_set_property(sig, "test", 's', &set_string, 2);
+    mapper_signal_set_property(sig, "test", 's', &set_string, 2);
     seen = check_keys(sigprop);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
                  | SEEN_TYPE | SEEN_UNIT | SEEN_X
@@ -574,7 +574,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
   cleanup:
-    if (sig) msig_free(sig);
+    if (sig) mapper_signal_free(sig);
     if (!verbose)
         printf("..................................................");
     printf("Test %s.\n", result ? "FAILED" : "PASSED");

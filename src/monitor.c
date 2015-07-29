@@ -26,11 +26,11 @@ static double current_time()
 }
 
 // function prototypes
-static void monitor_subscribe_internal(mapper_monitor mon, mapper_db_device dev,
+static void monitor_subscribe_internal(mapper_monitor mon, mapper_device dev,
                                        int subscribe_flags, int timeout,
                                        int version);
 static void monitor_unsubscribe_internal(mapper_monitor mon,
-                                         mapper_db_device dev,
+                                         mapper_device dev,
                                          int send_message);
 
 typedef enum _db_request_direction {
@@ -58,7 +58,7 @@ mapper_monitor mmon_new(mapper_admin admin, int subscribe_flags)
         return NULL;
     }
 
-    mon->timeout_sec = ADMIN_TIMEOUT_SEC;
+    mon->admin->db.timeout_sec = ADMIN_TIMEOUT_SEC;
 
     mapper_admin_add_monitor(mon->admin, mon);
     if (subscribe_flags) {
@@ -74,15 +74,15 @@ void mmon_free(mapper_monitor mon)
         return;
 
     // remove callbacks now so they won't be called when removing devices
-    mapper_db_remove_all_callbacks(&mon->db);
+    mapper_db_remove_all_callbacks(&mon->admin->db);
 
     // unsubscribe from and remove any autorenewing subscriptions
     while (mon->subscriptions) {
         mmon_unsubscribe(mon, mon->subscriptions->device);
     }
 
-    while (mon->db.devices)
-        mapper_db_remove_device(&mon->db, mon->db.devices, 1);
+    while (mon->admin->db.devices)
+        mapper_db_remove_device(&mon->admin->db, mon->admin->db.devices, 1);
     if (mon->admin) {
         if (mon->own_admin)
             mapper_admin_free(mon->admin);
@@ -125,8 +125,7 @@ int mmon_poll(mapper_monitor mon, int block_ms)
 
     if (ping_time != mon->admin->clock.next_ping) {
         // some housekeeping: check if any devices have timed out
-        mapper_db_check_device_status(&mon->db,
-                                      mon->admin->clock.now.sec - mon->timeout_sec);
+        mapper_db_check_device_status(&mon->admin->db, mon->admin->clock.now.sec);
     }
 
     return admin_count;
@@ -134,16 +133,16 @@ int mmon_poll(mapper_monitor mon, int block_ms)
 
 mapper_db mmon_db(mapper_monitor mon)
 {
-    return &mon->db;
+    return &mon->admin->db;
 }
 
-static void monitor_set_bundle_dest(mapper_monitor mon, mapper_db_device dev)
+static void monitor_set_bundle_dest(mapper_monitor mon, mapper_device dev)
 {
     // TODO: look up device info, maybe send directly
     mapper_admin_set_bundle_dest_bus(mon->admin);
 }
 
-static void monitor_subscribe_internal(mapper_monitor mon, mapper_db_device dev,
+static void monitor_subscribe_internal(mapper_monitor mon, mapper_device dev,
                                        int subscribe_flags, int timeout,
                                        int version)
 {
@@ -186,7 +185,7 @@ static void monitor_subscribe_internal(mapper_monitor mon, mapper_db_device dev,
     }
 }
 
-static mapper_subscription subscription(mapper_monitor mon, mapper_db_device dev)
+static mapper_subscription subscription(mapper_monitor mon, mapper_device dev)
 {
     mapper_subscription s = mon->subscriptions;
     while (s) {
@@ -197,13 +196,13 @@ static mapper_subscription subscription(mapper_monitor mon, mapper_db_device dev
     return 0;
 }
 
-static void on_device_autosubscribe(mapper_db_device dev, mapper_db_action_t a,
+static void on_device_autosubscribe(mapper_device dev, mapper_db_action_t a,
                                     void *user)
 {
     mapper_monitor mon = (mapper_monitor)(user);
 
     // New subscriptions are handled in admin.c as response to device "sync" msg
-    if (a == MDB_REMOVE) {
+    if (a == MAPPER_DB_REMOVED) {
         monitor_unsubscribe_internal(mon, dev, 0);
     }
 }
@@ -212,11 +211,13 @@ static void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
 {
     // TODO: remove autorenewing subscription record if necessary
     if (!mon->autosubscribe && autosubscribe_flags) {
-        mapper_db_add_device_callback(&mon->db, on_device_autosubscribe, mon);
+        mapper_db_add_device_callback(&mon->admin->db, on_device_autosubscribe,
+                                      mon);
         mmon_request_devices(mon);
     }
     else if (mon->autosubscribe && !autosubscribe_flags) {
-        mapper_db_remove_device_callback(&mon->db, on_device_autosubscribe, mon);
+        mapper_db_remove_device_callback(&mon->admin->db,
+                                         on_device_autosubscribe, mon);
         while (mon->subscriptions) {
             monitor_unsubscribe_internal(mon, mon->subscriptions->device, 1);
         }
@@ -224,7 +225,7 @@ static void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
     mon->autosubscribe = autosubscribe_flags;
 }
 
-void mmon_subscribe(mapper_monitor mon, mapper_db_device dev,
+void mmon_subscribe(mapper_monitor mon, mapper_device dev,
                     int subscribe_flags, int timeout)
 {
     if (!dev) {
@@ -257,7 +258,7 @@ void mmon_subscribe(mapper_monitor mon, mapper_db_device dev,
 }
 
 static void monitor_unsubscribe_internal(mapper_monitor mon,
-                                         mapper_db_device dev,
+                                         mapper_device dev,
                                          int send_message)
 {
     char cmd[1024];
@@ -284,7 +285,7 @@ static void monitor_unsubscribe_internal(mapper_monitor mon,
     }
 }
 
-void mmon_unsubscribe(mapper_monitor mon, mapper_db_device dev)
+void mmon_unsubscribe(mapper_monitor mon, mapper_device dev)
 {
     if (!dev)
         mmon_autosubscribe(mon, SUBSCRIBE_NONE);
@@ -302,7 +303,7 @@ void mmon_request_devices(mapper_monitor mon)
     lo_bundle_add_message(mon->admin->bundle, admin_message_strings[ADM_WHO], 0);
 }
 
-static int alphabetise_signals(int num, mapper_db_signal *sigs, int *order)
+static int alphabetise_signals(int num, mapper_signal *sigs, int *order)
 {
     int i, j, result = 1;
     for (i = 0; i < num; i++)
@@ -326,8 +327,7 @@ static int alphabetise_signals(int num, mapper_db_signal *sigs, int *order)
 }
 
 mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
-                        mapper_db_signal *sources,
-                        mapper_db_signal destination)
+                        mapper_signal *sources, mapper_signal destination)
 {
     int i;
     if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES
@@ -338,15 +338,15 @@ mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
 
     // check if record of map already exists
     mapper_map *maps, *temp;
-    maps = mapper_db_signal_incoming_maps(&mon->db, destination);
+    maps = mapper_db_signal_incoming_maps(&mon->admin->db, destination);
     for (i = 0; i < num_sources; i++) {
-        temp = mapper_db_signal_outgoing_maps(&mon->db, sources[i]);
-        maps = mapper_db_map_query_intersection(maps, temp);
+        temp = mapper_db_signal_outgoing_maps(&mon->admin->db, sources[i]);
+        maps = mapper_map_query_intersection(maps, temp);
     }
     while (maps) {
         if ((*maps)->num_sources == num_sources)
             return *maps;
-        maps = mapper_db_map_query_next(maps);
+        maps = mapper_map_query_next(maps);
     }
 
     int order[num_sources];
@@ -467,43 +467,6 @@ void mmon_remove_map(mapper_monitor mon, mapper_map_t *map)
 void mmon_now(mapper_monitor mon, mapper_timetag_t *tt)
 {
     mapper_clock_now(&mon->admin->clock, tt);
-}
-
-void mmon_set_timeout(mapper_monitor mon, int timeout_sec)
-{
-    if (timeout_sec < 0)
-        timeout_sec = ADMIN_TIMEOUT_SEC;
-    mon->timeout_sec = timeout_sec;
-}
-
-int mmon_timeout(mapper_monitor mon)
-{
-    return mon->timeout_sec;
-}
-
-void mmon_flush_db(mapper_monitor mon, int timeout_sec, int quiet)
-{
-    mapper_clock_now(&mon->admin->clock, &mon->admin->clock.now);
-
-    // flush expired device records
-    mapper_db_device dev;
-    uint32_t last_ping = mon->admin->clock.now.sec - timeout_sec;
-    while ((dev = mapper_db_expired_device(&mon->db, last_ping))) {
-        // also need to remove subscriptions
-        mapper_subscription *s = &mon->subscriptions;
-        while (*s) {
-            if ((*s)->device == dev) {
-                // don't bother sending '/unsubscribe' since device is unresponsive
-                // remove from subscriber list
-                mapper_subscription temp = *s;
-                *s = temp->next;
-                free(temp);
-            }
-            else
-                s = &(*s)->next;
-        }
-        mapper_db_remove_device(&mon->db, dev, quiet);
-    }
 }
 
 // Forward a message to the admin bus

@@ -54,8 +54,8 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 
 int setup_devices()
 {
-    devices[0] = mdev_new("test", 0, 0);
-    devices[1] = mdev_new("test", 0, 0);
+    devices[0] = mapper_device_new("test", 0, 0);
+    devices[1] = mapper_device_new("test", 0, 0);
     if (!devices[0] || !devices[1])
         goto error;
     eprintf("devices created.\n");
@@ -64,19 +64,19 @@ int setup_devices()
     float mnf2[]={3.2,2,0}, mxf2[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    inputs[0] = mdev_add_input(devices[0], "/insig_1", 1, 'f',
-                               0, mnf1, mxf1, insig_handler, 0);
-    inputs[1] = mdev_add_input(devices[0], "/insig_2", 1, 'd',
-                               0, &mnd, &mxd, insig_handler, 0);
-    inputs[2] = mdev_add_input(devices[1], "/insig_3", 3, 'f',
-                               0, mnf1, mxf1, insig_handler, 0);
-    inputs[3] = mdev_add_input(devices[1], "/insig_4", 1, 'f',
-                               0, mnf2, mxf2, insig_handler, 0);
+    inputs[0] = mapper_device_add_input(devices[0], "/insig_1", 1, 'f',
+                                        0, mnf1, mxf1, insig_handler, 0);
+    inputs[1] = mapper_device_add_input(devices[0], "/insig_2", 1, 'd',
+                                        0, &mnd, &mxd, insig_handler, 0);
+    inputs[2] = mapper_device_add_input(devices[1], "/insig_3", 3, 'f',
+                                        0, mnf1, mxf1, insig_handler, 0);
+    inputs[3] = mapper_device_add_input(devices[1], "/insig_4", 1, 'f',
+                                        0, mnf2, mxf2, insig_handler, 0);
 
     /* In this test inputs[2] will never get its full vector value from
      * external updates – for the handler to be called we will need to
      * initialize its value. */
-    msig_update(inputs[2], mnf2, 1, MAPPER_NOW);
+    mapper_signal_update(inputs[2], mnf2, 1, MAPPER_NOW);
 
     return 0;
 
@@ -90,7 +90,7 @@ void cleanup_devices()
         if (devices[i]) {
             eprintf("Freeing device.. ");
             fflush(stdout);
-            mdev_free(devices[i]);
+            mapper_device_free(devices[i]);
             eprintf("ok\n");
         }
     }
@@ -98,9 +98,10 @@ void cleanup_devices()
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(devices[0]) && mdev_ready(devices[1]))) {
-        mdev_poll(devices[0], 0);
-        mdev_poll(devices[1], 0);
+    while (!done && !(mapper_device_ready(devices[0])
+                      && mapper_device_ready(devices[1]))) {
+        mapper_device_poll(devices[0], 0);
+        mapper_device_poll(devices[1], 0);
 
         usleep(50 * 1000);
     }
@@ -113,20 +114,19 @@ void loop()
 
     if (autoconnect) {
         mapper_monitor mon = mmon_new(devices[0]->admin, 0);
-        mapper_db_signal src = msig_properties(inputs[0]);
 
         // map input to another input on same device
-        mmon_update_map(mon, mmon_add_map(mon, 1, &src, msig_properties(inputs[1])));
+        mmon_update_map(mon, mmon_add_map(mon, 1, &inputs[0], inputs[1]));
 
         // map input to an input on another device
-        src = msig_properties(inputs[1]);
-        mmon_update_map(mon, mmon_add_map(mon, 1, &src, msig_properties(inputs[2])));
+        mmon_update_map(mon, mmon_add_map(mon, 1, &inputs[1], inputs[2]));
 
         // wait until mapping has been established
-        while (!done && mdev_num_outgoing_maps(devices[0]) < 2) {
-            mdev_poll(devices[0], 100);
-            mdev_poll(devices[1], 100);
-            printf("waiting (%d outgoing maps)\n", mdev_num_outgoing_maps(devices[0]));
+        while (!done && mapper_device_num_outgoing_maps(devices[0]) < 2) {
+            mapper_device_poll(devices[0], 100);
+            mapper_device_poll(devices[1], 100);
+            printf("waiting (%d outgoing maps)\n",
+                   mapper_device_num_outgoing_maps(devices[0]));
         }
 
         mmon_free(mon);
@@ -134,12 +134,12 @@ void loop()
 
     i = 0;
     while ((!terminate || i < 50) && !done) {
-        msig_update_float(inputs[0], ((i % 10) * 1.0f));
+        mapper_signal_update_float(inputs[0], ((i % 10) * 1.0f));
         eprintf("/insig_1 value updated to %d -->\n", i % 10);
         sent += 1;
 
-        recvd = mdev_poll(devices[0], 50);
-        recvd += mdev_poll(devices[1], 50);
+        recvd = mapper_device_poll(devices[0], 50);
+        recvd += mapper_device_poll(devices[1], 50);
         eprintf("Received %i messages.\n\n", recvd);
         i++;
 

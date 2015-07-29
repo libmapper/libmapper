@@ -32,7 +32,7 @@ int test_admin()
 
     eprintf("Admin structure initialized.\n");
 
-    my_device = mdev_new("tester", 0, my_admin);
+    my_device = mapper_device_new("tester", 0, my_admin);
     if (!my_device) {
         eprintf("Error creating device structure.\n");
         return 1;
@@ -43,13 +43,13 @@ int test_admin()
     eprintf("Found interface %s has IP %s\n", my_admin->interface_name,
            inet_ntoa(my_admin->interface_ip));
 
-    while (!my_device->registered) {
+    while (!my_device->local->registered) {
         usleep(10000);
         mapper_admin_poll(my_admin);
     }
 
-    eprintf("Using port %d.\n", my_device->props.port);
-    eprintf("Allocated ordinal %d.\n", my_device->ordinal.value);
+    eprintf("Using port %d.\n", my_device->port);
+    eprintf("Allocated ordinal %d.\n", my_device->local->ordinal.value);
 
     eprintf("Delaying for 5 seconds..\n");
     wait = 50;
@@ -62,7 +62,7 @@ int test_admin()
         }
     }
 
-    mdev_free(my_device);
+    mapper_device_free(my_device);
     eprintf("Device structure freed.\n");
     mapper_admin_free(my_admin);
     eprintf("Admin structure freed.\n");

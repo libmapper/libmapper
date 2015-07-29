@@ -5,6 +5,13 @@
 extern "C" {
 #endif
 
+struct _mapper_device;
+typedef struct _mapper_device mapper_device_t;
+typedef struct _mapper_device *mapper_device;
+struct _mapper_signal;
+typedef struct _mapper_signal mapper_signal_t;
+typedef struct _mapper_signal *mapper_signal;
+
 /* An opaque structure to hold a string table of key-value pairs, used
  * to hold arbitrary signal and device parameters. */
 struct _mapper_string_table;
@@ -20,38 +27,8 @@ struct _mapper_monitor;
  *  used by OSC. */
 typedef lo_timetag mapper_timetag_t;
 
-/*! A record that keeps information about a device on the network.
- *  @ingroup devicedb */
-typedef struct _mapper_db_device {
-    char *lib_version;          //!< libmapper version of device.
-    void *user_data;            //!< User modifiable data.
-
-    char *identifier;           //!< The identifier (prefix) for this device.
-    char *name;                 //!< The full name for this device, or zero.
-    char *description;
-
-    /*! Extra properties associated with this device. */
-    struct _mapper_string_table *extra;
-
-    uint64_t id;                //!< Unique id identifying this device.
-    char *host;                 //!< Device network host name.
-
-    mapper_timetag_t timetag;
-    mapper_timetag_t synced; //!< Timestamp of last sync.
-
-    int ordinal;
-    int port;                   //!< Device network port.
-    int num_inputs;             //!< Number of associated input signals.
-    int num_outputs;            //!< Number of associated output signals.
-    int num_incoming_maps;      //!< Number of associated incoming maps.
-    int num_outgoing_maps;      //!< Number of associated outgoing maps.
-    int version;                //!< Reported device state version.
-
-    int subscribed;
-} mapper_db_device_t, *mapper_db_device;
-
 /*! Possible operations for composing db queries. */
-typedef enum _mapper_db_query_op {
+typedef enum _mapper_query_op {
     QUERY_UNDEFINED = -1,
     QUERY_DOES_NOT_EXIST,
     QUERY_EQUAL,
@@ -61,8 +38,8 @@ typedef enum _mapper_db_query_op {
     QUERY_LESS_THAN,
     QUERY_LESS_THAN_OR_EQUAL,
     QUERY_NOT_EQUAL,
-    NUM_MAPPER_DB_QUERY_OPS
-} mapper_db_query_op;
+    NUM_MAPPER_QUERY_OPS
+} mapper_query_op;
 
 /*! Describes what happens when the range boundaries are exceeded.
  *  @ingroup mapdb */
@@ -91,6 +68,24 @@ typedef enum _mapper_location {
     LOC_DESTINATION
 } mapper_location;
 
+/*! The set of possible directions for a signal or mapping slot. */
+typedef enum {
+    DI_ANY      = 0x00,
+    DI_OUTGOING = 0x01,
+    DI_INCOMING = 0x02,
+    DI_BOTH     = 0x03,
+} mapper_direction_t;
+
+/*! The set of possible actions on an instance, used to register callbacks
+ *  to inform them of what is happening. */
+typedef enum {
+    IN_NEW                  = 0x01, //!< New instance has been created.
+    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance has been released by upstream device.
+    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance has been released by downstream device.
+    IN_OVERFLOW             = 0x08, //!< No local instances left for incoming remote instance.
+    IN_ALL                  = 0xFF
+} mapper_instance_event_t;
+
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup mapdb */
 typedef enum _mapper_instance_allocation_type {
@@ -100,31 +95,17 @@ typedef enum _mapper_instance_allocation_type {
     NUM_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
-/*! A record that describes properties of a signal.
- *  @ingroup signaldb */
-typedef struct _mapper_db_signal {
-    mapper_db_device device;
-    char *path;         //! OSC path.  Must start with '/'.
-    char *name;         //! The name of this signal (path+1).
-    uint64_t id;        //!< Unique id identifying this signal.
+/*! A signal handler function can be called whenever a signal value
+ *  changes. */
+typedef void mapper_signal_update_handler(mapper_signal sig, int instance,
+                                          void *value, int count,
+                                          mapper_timetag_t *tt);
 
-    char *unit;         //!< The unit of this signal, or NULL for N/A.
-    char *description;  //!< Description of this signal, or NULL for N/A.
-    void *minimum;      //!< The minimum of this signal, or NULL for N/A.
-    void *maximum;      //!< The maximum of this signal, or NULL for N/A.
-
-    struct _mapper_string_table *extra; /*! Extra properties associated with
-                                         *  this signal. */
-
-    void *user_data;    //!< A pointer available for associating user context.
-
-    float rate;         //!< The update rate, or 0 for non-periodic signals.
-    int direction;      //!< DI_OUTGOING / DI_INCOMING / DI_BOTH
-    int length;         //!< Length of the signal vector, or 1 for scalars.
-    int num_instances;  //!< Number of instances.
-    char type;              /*! The type of this signal, specified as an OSC type
-                             *  character. */
-} mapper_db_signal_t, *mapper_db_signal;
+/*! A handler function to be called whenever a signal instance management
+ *  event occurs. */
+typedef void mapper_instance_event_handler(mapper_signal sig, int instance,
+                                           mapper_instance_event_t event,
+                                           mapper_timetag_t *tt);
 
 #ifdef __cplusplus
 }

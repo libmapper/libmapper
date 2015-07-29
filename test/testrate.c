@@ -36,20 +36,20 @@ int received = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", port, 0);
+    source = mapper_device_new("testsend", port, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
+    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
 
     // This signal will be updated at 100 Hz
-    msig_set_rate(sendsig, 100);
+    mapper_signal_set_rate(sendsig, 100);
 
     // Check by both methods that the property was set
-    mapper_db_signal props = msig_properties(sendsig);
+    mapper_db_signal props = mapper_signal_properties(sendsig);
     eprintf("Rate for /outsig is set to: %f\n", props->rate);
 
     const float *a;
@@ -58,8 +58,8 @@ int setup_source()
     if (mapper_db_signal_property(props, "rate", &t, (const void**)&a, &l))
     {
         eprintf("Couldn't find `rate' property.\n");
-        mdev_free(source);
-        mdev_free(destination);
+        mapper_device_free(source);
+        mapper_device_free(destination);
         exit(1);
     }
 
@@ -71,15 +71,15 @@ int setup_source()
         eprintf("Rate for /outsig is set to: %f\n", a[0]);
     else {
         eprintf("Rate property was unexpected type `%c'\n", t);
-        mdev_free(source);
-        mdev_free(destination);
+        mapper_device_free(source);
+        mapper_device_free(destination);
         exit(1);
     }
 
     if (props->rate != a[0]) {
         eprintf("Rate properties don't agree.\n");
-        mdev_free(source);
-        mdev_free(destination);
+        mapper_device_free(source);
+        mapper_device_free(destination);
         exit(1);
     }
 
@@ -96,7 +96,7 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
@@ -122,18 +122,18 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", port, 0);
+    destination = mapper_device_new("testrecv", port, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mdev_add_input(destination, "/insig", 1, 'f',
-                               0, &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
+                                      0, &mn, &mx, insig_handler, 0);
 
     // This signal is expected to be updated at 100 Hz
-    msig_set_rate(recvsig, 100);
+    mapper_signal_set_rate(recvsig, 100);
 
     eprintf("Input signal /insig registered.\n");
 
@@ -148,16 +148,17 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
 
         usleep(50 * 1000);
     }
@@ -173,9 +174,9 @@ int setup_maps()
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mdev_num_outgoing_maps(source)) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
+    while (!done && !mapper_device_num_outgoing_maps(source)) {
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
         if (i++ > 100)
             return 1;
     }
@@ -194,14 +195,14 @@ void loop()
 
     i = 0;
     while ((!terminate || i < 50) && !done) {
-        mdev_poll(source, 0);
+        mapper_device_poll(source, 0);
 
         // 10 times a second, we provide 10 samples, making a
         // periodically-sampled signal of 100 Hz.
         eprintf("Sending [%g..%g]...\n", phasor[0], phasor[9]);
         sent++;
-        msig_update(sendsig, phasor, 10, MAPPER_NOW);
-        int r = mdev_poll(destination, 100);
+        mapper_signal_update(sendsig, phasor, 10, MAPPER_NOW);
+        int r = mapper_device_poll(destination, 100);
         eprintf("Destination got %d message%s.\n", r, r==1?"":"s");
         i++;
 

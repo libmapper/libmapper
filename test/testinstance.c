@@ -35,20 +35,20 @@ int done = 0;
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testInstanceSend", 0, 0);
+    source = mapper_device_new("testInstanceSend", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
+    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
     if (!sendsig)
         goto error;
-    msig_reserve_instances(sendsig, 9, 0, 0);
+    mapper_signal_reserve_instances(sendsig, 9, 0, 0);
 
     eprintf("Output signal registered.\n");
-    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
 
     return 0;
 
@@ -61,7 +61,7 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
@@ -78,48 +78,48 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
     else {
         eprintf("--> destination %s instance %ld got NULL\n",
                 props->name, (long)instance_id);
-        msig_release_instance(sig, instance_id, MAPPER_NOW);
+        mapper_signal_release_instance(sig, instance_id, MAPPER_NOW);
     }
 }
 
 void more_handler(mapper_signal sig, mapper_db_signal props,
-                  int instance_id, msig_instance_event_t event,
+                  int instance_id, mapper_instance_event_t event,
                   mapper_timetag_t *timetag)
 {
     if (event & IN_OVERFLOW) {
         eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
-        msig_reserve_instances(sig, 1, 0, 0);
+        mapper_signal_reserve_instances(sig, 1, 0, 0);
     }
     else if (event & IN_UPSTREAM_RELEASE) {
         eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
-        msig_release_instance(sig, instance_id, MAPPER_NOW);
+        mapper_signal_release_instance(sig, instance_id, MAPPER_NOW);
     }
 }
 
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testInstanceRecv", 0, 0);
+    destination = mapper_device_new("testInstanceRecv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0;//, mx=1;
 
-    recvsig = mdev_add_input(destination, "/insig", 1, 'f',
-                             0, &mn, 0, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
+                                      0, &mn, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
 
     // remove the default instance "0"
-    msig_remove_instance(recvsig, 0);
+    mapper_signal_remove_instance(recvsig, 0);
     int i;
     for (i=100; i<104; i++) {
-        msig_reserve_instances(recvsig, 1, &i, 0);
+        mapper_signal_reserve_instances(recvsig, 1, &i, 0);
     }
 
     eprintf("Input signal registered.\n");
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
 
     return 0;
 
@@ -132,16 +132,17 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
 
         usleep(50 * 1000);
     }
@@ -149,10 +150,10 @@ void wait_local_devices()
 
 void print_instance_ids(mapper_signal sig)
 {
-    int i, n = msig_num_active_instances(sig);
+    int i, n = mapper_signal_num_active_instances(sig);
     eprintf("active %s: [", sig->props.name);
     for (i=0; i<n; i++)
-        eprintf(" %ld", (long)msig_active_instance_id(sig, i));
+        eprintf(" %ld", (long)mapper_signal_active_instance_id(sig, i));
     eprintf(" ]   ");
 }
 
@@ -167,9 +168,9 @@ void map_signals()
     mmon_update_map(mon, map);
 
     // wait until mapping has been established
-    while (!done && !mdev_num_outgoing_maps(source)) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
+    while (!done && !mapper_device_num_outgoing_maps(source)) {
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
     }
     mmon_free(mon);
 }
@@ -187,13 +188,13 @@ void loop()
                 // try to destroy an instance
                 j = rand() % 10;
                 eprintf("--> Retiring sender instance %i\n", j);
-                msig_release_instance(sendsig, j, MAPPER_NOW);
+                mapper_signal_release_instance(sendsig, j, MAPPER_NOW);
                 break;
             default:
                 j = rand() % 10;
                 // try to update an instance
                 value = (rand() % 10) * 1.0f;
-                msig_update_instance(sendsig, j, &value, 0, MAPPER_NOW);
+                mapper_signal_update_instance(sendsig, j, &value, 0, MAPPER_NOW);
                 eprintf("--> sender instance %d updated to %f\n", j, value);
                 sent++;
                 break;
@@ -203,8 +204,8 @@ void loop()
         print_instance_ids(recvsig);
         eprintf("\n");
 
-        mdev_poll(destination, 100);
-        mdev_poll(source, 0);
+        mapper_device_poll(destination, 100);
+        mapper_device_poll(source, 0);
         i++;
 
         if (!verbose) {
@@ -272,10 +273,10 @@ int main(int argc, char **argv)
     stats[1] = received;
 
     for (i=0; i<10; i++)
-        msig_release_instance(sendsig, i, MAPPER_NOW);
+        mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
     sent = received = 0;
 
-    msig_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
+    mapper_signal_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
     eprintf("\n**********************************************\n");
     eprintf("************ STEAL OLDEST INSTANCE ***********\n");
     if (!verbose)
@@ -287,11 +288,11 @@ int main(int argc, char **argv)
     sent = received = 0;
 
     for (i=0; i<10; i++)
-        msig_release_instance(sendsig, i, MAPPER_NOW);
+        mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
     sent = received = 0;
 
-    msig_set_instance_event_callback(recvsig, more_handler,
-                                     IN_OVERFLOW | IN_UPSTREAM_RELEASE, 0);
+    mapper_signal_set_instance_event_callback(recvsig, more_handler,
+                                              IN_OVERFLOW | IN_UPSTREAM_RELEASE, 0);
     eprintf("\n**********************************************\n");
     eprintf("*********** CALLBACK -> ADD INSTANCE *********\n");
     if (!verbose)

@@ -52,18 +52,18 @@ static double current_time()
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testSpeedSend", 0, 0);
+    source = mapper_device_new("testSpeedSend", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, 0, 0);
+    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', 0, 0, 0);
     if (!sendsig)
         goto error;
-    msig_reserve_instances(sendsig, 9, 0, 0);
+    mapper_signal_reserve_instances(sendsig, 9, 0, 0);
 
     eprintf("Output signal registered.\n");
-    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
 
     return 0;
 
@@ -76,7 +76,7 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
@@ -90,10 +90,10 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
         if (++received >= iterations)
             switch_modes();
         if (use_instance) {
-            msig_update_instance(sendsig, counter, value, 1, MAPPER_NOW);
+            mapper_signal_update_instance(sendsig, counter, value, 1, MAPPER_NOW);
         }
         else
-            msig_update(sendsig, value, 1, MAPPER_NOW);
+            mapper_signal_update(sendsig, value, 1, MAPPER_NOW);
     }
     else
         eprintf("--> destination %s instance %ld got NULL\n",
@@ -103,19 +103,19 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testSpeedRecv", 0, 0);
+    destination = mapper_device_new("testSpeedRecv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
-    recvsig = mdev_add_input(destination, "/insig", 1, 'f',
-                             0, 0, 0, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
+                                      0, 0, 0, insig_handler, 0);
     if (!recvsig)
         goto error;
-    msig_reserve_instances(recvsig, 9, 0, 0);
+    mapper_signal_reserve_instances(recvsig, 9, 0, 0);
 
     eprintf("Input signal registered.\n");
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
 
     return 0;
 
@@ -128,16 +128,17 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 25);
-        mdev_poll(destination, 25);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 25);
+        mapper_device_poll(destination, 25);
     }
 }
 
@@ -152,9 +153,9 @@ void map_signals()
     mmon_update_map(mon, map);
 
     // wait until mapping has been established
-    while (!done && !mdev_num_outgoing_maps(source)) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
+    while (!done && !mapper_device_num_outgoing_maps(source)) {
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
     }
 
     mmon_free(mon);
@@ -190,7 +191,7 @@ void switch_modes()
         case 1:
             use_instance = 0;
             for (i=1; i<10; i++) {
-                msig_release_instance(sendsig, i, MAPPER_NOW);
+                mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
             }
             break;
     }
@@ -265,10 +266,10 @@ int main(int argc, char **argv)
     // start things off
     eprintf("STARTING TEST...\n");
     times[0] = current_time();
-    msig_update_instance(sendsig, counter++, &value, 0, MAPPER_NOW);
+    mapper_signal_update_instance(sendsig, counter++, &value, 0, MAPPER_NOW);
     while (!done) {
-        mdev_poll(destination, 0);
-        mdev_poll(source, 0);
+        mapper_device_poll(destination, 0);
+        mapper_device_poll(source, 0);
     }
     goto done;
 

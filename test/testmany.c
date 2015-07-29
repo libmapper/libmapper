@@ -52,16 +52,16 @@ int setup_devices() {
 	float mn=0, mx=1;
 
 	for (int i = 0; i < num_devices; i++) {
-		device_list[i] = mdev_new("device", 0, 0);
+		device_list[i] = mapper_device_new("device", 0, 0);
         if (!device_list[i])
 			goto error;
 
         // give each device 10 inputs and 10 outputs
 		for (int j = 0; j < 10; j++) {
 			sprintf(str, "/in%d", j);
-			mdev_add_input(device_list[i], str, 1, 'f', 0, &mn, &mx, 0, 0);
+			mapper_device_add_input(device_list[i], str, 1, 'f', 0, &mn, &mx, 0, 0);
             sprintf(str, "/out%d", j);
-            mdev_add_output(device_list[i], str, 1, 'f', 0, &mn, &mx);
+            mapper_device_add_output(device_list[i], str, 1, 'f', 0, &mn, &mx);
 		}
 	}
     return 0;
@@ -78,7 +78,7 @@ void cleanup_devices() {
 		dest = device_list[i];
 
 		if (dest) {
-			mdev_free(dest);
+			mapper_device_free(dest);
 			eprintf(".");
 		}
 	}
@@ -92,8 +92,8 @@ void wait_local_devices(int *cancel) {
 		keep_waiting = 0;
 
 		for (i = 0; i < num_devices; i++) {
-			mdev_poll(device_list[i], 50);
-			if (!mdev_ready(device_list[i])) {
+			mapper_device_poll(device_list[i], 50);
+			if (!mapper_device_ready(device_list[i])) {
 				keep_waiting = 1;
 			}
             printf(".");
@@ -106,7 +106,7 @@ void wait_local_devices(int *cancel) {
 	}
     eprintf("\nRegistered devices:\n");
     for ( i=0; i<num_devices; i++)
-        eprintf("  %s\n", mdev_name(device_list[i]));
+        eprintf("  %s\n", mapper_device_name(device_list[i]));
 }
 
 void loop() {
@@ -115,7 +115,7 @@ void loop() {
 
     while (i >= 0 && !done) {
 		for (int i = 0; i < num_devices; i++) {
-			mdev_poll(device_list[i], 0);
+			mapper_device_poll(device_list[i], 0);
 		}
 
         usleep(50 * 1000);

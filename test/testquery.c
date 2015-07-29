@@ -51,7 +51,7 @@ void query_response_handler(mapper_signal sig, mapper_db_signal props,
 int setup_source()
 {
     char sig_name[20];
-    source = mdev_new("testquery-send", 0, 0);
+    source = mapper_device_new("testquery-send", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
@@ -60,13 +60,13 @@ int setup_source()
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 20, "%s%i", "/outsig_", i);
-        sendsig[i] = mdev_add_output(source, sig_name, i+1, 'i', 0, mn, mx);
-        msig_set_callback(sendsig[i], query_response_handler, 0);
-        msig_update(sendsig[i], mn, 0, MAPPER_NOW);
+        sendsig[i] = mapper_device_add_output(source, sig_name, i+1, 'i', 0, mn, mx);
+        mapper_signal_set_callback(sendsig[i], query_response_handler, 0);
+        mapper_signal_update(sendsig[i], mn, 0, MAPPER_NOW);
     }
 
     eprintf("Output signals registered.\n");
-    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
 
     return 0;
 
@@ -79,7 +79,7 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
@@ -98,7 +98,7 @@ void insig_handler(mapper_signal sig,mapper_db_signal props,
 int setup_destination()
 {
     char sig_name[10];
-    destination = mdev_new("testquery-recv", 0, 0);
+    destination = mapper_device_new("testquery-recv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
@@ -107,12 +107,12 @@ int setup_destination()
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 10, "%s%i", "/insig_", i);
-        recvsig[i] = mdev_add_input(destination, sig_name, i+1,
-                                    'f', 0, mn, mx, insig_handler, 0);
+        recvsig[i] = mapper_device_add_input(destination, sig_name, i+1,
+                                             'f', 0, mn, mx, insig_handler, 0);
     }
 
     eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
 
     return 0;
 
@@ -125,16 +125,17 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
 
         usleep(50 * 1000);
     }
@@ -159,9 +160,9 @@ int setup_maps()
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mdev_num_outgoing_maps(source)) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
+    while (!done && !mapper_device_num_outgoing_maps(source)) {
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
         if (i++ > 100)
             return 1;
     }
@@ -180,15 +181,15 @@ void loop()
         for (j = 0; j < 4; j++)
             value[j] = (i % 10) * 1.0f;
         for (j = 0; j < 4; j++) {
-            msig_update(recvsig[j], value, 0, MAPPER_NOW);
+            mapper_signal_update(recvsig[j], value, 0, MAPPER_NOW);
         }
         eprintf("\ndestination values updated to %f -->\n", (i % 10) * 1.0f);
         for (j = 0; j < 4; j++) {
-            sent += count = msig_query_remotes(sendsig[j], MAPPER_NOW);
+            sent += count = mapper_signal_query_remotes(sendsig[j], MAPPER_NOW);
             eprintf("Sent %i queries for sendsig[%i]\n", count, j);
         }
-        mdev_poll(destination, 50);
-        mdev_poll(source, 50);
+        mapper_device_poll(destination, 50);
+        mapper_device_poll(source, 50);
         i++;
 
         if (!verbose) {

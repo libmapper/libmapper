@@ -112,155 +112,55 @@ public class Monitor
 
         // Db.Device
         public native Mapper.Db.DeviceCollection devices();
-        public native Mapper.Db.Device get_device(String deviceName);
-        public native Mapper.Db.DeviceCollection match_devices(String pattern);
+        public native Mapper.Db.Device device(String deviceName);
+        public native Mapper.Db.Device device(long id);
+        public native Mapper.Db.DeviceCollection devicesByNameMatch(String pattern);
+
+        // Db.Signal
+        public native Mapper.Db.Signal signal(long id);
+        private native long mdb_signals(long db, String pattern, int direction);
+        public Mapper.Db.SignalCollection signals()
+        {
+            long _s = mdb_signals(_db, null, 0);
+            return new Mapper.Db.SignalCollection(_s);
+        }
+        public Mapper.Db.SignalCollection signalsByNameMatch(String pattern)
+        {
+            long _s = mdb_signals(_db, pattern, 0);
+            return new Mapper.Db.SignalCollection(_s);
+        }
 
         // Db.Input
-        public native Mapper.Db.Signal getInput(String deviceName,
-                                                String signalName);
-        private native long mdb_inputs(long db, String deviceName);
         public Mapper.Db.SignalCollection inputs()
         {
-            long _s = mdb_inputs(_db, null);
+            long _s = mdb_signals(_db, null, 1);
             return new Mapper.Db.SignalCollection(_s);
         }
-        public Mapper.Db.SignalCollection inputs(String deviceName)
+        public Mapper.Db.SignalCollection inputsByNameMatch(String pattern)
         {
-            long _s = mdb_inputs(_db, deviceName);
+            long _s = mdb_signals(_db, pattern, 1);
             return new Mapper.Db.SignalCollection(_s);
         }
-        public native Mapper.Db.SignalCollection matchInputs(String deviceName,
-                                                             String signalPattern);
 
         // Db.Output
-        public native Mapper.Db.Signal getOutput(String deviceName,
-                                                 String signalName);
-        private native long mdb_outputs(long db, String deviceName);
         public Mapper.Db.SignalCollection outputs()
         {
-            long _s = mdb_outputs(_db, null);
+            long _s = mdb_signals(_db, null, 2);
             return new Mapper.Db.SignalCollection(_s);
         }
-        public Mapper.Db.SignalCollection outputs(String deviceName)
+        public Mapper.Db.SignalCollection outputsByNameMatch(String pattern)
         {
-            long _s = mdb_outputs(_db, deviceName);
+            long _s = mdb_signals(_db, pattern, 2);
             return new Mapper.Db.SignalCollection(_s);
         }
-        public native Mapper.Db.SignalCollection matchOutputs(String deviceName,
-                                                              String signalPattern);
 
         // Db.Map
-        private native long mdb_maps(long db, String deviceName);
+        public native Mapper.Db.Map map(long id);
+        private native long mdb_maps(long db);
         public Mapper.Db.MapCollection maps()
         {
-            long _c = mdb_maps(_db, null);
-            return new Mapper.Db.MapCollection(_c);
-        }
-        public Mapper.Db.MapCollection maps(String deviceName)
-        {
-            long _c = mdb_maps(_db, deviceName);
-            return new Mapper.Db.MapCollection(_c);
-        }
-        public Mapper.Db.MapCollection maps(Mapper.Device device)
-        {
-            long _c = mdb_maps(_db, device.name());
-            return new Mapper.Db.MapCollection(_c);
-        }
-        public Mapper.Db.MapCollection maps(Mapper.Db.Device device)
-        {
-            long _c = mdb_maps(_db, device.name());
-            return new Mapper.Db.MapCollection(_c);
-        }
-
-        public native Mapper.Db.MapCollection maps(Mapper.Db.SignalCollection src,
-                                                   Mapper.Db.SignalCollection dest);
-        public native Mapper.Db.MapCollection maps(String[] srcDevice,
-                                                   String destDevice);
-        public Mapper.Db.MapCollection maps(String source, String dest)
-        {
-            String[] sources = {source};
-            return this.maps(sources, dest);
-        }
-        public Mapper.Db.MapCollection maps(Mapper.Device[] sources,
-                                            Mapper.Device dest)
-        {
-            int length = sources.length;
-            String[] srcNames = new String[length];
-            for (int i = 0; i < length; i++)
-                srcNames[i] = sources[i].name();
-            return this.maps(srcNames, dest.name());
-        }
-        public Mapper.Db.MapCollection maps(Mapper.Device source,
-                                            Mapper.Device dest)
-        {
-            Mapper.Device[] sources = {source};
-            return this.maps(sources, dest);
-        }
-        public Mapper.Db.MapCollection maps(Mapper.Db.Device[] sources,
-                                            Mapper.Db.Device dest)
-        {
-            int length = sources.length;
-            String[] srcNames = new String[length];
-            for (int i = 0; i < length; i++)
-                srcNames[i] = sources[i].name();
-            return this.maps(srcNames, dest.name());
-        }
-        public Mapper.Db.MapCollection maps(Mapper.Db.Device source,
-                                            Mapper.Db.Device dest)
-        {
-            Mapper.Db.Device[] sources = {source};
-            return this.maps(sources, dest);
-        }
-
-        private native Mapper.Db.MapCollection mdb_maps_by_src(
-            long db, String deviceName, String signalName);
-        public Mapper.Db.MapCollection mapsBySrc(String signalName)
-            { return mdb_maps_by_src(_db, null, signalName); }
-        public Mapper.Db.MapCollection mapsBySrc(String deviceName,
-                                                 String signalName)
-            { return mdb_maps_by_src(_db, deviceName, signalName); }
-        public Mapper.Db.MapCollection mapsBySrc(Mapper.Device.Signal signal)
-            { return mdb_maps_by_src(_db, null, signal.fullName()); }
-        public Mapper.Db.MapCollection mapsBySrc(Mapper.Db.Signal signal)
-            { return mdb_maps_by_src(_db, null, signal.fullName()); }
-
-        private native Mapper.Db.MapCollection mdb_maps_by_dest(
-            long db, String deviceName, String signalName);
-        public Mapper.Db.MapCollection mapsByDest(String signalName)
-            { return mdb_maps_by_dest(_db, null, signalName); }
-        public Mapper.Db.MapCollection mapsByDest(String deviceName,
-                                                  String signalName)
-            { return mdb_maps_by_dest(_db, deviceName, signalName); }
-        public Mapper.Db.MapCollection mapsByDest(Mapper.Device.Signal signal)
-            { return mdb_maps_by_dest(_db, null, signal.fullName()); }
-        public Mapper.Db.MapCollection mapsByDest(Mapper.Db.Signal signal)
-            { return mdb_maps_by_dest(_db, null, signal.fullName()); }
-
-        private native long map_by_hash(long db, int hash);
-        public Mapper.Db.Map map(int hash)
-            { return new Mapper.Db.Map(map_by_hash(_db, hash)); }
-        private native long map_by_names(long db, String[] srcNames,
-                                         String destName);
-        public Mapper.Db.Map map(String[] srcNames, String destName)
-        {
-            return new Mapper.Db.Map(map_by_names(_db, srcNames, destName));
-        }
-        public Mapper.Db.Map map(Mapper.Device.Signal[] sources,
-                                 Mapper.Device.Signal dest)
-        {
-            int length = sources.length;
-            String[] srcNames = new String[length];
-            for (int i = 0; i < length; i++)
-                srcNames[i] = sources[i].fullName();
-            return new Mapper.Db.Map(map_by_names(_db, srcNames, dest.fullName()));
-        }
-        public Mapper.Db.Map map(Mapper.Db.Signal[] sources, Mapper.Db.Signal dest)
-        {
-            int length = sources.length;
-            String[] srcNames = new String[length];
-            for (int i = 0; i < length; i++)
-                srcNames[i] = sources[i].fullName();
-            return new Mapper.Db.Map(map_by_names(_db, srcNames, dest.fullName()));
+            long _m = mdb_maps(_db);
+            return new Mapper.Db.MapCollection(_m);
         }
 
         private long _db;
@@ -344,30 +244,6 @@ public class Monitor
     public void unmap(Mapper.Db.Signal[] sources, Mapper.Db.Signal dest)
     {
         mmon_unmap_db_sigs(_monitor, sources, dest);
-    }
-
-    public void modifyMap(Mapper.Device.Signal source, Mapper.Device.Signal dest,
-                          Mapper.Db.Map props)
-    {
-        Mapper.Device.Signal[] sources = {source};
-        mmon_map_or_mod_sigs(_monitor, sources, dest, props, 1);
-    }
-    public void modifyMap(Mapper.Device.Signal[] sources,
-                          Mapper.Device.Signal dest,
-                          Mapper.Db.Map props)
-    {
-        mmon_map_or_mod_sigs(_monitor, sources, dest, props, 1);
-    }
-    public void modifyMap(Mapper.Db.Signal source, Mapper.Db.Signal dest,
-                          Mapper.Db.Map props)
-    {
-        Mapper.Db.Signal[] sources = {source};
-        mmon_map_or_mod_db_sigs(_monitor, sources, dest, props, 1);
-    }
-    public void modifyMap(Mapper.Db.Signal[] sources, Mapper.Db.Signal dest,
-                          Mapper.Db.Map props)
-    {
-        mmon_map_or_mod_db_sigs(_monitor, sources, dest, props, 1);
     }
 
     public TimeTag now()

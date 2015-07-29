@@ -170,8 +170,7 @@ static void handler_error(int num, const char *msg, const char *where)
 /* Functions for handling the resource allocation scheme.  If
  * check_collisions() returns 1, the resource in question should be
  * probed on the admin bus. */
-static int check_collisions(mapper_admin admin,
-                            mapper_admin_allocated_t *resource);
+static int check_collisions(mapper_admin admin, mapper_admin_allocated resource);
 
 /*! Local function to get the IP address of a network interface. */
 static int get_interface_addr(const char* pref,
@@ -323,7 +322,7 @@ static void mapper_admin_add_device_methods(mapper_admin admin,
     for (i=0; i < NUM_DEVICE_HANDLERS; i++) {
         snprintf(fullpath, 256,
                  admin_message_strings[device_handlers[i].str_index],
-                 mdev_name(admin->device));
+                 mapper_device_name(admin->device));
         lo_server_add_method(admin->bus_server, fullpath,
                              device_handlers[i].types,
                              device_handlers[i].h,
@@ -576,18 +575,18 @@ void mapper_admin_free(mapper_admin admin)
 static void mapper_admin_probe_device_name(mapper_admin admin,
                                            mapper_device device)
 {
-    device->ordinal.collision_count = -1;
-    device->ordinal.count_time = get_current_time();
+    device->local->ordinal.collision_count = -1;
+    device->local->ordinal.count_time = get_current_time();
 
-    /* Note: mdev_name() would refuse here since the
+    /* Note: mapper_device_name() would refuse here since the
      * ordinal is not yet locked, so we have to build it manually at
      * this point. */
     char name[256];
-    trace("</%s.?::%p> probing name\n", device->props.identifier, admin);
-    snprintf(name, 256, "%s.%d", device->props.identifier, device->ordinal.value);
+    trace("</%s.?::%p> probing name\n", device->identifier, admin);
+    snprintf(name, 256, "%s.%d", device->identifier, device->local->ordinal.value);
 
     /* Calculate an id from the name and store it in id.value */
-    device->props.id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+    device->id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
 
     /* For the same reason, we can't use mapper_admin_send()
      * here. */
@@ -642,7 +641,7 @@ void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon)
 
 static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
 {
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     int go = 0;
 
     mapper_clock_t *clock = &admin->clock;
@@ -652,7 +651,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
         clock->next_ping = clock->now.sec + 5 + (rand() % 4);
     }
 
-    if (!md || !go)
+    if (!dev || !go)
         return;
 
     mapper_admin_set_bundle_dest_bus(admin);
@@ -661,29 +660,30 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
         trace("couldn't allocate lo_message\n");
         return;
     }
-    lo_message_add_string(msg, mdev_name(md));
-    lo_message_add_int32(msg, md->props.version);
+    lo_message_add_string(msg, mapper_device_name(dev));
+    lo_message_add_int32(msg, dev->version);
     lo_bundle_add_message(admin->bundle, admin_message_strings[ADM_SYNC], msg);
 
     int elapsed, num_maps;
     // some housekeeping: periodically check if our links are still active
-    mapper_link link = md->router->links;
+    mapper_link link = dev->local->router->links;
     while (link) {
-        if (link->props.id == md->props.id) {
+        if (link->remote_device->id == dev->id) {
             // don't bother sending pings to self
             link = link->next;
             continue;
         }
-        num_maps = link->props.num_incoming_maps + link->props.num_outgoing_maps;
+        num_maps = link->num_incoming_maps + link->num_outgoing_maps;
         mapper_sync_clock sync = &link->clock;
         elapsed = (sync->response.timetag.sec
                    ? clock->now.sec - sync->response.timetag.sec : 0);
-        if ((md->link_timeout_sec && elapsed > md->link_timeout_sec)) {
+        if ((dev->local->link_timeout_sec
+             && elapsed > dev->local->link_timeout_sec)) {
             if (sync->response.message_id > 0) {
                 if (num_maps) {
                     trace("<%s> Lost contact with linked device %s "
-                          "(%d seconds since sync).\n", mdev_name(md),
-                          link->props.name, elapsed);
+                          "(%d seconds since sync).\n", mapper_device_name(dev),
+                          link->remote_device->name, elapsed);
                 }
                 // tentatively mark link as expired
                 sync->response.message_id = -1;
@@ -692,25 +692,25 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
             else {
                 if (num_maps) {
                     trace("<%s> Removing link to unresponsive device %s "
-                          "(%d seconds since warning).\n", mdev_name(md),
-                          link->props.name, elapsed);
+                          "(%d seconds since warning).\n", mapper_device_name(dev),
+                          link->remote_device->name, elapsed);
                     /* TODO: release related maps, call local handlers
                      * and inform subscribers. */
                 }
                 else {
-                    trace("<%s> Removing link to device %s.\n", mdev_name(md),
-                          link->props.name);
+                    trace("<%s> Removing link to device %s.\n",
+                          mapper_device_name(dev), link->remote_device->name);
                 }
                 // remove related data structures
-                mapper_router_remove_link(md->router, link);
+                mapper_router_remove_link(dev->local->router, link);
             }
         }
-        else if (link->props.host && num_maps) {
+        else if (link->remote_device->host && num_maps) {
             /* Only send pings if this link has associated maps, ensuring
              * empty links are removed after the ping timeout. */
             lo_bundle b = lo_bundle_new(clock->now);
             lo_message m = lo_message_new();
-            lo_message_add_int64(m, mdev_id(md));
+            lo_message_add_int64(m, mapper_device_id(dev));
             ++sync->sent.message_id;
             if (sync->sent.message_id < 0)
                 sync->sent.message_id = 0;
@@ -741,7 +741,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
 int mapper_admin_poll(mapper_admin admin)
 {
     int count = 0, status;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
 
     // send out any cached messages
     mapper_admin_send_bundle(admin);
@@ -752,34 +752,34 @@ int mapper_admin_poll(mapper_admin admin)
     }
     admin->msgs_recvd += count;
 
-    if (!md) {
+    if (!dev) {
         mapper_admin_maybe_send_ping(admin, 0);
         return count;
     }
 
     /* If the ordinal is not yet locked, process collision timing.
      * Once the ordinal is locked it won't change. */
-    if (!md->registered) {
-        status = check_collisions(admin, &md->ordinal);
+    if (!dev->local->registered) {
+        status = check_collisions(admin, &dev->local->ordinal);
         if (status == 1) {
             /* If the ordinal has changed, re-probe the new name. */
-            mapper_admin_probe_device_name(admin, md);
+            mapper_admin_probe_device_name(admin, dev);
         }
 
         /* If we are ready to register the device, add the needed message
          * handlers. */
-        if (md->ordinal.locked) {
-            mdev_registered(md);
+        if (dev->local->ordinal.locked) {
+            mapper_device_registered(dev);
 
             /* Send registered msg. */
             lo_send(admin->bus_addr, admin_message_strings[ADM_NAME_REG],
-                    "s", mdev_name(md));
+                    "s", mapper_device_name(dev));
 
-            mapper_admin_add_device_methods(admin, md);
+            mapper_admin_add_device_methods(admin, dev);
             mapper_admin_maybe_send_ping(admin, 1);
 
             trace("</%s.?::%p> registered as <%s>\n",
-                  md->props.identifier, admin, mdev_name(md));
+                  dev->identifier, admin, mapper_device_name(dev));
         }
     }
     else {
@@ -790,8 +790,7 @@ int mapper_admin_poll(mapper_admin admin)
 }
 
 /*! Algorithm for checking collisions and allocating resources. */
-static int check_collisions(mapper_admin admin,
-                            mapper_admin_allocated_t *resource)
+static int check_collisions(mapper_admin admin, mapper_admin_allocated resource)
 {
     double timediff;
 
@@ -854,7 +853,7 @@ void mapper_admin_send_signal(mapper_admin adm, mapper_signal sig)
         return;
     }
     char sig_name[1024];
-    msig_full_name(sig, sig_name, 1024);
+    mapper_signal_full_name(sig, sig_name, 1024);
     lo_message_add_string(msg, sig_name);
     mapper_signal_prepare_message(sig, msg);
     lo_bundle_add_message(adm->bundle, admin_message_strings[ADM_SIGNAL], msg);
@@ -868,40 +867,58 @@ void mapper_admin_send_signal_removed(mapper_admin adm, mapper_signal sig)
         return;
     }
     char sig_name[1024];
-    msig_full_name(sig, sig_name, 1024);
+    mapper_signal_full_name(sig, sig_name, 1024);
     lo_message_add_string(msg, sig_name);
     lo_bundle_add_message(adm->bundle,
                           admin_message_strings[ADM_SIGNAL_REMOVED], msg);
 }
 
-static void mapper_admin_send_inputs(mapper_admin admin, mapper_device md,
+static void mapper_admin_send_inputs(mapper_admin admin, mapper_device dev,
                                      int min, int max)
 {
     if (min < 0)
         min = 0;
-    else if (min > md->props.num_inputs)
+    else if (min > dev->num_inputs)
         return;
-    if (max < 0 || max > md->props.num_inputs)
-        max = md->props.num_inputs-1;
+    if (max < 0 || max > dev->num_inputs)
+        max = dev->num_inputs-1;
 
-    int i = min;
-    for (; i <= max; i++)
-        mapper_admin_send_signal(admin, md->inputs[i]);
+    int i = 0;
+    mapper_signal *sig = mapper_db_device_inputs(&admin->db, dev);
+    while (sig) {
+        if (i >= max) {
+            mapper_signal_query_done(sig);
+            return;
+        }
+        if (i >= min)
+            mapper_admin_send_signal(admin, *sig);
+        i++;
+        sig = mapper_signal_query_next(sig);
+    }
 }
 
-static void mapper_admin_send_outputs(mapper_admin admin, mapper_device md,
+static void mapper_admin_send_outputs(mapper_admin admin, mapper_device dev,
                                       int min, int max)
 {
     if (min < 0)
         min = 0;
-    else if (min > md->props.num_outputs)
+    else if (min > dev->num_outputs)
         return;
-    if (max < 0 || max > md->props.num_outputs)
-        max = md->props.num_outputs-1;
+    if (max < 0 || max > dev->num_outputs)
+        max = dev->num_outputs-1;
 
-    int i = min;
-    for (; i <= max; i++)
-        mapper_admin_send_signal(admin, md->outputs[i]);
+    int i = 0;
+    mapper_signal *sig = mapper_db_device_outputs(&admin->db, dev);
+    while (sig) {
+        if (i >= max) {
+            mapper_signal_query_done(sig);
+            return;
+        }
+        if (i >= min)
+            mapper_admin_send_signal(admin, *sig);
+        i++;
+        sig = mapper_signal_query_next(sig);
+    }
 }
 
 // Send /mapped message
@@ -961,8 +978,8 @@ static int mapper_admin_send_map(mapper_admin admin, mapper_map map, int slot,
     if (cmd == ADM_MAP_TO && map->destination.local->router_sig) {
         // include "extra" metadata from the destination signal
         mapper_signal sig = map->destination.local->router_sig->signal;
-        if (sig->props.extra)
-            mapper_message_add_value_table(m, sig->props.extra);
+        if (sig->extra)
+            mapper_message_add_value_table(m, sig->extra);
     }
 
     // add other properties
@@ -976,11 +993,11 @@ static int mapper_admin_send_map(mapper_admin admin, mapper_map map, int slot,
     return i-1;
 }
 
-static void mapper_admin_send_incoming_maps(mapper_admin admin, mapper_device md,
+static void mapper_admin_send_incoming_maps(mapper_admin admin, mapper_device dev,
                                             int min, int max)
 {
     int i, count = 0;
-    mapper_router_signal rs = md->router->signals;
+    mapper_router_signal rs = dev->local->router->signals;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i] || rs->slots[i]->direction == DI_OUTGOING)
@@ -998,11 +1015,11 @@ static void mapper_admin_send_incoming_maps(mapper_admin admin, mapper_device md
     }
 }
 
-static void mapper_admin_send_outgoing_maps(mapper_admin admin, mapper_device md,
+static void mapper_admin_send_outgoing_maps(mapper_admin admin, mapper_device dev,
                                             int min, int max)
 {
     int i, count = 0;
-    mapper_router_signal rs = md->router->signals;
+    mapper_router_signal rs = dev->local->router->signals;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i] || rs->slots[i]->direction == DI_INCOMING)
@@ -1031,7 +1048,7 @@ static int handler_who(const char *path, const char *types, lo_arg **argv,
     mapper_admin admin = (mapper_admin) user_data;
     mapper_admin_maybe_send_ping(admin, 1);
 
-    trace("%s received /who\n", mdev_name(admin->device));
+    trace("%s received /who\n", mapper_device_name(admin->device));
 
     return 0;
 }
@@ -1043,7 +1060,7 @@ static int handler_device(const char *path, const char *types,
 {
     mapper_admin admin = (mapper_admin) user_data;
     mapper_monitor mon = admin->monitor;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     int i, j;
 
     if (argc < 1)
@@ -1062,7 +1079,7 @@ static int handler_device(const char *path, const char *types,
     if (mon) {
         trace("<monitor> got /device %s + %i arguments\n", name, argc-1);
         mapper_db db = mmon_db(mon);
-        mapper_db_device dev;
+        mapper_device dev;
         dev = mapper_db_add_or_update_device_params(db, name, params,
                                                     &admin->clock.now);
         if (mon->autosubscribe && (!dev->subscribed)) {
@@ -1071,31 +1088,33 @@ static int handler_device(const char *path, const char *types,
         }
     }
 
-    if (!md) {
+    if (!dev) {
         mapper_message_free(params);
         return 0;
     }
 
-    if (strcmp(&argv[0]->s, mdev_name(md))) {
-        trace("<%s> got /device %s\n", mdev_name(md), &argv[0]->s);
+    if (strcmp(&argv[0]->s, mapper_device_name(dev))) {
+        trace("<%s> got /device %s\n", mapper_device_name(dev), &argv[0]->s);
     }
     else {
         // ignore own messages
-        trace("<%s> ignoring /device %s\n", mdev_name(md), &argv[0]->s);
+        trace("<%s> ignoring /device %s\n", mapper_device_name(dev), &argv[0]->s);
         mapper_message_free(params);
         return 0;
     }
     // Discover whether the device is linked.
-    mapper_link link = mapper_router_find_link_by_remote_name(md->router, name);
+    mapper_link link = mapper_router_find_link_by_remote_name(dev->local->router,
+                                                              name);
     if (!link) {
-        trace("<%s> ignoring /device '%s', no link.\n", mdev_name(md), name);
+        trace("<%s> ignoring /device '%s', no link.\n",
+              mapper_device_name(dev), name);
         mapper_message_free(params);
         return 0;
     }
-    else if (link->props.host) {
+    else if (link->remote_device->host) {
         // already have metadata, can ignore this message
         trace("<%s> ignoring /device '%s', link already set.\n",
-              mdev_name(md), name);
+              mapper_device_name(dev), name);
         mapper_message_free(params);
         return 0;
     }
@@ -1121,12 +1140,13 @@ static int handler_device(const char *path, const char *types,
         return 0;
     }
 
-    mapper_router_update_link(md->router, link, host, atoi(admin_port), data_port);
+    mapper_router_update_link(dev->local->router, link, host, atoi(admin_port),
+                              data_port);
     trace("<%s> activated router to %s -> host: %s, port: %d\n",
-          mdev_name(md), name, host, data_port);
+          mapper_device_name(dev), name, host, data_port);
 
     // check if we have maps waiting for this link
-    mapper_router_signal rs = md->router->signals;
+    mapper_router_signal rs = dev->local->router->signals;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i])
@@ -1163,7 +1183,8 @@ static int handler_logout(const char *path, const char *types,
                           void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
+
     mapper_monitor mon = admin->monitor;
     mapper_db db = mmon_db(mon);
     int diff, ordinal;
@@ -1177,11 +1198,11 @@ static int handler_logout(const char *path, const char *types,
 
     char *name = &argv[0]->s;
 
-    trace("<%s> got /logout %s\n",
-          (md && md->ordinal.locked) ? mdev_name(md) : "monitor", name);
+    trace("<%s> got /logout %s\n", (dev && dev->local->ordinal.locked)
+          ? mapper_device_name(dev) : "monitor", name);
 
     if (mon) {
-        mapper_db_device dev = mapper_db_device_by_name(db, name);
+        mapper_device dev = mapper_db_device_by_name(db, name);
         if (dev) {
             // remove subscriptions
             mmon_unsubscribe(mon, dev);
@@ -1190,16 +1211,16 @@ static int handler_logout(const char *path, const char *types,
     }
 
     // If device exists and is registered
-    if (md && md->ordinal.locked) {
+    if (dev && dev->local->ordinal.locked) {
         // Check if we have any links to this device, if so remove them
         mapper_link link =
-            mapper_router_find_link_by_remote_name(md->router, name);
+            mapper_router_find_link_by_remote_name(dev->local->router, name);
         if (link) {
             // TODO: release maps, call local handlers and inform subscribers
             trace("<%s> Removing link to expired device %s.\n",
-                  mdev_name(md), link->props.name);
+                  mapper_device_name(dev), link->remote_device->name);
 
-            mapper_router_remove_link(md->router, link);
+            mapper_router_remove_link(dev->local->router, link);
         }
 
         /* Parse the ordinal from the complete name which is in the
@@ -1211,11 +1232,11 @@ static int handler_logout(const char *path, const char *types,
         // If device name matches
         strtok(name, ".");
         name++;
-        if (strcmp(name, md->props.identifier) == 0) {
+        if (strcmp(name, dev->identifier) == 0) {
             // if registered ordinal is within my block, free it
-            diff = ordinal - md->ordinal.value;
+            diff = ordinal - dev->local->ordinal.value;
             if (diff > 0 && diff < 9) {
-                md->ordinal.suggestion[diff-1] = 0;
+                dev->local->ordinal.suggestion[diff-1] = 0;
             }
         }
     }
@@ -1284,7 +1305,7 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
         s = &sub;
     }
 
-    if (revision == admin->device->props.version)
+    if (revision == admin->device->version)
         return;
 
     // bring new subscriber up to date
@@ -1306,7 +1327,7 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **argv,
                              int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     int version = -1;
 
     lo_address a  = lo_message_get_source(msg);
@@ -1349,7 +1370,7 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **argv,
                 timeout_seconds = (int)argv[i]->d;
             else {
                 trace("<%s> error parsing @lease property in /subscribe.\n",
-                      mdev_name(md));
+                      mapper_device_name(dev));
             }
         }
     }
@@ -1443,7 +1464,7 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
                               int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     char *name, *s;
     uint64_t id;
     int ordinal, diff, temp_id = -1, suggestion = -1;
@@ -1457,9 +1478,9 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
     name = &argv[0]->s;
 
     trace("</%s.?::%p> got /name/registered %s %i \n",
-          md->props.identifier, admin, name, temp_id);
+          dev->identifier, admin, name, temp_id);
 
-    if (md->ordinal.locked) {
+    if (dev->local->ordinal.locked) {
         /* Parse the ordinal from the complete name which is in the
          * format: <name>.<n> */
         s = name;
@@ -1470,17 +1491,17 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
         *s = 0;
 
         // If device name matches
-        if (strcmp(name+1, md->props.identifier) == 0) {
+        if (strcmp(name+1, dev->identifier) == 0) {
             // if id is locked and registered id is within my block, store it
-            diff = ordinal - md->ordinal.value;
+            diff = ordinal - dev->local->ordinal.value;
             if (diff > 0 && diff < 9) {
-                md->ordinal.suggestion[diff-1] = -1;
+                dev->local->ordinal.suggestion[diff-1] = -1;
             }
         }
     }
     else {
         id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
-        if (id == md->props.id) {
+        if (id == dev->id) {
             if (argc > 1) {
                 if (types[1] == 'i')
                     temp_id = argv[1]->i;
@@ -1488,14 +1509,14 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
                     suggestion = argv[2]->i;
             }
             if (temp_id == admin->random_id &&
-                suggestion != md->ordinal.value && suggestion > 0) {
-                md->ordinal.value = suggestion;
-                mapper_admin_probe_device_name(admin, md);
+                suggestion != dev->local->ordinal.value && suggestion > 0) {
+                dev->local->ordinal.value = suggestion;
+                mapper_admin_probe_device_name(admin, dev);
             }
             else {
                 /* Count ordinal collisions. */
-                md->ordinal.collision_count++;
-                md->ordinal.count_time = get_current_time();
+                dev->local->ordinal.collision_count++;
+                dev->local->ordinal.count_time = get_current_time();
             }
         }
     }
@@ -1507,7 +1528,7 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
                          int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     char *name;
     double current_time;
     uint64_t id;
@@ -1526,17 +1547,17 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
     }
 
     trace("</%s.?::%p> got /name/probe %s %i \n",
-          md->props.identifier, admin, name, temp_id);
+          dev->identifier, admin, name, temp_id);
 
     id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
-    if (id == md->props.id) {
-        if (md->ordinal.locked) {
+    if (id == dev->id) {
+        if (dev->local->ordinal.locked) {
             current_time = get_current_time();
             for (i=0; i<8; i++) {
-                if (md->ordinal.suggestion[i] >= 0
-                    && (current_time - md->ordinal.suggestion[i]) > 2.0) {
+                if (dev->local->ordinal.suggestion[i] >= 0
+                    && (current_time - dev->local->ordinal.suggestion[i]) > 2.0) {
                     // reserve suggested ordinal
-                    md->ordinal.suggestion[i] = get_current_time();
+                    dev->local->ordinal.suggestion[i] = get_current_time();
                     break;
                 }
             }
@@ -1544,11 +1565,11 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
              * mapper_admin_send() here. */
             lo_send(admin->bus_addr, admin_message_strings[ADM_NAME_REG],
                     "sii", name, temp_id,
-                    (md->ordinal.value+i+1));
+                    (dev->local->ordinal.value+i+1));
         }
         else {
-            md->ordinal.collision_count++;
-            md->ordinal.count_time = get_current_time();
+            dev->local->ordinal.collision_count++;
+            dev->local->ordinal.count_time = get_current_time();
         }
     }
     return 0;
@@ -1670,7 +1691,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
                        int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     mapper_signal local_signal = 0;
     int i, num_sources, src_index, dest_index, param_index;
 
@@ -1682,17 +1703,20 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         return 0;
 
     // check if we are the destination of this mapping
-    if (prefix_cmp(&argv[dest_index]->s, mdev_name(md), &local_signal_name)==0) {
-        local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+    if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
+                   &local_signal_name)==0) {
+        local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                       local_signal_name);
         if (!local_signal) {
             trace("<%s> no signal found with name '%s'.\n",
-                  mdev_name(md), local_signal_name);
+                  mapper_device_name(dev), local_signal_name);
             return 0;
         }
     }
 
 #ifdef DEBUG
-    printf("-- <%s> %s /map", mdev_name(md), local_signal ? "got" : "ignoring");
+    printf("-- <%s> %s /map", mapper_device_name(dev),
+           local_signal ? "got" : "ignoring");
     if (src_index)
         printf(" %s <-", &argv[dest_index]->s);
     for (i = 0; i < num_sources; i++)
@@ -1715,7 +1739,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         src_names[i] = &argv[src_index+i]->s;
     }
     mapper_map map;
-    map = mapper_router_find_incoming_map(md->router, local_signal,
+    map = mapper_router_find_incoming_map(dev->local->router, local_signal,
                                           num_sources, src_names);
 
     /* If a mapping already exists between these signals, forward the message
@@ -1729,16 +1753,18 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     const char *src_signal_name;
     mapper_signal src_signals[num_sources];
     for (i = 0; i < num_sources; i++) {
-        if (prefix_cmp(src_names[i], mdev_name(md), &src_signal_name)==0) {
+        if (prefix_cmp(src_names[i], mapper_device_name(dev),
+                       &src_signal_name)==0) {
             // this source is a local signal
-            src_signals[i] = mdev_signal_by_name(md, src_signal_name, 0);
+            src_signals[i] = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                             src_signal_name);
         }
         else
             src_signals[i] = 0;
     }
 
     // create a tentative mapping (flavourless)
-    map = mapper_router_add_map(md->router, local_signal, num_sources,
+    map = mapper_router_add_map(dev->local->router, local_signal, num_sources,
                                 src_signals, src_names, DI_INCOMING);
 
     // parse arguments from message if any
@@ -1750,28 +1776,13 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
 
     if (map->local->status == MAPPER_READY) {
         // This mapping only references local signals, advance to "mapped"
-
-        // TODO: move num_incoming_maps/outgoing_maps prop to device instead of link
         map->local->status = MAPPER_ACTIVE;
-        map->destination.local->link->props.num_outgoing_maps++;
-        map->destination.local->link->props.num_incoming_maps++;
+        ++map->destination.local->link->num_incoming_maps;
 
         // Inform subscribers
         if (admin->subscribers) {
             mapper_admin_set_bundle_dest_subscribers(admin, SUBSCRIBE_DEVICE_MAPS_IN);
             mapper_admin_send_map(admin, map, -1, ADM_MAPPED);
-        }
-
-        // Call local map handler if it exists
-        if (md->map_cb) {
-            for (i = 0; i < map->num_sources; i++) {
-                md->map_cb(md, map->sources[i].local->router_sig->signal, map,
-                           &map->sources[i], MDEV_LOCAL_ESTABLISHED,
-                           md->map_cb_userdata);
-            }
-            md->map_cb(md, map->destination.local->router_sig->signal, map,
-                       &map->destination, MDEV_LOCAL_ESTABLISHED,
-                       md->map_cb_userdata);
         }
         return 0;
     }
@@ -1805,7 +1816,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                           int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     mapper_signal local_signal = 0;
     mapper_map map;
     int i, num_sources, src_index, dest_index, param_index;
@@ -1820,12 +1831,13 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     // check if we are an endpoint of this map
     if (!src_index) {
         // check if we are the destination
-        if (prefix_cmp(&argv[dest_index]->s, mdev_name(md),
+        if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                        &local_signal_name)==0) {
-            local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+            local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                           local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
-                      mdev_name(md), local_signal_name);
+                      mapper_device_name(dev), local_signal_name);
                 return 0;
             }
         }
@@ -1833,22 +1845,24 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     else {
         // check if we are a source – all sources must match!
         for (i = 0; i < num_sources; i++) {
-            if (prefix_cmp(&argv[src_index+i]->s, mdev_name(md),
+            if (prefix_cmp(&argv[src_index+i]->s, mapper_device_name(dev),
                            &local_signal_name)) {
                 local_signal = 0;
                 break;
             }
-            local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+            local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                           local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
-                      mdev_name(md), local_signal_name);
+                      mapper_device_name(dev), local_signal_name);
                 break;
             }
         }
     }
 
 #ifdef DEBUG
-    printf("-- <%s> %s /mapTo", mdev_name(md), local_signal ? "got" : "ignoring");
+    printf("-- <%s> %s /mapTo", mapper_device_name(dev),
+           local_signal ? "got" : "ignoring");
     if (src_index)
         printf(" %s <-", &argv[dest_index]->s);
     for (i = 0; i < num_sources; i++)
@@ -1870,22 +1884,25 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                                                         argc-param_index,
                                                         &argv[param_index]);
     if (!params) {
-        trace("<%s> ignoring /mapTo, no properties.\n", mdev_name(md));
+        trace("<%s> ignoring /mapTo, no properties.\n", mapper_device_name(dev));
         return 0;
     }
     mapper_message_atom atom = mapper_message_param(params, AT_ID);
     if (!atom || atom->types[0] != 'h') {
-        trace("<%s> ignoring /mapTo, no 'id' property.\n", mdev_name(md));
+        trace("<%s> ignoring /mapTo, no 'id' property.\n",
+              mapper_device_name(dev));
         mapper_message_free(params);
         return 0;
     }
     uint64_t id = (atom->values[0])->i64;
 
     if (src_index) {
-        map = mapper_router_find_outgoing_map_by_id(md->router, local_signal, id);
+        map = mapper_router_find_outgoing_map_by_id(dev->local->router,
+                                                    local_signal, id);
     }
     else {
-        map = mapper_router_find_incoming_map_by_id(md->router, local_signal, id);
+        map = mapper_router_find_incoming_map_by_id(dev->local->router,
+                                                    local_signal, id);
     }
 
     if (!map) {
@@ -1902,17 +1919,20 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
             // organize source signals
             mapper_signal src_sigs[num_sources];
             for (i = 0; i < num_sources; i++) {
-                src_sigs[i] = mdev_signal_by_name(md, src_names[i], 0);
+                src_sigs[i] = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                              src_names[i]);
             }
             /* Add a flavourless mapping */
             const char *dest_name = &argv[dest_index]->s;
-            map = mapper_router_add_map(md->router, local_signal, num_sources,
-                                        src_sigs, &dest_name, DI_OUTGOING);
+            map = mapper_router_add_map(dev->local->router, local_signal,
+                                        num_sources, src_sigs, &dest_name,
+                                        DI_OUTGOING);
         }
         else {
             /* Add a flavourless mapping */
-            map = mapper_router_add_map(md->router, local_signal, num_sources,
-                                        0, (const char**)src_names, DI_INCOMING);
+            map = mapper_router_add_map(dev->local->router, local_signal,
+                                        num_sources, 0, (const char**)src_names,
+                                        DI_INCOMING);
         }
         if (!map) {
             trace("couldn't create map in handler_map_to\n");
@@ -1922,7 +1942,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     }
     else if (map->num_sources != num_sources) {
         if (src_index) {
-            trace("<%s> wrong num_sources in /map_to.\n", mdev_name(md));
+            trace("<%s> wrong num_sources in /map_to.\n", mapper_device_name(dev));
             mapper_message_free(params);
             return 0;
         }
@@ -1962,7 +1982,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                           int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     mapper_signal local_signal = 0;
     mapper_map map;
     mapper_monitor mon = admin->monitor;
@@ -2003,7 +2023,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                                            &argv[dest_index]->s, params);
     }
 
-    if (!md || !mdev_name(md)) {
+    if (!dev || !mapper_device_name(dev)) {
         mapper_message_free(params);
         return 0;
     }
@@ -2014,12 +2034,13 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     // check if we are an endpoint of this mapping
     if (!src_index) {
         // check if we are the destination
-        if (prefix_cmp(&argv[dest_index]->s, mdev_name(md),
+        if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                        &local_signal_name)==0) {
-            local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+            local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                           local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
-                      mdev_name(md), local_signal_name);
+                      mapper_device_name(dev), local_signal_name);
                 mapper_message_free(params);
                 return 0;
             }
@@ -2028,22 +2049,24 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     else {
         // check if we are a source – all sources must match!
         for (i = 0; i < num_sources; i++) {
-            if (prefix_cmp(&argv[src_index+i]->s, mdev_name(md),
+            if (prefix_cmp(&argv[src_index+i]->s, mapper_device_name(dev),
                            &local_signal_name)) {
                 local_signal = 0;
                 break;
             }
-            local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+            local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                           local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
-                      mdev_name(md), local_signal_name);
+                      mapper_device_name(dev), local_signal_name);
                 break;
             }
         }
     }
 
 #ifdef DEBUG
-    printf("-- <%s> %s /mapped", mdev_name(md), local_signal ? "got" : "ignoring");
+    printf("-- <%s> %s /mapped", mapper_device_name(dev),
+           local_signal ? "got" : "ignoring");
     if (src_index)
         printf(" %s <-", &argv[dest_index]->s);
     for (i = 0; i < num_sources; i++)
@@ -2059,25 +2082,28 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
 
     mapper_message_atom atom = mapper_message_param(params, AT_ID);
     if (!atom || atom->types[0] != 'h') {
-        trace("<%s> ignoring /mapped, no 'id' property.\n", mdev_name(md));
+        trace("<%s> ignoring /mapped, no 'id' property.\n",
+              mapper_device_name(dev));
         mapper_message_free(params);
         return 0;
     }
     uint64_t id = (atom->values[0])->i64;
 
     if (src_index) {
-        map = mapper_router_find_outgoing_map_by_id(md->router, local_signal, id);
+        map = mapper_router_find_outgoing_map_by_id(dev->local->router,
+                                                    local_signal, id);
     }
     else {
-        map = mapper_router_find_incoming_map_by_id(md->router, local_signal, id);
+        map = mapper_router_find_incoming_map_by_id(dev->local->router,
+                                                    local_signal, id);
     }
     if (!map) {
-        trace("<%s> no map found for /mapped.\n", mdev_name(md));
+        trace("<%s> no map found for /mapped.\n", mapper_device_name(dev));
         mapper_message_free(params);
         return 0;
     }
     if (src_index && map->num_sources != num_sources) {
-        trace("<%s> wrong num_sources in /mapped.\n", mdev_name(md));
+        trace("<%s> wrong num_sources in /mapped.\n", mapper_device_name(dev));
         mapper_message_free(params);
         return 0;
     }
@@ -2097,7 +2123,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             mapper_admin_set_bundle_dest_mesh(admin,
                                               map->destination.local->link->admin_addr);
             mapper_admin_send_map(admin, map, -1, ADM_MAPPED);
-            map->destination.local->link->props.num_outgoing_maps++;
+            ++map->destination.local->link->num_outgoing_maps;
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
@@ -2106,7 +2132,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                 i = mapper_admin_send_map(admin, map,
                                           map->local->one_source ? -1 : i,
                                           ADM_MAPPED);
-                map->sources[i].local->link->props.num_incoming_maps++;
+                ++map->sources[i].local->link->num_incoming_maps;
             }
         }
         updated++;
@@ -2116,26 +2142,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             // Inform subscribers
             mapper_admin_set_bundle_dest_subscribers(admin, SUBSCRIBE_DEVICE_MAPS_IN);
             mapper_admin_send_map(admin, map, -1, ADM_MAPPED);
-        }
-
-        // Call local map handler if it exists
-        if (md->map_cb) {
-            for (i = 0; i < map->num_sources; i++) {
-                if (map->sources[i].local->router_sig) {
-                    md->map_cb(md, map->sources[i].local->router_sig->signal,
-                               map, &map->sources[i],
-                               map->local->status == MAPPER_ACTIVE
-                               ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
-                               md->map_cb_userdata);
-                }
-            }
-            if (map->destination.local->router_sig) {
-                md->map_cb(md, map->destination.local->router_sig->signal,
-                           map, &map->destination,
-                           map->local->status == MAPPER_ACTIVE
-                           ? MDEV_LOCAL_MODIFIED : MDEV_LOCAL_ESTABLISHED,
-                           md->map_cb_userdata);
-            }
         }
         map->local->status = MAPPER_ACTIVE;
     }
@@ -2149,7 +2155,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
                               int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     mapper_map map = 0;
     mapper_signal local_signal = 0;
     int i, num_sources, src_index, dest_index, param_index;
@@ -2173,40 +2179,43 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
     }
 
     // check if we are the destination
-    if (prefix_cmp(&argv[dest_index]->s, mdev_name(md),
+    if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                    &local_signal_name)==0) {
-        local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+        local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                       local_signal_name);
         if (!local_signal) {
             trace("<%s> no signal found with name '%s'.\n",
-                  mdev_name(md), local_signal_name);
+                  mapper_device_name(dev), local_signal_name);
             return 0;
         }
-        map = mapper_router_find_incoming_map(md->router, local_signal,
+        map = mapper_router_find_incoming_map(dev->local->router, local_signal,
                                               num_sources, src_names);
     }
     else {
         // check if we are a source – all sources must match!
         for (i = 0; i < num_sources; i++) {
-            if (prefix_cmp(src_names[i], mdev_name(md),
+            if (prefix_cmp(src_names[i], mapper_device_name(dev),
                            &local_signal_name)) {
                 local_signal = 0;
                 break;
             }
-            local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+            local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                           local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
-                      mdev_name(md), local_signal_name);
+                      mapper_device_name(dev), local_signal_name);
                 break;
             }
         }
         if (local_signal)
-            map = mapper_router_find_outgoing_map(md->router, local_signal,
+            map = mapper_router_find_outgoing_map(dev->local->router, local_signal,
                                                   num_sources, src_names,
                                                   &argv[dest_index]->s);
     }
 
 #ifdef DEBUG
-    printf("-- <%s> %s /map/modify", mdev_name(md), map ? "got" : "ignoring");
+    printf("-- <%s> %s /map/modify", mapper_device_name(dev),
+           map ? "got" : "ignoring");
     if (src_index)
         printf(" %s <-", &argv[dest_index]->s);
     for (i = 0; i < num_sources; i++)
@@ -2221,7 +2230,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
 
     if (!map->local->is_admin) {
         trace("<%s> ignoring /map/modify, slaved to remote device.\n",
-              mdev_name(md));
+              mapper_device_name(dev));
         return 0;
     }
 
@@ -2229,7 +2238,8 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
                                                         argc-param_index,
                                                         &argv[param_index]);
     if (!params) {
-        trace("<%s> ignoring /map/modify, no properties.\n", mdev_name(md));
+        trace("<%s> ignoring /map/modify, no properties.\n",
+              mapper_device_name(dev));
         return 0;
     }
 
@@ -2265,21 +2275,6 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
                                                          SUBSCRIBE_DEVICE_MAPS_OUT);
             mapper_admin_send_map(admin, map, -1, ADM_MAPPED);
         }
-
-        // Call local map handler if it exists
-        if (md->map_cb) {
-            for (i = 0; i < map->num_sources; i++) {
-                if (map->sources[i].local->router_sig)
-                    md->map_cb(md, map->sources[i].local->router_sig->signal,
-                               map, &map->sources[i], MDEV_LOCAL_MODIFIED,
-                               md->map_cb_userdata);
-            }
-            if (map->destination.local->router_sig) {
-                md->map_cb(md, map->destination.local->router_sig->signal,
-                           map, &map->destination, MDEV_LOCAL_MODIFIED,
-                           md->map_cb_userdata);
-            }
-        }
     }
     mapper_message_free(params);
     return 0;
@@ -2290,7 +2285,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
                          int argc, lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     mapper_signal local_signal;
     mapper_map map = 0;
     int i, num_sources, src_index, dest_index;
@@ -2311,40 +2306,42 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     }
 
     // check if we are the destination
-    if (prefix_cmp(&argv[dest_index]->s, mdev_name(md),
+    if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                    &local_signal_name)==0) {
-        local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+        local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                       local_signal_name);
         if (!local_signal) {
             trace("<%s> no signal found with name '%s'.\n",
-                  mdev_name(md), local_signal_name);
+                  mapper_device_name(dev), local_signal_name);
             return 0;
         }
-        map = mapper_router_find_incoming_map(md->router, local_signal,
+        map = mapper_router_find_incoming_map(dev->local->router, local_signal,
                                               num_sources, src_names);
     }
     else {
         // check if we are a source – all sources must match!
         for (i = 0; i < num_sources; i++) {
-            if (prefix_cmp(src_names[i], mdev_name(md),
+            if (prefix_cmp(src_names[i], mapper_device_name(dev),
                            &local_signal_name)) {
                 local_signal = 0;
                 break;
             }
-            local_signal = mdev_signal_by_name(md, local_signal_name, 0);
+            local_signal = mapper_db_device_signal_by_name(&admin->db, dev,
+                                                           local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
-                      mdev_name(md), local_signal_name);
+                      mapper_device_name(dev), local_signal_name);
                 break;
             }
         }
         if (local_signal)
-            map = mapper_router_find_outgoing_map(md->router, local_signal,
+            map = mapper_router_find_outgoing_map(dev->local->router, local_signal,
                                                   num_sources, src_names,
                                                   &argv[dest_index]->s);
     }
 
 #ifdef DEBUG
-    printf("-- <%s> %s /unmap", mdev_name(md), map ? "got" : "ignoring");
+    printf("-- <%s> %s /unmap", mapper_device_name(dev), map ? "got" : "ignoring");
     if (src_index)
         printf(" %s <-", &argv[dest_index]->s);
     for (i = 0; i < num_sources; i++)
@@ -2384,21 +2381,8 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
         mapper_admin_send_map(admin, map, -1, ADM_UNMAPPED);
     }
 
-    // Call local map handler if it exists
-    if (md->map_cb) {
-        for (i = 0; i < map->num_sources; i++)
-            if (map->sources[i].local)
-                md->map_cb(md, map->sources[i].local->router_sig->signal, map,
-                           &map->sources[i], MDEV_LOCAL_DESTROYED,
-                           md->map_cb_userdata);
-        if (map->destination.local->router_sig)
-            md->map_cb(md, map->destination.local->router_sig->signal, map,
-                       &map->destination, MDEV_LOCAL_DESTROYED,
-                       md->map_cb_userdata);
-    }
-
     /* The mapping is removed. */
-    mapper_router_remove_map(md->router, map);
+    mapper_router_remove_map(dev->local->router, map);
     // TODO: remove empty router_signals
     return 0;
 }
@@ -2445,17 +2429,17 @@ static int handler_ping(const char *path, const char *types, lo_arg **argv,
                         int argc,lo_message msg, void *user_data)
 {
     mapper_admin admin = (mapper_admin) user_data;
-    mapper_device md = admin->device;
+    mapper_device dev = admin->device;
     mapper_clock_t *clock = &admin->clock;
 
-    if (!md)
+    if (!dev)
         return 0;
 
     mapper_timetag_t now;
     mapper_clock_now(clock, &now);
     lo_timetag then = lo_message_get_timestamp(msg);
 
-    mapper_link link = mapper_router_find_link_by_remote_id(md->router,
+    mapper_link link = mapper_router_find_link_by_remote_id(dev->local->router,
                                                             argv[0]->h);
     if (link) {
         if (argv[2]->i == link->clock.sent.message_id) {
@@ -2508,9 +2492,9 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
     if (!mon || !argc)
         return 0;
 
-    mapper_db_device dev = 0;
+    mapper_device dev = 0;
     if (types[0] == 's' || types[0] == 'S') {
-        if ((dev = mapper_db_device_by_name(&mon->db, &argv[0]->s))) {
+        if ((dev = mapper_db_device_by_name(&admin->db, &argv[0]->s))) {
             mapper_timetag_cpy(&dev->synced, lo_message_get_timestamp(msg));
         }
         if (mon->autosubscribe && (!dev || !dev->subscribed)) {
@@ -2520,14 +2504,14 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
                 dev->subscribed = 1;
             }
             else {
-                mapper_db_device_t temp;
+                mapper_device_t temp;
                 temp.name = &argv[0]->s;
                 mmon_subscribe(mon, &temp, mon->autosubscribe, 0);
             }
         }
     }
     else if (types[0] == 'i') {
-        if ((dev = mapper_db_device_by_id(&mon->db, argv[0]->i)))
+        if ((dev = mapper_db_device_by_id(&admin->db, argv[0]->i)))
             mapper_timetag_cpy(&dev->synced, lo_message_get_timestamp(msg));
     }
 

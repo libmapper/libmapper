@@ -53,7 +53,7 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
     eprintf("%s mapping for device %s (%s:%s -> %s:%s), ",
             action == MDEV_LOCAL_ESTABLISHED ? "New"
             : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
-            mdev_name(dev), mdev_name(dev), sig->props.name,
+            mapper_device_name(dev), mapper_device_name(dev), sig->props.name,
             map->destination.signal->device->name, map->destination.signal->name);
 
     if (slot->direction == DI_OUTGOING) {
@@ -144,21 +144,21 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", 0, 0);
+    source = mapper_device_new("testsend", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    mdev_set_map_callback(source, on_mdev_map, 0);
+    mapper_device_set_map_callback(source, on_mdev_map, 0);
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
+    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
 
     // Add custom meta-data specifying that this signal supports a
     // special TCP transport.
     char *str = "tcp";
-    msig_set_property(sendsig, "transport", 's', str, 1);
+    mapper_signal_set_property(sendsig, "transport", 's', str, 1);
 
     eprintf("Output signal /outsig registered.\n");
 
@@ -173,7 +173,7 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
@@ -196,24 +196,24 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", 0, 0);
+    destination = mapper_device_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mdev_add_input(destination, "/insig", 1, 'f',
-                             0, &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
+                                      0, &mn, &mx, insig_handler, 0);
 
     // Add custom meta-data specifying a special transport for this
     // signal.
     char *str = "tcp";
-    msig_set_property(recvsig, "transport", 's', str, 1);
+    mapper_signal_set_property(recvsig, "transport", 's', str, 1);
 
     // Add custom meta-data specifying a port to use for this signal's
     // custom transport.
-    msig_set_property(recvsig, "tcpPort", 'i', &tcp_port, 1);
+    mapper_signal_set_property(recvsig, "tcpPort", 'i', &tcp_port, 1);
 
     eprintf("Input signal /insig registered.\n");
 
@@ -228,16 +228,17 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
 
         usleep(50 * 1000);
     }
@@ -277,10 +278,10 @@ void loop()
     listen(listen_socket, 1);
 
     while ((!terminate || received < iterations) && !done) {
-        mdev_poll(source, 0);
+        mapper_device_poll(source, 0);
 
         // Instead of
-        // msig_update_float(sendsig, ((i % 10) * 1.0f));
+        // mapper_signal_update_float(sendsig, ((i % 10) * 1.0f));
 
         // We will instead send our data on the custom TCP socket if
         // it is valid
@@ -349,7 +350,7 @@ void loop()
             fflush(stdout);
         }
 
-        mdev_poll(destination, 100);
+        mapper_device_poll(destination, 100);
         i++;
     }
     if (send_socket != -1)

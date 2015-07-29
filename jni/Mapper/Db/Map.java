@@ -30,7 +30,8 @@ public class Map
     public static final int DI_BOTH     = 3;
 
     public class Slot {
-        private Slot(long s) {
+        private Slot(long db, long s) {
+            _db = db;
             _slotprops = s;
 
             boundMin = mdb_map_slot_get_bound_min(_slotprops);
@@ -45,6 +46,7 @@ public class Map
             type = mdb_map_slot_get_type(_slotprops);
         }
         private Slot() {
+            _db = 0;
             boundMin = -1;
             boundMax = -1;
             causeUpdate = -1;
@@ -85,17 +87,19 @@ public class Map
         private native int mdb_map_slot_get_send_as_instance(long p);
 
         public Signal signal() {
-            return new Signal(mdb_map_slot_get_signal(_slotprops));
+            return new Mapper.Db.Signal(_db, mdb_map_slot_get_signal(_slotprops));
         }
         private native long mdb_map_slot_get_signal(long p);
 
         public char type;
         private native char mdb_map_slot_get_type(long p);
 
+        private long _db;
         private long _slotprops;
     };
 
-    public Map(long mapprops) {
+    public Map(long db, long mapprops) {
+        _db = db;
         _mapprops = mapprops;
 
         expression = mdb_map_get_expression(_mapprops);
@@ -108,9 +112,9 @@ public class Map
 
         sources = new Slot[numSources];
         for (int i = 0; i < numSources; i++)
-            sources[i] = new Slot(mdb_map_get_source_ptr(_mapprops, i));
+            sources[i] = new Slot(_db, mdb_map_get_source_ptr(_mapprops, i));
         source = sources[0];
-        destination = new Slot(mdb_map_get_dest_ptr(_mapprops));
+        destination = new Slot(_db, mdb_map_get_dest_ptr(_mapprops));
     }
 
     public Map(int _numSources) {
@@ -136,8 +140,8 @@ public class Map
     public String expression;
     private native String mdb_map_get_expression(long p);
 
-    public int id;
-    private native int mdb_map_get_id(long p);
+    public long id;
+    private native long mdb_map_get_id(long p);
 
     public int mode;
     private native int mdb_map_get_mode(long p);
@@ -178,5 +182,6 @@ public class Map
     public Slot source;
     public Slot destination;
 
+    private long _db;
     private long _mapprops;
 }

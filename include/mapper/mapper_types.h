@@ -11,6 +11,9 @@ extern "C" {
 //! An internal structure defining a mapper device.
 typedef void *mapper_device;
 
+//! An internal structure defining a mapper device.
+typedef void *mapper_signal;
+
 //! An internal structure defining a mapper network monitor.
 typedef void *mapper_monitor;
 

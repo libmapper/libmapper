@@ -42,24 +42,24 @@ void handler(mapper_signal sig, mapper_db_signal props,
 
 int test_recv()
 {
-    mapper_device md = mdev_new("synth", 0, 0);
+    mapper_device md = mapper_device_new("synth", 0, 0);
     if (!md)
         goto error;
     eprintf("Mapper device created.\n");
 
     float mn=0, mx=1;
-    mapper_signal sig = mdev_add_input(md, "/mapped1", 1, 'f', 0,
-                                       &mn, &mx, handler, 0);
+    mapper_signal sig = mapper_device_add_input(md, "/mapped1", 1, 'f', 0,
+                                                &mn, &mx, handler, 0);
 
     eprintf("Input signal /mapped1 registered.\n");
 
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(md));
+    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(md));
 
     eprintf("Waiting for port/ordinal allocation..\n");
     int i;
     for (i = 0; i < 10; i++) {
-        mdev_poll(md, 500);
-        if (mdev_ready(md))
+        mapper_device_poll(md, 500);
+        if (mapper_device_ready(md))
             break;
         usleep(500 * 1000);
     }
@@ -84,7 +84,7 @@ int test_recv()
         lo_send(a, sig->props.name, "f", (float) i);
 		eprintf("Updating signal %s to %f\n", sig->props.name, (float) i);
         sent++;
-        mdev_poll(md, 100);
+        mapper_device_poll(md, 100);
         i++;
     }
 
@@ -99,13 +99,13 @@ int test_recv()
     }
     eprintf("Sent and received %d values.\n", sent);
 
-    mdev_free(md);
+    mapper_device_free(md);
     lo_address_free(a);
     return 0;
 
   error:
     if (md)
-        mdev_free(md);
+        mapper_device_free(md);
     if (a)
         lo_address_free(a);
     return 1;

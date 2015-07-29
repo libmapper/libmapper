@@ -26,7 +26,7 @@ int setup_devices()
 {
     int i;
     for (i=0; i<5; i++) {
-        devices[i] = mdev_new("testsync", 0, 0);
+        devices[i] = mapper_device_new("testsync", 0, 0);
         if (!devices[i])
             goto error;
     }
@@ -43,7 +43,7 @@ void cleanup_devices()
         if (devices[i]) {
             printf("Freeing device %i... ", i);
             fflush(stdout);
-            mdev_free(devices[i]);
+            mapper_device_free(devices[i]);
             printf("ok\n");
         }
     }
@@ -56,13 +56,13 @@ void loop()
 
     while (i <= 100 && !done) {
         for (i=0; i<5; i++)
-            mdev_poll(devices[i], 20);
+            mapper_device_poll(devices[i], 20);
         lo_timetag_now(&system_time);
         if (system_time.sec != last_update) {
             last_update = system_time.sec;
             if (ready) {
                 for (i=0; i<5; i++) {
-                    mdev_now(devices[i], &device_times[i]);
+                    mapper_device_now(devices[i], &device_times[i]);
                 }
                 // calculate standard deviation
                 double mean = 0;
@@ -86,7 +86,7 @@ void loop()
             else {
                 int count = 0;
                 for (i=0; i<5; i++) {
-                    count += mdev_ready(devices[i]);
+                    count += mapper_device_ready(devices[i]);
                 }
                 if (count >= 5) {
                     printf("\nSYSTEM TIME *****  |  OFFSETS *****\n");

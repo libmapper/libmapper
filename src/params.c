@@ -71,11 +71,6 @@ inline static int type_match(const char l, const char r)
     return (l == r || ((l == 'T' || l == 'F') && (r == 'T' || r == 'F')));
 }
 
-inline static const char *skip_slash(const char *string)
-{
-    return string + (string && string[0]=='/');
-}
-
 int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
 {
     if (!string)
@@ -794,6 +789,27 @@ void propval_set_double(void *to, const char type, int index, double from)
             break;
         }
     }
+}
+
+int mapper_prop_set_string(char **property, const char *string)
+{
+    if (*property) {
+        if (!string) {
+            free(*property);
+            *property = 0;
+            return 1;
+        }
+        else if (strcmp(*property, string)) {
+            *property = realloc(*property, strlen(string)+1);
+            memcpy(*property, string, strlen(string)+1);
+            return 1;
+        }
+    }
+    else if (string) {
+        *property = strdup(string);
+        return 1;
+    }
+    return 0;
 }
 
 void mapper_prop_pp(char type, int length, const void *value)

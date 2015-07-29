@@ -53,11 +53,6 @@ public class Device
             checkDevice();
             return msig_name(_signal);
         }
-        public String fullName()
-        {
-            checkDevice();
-            return msig_full_name(_signal);
-        }
         public int direction()
         {
             checkDevice();
@@ -86,7 +81,6 @@ public class Device
             msig_remove_property(_signal, property);
         }
 
-        private native String msig_full_name(long sig);
         private native String msig_name(long sig);
         private native int msig_direction(long sig);
         private native void msig_set_rate(long sig, double rate);
@@ -122,8 +116,6 @@ public class Device
         public native Integer oldestActiveInstance();
         public native Integer newestActiveInstance();
 
-        public native void matchInstances(Signal from, Signal to,
-                                          int instanceId);
         public native int numActiveInstances();
         public native int numReservedInstances();
         public native int activeInstanceId(int index);
@@ -346,9 +338,9 @@ public class Device
         return mdev_ordinal(_device);
     }
 
-    public int hash()
+    public int id()
     {
-        return mdev_hash(_device);
+        return mdev_id(_device);
     }
 
     public void startQueue(TimeTag tt)
@@ -410,7 +402,7 @@ public class Device
     private native String mdev_ip4(long _d);
     private native String mdev_interface(long _d);
     private native int mdev_ordinal(long _d);
-    private native int mdev_hash(long _d);
+    private native int mdev_id(long _d);
 
     private native void mdev_start_queue(long _d, TimeTag tt);
     private native void mdev_send_queue(long _d, TimeTag tt);
