@@ -416,7 +416,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 int mapper_router_send_query(mapper_router rtr, mapper_signal sig,
                              mapper_timetag_t tt)
 {
-    if (!sig->local->handler) {
+    if (!sig->local->update_handler) {
         trace("not sending queries since signal has no handler.\n");
         return 0;
     }

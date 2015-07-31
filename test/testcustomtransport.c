@@ -46,28 +46,22 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
-                 mapper_slot slot, mapper_device_local_action_t action,
-                 void *user)
+void on_map(mapper_map map, mapper_action_t action, void *user)
 {
-    eprintf("%s mapping for device %s (%s:%s -> %s:%s), ",
-            action == MDEV_LOCAL_ESTABLISHED ? "New"
-            : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
-            mapper_device_name(dev), mapper_device_name(dev), sig->props.name,
-            map->destination.signal->device->name, map->destination.signal->name);
-
-    if (slot->direction == DI_OUTGOING) {
-        eprintf("Source host is %s, port is %i\n",
-                map->sources[0].signal->device->host,
-                map->sources[0].signal->device->port);
-    }
-    else {
-        eprintf("Destination host is %s, port is %i\n",
-                map->destination.signal->device->host,
-                map->destination.signal->device->port);
+    if (verbose) {
+        printf("Map: ");
+        mapper_map_pp(map);
     }
 
-    if (action == MDEV_LOCAL_DESTROYED) {
+    // we are looking for a map with one source (sendsig) and one dest (recvsig)
+    if (mapper_map_num_sources(map) > 1)
+        return;
+    if (mapper_slot_signal(mapper_map_source_slot(map, 0)) != sendsig)
+        return;
+    if (mapper_slot_signal(mapper_map_destination_slot(map)) != recvsig)
+        return;
+
+    if (action == MAPPER_REMOVED) {
         if (send_socket != -1) {
             close(send_socket);
             send_socket = -1;
@@ -83,8 +77,7 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
     int length;
     if (mapper_map_property(map, "transport", &t,
                             (const void **)&a_transport, &length)
-        || t != 's' || length != 1)
-    {
+        || t != 's' || length != 1) {
         eprintf("Couldn't find `transport' property.\n");
         return;
     }
@@ -98,8 +91,7 @@ void on_mdev_map(mapper_device dev, mapper_signal sig, mapper_map map,
     // Find the TCP port in the mapping properties
     const int *a_port;
     if (mapper_map_property(map, "tcpPort", &t, (const void **)&a_port, &length)
-        || t != 'i' || length != 1)
-    {
+        || t != 'i' || length != 1) {
         eprintf("Couldn't make TCP connection, "
                 "tcpPort property not found.\n");
         return;
@@ -151,7 +143,7 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    mapper_device_set_map_callback(source, on_mdev_map, 0);
+    mapper_device_set_map_handler(source, on_map, 0);
 
     sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
 
@@ -178,14 +170,14 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        eprintf("--> destination got %s", props->name);
+        eprintf("--> destination got %s", mapper_signal_name(sig));
         float *v = value;
-        for (int i = 0; i < props->length; i++) {
+        int len = mapper_signal_length(sig);
+        for (int i = 0; i < len; i++) {
             eprintf(" %f", v[i]);
         }
         eprintf("\n");
@@ -250,11 +242,8 @@ void loop()
     int i = 0;
 
     if (autoconnect) {
-        mapper_monitor mon = mmon_new(source->admin, 0);
-
-        mapper_db_signal src = &sendsig->props;
-        mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig->props));
-
+        mapper_monitor mon = mmon_new(0, 0);
+        mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig, recvsig));
         mmon_free(mon);
     }
 

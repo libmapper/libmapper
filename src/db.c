@@ -285,7 +285,7 @@ mapper_device mapper_db_add_or_update_device_params(mapper_db db,
             fptr_list cb = db->device_callbacks;
             while (cb) {
                 mapper_db_device_handler *h = cb->f;
-                h(dev, rc ? MAPPER_DB_ADDED : MAPPER_DB_MODIFIED, cb->context);
+                h(dev, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
                 cb = cb->next;
             }
         }
@@ -310,7 +310,7 @@ void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet)
         fptr_list cb = db->device_callbacks;
         while (cb) {
             mapper_db_device_handler *h = cb->f;
-            h(dev, MAPPER_DB_REMOVED, cb->context);
+            h(dev, MAPPER_REMOVED, cb->context);
             cb = cb->next;
         }
     }
@@ -511,7 +511,7 @@ void mapper_db_check_device_status(mapper_db db, uint32_t time_sec)
             fptr_list cb = db->device_callbacks;
             while (cb) {
                 mapper_db_device_handler *h = cb->f;
-                h(dev, MAPPER_DB_EXPIRED, cb->context);
+                h(dev, MAPPER_EXPIRED, cb->context);
                 cb = cb->next;
             }
         }
@@ -641,7 +641,7 @@ mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
             while (cb) {
                 temp = cb->next;
                 mapper_db_signal_handler *h = cb->f;
-                h(sig, rc ? MAPPER_DB_ADDED : MAPPER_DB_MODIFIED, cb->context);
+                h(sig, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
                 cb = temp;
             }
         }
@@ -969,7 +969,7 @@ void mapper_db_remove_signal(mapper_db db, mapper_signal sig)
     fptr_list cb = db->signal_callbacks;
     while (cb) {
         mapper_db_signal_handler *h = cb->f;
-        h(sig, MAPPER_DB_REMOVED, cb->context);
+        h(sig, MAPPER_REMOVED, cb->context);
         cb = cb->next;
     }
 
@@ -1125,7 +1125,7 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
             fptr_list cb = db->map_callbacks;
             while (cb) {
                 mapper_map_handler *h = cb->f;
-                h(map, rc ? MAPPER_DB_ADDED : MAPPER_DB_MODIFIED, cb->context);
+                h(map, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
                 cb = cb->next;
             }
         }
@@ -1390,7 +1390,7 @@ void mapper_db_remove_map(mapper_db db, mapper_map map)
     fptr_list cb = db->map_callbacks;
     while (cb) {
         mapper_map_handler *h = cb->f;
-        h(map, MAPPER_DB_REMOVED, cb->context);
+        h(map, MAPPER_REMOVED, cb->context);
         cb = cb->next;
     }
 

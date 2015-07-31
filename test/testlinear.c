@@ -31,8 +31,7 @@ int received = 0;
 
 int setup_source(char *iface)
 {
-    mapper_admin admin = mapper_admin_new(iface, 0, 0);
-    source = mapper_device_new("testsend", 0, admin);
+    source = mapper_device_new("testsend", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
@@ -52,17 +51,14 @@ int setup_source(char *iface)
 void cleanup_source()
 {
     if (source) {
-        mapper_admin admin = source->admin;
         eprintf("Freeing source.. ");
         fflush(stdout);
         mapper_device_free(source);
-        mapper_admin_free(admin);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
@@ -73,8 +69,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 
 int setup_destination(char *iface)
 {
-    mapper_admin admin = mapper_admin_new(iface, 0, 0);
-    destination = mapper_device_new("testrecv", 0, admin);
+    destination = mapper_device_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
@@ -95,11 +90,9 @@ int setup_destination(char *iface)
 void cleanup_destination()
 {
     if (destination) {
-        mapper_admin admin = destination->admin;
         eprintf("Freeing destination.. ");
         fflush(stdout);
         mapper_device_free(destination);
-        mapper_admin_free(admin);
         eprintf("ok\n");
     }
 }
@@ -108,10 +101,9 @@ int setup_maps()
 {
     float src_min = 0., src_max = 100., dest_min = -10., dest_max = 10.;
 
-    mapper_monitor mon = mmon_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(0, 0);
 
-    mapper_db_signal src = &sendsig->props;
-    mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
+    mapper_map map = mmon_add_map(mon, 1, &sendsig, recvsig);
     mapper_map_set_mode(map, MO_LINEAR);
 
     mapper_slot slot = mapper_map_source_slot(map, 0);
@@ -152,7 +144,7 @@ void loop()
     int i = 0;
     while ((!terminate || i < 50) && !done) {
         mapper_device_poll(source, 0);
-        eprintf("Updating signal %s to %d\n", sendsig->props.name, i);
+        eprintf("Updating signal %s to %d\n", mapper_signal_name(sendsig), i);
         mapper_signal_update_int(sendsig, i);
         sent++;
         mapper_device_poll(destination, 100);

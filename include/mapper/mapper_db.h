@@ -5,12 +5,12 @@
 extern "C" {
 #endif
 
-struct _mapper_device;
-typedef struct _mapper_device mapper_device_t;
-typedef struct _mapper_device *mapper_device;
-struct _mapper_signal;
-typedef struct _mapper_signal mapper_signal_t;
-typedef struct _mapper_signal *mapper_signal;
+//struct _mapper_device;
+//typedef struct _mapper_device mapper_device_t;
+//typedef struct _mapper_device *mapper_device;
+//struct _mapper_signal;
+//typedef struct _mapper_signal mapper_signal_t;
+//typedef struct _mapper_signal *mapper_signal;
 
 /* An opaque structure to hold a string table of key-value pairs, used
  * to hold arbitrary signal and device parameters. */
@@ -95,17 +95,14 @@ typedef enum _mapper_instance_allocation_type {
     NUM_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
-/*! A signal handler function can be called whenever a signal value
- *  changes. */
-typedef void mapper_signal_update_handler(mapper_signal sig, int instance,
-                                          void *value, int count,
-                                          mapper_timetag_t *tt);
-
-/*! A handler function to be called whenever a signal instance management
- *  event occurs. */
-typedef void mapper_instance_event_handler(mapper_signal sig, int instance,
-                                           mapper_instance_event_t event,
-                                           mapper_timetag_t *tt);
+/*! The set of possible actions on a database record, used to inform callbacks
+ *  of what is happening to a record. */
+typedef enum {
+    MAPPER_ADDED,
+    MAPPER_MODIFIED,
+    MAPPER_REMOVED,
+    MAPPER_EXPIRED,
+} mapper_action_t;
 
 #ifdef __cplusplus
 }

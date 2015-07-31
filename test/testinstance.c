@@ -66,25 +66,23 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("--> destination %s instance %ld got %f\n",
-                props->name, (long)instance_id, (*(float*)value));
+                mapper_signal_name(sig), (long)instance_id, (*(float*)value));
         received++;
     }
     else {
         eprintf("--> destination %s instance %ld got NULL\n",
-                props->name, (long)instance_id);
+                mapper_signal_name(sig), (long)instance_id);
         mapper_signal_release_instance(sig, instance_id, MAPPER_NOW);
     }
 }
 
-void more_handler(mapper_signal sig, mapper_db_signal props,
-                  int instance_id, mapper_instance_event_t event,
-                  mapper_timetag_t *timetag)
+void more_handler(mapper_signal sig, int instance_id,
+                  mapper_instance_event_t event, mapper_timetag_t *timetag)
 {
     if (event & IN_OVERFLOW) {
         eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
@@ -151,7 +149,7 @@ void wait_local_devices()
 void print_instance_ids(mapper_signal sig)
 {
     int i, n = mapper_signal_num_active_instances(sig);
-    eprintf("active %s: [", sig->props.name);
+    eprintf("active %s: [", mapper_signal_name(sig));
     for (i=0; i<n; i++)
         eprintf(" %ld", (long)mapper_signal_active_instance_id(sig, i));
     eprintf(" ]   ");
@@ -159,10 +157,8 @@ void print_instance_ids(mapper_signal sig)
 
 void map_signals()
 {
-    mapper_monitor mon = mmon_new(source->admin, 0);
-
-    mapper_db_signal src = &sendsig->props;
-    mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
+    mapper_monitor mon = mmon_new(0, 0);
+    mapper_map map = mmon_add_map(mon, 1, &sendsig, recvsig);
     mapper_map_set_mode(map, MO_EXPRESSION);
     mapper_map_set_expression(map, "foo=1;  y=y{-1}+foo");
     mmon_update_map(mon, map);

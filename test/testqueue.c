@@ -65,8 +65,7 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
@@ -109,12 +108,9 @@ void cleanup_destination()
 
 int create_maps()
 {
-    mapper_monitor mon = mmon_new(source->admin, 0);
-
-    mapper_db_signal src = &sendsig->props;
-    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig->props));
-    src = &sendsig1->props;
-    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig->props));
+    mapper_monitor mon = mmon_new(0, 0);
+    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig, recvsig));
+    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig1, recvsig));
 
     // wait until mapping has been established
     while (!done && !mapper_device_num_outgoing_maps(source)) {
@@ -148,8 +144,7 @@ void loop()
         mapper_device_now(source, &now);
         mapper_device_start_queue(source, now);
 		mapper_device_poll(source, 0);
-        eprintf("Updating signal %s to %f\n",
-                sendsig->props.name, j);
+        eprintf("Updating signal %s to %f\n", mapper_signal_name(sendsig), j);
         mapper_signal_update(sendsig, &j, 0, now);
 		mapper_signal_update(sendsig1, &j, 0, now);
 		mapper_device_send_queue(sendsig->device, now);

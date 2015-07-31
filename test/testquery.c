@@ -29,19 +29,19 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
-void query_response_handler(mapper_signal sig, mapper_db_signal props,
-                            int instance_id, void *value, int count,
-                            mapper_timetag_t *timetag)
+void query_response_handler(mapper_signal sig, int instance_id, void *value,
+                            int count, mapper_timetag_t *timetag)
 {
     int i;
     if (value) {
-        eprintf("--> source got query response: %s ", props->name);
-        for (i = 0; i < props->length * count; i++)
+        eprintf("--> source got query response: %s ", mapper_signal_name(sig));
+        for (i = 0; i < mapper_signal_length(sig) * count; i++)
             eprintf("%i ", ((int*)value)[i]);
         eprintf("\n");
     }
     else {
-        eprintf("--> source got empty query response: %s\n", props->name);
+        eprintf("--> source got empty query response: %s\n",
+                mapper_signal_name(sig));
     }
 
     received++;
@@ -84,12 +84,12 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig,mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        eprintf("--> destination got %s %f\n", props->name, (*(float*)value));
+        eprintf("--> destination got %s %f\n", mapper_signal_name(sig),
+                (*(float*)value));
     }
     received++;
 }
@@ -144,19 +144,14 @@ void wait_local_devices()
 int setup_maps()
 {
     int i;
-    mapper_monitor mon = mmon_new(source->admin, 0);
-
-    mapper_db_signal src;
+    mapper_monitor mon = mmon_new(0, 0);
     for (int i = 0; i < 2; i++) {
-        src = &sendsig[i]->props;
-        mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig[i]->props));
+        mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig[i], recvsig[i]));
     }
 
     // swap the last two signals to mix up signal vector lengths
-    src = &sendsig[2]->props;
-    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig[3]->props));
-    src = &sendsig[3]->props;
-    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig[2]->props));
+    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig[2], recvsig[3]));
+    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig[3], recvsig[2]));
 
     i = 0;
     // wait until mapping has been established

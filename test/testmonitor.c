@@ -56,7 +56,7 @@ void dbpause()
     // sleep(1);
 }
 
-void printdevice(mapper_db_device dev)
+void printdevice(mapper_device dev)
 {
     printf(" └─ %s", dev->name);
 
@@ -65,7 +65,7 @@ void printdevice(mapper_db_device dev)
     char type;
     const void *val;
     int length;
-    while(!mapper_db_device_property_index(dev, i++, &key, &type, &val, &length))
+    while(!mapper_device_property_index(dev, i++, &key, &type, &val, &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -91,7 +91,7 @@ void printdevice(mapper_db_device dev)
     printf("\n");
 }
 
-void printsignal(mapper_db_signal sig)
+void printsignal(mapper_signal sig)
 {
     printf("%s, direction=", sig->name);
     switch (sig->direction) {
@@ -114,7 +114,7 @@ void printsignal(mapper_db_signal sig)
     char type;
     const void *val;
     int length;
-    while(!mapper_db_signal_property_index(sig, i++, &key, &type, &val, &length))
+    while(!mapper_signal_property_index(sig, i++, &key, &type, &val, &length))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -132,73 +132,10 @@ void printsignal(mapper_db_signal sig)
     printf("\n");
 }
 
-void printslot(mapper_slot slot)
-{
-    printf("%s/%s", slot->signal->device->name, slot->signal->name);
-    int i = 0;
-    const char *key;
-    char type;
-    const void *val;
-    int length;
-    while(!mapper_slot_property_index(slot, i++, &key, &type, &val, &length))
-    {
-        die_unless(val!=0, "returned zero value\n");
-
-        // already printed these
-        if (strcmp(key, "device_name")==0 || strcmp(key, "signal_name")==0)
-            continue;
-
-        die_unless(val!=0, "returned zero value\n");
-        if (length) {
-            printf(", %s=", key);
-            if (strncmp(key, "bound", 5)==0)
-                printf("%s", bound_strings[*((int*)val)]);
-            else
-                mapper_prop_pp(type, length, val);
-        }
-    }
-}
-
 void printmap(mapper_map map)
 {
-    int i;
     printf(" └─ ");
-    for (i = 0; i < map->num_sources; i++) {
-        printf("%s/%s ", map->sources[i].signal->device->name,
-               map->sources[i].signal->name);
-    }
-    printf("-> %s/%s\n", map->destination.signal->device->name,
-           map->destination.signal->name);
-    for (i = 0; i < map->num_sources; i++) {
-        printf("    source[%d]: ", i);
-        printslot(&map->sources[i]);
-        printf("\n");
-    }
-    printf("    destination: ");
-    printslot(&map->destination);
-    printf("\n    properties: ");
-
-    i = 0;
-    const char *key;
-    char type;
-    const void *val;
-    int length;
-    while(!mapper_map_property_index(map, i++, &key, &type, &val, &length))
-    {
-        die_unless(val!=0, "returned zero value\n");
-
-        if (length) {
-            printf("%s=", key);
-            if (strcmp(key, "mode")==0)
-                printf("%s", mode_strings[*((int*)val)]);
-            else if (strcmp(key, "process_at")==0)
-                printf("%s", process_location_strings[*((int*)val)]);
-            else
-                mapper_prop_pp(type, length, val);
-            printf(", ");
-        }
-    }
-    printf("\b\b\n");
+    mapper_map_pp(map);
 }
 
 /*! Creation of a local dummy device. */
@@ -246,18 +183,18 @@ void loop()
         printf("-------------------------------\n");
 
         printf("Registered devices and signals:\n");
-        mapper_db_device *pdev = mapper_db_devices(db), tempdev;
-        mapper_db_signal *psig, tempsig;
+        mapper_device *pdev = mapper_db_devices(db), tempdev;
+        mapper_signal *psig, tempsig;
         while (pdev) {
             tempdev = *pdev;
-            pdev = mapper_db_device_next(pdev);
+            pdev = mapper_device_query_next(pdev);
             printdevice(tempdev);
 
             int numsigs = tempdev->num_outputs;
             psig = mapper_db_device_outputs(db, tempdev);
             while (psig) {
                 tempsig = *psig;
-                psig = mapper_db_signal_next(psig);
+                psig = mapper_signal_query_next(psig);
                 printf("    %s ", psig ? "├─" : "└─");
                 printsignal(tempsig);
             }
@@ -265,7 +202,7 @@ void loop()
             psig = mapper_db_device_inputs(db, tempdev);
             while (psig) {
                 tempsig = *psig;
-                psig = mapper_db_signal_next(psig);
+                psig = mapper_signal_query_next(psig);
                 printf("    %s ", psig ? "├─" : "└─");
                 printsignal(tempsig);
             }
@@ -277,49 +214,49 @@ void loop()
         mapper_map *pmap = mapper_db_maps(db);
         while (pmap) {
             printmap(*pmap);
-            pmap = mapper_db_map_query_next(pmap);
+            pmap = mapper_map_query_next(pmap);
         }
 
         printf("-------------------------------\n");
     }
 }
 
-void on_device(mapper_db_device dev, mapper_db_action_t a, void *user)
+void on_device(mapper_device dev, mapper_action_t a, void *user)
 {
     printf("Device %s ", dev->name);
     switch (a) {
-    case MDB_NEW:
+    case MAPPER_ADDED:
         printf("added.\n");
         break;
-    case MDB_MODIFY:
+    case MAPPER_MODIFIED:
         printf("modified.\n");
         break;
-    case MDB_REMOVE:
+    case MAPPER_REMOVED:
         printf("removed.\n");
         break;
-    case MDB_UNRESPONSIVE:
+    case MAPPER_EXPIRED:
         printf("unresponsive.\n");
-        mmon_flush_db(mon, 10, 0);
+        mapper_db_flush(db, 10, 0);
         break;
     }
     dbpause();
     update = 1;
 }
 
-void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
+void on_signal(mapper_signal sig, mapper_action_t a, void *user)
 {
     printf("Signal %s/%s ", sig->device->name, sig->name);
     switch (a) {
-    case MDB_NEW:
+    case MAPPER_ADDED:
         printf("added.\n");
         break;
-    case MDB_MODIFY:
+    case MAPPER_MODIFIED:
         printf("modified.\n");
         break;
-    case MDB_REMOVE:
+    case MAPPER_REMOVED:
         printf("removed.\n");
         break;
-    case MDB_UNRESPONSIVE:
+    case MAPPER_EXPIRED:
         printf("unresponsive.\n");
         break;
     }
@@ -327,7 +264,7 @@ void on_signal(mapper_db_signal sig, mapper_db_action_t a, void *user)
     update = 1;
 }
 
-void on_map(mapper_map map, mapper_db_action_t a, void *user)
+void on_map(mapper_map map, mapper_action_t a, void *user)
 {
     int i;
     printf("Map ");
@@ -337,16 +274,16 @@ void on_map(mapper_map map, mapper_db_action_t a, void *user)
     printf("-> %s/%s ", map->destination.signal->device->name,
            map->destination.signal->name);
     switch (a) {
-    case MDB_NEW:
+    case MAPPER_ADDED:
         printf("added.\n");
         break;
-    case MDB_MODIFY:
+    case MAPPER_MODIFIED:
         printf("modified.\n");
         break;
-    case MDB_REMOVE:
+    case MAPPER_REMOVED:
         printf("removed.\n");
         break;
-    case MDB_UNRESPONSIVE:
+    case MAPPER_EXPIRED:
         printf("unresponsive.\n");
         break;
     }

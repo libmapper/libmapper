@@ -53,15 +53,13 @@ int seen_code(const char *key)
     return 0;
 }
 
-int check_keys(mapper_db_signal sigprop)
+int check_keys(mapper_signal sig)
 {
     const char *key;
     const void *val;
     char type;
     int i=0, seen=0, length;
-    while (!mapper_db_signal_property_index(sigprop, i++, &key, &type,
-                                            &val, &length))
-    {
+    while (!mapper_signal_property_index(sig, i++, &key, &type, &val, &length)) {
         seen |= seen_code(key);
     }
     return seen;
@@ -93,15 +91,14 @@ int main(int argc, char **argv)
         }
     }
 
-    mapper_signal sig = mapper_signal_new("test", 1, 'f', 1, "Hz", 0, 0, 0, 0);
-    mapper_db_signal sigprop = mapper_signal_properties(sig);
+    mapper_device dev = mapper_device_new("test", 0, 0);
+    mapper_signal sig = mapper_device_add_input(dev, "test", 1, 'f', "Hz",
+                                                0, 0, 0, 0);
 
     /* Test that default parameters are all listed. */
     eprintf("Test 1:  checking default parameters... ");
-    seen = check_keys(sigprop);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT))
-    {
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -113,10 +110,9 @@ int main(int argc, char **argv)
     float mx = 35.0;
     mapper_signal_set_maximum(sig, &mx);
     eprintf("Test 2:  adding static property 'maximum'... ");
-    seen = check_keys(sigprop);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAX))
-    {
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_MAX)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -129,10 +125,9 @@ int main(int argc, char **argv)
     char *str = "test_value";
     mapper_signal_set_property(sig, "test", 's', str, 1);
     eprintf("Test 3:  adding extra string property 'test'... ");
-    seen = check_keys(sigprop);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAX | SEEN_TEST))
-    {
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_MAX | SEEN_TEST)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -144,7 +139,7 @@ int main(int argc, char **argv)
     char type;
     const void *val;
     int length;
-    if (mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
+    if (mapper_signal_property(sig, "test", &type, &val, &length)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -182,10 +177,9 @@ int main(int argc, char **argv)
      * parameter to _not_ be listed. */
     mapper_signal_remove_property(sig, "test");
     eprintf("Test 5:  removing extra property 'test'... ");
-    seen = check_keys(sigprop);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_MAX))
-    {
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_MAX)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -199,11 +193,9 @@ int main(int argc, char **argv)
     int y = 234;
     mapper_signal_set_property(sig, "y", 'i', &y, 1);
     eprintf("Test 6:  adding extra integer properties 'x' and 'y'... ");
-    seen = check_keys(sigprop);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT
-                 | SEEN_MAX | SEEN_X | SEEN_Y))
-    {
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_MAX | SEEN_X | SEEN_Y)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -213,7 +205,7 @@ int main(int argc, char **argv)
 
     /* Test the type and value associated with "x". */
     eprintf("Test 7:  retrieving property 'x'...");
-    if (mapper_db_signal_property(sigprop, "x", &type, &val, &length)) {
+    if (mapper_signal_property(sig, "x", &type, &val, &length)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -250,7 +242,7 @@ int main(int argc, char **argv)
     /* Check that there is no value associated with previously-removed
      * "test". */
     eprintf("Test 8:  retrieving removed property 'test': ");
-    if (!mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
+    if (!mapper_signal_property(sig, "test", &type, &val, &length)) {
         eprintf("found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -261,7 +253,7 @@ int main(int argc, char **argv)
     /* Check that there is an integer value associated with static,
      * required property "length". */
     eprintf("Test 9:  retrieving static, required property 'length'... ");
-    if (mapper_db_signal_property(sigprop, "length", &type, &val, &length)) {
+    if (mapper_signal_property(sig, "length", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -299,7 +291,7 @@ int main(int argc, char **argv)
     /* Check that there is a string value associated with static,
      * required property "name". */
     eprintf("Test 10: retrieving static, required property 'name'... ");
-    if (mapper_db_signal_property(sigprop, "name", &type, &val, &length)) {
+    if (mapper_signal_property(sig, "name", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -337,7 +329,7 @@ int main(int argc, char **argv)
     /* Check that there is a float value associated with static,
      * optional property "max". */
     eprintf("Test 11: retrieving static, optional property 'max'... ");
-    if (mapper_db_signal_property(sigprop, "max", &type, &val, &length)) {
+    if (mapper_signal_property(sig, "max", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -375,7 +367,7 @@ int main(int argc, char **argv)
     /* Test that removing maximum causes it to _not_ be listed. */
     mapper_signal_set_maximum(sig, 0);
     eprintf("Test 12: removing optional property 'max'... ");
-    seen = check_keys(sigprop);
+    seen = check_keys(sig);
     if (seen & SEEN_MAX)
     {
         eprintf("ERROR\n");
@@ -386,7 +378,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 13: retrieving optional property 'max': ");
-    if (!mapper_db_signal_property(sigprop, "max", &type, &val, &length)) {
+    if (!mapper_signal_property(sig, "max", &type, &val, &length)) {
         eprintf("found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -398,10 +390,9 @@ int main(int argc, char **argv)
     eprintf("Test 14: adding an extra integer vector property 'test'... ");
     int set_int[] = {1, 2, 3, 4, 5};
     mapper_signal_set_property(sig, "test", 'i', &set_int, 5);
-    seen = check_keys(sigprop);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_X
-                 | SEEN_Y | SEEN_TEST))
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_X | SEEN_Y | SEEN_TEST))
     {
         eprintf("ERROR\n");
         result = 1;
@@ -411,7 +402,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 15: retrieving vector property 'test': ");
-    if (mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
+    if (mapper_signal_property(sig, "test", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -458,10 +449,9 @@ int main(int argc, char **argv)
     eprintf("Test 16: rewriting 'test' as vector float property... ");
     float set_float[] = {10., 20., 30., 40., 50.};
     mapper_signal_set_property(sig, "test", 'f', &set_float, 5);
-    seen = check_keys(sigprop);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_X
-                 | SEEN_Y | SEEN_TEST))
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_X | SEEN_Y | SEEN_TEST))
     {
         eprintf("ERROR\n");
         result = 1;
@@ -471,7 +461,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 17: retrieving property 'test'... ");
-    if (mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
+    if (mapper_signal_property(sig, "test", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -518,10 +508,9 @@ int main(int argc, char **argv)
     eprintf("Test 18: rewriting 'test' as vector string property... ");
     char *set_string[] = {"foo", "bar"};
     mapper_signal_set_property(sig, "test", 's', &set_string, 2);
-    seen = check_keys(sigprop);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME
-                 | SEEN_TYPE | SEEN_UNIT | SEEN_X
-                 | SEEN_Y | SEEN_TEST))
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_X | SEEN_Y | SEEN_TEST))
     {
         eprintf("ERROR\n");
         result = 1;
@@ -531,7 +520,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 19: retrieving property 'test'... ");
-    if (mapper_db_signal_property(sigprop, "test", &type, &val, &length)) {
+    if (mapper_signal_property(sig, "test", &type, &val, &length)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -574,7 +563,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
   cleanup:
-    if (sig) mapper_signal_free(sig);
+    if (dev) mapper_device_free(dev);
     if (!verbose)
         printf("..................................................");
     printf("Test %s.\n", result ? "FAILED" : "PASSED");

@@ -154,9 +154,6 @@ int main(int argc, char ** argv)
     dev.set_property(p);
     std::cout << p.name << ": " << (const char*)p << std::endl;
 
-    // access property using overloaded index operator
-    std::cout << "temp: " << (const char*)dev["temp"] << std::endl;
-
     dev.remove_property("foo");
     std::cout << "foo: " << dev.property("foo").value
         << " (should be 0x0)" << std::endl;

@@ -29,21 +29,22 @@ int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        eprintf("--> received %s", props->name);
-        if (props->type == 'f') {
+        eprintf("--> received %s", mapper_signal_name(sig));
+        char type = mapper_signal_type(sig);
+        int length = mapper_signal_length(sig);
+        if (type == 'f') {
             float *v = value;
-            for (int i = 0; i < props->length; i++) {
+            for (int i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
             }
         }
-        else if (props->type == 'd') {
+        else if (type == 'd') {
             double *v = value;
-            for (int i = 0; i < props->length; i++) {
+            for (int i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
             }
         }
@@ -113,7 +114,7 @@ void loop()
     int i = 0, recvd;
 
     if (autoconnect) {
-        mapper_monitor mon = mmon_new(devices[0]->admin, 0);
+        mapper_monitor mon = mmon_new(0, 0);
 
         // map input to another input on same device
         mmon_update_map(mon, mmon_add_map(mon, 1, &inputs[0], inputs[1]));

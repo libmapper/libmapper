@@ -49,13 +49,12 @@ int setup_source()
     mapper_signal_set_rate(sendsig, 100);
 
     // Check by both methods that the property was set
-    mapper_db_signal props = mapper_signal_properties(sendsig);
-    eprintf("Rate for /outsig is set to: %f\n", props->rate);
+    eprintf("Rate for /outsig is set to: %f\n", sendsig->rate);
 
     const float *a;
     char t;
     int l;
-    if (mapper_db_signal_property(props, "rate", &t, (const void**)&a, &l))
+    if (mapper_signal_property(sendsig, "rate", &t, (const void**)&a, &l))
     {
         eprintf("Couldn't find `rate' property.\n");
         mapper_device_free(source);
@@ -76,7 +75,7 @@ int setup_source()
         exit(1);
     }
 
-    if (props->rate != a[0]) {
+    if (sendsig->rate != a[0]) {
         eprintf("Rate properties don't agree.\n");
         mapper_device_free(source);
         mapper_device_free(destination);
@@ -101,17 +100,15 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        eprintf("--> destination %s got %i message vector\n[",
-               props->name, count);
+        eprintf("--> destination %s got %i message vector\n[", sig->name, count);
         float *v = value;
         for (int i = 0; i < count; i++) {
-            for (int j = 0; j < props->length; j++) {
-                eprintf(" %.1f ", v[i*props->length+j]);
+            for (int j = 0; j < sig->length; j++) {
+                eprintf(" %.1f ", v[i*sig->length+j]);
             }
         }
         eprintf("]\n");
@@ -167,10 +164,8 @@ void wait_local_devices()
 int setup_maps()
 {
     int i = 0;
-    mapper_monitor mon = mmon_new(source->admin, 0);
-
-    mapper_db_signal src = &sendsig->props;
-    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig->props));
+    mapper_monitor mon = mmon_new(0, 0);
+    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig, recvsig));
 
     i = 0;
     // wait until mapping has been established

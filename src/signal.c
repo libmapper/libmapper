@@ -153,7 +153,7 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
     sig->minimum = sig->maximum = 0;
     sig->description = 0;
     
-    sig->local->handler = handler;
+    sig->local->update_handler = handler;
     sig->num_instances = 0;
 
     sig->user_data = user_data;
@@ -402,6 +402,8 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
         return -1;
 
     mapper_signal_id_map_t *maps = sig->local->id_maps;
+    mapper_signal_update_handler *update_h = sig->local->update_handler;
+    mapper_instance_event_handler *event_h = sig->local->instance_event_handler;
 
     mapper_signal_instance si;
     int i;
@@ -434,30 +436,28 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
         // store pointer to device map in a new signal map
         mapper_signal_init_instance(si);
         i = mapper_signal_add_id_map(sig, si, map);
-        if (sig->local->instance_event_handler &&
-            (sig->local->instance_event_flags & IN_NEW)) {
-            sig->local->instance_event_handler(sig, instance_id, IN_NEW, tt);
+        if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
+            event_h(sig, instance_id, IN_NEW, tt);
         }
         return i;
     }
 
-    if (sig->local->instance_event_handler &&
-        (sig->local->instance_event_flags & IN_OVERFLOW)) {
+    if (event_h && (sig->local->instance_event_flags & IN_OVERFLOW)) {
         // call instance event handler
-        sig->local->instance_event_handler(sig, -1, IN_OVERFLOW, tt);
+        event_h(sig, -1, IN_OVERFLOW, tt);
     }
-    else if (sig->local->handler) {
+    else if (update_h) {
         if (sig->local->instance_allocation_type == IN_STEAL_OLDEST) {
             i = mapper_signal_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
-            sig->local->handler(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
+            update_h(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
         }
         else if (sig->local->instance_allocation_type == IN_STEAL_NEWEST) {
             i = mapper_signal_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
-            sig->local->handler(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
+            update_h(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
         }
         else
             return -1;
@@ -477,9 +477,8 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
         }
         mapper_signal_init_instance(si);
         i = mapper_signal_add_id_map(sig, si, map);
-        if (sig->local->instance_event_handler &&
-            (sig->local->instance_event_flags & IN_NEW)) {
-            sig->local->instance_event_handler(sig, instance_id, IN_NEW, tt);
+        if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
+            event_h(sig, instance_id, IN_NEW, tt);
         }
         return i;
     }
@@ -493,6 +492,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
         return -1;
 
     mapper_signal_id_map_t *maps = sig->local->id_maps;
+    mapper_signal_update_handler *update_h = sig->local->update_handler;
+    mapper_instance_event_handler *event_h = sig->local->instance_event_handler;
 
     mapper_signal_instance si;
     int i;
@@ -526,9 +527,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
             si->is_active = 1;
             mapper_signal_init_instance(si);
             i = mapper_signal_add_id_map(sig, si, map);
-            if (sig->local->instance_event_handler &&
-                (sig->local->instance_event_flags & IN_NEW)) {
-                sig->local->instance_event_handler(sig, si->id, IN_NEW, tt);
+            if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
+                event_h(sig, si->id, IN_NEW, tt);
             }
             return i;
         }
@@ -549,32 +549,30 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
             map->refcount_local++;
             map->refcount_global++;
 
-            if (sig->local->instance_event_handler &&
-                (sig->local->instance_event_flags & IN_NEW)) {
-                sig->local->instance_event_handler(sig, si->id, IN_NEW, tt);
+            if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
+                event_h(sig, si->id, IN_NEW, tt);
             }
             return i;
         }
     }
 
     // try releasing instance in use
-    if (sig->local->instance_event_handler &&
-        (sig->local->instance_event_flags & IN_OVERFLOW)) {
+    if (event_h && (sig->local->instance_event_flags & IN_OVERFLOW)) {
         // call instance event handler
-        sig->local->instance_event_handler(sig, -1, IN_OVERFLOW, tt);
+        event_h(sig, -1, IN_OVERFLOW, tt);
     }
-    else if (sig->local->handler) {
+    else if (update_h) {
         if (sig->local->instance_allocation_type == IN_STEAL_OLDEST) {
             i = mapper_signal_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
-            sig->local->handler(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
+            update_h(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
         }
         else if (sig->local->instance_allocation_type == IN_STEAL_NEWEST) {
             i = mapper_signal_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
-            sig->local->handler(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
+            update_h(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
         }
         else
             return -1;
@@ -592,9 +590,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
             si->is_active = 1;
             mapper_signal_init_instance(si);
             i = mapper_signal_add_id_map(sig, si, map);
-            if (sig->local->instance_event_handler &&
-                (sig->local->instance_event_flags & IN_NEW)) {
-                sig->local->instance_event_handler(sig, si->id, IN_NEW, tt);
+            if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
+                event_h(sig, si->id, IN_NEW, tt);
             }
             return i;
         }
@@ -616,9 +613,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
             map->refcount_local++;
             map->refcount_global++;
 
-            if (sig->local->instance_event_handler &&
-                (sig->local->instance_event_flags & IN_NEW)) {
-                sig->local->instance_event_handler(sig, si->id, IN_NEW, tt);
+            if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
+                event_h(sig, si->id, IN_NEW, tt);
             }
             return i;
         }
@@ -1056,15 +1052,15 @@ void mapper_signal_set_callback(mapper_signal sig,
 {
     if (!sig || !sig->local)
         return;
-    if (!sig->local->handler && handler) {
+    if (!sig->local->update_handler && handler) {
         // Need to register a new liblo methods
-        sig->local->handler = handler;
+        sig->local->update_handler = handler;
         sig->user_data = user_data;
         mapper_device_add_signal_methods(sig->device, sig);
     }
-    else if (sig->local->handler && !handler) {
+    else if (sig->local->update_handler && !handler) {
         // Need to remove liblo methods
-        sig->local->handler = 0;
+        sig->local->update_handler = 0;
         sig->user_data = user_data;
         mapper_device_remove_signal_methods(sig->device, sig);
     }
@@ -1074,7 +1070,7 @@ int mapper_signal_query_remotes(mapper_signal sig, mapper_timetag_t tt)
 {
     if (!sig || !sig->local)
         return -1;
-    if (!sig->local->handler) {
+    if (!sig->local->update_handler) {
         // no handler defined so we cannot process query responses
         return -1;
     }

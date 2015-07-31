@@ -81,8 +81,7 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
@@ -97,7 +96,7 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
     }
     else
         eprintf("--> destination %s instance %ld got NULL\n",
-                props->name, (long)instance_id);
+                sig->name, (long)instance_id);
 }
 
 /*! Creation of a local destination. */
@@ -144,10 +143,9 @@ void wait_local_devices()
 
 void map_signals()
 {
-    mapper_monitor mon = mmon_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(0, 0);
 
-    mapper_db_signal src = &sendsig->props;
-    mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
+    mapper_map map = mmon_add_map(mon, 1, &sendsig, recvsig);
     mapper_map_set_mode(map, MO_EXPRESSION);
     mapper_map_set_expression(map, "y=y{-1}+1");
     mmon_update_map(mon, map);

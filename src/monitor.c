@@ -196,13 +196,13 @@ static mapper_subscription subscription(mapper_monitor mon, mapper_device dev)
     return 0;
 }
 
-static void on_device_autosubscribe(mapper_device dev, mapper_db_action_t a,
+static void on_device_autosubscribe(mapper_device dev, mapper_action_t a,
                                     void *user)
 {
     mapper_monitor mon = (mapper_monitor)(user);
 
     // New subscriptions are handled in admin.c as response to device "sync" msg
-    if (a == MAPPER_DB_REMOVED) {
+    if (a == MAPPER_REMOVED) {
         monitor_unsubscribe_internal(mon, dev, 0);
     }
 }

@@ -37,8 +37,7 @@ static double current_time()
     return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t timetag)
 {
     if (value) {

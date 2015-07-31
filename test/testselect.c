@@ -73,14 +73,13 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
-        eprintf("--> destination got %s", props->name);
+        eprintf("--> destination got %s", sig->name);
         float *v = value;
-        for (int i = 0; i < props->length; i++) {
+        for (int i = 0; i < sig->length; i++) {
             eprintf(" %f", v[i]);
         }
         eprintf("\n");
@@ -123,12 +122,11 @@ int setup_maps()
 {
     int count = 0;
 
-    mapper_monitor mon = mmon_new(source->admin, 0);
+    mapper_monitor mon = mmon_new(source->db->admin, 0);
     if (!mon)
         goto error;
 
-    mapper_db_signal src = &sendsig->props;
-    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &recvsig->props));
+    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig, recvsig));
 
     // wait until mapping has been established
     while (!done && !mapper_device_num_outgoing_maps(source)) {

@@ -23,14 +23,18 @@
  * Typedefs cannot be repeated, therefore they are refered to by
  * struct name. */
 
-struct _mapper_signal;
 struct _mapper_admin;
 typedef struct _mapper_expr *mapper_expr;
 
 /* Forward declarations for this file. */
 
-struct _mapper_admin_allocated_t;
 struct _mapper_device;
+typedef struct _mapper_device mapper_device_t;
+typedef struct _mapper_device *mapper_device;
+struct _mapper_signal;
+typedef struct _mapper_signal mapper_signal_t;
+typedef struct _mapper_signal *mapper_signal;
+struct _mapper_admin_allocated_t;
 struct _mapper_map;
 struct _mapper_id_map;
 
@@ -241,13 +245,12 @@ typedef struct _mapper_local_signal
     /*! Type of voice stealing to perform on instances. */
     mapper_instance_allocation_type instance_allocation_type;
 
-    /*! An optional function to be called when the signal value
-     *  changes. */
-    mapper_signal_update_handler *handler;
+    /*! An optional function to be called when the signal value changes. */
+    void *update_handler;
 
     /*! An optional function to be called when the signal instance management
      *  events occur. */
-    mapper_instance_event_handler *instance_event_handler;
+    void *instance_event_handler;
 
     /*! Flags for deciding when to call the instance event handler. */
     int instance_event_flags;
@@ -446,6 +449,10 @@ typedef struct _mapper_local_device {
     int n_output_callbacks;
     int version;
     mapper_router router;
+
+    /*! Function to call for custom map handling. */
+    void *map_handler;
+    void *map_handler_userdata;
 
     /*! The list of active instance id mappings. */
     struct _mapper_id_map *active_id_map;

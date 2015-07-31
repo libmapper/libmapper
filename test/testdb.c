@@ -12,44 +12,77 @@
 
 int verbose = 1;
 
-void printdevice(mapper_db_device dev)
+void printdevice(mapper_device dev)
 {
-    eprintf("  name=%s, host=%s, port=%d, id=%llu\n",
-            dev->name, dev->host, dev->port, dev->id);
+    if (!verbose)
+        return;
+    printf("  name=%s\n", mapper_device_name(dev));
+    int i=0;
+    const char *key;
+    char type;
+    const void *val;
+    int length;
+    while(!mapper_device_property_index(dev, i++, &key, &type, &val, &length)) {
+        die_unless(val!=0, "returned zero value\n");
+
+        // already printed this
+        if (strcmp(key, "name")==0)
+            continue;
+        else if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
+    }
+    printf("\n");
 }
 
-void printsignal(mapper_db_signal sig)
+void printsignal(mapper_signal sig)
 {
-    eprintf("  name='%s':'%s', type=%c, length=%d",
-            sig->device->name, sig->name, sig->type, sig->length);
-    if (sig->unit)
-        eprintf(", unit=%s", sig->unit);
-    if (sig->minimum && verbose) {
-        printf("minimum=");
-        mapper_prop_pp(sig->type, sig->length, sig->minimum);
+    if (!verbose)
+        return;
+    printf("  name='%s':'%s', direction=", mapper_device_name(mapper_signal_device(sig)),
+           mapper_signal_name(sig));
+    switch (mapper_signal_direction(sig)) {
+        case DI_BOTH:
+            printf("both");
+            break;
+        case DI_OUTGOING:
+            printf("output");
+            break;
+        case DI_INCOMING:
+            printf("input");
+            break;
+        default:
+            printf("unknown");
+            break;
     }
-    if (sig->maximum && verbose) {
-        printf("maximum=");
-        mapper_prop_pp(sig->type, sig->length, sig->maximum);
+
+    int i=0;
+    const char *key;
+    char type;
+    const void *val;
+    int length;
+    while(!mapper_signal_property_index(sig, i++, &key, &type, &val, &length)) {
+        die_unless(val!=0, "returned zero value\n");
+
+        // already printed these
+        if (strcmp(key, "device_name")==0
+            || strcmp(key, "name")==0
+            || strcmp(key, "direction")==0)
+            continue;
+
+        if (length) {
+            printf(", %s=", key);
+            mapper_prop_pp(type, length, val);
+        }
     }
-    eprintf("\n");
+    printf("\n");
 }
 
 void printmap(mapper_map map)
 {
-    int i;
-    if (verbose) {
-        printf("  source=");
-        if (map->num_sources > 1)
-            printf("[");
-        for (i = 0; i < map->num_sources; i++)
-            printf("'%s':'%s', ", map->sources[i].signal->device->name,
-                   map->sources[i].signal->name);
-        if (map->num_sources > 1)
-            printf("\b\b], ");
-        printf("dest='%s':'%s'\n", map->destination.signal->device->name,
-               map->destination.signal->name);
-    }
+    if (verbose)
+        mapper_map_pp(map);
 }
 
 int main(int argc, char **argv)
@@ -248,7 +281,7 @@ int main(int argc, char **argv)
     eprintf("\n--- Devices ---\n");
 
     eprintf("\nWalk the whole database:\n");
-    mapper_db_device *pdev = mapper_db_devices(db);
+    mapper_device *pdev = mapper_db_devices(db);
     int count=0;
     if (!pdev) {
         eprintf("mapper_db_devices() returned 0.\n");
@@ -265,7 +298,7 @@ int main(int argc, char **argv)
     while (pdev) {
         count ++;
         printdevice(*pdev);
-        pdev = mapper_db_device_next(pdev);
+        pdev = mapper_device_query_next(pdev);
     }
 
     if (count != 4) {
@@ -278,7 +311,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind device named 'testdb.3':\n");
 
-    mapper_db_device dev = mapper_db_device_by_name(db, "testdb.3");
+    mapper_device dev = mapper_db_device_by_name(db, "testdb.3");
     if (!dev) {
         eprintf("Not found.\n");
         result = 1;
@@ -321,7 +354,7 @@ int main(int argc, char **argv)
     while (pdev) {
         count ++;
         printdevice(*pdev);
-        pdev = mapper_db_device_next(pdev);
+        pdev = mapper_device_query_next(pdev);
     }
 
     if (count != 2) {
@@ -353,7 +386,7 @@ int main(int argc, char **argv)
     while (pdev) {
         count ++;
         printdevice(*pdev);
-        pdev = mapper_db_device_next(pdev);
+        pdev = mapper_device_query_next(pdev);
     }
 
     if (count != 2) {
@@ -385,7 +418,7 @@ int main(int argc, char **argv)
     while (pdev) {
         count ++;
         printdevice(*pdev);
-        pdev = mapper_db_device_next(pdev);
+        pdev = mapper_device_query_next(pdev);
     }
 
     if (count != 3) {
@@ -417,7 +450,7 @@ int main(int argc, char **argv)
     while (pdev) {
         count ++;
         printdevice(*pdev);
-        pdev = mapper_db_device_next(pdev);
+        pdev = mapper_device_query_next(pdev);
     }
 
     if (count != 1) {
@@ -430,13 +463,13 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with properties 'host'!='localhost' AND 'port'>=4000:\n");
 
-    mapper_db_device *d1 = mapper_db_devices_by_property(db, "host", 's', 1,
-                                                         "localhost",
-                                                         QUERY_NOT_EQUAL);
-    mapper_db_device *d2 = mapper_db_devices_by_property(db, "port", 'i', 1,
-                                                         &port,
-                                                         QUERY_GREATER_THAN_OR_EQUAL);
-    pdev = mapper_db_device_query_intersection(d1, d2);
+    mapper_device *d1 = mapper_db_devices_by_property(db, "host", 's', 1,
+                                                      "localhost",
+                                                      QUERY_NOT_EQUAL);
+    mapper_device *d2 = mapper_db_devices_by_property(db, "port", 'i', 1,
+                                                      &port,
+                                                      QUERY_GREATER_THAN_OR_EQUAL);
+    pdev = mapper_device_query_intersection(d1, d2);
 
     count=0;
     if (!pdev) {
@@ -454,7 +487,7 @@ int main(int argc, char **argv)
     while (pdev) {
         count ++;
         printdevice(*pdev);
-        pdev = mapper_db_device_next(pdev);
+        pdev = mapper_device_query_next(pdev);
     }
 
     if (count != 1) {
@@ -469,7 +502,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all signals for device 'testdb.1':\n");
 
-    mapper_db_signal *psig =
+    mapper_signal *psig =
         mapper_db_device_signals(db, mapper_db_device_by_name(db, "testdb.1"));
 
     count=0;
@@ -488,7 +521,7 @@ int main(int argc, char **argv)
     while (psig) {
         count ++;
         printsignal(*psig);
-        psig = mapper_db_signal_next(psig);
+        psig = mapper_signal_query_next(psig);
     }
 
     if (count != 4) {
@@ -535,7 +568,7 @@ int main(int argc, char **argv)
     while (psig) {
         count ++;
         printsignal(*psig);
-        psig = mapper_db_signal_next(psig);
+        psig = mapper_signal_query_next(psig);
     }
 
     if (count != 4) {
@@ -567,7 +600,7 @@ int main(int argc, char **argv)
     while (psig) {
         count ++;
         printsignal(*psig);
-        psig = mapper_db_signal_next(psig);
+        psig = mapper_signal_query_next(psig);
     }
 
     if (count != 2) {
@@ -599,7 +632,7 @@ int main(int argc, char **argv)
     while (psig) {
         count ++;
         printsignal(*psig);
-        psig = mapper_db_signal_next(psig);
+        psig = mapper_signal_query_next(psig);
     }
 
     if (count != 2) {
@@ -631,7 +664,7 @@ int main(int argc, char **argv)
     while (psig) {
         count ++;
         printsignal(*psig);
-        psig = mapper_db_signal_next(psig);
+        psig = mapper_signal_query_next(psig);
     }
 
     if (count != 2) {
@@ -650,8 +683,8 @@ int main(int argc, char **argv)
     mapper_map* pmap = 0;
     while (psig) {
         mapper_map *temp = mapper_db_signal_outgoing_maps(db, *psig);
-        pmap = mapper_db_map_query_union(pmap, temp);
-        psig = mapper_db_signal_next(psig);
+        pmap = mapper_map_query_union(pmap, temp);
+        psig = mapper_signal_query_next(psig);
     }
 
     count=0;
@@ -669,7 +702,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_query_next(pmap);
+        pmap = mapper_map_query_next(pmap);
     }
 
     if (count != 4) {
@@ -683,7 +716,7 @@ int main(int argc, char **argv)
     eprintf("\nFind maps for device 'testdb.1', source 'out1':\n");
 
     dev = mapper_db_device_by_name(db, "testdb.1");
-    mapper_db_signal sig = mapper_db_device_signal_by_name(db, dev, "out1");
+    mapper_signal sig = mapper_db_device_signal_by_name(db, dev, "out1");
     pmap = mapper_db_signal_maps(db, sig);
 
     count=0;
@@ -702,7 +735,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_query_next(pmap);
+        pmap = mapper_map_query_next(pmap);
     }
 
     if (count != 2) {
@@ -719,8 +752,8 @@ int main(int argc, char **argv)
     pmap = 0;
     while (psig) {
         mapper_map *temp = mapper_db_signal_incoming_maps(db, *psig);
-        pmap = mapper_db_map_query_union(pmap, temp);
-        psig = mapper_db_signal_next(psig);
+        pmap = mapper_map_query_union(pmap, temp);
+        psig = mapper_signal_query_next(psig);
     }
 
     count=0;
@@ -738,7 +771,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_query_next(pmap);
+        pmap = mapper_map_query_next(pmap);
     }
 
     if (count != 2) {
@@ -771,7 +804,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_query_next(pmap);
+        pmap = mapper_map_query_next(pmap);
     }
 
     if (count != 2) {
@@ -787,15 +820,15 @@ int main(int argc, char **argv)
 
     // get source signal
     dev = mapper_db_device_by_name(db, "testdb__.2");
-    mapper_db_signal src_sig = mapper_db_device_signal_by_name(db, dev, "out1");
+    mapper_signal src_sig = mapper_db_device_signal_by_name(db, dev, "out1");
 
     // get destination signal
     dev = mapper_db_device_by_name(db, "testdb.1");
-    mapper_db_signal dst_sig = mapper_db_device_signal_by_name(db, dev, "in1");
+    mapper_signal dst_sig = mapper_db_device_signal_by_name(db, dev, "in1");
 
     // get maps
-    pmap = mapper_db_map_query_intersection(mapper_db_signal_outgoing_maps(db, src_sig),
-                                            mapper_db_signal_incoming_maps(db, dst_sig));
+    pmap = mapper_map_query_intersection(mapper_db_signal_outgoing_maps(db, src_sig),
+                                         mapper_db_signal_incoming_maps(db, dst_sig));
 
     count=0;
     if (!pmap) {
@@ -812,7 +845,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_query_next(pmap);
+        pmap = mapper_map_query_next(pmap);
     }
 
     if (count != 1) {
@@ -833,8 +866,8 @@ int main(int argc, char **argv)
     psig = mapper_db_device_signals_by_name_match(db, dev, "out");
     while (psig) {
         mapper_map *temp = mapper_db_signal_outgoing_maps(db, *psig);
-        src_pmap = mapper_db_map_query_union(src_pmap, temp);
-        psig = mapper_db_signal_next(psig);
+        src_pmap = mapper_map_query_union(src_pmap, temp);
+        psig = mapper_signal_query_next(psig);
     }
 
     // build combined destination query
@@ -842,12 +875,12 @@ int main(int argc, char **argv)
     psig = mapper_db_device_signals(db, dev);
     while (psig) {
         mapper_map *temp = mapper_db_signal_incoming_maps(db, *psig);
-        dst_pmap = mapper_db_map_query_union(dst_pmap, temp);
-        psig = mapper_db_signal_next(psig);
+        dst_pmap = mapper_map_query_union(dst_pmap, temp);
+        psig = mapper_signal_query_next(psig);
     }
 
     // combine source and destination queries
-    pmap = mapper_db_map_query_intersection(src_pmap, dst_pmap);
+    pmap = mapper_map_query_intersection(src_pmap, dst_pmap);
 
     count=0;
     if (!pmap) {
@@ -864,7 +897,7 @@ int main(int argc, char **argv)
     while (pmap) {
         count ++;
         printmap(*pmap);
-        pmap = mapper_db_map_query_next(pmap);
+        pmap = mapper_map_query_next(pmap);
     }
 
     if (count != 2) {

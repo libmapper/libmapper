@@ -1263,10 +1263,9 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
         // call handler if it exists
         if (map->destination.local) {
             mapper_signal sig = map->destination.local->router_sig->signal;
-            if (sig->local->handler)
-                sig->local->handler(sig, 0,
-                                    &map->destination.local->history[0].value,
-                                    1, &now);
+            mapper_signal_update_handler *h = sig->local->update_handler;
+            if (h)
+                h(sig, 0, &map->destination.local->history[0].value, 1, &now);
         }
     }
 }
@@ -2188,4 +2187,84 @@ mapper_map *mapper_map_query_next(mapper_map *maps)
 void mapper_map_query_done(mapper_map *map)
 {
     mapper_list_query_done((void**)map);
+}
+
+void mapper_slot_pp(mapper_slot slot)
+{
+    printf("%s/%s", slot->signal->device->name, slot->signal->name);
+    int i = 0;
+    const char *key;
+    char type;
+    const void *val;
+    int length;
+    while(!mapper_slot_property_index(slot, i++, &key, &type, &val, &length))
+    {
+        die_unless(val!=0, "returned zero value\n");
+
+        // already printed these
+        if (strcmp(key, "device_name")==0 || strcmp(key, "signal_name")==0)
+            continue;
+
+        die_unless(val!=0, "returned zero value\n");
+        if (length) {
+            printf(", %s=", key);
+            if (strncmp(key, "bound", 5)==0)
+                printf("%s", mapper_boundary_action_strings[*((int*)val)]
+                       ?: "undefined");
+            else
+                mapper_prop_pp(type, length, val);
+        }
+    }
+}
+
+void mapper_map_pp(mapper_map map)
+{
+    int i;
+    for (i = 0; i < map->num_sources; i++) {
+        printf("%s/%s ", map->sources[i].signal->device->name,
+               map->sources[i].signal->name);
+    }
+    printf("-> %s/%s\n", map->destination.signal->device->name,
+           map->destination.signal->name);
+    for (i = 0; i < map->num_sources; i++) {
+        printf("    source[%d]: ", i);
+        mapper_slot_pp(&map->sources[i]);
+        printf("\n");
+    }
+    printf("    destination: ");
+    mapper_slot_pp(&map->destination);
+    printf("\n    properties: ");
+
+    i = 0;
+    const char *key;
+    char type;
+    const void *val;
+    int length;
+    while(!mapper_map_property_index(map, i++, &key, &type, &val, &length))
+    {
+        die_unless(val!=0, "returned zero value\n");
+
+        if (length) {
+            printf("%s=", key);
+            if (strcmp(key, "mode")==0)
+                printf("%s", mapper_mode_type_strings[*((int*)val)] ?: "undefined");
+            else if (strcmp(key, "process_at")==0) {
+                switch (*((int*)val)) {
+                    case 0:
+                        printf("undefined");
+                        break;
+                    case 1:
+                        printf("source");
+                        break;
+                    case 2:
+                        printf("destination");
+                        break;
+                }
+            }
+            else
+                mapper_prop_pp(type, length, val);
+            printf(", ");
+        }
+    }
+    printf("\b\b\n");
 }

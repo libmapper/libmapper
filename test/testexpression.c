@@ -57,8 +57,7 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     if (value) {
@@ -98,13 +97,10 @@ void cleanup_destination()
 
 int setup_maps()
 {
-    mapper_monitor mon = mmon_new(source->admin, 0);
-
-    mapper_db_signal src = &sendsig->props;
-    mapper_map map = mmon_add_map(mon, 1, &src, &recvsig->props);
+    mapper_monitor mon = mmon_new(0, 0);
+    mapper_map map = mmon_add_map(mon, 1, &sendsig, recvsig);
     mapper_map_set_mode(map, MO_EXPRESSION);
     mapper_map_set_expression(map, "y=x*10");
-
     mmon_update_map(mon, map);
 
     // wait until mapping has been established
@@ -134,8 +130,8 @@ void loop()
     int i = 0;
     while ((!terminate || i < 50) && !done) {
         mapper_device_poll(source, 0);
-        eprintf("Updating signal %s to %f\n",
-                sendsig->props.name, (i * 1.0f));
+        eprintf("Updating signal %s to %f\n", mapper_signal_name(sendsig),
+                (i * 1.0f));
         mapper_signal_update_float(sendsig, (i * 1.0f));
         sent++;
         mapper_device_poll(destination, 100);

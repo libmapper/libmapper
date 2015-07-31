@@ -29,26 +29,25 @@ mapper_signal recvsig;
 int sent = 0;
 int received = 0;
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t *timetag)
 {
     int i;
-    eprintf("--> %s got ", props->name);
+    eprintf("--> %s got ", sig->name);
     if (value) {
-        if (props->type == 'f') {
-            for (i = 0; i < props->length * count; i++)
+        if (sig->type == 'f') {
+            for (i = 0; i < sig->length * count; i++)
                 eprintf("%f ", ((float*)value)[i]);
             eprintf("\n");
         }
-        else if (props->type == 'i') {
-            for (i = 0; i < props->length * count; i++)
+        else if (sig->type == 'i') {
+            for (i = 0; i < sig->length * count; i++)
                 eprintf("%i ", ((int*)value)[i]);
             eprintf("\n");
         }
     }
     else {
-        for (i = 0; i < props->length * count; i++)
+        for (i = 0; i < sig->length * count; i++)
             eprintf("NIL ");
         eprintf("\n");
     }
@@ -134,10 +133,8 @@ int setup_maps()
 {
     int i = 0;
 
-    mapper_monitor mon = mmon_new(source->admin, 0);
-
-    mapper_db_signal src = &recvsig->props;
-    mmon_update_map(mon, mmon_add_map(mon, 1, &src, &sendsig->props));
+    mapper_monitor mon = mmon_new(0, 0);
+    mmon_update_map(mon, mmon_add_map(mon, 1, &recvsig, sendsig));
 
     i = 0;
     // wait until mapping has been established

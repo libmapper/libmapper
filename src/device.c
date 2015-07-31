@@ -318,6 +318,9 @@ static int handler_signal(const char *path, const char *types,
     if (!argc)
         return 0;
 
+    mapper_signal_update_handler *update_h = sig->local->update_handler;
+    mapper_instance_event_handler *event_h = sig->local->instance_event_handler;
+
     // We need to consider that there may be properties appended to the msg
     // check length and find properties if any
     int value_len = 0;
@@ -495,16 +498,15 @@ static int handler_signal(const char *path, const char *types,
                     if (id_map->refcount_global <= 0 && id_map->refcount_local <= 0) {
                         mapper_device_remove_instance_id_map(dev, id_map);
                     }
-                    if (sig->local->instance_event_handler
-                        && (sig->local->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                        sig->local->instance_event_handler(sig, id_map->local,
-                                                           IN_UPSTREAM_RELEASE, &tt);
+                    if (event_h && (sig->local->instance_event_flags
+                                    & IN_UPSTREAM_RELEASE)) {
+                        event_h(sig, id_map->local, IN_UPSTREAM_RELEASE, &tt);
                     }
                 }
                 /* Do not call mapper_device_route_signal() here, since we don't know if
                  * the local signal instance will actually be released. */
-                if (sig->local->handler) {
-                    sig->local->handler(sig, id_map->local, 0, 1, &tt);
+                if (update_h) {
+                    update_h(sig, id_map->local, 0, 1, &tt);
                 }
                 continue;
             }
@@ -579,26 +581,24 @@ static int handler_signal(const char *path, const char *types,
                         if (!(sig->direction & DI_OUTGOING))
                             mapper_device_route_signal(dev, sig, id_map_index,
                                                        out_buffer, out_count, tt);
-                        if (sig->local->handler)
-                            sig->local->handler(sig, id_map->local, out_buffer,
-                                                out_count, &tt);
+                        if (update_h)
+                            update_h(sig, id_map->local, out_buffer, out_count, &tt);
                         out_count = 0;
                     }
                     // next call handler with release
                     if (is_instance_update) {
                         sig->local->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
                         id_map->refcount_global--;
-                        if (sig->local->instance_event_handler
-                            && (sig->local->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                            sig->local->instance_event_handler(sig, id_map->local,
-                                                               IN_UPSTREAM_RELEASE, &tt);
+                        if (event_h && (sig->local->instance_event_flags
+                                        & IN_UPSTREAM_RELEASE)) {
+                            event_h(sig, id_map->local, IN_UPSTREAM_RELEASE, &tt);
                         }
                     }
                     /* Do not call mapper_device_route_signal() here, since we
                      * don't know if the local signal instance will actually be
                      * released. */
-                    if (sig->local->handler)
-                        sig->local->handler(sig, id_map->local, 0, 1, &tt);
+                    if (update_h)
+                        update_h(sig, id_map->local, 0, 1, &tt);
                     // mark instance as possibly released
                     active = 0;
                     continue;
@@ -618,8 +618,8 @@ static int handler_signal(const char *path, const char *types,
                         if (!(sig->direction & DI_OUTGOING))
                             mapper_device_route_signal(dev, sig, id_map_index,
                                                        si->value, 1, tt);
-                        if (sig->local->handler)
-                            sig->local->handler(sig, id_map->local, si->value, 1, &tt);
+                        if (update_h)
+                            update_h(sig, id_map->local, si->value, 1, &tt);
                     }
                 }
             }
@@ -631,8 +631,8 @@ static int handler_signal(const char *path, const char *types,
             if (!(sig->direction & DI_OUTGOING))
                 mapper_device_route_signal(dev, sig, id_map_index, out_buffer,
                                            out_count, tt);
-            if (sig->local->handler)
-                sig->local->handler(sig, id_map->local, out_buffer, out_count, &tt);
+            if (update_h)
+                update_h(sig, id_map->local, out_buffer, out_count, &tt);
         }
     }
     else {
@@ -656,16 +656,15 @@ static int handler_signal(const char *path, const char *types,
                 if (is_instance_update) {
                     sig->local->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
                     id_map->refcount_global--;
-                    if (sig->local->instance_event_handler
-                        && (sig->local->instance_event_flags & IN_UPSTREAM_RELEASE)) {
-                        sig->local->instance_event_handler(sig, id_map->local,
-                                                           IN_UPSTREAM_RELEASE, &tt);
+                    if (event_h && (sig->local->instance_event_flags
+                                    & IN_UPSTREAM_RELEASE)) {
+                        event_h(sig, id_map->local, IN_UPSTREAM_RELEASE, &tt);
                     }
                 }
                 /* Do not call mapper_device_route_signal() here, since we don't
                  * know if the local signal instance will actually be released. */
-                if (sig->local->handler)
-                    sig->local->handler(sig, id_map->local, 0, 1, &tt);
+                if (update_h)
+                    update_h(sig, id_map->local, 0, 1, &tt);
                 return 0;
             }
             if (memcmp(si->has_value_flags, sig->local->has_complete_value,
@@ -683,8 +682,8 @@ static int handler_signal(const char *path, const char *types,
                     if (!(sig->direction & DI_OUTGOING))
                         mapper_device_route_signal(dev, sig, id_map_index,
                                                    si->value, 1, tt);
-                    if (sig->local->handler)
-                        sig->local->handler(sig, id_map->local, si->value, 1, &tt);
+                    if (update_h)
+                        update_h(sig, id_map->local, si->value, 1, &tt);
                 }
             }
         }
@@ -692,8 +691,8 @@ static int handler_signal(const char *path, const char *types,
             if (!(sig->direction & DI_OUTGOING))
                 mapper_device_route_signal(dev, sig, id_map_index, out_buffer,
                                            out_count, tt);
-            if (sig->local->handler)
-                sig->local->handler(sig, id_map->local, out_buffer, out_count, &tt);
+            if (update_h)
+                update_h(sig, id_map->local, out_buffer, out_count, &tt);
         }
     }
 
@@ -915,7 +914,7 @@ void mapper_device_add_signal_methods(mapper_device dev, mapper_signal sig)
                          (void*)(sig));
     free(path);
 
-    if (sig->local->handler)
+    if (sig->local->update_handler)
         lo_server_add_method(dev->local->server, sig->path, NULL,
                              handler_signal, (void*)(sig));
 
@@ -1292,7 +1291,7 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
     // add signal methods
     mapper_signal *sig = mapper_db_device_signals(&dev->db->admin->db, dev);
     while (sig) {
-        if ((*sig)->local->handler)
+        if ((*sig)->local->update_handler)
             lo_server_add_method(dev->local->server, (*sig)->path, NULL,
                                  handler_signal, (void*)(*sig));
         
@@ -1478,6 +1477,16 @@ void mapper_device_prepare_message(mapper_device dev, lo_message msg)
 
     /* "extra" properties */
     mapper_message_add_value_table(msg, dev->extra);
+}
+
+void mapper_device_set_map_handler(mapper_device dev,
+                                   mapper_device_map_handler *h,
+                                   void *user)
+{
+    if (!dev || !dev->local)
+        return;
+    dev->local->map_handler = h;
+    dev->local->map_handler_userdata = user;
 }
 
 mapper_db mapper_device_db(mapper_device dev)
