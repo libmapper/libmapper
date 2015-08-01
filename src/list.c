@@ -1,4 +1,4 @@
-
+#include <ctype.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -27,6 +27,12 @@
  * the search as well as for returning the desired value. This allows us to
  * avoid requiring the user to manage a separate iterator object.
  */
+
+typedef enum {
+    OP_UNION,
+    OP_INTERSECTION,
+    OP_DIFFERENCE
+} binary_op_t;
 
 typedef enum {
     QUERY_STATIC,
@@ -66,7 +72,7 @@ static mapper_list_header_t* mapper_list_new_item(size_t size)
 
     // make sure the compiler is doing what we think it's doing with
     // the size of mapper_list_header_t and location of data
-    die_unless(LIST_HEADER_SIZE == sizeof(void*)*3 + sizeof(query_type_t),
+    die_unless(LIST_HEADER_SIZE == sizeof(void*)*4 + sizeof(query_type_t),
                "unexpected size for mapper_list_header_t");
     die_unless(((char*)&lh->data - (char*)lh) == LIST_HEADER_SIZE,
                "unexpected offset for data in mapper_list_header_t");
@@ -84,13 +90,13 @@ static mapper_list_header_t* mapper_list_new_item(size_t size)
 }
 
 /*! Get the list header for memory returned from mapper_list_new_item(). */
-static mapper_list_header_t* mapper_list_get_header_by_data(void *data)
+static mapper_list_header_t* mapper_list_header_by_data(void *data)
 {
     return (mapper_list_header_t*)(data - LIST_HEADER_SIZE);
 }
 
 /*! Get the list header for memory returned from mapper_list_new_item(). */
-static mapper_list_header_t* mapper_list_get_header_by_self(void *self)
+static mapper_list_header_t* mapper_list_header_by_self(void *self)
 {
     mapper_list_header_t *lh=0;
     return (mapper_list_header_t*)(self - ((void*)&lh->self - (void*)lh));
@@ -100,7 +106,7 @@ void *mapper_list_from_data(void *data)
 {
     if (!data)
         return 0;
-    mapper_list_header_t* lh = mapper_list_get_header_by_data(data);
+    mapper_list_header_t* lh = mapper_list_header_by_data(data);
     die_unless(lh->self == &lh->data, "bad self pointer in list structure");
     return &lh->self;
 }
@@ -108,13 +114,13 @@ void *mapper_list_from_data(void *data)
 /*! Set the next pointer in memory returned from mapper_list_new_item(). */
 static void mapper_list_set_next(void *mem, void *next)
 {
-    mapper_list_get_header_by_data(mem)->next = next;
+    mapper_list_header_by_data(mem)->next = next;
 }
 
 /*! Get the next pointer in memory returned from mapper_list_new_item(). */
 void* mapper_list_next(void *mem)
 {
-    return mapper_list_get_header_by_data(mem)->next;
+    return mapper_list_header_by_data(mem)->next;
 }
 
 /*! Prepend an item to the beginning of a list. */
@@ -140,16 +146,16 @@ void mapper_list_remove_item(void **head, void *item)
         if (node == item)
             break;
         prev_node = node;
-        node = mapper_list_get_next(node);
+        node = mapper_list_next(node);
     }
 
     if (!node)
         return;
 
     if (prev_node)
-        mapper_list_set_next(prev_node, mapper_list_get_next(node));
+        mapper_list_set_next(prev_node, mapper_list_next(node));
     else
-        *head = mapper_list_get_next(node);
+        *head = mapper_list_next(node);
 }
 
 /*! Free the memory used by a list item */
@@ -163,7 +169,7 @@ void mapper_list_query_done(void *data)
 {
     if (!data)
         return;
-    mapper_list_header_t *lh = mapper_list_get_header_by_data(data);
+    mapper_list_header_t *lh = mapper_list_header_by_data(data);
     if (lh->query_type == QUERY_DYNAMIC && lh->query_context->query_free)
         lh->query_context->query_free(lh);
 }
@@ -176,11 +182,11 @@ void mapper_list_query_done(void *data)
 
 void **mapper_list_query_continuation(mapper_list_header_t *lh)
 {
-    void *item = mapper_list_get_header_by_data(lh->self)->next;
+    void *item = mapper_list_header_by_data(lh->self)->next;
     while (item) {
         if (lh->query_context->query_compare(&lh->query_context->data, item))
             break;
-        item = mapper_list_get_next(item);
+        item = mapper_list_next(item);
     }
 
     if (item) {
@@ -383,7 +389,7 @@ void **mapper_list_query_next(void** p)
         return 0;
     }
 
-    mapper_list_header_t *lh1 = mapper_list_get_header_by_self(p);
+    mapper_list_header_t *lh1 = mapper_list_header_by_self(p);
     if (!lh1->next)
         return 0;
 
@@ -406,7 +412,7 @@ void *mapper_list_query_index(void **query, int index)
     if (!query || index < 0)
         return 0;
 
-    list_header_t *lh = mapper_list_get_header_by_self(query);
+    mapper_list_header_t *lh = mapper_list_header_by_self(query);
 
     if (index == 0)
         return lh->start;
@@ -414,10 +420,10 @@ void *mapper_list_query_index(void **query, int index)
     // Reset to beginning of list
     lh->self = lh->start;
 
-    int i;
+    int i = 0;
     while (query) {
         query = mapper_list_query_next(query);
-        if (++1 == index)
+        if ((++i) == index)
             return *query;
     }
     return 0;
@@ -454,8 +460,8 @@ void **mapper_list_query_union(void **query1, void **query2)
     if (!query2)
         return query1;
 
-    list_header_t *lh1 = mapper_list_get_header_by_self(query1);
-    list_header_t *lh2 = mapper_list_get_header_by_self(query2);
+    mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
+    mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
     return (mapper_list_new_query(lh1->start, cmp_compound_query,
                                   "vvi", &lh1, &lh2, OP_UNION));
 }
@@ -465,8 +471,8 @@ void **mapper_list_query_intersection(void **query1, void **query2)
     if (!query1 || !query2)
         return 0;
 
-    list_header_t *lh1 = mapper_list_get_header_by_self(query1);
-    list_header_t *lh2 = mapper_list_get_header_by_self(query2);
+    mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
+    mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
     return (mapper_list_new_query(lh1->start, cmp_compound_query, "vvi",
                                   &lh1, &lh2, OP_INTERSECTION));
 }
@@ -478,8 +484,8 @@ void **mapper_list_query_difference(void **query1, void **query2)
     if (!query2)
         return query1;
 
-    list_header_t *lh1 = mapper_list_get_header_by_self(query1);
-    list_header_t *lh2 = mapper_list_get_header_by_self(query2);
+    mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
+    mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
     return (mapper_list_new_query(lh1->start, cmp_compound_query, "vvi",
                                   &lh1, &lh2, OP_DIFFERENCE));
 }

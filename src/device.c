@@ -101,7 +101,8 @@ static double get_current_time()
 #endif
 }
 
-//! Allocate and initialize a mapper device.
+/*! Allocate and initialize a mapper device. This function is called to create
+ *  a new mapper_device, not to create a representation of remote devices. */
 mapper_device mapper_device_new(const char *name_prefix, int port,
                                 mapper_admin adm)
 {
@@ -109,6 +110,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
         return 0;
 
     mapper_device dev = (mapper_device)calloc(1, sizeof(struct _mapper_device));
+    dev->local = (mapper_local_device)calloc(1, sizeof(struct _mapper_local_device));
 
     if (adm) {
         dev->local->own_admin = 0;
@@ -117,6 +119,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
         adm = mapper_admin_new(0, 0, 0);
         dev->local->own_admin = 1;
     }
+    dev->db = &adm->db;
 
     mapper_device_start_server(dev, port);
 
@@ -133,7 +136,6 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
         return NULL;
     }
 
-    dev->db = &adm->db;
     dev->local->ordinal.value = 1;
     dev->identifier = strdup(name_prefix);
     dev->lib_version = PACKAGE_VERSION;
@@ -839,6 +841,7 @@ mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
     sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
                                               sizeof(struct _mapper_signal));
     sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
+    sig->db = dev->db;
 
     mapper_signal_init(sig, name, length, type, DI_INCOMING, unit, minimum,
                        maximum, handler, user_data);
@@ -880,6 +883,7 @@ mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
     sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
                                               sizeof(struct _mapper_signal));
     sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
+    sig->db = dev->db;
 
     mapper_signal_init(sig, name, length, type, DI_OUTGOING, unit, minimum,
                        maximum, 0, 0);
@@ -1011,7 +1015,7 @@ void mapper_device_remove_input(mapper_device dev, mapper_signal sig)
         mapper_admin_send_signal_removed(dev->db->admin, sig);
     }
 
-    mapper_db_remove_signal(&dev->db->admin->db, sig);
+    mapper_db_remove_signal(dev->db, sig);
     mapper_device_increment_version(dev);
 }
 
@@ -1045,7 +1049,7 @@ void mapper_device_remove_output(mapper_device dev, mapper_signal sig)
         mapper_admin_send_signal_removed(dev->db->admin, sig);
     }
 
-    mapper_db_remove_signal(&dev->db->admin->db, sig);
+    mapper_db_remove_signal(dev->db, sig);
     mapper_device_increment_version(dev);
 }
 
@@ -1289,7 +1293,7 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
     trace("bound to port %i\n", dev->port);
 
     // add signal methods
-    mapper_signal *sig = mapper_db_device_signals(&dev->db->admin->db, dev);
+    mapper_signal *sig = mapper_db_device_signals(dev->db, dev);
     while (sig) {
         if ((*sig)->local->update_handler)
             lo_server_add_method(dev->local->server, (*sig)->path, NULL,

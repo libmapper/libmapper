@@ -214,7 +214,6 @@ void mapper_signal_free(mapper_signal sig)
             free(sig->local->has_complete_value);
         free(sig->local);
     }
-    free(sig);
 }
 
 void mapper_signal_update(mapper_signal sig, void *value, int count,

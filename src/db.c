@@ -274,6 +274,7 @@ mapper_device mapper_db_add_or_update_device_params(mapper_db db,
     if (!dev) {
         dev = (mapper_device) mapper_list_add_item((void**)&db->devices,
                                                    sizeof(*dev));
+        dev->db = db;
         dev->extra = table_new();
         rc = 1;
     }
@@ -613,6 +614,7 @@ mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
     if (!sig) {
         sig = (mapper_signal) mapper_list_add_item((void**)&db->signals,
                                                    sizeof(mapper_signal_t));
+        sig->db = db;
 
         // also add device record if necessary
         sig->device = dev;
@@ -1042,6 +1044,7 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
     if (!map) {
         map = (mapper_map) mapper_list_add_item((void**)&db->maps,
                                                 sizeof(mapper_map_t));
+        map->db = db;
         map->num_sources = num_sources;
         map->sources = (mapper_slot) calloc(1, sizeof(struct _mapper_slot)
                                             * num_sources);

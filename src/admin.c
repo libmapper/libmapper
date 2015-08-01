@@ -388,6 +388,7 @@ mapper_admin mapper_admin_new(const char *iface, const char *group, int port)
     if (!admin)
         return NULL;
 
+    admin->db.admin = admin;
     admin->interface_name = 0;
 
     /* Default standard ip and port is group 224.0.1.3, port 7570 */
@@ -1775,9 +1776,12 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     mapper_message_free(params);
 
     if (map->local->status == MAPPER_READY) {
-        // This mapping only references local signals, advance to "mapped"
+        // This mapping only references local signals, advance to "active" state
         map->local->status = MAPPER_ACTIVE;
-        ++map->destination.local->link->num_incoming_maps;
+        ++dev->num_outgoing_maps;
+        ++dev->num_incoming_maps;
+//        ++map->sources[i].local->link->num_outgoing_maps;
+//        ++map->destination.local->link->num_incoming_maps;
 
         // Inform subscribers
         if (admin->subscribers) {
@@ -2123,7 +2127,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             mapper_admin_set_bundle_dest_mesh(admin,
                                               map->destination.local->link->admin_addr);
             mapper_admin_send_map(admin, map, -1, ADM_MAPPED);
-            ++map->destination.local->link->num_outgoing_maps;
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
@@ -2132,12 +2135,27 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                 i = mapper_admin_send_map(admin, map,
                                           map->local->one_source ? -1 : i,
                                           ADM_MAPPED);
-                ++map->sources[i].local->link->num_incoming_maps;
             }
         }
         updated++;
     }
     if (map->local->status >= MAPPER_READY && updated) {
+        // Update map counts
+        if (map->destination.direction == DI_OUTGOING) {
+            ++dev->num_outgoing_maps;
+            ++map->destination.local->link->num_outgoing_maps;
+        }
+        else {
+            ++dev->num_incoming_maps;
+            mapper_link link = 0;
+            for (i = 0; i < map->num_sources; i++) {
+                if (!map->sources[i].local->link
+                    || map->sources[i].local->link == link)
+                    continue;
+                link = map->sources[i].local->link;
+                ++link->num_incoming_maps;
+            }
+        }
         if (admin->subscribers) {
             // Inform subscribers
             mapper_admin_set_bundle_dest_subscribers(admin, SUBSCRIBE_DEVICE_MAPS_IN);
