@@ -63,7 +63,6 @@ mapper_monitor mmon_new(mapper_admin admin, int subscribe_flags)
     mapper_admin_add_monitor(mon->admin, mon);
     if (subscribe_flags) {
         mmon_subscribe(mon, 0, subscribe_flags, -1);
-        mmon_request_devices(mon);
     }
     return mon;
 }
@@ -309,7 +308,7 @@ void mmon_request_devices(mapper_monitor mon)
         return;
     }
     mapper_admin_set_bundle_dest_bus(mon->admin);
-    lo_bundle_add_message(mon->admin->bundle, admin_message_strings[ADM_WHO], 0);
+    lo_bundle_add_message(mon->admin->bundle, admin_message_strings[ADM_WHO], msg);
 }
 
 static int alphabetise_signals(int num, mapper_signal *sigs, int *order)
