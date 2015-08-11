@@ -18,7 +18,7 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
-mapper_admin admin;
+mapper_network net;
 mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig_1 = 0;
@@ -41,8 +41,8 @@ int autoconnect = 1;
 /*! Creation of a local source. */
 int setup_source()
 {
-    admin = mapper_admin_new(0, 0, 0);
-    source = mapper_device_new("testsend", 0, admin);
+    net = mapper_network_new(0, 0, 0);
+    source = mapper_device_new("testsend", 0, net);
     if (!source)
         goto error;
     eprintf("source created.\n");
@@ -175,7 +175,7 @@ void loop()
     int i = 0, recvd;
 
     if (!done && autoconnect) {
-        mapper_monitor mon = mmon_new(admin, 0);
+        mapper_monitor mon = mmon_new(net, 0);
 
         mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig_1, recvsig_1));
         mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig_2, recvsig_2));

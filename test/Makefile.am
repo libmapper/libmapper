@@ -8,13 +8,13 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testadmin testconvergent testcpp testcustomtransport    \
-                  testdb testexpression testinstance testlinear testmany       \
-                  testmapinput testmonitor testparams testparser testprops     \
+noinst_PROGRAMS = test testconvergent testcpp testcustomtransport testdb       \
+                  testexpression testinstance testlinear testmany testmapinput \
+                  testmonitor testnetwork testparams testparser testprops      \
                   testqueue testquery testrate testreverse testselect          \
                   testsignals testspeed testsync testvector
 
-test_all_ordered = testparams testprops testdb testparser testadmin testmany   \
+test_all_ordered = testparams testprops testdb testparser testnetwork testmany \
                    test testlinear testexpression testqueue testquery testrate \
                    testinstance testreverse testselect testvector              \
                    testcustomtransport testspeed testsync testcpp testmapinput \
@@ -23,10 +23,6 @@ test_all_ordered = testparams testprops testdb testparser testadmin testmany   \
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
 test_LDADD = $(TEST_LDADD)
-
-testadmin_CFLAGS = $(TEST_CFLAGS)
-testadmin_SOURCES = testadmin.c
-testadmin_LDADD = $(TEST_LDADD)
 
 testconvergent_CFLAGS = $(TEST_CFLAGS)
 testconvergent_SOURCES = testconvergent.c
@@ -67,6 +63,10 @@ testmapinput_LDADD = $(TEST_LDADD)
 testmonitor_CFLAGS = $(TEST_CFLAGS)
 testmonitor_SOURCES = testmonitor.c
 testmonitor_LDADD = $(TEST_LDADD)
+
+testnetwork_CFLAGS = $(TEST_CFLAGS)
+testnetwork_SOURCES = testnetwork.c
+testnetwork_LDADD = $(TEST_LDADD)
 
 testparams_CFLAGS = $(TEST_CFLAGS)
 testparams_SOURCES = testparams.c

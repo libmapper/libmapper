@@ -112,7 +112,7 @@ void cleanup_destination()
 
 int setup_maps()
 {
-    mapper_monitor mon = mmon_new(sources[0]->db->admin, 0);
+    mapper_monitor mon = mmon_new(sources[0]->db->network, 0);
 
     mapper_signal all_sources[2] = {sendsig[0][0], sendsig[1][1]};
 

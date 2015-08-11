@@ -57,19 +57,19 @@ namespace mapper {
         const char *_s;
     };
 
-    class Admin
+    class Network
     {
     public:
-        Admin(const string_type &iface=0, const string_type &group=0, int port=0)
-            { admin = mapper_admin_new(iface, group, port); }
-        ~Admin()
-            { if (admin) mapper_admin_free(admin); }
-        operator mapper_admin() const
-            { return admin; }
+        Network(const string_type &iface=0, const string_type &group=0, int port=0)
+            { _net = mapper_network_new(iface, group, port); }
+        ~Network()
+            { if (_net) mapper_network_free(_net); }
+        operator mapper_network() const
+            { return _net; }
         std::string libversion()
-            { return std::string(mapper_admin_libversion(admin)); }
+            { return std::string(mapper_libversion()); }
     private:
-        mapper_admin admin;
+        mapper_network _net;
     };
 
     class Timetag
@@ -745,9 +745,9 @@ namespace mapper {
             return (*this);
         }
     public:
-        Device(const string_type &name_prefix, int port, Admin admin)
+        Device(const string_type &name_prefix, int port, Network net)
         {
-            _dev = mapper_device_new(name_prefix, port, admin);
+            _dev = mapper_device_new(name_prefix, port, net);
             _db = mapper_device_db(_dev);
         }
         Device(const string_type &name_prefix)
@@ -1524,8 +1524,8 @@ namespace mapper {
     public:
         Monitor()
             { _mon = mmon_new(0, 0); }
-        Monitor(Admin admin, int subscribe_flags=0)
-            { _mon = mmon_new(admin, subscribe_flags); }
+        Monitor(Network net, int subscribe_flags=0)
+            { _mon = mmon_new(net, subscribe_flags); }
         Monitor(int subscribe_flags)
             { _mon = mmon_new(0, subscribe_flags); }
         ~Monitor()

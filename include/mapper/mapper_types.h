@@ -23,8 +23,8 @@ typedef void *mapper_map;
 //! An internal structure defining a map endpoint.
 typedef void *mapper_slot;
 
-//! An internal structure defining an object to handle the admin bus.
-typedef void *mapper_admin;
+//! An internal structure defining an object to handle libmapper networking.
+typedef void *mapper_network;
 
 //! An internal structure to handle network database.
 //! This should be retrieved by calling mmon_db().

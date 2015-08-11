@@ -1252,7 +1252,7 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
     send_as_instance += map->destination.send_as_instance;
     if (mapper_expr_constant_output(map->local->expr) && !send_as_instance) {
         mapper_timetag_t now;
-        mapper_clock_now(&map->db->admin->clock, &now);
+        mapper_clock_now(&map->db->network->clock, &now);
 
         // evaluate expression
         mapper_expr_evaluate(map->local->expr, 0, 0,

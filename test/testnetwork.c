@@ -15,57 +15,57 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
-mapper_admin my_admin = NULL;
-mapper_device my_device = NULL;
+mapper_network net = NULL;
+mapper_device dev = NULL;
 
 int verbose = 1;
 
-int test_admin()
+int test_network()
 {
     int error = 0, wait;
 
-    my_admin = mapper_admin_new(0, 0, 0);
-    if (!my_admin) {
-        eprintf("Error creating admin structure.\n");
+    net = mapper_network_new(0, 0, 0);
+    if (!net) {
+        eprintf("Error creating network structure.\n");
         return 1;
     }
 
-    eprintf("Admin structure initialized.\n");
+    eprintf("Network structure initialized.\n");
 
-    my_device = mapper_device_new("tester", 0, my_admin);
-    if (!my_device) {
+    dev = mapper_device_new("tester", 0, net);
+    if (!dev) {
         eprintf("Error creating device structure.\n");
         return 1;
     }
 
     eprintf("Device structure initialized.\n");
 
-    eprintf("Found interface %s has IP %s\n", my_admin->interface_name,
-           inet_ntoa(my_admin->interface_ip));
+    eprintf("Found interface %s has IP %s\n", net->interface_name,
+           inet_ntoa(net->interface_ip));
 
-    while (!my_device->local->registered) {
+    while (!dev->local->registered) {
         usleep(10000);
-        mapper_admin_poll(my_admin);
+        mapper_network_poll(net);
     }
 
-    eprintf("Using port %d.\n", my_device->port);
-    eprintf("Allocated ordinal %d.\n", my_device->local->ordinal.value);
+    eprintf("Using port %d.\n", dev->port);
+    eprintf("Allocated ordinal %d.\n", dev->local->ordinal.value);
 
     eprintf("Delaying for 5 seconds..\n");
     wait = 50;
     while (wait-- > 0) {
         usleep(50000);
-        mapper_admin_poll(my_admin);
+        mapper_network_poll(net);
         if (!verbose) {
             printf(".");
             fflush(stdout);
         }
     }
 
-    mapper_device_free(my_device);
+    mapper_device_free(dev);
     eprintf("Device structure freed.\n");
-    mapper_admin_free(my_admin);
-    eprintf("Admin structure freed.\n");
+    mapper_network_free(net);
+    eprintf("Network structure freed.\n");
 
     return error;
 }
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testadmin.c: possible arguments "
+                        printf("testnetwork.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-h help\n");
                         return 1;
@@ -96,7 +96,7 @@ int main(int argc, char **argv)
         }
     }
 
-    result = test_admin();
+    result = test_network();
 
     if (result) {
         printf("Test FAILED.\n");

@@ -74,29 +74,29 @@ typedef struct _mapper_signal_id_map
 
 // Mapper internal functions
 
-/**** Admin ****/
+/**** Networking ****/
 
-void mapper_admin_add_device(mapper_admin admin, mapper_device dev);
+void mapper_network_add_device(mapper_network net, mapper_device dev);
 
-void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
+void mapper_network_add_monitor(mapper_network net, mapper_monitor mon);
 
-void mapper_admin_remove_device(mapper_admin admin, mapper_device dev);
+void mapper_network_remove_device(mapper_network net, mapper_device dev);
 
-void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
+void mapper_network_remove_monitor(mapper_network net, mapper_monitor mon);
 
-int mapper_admin_poll(mapper_admin admin);
+int mapper_network_poll(mapper_network net);
 
-void mapper_admin_set_bundle_dest_bus(mapper_admin admin);
+void mapper_network_set_bundle_dest_bus(mapper_network net);
 
-void mapper_admin_set_bundle_dest_mesh(mapper_admin admin, lo_address address);
+void mapper_network_set_bundle_dest_mesh(mapper_network net, lo_address address);
 
-void mapper_admin_set_bundle_dest_subscribers(mapper_admin admin, int type);
+void mapper_network_set_bundle_dest_subscribers(mapper_network net, int type);
 
-void mapper_admin_send_bundle(mapper_admin admin);
+void mapper_network_send_bundle(mapper_network net);
 
-void mapper_admin_send_signal(mapper_admin adm, mapper_signal sig);
+void mapper_network_send_signal(mapper_network net, mapper_signal sig);
 
-void mapper_admin_send_signal_removed(mapper_admin adm, mapper_signal sig);
+void mapper_network_send_signal_removed(mapper_network net, mapper_signal sig);
 
 /***** Device *****/
 
@@ -121,7 +121,7 @@ void mapper_device_release_scope(mapper_device dev, const char *scope);
 void mapper_device_start_server(mapper_device dev, int port);
 
 void mapper_device_on_id_and_ordinal(mapper_device dev,
-                                     mapper_admin_allocated_t *resource);
+                                     mapper_allocated_t *resource);
 
 mapper_id_map mapper_device_add_instance_id_map(mapper_device dev, int local_id,
                                                 uint64_t global_id);

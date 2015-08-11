@@ -9,7 +9,7 @@
 void mapper_db_set_timeout(mapper_db db, int timeout_sec)
 {
     if (timeout_sec < 0)
-        timeout_sec = ADMIN_TIMEOUT_SEC;
+        timeout_sec = MAPPER_TIMEOUT_SEC;
     db->timeout_sec = timeout_sec;
 }
 
@@ -20,11 +20,11 @@ int mapper_db_timeout(mapper_db db)
 
 void mapper_db_flush(mapper_db db, int timeout_sec, int quiet)
 {
-    mapper_clock_now(&db->admin->clock, &db->admin->clock.now);
+    mapper_clock_now(&db->network->clock, &db->network->clock.now);
     
     // flush expired device records
     mapper_device dev;
-    uint32_t last_ping = db->admin->clock.now.sec - timeout_sec;
+    uint32_t last_ping = db->network->clock.now.sec - timeout_sec;
     while ((dev = mapper_db_expired_device(db, last_ping))) {
         // also need to remove subscriptions
 // TODO: remove subscriptions

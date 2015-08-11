@@ -418,12 +418,12 @@ void mapper_device_set_map_handler(mapper_device dev,
  *  \param name_prefix  A short descriptive string to identify the device.
  *  \param port         An optional port for starting the port allocation
  *                      scheme.
- *  \param admin        A previously allocated admin to use.  If 0, an
- *                      admin will be allocated for use with this device.
+ *  \param net          A previously allocated network structure to use.
+ *                      If 0, one will be allocated for use with this device.
  *  \return             A newly allocated mapper device.  Should be free
  *                      using mapper_device_free(). */
 mapper_device mapper_device_new(const char *name_prefix, int port,
-                                mapper_admin admin);
+                                mapper_network net);
 
 //! Free resources used by a mapper device.
 void mapper_device_free(mapper_device dev);
@@ -640,20 +640,20 @@ mapper_db mapper_device_db(mapper_device dev);
 
 /* @} */
 
-/*** Admins ***/
+/*** Networking ***/
 
-/*! @defgroup admins Admins
+/*! @defgroup networks Networks
 
-    @{ Admins handle the traffic on the multicast admin bus.  In
-       general, you do not need to worry about this interface, as an
-       admin will be created automatically when allocating a device.
-       An admin only needs to be explicitly created if you plan to
-       override default settings for the admin bus.  */
+    @{ Networks handle the traffic on the multicast bus.  In general, you do not
+       need to worry about this interface, as a network structure will be
+       created automatically when allocating a device.  A network structure only
+       needs to be explicitly created if you plan to override default settings
+       for the multicast bus.  */
 
-/*! Create an admin with custom parameters.  Creating an admin object
+/*! Create an network with custom parameters.  Creating an network object
  *  manually is only required if you wish to specify custom network
  *  parameters.  Creating a device or monitor without specifying an
- *  admin will give you an object working on the "standard"
+ *  network will give you an object working on the "standard"
  *  configuration.
  * \param iface  If non-zero, a string identifying a preferred network
  *               interface.  This string can be enumerated e.g. using
@@ -664,15 +664,15 @@ mapper_db mapper_device_db(mapper_device dev);
  *               be used.
  * \param port   If non-zero, specify a multicast port to use.  Zero
  *               indicates that the standard port 7570 should be used.
- * \return       A newly allocated admin.  Should be freed using
- *               mapper_admin_free() */
-mapper_admin mapper_admin_new(const char *iface, const char *group, int port);
+ * \return       A newly allocated network structure.  Should be freed using
+ *               mapper_network_free() */
+mapper_network mapper_network_new(const char *iface, const char *group, int port);
 
-/*! Free an admin created with mapper_admin_new(). */
-void mapper_admin_free(mapper_admin admin);
+/*! Free an network structure created with mapper_network_new(). */
+void mapper_network_free(mapper_network net);
 
 /*! Get the version of libmapper */
-const char *mapper_admin_libversion(mapper_admin admin);
+const char *mapper_libversion();
 
 /* @} */
 
@@ -684,13 +684,13 @@ const char *mapper_admin_libversion(mapper_admin admin);
        through this interface. */
 
 /*! Set the timeout in seconds after which a database will declare a device
- *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
+ *  "unresponsive". Defaults to MAPPER_TIMEOUT_SEC.
  *  \param db       The database to use.
  *  \param timeout  The timeout in seconds. */
 void mapper_db_set_timeout(mapper_db db, int timeout);
 
 /*! Get the timeout in seconds after which a database will declare a device
- *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
+ *  "unresponsive". Defaults to MAPPER_TIMEOUT_SEC.
  *  \param db       The database to use.
  *  \return         The current timeout in seconds. */
 int mapper_db_timeout(mapper_db db);
@@ -1654,14 +1654,15 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
 #define SUBSCRIBE_ALL               0xFF
 
 /*! Create a network monitor.
- *  \param admin               A previously allocated admin to use.  If 0, an
- *                             admin will be allocated for use with this monitor.
- *  \param autosubscribe_flags Sets whether the monitor should automatically
- *                             subscribe to information about signals
- *                             and maps when it encounters a
- *                             previously-unseen device.
- *  \return The new monitor. */
-mapper_monitor mmon_new(mapper_admin admin, int autosubscribe_flags);
+ *  \param network              A previously allocated network structure to use.
+ *                              If 0, one will be allocated for use with this
+ *                              monitor.
+ *  \param autosubscribe_flags  Sets whether the monitor should automatically
+ *                              subscribe to information about signals
+ *                              and maps when it encounters a previously-unseen
+ *                              device.
+ *  \return                     The new monitor. */
+mapper_monitor mmon_new(mapper_network net, int autosubscribe_flags);
 
 /*! Free a network monitor. */
 void mmon_free(mapper_monitor mon);
@@ -1670,7 +1671,7 @@ void mmon_free(mapper_monitor mon);
  *  \param mon      The monitor to poll.
  *  \param block_ms The number of milliseconds to block, or 0 for
  *                  non-blocking behaviour.
- *  \return The number of handled messages. */
+ *  \return         The number of handled messages. */
 int mmon_poll(mapper_monitor mon, int block_ms);
 
 /*! Get the database associated with a monitor. This can be used as

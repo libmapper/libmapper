@@ -23,7 +23,7 @@
  * Typedefs cannot be repeated, therefore they are refered to by
  * struct name. */
 
-struct _mapper_admin;
+struct _mapper_network;
 typedef struct _mapper_expr *mapper_expr;
 
 /* Forward declarations for this file. */
@@ -34,7 +34,7 @@ typedef struct _mapper_device *mapper_device;
 struct _mapper_signal;
 typedef struct _mapper_signal mapper_signal_t;
 typedef struct _mapper_signal *mapper_signal;
-struct _mapper_admin_allocated_t;
+struct _mapper_allocated_t;
 struct _mapper_map;
 struct _mapper_id_map;
 
@@ -83,7 +83,7 @@ typedef struct _fptr_list {
 } *fptr_list;
 
 typedef struct _mapper_db {
-    struct _mapper_admin *admin;
+    struct _mapper_network *network;
     mapper_device devices;          //<! List of devices.
     mapper_signal signals;          //<! List of signals.
     struct _mapper_map *maps;       //<! List of mappings.
@@ -95,41 +95,39 @@ typedef struct _mapper_db {
     int timeout_sec;
 } mapper_db_t, *mapper_db;
 
-/**** Admin bus ****/
+/**** Messages ****/
 
-/*! Some useful strings for sending admin messages. */
+/*! Some useful strings for sending administrative messages. */
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
-    ADM_MAP,
-    ADM_MAP_TO,
-    ADM_MAPPED,
-    ADM_MODIFY_MAP,
-    ADM_DEVICE,
-    ADM_UNMAP,
-    ADM_UNMAPPED,
-    ADM_PING,
-    ADM_LOGOUT,
-    ADM_NAME_PROBE,
-    ADM_NAME_REG,
-    ADM_SIGNAL,
-    ADM_SIGNAL_REMOVED,
-    ADM_SUBSCRIBE,
-    ADM_UNSUBSCRIBE,
-    ADM_SYNC,
-    ADM_WHO,
-    NUM_ADM_STRINGS
-} admin_message_t;
+    MSG_MAP,
+    MSG_MAP_TO,
+    MSG_MAPPED,
+    MSG_MODIFY_MAP,
+    MSG_DEVICE,
+    MSG_UNMAP,
+    MSG_UNMAPPED,
+    MSG_PING,
+    MSG_LOGOUT,
+    MSG_NAME_PROBE,
+    MSG_NAME_REG,
+    MSG_SIGNAL,
+    MSG_SIGNAL_REMOVED,
+    MSG_SUBSCRIBE,
+    MSG_UNSUBSCRIBE,
+    MSG_SYNC,
+    MSG_WHO,
+    NUM_MSG_STRINGS
+} network_message_t;
 
 /*! Function to call when an allocated resource is locked. */
-typedef void mapper_admin_resource_on_lock(struct _mapper_device *md,
-                                           struct _mapper_admin_allocated_t
-                                           *resource);
+typedef void mapper_resource_on_lock(struct _mapper_allocated_t *resource);
 
 /*! Function to call when an allocated resource encounters a collision. */
-typedef void mapper_admin_resource_on_collision(struct _mapper_admin *admin);
+typedef void mapper_resource_on_collision(struct _mapper_allocated_t *resource);
 
 /*! Allocated resources */
-typedef struct _mapper_admin_allocated_t {
+typedef struct _mapper_allocated_t {
     unsigned int value;           //!< The resource to be allocated.
     int collision_count;          /*!< The number of collisions
                                    *   detected for this resource. */
@@ -141,11 +139,11 @@ typedef struct _mapper_admin_allocated_t {
                                        of resource values. */
 
     //!< Function to call when resource becomes locked.
-    mapper_admin_resource_on_lock *on_lock;
+    mapper_resource_on_lock *on_lock;
 
    //! Function to call when resource collision occurs.
-    mapper_admin_resource_on_collision *on_collision;
-} mapper_admin_allocated_t, *mapper_admin_allocated;
+    mapper_resource_on_collision *on_collision;
+} mapper_allocated_t, *mapper_allocated;
 
 /*! Clock and timing information. */
 typedef struct _mapper_sync_timetag_t {
@@ -168,43 +166,42 @@ typedef struct _mapper_sync_clock_t {
     int new;
 } mapper_sync_clock_t, *mapper_sync_clock;
 
-typedef struct _mapper_admin_subscriber {
+typedef struct _mapper_subscriber {
     lo_address                      address;
     uint32_t                        lease_expiration_sec;
     int                             flags;
-    struct _mapper_admin_subscriber *next;
-} *mapper_admin_subscriber;
+    struct _mapper_subscriber *next;
+} *mapper_subscriber;
 
 /*! A structure that keeps information about a device. */
-typedef struct _mapper_admin {
-    int random_id;                    /*!< Random ID for allocation speedup. */
-    lo_server_thread bus_server;      /*!< LibLo server thread for the
-                                       *   admin bus. */
-    int msgs_recvd;                   /*!< Number of messages received on the
-                                           admin bus. */
-    lo_address bus_addr;              /*!< LibLo address for the admin bus. */
-    lo_server_thread mesh_server;     /*!< LibLo server thread for the
-                                       *   admin mesh. */
-    char *interface_name;             /*!< The name of the network interface
-                                       *   for receiving messages. */
-    struct in_addr interface_ip;      /*!< The IP address of interface. */
-    struct _mapper_device *device;    /*!< Device that this admin is
-                                       *   in charge of. */
-    struct _mapper_monitor *monitor;  /*!< Monitor that this admin is
-                                       *   in charge of. */
-    mapper_db_t       db;       //<! Database for this monitor.
-    mapper_clock_t clock;             /*!< Clock for processing timed events. */
-    lo_bundle bundle;                 /*!< Bundle pointer for sending
-                                       *   messages on the admin bus. */
+typedef struct _mapper_network {
+    int random_id;                  /*!< Random ID for allocation speedup. */
+    lo_server_thread bus_server;    /*!< LibLo server thread for the
+                                     *   multicast bus. */
+    int msgs_recvd;                 /*!< Number of messages received on the
+                                     *   multicast bus. */
+    lo_address bus_addr;            /*!< LibLo address for the multicast bus. */
+    lo_server_thread mesh_server;   /*!< LibLo server thread for mesh comms. */
+    char *interface_name;           /*!< The name of the network interface
+                                     *   for receiving messages. */
+    struct in_addr interface_ip;    /*!< The IP address of interface. */
+    struct _mapper_device *device;  /*!< Device that this structure is
+                                     *   in charge of. */
+    struct _mapper_monitor *monitor;/*!< Monitor that this structure is
+                                     *   in charge of. */
+    mapper_db_t       db;           //<! Database for this monitor.
+    mapper_clock_t clock;           /*!< Clock for processing timed events. */
+    lo_bundle bundle;               /*!< Bundle pointer for sending
+                                     *   messages on the multicast bus. */
     lo_address bundle_dest;
     int message_type;
-    mapper_admin_subscriber subscribers; /*!< Linked-list of subscribed peers. */
-} mapper_admin_t;
+    mapper_subscriber subscribers;  /*!< Linked-list of subscribed peers. */
+} mapper_network_t;
 
 /*! The handle to this device is a pointer. */
-typedef mapper_admin_t *mapper_admin;
+typedef mapper_network_t *mapper_network;
 
-#define ADMIN_TIMEOUT_SEC 10        // timeout after 10 seconds without ping
+#define MAPPER_TIMEOUT_SEC 10       // timeout after 10 seconds without ping
 
 /**** Signal ****/
 
@@ -436,15 +433,15 @@ typedef struct _mapper_id_map {
 /**** Device ****/
 
 typedef struct _mapper_local_device {
-    mapper_admin_allocated_t ordinal;   /*!< A unique ordinal for this
-                                         *   device instance. */
-    int registered;                     /*!< Non-zero if this device has
-                                         *   been registered. */
+    mapper_allocated_t ordinal;     /*!< A unique ordinal for this device
+                                     *   instance. */
+    int registered;                 /*!< Non-zero if this device has been
+                                     *   registered. */
 
-    /*! Non-zero if this device is the sole owner of this admin, i.e.,
-     *  it was created during mdev_new() and should be freed during
+    /*! Non-zero if this device is the sole owner of the network structure,
+     *  i.e., it was created during mdev_new() and should be freed during
      *  mdev_free(). */
-    int own_admin;
+    int own_network;
 
     int n_output_callbacks;
     int version;
@@ -521,12 +518,12 @@ typedef struct _mapper_subscription {
 } *mapper_subscription;
 
 typedef struct _mapper_monitor {
-    mapper_admin      admin;    //<! Admin for this monitor.
+    mapper_network network;     //<! Networking structure for this monitor.
 
-    /*! Non-zero if this monitor is the sole owner of this admin, i.e.,
-     *  it was created during mmon_new() and should be freed during
+    /*! Non-zero if this monitor is the sole owner of the network structure
+     *  i.e., it was created during mmon_new() and should be freed during
      *  mmon_free(). */
-    int own_admin;
+    int own_network;
 
     /*! Flags indicating whether information on signals and mappings should
      *  be automatically subscribed to when a new device is seen.*/

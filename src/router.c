@@ -86,7 +86,7 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
     link->clock.new = 1;
     link->clock.sent.message_id = 0;
     link->clock.response.message_id = -1;
-    mapper_clock_t *clock = &router->device->db->admin->clock;
+    mapper_clock_t *clock = &router->device->db->network->clock;
     mapper_clock_now(clock, &clock->now);
     link->clock.response.timetag.sec = clock->now.sec + 10;
 
@@ -100,9 +100,9 @@ mapper_link mapper_router_add_link(mapper_router router, const char *host,
         lo_message m = lo_message_new();
         if (m) {
             lo_message_add_string(m, "device");
-            mapper_admin_set_bundle_dest_bus(router->device->db->admin);
-            lo_bundle_add_message(router->device->db->admin->bundle, cmd, m);
-            mapper_admin_send_bundle(router->device->db->admin);
+            mapper_network_set_bundle_dest_bus(router->device->db->network);
+            lo_bundle_add_message(router->device->db->network->bundle, cmd, m);
+            mapper_network_send_bundle(router->device->db->network);
         }
     }
 
@@ -842,12 +842,11 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
 
 static void check_link(mapper_router rtr, mapper_link link)
 {
-    /* We could remove link the link here if it has no associated maps,
-     * however under normal usage it is likely that users will add new
-     * maps after deleting the old ones. If we remove the link
-     * immediately it will have to be re-established in this scenario, so we
-     * will allow the admin house-keeping routines to clean up empty links
-     * after the link ping timeout period. */
+    /* We could remove link the link here if it has no associated maps, however
+     * under normal usage it is likely that users will add new maps after
+     * deleting the old ones. If we remove the link immediately it will have to
+     * be re-established in this scenario, so we will allow the house-keeping
+     * routines to clean up empty links after the link ping timeout period. */
 }
 
 void mapper_router_remove_signal(mapper_router rtr, mapper_router_signal rs)

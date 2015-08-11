@@ -122,7 +122,7 @@ int setup_maps()
 {
     int count = 0;
 
-    mapper_monitor mon = mmon_new(source->db->admin, 0);
+    mapper_monitor mon = mmon_new(source->db->network, 0);
     if (!mon)
         goto error;
 
