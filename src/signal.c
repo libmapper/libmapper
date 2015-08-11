@@ -1179,23 +1179,23 @@ const char *mapper_signal_unit(mapper_signal sig)
     return sig->unit;
 }
 
-int mapper_signal_property(mapper_signal sig, const char *property, char *type,
-                           const void **value, int *length)
+int mapper_signal_property(mapper_signal sig, const char *property, int *length,
+                           char *type, const void **value)
 {
     if (!sig)
         return 0;
-    return mapper_db_property(sig, sig->extra, property, type, value,
-                              length, &sig_table);
+    return mapper_db_property(sig, sig->extra, property, length, type, value,
+                              &sig_table);
 }
 
 int mapper_signal_property_index(mapper_signal sig, unsigned int index,
-                                 const char **property, char *type,
-                                 const void **value, int *length)
+                                 const char **property, int *length, char *type,
+                                 const void **value)
 {
     if (!sig)
         return 0;
-    return mapper_db_property_index(sig, sig->extra, index, property, type,
-                                    value, length, &sig_table);
+    return mapper_db_property_index(sig, sig->extra, index, property, length,
+                                    type, value, &sig_table);
 }
 
 void mapper_signal_set_description(mapper_signal sig, const char *description)
@@ -1253,7 +1253,7 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit)
 
 // TODO: use sig_table to simplify error check
 void mapper_signal_set_property(mapper_signal sig, const char *property,
-                                char type, const void *value, int length)
+                                int length, char type, const void *value)
 {
     if (!sig || !property)
         return;
@@ -1295,8 +1295,8 @@ void mapper_signal_set_property(mapper_signal sig, const char *property,
         return;
     }
 
-    mapper_table_add_or_update_typed_value(sig->extra, property, type, value,
-                                           length);
+    mapper_table_add_or_update_typed_value(sig->extra, property, length,
+                                           type, value);
 }
 
 // TODO: use sig_table to simplify error check
@@ -1443,13 +1443,13 @@ void mapper_signal_prepare_message(mapper_signal sig, lo_message msg)
     /* minimum */
     if (sig->minimum) {
         lo_message_add_string(msg, mapper_param_string(AT_MIN));
-        mapper_message_add_typed_value(msg, sig->type, sig->length, sig->minimum);
+        mapper_message_add_typed_value(msg, sig->length, sig->type, sig->minimum);
     }
 
     /* maximum */
     if (sig->maximum) {
         lo_message_add_string(msg, mapper_param_string(AT_MAX));
-        mapper_message_add_typed_value(msg, sig->type, sig->length, sig->maximum);
+        mapper_message_add_typed_value(msg, sig->length, sig->type, sig->maximum);
     }
 
     /* number of instances */

@@ -58,7 +58,7 @@ void printdevice(mapper_device dev)
     char type;
     const void *val;
     int length;
-    while(!mapper_device_property_index(dev, i++, &key, &type, &val, &length))
+    while(!mapper_device_property_index(dev, i++, &key, &length, &type, &val))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -78,7 +78,7 @@ void printdevice(mapper_device dev)
         }
         else if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(type, length, val);
+            mapper_prop_pp(length, type, val);
         }
     }
     printf("\n");
@@ -107,7 +107,7 @@ void printsignal(mapper_signal sig)
     char type;
     const void *val;
     int length;
-    while(!mapper_signal_property_index(sig, i++, &key, &type, &val, &length))
+    while(!mapper_signal_property_index(sig, i++, &key, &length, &type, &val))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -119,7 +119,7 @@ void printsignal(mapper_signal sig)
 
         if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(type, length, val);
+            mapper_prop_pp(length, type, val);
         }
     }
     printf("\n");

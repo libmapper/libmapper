@@ -73,8 +73,8 @@ void on_map(mapper_map map, mapper_action_t action, const void *user)
     const char *a_transport;
     char t;
     int length;
-    if (mapper_map_property(map, "transport", &t,
-                            (const void **)&a_transport, &length)
+    if (mapper_map_property(map, "transport", &length, &t,
+                            (const void **)&a_transport)
         || t != 's' || length != 1) {
         eprintf("Couldn't find `transport' property.\n");
         return;
@@ -88,7 +88,7 @@ void on_map(mapper_map map, mapper_action_t action, const void *user)
 
     // Find the TCP port in the mapping properties
     const int *a_port;
-    if (mapper_map_property(map, "tcpPort", &t, (const void **)&a_port, &length)
+    if (mapper_map_property(map, "tcpPort", &length, &t, (const void **)&a_port)
         || t != 'i' || length != 1) {
         eprintf("Couldn't make TCP connection, tcpPort property not found.\n");
         return;
@@ -147,7 +147,7 @@ int setup_source()
     // Add custom meta-data specifying that this signal supports a
     // special TCP transport.
     char *str = "tcp";
-    mapper_signal_set_property(sendsig, "transport", 's', str, 1);
+    mapper_signal_set_property(sendsig, "transport", 1, 's', str);
 
     eprintf("Output signal /outsig registered.\n");
 
@@ -198,11 +198,11 @@ int setup_destination()
     // Add custom meta-data specifying a special transport for this
     // signal.
     char *str = "tcp";
-    mapper_signal_set_property(recvsig, "transport", 's', str, 1);
+    mapper_signal_set_property(recvsig, "transport", 1, 's', str);
 
     // Add custom meta-data specifying a port to use for this signal's
     // custom transport.
-    mapper_signal_set_property(recvsig, "tcpPort", 'i', &tcp_port, 1);
+    mapper_signal_set_property(recvsig, "tcpPort", 1, 'i', &tcp_port);
 
     eprintf("Input signal /insig registered.\n");
 

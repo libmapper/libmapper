@@ -123,8 +123,8 @@ namespace mapper {
         Property(const string_type &_name, T _value)
             { name = _name; _set(_value); parent = NULL; owned = false; }
         template <typename T>
-        Property(const string_type &_name, T& _value, int _length)
-            { name = _name; _set(_value, _length); parent = NULL; owned = false; }
+        Property(const string_type &_name, int _length, T& _value)
+            { name = _name; _set(_length, _value); parent = NULL; owned = false; }
         template <typename T, size_t N>
         Property(const string_type &_name, std::array<T, N> _value)
             { name = _name; _set(_value); parent = NULL; owned = false; }
@@ -132,8 +132,8 @@ namespace mapper {
         Property(const string_type &_name, std::vector<T> _value)
             { name = _name; _set(_value); parent = NULL; owned = false; }
         template <typename T>
-        Property(const string_type &_name, char _type, T& _value, int _length)
-            { name = _name; _set(_type, _value, _length); parent = NULL; owned = false; }
+        Property(const string_type &_name, int _length, char _type, T& _value)
+            { name = _name; _set(_length, _type, _value); parent = NULL; owned = false; }
 
         ~Property()
             { maybe_free(); }
@@ -147,7 +147,7 @@ namespace mapper {
             return (*this);
         }
         template <typename T>
-        Property& set(T& _value, int _length)
+        Property& set(int _length, T& _value)
         {
             maybe_free();
             _set(_value, _length);
@@ -258,11 +258,11 @@ namespace mapper {
         friend class Device;
         friend class Signal;
         friend class Map;
-        Property(const string_type &_name, char _type, const void *_value,
-                 int _length, const AbstractObjectWithSetter *_parent)
+        Property(const string_type &_name, int _length, char _type,
+                 const void *_value, const AbstractObjectWithSetter *_parent)
         {
             name = _name;
-            _set(_type, _value, _length);
+            _set(_length, _type, _value);
             parent = (AbstractObjectWithSetter *)_parent;
             owned = false;
         }
@@ -277,7 +277,7 @@ namespace mapper {
 
         void maybe_free()
             { if (owned && value) free((void*)value); owned = false; }
-        void _set(bool _value[], int _length)
+        void _set(int _length, bool _value[])
         {
             int *ivalue = (int*)malloc(sizeof(int)*_length);
             if (!ivalue)
@@ -289,15 +289,15 @@ namespace mapper {
             type = 'i';
             owned = true;
         }
-        void _set(int _value[], int _length)
+        void _set(int _length, int _value[])
             { value = _value; length = _length; type = 'i'; }
-        void _set(float _value[], int _length)
+        void _set(int _length, float _value[])
             { value = _value; length = _length; type = 'f'; }
-        void _set(double _value[], int _length)
+        void _set(int _length, double _value[])
             { value = _value; length = _length; type = 'd'; }
-        void _set(char _value[], int _length)
+        void _set(int _length, char _value[])
             { value = _value; length = _length; type = 'c'; }
-        void _set(const char *_value[], int _length)
+        void _set(int _length, const char *_value[])
         {
             length = _length;
             type = 's';
@@ -310,7 +310,7 @@ namespace mapper {
         void _set(T _value)
         {
             memcpy(&_scalar, &_value, sizeof(_scalar));
-            _set((T*)&_scalar, 1);
+            _set(1, (T*)&_scalar);
         }
         template <typename T, size_t N>
         void _set(std::array<T, N>& _value)
@@ -364,7 +364,7 @@ namespace mapper {
         }
         template <typename T>
         void _set(std::vector<T> _value)
-            { _set(_value.data(), (int)_value.size()); }
+            { _set((int)_value.size(), _value.data()); }
         void _set(std::vector<const char*>& _value)
         {
             length = (int)_value.size();
@@ -390,7 +390,7 @@ namespace mapper {
                 owned = true;
             }
         }
-        void _set(char _type, const void *_value, int _length)
+        void _set(int _length, char _type, const void *_value)
         {
             type = _type;
             value = _value;
@@ -406,38 +406,6 @@ namespace mapper {
     public:
         virtual Property property(const string_type &name) const = 0;
         virtual Property property(int index) const = 0;
-        
-//        template <typename T>
-//        GenericObject& set_property(const string_type &_name, T _value)
-//        {
-//            Property temp(_name, _value);
-//            set_property(&temp);
-//            return (*this);
-//        }
-//        template <typename T>
-//        GenericObject& set_property(const string_type &_name, T& _value,
-//                                    int _length)
-//        {
-//            Property temp(_name, _value, _length);
-//            set_property(&temp);
-//            return (*this);
-//        }
-//        template <typename T>
-//        GenericObject& set_property(const string_type &_name,
-//                                    std::vector<T> _value)
-//        {
-//            Property temp(_name, _value);
-//            set_property(&temp);
-//            return (*this);
-//        }
-//        template <typename T>
-//        GenericObject& set_property(const string_type &_name, char _type,
-//                                    T& _value, int _length)
-//        {
-//            Property temp(_name, _type, _value, _length);
-//            set_property(&temp);
-//            return (*this);
-//        }
     };
 
     class Signal : public GenericObject
@@ -448,8 +416,8 @@ namespace mapper {
         Signal& set_property(Property *p)
         {
             if (_sig)
-                mapper_signal_set_property(_sig, p->name, p->type, p->value,
-                                           p->length);
+                mapper_signal_set_property(_sig, p->name, p->length, p->type,
+                                           p->value);
             return (*this);
         }
 
@@ -486,8 +454,8 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            if (!mapper_signal_property(_sig, name, &type, &value, &length))
-                return Property(name, type, value, length, this);
+            if (!mapper_signal_property(_sig, name, &length, &type, &value))
+                return Property(name, length, type, value, this);
             else
                 return Property(name, 0, 0, 0, this);
         }
@@ -497,9 +465,9 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            if (!mapper_signal_property_index(_sig, index, &name, &type,
-                                              &value, &length))
-                return Property(name, type, value, length, this);
+            if (!mapper_signal_property_index(_sig, index, &name, &length,
+                                              &type, &value))
+                return Property(name, length, type, value, this);
             else
                 return Property(0, 0, 0, 0, this);
         }
@@ -772,8 +740,8 @@ namespace mapper {
         Device& set_property(Property *p)
         {
             if (_dev)
-                mapper_device_set_property(_dev, p->name, p->type, p->value,
-                                           p->length);
+                mapper_device_set_property(_dev, p->name, p->length, p->type,
+                                           p->value);
             return (*this);
         }
     public:
@@ -881,8 +849,8 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            if (!mapper_device_property(_dev, name, &type, &value, &length))
-                return Property(name, type, value, length, this);
+            if (!mapper_device_property(_dev, name, &length, &type, &value))
+                return Property(name, length, type, value, this);
             else
                 return Property(name, 0, 0, 0, this);
         }
@@ -892,9 +860,9 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            if (!mapper_device_property_index(_dev, index, &name, &type,
-                                              &value, &length))
-                return Property(name, type, value, length, this);
+            if (!mapper_device_property_index(_dev, index, &name, &length,
+                                              &type, &value))
+                return Property(name, length, type, value, this);
             else
                 return Property(0, 0, 0, 0, this);
         }
@@ -1040,8 +1008,8 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            if (!mapper_map_property(_map, name, &type, &value, &length))
-                return Property(name, type, value, length);
+            if (!mapper_map_property(_map, name, &length, &type, &value))
+                return Property(name, length, type, value);
             else
                 return Property(name, 0, 0, 0, 0);
         }
@@ -1051,9 +1019,9 @@ namespace mapper {
             char type;
             const void *value;
             int length;
-            if (!mapper_map_property_index(_map, index, &name, &type,
-                                           &value, &length))
-                return Property(name, type, value, length);
+            if (!mapper_map_property_index(_map, index, &name, &length, &type,
+                                           &value))
+                return Property(name, length, type, value);
             else
                 return Property(0, 0, 0, 0, 0);
         }
@@ -1179,7 +1147,7 @@ namespace mapper {
                 void *value;
                 mapper_slot_minimum(_slot, &length, &type, &value);
                 if (value)
-                    return Property("minimum", type, value, length);
+                    return Property("minimum", length, type, value);
                 else
                     return Property("minimum", 0, 0, 0, 0);
             }
@@ -1196,7 +1164,7 @@ namespace mapper {
                 void *value;
                 mapper_slot_maximum(_slot, &length, &type, &value);
                 if (value)
-                    return Property("maximum", type, value, length);
+                    return Property("maximum", length, type, value);
                 else
                     return Property("maximum", 0, 0, 0, 0);
             }
@@ -1225,8 +1193,8 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                if (!mapper_slot_property(_slot, name, &type, &value, &length))
-                    return Property(name, type, value, length);
+                if (!mapper_slot_property(_slot, name, &length, &type, &value))
+                    return Property(name, length, type, value);
                 else
                     return Property(name, 0, 0, 0, 0);
             }
@@ -1236,9 +1204,9 @@ namespace mapper {
                 char type;
                 const void *value;
                 int length;
-                if (!mapper_slot_property_index(_slot, index, &name,
-                                                &type, &value, &length))
-                    return Property(name, type, value, length);
+                if (!mapper_slot_property_index(_slot, index, &name, &length,
+                                                &type, &value))
+                    return Property(name, length, type, value);
                 else
                     return Property(name, 0, 0, 0, 0);
             }
@@ -1264,8 +1232,8 @@ namespace mapper {
             Slot& set_property(Property *p)
             {
                 if (_slot)
-                    mapper_slot_set_property(_slot, p->name, p->type, p->value,
-                                             p->length);
+                    mapper_slot_set_property(_slot, p->name, p->length, p->type,
+                                             p->value);
                 return (*this);
             }
             Slot& remove_property(const string_type &name) { return (*this); }
@@ -1302,8 +1270,8 @@ namespace mapper {
         Map& set_property(Property *p)
         {
             if (_map)
-                mapper_map_set_property(_map, p->name, p->type, p->value,
-                                        p->length);
+                mapper_map_set_property(_map, p->name, p->length, p->type,
+                                        p->value);
             return (*this);
         }
         Map& remove_property(const string_type &name) { return (*this); }
@@ -1378,7 +1346,7 @@ namespace mapper {
                                              mapper_query_op op) const
         {
             return Device::Iterator(
-                mapper_db_devices_by_property(_db, p.name, p.type, p.length,
+                mapper_db_devices_by_property(_db, p.name, p.length, p.type,
                                               p.value, op));
         }
         Device::Iterator devices_by_property(const Property& p) const
@@ -1436,7 +1404,7 @@ namespace mapper {
                                              mapper_query_op op) const
         {
             return Signal::Iterator(
-                mapper_db_signals_by_property(_db, p.name, p.type, p.length,
+                mapper_db_signals_by_property(_db, p.name, p.length, p.type,
                                               p.value, op));
         }
         Signal::Iterator signals_by_property(const Property& p) const
@@ -1510,7 +1478,7 @@ namespace mapper {
         Map::Iterator maps_by_property(const Property& p, mapper_query_op op) const
         {
             return Map::Iterator(
-                mapper_db_maps_by_property(_db, p.name, p.type, p.length,
+                mapper_db_maps_by_property(_db, p.name, p.length, p.type,
                                            p.value, op));
         }
         Map::Iterator maps_by_property(const Property& p) const

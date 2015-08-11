@@ -96,7 +96,7 @@ int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
     return (signame - devname - 1);
 }
 
-mapper_message mapper_message_parse_params(const char *types, int argc,
+mapper_message mapper_message_parse_params(int argc, const char *types,
                                            lo_arg **argv)
 {
     int i, j, slot_index, num_params=0;
@@ -499,7 +499,7 @@ int mapper_update_double_if_arg(double *pdest_double, mapper_message msg,
 }
 
 /* helper for mapper_message_varargs() */
-void mapper_message_add_typed_value(lo_message m, char type, int length,
+void mapper_message_add_typed_value(lo_message m, int length, char type,
                                     const void *value)
 {
     int i;
@@ -586,7 +586,7 @@ void mapper_message_add_value_table(lo_message m, table t)
         snprintf(keyname, 256, "-@%s", n->key + remove);
         lo_message_add_string(m, keyname + 1 - remove);
         mapper_prop_value_t *v = n->value;
-        mapper_message_add_typed_value(m, v->type, v->length, v->value);
+        mapper_message_add_typed_value(m, v->length, v->type, v->value);
         n++;
     }
 }
@@ -812,7 +812,7 @@ int mapper_prop_set_string(char **property, const char *string)
     return 0;
 }
 
-void mapper_prop_pp(char type, int length, const void *value)
+void mapper_prop_pp(int length, char type, const void *value)
 {
     int i;
     if (!value || length < 1)

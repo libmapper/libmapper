@@ -314,15 +314,15 @@ const char *mapper_signal_unit(mapper_signal sig);
 /*! Look up a signal property by name.
  *  \param sig      The signal to check.
  *  \param property The name of the property to retrieve.
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_signal_property(mapper_signal sig, const char *property,
-                           char *type, const void **value, int *length);
+                           int *length, char *type, const void **value);
 
 /*! Look up a signal property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -330,16 +330,16 @@ int mapper_signal_property(mapper_signal sig, const char *property,
  *  \param index    Numerical index of a signal property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_signal_property_index(mapper_signal sig, unsigned int index,
-                                 const char **property, char *type,
-                                 const void **value, int *length);
+                                 const char **property, int *length, char *type,
+                                 const void **value);
 
 /*! Set the description property for a specific signal.
  *  \param sig          The signal to modify.
@@ -373,11 +373,11 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit);
  *  metadata.  Value pointed to will be copied.
  *  \param sig      The signal to operate on.
  *  \param property The name of the property to add.
+ *  \param length   The length of value array.
  *  \param type     The property  datatype.
- *  \param value    An array of property values.
- *  \param length   The length of value array. */
+ *  \param value    An array of property values. */
 void mapper_signal_set_property(mapper_signal sig, const char *property,
-                                char type, const void *value, int length);
+                                int length, char type, const void *value);
 
 /*! Remove a property of a signal.
  *  \param sig      The signal to operate on.
@@ -493,15 +493,15 @@ int mapper_device_num_outgoing_maps(mapper_device dev);
 /*! Look up a device property by name.
  *  \param dev      The device record to check.
  *  \param property The name of the property to retrieve.
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
-int mapper_device_property(mapper_device dev, const char *property,
-                           char *type, const void **value, int *length);
+int mapper_device_property(mapper_device dev, const char *property, int *length,
+                           char *type, const void **value);
 
 /*! Look up a device property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -509,26 +509,26 @@ int mapper_device_property(mapper_device dev, const char *property,
  *  \param index    Numerical index of a device property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_device_property_index(mapper_device dev, unsigned int index,
-                                 const char **property, char *type,
-                                 const void **value, int *length);
+                                 const char **property, int *length, char *type,
+                                 const void **value);
 
 /*! Set a property of a device.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
  *  \param dev      The device to operate on.
  *  \param property The name of the property to add.
+ *  \param length   The length of value array.
  *  \param type     The property  datatype.
- *  \param value    An array of property values.
- *  \param length   The length of value array. */
+ *  \param value    An array of property values. */
 void mapper_device_set_property(mapper_device dev, const char *property,
-                                char type, const void *value, int length);
+                                int length, char type, const void *value);
 
 /*! Remove a property of a device.
  *  \param dev      The device to operate on.
@@ -762,8 +762,8 @@ mapper_device *mapper_db_devices_by_name_match(mapper_db db, const char *pattern
 /*! Return the list of devices matching the given property.
  *  \param db       The database to query.
  *  \param property The name of the property to search for.
- *  \param type     The value type.
  *  \param length   The value length.
+ *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
  *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
@@ -772,7 +772,7 @@ mapper_device *mapper_db_devices_by_name_match(mapper_db db, const char *pattern
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_device_query_next() to iterate. */
 mapper_device *mapper_db_devices_by_property(mapper_db db, const char *property,
-                                             char type, int length,
+                                             int length, char type,
                                              const void *value,
                                              mapper_query_op op);
 
@@ -829,10 +829,10 @@ mapper_device *mapper_device_query_copy(mapper_device *query);
 void mapper_device_query_done(mapper_device *query);
 
 /*! Helper for printing typed mapper_prop values.
- *  \param type     The value type.
  *  \param length   The vector length of the value.
+ *  \param type     The value type.
  *  \param value    A pointer to the property value to print. */
-void mapper_prop_pp(char type, int length, const void *value);
+void mapper_prop_pp(int length, char type, const void *value);
 
 /* @} */
 
@@ -960,8 +960,8 @@ mapper_signal *mapper_db_outputs_by_name_match(mapper_db db, char const *pattern
 /*! Return the list of signals matching the given property.
  *  \param db       The database to query.
  *  \param property The name of the property to search for.
- *  \param type     The value type.
  *  \param length   The value length.
+ *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
  *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
@@ -970,7 +970,7 @@ mapper_signal *mapper_db_outputs_by_name_match(mapper_db db, char const *pattern
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_db_signals_by_property(mapper_db db, const char *property,
-                                             char type, int length,
+                                             int length, char type,
                                              const void *value,
                                              mapper_query_op op);
 
@@ -1155,8 +1155,8 @@ mapper_map mapper_db_map_by_id(mapper_db db, uint64_t id);
 /*! Return the list of maps matching the given property.
  *  \param db       The database to query.
  *  \param property The name of the property to search for.
- *  \param type     The value type.
  *  \param length   The value length.
+ *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
  *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
@@ -1165,14 +1165,14 @@ mapper_map mapper_db_map_by_id(mapper_db db, uint64_t id);
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_property(mapper_db db, const char *property,
-                                       char type, int length, const void *value,
+                                       int length, char type, const void *value,
                                        mapper_query_op op);
 
 /*! Return the list of maps matching the given slot property.
  *  \param db       The database to query.
  *  \param property The name of the property to search for.
- *  \param type     The value type.
  *  \param length   The value length.
+ *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
  *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
@@ -1181,15 +1181,15 @@ mapper_map *mapper_db_maps_by_property(mapper_db db, const char *property,
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *property,
-                                            char type, int length,
+                                            int length, char type,
                                             const void *value,
                                             mapper_query_op op);
 
 /*! Return the list of maps matching the given source slot property.
  *  \param db       The database to query.
  *  \param property The name of the property to search for.
- *  \param type     The value type.
  *  \param length   The value length.
+ *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
  *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
@@ -1199,15 +1199,15 @@ mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *property,
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db,
                                                 const char *property,
-                                                char type, int length,
+                                                int length, char type,
                                                 const void *value,
                                                 mapper_query_op op);
 
 /*! Return the list of maps matching the given destination slot property.
  *  \param db       The database to query.
  *  \param property The name of the property to search for.
- *  \param type     The value type.
  *  \param length   The value length.
+ *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
  *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
@@ -1217,7 +1217,7 @@ mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db,
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db,
                                                  const char *property,
-                                                 char type, int length,
+                                                 int length, char type,
                                                  const void *value,
                                                  mapper_query_op op);
 
@@ -1411,11 +1411,11 @@ void mapper_map_set_process_location(mapper_map map, mapper_location location);
  *  not take effect until synchronized with the network using mmon_update_map().
  *  \param map      The map to modify.
  *  \param property The name of the property to add.
+ *  \param length   The length of value array.
  *  \param type     The property  datatype.
- *  \param value    An array of property values.
- *  \param length   The length of value array. */
-void mapper_map_set_property(mapper_map map, const char *property, char type,
-                             const void *value, int length);
+ *  \param value    An array of property values. */
+void mapper_map_set_property(mapper_map map, const char *property, int length,
+                             char type, const void *value);
 
 /*! Add a scope to this map. Map scopes configure the propagation of signal
  *  instance updates across the map. Changes to remote maps will not take effect
@@ -1438,15 +1438,15 @@ void mapper_map_remove_scope(mapper_map map, mapper_device dev);
 /*! Look up a map property by name.
  *  \param map      The map to check.
  *  \param property The name of the property to retrieve.
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
-int mapper_map_property(mapper_map map, const char *property, char *type,
-                        const void **value, int *length);
+int mapper_map_property(mapper_map map, const char *property, int *length,
+                        char *type, const void **value);
 
 /*! Look up a map property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -1454,16 +1454,16 @@ int mapper_map_property(mapper_map map, const char *property, char *type,
  *  \param index    Numerical index of a map property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_map_property_index(mapper_map map, unsigned int index,
-                              const char **property, char *type,
-                              const void **value, int *length);
+                              const char **property, int *length, char *type,
+                              const void **value);
 
 void mapper_slot_pp(mapper_slot slot);
 
@@ -1511,35 +1511,35 @@ void mapper_slot_maximum(mapper_slot slot, int *length, char *type, void **value
  *                  the property value. (Required.). */
 void mapper_slot_minimum(mapper_slot slot, int *length, char *type, void **value);
 
+/*! Look up a map property by name.
+ *  \param slot     The map slot to check.
+ *  \param property The name of the property to retrieve.
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
+ *  \param type     A pointer to a location to receive the type of the
+ *                  property value. (Required.)
+ *  \param value    A pointer to a location to receive the address of the
+ *                  property's value. (Required.)
+ *  \return         Zero if found, otherwise non-zero. */
+int mapper_slot_property(mapper_slot slot, const char *property, int *length,
+                         char *type, const void **value);
+
 /*! Look up a map slot property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
  *  \param slot     The map slot to check.
  *  \param index    Numerical index of a map slot property.
  *  \param property Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
+ *  \param length   A pointer to a location to receive the vector length of
+ *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
  *                  property value. (Required.)
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
 int mapper_slot_property_index(mapper_slot slot, unsigned int index,
-                               const char **property, char *type,
-                               const void **value, int *length);
-
-/*! Look up a map property by name.
- *  \param slot     The map slot to check.
- *  \param property The name of the property to retrieve.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return         Zero if found, otherwise non-zero. */
-int mapper_slot_property(mapper_slot slot, const char *property,
-                         char *type, const void **value, int *length);
+                               const char **property, int *length, char *type,
+                               const void **value);
 
 /*! Get the "send as instance" property for a specific map slot. If enabled,
  *  updates to this slot will be treated as updates to a specific instance.
@@ -1624,8 +1624,8 @@ void mapper_slot_set_send_as_instance(mapper_slot slot, int send_as_instance);
  *  \param type     The property  datatype.
  *  \param value    An array of property values.
  *  \param length   The length of value array. */
-void mapper_slot_set_property(mapper_slot slot, const char *property, char type,
-                              const void *value, int length);
+void mapper_slot_set_property(mapper_slot slot, const char *property,
+                              int length, char type, const void *value);
 
 /* @} */
 

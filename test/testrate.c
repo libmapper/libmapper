@@ -54,7 +54,7 @@ int setup_source()
     const float *a;
     char t;
     int l;
-    if (mapper_signal_property(sendsig, "rate", &t, (const void**)&a, &l))
+    if (mapper_signal_property(sendsig, "rate", &l, &t, (const void**)&a))
     {
         eprintf("Couldn't find `rate' property.\n");
         mapper_device_free(source);

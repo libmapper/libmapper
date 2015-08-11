@@ -335,11 +335,11 @@ mapper_mode_type mapper_mode_type_from_string(const char *string);
 
 int mapper_db_property_index(const void *thestruct, table extra,
                              unsigned int index, const char **property,
-                             char *type, const void **value, int *length,
+                             int *length, char *type, const void **value,
                              table proptable);
 
 int mapper_db_property(const void *thestruct, table extra, const char *property,
-                       char *type, const void **value, int *length,
+                       int *length, char *type, const void **value,
                        table proptable);
 
 /**** Local device database ****/
@@ -427,12 +427,12 @@ mapper_device mapper_db_expired_device(mapper_db db, uint32_t last_ping);
 int mapper_parse_names(const char *string, char **devnameptr, char **signameptr);
 
 /*! Parse a message based on an OSC path and parameters.
- *  \param types    String containing message parameter types.
  *  \param argc     Number of arguments in the argv array.
+ *  \param types    String containing message parameter types.
  *  \param argv     Vector of lo_arg structures.
  *  \return         A mapper_message structure. Should be freed when done using
  *                  mapper_message_free. */
-mapper_message mapper_message_parse_params(const char *types, int argc,
+mapper_message mapper_message_parse_params(int argc, const char *types,
                                            lo_arg **argv);
 
 void mapper_message_free(mapper_message msg);
@@ -577,7 +577,7 @@ int mapper_message_mute(mapper_message_t *msg);
  *  \return The number of parameters added or modified. */
 int mapper_message_add_or_update_extra_params(table t, mapper_message_t *msg);
 
-void mapper_message_add_typed_value(lo_message m, char type, int length,
+void mapper_message_add_typed_value(lo_message m, int length, char type,
                                     const void *value);
 
 /*! Prepare a lo_message for sending based on a map struct. */
@@ -691,9 +691,8 @@ int mapper_table_add_or_update_message_atom(table t, mapper_message_atom atom);
  *  \param args     Value(s) to add
  *  \param length   Number of OSC argument in array
  *  \return         The number of table values added or modified. */
-int mapper_table_add_or_update_typed_value(table t, const char *key,
-                                           char type, const void *args,
-                                           int length);
+int mapper_table_add_or_update_typed_value(table t, const char *key, int length,
+                                           char type, const void *args);
 
 /*! Add arguments contained in a string table to a lo_message */
 void mapper_message_add_value_table(lo_message m, table t);

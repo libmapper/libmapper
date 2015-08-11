@@ -1104,7 +1104,7 @@ static int handler_device(const char *path, const char *types,
     const char *name = &argv[0]->s;
     lo_address a = lo_message_get_source(msg);
 
-    mapper_message params = mapper_message_parse_params(&types[1], argc-1,
+    mapper_message params = mapper_message_parse_params(argc-1, &types[1],
                                                         &argv[1]);
 
     mapper_clock_now(&adm->clock, &adm->clock.now);
@@ -1453,7 +1453,7 @@ static int handler_signal_info(const char *path, const char *types,
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen]=0;
 
-    mapper_message params = mapper_message_parse_params(&types[1], argc-1,
+    mapper_message params = mapper_message_parse_params(argc-1, &types[1],
                                                         &argv[1]);
     mapper_db_add_or_update_signal_params(db, signamep, devname, params);
     mapper_message_free(params);
@@ -1800,8 +1800,8 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
                                 src_signals, src_names, DI_INCOMING);
 
     // parse arguments from message if any
-    mapper_message params = mapper_message_parse_params(&types[dest_index+1],
-                                                        argc-dest_index-1,
+    mapper_message params = mapper_message_parse_params(argc-dest_index-1,
+                                                        &types[dest_index+1],
                                                         &argv[dest_index+1]);
     mapper_map_set_from_message(map, params, 1);
     mapper_message_free(params);
@@ -1915,8 +1915,8 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
         trace("error in /mapTo: signal names out of order.\n");
         return 0;
     }
-    mapper_message params = mapper_message_parse_params(&types[param_index],
-                                                        argc-param_index,
+    mapper_message params = mapper_message_parse_params(argc-param_index,
+                                                        &types[param_index],
                                                         &argv[param_index]);
     if (!params) {
         trace("<%s> ignoring /mapTo, no properties.\n", mapper_device_name(dev));
@@ -2034,8 +2034,8 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         return 0;
     }
 
-    mapper_message params = mapper_message_parse_params(&types[param_index],
-                                                        argc-param_index,
+    mapper_message params = mapper_message_parse_params(argc-param_index,
+                                                        &types[param_index],
                                                         &argv[param_index]);
 
     // 2 scenarios: if message in form A -> B, only B interested
@@ -2265,8 +2265,8 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         return 0;
     }
 
-    mapper_message params = mapper_message_parse_params(&types[param_index],
-                                                        argc-param_index,
+    mapper_message params = mapper_message_parse_params(argc-param_index,
+                                                        &types[param_index],
                                                         &argv[param_index]);
     if (!params) {
         trace("<%s> ignoring /map/modify, no properties.\n",

@@ -1371,7 +1371,7 @@ int mapper_device_ready(mapper_device dev)
 }
 
 void mapper_device_set_property(mapper_device dev, const char *property,
-                                char type, const void *value, int length)
+                                int length, char type, const void *value)
 {
     if (strcmp(property, "host") == 0 ||
         strcmp(property, "libversion") == 0 ||
@@ -1399,23 +1399,23 @@ void mapper_device_set_property(mapper_device dev, const char *property,
         }
     }
     else
-        mapper_table_add_or_update_typed_value(dev->extra, property,
-                                               type, value, length);
+        mapper_table_add_or_update_typed_value(dev->extra, property, length,
+                                               type, value);
 }
 
-int mapper_device_property(mapper_device dev, const char *property, char *type,
-                           const void **value, int *length)
+int mapper_device_property(mapper_device dev, const char *property, int *length,
+                           char *type, const void **value)
 {
-    return mapper_db_property(dev, dev->extra, property, type, value,
-                              length, &dev_table);
+    return mapper_db_property(dev, dev->extra, property, length, type, value,
+                              &dev_table);
 }
 
 int mapper_device_property_index(mapper_device dev, unsigned int index,
-                                 const char **property, char *type,
-                                 const void **value, int *length)
+                                 const char **property, int *length, char *type,
+                                 const void **value)
 {
-    return mapper_db_property_index(dev, dev->extra, index, property, type,
-                                    value, length, &dev_table);
+    return mapper_db_property_index(dev, dev->extra, index, property, length,
+                                    type, value, &dev_table);
 }
 
 void mapper_device_remove_property(mapper_device dev, const char *property)

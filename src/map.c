@@ -188,19 +188,19 @@ mapper_device *mapper_map_scopes(mapper_map map)
     return 0;
 }
 
-int mapper_map_property(mapper_map map, const char *property, char *type,
-                        const void **value, int *length)
+int mapper_map_property(mapper_map map, const char *property, int *length,
+                        char *type, const void **value)
 {
-    return mapper_db_property(map, map->extra, property, type, value,
-                              length, &map_table);
+    return mapper_db_property(map, map->extra, property, length, type, value,
+                              &map_table);
 }
 
 int mapper_map_property_index(mapper_map map, unsigned int index,
-                              const char **property, char *type,
-                              const void **value, int *length)
+                              const char **property, int *length, char *type,
+                              const void **value)
 {
-    return mapper_db_property_index(map, map->extra, index, property, type,
-                                    value, length, &map_table);
+    return mapper_db_property_index(map, map->extra, index, property, length,
+                                    type, value, &map_table);
 }
 
 void mapper_map_set_description(mapper_map map, const char *description)
@@ -211,34 +211,34 @@ void mapper_map_set_description(mapper_map map, const char *description)
 void mapper_map_set_mode(mapper_map map, mapper_mode_type mode)
 {
     if (mode >= 1 && mode < NUM_MAPPER_MODE_TYPES) {
-        mapper_table_add_or_update_typed_value(map->updater, "mode", 's',
-                                               mapper_mode_type_strings[mode], 1);
+        mapper_table_add_or_update_typed_value(map->updater, "mode", 1, 's',
+                                               mapper_mode_type_strings[mode]);
     }
 }
 
 void mapper_map_set_expression(mapper_map map, const char *expression)
 {
-    mapper_table_add_or_update_typed_value(map->updater, "expression", 's',
-                                           expression, 1);
+    mapper_table_add_or_update_typed_value(map->updater, "expression", 1, 's',
+                                           expression);
 }
 
 void mapper_map_set_muted(mapper_map map, int muted)
 {
-    mapper_table_add_or_update_typed_value(map->updater, "muted", 'b', &muted, 1);
+    mapper_table_add_or_update_typed_value(map->updater, "muted", 1, 'b', &muted);
 }
 
 void mapper_map_set_process_location(mapper_map map, mapper_location location)
 {
-    mapper_table_add_or_update_typed_value(map->updater, "process", 'i',
-                                           &location, 1);
+    mapper_table_add_or_update_typed_value(map->updater, "process", 1, 'i',
+                                           &location);
 }
 
 void mapper_map_add_scope(mapper_map map, mapper_device device)
 {
     mapper_prop_value_t *prop = table_find_p(map->updater, "scope");
     if (!prop)
-        mapper_table_add_or_update_typed_value(map->updater, "scope", 's',
-                                               device->name, 1);
+        mapper_table_add_or_update_typed_value(map->updater, "scope", 1, 's',
+                                               device->name);
     else if (prop->type == 's') {
         const char *names[prop->length+1];
         if (prop->length == 1) {
@@ -248,8 +248,8 @@ void mapper_map_add_scope(mapper_map map, mapper_device device)
             names[i] = ((const char**)prop->value)[i];
         }
         names[prop->length] = device->name;
-        mapper_table_add_or_update_typed_value(map->updater, "scope", 's',
-                                               names, prop->length+1);
+        mapper_table_add_or_update_typed_value(map->updater, "scope",
+                                               prop->length+1, 's', names);
     }
 }
 
@@ -257,8 +257,8 @@ void mapper_map_remove_scope(mapper_map map, mapper_device device)
 {
     mapper_prop_value_t *prop = table_find_p(map->updater, "-scope");
     if (!prop)
-        mapper_table_add_or_update_typed_value(map->updater, "-scope", 's',
-                                               device->name, 1);
+        mapper_table_add_or_update_typed_value(map->updater, "-scope", 1, 's',
+                                               device->name);
     else if (prop->type == 's') {
         const char *names[prop->length+1];
         if (prop->length == 1) {
@@ -268,13 +268,13 @@ void mapper_map_remove_scope(mapper_map map, mapper_device device)
             names[i] = ((const char**)prop->value)[i];
         }
         names[prop->length] = device->name;
-        mapper_table_add_or_update_typed_value(map->updater, "-scope", 's',
-                                               names, prop->length+1);
+        mapper_table_add_or_update_typed_value(map->updater, "-scope",
+                                               prop->length+1, 's', names);
     }
 }
 
-void mapper_map_set_property(mapper_map map, const char *property, char type,
-                             const void *value, int length)
+void mapper_map_set_property(mapper_map map, const char *property, int length,
+                             char type, const void *value)
 {
     if (!map)
         return;
@@ -320,8 +320,8 @@ void mapper_map_set_property(mapper_map map, const char *property, char type,
         // TODO: add new scopes
         return;
     }
-    mapper_table_add_or_update_typed_value(map->updater, property, type,
-                                           value, length);
+    mapper_table_add_or_update_typed_value(map->updater, property, length, type,
+                                           value);
 }
 
 int mapper_slot_index(mapper_slot slot)
@@ -386,19 +386,19 @@ void mapper_slot_minimum(mapper_slot slot, int *length, char *type, void **value
         *value = slot->minimum;
 }
 
-int mapper_slot_property(mapper_slot slot, const char *property, char *type,
-                         const void **value, int *length)
+int mapper_slot_property(mapper_slot slot, const char *property, int *length,
+                         char *type, const void **value)
 {
-    return mapper_db_property(slot, 0, property, type, value, length,
+    return mapper_db_property(slot, 0, property, length, type, value,
                               &slot_table);
 }
 
 int mapper_slot_property_index(mapper_slot slot, unsigned int index,
-                               const char **property, char *type,
-                               const void **value, int *length)
+                               const char **property, int *length, char *type,
+                               const void **value)
 {
-    return mapper_db_property_index(slot, 0, index, property, type, value,
-                                    length, &slot_table);
+    return mapper_db_property_index(slot, 0, index, property, length, type,
+                                    value, &slot_table);
 }
 
 void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action a)
@@ -418,9 +418,8 @@ void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action a)
             }
         }
     }
-    mapper_table_add_or_update_typed_value(slot->map->updater, propname, 's',
-                                           mapper_boundary_action_strings[a],
-                                           1);
+    mapper_table_add_or_update_typed_value(slot->map->updater, propname, 1, 's',
+                                           mapper_boundary_action_strings[a]);
 }
 
 void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action a)
@@ -440,9 +439,8 @@ void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action a)
             }
         }
     }
-    mapper_table_add_or_update_typed_value(slot->map->updater, propname, 's',
-                                           mapper_boundary_action_strings[a],
-                                           1);
+    mapper_table_add_or_update_typed_value(slot->map->updater, propname, 1, 's',
+                                           mapper_boundary_action_strings[a]);
 }
 
 static void set_bool_slot_prop(mapper_slot slot, const char *propname, int value)
@@ -467,7 +465,7 @@ static void set_bool_slot_prop(mapper_slot slot, const char *propname, int value
         }
     }
     mapper_table_add_or_update_typed_value(slot->map->updater, fullpropname,
-                                           'b', &value, 1);
+                                           1, 'b', &value);
 }
 
 void mapper_slot_set_calibrating(mapper_slot slot, int calibrating)
@@ -508,7 +506,7 @@ static void set_extrema_prop(mapper_slot slot, const char *propname, int length,
         }
     }
     mapper_table_add_or_update_typed_value(slot->map->updater, fullpropname,
-                                           type, value, length);
+                                           length, type, value);
 }
 
 void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
@@ -523,8 +521,8 @@ void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
     set_extrema_prop(slot, "min", length, type, value);
 }
 
-void mapper_slot_set_property(mapper_slot slot, const char *property, char type,
-                              const void *value, int length)
+void mapper_slot_set_property(mapper_slot slot, const char *property,
+                              int length, char type, const void *value)
 {
     if (!slot)
         return;
@@ -1420,7 +1418,7 @@ static int mapper_map_check_status(mapper_map map)
     return map->local->status;
 }
 
-static void upgrade_extrema_memory(mapper_slot slot, char type, int length)
+static void upgrade_extrema_memory(mapper_slot slot, int length, char type)
 {
     int i;
     if (slot->minimum) {
@@ -1511,7 +1509,7 @@ static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
             updated++;
         }
         if (updated)
-            upgrade_extrema_memory(slot, type, length);
+            upgrade_extrema_memory(slot, length, type);
     }
 
     /* range boundary actions */
@@ -2011,7 +2009,7 @@ static void add_slot_props_to_message(lo_message msg, mapper_slot slot,
         if (len < 0 && len > *size)
             return;
         lo_message_add_string(msg, *key_ptr);
-        mapper_message_add_typed_value(msg, slot->type, slot->length,
+        mapper_message_add_typed_value(msg, slot->length, slot->type,
                                        slot->maximum ?: slot->signal->maximum);
         *key_ptr += len + 1;
         *size -= len + 1;
@@ -2024,7 +2022,7 @@ static void add_slot_props_to_message(lo_message msg, mapper_slot slot,
         if (len < 0 && len > *size)
             return;
         lo_message_add_string(msg, *key_ptr);
-        mapper_message_add_typed_value(msg, slot->type, slot->length,
+        mapper_message_add_typed_value(msg, slot->length, slot->type,
                                        slot->minimum ?: slot->signal->minimum);
         *key_ptr += len + 1;
         *size -= len + 1;
@@ -2203,7 +2201,7 @@ void mapper_slot_pp(mapper_slot slot)
     char type;
     const void *val;
     int length;
-    while(!mapper_slot_property_index(slot, i++, &key, &type, &val, &length))
+    while(!mapper_slot_property_index(slot, i++, &key, &length, &type, &val))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -2218,7 +2216,7 @@ void mapper_slot_pp(mapper_slot slot)
                 printf("%s", mapper_boundary_action_strings[*((int*)val)]
                        ?: "undefined");
             else
-                mapper_prop_pp(type, length, val);
+                mapper_prop_pp(length, type, val);
         }
     }
 }
@@ -2246,7 +2244,7 @@ void mapper_map_pp(mapper_map map)
     char type;
     const void *val;
     int length;
-    while(!mapper_map_property_index(map, i++, &key, &type, &val, &length))
+    while(!mapper_map_property_index(map, i++, &key, &length, &type, &val))
     {
         die_unless(val!=0, "returned zero value\n");
 
@@ -2268,7 +2266,7 @@ void mapper_map_pp(mapper_map map)
                 }
             }
             else
-                mapper_prop_pp(type, length, val);
+                mapper_prop_pp(length, type, val);
             printf(", ");
         }
     }

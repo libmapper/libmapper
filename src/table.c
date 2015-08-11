@@ -255,8 +255,8 @@ static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
 
 /* Higher-level interface, where table stores arbitrary arguments along
  * with their type. */
-int mapper_table_add_or_update_typed_value(table t, const char *key, char type,
-                                           const void *args, int length)
+int mapper_table_add_or_update_typed_value(table t, const char *key, int length,
+                                           char type, const void *args)
 {
     int i;
     string_table_node_t *node = table_find_node(t, key);
@@ -445,7 +445,7 @@ void table_dump_prop_values(table t)
     for (i=0; i<t->len; i++) {
         printf("%s: ", n->key);
         mapper_prop_value_t *prop = n->value;
-        mapper_prop_pp(prop->type, prop->length, prop->value);
+        mapper_prop_pp(prop->length, prop->type, prop->value);
         printf("\n");
         n++;
     }

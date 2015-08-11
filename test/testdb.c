@@ -22,7 +22,7 @@ void printdevice(mapper_device dev)
     char type;
     const void *val;
     int length;
-    while(!mapper_device_property_index(dev, i++, &key, &type, &val, &length)) {
+    while(!mapper_device_property_index(dev, i++, &key, &length, &type, &val)) {
         die_unless(val!=0, "returned zero value\n");
 
         // already printed this
@@ -30,7 +30,7 @@ void printdevice(mapper_device dev)
             continue;
         else if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(type, length, val);
+            mapper_prop_pp(length, type, val);
         }
     }
     printf("\n");
@@ -62,7 +62,7 @@ void printsignal(mapper_signal sig)
     char type;
     const void *val;
     int length;
-    while(!mapper_signal_property_index(sig, i++, &key, &type, &val, &length)) {
+    while(!mapper_signal_property_index(sig, i++, &key, &length, &type, &val)) {
         die_unless(val!=0, "returned zero value\n");
 
         // already printed these
@@ -73,7 +73,7 @@ void printsignal(mapper_signal sig)
 
         if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(type, length, val);
+            mapper_prop_pp(length, type, val);
         }
     }
     printf("\n");
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
     args[2] = (lo_arg*)"@host";
     args[3] = (lo_arg*)"localhost";
 
-    if (!(msg = mapper_message_parse_params("siss", 4, args)))
+    if (!(msg = mapper_message_parse_params(4, "siss", args)))
     {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
     args[4] = (lo_arg*)"@id";
     args[5] = (lo_arg*)&id;
 
-    if (!(msg = mapper_message_parse_params("ssscsh", 6, args)))
+    if (!(msg = mapper_message_parse_params(6, "ssscsh", args)))
     {
         eprintf("2: Error, parsing failed.\n");
         result = 1;
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
 
     args[1] = (lo_arg*)"output";
 
-    if (!(msg = mapper_message_parse_params("ssscsh", 6, args)))
+    if (!(msg = mapper_message_parse_params(6, "ssscsh", args)))
     {
         eprintf("2: Error, parsing failed.\n");
         result = 1;
@@ -192,7 +192,7 @@ int main(int argc, char **argv)
     args[4] = (lo_arg*)"@id";
     args[5] = (lo_arg*)&id;
 
-    if (!(msg = mapper_message_parse_params("sssssh", 6, args)))
+    if (!(msg = mapper_message_parse_params(6, "sssssh", args)))
     {
         eprintf("4: Error, parsing failed.\n");
         result = 1;
@@ -228,7 +228,7 @@ int main(int argc, char **argv)
     args[16] = (lo_arg*)"@id";
     args[17] = (lo_arg*)&id;
 
-    if (!(msg = mapper_message_parse_params("sssssssisssffsffsh", 18, args)))
+    if (!(msg = mapper_message_parse_params(18, "sssssssisssffsffsh", args)))
     {
         eprintf("5: Error, parsing failed.\n");
         result = 1;
@@ -256,7 +256,7 @@ int main(int argc, char **argv)
     args[14] = (lo_arg*)"@id";
     args[15] = (lo_arg*)&id;
 
-    if (!(msg = mapper_message_parse_params("sssssssiisissssh", 16, args)))
+    if (!(msg = mapper_message_parse_params(16, "sssssssiisissssh", args)))
     {
         eprintf("5: Error, parsing failed.\n");
         result = 1;
@@ -367,7 +367,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'host'=='192.168.0.100':\n");
 
-    pdev = mapper_db_devices_by_property(db, "host", 's', 1,
+    pdev = mapper_db_devices_by_property(db, "host", 1, 's',
                                          "192.168.0.100", QUERY_EQUAL);
 
     count=0;
@@ -399,7 +399,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'port'<5678:\n");
 
-    pdev = mapper_db_devices_by_property(db, "port", 'i', 1, &port,
+    pdev = mapper_db_devices_by_property(db, "port", 1, 'i', &port,
                                          QUERY_LESS_THAN);
 
     count=0;
@@ -431,7 +431,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'num_outputs'==2:\n");
     int temp = 2;
-    pdev = mapper_db_devices_by_property(db, "num_outputs", 'i', 1, &temp,
+    pdev = mapper_db_devices_by_property(db, "num_outputs", 1, 'i', &temp,
                                          QUERY_EQUAL);
 
     count=0;
@@ -463,10 +463,10 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with properties 'host'!='localhost' AND 'port'>=4000:\n");
 
-    mapper_device *d1 = mapper_db_devices_by_property(db, "host", 's', 1,
+    mapper_device *d1 = mapper_db_devices_by_property(db, "host", 1, 's',
                                                       "localhost",
                                                       QUERY_NOT_EQUAL);
-    mapper_device *d2 = mapper_db_devices_by_property(db, "port", 'i', 1,
+    mapper_device *d2 = mapper_db_devices_by_property(db, "port", 1, 'i',
                                                       &port,
                                                       QUERY_GREATER_THAN_OR_EQUAL);
     pdev = mapper_device_query_intersection(d1, d2);

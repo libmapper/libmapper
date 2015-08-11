@@ -89,7 +89,7 @@ int main(int argc, char ** argv)
     std::cout << "name: " << (const char*)dev.property("name") << std::endl;
 
     int value[] = {1,2,3,4,5,6};
-    dev.set_property("foo", value, 6);
+    dev.set_property("foo", 6, value);
     const int *tempi = dev.property("foo");
     std::cout << "foo: ";
     for (i = 0; i < 6; i++)
@@ -117,14 +117,14 @@ int main(int argc, char ** argv)
     // test plain array of const char*
     std::cout << "set and get const char*[]: ";
     const char* a5[3] = {"seven", "eight", "nine"};
-    dev.set_property("foo", a5, 3);
+    dev.set_property("foo", 3, a5);
     const char **a6 = dev.property("foo");
     std::cout << a6[0] << " " << a6[1] << " " << a6[2] << std::endl;
 
     // test plain array of float
     std::cout << "set and get float[]: ";
     float a7[3] = {7.7f, 8.8f, 9.9f};
-    dev.set_property("foo", a7, 3);
+    dev.set_property("foo", 3, a7);
     const float *a8 = dev.property("foo");
     std::cout << a8[0] << " " << a8[1] << " " << a8[2] << std::endl;
 
@@ -169,7 +169,7 @@ int main(int argc, char ** argv)
     mapper::Map map = mon.map(dev.outputs()[0], dev.inputs()[1]);
     map.set_mode(MO_EXPRESSION).set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
-    map.source().set_minimum(mapper::Property(0, d, 3));
+    map.source().set_minimum(mapper::Property(0, 3, d));
     mon.update(map);
 
     while (dev.num_outgoing_maps() <= 0) {
