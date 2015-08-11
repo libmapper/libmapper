@@ -73,12 +73,12 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("--> destination got %s", sig->name);
-        float *v = value;
+        float *v = (float*)value;
         for (int i = 0; i < sig->length; i++) {
             eprintf(" %f", v[i]);
         }
@@ -292,7 +292,7 @@ int main(int argc, char **argv)
     wait_local_devices();
 
     if (autoconnect && setup_maps()) {
-        eprintf("Error initializing connection.\n");
+        eprintf("Error initializing map.\n");
         result = 1;
         goto done;
     }

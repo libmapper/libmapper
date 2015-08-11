@@ -64,6 +64,7 @@ typedef enum _mapper_mode_type {
 } mapper_mode_type;
 
 typedef enum _mapper_location {
+    LOC_UNDEFINED,
     LOC_SOURCE,
     LOC_DESTINATION
 } mapper_location;

@@ -109,21 +109,21 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     if (!name_prefix)
         return 0;
 
-    mapper_device dev = (mapper_device)calloc(1, sizeof(struct _mapper_device));
-    dev->local = (mapper_local_device)calloc(1, sizeof(struct _mapper_local_device));
-
-    if (adm) {
-        dev->local->own_admin = 0;
-    }
-    else {
+    int own_admin = adm ? 0 : 1;
+    if (!adm)
         adm = mapper_admin_new(0, 0, 0);
-        dev->local->own_admin = 1;
-    }
-    dev->db = &adm->db;
+
+    mapper_db db = &adm->db;
+    mapper_device dev;
+    dev = (mapper_device)mapper_list_add_item((void**)&db->devices,
+                                              sizeof(mapper_device_t));
+    dev->db = db;
+    dev->local = (mapper_local_device)calloc(1, sizeof(mapper_local_device_t));
+    dev->local->own_admin = own_admin;
 
     mapper_device_start_server(dev, port);
 
-    if (!adm || !dev->local->server) {
+    if (!dev->local->server) {
         mapper_device_free(dev);
         return NULL;
     }
@@ -141,7 +141,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     dev->lib_version = PACKAGE_VERSION;
     dev->extra = table_new();
 
-    dev->local->router = (mapper_router)calloc(1, sizeof(struct _mapper_router));
+    dev->local->router = (mapper_router)calloc(1, sizeof(mapper_router_t));
     dev->local->router->device = dev;
 
     dev->local->link_timeout_sec = ADMIN_TIMEOUT_SEC;
@@ -155,7 +155,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
 void mapper_device_free(mapper_device dev)
 {
     int i;
-    if (!dev)
+    if (!dev || !dev->local)
         return;
     if (!dev->db) {
         free(dev);
@@ -185,9 +185,9 @@ void mapper_device_free(mapper_device dev)
         // A registered device must tell the network it is leaving.
         lo_message msg = lo_message_new();
         if (msg) {
-            lo_message_add_string(msg, mapper_device_name(dev));
             mapper_admin_set_bundle_dest_bus(adm);
-            lo_bundle_add_message(adm->bundle, admin_message_strings[ADM_WHO], 0);
+            lo_message_add_string(msg, mapper_device_name(dev));
+            lo_bundle_add_message(adm->bundle, admin_message_strings[ADM_LOGOUT], msg);
         }
         else {
             trace("couldn't allocate lo_message for /logout\n");
@@ -219,25 +219,24 @@ void mapper_device_free(mapper_device dev)
         }
         free(dev->local->router);
     }
-    if (dev->extra)
-        table_free(dev->extra);
-    if (dev->identifier)
-        free(dev->identifier);
-    if (dev->name)
-        free(dev->name);
-    if (dev->description)
-        free(dev->description);
-    if (dev->host)
-        free(dev->host);
-    if (adm) {
-        if (dev->local->own_admin)
-            mapper_admin_free(adm);
-        else
-            adm->device = 0;
-    }
+
     if (dev->local->server)
         lo_server_free(dev->local->server);
-    free(dev);
+
+    if (dev->local->own_admin) {
+        if (adm->monitor) {
+            adm->monitor->own_admin = 1;
+            mapper_admin_remove_device(adm, dev);
+        }
+        else {
+            mapper_admin_free(adm);
+        }
+    }
+
+    free(dev->local);
+
+    // TODO: should release of local device trigger local device handler?
+    mapper_db_remove_device(dev->db, dev, 0);
 }
 
 void mapper_device_registered(mapper_device dev)
@@ -297,9 +296,8 @@ static int check_types(const char *types, int len, char type, int vector_len)
  * - Multiple "samples" of a signal value may be packed into a single message
  * - In future updates, instance release may be triggered by expression eval
  */
-static int handler_signal(const char *path, const char *types,
-                          lo_arg **argv, int argc, lo_message msg,
-                          void *user_data)
+static int handler_signal(const char *path, const char *types, lo_arg **argv,
+                          int argc, lo_message msg, void *user_data)
 {
     mapper_signal sig = (mapper_signal)user_data;
     mapper_device dev;
@@ -703,7 +701,7 @@ static int handler_signal(const char *path, const char *types,
 
 //static int handler_instance_release_request(const char *path, const char *types,
 //                                            lo_arg **argv, int argc, lo_message msg,
-//                                            void *user_data)
+//                                            const void *user_data)
 //{
 //    mapper_signal sig = (mapper_signal) user_data;
 //    mapper_device dev = sig->device;
@@ -729,9 +727,8 @@ static int handler_signal(const char *path, const char *types,
 //    return 0;
 //}
 
-static int handler_query(const char *path, const char *types,
-                         lo_arg **argv, int argc, lo_message msg,
-                         void *user_data)
+static int handler_query(const char *path, const char *types, lo_arg **argv,
+                         int argc, lo_message msg, void *user_data)
 {
     mapper_signal sig = (mapper_signal)user_data;
     mapper_device dev = sig->device;
@@ -822,15 +819,13 @@ static uint64_t get_unused_signal_id(mapper_device dev)
 // Add an input signal to a mapper device.
 mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
                                       int length, char type, const char *unit,
-                                      void *minimum, void *maximum,
+                                      const void *minimum, const void *maximum,
                                       mapper_signal_update_handler *handler,
-                                      void *user_data)
+                                      const void *user_data)
 {
     if (!dev || !dev->local)
         return 0;
-    if (check_signal_length(length) || check_signal_type(type))
-        return 0;
-    if (!name)
+    if (!name || check_signal_length(length) || check_signal_type(type))
         return 0;
 
     mapper_db db = dev->db;
@@ -839,7 +834,7 @@ mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
         return sig;
 
     sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
-                                              sizeof(struct _mapper_signal));
+                                              sizeof(mapper_signal_t));
     sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
     sig->db = dev->db;
 
@@ -866,22 +861,20 @@ mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
 // Add an output signal to a mapper device.
 mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
                                        int length, char type, const char *unit,
-                                       void *minimum, void *maximum)
+                                       const void *minimum, const void *maximum)
 {
     if (!dev || !dev->local)
         return 0;
-    if (check_signal_length(length) || check_signal_type(type))
+    if (!name || check_signal_length(length) || check_signal_type(type))
         return 0;
-    if (!name)
-        return 0;
-    
+
     mapper_db db = dev->db;
     mapper_signal sig;
     if ((sig = mapper_db_device_signal_by_name(db, dev, name)))
         return sig;
 
     sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
-                                              sizeof(struct _mapper_signal));
+                                              sizeof(mapper_signal_t));
     sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
     sig->db = dev->db;
 
@@ -901,7 +894,6 @@ mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
                                                  SUBSCRIBE_DEVICE_OUTPUTS);
         mapper_admin_send_signal(db->admin, sig);
     }
-
     return sig;
 }
 
@@ -1163,8 +1155,8 @@ void mapper_device_num_instances_changed(mapper_device dev, mapper_signal sig,
 }
 
 void mapper_device_route_signal(mapper_device dev, mapper_signal sig,
-                                int instance_index, void *value, int count,
-                                mapper_timetag_t timetag)
+                                int instance_index, const void *value,
+                                int count, mapper_timetag_t timetag)
 {
     mapper_router_process_signal(dev->local->router, sig, instance_index,
                                  value, count, timetag);
@@ -1194,7 +1186,7 @@ int mapper_device_route_query(mapper_device dev, mapper_signal sig,
 void mapper_device_reserve_instance_id_map(mapper_device dev)
 {
     mapper_id_map map;
-    map = (mapper_id_map)calloc(1, sizeof(struct _mapper_id_map));
+    map = (mapper_id_map)calloc(1, sizeof(mapper_id_map_t));
     map->next = dev->local->reserve_id_map;
     dev->local->reserve_id_map = map;
 }
@@ -1311,7 +1303,7 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
 
 const char *mapper_device_name(mapper_device dev)
 {
-    if (!dev->local->registered || !dev->local->ordinal.locked)
+    if (dev->local && (!dev->local->registered || !dev->local->ordinal.locked))
         return 0;
 
     if (dev->name)
@@ -1330,6 +1322,11 @@ uint64_t mapper_device_id(mapper_device dev)
         return dev->id;
     else
         return 0;
+}
+
+int mapper_device_is_local(mapper_device dev)
+{
+    return dev && dev->local;
 }
 
 unsigned int mapper_device_port(mapper_device dev)
@@ -1374,7 +1371,7 @@ int mapper_device_ready(mapper_device dev)
 }
 
 void mapper_device_set_property(mapper_device dev, const char *property,
-                                char type, void *value, int length)
+                                char type, const void *value, int length)
 {
     if (strcmp(property, "host") == 0 ||
         strcmp(property, "libversion") == 0 ||
@@ -1485,12 +1482,12 @@ void mapper_device_prepare_message(mapper_device dev, lo_message msg)
 
 void mapper_device_set_map_handler(mapper_device dev,
                                    mapper_device_map_handler *h,
-                                   void *user)
+                                   const void *user)
 {
     if (!dev || !dev->local)
         return;
     dev->local->map_handler = h;
-    dev->local->map_handler_userdata = user;
+    dev->local->map_handler_userdata = (void*)user;
 }
 
 mapper_db mapper_device_db(mapper_device dev)
@@ -1501,22 +1498,22 @@ mapper_db mapper_device_db(mapper_device dev)
 mapper_device *mapper_device_query_union(mapper_device *query1,
                                          mapper_device *query2)
 {
-    return (mapper_device*)mapper_list_query_union((void**)query1,
-                                                   (void**)query2);
+    return (mapper_device*)mapper_list_query_union((const void**)query1,
+                                                   (const void**)query2);
 }
 
 mapper_device *mapper_device_query_intersection(mapper_device *query1,
                                                 mapper_device *query2)
 {
-    return (mapper_device*)mapper_list_query_intersection((void**)query1,
-                                                          (void**)query2);
+    return (mapper_device*)mapper_list_query_intersection((const void**)query1,
+                                                          (const void**)query2);
 }
 
 mapper_device *mapper_device_query_difference(mapper_device *query1,
                                               mapper_device *query2)
 {
-    return (mapper_device*)mapper_list_query_difference((void**)query1,
-                                                        (void**)query2);
+    return (mapper_device*)mapper_list_query_difference((const void**)query1,
+                                                        (const void**)query2);
 }
 
 mapper_device mapper_device_query_index(mapper_device *query, int index)
@@ -1527,6 +1524,11 @@ mapper_device mapper_device_query_index(mapper_device *query, int index)
 mapper_device *mapper_device_query_next(mapper_device *query)
 {
     return (mapper_device*)mapper_list_query_next((void**)query);
+}
+
+mapper_device *mapper_device_query_copy(mapper_device *query)
+{
+    return (mapper_device*)mapper_list_query_copy((const void**)query);
 }
 
 void mapper_device_query_done(mapper_device *query)

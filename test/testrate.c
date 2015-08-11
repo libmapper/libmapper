@@ -100,12 +100,12 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("--> destination %s got %i message vector\n[", sig->name, count);
-        float *v = value;
+        float *v = (float*)value;
         for (int i = 0; i < count; i++) {
             for (int j = 0; j < sig->length; j++) {
                 eprintf(" %.1f ", v[i*sig->length+j]);

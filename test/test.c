@@ -83,21 +83,21 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("--> destination got %s", mapper_signal_name(sig));
         switch (mapper_signal_type(sig)) {
             case 'f': {
-                float *v = value;
+                float *v = (float*)value;
                 for (int i = 0; i < mapper_signal_length(sig); i++) {
                     eprintf(" %f", v[i]);
                 }
                 break;
             }
             case 'd': {
-                double *v = value;
+                double *v = (double*)value;
                 for (int i = 0; i < mapper_signal_length(sig); i++) {
                     eprintf(" %f", v[i]);
                 }

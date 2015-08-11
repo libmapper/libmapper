@@ -244,7 +244,7 @@ void mapper_router_num_instances_changed(mapper_router rtr, mapper_signal sig,
 }
 
 void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
-                                  int instance, void *value, int count,
+                                  int instance, const void *value, int count,
                                   mapper_timetag_t tt)
 {
     mapper_id_map id_map = sig->local->id_maps[instance].map;

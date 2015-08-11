@@ -29,8 +29,9 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
-void query_response_handler(mapper_signal sig, int instance_id, void *value,
-                            int count, mapper_timetag_t *timetag)
+void query_response_handler(mapper_signal sig, int instance_id,
+                            const void *value, int count,
+                            mapper_timetag_t *timetag)
 {
     int i;
     if (value) {
@@ -84,8 +85,8 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("--> destination got %s %f\n", mapper_signal_name(sig),

@@ -81,14 +81,23 @@ void mmon_free(mapper_monitor mon)
         mmon_unsubscribe(mon, mon->subscriptions->device);
     }
 
-    while (mon->admin->db.devices)
-        mapper_db_remove_device(&mon->admin->db, mon->admin->db.devices, 1);
-    if (mon->admin) {
-        if (mon->own_admin)
-            mapper_admin_free(mon->admin);
-        else
-            mapper_admin_remove_monitor(mon->admin, mon);
+    mapper_device *query = mapper_db_devices(&mon->admin->db);
+    while (query) {
+        mapper_device dev = *query;
+        query = mapper_device_query_next(query);
+        if (!dev->local)
+            mapper_db_remove_device(&mon->admin->db, dev, 1);
     }
+
+    if (mon->own_admin) {
+        if (mon->admin->device)
+            mon->admin->device->local->own_admin = 1;
+        else
+            mapper_admin_free(mon->admin);
+    }
+    else
+        mapper_admin_remove_monitor(mon->admin, mon);
+
     free(mon);
 }
 
@@ -197,7 +206,7 @@ static mapper_subscription subscription(mapper_monitor mon, mapper_device dev)
 }
 
 static void on_device_autosubscribe(mapper_device dev, mapper_action_t a,
-                                    void *user)
+                                    const void *user)
 {
     mapper_monitor mon = (mapper_monitor)(user);
 

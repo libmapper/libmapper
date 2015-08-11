@@ -274,7 +274,7 @@ void mapper_map_remove_scope(mapper_map map, mapper_device device)
 }
 
 void mapper_map_set_property(mapper_map map, const char *property, char type,
-                             void *value, int length)
+                             const void *value, int length)
 {
     if (!map)
         return;
@@ -486,7 +486,7 @@ void mapper_slot_set_send_as_instance(mapper_slot slot, int send_as_instance)
 }
 
 static void set_extrema_prop(mapper_slot slot, const char *propname, int length,
-                             char type, void *value)
+                             char type, const void *value)
 {
     int i;
     char fullpropname[128];
@@ -512,19 +512,19 @@ static void set_extrema_prop(mapper_slot slot, const char *propname, int length,
 }
 
 void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
-                             void *value)
+                             const void *value)
 {
     set_extrema_prop(slot, "max", length, type, value);
 }
 
 void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
-                             void *value)
+                             const void *value)
 {
     set_extrema_prop(slot, "min", length, type, value);
 }
 
 void mapper_slot_set_property(mapper_slot slot, const char *property, char type,
-                              void *value, int length)
+                              const void *value, int length)
 {
     if (!slot)
         return;
@@ -956,8 +956,8 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
 
 /*! Build a value update message for a given map. */
 lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
-                                    void *value, int count, char *typestring,
-                                    mapper_id_map id_map)
+                                    const void *value, int count,
+                                    char *typestring, mapper_id_map id_map)
 {
     int i;
     int length = ((map->process_location == LOC_SOURCE)
@@ -2005,27 +2005,27 @@ static void add_slot_props_to_message(lo_message msg, mapper_slot slot,
     }
 
     /* maximum */
-    if (slot->maximum) {
+    if (slot->maximum || slot->signal->maximum) {
         len = snprintf(*key_ptr, *size, "%s%s", prefix,
                        mapper_param_string(AT_MAX));
         if (len < 0 && len > *size)
             return;
         lo_message_add_string(msg, *key_ptr);
         mapper_message_add_typed_value(msg, slot->type, slot->length,
-                                       slot->maximum);
+                                       slot->maximum ?: slot->signal->maximum);
         *key_ptr += len + 1;
         *size -= len + 1;
     }
 
     /* minimum */
-    if (slot->minimum) {
+    if (slot->minimum || slot->signal->minimum) {
         len = snprintf(*key_ptr, *size, "%s%s", prefix,
                        mapper_param_string(AT_MIN));
         if (len < 0 && len > *size)
             return;
         lo_message_add_string(msg, *key_ptr);
         mapper_message_add_typed_value(msg, slot->type, slot->length,
-                                       slot->minimum);
+                                       slot->minimum ?: slot->signal->minimum);
         *key_ptr += len + 1;
         *size -= len + 1;
     }
@@ -2159,19 +2159,20 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
 
 mapper_map *mapper_map_query_union(mapper_map *query1, mapper_map *query2)
 {
-    return (mapper_map*)mapper_list_query_union((void**)query1, (void**)query2);
+    return (mapper_map*)mapper_list_query_union((const void**)query1,
+                                                (const void**)query2);
 }
 
 mapper_map *mapper_map_query_intersection(mapper_map *query1, mapper_map *query2)
 {
-    return (mapper_map*)mapper_list_query_intersection((void**)query1,
-                                                       (void**)query2);
+    return (mapper_map*)mapper_list_query_intersection((const void**)query1,
+                                                       (const void**)query2);
 }
 
 mapper_map *mapper_map_query_difference(mapper_map *query1, mapper_map *query2)
 {
-    return (mapper_map*)mapper_list_query_difference((void**)query1,
-                                                     (void**)query2);
+    return (mapper_map*)mapper_list_query_difference((const void**)query1,
+                                                     (const void**)query2);
 }
 
 mapper_map mapper_map_query_index(mapper_map *maps, int index)
@@ -2182,6 +2183,11 @@ mapper_map mapper_map_query_index(mapper_map *maps, int index)
 mapper_map *mapper_map_query_next(mapper_map *maps)
 {
     return (mapper_map*)mapper_list_query_next((void**)maps);
+}
+
+mapper_map *mapper_map_query_copy(mapper_map *maps)
+{
+    return (mapper_map*)mapper_list_query_copy((const void**)maps);
 }
 
 void mapper_map_query_done(mapper_map *map)
@@ -2250,14 +2256,14 @@ void mapper_map_pp(mapper_map map)
                 printf("%s", mapper_mode_type_strings[*((int*)val)] ?: "undefined");
             else if (strcmp(key, "process_at")==0) {
                 switch (*((int*)val)) {
-                    case 0:
-                        printf("undefined");
-                        break;
-                    case 1:
+                    case LOC_SOURCE:
                         printf("source");
                         break;
-                    case 2:
+                    case LOC_DESTINATION:
                         printf("destination");
+                        break;
+                    default:
+                        printf("undefined");
                         break;
                 }
             }

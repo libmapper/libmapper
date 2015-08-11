@@ -29,8 +29,8 @@ mapper_signal recvsig;
 int sent = 0;
 int received = 0;
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     int i;
     eprintf("--> %s got ", sig->name);

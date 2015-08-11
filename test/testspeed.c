@@ -81,8 +81,8 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         counter = (counter+1)%10;

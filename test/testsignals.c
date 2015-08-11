@@ -12,12 +12,12 @@ mapper_device dev = 0;
 mapper_signal inputs[100];
 mapper_signal outputs[100];
 
-void sig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                 mapper_timetag_t *timetag)
+void sig_handler(mapper_signal sig, int instance_id, const void *value,
+                 int count, mapper_timetag_t *timetag)
 {
     if (value) {
         printf("--> destination got %s", sig->name);
-        float *v = value;
+        float *v = (float*)value;
         for (int i = 0; i < sig->length; i++) {
             printf(" %f", v[i]);
         }

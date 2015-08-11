@@ -13,7 +13,7 @@
 
 /* Function prototypes */
 static void mapper_signal_update_internal(mapper_signal sig, int instance_index,
-                                          void *value, int count,
+                                          const void *value, int count,
                                           mapper_timetag_t timetag);
 
 static void *mapper_signal_instance_value_internal(mapper_signal sig,
@@ -130,13 +130,13 @@ static mapper_signal_instance find_instance_by_id(mapper_signal sig,
 
 void mapper_signal_init(mapper_signal sig, const char *name, int length,
                         char type, mapper_direction_t direction,
-                        const char *unit, void *minimum, void *maximum,
-                        mapper_signal_update_handler *handler, void *user_data)
+                        const char *unit,
+                        const void *minimum, const void *maximum,
+                        mapper_signal_update_handler *handler,
+                        const void *user_data)
 {
     int i;
-    if (check_signal_length(length) || check_signal_type(type))
-        return;
-    if (!name)
+    if (!name || check_signal_length(length) || check_signal_type(type))
         return;
 
     name = skip_slash(name);
@@ -152,16 +152,16 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
     sig->extra = table_new();
     sig->minimum = sig->maximum = 0;
     sig->description = 0;
-    
-    sig->local->update_handler = handler;
+
     sig->num_instances = 0;
 
-    sig->user_data = user_data;
-    
+    sig->user_data = (void*)user_data;
+
     mapper_signal_set_minimum(sig, minimum);
     mapper_signal_set_maximum(sig, maximum);
 
     if (sig->local) {
+        sig->local->update_handler = handler;
         sig->local->has_complete_value = calloc(1, length / 8 + 1);
         for (i = 0; i < length; i++) {
             sig->local->has_complete_value[i/8] |= 1 << (i % 8);
@@ -216,7 +216,7 @@ void mapper_signal_free(mapper_signal sig)
     }
 }
 
-void mapper_signal_update(mapper_signal sig, void *value, int count,
+void mapper_signal_update(mapper_signal sig, const void *value, int count,
                           mapper_timetag_t tt)
 {
     if (!sig || !sig->local)
@@ -329,7 +329,7 @@ void mapper_signal_update_double(mapper_signal sig, double value)
     mapper_signal_update_internal(sig, index, &value, 1, *tt);
 }
 
-void *mapper_signal_value(mapper_signal sig, mapper_timetag_t *timetag)
+const void *mapper_signal_value(mapper_signal sig, mapper_timetag_t *timetag)
 {
     if (!sig || !sig->local)
         return 0;
@@ -714,7 +714,7 @@ int mapper_signal_reserve_instances(mapper_signal sig, int num, int *ids,
 }
 
 void mapper_signal_update_instance(mapper_signal sig, int instance_id,
-                                   void *value, int count,
+                                   const void *value, int count,
                                    mapper_timetag_t timetag)
 {
     if (!sig || !sig->local)
@@ -807,7 +807,7 @@ int mapper_signal_newest_active_instance_internal(mapper_signal sig)
 }
 
 static void mapper_signal_update_internal(mapper_signal sig, int instance_index,
-                                          void *value, int count,
+                                          const void *value, int count,
                                           mapper_timetag_t tt)
 {
     mapper_signal_instance si = sig->local->id_maps[instance_index].instance;
@@ -937,8 +937,8 @@ static void *mapper_signal_instance_value_internal(mapper_signal sig,
     return si->value;
 }
 
-void *mapper_signal_instance_value(mapper_signal sig, int instance_id,
-                                   mapper_timetag_t *timetag)
+const void *mapper_signal_instance_value(mapper_signal sig, int instance_id,
+                                         mapper_timetag_t *timetag)
 {
     if (!sig || !sig->local)
         return 0;
@@ -1004,8 +1004,7 @@ mapper_instance_allocation_type mapper_instance_allocation_mode(mapper_signal si
 
 void mapper_signal_set_instance_event_callback(mapper_signal sig,
                                                mapper_instance_event_handler h,
-                                               int flags,
-                                               void *user_data)
+                                               int flags, const void *user_data)
 {
     if (!sig || !sig->local)
         return;
@@ -1018,19 +1017,19 @@ void mapper_signal_set_instance_event_callback(mapper_signal sig,
 
     sig->local->instance_event_handler = h;
     // TODO: use separate user_data for instance event callback?
-    sig->user_data = user_data;
+    sig->user_data = (void*)user_data;
 
     sig->local->instance_event_flags = flags;
 }
 
 void mapper_signal_set_instance_data(mapper_signal sig, int instance_id,
-                                     void *user_data)
+                                     const void *user_data)
 {
     if (!sig || !sig->local)
         return;
     mapper_signal_instance si = find_instance_by_id(sig, instance_id);
     if (si)
-        si->user_data = user_data;
+        si->user_data = (void*)user_data;
 }
 
 void *mapper_signal_instance_data(mapper_signal sig, int instance_id)
@@ -1047,20 +1046,20 @@ void *mapper_signal_instance_data(mapper_signal sig, int instance_id)
 
 void mapper_signal_set_callback(mapper_signal sig,
                                 mapper_signal_update_handler *handler,
-                                void *user_data)
+                                const void *user_data)
 {
     if (!sig || !sig->local)
         return;
     if (!sig->local->update_handler && handler) {
         // Need to register a new liblo methods
         sig->local->update_handler = handler;
-        sig->user_data = user_data;
+        sig->user_data = (void*)user_data;
         mapper_device_add_signal_methods(sig->device, sig);
     }
     else if (sig->local->update_handler && !handler) {
         // Need to remove liblo methods
         sig->local->update_handler = 0;
-        sig->user_data = user_data;
+        sig->user_data = (void*)user_data;
         mapper_device_remove_signal_methods(sig->device, sig);
     }
 }
@@ -1121,6 +1120,11 @@ mapper_direction_t mapper_signal_direction(mapper_signal sig)
 uint64_t mapper_signal_id(mapper_signal sig)
 {
     return sig->id;
+}
+
+int mapper_signal_is_local(mapper_signal sig)
+{
+    return sig && sig->local;
 }
 
 int mapper_signal_length(mapper_signal sig)
@@ -1201,7 +1205,7 @@ void mapper_signal_set_description(mapper_signal sig, const char *description)
     mapper_prop_set_string(&sig->description, description);
 }
 
-void mapper_signal_set_maximum(mapper_signal sig, void *maximum)
+void mapper_signal_set_maximum(mapper_signal sig, const void *maximum)
 {
     if (!sig)
         return;
@@ -1217,7 +1221,7 @@ void mapper_signal_set_maximum(mapper_signal sig, void *maximum)
     }
 }
 
-void mapper_signal_set_minimum(mapper_signal sig, void *minimum)
+void mapper_signal_set_minimum(mapper_signal sig, const void *minimum)
 {
     if (!sig)
         return;
@@ -1249,7 +1253,7 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit)
 
 // TODO: use sig_table to simplify error check
 void mapper_signal_set_property(mapper_signal sig, const char *property,
-                                char type, void *value, int length)
+                                char type, const void *value, int length)
 {
     if (!sig || !property)
         return;
@@ -1463,22 +1467,22 @@ void mapper_signal_prepare_message(mapper_signal sig, lo_message msg)
 mapper_signal *mapper_signal_query_union(mapper_signal *query1,
                                          mapper_signal *query2)
 {
-    return (mapper_signal*)mapper_list_query_union((void**)query1,
-                                                   (void**)query2);
+    return (mapper_signal*)mapper_list_query_union((const void**)query1,
+                                                   (const void**)query2);
 }
 
 mapper_signal *mapper_signal_query_intersection(mapper_signal *query1,
                                                 mapper_signal *query2)
 {
-    return (mapper_signal*)mapper_list_query_intersection((void**)query1,
-                                                          (void**)query2);
+    return (mapper_signal*)mapper_list_query_intersection((const void**)query1,
+                                                          (const void**)query2);
 }
 
 mapper_signal *mapper_signal_query_difference(mapper_signal *query1,
                                               mapper_signal *query2)
 {
-    return (mapper_signal*)mapper_list_query_difference((void**)query1,
-                                                        (void**)query2);
+    return (mapper_signal*)mapper_list_query_difference((const void**)query1,
+                                                        (const void**)query2);
 }
 
 mapper_signal mapper_signal_query_index(mapper_signal *sig, int index)
@@ -1489,6 +1493,11 @@ mapper_signal mapper_signal_query_index(mapper_signal *sig, int index)
 mapper_signal *mapper_signal_query_next(mapper_signal *sig)
 {
     return (mapper_signal*)mapper_list_query_next((void**)sig);
+}
+
+mapper_signal *mapper_signal_query_copy(mapper_signal *sig)
+{
+    return (mapper_signal*)mapper_list_query_copy((const void**)sig);
 }
 
 void mapper_signal_query_done(mapper_signal *sig)

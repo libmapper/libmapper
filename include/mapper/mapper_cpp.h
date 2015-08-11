@@ -125,6 +125,9 @@ namespace mapper {
         template <typename T>
         Property(const string_type &_name, T& _value, int _length)
             { name = _name; _set(_value, _length); parent = NULL; owned = false; }
+        template <typename T, size_t N>
+        Property(const string_type &_name, std::array<T, N> _value)
+            { name = _name; _set(_value); parent = NULL; owned = false; }
         template <typename T>
         Property(const string_type &_name, std::vector<T> _value)
             { name = _name; _set(_value); parent = NULL; owned = false; }
@@ -318,22 +321,30 @@ namespace mapper {
                 length = 0;
         }
         template <size_t N>
+        void _set(std::array<const char*, N>& _values)
+        {
+            length = N;
+            type = 's';
+            // need to copy string array
+            char **temp = (char**)malloc(sizeof(char*) * length);
+            for (int i = 0; i < length; i++) {
+                temp[i] = (char*)_values[i];
+            }
+            value = temp;
+            owned = true;
+        }
+        template <size_t N>
         void _set(std::array<std::string, N>& _values)
         {
             length = N;
             type = 's';
-            if (length == 1) {
-                value = _values[0].c_str();
+            // need to copy string array
+            char **temp = (char**)malloc(sizeof(char*) * length);
+            for (int i = 0; i < length; i++) {
+                temp[i] = (char*)_values[i].c_str();
             }
-            else if (length > 1) {
-                // need to copy string array
-                char **temp = (char**)malloc(sizeof(char*) * length);
-                for (int i = 0; i < length; i++) {
-                    temp[i] = (char*)_values[i].c_str();
-                }
-                value = temp;
-                owned = true;
-            }
+            value = temp;
+            owned = true;
         }
         void _set(std::string _values[], int _length)
         {
@@ -437,9 +448,7 @@ namespace mapper {
         Signal& set_property(Property *p)
         {
             if (_sig)
-                mapper_signal_set_property(_sig, p->name, p->type,
-                                           p->type == 's' && p->length == 1
-                                           ? (void*)&p->value : (void*)p->value,
+                mapper_signal_set_property(_sig, p->name, p->type, p->value,
                                            p->length);
             return (*this);
         }
@@ -590,13 +599,13 @@ namespace mapper {
             return update_instance(instance_id, &value[0],
                                    value.size() / mapper_signal_length(_sig), tt);
         }
-        void *value() const
+        const void *value() const
             { return mapper_signal_value(_sig, 0); }
-        void *value(Timetag tt) const
+        const void *value(Timetag tt) const
             { return mapper_signal_value(_sig, tt); }
-        void *instance_value(int instance_id) const
+        const void *instance_value(int instance_id) const
             { return mapper_signal_instance_value(_sig, instance_id, 0); }
-        void *instance_value(int instance_id, Timetag tt) const
+        const void *instance_value(int instance_id, Timetag tt) const
             { return mapper_signal_instance_value(_sig, instance_id, tt); }
         int query_remotes() const
             { return mapper_signal_query_remotes(_sig, MAPPER_NOW); }
@@ -666,9 +675,20 @@ namespace mapper {
         {
         public:
             Iterator(mapper_signal *sigs)
-                { _sigs = sigs; }
+            {
+                _sigs = sigs;
+            }
+            // override copy constructor
+            Iterator(const Iterator& orig)
+            {
+                if (orig._sigs)
+                    _sigs = mapper_signal_query_copy(orig._sigs);
+            }
             ~Iterator()
-                { mapper_signal_query_done(_sigs); }
+            {
+                if (_sigs != NULL)
+                    mapper_signal_query_done(_sigs);
+            }
             operator mapper_signal*() const
                 { return _sigs; }
             bool operator==(const Iterator& rhs)
@@ -685,12 +705,24 @@ namespace mapper {
                 { Iterator tmp(*this); operator++(); return tmp; }
             Signal operator*()
                 { return Signal(*_sigs); }
-            Iterator begin()
-                { return Iterator(_sigs); }
+            Iterator& begin()
+                { return (*this); }
             Iterator end()
                 { return Iterator(0); }
 
             // Combining functions
+            Iterator join(const Iterator& rhs) const
+            {
+                return Iterator(mapper_signal_query_union(_sigs, rhs));
+            }
+            Iterator intersect(const Iterator& rhs) const
+            {
+                return Iterator(mapper_signal_query_intersection(_sigs, rhs));
+            }
+            Iterator subtract(const Iterator& rhs) const
+            {
+                return Iterator(mapper_signal_query_difference(_sigs, rhs));
+            }
             Iterator operator+(const Iterator& rhs) const
             {
                 return Iterator(mapper_signal_query_union(_sigs, rhs));
@@ -703,19 +735,25 @@ namespace mapper {
             {
                 return Iterator(mapper_signal_query_difference(_sigs, rhs));
             }
-            Iterator& operator+=(const Iterator& rhs)
+            Iterator operator+=(const Iterator& rhs)
             {
+                mapper_signal *_temp = _sigs;
                 _sigs = mapper_signal_query_union(_sigs, rhs);
+                mapper_signal_query_done(_temp);
                 return (*this);
             }
-            Iterator& operator*=(const Iterator& rhs)
+            Iterator operator*=(const Iterator& rhs)
             {
+                mapper_signal *_temp = _sigs;
                 _sigs = mapper_signal_query_intersection(_sigs, rhs);
+                mapper_signal_query_done(_temp);
                 return (*this);
             }
-            Iterator& operator-=(const Iterator& rhs)
+            Iterator operator-=(const Iterator& rhs)
             {
+                mapper_signal *_temp = _sigs;
                 _sigs = mapper_signal_query_difference(_sigs, rhs);
+                mapper_signal_query_done(_temp);
                 return (*this);
             }
 
@@ -734,9 +772,7 @@ namespace mapper {
         Device& set_property(Property *p)
         {
             if (_dev)
-                mapper_device_set_property(_dev, p->name, p->type,
-                                           p->type == 's' && p->length == 1
-                                           ? (void*)&p->value : (void*)p->value,
+                mapper_device_set_property(_dev, p->name, p->type, p->value,
                                            p->length);
             return (*this);
         }
@@ -879,9 +915,20 @@ namespace mapper {
         {
         public:
             Iterator(mapper_device *devs)
-                { _devs = devs; }
+            {
+                _devs = devs;
+            }
+            // override copy constructor
+            Iterator(const Iterator& orig)
+            {
+                if (orig._devs)
+                    _devs = mapper_device_query_copy(orig._devs);
+            }
             ~Iterator()
-                { mapper_device_query_done(_devs); }
+            {
+                if (_devs != NULL)
+                    mapper_device_query_done(_devs);
+            }
             operator mapper_device*() const
                 { return _devs; }
             bool operator==(const Iterator& rhs)
@@ -904,6 +951,18 @@ namespace mapper {
                 { return Iterator(0); }
 
             // Combination functions
+            Iterator join(const Iterator& rhs) const
+            {
+                return Iterator(mapper_device_query_union(_devs, rhs));
+            }
+            Iterator intersect(const Iterator& rhs) const
+            {
+                return Iterator(mapper_device_query_intersection(_devs, rhs));
+            }
+            Iterator subtract(const Iterator& rhs) const
+            {
+                return Iterator(mapper_device_query_difference(_devs, rhs));
+            }
             Iterator operator+(const Iterator& rhs) const
             {
                 return Iterator(mapper_device_query_union(_devs, rhs));
@@ -916,21 +975,28 @@ namespace mapper {
             {
                 return Iterator(mapper_device_query_difference(_devs, rhs));
             }
-            Iterator& operator+=(const Iterator& rhs)
+            Iterator operator+=(const Iterator& rhs)
             {
+                mapper_device *_temp = _devs;
                 _devs = mapper_device_query_union(_devs, rhs);
+                mapper_device_query_done(_temp);
                 return (*this);
             }
-            Iterator& operator*=(const Iterator& rhs)
+            Iterator operator*=(const Iterator& rhs)
             {
+                mapper_device *_temp = _devs;
                 _devs = mapper_device_query_intersection(_devs, rhs);
+                mapper_device_query_done(_temp);
                 return (*this);
             }
-            Iterator& operator-=(const Iterator& rhs)
+            Iterator operator-=(const Iterator& rhs)
             {
+                mapper_device *_temp = _devs;
                 _devs = mapper_device_query_difference(_devs, rhs);
+                mapper_device_query_done(_temp);
                 return (*this);
             }
+
 
             Device operator [] (int index)
             {
@@ -997,9 +1063,20 @@ namespace mapper {
         {
         public:
             Iterator(mapper_map *maps)
-                { _maps = maps; }
+            {
+                _maps = maps;
+            }
+            // override copy constructor
+            Iterator(const Iterator& orig)
+            {
+                if (orig._maps)
+                    _maps = mapper_map_query_copy(orig._maps);
+            }
             ~Iterator()
-                { mapper_map_query_done(_maps); }
+            {
+                if (_maps != NULL)
+                    mapper_map_query_done(_maps);
+            }
             operator mapper_map*() const
                 { return _maps; }
             bool operator==(const Iterator& rhs)
@@ -1022,6 +1099,18 @@ namespace mapper {
                 { return Iterator(0); }
 
             // Combination functions
+            Iterator join(const Iterator& rhs) const
+            {
+                return Iterator(mapper_map_query_union(_maps, rhs));
+            }
+            Iterator intersect(const Iterator& rhs) const
+            {
+                return Iterator(mapper_map_query_intersection(_maps, rhs));
+            }
+            Iterator subtract(const Iterator& rhs) const
+            {
+                return Iterator(mapper_map_query_difference(_maps, rhs));
+            }
             Iterator operator+(const Iterator& rhs) const
             {
                 return Iterator(mapper_map_query_union(_maps, rhs));
@@ -1034,19 +1123,25 @@ namespace mapper {
             {
                 return Iterator(mapper_map_query_difference(_maps, rhs));
             }
-            Iterator& operator+=(const Iterator& rhs)
+            Iterator operator+=(const Iterator& rhs)
             {
+                mapper_map *_temp = _maps;
                 _maps = mapper_map_query_union(_maps, rhs);
+                mapper_map_query_done(_temp);
                 return (*this);
             }
-            Iterator& operator*=(const Iterator& rhs)
+            Iterator operator*=(const Iterator& rhs)
             {
+                mapper_map *_temp = _maps;
                 _maps = mapper_map_query_intersection(_maps, rhs);
+                mapper_map_query_done(_temp);
                 return (*this);
             }
-            Iterator& operator-=(const Iterator& rhs)
+            Iterator operator-=(const Iterator& rhs)
             {
+                mapper_map *_temp = _maps;
                 _maps = mapper_map_query_difference(_maps, rhs);
+                mapper_map_query_done(_temp);
                 return (*this);
             }
 
@@ -1169,9 +1264,7 @@ namespace mapper {
             Slot& set_property(Property *p)
             {
                 if (_slot)
-                    mapper_slot_set_property(_slot, p->name, p->type,
-                                             p->type == 's' && p->length == 1
-                                             ? (void*)&p->value : (void*)p->value,
+                    mapper_slot_set_property(_slot, p->name, p->type, p->value,
                                              p->length);
                 return (*this);
             }
@@ -1209,9 +1302,7 @@ namespace mapper {
         Map& set_property(Property *p)
         {
             if (_map)
-                mapper_map_set_property(_map, p->name, p->type,
-                                        p->type == 's' && p->length == 1
-                                        ? (void*)&p->value : (void*)p->value,
+                mapper_map_set_property(_map, p->name, p->type, p->value,
                                         p->length);
             return (*this);
         }
@@ -1276,6 +1367,8 @@ namespace mapper {
             { return Device(mapper_db_device_by_id(_db, id)); }
         Device::Iterator devices() const
             { return Device::Iterator(mapper_db_devices(_db)); }
+        Device::Iterator local_devices() const
+            { return Device::Iterator(mapper_db_local_devices(_db)); }
         Device::Iterator devices_by_name_match(const string_type &pattern) const
         {
             return Device::Iterator(mapper_db_devices_by_name_match(_db,
@@ -1286,9 +1379,7 @@ namespace mapper {
         {
             return Device::Iterator(
                 mapper_db_devices_by_property(_db, p.name, p.type, p.length,
-                                              p.type == 's' && p.length == 1 ?
-                                              (void*)&p.value : (void*)p.value,
-                                              op));
+                                              p.value, op));
         }
         Device::Iterator devices_by_property(const Property& p) const
         {
@@ -1346,9 +1437,7 @@ namespace mapper {
         {
             return Signal::Iterator(
                 mapper_db_signals_by_property(_db, p.name, p.type, p.length,
-                                              p.type == 's' && p.length == 1 ?
-                                              (void*)&p.value : (void*)p.value,
-                                              op));
+                                              p.value, op));
         }
         Signal::Iterator signals_by_property(const Property& p) const
         {
@@ -1422,8 +1511,7 @@ namespace mapper {
         {
             return Map::Iterator(
                 mapper_db_maps_by_property(_db, p.name, p.type, p.length,
-                                           p.type == 's' && p.length == 1 ?
-                                           (void*)&p.value : (void*)p.value, op));
+                                           p.value, op));
         }
         Map::Iterator maps_by_property(const Property& p) const
         {

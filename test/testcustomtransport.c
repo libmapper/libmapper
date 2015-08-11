@@ -46,7 +46,7 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_map(mapper_map map, mapper_action_t action, void *user)
+void on_map(mapper_map map, mapper_action_t action, const void *user)
 {
     if (verbose) {
         printf("Map: ");
@@ -57,8 +57,6 @@ void on_map(mapper_map map, mapper_action_t action, void *user)
     if (mapper_map_num_sources(map) > 1)
         return;
     if (mapper_slot_signal(mapper_map_source_slot(map, 0)) != sendsig)
-        return;
-    if (mapper_slot_signal(mapper_map_destination_slot(map)) != recvsig)
         return;
 
     if (action == MAPPER_REMOVED) {
@@ -92,8 +90,7 @@ void on_map(mapper_map map, mapper_action_t action, void *user)
     const int *a_port;
     if (mapper_map_property(map, "tcpPort", &t, (const void **)&a_port, &length)
         || t != 'i' || length != 1) {
-        eprintf("Couldn't make TCP connection, "
-                "tcpPort property not found.\n");
+        eprintf("Couldn't make TCP connection, tcpPort property not found.\n");
         return;
     }
 
@@ -170,12 +167,12 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("--> destination got %s", mapper_signal_name(sig));
-        float *v = value;
+        float *v = (float*)value;
         int len = mapper_signal_length(sig);
         for (int i = 0; i < len; i++) {
             eprintf(" %f", v[i]);

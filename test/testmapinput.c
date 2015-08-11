@@ -29,21 +29,21 @@ int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("--> received %s", mapper_signal_name(sig));
         char type = mapper_signal_type(sig);
         int length = mapper_signal_length(sig);
         if (type == 'f') {
-            float *v = value;
+            float *v = (float*)value;
             for (int i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
             }
         }
         else if (type == 'd') {
-            double *v = value;
+            double *v = (double*)value;
             for (int i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
             }

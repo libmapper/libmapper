@@ -57,11 +57,11 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
-        float *f = value;
+        float *f = (float*)value;
         eprintf("handler: Got [%f, %f, %f]\n", f[0], f[1], f[2]);
     }
     received++;

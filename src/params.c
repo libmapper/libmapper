@@ -499,8 +499,8 @@ int mapper_update_double_if_arg(double *pdest_double, mapper_message msg,
 }
 
 /* helper for mapper_message_varargs() */
-void mapper_message_add_typed_value(lo_message m, char type,
-                                    int length, void *value)
+void mapper_message_add_typed_value(lo_message m, char type, int length,
+                                    const void *value)
 {
     int i;
     if (length < 1)
@@ -737,7 +737,7 @@ int propval_set_from_lo_arg(void *dest, const char dest_type,
     return 0;
 }
 
-double propval_double(void *value, const char type, int index)
+double propval_double(const void *value, const char type, int index)
 {
     switch (type) {
         case 'f':

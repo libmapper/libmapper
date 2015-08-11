@@ -55,7 +55,7 @@ void table_free(table t)
     free(t);
 }
 
-void table_add(table t, const char *key, void *value, int is_prop)
+void table_add(table t, const char *key, const void *value, int is_prop)
 {
     t->len += 1;
     if (t->len > t->alloced) {
@@ -64,7 +64,7 @@ void table_add(table t, const char *key, void *value, int is_prop)
         t->store = realloc(t->store, t->alloced * sizeof(string_table_node_t));
     }
     t->store[t->len-1].key = strdup(key);
-    t->store[t->len-1].value = value;
+    t->store[t->len-1].value = (void*)value;
     t->store[t->len-1].is_prop = is_prop;
 }
 
@@ -137,11 +137,11 @@ void table_remove_key(table t, const char *key, int free_value)
     }
 }
 
-int table_add_or_update(table t, const char *key, void *value)
+int table_add_or_update(table t, const char *key, const void *value)
 {
     void **val = table_find_pp(t, key);
     if (val) {
-        *val = value;
+        *val = (void*)value;
         return 0;
     } else {
         table_add(t, key, value, 0);
@@ -189,7 +189,7 @@ static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
             prop->value = strdup((char*)args);
         }
         else {
-            char **from = (char**)args;
+            const char **from = (const char**)args;
             char **to = (char**)prop->value;
             for (i = 0; i < length; i++) {
                 int n = strlen(from[i]);

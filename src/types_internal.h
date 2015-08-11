@@ -421,7 +421,7 @@ typedef struct _mapper_router {
     struct _mapper_device *device;  //!< The device associated with this link.
     mapper_router_signal signals;   //!< The list of mappings for each signal.
     mapper_link links;              //!< The list of links to other devices.
-} *mapper_router;
+} mapper_router_t, *mapper_router;
 
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
@@ -431,7 +431,7 @@ typedef struct _mapper_id_map {
     int local;                              //!< Local instance id to map.
     int refcount_global;
     struct _mapper_id_map *next;            //!< The next id map in the list.
-} *mapper_id_map;
+} mapper_id_map_t, *mapper_id_map;
 
 /**** Device ****/
 

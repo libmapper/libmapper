@@ -37,7 +37,6 @@ int setup_source(char *iface)
     eprintf("source created.\n");
 
     int mn=0, mx=1;
-
     sendsig = mapper_device_add_output(source, "/outsig", 1, 'i', 0, &mn, &mx);
 
     eprintf("Output signal /outsig registered.\n");
@@ -58,8 +57,8 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
@@ -75,7 +74,6 @@ int setup_destination(char *iface)
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-
     recvsig = mapper_device_add_input(destination, "/insig", 1, 'f', 0,
                                       &mn, &mx, insig_handler, 0);
 
@@ -217,7 +215,7 @@ int main(int argc, char **argv)
     wait_ready();
 
     if (autoconnect && setup_maps()) {
-        eprintf("Error initializing connections.\n");
+        eprintf("Error initializing maps.\n");
         result = 1;
         goto done;
     }

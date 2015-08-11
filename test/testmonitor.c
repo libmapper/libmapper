@@ -41,13 +41,6 @@ const char *bound_strings[] =
     "wrap"
 };
 
-const char *process_location_strings[] =
-{
-    "undefined",
-    "source",
-    "destination"
-};
-
 void dbpause()
 {
     // Don't pause normally, but this is left here to be easily
@@ -221,7 +214,7 @@ void loop()
     }
 }
 
-void on_device(mapper_device dev, mapper_action_t a, void *user)
+void on_device(mapper_device dev, mapper_action_t a, const void *user)
 {
     printf("Device %s ", dev->name);
     switch (a) {
@@ -243,7 +236,7 @@ void on_device(mapper_device dev, mapper_action_t a, void *user)
     update = 1;
 }
 
-void on_signal(mapper_signal sig, mapper_action_t a, void *user)
+void on_signal(mapper_signal sig, mapper_action_t a, const void *user)
 {
     printf("Signal %s/%s ", sig->device->name, sig->name);
     switch (a) {
@@ -264,7 +257,7 @@ void on_signal(mapper_signal sig, mapper_action_t a, void *user)
     update = 1;
 }
 
-void on_map(mapper_map map, mapper_action_t a, void *user)
+void on_map(mapper_map map, mapper_action_t a, const void *user)
 {
     int i;
     printf("Map ");

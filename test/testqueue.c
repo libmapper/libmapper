@@ -65,8 +65,8 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
@@ -211,7 +211,7 @@ int main(int argc, char **argv)
     wait_ready();
 
     if (autoconnect && create_maps()) {
-        eprintf("Error creating connections.\n");
+        eprintf("Error creating maps.\n");
         result = 1;
         goto done;
     }

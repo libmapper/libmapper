@@ -80,6 +80,8 @@ void mapper_admin_add_device(mapper_admin admin, mapper_device dev);
 
 void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
+void mapper_admin_remove_device(mapper_admin admin, mapper_device dev);
+
 void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
 
 int mapper_admin_poll(mapper_admin admin);
@@ -108,8 +110,8 @@ void mapper_device_num_instances_changed(mapper_device dev, mapper_signal sig,
                                          int size);
 
 void mapper_device_route_signal(mapper_device dev, mapper_signal sig,
-                                int instance_index, void *value, int count,
-                                mapper_timetag_t tt);
+                                int instance_index, const void *value,
+                                int count, mapper_timetag_t tt);
 
 int mapper_device_route_query(mapper_device dev, mapper_signal sig,
                               mapper_timetag_t tt);
@@ -157,12 +159,9 @@ void mapper_router_num_instances_changed(mapper_router r,
 
 /*! For a given signal instance, calculate mapping outputs and
  *  forward to destinations. */
-void mapper_router_process_signal(mapper_router r,
-                                  mapper_signal sig,
-                                  int instance_index,
-                                  void *value,
-                                  int count,
-                                  mapper_timetag_t timetag);
+void mapper_router_process_signal(mapper_router r, mapper_signal sig,
+                                  int instance_index, const void *value,
+                                  int count, mapper_timetag_t timetag);
 
 int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,
@@ -236,9 +235,9 @@ void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
  *  \param user_data User context pointer to be passed to handler. */
 mapper_signal mapper_signal_new(const char *name, int length, char type,
                                 int is_output, const char *unit,
-                                void *minimum, void *maximum,
+                                const void *minimum, const void *maximum,
                                 mapper_signal_update_handler *handler,
-                                void *user_data);
+                                const void *user_data);
 
 /*! Free memory used by a mapper_signal. Call this only for signals
  *  that are not registered with a device. Registered signals will be
@@ -248,11 +247,9 @@ void mapper_signal_free(mapper_signal sig);
 
 /*! Coerce a signal instance value to a particular type and vector length
  *  and add it to a lo_message. */
-void message_add_coerced_signal_instance_value(lo_message m,
-                                               mapper_signal sig,
+void message_add_coerced_signal_instance_value(lo_message m, mapper_signal sig,
                                                mapper_signal_instance si,
-                                               int length,
-                                               const char type);
+                                               int length, char type);
 
 void mapper_signal_prepare_message(mapper_signal sig, lo_message msg);
 
@@ -317,8 +314,8 @@ int mapper_boundary_perform(mapper_history history, mapper_slot slot,
                             char *typestring);
 
 lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
-                                    void *value, int length, char *typestring,
-                                    mapper_id_map id_map);
+                                    const void *value, int length,
+                                    char *typestring, mapper_id_map id_map);
 
 /*! Set a mapping's properties based on message parameters. */
 int mapper_map_set_from_message(mapper_map map, mapper_message_t *msg,
@@ -336,11 +333,12 @@ mapper_mode_type mapper_mode_type_from_string(const char *string);
 
 /**** Database ****/
 
-int mapper_db_property_index(void *thestruct, table extra, unsigned int index,
-                             const char **property, char *type,
-                             const void **value, int *length, table proptable);
+int mapper_db_property_index(const void *thestruct, table extra,
+                             unsigned int index, const char **property,
+                             char *type, const void **value, int *length,
+                             table proptable);
 
-int mapper_db_property(void *thestruct, table extra, const char *property,
+int mapper_db_property(const void *thestruct, table extra, const char *property,
                        char *type, const void **value, int *length,
                        table proptable);
 
@@ -375,8 +373,10 @@ mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
 /*! Initialize an already-allocated mapper_signal structure. */
 void mapper_signal_init(mapper_signal sig, const char *name, int length,
                         char type, mapper_direction_t direction,
-                        const char *unit, void *minimum, void *maximum,
-                        mapper_signal_update_handler *handler, void *user_data);
+                        const char *unit,
+                        const void *minimum, const void *maximum,
+                        mapper_signal_update_handler *handler,
+                        const void *user_data);
 
 /*! Add or update an entry in the map database using parsed
  *  message parameters.
@@ -577,22 +577,22 @@ int mapper_message_mute(mapper_message_t *msg);
  *  \return The number of parameters added or modified. */
 int mapper_message_add_or_update_extra_params(table t, mapper_message_t *msg);
 
-void mapper_message_add_typed_value(lo_message m, char type,
-                                    int length, void *value);
+void mapper_message_add_typed_value(lo_message m, char type, int length,
+                                    const void *value);
 
 /*! Prepare a lo_message for sending based on a map struct. */
 const char *mapper_map_prepare_message(mapper_map map, lo_message msg,
                                        int slot_index);
 
 /*! Helper for setting property value from different lo_arg types. */
-int propval_set_from_lo_arg(void *dest, const char dest_type,
-                            lo_arg *src, const char src_type, int index);
+int propval_set_from_lo_arg(void *dest, char dest_type,
+                            lo_arg *src, char src_type, int index);
 
 /*! Helper for setting property value from different double type. */
-void propval_set_double(void *to, const char type, int index, double from);
+void propval_set_double(void *to, char type, int index, double from);
 
 /*! Helper for getting a double from different property value types. */
-double propval_double(void *value, const char type, int index);
+double propval_double(const void *value, char type, int index);
 
 /**** Expression parser/evaluator ****/
 
@@ -640,7 +640,7 @@ void table_clear(table t);
 void table_free(table t);
 
 /*! Add a string to a table. */
-void table_add(table t, const char *key, void *value, int is_mapper_prop);
+void table_add(table t, const char *key, const void *value, int is_mapper_prop);
 
 /*! Sort a table.  Call this after table_add and before table_find. */
 void table_sort(table t);
@@ -671,7 +671,7 @@ const char *table_key_at_index(table t, unsigned int index);
  *  otherwise.  Returns 0 if no add took place.  Sorts the table
  *  before exiting, so this should be considered a longer operation
  *  than table_add. */
-int table_add_or_update(table t, const char *key, void *value);
+int table_add_or_update(table t, const char *key, const void *value);
 
 #ifdef DEBUG
 /*! Dump a table of OSC values. */
@@ -700,7 +700,7 @@ void mapper_message_add_value_table(lo_message m, table t);
 
 /**** Lists ****/
 
-void *mapper_list_from_data(void *data);
+void *mapper_list_from_data(const void *data);
 
 void *mapper_list_add_item(void **list, size_t size);
 
@@ -708,21 +708,24 @@ void mapper_list_remove_item(void **list, void *item);
 
 void mapper_list_free_item(void *item);
 
-void **mapper_list_new_query(void *p, void *f, const char *types, ...);
+void **mapper_list_new_query(const void *list, const void *f,
+                             const char *types, ...);
 
-void **mapper_list_query_union(void **query1, void **query2);
+void **mapper_list_query_union(const void **query1, const void **query2);
 
-void **mapper_list_query_intersection(void **query1, void **query2);
+void **mapper_list_query_intersection(const void **query1, const void **query2);
 
-void **mapper_list_query_difference(void **query1, void **query2);
+void **mapper_list_query_difference(const void **query1, const void **query2);
 
 void *mapper_list_next(void *mem);
 
-void *mapper_list_query_index(void **p, int index);
+void *mapper_list_query_index(void **query, int index);
 
-void **mapper_list_query_next(void **p);
+void **mapper_list_query_next(void **query);
 
-void mapper_list_query_done(void *data);
+void **mapper_list_query_copy(const void **query);
+
+void mapper_list_query_done(void **query);
 
 /**** Time ****/
 
@@ -817,7 +820,7 @@ inline static int bitmatch(unsigned int a, unsigned int b)
 }
 
 /*! Helper to check if type is a number. */
-inline static int is_number_type(const char type)
+inline static int is_number_type(char type)
 {
     switch (type) {
         case 'i':
@@ -828,7 +831,7 @@ inline static int is_number_type(const char type)
 }
 
 /*! Helper to check if type is a string. */
-inline static int is_string_type(const char type)
+inline static int is_string_type(char type)
 {
     switch (type) {
         case 's':

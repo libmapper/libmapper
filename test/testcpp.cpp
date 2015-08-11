@@ -16,8 +16,8 @@
 
 int received = 0;
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         printf("--> destination got %s", mapper_signal_name(sig));
@@ -160,11 +160,8 @@ int main(int argc, char ** argv)
 
     std::cout << "signal: " << (const char*)sig << std::endl;
 
-    for (int i = 0; i < dev.num_inputs(); i++) {
-        std::cout << "input: " << (const char*)dev.inputs()[i] << std::endl;
-    }
     mapper::Signal::Iterator iter = dev.inputs().begin();
-    for (; iter != dev.inputs().end(); iter++) {
+    for (; iter != iter.end(); ++iter) {
         std::cout << "input: " << (const char*)(*iter) << std::endl;
     }
 

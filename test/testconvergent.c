@@ -69,8 +69,8 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, int instance_id, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
@@ -242,7 +242,7 @@ int main(int argc, char **argv)
     wait_ready();
 
     if (autoconnect && setup_maps()) {
-        eprintf("Error setting connection.\n");
+        eprintf("Error setting map.\n");
         result = 1;
         goto done;
     }
