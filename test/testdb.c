@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <lo/lo_lowlevel.h>
-#include "../src/types_internal.h"
 #include "../src/mapper_internal.h"
 
 #define eprintf(format, ...) do {               \
@@ -14,69 +13,14 @@ int verbose = 1;
 
 void printdevice(mapper_device dev)
 {
-    if (!verbose)
-        return;
-    printf("  name=%s\n", mapper_device_name(dev));
-    int i=0;
-    const char *key;
-    char type;
-    const void *val;
-    int length;
-    while(!mapper_device_property_index(dev, i++, &key, &length, &type, &val)) {
-        die_unless(val!=0, "returned zero value\n");
-
-        // already printed this
-        if (strcmp(key, "name")==0)
-            continue;
-        else if (length) {
-            printf(", %s=", key);
-            mapper_property_pp(length, type, val);
-        }
-    }
-    printf("\n");
+    if (verbose)
+        mapper_device_pp(dev);
 }
 
 void printsignal(mapper_signal sig)
 {
-    if (!verbose)
-        return;
-    printf("  name='%s':'%s', direction=", mapper_device_name(mapper_signal_device(sig)),
-           mapper_signal_name(sig));
-    switch (mapper_signal_direction(sig)) {
-        case DI_BOTH:
-            printf("both");
-            break;
-        case DI_OUTGOING:
-            printf("output");
-            break;
-        case DI_INCOMING:
-            printf("input");
-            break;
-        default:
-            printf("unknown");
-            break;
-    }
-
-    int i=0;
-    const char *key;
-    char type;
-    const void *val;
-    int length;
-    while(!mapper_signal_property_index(sig, i++, &key, &length, &type, &val)) {
-        die_unless(val!=0, "returned zero value\n");
-
-        // already printed these
-        if (strcmp(key, "device_name")==0
-            || strcmp(key, "name")==0
-            || strcmp(key, "direction")==0)
-            continue;
-
-        if (length) {
-            printf(", %s=", key);
-            mapper_property_pp(length, type, val);
-        }
-    }
-    printf("\n");
+    if (verbose)
+        mapper_signal_pp(sig, 1);
 }
 
 void printmap(mapper_map map)
@@ -117,8 +61,8 @@ int main(int argc, char **argv)
     int one_i=1, two_i=2;
     float zero_f=0.f, one_f=1.f, two_f=2.f;
     uint64_t id = 1;
-    mapper_db_t db_t, *db = &db_t;
-    memset(db, 0, sizeof(db_t));
+    mapper_network net = mapper_network_new(0, 0, 0);
+    mapper_db db = &net->db;
 
     /* Test the database functions */
 
@@ -134,14 +78,14 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mapper_db_add_or_update_device_params(db, "testdb.1", msg, 0);
-    mapper_db_add_or_update_device_params(db, "testdb__.2", msg, 0);
+    mapper_db_add_or_update_device_params(db, "testdb.1", msg);
+    mapper_db_add_or_update_device_params(db, "testdb__.2", msg);
 
     port = 3000;
     args[3] = (lo_arg*)"192.168.0.100";
-    mapper_db_add_or_update_device_params(db, "testdb.3", msg, 0);
+    mapper_db_add_or_update_device_params(db, "testdb.3", msg);
     port = 5678;
-    mapper_db_add_or_update_device_params(db, "testdb__.4", msg, 0);
+    mapper_db_add_or_update_device_params(db, "testdb__.4", msg);
 
     mapper_message_free(msg);
 
@@ -161,8 +105,6 @@ int main(int argc, char **argv)
 
     id++;
     mapper_db_add_or_update_signal_params(db, "in1", "testdb.1", msg);
-    id++;
-    mapper_db_add_or_update_signal_params(db, "in2", "testdb.1", msg);
     id++;
     mapper_db_add_or_update_signal_params(db, "in2", "testdb.1", msg);
 
@@ -682,7 +624,7 @@ int main(int argc, char **argv)
     psig = mapper_db_signals_by_name(db, "out1");
     mapper_map* pmap = 0;
     while (psig) {
-        mapper_map *temp = mapper_db_signal_outgoing_maps(db, *psig);
+        mapper_map *temp = mapper_db_signal_maps(db, *psig, DI_OUTGOING);
         pmap = mapper_map_query_union(pmap, temp);
         psig = mapper_signal_query_next(psig);
     }
@@ -717,7 +659,7 @@ int main(int argc, char **argv)
 
     dev = mapper_db_device_by_name(db, "testdb.1");
     mapper_signal sig = mapper_db_device_signal_by_name(db, dev, "out1");
-    pmap = mapper_db_signal_maps(db, sig);
+    pmap = mapper_db_signal_maps(db, sig, DI_ANY);
 
     count=0;
     if (!pmap) {
@@ -751,7 +693,7 @@ int main(int argc, char **argv)
     psig = mapper_db_signals_by_name(db, "in2");
     pmap = 0;
     while (psig) {
-        mapper_map *temp = mapper_db_signal_incoming_maps(db, *psig);
+        mapper_map *temp = mapper_db_signal_maps(db, *psig, DI_INCOMING);
         pmap = mapper_map_query_union(pmap, temp);
         psig = mapper_signal_query_next(psig);
     }
@@ -786,16 +728,16 @@ int main(int argc, char **argv)
 
     dev = mapper_db_device_by_name(db, "testdb__.2");
     sig = mapper_db_device_signal_by_name(db, dev, "in1");
-    pmap = mapper_db_signal_incoming_maps(db, sig);
+    pmap = mapper_db_signal_maps(db, sig, DI_INCOMING);
 
     count=0;
     if (!pmap) {
-        eprintf("mapper_db_signal_incoming_maps() returned 0.\n");
+        eprintf("mapper_db_signal_maps() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pmap) {
-        eprintf("mapper_db_signal_incoming_maps() "
+        eprintf("mapper_db_signal_maps() "
                 "returned something which pointed to 0.\n");
         result = 1;
         goto done;
@@ -827,8 +769,10 @@ int main(int argc, char **argv)
     mapper_signal dst_sig = mapper_db_device_signal_by_name(db, dev, "in1");
 
     // get maps
-    pmap = mapper_map_query_intersection(mapper_db_signal_outgoing_maps(db, src_sig),
-                                         mapper_db_signal_incoming_maps(db, dst_sig));
+    pmap = mapper_map_query_intersection(mapper_db_signal_maps(db, src_sig,
+                                                               DI_OUTGOING),
+                                         mapper_db_signal_maps(db, dst_sig,
+                                                               DI_INCOMING));
 
     count=0;
     if (!pmap) {
@@ -865,7 +809,7 @@ int main(int argc, char **argv)
     dev = mapper_db_device_by_name(db, "testdb__.2");
     psig = mapper_db_device_signals_by_name_match(db, dev, "out");
     while (psig) {
-        mapper_map *temp = mapper_db_signal_outgoing_maps(db, *psig);
+        mapper_map *temp = mapper_db_signal_maps(db, *psig, DI_OUTGOING);
         src_pmap = mapper_map_query_union(src_pmap, temp);
         psig = mapper_signal_query_next(psig);
     }
@@ -874,7 +818,7 @@ int main(int argc, char **argv)
     dev = mapper_db_device_by_name(db, "testdb.1");
     psig = mapper_db_device_signals(db, dev);
     while (psig) {
-        mapper_map *temp = mapper_db_signal_incoming_maps(db, *psig);
+        mapper_map *temp = mapper_db_signal_maps(db, *psig, DI_INCOMING);
         dst_pmap = mapper_map_query_union(dst_pmap, temp);
         psig = mapper_signal_query_next(psig);
     }

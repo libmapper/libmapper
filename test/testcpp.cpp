@@ -82,8 +82,8 @@ int main(int argc, char ** argv)
     std::cout << "  num_fds: " << dev.num_fds() << std::endl;
     std::cout << "  num_inputs: " << dev.num_inputs() << std::endl;
     std::cout << "  num_outputs: " << dev.num_outputs() << std::endl;
-    std::cout << "  num_incoming_maps: " << dev.num_incoming_maps() << std::endl;
-    std::cout << "  num_outgoing_maps: " << dev.num_outgoing_maps() << std::endl;
+    std::cout << "  num_incoming_maps: " << dev.num_maps(DI_INCOMING) << std::endl;
+    std::cout << "  num_outgoing_maps: " << dev.num_maps(DI_OUTGOING) << std::endl;
 
     // access properties through the property getter
     std::cout << "name: " << (const char*)dev.property("name") << std::endl;
@@ -172,7 +172,7 @@ int main(int argc, char ** argv)
     map.source().set_minimum(mapper::Property(0, 3, d));
     adm.update(map);
 
-    while (dev.num_outgoing_maps() <= 0) {
+    while (dev.num_maps() <= 0) {
         dev.poll(100);
     }
 

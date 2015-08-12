@@ -185,7 +185,7 @@ void loop()
         mapper_admin_free(adm);
 
         // wait until mapping has been established
-        while (!done && !mapper_device_num_outgoing_maps(source)) {
+        while (!done && !mapper_device_num_maps(source, DI_OUTGOING)) {
             mapper_device_poll(source, 10);
             mapper_device_poll(destination, 10);
         }

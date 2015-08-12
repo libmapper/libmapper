@@ -33,78 +33,8 @@ void dbpause()
 
 void printdevice(mapper_device dev)
 {
-    printf(" └─ %s", dev->name);
-
-    int i=0;
-    const char *key;
-    char type;
-    const void *val;
-    int length;
-    while(!mapper_device_property_index(dev, i++, &key, &length, &type, &val))
-    {
-        die_unless(val!=0, "returned zero value\n");
-
-        // already printed this
-        if (strcmp(key, "name")==0)
-            continue;
-        if (strcmp(key, "synced")==0) {
-            // check current time
-            mapper_timetag_t now;
-            mapper_admin_now(adm, &now);
-            mapper_timetag_t *tt = (mapper_timetag_t *)val;
-            if (tt->sec == 0)
-                printf(", seconds_since_sync=unknown");
-            else
-                printf(", seconds_since_sync=%f",
-                       mapper_timetag_difference(now, *tt));
-        }
-        else if (length) {
-            printf(", %s=", key);
-            mapper_property_pp(length, type, val);
-        }
-    }
-    printf("\n");
-}
-
-void printsignal(mapper_signal sig)
-{
-    printf("%s, direction=", sig->name);
-    switch (sig->direction) {
-        case DI_BOTH:
-            printf("both");
-            break;
-        case DI_OUTGOING:
-            printf("output");
-            break;
-        case DI_INCOMING:
-            printf("input");
-            break;
-        default:
-            printf("unknown");
-            break;
-    }
-
-    int i=0;
-    const char *key;
-    char type;
-    const void *val;
-    int length;
-    while(!mapper_signal_property_index(sig, i++, &key, &length, &type, &val))
-    {
-        die_unless(val!=0, "returned zero value\n");
-
-        // already printed these
-        if (strcmp(key, "device_name")==0
-            || strcmp(key, "name")==0
-            || strcmp(key, "direction")==0)
-            continue;
-
-        if (length) {
-            printf(", %s=", key);
-            mapper_property_pp(length, type, val);
-        }
-    }
-    printf("\n");
+    printf(" └─ ");
+    mapper_device_pp(dev);
 }
 
 void printmap(mapper_map map)
@@ -171,7 +101,7 @@ void loop()
                 tempsig = *psig;
                 psig = mapper_signal_query_next(psig);
                 printf("    %s ", psig ? "├─" : "└─");
-                printsignal(tempsig);
+                mapper_signal_pp(tempsig, 0);
             }
             numsigs = tempdev->num_inputs;
             psig = mapper_db_device_inputs(db, tempdev);
@@ -179,7 +109,7 @@ void loop()
                 tempsig = *psig;
                 psig = mapper_signal_query_next(psig);
                 printf("    %s ", psig ? "├─" : "└─");
-                printsignal(tempsig);
+                mapper_signal_pp(tempsig, 0);
             }
         }
 

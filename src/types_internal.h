@@ -277,6 +277,8 @@ struct _mapper_signal {
     int direction;      //!< DI_OUTGOING / DI_INCOMING / DI_BOTH
     int length;         //!< Length of the signal vector, or 1 for scalars.
     int num_instances;  //!< Number of instances.
+    int num_incoming_maps;
+    int num_outgoing_maps;
     char type;          /*! The type of this signal, specified as an OSC type
                          *  character. */
 };
@@ -339,8 +341,8 @@ typedef struct _mapper_slot {
     int num_instances;
     int flags;
     int direction;                      //!< DI_INCOMING or DI_OUTGOING
-    int cause_update;                   //!< 1 to cause update, 0 otherwise.
-    int send_as_instance;               //!< 1 to send as instance, 0 otherwise.
+    int causes_update;                  //!< 1 if causes update, 0 otherwise.
+    int sends_as_instance;              //!< 1 if sends as instance, 0 otherwise.
 
     mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
     mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.
@@ -543,7 +545,7 @@ typedef enum {
     AT_BOUND_MAX,           /* 0x00 */
     AT_BOUND_MIN,           /* 0x01 */
     AT_CALIBRATING,         /* 0x02 */
-    AT_CAUSE_UPDATE,        /* 0x03 */
+    AT_CAUSES_UPDATE,       /* 0x03 */
     AT_DIRECTION,           /* 0x04 */
     AT_EXPRESSION,          /* 0x05 */
     AT_HOST,                /* 0x06 */
@@ -564,7 +566,7 @@ typedef enum {
     AT_RATE,                /* 0x15 */
     AT_REV,                 /* 0x16 */
     AT_SCOPE,               /* 0x17 */
-    AT_SEND_AS_INSTANCE,    /* 0x18 */
+    AT_SENDS_AS_INSTANCE,   /* 0x18 */
     AT_SLOT,                /* 0x19 */
     AT_TYPE,                /* 0x1A */
     AT_UNITS,               /* 0x1B */

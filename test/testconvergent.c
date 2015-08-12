@@ -126,14 +126,14 @@ int setup_maps()
     snprintf(expr, 64, "y=x%d-x%d", mapper_slot_index(slot1), mapper_slot_index(slot2));
     mapper_map_set_expression(map, expr);
 
-    mapper_slot_set_cause_update(slot1, 0);
+    mapper_slot_set_causes_update(slot1, 0);
 
     mapper_admin_update_map(adm, map);
     mapper_admin_free(adm);
 
     // wait until mappings have been established
     int i;
-    while (!done && !mapper_device_num_incoming_maps(destination)) {
+    while (!done && !mapper_device_num_maps(destination, DI_INCOMING)) {
         for (i = 0; i < NUM_SOURCES; i++)
             mapper_device_poll(sources[i], 10);
         mapper_device_poll(destination, 10);

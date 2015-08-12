@@ -344,9 +344,9 @@ mapper_map mapper_admin_add_map(mapper_admin adm, int num_sources,
 
     // check if record of map already exists
     mapper_map *maps, *temp;
-    maps = mapper_db_signal_incoming_maps(&adm->network->db, destination);
+    maps = mapper_db_signal_maps(&adm->network->db, destination, DI_INCOMING);
     for (i = 0; i < num_sources; i++) {
-        temp = mapper_db_signal_outgoing_maps(&adm->network->db, sources[i]);
+        temp = mapper_db_signal_maps(&adm->network->db, sources[i], DI_OUTGOING);
         maps = mapper_map_query_intersection(maps, temp);
     }
     while (maps) {

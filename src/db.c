@@ -211,76 +211,28 @@ static void remove_callback(fptr_list *head, const void *f, const void *user)
 
 /**** Device records ****/
 
-static int update_string_if_different(char **pdest_str, const char *src_str)
-{
-    if (!(*pdest_str) || strcmp((*pdest_str), src_str)) {
-        char *str = (char*)realloc((void*)(*pdest_str), strlen(src_str)+1);
-        strcpy(str, src_str);
-        (*pdest_str) = str;
-        return 1;
-    }
-    return 0;
-}
-
-/*! Update information about a device record based on message parameters. */
-static int update_device_record_params(mapper_device dev, const char *name,
-                                       mapper_message_t *params,
-                                       mapper_timetag_t *current_time)
-{
-    int updated = 0;
-    const char *no_slash = skip_slash(name);
-
-    updated += update_string_if_different(&dev->name, no_slash);
-    if (updated)
-        dev->id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash)) << 32;
-
-    if (current_time)
-        mapper_timetag_copy(&dev->synced, *current_time);
-
-    if (!params)
-        return updated;
-
-    updated += mapper_update_string_if_arg(&dev->host, params, AT_HOST);
-
-    updated += mapper_update_string_if_arg(&dev->lib_version, params, AT_LIB_VERSION);
-
-    updated += mapper_update_int_if_arg(&dev->port, params, AT_PORT);
-
-    updated += mapper_update_int_if_arg(&dev->num_inputs, params, AT_NUM_INPUTS);
-
-    updated += mapper_update_int_if_arg(&dev->num_outputs, params, AT_NUM_OUTPUTS);
-
-    updated += mapper_update_int_if_arg(&dev->num_incoming_maps, params,
-                                        AT_NUM_INCOMING_MAPS);
-
-    updated += mapper_update_int_if_arg(&dev->num_outgoing_maps, params,
-                                        AT_NUM_OUTGOING_MAPS);
-
-    updated += mapper_update_int_if_arg(&dev->version, params, AT_REV);
-
-    updated += mapper_message_add_or_update_extra_params(dev->extra, params);
-
-    return updated;
-}
-
 mapper_device mapper_db_add_or_update_device_params(mapper_db db,
                                                     const char *name,
-                                                    mapper_message_t *params,
-                                                    mapper_timetag_t *time)
+                                                    mapper_message_t *params)
 {
-    mapper_device dev = mapper_db_device_by_name(db, name);
+    const char *no_slash = skip_slash(name);
+    mapper_device dev = mapper_db_device_by_name(db, no_slash);
     int rc = 0, updated = 0;
 
     if (!dev) {
         dev = (mapper_device)mapper_list_add_item((void**)&db->devices,
                                                   sizeof(*dev));
+        dev->name = strdup(no_slash);
+        dev->id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash)) << 32;
         dev->db = db;
         dev->extra = table_new();
         rc = 1;
     }
 
     if (dev) {
-        updated = update_device_record_params(dev, name, params, time);
+        updated = mapper_device_set_from_message(dev, params);
+        mapper_clock_now(&db->network->clock, &db->network->clock.now);
+        mapper_timetag_copy(&dev->synced, db->network->clock.now);
 
         if (rc || updated) {
             fptr_list cb = db->device_callbacks;
@@ -301,7 +253,7 @@ void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet)
     if (!dev)
         return;
 
-    mapper_db_remove_maps_by_query(db, mapper_db_device_maps(db, dev));
+    mapper_db_remove_maps_by_query(db, mapper_db_device_maps(db, dev, DI_ANY));
 
     mapper_db_remove_signals_by_query(db, mapper_db_device_signals(db, dev));
 
@@ -549,87 +501,6 @@ mapper_device mapper_db_expired_device(mapper_db db, uint32_t last_ping)
 
 /**** Signals ****/
 
-/*! Update information about a signal record based on message parameters. */
-static int update_signal_record_params(mapper_signal sig, mapper_message_t *msg)
-{
-    mapper_message_atom atom;
-    int i, updated = 0, result;
-
-    if (!msg)
-        return updated;
-
-    int direction = mapper_message_signal_direction(msg);
-    if (direction) {
-        if (direction & DI_INCOMING) {
-            if (!(sig->direction & DI_INCOMING))
-                ++sig->device->num_inputs;
-        }
-        else if (sig->direction & DI_INCOMING)
-            --sig->device->num_inputs;
-
-        if (direction & DI_OUTGOING) {
-            if (!(sig->direction & DI_OUTGOING))
-                ++sig->device->num_outputs;
-        }
-        else if (sig->direction & DI_OUTGOING)
-            --sig->device->num_outputs;
-        sig->direction = direction;
-    }
-
-    updated += mapper_update_int64_if_arg((int64_t*)&sig->id, msg, AT_ID);
-
-    updated += mapper_update_char_if_arg(&sig->type, msg, AT_TYPE);
-
-    updated += mapper_update_int_if_arg(&sig->length, msg, AT_LENGTH);
-
-    updated += mapper_update_string_if_arg((char**)&sig->unit, msg, AT_UNITS);
-
-    updated += mapper_update_int_if_arg(&sig->num_instances, msg, AT_INSTANCES);
-
-    updated += mapper_message_add_or_update_extra_params(sig->extra, msg);
-
-    if (!sig->type || !sig->length)
-        return updated;
-
-    /* maximum */
-    atom = mapper_message_param(msg, AT_MAX);
-    if (atom && is_number_type(atom->types[0])) {
-        if (!sig->maximum)
-            sig->maximum = calloc(1, sig->length * mapper_type_size(sig->type));
-        for (i = 0; i < atom->length && i < sig->length; i++) {
-            result = propval_set_from_lo_arg(sig->maximum, sig->type,
-                                             atom->values[i], atom->types[i], i);
-            if (result == -1) {
-                free(sig->maximum);
-                sig->maximum = 0;
-                break;
-            }
-            else
-                updated += result;
-        }
-    }
-
-    /* minimum */
-    atom = mapper_message_param(msg, AT_MIN);
-    if (atom && is_number_type(atom->types[0])) {
-        if (!sig->minimum)
-            sig->minimum = calloc(1, sig->length * mapper_type_size(sig->type));
-        for (i = 0; i < atom->length && i < sig->length; i++) {
-            result = propval_set_from_lo_arg(sig->minimum, sig->type,
-                                             atom->values[i], atom->types[i], i);
-            if (result == -1) {
-                free(sig->minimum);
-                sig->minimum = 0;
-                break;
-            }
-            else
-                updated += result;
-        }
-    }
-
-    return updated;
-}
-
 mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
                                                     const char *name,
                                                     const char *device_name,
@@ -645,7 +516,7 @@ mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
             return sig;
     }
     else
-        dev = mapper_db_add_or_update_device_params(db, device_name, 0, 0);
+        dev = mapper_db_add_or_update_device_params(db, device_name, 0);
 
     if (!sig) {
         sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
@@ -662,7 +533,7 @@ mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
     }
 
     if (sig) {
-        updated = update_signal_record_params(sig, msg);
+        updated = mapper_signal_set_from_message(sig, msg);
 
         if (rc || updated) {
             // TODO: Should we really allow callbacks to free themselves?
@@ -991,7 +862,7 @@ mapper_signal *mapper_db_device_outputs_by_name_match(mapper_db db,
 void mapper_db_remove_signal(mapper_db db, mapper_signal sig)
 {
     // remove any stored maps using this signal
-    mapper_db_remove_maps_by_query(db, mapper_db_signal_maps(db, sig));
+    mapper_db_remove_maps_by_query(db, mapper_db_signal_maps(db, sig, DI_ANY));
 
     mapper_list_remove_item((void**)&db->signals, sig);
 
@@ -1092,7 +963,7 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
             map->sources[i].signal =
                 mapper_db_add_or_update_signal_params(db, signame, devname, 0);
             map->sources[i].id = i;
-            map->sources[i].cause_update = 1;
+            map->sources[i].causes_update = 1;
             map->sources[i].minimum = map->sources[i].maximum = 0;
         }
         devnamelen = mapper_parse_names(dest_name, &devnamep, &signame);
@@ -1110,7 +981,7 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
         // also add destination signal if necessary
         map->destination.signal =
             mapper_db_add_or_update_signal_params(db, signame, devname, 0);
-        map->destination.cause_update = 1;
+        map->destination.causes_update = 1;
 
         map->extra = table_new();
         rc = 1;
@@ -1140,7 +1011,7 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
                 map->sources[j].signal =
                     mapper_db_add_or_update_signal_params(db, signame, devname, 0);
                 map->sources[j].id = i;
-                map->sources[j].cause_update = 1;
+                map->sources[j].causes_update = 1;
                 map->sources[j].minimum = map->sources[j].maximum = 0;
             }
         }
@@ -1323,31 +1194,14 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
     return 0;
 }
 
-mapper_map *mapper_db_device_maps(mapper_db db, mapper_device dev)
+mapper_map *mapper_db_device_maps(mapper_db db, mapper_device dev,
+                                  mapper_direction_t dir)
 {
     if (!dev)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(db->maps, cmp_query_device_maps,
-                                  "hi", dev->id, DI_ANY));
-}
-
-mapper_map *mapper_db_device_outgoing_maps(mapper_db db, mapper_device dev)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_map *)
-            mapper_list_new_query(db->maps, cmp_query_device_maps,
-                                  "hi", dev->id, DI_OUTGOING));
-}
-
-mapper_map *mapper_db_device_incoming_maps(mapper_db db, mapper_device dev)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_map *)
-            mapper_list_new_query(db->maps, cmp_query_device_maps,
-                                  "hi", dev->id, DI_INCOMING));
+                                  "hi", dev->id, dir));
 }
 
 static int cmp_query_signal_maps(const void *context_data, mapper_map map)
@@ -1368,31 +1222,14 @@ static int cmp_query_signal_maps(const void *context_data, mapper_map map)
     return 0;
 }
 
-mapper_map *mapper_db_signal_maps(mapper_db db, mapper_signal sig)
+mapper_map *mapper_db_signal_maps(mapper_db db, mapper_signal sig,
+                                  mapper_direction_t dir)
 {
     if (!sig)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(db->maps, cmp_query_signal_maps,
-                                  "vi", &sig, DI_ANY));
-}
-
-mapper_map *mapper_db_signal_outgoing_maps(mapper_db db, mapper_signal sig)
-{
-    if (!sig)
-        return 0;
-    return ((mapper_map *)
-            mapper_list_new_query(db->maps, cmp_query_signal_maps,
-                                  "vi", &sig, DI_OUTGOING));
-}
-
-mapper_map *mapper_db_signal_incoming_maps(mapper_db db, mapper_signal sig)
-{
-    if (!sig)
-        return 0;
-    return ((mapper_map *)
-            mapper_list_new_query(db->maps, cmp_query_signal_maps,
-                                  "vi", &sig, DI_INCOMING));
+                                  "vi", &sig, dir));
 }
 
 void mapper_db_remove_maps_by_query(mapper_db db, mapper_map_t **maps)
@@ -1486,7 +1323,7 @@ static void print_slot(const char *label, int index, mapper_slot s)
         mapper_property_pp(s->length, s->type, s->maximum);
         printf("\n");
     }
-    printf("         cause_update=%s\n", s->cause_update ? "yes" : "no");
+    printf("         causes_update=%s\n", s->causes_update ? "yes" : "no");
 }
 #endif
 

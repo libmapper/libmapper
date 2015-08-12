@@ -288,7 +288,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 memset(dst_islot->history[id].timetag, 0, dst_islot->history_size
                        * sizeof(mapper_timetag_t));
 
-                if (!slot->send_as_instance)
+                if (!slot->sends_as_instance)
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, 0);
                 else if (map_in_scope(map, id_map->global))
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, id_map);
@@ -300,7 +300,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             else if (!map_in_scope(map, id_map->global))
                 continue;
             for (j = 0; j < map->num_sources; j++) {
-                if (!map->sources[j].send_as_instance)
+                if (!map->sources[j].sends_as_instance)
                     continue;
                 slot = &map->sources[j];
                 islot = slot->local;
@@ -336,7 +336,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
         int in_scope = map_in_scope(map, id_map->global);
         // TODO: should we continue for out-of-scope local destinaton updates?
-        if (slot->send_as_instance && !in_scope) {
+        if (slot->sends_as_instance && !in_scope) {
             continue;
         }
 
@@ -370,7 +370,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 continue;
             }
 
-            if (map->process_location == LOC_SOURCE && !slot->cause_update)
+            if (map->process_location == LOC_SOURCE && !slot->causes_update)
                 continue;
 
             if (!(mapper_map_perform(map, slot, instance, typestring + to->length * k)))
@@ -395,7 +395,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             }
             else {
                 msg = mapper_map_build_message(map, slot, result, 1, typestring,
-                                               slot->send_as_instance ? id_map : 0);
+                                               slot->sends_as_instance ? id_map : 0);
                 if (msg)
                     send_or_bundle_message(map->destination.local->link,
                                            dst_slot->signal->path, msg, tt);
@@ -403,9 +403,9 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             k++;
         }
         if (count > 1 && slot->direction == DI_OUTGOING
-            && (!slot->send_as_instance || in_scope)) {
+            && (!slot->sends_as_instance || in_scope)) {
             msg = mapper_map_build_message(map, slot, out_value_p, k, typestring,
-                                           slot->send_as_instance ? id_map : 0);
+                                           slot->sends_as_instance ? id_map : 0);
             if (msg)
                 send_or_bundle_message(map->destination.local->link,
                                        dst_slot->signal->path, msg, tt);
@@ -798,15 +798,15 @@ mapper_map mapper_router_add_map(mapper_router rtr, mapper_signal sig,
 
     for (i = 0; i < num_sources; i++) {
         map->sources[i].map = map;
-        map->sources[i].cause_update = 1;
-        map->sources[i].send_as_instance = map->sources[i].num_instances > 1;
+        map->sources[i].causes_update = 1;
+        map->sources[i].sends_as_instance = map->sources[i].num_instances > 1;
         map->sources[i].bound_min = BA_NONE;
         map->sources[i].bound_max = BA_NONE;
     }
     map->destination.map = map;
     map->destination.id = -1;
-    map->destination.cause_update = 1;
-    map->destination.send_as_instance = map->destination.num_instances > 1;
+    map->destination.causes_update = 1;
+    map->destination.sends_as_instance = map->destination.num_instances > 1;
     map->destination.bound_min = map->destination.bound_max = BA_NONE;
     map->destination.minimum = map->destination.maximum = 0;
 

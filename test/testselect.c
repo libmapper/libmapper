@@ -129,7 +129,7 @@ int setup_maps()
     mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig, recvsig));
 
     // wait until mapping has been established
-    while (!done && !mapper_device_num_outgoing_maps(source)) {
+    while (!done && !mapper_device_num_maps(source, DI_ANY)) {
         if (count++ > 50)
             goto error;
         mapper_device_poll(source, 10);

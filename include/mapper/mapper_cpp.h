@@ -630,8 +630,8 @@ namespace mapper {
             { return mapper_signal_instance_data(_sig, instance_id); }
         Signal& set_callback(mapper_signal_update_handler *handler, void *user_data)
             { mapper_signal_set_callback(_sig, handler, user_data); return (*this); }
-        int num_maps() const
-            { return mapper_signal_num_maps(_sig); }
+        int num_maps(mapper_direction_t dir=DI_ANY) const
+            { return mapper_signal_num_maps(_sig, dir); }
         Signal& set_minimum(void *value)
             { mapper_signal_set_minimum(_sig, value); return (*this); }
         Signal& set_maximum(void *value)
@@ -804,10 +804,8 @@ namespace mapper {
             { return mapper_device_num_inputs(_dev); }
         int num_outputs() const
             { return mapper_device_num_outputs(_dev); }
-        int num_incoming_maps() const
-            { return mapper_device_num_incoming_maps(_dev); }
-        int num_outgoing_maps() const
-            { return mapper_device_num_outgoing_maps(_dev); }
+        int num_maps(mapper_direction_t dir=DI_ANY)
+            { return mapper_device_num_maps(_dev, dir); }
 
         Signal::Iterator inputs() const
             { return Signal::Iterator(mapper_db_device_inputs(_db, _dev)); }
@@ -1174,18 +1172,18 @@ namespace mapper {
                                         (void*)(const void*)value);
                 return (*this);
             }
-            bool cause_update() const
-                { return mapper_slot_cause_update(_slot); }
-            Slot& set_cause_update(bool value)
+            bool causes_update() const
+                { return mapper_slot_causes_update(_slot); }
+            Slot& set_causes_update(bool value)
             {
-                mapper_slot_set_cause_update(_slot, (int)value);
+                mapper_slot_set_causes_update(_slot, (int)value);
                 return (*this);
             }
-            bool send_as_instance() const
-                { return mapper_slot_send_as_instance(_slot); }
-            Slot& set_send_as_instance(bool value)
+            bool sends_as_instance() const
+                { return mapper_slot_sends_as_instance(_slot); }
+            Slot& set_sends_as_instance(bool value)
             {
-                mapper_slot_set_send_as_instance(_slot, (int)value);
+                mapper_slot_set_sends_as_instance(_slot, (int)value);
                 return (*this);
             }
             Property property(const string_type &name) const
@@ -1485,35 +1483,17 @@ namespace mapper {
         {
             return maps_by_property(p, QUERY_EXISTS);
         }
-        Map::Iterator device_maps(const device_type& dev) const
+        Map::Iterator device_maps(const device_type& dev,
+                                  mapper_direction_t dir=DI_ANY) const
         {
             return Map::Iterator(
-                mapper_db_device_maps(_db, (mapper_device)dev));
+                mapper_db_device_maps(_db, (mapper_device)dev, dir));
         }
-        Map::Iterator device_outgoing_maps(const device_type& dev) const
+        Map::Iterator signal_maps(const signal_type& signal,
+                                  mapper_direction_t dir=DI_ANY) const
         {
             return Map::Iterator(
-                mapper_db_device_outgoing_maps(_db, (mapper_device)dev));
-        }
-        Map::Iterator device_incoming_maps(const device_type& dev) const
-        {
-            return Map::Iterator(
-                mapper_db_device_incoming_maps(_db, (mapper_device)dev));
-        }
-        Map::Iterator signal_maps(const signal_type& signal) const
-        {
-            return Map::Iterator(
-                mapper_db_signal_maps(_db, (mapper_signal)signal));
-        }
-        Map::Iterator signal_outgoing_maps(const signal_type& signal) const
-        {
-            return Map::Iterator(
-                mapper_db_signal_outgoing_maps(_db, (mapper_signal)signal));
-        }
-        Map::Iterator signal_incoming_maps(const signal_type& signal) const
-        {
-            return Map::Iterator(
-                mapper_db_signal_incoming_maps(_db, (mapper_signal)signal));
+                mapper_db_signal_maps(_db, (mapper_signal)signal, dir));
         }
     private:
         mapper_db _db;

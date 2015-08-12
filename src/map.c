@@ -88,27 +88,27 @@ static property_table_value_t slot_values[] = {
     { 'i', {0},         -1,          SLOT_OFFSET(bound_max) },
     { 'i', {0},         -1,          SLOT_OFFSET(bound_min) },
     { 'i', {0},         -1,          SLOT_OFFSET(calibrating) },
-    { 'i', {0},         -1,          SLOT_OFFSET(cause_update) },
+    { 'i', {0},         -1,          SLOT_OFFSET(causes_update) },
     { 'i', {0},         -1,          SLOT_OFFSET(direction) },
     { 'i', {0},         -1,          SLOT_OFFSET(length) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(maximum) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(minimum) },
-    { 'i', {0},         -1,          SLOT_OFFSET(send_as_instance) },
+    { 'i', {0},         -1,          SLOT_OFFSET(sends_as_instance) },
     { 'c', {0},         -1,          SLOT_OFFSET(type) },
 };
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t slot_strings[] = {
-    { "bound_max",        &slot_values[0] },
-    { "bound_min",        &slot_values[1] },
-    { "calibrating",      &slot_values[2] },
-    { "cause_update",     &slot_values[3] },
-    { "direction",        &slot_values[4] },
-    { "length",           &slot_values[5] },
-    { "maximum",          &slot_values[6] },
-    { "minimum",          &slot_values[7] },
-    { "send_as_instance", &slot_values[8] },
-    { "type",             &slot_values[9] },
+    { "bound_max",          &slot_values[0] },
+    { "bound_min",          &slot_values[1] },
+    { "calibrating",        &slot_values[2] },
+    { "causes_update",      &slot_values[3] },
+    { "direction",          &slot_values[4] },
+    { "length",             &slot_values[5] },
+    { "maximum",            &slot_values[6] },
+    { "minimum",            &slot_values[7] },
+    { "sends_as_instance",  &slot_values[8] },
+    { "type",               &slot_values[9] },
 };
 
 const int NUM_SLOT_STRINGS = sizeof(slot_strings)/sizeof(slot_strings[0]);
@@ -356,14 +356,14 @@ int mapper_slot_calibrating(mapper_slot slot)
     return (slot->calibrating != 0);
 }
 
-int mapper_slot_cause_update(mapper_slot slot)
+int mapper_slot_causes_update(mapper_slot slot)
 {
-    return slot->cause_update;
+    return slot->causes_update;
 }
 
-int mapper_slot_send_as_instance(mapper_slot slot)
+int mapper_slot_sends_as_instance(mapper_slot slot)
 {
-    return slot->send_as_instance;
+    return slot->sends_as_instance;
 }
 
 void mapper_slot_maximum(mapper_slot slot, int *length, char *type, void **value)
@@ -473,14 +473,14 @@ void mapper_slot_set_calibrating(mapper_slot slot, int calibrating)
     set_bool_slot_prop(slot, "calibrating", calibrating);
 }
 
-void mapper_slot_set_cause_update(mapper_slot slot, int cause_update)
+void mapper_slot_set_causes_update(mapper_slot slot, int causes_update)
 {
-    set_bool_slot_prop(slot, "causeUpdate", cause_update);
+    set_bool_slot_prop(slot, "causesUpdate", causes_update);
 }
 
-void mapper_slot_set_send_as_instance(mapper_slot slot, int send_as_instance)
+void mapper_slot_set_sends_as_instance(mapper_slot slot, int sends_as_instance)
 {
-    set_bool_slot_prop(slot, "sendAsInstance", send_as_instance);
+    set_bool_slot_prop(slot, "sendsAsInstance", sends_as_instance);
 }
 
 static void set_extrema_prop(mapper_slot slot, const char *propname, int length,
@@ -547,15 +547,15 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
             return;
         mapper_slot_set_calibrating(slot, *(int*)value);
     }
-    else if (strcmp(property, "cause_update") == 0) {
+    else if (strcmp(property, "causes_update") == 0) {
         if (length != 1 || type != 'i')
             return;
-        mapper_slot_set_cause_update(slot, *(int*)value);
+        mapper_slot_set_causes_update(slot, *(int*)value);
     }
-    else if (strcmp(property, "send_as_instance") == 0) {
+    else if (strcmp(property, "sends_as_instance") == 0) {
         if (length != 1 || type != 'i')
             return;
-        mapper_slot_set_send_as_instance(slot, *(int*)value);
+        mapper_slot_set_sends_as_instance(slot, *(int*)value);
     }
     else if (strcmp(property, "maximum") == 0
              || strcmp(property, "max") == 0) {
@@ -1242,15 +1242,15 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
      * evaluates to a constant we can update immediately. */
     /* TODO: should call handler for all instances updated
      * through this map. */
-    int send_as_instance = 0;
+    int sends_as_instance = 0;
     for (i = 0; i < map->num_sources; i++) {
-        if (map->sources[i].send_as_instance) {
-            send_as_instance = 1;
+        if (map->sources[i].sends_as_instance) {
+            sends_as_instance = 1;
             break;
         }
     }
-    send_as_instance += map->destination.send_as_instance;
-    if (mapper_expr_constant_output(map->local->expr) && !send_as_instance) {
+    sends_as_instance += map->destination.sends_as_instance;
+    if (mapper_expr_constant_output(map->local->expr) && !sends_as_instance) {
         mapper_timetag_t now;
         mapper_clock_now(&map->db->network->clock, &now);
 
@@ -1535,13 +1535,13 @@ static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
     updated += mapper_update_bool_if_arg(&slot->calibrating, msg,
                                          AT_CALIBRATING | mask);
 
-    /* cause update */
-    updated += mapper_update_bool_if_arg(&slot->cause_update, msg,
-                                         AT_CAUSE_UPDATE | mask);
+    /* causes update */
+    updated += mapper_update_bool_if_arg(&slot->causes_update, msg,
+                                         AT_CAUSES_UPDATE | mask);
 
-    /* send as instance */
-    updated += mapper_update_bool_if_arg(&slot->send_as_instance, msg,
-                                         AT_SEND_AS_INSTANCE | mask);
+    /* sends as instance */
+    updated += mapper_update_bool_if_arg(&slot->sends_as_instance, msg,
+                                         AT_SENDS_AS_INSTANCE | mask);
 
     /* maximum */
     atom = mapper_message_param(msg, AT_MAX | mask);
@@ -2060,23 +2060,23 @@ static void add_slot_props_to_message(lo_message msg, mapper_slot slot,
     *key_ptr += len + 1;
     *size -= len + 1;
 
-    // Send as Instance
+    // Sends as Instance
     len = snprintf(*key_ptr, *size, "%s%s", prefix,
-                   mapper_param_string(AT_SEND_AS_INSTANCE));
+                   mapper_param_string(AT_SENDS_AS_INSTANCE));
     if (len < 0 && len > *size)
         return;
     lo_message_add_string(msg, *key_ptr);
-    message_add_bool(msg, slot->send_as_instance);
+    message_add_bool(msg, slot->sends_as_instance);
     *key_ptr += len + 1;
     *size -= len + 1;
 
-    // Cause update
+    // Causes update
     len = snprintf(*key_ptr, *size, "%s%s", prefix,
-                   mapper_param_string(AT_CAUSE_UPDATE));
+                   mapper_param_string(AT_CAUSES_UPDATE));
     if (len < 0 && len > *size)
         return;
     lo_message_add_string(msg, *key_ptr);
-    message_add_bool(msg, slot->cause_update);
+    message_add_bool(msg, slot->causes_update);
     *key_ptr += len + 1;
     *size -= len + 1;
 }
@@ -2224,6 +2224,11 @@ void mapper_slot_pp(mapper_slot slot)
 void mapper_map_pp(mapper_map map)
 {
     int i;
+    if (!map) {
+        printf("NULL\n");
+        return;
+    }
+
     for (i = 0; i < map->num_sources; i++) {
         printf("%s/%s ", map->sources[i].signal->device->name,
                map->sources[i].signal->name);

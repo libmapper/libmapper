@@ -123,11 +123,11 @@ void loop()
         mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &inputs[1], inputs[2]));
 
         // wait until mapping has been established
-        while (!done && mapper_device_num_outgoing_maps(devices[0]) < 2) {
+        while (!done && mapper_device_num_maps(devices[0], DI_OUTGOING) < 2) {
             mapper_device_poll(devices[0], 100);
             mapper_device_poll(devices[1], 100);
             printf("waiting (%d outgoing maps)\n",
-                   mapper_device_num_outgoing_maps(devices[0]));
+                   mapper_device_num_maps(devices[0], DI_OUTGOING));
         }
 
         mapper_admin_free(adm);

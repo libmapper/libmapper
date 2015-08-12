@@ -74,6 +74,8 @@ static property_table_value_t sig_values[] = {
     { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(maximum) },
     { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(minimum) },
     { 's', {1},        -1,         SIG_OFFSET(name) },
+    { 'i', {0},        -1,         SIG_OFFSET(num_incoming_maps) },
+    { 'i', {0},        -1,         SIG_OFFSET(num_outgoing_maps) },
     { 'f', {0},        -1,         SIG_OFFSET(rate) },
     { 'c', {0},        -1,         SIG_OFFSET(type) },
     { 's', {1},        -1,         SIG_OFFSET(unit) },
@@ -82,17 +84,19 @@ static property_table_value_t sig_values[] = {
 
 /* This table must remain in alphabetical order. */
 static string_table_node_t sig_strings[] = {
-    { "description", &sig_values[0] },
-    { "direction",   &sig_values[1] },
-    { "id",          &sig_values[2] },
-    { "length",      &sig_values[3] },
-    { "max",         &sig_values[4] },
-    { "min",         &sig_values[5] },
-    { "name",        &sig_values[6] },
-    { "rate",        &sig_values[7] },
-    { "type",        &sig_values[8] },
-    { "unit",        &sig_values[9] },
-    { "user_data",   &sig_values[10] },
+    { "description",        &sig_values[0] },
+    { "direction",          &sig_values[1] },
+    { "id",                 &sig_values[2] },
+    { "length",             &sig_values[3] },
+    { "max",                &sig_values[4] },
+    { "min",                &sig_values[5] },
+    { "name",               &sig_values[6] },
+    { "num_incoming_maps",  &sig_values[7] },
+    { "num_outgoing_maps",  &sig_values[8] },
+    { "rate",               &sig_values[9] },
+    { "type",               &sig_values[10] },
+    { "unit",               &sig_values[11] },
+    { "user_data",          &sig_values[12] },
 };
 
 const int NUM_SIG_STRINGS = sizeof(sig_strings)/sizeof(sig_strings[0]);
@@ -1147,21 +1151,14 @@ const char *mapper_signal_name(mapper_signal sig)
     return sig->name;
 }
 
-int mapper_signal_num_maps(mapper_signal sig)
+int mapper_signal_num_maps(mapper_signal sig, mapper_direction_t dir)
 {
     if (!sig)
         return 0;
-    int i, count = 0;
-    mapper_router_signal rs = sig->device->local->router->signals;
-    while (rs && rs->signal != sig)
-        rs = rs->next;
-    if (rs) {
-        for (i = 0; i < rs->num_slots; i++) {
-            if (rs->slots[i])
-                count++;
-        }
-    }
-    return count;
+    if (!dir)
+        dir = DI_BOTH;
+    return (  (dir & DI_INCOMING) * sig->num_incoming_maps
+            + (dir & DI_OUTGOING) * sig->num_outgoing_maps);
 }
 
 float mapper_signal_rate(mapper_signal sig)
@@ -1456,6 +1453,14 @@ void mapper_signal_prepare_message(mapper_signal sig, lo_message msg)
     lo_message_add_string(msg, mapper_param_string(AT_INSTANCES));
     lo_message_add_int32(msg, sig->num_instances);
 
+    /* number of incoming maps */
+    lo_message_add_string(msg, mapper_param_string(AT_NUM_INCOMING_MAPS));
+    lo_message_add_int32(msg, sig->num_incoming_maps);
+
+    /* number of outgoing maps */
+    lo_message_add_string(msg, mapper_param_string(AT_NUM_OUTGOING_MAPS));
+    lo_message_add_int32(msg, sig->num_outgoing_maps);
+
     /* update rate */
     lo_message_add_string(msg, mapper_param_string(AT_RATE));
     lo_message_add_float(msg, sig->rate);
@@ -1503,4 +1508,130 @@ mapper_signal *mapper_signal_query_copy(mapper_signal *sig)
 void mapper_signal_query_done(mapper_signal *sig)
 {
     mapper_list_query_done((void**)sig);
+}
+
+/*! Update information about a signal record based on message parameters. */
+int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
+{
+    mapper_message_atom atom;
+    int i, updated = 0, result;
+
+    if (!msg)
+        return updated;
+
+    updated += mapper_message_add_or_update_extra_params(sig->extra, msg);
+
+    // If this is a local signal, only allow "extra" proparties to be set
+    if (sig->local)
+        return updated;
+
+    int direction = mapper_message_signal_direction(msg);
+    if (direction) {
+        if (direction & DI_INCOMING) {
+            if (!(sig->direction & DI_INCOMING))
+                ++sig->device->num_inputs;
+        }
+        else if (sig->direction & DI_INCOMING)
+            --sig->device->num_inputs;
+
+        if (direction & DI_OUTGOING) {
+            if (!(sig->direction & DI_OUTGOING))
+                ++sig->device->num_outputs;
+        }
+        else if (sig->direction & DI_OUTGOING)
+            --sig->device->num_outputs;
+        sig->direction = direction;
+    }
+
+    updated += mapper_update_int64_if_arg((int64_t*)&sig->id, msg, AT_ID);
+
+    updated += mapper_update_char_if_arg(&sig->type, msg, AT_TYPE);
+
+    updated += mapper_update_int_if_arg(&sig->length, msg, AT_LENGTH);
+
+    updated += mapper_update_string_if_arg((char**)&sig->unit, msg, AT_UNITS);
+
+    updated += mapper_update_int_if_arg(&sig->num_instances, msg, AT_INSTANCES);
+
+    if (!sig->type || !sig->length)
+        return updated;
+
+    /* maximum */
+    atom = mapper_message_param(msg, AT_MAX);
+    if (atom && is_number_type(atom->types[0])) {
+        if (!sig->maximum)
+            sig->maximum = calloc(1, sig->length * mapper_type_size(sig->type));
+        for (i = 0; i < atom->length && i < sig->length; i++) {
+            result = propval_set_from_lo_arg(sig->maximum, sig->type,
+                                             atom->values[i], atom->types[i], i);
+            if (result == -1) {
+                free(sig->maximum);
+                sig->maximum = 0;
+                break;
+            }
+            else
+                updated += result;
+        }
+    }
+
+    /* minimum */
+    atom = mapper_message_param(msg, AT_MIN);
+    if (atom && is_number_type(atom->types[0])) {
+        if (!sig->minimum)
+            sig->minimum = calloc(1, sig->length * mapper_type_size(sig->type));
+        for (i = 0; i < atom->length && i < sig->length; i++) {
+            result = propval_set_from_lo_arg(sig->minimum, sig->type,
+                                             atom->values[i], atom->types[i], i);
+            if (result == -1) {
+                free(sig->minimum);
+                sig->minimum = 0;
+                break;
+            }
+            else
+                updated += result;
+        }
+    }
+
+    return updated;
+}
+
+void mapper_signal_pp(mapper_signal sig, int include_device_name)
+{
+    if (include_device_name)
+        printf("%s:%s, direction=", sig->device->name, sig->name);
+    else
+        printf("%s, direction=", sig->name);
+    switch (sig->direction) {
+        case DI_BOTH:
+            printf("both");
+            break;
+        case DI_OUTGOING:
+            printf("output");
+            break;
+        case DI_INCOMING:
+            printf("input");
+            break;
+        default:
+            printf("unknown");
+            break;
+    }
+
+    int i=0;
+    const char *key;
+    char type;
+    const void *val;
+    int length;
+    while(!mapper_signal_property_index(sig, i++, &key, &length, &type, &val)) {
+        die_unless(val!=0, "returned zero value\n");
+
+        // already printed these
+        if (strcmp(key, "name")==0 || strcmp(key, "direction")==0)
+            continue;
+
+        if (length) {
+            printf(", %s=", key);
+            mapper_property_pp(length, type, val);
+        }
+    }
+    printf("\n");
 }

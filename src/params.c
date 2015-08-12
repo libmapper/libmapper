@@ -18,7 +18,7 @@ const char* prop_message_strings[] =
     "@boundMax",        /* AT_BOUND_MAX */
     "@boundMin",        /* AT_BOUND_MIN */
     "@calibrating",     /* AT_CALIBRATING */
-    "@causeUpdate",     /* AT_CAUSE_UPDATE */
+    "@causesUpdate",    /* AT_CAUSES_UPDATE */
     "@direction",       /* AT_DIRECTION */
     "@expression",      /* AT_EXPRESSION */
     "@host",            /* AT_HOST */
@@ -39,7 +39,7 @@ const char* prop_message_strings[] =
     "@rate",            /* AT_RATE */
     "@rev",             /* AT_REV */
     "@scope",           /* AT_SCOPE */
-    "@sendAsInstance",  /* AT_SEND_AS_INSTANCE */
+    "@sendsAsInstance", /* AT_SENDS_AS_INSTANCE */
     "@slot",            /* AT_SLOT */
     "@type",            /* AT_TYPE */
     "@units",           /* AT_UNITS */

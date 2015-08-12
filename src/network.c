@@ -1111,13 +1111,11 @@ static int handler_device(const char *path, const char *types,
     mapper_message params = mapper_message_parse_params(argc-1, &types[1],
                                                         &argv[1]);
 
-    mapper_clock_now(&net->clock, &net->clock.now);
     if (adm) {
         trace("<admin> got /device %s + %i arguments\n", name, argc-1);
         mapper_db db = mapper_admin_db(adm);
         mapper_device dev;
-        dev = mapper_db_add_or_update_device_params(db, name, params,
-                                                    &net->clock.now);
+        dev = mapper_db_add_or_update_device_params(db, name, params);
         if (adm->autosubscribe && (!dev->subscribed)) {
             mapper_admin_subscribe(adm, dev, adm->autosubscribe, -1);
             dev->subscribed = 1;

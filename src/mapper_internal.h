@@ -21,7 +21,11 @@
  *          in some cases the name may not be available. */
 int mapper_signal_full_name(mapper_signal sig, char *name, int len);
 
+int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg);
+
 /**** Devices ****/
+
+int mapper_device_set_from_message(mapper_device dev, mapper_message msg);
 
 /**** Instances ****/
 
@@ -350,12 +354,10 @@ int mapper_db_property(const void *thestruct, table extra, const char *property,
  *  \param device_name  The name of the device.
  *  \param params       The parsed message parameters containing new device
  *                      information.
- *  \param current_time The current time.
  *  \return             Pointer to the device database entry. */
 mapper_device mapper_db_add_or_update_device_params(mapper_db db,
                                                     const char *device_name,
-                                                    mapper_message_t *params,
-                                                    mapper_timetag_t *current_time);
+                                                    mapper_message_t *params);
 
 /*! Add or update an entry in the signal database using parsed message
  *  parameters.

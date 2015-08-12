@@ -113,7 +113,7 @@ int create_maps()
     mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig1, recvsig));
 
     // wait until mapping has been established
-    while (!done && !mapper_device_num_outgoing_maps(source)) {
+    while (!done && !mapper_device_num_maps(source, DI_ANY)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }
