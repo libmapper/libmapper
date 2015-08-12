@@ -1202,7 +1202,7 @@ void mapper_signal_set_description(mapper_signal sig, const char *description)
 {
     if (!sig)
         return;
-    mapper_prop_set_string(&sig->description, description);
+    mapper_property_set_string(&sig->description, description);
 }
 
 void mapper_signal_set_maximum(mapper_signal sig, const void *maximum)
@@ -1248,7 +1248,7 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit)
 {
     if (!sig)
         return;
-    mapper_prop_set_string(&sig->unit, unit);
+    mapper_property_set_string(&sig->unit, unit);
 }
 
 // TODO: use sig_table to simplify error check
@@ -1284,7 +1284,7 @@ void mapper_signal_set_property(mapper_signal sig, const char *property,
     }
     else if ((strcmp(property, "unit") == 0 || strcmp(property, "units") == 0)
              && is_string_type(type)) {
-        mapper_prop_set_string(&sig->unit, length ? (const char*)value : 0);
+        mapper_property_set_string(&sig->unit, length ? (const char*)value : 0);
         return;
     }
     else if (strcmp(property, "value") == 0) {

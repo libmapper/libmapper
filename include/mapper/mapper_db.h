@@ -16,7 +16,7 @@ extern "C" {
  * to hold arbitrary signal and device parameters. */
 struct _mapper_string_table;
 
-struct _mapper_monitor;
+struct _mapper_admin;
 
 /*! \file This file defines structs used to return information from
  *  the network database. */

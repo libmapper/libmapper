@@ -78,11 +78,11 @@ typedef struct _mapper_signal_id_map
 
 void mapper_network_add_device(mapper_network net, mapper_device dev);
 
-void mapper_network_add_monitor(mapper_network net, mapper_monitor mon);
+void mapper_network_add_admin(mapper_network net, mapper_admin adm);
 
 void mapper_network_remove_device(mapper_network net, mapper_device dev);
 
-void mapper_network_remove_monitor(mapper_network net, mapper_monitor mon);
+void mapper_network_remove_admin(mapper_network net, mapper_admin adm);
 
 int mapper_network_poll(mapper_network net);
 
@@ -845,6 +845,6 @@ inline static const char *skip_slash(const char *string)
     return string + (string && string[0]=='/');
 }
 
-int mapper_prop_set_string(char **property, const char *string);
+int mapper_property_set_string(char **property, const char *string);
 
 #endif // __MAPPER_INTERNAL_H__

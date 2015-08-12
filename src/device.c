@@ -225,8 +225,8 @@ void mapper_device_free(mapper_device dev)
         lo_server_free(dev->local->server);
 
     if (dev->local->own_network) {
-        if (net->monitor) {
-            net->monitor->own_network = 1;
+        if (net->admin) {
+            net->admin->own_network = 1;
             mapper_network_remove_device(net, dev);
         }
         else {

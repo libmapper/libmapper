@@ -175,14 +175,14 @@ void loop()
     int i = 0, recvd;
 
     if (!done && autoconnect) {
-        mapper_monitor mon = mmon_new(net, 0);
+        mapper_admin adm = mapper_admin_new(net, 0);
 
-        mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig_1, recvsig_1));
-        mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig_2, recvsig_2));
-        mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig_3, recvsig_3));
-        mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig_3, recvsig_4));
+        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig_1, recvsig_1));
+        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig_2, recvsig_2));
+        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig_3, recvsig_3));
+        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig_3, recvsig_4));
 
-        mmon_free(mon);
+        mapper_admin_free(adm);
 
         // wait until mapping has been established
         while (!done && !mapper_device_num_outgoing_maps(source)) {

@@ -164,8 +164,8 @@ void wait_local_devices()
 int setup_maps()
 {
     int i = 0;
-    mapper_monitor mon = mmon_new(0, 0);
-    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig, recvsig));
+    mapper_admin adm = mapper_admin_new(0, 0);
+    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig, recvsig));
 
     i = 0;
     // wait until mapping has been established
@@ -176,7 +176,7 @@ int setup_maps()
             return 1;
     }
 
-    mmon_free(mon);
+    mapper_admin_free(adm);
     return 0;
 }
 

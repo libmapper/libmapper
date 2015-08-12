@@ -88,7 +88,7 @@ void mapper_timetag_set_double(mapper_timetag_t *tt, double value)
     tt->frac = (uint32_t) (((double)value) * (double)(1LL<<32));
 }
 
-void mapper_timetag_cpy(mapper_timetag_t *ttl, mapper_timetag_t ttr)
+void mapper_timetag_copy(mapper_timetag_t *ttl, mapper_timetag_t ttr)
 {
     ttl->sec = ttr.sec;
     ttl->frac = ttr.frac;

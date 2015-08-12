@@ -585,7 +585,7 @@ void mapper_message_add_value_table(lo_message m, table t)
         char keyname[256];
         snprintf(keyname, 256, "-@%s", n->key + remove);
         lo_message_add_string(m, keyname + 1 - remove);
-        mapper_prop_value_t *v = n->value;
+        mapper_property_value_t *v = n->value;
         mapper_message_add_typed_value(m, v->length, v->type, v->value);
         n++;
     }
@@ -791,7 +791,7 @@ void propval_set_double(void *to, const char type, int index, double from)
     }
 }
 
-int mapper_prop_set_string(char **property, const char *string)
+int mapper_property_set_string(char **property, const char *string)
 {
     if (*property) {
         if (!string) {
@@ -812,7 +812,7 @@ int mapper_prop_set_string(char **property, const char *string)
     return 0;
 }
 
-void mapper_prop_pp(int length, char type, const void *value)
+void mapper_property_pp(int length, char type, const void *value)
 {
     int i;
     if (!value || length < 1)

@@ -145,14 +145,14 @@ void wait_local_devices()
 int setup_maps()
 {
     int i;
-    mapper_monitor mon = mmon_new(0, 0);
+    mapper_admin adm = mapper_admin_new(0, 0);
     for (int i = 0; i < 2; i++) {
-        mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig[i], recvsig[i]));
+        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig[i], recvsig[i]));
     }
 
     // swap the last two signals to mix up signal vector lengths
-    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig[2], recvsig[3]));
-    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig[3], recvsig[2]));
+    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig[2], recvsig[3]));
+    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig[3], recvsig[2]));
 
     i = 0;
     // wait until mapping has been established
@@ -163,7 +163,7 @@ int setup_maps()
             return 1;
     }
 
-    mmon_free(mon);
+    mapper_admin_free(adm);
     return 0;
 }
 

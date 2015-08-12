@@ -165,12 +165,12 @@ int main(int argc, char ** argv)
         std::cout << "input: " << (const char*)(*iter) << std::endl;
     }
 
-    mapper::Monitor mon(SUBSCRIBE_ALL);
-    mapper::Map map = mon.map(dev.outputs()[0], dev.inputs()[1]);
+    mapper::Admin adm(SUBSCRIBE_ALL);
+    mapper::Map map = adm.map(dev.outputs()[0], dev.inputs()[1]);
     map.set_mode(MO_EXPRESSION).set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
     map.source().set_minimum(mapper::Property(0, 3, d));
-    mon.update(map);
+    adm.update(map);
 
     while (dev.num_outgoing_maps() <= 0) {
         dev.poll(100);
@@ -179,14 +179,14 @@ int main(int argc, char ** argv)
     std::vector <double> v(3);
     while (i++ < 100) {
         dev.poll(10);
-        mon.poll();
+        adm.poll();
         v[i%3] = i;
         sig.update(v);
     }
 
     // try combining queries
-    mapper::Device::Iterator r = mon.db().devices_by_name_match("my");
-    r += mon.db().devices_by_property(mapper::Property("num_inputs", 4),
+    mapper::Device::Iterator r = adm.db().devices_by_name_match("my");
+    r += adm.db().devices_by_property(mapper::Property("num_inputs", 4),
                                       QUERY_GREATER_THAN_OR_EQUAL);
 //    mapper::Device::Iterator r = q1 + q2;
     for (; r != r.end(); r++) {
@@ -195,7 +195,7 @@ int main(int argc, char ** argv)
 
     // check db records
     std::cout << "db records:" << std::endl;
-    for (auto const &device : mon.db().devices()) {
+    for (auto const &device : adm.db().devices()) {
         std::cout << "  device: " << (const char*)device.property("name") << std::endl;
         for (auto const &signal : device.inputs()) {
             std::cout << "  input signal: " << device.name()
@@ -206,7 +206,7 @@ int main(int argc, char ** argv)
                       << "/" << signal.name() << std::endl;
         }
     }
-    for (auto const &m : mon.db().maps()) {
+    for (auto const &m : adm.db().maps()) {
         std::cout << "  map: ";
         if (m.num_sources() > 1)
             std::cout << "[";

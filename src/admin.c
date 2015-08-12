@@ -26,12 +26,10 @@ static double current_time()
 }
 
 // function prototypes
-static void monitor_subscribe_internal(mapper_monitor mon, mapper_device dev,
-                                       int subscribe_flags, int timeout,
-                                       int version);
-static void monitor_unsubscribe_internal(mapper_monitor mon,
-                                         mapper_device dev,
-                                         int send_message);
+static void subscribe_internal(mapper_admin adm, mapper_device dev,
+                               int subscribe_flags, int timeout, int version);
+static void unsubscribe_internal(mapper_admin adm, mapper_device dev,
+                                 int send_message);
 
 typedef enum _db_request_direction {
     DIRECTION_IN,
@@ -39,82 +37,81 @@ typedef enum _db_request_direction {
     DIRECTION_BOTH
 } db_request_direction;
 
-mapper_monitor mmon_new(mapper_network net, int subscribe_flags)
+mapper_admin mapper_admin_new(mapper_network net, int subscribe_flags)
 {
-    mapper_monitor mon = (mapper_monitor)
-        calloc(1, sizeof(struct _mapper_monitor));
+    mapper_admin adm = (mapper_admin) calloc(1, sizeof(struct _mapper_admin));
 
     if (net) {
-        mon->network = net;
-        mon->own_network = 0;
+        adm->network = net;
+        adm->own_network = 0;
     }
     else {
-        mon->network = mapper_network_new(0, 0, 0);
-        mon->own_network = 1;
+        adm->network = mapper_network_new(0, 0, 0);
+        adm->own_network = 1;
     }
 
-    if (!mon->network) {
-        mmon_free(mon);
+    if (!adm->network) {
+        mapper_admin_free(adm);
         return NULL;
     }
 
-    mon->network->db.timeout_sec = MAPPER_TIMEOUT_SEC;
+    adm->network->db.timeout_sec = MAPPER_TIMEOUT_SEC;
 
-    mapper_network_add_monitor(mon->network, mon);
+    mapper_network_add_admin(adm->network, adm);
     if (subscribe_flags) {
-        mmon_subscribe(mon, 0, subscribe_flags, -1);
+        mapper_admin_subscribe(adm, 0, subscribe_flags, -1);
     }
-    return mon;
+    return adm;
 }
 
-void mmon_free(mapper_monitor mon)
+void mapper_admin_free(mapper_admin adm)
 {
-    if (!mon)
+    if (!adm)
         return;
 
     // remove callbacks now so they won't be called when removing devices
-    mapper_db_remove_all_callbacks(&mon->network->db);
+    mapper_db_remove_all_callbacks(&adm->network->db);
 
     // unsubscribe from and remove any autorenewing subscriptions
-    while (mon->subscriptions) {
-        mmon_unsubscribe(mon, mon->subscriptions->device);
+    while (adm->subscriptions) {
+        mapper_admin_unsubscribe(adm, adm->subscriptions->device);
     }
 
-    mapper_device *query = mapper_db_devices(&mon->network->db);
+    mapper_device *query = mapper_db_devices(&adm->network->db);
     while (query) {
         mapper_device dev = *query;
         query = mapper_device_query_next(query);
         if (!dev->local)
-            mapper_db_remove_device(&mon->network->db, dev, 1);
+            mapper_db_remove_device(&adm->network->db, dev, 1);
     }
 
-    if (mon->own_network) {
-        if (mon->network->device)
-            mon->network->device->local->own_network = 1;
+    if (adm->own_network) {
+        if (adm->network->device)
+            adm->network->device->local->own_network = 1;
         else
-            mapper_network_free(mon->network);
+            mapper_network_free(adm->network);
     }
     else
-        mapper_network_remove_monitor(mon->network, mon);
+        mapper_network_remove_admin(adm->network, adm);
 
-    free(mon);
+    free(adm);
 }
 
-int mmon_poll(mapper_monitor mon, int block_ms)
+int mapper_admin_poll(mapper_admin adm, int block_ms)
 {
-    int ping_time = mon->network->clock.next_ping;
-    int admin_count = mapper_network_poll(mon->network);
-    mapper_clock_now(&mon->network->clock, &mon->network->clock.now);
+    int ping_time = adm->network->clock.next_ping;
+    int admin_count = mapper_network_poll(adm->network);
+    mapper_clock_now(&adm->network->clock, &adm->network->clock.now);
 
     // check if any subscriptions need to be renewed
-    mapper_subscription s = mon->subscriptions;
+    mapper_subscription s = adm->subscriptions;
     while (s) {
-        if (s->lease_expiration_sec < mon->network->clock.now.sec) {
-            monitor_subscribe_internal(mon, s->device, s->flags,
-                                       AUTOSUBSCRIBE_INTERVAL, -1);
+        if (s->lease_expiration_sec < adm->network->clock.now.sec) {
+            subscribe_internal(adm, s->device, s->flags,
+                               AUTOSUBSCRIBE_INTERVAL, -1);
             // leave 10-second buffer for subscription renewal
             s->lease_expiration_sec =
-                mon->network->clock.now.sec + AUTOSUBSCRIBE_INTERVAL - 10;
+                adm->network->clock.now.sec + AUTOSUBSCRIBE_INTERVAL - 10;
         }
         s = s->next;
     }
@@ -122,7 +119,7 @@ int mmon_poll(mapper_monitor mon, int block_ms)
     if (block_ms) {
         double then = current_time();
         while ((current_time() - then)*1000 < block_ms) {
-            admin_count += mapper_network_poll(mon->network);
+            admin_count += mapper_network_poll(adm->network);
 #ifdef WIN32
             Sleep(block_ms);
 #else
@@ -131,34 +128,33 @@ int mmon_poll(mapper_monitor mon, int block_ms)
         }
     }
 
-    if (ping_time != mon->network->clock.next_ping) {
+    if (ping_time != adm->network->clock.next_ping) {
         // some housekeeping: check if any devices have timed out
-        mapper_db_check_device_status(&mon->network->db,
-                                      mon->network->clock.now.sec);
+        mapper_db_check_device_status(&adm->network->db,
+                                      adm->network->clock.now.sec);
     }
 
     return admin_count;
 }
 
-mapper_db mmon_db(mapper_monitor mon)
+mapper_db mapper_admin_db(mapper_admin adm)
 {
-    return &mon->network->db;
+    return &adm->network->db;
 }
 
-static void monitor_set_bundle_dest(mapper_monitor mon, mapper_device dev)
+static void set_bundle_dest(mapper_admin adm, mapper_device dev)
 {
     // TODO: look up device info, maybe send directly
-    mapper_network_set_bundle_dest_bus(mon->network);
+    mapper_network_set_bundle_dest_bus(adm->network);
 }
 
-static void monitor_subscribe_internal(mapper_monitor mon, mapper_device dev,
-                                       int subscribe_flags, int timeout,
-                                       int version)
+static void subscribe_internal(mapper_admin adm, mapper_device dev,
+                               int subscribe_flags, int timeout, int version)
 {
     char cmd[1024];
     snprintf(cmd, 1024, "/%s/subscribe", dev->name);
 
-    monitor_set_bundle_dest(mon, dev);
+    set_bundle_dest(adm, dev);
     lo_message m = lo_message_new();
     if (m) {
         if (subscribe_flags & SUBSCRIBE_ALL)
@@ -189,14 +185,14 @@ static void monitor_subscribe_internal(mapper_monitor mon, mapper_device dev,
             lo_message_add_string(m, "@version");
             lo_message_add_int32(m, version);
         }
-        lo_bundle_add_message(mon->network->bundle, cmd, m);
-        mapper_network_send_bundle(mon->network);
+        lo_bundle_add_message(adm->network->bundle, cmd, m);
+        mapper_network_send_bundle(adm->network);
     }
 }
 
-static mapper_subscription subscription(mapper_monitor mon, mapper_device dev)
+static mapper_subscription subscription(mapper_admin adm, mapper_device dev)
 {
-    mapper_subscription s = mon->subscriptions;
+    mapper_subscription s = adm->subscriptions;
     while (s) {
         if (s->device == dev)
             return s;
@@ -208,81 +204,80 @@ static mapper_subscription subscription(mapper_monitor mon, mapper_device dev)
 static void on_device_autosubscribe(mapper_device dev, mapper_action_t a,
                                     const void *user)
 {
-    mapper_monitor mon = (mapper_monitor)(user);
+    mapper_admin adm = (mapper_admin)(user);
 
     // New subscriptions are handled in network.c as response to "sync" msg
     if (a == MAPPER_REMOVED) {
-        monitor_unsubscribe_internal(mon, dev, 0);
+        unsubscribe_internal(adm, dev, 0);
     }
 }
 
-static void mmon_autosubscribe(mapper_monitor mon, int autosubscribe_flags)
+static void mapper_admin_autosubscribe(mapper_admin adm, int autosubscribe_flags)
 {
     // TODO: remove autorenewing subscription record if necessary
-    if (!mon->autosubscribe && autosubscribe_flags) {
-        mapper_db_add_device_callback(&mon->network->db, on_device_autosubscribe,
-                                      mon);
-        mmon_request_devices(mon);
+    if (!adm->autosubscribe && autosubscribe_flags) {
+        mapper_db_add_device_callback(&adm->network->db, on_device_autosubscribe,
+                                      adm);
+        mapper_admin_request_devices(adm);
     }
-    else if (mon->autosubscribe && !autosubscribe_flags) {
-        mapper_db_remove_device_callback(&mon->network->db,
-                                         on_device_autosubscribe, mon);
-        while (mon->subscriptions) {
-            monitor_unsubscribe_internal(mon, mon->subscriptions->device, 1);
+    else if (adm->autosubscribe && !autosubscribe_flags) {
+        mapper_db_remove_device_callback(&adm->network->db,
+                                         on_device_autosubscribe, adm);
+        while (adm->subscriptions) {
+            unsubscribe_internal(adm, adm->subscriptions->device, 1);
         }
     }
-    mon->autosubscribe = autosubscribe_flags;
+    adm->autosubscribe = autosubscribe_flags;
 }
 
-void mmon_subscribe(mapper_monitor mon, mapper_device dev,
-                    int subscribe_flags, int timeout)
+void mapper_admin_subscribe(mapper_admin adm, mapper_device dev,
+                            int subscribe_flags, int timeout)
 {
     if (!dev) {
-        mmon_autosubscribe(mon, subscribe_flags);
+        mapper_admin_autosubscribe(adm, subscribe_flags);
         return;
     }
     if (timeout == -1) {
         // special case: autorenew subscription lease
         // first check if subscription already exists
-        mapper_subscription s = subscription(mon, dev);
+        mapper_subscription s = subscription(adm, dev);
 
         if (!s) {
             // store subscription record
             s = malloc(sizeof(struct _mapper_subscription));
             s->device = dev;
-            s->next = mon->subscriptions;
-            mon->subscriptions = s;
+            s->next = adm->subscriptions;
+            adm->subscriptions = s;
         }
         s->flags = subscribe_flags;
 
-        mapper_clock_now(&mon->network->clock, &mon->network->clock.now);
+        mapper_clock_now(&adm->network->clock, &adm->network->clock.now);
         // leave 10-second buffer for subscription lease
         s->lease_expiration_sec =
-            mon->network->clock.now.sec + AUTOSUBSCRIBE_INTERVAL - 10;
+            adm->network->clock.now.sec + AUTOSUBSCRIBE_INTERVAL - 10;
 
         timeout = AUTOSUBSCRIBE_INTERVAL;
     }
 
-    monitor_subscribe_internal(mon, dev, subscribe_flags, timeout, 0);
+    subscribe_internal(adm, dev, subscribe_flags, timeout, 0);
 }
 
-static void monitor_unsubscribe_internal(mapper_monitor mon,
-                                         mapper_device dev,
-                                         int send_message)
+static void unsubscribe_internal(mapper_admin adm, mapper_device dev,
+                                 int send_message)
 {
     char cmd[1024];
     // check if autorenewing subscription exists
-    mapper_subscription *s = &mon->subscriptions;
+    mapper_subscription *s = &adm->subscriptions;
     while (*s) {
         if ((*s)->device == dev) {
             if (send_message) {
                 snprintf(cmd, 1024, "/%s/unsubscribe", dev->name);
-                monitor_set_bundle_dest(mon, dev);
+                set_bundle_dest(adm, dev);
                 lo_message m = lo_message_new();
                 if (!m)
                     break;
-                lo_bundle_add_message(mon->network->bundle, cmd, m);
-                mapper_network_send_bundle(mon->network);
+                lo_bundle_add_message(adm->network->bundle, cmd, m);
+                mapper_network_send_bundle(adm->network);
             }
             // remove from subscriber list
             mapper_subscription temp = *s;
@@ -294,22 +289,22 @@ static void monitor_unsubscribe_internal(mapper_monitor mon,
     }
 }
 
-void mmon_unsubscribe(mapper_monitor mon, mapper_device dev)
+void mapper_admin_unsubscribe(mapper_admin adm, mapper_device dev)
 {
     if (!dev)
-        mmon_autosubscribe(mon, SUBSCRIBE_NONE);
-    monitor_unsubscribe_internal(mon, dev, 1);
+        mapper_admin_autosubscribe(adm, SUBSCRIBE_NONE);
+    unsubscribe_internal(adm, dev, 1);
 }
 
-void mmon_request_devices(mapper_monitor mon)
+void mapper_admin_request_devices(mapper_admin adm)
 {
     lo_message msg = lo_message_new();
     if (!msg) {
         trace("couldn't allocate lo_message\n");
         return;
     }
-    mapper_network_set_bundle_dest_bus(mon->network);
-    lo_bundle_add_message(mon->network->bundle,
+    mapper_network_set_bundle_dest_bus(adm->network);
+    lo_bundle_add_message(adm->network->bundle,
                           network_message_strings[MSG_WHO], msg);
 }
 
@@ -336,8 +331,9 @@ static int alphabetise_signals(int num, mapper_signal *sigs, int *order)
     return 0;
 }
 
-mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
-                        mapper_signal *sources, mapper_signal destination)
+mapper_map mapper_admin_add_map(mapper_admin adm, int num_sources,
+                                mapper_signal *sources,
+                                mapper_signal destination)
 {
     int i;
     if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES
@@ -348,9 +344,9 @@ mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
 
     // check if record of map already exists
     mapper_map *maps, *temp;
-    maps = mapper_db_signal_incoming_maps(&mon->network->db, destination);
+    maps = mapper_db_signal_incoming_maps(&adm->network->db, destination);
     for (i = 0; i < num_sources; i++) {
-        temp = mapper_db_signal_outgoing_maps(&mon->network->db, sources[i]);
+        temp = mapper_db_signal_outgoing_maps(&adm->network->db, sources[i]);
         maps = mapper_map_query_intersection(maps, temp);
     }
     while (maps) {
@@ -361,36 +357,36 @@ mapper_map mmon_add_map(mapper_monitor mon, int num_sources,
 
     int order[num_sources];
     if (alphabetise_signals(num_sources, sources, order)) {
-        trace("error in mmon_add_map(): multiple use of source signal.\n");
+        trace("error in mapper_admin_add_map(): multiple use of source signal.\n");
         return 0;
     }
 
     // place in map staging area
     // TODO: allow building multiple maps in parallel
-    if (mon->staged_map) {
-        mmon_update_map(mon, mon->staged_map);
-        free(mon->staged_map->sources);
-        free(mon->staged_map);
+    if (adm->staged_map) {
+        mapper_admin_update_map(adm, adm->staged_map);
+        free(adm->staged_map->sources);
+        free(adm->staged_map);
     }
-    mon->staged_map = (mapper_map) calloc(1, sizeof(struct _mapper_map));
-    mon->staged_map->sources = ((mapper_slot)
+    adm->staged_map = (mapper_map) calloc(1, sizeof(struct _mapper_map));
+    adm->staged_map->sources = ((mapper_slot)
                                 calloc(1, sizeof(struct _mapper_slot)
                                        * num_sources));
-    mon->staged_map->num_sources = num_sources;
+    adm->staged_map->num_sources = num_sources;
     for (i = 0; i < num_sources; i++) {
-        mon->staged_map->sources[i].signal = sources[order[i]];
-        mon->staged_map->sources[i].map = mon->staged_map;
+        adm->staged_map->sources[i].signal = sources[order[i]];
+        adm->staged_map->sources[i].map = adm->staged_map;
     }
-    mon->staged_map->destination.signal = destination;
-    mon->staged_map->destination.map = mon->staged_map;
-    mon->staged_map->extra = table_new();
-    mon->staged_map->updater = table_new();
-    return mon->staged_map;
+    adm->staged_map->destination.signal = destination;
+    adm->staged_map->destination.map = adm->staged_map;
+    adm->staged_map->extra = table_new();
+    adm->staged_map->updater = table_new();
+    return adm->staged_map;
 }
 
-void mmon_update_map(mapper_monitor mon, mapper_map map)
+void mapper_admin_update_map(mapper_admin adm, mapper_map map)
 {
-    if (!mon || !map)
+    if (!adm || !map)
         return;
 
     lo_message m = lo_message_new();
@@ -415,32 +411,32 @@ void mmon_update_map(mapper_monitor mon, mapper_map map)
     mapper_message_add_value_table(m, map->updater);
 
     // TODO: lookup device ip/ports, send directly?
-    mapper_network_set_bundle_dest_bus(mon->network);
-    lo_bundle_add_message(mon->network->bundle,
+    mapper_network_set_bundle_dest_bus(adm->network);
+    lo_bundle_add_message(adm->network->bundle,
                           network_message_strings[map->id ? MSG_MODIFY_MAP : MSG_MAP], m);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
-    mapper_network_send_bundle(mon->network);
+    mapper_network_send_bundle(adm->network);
 
     for (i = 0; i < map->num_sources; i++) {
         free((char *)src_names[i]);
     }
     table_clear(map->updater);
 
-    if (map == mon->staged_map) {
+    if (map == adm->staged_map) {
         if (map->sources)
             free(map->sources);
         table_free(map->updater);
         table_free(map->extra);
         free(map);
-        mon->staged_map = 0;
+        adm->staged_map = 0;
     }
 }
 
-void mmon_remove_map(mapper_monitor mon, mapper_map_t *map)
+void mapper_admin_remove_map(mapper_admin adm, mapper_map_t *map)
 {
-    if (!mon || !map || !map->num_sources || !map->sources)
+    if (!adm || !map || !map->num_sources || !map->sources)
         return;
 
     lo_message m = lo_message_new();
@@ -463,27 +459,27 @@ void mmon_remove_map(mapper_monitor mon, mapper_map_t *map)
     lo_message_add_string(m, dest_name);
 
     // TODO: lookup device ip/ports, send directly?
-    mapper_network_set_bundle_dest_bus(mon->network);
-    lo_bundle_add_message(mon->network->bundle,
+    mapper_network_set_bundle_dest_bus(adm->network);
+    lo_bundle_add_message(adm->network->bundle,
                           network_message_strings[MSG_UNMAP], m);
 
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
-    mapper_network_send_bundle(mon->network);
+    mapper_network_send_bundle(adm->network);
 
     for (i = 0; i < map->num_sources; i++)
         free((char *)src_names[i]);
 }
 
-void mmon_now(mapper_monitor mon, mapper_timetag_t *tt)
+void mapper_admin_now(mapper_admin adm, mapper_timetag_t *tt)
 {
-    mapper_clock_now(&mon->network->clock, tt);
+    mapper_clock_now(&adm->network->clock, tt);
 }
 
 // Forward a message to the multicast bus
-void mmon_send(mapper_monitor mon, const char *path, const char *types, ...)
+void mapper_admin_send(mapper_admin adm, const char *path, const char *types, ...)
 {
-    if (!mon || !path || !types)
+    if (!adm || !path || !types)
         return;
     lo_message m = lo_message_new();
     if (!m)
@@ -519,9 +515,9 @@ void mmon_send(mapper_monitor mon, const char *path, const char *types, ...)
         }
         types++;
     }
-    mapper_network_set_bundle_dest_bus(mon->network);
-    lo_bundle_add_message(mon->network->bundle, path, m);
+    mapper_network_set_bundle_dest_bus(adm->network);
+    lo_bundle_add_message(adm->network->bundle, path, m);
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
-    mapper_network_send_bundle(mon->network);
+    mapper_network_send_bundle(adm->network);
 }

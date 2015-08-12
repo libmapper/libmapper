@@ -157,18 +157,18 @@ void print_instance_ids(mapper_signal sig)
 
 void map_signals()
 {
-    mapper_monitor mon = mmon_new(0, 0);
-    mapper_map map = mmon_add_map(mon, 1, &sendsig, recvsig);
+    mapper_admin adm = mapper_admin_new(0, 0);
+    mapper_map map = mapper_admin_add_map(adm, 1, &sendsig, recvsig);
     mapper_map_set_mode(map, MO_EXPRESSION);
     mapper_map_set_expression(map, "foo=1;  y=y{-1}+foo");
-    mmon_update_map(mon, map);
+    mapper_admin_update_map(adm, map);
 
     // wait until mapping has been established
     while (!done && !mapper_device_num_outgoing_maps(source)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }
-    mmon_free(mon);
+    mapper_admin_free(adm);
 }
 
 void loop()

@@ -114,13 +114,13 @@ void loop()
     int i = 0, recvd;
 
     if (autoconnect) {
-        mapper_monitor mon = mmon_new(0, 0);
+        mapper_admin adm = mapper_admin_new(0, 0);
 
         // map input to another input on same device
-        mmon_update_map(mon, mmon_add_map(mon, 1, &inputs[0], inputs[1]));
+        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &inputs[0], inputs[1]));
 
         // map input to an input on another device
-        mmon_update_map(mon, mmon_add_map(mon, 1, &inputs[1], inputs[2]));
+        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &inputs[1], inputs[2]));
 
         // wait until mapping has been established
         while (!done && mapper_device_num_outgoing_maps(devices[0]) < 2) {
@@ -130,7 +130,7 @@ void loop()
                    mapper_device_num_outgoing_maps(devices[0]));
         }
 
-        mmon_free(mon);
+        mapper_admin_free(adm);
     }
 
     i = 0;

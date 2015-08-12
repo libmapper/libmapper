@@ -112,11 +112,11 @@ void cleanup_destination()
 
 int setup_maps()
 {
-    mapper_monitor mon = mmon_new(sources[0]->db->network, 0);
+    mapper_admin adm = mapper_admin_new(sources[0]->db->network, 0);
 
     mapper_signal all_sources[2] = {sendsig[0][0], sendsig[1][1]};
 
-    mapper_map map = mmon_add_map(mon, 2, all_sources, recvsig);
+    mapper_map map = mapper_admin_add_map(adm, 2, all_sources, recvsig);
     mapper_map_set_mode(map, MO_EXPRESSION);
 
     // build expression string
@@ -128,8 +128,8 @@ int setup_maps()
 
     mapper_slot_set_cause_update(slot1, 0);
 
-    mmon_update_map(mon, map);
-    mmon_free(mon);
+    mapper_admin_update_map(adm, map);
+    mapper_admin_free(adm);
 
     // wait until mappings have been established
     int i;

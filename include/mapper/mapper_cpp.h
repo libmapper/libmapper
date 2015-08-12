@@ -22,7 +22,7 @@
 /* TODO:
  *      signal update handlers
  *      instance event handlers
- *      monitor db handlers
+ *      db handlers
  *      device mapping handlers
  */
 
@@ -1256,7 +1256,7 @@ namespace mapper {
             return (*this);
         }
     protected:
-        friend class Monitor;
+        friend class Admin;
         friend class Db;
         Map(mapper_map map) :
         _destination((Slot*)calloc(1, sizeof(Slot))),
@@ -1300,9 +1300,9 @@ namespace mapper {
     class Db
     {
     public:
-        Db(mapper_monitor mon)
+        Db(mapper_admin adm)
         {
-            _db = mmon_db(mon);
+            _db = mapper_admin_db(adm);
         }
         ~Db() {}
         const Db& flush() const
@@ -1519,65 +1519,66 @@ namespace mapper {
         mapper_db _db;
     };
 
-    class Monitor
+    class Admin
     {
     public:
-        Monitor()
-            { _mon = mmon_new(0, 0); }
-        Monitor(Network net, int subscribe_flags=0)
-            { _mon = mmon_new(net, subscribe_flags); }
-        Monitor(int subscribe_flags)
-            { _mon = mmon_new(0, subscribe_flags); }
-        ~Monitor()
-            { if (_mon) mmon_free(_mon); }
+        Admin()
+            { _adm = mapper_admin_new(0, 0); }
+        Admin(Network net, int subscribe_flags=0)
+            { _adm = mapper_admin_new(net, subscribe_flags); }
+        Admin(int subscribe_flags)
+            { _adm = mapper_admin_new(0, subscribe_flags); }
+        ~Admin()
+            { if (_adm) mapper_admin_free(_adm); }
         int poll(int block_ms=0)
-            { return mmon_poll(_mon, block_ms); }
+            { return mapper_admin_poll(_adm, block_ms); }
         const Db db() const
-            { return Db(_mon); }
-        const Monitor& request_devices() const
+            { return Db(_adm); }
+        const Admin& request_devices() const
         {
-            mmon_request_devices(_mon);
+            mapper_admin_request_devices(_adm);
             return (*this);
         }
-        const Monitor& subscribe(const device_type& dev, int flags, int timeout)
+        const Admin& subscribe(const device_type& dev, int flags, int timeout)
         {
-            mmon_subscribe(_mon, dev, flags, timeout);
+            mapper_admin_subscribe(_adm, dev, flags, timeout);
             return (*this);
         }
-        const Monitor& subscribe(int flags)
-            { mmon_subscribe(_mon, 0, flags, -1); return (*this); }
-        const Monitor& unsubscribe(const device_type& dev)
+        const Admin& subscribe(int flags)
+            { mapper_admin_subscribe(_adm, 0, flags, -1); return (*this); }
+        const Admin& unsubscribe(const device_type& dev)
         {
-            mmon_unsubscribe(_mon, dev);
+            mapper_admin_unsubscribe(_adm, dev);
             return (*this);
         }
-        const Monitor& unsubscribe()
-            { mmon_unsubscribe(_mon, 0); return (*this); }
+        const Admin& unsubscribe()
+            { mapper_admin_unsubscribe(_adm, 0); return (*this); }
 
         Map map(int num_sources, mapper_signal sources[],
                 mapper_signal destination)
         {
-            mapper_map map = mmon_add_map(_mon, num_sources, sources, destination);
+            mapper_map map = mapper_admin_add_map(_adm, num_sources, sources,
+                                                  destination);
             return Map(map);
         }
         Map map(const signal_type source, const signal_type destination)
         {
             mapper_signal src = source;
-            return Map(mmon_add_map(_mon, 1, &src, destination));
+            return Map(mapper_admin_add_map(_adm, 1, &src, destination));
         }
-        const Monitor& update(Map& map)
-            { mmon_update_map(_mon, map); return (*this); }
+        const Admin& update(Map& map)
+            { mapper_admin_update_map(_adm, map); return (*this); }
 
-        const Monitor& remove(const Map &map) const
-            { mmon_remove_map(_mon, (mapper_map)map); return (*this); }
-        const Monitor& remove(Map::Iterator maps)
+        const Admin& remove(const Map &map) const
+            { mapper_admin_remove_map(_adm, (mapper_map)map); return (*this); }
+        const Admin& remove(Map::Iterator maps)
         {
             for (auto const &m : maps)
                 remove(m);
             return (*this);
         }
     private:
-        mapper_monitor _mon;
+        mapper_admin _adm;
     };
 };
 

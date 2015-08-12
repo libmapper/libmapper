@@ -30,7 +30,7 @@ void printdevice(mapper_device dev)
             continue;
         else if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(length, type, val);
+            mapper_property_pp(length, type, val);
         }
     }
     printf("\n");
@@ -73,7 +73,7 @@ void printsignal(mapper_signal sig)
 
         if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(length, type, val);
+            mapper_property_pp(length, type, val);
         }
     }
     printf("\n");

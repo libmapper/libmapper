@@ -13,7 +13,7 @@
 #define usleep(x) Sleep(x/1000)
 #endif
 
-mapper_monitor mon = 0;
+mapper_admin adm = 0;
 mapper_db db = 0;
 
 int verbose = 1;
@@ -22,24 +22,6 @@ int done = 0;
 int update = 0;
 
 const int polltime_ms = 100;
-
-const char *mode_strings[] =
-{
-    "undefined",
-    "raw",
-    "linear",
-    "expression"
-};
-
-const char *bound_strings[] =
-{
-    "undefined",
-    "none",
-    "mute",
-    "clamp",
-    "fold",
-    "wrap"
-};
 
 void dbpause()
 {
@@ -68,7 +50,7 @@ void printdevice(mapper_device dev)
         if (strcmp(key, "synced")==0) {
             // check current time
             mapper_timetag_t now;
-            mmon_now(mon, &now);
+            mapper_admin_now(adm, &now);
             mapper_timetag_t *tt = (mapper_timetag_t *)val;
             if (tt->sec == 0)
                 printf(", seconds_since_sync=unknown");
@@ -78,7 +60,7 @@ void printdevice(mapper_device dev)
         }
         else if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(length, type, val);
+            mapper_property_pp(length, type, val);
         }
     }
     printf("\n");
@@ -119,7 +101,7 @@ void printsignal(mapper_signal sig)
 
         if (length) {
             printf(", %s=", key);
-            mapper_prop_pp(length, type, val);
+            mapper_property_pp(length, type, val);
         }
     }
     printf("\n");
@@ -132,14 +114,14 @@ void printmap(mapper_map map)
 }
 
 /*! Creation of a local dummy device. */
-int setup_monitor()
+int setup_admin()
 {
-    mon = mmon_new(0, SUBSCRIBE_ALL);
-    if (!mon)
+    adm = mapper_admin_new(0, SUBSCRIBE_ALL);
+    if (!adm)
         goto error;
-    printf("Monitor created.\n");
+    printf("Admin created.\n");
 
-    db = mmon_db(mon);
+    db = mapper_admin_db(adm);
 
     return 0;
 
@@ -147,12 +129,12 @@ int setup_monitor()
     return 1;
 }
 
-void cleanup_monitor()
+void cleanup_admin()
 {
-    if (mon) {
-        printf("\rFreeing monitor.. ");
+    if (adm) {
+        printf("\rFreeing admin.. ");
         fflush(stdout);
-        mmon_free(mon);
+        mapper_admin_free(adm);
         printf("ok\n");
     }
 }
@@ -162,7 +144,7 @@ void loop()
     int i = 0;
     while ((!terminate || i++ < 200) && !done)
     {
-        mmon_poll(mon, 0);
+        mapper_admin_poll(adm, 0);
         usleep(polltime_ms * 1000);
 
         if (update++ < 0)
@@ -300,7 +282,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testmonitor.c: possible arguments "
+                        printf("testadmin.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-h help\n");
@@ -321,8 +303,8 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_monitor()) {
-        printf("Error initializing monitor.\n");
+    if (setup_admin()) {
+        printf("Error initializing admin.\n");
         result = 1;
         goto done;
     }
@@ -337,6 +319,6 @@ int main(int argc, char **argv)
     mapper_db_remove_device_callback(db, on_device, 0);
     mapper_db_remove_signal_callback(db, on_signal, 0);
     mapper_db_remove_map_callback(db, on_map, 0);
-    cleanup_monitor();
+    cleanup_admin();
     return result;
 }

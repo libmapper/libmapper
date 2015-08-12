@@ -29,7 +29,7 @@ void mapper_db_flush(mapper_db db, int timeout_sec, int quiet)
         // also need to remove subscriptions
 // TODO: remove subscriptions
 //        // also need to remove subscriptions
-//        mapper_subscription *s = &mon->subscriptions;
+//        mapper_subscription *s = &adm->subscriptions;
 //        while (*s) {
 //            if ((*s)->device == dev) {
 //                // don't bother sending '/unsubscribe' since device is unresponsive
@@ -119,7 +119,7 @@ int mapper_db_property_index(const void *thestruct, table extra,
 
     if (extra) {
         index -= j;
-        mapper_prop_value_t *val;
+        mapper_property_value_t *val;
         val = table_value_at_index_p(extra, index);
         if (val) {
             if (property)
@@ -142,7 +142,7 @@ int mapper_db_property(const void *thestruct, table extra, const char *property,
     die_unless(value!=0, "value parameter cannot be null.\n");
     die_unless(length!=0, "length parameter cannot be null.\n");
 
-    const mapper_prop_value_t *val;
+    const mapper_property_value_t *val;
     if (extra) {
         val = table_find_p(extra, property);
         if (val) {
@@ -235,7 +235,7 @@ static int update_device_record_params(mapper_device dev, const char *name,
         dev->id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash)) << 32;
 
     if (current_time)
-        mapper_timetag_cpy(&dev->synced, *current_time);
+        mapper_timetag_copy(&dev->synced, *current_time);
 
     if (!params)
         return updated;
@@ -1478,12 +1478,12 @@ static void print_slot(const char *label, int index, mapper_slot s)
            mapper_boundary_action_string(s->bound_max));
     if (s->minimum) {
         printf("         minimum=");
-        mapper_prop_pp(s->length, s->type, s->minimum);
+        mapper_property_pp(s->length, s->type, s->minimum);
         printf("\n");
     }
     if (s->maximum) {
         printf("         maximum=");
-        mapper_prop_pp(s->length, s->type, s->maximum);
+        mapper_property_pp(s->length, s->type, s->maximum);
         printf("\n");
     }
     printf("         cause_update=%s\n", s->cause_update ? "yes" : "no");

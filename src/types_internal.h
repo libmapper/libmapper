@@ -52,12 +52,12 @@ typedef struct {
 
 /*! A pair representing an arbitrary parameter value and its type. (Re-using
  *  liblo's OSC-oriented lo_arg data structure.) If type is a string, the
- *  allocated size may be longer than sizeof(mapper_prop_value_t). */
-typedef struct _mapper_prop_value {
+ *  allocated size may be longer than sizeof(mapper_property_value_t). */
+typedef struct _mapper_property_value {
     char type;
     int length;
     void *value;
-} mapper_prop_value_t;
+} mapper_property_value_t;
 
 /*! Used to hold string look-up table nodes. */
 typedef struct {
@@ -187,9 +187,10 @@ typedef struct _mapper_network {
     struct in_addr interface_ip;    /*!< The IP address of interface. */
     struct _mapper_device *device;  /*!< Device that this structure is
                                      *   in charge of. */
-    struct _mapper_monitor *monitor;/*!< Monitor that this structure is
+    struct _mapper_admin *admin;    /*!< Admin that this structure is
                                      *   in charge of. */
-    mapper_db_t       db;           //<! Database for this monitor.
+    mapper_db_t db;                 /*<! Database of local and remote libmapper
+                                     *   objects. */
     mapper_clock_t clock;           /*!< Clock for processing timed events. */
     lo_bundle bundle;               /*!< Bundle pointer for sending
                                      *   messages on the multicast bus. */
@@ -508,7 +509,7 @@ struct _mapper_device {
 #define FLAGS_SENT_ALL_DEVICE_MESSAGES      0x1F
 #define FLAGS_DEVICE_ATTRIBS_CHANGED        0x20
 
-/**** Monitor ****/
+/**** Admin ****/
 
 typedef struct _mapper_subscription {
     mapper_device device;
@@ -517,12 +518,12 @@ typedef struct _mapper_subscription {
     struct _mapper_subscription *next;
 } *mapper_subscription;
 
-typedef struct _mapper_monitor {
-    mapper_network network;     //<! Networking structure for this monitor.
+typedef struct _mapper_admin {
+    mapper_network network;     //<! Networking structure for this admin.
 
-    /*! Non-zero if this monitor is the sole owner of the network structure
-     *  i.e., it was created during mmon_new() and should be freed during
-     *  mmon_free(). */
+    /*! Non-zero if this admin is the sole owner of the network structure i.e.,
+     *  it was created during mapper_admin_new() and should be freed during
+     *  mapper_admin_free(). */
     int own_network;
 
     /*! Flags indicating whether information on signals and mappings should
@@ -533,7 +534,7 @@ typedef struct _mapper_monitor {
     mapper_subscription subscriptions;
 
     mapper_map staged_map;
-}  *mapper_monitor;
+}  *mapper_admin;
 
 /**** Messages ****/
 

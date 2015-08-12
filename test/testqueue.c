@@ -108,9 +108,9 @@ void cleanup_destination()
 
 int create_maps()
 {
-    mapper_monitor mon = mmon_new(0, 0);
-    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig, recvsig));
-    mmon_update_map(mon, mmon_add_map(mon, 1, &sendsig1, recvsig));
+    mapper_admin adm = mapper_admin_new(0, 0);
+    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig, recvsig));
+    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig1, recvsig));
 
     // wait until mapping has been established
     while (!done && !mapper_device_num_outgoing_maps(source)) {
@@ -118,7 +118,7 @@ int create_maps()
         mapper_device_poll(destination, 10);
     }
 
-    mmon_free(mon);
+    mapper_admin_free(adm);
 
     return 0;
 }

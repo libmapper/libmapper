@@ -29,7 +29,7 @@ void table_clear(table t)
             free((char*)t->store[i].key);
         if (free_values && t->store[i].value) {
             if (t->store[i].is_prop) {
-                mapper_prop_value_t *prop = t->store[i].value;
+                mapper_property_value_t *prop = t->store[i].value;
                 if ((prop->type == 's' || prop->type == 'S')
                     && prop->length > 1) {
                     char **vals = (char**)prop->value;
@@ -115,7 +115,7 @@ void table_remove_key(table t, const char *key, int free_value)
         free((char*)n->key);
         if (free_value) {
             if (n->is_prop) {
-                mapper_prop_value_t *prop = n->value;
+                mapper_property_value_t *prop = n->value;
                 if (prop->value) {
                     if ((prop->type == 's' || prop->type == 'S')
                         && prop->length > 1) {
@@ -169,7 +169,7 @@ int table_size(table t)
     return t->len;
 }
 
-static void mapper_table_update_value_elements(mapper_prop_value_t *prop,
+static void mapper_table_update_value_elements(mapper_property_value_t *prop,
                                               int length, char type,
                                               const void *args)
 {
@@ -265,7 +265,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, int length,
         die_unless(node->value!=0, "parameter value already in "
                    "table cannot be null.\n");
 
-        mapper_prop_value_t *prop = node->value;
+        mapper_property_value_t *prop = node->value;
 
         /* In case of string array, cache string pointers and free after update
          * to handle self-copying. */
@@ -292,7 +292,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, int length,
     }
     else {
         /* Need to add a new entry. */
-        mapper_prop_value_t *prop = malloc(sizeof(mapper_prop_value_t));
+        mapper_property_value_t *prop = malloc(sizeof(mapper_property_value_t));
         prop->value = malloc(mapper_type_size(type) * length);
         prop->length = 0;
         mapper_table_update_value_elements(prop, length, type, args);
@@ -306,7 +306,7 @@ int mapper_table_add_or_update_typed_value(table t, const char *key, int length,
     return 0;
 }
 
-static void mapper_table_update_value_elements_osc(mapper_prop_value_t *prop,
+static void mapper_table_update_value_elements_osc(mapper_property_value_t *prop,
                                                    int length, const char *types,
                                                    lo_arg **args)
 {
@@ -402,7 +402,7 @@ int mapper_table_add_or_update_message_atom(table t, mapper_message_atom atom)
         die_unless(node->value!=0, "parameter value already in "
                    "table cannot be null.\n");
 
-        mapper_prop_value_t *prop = node->value;
+        mapper_property_value_t *prop = node->value;
         if ((prop->type == 's' || prop->type == 'S') && prop->length > 1) {
             char **vals = prop->value;
             for (i = 0; i < prop->length; i++) {
@@ -419,7 +419,7 @@ int mapper_table_add_or_update_message_atom(table t, mapper_message_atom atom)
     }
     else {
         /* Need to add a new entry. */
-        mapper_prop_value_t *prop = malloc(sizeof(mapper_prop_value_t));
+        mapper_property_value_t *prop = malloc(sizeof(mapper_property_value_t));
         prop->value = malloc(mapper_type_size(atom->types[0]) * atom->length);
         prop->length = 0;
         mapper_table_update_value_elements_osc(prop, atom->length,
@@ -444,8 +444,8 @@ void table_dump_prop_values(table t)
     int i;
     for (i=0; i<t->len; i++) {
         printf("%s: ", n->key);
-        mapper_prop_value_t *prop = n->value;
-        mapper_prop_pp(prop->length, prop->type, prop->value);
+        mapper_property_value_t *prop = n->value;
+        mapper_property_pp(prop->length, prop->type, prop->value);
         printf("\n");
         n++;
     }

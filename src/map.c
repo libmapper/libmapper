@@ -205,7 +205,7 @@ int mapper_map_property_index(mapper_map map, unsigned int index,
 
 void mapper_map_set_description(mapper_map map, const char *description)
 {
-    mapper_prop_set_string(&map->description, description);
+    mapper_property_set_string(&map->description, description);
 }
 
 void mapper_map_set_mode(mapper_map map, mapper_mode_type mode)
@@ -235,7 +235,7 @@ void mapper_map_set_process_location(mapper_map map, mapper_location location)
 
 void mapper_map_add_scope(mapper_map map, mapper_device device)
 {
-    mapper_prop_value_t *prop = table_find_p(map->updater, "scope");
+    mapper_property_value_t *prop = table_find_p(map->updater, "scope");
     if (!prop)
         mapper_table_add_or_update_typed_value(map->updater, "scope", 1, 's',
                                                device->name);
@@ -255,7 +255,7 @@ void mapper_map_add_scope(mapper_map map, mapper_device device)
 
 void mapper_map_remove_scope(mapper_map map, mapper_device device)
 {
-    mapper_prop_value_t *prop = table_find_p(map->updater, "-scope");
+    mapper_property_value_t *prop = table_find_p(map->updater, "-scope");
     if (!prop)
         mapper_table_add_or_update_typed_value(map->updater, "-scope", 1, 's',
                                                device->name);
@@ -2082,7 +2082,7 @@ static void add_slot_props_to_message(lo_message msg, mapper_slot slot,
 }
 
 /* If the "slot_index" argument is >= 0, we can assume this message will be sent
- * to a peer device rather than a monitor. */
+ * to a peer device rather than an administrator. */
 const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
 {
     int i, size = 512;
@@ -2216,7 +2216,7 @@ void mapper_slot_pp(mapper_slot slot)
                 printf("%s", mapper_boundary_action_strings[*((int*)val)]
                        ?: "undefined");
             else
-                mapper_prop_pp(length, type, val);
+                mapper_property_pp(length, type, val);
         }
     }
 }
@@ -2266,7 +2266,7 @@ void mapper_map_pp(mapper_map map)
                 }
             }
             else
-                mapper_prop_pp(length, type, val);
+                mapper_property_pp(length, type, val);
             printf(", ");
         }
     }
