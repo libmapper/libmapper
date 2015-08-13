@@ -5,19 +5,6 @@
 extern "C" {
 #endif
 
-//struct _mapper_device;
-//typedef struct _mapper_device mapper_device_t;
-//typedef struct _mapper_device *mapper_device;
-//struct _mapper_signal;
-//typedef struct _mapper_signal mapper_signal_t;
-//typedef struct _mapper_signal *mapper_signal;
-
-/* An opaque structure to hold a string table of key-value pairs, used
- * to hold arbitrary signal and device parameters. */
-struct _mapper_string_table;
-
-struct _mapper_admin;
-
 /*! \file This file defines structs used to return information from
  *  the network database. */
 
@@ -28,71 +15,67 @@ struct _mapper_admin;
 typedef lo_timetag mapper_timetag_t;
 
 /*! Possible operations for composing db queries. */
-typedef enum _mapper_query_op {
-    QUERY_UNDEFINED = -1,
-    QUERY_DOES_NOT_EXIST,
-    QUERY_EQUAL,
-    QUERY_EXISTS,
-    QUERY_GREATER_THAN,
-    QUERY_GREATER_THAN_OR_EQUAL,
-    QUERY_LESS_THAN,
-    QUERY_LESS_THAN_OR_EQUAL,
-    QUERY_NOT_EQUAL,
-    NUM_MAPPER_QUERY_OPS
-} mapper_query_op;
+typedef enum {
+    MAPPER_OP_UNDEFINED = -1,
+    MAPPER_OP_DOES_NOT_EXIST,
+    MAPPER_OP_EQUAL,
+    MAPPER_OP_EXISTS,
+    MAPPER_OP_GREATER_THAN,
+    MAPPER_OP_GREATER_THAN_OR_EQUAL,
+    MAPPER_OP_LESS_THAN,
+    MAPPER_OP_LESS_THAN_OR_EQUAL,
+    MAPPER_OP_NOT_EQUAL,
+    NUM_MAPPER_OPS
+} mapper_op;
 
 /*! Describes what happens when the range boundaries are exceeded.
  *  @ingroup mapdb */
-typedef enum _mapper_boundary_action {
-    BA_UNDEFINED,
-    BA_NONE,    //!< Value is passed through unchanged. This is the default.
-    BA_MUTE,    //!< Value is muted.
-    BA_CLAMP,   //!< Value is limited to the boundary.
-    BA_FOLD,    //!< Value continues in opposite direction.
-    BA_WRAP,    //!< Value appears as modulus offset at the opposite boundary.
+typedef enum {
+    MAPPER_UNDEFINED,
+    MAPPER_NONE,    //!< Value is passed through unchanged. This is the default.
+    MAPPER_MUTE,    //!< Value is muted.
+    MAPPER_CLAMP,   //!< Value is limited to the boundary.
+    MAPPER_FOLD,    //!< Value continues in opposite direction.
+    MAPPER_WRAP,    //!< Value appears as modulus offset at the opposite boundary.
     NUM_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
 /*! Describes the map modes.
  *  @ingroup mapdb */
-typedef enum _mapper_mode_type {
-    MO_UNDEFINED,       //!< Not yet defined
-    MO_RAW,             //!< No type coercion
-    MO_LINEAR,          //!< Linear scaling
-    MO_EXPRESSION,      //!< Expression
-    NUM_MAPPER_MODE_TYPES
-} mapper_mode_type;
+typedef enum {
+    MAPPER_MODE_UNDEFINED,  //!< Not yet defined
+    MAPPER_MODE_RAW,        //!< No type coercion
+    MAPPER_MODE_LINEAR,     //!< Linear scaling
+    MAPPER_MODE_EXPRESSION, //!< Expression
+    NUM_MAPPER_MODES
+} mapper_mode;
 
-typedef enum _mapper_location {
-    LOC_UNDEFINED,
-    LOC_SOURCE,
-    LOC_DESTINATION
+typedef enum {
+    MAPPER_SOURCE = 1,
+    MAPPER_DESTINATION
 } mapper_location;
 
 /*! The set of possible directions for a signal or mapping slot. */
 typedef enum {
-    DI_ANY      = 0x00,
-    DI_OUTGOING = 0x01,
-    DI_INCOMING = 0x02,
-    DI_BOTH     = 0x03,
-} mapper_direction_t;
+    MAPPER_DIR_ANY  = 0x00,
+    MAPPER_INCOMING = 0x01,
+    MAPPER_OUTGOING = 0x02,
+} mapper_direction;
 
 /*! The set of possible actions on an instance, used to register callbacks
  *  to inform them of what is happening. */
 typedef enum {
-    IN_NEW                  = 0x01, //!< New instance has been created.
-    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance has been released by upstream device.
-    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance has been released by downstream device.
-    IN_OVERFLOW             = 0x08, //!< No local instances left for incoming remote instance.
-    IN_ALL                  = 0xFF
-} mapper_instance_event_t;
+    MAPPER_NEW_INSTANCE         = 0x01, //!< New instance has been created.
+    MAPPER_UPSTREAM_RELEASE     = 0x02, //!< Instance was released upstream.
+    MAPPER_DOWNSTREAM_RELEASE   = 0x04, //!< Instance was released downstream.
+    MAPPER_INSTANCE_OVERFLOW    = 0x08, //!< No local instances left.
+} mapper_instance_event;
 
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup mapdb */
-typedef enum _mapper_instance_allocation_type {
-    IN_UNDEFINED,       //!< Not yet defined
-    IN_STEAL_OLDEST,    //!< Steal the oldest instance
-    IN_STEAL_NEWEST,    //!< Steal the newest instance
+typedef enum {
+    MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance
+    MAPPER_STEAL_NEWEST,    //!< Steal the newest instance
     NUM_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
@@ -103,7 +86,7 @@ typedef enum {
     MAPPER_MODIFIED,
     MAPPER_REMOVED,
     MAPPER_EXPIRED,
-} mapper_action_t;
+} mapper_record_action;
 
 #ifdef __cplusplus
 }

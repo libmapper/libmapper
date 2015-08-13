@@ -48,7 +48,8 @@ int setup_source()
     mapper_signal_reserve_instances(sendsig, 9, 0, 0);
 
     eprintf("Output signal registered.\n");
-    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_OUTGOING));
 
     return 0;
 
@@ -82,13 +83,13 @@ void insig_handler(mapper_signal sig, int instance_id, const void *value,
 }
 
 void more_handler(mapper_signal sig, int instance_id,
-                  mapper_instance_event_t event, mapper_timetag_t *timetag)
+                  mapper_instance_event event, mapper_timetag_t *timetag)
 {
-    if (event & IN_OVERFLOW) {
+    if (event & MAPPER_INSTANCE_OVERFLOW) {
         eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
         mapper_signal_reserve_instances(sig, 1, 0, 0);
     }
-    else if (event & IN_UPSTREAM_RELEASE) {
+    else if (event & MAPPER_UPSTREAM_RELEASE) {
         eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
         mapper_signal_release_instance(sig, instance_id, MAPPER_NOW);
     }
@@ -117,7 +118,8 @@ int setup_destination()
     }
 
     eprintf("Input signal registered.\n");
-    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_INCOMING));
 
     return 0;
 
@@ -159,12 +161,12 @@ void map_signals()
 {
     mapper_admin adm = mapper_admin_new(0, 0);
     mapper_map map = mapper_admin_add_map(adm, 1, &sendsig, recvsig);
-    mapper_map_set_mode(map, MO_EXPRESSION);
+    mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
     mapper_map_set_expression(map, "foo=1;  y=y{-1}+foo");
     mapper_admin_update_map(adm, map);
 
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, DI_ANY)) {
+    while (!done && !mapper_device_num_maps(source, 0)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }
@@ -272,7 +274,7 @@ int main(int argc, char **argv)
         mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
     sent = received = 0;
 
-    mapper_signal_set_instance_allocation_mode(recvsig, IN_STEAL_OLDEST);
+    mapper_signal_set_instance_allocation_mode(recvsig, MAPPER_STEAL_OLDEST);
     eprintf("\n**********************************************\n");
     eprintf("************ STEAL OLDEST INSTANCE ***********\n");
     if (!verbose)
@@ -288,7 +290,8 @@ int main(int argc, char **argv)
     sent = received = 0;
 
     mapper_signal_set_instance_event_callback(recvsig, more_handler,
-                                              IN_OVERFLOW | IN_UPSTREAM_RELEASE, 0);
+                                              MAPPER_INSTANCE_OVERFLOW
+                                              | MAPPER_UPSTREAM_RELEASE, 0);
     eprintf("\n**********************************************\n");
     eprintf("*********** CALLBACK -> ADD INSTANCE *********\n");
     if (!verbose)

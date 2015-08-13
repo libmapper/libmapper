@@ -80,10 +80,10 @@ int main(int argc, char ** argv)
         std::cout << "  host: " << inet_ntoa(*a) << std::endl;
     std::cout << "  port: " << dev.port() << std::endl;
     std::cout << "  num_fds: " << dev.num_fds() << std::endl;
-    std::cout << "  num_inputs: " << dev.num_inputs() << std::endl;
-    std::cout << "  num_outputs: " << dev.num_outputs() << std::endl;
-    std::cout << "  num_incoming_maps: " << dev.num_maps(DI_INCOMING) << std::endl;
-    std::cout << "  num_outgoing_maps: " << dev.num_maps(DI_OUTGOING) << std::endl;
+    std::cout << "  num_inputs: " << dev.num_signals(MAPPER_INCOMING) << std::endl;
+    std::cout << "  num_outputs: " << dev.num_signals(MAPPER_OUTGOING) << std::endl;
+    std::cout << "  num_incoming_maps: " << dev.num_maps(MAPPER_INCOMING) << std::endl;
+    std::cout << "  num_outgoing_maps: " << dev.num_maps(MAPPER_OUTGOING) << std::endl;
 
     // access properties through the property getter
     std::cout << "name: " << (const char*)dev.property("name") << std::endl;
@@ -160,14 +160,15 @@ int main(int argc, char ** argv)
 
     std::cout << "signal: " << (const char*)sig << std::endl;
 
-    mapper::Signal::Iterator iter = dev.inputs().begin();
-    for (; iter != iter.end(); ++iter) {
-        std::cout << "input: " << (const char*)(*iter) << std::endl;
+    mapper::Signal::Query qsig = dev.signals(MAPPER_INCOMING).begin();
+    for (; qsig != qsig.end(); ++qsig) {
+        std::cout << "input: " << (const char*)(*qsig) << std::endl;
     }
 
     mapper::Admin adm(SUBSCRIBE_ALL);
-    mapper::Map map = adm.map(dev.outputs()[0], dev.inputs()[1]);
-    map.set_mode(MO_EXPRESSION).set_expression("y=x[0:1]+123");
+    mapper::Map map = adm.map(dev.signals(MAPPER_OUTGOING)[0],
+                              dev.signals(MAPPER_INCOMING)[1]);
+    map.set_mode(MAPPER_MODE_EXPRESSION).set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
     map.source().set_minimum(mapper::Property(0, 3, d));
     adm.update(map);
@@ -185,23 +186,22 @@ int main(int argc, char ** argv)
     }
 
     // try combining queries
-    mapper::Device::Iterator r = adm.db().devices_by_name_match("my");
-    r += adm.db().devices_by_property(mapper::Property("num_inputs", 4),
-                                      QUERY_GREATER_THAN_OR_EQUAL);
-//    mapper::Device::Iterator r = q1 + q2;
-    for (; r != r.end(); r++) {
-        std::cout << "  r device: " << (const char*)(*r) << std::endl;
+    mapper::Device::Query qdev = adm.db().devices_by_name_match("my");
+    qdev += adm.db().devices_by_property(mapper::Property("num_inputs", 4),
+                                         MAPPER_OP_GREATER_THAN_OR_EQUAL);
+    for (; qdev != qdev.end(); qdev++) {
+        std::cout << "  r device: " << (const char*)(*qdev) << std::endl;
     }
 
     // check db records
     std::cout << "db records:" << std::endl;
     for (auto const &device : adm.db().devices()) {
         std::cout << "  device: " << (const char*)device.property("name") << std::endl;
-        for (auto const &signal : device.inputs()) {
+        for (auto const &signal : device.signals(MAPPER_INCOMING)) {
             std::cout << "  input signal: " << device.name()
                       << "/" << signal.name() << std::endl;
         }
-        for (auto const &signal : device.outputs()) {
+        for (auto const &signal : device.signals(MAPPER_OUTGOING)) {
             std::cout << "  output signal: " << device.name()
                       << "/" << signal.name() << std::endl;
         }

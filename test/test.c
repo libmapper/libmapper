@@ -65,7 +65,8 @@ int setup_source()
     mapper_device_remove_output(source, mapper_device_add_output(source, "/outsig_5", 1,
                                                                  'f', 0, &mnf, &mxf));
 
-    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
+    eprintf("Number of outputs: %d\n", mapper_device_num_signals(source,
+                                                                 MAPPER_OUTGOING));
 
     return 0;
 
@@ -138,7 +139,8 @@ int setup_destination()
                                mapper_device_add_input(destination, "/insig_5", 1,
                                                        'f', 0, &mnf, &mxf, 0, 0));
 
-    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
+    eprintf("Number of inputs: %d\n", mapper_device_num_signals(destination,
+                                                                MAPPER_INCOMING));
 
     return 0;
 
@@ -185,7 +187,7 @@ void loop()
         mapper_admin_free(adm);
 
         // wait until mapping has been established
-        while (!done && !mapper_device_num_maps(source, DI_OUTGOING)) {
+        while (!done && !mapper_device_num_maps(source, MAPPER_OUTGOING)) {
             mapper_device_poll(source, 10);
             mapper_device_poll(destination, 10);
         }

@@ -46,7 +46,7 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_map(mapper_map map, mapper_action_t action, const void *user)
+void on_map(mapper_map map, mapper_record_action action, const void *user)
 {
     if (verbose) {
         printf("Map: ");

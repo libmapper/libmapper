@@ -67,7 +67,7 @@ test/testinstance
 test/testlinear
 test/testmany
 test/testmapinput
-test/testmonitor
+test/testnetwork
 test/testparams
 test/testparser
 test/testprops

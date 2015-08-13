@@ -60,8 +60,8 @@ typedef struct _mapper_signal_instance
 } mapper_signal_instance_t, *mapper_signal_instance;
 
 /*! Bit flags for indicating signal instance status. */
-#define IN_RELEASED_LOCALLY  0x01
-#define IN_RELEASED_REMOTELY 0x02
+#define MAPPER_RELEASED_LOCALLY  0x01
+#define MAPPER_RELEASED_REMOTELY 0x02
 
 typedef struct _mapper_signal_id_map
 {
@@ -72,7 +72,7 @@ typedef struct _mapper_signal_id_map
     struct _mapper_signal_instance *instance;
 
     /*! Status of the id_map. Can be either 0 or a combination of
-     *  IN_RELEASED_LOCALLY and IN_RELEASED_REMOTELY. */
+     *  MAPPER_RELEASED_LOCALLY and MAPPER_RELEASED_REMOTELY. */
     int status;
 } mapper_signal_id_map_t;
 
@@ -175,7 +175,7 @@ mapper_map mapper_router_add_map(mapper_router router, mapper_signal sig,
                                  int num_remote_signals,
                                  mapper_signal *remote_signals,
                                  const char **remote_signal_names,
-                                 mapper_direction_t direction);
+                                 mapper_direction direction);
 
 int mapper_router_remove_map(mapper_router router, mapper_map map);
 
@@ -331,9 +331,9 @@ const char *mapper_boundary_action_string(mapper_boundary_action bound);
 
 mapper_boundary_action mapper_boundary_action_from_string(const char *string);
 
-const char *mapper_mode_type_string(mapper_mode_type mode);
+const char *mapper_mode_string(mapper_mode mode);
 
-mapper_mode_type mapper_mode_type_from_string(const char *string);
+mapper_mode mapper_mode_from_string(const char *string);
 
 /**** Database ****/
 
@@ -374,8 +374,7 @@ mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
 
 /*! Initialize an already-allocated mapper_signal structure. */
 void mapper_signal_init(mapper_signal sig, const char *name, int length,
-                        char type, mapper_direction_t direction,
-                        const char *unit,
+                        char type, mapper_direction direction, const char *unit,
                         const void *minimum, const void *maximum,
                         mapper_signal_update_handler *handler,
                         const void *user_data);
@@ -566,7 +565,7 @@ int mapper_message_signal_direction(mapper_message_t *msg);
 /*! Helper to return the mode type from a message parameter.
  *  \param msg Structure containing parameter info.
  *  \return The mode type, or -1 if not found. */
-mapper_mode_type mapper_message_mode(mapper_message_t *msg);
+mapper_mode mapper_message_mode(mapper_message_t *msg);
 
 /*! Helper to return the 'mute' state from a message parameter.
  *  \param msg Structure containing parameter info.
@@ -712,11 +711,11 @@ void mapper_list_free_item(void *item);
 void **mapper_list_new_query(const void *list, const void *f,
                              const char *types, ...);
 
-void **mapper_list_query_union(const void **query1, const void **query2);
+void **mapper_list_query_union(void **query1, void **query2);
 
-void **mapper_list_query_intersection(const void **query1, const void **query2);
+void **mapper_list_query_intersection(void **query1, void **query2);
 
-void **mapper_list_query_difference(const void **query1, const void **query2);
+void **mapper_list_query_difference(void **query1, void **query2);
 
 void *mapper_list_next(void *mem);
 
@@ -724,7 +723,7 @@ void *mapper_list_query_index(void **query, int index);
 
 void **mapper_list_query_next(void **query);
 
-void **mapper_list_query_copy(const void **query);
+void **mapper_list_query_copy(void **query);
 
 void mapper_list_query_done(void **query);
 

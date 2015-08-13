@@ -77,10 +77,10 @@ void mapper_admin_free(mapper_admin adm)
         mapper_admin_unsubscribe(adm, adm->subscriptions->device);
     }
 
-    mapper_device *query = mapper_db_devices(&adm->network->db);
-    while (query) {
-        mapper_device dev = *query;
-        query = mapper_device_query_next(query);
+    mapper_device *devs = mapper_db_devices(&adm->network->db);
+    while (devs) {
+        mapper_device dev = *devs;
+        devs = mapper_device_query_next(devs);
         if (!dev->local)
             mapper_db_remove_device(&adm->network->db, dev, 1);
     }
@@ -201,7 +201,7 @@ static mapper_subscription subscription(mapper_admin adm, mapper_device dev)
     return 0;
 }
 
-static void on_device_autosubscribe(mapper_device dev, mapper_action_t a,
+static void on_device_autosubscribe(mapper_device dev, mapper_record_action a,
                                     const void *user)
 {
     mapper_admin adm = (mapper_admin)(user);
@@ -344,14 +344,17 @@ mapper_map mapper_admin_add_map(mapper_admin adm, int num_sources,
 
     // check if record of map already exists
     mapper_map *maps, *temp;
-    maps = mapper_db_signal_maps(&adm->network->db, destination, DI_INCOMING);
+    maps = mapper_db_signal_maps(&adm->network->db, destination, MAPPER_INCOMING);
     for (i = 0; i < num_sources; i++) {
-        temp = mapper_db_signal_maps(&adm->network->db, sources[i], DI_OUTGOING);
+        temp = mapper_db_signal_maps(&adm->network->db, sources[i], MAPPER_OUTGOING);
         maps = mapper_map_query_intersection(maps, temp);
     }
     while (maps) {
-        if ((*maps)->num_sources == num_sources)
-            return *maps;
+        if ((*maps)->num_sources == num_sources) {
+            mapper_map map = *maps;
+            mapper_map_query_done(maps);
+            return map;
+        }
         maps = mapper_map_query_next(maps);
     }
 
@@ -434,7 +437,7 @@ void mapper_admin_update_map(mapper_admin adm, mapper_map map)
     }
 }
 
-void mapper_admin_remove_map(mapper_admin adm, mapper_map_t *map)
+void mapper_admin_remove_map(mapper_admin adm, mapper_map map)
 {
     if (!adm || !map || !map->num_sources || !map->sources)
         return;

@@ -630,7 +630,7 @@ namespace mapper {
             { return mapper_signal_instance_data(_sig, instance_id); }
         Signal& set_callback(mapper_signal_update_handler *handler, void *user_data)
             { mapper_signal_set_callback(_sig, handler, user_data); return (*this); }
-        int num_maps(mapper_direction_t dir=DI_ANY) const
+        int num_maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_signal_num_maps(_sig, dir); }
         Signal& set_minimum(void *value)
             { mapper_signal_set_minimum(_sig, value); return (*this); }
@@ -639,89 +639,99 @@ namespace mapper {
         Signal& set_rate(int rate)
             { mapper_signal_set_rate(_sig, rate); return (*this); }
 
-        class Iterator : public std::iterator<std::input_iterator_tag, int>
+        class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
-            Iterator(mapper_signal *sigs)
-            {
-                _sigs = sigs;
-            }
+            Query(mapper_signal *sigs)
+                { _sigs = sigs; }
             // override copy constructor
-            Iterator(const Iterator& orig)
-            {
-                if (orig._sigs)
-                    _sigs = mapper_signal_query_copy(orig._sigs);
-            }
-            ~Iterator()
-            {
-                if (_sigs != NULL)
-                    mapper_signal_query_done(_sigs);
-            }
+            Query(const Query& orig)
+                { _sigs = mapper_signal_query_copy(orig._sigs); }
+            ~Query()
+                { mapper_signal_query_done(_sigs); }
             operator mapper_signal*() const
                 { return _sigs; }
-            bool operator==(const Iterator& rhs)
+            bool operator==(const Query& rhs)
                 { return (_sigs == rhs._sigs); }
-            bool operator!=(const Iterator& rhs)
+            bool operator!=(const Query& rhs)
                 { return (_sigs != rhs._sigs); }
-            Iterator& operator++()
+            Query& operator++()
             {
-                if (_sigs != NULL)
+                if (_sigs)
                     _sigs = mapper_signal_query_next(_sigs);
                 return (*this);
             }
-            Iterator operator++(int)
-                { Iterator tmp(*this); operator++(); return tmp; }
+            Query operator++(int)
+                { Query tmp(*this); operator++(); return tmp; }
             Signal operator*()
                 { return Signal(*_sigs); }
-            Iterator& begin()
+            Query& begin()
                 { return (*this); }
-            Iterator end()
-                { return Iterator(0); }
+            Query end()
+                { return Query(0); }
 
             // Combining functions
-            Iterator join(const Iterator& rhs) const
+            Query& join(const Query& rhs)
             {
-                return Iterator(mapper_signal_query_union(_sigs, rhs));
-            }
-            Iterator intersect(const Iterator& rhs) const
-            {
-                return Iterator(mapper_signal_query_intersection(_sigs, rhs));
-            }
-            Iterator subtract(const Iterator& rhs) const
-            {
-                return Iterator(mapper_signal_query_difference(_sigs, rhs));
-            }
-            Iterator operator+(const Iterator& rhs) const
-            {
-                return Iterator(mapper_signal_query_union(_sigs, rhs));
-            }
-            Iterator operator*(const Iterator& rhs) const
-            {
-                return Iterator(mapper_signal_query_intersection(_sigs, rhs));
-            }
-            Iterator operator-(const Iterator& rhs) const
-            {
-                return Iterator(mapper_signal_query_difference(_sigs, rhs));
-            }
-            Iterator operator+=(const Iterator& rhs)
-            {
-                mapper_signal *_temp = _sigs;
-                _sigs = mapper_signal_query_union(_sigs, rhs);
-                mapper_signal_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                _sigs = mapper_signal_query_union(_sigs, rhs_cpy);
                 return (*this);
             }
-            Iterator operator*=(const Iterator& rhs)
+            Query& intersect(const Query& rhs)
             {
-                mapper_signal *_temp = _sigs;
-                _sigs = mapper_signal_query_intersection(_sigs, rhs);
-                mapper_signal_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                _sigs = mapper_signal_query_intersection(_sigs, rhs_cpy);
                 return (*this);
             }
-            Iterator operator-=(const Iterator& rhs)
+            Query& subtract(const Query& rhs)
             {
-                mapper_signal *_temp = _sigs;
-                _sigs = mapper_signal_query_difference(_sigs, rhs);
-                mapper_signal_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                _sigs = mapper_signal_query_difference(_sigs, rhs_cpy);
+                return (*this);
+            }
+            Query operator+(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_signal *lhs_cpy = mapper_signal_query_copy(_sigs);
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                return Query(mapper_signal_query_union(lhs_cpy, rhs_cpy));
+            }
+            Query operator*(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_signal *lhs_cpy = mapper_signal_query_copy(_sigs);
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                return Query(mapper_signal_query_intersection(lhs_cpy, rhs_cpy));
+            }
+            Query operator-(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_signal *lhs_cpy = mapper_signal_query_copy(_sigs);
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                return Query(mapper_signal_query_difference(lhs_cpy, rhs_cpy));
+            }
+            Query& operator+=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                _sigs = mapper_signal_query_union(_sigs, rhs_cpy);
+                return (*this);
+            }
+            Query& operator*=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                _sigs = mapper_signal_query_intersection(_sigs, rhs_cpy);
+                return (*this);
+            }
+            Query& operator-=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_signal *rhs_cpy = mapper_signal_query_copy(rhs._sigs);
+                _sigs = mapper_signal_query_difference(_sigs, rhs_cpy);
                 return (*this);
             }
 
@@ -800,19 +810,14 @@ namespace mapper {
             return (*this);
         }
 
-        int num_inputs() const
-            { return mapper_device_num_inputs(_dev); }
-        int num_outputs() const
-            { return mapper_device_num_outputs(_dev); }
-        int num_maps(mapper_direction_t dir=DI_ANY)
+        int num_signals(mapper_direction dir=MAPPER_DIR_ANY) const
+            { return mapper_device_num_signals(_dev, dir); }
+
+        int num_maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_device_num_maps(_dev, dir); }
 
-        Signal::Iterator inputs() const
-            { return Signal::Iterator(mapper_db_device_inputs(_db, _dev)); }
-        Signal::Iterator outputs() const
-            { return Signal::Iterator(mapper_db_device_outputs(_db, _dev)); }
-        Signal::Iterator signals() const
-            { return Signal::Iterator(mapper_db_device_signals(_db, _dev)); }
+        Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
+            { return Signal::Query(mapper_db_device_signals(_db, _dev, dir)); }
 
         int poll(int block_ms=0) const
             { return mapper_device_poll(_dev, block_ms); }
@@ -877,92 +882,101 @@ namespace mapper {
             return Timetag(tt);
         }
 
-        class Iterator : public std::iterator<std::input_iterator_tag, int>
+        class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
-            Iterator(mapper_device *devs)
-            {
-                _devs = devs;
-            }
+            Query(mapper_device *devs)
+                { _devs = devs; }
             // override copy constructor
-            Iterator(const Iterator& orig)
-            {
-                if (orig._devs)
-                    _devs = mapper_device_query_copy(orig._devs);
-            }
-            ~Iterator()
-            {
-                if (_devs != NULL)
-                    mapper_device_query_done(_devs);
-            }
+            Query(const Query& orig)
+                { _devs = mapper_device_query_copy(orig._devs); }
+            ~Query()
+                { mapper_device_query_done(_devs); }
             operator mapper_device*() const
                 { return _devs; }
-            bool operator==(const Iterator& rhs)
+            bool operator==(const Query& rhs)
                 { return (_devs == rhs._devs); }
-            bool operator!=(const Iterator& rhs)
+            bool operator!=(const Query& rhs)
                 { return (_devs != rhs._devs); }
-            Iterator& operator++()
+            Query& operator++()
             {
-                if (_devs != NULL)
+                if (_devs)
                     _devs = mapper_device_query_next(_devs);
                 return (*this);
             }
-            Iterator operator++(int)
-                { Iterator tmp(*this); operator++(); return tmp; }
+            Query operator++(int)
+                { Query tmp(*this); operator++(); return tmp; }
             Device operator*()
                 { return Device(*_devs); }
-            Iterator begin()
-                { return Iterator(_devs); }
-            Iterator end()
-                { return Iterator(0); }
+            Query begin()
+                { return Query(_devs); }
+            Query end()
+                { return Query(0); }
 
             // Combination functions
-            Iterator join(const Iterator& rhs) const
+            Query& join(const Query& rhs)
             {
-                return Iterator(mapper_device_query_union(_devs, rhs));
-            }
-            Iterator intersect(const Iterator& rhs) const
-            {
-                return Iterator(mapper_device_query_intersection(_devs, rhs));
-            }
-            Iterator subtract(const Iterator& rhs) const
-            {
-                return Iterator(mapper_device_query_difference(_devs, rhs));
-            }
-            Iterator operator+(const Iterator& rhs) const
-            {
-                return Iterator(mapper_device_query_union(_devs, rhs));
-            }
-            Iterator operator*(const Iterator& rhs) const
-            {
-                return Iterator(mapper_device_query_intersection(_devs, rhs));
-            }
-            Iterator operator-(const Iterator& rhs) const
-            {
-                return Iterator(mapper_device_query_difference(_devs, rhs));
-            }
-            Iterator operator+=(const Iterator& rhs)
-            {
-                mapper_device *_temp = _devs;
-                _devs = mapper_device_query_union(_devs, rhs);
-                mapper_device_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                _devs = mapper_device_query_union(_devs, rhs_cpy);
                 return (*this);
             }
-            Iterator operator*=(const Iterator& rhs)
+            Query& intersect(const Query& rhs)
             {
-                mapper_device *_temp = _devs;
-                _devs = mapper_device_query_intersection(_devs, rhs);
-                mapper_device_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                _devs = mapper_device_query_intersection(_devs, rhs_cpy);
                 return (*this);
             }
-            Iterator operator-=(const Iterator& rhs)
+            Query& subtract(const Query& rhs)
             {
-                mapper_device *_temp = _devs;
-                _devs = mapper_device_query_difference(_devs, rhs);
-                mapper_device_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                _devs = mapper_device_query_difference(_devs, rhs_cpy);
                 return (*this);
             }
-
+            Query operator+(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_device *lhs_cpy = mapper_device_query_copy(_devs);
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                return Query(mapper_device_query_union(lhs_cpy, rhs_cpy));
+            }
+            Query operator*(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_device *lhs_cpy = mapper_device_query_copy(_devs);
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                return Query(mapper_device_query_intersection(lhs_cpy, rhs_cpy));
+            }
+            Query operator-(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_device *lhs_cpy = mapper_device_query_copy(_devs);
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                return Query(mapper_device_query_difference(lhs_cpy, rhs_cpy));
+            }
+            Query& operator+=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                _devs = mapper_device_query_union(_devs, rhs_cpy);
+                return (*this);
+            }
+            Query& operator*=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                _devs = mapper_device_query_intersection(_devs, rhs_cpy);
+                return (*this);
+            }
+            Query& operator-=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_device *rhs_cpy = mapper_device_query_copy(rhs._devs);
+                _devs = mapper_device_query_difference(_devs, rhs_cpy);
+                return (*this);
+            }
 
             Device operator [] (int index)
             {
@@ -987,9 +1001,9 @@ namespace mapper {
             { return _map; }
         int num_sources() const
             { return mapper_map_num_sources(_map); }
-        mapper_mode_type mode() const
+        mapper_mode mode() const
             { return mapper_map_mode(_map); }
-        Map& set_mode(mapper_mode_type mode)
+        Map& set_mode(mapper_mode mode)
         {
             mapper_map_set_mode(_map, mode);
             return (*this);
@@ -1025,89 +1039,99 @@ namespace mapper {
         }
         uint64_t id() const
             { return mapper_map_id(_map); }
-        class Iterator : public std::iterator<std::input_iterator_tag, int>
+        class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
-            Iterator(mapper_map *maps)
-            {
-                _maps = maps;
-            }
+            Query(mapper_map *maps)
+                { _maps = maps; }
             // override copy constructor
-            Iterator(const Iterator& orig)
-            {
-                if (orig._maps)
-                    _maps = mapper_map_query_copy(orig._maps);
-            }
-            ~Iterator()
-            {
-                if (_maps != NULL)
-                    mapper_map_query_done(_maps);
-            }
+            Query(const Query& orig)
+                { _maps = mapper_map_query_copy(orig._maps); }
+            ~Query()
+                { mapper_map_query_done(_maps); }
             operator mapper_map*() const
                 { return _maps; }
-            bool operator==(const Iterator& rhs)
+            bool operator==(const Query& rhs)
                 { return (_maps == rhs._maps); }
-            bool operator!=(const Iterator& rhs)
+            bool operator!=(const Query& rhs)
                 { return (_maps != rhs._maps); }
-            Iterator& operator++()
+            Query& operator++()
             {
                 if (_maps != NULL)
                     _maps = mapper_map_query_next(_maps);
                 return (*this);
             }
-            Iterator operator++(int)
-                { Iterator tmp(*this); operator++(); return tmp; }
+            Query operator++(int)
+                { Query tmp(*this); operator++(); return tmp; }
             Map operator*()
                 { return Map(*_maps); }
-            Iterator begin()
-                { return Iterator(_maps); }
-            Iterator end()
-                { return Iterator(0); }
+            Query begin()
+                { return Query(_maps); }
+            Query end()
+                { return Query(0); }
 
             // Combination functions
-            Iterator join(const Iterator& rhs) const
+            Query& join(const Query& rhs)
             {
-                return Iterator(mapper_map_query_union(_maps, rhs));
-            }
-            Iterator intersect(const Iterator& rhs) const
-            {
-                return Iterator(mapper_map_query_intersection(_maps, rhs));
-            }
-            Iterator subtract(const Iterator& rhs) const
-            {
-                return Iterator(mapper_map_query_difference(_maps, rhs));
-            }
-            Iterator operator+(const Iterator& rhs) const
-            {
-                return Iterator(mapper_map_query_union(_maps, rhs));
-            }
-            Iterator operator*(const Iterator& rhs) const
-            {
-                return Iterator(mapper_map_query_intersection(_maps, rhs));
-            }
-            Iterator operator-(const Iterator& rhs) const
-            {
-                return Iterator(mapper_map_query_difference(_maps, rhs));
-            }
-            Iterator operator+=(const Iterator& rhs)
-            {
-                mapper_map *_temp = _maps;
-                _maps = mapper_map_query_union(_maps, rhs);
-                mapper_map_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                _maps = mapper_map_query_union(_maps, rhs_cpy);
                 return (*this);
             }
-            Iterator operator*=(const Iterator& rhs)
+            Query& intersect(const Query& rhs)
             {
-                mapper_map *_temp = _maps;
-                _maps = mapper_map_query_intersection(_maps, rhs);
-                mapper_map_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                _maps = mapper_map_query_intersection(_maps, rhs_cpy);
                 return (*this);
             }
-            Iterator operator-=(const Iterator& rhs)
+            Query& subtract(const Query& rhs)
             {
-                mapper_map *_temp = _maps;
-                _maps = mapper_map_query_difference(_maps, rhs);
-                mapper_map_query_done(_temp);
+                // need to use copy of rhs query
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                _maps = mapper_map_query_difference(_maps, rhs_cpy);
+                return (*this);
+            }
+            Query operator+(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_map *lhs_cpy = mapper_map_query_copy(_maps);
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                return Query(mapper_map_query_union(lhs_cpy, rhs_cpy));
+            }
+            Query operator*(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_map *lhs_cpy = mapper_map_query_copy(_maps);
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                return Query(mapper_map_query_intersection(lhs_cpy, rhs_cpy));
+            }
+            Query operator-(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_map *lhs_cpy = mapper_map_query_copy(_maps);
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                return Query(mapper_map_query_difference(lhs_cpy, rhs_cpy));
+            }
+            Query& operator+=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                _maps = mapper_map_query_union(_maps, rhs_cpy);
+                return (*this);
+            }
+            Query& operator*=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                _maps = mapper_map_query_intersection(_maps, rhs_cpy);
+                return (*this);
+            }
+            Query& operator-=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_map *rhs_cpy = mapper_map_query_copy(rhs._maps);
+                _maps = mapper_map_query_difference(_maps, rhs_cpy);
                 return (*this);
             }
 
@@ -1331,25 +1355,23 @@ namespace mapper {
             { return Device(mapper_db_device_by_name(_db, name)); }
         Device device_by_id(uint32_t id) const
             { return Device(mapper_db_device_by_id(_db, id)); }
-        Device::Iterator devices() const
-            { return Device::Iterator(mapper_db_devices(_db)); }
-        Device::Iterator local_devices() const
-            { return Device::Iterator(mapper_db_local_devices(_db)); }
-        Device::Iterator devices_by_name_match(const string_type &pattern) const
+        Device::Query devices() const
+            { return Device::Query(mapper_db_devices(_db)); }
+        Device::Query local_devices() const
+            { return Device::Query(mapper_db_local_devices(_db)); }
+        Device::Query devices_by_name_match(const string_type &pattern) const
         {
-            return Device::Iterator(mapper_db_devices_by_name_match(_db,
-                                                                    pattern));
+            return Device::Query(mapper_db_devices_by_name_match(_db, pattern));
         }
-        Device::Iterator devices_by_property(const Property& p,
-                                             mapper_query_op op) const
+        Device::Query devices_by_property(const Property& p, mapper_op op) const
         {
-            return Device::Iterator(
+            return Device::Query(
                 mapper_db_devices_by_property(_db, p.name, p.length, p.type,
                                               p.value, op));
         }
-        Device::Iterator devices_by_property(const Property& p) const
+        Device::Query devices_by_property(const Property& p) const
         {
-            return devices_by_property(p, QUERY_EXISTS);
+            return devices_by_property(p, MAPPER_OP_EXISTS);
         }
 
         // db_signals
@@ -1368,91 +1390,35 @@ namespace mapper {
 
         Signal signal_by_id(uint64_t id) const
             { return Signal(mapper_db_signal_by_id(_db, id)); }
-        Signal::Iterator signals() const
-            { return Signal::Iterator(mapper_db_signals(_db)); }
-        Signal::Iterator inputs() const
-            { return Signal::Iterator(mapper_db_inputs(_db)); }
-        Signal::Iterator outputs() const
-            { return Signal::Iterator(mapper_db_outputs(_db)); }
-        Signal::Iterator signals_by_name(const string_type &name) const
+        Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
+            { return Signal::Query(mapper_db_signals(_db, dir)); }
+        Signal::Query signals_by_name(const string_type &name) const
         {
-            return Signal::Iterator(mapper_db_signals_by_name(_db, name));
+            return Signal::Query(mapper_db_signals_by_name(_db, name));
         }
-        Signal::Iterator inputs_by_name(const string_type &name) const
+        Signal::Query signals_by_name_match(const string_type &pattern) const
         {
-            return Signal::Iterator(mapper_db_inputs_by_name(_db, name));
+            return Signal::Query(mapper_db_signals_by_name_match(_db, pattern));
         }
-        Signal::Iterator outputs_by_name(const string_type &name) const
+        Signal::Query signals_by_property(const Property& p, mapper_op op) const
         {
-            return Signal::Iterator(mapper_db_outputs_by_name(_db, name));
-        }
-        Signal::Iterator signals_by_name_match(const string_type &pattern) const
-        {
-            return Signal::Iterator(mapper_db_signals_by_name_match(_db, pattern));
-        }
-        Signal::Iterator inputs_by_name_match(const string_type &pattern) const
-        {
-            return Signal::Iterator(mapper_db_inputs_by_name_match(_db, pattern));
-        }
-        Signal::Iterator outputs_by_name_match(const string_type &pattern) const
-        {
-            return Signal::Iterator(mapper_db_outputs_by_name_match(_db, pattern));
-        }
-        Signal::Iterator signals_by_property(const Property& p,
-                                             mapper_query_op op) const
-        {
-            return Signal::Iterator(
+            return Signal::Query(
                 mapper_db_signals_by_property(_db, p.name, p.length, p.type,
                                               p.value, op));
         }
-        Signal::Iterator signals_by_property(const Property& p) const
+        Signal::Query signals_by_property(const Property& p) const
         {
-            return signals_by_property(p, QUERY_EXISTS);
+            return signals_by_property(p, MAPPER_OP_EXISTS);
         }
-        Signal::Iterator device_signals(const device_type& dev) const
+        Signal::Query device_signals(const device_type& dev,
+                                     mapper_direction dir=MAPPER_DIR_ANY) const
         {
-            return Signal::Iterator(mapper_db_device_signals(_db, dev));
-        }
-        Signal::Iterator device_inputs(const device_type& dev) const
-        {
-            return Signal::Iterator(mapper_db_device_inputs(_db, dev));
-        }
-        Signal::Iterator device_outputs(const device_type& dev) const
-        {
-            return Signal::Iterator(mapper_db_device_outputs(_db, dev));
+            return Signal::Query(mapper_db_device_signals(_db, dev, dir));
         }
         Signal device_signal_by_name(const device_type& dev,
                                      const string_type& name) const
         {
             return Signal(mapper_db_device_signal_by_name(_db, dev, name));
-        }
-        Signal device_input_by_name(const device_type& dev,
-                                    const string_type& name) const
-        {
-            return Signal(mapper_db_device_input_by_name(_db, dev, name));
-        }
-        Signal device_output_by_name(const device_type& dev,
-                                     const string_type& name) const
-        {
-            return Signal(mapper_db_device_output_by_name(_db, dev, name));
-        }
-        Signal::Iterator device_signals_by_name_match(const device_type& dev,
-                                                      const string_type pattern) const
-        {
-            return Signal::Iterator(
-                mapper_db_device_signals_by_name_match(_db, dev, pattern));
-        }
-        Signal::Iterator device_inputs_by_name_match(const device_type& dev,
-                                                     const string_type pattern) const
-        {
-            return Signal::Iterator(
-                 mapper_db_device_inputs_by_name_match(_db, dev, pattern));
-        }
-        Signal::Iterator device_outputs_by_name_match(const device_type& dev,
-                                                      const string_type pattern) const
-        {
-            return Signal::Iterator(
-                mapper_db_device_outputs_by_name_match(_db, dev, pattern));
         }
 
         // db maps
@@ -1471,28 +1437,28 @@ namespace mapper {
 
         Map map_by_id(uint64_t id) const
             { return Map(mapper_db_map_by_id(_db, id)); }
-        Map::Iterator maps() const
-            { return Map::Iterator(mapper_db_maps(_db)); }
-        Map::Iterator maps_by_property(const Property& p, mapper_query_op op) const
+        Map::Query maps() const
+            { return Map::Query(mapper_db_maps(_db)); }
+        Map::Query maps_by_property(const Property& p, mapper_op op) const
         {
-            return Map::Iterator(
+            return Map::Query(
                 mapper_db_maps_by_property(_db, p.name, p.length, p.type,
                                            p.value, op));
         }
-        Map::Iterator maps_by_property(const Property& p) const
+        Map::Query maps_by_property(const Property& p) const
         {
-            return maps_by_property(p, QUERY_EXISTS);
+            return maps_by_property(p, MAPPER_OP_EXISTS);
         }
-        Map::Iterator device_maps(const device_type& dev,
-                                  mapper_direction_t dir=DI_ANY) const
+        Map::Query device_maps(const device_type& dev,
+                               mapper_direction dir=MAPPER_DIR_ANY) const
         {
-            return Map::Iterator(
+            return Map::Query(
                 mapper_db_device_maps(_db, (mapper_device)dev, dir));
         }
-        Map::Iterator signal_maps(const signal_type& signal,
-                                  mapper_direction_t dir=DI_ANY) const
+        Map::Query signal_maps(const signal_type& signal,
+                               mapper_direction dir=MAPPER_DIR_ANY) const
         {
-            return Map::Iterator(
+            return Map::Query(
                 mapper_db_signal_maps(_db, (mapper_signal)signal, dir));
         }
     private:
@@ -1551,7 +1517,7 @@ namespace mapper {
 
         const Admin& remove(const Map &map) const
             { mapper_admin_remove_map(_adm, (mapper_map)map); return (*this); }
-        const Admin& remove(Map::Iterator maps)
+        const Admin& remove(Map::Query maps)
         {
             for (auto const &m : maps)
                 remove(m);

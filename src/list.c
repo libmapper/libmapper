@@ -436,7 +436,7 @@ static int cmp_compound_query(const void *context_data, const void *dev)
 {
     mapper_list_header_t *lh1 = *(mapper_list_header_t**)context_data;
     mapper_list_header_t *lh2 = *(mapper_list_header_t**)(context_data + sizeof(void*));
-    mapper_query_op op = *(mapper_query_op*)(context_data + sizeof(void*) * 2);
+    mapper_op op = *(mapper_op*)(context_data + sizeof(void*) * 2);
 
     query_info_t *c1 = lh1->query_context, *c2 = lh2->query_context;
 
@@ -455,52 +455,71 @@ static int cmp_compound_query(const void *context_data, const void *dev)
     }
 }
 
-void **mapper_list_query_copy(const void **query)
+static mapper_list_header_t *mapper_list_header_copy(mapper_list_header_t *lh)
 {
-    mapper_list_header_t *lh = mapper_list_header_by_self(query);
-
     mapper_list_header_t *copy = (mapper_list_header_t*)malloc(LIST_HEADER_SIZE);
     memcpy(copy, lh, LIST_HEADER_SIZE);
 
     copy->query_context = (query_info_t*)malloc(lh->query_context->size);
     memcpy(copy->query_context, lh->query_context, lh->query_context->size);
 
+    if (copy->query_context->query_compare == cmp_compound_query) {
+        // this is a compound query – we need to copy components
+        void *data = &copy->query_context->data;
+        mapper_list_header_t *lh1 = *(mapper_list_header_t**)data;
+        mapper_list_header_t *lh2 = *(mapper_list_header_t**)(data+sizeof(void*));
+        lh1 = mapper_list_header_copy(lh1);
+        lh2 = mapper_list_header_copy(lh2);
+        memcpy(data, lh1, sizeof(void*));
+        memcpy(data+1, lh2, sizeof(void*));
+    }
+    return copy;
+}
+
+void **mapper_list_query_copy(void **query)
+{
+    if (!query)
+        return 0;
+
+    mapper_list_header_t *lh = mapper_list_header_by_self(query);
+    mapper_list_header_t *copy = mapper_list_header_copy(lh);
+
     return &copy->self;
 }
 
-void **mapper_list_query_union(const void **query1, const void **query2)
+void **mapper_list_query_union(void **query1, void **query2)
 {
     if (!query1)
-        return query2 ? (void*)mapper_list_query_copy(query2) : 0;
+        return query2;
     if (!query2)
-        return (void*)mapper_list_query_copy(query1);
+        return query1;
 
     mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
     mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
-    return (mapper_list_new_query(lh1->start, cmp_compound_query,
-                                  "vvi", &lh1, &lh2, OP_UNION));
+    return mapper_list_new_query(lh1->start, cmp_compound_query, "vvi", &lh1,
+                                 &lh2, OP_UNION);
 }
 
-void **mapper_list_query_intersection(const void **query1, const void **query2)
+void **mapper_list_query_intersection(void **query1, void **query2)
 {
     if (!query1 || !query2)
         return 0;
 
     mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
     mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
-    return (mapper_list_new_query(lh1->start, cmp_compound_query, "vvi",
-                                  &lh1, &lh2, OP_INTERSECTION));
+    return mapper_list_new_query(lh1->start, cmp_compound_query, "vvi", &lh1,
+                                 &lh2, OP_INTERSECTION);
 }
 
-void **mapper_list_query_difference(const void **query1, const void **query2)
+void **mapper_list_query_difference(void **query1, void **query2)
 {
     if (!query1)
         return 0;
     if (!query2)
-        return (void*)mapper_list_query_copy(query1);
+        return query1;
 
     mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
     mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
-    return (mapper_list_new_query(lh1->start, cmp_compound_query, "vvi",
-                                  &lh1, &lh2, OP_DIFFERENCE));
+    return mapper_list_new_query(lh1->start, cmp_compound_query, "vvi", &lh1,
+                                 &lh2, OP_DIFFERENCE);
 }

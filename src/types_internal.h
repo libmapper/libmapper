@@ -360,15 +360,15 @@ typedef struct _mapper_map_internal {
     int is_local;
 
     // TODO: move expr_vars into expr structure?
-    mapper_expr expr;                       //!< The mapping expression.
-    mapper_history *expr_vars;              //!< User variables values.
-    int num_expr_vars;                      //!< Number of user variables.
+    mapper_expr expr;                   //!< The mapping expression.
+    mapper_history *expr_vars;          //!< User variables values.
+    int num_expr_vars;                  //!< Number of user variables.
     int num_var_instances;
 
     int status;
     int one_source;
 
-    mapper_mode_type mode;                  /*!< Raw, linear, or expression. */
+    mapper_mode mode;                   //!< Raw, linear, or expression.
 
 } mapper_map_internal_t, *mapper_map_internal;
 
@@ -396,7 +396,7 @@ typedef struct _mapper_map {
     char *expression;
     char *description;
 
-    mapper_mode_type mode;              //!< MO_LINEAR or MO_EXPRESSION
+    mapper_mode mode;                   //!< MO_LINEAR or MO_EXPRESSION
     int muted;                          //!< 1 to mute mapping, 0 to unmute
     int num_sources;
     int process_location;               //!< 1 for source, 0 for destination
@@ -591,9 +591,8 @@ extern const char* mapper_message_param_strings[];
  *  mapper_db.h. */
 extern const char* mapper_boundary_action_strings[];
 
-/*! Strings that correspond to mapper_mode_type, defined in
- *  mapper_db.h. */
-extern const char* mapper_mode_type_strings[];
+/*! Strings that correspond to mapper_mode, defined in mapper_db.h. */
+extern const char* mapper_mode_strings[];
 
 /*! Queriable representation of a parameterized message parsed from an
  *  incoming OSC message. Does not contain a copy of data, so only

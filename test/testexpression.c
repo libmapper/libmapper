@@ -40,7 +40,8 @@ int setup_source()
     sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
 
     eprintf("Output signal /outsig registered.\n");
-    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_OUTGOING));
     return 0;
 
   error:
@@ -78,7 +79,8 @@ int setup_destination()
                                       &mn, &mx, insig_handler, 0);
 
     eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_INCOMING));
     return 0;
 
   error:
@@ -99,12 +101,12 @@ int setup_maps()
 {
     mapper_admin adm = mapper_admin_new(0, 0);
     mapper_map map = mapper_admin_add_map(adm, 1, &sendsig, recvsig);
-    mapper_map_set_mode(map, MO_EXPRESSION);
+    mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
     mapper_map_set_expression(map, "y=x*10");
     mapper_admin_update_map(adm, map);
 
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, DI_OUTGOING)) {
+    while (!done && !mapper_device_num_maps(source, MAPPER_OUTGOING)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }

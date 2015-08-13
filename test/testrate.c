@@ -169,7 +169,7 @@ int setup_maps()
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, DI_OUTGOING)) {
+    while (!done && !mapper_device_num_maps(source, MAPPER_OUTGOING)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
         if (i++ > 100)

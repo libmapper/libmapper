@@ -93,7 +93,8 @@ int setup_destination()
                                       &mn, &mx, insig_handler, 0);
 
     eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
+    eprintf("Number of inputs: %d\n", mapper_device_num_signals(destination,
+                                                                MAPPER_INCOMING));
     return 0;
 
   error:
@@ -117,7 +118,7 @@ int setup_maps()
     mapper_signal all_sources[2] = {sendsig[0][0], sendsig[1][1]};
 
     mapper_map map = mapper_admin_add_map(adm, 2, all_sources, recvsig);
-    mapper_map_set_mode(map, MO_EXPRESSION);
+    mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
 
     // build expression string
     mapper_slot slot1 = mapper_map_slot_by_signal(map, sendsig[0][0]);
@@ -133,7 +134,7 @@ int setup_maps()
 
     // wait until mappings have been established
     int i;
-    while (!done && !mapper_device_num_maps(destination, DI_INCOMING)) {
+    while (!done && !mapper_device_num_maps(destination, MAPPER_INCOMING)) {
         for (i = 0; i < NUM_SOURCES; i++)
             mapper_device_poll(sources[i], 10);
         mapper_device_poll(destination, 10);

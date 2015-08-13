@@ -67,7 +67,8 @@ int setup_source()
     }
 
     eprintf("Output signals registered.\n");
-    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_OUTGOING));
 
     return 0;
 
@@ -113,7 +114,8 @@ int setup_destination()
     }
 
     eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_INCOMING));
 
     return 0;
 
@@ -156,7 +158,7 @@ int setup_maps()
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, DI_ANY)) {
+    while (!done && !mapper_device_num_maps(source, 0)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
         if (i++ > 100)

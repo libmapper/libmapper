@@ -40,7 +40,8 @@ int setup_source(char *iface)
     sendsig = mapper_device_add_output(source, "/outsig", 1, 'i', 0, &mn, &mx);
 
     eprintf("Output signal /outsig registered.\n");
-    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_OUTGOING));
     return 0;
 
   error:
@@ -78,7 +79,8 @@ int setup_destination(char *iface)
                                       &mn, &mx, insig_handler, 0);
 
     eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_INCOMING));
     return 0;
 
   error:
@@ -102,7 +104,7 @@ int setup_maps()
     mapper_admin adm = mapper_admin_new(0, 0);
 
     mapper_map map = mapper_admin_add_map(adm, 1, &sendsig, recvsig);
-    mapper_map_set_mode(map, MO_LINEAR);
+    mapper_map_set_mode(map, MAPPER_MODE_LINEAR);
 
     mapper_slot slot = mapper_map_source_slot(map, 0);
     mapper_slot_set_minimum(slot, 1, 'f', &src_min);
@@ -111,12 +113,12 @@ int setup_maps()
     slot = mapper_map_destination_slot(map);
     mapper_slot_set_minimum(slot, 1, 'f', &dest_min);
     mapper_slot_set_maximum(slot, 1, 'f', &dest_max);
-    mapper_slot_set_bound_min(slot, BA_FOLD);
+    mapper_slot_set_bound_min(slot, MAPPER_FOLD);
 
     mapper_admin_update_map(adm, map);
 
     // Wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, DI_ANY)) {
+    while (!done && !mapper_device_num_maps(source, 0)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }

@@ -167,7 +167,7 @@ void mapper_device_free(mapper_device dev)
     lo_bundle_free_messages(net->bundle);
     net->bundle = 0;
 
-    mapper_signal *sig = mapper_db_device_signals(&net->db, dev);
+    mapper_signal *sig = mapper_db_device_signals(&net->db, dev, MAPPER_DIR_ANY);
     while (sig) {
         if ((*sig)->local) {
             // release active instances
@@ -244,7 +244,7 @@ void mapper_device_registered(mapper_device dev)
 {
     int i;
     /* Add unique device id to locally-activated signal instances. */
-    mapper_signal *sig = mapper_db_device_signals(dev->db, dev);
+    mapper_signal *sig = mapper_db_device_signals(dev->db, dev, MAPPER_DIR_ANY);
     while (sig) {
         if ((*sig)->local) {
             for (i = 0; i < (*sig)->local->id_map_length; i++) {
@@ -395,7 +395,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 #endif
             return 0;
         }
-        if (map->process_location == LOC_DESTINATION) {
+        if (map->process_location == MAPPER_DESTINATION) {
             count = check_types(types, value_len, slot->type, slot->length);
         }
         else {
@@ -420,7 +420,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     if (is_instance_update) {
         id_map_index = mapper_signal_find_instance_with_global_id(sig,
                                                                   instance_id,
-                                                                  IN_RELEASED_LOCALLY);
+                                                                  MAPPER_RELEASED_LOCALLY);
         if (id_map_index < 0) {
             // no instance found with this map
             if (nulls == value_len * count) {
@@ -439,7 +439,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             }
         }
         else {
-            if (sig->local->id_maps[id_map_index].status & IN_RELEASED_LOCALLY) {
+            if (sig->local->id_maps[id_map_index].status & MAPPER_RELEASED_LOCALLY) {
                 /* map was already released locally, we are only interested
                  * in release messages */
                 if (count == 1 && nulls == value_len) {
@@ -494,14 +494,14 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     return 0;
                 }
                 if (is_instance_update) {
-                    sig->local->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
+                    sig->local->id_maps[id_map_index].status |= MAPPER_RELEASED_REMOTELY;
                     id_map->refcount_global--;
                     if (id_map->refcount_global <= 0 && id_map->refcount_local <= 0) {
                         mapper_device_remove_instance_id_map(dev, id_map);
                     }
                     if (event_h && (sig->local->instance_event_flags
-                                    & IN_UPSTREAM_RELEASE)) {
-                        event_h(sig, id_map->local, IN_UPSTREAM_RELEASE, &tt);
+                                    & MAPPER_UPSTREAM_RELEASE)) {
+                        event_h(sig, id_map->local, MAPPER_UPSTREAM_RELEASE, &tt);
                     }
                 }
                 /* Do not call mapper_device_route_signal() here, since we don't know if
@@ -522,7 +522,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 // may need to activate instance
                 id_map_index = mapper_signal_find_instance_with_global_id(sig,
                                                                           instance_id,
-                                                                          IN_RELEASED_REMOTELY);
+                                                                          MAPPER_RELEASED_REMOTELY);
                 if (id_map_index < 0) {
                     // no instance found with this map
                     if (nulls == value_len * count) {
@@ -579,7 +579,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     // try to release instance
                     // first call handler with value buffer
                     if (out_count) {
-                        if (!(sig->direction & DI_OUTGOING))
+                        if (!(sig->direction & MAPPER_OUTGOING))
                             mapper_device_route_signal(dev, sig, id_map_index,
                                                        out_buffer, out_count, tt);
                         if (update_h)
@@ -588,11 +588,11 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     }
                     // next call handler with release
                     if (is_instance_update) {
-                        sig->local->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
+                        sig->local->id_maps[id_map_index].status |= MAPPER_RELEASED_REMOTELY;
                         id_map->refcount_global--;
                         if (event_h && (sig->local->instance_event_flags
-                                        & IN_UPSTREAM_RELEASE)) {
-                            event_h(sig, id_map->local, IN_UPSTREAM_RELEASE, &tt);
+                                        & MAPPER_UPSTREAM_RELEASE)) {
+                            event_h(sig, id_map->local, MAPPER_UPSTREAM_RELEASE, &tt);
                         }
                     }
                     /* Do not call mapper_device_route_signal() here, since we
@@ -616,7 +616,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                         out_count++;
                     }
                     else {
-                        if (!(sig->direction & DI_OUTGOING))
+                        if (!(sig->direction & MAPPER_OUTGOING))
                             mapper_device_route_signal(dev, sig, id_map_index,
                                                        si->value, 1, tt);
                         if (update_h)
@@ -629,7 +629,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             }
         }
         if (out_count) {
-            if (!(sig->direction & DI_OUTGOING))
+            if (!(sig->direction & MAPPER_OUTGOING))
                 mapper_device_route_signal(dev, sig, id_map_index, out_buffer,
                                            out_count, tt);
             if (update_h)
@@ -655,11 +655,11 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     return 0;
                 }
                 if (is_instance_update) {
-                    sig->local->id_maps[id_map_index].status |= IN_RELEASED_REMOTELY;
+                    sig->local->id_maps[id_map_index].status |= MAPPER_RELEASED_REMOTELY;
                     id_map->refcount_global--;
                     if (event_h && (sig->local->instance_event_flags
-                                    & IN_UPSTREAM_RELEASE)) {
-                        event_h(sig, id_map->local, IN_UPSTREAM_RELEASE, &tt);
+                                    & MAPPER_UPSTREAM_RELEASE)) {
+                        event_h(sig, id_map->local, MAPPER_UPSTREAM_RELEASE, &tt);
                     }
                 }
                 /* Do not call mapper_device_route_signal() here, since we don't
@@ -680,7 +680,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     out_count++;
                 }
                 else {
-                    if (!(sig->direction & DI_OUTGOING))
+                    if (!(sig->direction & MAPPER_OUTGOING))
                         mapper_device_route_signal(dev, sig, id_map_index,
                                                    si->value, 1, tt);
                     if (update_h)
@@ -689,7 +689,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             }
         }
         if (out_count) {
-            if (!(sig->direction & DI_OUTGOING))
+            if (!(sig->direction & MAPPER_OUTGOING))
                 mapper_device_route_signal(dev, sig, id_map_index, out_buffer,
                                            out_count, tt);
             if (update_h)
@@ -711,7 +711,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 //        return 0;
 //
 //    if (!sig->local->instance_event_handler ||
-//        !(sig->local->instance_event_flags & IN_DOWNSTREAM_RELEASE))
+//        !(sig->local->instance_event_flags & MAPPER_DOWNSTREAM_RELEASE))
 //        return 0;
 //
 //    lo_timetag tt = lo_message_get_timestamp(msg);
@@ -722,7 +722,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 //
 //    if (sig->local->instance_event_handler) {
 //        sig->local->instance_event_handler(sig, sig->local->id_maps[index].map->local,
-//                                           IN_DOWNSTREAM_RELEASE, &tt);
+//                                           MAPPER_DOWNSTREAM_RELEASE, &tt);
 //    }
 //
 //    return 0;
@@ -804,7 +804,7 @@ static uint64_t get_unused_signal_id(mapper_device dev)
         done = 1;
         id = mapper_device_unique_id(dev);
         // check if input signal exists with this id
-        mapper_signal *sig = mapper_db_device_signals(dev->db, dev);
+        mapper_signal *sig = mapper_db_device_signals(dev->db, dev, MAPPER_DIR_ANY);
         while (sig) {
             if ((*sig)->id == id) {
                 done = 0;
@@ -839,7 +839,7 @@ mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
     sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
     sig->db = dev->db;
 
-    mapper_signal_init(sig, name, length, type, DI_INCOMING, unit, minimum,
+    mapper_signal_init(sig, name, length, type, MAPPER_INCOMING, unit, minimum,
                        maximum, handler, user_data);
 
     sig->device = dev;
@@ -879,7 +879,7 @@ mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
     sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
     sig->db = dev->db;
 
-    mapper_signal_init(sig, name, length, type, DI_OUTGOING, unit, minimum,
+    mapper_signal_init(sig, name, length, type, MAPPER_OUTGOING, unit, minimum,
                        maximum, 0, 0);
 
     sig->device = dev;
@@ -972,7 +972,7 @@ static void send_unmap(mapper_network net, mapper_map map)
 
 void mapper_device_remove_signal(mapper_device dev, mapper_signal sig)
 {
-    if (sig->direction == DI_INCOMING)
+    if (sig->direction == MAPPER_INCOMING)
         mapper_device_remove_input(dev, sig);
     else
         mapper_device_remove_output(dev, sig);
@@ -1046,24 +1046,24 @@ void mapper_device_remove_output(mapper_device dev, mapper_signal sig)
     mapper_device_increment_version(dev);
 }
 
-int mapper_device_num_inputs(mapper_device dev)
-{
-    return dev ? dev->num_inputs : 0;
-}
-
-int mapper_device_num_outputs(mapper_device dev)
-{
-    return dev ? dev->num_outputs : 0;
-}
-
-int mapper_device_num_maps(mapper_device dev, mapper_direction_t dir)
+int mapper_device_num_signals(mapper_device dev, mapper_direction dir)
 {
     if (!dev)
         return 0;
     if (!dir)
-        dir = DI_BOTH;
-    return (  (dir & DI_INCOMING) * dev->num_incoming_maps
-            + (dir & DI_OUTGOING) * dev->num_outgoing_maps);
+        return dev->num_inputs + dev->num_outputs;
+    return (  (dir & MAPPER_INCOMING) * dev->num_inputs
+            + (dir & MAPPER_OUTGOING) * dev->num_outputs);
+}
+
+int mapper_device_num_maps(mapper_device dev, mapper_direction dir)
+{
+    if (!dev)
+        return 0;
+    if (!dir)
+        return dev->num_incoming_maps + dev->num_outgoing_maps;
+    return (  ((dir & MAPPER_INCOMING) ? dev->num_incoming_maps : 0)
+            + ((dir & MAPPER_OUTGOING) ? dev->num_outgoing_maps : 0));
 }
 
 int mapper_device_poll(mapper_device dev, int block_ms)
@@ -1286,7 +1286,7 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
     trace("bound to port %i\n", dev->port);
 
     // add signal methods
-    mapper_signal *sig = mapper_db_device_signals(dev->db, dev);
+    mapper_signal *sig = mapper_db_device_signals(dev->db, dev, MAPPER_DIR_ANY);
     while (sig) {
         if ((*sig)->local->update_handler)
             lo_server_add_method(dev->local->server, (*sig)->path, NULL,
@@ -1499,22 +1499,22 @@ mapper_db mapper_device_db(mapper_device dev)
 mapper_device *mapper_device_query_union(mapper_device *query1,
                                          mapper_device *query2)
 {
-    return (mapper_device*)mapper_list_query_union((const void**)query1,
-                                                   (const void**)query2);
+    return (mapper_device*)mapper_list_query_union((void**)query1,
+                                                   (void**)query2);
 }
 
 mapper_device *mapper_device_query_intersection(mapper_device *query1,
                                                 mapper_device *query2)
 {
-    return (mapper_device*)mapper_list_query_intersection((const void**)query1,
-                                                          (const void**)query2);
+    return (mapper_device*)mapper_list_query_intersection((void**)query1,
+                                                          (void**)query2);
 }
 
 mapper_device *mapper_device_query_difference(mapper_device *query1,
                                               mapper_device *query2)
 {
-    return (mapper_device*)mapper_list_query_difference((const void**)query1,
-                                                        (const void**)query2);
+    return (mapper_device*)mapper_list_query_difference((void**)query1,
+                                                        (void**)query2);
 }
 
 mapper_device mapper_device_query_index(mapper_device *query, int index)
@@ -1529,7 +1529,7 @@ mapper_device *mapper_device_query_next(mapper_device *query)
 
 mapper_device *mapper_device_query_copy(mapper_device *query)
 {
-    return (mapper_device*)mapper_list_query_copy((const void**)query);
+    return (mapper_device*)mapper_list_query_copy((void**)query);
 }
 
 void mapper_device_query_done(mapper_device *query)

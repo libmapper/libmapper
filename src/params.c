@@ -49,20 +49,20 @@ const char* prop_message_strings[] =
 
 const char* mapper_boundary_action_strings[] =
 {
-    NULL,          /* BA_UNDEFINED */
-    "none",        /* BA_NONE */
-    "mute",        /* BA_MUTE */
-    "clamp",       /* BA_CLAMP */
-    "fold",        /* BA_FOLD */
-    "wrap",        /* BA_WRAP */
+    NULL,          /* MAPPER_UNDEFINED */
+    "none",        /* MAPPER_NONE */
+    "mute",        /* MAPPER_MUTE */
+    "clamp",       /* MAPPER_CLAMP */
+    "fold",        /* MAPPER_FOLD */
+    "wrap",        /* MAPPER_WRAP */
 };
 
-const char* mapper_mode_type_strings[] =
+const char* mapper_mode_strings[] =
 {
-    NULL,          /* MO_UNDEFINED */
-    "raw",         /* MO_RAW */
-    "linear",      /* MO_LINEAR */
-    "expression",  /* MO_EXPRESSION */
+    NULL,          /* MAPPER_MODE_UNDEFINED */
+    "raw",         /* MAPPER_MODE_RAW */
+    "linear",      /* MAPPER_MODE_LINEAR */
+    "expression",  /* MAPPER_MODE_EXPRESSION */
 };
 
 inline static int type_match(const char l, const char r)
@@ -605,17 +605,15 @@ int mapper_message_signal_direction(mapper_message msg)
     if (!str)
         return 0;
     if (strcmp(str, "output")==0)
-        return DI_OUTGOING;
+        return MAPPER_OUTGOING;
     if (strcmp(str, "input")==0)
-        return DI_INCOMING;
-    if (strcmp(str, "both")==0)
-        return DI_BOTH;
+        return MAPPER_INCOMING;
     return 0;
 }
 
 const char *mapper_boundary_action_string(mapper_boundary_action bound)
 {
-    if (bound <= BA_UNDEFINED || bound > NUM_MAPPER_BOUNDARY_ACTIONS)
+    if (bound <= MAPPER_UNDEFINED || bound > NUM_MAPPER_BOUNDARY_ACTIONS)
         return "unknown";
     return mapper_boundary_action_strings[bound];
 }
@@ -623,32 +621,32 @@ const char *mapper_boundary_action_string(mapper_boundary_action bound)
 mapper_boundary_action mapper_boundary_action_from_string(const char *str)
 {
     if (!str)
-        return BA_UNDEFINED;
+        return MAPPER_UNDEFINED;
     int i;
-    for (i = BA_UNDEFINED+1; i < NUM_MAPPER_BOUNDARY_ACTIONS; i++) {
+    for (i = MAPPER_UNDEFINED+1; i < NUM_MAPPER_BOUNDARY_ACTIONS; i++) {
         if (strcmp(str, mapper_boundary_action_strings[i])==0)
             return i;
     }
-    return BA_UNDEFINED;
+    return MAPPER_UNDEFINED;
 }
 
-const char *mapper_mode_type_string(mapper_mode_type mode)
+const char *mapper_mode_string(mapper_mode mode)
 {
-    if (mode <= 0 || mode > NUM_MAPPER_MODE_TYPES)
+    if (mode <= 0 || mode > NUM_MAPPER_MODES)
         return "unknown";
-    return mapper_mode_type_strings[mode];
+    return mapper_mode_strings[mode];
 }
 
-mapper_mode_type mapper_mode_type_from_string(const char *str)
+mapper_mode mapper_mode_from_string(const char *str)
 {
     if (!str)
-        return MO_UNDEFINED;
+        return MAPPER_MODE_UNDEFINED;
     int i;
-    for (i = MO_UNDEFINED+1; i < NUM_MAPPER_MODE_TYPES; i++) {
-        if (strcmp(str, mapper_mode_type_strings[i])==0)
+    for (i = MAPPER_MODE_UNDEFINED+1; i < NUM_MAPPER_MODES; i++) {
+        if (strcmp(str, mapper_mode_strings[i])==0)
             return i;
     }
-    return MO_UNDEFINED;
+    return MAPPER_MODE_UNDEFINED;
 }
 
 int mapper_message_mute(mapper_message msg)

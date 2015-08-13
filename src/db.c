@@ -21,7 +21,7 @@ int mapper_db_timeout(mapper_db db)
 void mapper_db_flush(mapper_db db, int timeout_sec, int quiet)
 {
     mapper_clock_now(&db->network->clock, &db->network->clock.now);
-    
+
     // flush expired device records
     mapper_device dev;
     uint32_t last_ping = db->network->clock.now.sec - timeout_sec;
@@ -200,12 +200,12 @@ static void remove_callback(fptr_list *head, const void *f, const void *user)
     }
     if (!cb)
         return;
-    
+
     if (prevcb)
         prevcb->next = cb->next;
     else
         *head = cb->next;
-    
+
     free(cb);
 }
 
@@ -253,9 +253,10 @@ void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet)
     if (!dev)
         return;
 
-    mapper_db_remove_maps_by_query(db, mapper_db_device_maps(db, dev, DI_ANY));
+    mapper_db_remove_maps_by_query(db, mapper_db_device_maps(db, dev, 0));
 
-    mapper_db_remove_signals_by_query(db, mapper_db_device_signals(db, dev));
+    mapper_db_remove_signals_by_query(db, mapper_db_device_signals(db, dev,
+                                                                   MAPPER_DIR_ANY));
 
     mapper_list_remove_item((void**)&db->devices, dev);
 
@@ -341,8 +342,8 @@ static inline int check_type(char type)
     return strchr("ifdsct", type) != 0;
 }
 
-static int compare_value(mapper_query_op op, int length, int type,
-                         const void *val1, const void *val2)
+static int compare_value(mapper_op op, int length, int type, const void *val1,
+                         const void *val2)
 {
     int i, compare = 0, difference = 0;
     switch (type) {
@@ -403,17 +404,17 @@ static int compare_value(mapper_query_op op, int length, int type,
             return 0;
     }
     switch (op) {
-        case QUERY_EQUAL:
+        case MAPPER_OP_EQUAL:
             return compare == 0 && !difference;
-        case QUERY_GREATER_THAN:
+        case MAPPER_OP_GREATER_THAN:
             return compare > 0;
-        case QUERY_GREATER_THAN_OR_EQUAL:
+        case MAPPER_OP_GREATER_THAN_OR_EQUAL:
             return compare >= 0;
-        case QUERY_LESS_THAN:
+        case MAPPER_OP_LESS_THAN:
             return compare < 0;
-        case QUERY_LESS_THAN_OR_EQUAL:
+        case MAPPER_OP_LESS_THAN_OR_EQUAL:
             return compare <= 0;
-        case QUERY_NOT_EQUAL:
+        case MAPPER_OP_NOT_EQUAL:
             return compare != 0 || difference;
         default:
             return 0;
@@ -432,10 +433,10 @@ static int cmp_query_devices_by_property(const void *context_data,
     char _type;
     const void *_value;
     if (mapper_device_property(dev, property, &_length, &_type, &_value))
-        return (op == QUERY_DOES_NOT_EXIST);
-    if (op == QUERY_EXISTS)
+        return (op == MAPPER_OP_DOES_NOT_EXIST);
+    if (op == MAPPER_OP_EXISTS)
         return 1;
-    if (op == QUERY_DOES_NOT_EXIST)
+    if (op == MAPPER_OP_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
@@ -444,12 +445,11 @@ static int cmp_query_devices_by_property(const void *context_data,
 
 mapper_device *mapper_db_devices_by_property(mapper_db db, const char *property,
                                              int length, char type,
-                                             const void *value,
-                                             mapper_query_op op)
+                                             const void *value, mapper_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_QUERY_OPS)
+    if (op <= MAPPER_OP_UNDEFINED || op >= NUM_MAPPER_OPS)
         return 0;
     return ((mapper_device *)
             mapper_list_new_query(db->devices, cmp_query_devices_by_property,
@@ -567,23 +567,12 @@ static int cmp_query_signals(const void *context_data, mapper_signal sig)
     return !direction || (sig->direction & direction);
 }
 
-mapper_signal *mapper_db_signals(mapper_db db)
+mapper_signal *mapper_db_signals(mapper_db db, mapper_direction dir)
 {
-    return mapper_list_from_data(db->signals);
-}
-
-mapper_signal *mapper_db_inputs(mapper_db db)
-{
+    if (!dir)
+        return mapper_list_from_data(db->signals);
     return ((mapper_signal *)
-            mapper_list_new_query(db->signals, cmp_query_signals,
-                                  "i", DI_INCOMING));
-}
-
-mapper_signal *mapper_db_outputs(mapper_db db)
-{
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals, cmp_query_signals,
-                                  "i", DI_OUTGOING));
+            mapper_list_new_query(db->signals, cmp_query_signals, "i", dir));
 }
 
 mapper_signal mapper_db_signal_by_id(mapper_db db, uint64_t id)
@@ -613,51 +602,21 @@ mapper_signal *mapper_db_signals_by_name(mapper_db db, const char *name)
 {
     return ((mapper_signal *)
             mapper_list_new_query(db->signals, cmp_query_signals_by_name,
-                                  "is", DI_ANY, name));
-}
-
-mapper_signal *mapper_db_inputs_by_name(mapper_db db, const char *name)
-{
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals, cmp_query_signals_by_name,
-                                  "is", DI_INCOMING, name));
-}
-
-mapper_signal *mapper_db_outputs_by_name(mapper_db db, const char *name)
-{
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals, cmp_query_signals_by_name,
-                                  "is", DI_OUTGOING, name));
+                                  "is", MAPPER_DIR_ANY, name));
 }
 
 static int cmp_query_signals_by_name_match(const void *context_data,
                                            mapper_signal sig)
 {
-    int direction = *(int*)context_data;
-    const char *pattern = (const char*)(context_data + sizeof(int));
-    return ((!direction || (sig->direction & direction))
-            && (strstr(sig->name, pattern)!=0));
+    const char *pattern = (const char*)(context_data);
+    return (strstr(sig->name, pattern)!=0);
 }
 
 mapper_signal *mapper_db_signals_by_name_match(mapper_db db, const char *pattern)
 {
     return ((mapper_signal *)
-            mapper_list_new_query(db->devices, cmp_query_signals_by_name_match,
-                                  "is", DI_ANY, pattern));
-}
-
-mapper_signal *mapper_db_inputs_by_name_match(mapper_db db, const char *pattern)
-{
-    return ((mapper_signal *)
-            mapper_list_new_query(db->devices, cmp_query_signals_by_name_match,
-                                  "is", DI_INCOMING, pattern));
-}
-
-mapper_signal *mapper_db_outputs_by_name_match(mapper_db db, const char *pattern)
-{
-    return ((mapper_signal *)
-            mapper_list_new_query(db->devices, cmp_query_signals_by_name_match,
-                                  "is", DI_OUTGOING, pattern));
+            mapper_list_new_query(db->signals, cmp_query_signals_by_name_match,
+                                  "s", pattern));
 }
 
 static int cmp_query_signals_by_property(const void *context_data,
@@ -672,10 +631,10 @@ static int cmp_query_signals_by_property(const void *context_data,
     char _type;
     const void *_value;
     if (mapper_signal_property(sig, property, &_length, &_type, &_value))
-        return (op == QUERY_DOES_NOT_EXIST);
-    if (op == QUERY_EXISTS)
+        return (op == MAPPER_OP_DOES_NOT_EXIST);
+    if (op == MAPPER_OP_EXISTS)
         return 1;
-    if (op == QUERY_DOES_NOT_EXIST)
+    if (op == MAPPER_OP_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
@@ -684,12 +643,11 @@ static int cmp_query_signals_by_property(const void *context_data,
 
 mapper_signal *mapper_db_signals_by_property(mapper_db db, const char *property,
                                              int length, char type,
-                                             const void *value,
-                                             mapper_query_op op)
+                                             const void *value, mapper_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_QUERY_OPS)
+    if (op <= MAPPER_OP_UNDEFINED || op >= NUM_MAPPER_OPS)
         return 0;
     return ((mapper_signal *)
             mapper_list_new_query(db->signals, cmp_query_signals_by_property,
@@ -704,37 +662,18 @@ static int cmp_query_device_signals(const void *context_data, mapper_signal sig)
             && (dev_id == sig->device->id));
 }
 
-mapper_signal *mapper_db_device_signals(mapper_db db, mapper_device dev)
+mapper_signal *mapper_db_device_signals(mapper_db db, mapper_device dev,
+                                        mapper_direction dir)
 {
     if (!dev)
         return 0;
     return ((mapper_signal *)
             mapper_list_new_query(db->signals, cmp_query_device_signals,
-                                  "hi", dev->name ? dev->id : 0, DI_ANY));
+                                  "hi", dev->name ? dev->id : 0, dir));
 }
 
-mapper_signal *mapper_db_device_inputs(mapper_db db, mapper_device dev)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals, cmp_query_device_signals,
-                                  "hi", dev->name ? dev->id : 0, DI_INCOMING));
-}
-
-mapper_signal *mapper_db_device_outputs(mapper_db db, mapper_device dev)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals, cmp_query_device_signals,
-                                  "hi", dev->name ? dev->id : 0, DI_OUTGOING));
-}
-
-static mapper_signal device_signal_by_name_internal(mapper_db db,
-                                                    mapper_device dev,
-                                                    const char *sig_name,
-                                                    int direction)
+mapper_signal mapper_db_device_signal_by_name(mapper_db db, mapper_device dev,
+                                              const char *sig_name)
 {
     if (!dev)
         return 0;
@@ -743,35 +682,15 @@ static mapper_signal device_signal_by_name_internal(mapper_db db,
         return 0;
 
     while (sig) {
-        if ((sig->device == dev) && (!direction || (sig->direction & direction))
-            && strcmp(sig->name, skip_slash(sig_name))==0)
+        if ((sig->device == dev) && strcmp(sig->name, skip_slash(sig_name))==0)
             return sig;
         sig = mapper_list_next(sig);
     }
     return 0;
 }
 
-mapper_signal mapper_db_device_signal_by_name(mapper_db db, mapper_device dev,
-                                              const char *sig_name)
-{
-    return device_signal_by_name_internal(db, dev, sig_name, DI_ANY);
-}
-
-mapper_signal mapper_db_device_input_by_name(mapper_db db, mapper_device dev,
-                                             const char *sig_name)
-{
-    return device_signal_by_name_internal(db, dev, sig_name, DI_INCOMING);
-}
-
-mapper_signal mapper_db_device_output_by_name(mapper_db db, mapper_device dev,
-                                              const char *sig_name)
-{
-    return device_signal_by_name_internal(db, dev, sig_name, DI_OUTGOING);
-}
-
-static mapper_signal device_signal_by_index_internal(mapper_db db,
-                                                     mapper_device dev,
-                                                     int index, int direction)
+mapper_signal mapper_db_device_signal_by_index(mapper_db db, mapper_device dev,
+                                               mapper_direction dir, int index)
 {
     if (!dev || index < 0)
         return 0;
@@ -781,7 +700,7 @@ static mapper_signal device_signal_by_index_internal(mapper_db db,
 
     int count = -1;
     while (sig && count < index) {
-        if ((sig->device == dev) && (!direction || (sig->direction & direction))) {
+        if ((sig->device == dev) && (!dir || (sig->direction & dir))) {
             if (++count == index)
                 return sig;
         }
@@ -790,79 +709,10 @@ static mapper_signal device_signal_by_index_internal(mapper_db db,
     return 0;
 }
 
-mapper_signal mapper_db_device_signal_by_index(mapper_db db, mapper_device dev,
-                                               int index)
-{
-    return device_signal_by_index_internal(db, dev, index, DI_ANY);
-}
-
-mapper_signal mapper_db_device_input_by_index(mapper_db db, mapper_device dev,
-                                              int index)
-{
-    return device_signal_by_index_internal(db, dev, index, DI_INCOMING);
-}
-
-mapper_signal mapper_db_device_output_by_index(mapper_db db, mapper_device dev,
-                                               int index)
-{
-    return device_signal_by_index_internal(db, dev, index, DI_OUTGOING);
-}
-
-static int cmp_query_device_signals_match_name(const void *context_data,
-                                               mapper_signal sig)
-{
-    uint64_t dev_id = *(int64_t*)context_data;
-    int direction = *(int*)(context_data + sizeof(uint64_t));
-    const char *pattern = (const char*)(context_data+sizeof(int64_t)+sizeof(int));
-
-    return ((!direction || (sig->direction & direction))
-            && (sig->device->id == dev_id)
-            && strstr(sig->name, pattern));
-}
-
-mapper_signal *mapper_db_device_signals_by_name_match(mapper_db db,
-                                                      mapper_device dev,
-                                                      char const *pattern)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals,
-                                  cmp_query_device_signals_match_name,
-                                  "his", dev->name ? dev->id : 0,
-                                  DI_ANY, pattern));
-}
-
-mapper_signal *mapper_db_device_inputs_by_name_match(mapper_db db,
-                                                     mapper_device dev,
-                                                     const char *pattern)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals,
-                                  cmp_query_device_signals_match_name,
-                                  "his", dev->name ? dev->id : 0,
-                                  DI_INCOMING, pattern));
-}
-
-mapper_signal *mapper_db_device_outputs_by_name_match(mapper_db db,
-                                                      mapper_device dev,
-                                                      char const *pattern)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals,
-                                  cmp_query_device_signals_match_name,
-                                  "his", dev->name ? dev->id : 0,
-                                  DI_OUTGOING, pattern));
-}
-
 void mapper_db_remove_signal(mapper_db db, mapper_signal sig)
 {
     // remove any stored maps using this signal
-    mapper_db_remove_maps_by_query(db, mapper_db_signal_maps(db, sig, DI_ANY));
+    mapper_db_remove_maps_by_query(db, mapper_db_signal_maps(db, sig, 0));
 
     mapper_list_remove_item((void**)&db->signals, sig);
 
@@ -873,9 +723,9 @@ void mapper_db_remove_signal(mapper_db db, mapper_signal sig)
         cb = cb->next;
     }
 
-    if (sig->direction & DI_INCOMING)
+    if (sig->direction & MAPPER_INCOMING)
         sig->device->num_inputs--;
-    if (sig->direction & DI_OUTGOING)
+    if (sig->direction & MAPPER_OUTGOING)
         sig->device->num_outputs--;
 
     mapper_signal_free(sig);
@@ -1077,10 +927,10 @@ static int cmp_query_maps_by_property(const void *context_data, mapper_map map)
     char _type;
     const void *_value;
     if (mapper_map_property(map, property, &_length, &_type, &_value))
-        return (op == QUERY_DOES_NOT_EXIST);
-    if (op == QUERY_EXISTS)
+        return (op == MAPPER_OP_DOES_NOT_EXIST);
+    if (op == MAPPER_OP_EXISTS)
         return 1;
-    if (op == QUERY_DOES_NOT_EXIST)
+    if (op == MAPPER_OP_DOES_NOT_EXIST)
         return 0;
     if (_type != type || _length != length)
         return 0;
@@ -1089,11 +939,11 @@ static int cmp_query_maps_by_property(const void *context_data, mapper_map map)
 
 mapper_map *mapper_db_maps_by_property(mapper_db db, const char *property,
                                        int length, char type, const void *value,
-                                       mapper_query_op op)
+                                       mapper_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_QUERY_OPS)
+    if (op <= MAPPER_OP_UNDEFINED || op >= NUM_MAPPER_OPS)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(db->maps, cmp_query_maps_by_property,
@@ -1110,14 +960,14 @@ static int cmp_query_maps_by_slot_property(const void *context_data,
     const void *value2, *value1 = *(void**)(context_data + sizeof(int) * 4);
     const char *property = (const char*)(context_data + sizeof(int) * 4
                                          + sizeof(void*));
-    if (!direction || direction & DI_INCOMING) {
+    if (!direction || direction & MAPPER_INCOMING) {
         if (!mapper_slot_property(&map->destination, property, &length2,
                                   &type2, &value2)
             && type1 == type2 && length1 == length2
             && compare_value(op, length1, type1, value2, value1))
             return 1;
     }
-    if (!direction || direction & DI_OUTGOING) {
+    if (!direction || direction & MAPPER_OUTGOING) {
         for (i = 0; i < map->num_sources; i++) {
             if (!mapper_slot_property(&map->sources[i], property, &length2,
                                       &type2, &value2)
@@ -1131,16 +981,15 @@ static int cmp_query_maps_by_slot_property(const void *context_data,
 
 mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *property,
                                             int length, char type,
-                                            const void *value,
-                                            mapper_query_op op)
+                                            const void *value, mapper_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_QUERY_OPS)
+    if (op <= MAPPER_OP_UNDEFINED || op >= NUM_MAPPER_OPS)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(db->maps, cmp_query_maps_by_slot_property,
-                                  "iiicvs", DI_ANY, op, length, type,
+                                  "iiicvs", 0, op, length, type,
                                   &value, property));
 }
 
@@ -1148,15 +997,15 @@ mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db,
                                                 const char *property,
                                                 int length, char type,
                                                 const void *value,
-                                                mapper_query_op op)
+                                                mapper_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_QUERY_OPS)
+    if (op <= MAPPER_OP_UNDEFINED || op >= NUM_MAPPER_OPS)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(db->maps, cmp_query_maps_by_slot_property,
-                                  "iiicvs", DI_OUTGOING, op, length, type,
+                                  "iiicvs", MAPPER_OUTGOING, op, length, type,
                                   &value, property));
 }
 
@@ -1164,15 +1013,15 @@ mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db,
                                                  const char *property,
                                                  int length, char type,
                                                  const void *value,
-                                                 mapper_query_op op)
+                                                 mapper_op op)
 {
     if (!property || !check_type(type) || length < 1)
         return 0;
-    if (op <= QUERY_UNDEFINED || op >= NUM_MAPPER_QUERY_OPS)
+    if (op <= MAPPER_OP_UNDEFINED || op >= NUM_MAPPER_OPS)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(db->maps, cmp_query_maps_by_slot_property,
-                                  "iiicvs", DI_INCOMING, op, length, type,
+                                  "iiicvs", MAPPER_INCOMING, op, length, type,
                                   &value, property));
 }
 
@@ -1180,14 +1029,14 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
 {
     uint64_t dev_id = *(uint64_t*)context_data;
     int direction = *(int*)(context_data + sizeof(uint64_t));
-    if (!direction || (direction & DI_OUTGOING)) {
+    if (!direction || (direction & MAPPER_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
             if (map->sources[i].signal->device->id == dev_id)
                 return 1;
         }
     }
-    if (!direction || (direction & DI_INCOMING)) {
+    if (!direction || (direction & MAPPER_INCOMING)) {
         if (map->destination.signal->device->id == dev_id)
             return 1;
     }
@@ -1195,7 +1044,7 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
 }
 
 mapper_map *mapper_db_device_maps(mapper_db db, mapper_device dev,
-                                  mapper_direction_t dir)
+                                  mapper_direction dir)
 {
     if (!dev)
         return 0;
@@ -1208,14 +1057,14 @@ static int cmp_query_signal_maps(const void *context_data, mapper_map map)
 {
     mapper_signal sig = *(mapper_signal *)context_data;
     int direction = *(int*)(context_data + sizeof(int64_t));
-    if (!direction || (direction & DI_OUTGOING)) {
+    if (!direction || (direction & MAPPER_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
             if (map->sources[i].signal == sig)
                 return 1;
         }
     }
-    if (!direction || (direction & DI_INCOMING)) {
+    if (!direction || (direction & MAPPER_INCOMING)) {
         if (map->destination.signal == sig)
             return 1;
     }
@@ -1223,7 +1072,7 @@ static int cmp_query_signal_maps(const void *context_data, mapper_map map)
 }
 
 mapper_map *mapper_db_signal_maps(mapper_db db, mapper_signal sig,
-                                  mapper_direction_t dir)
+                                  mapper_direction dir)
 {
     if (!sig)
         return 0;
@@ -1346,13 +1195,10 @@ void mapper_db_dump(mapper_db db)
         printf("  name='%s':'%s', id=%llu ", sig->device->name,
                sig->name, sig->id);
         switch (sig->direction) {
-            case DI_BOTH:
-                printf("(input/output)\n");
-                break;
-            case DI_OUTGOING:
+            case MAPPER_OUTGOING:
                 printf("(output)\n");
                 break;
-            case DI_INCOMING:
+            case MAPPER_INCOMING:
                 printf("(input)\n");
                 break;
             default:
@@ -1373,7 +1219,7 @@ void mapper_db_dump(mapper_db db)
                 print_slot("    source slot", i, &map->sources[i]);
         }
         print_slot("    destination slot", -1, &map->destination);
-        printf("    mode='%s'\n", mapper_mode_type_string(map->mode));
+        printf("    mode='%s'\n", mapper_mode_string(map->mode));
         printf("    expression='%s'\n", map->expression);
         printf("    muted=%s\n", map->muted ? "yes" : "no");
         map = mapper_list_next(map);

@@ -918,7 +918,7 @@ static void mapper_network_send_inputs(mapper_network net, mapper_device dev,
         max = dev->num_inputs-1;
 
     int i = 0;
-    mapper_signal *sig = mapper_db_device_inputs(&net->db, dev);
+    mapper_signal *sig = mapper_db_device_signals(&net->db, dev, MAPPER_INCOMING);
     while (sig) {
         if (i > max) {
             mapper_signal_query_done(sig);
@@ -942,7 +942,7 @@ static void mapper_network_send_outputs(mapper_network net, mapper_device dev,
         max = dev->num_outputs-1;
 
     int i = 0;
-    mapper_signal *sig = mapper_db_device_outputs(&net->db, dev);
+    mapper_signal *sig = mapper_db_device_signals(&net->db, dev, MAPPER_OUTGOING);
     while (sig) {
         if (i > max) {
             mapper_signal_query_done(sig);
@@ -973,7 +973,7 @@ static int mapper_network_send_map(mapper_network net, mapper_map map, int slot,
              map->destination.signal->device->name,
              map->destination.signal->path);
 
-    if (map->destination.direction == DI_INCOMING) {
+    if (map->destination.direction == MAPPER_INCOMING) {
         // add mapping destination
         lo_message_add_string(m, dest_name);
         lo_message_add_string(m, "<-");
@@ -998,7 +998,7 @@ static int mapper_network_send_map(mapper_network net, mapper_map map, int slot,
         len += result + 1;
     }
 
-    if (map->destination.direction == DI_OUTGOING) {
+    if (map->destination.direction == MAPPER_OUTGOING) {
         // add mapping destination
         lo_message_add_string(m, "->");
         lo_message_add_string(m, dest_name);
@@ -1035,7 +1035,7 @@ static void mapper_network_send_incoming_maps(mapper_network net,
     mapper_router_signal rs = dev->local->router->signals;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i] || rs->slots[i]->direction == DI_OUTGOING)
+            if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_OUTGOING)
                 continue;
             if (max > 0 && count > max)
                 return;
@@ -1058,7 +1058,7 @@ static void mapper_network_send_outgoing_maps(mapper_network net,
     mapper_router_signal rs = dev->local->router->signals;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i] || rs->slots[i]->direction == DI_INCOMING)
+            if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_INCOMING)
                 continue;
             if (max > 0 && count > max)
                 return;
@@ -1186,7 +1186,7 @@ static int handler_device(const char *path, const char *types,
             if (!rs->slots[i])
                 continue;
             mapper_map map = rs->slots[i]->map;
-            if (rs->slots[i]->direction == DI_OUTGOING) {
+            if (rs->slots[i]->direction == MAPPER_OUTGOING) {
                 // only send /mapTo once even if we have multiple local sources
                 if (map->local->one_source && (rs->slots[i] != &map->sources[0]))
                     continue;
@@ -1612,32 +1612,31 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
 }
 
 /* Basic description of the protocol for establishing maps:
- *      The message "/map <signalA> -> <signalB>" starts the protocol.
  *
- *      If a device doesn't already have a record for the remote device it will
- *      request this information with a "/subscribe" message.
+ * The message "/map <signalA> -> <signalB>" starts the protocol.  If a device
+ * doesn't already have a record for the remote device it will request this
+ * information with a "/subscribe" message.
  *
- *      "/mapTo" messages are sent between devices until each is satisfied
- *      that it has enough information to initialize the map; at this
- *      point each device will send the message "/mapped" to its peer.
+ * "/mapTo" messages are sent between devices until each is satisfied that it
+ *  has enough information to initialize the map; at this point each device will
+ *  send the message "/mapped" to its peer.  Data will be sent only after the
+ *  "/mapped" message has been received from the peer device.
  *
- *      The "/map/modify" message is used to change the properties of
- *      existing maps. The device administering the map will
- *      make appropriate changes and then send "/mapped" to its peer.
+ * The "/map/modify" message is used to change the properties of existing maps.
+ * The device administering the map will make appropriate changes and then send
+ * "/mapped" to its peer.
  *
- *      Negotiation of convergent ("many-to-one") maps is governed by
- *      the destination device; if the map involves multiple inputs the
- *      destination will provoke the creation of simple submaps from the
- *      various sources and perform any combination signal-processing,
- *      otherwise processing metadata is forwarded to the source device.
- *      A convergent mapping is started with the message:
- *      "/map <sourceA> <sourceB> ... <sourceN> -> <destination>"
+ * Negotiation of convergent ("many-to-one") maps is governed by the destination
+ * device; if the map involves multiple inputs the destination will provoke the
+ * creation of simple submaps from the various sources and perform any
+ * combination signal-processing, otherwise processing metadata is forwarded to
+ * the source device.  A convergent mapping is started with a message in the
+ * form: "/map <sourceA> <sourceB> ... <sourceN> -> <destination>"
  */
 
-/* Helper function to check if the prefix matches.  Like strcmp(),
- * returns 0 if they match (up to the first '/'), non-0 otherwise.
- * Also optionally returns a pointer to the remainder of str1 after
- * the prefix. */
+/* Helper function to check if the prefix matches.  Like strcmp(), returns 0 if
+ * they match (up to the first '/'), non-0 otherwise.  Also optionally returns a
+ * pointer to the remainder of str1 after the prefix. */
 static int prefix_cmp(const char *str1, const char *str2, const char **rest)
 {
     // skip first slash
@@ -1801,7 +1800,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
 
     // create a tentative mapping (flavourless)
     map = mapper_router_add_map(dev->local->router, local_signal, num_sources,
-                                src_signals, src_names, DI_INCOMING);
+                                src_signals, src_names, MAPPER_INCOMING);
 
     // parse arguments from message if any
     mapper_message params = mapper_message_parse_params(argc-dest_index-1,
@@ -1965,13 +1964,13 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
             const char *dest_name = &argv[dest_index]->s;
             map = mapper_router_add_map(dev->local->router, local_signal,
                                         num_sources, src_sigs, &dest_name,
-                                        DI_OUTGOING);
+                                        MAPPER_OUTGOING);
         }
         else {
             /* Add a flavourless mapping */
             map = mapper_router_add_map(dev->local->router, local_signal,
                                         num_sources, 0, (const char**)src_names,
-                                        DI_INCOMING);
+                                        MAPPER_INCOMING);
         }
         if (!map) {
             trace("couldn't create map in handler_map_to\n");
@@ -1994,7 +1993,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     mapper_map_set_from_message(map, params, 1);
 
     if (map->local->status == MAPPER_READY) {
-        if (map->destination.direction == DI_OUTGOING) {
+        if (map->destination.direction == MAPPER_OUTGOING) {
             mapper_network_set_bundle_dest_mesh(net,
                                                 map->destination.local->link->admin_addr);
             mapper_network_send_map(net, map, -1, MSG_MAPPED);
@@ -2135,7 +2134,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
 
     if (map->local->status == MAPPER_READY) {
         // Inform remote peer(s)
-        if (map->destination.direction == DI_OUTGOING) {
+        if (map->destination.direction == MAPPER_OUTGOING) {
             mapper_network_set_bundle_dest_mesh(net,
                                                 map->destination.local->link->admin_addr);
             mapper_network_send_map(net, map, -1, MSG_MAPPED);
@@ -2153,7 +2152,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     }
     if (map->local->status >= MAPPER_READY && updated) {
         // Update map counts
-        if (map->destination.direction == DI_OUTGOING) {
+        if (map->destination.direction == MAPPER_OUTGOING) {
             ++dev->num_outgoing_maps;
             ++map->destination.local->link->num_outgoing_maps;
         }

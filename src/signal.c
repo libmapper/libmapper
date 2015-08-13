@@ -133,8 +133,7 @@ static mapper_signal_instance find_instance_by_id(mapper_signal sig,
 }
 
 void mapper_signal_init(mapper_signal sig, const char *name, int length,
-                        char type, mapper_direction_t direction,
-                        const char *unit,
+                        char type, mapper_direction direction, const char *unit,
                         const void *minimum, const void *maximum,
                         mapper_signal_update_handler *handler,
                         const void *user_data)
@@ -439,24 +438,24 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
         // store pointer to device map in a new signal map
         mapper_signal_init_instance(si);
         i = mapper_signal_add_id_map(sig, si, map);
-        if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
-            event_h(sig, instance_id, IN_NEW, tt);
+        if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
+            event_h(sig, instance_id, MAPPER_NEW_INSTANCE, tt);
         }
         return i;
     }
 
-    if (event_h && (sig->local->instance_event_flags & IN_OVERFLOW)) {
+    if (event_h && (sig->local->instance_event_flags & MAPPER_INSTANCE_OVERFLOW)) {
         // call instance event handler
-        event_h(sig, -1, IN_OVERFLOW, tt);
+        event_h(sig, -1, MAPPER_INSTANCE_OVERFLOW, tt);
     }
     else if (update_h) {
-        if (sig->local->instance_allocation_type == IN_STEAL_OLDEST) {
+        if (sig->local->instance_allocation_type == MAPPER_STEAL_OLDEST) {
             i = mapper_signal_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
             update_h(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
         }
-        else if (sig->local->instance_allocation_type == IN_STEAL_NEWEST) {
+        else if (sig->local->instance_allocation_type == MAPPER_STEAL_NEWEST) {
             i = mapper_signal_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
@@ -480,8 +479,8 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
         }
         mapper_signal_init_instance(si);
         i = mapper_signal_add_id_map(sig, si, map);
-        if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
-            event_h(sig, instance_id, IN_NEW, tt);
+        if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
+            event_h(sig, instance_id, MAPPER_NEW_INSTANCE, tt);
         }
         return i;
     }
@@ -530,8 +529,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
             si->is_active = 1;
             mapper_signal_init_instance(si);
             i = mapper_signal_add_id_map(sig, si, map);
-            if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
-                event_h(sig, si->id, IN_NEW, tt);
+            if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
+                event_h(sig, si->id, MAPPER_NEW_INSTANCE, tt);
             }
             return i;
         }
@@ -552,26 +551,26 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
             map->refcount_local++;
             map->refcount_global++;
 
-            if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
-                event_h(sig, si->id, IN_NEW, tt);
+            if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
+                event_h(sig, si->id, MAPPER_NEW_INSTANCE, tt);
             }
             return i;
         }
     }
 
     // try releasing instance in use
-    if (event_h && (sig->local->instance_event_flags & IN_OVERFLOW)) {
+    if (event_h && (sig->local->instance_event_flags & MAPPER_INSTANCE_OVERFLOW)) {
         // call instance event handler
-        event_h(sig, -1, IN_OVERFLOW, tt);
+        event_h(sig, -1, MAPPER_INSTANCE_OVERFLOW, tt);
     }
     else if (update_h) {
-        if (sig->local->instance_allocation_type == IN_STEAL_OLDEST) {
+        if (sig->local->instance_allocation_type == MAPPER_STEAL_OLDEST) {
             i = mapper_signal_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
             update_h(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
         }
-        else if (sig->local->instance_allocation_type == IN_STEAL_NEWEST) {
+        else if (sig->local->instance_allocation_type == MAPPER_STEAL_NEWEST) {
             i = mapper_signal_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
@@ -593,8 +592,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
             si->is_active = 1;
             mapper_signal_init_instance(si);
             i = mapper_signal_add_id_map(sig, si, map);
-            if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
-                event_h(sig, si->id, IN_NEW, tt);
+            if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
+                event_h(sig, si->id, MAPPER_NEW_INSTANCE, tt);
             }
             return i;
         }
@@ -616,8 +615,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
             map->refcount_local++;
             map->refcount_global++;
 
-            if (event_h && (sig->local->instance_event_flags & IN_NEW)) {
-                event_h(sig, si->id, IN_NEW, tt);
+            if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
+                event_h(sig, si->id, MAPPER_NEW_INSTANCE, tt);
             }
             return i;
         }
@@ -845,7 +844,7 @@ void mapper_signal_release_instance(mapper_signal sig, int id,
         return;
 
     int index = mapper_signal_find_instance_with_local_id(sig, id,
-                                                          IN_RELEASED_REMOTELY);
+                                                          MAPPER_RELEASED_REMOTELY);
     if (index >= 0)
         mapper_signal_release_instance_internal(sig, index, timetag);
 }
@@ -866,7 +865,7 @@ void mapper_signal_release_instance_internal(mapper_signal sig,
     else
         ttp = &tt;
 
-    if (!(smap->status & IN_RELEASED_REMOTELY)) {
+    if (!(smap->status & MAPPER_RELEASED_REMOTELY)) {
         mapper_device_route_signal(sig->device, sig, instance_index, 0, 0, *ttp);
     }
 
@@ -875,14 +874,14 @@ void mapper_signal_release_instance_internal(mapper_signal sig,
         mapper_device_remove_instance_id_map(sig->device, smap->map);
         smap->map = 0;
     }
-    else if ((sig->direction & DI_OUTGOING)
-             || smap->status & IN_RELEASED_REMOTELY) {
+    else if ((sig->direction & MAPPER_OUTGOING)
+             || smap->status & MAPPER_RELEASED_REMOTELY) {
         // TODO: consider multiple upstream source instances?
         smap->map = 0;
     }
     else {
         // mark map as locally-released but do not remove it
-        sig->local->id_maps[instance_index].status |= IN_RELEASED_LOCALLY;
+        sig->local->id_maps[instance_index].status |= MAPPER_RELEASED_LOCALLY;
     }
 
     // Put instance back in reserve list
@@ -948,7 +947,7 @@ const void *mapper_signal_instance_value(mapper_signal sig, int instance_id,
         return 0;
 
     int index = mapper_signal_find_instance_with_local_id(sig, instance_id,
-                                                          IN_RELEASED_REMOTELY);
+                                                          MAPPER_RELEASED_REMOTELY);
     if (index < 0)
         return 0;
     return mapper_signal_instance_value_internal(sig, index, timetag);
@@ -1116,7 +1115,7 @@ const char *mapper_signal_description(mapper_signal sig)
     return sig->description;
 }
 
-mapper_direction_t mapper_signal_direction(mapper_signal sig)
+mapper_direction mapper_signal_direction(mapper_signal sig)
 {
     return sig->direction;
 }
@@ -1151,14 +1150,14 @@ const char *mapper_signal_name(mapper_signal sig)
     return sig->name;
 }
 
-int mapper_signal_num_maps(mapper_signal sig, mapper_direction_t dir)
+int mapper_signal_num_maps(mapper_signal sig, mapper_direction dir)
 {
     if (!sig)
         return 0;
     if (!dir)
-        dir = DI_BOTH;
-    return (  (dir & DI_INCOMING) * sig->num_incoming_maps
-            + (dir & DI_OUTGOING) * sig->num_outgoing_maps);
+        return sig->num_incoming_maps + sig->num_outgoing_maps;
+    return (  ((dir & MAPPER_INCOMING) ? sig->num_incoming_maps : 0)
+            + ((dir & MAPPER_OUTGOING) ? sig->num_outgoing_maps : 0));
 }
 
 float mapper_signal_rate(mapper_signal sig)
@@ -1416,9 +1415,7 @@ void mapper_signal_prepare_message(mapper_signal sig, lo_message msg)
 
     /* direction */
     lo_message_add_string(msg, mapper_param_string(AT_DIRECTION));
-    if (sig->direction == DI_BOTH)
-        lo_message_add_string(msg, "both");
-    else if (sig->direction == DI_OUTGOING)
+    if (sig->direction == MAPPER_OUTGOING)
         lo_message_add_string(msg, "output");
     else
         lo_message_add_string(msg, "input");
@@ -1472,22 +1469,22 @@ void mapper_signal_prepare_message(mapper_signal sig, lo_message msg)
 mapper_signal *mapper_signal_query_union(mapper_signal *query1,
                                          mapper_signal *query2)
 {
-    return (mapper_signal*)mapper_list_query_union((const void**)query1,
-                                                   (const void**)query2);
+    return (mapper_signal*)mapper_list_query_union((void**)query1,
+                                                   (void**)query2);
 }
 
 mapper_signal *mapper_signal_query_intersection(mapper_signal *query1,
                                                 mapper_signal *query2)
 {
-    return (mapper_signal*)mapper_list_query_intersection((const void**)query1,
-                                                          (const void**)query2);
+    return (mapper_signal*)mapper_list_query_intersection((void**)query1,
+                                                          (void**)query2);
 }
 
 mapper_signal *mapper_signal_query_difference(mapper_signal *query1,
                                               mapper_signal *query2)
 {
-    return (mapper_signal*)mapper_list_query_difference((const void**)query1,
-                                                        (const void**)query2);
+    return (mapper_signal*)mapper_list_query_difference((void**)query1,
+                                                        (void**)query2);
 }
 
 mapper_signal mapper_signal_query_index(mapper_signal *sig, int index)
@@ -1502,7 +1499,7 @@ mapper_signal *mapper_signal_query_next(mapper_signal *sig)
 
 mapper_signal *mapper_signal_query_copy(mapper_signal *sig)
 {
-    return (mapper_signal*)mapper_list_query_copy((const void**)sig);
+    return (mapper_signal*)mapper_list_query_copy((void**)sig);
 }
 
 void mapper_signal_query_done(mapper_signal *sig)
@@ -1527,18 +1524,18 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
 
     int direction = mapper_message_signal_direction(msg);
     if (direction) {
-        if (direction & DI_INCOMING) {
-            if (!(sig->direction & DI_INCOMING))
+        if (direction & MAPPER_INCOMING) {
+            if (!(sig->direction & MAPPER_INCOMING))
                 ++sig->device->num_inputs;
         }
-        else if (sig->direction & DI_INCOMING)
+        else if (sig->direction & MAPPER_INCOMING)
             --sig->device->num_inputs;
 
-        if (direction & DI_OUTGOING) {
-            if (!(sig->direction & DI_OUTGOING))
+        if (direction & MAPPER_OUTGOING) {
+            if (!(sig->direction & MAPPER_OUTGOING))
                 ++sig->device->num_outputs;
         }
-        else if (sig->direction & DI_OUTGOING)
+        else if (sig->direction & MAPPER_OUTGOING)
             --sig->device->num_outputs;
         sig->direction = direction;
     }
@@ -1602,13 +1599,10 @@ void mapper_signal_pp(mapper_signal sig, int include_device_name)
     else
         printf("%s, direction=", sig->name);
     switch (sig->direction) {
-        case DI_BOTH:
-            printf("both");
-            break;
-        case DI_OUTGOING:
+        case MAPPER_OUTGOING:
             printf("output");
             break;
-        case DI_INCOMING:
+        case MAPPER_INCOMING:
             printf("input");
             break;
         default:

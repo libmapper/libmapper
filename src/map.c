@@ -162,7 +162,7 @@ uint64_t mapper_map_id(mapper_map map)
     return map->id;
 }
 
-mapper_mode_type mapper_map_mode(mapper_map map)
+mapper_mode mapper_map_mode(mapper_map map)
 {
     return map->mode;
 }
@@ -208,11 +208,11 @@ void mapper_map_set_description(mapper_map map, const char *description)
     mapper_property_set_string(&map->description, description);
 }
 
-void mapper_map_set_mode(mapper_map map, mapper_mode_type mode)
+void mapper_map_set_mode(mapper_map map, mapper_mode mode)
 {
-    if (mode >= 1 && mode < NUM_MAPPER_MODE_TYPES) {
+    if (mode >= 1 && mode < NUM_MAPPER_MODES) {
         mapper_table_add_or_update_typed_value(map->updater, "mode", 1, 's',
-                                               mapper_mode_type_strings[mode]);
+                                               mapper_mode_strings[mode]);
     }
 }
 
@@ -326,7 +326,7 @@ void mapper_map_set_property(mapper_map map, const char *property, int length,
 
 int mapper_slot_index(mapper_slot slot)
 {
-    if (slot->direction == DI_INCOMING)
+    if (slot->direction == MAPPER_INCOMING)
         return 0;
     int i;
     for (i = 0; i < slot->map->num_sources; i++) {
@@ -405,7 +405,7 @@ void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action a)
 {
     int i;
     char propname[16] = "dst@boundMax";
-    if (slot->direction == DI_OUTGOING) {
+    if (slot->direction == MAPPER_OUTGOING) {
         // source slot - figure out which source slot we are
         if (slot->map->num_sources == 1)
             snprintf(propname, 16, "src@boundMax");
@@ -426,7 +426,7 @@ void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action a)
 {
     int i;
     char propname[16] = "dst@boundMin";
-    if (slot->direction == DI_OUTGOING) {
+    if (slot->direction == MAPPER_OUTGOING) {
         // source slot - figure out which source slot we are
         if (slot->map->num_sources == 1)
             snprintf(propname, 16, "src@boundMin");
@@ -447,7 +447,7 @@ static void set_bool_slot_prop(mapper_slot slot, const char *propname, int value
 {
     int i;
     char fullpropname[128];
-    if (slot->direction == DI_INCOMING) {
+    if (slot->direction == MAPPER_INCOMING) {
         // destination slot
         snprintf(fullpropname, 128, "dst@%s", propname);
     }
@@ -488,7 +488,7 @@ static void set_extrema_prop(mapper_slot slot, const char *propname, int length,
 {
     int i;
     char fullpropname[128];
-    if (slot->direction == DI_INCOMING) {
+    if (slot->direction == MAPPER_INCOMING) {
         // destination slot
         snprintf(fullpropname, 128, "dst@%s", fullpropname);
     }
@@ -530,7 +530,7 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
         if (length != 1 || type != 'i')
             return;
         int bound_max = *(int*)value;
-        if (bound_max <= BA_UNDEFINED || bound_max > NUM_MAPPER_BOUNDARY_ACTIONS)
+        if (bound_max <= MAPPER_UNDEFINED || bound_max > NUM_MAPPER_BOUNDARY_ACTIONS)
             return;
         mapper_slot_set_bound_max(slot, bound_max);
     }
@@ -538,7 +538,7 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
         if (length != 1 || type != 'i')
             return;
         int bound_min = *(int*)value;
-        if (bound_min <= BA_UNDEFINED || bound_min > NUM_MAPPER_BOUNDARY_ACTIONS)
+        if (bound_min <= MAPPER_UNDEFINED || bound_min > NUM_MAPPER_BOUNDARY_ACTIONS)
             return;
         mapper_slot_set_bound_min(slot, bound_min);
     }
@@ -745,14 +745,14 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 break;
         }
 
-        if (changed && map->mode == MO_LINEAR)
+        if (changed && map->mode == MAPPER_MODE_LINEAR)
             mapper_map_set_mode_linear(map);
     }
 
     if (map->local->status != MAPPER_ACTIVE || map->muted) {
         return 0;
     }
-    else if (map->process_location == LOC_DESTINATION) {
+    else if (map->process_location == MAPPER_DESTINATION) {
         to[instance].position = 0;
         // copy value without type coercion
         memcpy(mapper_history_value_ptr(to[instance]),
@@ -790,13 +790,13 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
     double dest_min, dest_max, swap, total_range, difference, modulo_difference;
     mapper_boundary_action bound_min, bound_max;
 
-    if (s->bound_min == BA_NONE && s->bound_max == BA_NONE) {
+    if (s->bound_min == MAPPER_NONE && s->bound_max == MAPPER_NONE) {
         return 0;
     }
-    if (!s->minimum && (s->bound_min != BA_NONE || s->bound_max == BA_WRAP)) {
+    if (!s->minimum && (s->bound_min != MAPPER_NONE || s->bound_max == MAPPER_WRAP)) {
         return 0;
     }
-    if (!s->maximum && (s->bound_max != BA_NONE || s->bound_min == BA_WRAP)) {
+    if (!s->maximum && (s->bound_max != MAPPER_NONE || s->bound_min == MAPPER_WRAP)) {
         return 0;
     }
 
@@ -822,32 +822,32 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
         total_range = fabs(dest_max - dest_min);
         if (value < dest_min) {
             switch (bound_min) {
-                case BA_MUTE:
+                case MAPPER_MUTE:
                     // need to prevent value from being sent at all
                     typestring[i] = 'N';
                     muted++;
                     break;
-                case BA_CLAMP:
+                case MAPPER_CLAMP:
                     // clamp value to range minimum
                     value = dest_min;
                     break;
-                case BA_FOLD:
+                case MAPPER_FOLD:
                     // fold value around range minimum
                     difference = fabs(value - dest_min);
                     value = dest_min + difference;
                     if (value > dest_max) {
                         // value now exceeds range maximum!
                         switch (bound_max) {
-                            case BA_MUTE:
+                            case MAPPER_MUTE:
                                 // need to prevent value from being sent at all
                                 typestring[i] = 'N';
                                 muted++;
                                 break;
-                            case BA_CLAMP:
+                            case MAPPER_CLAMP:
                                 // clamp value to range minimum
                                 value = dest_max;
                                 break;
-                            case BA_FOLD:
+                            case MAPPER_FOLD:
                                 // both boundary actions are set to fold!
                                 difference = fabs(value - dest_max);
                                 modulo_difference = difference
@@ -859,7 +859,7 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
                                 else
                                     value = dest_min + modulo_difference;
                                 break;
-                            case BA_WRAP:
+                            case MAPPER_WRAP:
                                 // wrap value back from range minimum
                                 difference = fabs(value - dest_max);
                                 modulo_difference = difference
@@ -872,7 +872,7 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
                         }
                     }
                     break;
-                case BA_WRAP:
+                case MAPPER_WRAP:
                     // wrap value back from range maximum
                     difference = fabs(value - dest_min);
                     modulo_difference = difference
@@ -886,32 +886,32 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
         }
         else if (value > dest_max) {
             switch (bound_max) {
-                case BA_MUTE:
+                case MAPPER_MUTE:
                     // need to prevent value from being sent at all
                     typestring[i] = 'N';
                     muted++;
                     break;
-                case BA_CLAMP:
+                case MAPPER_CLAMP:
                     // clamp value to range maximum
                     value = dest_max;
                     break;
-                case BA_FOLD:
+                case MAPPER_FOLD:
                     // fold value around range maximum
                     difference = fabs(value - dest_max);
                     value = dest_max - difference;
                     if (value < dest_min) {
                         // value now exceeds range minimum!
                         switch (bound_min) {
-                            case BA_MUTE:
+                            case MAPPER_MUTE:
                                 // need to prevent value from being sent at all
                                 typestring[i] = 'N';
                                 muted++;
                                 break;
-                            case BA_CLAMP:
+                            case MAPPER_CLAMP:
                                 // clamp value to range minimum
                                 value = dest_min;
                                 break;
-                            case BA_FOLD:
+                            case MAPPER_FOLD:
                                 // both boundary actions are set to fold!
                                 difference = fabs(value - dest_min);
                                 modulo_difference = difference
@@ -923,7 +923,7 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
                                 else
                                     value = dest_min - modulo_difference;
                                 break;
-                            case BA_WRAP:
+                            case MAPPER_WRAP:
                                 // wrap value back from range maximum
                                 difference = fabs(value - dest_min);
                                 modulo_difference = difference
@@ -936,7 +936,7 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
                         }
                     }
                     break;
-                case BA_WRAP:
+                case MAPPER_WRAP:
                     // wrap value back from range minimum
                     difference = fabs(value - dest_max);
                     modulo_difference = difference
@@ -958,7 +958,7 @@ lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
                                     char *typestring, mapper_id_map id_map)
 {
     int i;
-    int length = ((map->process_location == LOC_SOURCE)
+    int length = ((map->process_location == MAPPER_SOURCE)
                   ? map->destination.length * count : slot->length * count);
 
     lo_message msg = lo_message_new();
@@ -995,7 +995,7 @@ lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
         lo_message_add_int64(msg, id_map->global);
     }
 
-    if (map->process_location == LOC_DESTINATION) {
+    if (map->process_location == MAPPER_DESTINATION) {
         // add slot
         lo_message_add_string(msg, "@slot");
         lo_message_add_int32(msg, slot->id);
@@ -1034,8 +1034,8 @@ static int replace_expression_string(mapper_map map, const char *expr_str)
     // e.g. if expression combines signals from different devices
     // e.g. if expression refers to current/past value of destination
     int output_history_size = mapper_expr_output_history_size(expr);
-    if (output_history_size > 1 && map->process_location == LOC_SOURCE) {
-        map->process_location = LOC_DESTINATION;
+    if (output_history_size > 1 && map->process_location == MAPPER_SOURCE) {
+        map->process_location = MAPPER_DESTINATION;
         // copy expression string but do not execute it
         if (map->expression)
             free(map->expression);
@@ -1065,7 +1065,7 @@ static int replace_expression_string(mapper_map map, const char *expr_str)
 
 void mapper_map_set_mode_raw(mapper_map map)
 {
-    map->mode = MO_RAW;
+    map->mode = MAPPER_MODE_RAW;
     reallocate_map_histories(map);
 }
 
@@ -1173,7 +1173,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
     // If everything is successful, replace the map's expression.
     if (e) {
         int should_compile = 0;
-        if (map->process_location == LOC_DESTINATION) {
+        if (map->process_location == MAPPER_DESTINATION) {
             // check if destination is local
             if (map->destination.local->router_sig)
                 should_compile = 1;
@@ -1196,7 +1196,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
                 map->expression = strdup(e);
             }
         }
-        map->mode = MO_LINEAR;
+        map->mode = MAPPER_MODE_LINEAR;
         return 0;
     }
     return 1;
@@ -1208,7 +1208,7 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
         return;
 
     int i, should_compile = 0;
-    if (map->process_location == LOC_DESTINATION) {
+    if (map->process_location == MAPPER_DESTINATION) {
         // check if destination is local
         if (map->destination.local->router_sig)
             should_compile = 1;
@@ -1222,7 +1222,7 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
     if (should_compile) {
         if (!replace_expression_string(map, expr)) {
             reallocate_map_histories(map);
-            map->mode = MO_EXPRESSION;
+            map->mode = MAPPER_MODE_EXPRESSION;
         }
         else
             return;
@@ -1234,7 +1234,7 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
             free(map->expression);
             map->expression = strdup(expr);
         }
-        map->mode = MO_EXPRESSION;
+        map->mode = MAPPER_MODE_EXPRESSION;
         return;
     }
 
@@ -1290,14 +1290,14 @@ static void init_map_history(mapper_slot slot)
 static void apply_mode(mapper_map map)
 {
     switch (map->mode) {
-        case MO_RAW:
+        case MAPPER_MODE_RAW:
             mapper_map_set_mode_raw(map);
             break;
-        case MO_LINEAR:
+        case MAPPER_MODE_LINEAR:
             if (mapper_map_set_mode_linear(map))
                 break;
         default: {
-            if (map->mode != MO_EXPRESSION) {
+            if (map->mode != MAPPER_MODE_EXPRESSION) {
                 /* No mode type specified; if mode not yet set, see if
                  we know the range and choose between linear or direct map. */
                 /* Try to use linear mapping .*/
@@ -1517,7 +1517,7 @@ static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
     atom = mapper_message_param(msg, AT_BOUND_MAX | mask);
     if (atom && (atom->length == 1) && is_string_type(atom->types[0])) {
         bound = mapper_boundary_action_from_string(&(atom->values[0])->s);
-        if (bound != BA_UNDEFINED && bound != slot->bound_max) {
+        if (bound != MAPPER_UNDEFINED && bound != slot->bound_max) {
             slot->bound_max = bound;
             updated++;
         }
@@ -1525,7 +1525,7 @@ static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
     atom = mapper_message_param(msg, AT_BOUND_MIN | mask);
     if (atom && (atom->length == 1) && is_string_type(atom->types[0])) {
         bound = mapper_boundary_action_from_string(&(atom->values[0])->s);
-        if (bound != BA_UNDEFINED && bound != slot->bound_min) {
+        if (bound != MAPPER_UNDEFINED && bound != slot->bound_min) {
             slot->bound_min = bound;
             updated++;
         }
@@ -1651,8 +1651,8 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
              * includes source signals from different devices. */
             at_source = 0;
         }
-        if (!at_source != (map->process_location != LOC_SOURCE)) {
-            map->process_location = at_source ? LOC_SOURCE : LOC_DESTINATION;
+        if (!at_source != (map->process_location != MAPPER_SOURCE)) {
+            map->process_location = at_source ? MAPPER_SOURCE : MAPPER_DESTINATION;
             updated++;
         }
     }
@@ -1664,10 +1664,10 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
         if (map->local && (map->local->status & MAPPER_LENGTH_KNOWN)
             && (map->local->status & MAPPER_TYPE_KNOWN)) {
             if (strstr(expr, "y{-")) {
-                map->process_location = LOC_DESTINATION;
+                map->process_location = MAPPER_DESTINATION;
             }
             int should_compile = 0;
-            if (map->process_location == LOC_DESTINATION) {
+            if (map->process_location == MAPPER_DESTINATION) {
                 // check if destination is local
                 if (map->destination.local->router_sig)
                     should_compile = 1;
@@ -1732,7 +1732,7 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
     /* mode */
     atom = mapper_message_param(msg, AT_MODE);
     if (atom && (atom->length == 1) && is_string_type(atom->types[0])) {
-        int mode = mapper_mode_type_from_string(&(atom->values[0])->s);
+        int mode = mapper_mode_from_string(&(atom->values[0])->s);
         if (mode != map->mode) {
             map->mode = mode;
             updated++;
@@ -2096,11 +2096,11 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
 
     // Mapping mode
     lo_message_add_string(msg, mapper_param_string(AT_MODE));
-    lo_message_add_string(msg, mapper_mode_type_string(map->mode));
+    lo_message_add_string(msg, mapper_mode_string(map->mode));
 
     // Processing location
     lo_message_add_string(msg, mapper_param_string(AT_PROCESS));
-    if (map->process_location == LOC_SOURCE)
+    if (map->process_location == MAPPER_SOURCE)
         lo_message_add_string(msg, "source");
     else
         lo_message_add_string(msg, "destination");
@@ -2116,7 +2116,7 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
     message_add_bool(msg, map->muted);
 
     // Slot
-    if (map->destination.direction == DI_INCOMING
+    if (map->destination.direction == MAPPER_INCOMING
         && map->local->status < MAPPER_READY) {
         lo_message_add_string(msg, mapper_param_string(AT_SLOT));
         i = (slot >= 0) ? slot : 0;
@@ -2157,20 +2157,19 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
 
 mapper_map *mapper_map_query_union(mapper_map *query1, mapper_map *query2)
 {
-    return (mapper_map*)mapper_list_query_union((const void**)query1,
-                                                (const void**)query2);
+    return (mapper_map*)mapper_list_query_union((void**)query1, (void**)query2);
 }
 
 mapper_map *mapper_map_query_intersection(mapper_map *query1, mapper_map *query2)
 {
-    return (mapper_map*)mapper_list_query_intersection((const void**)query1,
-                                                       (const void**)query2);
+    return (mapper_map*)mapper_list_query_intersection((void**)query1,
+                                                       (void**)query2);
 }
 
 mapper_map *mapper_map_query_difference(mapper_map *query1, mapper_map *query2)
 {
-    return (mapper_map*)mapper_list_query_difference((const void**)query1,
-                                                     (const void**)query2);
+    return (mapper_map*)mapper_list_query_difference((void**)query1,
+                                                     (void**)query2);
 }
 
 mapper_map mapper_map_query_index(mapper_map *maps, int index)
@@ -2185,7 +2184,7 @@ mapper_map *mapper_map_query_next(mapper_map *maps)
 
 mapper_map *mapper_map_query_copy(mapper_map *maps)
 {
-    return (mapper_map*)mapper_list_query_copy((const void**)maps);
+    return (mapper_map*)mapper_list_query_copy((void**)maps);
 }
 
 void mapper_map_query_done(mapper_map *map)
@@ -2256,13 +2255,13 @@ void mapper_map_pp(mapper_map map)
         if (length) {
             printf("%s=", key);
             if (strcmp(key, "mode")==0)
-                printf("%s", mapper_mode_type_strings[*((int*)val)] ?: "undefined");
+                printf("%s", mapper_mode_strings[*((int*)val)] ?: "undefined");
             else if (strcmp(key, "process_at")==0) {
                 switch (*((int*)val)) {
-                    case LOC_SOURCE:
+                    case MAPPER_SOURCE:
                         printf("source");
                         break;
-                    case LOC_DESTINATION:
+                    case MAPPER_DESTINATION:
                         printf("destination");
                         break;
                     default:

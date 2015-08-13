@@ -201,7 +201,7 @@ mapper_instance_allocation_type mapper_instance_allocation_mode(mapper_signal si
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
 typedef void mapper_instance_event_handler(mapper_signal sig, int instance,
-                                           mapper_instance_event_t event,
+                                           mapper_instance_event event,
                                            mapper_timetag_t *tt);
 
 /*! Set the handler to be called on signal instance management events.
@@ -258,7 +258,7 @@ mapper_device mapper_signal_device(mapper_signal sig);
 /*! Get the direction for a specific signal.
  *  \param sig      The signal to check.
  *  \return         The signal direction: DI_INCOMING or DI_OUTGOING. */
-mapper_direction_t mapper_signal_direction(mapper_signal sig);
+mapper_direction mapper_signal_direction(mapper_signal sig);
 
 /*! Get the unique id for a specific signal.
  *  \param sig      The signal to check.
@@ -295,7 +295,7 @@ const char *mapper_signal_name(mapper_signal sig);
  *  \param dir      The direction of the maps relative to the given signal. Can
  *                  be a combination of DI_INCOMING and DI_OUTGOING, or DI_ANY.
  *  \return         The number of associated maps. */
-int mapper_signal_num_maps(mapper_signal sig, mapper_direction_t dir);
+int mapper_signal_num_maps(mapper_signal sig, mapper_direction dir);
 
 /*! Get the update rate for a specific signal.
  *  \param sig      The signal to check.
@@ -402,11 +402,12 @@ void mapper_signal_remove_property(mapper_signal sig, const char *property);
 /*! A callback function prototype for when a map is added, updated, or removed
  *  from a given device.  Such a function is passed in to
  *  mapper_device_set_map_handler().
- *  \param map      The device record.
- *  \param action   A value of mapper_action_t indicating what is happening
- *                  to the map.
+ *  \param map      The map record.
+ *  \param action   A value of mapper_record_action indicating what is
+ *                  happening to the map record.
  *  \param user     The user context pointer registered with this callback. */
-typedef void mapper_device_map_handler(mapper_map map, mapper_action_t action,
+typedef void mapper_device_map_handler(mapper_map map,
+                                       mapper_record_action action,
                                        const void *user);
 
 /*! Set a function to be called when a map involving a device's local signals is
@@ -480,18 +481,15 @@ void mapper_device_remove_input(mapper_device dev, mapper_signal sig);
  * \param sig The signal to remove. */
 void mapper_device_remove_output(mapper_device dev, mapper_signal sig);
 
-//! Return the number of inputs.
-int mapper_device_num_inputs(mapper_device dev);
-
-//! Return the number of outputs.
-int mapper_device_num_outputs(mapper_device dev);
+//! Return the number of signals.
+int mapper_device_num_signals(mapper_device dev, mapper_direction dir);
 
 /*! Return the number of maps associated with a specific device.
  *  \param dev      The device to check.
  *  \param dir      The direction of the maps relative to the given device.  Can
  *                  be a combination of DI_INCOMING and DI_OUTGOING, or DI_ANY.
  *  \return         The number of associated maps. */
-int mapper_device_num_maps(mapper_device dev, mapper_direction_t dir);
+int mapper_device_num_maps(mapper_device dev, mapper_direction dir);
 
 /*! Look up a device property by name.
  *  \param dev      The device record to check.
@@ -707,10 +705,11 @@ void mapper_db_flush(mapper_db db, int timeout, int quiet);
 /*! A callback function prototype for when a device record is added or updated.
  *  Such a function is passed in to mapper_db_add_device_callback().
  *  \param dev      The device record.
- *  \param action   A value of mapper_action_t indicating what is happening
- *                  to the database record.
+ *  \param action   A value of mapper_record_action indicating what is
+ *                  happening to the device record.
  *  \param user     The user context pointer registered with this callback. */
-typedef void mapper_db_device_handler(mapper_device dev, mapper_action_t action,
+typedef void mapper_db_device_handler(mapper_device dev,
+                                      mapper_record_action action,
                                       const void *user);
 
 /*! Register a callback for when a device record is added or updated
@@ -775,8 +774,7 @@ mapper_device *mapper_db_devices_by_name_match(mapper_db db, const char *pattern
  *                  Use mapper_device_query_next() to iterate. */
 mapper_device *mapper_db_devices_by_property(mapper_db db, const char *property,
                                              int length, char type,
-                                             const void *value,
-                                             mapper_query_op op);
+                                             const void *value, mapper_op op);
 
 /*! Get the union of two device queries (devices matching query1 OR query2).
  *  \param query1   The first device query.
@@ -849,10 +847,11 @@ void mapper_property_pp(int length, char type, const void *value);
 /*! A callback function prototype for when a signal record is added or updated.
  *  Such a function is passed in to mapper_db_add_signal_callback().
  *  \param sig      The signal record.
- *  \param action   A value of mapper_action_t indicating what is happening
- *                  to the database record.
+ *  \param action   A value of mapper_record_action indicating what is
+ *                  happening to the signal record.
  *  \param user     The user context pointer registered with this callback. */
-typedef void mapper_db_signal_handler(mapper_signal sig, mapper_action_t action,
+typedef void mapper_db_signal_handler(mapper_signal sig,
+                                      mapper_record_action action,
                                       const void *user);
 
 /*! Register a callback for when a signal record is added or updated
@@ -872,7 +871,7 @@ void mapper_db_add_signal_callback(mapper_db db, mapper_db_signal_handler *h,
 void mapper_db_remove_signal_callback(mapper_db db, mapper_db_signal_handler *h,
                                       const void *user);
 
-/*! Find information for a registered input signal.
+/*! Find information for a registered signal.
  *  \param db       The database to query.
  *  \param id       Unique id of the signal to find in the database.
  *  \return         Information about the signal, or zero if not found. */
@@ -880,42 +879,21 @@ mapper_signal mapper_db_signal_by_id(mapper_db db, uint64_t id);
 
 /*! Return the list of all known signals across all devices.
  *  \param db       The database to query.
+ *  \param dir      The direction of the signals to return. Can be a combination
+ *                  of DI_INCOMING and DI_OUTGOING, or DI_ANY.
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_signals(mapper_db db);
-
-/*! Return the list of all known inputs across all devices.
- *  \param db       The database to query.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_inputs(mapper_db db);
-
-/*! Return the list of all known outputs across all devices.
- *  \param db       The database to query.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_outputs(mapper_db db);
+mapper_signal *mapper_db_signals(mapper_db db, mapper_direction dir);
 
 /*! Return the list of signals for a given device.
  *  \param db       The database to query.
  *  \param dev      Device record to query.
+ *  \param dir      The direction of the signals to return. Can be a combination
+ *                  of DI_INCOMING and DI_OUTGOING, or DI_ANY.
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_device_signals(mapper_db db, mapper_device dev);
-
-/*! Return the list of inputs for a given device.
- *  \param db       The database to query.
- *  \param dev      Device record to query.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_device_inputs(mapper_db db, mapper_device dev);
-
-/*! Return the list of outputs for a given device.
- *  \param db       The database to query.
- *  \param dev      Device record query.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_device_outputs(mapper_db db, mapper_device dev);
+mapper_signal *mapper_db_device_signals(mapper_db db, mapper_device dev,
+                                        mapper_direction dir);
 
 /*! Find information for registered signals.
  *  \param db       The database to query.
@@ -924,40 +902,12 @@ mapper_signal *mapper_db_device_outputs(mapper_db db, mapper_device dev);
  *                  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_db_signals_by_name(mapper_db db, const char *sig_name);
 
-/*! Find information for registered input signals.
- *  \param db       The database to query.
- *  \param sig_name Name of the input signal to find in the database.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_inputs_by_name(mapper_db db, const char *sig_name);
-
-/*! Find information for registered output signals.
- *  \param db       The database to query.
- *  \param sig_name Name of the output signal to find in the database.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_outputs_by_name(mapper_db db, char const *sig_name);
-
 /*! Find information for registered signals.
  *  \param db       The database to query.
  *  \param pattern  The substring to search for.
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_db_signals_by_name_match(mapper_db db, const char *pattern);
-
-/*! Find information for registered input signals.
- *  \param db       The database to query.
- *  \param pattern  The substring to search for.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_inputs_by_name_match(mapper_db db, const char *pattern);
-
-/*! Find information for registered output signals.
- *  \param db       The database to query.
- *  \param pattern  The substring to search for.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_outputs_by_name_match(mapper_db db, char const *pattern);
 
 /*! Return the list of signals matching the given property.
  *  \param db       The database to query.
@@ -973,8 +923,7 @@ mapper_signal *mapper_db_outputs_by_name_match(mapper_db db, char const *pattern
  *                  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_db_signals_by_property(mapper_db db, const char *property,
                                              int length, char type,
-                                             const void *value,
-                                             mapper_query_op op);
+                                             const void *value, mapper_op op);
 
 /*! Find information for a registered input signal.
  *  \param db       The database to query.
@@ -986,73 +935,13 @@ mapper_signal mapper_db_device_signal_by_name(mapper_db db, mapper_device dev,
 
 /*! Find information for a registered input signal.
  *  \param db       The database to query.
- *  \param dev      Device recordto query.
- *  \param sig_name Name of the input signal to find in the database.
- *  \return         Information about the signal, or zero if not found. */
-mapper_signal mapper_db_device_input_by_name(mapper_db db, mapper_device dev,
-                                             const char *sig_name);
-
-/*! Find information for a registered output signal.
- *  \param db       The database to query.
  *  \param dev      Device record to query.
- *  \param sig_name Name of the output signal to find in the database.
- *  \return         Information about the signal, or zero if not found. */
-mapper_signal mapper_db_device_output_by_name(mapper_db db, mapper_device dev,
-                                              char const *sig_name);
-
-/*! Find information for a registered input signal.
- *  \param db       The database to query.
- *  \param dev      Device record to query.
+ *  \param dir      The direction of the signal to return. Can be a combination
+ *                  of DI_INCOMING and DI_OUTGOING, or DI_ANY.
  *  \param index    Index of the signal to find in the database.
  *  \return         Information about the signal, or zero if not found. */
 mapper_signal mapper_db_device_signal_by_index(mapper_db db, mapper_device dev,
-                                               int index);
-
-/*! Find information for a registered input signal.
- *  \param db       The database to query.
- *  \param dev      Device record to query.
- *  \param index    Index of the input signal to find in the database.
- *  \return         Information about the signal, or zero if not found. */
-mapper_signal mapper_db_device_input_by_index(mapper_db db, mapper_device dev,
-                                              int index);
-
-/*! Find information for a registered output signal.
- *  \param db       The database to query.
- *  \param dev      Device record to query.
- *  \param index    Index of the output signal to find in the database.
- *  \return         Information about the signal, or zero if not found. */
-mapper_signal mapper_db_device_output_by_index(mapper_db db, mapper_device dev,
-                                               int index);
-
-/*! Return the list of signals for a given device.
- *  \param db       The database to query.
- *  \param dev      Device record to query.
- *  \param pattern  A substring to search for in the device signals.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_device_signals_by_name_match(mapper_db db,
-                                                      mapper_device dev,
-                                                      char const *pattern);
-
-/*! Return the list of inputs for a given device.
- *  \param db       The database to query.
- *  \param dev      Device record to query.
- *  \param pattern  A substring to search for in the device inputs.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_device_inputs_by_name_match(mapper_db db,
-                                                     mapper_device dev,
-                                                     const char *pattern);
-
-/*! Return the list of outputs for a given device.
- *  \param db       The database to query.
- *  \param dev      Device record to query.
- *  \param pattern  A substring to search for in the device outputs.
- *  \return         A double-pointer to the first item in the list of results.
- *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_device_outputs_by_name_match(mapper_db db,
-                                                      mapper_device dev,
-                                                      char const *pattern);
+                                               mapper_direction dir, int index);
 
 /*! Get the union of two signal queries (signals matching query1 OR query2).
  *  \param query1   The first signal query.
@@ -1121,10 +1010,10 @@ void mapper_signal_pp(mapper_signal sig, int include_device_name);
 /*! A callback function prototype for when a map record is added or updated in
  *  the database. Such a function is passed in to mapper_db_add_map_callback().
  *  \param map      The map record.
- *  \param action   A value of mapper_action_t indicating what is happening
- *                  to the database record.
+ *  \param action   A value of mapper_record_action indicating what is
+ *                  happening to the map record.
  *  \param user     The user context pointer registered with this callback. */
-typedef void mapper_map_handler(mapper_map map, mapper_action_t action,
+typedef void mapper_map_handler(mapper_map map, mapper_record_action action,
                                 const void *user);
 
 /*! Register a callback for when a map record is added or updated.
@@ -1170,7 +1059,7 @@ mapper_map mapper_db_map_by_id(mapper_db db, uint64_t id);
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_property(mapper_db db, const char *property,
                                        int length, char type, const void *value,
-                                       mapper_query_op op);
+                                       mapper_op op);
 
 /*! Return the list of maps matching the given slot property.
  *  \param db       The database to query.
@@ -1186,8 +1075,7 @@ mapper_map *mapper_db_maps_by_property(mapper_db db, const char *property,
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *property,
                                             int length, char type,
-                                            const void *value,
-                                            mapper_query_op op);
+                                            const void *value, mapper_op op);
 
 /*! Return the list of maps matching the given source slot property.
  *  \param db       The database to query.
@@ -1205,7 +1093,7 @@ mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db,
                                                 const char *property,
                                                 int length, char type,
                                                 const void *value,
-                                                mapper_query_op op);
+                                                mapper_op op);
 
 /*! Return the list of maps matching the given destination slot property.
  *  \param db       The database to query.
@@ -1223,7 +1111,7 @@ mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db,
                                                  const char *property,
                                                  int length, char type,
                                                  const void *value,
-                                                 mapper_query_op op);
+                                                 mapper_op op);
 
 /*! Return the list of maps associated with a given device.
  *  \param db       The database to query.
@@ -1233,7 +1121,7 @@ mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db,
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_device_maps(mapper_db db, mapper_device dev,
-                                  mapper_direction_t dir);
+                                  mapper_direction dir);
 
 /*! Return the list of maps associated with a given signal.
  *  \param db       The database to query.
@@ -1243,7 +1131,7 @@ mapper_map *mapper_db_device_maps(mapper_db db, mapper_device dev,
  *  \return         A double-pointer to the first item in the list of results
  *                  or zero if none.  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_signal_maps(mapper_db db, mapper_signal sig,
-                                  mapper_direction_t dir);
+                                  mapper_direction dir);
 
 /*! Get the union of two map queries (maps matching query1 OR query2).
  *  \param query1   The first map query.
@@ -1257,8 +1145,7 @@ mapper_map *mapper_map_query_union(mapper_map *query1, mapper_map *query2);
  *  \param query2   The second map query.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_map_query_intersection(mapper_map *query1,
-                                          mapper_map *query2);
+mapper_map *mapper_map_query_intersection(mapper_map *query1, mapper_map *query2);
 
 /*! Get the difference between two map queries (maps matching query1 but NOT
  *  query2).
@@ -1330,7 +1217,7 @@ uint64_t mapper_map_id(mapper_map map);
 /*! Get the mode property for a specific map.
  *  \param map      The map to check.
  *  \return         The mode parameter for this map. */
-mapper_mode_type mapper_map_mode(mapper_map map);
+mapper_mode mapper_map_mode(mapper_map map);
 
 /*! Get the expression property for a specific map.
  *  \param map      The map to check.
@@ -1367,7 +1254,7 @@ void mapper_map_set_description(mapper_map map, const char *description);
  *  \param map      The map to modify.
  *  \param mode     The mode value to set, can be one of MO_EXPRESSION,
  *                  MO_LINEAR, or MO_RAW. */
-void mapper_map_set_mode(mapper_map map, mapper_mode_type mode);
+void mapper_map_set_mode(mapper_map map, mapper_mode mode);
 
 /*! Set the expression property for a specific map. Changes to remote maps will not
  *  take effect until synchronized with the network using

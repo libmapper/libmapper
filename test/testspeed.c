@@ -63,7 +63,8 @@ int setup_source()
     mapper_signal_reserve_instances(sendsig, 9, 0, 0);
 
     eprintf("Output signal registered.\n");
-    eprintf("Number of outputs: %d\n", mapper_device_num_outputs(source));
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_OUTGOING));
 
     return 0;
 
@@ -114,7 +115,8 @@ int setup_destination()
     mapper_signal_reserve_instances(recvsig, 9, 0, 0);
 
     eprintf("Input signal registered.\n");
-    eprintf("Number of inputs: %d\n", mapper_device_num_inputs(destination));
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_INCOMING));
 
     return 0;
 
@@ -146,12 +148,12 @@ void map_signals()
     mapper_admin adm = mapper_admin_new(0, 0);
 
     mapper_map map = mapper_admin_add_map(adm, 1, &sendsig, recvsig);
-    mapper_map_set_mode(map, MO_EXPRESSION);
+    mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
     mapper_map_set_expression(map, "y=y{-1}+1");
     mapper_admin_update_map(adm, map);
 
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, DI_ANY)) {
+    while (!done && !mapper_device_num_maps(source, 0)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }
