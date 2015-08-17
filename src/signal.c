@@ -75,6 +75,7 @@ static property_table_value_t sig_values[] = {
     { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(minimum) },
     { 's', {1},        -1,         SIG_OFFSET(name) },
     { 'i', {0},        -1,         SIG_OFFSET(num_incoming_maps) },
+    { 'i', {0},        -1,         SIG_OFFSET(num_instances) },
     { 'i', {0},        -1,         SIG_OFFSET(num_outgoing_maps) },
     { 'f', {0},        -1,         SIG_OFFSET(rate) },
     { 'c', {0},        -1,         SIG_OFFSET(type) },
@@ -92,11 +93,12 @@ static string_table_node_t sig_strings[] = {
     { "min",                &sig_values[5] },
     { "name",               &sig_values[6] },
     { "num_incoming_maps",  &sig_values[7] },
-    { "num_outgoing_maps",  &sig_values[8] },
-    { "rate",               &sig_values[9] },
-    { "type",               &sig_values[10] },
-    { "unit",               &sig_values[11] },
-    { "user_data",          &sig_values[12] },
+    { "num_instances",      &sig_values[8] },
+    { "num_outgoing_maps",  &sig_values[9] },
+    { "rate",               &sig_values[10] },
+    { "type",               &sig_values[11] },
+    { "unit",               &sig_values[12] },
+    { "user_data",          &sig_values[13] },
 };
 
 const int NUM_SIG_STRINGS = sizeof(sig_strings)/sizeof(sig_strings[0]);
@@ -153,6 +155,7 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
     sig->direction = direction;
     sig->unit = unit ? strdup(unit) : 0;
     sig->extra = table_new();
+    sig->updater = table_new();
     sig->minimum = sig->maximum = 0;
     sig->description = 0;
 
@@ -219,6 +222,15 @@ void mapper_signal_free(mapper_signal sig)
     }
 }
 
+//void mapper_signal_sync(mapper_signal sig)
+//{
+//    if (!sig || !sig->updater->len)
+//        return;
+//
+//    mapper_network_set_dest_bus(sig->device->db->network);
+//    mapper_signal_send_state(sig, MAPPER_UPDATED_PROPS);
+//}
+
 void mapper_signal_update(mapper_signal sig, const void *value, int count,
                           mapper_timetag_t tt)
 {
@@ -227,7 +239,7 @@ void mapper_signal_update(mapper_signal sig, const void *value, int count,
 
     mapper_timetag_t *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->db->network->clock.now;
+        ttp = &sig->device->db->network->clock.now;
         mapper_device_now(sig->device, ttp);
     }
     else
@@ -261,7 +273,7 @@ void mapper_signal_update_int(mapper_signal sig, int value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->db->network->clock.now;
+    mapper_timetag_t *tt = &sig->device->db->network->clock.now;
     mapper_device_now(sig->device, tt);
 
     int index = 0;
@@ -292,7 +304,7 @@ void mapper_signal_update_float(mapper_signal sig, float value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->db->network->clock.now;
+    mapper_timetag_t *tt = &sig->device->db->network->clock.now;
     mapper_device_now(sig->device, tt);
 
     int index = 0;
@@ -323,7 +335,7 @@ void mapper_signal_update_double(mapper_signal sig, double value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->db->network->clock.now;
+    mapper_timetag_t *tt = &sig->device->db->network->clock.now;
     mapper_device_now(sig->device, tt);
 
     int index = 0;
@@ -859,7 +871,7 @@ void mapper_signal_release_instance_internal(mapper_signal sig,
 
     mapper_timetag_t *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->db->network->clock.now;
+        ttp = &sig->device->db->network->clock.now;
         mapper_device_now(sig->device, ttp);
     }
     else
@@ -899,7 +911,7 @@ void mapper_signal_remove_instance(mapper_signal sig, int instance_id)
         if (sig->local->instances[i]->id == instance_id) {
             if (sig->local->instances[i]->is_active) {
                 // First release instance
-                mapper_timetag_t tt = sig->db->network->clock.now;
+                mapper_timetag_t tt = sig->device->db->network->clock.now;
                 mapper_device_now(sig->device, &tt);
                 mapper_signal_release_instance_internal(sig, i, tt);
             }
@@ -951,6 +963,11 @@ const void *mapper_signal_instance_value(mapper_signal sig, int instance_id,
     if (index < 0)
         return 0;
     return mapper_signal_instance_value_internal(sig, index, timetag);
+}
+
+int mapper_signal_num_instances(mapper_signal sig)
+{
+    return sig ? sig->num_instances : -1;
 }
 
 int mapper_signal_num_active_instances(mapper_signal sig)
@@ -1078,7 +1095,7 @@ int mapper_signal_query_remotes(mapper_signal sig, mapper_timetag_t tt)
 
     mapper_timetag_t *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->db->network->clock.now;
+        ttp = &sig->device->db->network->clock.now;
         mapper_device_now(sig->device, ttp);
     }
     else
@@ -1407,8 +1424,21 @@ void message_add_coerced_signal_instance_value(lo_message m,
         lo_message_add_nil(m);
 }
 
-void mapper_signal_prepare_message(mapper_signal sig, lo_message msg)
+/* TODO: this message needs to be dispatched immediately since liblo will not
+ * cache the signal name string. The protocol should be updated to send
+ * device and signal names as separate strings. */
+void mapper_signal_send_state(mapper_signal sig)
 {
+    lo_message msg = lo_message_new();
+    if (!msg) {
+        trace("couldn't allocate lo_message\n");
+        return;
+    }
+
+    char sig_name[1024];
+    mapper_signal_full_name(sig, sig_name, 1024);
+    lo_message_add_string(msg, sig_name);
+
     /* unique id */
     lo_message_add_string(msg, mapper_param_string(AT_ID));
     lo_message_add_int64(msg, sig->id);
@@ -1464,6 +1494,22 @@ void mapper_signal_prepare_message(mapper_signal sig, lo_message msg)
 
     /* "extra" properties */
     mapper_message_add_value_table(msg, sig->extra);
+
+    mapper_network_add_message(sig->device->db->network, 0, MSG_SIGNAL, msg);
+}
+
+void mapper_signal_send_removed(mapper_signal sig)
+{
+    lo_message msg = lo_message_new();
+    if (!msg) {
+        trace("couldn't allocate lo_message\n");
+        return;
+    }
+    char sig_name[1024];
+    mapper_signal_full_name(sig, sig_name, 1024);
+    lo_message_add_string(msg, sig_name);
+    mapper_network_add_message(sig->device->db->network, 0,
+                               MSG_SIGNAL_REMOVED, msg);
 }
 
 mapper_signal *mapper_signal_query_union(mapper_signal *query1,

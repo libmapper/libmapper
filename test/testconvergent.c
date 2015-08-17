@@ -113,11 +113,9 @@ void cleanup_destination()
 
 int setup_maps()
 {
-    mapper_admin adm = mapper_admin_new(sources[0]->db->network, 0);
-
     mapper_signal all_sources[2] = {sendsig[0][0], sendsig[1][1]};
 
-    mapper_map map = mapper_admin_add_map(adm, 2, all_sources, recvsig);
+    mapper_map map = mapper_map_new(2, all_sources, recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
 
     // build expression string
@@ -129,15 +127,15 @@ int setup_maps()
 
     mapper_slot_set_causes_update(slot1, 0);
 
-    mapper_admin_update_map(adm, map);
-    mapper_admin_free(adm);
+    mapper_map_sync(map);
 
     // wait until mappings have been established
     int i;
-    while (!done && !mapper_device_num_maps(destination, MAPPER_INCOMING)) {
+    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
         for (i = 0; i < NUM_SOURCES; i++)
             mapper_device_poll(sources[i], 10);
         mapper_device_poll(destination, 10);
+        printf("waiting... status:%d\n", mapper_map_status(map));
     }
 
     return 0;

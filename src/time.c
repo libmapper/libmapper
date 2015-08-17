@@ -13,6 +13,18 @@
 
 static double multiplier = 1.0/((double)(1LL<<32));
 
+/*! Internal function to get the current time. */
+double mapper_get_current_time()
+{
+#ifdef HAVE_GETTIMEOFDAY
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double)tv.tv_sec + tv.tv_usec / 1000000.0;
+#else
+#error No timing method known on this platform.
+#endif
+}
+
 void mapper_clock_init(mapper_clock clock)
 {
     mapper_clock_now(clock, &clock->now);

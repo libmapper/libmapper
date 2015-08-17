@@ -122,27 +122,19 @@ int setup_maps()
 {
     int count = 0;
 
-    mapper_admin adm = mapper_admin_new(source->db->network, 0);
-    if (!adm)
-        goto error;
-
-    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig, recvsig));
+    mapper_map map = mapper_map_new(1, &sendsig, recvsig);
+    mapper_map_sync(map);
 
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, MAPPER_OUTGOING)) {
+    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
         if (count++ > 50)
-            goto error;
+            return 1;
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }
     eprintf("Mapping established.\n");
 
-    mapper_admin_free(adm);
-
     return 0;
-
-  error:
-    return 1;
 }
 
 void wait_local_devices()

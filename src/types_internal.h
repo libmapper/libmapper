@@ -82,17 +82,33 @@ typedef struct _fptr_list {
     struct _fptr_list *next;
 } *fptr_list;
 
+typedef struct _mapper_subscription {
+    mapper_device device;
+    int flags;
+    uint32_t lease_expiration_sec;
+    struct _mapper_subscription *next;
+} *mapper_subscription;
+
 typedef struct _mapper_db {
     struct _mapper_network *network;
-    mapper_device devices;          //<! List of devices.
-    mapper_signal signals;          //<! List of signals.
-    struct _mapper_map *maps;       //<! List of mappings.
-    fptr_list device_callbacks;     //<! List of device record callbacks.
-    fptr_list signal_callbacks;     //<! List of signal record callbacks.
-    fptr_list map_callbacks;        //<! List of mapping record callbacks.
+    mapper_device devices;              //<! List of devices.
+    mapper_signal signals;              //<! List of signals.
+    struct _mapper_map *maps;           //<! List of mappings.
+    struct _mapper_map *staged_maps;    //<! List of staged mappings.
+    fptr_list device_callbacks;         //<! List of device record callbacks.
+    fptr_list signal_callbacks;         //<! List of signal record callbacks.
+    fptr_list map_callbacks;            //<! List of mapping record callbacks.
+
+    /*! Flags indicating whether information on signals and mappings should
+     *  be automatically subscribed to when a new device is seen.*/
+    int autosubscribe;
+
+    /*! Linked-list of autorenewing device subscriptions. */
+    mapper_subscription subscriptions;
 
     /*! The time after which the db will declare devices "unresponsive". */
     int timeout_sec;
+    uint32_t resource_counter;
 } mapper_db_t, *mapper_db;
 
 /**** Messages ****/
@@ -187,8 +203,6 @@ typedef struct _mapper_network {
     struct in_addr interface_ip;    /*!< The IP address of interface. */
     struct _mapper_device *device;  /*!< Device that this structure is
                                      *   in charge of. */
-    struct _mapper_admin *admin;    /*!< Admin that this structure is
-                                     *   in charge of. */
     mapper_db_t db;                 /*<! Database of local and remote libmapper
                                      *   objects. */
     mapper_clock_t clock;           /*!< Clock for processing timed events. */
@@ -196,7 +210,13 @@ typedef struct _mapper_network {
                                      *   messages on the multicast bus. */
     lo_address bundle_dest;
     int message_type;
-    mapper_subscriber subscribers;  /*!< Linked-list of subscribed peers. */
+    int own_network;                /*! Zero if this network was created
+                                     *  automatically by mapper_device_new()
+                                     *  or mapper_database_new(), non-zero if
+                                     *  it was created by mapper_network_new()
+                                     *  and should be freed by
+                                     *  mapper_network_free(). */
+    int db_methods_added;
 } mapper_network_t;
 
 /*! The handle to this device is a pointer. */
@@ -256,7 +276,6 @@ typedef struct _mapper_local_signal
 
 /*! A record that describes properties of a signal. */
 struct _mapper_signal {
-    mapper_db db;       //!< Pointer back to the db.
     mapper_local_signal local;
     mapper_device device;
     char *path;         //! OSC path.  Must start with '/'.
@@ -270,6 +289,7 @@ struct _mapper_signal {
 
     struct _mapper_string_table *extra; /*! Extra properties associated with
                                          *  this signal. */
+    struct _mapper_string_table *updater;
 
     void *user_data;    //!< A pointer available for associating user context.
 
@@ -308,12 +328,6 @@ typedef struct _mapper_link {
     struct _mapper_link *next;          //!< Next link in the list.
 } *mapper_link;
 
-#define MAPPER_TYPE_KNOWN   0x01
-#define MAPPER_LENGTH_KNOWN 0x02
-#define MAPPER_LINK_KNOWN   0x04
-#define MAPPER_READY        0x07
-#define MAPPER_ACTIVE       0x17
-
 #define MAX_NUM_MAP_SOURCES 8    // arbitrary
 
 typedef struct _mapper_slot_internal {
@@ -329,7 +343,6 @@ typedef struct _mapper_slot_internal {
 
 // TODO: remove type, length, flags
 typedef struct _mapper_slot {
-    mapper_db db;                       //!< Pointer back to the db.
     mapper_slot_internal local;         //!< Pointer to local resources if any
     struct _mapper_map *map;            //!< Pointer to parent map
     mapper_signal signal;               //!< Pointer to parent signal
@@ -342,7 +355,7 @@ typedef struct _mapper_slot {
     int flags;
     int direction;                      //!< DI_INCOMING or DI_OUTGOING
     int causes_update;                  //!< 1 if causes update, 0 otherwise.
-    int sends_as_instance;              //!< 1 if sends as instance, 0 otherwise.
+    int use_as_instance;                //!< 1 if sends as instance, 0 otherwise.
 
     mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
     mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.
@@ -365,7 +378,6 @@ typedef struct _mapper_map_internal {
     int num_expr_vars;                  //!< Number of user variables.
     int num_var_instances;
 
-    int status;
     int one_source;
 
     mapper_mode mode;                   //!< Raw, linear, or expression.
@@ -373,9 +385,8 @@ typedef struct _mapper_map_internal {
 } mapper_map_internal_t, *mapper_map_internal;
 
 typedef struct _mapper_map_scope {
-    uint32_t *hashes;   //!< Array of map scope hashes.
-    char **names;       //!< Array of map scope names.
-    int size;           //!< The number of map scopes.
+    mapper_device *devices; //!< Array of map scope devices.
+    int size;               //!< The number of map scopes.
 } mapper_map_scope_t, *mapper_map_scope;
 
 /*! A record that describes the properties of a mapping.
@@ -400,6 +411,7 @@ typedef struct _mapper_map {
     int muted;                          //!< 1 to mute mapping, 0 to unmute
     int num_sources;
     int process_location;               //!< 1 for source, 0 for destination
+    int status;
 } mapper_map_t, *mapper_map;
 
 /*! The router_signal is a linked list containing a signal and a list of
@@ -441,11 +453,6 @@ typedef struct _mapper_local_device {
     int registered;                 /*!< Non-zero if this device has been
                                      *   registered. */
 
-    /*! Non-zero if this device is the sole owner of the network structure,
-     *  i.e., it was created during mdev_new() and should be freed during
-     *  mdev_free(). */
-    int own_network;
-
     int n_output_callbacks;
     int version;
     mapper_router router;
@@ -454,13 +461,13 @@ typedef struct _mapper_local_device {
     void *map_handler;
     void *map_handler_userdata;
 
+    mapper_subscriber subscribers;  /*!< Linked-list of subscribed peers. */
+
     /*! The list of active instance id mappings. */
     struct _mapper_id_map *active_id_map;
 
     /*! The list of reserve instance id mappings. */
     struct _mapper_id_map *reserve_id_map;
-
-    uint32_t resource_counter;
 
     int link_timeout_sec;   /* Number of seconds after which unresponsive
                              * links will be removed, or 0 for never. */
@@ -483,6 +490,7 @@ struct _mapper_device {
 
     /*! Extra properties associated with this device. */
     struct _mapper_string_table *extra;
+    struct _mapper_string_table *updater;
 
     uint64_t id;                //!< Unique id identifying this device.
     char *host;                 //!< Device network host name.
@@ -501,44 +509,10 @@ struct _mapper_device {
     int subscribed;
 };
 
-/*! Bit flags indicating if information has already been
- *  sent in a given polling step. */
-#define FLAGS_SENT_DEVICE_INFO              0x01
-#define FLAGS_SENT_DEVICE_INPUTS            0x02
-#define FLAGS_SENT_DEVICE_OUTPUTS           0x04
-#define FLAGS_SENT_DEVICE_INCOMING_MAPS     0x08
-#define FLAGS_SENT_DEVICE_OUTGOING_MAPS     0x10
-#define FLAGS_SENT_ALL_DEVICE_MESSAGES      0x1F
-#define FLAGS_DEVICE_ATTRIBS_CHANGED        0x20
-
-/**** Admin ****/
-
-typedef struct _mapper_subscription {
-    mapper_device device;
-    int flags;
-    uint32_t lease_expiration_sec;
-    struct _mapper_subscription *next;
-} *mapper_subscription;
-
-typedef struct _mapper_admin {
-    mapper_network network;     //<! Networking structure for this admin.
-
-    /*! Non-zero if this admin is the sole owner of the network structure i.e.,
-     *  it was created during mapper_admin_new() and should be freed during
-     *  mapper_admin_free(). */
-    int own_network;
-
-    /*! Flags indicating whether information on signals and mappings should
-     *  be automatically subscribed to when a new device is seen.*/
-    int autosubscribe;
-
-    /*! Linked-list of autorenewing device subscriptions. */
-    mapper_subscription subscriptions;
-
-    mapper_map staged_map;
-}  *mapper_admin;
-
 /**** Messages ****/
+
+#define MAPPER_STATIC_PROPS     0x01
+#define MAPPER_UPDATED_PROPS    0x02
 
 /*! Symbolic representation of recognized @-parameters. */
 typedef enum {
@@ -566,12 +540,13 @@ typedef enum {
     AT_RATE,                /* 0x15 */
     AT_REV,                 /* 0x16 */
     AT_SCOPE,               /* 0x17 */
-    AT_SENDS_AS_INSTANCE,   /* 0x18 */
+    AT_USE_AS_INSTANCE,     /* 0x18 */
     AT_SLOT,                /* 0x19 */
-    AT_TYPE,                /* 0x1A */
-    AT_UNITS,               /* 0x1B */
-    AT_EXTRA,               /* 0x1C */
-    NUM_AT_PARAMS           /* 0x1D */
+    AT_STATUS,              /* 0x1A*/
+    AT_TYPE,                /* 0x1B */
+    AT_UNITS,               /* 0x1C */
+    AT_EXTRA,               /* 0x1D */
+    NUM_AT_PARAMS           /* 0x1E */
 } mapper_message_param_t;
 
 #define PARAM_ADD                   0x20

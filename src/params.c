@@ -39,8 +39,9 @@ const char* prop_message_strings[] =
     "@rate",            /* AT_RATE */
     "@rev",             /* AT_REV */
     "@scope",           /* AT_SCOPE */
-    "@sendsAsInstance", /* AT_SENDS_AS_INSTANCE */
+    "@useAsInstance",   /* AT_USE_AS_INSTANCE */
     "@slot",            /* AT_SLOT */
+    "@status",          /* AT_STATUS */
     "@type",            /* AT_TYPE */
     "@units",           /* AT_UNITS */
     "",                 /* AT_EXTRA (special case, does not represent a

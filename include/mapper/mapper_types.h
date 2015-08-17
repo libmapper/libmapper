@@ -14,9 +14,6 @@ typedef void *mapper_device;
 //! An internal structure defining a mapper device.
 typedef void *mapper_signal;
 
-//! An internal structure defining a mapper network administrator.
-typedef void *mapper_admin;
-
 //! An internal structure defining a mapping between a set of signals.
 typedef void *mapper_map;
 
@@ -27,7 +24,7 @@ typedef void *mapper_slot;
 typedef void *mapper_network;
 
 //! An internal structure to handle network database.
-//! This should be retrieved by calling mapper_admin_db().
+//! This can be retrieved by calling mapper_network_db() or mapper_device_db().
 typedef void *mapper_db;
 
 //! An internal data structure defining a mapper queue

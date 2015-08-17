@@ -289,6 +289,11 @@ void *mapper_signal_minimum(mapper_signal sig);
  *  \param sig      The signal to check.
  *  \return         The signal name. */
 const char *mapper_signal_name(mapper_signal sig);
+
+/*! Get the number of instances for a specific signal.
+ *  \param sig      The signal to check.
+ *  \return         The number of allocated signal instances. */
+int mapper_signal_num_instances(mapper_signal sig);
     
 /*! Get the number of maps associated with a specific signal.
  *  \param sig      The signal to check.
@@ -430,6 +435,11 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
 
 //! Free resources used by a mapper device.
 void mapper_device_free(mapper_device dev);
+
+/*! Retrieve the networking structure from a device.
+ *  \param dev          The device to use.
+ *  \return             The device network data structure. */
+mapper_network mapper_device_network(mapper_device dev);
 
 /*! Add an input signal to a mapper device.  Values and strings
  *  pointed to by this call (except user_data) will be copied.
@@ -671,6 +681,14 @@ mapper_network mapper_network_new(const char *iface, const char *group, int port
 /*! Free an network structure created with mapper_network_new(). */
 void mapper_network_free(mapper_network net);
 
+/*! Interface to send an arbitrary OSC message to the administrative bus.
+ *  \param net      The networking structure to use for sending the message.
+ *  \param path     The path for the OSC message.
+ *  \param types    A string specifying the types of subsequent arguments.
+ *  \param ...      A list of arguments. */
+void mapper_network_send_message(mapper_network net, const char *path,
+                                 const char *types, ...);
+
 /*! Get the version of libmapper */
 const char *mapper_libversion();
 
@@ -695,6 +713,11 @@ void mapper_db_set_timeout(mapper_db db, int timeout);
  *  \return         The current timeout in seconds. */
 int mapper_db_timeout(mapper_db db);
 
+/*! Retrieve the networking structure from a database.
+ *  \param db       The database to use.
+ *  \return         The database network data structure. */
+mapper_network mapper_db_network(mapper_db db);
+
 /*! Remove unresponsive devices from the database.
  *  \param db       The database to flush.
  *  \param timeout  The number of seconds a device must have been unresponsive
@@ -711,6 +734,9 @@ void mapper_db_flush(mapper_db db, int timeout, int quiet);
 typedef void mapper_db_device_handler(mapper_device dev,
                                       mapper_record_action action,
                                       const void *user);
+
+/*! Send a requestfor all active devices to report in. */
+void mapper_db_request_devices(mapper_db db);
 
 /*! Register a callback for when a device record is added or updated
  *  in the database.
@@ -1180,6 +1206,27 @@ mapper_map *mapper_map_query_copy(mapper_map *query);
  *  \param query    The previous map record pointer. */
 void mapper_map_query_done(mapper_map *query);
 
+/*! Create a map between a set of signals.
+ *  \param num_sources  The number of source signals in this map.
+ *  \param sources      Array of source signal data structures.
+ *  \param destination  Destination signal data structure.
+ *  \return             A map data structure – either loaded from the db
+ *                      (if the map already existed) or newly created. In the
+ *                      latter case the map will not take effect until it has
+ *                      been added to the network using mapper_map_sync(). */
+mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
+                          mapper_signal destination);
+
+/*! Synchronize the given map with the libmapper network.
+ *  \param map      The map to synchronize. */
+void mapper_map_sync(mapper_map map);
+
+/*! Remove a map between a set of signals.
+ *  \param map      The map to destroy. */
+void mapper_map_unmap(mapper_map map);
+
+/*! Helper to print the map properties.
+ *  \param map      The map to print. */
 void mapper_map_pp(mapper_map map);
 
 /*! Get the description for a specific signal.
@@ -1241,32 +1288,34 @@ mapper_location mapper_map_process_location(mapper_map map);
  *                  or zero if none.  Use mapper_map_query_next() to iterate. */
 mapper_device *mapper_map_scopes(mapper_map map);
 
+/*! Get the status of a specific map.
+ *  \param map      The map to check.
+ *  \return         The current status of the given map.  A value of
+ *                  MAPPER_ACTIVE indicates that the map has been established. */
+mapper_status mapper_map_status(mapper_map map);
+
 /*! Set the description property for a specific map. Changes to remote maps will
- *  not take effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  not take effect until synchronized with the network using mapper_map_sync().
  *  \param map          The map to modify.
  *  \param description  The description value to set. */
 void mapper_map_set_description(mapper_map map, const char *description);
 
 /*! Set the mode property for a specific map. Changes to remote maps will not
- *  take effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  take effect until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
  *  \param mode     The mode value to set, can be one of MO_EXPRESSION,
  *                  MO_LINEAR, or MO_RAW. */
 void mapper_map_set_mode(mapper_map map, mapper_mode mode);
 
 /*! Set the expression property for a specific map. Changes to remote maps will not
- *  take effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  take effect until synchronized with the network using mapper_map_sync().
  *  \param map          The map to modify.
  *  \param expression   A string specifying an expression to be evaluated by
  *                      the map. */
 void mapper_map_set_expression(mapper_map map, const char *expression);
 
 /*! Set the muted property for a specific map. Changes to remote maps will not
- *  take effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  take effect until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
  *  \param muted    1 to mute this map, or 0 unmute. */
 void mapper_map_set_muted(mapper_map map, int muted);
@@ -1274,16 +1323,14 @@ void mapper_map_set_muted(mapper_map map, int muted);
 /*! Set the process location property for a specific map. Depending on the map
  *  topology and expression specified it may not be possible to set the process
  *  location to LO_SOURCE for all maps. Changes to remote maps will not take
- *  effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  effect until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
  *  \param location LOC_SOURCE to indicate processing should be handled by the
  *                  source device, LOC_DESTINATION for the destination device. */
 void mapper_map_set_process_location(mapper_map map, mapper_location location);
 
 /*! Set an arbitrary property for a specific map.  Changes to remote maps will
- *  not take effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  not take effect until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
  *  \param property The name of the property to add.
  *  \param length   The length of value array.
@@ -1294,7 +1341,7 @@ void mapper_map_set_property(mapper_map map, const char *property, int length,
 
 /*! Add a scope to this map. Map scopes configure the propagation of signal
  *  instance updates across the map. Changes to remote maps will not take effect
- *  until synchronized with the network using mapper_admin_update_map().
+ *  until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
  *  \param device   Device to add as a scope for this map. After taking effect,
  *                  this setting will cause instance updates originating at this
@@ -1303,7 +1350,7 @@ void mapper_map_add_scope(mapper_map map, mapper_device dev);
 
 /*! Remove a scope from this map. Map scopes configure the propagation of signal
  *  instance updates across the map. Changes to remote maps will not take effect
- *  until synchronized with the network using mapper_admin_update_map().
+ *  until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
  *  \param device   Device to remove as a scope for this map. After taking effect,
  *                  this setting will cause instance updates originating at this
@@ -1435,7 +1482,7 @@ mapper_signal mapper_slot_signal(mapper_slot slot);
 /*! Set the boundary maximum property for a specific map slot. This property
  *  controls behaviour when a value exceeds the specified slot maximum value.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_admin_update_map().
+ *  network using mapper_map_sync().
  *  \param slot     The slot to modify.
  *  \param action   The boundary maximum setting. */
 void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action action);
@@ -1443,7 +1490,7 @@ void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action action);
 /*! Set the boundary minimum property for a specific map slot. This property
  *  controls behaviour when a value is less than the slot minimum value.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_admin_update_map().
+ *  network using mapper_map_sync().
  *  \param slot     The slot to modify.
  *  \param action   The boundary minimum setting. */
 void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action action);
@@ -1451,7 +1498,7 @@ void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action action);
 /*! Set the calibrating property for a specific map slot. When enabled, the
  *  slot minimum and maximum values will be updated based on processed data.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_admin_update_map().
+ *  network using mapper_map_sync().
  *  \param slot         The slot to modify.
  *  \param calibrating  One to enable calibration, 0 otherwise. */
 void mapper_slot_set_calibrating(mapper_slot slot, int calibrating);
@@ -1459,14 +1506,14 @@ void mapper_slot_set_calibrating(mapper_slot slot, int calibrating);
 /*! Set the "causes update" property for a specific map slot. When enabled,
  *  updates to this slot will cause computation of a new map output.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_admin_update_map().
+ *  network using mapper_map_sync().
  *  \param slot             The slot to modify.
  *  \param causes_update    One to enable "causes update", 0 otherwise. */
 void mapper_slot_set_causes_update(mapper_slot slot, int causes_update);
 
 /*! Set the "maximum" property for a specific map slot.  Changes to remote maps
  *  will not take effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  mapper_map_sync().
  *  \param slot     The slot to modify.
  *  \param type     The data type of the update.
  *  \param value    An array of values.
@@ -1476,7 +1523,7 @@ void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
 
 /*! Set the "minimum" property for a specific map slot.  Changes to remote maps
  *  will not take effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  mapper_map_sync().
  *  \param slot     The slot to modify.
  *  \param type     The data type of the update.
  *  \param value    An array of values.
@@ -1487,14 +1534,14 @@ void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
 /*! Set the "send as instance" property for a specific map slot.  If enabled,
  *  updates to this slot will be treated as updates to a specific instance.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_admin_update_map().
+ *  network using mapper_map_sync().
  *  \param slot                 The slot to modify.
  *  \param sends_as_instance    One to send as instance update, 0 otherwise. */
 void mapper_slot_set_sends_as_instance(mapper_slot slot, int sends_as_instance);
 
 /*! Set an arbitrary property for a specific map slot.  Changes to remote maps
  *  will not take effect until synchronized with the network using
- *  mapper_admin_update_map().
+ *  mapper_map_sync().
  *  \param slot     The slot to modify.
  *  \param property The name of the property to add.
  *  \param type     The property  datatype.
@@ -1505,9 +1552,9 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
 
 /* @} */
 
-/***** Admins *****/
+/***** Db *****/
 
-/*! @defgroup admin Admins
+/*! @defgroup db Dbs
 
     @{ Admins are the primary interface through which a program may observe the
        network and store information about devices and signals that are present.
@@ -1528,36 +1575,30 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
 #define SUBSCRIBE_DEVICE_MAPS       SUBSCRIBE_DEVICE_MAPS_IN | SUBSCRIBE_DEVICE_MAPS_OUT
 #define SUBSCRIBE_ALL               0xFF
 
-/*! Create a network admin.
+/*! Create a peer in the libmapper distributed database.
  *  \param network              A previously allocated network structure to use.
  *                              If 0, one will be allocated for use with this
- *                              admin.
- *  \param autosubscribe_flags  Sets whether the admin should automatically
+ *                              database.
+ *  \param autosubscribe_flags  Sets whether the database should automatically
  *                              subscribe to information about signals
  *                              and maps when it encounters a previously-unseen
  *                              device.
- *  \return                     The new admin. */
-mapper_admin mapper_admin_new(mapper_network net, int autosubscribe_flags);
+ *  \return                     The new database. */
+mapper_db mapper_db_new(mapper_network net, int autosubscribe_flags);
 
-/*! Free a network administrator. */
-void mapper_admin_free(mapper_admin adm);
-
-/*! Poll an admin.
- *  \param adm      The admin to poll.
+/*! Update a database.
+ *  \param db       The database to update.
  *  \param block_ms The number of milliseconds to block, or 0 for
  *                  non-blocking behaviour.
  *  \return         The number of handled messages. */
-int mapper_admin_poll(mapper_admin adm, int block_ms);
+int mapper_db_update(mapper_db db, int block_ms);
 
-/*! Get the database associated with an admin. This can be used as long as the
- *  admin remains alive. */
-mapper_db mapper_admin_db(mapper_admin adm);
+/*! Free a database. */
+void mapper_db_free(mapper_db db);
 
-/*! Request that all devices report in. */
-void mapper_admin_request_devices(mapper_admin adm);
 
 /*! Subscribe to information about a specific device.
- *  \param adm      The admin to use.
+ *  \param db       The db to use.
  *  \param dev      The device of interest. If NULL the admin will
  *                  automatically subscribe to all discovered devices.
  *  \param flags    Bitflags setting the type of information of interest.  Can
@@ -1568,47 +1609,14 @@ void mapper_admin_request_devices(mapper_admin adm);
  *  \param timeout  The length in seconds for this subscription. If set to -1,
  *                  the admin will automatically renew the subscription until
  *                  it is freed or this function is called again. */
-void mapper_admin_subscribe(mapper_admin adm, mapper_device dev, int flags,
-                            int timeout);
+void mapper_db_subscribe(mapper_db db, mapper_device dev, int flags,
+                         int timeout);
 
 /*! Unsubscribe from information about a specific device.
- *  \param adm      The admin to use.
+ *  \param db       The db to use.
  *  \param dev      The device of interest. If NULL the admin will unsubscribe
  *                  from all devices. */
-void mapper_admin_unsubscribe(mapper_admin adm, mapper_device dev);
-
-/*! Interface to add a map between a set of signals.
- *  \param adm          The admin to use.
- *  \param num_sources  The number of source signals in this map.
- *  \param sources      Array of source signal data structures.
- *  \param destination  Destination signal data structure.
- *  \return             A map data structure – either loaded from the db
- *                      (if the map already existed) or newly created. In the
- *                      latter case the map will not take effect until it has
- *                      been added to the network using
- *                      mapper_admin_update_map(). */
-mapper_map mapper_admin_add_map(mapper_admin adm, int num_sources,
-                                mapper_signal *sources, mapper_signal destination);
-
-/*! Interface to establish or modify a map between a set of signals.
- *  \param adm          The admin to use for sending the message.
- *  \param map          A modified data structure specifying the map properties.
- *  \return             A pointer to the established map data structure if it
- *                      responds within the timeout period, or 0 othersise. */
-void mapper_admin_update_map(mapper_admin adm, mapper_map map);
-
-/*! Interface to remove a map between a set of signals.
- *  \param adm          The admin to use for sending the message.
- *  \param map          Map data structure. */
-void mapper_admin_remove_map(mapper_admin adm, mapper_map map);
-
-/*! Interface to send an arbitrary OSC message to the administrative bus.
- *  \param adm      The admin to use for sending the message.
- *  \param path     The path for the OSC message.
- *  \param types    A string specifying the types of subsequent arguments.
- *  \param ...      A list of arguments. */
-void mapper_admin_send(mapper_admin adm, const char *path,
-                       const char *types, ...);
+void mapper_db_unsubscribe(mapper_db db, mapper_device dev);
 
 /* @} */
 
@@ -1625,9 +1633,9 @@ void mapper_admin_send(mapper_admin adm, const char *path,
 void mapper_device_now(mapper_device dev, mapper_timetag_t *tt);
 
 /*! Initialize a timetag to the current mapping network time.
- *  \param adm          The device whose time we are asking for.
- *  \param tt           A previously allocated timetag to initialize. */
-void mapper_admin_now(mapper_admin adm, mapper_timetag_t *tt);
+ *  \param net  The network whose time we are asking for.
+ *  \param tt   A previously allocated timetag to initialize. */
+void mapper_network_now(mapper_network net, mapper_timetag_t *tt);
 
 /*! Return the difference in seconds between two mapper_timetags.
  *  \param minuend      The minuend.

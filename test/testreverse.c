@@ -135,19 +135,18 @@ int setup_maps()
 {
     int i = 0;
 
-    mapper_admin adm = mapper_admin_new(0, 0);
-    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &recvsig, sendsig));
+    mapper_map map = mapper_map_new(1, &recvsig, sendsig);
+    mapper_map_sync(map);
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(destination, MAPPER_OUTGOING)) {
+    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
         if (i++ > 100)
             return 1;
     }
 
-    mapper_admin_free(adm);
     return 0;
 }
 

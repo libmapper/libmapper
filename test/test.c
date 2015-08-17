@@ -18,7 +18,6 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
-mapper_network net;
 mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig_1 = 0;
@@ -41,8 +40,7 @@ int autoconnect = 1;
 /*! Creation of a local source. */
 int setup_source()
 {
-    net = mapper_network_new(0, 0, 0);
-    source = mapper_device_new("testsend", 0, net);
+    source = mapper_device_new("testsend", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
@@ -177,19 +175,25 @@ void loop()
     int i = 0, recvd;
 
     if (!done && autoconnect) {
-        mapper_admin adm = mapper_admin_new(net, 0);
+        mapper_map maps[4];
+        maps[0] = mapper_map_new(1, &sendsig_1, recvsig_1);
+        maps[1] = mapper_map_new(1, &sendsig_2, recvsig_2);
+        maps[2] = mapper_map_new(1, &sendsig_3, recvsig_3);
+        maps[3] = mapper_map_new(1, &sendsig_3, recvsig_4);
 
-        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig_1, recvsig_1));
-        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig_2, recvsig_2));
-        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig_3, recvsig_3));
-        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig_3, recvsig_4));
+        for (i = 0; i < 4; i++) {
+            mapper_map_sync(maps[i]);
+        }
 
-        mapper_admin_free(adm);
-
-        // wait until mapping has been established
-        while (!done && !mapper_device_num_maps(source, MAPPER_OUTGOING)) {
+        // wait until all maps has been established
+        int num_maps = 0;
+        while (!done && num_maps < 4) {
             mapper_device_poll(source, 10);
             mapper_device_poll(destination, 10);
+            num_maps = 0;
+            for (i = 0; i < 4; i++) {
+                num_maps += (mapper_map_status(maps[i]) == MAPPER_ACTIVE);
+            }
         }
     }
 

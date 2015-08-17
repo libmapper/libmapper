@@ -27,6 +27,10 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg);
 
 int mapper_device_set_from_message(mapper_device dev, mapper_message msg);
 
+void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
+                                     int flags, int timeout_seconds,
+                                     int revision);
+
 /**** Instances ****/
 
 /*! A signal instance is defined as a vector of values, along with some
@@ -80,27 +84,30 @@ typedef struct _mapper_signal_id_map
 
 /**** Networking ****/
 
-void mapper_network_add_device(mapper_network net, mapper_device dev);
+mapper_db mapper_network_add_db(mapper_network net);
 
-void mapper_network_add_admin(mapper_network net, mapper_admin adm);
+void mapper_network_remove_db(mapper_network net);
+
+void mapper_network_add_device(mapper_network net, mapper_device dev);
 
 void mapper_network_remove_device(mapper_network net, mapper_device dev);
 
-void mapper_network_remove_admin(mapper_network net, mapper_admin adm);
-
 int mapper_network_poll(mapper_network net);
 
-void mapper_network_set_bundle_dest_bus(mapper_network net);
+int mapper_network_init(mapper_network net);
 
-void mapper_network_set_bundle_dest_mesh(mapper_network net, lo_address address);
+void mapper_network_set_dest_bus(mapper_network net);
 
-void mapper_network_set_bundle_dest_subscribers(mapper_network net, int type);
+void mapper_network_set_dest_mesh(mapper_network net, lo_address address);
 
-void mapper_network_send_bundle(mapper_network net);
+void mapper_network_set_dest_subscribers(mapper_network net, int type);
 
-void mapper_network_send_signal(mapper_network net, mapper_signal sig);
+void mapper_network_add_message(mapper_network net, const char *str,
+                                network_message_t cmd, lo_message msg);
 
-void mapper_network_send_signal_removed(mapper_network net, mapper_signal sig);
+void mapper_network_send(mapper_network net);
+
+void mapper_network_free_messages(mapper_network net);
 
 /***** Device *****/
 
@@ -142,13 +149,11 @@ const char *mapper_device_name(mapper_device dev);
 
 uint64_t mapper_device_unique_id(mapper_device dev);
 
-void mapper_device_prepare_message(mapper_device dev, lo_message msg);
+void mapper_device_send_state(mapper_device dev);
 
 /***** Router *****/
 
-mapper_link mapper_router_add_link(mapper_router router, const char *host,
-                                   int admin_port, int data_port,
-                                   const char *name);
+mapper_link mapper_router_add_link(mapper_router router, mapper_device dev);
 
 void mapper_router_update_link(mapper_router router, mapper_link link,
                                const char *host, int admin_port, int data_port);
@@ -171,11 +176,8 @@ int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,
                              mapper_timetag_t tt);
 
-mapper_map mapper_router_add_map(mapper_router router, mapper_signal sig,
-                                 int num_remote_signals,
-                                 mapper_signal *remote_signals,
-                                 const char **remote_signal_names,
-                                 mapper_direction direction);
+void mapper_router_add_map(mapper_router router, mapper_map map,
+                           mapper_direction direction);
 
 int mapper_router_remove_map(mapper_router router, mapper_map map);
 
@@ -202,18 +204,13 @@ mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
 mapper_slot mapper_router_find_slot(mapper_router router, mapper_signal signal,
                                     int slot_number);
 
-/*! Find a link by remote address in a linked list of links. */
-mapper_link mapper_router_find_link_by_remote_address(mapper_router router,
-                                                      const char *host,
-                                                      int port);
-
 /*! Find a link by remote device name in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
                                                 const char *name);
 
 /*! Find a link by remote device id in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_id(mapper_router router,
-                                                 uint32_t id);
+                                                 uint64_t id);
 
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
@@ -255,7 +252,9 @@ void message_add_coerced_signal_instance_value(lo_message m, mapper_signal sig,
                                                mapper_signal_instance si,
                                                int length, char type);
 
-void mapper_signal_prepare_message(mapper_signal sig, lo_message msg);
+void mapper_signal_send_state(mapper_signal sig);
+
+void mapper_signal_send_removed(mapper_signal sig);
 
 /**** Instances ****/
 
@@ -299,7 +298,7 @@ void mapper_signal_release_instance_internal(mapper_signal sig,
                                              int instance_index,
                                              mapper_timetag_t timetag);
 
-/**** Maps ****/
+/**** Map ****/
 
 void mhist_realloc(mapper_history history, int history_size,
                    int sample_size, int is_output);
@@ -334,6 +333,9 @@ mapper_boundary_action mapper_boundary_action_from_string(const char *string);
 const char *mapper_mode_string(mapper_mode mode);
 
 mapper_mode mapper_mode_from_string(const char *string);
+
+int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
+                          int flags);
 
 /**** Database ****/
 
@@ -728,6 +730,9 @@ void **mapper_list_query_copy(void **query);
 void mapper_list_query_done(void **query);
 
 /**** Time ****/
+
+/*! Get the current time. */
+double mapper_get_current_time();
 
 /*! Initialize a mapper_clock. */
 void mapper_clock_init(mapper_clock clock);

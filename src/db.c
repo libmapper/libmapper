@@ -6,6 +6,89 @@
 
 #include "mapper_internal.h"
 
+#define AUTOSUBSCRIBE_INTERVAL 60
+extern const char* network_message_strings[NUM_MSG_STRINGS];
+
+mapper_db mapper_db_new(mapper_network net, int subscribe_flags)
+{
+    if (!net)
+        net = mapper_network_new(0, 0, 0);
+    if (!net)
+        return 0;
+
+    net->own_network = 0;
+    mapper_db db = mapper_network_add_db(net);
+
+    if (subscribe_flags) {
+        mapper_db_subscribe(db, 0, subscribe_flags, -1);
+    }
+    return db;
+}
+
+void mapper_db_free(mapper_db db)
+{
+    if (!db)
+        return;
+
+    // remove callbacks now so they won't be called when removing devices
+    mapper_db_remove_all_callbacks(db);
+
+    mapper_network_remove_db(db->network);
+
+    // unsubscribe from and remove any autorenewing subscriptions
+    while (db->subscriptions) {
+        mapper_db_unsubscribe(db, db->subscriptions->device);
+    }
+
+    /* Remove all non-local maps */
+    mapper_map *maps = mapper_db_maps(db);
+    while (maps) {
+        mapper_map map = *maps;
+        maps = mapper_map_query_next(maps);
+        if (!map->local)
+            mapper_db_remove_map(db, map);
+    }
+
+    /* Remove all non-local devices and signals from the database except for
+     * those referenced by local maps. */
+    mapper_device *devs = mapper_db_devices(db);
+    while (devs) {
+        mapper_device dev = *devs;
+        devs = mapper_device_query_next(devs);
+        if (dev->local)
+            continue;
+
+        int no_local_device_maps = 1;
+        mapper_signal *sigs = mapper_db_device_signals(db, dev, MAPPER_DIR_ANY);
+        while (sigs) {
+            mapper_signal sig = *sigs;
+            sigs = mapper_signal_query_next(sigs);
+            int no_local_signal_maps = 1;
+            mapper_map *maps = mapper_db_signal_maps(db, sig, MAPPER_DIR_ANY);
+            while (maps) {
+                if ((*maps)->local) {
+                    no_local_device_maps = no_local_signal_maps = 0;
+                    mapper_map_query_done(maps);
+                    break;
+                }
+                maps = mapper_map_query_next(maps);
+            }
+            if (no_local_signal_maps)
+                mapper_db_remove_signal(db, sig);
+        }
+        if (no_local_device_maps)
+            mapper_db_remove_device(db, dev, 1);
+    }
+
+    if (!db->network->device && !db->network->own_network)
+        mapper_network_free(db->network);
+}
+
+mapper_network mapper_db_network(mapper_db db)
+{
+    return db->network;
+}
+
 void mapper_db_set_timeout(mapper_db db, int timeout_sec)
 {
     if (timeout_sec < 0)
@@ -27,22 +110,47 @@ void mapper_db_flush(mapper_db db, int timeout_sec, int quiet)
     uint32_t last_ping = db->network->clock.now.sec - timeout_sec;
     while ((dev = mapper_db_expired_device(db, last_ping))) {
         // also need to remove subscriptions
-// TODO: remove subscriptions
-//        // also need to remove subscriptions
-//        mapper_subscription *s = &adm->subscriptions;
-//        while (*s) {
-//            if ((*s)->device == dev) {
-//                // don't bother sending '/unsubscribe' since device is unresponsive
-//                // remove from subscriber list
-//                mapper_subscription temp = *s;
-//                *s = temp->next;
-//                free(temp);
-//            }
-//            else
-//                s = &(*s)->next;
-//        }
+        mapper_subscription *s = &db->subscriptions;
+        while (*s) {
+            if ((*s)->device == dev) {
+                // don't bother sending '/unsubscribe' since device is unresponsive
+                // remove from subscriber list
+                mapper_subscription temp = *s;
+                *s = temp->next;
+                free(temp);
+            }
+            else
+                s = &(*s)->next;
+        }
         mapper_db_remove_device(db, dev, quiet);
     }
+}
+
+void mapper_db_sync(mapper_db db)
+{
+    mapper_network_set_dest_bus(db->network);
+
+//    // Update devices
+//    mapper_device dev = db->devices;
+//    while (dev) {
+//        mapper_device_sync(dev);
+//        dev = mapper_list_next(dev);
+//    }
+//
+//    // Update signal
+//    mapper_signal sig = db->signals;
+//    while (sig) {
+//        mapper_signal_sync(sig);
+//        sig = mapper_list_next(sig);
+//    }
+
+    // Update maps
+    mapper_map map = db->maps;
+    while (map) {
+        mapper_map_sync(map);
+        map = mapper_list_next(map);
+    }
+    return;
 }
 
 /* Generic index and lookup functions to which the above tables would be passed.
@@ -226,6 +334,7 @@ mapper_device mapper_db_add_or_update_device_params(mapper_db db,
         dev->id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash)) << 32;
         dev->db = db;
         dev->extra = table_new();
+        dev->updater = table_new();
         rc = 1;
     }
 
@@ -521,7 +630,6 @@ mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
     if (!sig) {
         sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
                                                   sizeof(mapper_signal_t));
-        sig->db = db;
 
         // also add device record if necessary
         sig->device = dev;
@@ -777,15 +885,15 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
         return 0;
     }
 
-    mapper_map map;
+    mapper_map map = 0;
     int rc = 0, updated = 0, devnamelen, i, j;
     char *devnamep, *signame, devname[256];
 
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
-    int64_t id;
-    if (mapper_message_param_if_int64(params, AT_ID, &id)) {
-        trace("error: no 'id' property for updating map.");
+    int64_t id = 0;
+    if (params && mapper_message_param_if_int64(params, AT_ID, &id)) {
+        trace("no 'id' property found in map metadata, aborting.\n");
         return 0;
     }
     map = mapper_db_map_by_id(db, id);
@@ -814,7 +922,11 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
                 mapper_db_add_or_update_signal_params(db, signame, devname, 0);
             map->sources[i].id = i;
             map->sources[i].causes_update = 1;
-            map->sources[i].minimum = map->sources[i].maximum = 0;
+            map->sources[i].map = map;
+            if (map->sources[i].signal->local) {
+                map->sources[i].num_instances = map->sources[i].signal->num_instances;
+                map->sources[i].use_as_instance = map->sources[i].num_instances > 1;
+            }
         }
         devnamelen = mapper_parse_names(dest_name, &devnamep, &signame);
         if (!devnamelen || devnamelen >= 256) {
@@ -826,14 +938,19 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
         }
         strncpy(devname, devnamep, devnamelen);
         devname[devnamelen] = 0;
-        map->destination.minimum = map->destination.maximum = 0;
+        map->destination.map = map;
 
         // also add destination signal if necessary
         map->destination.signal =
             mapper_db_add_or_update_signal_params(db, signame, devname, 0);
         map->destination.causes_update = 1;
+        if (map->destination.signal->local) {
+            map->destination.num_instances = map->destination.signal->num_instances;
+            map->destination.use_as_instance = map->destination.num_instances > 1;
+        }
 
         map->extra = table_new();
+        map->updater = table_new();
         rc = 1;
     }
     else if (map->num_sources < num_sources) {
@@ -862,7 +979,10 @@ mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_sources,
                     mapper_db_add_or_update_signal_params(db, signame, devname, 0);
                 map->sources[j].id = i;
                 map->sources[j].causes_update = 1;
-                map->sources[j].minimum = map->sources[j].maximum = 0;
+                if (map->sources[j].signal->local) {
+                    map->sources[j].num_instances = map->sources[j].signal->num_instances;
+                    map->sources[j].use_as_instance = map->sources[j].num_instances > 1;
+                }
             }
         }
         // slots should be in alphabetical order
@@ -1121,16 +1241,15 @@ void mapper_db_remove_map(mapper_db db, mapper_map map)
         free(map->sources);
     }
     free_slot(&map->destination);
-    if (map->scope.size && map->scope.names) {
-        for (i=0; i<map->scope.size; i++)
-            free(map->scope.names[i]);
-        free(map->scope.names);
-        free(map->scope.hashes);
+    if (map->scope.size && map->scope.devices) {
+        free(map->scope.devices);
     }
     if (map->expression)
         free(map->expression);
     if (map->extra)
         table_free(map->extra);
+    if (map->updater)
+        table_free(map->updater);
     mapper_list_free_item(map);
 }
 
@@ -1151,78 +1270,231 @@ void mapper_db_remove_all_callbacks(mapper_db db)
     }
 }
 
-#ifdef DEBUG
-static void print_slot(const char *label, int index, mapper_slot s)
-{
-    printf("%s", label);
-    if (index > -1)
-        printf(" %d", index);
-    printf(": '%s':'%s'\n", s->signal->device->name, s->signal->name);
-    printf("         bound_min=%s\n",
-           mapper_boundary_action_string(s->bound_min));
-    printf("         bound_max=%s\n",
-           mapper_boundary_action_string(s->bound_max));
-    if (s->minimum) {
-        printf("         minimum=");
-        mapper_property_pp(s->length, s->type, s->minimum);
-        printf("\n");
-    }
-    if (s->maximum) {
-        printf("         maximum=");
-        mapper_property_pp(s->length, s->type, s->maximum);
-        printf("\n");
-    }
-    printf("         causes_update=%s\n", s->causes_update ? "yes" : "no");
-}
-#endif
-
 void mapper_db_dump(mapper_db db)
 {
 #ifdef DEBUG
-    int i;
-
     mapper_device dev = db->devices;
     printf("Registered devices:\n");
     while (dev) {
-        printf("  name='%s', host='%s', port=%d, id=%llu\n",
-               dev->name, dev->host, dev->port, dev->id);
+        mapper_device_pp(dev);
         dev = mapper_list_next(dev);
     }
 
     mapper_signal sig = db->signals;
     printf("Registered signals:\n");
     while (sig) {
-        printf("  name='%s':'%s', id=%llu ", sig->device->name,
-               sig->name, sig->id);
-        switch (sig->direction) {
-            case MAPPER_OUTGOING:
-                printf("(output)\n");
-                break;
-            case MAPPER_INCOMING:
-                printf("(input)\n");
-                break;
-            default:
-                printf("(unknown)\n");
-                break;
-        }
+        mapper_signal_pp(sig, 1);
         sig = mapper_list_next(sig);
     }
 
     mapper_map map = db->maps;
     printf("Registered maps:\n");
     while (map) {
-        printf("  id=%llu\n", map->id);
-        if (map->num_sources == 1)
-            print_slot("    source slot", -1, &map->sources[0]);
-        else {
-            for (i = 0; i < map->num_sources; i++)
-                print_slot("    source slot", i, &map->sources[i]);
-        }
-        print_slot("    destination slot", -1, &map->destination);
-        printf("    mode='%s'\n", mapper_mode_string(map->mode));
-        printf("    expression='%s'\n", map->expression);
-        printf("    muted=%s\n", map->muted ? "yes" : "no");
+        mapper_map_pp(map);
         map = mapper_list_next(map);
     }
 #endif
+}
+
+static void set_network_dest(mapper_db db, mapper_device dev)
+{
+    // TODO: look up device info, maybe send directly
+    mapper_network_set_dest_bus(db->network);
+}
+
+static void subscribe_internal(mapper_db db, mapper_device dev, int flags,
+                               int timeout, int version)
+{
+    char cmd[1024];
+    snprintf(cmd, 1024, "/%s/subscribe", dev->name);
+
+    set_network_dest(db, dev);
+    lo_message m = lo_message_new();
+    if (m) {
+        if (flags & SUBSCRIBE_ALL)
+            lo_message_add_string(m, "all");
+        else {
+            if (flags & SUBSCRIBE_DEVICE)
+                lo_message_add_string(m, "device");
+            if (flags & SUBSCRIBE_DEVICE_SIGNALS)
+                lo_message_add_string(m, "signals");
+            else {
+                if (flags & SUBSCRIBE_DEVICE_INPUTS)
+                    lo_message_add_string(m, "inputs");
+                else if (flags & SUBSCRIBE_DEVICE_OUTPUTS)
+                    lo_message_add_string(m, "outputs");
+            }
+            if (flags & SUBSCRIBE_DEVICE_MAPS)
+                lo_message_add_string(m, "maps");
+            else {
+                if (flags & SUBSCRIBE_DEVICE_MAPS_IN)
+                    lo_message_add_string(m, "incoming_maps");
+                else if (flags & SUBSCRIBE_DEVICE_MAPS_OUT)
+                    lo_message_add_string(m, "outgoing_maps");
+            }
+        }
+        lo_message_add_string(m, "@lease");
+        lo_message_add_int32(m, timeout);
+        if (version >= 0) {
+            lo_message_add_string(m, "@version");
+            lo_message_add_int32(m, version);
+        }
+        mapper_network_add_message(db->network, cmd, 0, m);
+        mapper_network_send(db->network);
+    }
+}
+
+static void unsubscribe_internal(mapper_db db, mapper_device dev,
+                                 int send_message)
+{
+    char cmd[1024];
+    // check if autorenewing subscription exists
+    mapper_subscription *s = &db->subscriptions;
+    while (*s) {
+        if ((*s)->device == dev) {
+            if (send_message) {
+                snprintf(cmd, 1024, "/%s/unsubscribe", dev->name);
+                set_network_dest(db, dev);
+                lo_message m = lo_message_new();
+                if (!m) {
+                    trace("couldn't allocate lo_message\n");
+                    break;
+                }
+                mapper_network_add_message(db->network, cmd, 0, m);
+                mapper_network_send(db->network);
+            }
+            // remove from subscriber list
+            mapper_subscription temp = *s;
+            *s = temp->next;
+            free(temp);
+            return;
+        }
+        s = &(*s)->next;
+    }
+}
+
+int mapper_db_update(mapper_db db, int block_ms)
+{
+    int ping_time = db->network->clock.next_ping;
+    int count = mapper_network_poll(db->network);
+    mapper_clock_now(&db->network->clock, &db->network->clock.now);
+
+    // check if any subscriptions need to be renewed
+    mapper_subscription s = db->subscriptions;
+    while (s) {
+        if (s->lease_expiration_sec < db->network->clock.now.sec) {
+            subscribe_internal(db, s->device, s->flags,
+                               AUTOSUBSCRIBE_INTERVAL, -1);
+            // leave 10-second buffer for subscription renewal
+            s->lease_expiration_sec = (db->network->clock.now.sec
+                                       + AUTOSUBSCRIBE_INTERVAL - 10);
+        }
+        s = s->next;
+    }
+
+    if (block_ms) {
+        double then = mapper_get_current_time();
+        while ((mapper_get_current_time() - then)*1000 < block_ms) {
+            count += mapper_network_poll(db->network);
+#ifdef WIN32
+            Sleep(block_ms);
+#else
+            usleep(block_ms * 100);
+#endif
+        }
+    }
+
+    if (ping_time != db->network->clock.next_ping) {
+        // some housekeeping: check if any devices have timed out
+        mapper_db_check_device_status(db, db->network->clock.now.sec);
+    }
+
+    return count;
+}
+
+static void on_device_autosubscribe(mapper_device dev, mapper_record_action a,
+                                    const void *user)
+{
+    mapper_db db = (mapper_db)(user);
+
+    // New subscriptions are handled in network.c as response to "sync" msg
+    if (a == MAPPER_REMOVED) {
+        unsubscribe_internal(db, dev, 0);
+    }
+}
+
+static void mapper_db_autosubscribe(mapper_db db, int flags)
+{
+    // TODO: remove autorenewing subscription record if necessary
+    if (!db->autosubscribe && flags) {
+        mapper_db_add_device_callback(db, on_device_autosubscribe, db);
+        mapper_db_request_devices(db);
+    }
+    else if (db->autosubscribe && !flags) {
+        mapper_db_remove_device_callback(db, on_device_autosubscribe, db);
+        while (db->subscriptions) {
+            unsubscribe_internal(db, db->subscriptions->device, 1);
+        }
+    }
+    db->autosubscribe = flags;
+}
+
+static mapper_subscription subscription(mapper_db db, mapper_device dev)
+{
+    mapper_subscription s = db->subscriptions;
+    while (s) {
+        if (s->device == dev)
+            return s;
+        s = s->next;
+    }
+    return 0;
+}
+
+void mapper_db_subscribe(mapper_db db, mapper_device dev, int flags, int timeout)
+{
+    if (!dev) {
+        mapper_db_autosubscribe(db, flags);
+        return;
+    }
+    if (timeout == -1) {
+        // special case: autorenew subscription lease
+        // first check if subscription already exists
+        mapper_subscription s = subscription(db, dev);
+
+        if (!s) {
+            // store subscription record
+            s = malloc(sizeof(struct _mapper_subscription));
+            s->device = dev;
+            s->next = db->subscriptions;
+            db->subscriptions = s;
+        }
+        s->flags = flags;
+
+        mapper_clock_now(&db->network->clock, &db->network->clock.now);
+        // leave 10-second buffer for subscription lease
+        s->lease_expiration_sec = (db->network->clock.now.sec
+                                   + AUTOSUBSCRIBE_INTERVAL - 10);
+
+        timeout = AUTOSUBSCRIBE_INTERVAL;
+    }
+
+    subscribe_internal(db, dev, flags, timeout, 0);
+}
+
+void mapper_db_unsubscribe(mapper_db db, mapper_device dev)
+{
+    if (!dev)
+        mapper_db_autosubscribe(db, SUBSCRIBE_NONE);
+    unsubscribe_internal(db, dev, 1);
+}
+
+void mapper_db_request_devices(mapper_db db)
+{
+    lo_message msg = lo_message_new();
+    if (!msg) {
+        trace("couldn't allocate lo_message\n");
+        return;
+    }
+    mapper_network_set_dest_bus(db->network);
+    mapper_network_add_message(db->network, 0, MSG_WHO, msg);
 }

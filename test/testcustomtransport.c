@@ -239,9 +239,8 @@ void loop()
     int i = 0;
 
     if (autoconnect) {
-        mapper_admin adm = mapper_admin_new(0, 0);
-        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig, recvsig));
-        mapper_admin_free(adm);
+        mapper_map map = mapper_map_new(1, &sendsig, recvsig);
+        mapper_map_sync(map);
     }
 
     // Set up a mini TCP server for our custom stream

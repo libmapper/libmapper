@@ -10,6 +10,15 @@ extern "C" {
 
 #include <lo/lo.h>
 
+typedef enum {
+    MAPPER_STAGED       = 0x00,
+    MAPPER_TYPE_KNOWN   = 0x01,
+    MAPPER_LENGTH_KNOWN = 0x02,
+    MAPPER_LINK_KNOWN   = 0x04,
+    MAPPER_READY        = 0x0F,
+    MAPPER_ACTIVE       = 0x1F
+} mapper_status;
+
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
 typedef lo_timetag mapper_timetag_t;

@@ -147,25 +147,36 @@ void wait_local_devices()
 int setup_maps()
 {
     int i;
-    mapper_admin adm = mapper_admin_new(0, 0);
-    for (int i = 0; i < 2; i++) {
-        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig[i], recvsig[i]));
+    mapper_map maps[4] = {0, 0, 0, 0};
+    for (i = 0; i < 2; i++) {
+        maps[i] = mapper_map_new(1, &sendsig[i], recvsig[i]);
+        mapper_map_sync(maps[i]);
     }
 
     // swap the last two signals to mix up signal vector lengths
-    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig[2], recvsig[3]));
-    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig[3], recvsig[2]));
+    maps[2] = mapper_map_new(1, &sendsig[2], recvsig[3]);
+    mapper_map_sync(maps[2]);
+    maps[3] = mapper_map_new(1, &sendsig[3], recvsig[2]);
+    mapper_map_sync(maps[3]);
 
     i = 0;
+    int ready = 0;
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, 0)) {
+    while (!done && !ready) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
         if (i++ > 100)
             return 1;
+        ready = 1;
+        for (i = 0; i < 4; i++) {
+            if (mapper_map_status(maps[i]) < MAPPER_ACTIVE) {
+                ready = 0;
+                break;
+            }
+        }
+        printf("waiting....\n");
     }
 
-    mapper_admin_free(adm);
     return 0;
 }
 

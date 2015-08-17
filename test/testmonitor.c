@@ -13,7 +13,6 @@
 #define usleep(x) Sleep(x/1000)
 #endif
 
-mapper_admin adm = 0;
 mapper_db db = 0;
 
 int verbose = 1;
@@ -44,14 +43,12 @@ void printmap(mapper_map map)
 }
 
 /*! Creation of a local dummy device. */
-int setup_admin()
+int setup_database()
 {
-    adm = mapper_admin_new(0, SUBSCRIBE_ALL);
-    if (!adm)
+    db = mapper_db_new(0, SUBSCRIBE_ALL);
+    if (!db)
         goto error;
-    printf("Admin created.\n");
-
-    db = mapper_admin_db(adm);
+    printf("Database created.\n");
 
     return 0;
 
@@ -59,12 +56,12 @@ int setup_admin()
     return 1;
 }
 
-void cleanup_admin()
+void cleanup_database()
 {
-    if (adm) {
-        printf("\rFreeing admin.. ");
+    if (db) {
+        printf("\rFreeing database.. ");
         fflush(stdout);
-        mapper_admin_free(adm);
+        mapper_db_free(db);
         printf("ok\n");
     }
 }
@@ -74,8 +71,7 @@ void loop()
     int i = 0;
     while ((!terminate || i++ < 200) && !done)
     {
-        mapper_admin_poll(adm, 0);
-        usleep(polltime_ms * 1000);
+        mapper_db_update(db, polltime_ms);
 
         if (update++ < 0)
             continue;
@@ -233,8 +229,8 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_admin()) {
-        printf("Error initializing admin.\n");
+    if (setup_database()) {
+        printf("Error initializing database.\n");
         result = 1;
         goto done;
     }
@@ -249,6 +245,6 @@ int main(int argc, char **argv)
     mapper_db_remove_device_callback(db, on_device, 0);
     mapper_db_remove_signal_callback(db, on_signal, 0);
     mapper_db_remove_map_callback(db, on_map, 0);
-    cleanup_admin();
+    cleanup_database();
     return result;
 }

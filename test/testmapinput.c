@@ -114,23 +114,22 @@ void loop()
     int i = 0, recvd;
 
     if (autoconnect) {
-        mapper_admin adm = mapper_admin_new(0, 0);
-
+        mapper_map maps[2];
         // map input to another input on same device
-        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &inputs[0], inputs[1]));
+        maps[0] = mapper_map_new(1, &inputs[0], inputs[1]);
+        mapper_map_sync(maps[0]);
 
         // map input to an input on another device
-        mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &inputs[1], inputs[2]));
+        maps[1] = mapper_map_new(1, &inputs[1], inputs[2]);
+        mapper_map_sync(maps[1]);
 
         // wait until mapping has been established
-        while (!done && mapper_device_num_maps(devices[0], MAPPER_OUTGOING) < 2) {
+        int status = 0;
+        while (!done && (status < MAPPER_ACTIVE)) {
             mapper_device_poll(devices[0], 100);
             mapper_device_poll(devices[1], 100);
-            printf("waiting (%d outgoing maps)\n",
-                   mapper_device_num_maps(devices[0], MAPPER_OUTGOING));
+            status = mapper_map_status(maps[0]) & mapper_map_status(maps[1]);
         }
-
-        mapper_admin_free(adm);
     }
 
     i = 0;

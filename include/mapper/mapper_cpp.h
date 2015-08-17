@@ -990,17 +990,69 @@ namespace mapper {
         mapper_db _db;
     };
 
+    class signal_type {
+    public:
+        signal_type(mapper_signal sig) { _sig = sig; }
+        signal_type(const Signal& sig) { _sig = (mapper_signal)sig; }
+        operator mapper_signal() const { return _sig; }
+        mapper_signal _sig;
+    };
+
     class Map : public GenericObject
     {
     public:
+        Map(signal_type source, signal_type destination)
+        {
+            mapper_signal cast = source;
+            _map = mapper_map_new(1, &cast, destination);
+        }
+        Map(int num_sources, signal_type sources[], signal_type destination)
+        {
+            mapper_signal cast[num_sources];
+            for (int i = 0; i < num_sources; i++) {
+                cast[i] = sources[i];
+            }
+            _map = mapper_map_new(num_sources, cast, destination);
+        }
+        template <size_t N>
+        Map(std::array<signal_type, N>& sources, signal_type destination)
+        {
+            if (sources.empty()) {
+                _map = 0;
+                return;
+            }
+            mapper_signal cast[N];
+            for (int i = 0; i < N; i++) {
+                cast[i] = sources.data()[i];
+            }
+            _map = mapper_map_new(N, cast, destination);
+        }
+        Map(std::vector<signal_type>& sources, signal_type destination)
+        {
+            if (sources.size()) {
+                _map = 0;
+            }
+            int num_sources = sources.size();
+            mapper_signal cast[num_sources];
+            for (int i = 0; i < num_sources; i++) {
+                cast[i] = sources.data()[i];
+            }
+                _map = mapper_map_new(num_sources, cast, destination);
+        }
         ~Map()
-        {}
+            {}
         operator mapper_map() const
             { return _map; }
         operator bool() const
             { return _map; }
+        const Map& sync() const
+            { mapper_map_sync(_map); return (*this); }
+        void unmap()
+            { mapper_map_unmap(_map); }
         int num_sources() const
             { return mapper_map_num_sources(_map); }
+        mapper_status status()
+            { return mapper_map_status(_map); }
         mapper_mode mode() const
             { return mapper_map_mode(_map); }
         Map& set_mode(mapper_mode mode)
@@ -1242,13 +1294,8 @@ namespace mapper {
             }
         protected:
             friend class Map;
-            Slot(const Map *map, mapper_slot slot, int is_src)
-            {
-                _slot = slot;
-                _map = map;
-                _is_src = is_src;
-                _flags = 0;
-            }
+            Slot(mapper_slot slot)
+                { _slot = slot; }
             operator mapper_slot() const
                 { return _slot; }
             Slot& set_property(Property *p)
@@ -1259,16 +1306,13 @@ namespace mapper {
                 return (*this);
             }
             Slot& remove_property(const string_type &name) { return (*this); }
-            int _flags;
         private:
             mapper_slot _slot;
-            const Map *_map;
-            int _is_src;
         };
         Slot destination() const
-            { return _destination[0]; }
+            { return Slot(mapper_map_destination_slot(_map)); }
         Slot source(int index=0) const
-            { return _sources[index]; }
+            { return Slot(mapper_map_source_slot(_map, index)); }
         template <typename... Values>
         Map& set_property(Values... values)
         {
@@ -1278,17 +1322,9 @@ namespace mapper {
             return (*this);
         }
     protected:
-        friend class Admin;
         friend class Db;
-        Map(mapper_map map) :
-        _destination((Slot*)calloc(1, sizeof(Slot))),
-        _sources((Slot*)calloc(1, sizeof(Slot) * mapper_map_num_sources(map)))
-        {
-            _map = map;
-            _destination[0] = Slot(this, mapper_map_destination_slot(_map), 0);
-            for (int i = 0; i < mapper_map_num_sources(_map); i++)
-                _sources[i] = Slot(this, mapper_map_source_slot(_map, i), 1);
-        }
+        Map(mapper_map map)
+            { _map = map; }
         Map& set_property(Property *p)
         {
             if (_map)
@@ -1299,8 +1335,6 @@ namespace mapper {
         Map& remove_property(const string_type &name) { return (*this); }
     private:
         mapper_map _map;
-        Slot *_destination;
-        Slot *_sources;
     };
 
     class device_type {
@@ -1311,22 +1345,20 @@ namespace mapper {
         mapper_device _dev;
     };
 
-    class signal_type {
-    public:
-        signal_type(mapper_signal sig) { _sig = sig; }
-        signal_type(const Signal& sig) { _sig = (mapper_signal)sig; }
-        operator mapper_signal() const { return _sig; }
-        mapper_signal _sig;
-    };
-
     class Db
     {
+    protected:
+        Db(mapper_db db)
+            { _db = db; }
     public:
-        Db(mapper_admin adm)
-        {
-            _db = mapper_admin_db(adm);
-        }
+        Db(int flags = SUBSCRIBE_ALL)
+            { _db = mapper_db_new(0, flags); }
         ~Db() {}
+        const Db& update(int block_ms=0) const
+        {
+            mapper_db_update(_db, block_ms);
+            return (*this);
+        }
         const Db& flush() const
         {
             mapper_db_flush(_db, mapper_db_timeout(_db), 0);
@@ -1337,6 +1369,28 @@ namespace mapper {
             mapper_db_flush(_db, timeout_sec, quiet);
             return (*this);
         }
+
+        // subscriptions
+        const Db& request_devices() const
+        {
+            mapper_db_request_devices(_db);
+            return (*this);
+        }
+        const Db& subscribe(const device_type& dev, int flags, int timeout)
+        {
+            mapper_db_subscribe(_db, dev, flags, timeout);
+            return (*this);
+        }
+        const Db& subscribe(int flags)
+            { mapper_db_subscribe(_db, 0, flags, -1); return (*this); }
+        const Db& unsubscribe(const device_type& dev)
+        {
+            mapper_db_unsubscribe(_db, dev);
+            return (*this);
+        }
+        const Db& unsubscribe()
+            { mapper_db_unsubscribe(_db, 0); return (*this); }
+
         // db_devices
         const Db& add_device_callback(mapper_db_device_handler *handler,
                                       void *user_data) const
@@ -1463,68 +1517,6 @@ namespace mapper {
         }
     private:
         mapper_db _db;
-    };
-
-    class Admin
-    {
-    public:
-        Admin()
-            { _adm = mapper_admin_new(0, 0); }
-        Admin(Network net, int subscribe_flags=0)
-            { _adm = mapper_admin_new(net, subscribe_flags); }
-        Admin(int subscribe_flags)
-            { _adm = mapper_admin_new(0, subscribe_flags); }
-        ~Admin()
-            { if (_adm) mapper_admin_free(_adm); }
-        int poll(int block_ms=0)
-            { return mapper_admin_poll(_adm, block_ms); }
-        const Db db() const
-            { return Db(_adm); }
-        const Admin& request_devices() const
-        {
-            mapper_admin_request_devices(_adm);
-            return (*this);
-        }
-        const Admin& subscribe(const device_type& dev, int flags, int timeout)
-        {
-            mapper_admin_subscribe(_adm, dev, flags, timeout);
-            return (*this);
-        }
-        const Admin& subscribe(int flags)
-            { mapper_admin_subscribe(_adm, 0, flags, -1); return (*this); }
-        const Admin& unsubscribe(const device_type& dev)
-        {
-            mapper_admin_unsubscribe(_adm, dev);
-            return (*this);
-        }
-        const Admin& unsubscribe()
-            { mapper_admin_unsubscribe(_adm, 0); return (*this); }
-
-        Map map(int num_sources, mapper_signal sources[],
-                mapper_signal destination)
-        {
-            mapper_map map = mapper_admin_add_map(_adm, num_sources, sources,
-                                                  destination);
-            return Map(map);
-        }
-        Map map(const signal_type source, const signal_type destination)
-        {
-            mapper_signal src = source;
-            return Map(mapper_admin_add_map(_adm, 1, &src, destination));
-        }
-        const Admin& update(Map& map)
-            { mapper_admin_update_map(_adm, map); return (*this); }
-
-        const Admin& remove(const Map &map) const
-            { mapper_admin_remove_map(_adm, (mapper_map)map); return (*this); }
-        const Admin& remove(Map::Query maps)
-        {
-            for (auto const &m : maps)
-                remove(m);
-            return (*this);
-        }
-    private:
-        mapper_admin _adm;
     };
 };
 

@@ -38,18 +38,6 @@ extern const char* prop_message_strings[NUM_AT_PARAMS];
 #define BUNDLE_DEST_SUBSCRIBERS (void*)-1
 #define BUNDLE_DEST_BUS         0
 
-/*! Internal function to get the current time. */
-static double get_current_time()
-{
-#ifdef HAVE_GETTIMEOFDAY
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
-#else
-#error No timing method known on this platform.
-#endif
-}
-
 /* Note: any call to liblo where get_liblo_error will be called
  * afterwards must lock this mutex, otherwise there is a race
  * condition on receiving this information.  Could be fixed by the
@@ -98,11 +86,6 @@ const char* network_message_strings[] =
     "/who",                     /* MSG_WHO */
 };
 
-/* Internal functions for sending network messages. */
-static void mapper_network_send_device(mapper_network net, mapper_device dev);
-static int mapper_network_send_map(mapper_network net, mapper_map map, int slot,
-                                   int cmd);
-
 #define HANDLER_ARGS const char*, const char*, lo_arg**, int, lo_message, void*
 /* Internal message handler prototypes. */
 static int handler_who(HANDLER_ARGS);
@@ -130,7 +113,7 @@ struct handler_method_assoc {
     lo_method_handler h;
 };
 
-// handlers needed by "devices"
+// handlers needed by devices
 static struct handler_method_assoc device_handlers[] = {
     {MSG_MAP,                   NULL,       handler_map},
     {MSG_MAP_TO,                NULL,       handler_map_to},
@@ -147,8 +130,8 @@ static struct handler_method_assoc device_handlers[] = {
 const int NUM_DEVICE_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
 
-// handlers needed by "admins"
-static struct handler_method_assoc admin_handlers[] = {
+// handlers needed by db for archiving
+static struct handler_method_assoc db_handlers[] = {
     {MSG_MAPPED,                NULL,       handler_mapped},
     {MSG_DEVICE,                NULL,       handler_device},
     {MSG_UNMAPPED,              NULL,       handler_unmapped},
@@ -157,14 +140,13 @@ static struct handler_method_assoc admin_handlers[] = {
     {MSG_SIGNAL,                NULL,       handler_signal_info},
     {MSG_SIGNAL_REMOVED,        "s",        handler_signal_removed},
 };
-const int NUM_ADMIN_HANDLERS =
-sizeof(admin_handlers)/sizeof(admin_handlers[0]);
+const int NUM_DB_HANDLERS =
+sizeof(db_handlers)/sizeof(db_handlers[0]);
 
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
 {
-    printf("[libmapper] liblo server error %d in path %s: %s\n",
-           num, where, msg);
+    trace("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
 }
 
 /* Functions for handling the resource allocation scheme.  If
@@ -309,7 +291,7 @@ static void seed_srand()
     }
 #endif
 
-    double d = get_current_time();
+    double d = mapper_get_current_time();
     s = (unsigned int)((d-(unsigned long)d)*100000);
     srand(s);
 }
@@ -342,10 +324,11 @@ static void mapper_network_remove_device_methods(mapper_network net,
                  network_message_strings[device_handlers[i].str_index],
                  mapper_device_name(net->device));
         // make sure method isn't also used by a device
-        if (net->admin) {
+        // TODO: can remove all handlers not used for autosubscribe settings
+        if (net->db.autosubscribe) {
             int found = 0;
-            for (j=0; j < NUM_ADMIN_HANDLERS; j++) {
-                if (device_handlers[i].str_index == admin_handlers[j].str_index) {
+            for (j=0; j < NUM_DB_HANDLERS; j++) {
+                if (device_handlers[i].str_index == db_handlers[j].str_index) {
                     found = 1;
                     break;
                 }
@@ -364,30 +347,38 @@ static void mapper_network_remove_device_methods(mapper_network net,
     }
 }
 
-static void mapper_network_add_admin_methods(mapper_network net)
+mapper_db mapper_network_add_db(mapper_network net)
 {
+    if (net->db_methods_added)
+        return &net->db;
+
+    // add db methods
     int i;
-    for (i=0; i < NUM_ADMIN_HANDLERS; i++) {
+    for (i=0; i < NUM_DB_HANDLERS; i++) {
         lo_server_add_method(net->bus_server,
-                             network_message_strings[admin_handlers[i].str_index],
-                             admin_handlers[i].types, admin_handlers[i].h, net);
+                             network_message_strings[db_handlers[i].str_index],
+                             db_handlers[i].types, db_handlers[i].h, net);
 #if !FORCE_COMMS_TO_BUS
         lo_server_add_method(net->mesh_server,
-                             network_message_strings[admin_handlers[i].str_index],
-                             admin_handlers[i].types, admin_handlers[i].h, net);
+                             network_message_strings[db_handlers[i].str_index],
+                             db_handlers[i].types, db_handlers[i].h, net);
 #endif
     }
+    return &net->db;
 }
 
-static void mapper_network_remove_admin_methods(mapper_network net)
+void mapper_network_remove_db(mapper_network net)
 {
+    if (!net->db_methods_added)
+        return;
+
     int i, j;
-    for (i=0; i < NUM_ADMIN_HANDLERS; i++) {
+    for (i=0; i < NUM_DB_HANDLERS; i++) {
         // make sure method isn't also used by a device
         if (net->device) {
             int found = 0;
             for (j=0; j < NUM_DEVICE_HANDLERS; j++) {
-                if (admin_handlers[i].str_index == device_handlers[j].str_index) {
+                if (db_handlers[i].str_index == device_handlers[j].str_index) {
                     found = 1;
                     break;
                 }
@@ -396,14 +387,15 @@ static void mapper_network_remove_admin_methods(mapper_network net)
                 continue;
         }
         lo_server_del_method(net->bus_server,
-                             network_message_strings[admin_handlers[i].str_index],
-                             admin_handlers[i].types);
+                             network_message_strings[db_handlers[i].str_index],
+                             db_handlers[i].types);
 #if !FORCE_COMMS_TO_BUS
         lo_server_del_method(net->mesh_server,
-                             network_message_strings[admin_handlers[i].str_index],
-                             admin_handlers[i].types);
+                             network_message_strings[db_handlers[i].str_index],
+                             db_handlers[i].types);
 #endif
     }
+    net->db_methods_added = 0;
 }
 
 mapper_network mapper_network_new(const char *iface, const char *group, int port)
@@ -412,7 +404,9 @@ mapper_network mapper_network_new(const char *iface, const char *group, int port
     if (!net)
         return NULL;
 
+    net->own_network = 1;
     net->db.network = net;
+    net->db.timeout_sec = MAPPER_TIMEOUT_SEC;
     net->interface_name = 0;
 
     /* Default standard ip and port is group 224.0.1.3, port 7570 */
@@ -424,8 +418,12 @@ mapper_network mapper_network_new(const char *iface, const char *group, int port
         snprintf(port_str, 10, "%d", port);
 
     /* Initialize interface information. */
-    if (get_interface_addr(iface, &net->interface_ip, &net->interface_name))
+    if (get_interface_addr(iface, &net->interface_ip, &net->interface_name)) {
         trace("no interface found\n");
+    }
+    else {
+        trace("using interface '%s'\n", net->interface_name);
+    }
 
     /* Open address */
     net->bus_addr = lo_address_new(group, s_port);
@@ -474,7 +472,7 @@ const char *mapper_libversion(mapper_network net)
     return PACKAGE_VERSION;
 }
 
-void mapper_network_send_bundle(mapper_network net)
+void mapper_network_send(mapper_network net)
 {
     if (!net->bundle)
         return;
@@ -482,7 +480,7 @@ void mapper_network_send_bundle(mapper_network net)
     lo_send_bundle_from(net->bus_addr, net->mesh_server, net->bundle);
 #else
     if (net->bundle_dest == BUNDLE_DEST_SUBSCRIBERS) {
-        mapper_subscriber *s = &net->subscribers;
+        mapper_subscriber *s = &net->device->local->subscribers;
         if (*s) {
             mapper_clock_now(&net->clock, &net->clock.now);
         }
@@ -513,10 +511,10 @@ void mapper_network_send_bundle(mapper_network net)
     net->bundle = 0;
 }
 
-static int mapper_network_init_bundle(mapper_network net)
+int mapper_network_init(mapper_network net)
 {
     if (net->bundle)
-        mapper_network_send_bundle(net);
+        mapper_network_send(net);
 
     mapper_clock_now(&net->clock, &net->clock.now);
     net->bundle = lo_bundle_new(net->clock.now);
@@ -528,33 +526,48 @@ static int mapper_network_init_bundle(mapper_network net)
     return 0;
 }
 
-void mapper_network_set_bundle_dest_bus(mapper_network net)
+void mapper_network_set_dest_bus(mapper_network net)
 {
     if (net->bundle && net->bundle_dest != BUNDLE_DEST_BUS)
-        mapper_network_send_bundle(net);
+        mapper_network_send(net);
     net->bundle_dest = BUNDLE_DEST_BUS;
     if (!net->bundle)
-        mapper_network_init_bundle(net);
+        mapper_network_init(net);
 }
 
-void mapper_network_set_bundle_dest_mesh(mapper_network net, lo_address address)
+void mapper_network_set_dest_mesh(mapper_network net, lo_address address)
 {
     if (net->bundle && net->bundle_dest != address)
-        mapper_network_send_bundle(net);
+        mapper_network_send(net);
     net->bundle_dest = address;
     if (!net->bundle)
-        mapper_network_init_bundle(net);
+        mapper_network_init(net);
 }
 
-void mapper_network_set_bundle_dest_subscribers(mapper_network net, int type)
+void mapper_network_set_dest_subscribers(mapper_network net, int type)
 {
-    if ((net->bundle && net->bundle_dest != BUNDLE_DEST_SUBSCRIBERS) ||
-        (net->message_type != type))
-        mapper_network_send_bundle(net);
+    if (net->bundle) {
+        if ((net->bundle_dest != BUNDLE_DEST_SUBSCRIBERS) ||
+            (net->message_type != type))
+            mapper_network_send(net);
+    }
     net->bundle_dest = BUNDLE_DEST_SUBSCRIBERS;
     net->message_type = type;
     if (!net->bundle)
-        mapper_network_init_bundle(net);
+        mapper_network_init(net);
+}
+
+void mapper_network_add_message(mapper_network net, const char *str,
+                                network_message_t cmd, lo_message msg)
+{
+    lo_bundle_add_message(net->bundle, str ?: network_message_strings[cmd], msg);
+}
+
+void mapper_network_free_messages(mapper_network net)
+{
+    if (net->bundle)
+        lo_bundle_free_messages(net->bundle);
+    net->bundle = 0;
 }
 
 /*! Free the memory allocated by a mapper network structure.
@@ -565,8 +578,11 @@ void mapper_network_free(mapper_network net)
     if (!net)
         return;
 
+    if (net->own_network)
+        mapper_db_free(&net->db);
+
     // send out any cached messages
-    mapper_network_send_bundle(net);
+    mapper_network_send(net);
 
     if (net->interface_name)
         free(net->interface_name);
@@ -580,15 +596,6 @@ void mapper_network_free(mapper_network net)
     if (net->bus_addr)
         lo_address_free(net->bus_addr);
 
-    mapper_subscriber s;
-    while (net->subscribers) {
-        s = net->subscribers;
-        if (s->address)
-            lo_address_free(s->address);
-        net->subscribers = s->next;
-        free(s);
-    }
-
     free(net);
 }
 
@@ -599,7 +606,7 @@ static void mapper_network_probe_device_name(mapper_network net,
                                              mapper_device dev)
 {
     dev->local->ordinal.collision_count = -1;
-    dev->local->ordinal.count_time = get_current_time();
+    dev->local->ordinal.count_time = mapper_get_current_time();
 
     /* Note: mapper_device_name() would refuse here since the
      * ordinal is not yet locked, so we have to build it manually at
@@ -646,29 +653,13 @@ void mapper_network_add_device(mapper_network net, mapper_device dev)
     }
 }
 
-/*! Add an uninitialized admin to this network. */
-void mapper_network_add_admin(mapper_network net, mapper_admin adm)
-{
-    /* Initialize admin methods. */
-    if (adm) {
-        net->admin = adm;
-        mapper_network_add_admin_methods(net);
-    }
-}
-
 void mapper_network_remove_device(mapper_network net, mapper_device dev)
 {
     if (dev) {
         mapper_network_remove_device_methods(net, dev);
+        // TODO: should release of local device trigger local device handler?
+        mapper_db_remove_device(&net->db, dev, 0);
         net->device = 0;
-    }
-}
-
-void mapper_network_remove_admin(mapper_network net, mapper_admin adm)
-{
-    if (adm) {
-        mapper_network_remove_admin_methods(net);
-        net->admin = 0;
     }
 }
 
@@ -688,7 +679,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
     if (!dev || !go)
         return;
 
-    mapper_network_set_bundle_dest_bus(net);
+    mapper_network_set_dest_bus(net);
     lo_message msg = lo_message_new();
     if (!msg) {
         trace("couldn't allocate lo_message\n");
@@ -696,7 +687,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
     }
     lo_message_add_string(msg, mapper_device_name(dev));
     lo_message_add_int32(msg, dev->version);
-    lo_bundle_add_message(net->bundle, network_message_strings[MSG_SYNC], msg);
+    mapper_network_add_message(net, 0, MSG_SYNC, msg);
 
     int elapsed, num_maps;
     // some housekeeping: periodically check if our links are still active
@@ -778,7 +769,7 @@ int mapper_network_poll(mapper_network net)
     mapper_device dev = net->device;
 
     // send out any cached messages
-    mapper_network_send_bundle(net);
+    mapper_network_send(net);
 
     while (count < 10 && (lo_server_recv_noblock(net->bus_server, 0)
            + lo_server_recv_noblock(net->mesh_server, 0))) {
@@ -831,7 +822,7 @@ static int check_collisions(mapper_network net, mapper_allocated resource)
     if (resource->locked)
         return 0;
 
-    timediff = get_current_time() - resource->count_time;
+    timediff = mapper_get_current_time() - resource->count_time;
 
     if (!net->msgs_recvd) {
         if (timediff >= 5.0) {
@@ -854,223 +845,13 @@ static int check_collisions(mapper_network net, mapper_allocated resource)
 
         /* Prepare for causing new resource collisions. */
         resource->collision_count = -1;
-        resource->count_time = get_current_time();
+        resource->count_time = mapper_get_current_time();
 
         /* Indicate that we need to re-probe the new value. */
         return 1;
     }
 
     return 0;
-}
-
-static void mapper_network_send_device(mapper_network net, mapper_device dev)
-{
-    if (!dev)
-        return;
-    lo_message msg = lo_message_new();
-    if (!msg) {
-        trace("couldn't allocate lo_message\n");
-        return;
-    }
-    mapper_device_prepare_message(dev, msg);
-    lo_bundle_add_message(net->bundle, network_message_strings[MSG_DEVICE], msg);
-}
-
-/* TODO: this message needs to be dispatched immediately since liblo will not
- * cache the signal name string. The protocol should be updated to send
- * device and signal names as separate strings. */
-void mapper_network_send_signal(mapper_network net, mapper_signal sig)
-{
-    lo_message msg = lo_message_new();
-    if (!msg) {
-        trace("couldn't allocate lo_message\n");
-        return;
-    }
-    char sig_name[1024];
-    mapper_signal_full_name(sig, sig_name, 1024);
-    lo_message_add_string(msg, sig_name);
-    mapper_signal_prepare_message(sig, msg);
-    lo_bundle_add_message(net->bundle, network_message_strings[MSG_SIGNAL], msg);
-}
-
-void mapper_network_send_signal_removed(mapper_network net, mapper_signal sig)
-{
-    lo_message msg = lo_message_new();
-    if (!msg) {
-        trace("couldn't allocate lo_message\n");
-        return;
-    }
-    char sig_name[1024];
-    mapper_signal_full_name(sig, sig_name, 1024);
-    lo_message_add_string(msg, sig_name);
-    lo_bundle_add_message(net->bundle,
-                          network_message_strings[MSG_SIGNAL_REMOVED], msg);
-}
-
-static void mapper_network_send_inputs(mapper_network net, mapper_device dev,
-                                       int min, int max)
-{
-    if (min < 0)
-        min = 0;
-    else if (min > dev->num_inputs)
-        return;
-    if (max < 0 || max > dev->num_inputs)
-        max = dev->num_inputs-1;
-
-    int i = 0;
-    mapper_signal *sig = mapper_db_device_signals(&net->db, dev, MAPPER_INCOMING);
-    while (sig) {
-        if (i > max) {
-            mapper_signal_query_done(sig);
-            return;
-        }
-        if (i >= min)
-            mapper_network_send_signal(net, *sig);
-        i++;
-        sig = mapper_signal_query_next(sig);
-    }
-}
-
-static void mapper_network_send_outputs(mapper_network net, mapper_device dev,
-                                        int min, int max)
-{
-    if (min < 0)
-        min = 0;
-    else if (min > dev->num_outputs)
-        return;
-    if (max < 0 || max > dev->num_outputs)
-        max = dev->num_outputs-1;
-
-    int i = 0;
-    mapper_signal *sig = mapper_db_device_signals(&net->db, dev, MAPPER_OUTGOING);
-    while (sig) {
-        if (i > max) {
-            mapper_signal_query_done(sig);
-            return;
-        }
-        if (i >= min)
-            mapper_network_send_signal(net, *sig);
-        i++;
-        sig = mapper_signal_query_next(sig);
-    }
-}
-
-// Send /mapped message
-static int mapper_network_send_map(mapper_network net, mapper_map map, int slot,
-                                   int cmd)
-{
-    if (cmd == MSG_MAPPED && map->local->status < MAPPER_READY)
-        return slot;
-
-    lo_message m = lo_message_new();
-    if (!m) {
-        trace("couldn't allocate lo_message\n");
-        return slot;
-    }
-
-    char dest_name[1024], source_names[1024];
-    snprintf(dest_name, 1024, "%s%s",
-             map->destination.signal->device->name,
-             map->destination.signal->path);
-
-    if (map->destination.direction == MAPPER_INCOMING) {
-        // add mapping destination
-        lo_message_add_string(m, dest_name);
-        lo_message_add_string(m, "<-");
-    }
-
-    // add mapping sources
-    int i = (slot >= 0) ? slot : 0;
-    int len = 0, result;
-    mapper_link link = map->sources[i].local->link;
-    for (; i < map->num_sources; i++) {
-        if (slot >= 0 && link != map->sources[i].local->link)
-            break;
-        result = snprintf(&source_names[len], 1024-len, "%s%s",
-                          map->sources[i].signal->device->name,
-                          map->sources[i].signal->path);
-        if (result < 0 || (len + result + 1) >= 1024) {
-            trace("Error encoding sources for combined /mapped msg");
-            lo_message_free(m);
-            return slot;
-        }
-        lo_message_add_string(m, &source_names[len]);
-        len += result + 1;
-    }
-
-    if (map->destination.direction == MAPPER_OUTGOING) {
-        // add mapping destination
-        lo_message_add_string(m, "->");
-        lo_message_add_string(m, dest_name);
-    }
-
-    if (cmd == MSG_UNMAP) {
-        lo_bundle_add_message(net->bundle, network_message_strings[cmd], m);
-        return i-1;
-    }
-
-    if (cmd == MSG_MAP_TO && map->destination.local->router_sig) {
-        // include "extra" metadata from the destination signal
-        mapper_signal sig = map->destination.local->router_sig->signal;
-        if (sig->extra)
-            mapper_message_add_value_table(m, sig->extra);
-    }
-
-    // add other properties
-    const char *keys = mapper_map_prepare_message(map, m, slot);
-
-    lo_bundle_add_message(net->bundle, network_message_strings[cmd], m);
-    // send bundle here since message refers to generated strings
-    mapper_network_send_bundle(net);
-    if (keys)
-        free((char*)keys);
-    return i-1;
-}
-
-static void mapper_network_send_incoming_maps(mapper_network net,
-                                              mapper_device dev,
-                                              int min, int max)
-{
-    int i, count = 0;
-    mapper_router_signal rs = dev->local->router->signals;
-    while (rs) {
-        for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_OUTGOING)
-                continue;
-            if (max > 0 && count > max)
-                return;
-            if (count >= min) {
-                mapper_map map = rs->slots[i]->map;
-                mapper_network_init_bundle(net);
-                mapper_network_send_map(net, map, -1, MSG_MAPPED);
-            }
-            count++;
-        }
-        rs = rs->next;
-    }
-}
-
-static void mapper_network_send_outgoing_maps(mapper_network net,
-                                              mapper_device dev,
-                                              int min, int max)
-{
-    int i, count = 0;
-    mapper_router_signal rs = dev->local->router->signals;
-    while (rs) {
-        for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_INCOMING)
-                continue;
-            if (max > 0 && count > max)
-                return;
-            if (count >= min) {
-                mapper_map map = rs->slots[i]->map;
-                mapper_network_init_bundle(net);
-                mapper_network_send_map(net, map, -1, MSG_MAPPED);
-            }
-            count++;
-        }
-        rs = rs->next;
-    }
 }
 
 /**********************************/
@@ -1095,7 +876,6 @@ static int handler_device(const char *path, const char *types,
                           void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
-    mapper_admin adm = net->admin;
     mapper_device dev = net->device;
     int i, j;
 
@@ -1111,14 +891,13 @@ static int handler_device(const char *path, const char *types,
     mapper_message params = mapper_message_parse_params(argc-1, &types[1],
                                                         &argv[1]);
 
-    if (adm) {
-        trace("<admin> got /device %s + %i arguments\n", name, argc-1);
-        mapper_db db = mapper_admin_db(adm);
-        mapper_device dev;
-        dev = mapper_db_add_or_update_device_params(db, name, params);
-        if (adm->autosubscribe && (!dev->subscribed)) {
-            mapper_admin_subscribe(adm, dev, adm->autosubscribe, -1);
-            dev->subscribed = 1;
+    if (net->db.autosubscribe) {
+        trace("<network> got /device %s + %i arguments\n", name, argc-1);
+        mapper_device remote;
+        remote = mapper_db_add_or_update_device_params(&net->db, name, params);
+        if (!remote->subscribed) {
+            mapper_db_subscribe(&net->db, remote, net->db.autosubscribe, -1);
+            remote->subscribed = 1;
         }
     }
 
@@ -1191,18 +970,19 @@ static int handler_device(const char *path, const char *types,
                 if (map->local->one_source && (rs->slots[i] != &map->sources[0]))
                     continue;
                 if (map->destination.local->link == link) {
-                    mapper_network_set_bundle_dest_mesh(net, link->admin_addr);
-                    mapper_network_send_map(net, map, -1, MSG_MAP_TO);
+                    mapper_network_set_dest_mesh(net, link->admin_addr);
+                    mapper_map_send_state(map, -1, MSG_MAP_TO,
+                                          MAPPER_STATIC_PROPS);
                 }
             }
             else {
                 for (j = 0; j < map->num_sources; j++) {
                     if (map->sources[j].local->link != link)
                         continue;
-                    mapper_network_set_bundle_dest_mesh(net, link->admin_addr);
-                    j = mapper_network_send_map(net, map,
-                                                map->local->one_source ? -1 : j,
-                                                MSG_MAP_TO);
+                    mapper_network_set_dest_mesh(net, link->admin_addr);
+                    j = mapper_map_send_state(map,
+                                              map->local->one_source ? -1 : j,
+                                              MSG_MAP_TO, MAPPER_STATIC_PROPS);
                 }
             }
         }
@@ -1219,8 +999,6 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
     mapper_network net = (mapper_network) user_data;
     mapper_device dev = net->device;
 
-    mapper_admin adm = net->admin;
-    mapper_db db = mapper_admin_db(adm);
     int diff, ordinal;
     char *s;
 
@@ -1233,16 +1011,7 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
     char *name = &argv[0]->s;
 
     trace("<%s> got /logout %s\n", (dev && dev->local->ordinal.locked)
-          ? mapper_device_name(dev) : "admin", name);
-
-    if (adm) {
-        mapper_device dev = mapper_db_device_by_name(db, name);
-        if (dev) {
-            // remove subscriptions
-            mapper_admin_unsubscribe(adm, dev);
-            mapper_db_remove_device(db, dev, 0);
-        }
-    }
+          ? mapper_device_name(dev) : "network", name);
 
     // If device exists and is registered
     if (dev && dev->local->ordinal.locked) {
@@ -1275,87 +1044,14 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
         }
     }
 
+    dev = mapper_db_device_by_name(&net->db, name);
+    if (dev) {
+        // remove subscriptions
+        mapper_db_unsubscribe(&net->db, dev);
+        mapper_db_remove_device(&net->db, dev, 0);
+    }
+
     return 0;
-}
-
-// Add/renew/remove a subscription.
-// TODO: move to device
-static void mapper_network_manage_subscriber(mapper_network net,
-                                             lo_address address,
-                                             int flags, int timeout_seconds,
-                                             int revision)
-{
-    mapper_subscriber *s = &net->subscribers;
-    const char *ip = lo_address_get_hostname(address);
-    const char *port = lo_address_get_port(address);
-    if (!ip || !port)
-        return;
-
-    mapper_clock_t *clock = &net->clock;
-    mapper_clock_now(clock, &clock->now);
-
-    while (*s) {
-        if (strcmp(ip, lo_address_get_hostname((*s)->address))==0 &&
-            strcmp(port, lo_address_get_port((*s)->address))==0) {
-            // subscriber already exists
-            if (!flags || !timeout_seconds) {
-                // remove subscription
-                mapper_subscriber temp = *s;
-                int prev_flags = temp->flags;
-                *s = temp->next;
-                if (temp->address)
-                    lo_address_free(temp->address);
-                free(temp);
-                if (!flags || !(flags &= ~prev_flags))
-                    return;
-            }
-            else {
-                // reset timeout
-                (*s)->lease_expiration_sec = clock->now.sec + timeout_seconds;
-                if ((*s)->flags == flags) {
-                    if (revision)
-                        return;
-                    else
-                        break;
-                }
-                int temp = flags;
-                flags &= ~(*s)->flags;
-                (*s)->flags = temp;
-            }
-            break;
-        }
-        s = &(*s)->next;
-    }
-
-    if (!flags)
-        return;
-
-    if (!(*s) && timeout_seconds) {
-        // add new subscriber
-        mapper_subscriber sub = malloc(sizeof(struct _mapper_subscriber));
-        sub->address = lo_address_new(ip, port);
-        sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
-        sub->flags = flags;
-        sub->next = net->subscribers;
-        net->subscribers = sub;
-        s = &sub;
-    }
-
-    if (revision == net->device->version)
-        return;
-
-    // bring new subscriber up to date
-    mapper_network_set_bundle_dest_mesh(net, address);
-    mapper_network_send_device(net, net->device);
-    if (flags & SUBSCRIBE_DEVICE_INPUTS)
-        mapper_network_send_inputs(net, net->device, -1, -1);
-    if (flags & SUBSCRIBE_DEVICE_OUTPUTS)
-        mapper_network_send_outputs(net, net->device, -1, -1);
-    if (flags & SUBSCRIBE_DEVICE_MAPS_IN)
-        mapper_network_send_incoming_maps(net, net->device, -1, -1);
-    if (flags & SUBSCRIBE_DEVICE_MAPS_OUT)
-        mapper_network_send_outgoing_maps(net, net->device, -1, -1);
-    mapper_network_send_bundle(net);
 }
 
 /*! Respond to /subscribe message by adding or renewing a subscription. */
@@ -1412,7 +1108,7 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **argv,
     }
 
     // add or renew subscription
-    mapper_network_manage_subscriber(net, a, flags, timeout_seconds, version);
+    mapper_device_manage_subscriber(dev, a, flags, timeout_seconds, version);
     return 0;
 }
 
@@ -1427,7 +1123,7 @@ static int handler_unsubscribe(const char *path, const char *types,
     if (!a) return 0;
 
     // remove subscription
-    mapper_network_manage_subscriber(net, a, 0, 0, 0);
+    mapper_device_manage_subscriber(net->device, a, 0, 0, 0);
 
     return 0;
 }
@@ -1438,8 +1134,6 @@ static int handler_signal_info(const char *path, const char *types,
                                void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
-    mapper_admin adm = net->admin;
-    mapper_db db = mapper_admin_db(adm);
 
     if (argc < 2)
         return 1;
@@ -1459,7 +1153,7 @@ static int handler_signal_info(const char *path, const char *types,
 
     mapper_message params = mapper_message_parse_params(argc-1, &types[1],
                                                         &argv[1]);
-    mapper_db_add_or_update_signal_params(db, signamep, devname, params);
+    mapper_db_add_or_update_signal_params(&net->db, signamep, devname, params);
     mapper_message_free(params);
 
     return 0;
@@ -1471,8 +1165,6 @@ static int handler_signal_removed(const char *path, const char *types,
                                   void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
-    mapper_admin adm = net->admin;
-    mapper_db db = mapper_admin_db(adm);
 
     if (argc < 1)
         return 1;
@@ -1490,7 +1182,7 @@ static int handler_signal_removed(const char *path, const char *types,
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen]=0;
 
-    mapper_db_remove_signal_by_name(db, devname, signamep);
+    mapper_db_remove_signal_by_name(&net->db, devname, signamep);
 
     return 0;
 }
@@ -1552,7 +1244,7 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
             else {
                 /* Count ordinal collisions. */
                 dev->local->ordinal.collision_count++;
-                dev->local->ordinal.count_time = get_current_time();
+                dev->local->ordinal.count_time = mapper_get_current_time();
             }
         }
     }
@@ -1588,12 +1280,12 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
     id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
     if (id == dev->id) {
         if (dev->local->ordinal.locked) {
-            current_time = get_current_time();
+            current_time = mapper_get_current_time();
             for (i=0; i<8; i++) {
                 if (dev->local->ordinal.suggestion[i] >= 0
                     && (current_time - dev->local->ordinal.suggestion[i]) > 2.0) {
                     // reserve suggested ordinal
-                    dev->local->ordinal.suggestion[i] = get_current_time();
+                    dev->local->ordinal.suggestion[i] = mapper_get_current_time();
                     break;
                 }
             }
@@ -1605,7 +1297,7 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
         }
         else {
             dev->local->ordinal.collision_count++;
-            dev->local->ordinal.count_time = get_current_time();
+            dev->local->ordinal.count_time = mapper_get_current_time();
         }
     }
     return 0;
@@ -1726,6 +1418,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
                        int argc, lo_message msg, void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
+    mapper_db db = &net->db;
     mapper_device dev = net->device;
     mapper_signal local_signal = 0;
     int i, num_sources, src_index, dest_index, param_index;
@@ -1764,72 +1457,71 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         return 0;
     }
 
-    // ensure names are in alphabetical order
-    if (!is_alphabetical(num_sources, &argv[src_index])) {
-        trace("error in /map: signal names out of order.\n");
-        return 0;
-    }
-    const char *src_names[num_sources];
-    for (i = 0; i < num_sources; i++) {
-        src_names[i] = &argv[src_index+i]->s;
-    }
-    mapper_map map;
-    map = mapper_router_find_incoming_map(dev->local->router, local_signal,
-                                          num_sources, src_names);
-
-    /* If a mapping already exists between these signals, forward the message
-     * to handler_modify_map() and stop. */
-    if (map) {
-        handler_modify_map(path, types, argv, argc, msg, user_data);
-        return 0;
-    }
-
-    // check if any sources are local
-    const char *src_signal_name;
-    mapper_signal src_signals[num_sources];
-    for (i = 0; i < num_sources; i++) {
-        if (prefix_cmp(src_names[i], mapper_device_name(dev),
-                       &src_signal_name)==0) {
-            // this source is a local signal
-            src_signals[i] = mapper_db_device_signal_by_name(&net->db, dev,
-                                                             src_signal_name);
-        }
-        else
-            src_signals[i] = 0;
-    }
-
-    // create a tentative mapping (flavourless)
-    map = mapper_router_add_map(dev->local->router, local_signal, num_sources,
-                                src_signals, src_names, MAPPER_INCOMING);
-
     // parse arguments from message if any
-    mapper_message params = mapper_message_parse_params(argc-dest_index-1,
-                                                        &types[dest_index+1],
-                                                        &argv[dest_index+1]);
+    mapper_message params = mapper_message_parse_params(argc-param_index,
+                                                        &types[param_index],
+                                                        &argv[param_index]);
+
+    mapper_map map = 0;
+    mapper_message_atom atom = mapper_message_param(params, AT_ID);
+    if (atom && atom->types[0] == 'h') {
+        map = mapper_db_map_by_id(db, (atom->values[0])->i64);
+
+        /* If a mapping already exists between these signals, forward the
+         * message to handler_modify_map() and stop. */
+        if (map && map->status >= MAPPER_ACTIVE) {
+            handler_modify_map(path, types, argv, argc, msg, user_data);
+            mapper_message_free(params);
+            return 0;
+        }
+    }
+
+    if (!map) {
+        // ensure names are in alphabetical order
+        if (!is_alphabetical(num_sources, &argv[src_index])) {
+            trace("error in /map: signal names out of order.\n");
+            return 0;
+        }
+        const char *src_names[num_sources];
+        for (i = 0; i < num_sources; i++) {
+            src_names[i] = &argv[src_index+i]->s;
+        }
+
+        // create a tentative mapping (flavourless)
+        map = mapper_db_add_or_update_map_params(db, num_sources, src_names,
+                                                 &argv[dest_index]->s, 0);
+        if (!map) {
+            trace("error creating local map.\n");
+            return 0;
+        }
+    }
+
+    if (!map->local)
+        mapper_router_add_map(dev->local->router, map, MAPPER_INCOMING);
+
     mapper_map_set_from_message(map, params, 1);
     mapper_message_free(params);
 
-    if (map->local->status == MAPPER_READY) {
-        // This mapping only references local signals, advance to "active" state
-        map->local->status = MAPPER_ACTIVE;
+    if (map->status == MAPPER_READY) {
+        trace("map references only local signals... setting state to ACTIVE.\n");
+        map->status = MAPPER_ACTIVE;
         ++dev->num_outgoing_maps;
         ++dev->num_incoming_maps;
 //        ++map->sources[i].local->link->num_outgoing_maps;
 //        ++map->destination.local->link->num_incoming_maps;
 
         // Inform subscribers
-        if (net->subscribers) {
-            mapper_network_set_bundle_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_IN);
-            mapper_network_send_map(net, map, -1, MSG_MAPPED);
+        if (dev->local->subscribers) {
+            mapper_network_set_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_IN);
+            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
         return 0;
     }
 
     if (map->local->one_source && !map->sources[0].local->router_sig
         && map->sources[0].local->link && map->sources[0].local->link->admin_addr) {
-        mapper_network_set_bundle_dest_mesh(net,
-                                            map->sources[0].local->link->admin_addr);
-        mapper_network_send_map(net, map, -1, MSG_MAP_TO);
+        mapper_network_set_dest_mesh(net, map->sources[0].local->link->admin_addr);
+        mapper_map_send_state(map, -1, MSG_MAP_TO, MAPPER_STATIC_PROPS);
     }
     else {
         for (i = 0; i < num_sources; i++) {
@@ -1840,9 +1532,9 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
             if (!map->sources[i].local->link
                 || !map->sources[i].local->link->admin_addr)
                 continue;
-            mapper_network_set_bundle_dest_mesh(net,
-                                                map->sources[i].local->link->admin_addr);
-            i = mapper_network_send_map(net, map, i, MSG_MAP_TO);
+            mapper_network_set_dest_mesh(net,
+                                         map->sources[i].local->link->admin_addr);
+            i = mapper_map_send_state(map, i, MSG_MAP_TO, MAPPER_STATIC_PROPS);
         }
     }
     return 0;
@@ -1854,6 +1546,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                           int argc, lo_message msg, void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
+    mapper_db db = &net->db;
     mapper_device dev = net->device;
     mapper_signal local_signal = 0;
     mapper_map map;
@@ -1943,47 +1636,28 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                                                     local_signal, id);
     }
 
-    if (!map) {
-        char *src_names[num_sources];
-        for (i = 0; i < num_sources; i++) {
-            mapper_parse_names(&argv[src_index+i]->s, 0, &src_names[i]);
-            if (!src_names[i]) {
-                trace("error parsing signal name.\n")
-                mapper_message_free(params);
-                return 0;
-            }
-        }
-        if (src_index) {
-            // organize source signals
-            mapper_signal src_sigs[num_sources];
-            for (i = 0; i < num_sources; i++) {
-                src_sigs[i] = mapper_db_device_signal_by_name(&net->db, dev,
-                                                              src_names[i]);
-            }
-            /* Add a flavourless mapping */
-            const char *dest_name = &argv[dest_index]->s;
-            map = mapper_router_add_map(dev->local->router, local_signal,
-                                        num_sources, src_sigs, &dest_name,
-                                        MAPPER_OUTGOING);
-        }
-        else {
-            /* Add a flavourless mapping */
-            map = mapper_router_add_map(dev->local->router, local_signal,
-                                        num_sources, 0, (const char**)src_names,
-                                        MAPPER_INCOMING);
-        }
-        if (!map) {
-            trace("couldn't create map in handler_map_to\n");
-            mapper_message_free(params);
-            return 0;
-        }
+    /* If a mapping already exists between these signals, forward the message
+     * to handler_modify_map() and stop. */
+    if (map && map->status >= MAPPER_ACTIVE) {
+        handler_modify_map(path, types, argv, argc, msg, user_data);
+        return 0;
     }
-    else if (map->num_sources != num_sources) {
-        if (src_index) {
-            trace("<%s> wrong num_sources in /map_to.\n", mapper_device_name(dev));
-            mapper_message_free(params);
+
+    if (!map) {
+        const char *src_names[num_sources];
+        for (i = 0; i < num_sources; i++) {
+            src_names[i] = &argv[src_index+i]->s;
+        }
+        // create a tentative mapping (flavourless)
+        map = mapper_db_add_or_update_map_params(db, num_sources, src_names,
+                                                 &argv[dest_index]->s, 0);
+        if (!map) {
+            trace("error creating local map in handler_map_to\n");
             return 0;
         }
+
+        mapper_router_add_map(dev->local->router, map,
+                              src_index ? MAPPER_OUTGOING : MAPPER_INCOMING);
     }
 
     /* TODO: handle passing @numInstances prop from signals, set sensible
@@ -1992,19 +1666,18 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     /* Set map properties. */
     mapper_map_set_from_message(map, params, 1);
 
-    if (map->local->status == MAPPER_READY) {
+    if (map->status == MAPPER_READY) {
         if (map->destination.direction == MAPPER_OUTGOING) {
-            mapper_network_set_bundle_dest_mesh(net,
-                                                map->destination.local->link->admin_addr);
-            mapper_network_send_map(net, map, -1, MSG_MAPPED);
+            mapper_network_set_dest_mesh(net,
+                                         map->destination.local->link->admin_addr);
+            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
-                mapper_network_set_bundle_dest_mesh(net,
-                                                    map->sources[i].local->link->admin_addr);
-                i = mapper_network_send_map(net, map,
-                                            map->local->one_source ? -1 : i,
-                                            MSG_MAPPED);
+                mapper_network_set_dest_mesh(net,
+                                             map->sources[i].local->link->admin_addr);
+                i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
+                                          MSG_MAPPED, MAPPER_STATIC_PROPS);
             }
         }
     }
@@ -2013,7 +1686,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     return 0;
 }
 
-/*! Admins respond to /mapped by storing mapping in database. */
+/*! Respond to /mapped by storing mapping in database. */
 /*! Also used by devices to confirm connection to remote peers, and to share
  *  changes in mapping properties. */
 static int handler_mapped(const char *path, const char *types, lo_arg **argv,
@@ -2023,7 +1696,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     mapper_device dev = net->device;
     mapper_signal local_signal = 0;
     mapper_map map;
-    mapper_admin adm = net->admin;
     int i, num_sources, src_index, dest_index, param_index;
     const char *local_signal_name;
 
@@ -2033,13 +1705,9 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         return 0;
 
     if (!is_alphabetical(num_sources, &argv[src_index])) {
-        trace("error in /maped: signals names out of order.");
+        trace("error in /mapped: signals names out of order.");
         return 0;
     }
-
-    mapper_message params = mapper_message_parse_params(argc-param_index,
-                                                        &types[param_index],
-                                                        &argv[param_index]);
 
     // 2 scenarios: if message in form A -> B, only B interested
     //              if message in form A <- B, only B interested
@@ -2070,10 +1738,10 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
 
 #ifdef DEBUG
     if (dev)
-        printf("-- <%s> %s /mapped", mapper_device_name(dev) ?: "",
+        printf("-- <%s> %s /mapped", mapper_device_name(dev) ?: "network",
                local_signal ? "got" : "ignoring");
     else
-        printf("-- <admin> got /mapped");
+        printf("-- <network> got /mapped");
     if (src_index)
         printf(" %s <-", &argv[dest_index]->s);
     for (i = 0; i < num_sources; i++)
@@ -2082,8 +1750,15 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         printf(" -> %s", &argv[dest_index]->s);
     printf("\n");
 #endif
+
+    mapper_message params = 0;
+    if (local_signal || net->db.autosubscribe) {
+        params = mapper_message_parse_params(argc-param_index,
+                                             &types[param_index],
+                                             &argv[param_index]);
+    }
     if (!local_signal) {
-        if (adm) {
+        if (net->db.autosubscribe) {
             const char *src_names[num_sources];
             for (i = 0; i < num_sources; i++) {
                 src_names[i] = &argv[src_index+i]->s;
@@ -2132,25 +1807,30 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     // TODO: if this endpoint is map admin, do not allow overwiting props
     int updated = mapper_map_set_from_message(map, params, 0);
 
-    if (map->local->status == MAPPER_READY) {
+    if (map->status < MAPPER_READY) {
+        mapper_message_free(params);
+        return 0;
+    }
+    if (map->status == MAPPER_READY) {
+        map->status = MAPPER_ACTIVE;
+
         // Inform remote peer(s)
         if (map->destination.direction == MAPPER_OUTGOING) {
-            mapper_network_set_bundle_dest_mesh(net,
-                                                map->destination.local->link->admin_addr);
-            mapper_network_send_map(net, map, -1, MSG_MAPPED);
+            mapper_network_set_dest_mesh(net,
+                                         map->destination.local->link->admin_addr);
+            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
-                mapper_network_set_bundle_dest_mesh(net,
-                                                    map->sources[i].local->link->admin_addr);
-                i = mapper_network_send_map(net, map,
-                                            map->local->one_source ? -1 : i,
-                                            MSG_MAPPED);
+                mapper_network_set_dest_mesh(net,
+                                             map->sources[i].local->link->admin_addr);
+                i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
+                                          MSG_MAPPED, MAPPER_STATIC_PROPS);
             }
         }
         updated++;
     }
-    if (map->local->status >= MAPPER_READY && updated) {
+    if (updated) {
         // Update map counts
         if (map->destination.direction == MAPPER_OUTGOING) {
             ++dev->num_outgoing_maps;
@@ -2167,13 +1847,11 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                 ++link->num_incoming_maps;
             }
         }
-        if (net->subscribers) {
+        if (dev->local->subscribers) {
             // Inform subscribers
-            mapper_network_set_bundle_dest_subscribers(net,
-                                                       SUBSCRIBE_DEVICE_MAPS_IN);
-            mapper_network_send_map(net, map, -1, MSG_MAPPED);
+            mapper_network_set_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_IN);
+            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
-        map->local->status = MAPPER_ACTIVE;
 
         // Call local map handler if it exists
         mapper_device_map_handler *h = dev->local->map_handler;
@@ -2286,29 +1964,29 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         // TODO: may not need to inform all remote peers
         // Inform remote peer(s) of relevant changes
         if (!map->destination.local->router_sig) {
-            mapper_network_set_bundle_dest_mesh(net,
-                                                map->destination.local->link->admin_addr);
-            mapper_network_send_map(net, map, -1, MSG_MAPPED);
+            mapper_network_set_dest_mesh(net,
+                                         map->destination.local->link->admin_addr);
+            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
                 if (map->sources[i].local->router_sig)
                     continue;
-                mapper_network_set_bundle_dest_mesh(net,
-                                                    map->sources[i].local->link->admin_addr);
-                i = mapper_network_send_map(net, map, i, MSG_MAPPED);
+                mapper_network_set_dest_mesh(net,
+                                             map->sources[i].local->link->admin_addr);
+                i = mapper_map_send_state(map, i, MSG_MAPPED, MAPPER_STATIC_PROPS);
             }
         }
 
-        if (net->subscribers) {
+        if (dev->local->subscribers) {
             // Inform subscribers
             if (map->destination.local->router_sig)
-                mapper_network_set_bundle_dest_subscribers(net,
-                                                           SUBSCRIBE_DEVICE_MAPS_IN);
+                mapper_network_set_dest_subscribers(net,
+                                                    SUBSCRIBE_DEVICE_MAPS_IN);
             else
-                mapper_network_set_bundle_dest_subscribers(net,
-                                                           SUBSCRIBE_DEVICE_MAPS_OUT);
-            mapper_network_send_map(net, map, -1, MSG_MAPPED);
+                mapper_network_set_dest_subscribers(net,
+                                                    SUBSCRIBE_DEVICE_MAPS_OUT);
+            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
 
         // Call local map handler if it exists
@@ -2397,28 +2075,28 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     if (map->local->is_admin) {
         // inform remote peer(s)
         if (!map->destination.local->router_sig) {
-            mapper_network_set_bundle_dest_mesh(net,
-                                                map->destination.local->link->admin_addr);
-            mapper_network_send_map(net, map, -1, MSG_UNMAP);
+            mapper_network_set_dest_mesh(net,
+                                         map->destination.local->link->admin_addr);
+            mapper_map_send_state(map, -1, MSG_UNMAP, 0);
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
                 if (map->sources[i].local->router_sig)
                     continue;
-                mapper_network_set_bundle_dest_mesh(net,
-                                                    map->sources[i].local->link->admin_addr);
-                i = mapper_network_send_map(net, map, i, MSG_UNMAP);
+                mapper_network_set_dest_mesh(net,
+                                             map->sources[i].local->link->admin_addr);
+                i = mapper_map_send_state(map, i, MSG_UNMAP, 0);
             }
         }
     }
 
-    if (net->subscribers) {
+    if (dev->local->subscribers) {
         // Inform subscribers
         if (map->destination.local->router_sig)
-            mapper_network_set_bundle_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_IN);
+            mapper_network_set_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_IN);
         else
-            mapper_network_set_bundle_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_OUT);
-        mapper_network_send_map(net, map, -1, MSG_UNMAPPED);
+            mapper_network_set_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_OUT);
+        mapper_map_send_state(map, -1, MSG_UNMAPPED, 0);
     }
 
     // Call local map handler if it exists
@@ -2438,7 +2116,6 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
 {
     // TODO: devices should check if they are target, clean up old maps
     mapper_network net = (mapper_network) user_data;
-    mapper_admin adm = net->admin;
     int i, id_index;
     uint64_t *id = 0;
 
@@ -2457,15 +2134,14 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
     }
 
 #ifdef DEBUG
-    printf("-- <admin> got /unmapped");
+    printf("-- <network> got /unmapped");
     for (i = 0; i < id_index; i++)
         printf(" %s", &argv[i]->s);
 #endif
 
-    mapper_db db = mapper_admin_db(adm);
-    mapper_map map = mapper_db_map_by_id(db, *id);
-    if (map && map->local)
-        mapper_db_remove_map(db, map);
+    mapper_map map = mapper_db_map_by_id(&net->db, *id);
+    if (map)
+        mapper_db_remove_map(&net->db, map);
 
     return 0;
 }
@@ -2487,6 +2163,8 @@ static int handler_ping(const char *path, const char *types, lo_arg **argv,
     mapper_link link = mapper_router_find_link_by_remote_id(dev->local->router,
                                                             argv[0]->h);
     if (link) {
+        trace("<%s> ping received from linked device '%s'\n", dev->name,
+              link->remote_device->name);
         if (argv[2]->i == link->clock.sent.message_id) {
             // total elapsed time since ping sent
             double elapsed = mapper_timetag_difference(now, link->clock.sent.timetag);
@@ -2532,9 +2210,8 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
                         int argc, lo_message msg, void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
-    mapper_admin adm = net->admin;
 
-    if (!adm || !argc)
+    if (!net || !argc)
         return 0;
 
     mapper_device dev = 0;
@@ -2542,16 +2219,16 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
         if ((dev = mapper_db_device_by_name(&net->db, &argv[0]->s))) {
             mapper_timetag_copy(&dev->synced, lo_message_get_timestamp(msg));
         }
-        if (adm->autosubscribe && (!dev || !dev->subscribed)) {
+        if (net->db.autosubscribe && (!dev || !dev->subscribed)) {
             // only create device record after requesting more information
             if (dev) {
-                mapper_admin_subscribe(adm, dev, adm->autosubscribe, -1);
+                mapper_db_subscribe(&net->db, dev, net->db.autosubscribe, -1);
                 dev->subscribed = 1;
             }
             else {
                 mapper_device_t temp;
                 temp.name = &argv[0]->s;
-                mapper_admin_subscribe(adm, &temp, adm->autosubscribe, 0);
+                mapper_db_subscribe(&net->db, &temp, net->db.autosubscribe, 0);
             }
         }
     }
@@ -2561,4 +2238,51 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
     }
 
     return 0;
+}
+
+/* Send an arbitrary message to the multicast bus */
+void mapper_network_send_message(mapper_network net, const char *path,
+                                 const char *types, ...)
+{
+    if (!net || !path || !types)
+        return;
+    lo_message msg = lo_message_new();
+    if (!msg)
+        return;
+
+    va_list aq;
+    va_start(aq, types);
+    char t[] = " ";
+
+    while (types && *types) {
+        t[0] = types[0];
+        switch (t[0]) {
+            case 'i':
+                lo_message_add(msg, t, va_arg(aq, int));
+                break;
+            case 's':
+            case 'S':
+                lo_message_add(msg, t, va_arg(aq, char*));
+                break;
+            case 'f':
+            case 'd':
+                lo_message_add(msg, t, va_arg(aq, double));
+                break;
+            case 'c':
+                lo_message_add(msg, t, (char)va_arg(aq, int));
+                break;
+            case 't':
+                lo_message_add(msg, t, va_arg(aq, mapper_timetag_t));
+                break;
+            default:
+                die_unless(0, "message %s, unknown type '%c'\n",
+                           path, t[0]);
+        }
+        types++;
+    }
+    mapper_network_set_dest_bus(net);
+    mapper_network_add_message(net, path, 0, msg);
+    /* We cannot depend on string arguments sticking around for liblo to
+     * serialize later: trigger immediate dispatch. */
+    mapper_network_send(net);
 }

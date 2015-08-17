@@ -14,6 +14,8 @@
 static void reallocate_map_histories(mapper_map map);
 static int mapper_map_set_mode_linear(mapper_map map);
 
+#define METADATA_OK (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN | MAPPER_LINK_KNOWN)
+
 /* Static data for property tables embedded in the map data structure.
  *
  * Maps have properties that can be indexed by name, and can have extra
@@ -48,24 +50,15 @@ static int mapper_map_set_mode_linear(mapper_map map);
 
 #define SLOT_TYPE       (SLOT_OFFSET(type))
 #define SLOT_LENGTH     (SLOT_OFFSET(length))
-#define NUM_SCOPES      (MAP_OFFSET(scope.size))
-#define NUM_SOURCES     (MAP_OFFSET(num_sources))
-
-#define LOCAL_TYPE      (MAP_OFFSET(local_type))
-#define REMOTE_TYPE     (MAP_OFFSET(remote_type))
-#define LOCAL_LENGTH    (MAP_OFFSET(local_length))
-#define REMOTE_LENGTH   (MAP_OFFSET(remote_length))
-#define NUM_SCOPES      (MAP_OFFSET(scope.size))
 
 static property_table_value_t map_values[] = {
     { 's', {1}, -1,         MAP_OFFSET(expression) },
     { 'h', {0}, -1,         MAP_OFFSET(id)},
     { 'i', {0}, -1,         MAP_OFFSET(mode) },
     { 'i', {0}, -1,         MAP_OFFSET(muted) },
-    { 'i', {0}, -1,         MAP_OFFSET(scope.size) },
     { 'i', {0}, -1,         MAP_OFFSET(num_sources) },
     { 'i', {0}, -1,         MAP_OFFSET(process_location) },
-    { 's', {1}, NUM_SCOPES, MAP_OFFSET(scope.names) },
+    { 'i', {0}, -1,         MAP_OFFSET(status) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -74,10 +67,9 @@ static string_table_node_t map_strings[] = {
     { "id",                 &map_values[1] },
     { "mode",               &map_values[2] },
     { "muted",              &map_values[3] },
-    { "num_scopes",         &map_values[4] },
-    { "num_sources",        &map_values[5] },
-    { "process_at",         &map_values[6] },
-    { "scope_names",        &map_values[7] },
+    { "num_sources",        &map_values[4] },
+    { "process_at",         &map_values[5] },
+    { "status",             &map_values[6] },
 };
 
 const int NUM_MAP_STRINGS = sizeof(map_strings)/sizeof(map_strings[0]);
@@ -93,7 +85,8 @@ static property_table_value_t slot_values[] = {
     { 'i', {0},         -1,          SLOT_OFFSET(length) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(maximum) },
     { 'o', {SLOT_TYPE}, SLOT_LENGTH, SLOT_OFFSET(minimum) },
-    { 'i', {0},         -1,          SLOT_OFFSET(sends_as_instance) },
+    { 'i', {0},         -1,          SLOT_OFFSET(num_instances) },
+    { 'i', {0},         -1,          SLOT_OFFSET(use_as_instance) },
     { 'c', {0},         -1,          SLOT_OFFSET(type) },
 };
 
@@ -107,13 +100,140 @@ static string_table_node_t slot_strings[] = {
     { "length",             &slot_values[5] },
     { "maximum",            &slot_values[6] },
     { "minimum",            &slot_values[7] },
-    { "sends_as_instance",  &slot_values[8] },
-    { "type",               &slot_values[9] },
+    { "num_instances",      &slot_values[8] },
+    { "use_as_instance",    &slot_values[9] },
+    { "type",               &slot_values[10] },
 };
 
 const int NUM_SLOT_STRINGS = sizeof(slot_strings)/sizeof(slot_strings[0]);
 static mapper_string_table_t slot_table =
     { slot_strings, NUM_SLOT_STRINGS, NUM_SLOT_STRINGS };
+
+static int alphabetise_signals(int num, mapper_signal *sigs, int *order)
+{
+    int i, j, result = 1;
+    for (i = 0; i < num; i++)
+        order[i] = i;
+    for (i = 1; i < num; i++) {
+        j = i-1;
+        while (j >= 0
+               && (((result = strcmp(sigs[order[j]]->device->name,
+                                     sigs[order[j+1]]->device->name)) > 0)
+                   || ((result = strcmp(sigs[order[j]]->name,
+                                        sigs[order[j+1]]->name)) > 0))) {
+                   int temp = order[j];
+                   order[j] = order[j+1];
+                   order[j+1] = temp;
+                   j--;
+               }
+        if (result == 0)
+            return 1;
+    }
+    return 0;
+}
+
+mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
+                          mapper_signal destination)
+{
+    int i;
+    if (!sources || !destination)
+        return 0;
+    if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES)
+        return 0;
+
+    mapper_local_device ldev = destination->device->local;
+    mapper_db db = destination->device->db;
+
+    // check if record of map already exists
+    mapper_map map, *maps, *temp;
+    maps = mapper_db_signal_maps(db, destination, MAPPER_INCOMING);
+    for (i = 0; i < num_sources; i++) {
+        temp = mapper_db_signal_maps(db, sources[i], MAPPER_OUTGOING);
+        maps = mapper_map_query_intersection(maps, temp);
+    }
+    while (maps) {
+        if ((*maps)->num_sources == num_sources) {
+            map = *maps;
+            mapper_map_query_done(maps);
+            return map;
+        }
+        maps = mapper_map_query_next(maps);
+    }
+
+    int order[num_sources];
+    if (alphabetise_signals(num_sources, sources, order)) {
+        trace("error in mapper_map_new(): multiple use of source signal.\n");
+        return 0;
+    }
+
+    map = (mapper_map)mapper_list_add_item((void**)&db->maps,
+                                           sizeof(mapper_map_t));
+    map->db = db;
+    map->num_sources = num_sources;
+    map->sources = (mapper_slot) calloc(1, sizeof(struct _mapper_slot)
+                                        * num_sources);
+    for (i = 0; i < num_sources; i++) {
+        if (sources[order[i]]->device->local == ldev) {
+            map->sources[i].signal = sources[order[i]];
+        }
+        else {
+            map->sources[i].signal =
+                mapper_db_add_or_update_signal_params(db, sources[order[i]]->name,
+                                                      sources[order[i]]->device->name, 0);
+            if (!map->sources[i].id) {
+                map->sources[i].signal->id = sources[order[i]]->id;
+                map->sources[i].signal->direction = sources[order[i]]->direction;
+//                map->sources[i].signal->type = map->sources[i].type = sources[order[i]]->type;
+//                map->sources[i].signal->length = map->sources[i].length = sources[order[i]]->length;
+//                map->sources[i].status |= (MAPPER_TYPE_KNOWN & MAPPER_LENGTH_KNOWN);
+            }
+            if (!map->sources[i].signal->device->id) {
+                map->sources[i].signal->device->id = sources[order[i]]->device->id;
+            }
+        }
+        map->sources[i].map = map;
+        map->id = i;
+    }
+    map->destination.signal = destination;
+    map->destination.map = map;
+    map->destination.direction = MAPPER_INCOMING;
+
+    map->extra = table_new();
+    map->updater = table_new();
+
+    // we need to give the map a temporary id – this may be overwritten later
+    map->id = mapper_device_unique_id(destination->device);
+
+    map->status = MAPPER_STAGED;
+
+//    if (destination->device->local)
+//        mapper_router_add_map(destination->device->local->router, map,
+//                              MAPPER_INCOMING);
+
+    return map;
+}
+
+void mapper_map_unmap(mapper_map map)
+{
+    mapper_map_send_state(map, -1, MSG_UNMAP, 0);
+}
+
+void mapper_map_sync(mapper_map map)
+{
+    if (!map)
+        return;
+    int cmd;
+    if (map->status >= MAPPER_ACTIVE) {
+        if (!map->updater->len)
+            return;
+        cmd = MSG_MODIFY_MAP;
+    }
+    else
+        cmd = MSG_MAP;
+
+    mapper_network_set_dest_bus(map->db->network);
+    mapper_map_send_state(map, -1, cmd, MAPPER_UPDATED_PROPS);
+}
 
 void mapper_map_free(mapper_map map)
 {
@@ -148,10 +268,10 @@ mapper_slot mapper_map_destination_slot(mapper_map map)
 mapper_slot mapper_map_slot_by_signal(mapper_map map, mapper_signal sig)
 {
     int i;
-    if (map->destination.signal == sig)
+    if (map->destination.signal->id == sig->id)
         return &map->destination;
     for (i = 0; i < map->num_sources; i++) {
-        if (map->sources[i].signal == sig)
+        if (map->sources[i].signal->id == sig->id)
             return &map->sources[i];
     }
     return 0;
@@ -201,6 +321,11 @@ int mapper_map_property_index(mapper_map map, unsigned int index,
 {
     return mapper_db_property_index(map, map->extra, index, property, length,
                                     type, value, &map_table);
+}
+
+mapper_status mapper_map_status(mapper_map map)
+{
+    return map ? map->status : 0;
 }
 
 void mapper_map_set_description(mapper_map map, const char *description)
@@ -283,7 +408,8 @@ void mapper_map_set_property(mapper_map map, const char *property, int length,
         || strcmp(property, "source") == 0
         || strcmp(property, "sources") == 0
         || strcmp(property, "destination") == 0
-        || strcmp(property, "id") == 0) {
+        || strcmp(property, "id") == 0
+        || strcmp(property, "status") == 0) {
         trace("Cannot set static map property '%s'\n", property);
         return;
     }
@@ -326,7 +452,7 @@ void mapper_map_set_property(mapper_map map, const char *property, int length,
 
 int mapper_slot_index(mapper_slot slot)
 {
-    if (slot->direction == MAPPER_INCOMING)
+    if (slot == &slot->map->destination)
         return 0;
     int i;
     for (i = 0; i < slot->map->num_sources; i++) {
@@ -361,9 +487,14 @@ int mapper_slot_causes_update(mapper_slot slot)
     return slot->causes_update;
 }
 
-int mapper_slot_sends_as_instance(mapper_slot slot)
+int mapper_slot_num_instances(mapper_slot slot)
 {
-    return slot->sends_as_instance;
+    return slot->num_instances;
+}
+
+int mapper_slot_use_as_instance(mapper_slot slot)
+{
+    return slot->use_as_instance;
 }
 
 void mapper_slot_maximum(mapper_slot slot, int *length, char *type, void **value)
@@ -405,7 +536,7 @@ void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action a)
 {
     int i;
     char propname[16] = "dst@boundMax";
-    if (slot->direction == MAPPER_OUTGOING) {
+    if (slot != &slot->map->destination) {
         // source slot - figure out which source slot we are
         if (slot->map->num_sources == 1)
             snprintf(propname, 16, "src@boundMax");
@@ -426,7 +557,7 @@ void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action a)
 {
     int i;
     char propname[16] = "dst@boundMin";
-    if (slot->direction == MAPPER_OUTGOING) {
+    if (slot != &slot->map->destination) {
         // source slot - figure out which source slot we are
         if (slot->map->num_sources == 1)
             snprintf(propname, 16, "src@boundMin");
@@ -447,7 +578,7 @@ static void set_bool_slot_prop(mapper_slot slot, const char *propname, int value
 {
     int i;
     char fullpropname[128];
-    if (slot->direction == MAPPER_INCOMING) {
+    if (slot == &slot->map->destination) {
         // destination slot
         snprintf(fullpropname, 128, "dst@%s", propname);
     }
@@ -478,9 +609,9 @@ void mapper_slot_set_causes_update(mapper_slot slot, int causes_update)
     set_bool_slot_prop(slot, "causesUpdate", causes_update);
 }
 
-void mapper_slot_set_sends_as_instance(mapper_slot slot, int sends_as_instance)
+void mapper_slot_set_use_as_instance(mapper_slot slot, int use_as_instance)
 {
-    set_bool_slot_prop(slot, "sendsAsInstance", sends_as_instance);
+    set_bool_slot_prop(slot, "useAsInstance", use_as_instance);
 }
 
 static void set_extrema_prop(mapper_slot slot, const char *propname, int length,
@@ -488,7 +619,7 @@ static void set_extrema_prop(mapper_slot slot, const char *propname, int length,
 {
     int i;
     char fullpropname[128];
-    if (slot->direction == MAPPER_INCOMING) {
+    if (slot == &slot->map->destination) {
         // destination slot
         snprintf(fullpropname, 128, "dst@%s", fullpropname);
     }
@@ -552,10 +683,10 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
             return;
         mapper_slot_set_causes_update(slot, *(int*)value);
     }
-    else if (strcmp(property, "sends_as_instance") == 0) {
+    else if (strcmp(property, "use_as_instance") == 0) {
         if (length != 1 || type != 'i')
             return;
-        mapper_slot_set_sends_as_instance(slot, *(int*)value);
+        mapper_slot_set_use_as_instance(slot, *(int*)value);
     }
     else if (strcmp(property, "maximum") == 0
              || strcmp(property, "max") == 0) {
@@ -573,47 +704,46 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
 //    }
 }
 
-static int add_scope_internal(mapper_map_scope scope, const char *name)
+static int add_scope_internal(mapper_map map, const char *name)
 {
     int i;
-    if (!scope || !name)
+    if (!map || !name)
         return 1;
 
     // Check if scope is already stored for this map
-    uint32_t hash;
     if (strcmp(name, "all")==0)
-        hash = 0;
-    else
-        hash = crc32(0L, (const Bytef*)name, strlen(name));
-    for (i=0; i<scope->size; i++)
-        if (scope->hashes[i] == hash)
+        name = 0;
+    for (i = 0; i < map->scope.size; i++) {
+        if (!map->scope.devices[i]) {
+            if (!name)
+                return 1;
+        }
+        else if (name && strcmp(map->scope.devices[i]->name, name) == 0)
             return 1;
+    }
 
     // not found - add a new scope
-    i = ++scope->size;
-    scope->names = realloc(scope->names, i * sizeof(char*));
-    scope->names[i-1] = strdup(name);
-    scope->hashes = realloc(scope->hashes, i * sizeof(uint32_t));
-    scope->hashes[i-1] = hash;
+    mapper_device dev = name ? mapper_db_device_by_name(map->db, name) : 0;
+    i = ++map->scope.size;
+    map->scope.devices = realloc(map->scope.devices, i * sizeof(mapper_device));
+    map->scope.devices[i-1] = dev;
     return 0;
 }
 
-static int remove_scope_internal(mapper_map_scope scope, int index)
+static int remove_scope_internal(mapper_map map, int index)
 {
     int i;
 
-    free(scope->names[index]);
-    for (i = index+1; i < scope->size; i++) {
-        scope->names[i-1] = scope->names[i];
-        scope->hashes[i-1] = scope->hashes[i];
+    for (i = index+1; i < map->scope.size; i++) {
+        map->scope.devices[i-1] = map->scope.devices[i];
     }
-    scope->size--;
-    scope->names = realloc(scope->names, scope->size * sizeof(char*));
-    scope->hashes = realloc(scope->hashes, scope->size * sizeof(uint32_t));
+    map->scope.size--;
+    map->scope.devices = realloc(map->scope.devices,
+                                 map->scope.size * sizeof(mapper_device));
     return 0;
 }
 
-static int mapper_map_update_scope(mapper_map_scope scope,
+static int mapper_map_update_scope(mapper_map map,
                                    mapper_message_atom atom)
 {
     int i, j, updated = 0, num = atom->length;
@@ -623,22 +753,30 @@ static int mapper_map_update_scope(mapper_map_scope scope,
             num = 0;
 
         // First remove old scopes that are missing
-        for (i = 0; i < scope->size; i++) {
+        for (i = 0; i < map->scope.size; i++) {
             int found = 0;
             for (j = 0; j < num; j++) {
-                if (strcmp(scope->names[i], &scope_list[j]->s) == 0) {
+                if (!map->scope.devices[i]) {
+                    if (strcmp(&scope_list[j]->s, "all") == 0) {
+                        found = 1;
+                        break;
+                    }
+                    break;
+                }
+                if (strcmp(map->scope.devices[i]->name, &scope_list[j]->s) == 0) {
                     found = 1;
                     break;
                 }
             }
             if (!found) {
-                remove_scope_internal(scope, i);
+                remove_scope_internal(map, i);
                 updated++;
             }
         }
         // ...then add any new scopes
-        for (i = 0; i < num; i++)
-            updated += (1 - add_scope_internal(scope, &scope_list[i]->s));
+        for (i = 0; i < num; i++) {
+            updated += (1 - add_scope_internal(map, &scope_list[i]->s));
+        }
     }
     return updated;
 }
@@ -749,7 +887,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
             mapper_map_set_mode_linear(map);
     }
 
-    if (map->local->status != MAPPER_ACTIVE || map->muted) {
+    if (map->status != MAPPER_ACTIVE || map->muted) {
         return 0;
     }
     else if (map->process_location == MAPPER_DESTINATION) {
@@ -775,8 +913,9 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
     mapper_history sources[map->num_sources];
     for (i = 0; i < map->num_sources; i++)
         sources[i] = &map->sources[i].local->history[instance];
-    return (mapper_expr_evaluate(map->local->expr,
-                                 sources, &map->local->expr_vars[instance], &to[instance],
+    return (mapper_expr_evaluate(map->local->expr, sources,
+                                 &map->local->expr_vars[instance],
+                                 &to[instance],
                                  mapper_history_tt_ptr(from[instance]),
                                  typestring));
 }
@@ -1011,7 +1150,7 @@ static int replace_expression_string(mapper_map map, const char *expr_str)
     if (map->local->expr && map->expression && strcmp(map->expression, expr_str)==0)
         return 1;
 
-    if (map->local->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
+    if (map->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
         return 1;
 
     int i;
@@ -1074,7 +1213,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
     if (map->num_sources > 1)
         return 1;
 
-    if (map->local->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
+    if (map->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
         return 1;
 
     int i, len;
@@ -1204,7 +1343,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
 
 void mapper_map_set_mode_expression(mapper_map map, const char *expr)
 {
-    if (map->local->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
+    if (map->status < (MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN))
         return;
 
     int i, should_compile = 0;
@@ -1242,15 +1381,15 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
      * evaluates to a constant we can update immediately. */
     /* TODO: should call handler for all instances updated
      * through this map. */
-    int sends_as_instance = 0;
+    int use_as_instance = 0;
     for (i = 0; i < map->num_sources; i++) {
-        if (map->sources[i].sends_as_instance) {
-            sends_as_instance = 1;
+        if (map->sources[i].use_as_instance) {
+            use_as_instance = 1;
             break;
         }
     }
-    sends_as_instance += map->destination.sends_as_instance;
-    if (mapper_expr_constant_output(map->local->expr) && !sends_as_instance) {
+    use_as_instance += map->destination.use_as_instance;
+    if (mapper_expr_constant_output(map->local->expr) && !use_as_instance) {
         mapper_timetag_t now;
         mapper_clock_now(&map->db->network->clock, &now);
 
@@ -1268,7 +1407,7 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
     }
 }
 
-static void init_map_history(mapper_slot slot)
+static void init_slot_history(mapper_slot slot)
 {
     int i;
     if (slot->local->history)
@@ -1384,13 +1523,16 @@ static void apply_mode(mapper_map map)
 
 static int mapper_map_check_status(mapper_map map)
 {
-    map->local->status |= MAPPER_READY;
-    int mask = ~MAPPER_READY;
+    if (map->status >= MAPPER_READY)
+        return map->status;
+
+    map->status |= METADATA_OK;
+    int mask = ~METADATA_OK;
     if (map->destination.local->router_sig
         || (map->destination.local->link
             && map->destination.local->link->remote_device->host))
         map->destination.local->status |= MAPPER_LINK_KNOWN;
-    map->local->status &= (map->destination.local->status | mask);
+    map->status &= (map->destination.local->status | mask);
 
     int i;
     for (i = 0; i < map->num_sources; i++) {
@@ -1398,24 +1540,23 @@ static int mapper_map_check_status(mapper_map map)
             || (map->sources[i].local->link
                 && map->sources[i].local->link->remote_device->host))
             map->sources[i].local->status |= MAPPER_LINK_KNOWN;
-        map->local->status &= (map->sources[i].local->status | mask);
+        map->status &= (map->sources[i].local->status | mask);
     }
 
-    if ((map->local->status & MAPPER_TYPE_KNOWN)
-        && (map->local->status & MAPPER_LENGTH_KNOWN)) {
+    if (map->status == METADATA_OK) {
         // allocate memory for map history
-        // TODO: should we wait for link information also?
         for (i = 0; i < map->num_sources; i++) {
-            init_map_history(&map->sources[i]);
+            init_slot_history(&map->sources[i]);
         }
-        init_map_history(&map->destination);
+        init_slot_history(&map->destination);
         if (!map->local->expr_vars) {
             map->local->expr_vars = calloc(1, sizeof(mapper_history)
                                            * map->local->num_var_instances);
         }
+        map->status = MAPPER_READY;
         apply_mode(map);
     }
-    return map->local->status;
+    return map->status;
 }
 
 static void upgrade_extrema_memory(mapper_slot slot, int length, char type)
@@ -1481,8 +1622,8 @@ static void upgrade_extrema_memory(mapper_slot slot, int length, char type)
         free(slot->maximum);
         slot->maximum = new_mem;
     }
-    slot->type = type;
-    slot->length= length;
+    slot->signal->type = slot->type = type;
+    slot->signal->length = slot->length= length;
 }
 
 static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
@@ -1540,16 +1681,16 @@ static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
                                          AT_CAUSES_UPDATE | mask);
 
     /* sends as instance */
-    updated += mapper_update_bool_if_arg(&slot->sends_as_instance, msg,
-                                         AT_SENDS_AS_INSTANCE | mask);
+    updated += mapper_update_bool_if_arg(&slot->use_as_instance, msg,
+                                         AT_USE_AS_INSTANCE | mask);
 
     /* maximum */
     atom = mapper_message_param(msg, AT_MAX | mask);
     if (atom && is_number_type(atom->types[0])) {
         if (!slot->type)
-            slot->type = atom->types[0];
+            slot->signal->type = slot->type = atom->types[0];
         if (!slot->length)
-            slot->length = atom->length;
+            slot->signal->length = slot->length = atom->length;
         if (slot->local)
             slot->local->status |= MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN;
         if (!slot->maximum)
@@ -1563,21 +1704,14 @@ static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
             updated += result;
         }
     }
-    if (!slot->maximum && slot->signal->maximum) {
-        // copy range from signal
-        slot->maximum = malloc(mapper_signal_vector_bytes(slot->signal));
-        memcpy(slot->maximum, slot->signal->maximum,
-               mapper_signal_vector_bytes(slot->signal));
-        updated++;
-    }
 
     /* minimum */
     atom = mapper_message_param(msg, AT_MIN | mask);
     if (atom && is_number_type(atom->types[0])) {
         if (!slot->type)
-            slot->type = atom->types[0];
+            slot->signal->type = slot->type = atom->types[0];
         if (!slot->length)
-            slot->length = atom->length;
+            slot->signal->length = slot->length = atom->length;
         if (slot->local)
             slot->local->status |= MAPPER_TYPE_KNOWN | MAPPER_LENGTH_KNOWN;
         if (!slot->minimum)
@@ -1591,13 +1725,6 @@ static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
             updated += result;
         }
     }
-    if (!slot->minimum && slot->signal->minimum) {
-        // copy range from signal
-        slot->minimum = malloc(mapper_signal_vector_bytes(slot->signal));
-        memcpy(slot->minimum, slot->signal->minimum,
-               mapper_signal_vector_bytes(slot->signal));
-        updated++;
-    }
 
     return updated;
 }
@@ -1609,7 +1736,7 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
     mapper_message_atom atom;
 
     if (!msg) {
-        if (map->local->status < MAPPER_READY) {
+        if (map->local && map->status < MAPPER_READY) {
             // check if mapping is now "ready"
             mapper_map_check_status(map);
         }
@@ -1661,8 +1788,8 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
     atom = mapper_message_param(msg, AT_EXPRESSION);
     if (atom && (atom->length == 1) && is_string_type(atom->types[0])) {
         const char *expr = &atom->values[0]->s;
-        if (map->local && (map->local->status & MAPPER_LENGTH_KNOWN)
-            && (map->local->status & MAPPER_TYPE_KNOWN)) {
+        if (map->local && (map->status & MAPPER_LENGTH_KNOWN)
+            && (map->status & MAPPER_TYPE_KNOWN)) {
             if (strstr(expr, "y{-")) {
                 map->process_location = MAPPER_DESTINATION;
             }
@@ -1704,23 +1831,30 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
     /* scopes */
     atom = mapper_message_param(msg, AT_SCOPE);
     if (atom && is_string_type(atom->types[0])) {
-        updated += mapper_map_update_scope(&map->scope, atom);
+        updated += mapper_map_update_scope(map, atom);
     }
     atom = mapper_message_param(msg, AT_SCOPE | PARAM_ADD);
     if (atom && is_string_type(atom->types[0])) {
         for (i = 0; i < atom->length; i++)
-            updated += (1 - add_scope_internal(&map->scope,
-                                               &(atom->values[i])->s));
+            updated += (1 - add_scope_internal(map, &(atom->values[i])->s));
     }
     atom = mapper_message_param(msg, AT_SCOPE | PARAM_REMOVE);
     if (atom && is_string_type(atom->types[0])) {
         for (i = 0; i < atom->length; i++) {
             // find scope
             for (j = 0; j < map->scope.size; j++) {
-                if (strcmp(map->scope.names[j], &(atom->values[i])->s)==0) {
-                    remove_scope_internal(&map->scope, j);
+                if (!map->scope.devices[j]) {
+                    if (strcmp(&(atom->values[i])->s, "all") == 0) {
+                        remove_scope_internal(map, j);
+                        updated++;
+                    }
+                    break;
+                }
+                else if (strcmp(map->scope.devices[j]->name,
+                                &(atom->values[i])->s)==0) {
+                    remove_scope_internal(map, j);
                     updated++;
-                    continue;
+                    break;
                 }
             }
         }
@@ -1740,13 +1874,15 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
     }
 
     if (map->local) {
-        if (map->local->status < MAPPER_READY) {
+        if (map->status < MAPPER_READY) {
             // check if mapping is now "ready"
             mapper_map_check_status(map);
         }
         else if (updated)
             apply_mode(map);
     }
+    else
+        updated += mapper_update_int_if_arg(&map->status, msg, AT_STATUS);
 
     return updated;
 }
@@ -2060,13 +2196,25 @@ static void add_slot_props_to_message(lo_message msg, mapper_slot slot,
     *key_ptr += len + 1;
     *size -= len + 1;
 
+    // number of instances
+    if (slot->signal->local) {
+        len = snprintf(*key_ptr, *size, "%s%s", prefix,
+                       mapper_param_string(AT_INSTANCES));
+        if (len < 0 && len > *size)
+            return;
+        lo_message_add_string(msg, *key_ptr);
+        lo_message_add_int32(msg, slot->num_instances);
+        *key_ptr += len + 1;
+        *size -= len + 1;
+    }
+
     // Sends as Instance
     len = snprintf(*key_ptr, *size, "%s%s", prefix,
-                   mapper_param_string(AT_SENDS_AS_INSTANCE));
+                   mapper_param_string(AT_USE_AS_INSTANCE));
     if (len < 0 && len > *size)
         return;
     lo_message_add_string(msg, *key_ptr);
-    message_add_bool(msg, slot->sends_as_instance);
+    message_add_bool(msg, slot->use_as_instance);
     *key_ptr += len + 1;
     *size -= len + 1;
 
@@ -2083,16 +2231,17 @@ static void add_slot_props_to_message(lo_message msg, mapper_slot slot,
 
 /* If the "slot_index" argument is >= 0, we can assume this message will be sent
  * to a peer device rather than an administrator. */
-const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
+static const char *add_properties_to_message(mapper_map map, lo_message msg,
+                                             int slot)
 {
     int i, size = 512;
     char *keys = malloc(size * sizeof(char));
     char *key_ptr = keys;
     mapper_link link;
 
-    // Mapping id
-    lo_message_add_string(msg, mapper_param_string(AT_ID));
-    lo_message_add_int64(msg, *((int64_t*)&map->id));
+    // Status
+    lo_message_add_string(msg, mapper_param_string(AT_STATUS));
+    lo_message_add_int32(msg, map->status);
 
     // Mapping mode
     lo_message_add_string(msg, mapper_param_string(AT_MODE));
@@ -2117,12 +2266,12 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
 
     // Slot
     if (map->destination.direction == MAPPER_INCOMING
-        && map->local->status < MAPPER_READY) {
+        && map->status < MAPPER_READY) {
         lo_message_add_string(msg, mapper_param_string(AT_SLOT));
         i = (slot >= 0) ? slot : 0;
-        link = map->sources[i].local->link;
+        link = map->sources[i].local ? map->sources[i].local->link : 0;
         for (; i < map->num_sources; i++) {
-            if (slot >= 0 && link != map->sources[i].local->link)
+            if ((slot >= 0) && link && (link != map->sources[i].local->link))
                 break;
             lo_message_add_int32(msg, map->sources[i].id);
         }
@@ -2130,9 +2279,9 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
 
     /* source properties */
     i = (slot >= 0) ? slot : 0;
-    link = map->sources[i].local->link;
+    link = map->sources[i].local ? map->sources[i].local->link : 0;
     for (; i < map->num_sources; i++) {
-        if (slot >= 0 && link != map->sources[i].local->link)
+        if ((slot >= 0) && link && (link != map->sources[i].local->link))
             break;
         add_slot_props_to_message(msg, &map->sources[i], 0, &key_ptr, &size);
     }
@@ -2144,7 +2293,8 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
     lo_message_add_string(msg, mapper_param_string(AT_SCOPE));
     if (map->scope.size) {
         for (i = 0; i < map->scope.size; i++)
-            lo_message_add_string(msg, map->scope.names[i]);
+            lo_message_add_string(msg, (map->scope.devices[i]
+                                        ? map->scope.devices[i]->name : "all"));
     }
     else
         lo_message_add_string(msg, "none");
@@ -2153,6 +2303,92 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg, int slot)
     mapper_message_add_value_table(msg, map->extra);
 
     return keys;
+}
+
+int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
+                          int flags)
+{
+    if (cmd == MSG_MAPPED && map->status < MAPPER_READY)
+        return slot;
+
+    lo_message msg = lo_message_new();
+    if (!msg) {
+        trace("couldn't allocate lo_message\n");
+        return slot;
+    }
+
+    char dest_name[256], source_names[1024];
+    snprintf(dest_name, 256, "%s%s",
+             map->destination.signal->device->name,
+             map->destination.signal->path);
+
+    if (map->destination.direction == MAPPER_INCOMING) {
+        // add mapping destination
+        lo_message_add_string(msg, dest_name);
+        lo_message_add_string(msg, "<-");
+    }
+
+    // add mapping sources
+    int i = (slot >= 0) ? slot : 0;
+    int len = 0, result;
+    mapper_link link = map->sources[i].local ? map->sources[i].local->link : 0;
+    for (; i < map->num_sources; i++) {
+        if ((slot >= 0) && link && (link != map->sources[i].local->link))
+            break;
+        result = snprintf(&source_names[len], 1024-len, "%s%s",
+                          map->sources[i].signal->device->name,
+                          map->sources[i].signal->path);
+        if (result < 0 || (len + result + 1) >= 1024) {
+            trace("Error encoding sources for combined /mapped msg");
+            lo_message_free(msg);
+            return slot;
+        }
+        lo_message_add_string(msg, &source_names[len]);
+        len += result + 1;
+    }
+
+    if (map->destination.direction == MAPPER_OUTGOING) {
+        // add mapping destination
+        lo_message_add_string(msg, "->");
+        lo_message_add_string(msg, dest_name);
+    }
+
+    // Always add unique id
+    lo_message_add_string(msg, mapper_param_string(AT_ID));
+    lo_message_add_int64(msg, *((int64_t*)&map->id));
+
+    if (!flags) {
+        mapper_network_add_message(map->db->network, 0, cmd, msg);
+        mapper_network_send(map->db->network);
+        return i-1;
+    }
+
+    // TODO:perhaps we should distinguish between signal and map metadata here
+    if (cmd == MSG_MAP_TO && map->destination.local
+        && map->destination.local->router_sig) {
+        // include "extra" metadata from the destination signal
+        mapper_signal sig = map->destination.local->router_sig->signal;
+        if (sig->extra)
+            mapper_message_add_value_table(msg, sig->extra);
+    }
+
+    const char *keys = 0;
+    if (flags & MAPPER_UPDATED_PROPS) {
+        // add properties from updater
+        if (map->updater)
+            mapper_message_add_value_table(msg, map->updater);
+    }
+    if (flags & MAPPER_STATIC_PROPS) {
+        // add other properties
+        keys = add_properties_to_message(map, msg, slot);
+    }
+
+    mapper_network_add_message(map->db->network, 0, cmd, msg);
+    // send immediately since message refers to generated strings
+    mapper_network_send(map->db->network);
+    if (keys)
+        free((char*)keys);
+    return i-1;
 }
 
 mapper_map *mapper_map_query_union(mapper_map *query1, mapper_map *query2)

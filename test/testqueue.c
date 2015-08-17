@@ -110,17 +110,18 @@ void cleanup_destination()
 
 int create_maps()
 {
-    mapper_admin adm = mapper_admin_new(0, 0);
-    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig, recvsig));
-    mapper_admin_update_map(adm, mapper_admin_add_map(adm, 1, &sendsig1, recvsig));
+    mapper_map maps[2];
+    maps[0] = mapper_map_new(1, &sendsig, recvsig);
+    mapper_map_sync(maps[0]);
+    maps[1] = mapper_map_new(1, &sendsig1, recvsig);
+    mapper_map_sync(maps[1]);
 
     // wait until mapping has been established
-    while (!done && !mapper_device_num_maps(source, 0)) {
+    while (!done && (mapper_map_status(maps[0]) < MAPPER_ACTIVE)
+           && (mapper_map_status(maps[1]) < MAPPER_ACTIVE)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }
-
-    mapper_admin_free(adm);
 
     return 0;
 }

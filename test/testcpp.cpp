@@ -165,37 +165,37 @@ int main(int argc, char ** argv)
         std::cout << "input: " << (const char*)(*qsig) << std::endl;
     }
 
-    mapper::Admin adm(SUBSCRIBE_ALL);
-    mapper::Map map = adm.map(dev.signals(MAPPER_OUTGOING)[0],
-                              dev.signals(MAPPER_INCOMING)[1]);
+    mapper::Db db(SUBSCRIBE_ALL);
+    mapper::Map map(dev.signals(MAPPER_OUTGOING)[0],
+                    dev.signals(MAPPER_INCOMING)[1]);
     map.set_mode(MAPPER_MODE_EXPRESSION).set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
     map.source().set_minimum(mapper::Property(0, 3, d));
-    adm.update(map);
+    map.sync();
 
-    while (dev.num_maps() <= 0) {
+    while (map.status() < MAPPER_ACTIVE) {
         dev.poll(100);
     }
 
     std::vector <double> v(3);
     while (i++ < 100) {
         dev.poll(10);
-        adm.poll();
+        db.update();
         v[i%3] = i;
         sig.update(v);
     }
 
     // try combining queries
-    mapper::Device::Query qdev = adm.db().devices_by_name_match("my");
-    qdev += adm.db().devices_by_property(mapper::Property("num_inputs", 4),
-                                         MAPPER_OP_GREATER_THAN_OR_EQUAL);
+    mapper::Device::Query qdev = db.devices_by_name_match("my");
+    qdev += db.devices_by_property(mapper::Property("num_inputs", 4),
+                                   MAPPER_OP_GREATER_THAN_OR_EQUAL);
     for (; qdev != qdev.end(); qdev++) {
         std::cout << "  r device: " << (const char*)(*qdev) << std::endl;
     }
 
     // check db records
     std::cout << "db records:" << std::endl;
-    for (auto const &device : adm.db().devices()) {
+    for (auto const &device : db.devices()) {
         std::cout << "  device: " << (const char*)device.property("name") << std::endl;
         for (auto const &signal : device.signals(MAPPER_INCOMING)) {
             std::cout << "  input signal: " << device.name()
@@ -206,7 +206,7 @@ int main(int argc, char ** argv)
                       << "/" << signal.name() << std::endl;
         }
     }
-    for (auto const &m : adm.db().maps()) {
+    for (auto const &m : db.maps()) {
         std::cout << "  map: ";
         if (m.num_sources() > 1)
             std::cout << "[";
