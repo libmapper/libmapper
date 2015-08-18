@@ -84,7 +84,8 @@ typedef enum {
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup mapdb */
 typedef enum {
-    MAPPER_STEAL_OLDEST = 1,    //!< Steal the oldest instance
+    MAPPER_NO_STEALING,
+    MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance
     MAPPER_STEAL_NEWEST,    //!< Steal the newest instance
     NUM_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
