@@ -510,23 +510,24 @@ To specify a string property of a signal:
 
     sig.set_property( "sensingMethod", "resistive" )
 
+## Reserved keys
+
 In general you can use any property name not already in use by the
-device or signal data structure.  Reserved words for signals are:
+device or signal data structure.
 
-    length, max/maximum, min/minimum, name, type, user_data
+### Reserved keys for devices
 
-for devices, they are:
+`description`, `host`, `id`, `libversion`, `name`, `num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `version`, `user_data`
 
-    host, libversion, name, num_connections_in, num_connections_out, num_inputs, num_outputs, port, synced, user_data, version
+### Reserved keys for signals
 
-By the way, if you query or set signal properties using these
-keywords, you will get or modify the same information that is
-available directly from the `signal` data structure.
-Therefore this can provide a unified string-based method for accessing
-any signal property:
+`description`, `direction`, `id`, `length`, `max`, `maximum`, `min`, `minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`, `type`, `unit`, `user_data`
 
-    props = sig.get_properties()
-    sensingMethod = props[ 'sensingMethod' ]
+### Reserved keys for maps
 
-Primarily this is an interface meant for network monitors, but may
-come in useful for an application implementing a device.
+`expression`, `id`, `mode`, `muted`, `num_sources`, `process_location`, `status`
+
+### Reserved keys for slots
+
+`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`, `maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`
+

@@ -15,8 +15,8 @@ To create a _libmapper_ device, it is necessary to provide a few
 parameters the constructor, which is overloaded to accept either
 arguments of either `const char*` or C++ `std::string`:
 
-    mapper::Device dev( const char *name, mapper.Admin admin );
-    mapper::Device dev( std::string name, mapper.Admin admin );
+    mapper::Device dev( const char *name, mapper.Network net = 0 );
+    mapper::Device dev( std::string name, mapper.Network net = 0 );
 
 In regular usage only the first argument is needed. The optional
 "admin" parameter can be used to specify different networking
@@ -169,8 +169,8 @@ An example of a `float` signal where some more information is provided:
 
     float minimum = 0.0f;
     float maximum = 5.0f;
-    mapper::Signal sensor1_voltage = mdev.add_output( "/sensor1", 1, 'f',
-                                                      "V", &minimum, &maximum );
+    mapper::Signal sensor1_voltage = dev.add_output( "/sensor1", 1, 'f',
+                                                     "V", &minimum, &maximum );
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
@@ -188,14 +188,15 @@ for it.  To recap, let's review the code so far:
 It is possible to retrieve a device's inputs or outputs by name or by
 index at a later time using the functions `dev.input()` or `dev.output()`
 with either the signal name or index as an argument. The functions
-`dev.inputs()` and `dev.outputs()` return an object of type  `mapper::Signal::Iterator` which can be used to retrieve all of the
+`dev.inputs()` and `dev.outputs()` return an object of type
+`mapper::Signal::Query` which can be used to retrieve all of the
 input/output signals belonging to a particular device:
 
     std::cout << "Signals belonging to " << dev.name() << std::endl;
 
-    mapper::Signal::Iterator iter = dev.inputs().begin();
-    for (; iter != dev.inputs().end(); iter++) {
-        std::cout << "input: " << (*iter).full_name() << std::endl;
+    mapper::Signal::Query q = dev.inputs().begin();
+    for (; q != q.end(); ++q) {
+        std::cout << "input: " << (*q).full_name() << std::endl;
     }
 
 Updating signals
@@ -300,13 +301,13 @@ audio thread.
 
 Create the handler function, which is fairly simple,
 
-    void pulsewidth_handler ( mapper::Signal msig,
+    void pulsewidth_handler ( mapper::Signal sig,
                               int instance_id,
                               void *value,
                               int count,
                               mapper::Timetag tt )
     {
-        Synthesizer *s = (Synthesizer*) msig.properties()->user_data;
+        Synthesizer *s = (Synthesizer*) sig.user_data();
         s->setPulseWidth( *(float*)v );
     }
 
@@ -407,7 +408,7 @@ You might have noticed earlier that the handler function called when
 a signal update is received has a argument called `instance_id`. Here
 is the function prototype again:
 
-    void mapper_signal_update_handler(mapper::Signal msig,
+    void mapper_signal_update_handler(mapper::Signal sig,
                                       int instance_id,
                                       void *value,
                                       int count,
@@ -430,32 +431,32 @@ use and a previously unseen instance id is received. Use the function:
 
 The argument `mode` can have one of the following values:
 
-* `IN_UNDEFINED` Default value, in which no stealing of instances will occur;
-* `IN_STEAL_OLDEST` Release the oldest active instance and reallocate its
+* `MAPPER_NO_STEALING` Default value, in which no stealing of instances will occur;
+* `MAPPER_STEAL_OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `IN_STEAL_NEWEST` Release the newest active instance and reallocate its
+* `MAPPER_STEAL_NEWEST` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance
 to release (e.g. the sound with the lowest volume), you can create an `instance_event_handler` for the signal and write the method yourself:
 
-    void my_handler(mapper::Signal msig,
+    void my_handler(mapper::Signal sig,
                     int instance_id,
                     msig_instance_event_t event,
                     mapper::Timetag tt)
     {
         // user code chooses which instance to release
-        int id = choose_instance_to_release(msig);
+        int id = choose_instance_to_release(sig);
 
-        msig.release_instance(id, tt);
+        sig.release_instance(id, tt);
     }
 
 For this function to be called when instance stealing is necessary, we
 need to register it for `IN_OVERFLOW` events:
 
-    msig.set_instance_event_callback( my_handler,
-                                      IN_OVERFLOW,
-                                      *user_context);
+    sig.set_instance_event_callback( my_handler,
+                                     MAPPER_OVERFLOW,
+                                     *user_context);
 
 Publishing metadata
 ===================
@@ -479,9 +480,7 @@ any OSC-compatible type.  (So, numbers and strings, etc.)
 
 The property interface is through the functions,
 
-    void dev.properties.set( <name>, <value> );
-
-    void sig.set_property( <name>, <value> );
+    void <object>.set_property( <name>, <value> );
 
 The `<value>` arguments can be a scalar, array or std::vector of type
 `int`, `float`, `double`, or `char*`.
@@ -492,23 +491,23 @@ you can call it like this:
     dev.set_property( "x", 12.5f );
     sig.set_property( "sensingMethod", "resistive" );
 
+## Reserved keys
+
 In general you can use any property name not already in use by the
-device or signal data structure.  Reserved words for signals are:
+device or signal data structure.
 
-    length, max/maximum, min/minimum, name, type, user_data
+### Reserved keys for devices
 
-for devices, they are:
+`description`, `host`, `id`, `libversion`, `name`, `num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `version`, `user_data`
 
-    host, libversion, name, num_connections_in, num_connections_out, num_inputs, num_outputs, port, synced, user_data, version
+### Reserved keys for signals
 
-By the way, if you query or set signal properties using these
-keywords, you will get or modify the same information that is
-available directly from the `mapper::DeviceProps` data structure.
-Therefore this can provide a unified string-based method for accessing
-any signal property:
+`description`, `direction`, `id`, `length`, `max`, `maximum`, `min`, `minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`, `type`, `unit`, `user_data`
 
-    mapper::SignalProps props = sig.properties();
-    mapper::Property = props.get("sensingMethod");
+### Reserved keys for maps
 
-Primarily this is an interface meant for network monitors, but may
-come in useful for an application implementing a device.
+`expression`, `id`, `mode`, `muted`, `num_sources`, `process_location`, `status`
+
+### Reserved keys for slots
+
+`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`, `maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`

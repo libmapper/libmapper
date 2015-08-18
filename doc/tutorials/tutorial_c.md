@@ -16,27 +16,23 @@ Overview of the API organization
 If you take a look at the API documentation, there is a section called
 "modules".  This is divided into the following sections:
 
-* Signals
+* Network
 * Devices
-* Admins
-* Device database
-* Signal database
-* Connections database
-* Monitors
+* Signals
+* Maps
+* Slots
+* Db
 
 For this tutorial, the only sections to pay attention to are Devices
-and Signals.  Admins is reserved for providing custom networking
+and Signals.  Network is reserved for providing custom networking
 configurations, but in general you don't need to worry about it.
 
-Monitor and the various database modules are used to keep track of
-what devices, signals and connections are on the network.  Devices do
-not need to worry about this.  It is used mainly for creating user
+The database module is used to keep track of what devices, signals
+and maps are on the network.  It is used mainly for creating user
 interfaces for mapping design and will also not be covered here.
 
 Functions and types from each module are prefixed with
-`mapper_<module>_`, in order to avoid namespace clashing.  However,
-since this is a bit verbose, it is shortened to `mdev_` and `msig_` for
-device and signal functions respectively.
+`mapper_<module>_`, in order to avoid namespace clashing.
 
 Devices
 =======
@@ -45,11 +41,11 @@ Creating a device
 -----------------
 
 To create a _libmapper_ device, it is necessary to provide a few
-parameters to `mdev_new`:
+parameters to `mapper_device_new`:
 
-    mapper_device mdev_new( const char *name_prefix,
-                            int initial_port,
-                            mapper_admin admin );
+    mapper_device mapper_device_new( const char *name_prefix,
+                                     int initial_port,
+                                     mapper_admin admin );
 
 Every device on the network needs a name and port.  In fact the
 requested name and port are only "starting values".  There is an
@@ -366,7 +362,6 @@ audio thread.
 Create the handler function, which is fairly simple,
 
     void pulsewidth_handler ( mapper_signal msig,
-                              mapper_db_signal props,
                               int instance_id,
                               void *value,
                               int count,
@@ -390,17 +385,18 @@ Then `main()` will look like,
         float min_pw = 0.0f;
         float max_pw = 1.0f;
         
-        mapper_device my_receiver = mdev_new( "test_receiver", 9000, 0 );
+        mapper_device my_receiver = mapper_device_new( "test_receiver",
+                                                       9000, 0 );
         
         mapper_signal synth_pulsewidth =
-            mdev_add_input( my_receiver, "/synth/pulsewidth",
-                            1, 'f', 0, &min_pw, &max_pw,
-                            pulsewidth_handler, &synth );
+            mapper_device_add_input( my_receiver, "/synth/pulsewidth",
+                                     1, 'f', 0, &min_pw, &max_pw,
+                                     pulsewidth_handler, &synth );
         
         while ( !done )
-            mdev_poll( my_receiver, 50 );
+            mapper_device_poll( my_receiver, 50 );
         
-        mdev_free( my_receiver );
+        mapper_device_free( my_receiver );
     }
 
 Working with timetags
@@ -413,11 +409,11 @@ which the source signal was _sampled_ (in the case of sensor signals)
 or _generated_ (in the case of sequenced or algorithimically-generated
 signals).
 
-When updating output signals, using the functions `msig_update_int()`
-or `msig_update_float()` will automatically label the outgoing signal
+When updating output signals, using the functions `mapper_signal_update_int()`
+or `mapper_signal_update_float()` will automatically label the outgoing signal
 update with the current time. In cases where the update should more
 properly be labeled with another time, this can be accomplished with
-the function `msig_update()`.  This timestamp should only be
+the function `mapper_signal_update()`.  This timestamp should only be
 overridden if your program has access to a more accurate measurement
 of the real time associated with the signal update, for example if
 you are writing a driver for an outboard sensor system that provides
@@ -455,18 +451,18 @@ The important qualities of signal instances in _libmapper_ are:
 All signals possess one instance by default. If you would like to reserve
 more instances you can use:
 
-    msig_reserve_instances(mapper_signal sig, int num)
+    mapper_signal_reserve_instances(mapper_signal sig, int num)
 
 After reserving instances you can update a specific instance:
 
-    msig_update_instance(mapper_signal sig,
-    					 int instance_id,
-    					 void *value,
-    					 int count,
-    					 mapper_timetag_t timetag)
+    mapper_signal_update_instance(mapper_signal sig,
+                                  int instance_id,
+                                  void *value,
+                                  int count,
+                                  mapper_timetag_t timetag)
 
 All of the arguments except one should be familiar from the
-documentation of `msig_update()` presented earlier.
+documentation of `mapper_signal_update()` presented earlier.
 The `instance_id` argument does not have to be considered as an array
 index - it can be any integer that is convenient for labelling your
 instance. _libmapper_ will internally create a map from your id label
@@ -478,16 +474,15 @@ You might have noticed earlier that the handler function called when
 a signal update is received has a argument called `instance_id`. Here
 is the function prototype again:
 
-    void mapper_signal_update_handler(mapper_signal msig,
-                                      mapper_db_signal props,
+    void mapper_signal_update_handler(mapper_signal sig,
                                       int instance_id,
-                                      void *value,
+                                      const void *value,
                                       int count,
                                       mapper_timetag_t *tt);
 
 Under normal usage, this argument will have a value (0 <= n <= num_instances)
 and can be used as an array index. Remember that you will need to reserve
-instances for your input signal using `msig_reserve_instance()` if you
+instances for your input signal using `mapper_signal_reserve_instance()` if you
 want to receive instance updates.
 
 Instance Stealing
@@ -498,8 +493,8 @@ the receiver signal, the _instance allocation mode_ can be set for an
 input signal to set an action to take in case all allocated instances are in
 use and a previously unseen instance id is received. Use the function:
 
-    void msig_set_instance_allocation_mode(mapper_signal sig,
-                                           mapper_instance_allocation_type mode);
+    void mapper_signal_set_instance_allocation_mode(mapper_signal sig,
+                                                    mapper_instance_allocation_type mode);
 
 The argument `mode` can have one of the following values:
 
@@ -512,8 +507,7 @@ The argument `mode` can have one of the following values:
 If you want to use another method for determining which active instance
 to release (e.g. the sound with the lowest volume), you can create an `instance_event_handler` for the signal and write the method yourself:
 
-    void my_handler(mapper_signal msig,
-                    mapper_db_signal props,
+    void my_handler(mapper_signal sig,
                     int instance_id,
                     msig_instance_event_t event,
                     mapper_timetag_t *tt)
@@ -521,16 +515,16 @@ to release (e.g. the sound with the lowest volume), you can create an `instance_
         // user code chooses which instance to release
         int id = choose_instance_to_release(msig);
 
-        msig_release_instance(msig, id, *tt);
+        mapper_signal_release_instance(sig, id, *tt);
     }
 
 For this function to be called when instance stealing is necessary, we
 need to register it for `IN_OVERFLOW` events:
 
-    msig_set_instance_event_callback(msig,
-                                     my_handler,
-                                     IN_OVERFLOW,
-                                     *user_context);
+    mapper_signal_set_instance_event_callback( sig,
+                                               my_handler,
+                                               IN_OVERFLOW,
+                                               *user_context);
 
 Publishing metadata
 ===================
@@ -554,16 +548,18 @@ any OSC-compatible type.  (So, numbers and strings, etc.)
 
 The property interface is through the functions,
 
-    void mdev_set_property( mapper_device dev,
-                            const char *property,
-                            lo_type type,
-                            lo_arg *value );
+    void mapper_device_set_property( mapper_device dev,
+                                     const char *property,
+                                     int length,
+                                     char type,
+                                     void *value );
 
-    void msig_set_property( mapper_signal sig,
-                            const char *property,
-                            lo_type type,
-                            lo_arg *value );
-
+    void mapper_signal_set_property( mapper_signal sig,
+                                     const char *property,
+                                     int length,
+                                     char type,
+                                     void *value );
+    
 As you can see, _libmapper_ reuses the `lo_arg` union from the _liblo_
 OSC library, which can be used to hold any OSC-compatible value.  The
 type of the `value` argument is specified by `type`, and can be any
@@ -581,7 +577,7 @@ you can call it like this:
 In practice it is safe to cast to `lo_arg*`:
 
     float x = 12.5;
-    mdev_set_property( my_device, "x", 'f', (lo_arg*)&x );
+    mapper_device_set_property( my_device, "x", 1, 'f', (lo_arg*)&x );
 
 To specify strings, it is necessary to perform such a cast, since the
 `lo_arg*` you provide should actually point to the beginning of the
@@ -591,25 +587,23 @@ string:
     msig_set_property( sensor1, "sensingMethod",
                        's', (lo_arg*)sensingMethod );
 
+## Reserved keys
+
 In general you can use any property name not already in use by the
-device or signal data structure.  Reserved words for signals are:
+device or signal data structure.
 
-    length, max/maximum, min/minimum, name, type, user_data
+### Reserved keys for devices
 
-for devices, they are:
+`description`, `host`, `id`, `libversion`, `name`, `num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `version`, `user_data`
 
-    host, libversion, name, num_connections_in, num_connections_out, num_inputs, num_outputs, port, synced, user_data, version
+### Reserved keys for signals
 
-By the way, if you query or set signal properties using these
-keywords, you will get or modify the same information that is
-available directly from the `mapper_db_signal` data structure.
-Therefore this can provide a unified string-based method for accessing
-any signal property:
+`description`, `direction`, `id`, `length`, `max`, `maximum`, `min`, `minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`, `type`, `unit`, `user_data`
 
-    mapper_db_signal *props = msig_properties( sensor1 );
-    lo_type type;
-    const lo_arg *value;
-    mapper_db_signal_property_lookup( props, "sensingMethod", &type, &value );
+### Reserved keys for maps
 
-Primarily this is an interface meant for network monitors, but may
-come in useful for an application implementing a device.
+`expression`, `id`, `mode`, `muted`, `num_sources`, `process_location`, `status`
+
+### Reserved keys for slots
+
+`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`, `maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`

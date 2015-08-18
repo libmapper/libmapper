@@ -84,7 +84,7 @@ Available Functions
 * `cosh(x)` — hyperbolic cosine
 * `tanh(x)` — hyperbolic tangent
 
-### Nearest integer floating point comparisons:
+### Nearest integer floating point:
 * `floor(x)` — nearest integer not greater than the given value
 * `round(x)` — nearest integer, rounding away from zero in halfway cases
 * `ceil(x)` — nearest integer not less than the given value

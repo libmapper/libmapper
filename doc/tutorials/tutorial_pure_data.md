@@ -265,11 +265,23 @@ To specify a string property of a signal:
 
 ![Adding extra properties to a signal](./images/puredata9.png)
 
+## Reserved keys
+
 In general you can use any property name not already in use by the
-device or signal data structure.  Reserved words for signals are: 
+device or signal data structure.
 
-    length, max/maximum, min/minimum, name, type, user_data
+### Reserved keys for devices
 
-for devices, they are:
+`description`, `host`, `id`, `libversion`, `name`, `num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `version`, `user_data`
 
-    host, libversion, name, num_connections_in, num_connections_out, num_inputs, num_outputs, port, synced, user_data, version
+### Reserved keys for signals
+
+`description`, `direction`, `id`, `length`, `max`, `maximum`, `min`, `minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`, `type`, `unit`, `user_data`
+
+### Reserved keys for maps
+
+`expression`, `id`, `mode`, `muted`, `num_sources`, `process_location`, `status`
+
+### Reserved keys for slots
+
+`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`, `maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`
