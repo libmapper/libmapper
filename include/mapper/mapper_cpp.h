@@ -614,20 +614,27 @@ namespace mapper {
             return (*this);
         }
         mapper_instance_allocation_type instance_allocation_mode() const
-            { return mapper_instance_allocation_mode(_sig); }
+            { return mapper_signal_instance_allocation_mode(_sig); }
         Signal& set_instance_event_callback(mapper_instance_event_handler h,
                                             int flags, void *user_data)
         {
             mapper_signal_set_instance_event_callback(_sig, h, flags, user_data);
             return (*this);
         }
-        Signal& set_instance_data(int instance_id, void *user_data)
+        Signal& set_instance_user_data(int instance_id, void *user_data)
         {
-            mapper_signal_set_instance_data(_sig, instance_id, user_data);
+            mapper_signal_set_instance_user_data(_sig, instance_id, user_data);
             return (*this);
         }
-        void *instance_data(int instance_id) const
-            { return mapper_signal_instance_data(_sig, instance_id); }
+        void *instance_user_data(int instance_id) const
+            { return mapper_signal_instance_user_data(_sig, instance_id); }
+        Signal& set_user_data(void *user_data)
+        {
+            mapper_signal_set_user_data(_sig, user_data);
+            return (*this);
+        }
+        void *user_data() const
+            { return mapper_signal_user_data(_sig); }
         Signal& set_callback(mapper_signal_update_handler *handler, void *user_data)
             { mapper_signal_set_callback(_sig, handler, user_data); return (*this); }
         int num_maps(mapper_direction dir=MAPPER_DIR_ANY) const

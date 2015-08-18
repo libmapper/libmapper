@@ -1015,7 +1015,8 @@ void mapper_signal_set_instance_allocation_mode(mapper_signal sig,
         sig->local->instance_allocation_type = mode;
 }
 
-mapper_instance_allocation_type mapper_instance_allocation_mode(mapper_signal sig)
+mapper_instance_allocation_type
+mapper_signal_instance_allocation_mode(mapper_signal sig)
 {
     if (sig && sig->local)
         return sig->local->instance_allocation_type;
@@ -1042,8 +1043,19 @@ void mapper_signal_set_instance_event_callback(mapper_signal sig,
     sig->local->instance_event_flags = flags;
 }
 
-void mapper_signal_set_instance_data(mapper_signal sig, int instance_id,
-                                     const void *user_data)
+void mapper_signal_set_user_data(mapper_signal sig, const void *user_data)
+{
+    if (sig)
+        sig->user_data = (void*)user_data;
+}
+
+void *mapper_signal_user_data(mapper_signal sig)
+{
+    return sig ? sig->user_data : 0;
+}
+
+void mapper_signal_set_instance_user_data(mapper_signal sig, int instance_id,
+                                          const void *user_data)
 {
     if (!sig || !sig->local)
         return;
@@ -1052,7 +1064,7 @@ void mapper_signal_set_instance_data(mapper_signal sig, int instance_id,
         si->user_data = (void*)user_data;
 }
 
-void *mapper_signal_instance_data(mapper_signal sig, int instance_id)
+void *mapper_signal_instance_user_data(mapper_signal sig, int instance_id)
 {
     if (!sig || !sig->local)
         return 0;

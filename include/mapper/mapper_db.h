@@ -78,12 +78,13 @@ typedef enum {
     MAPPER_UPSTREAM_RELEASE     = 0x02, //!< Instance was released upstream.
     MAPPER_DOWNSTREAM_RELEASE   = 0x04, //!< Instance was released downstream.
     MAPPER_INSTANCE_OVERFLOW    = 0x08, //!< No local instances left.
+    MAPPER_INSTANCE_ALL         = 0x0F
 } mapper_instance_event;
 
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup mapdb */
 typedef enum {
-    MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance
+    MAPPER_STEAL_OLDEST = 1,    //!< Steal the oldest instance
     MAPPER_STEAL_NEWEST,    //!< Steal the newest instance
     NUM_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;

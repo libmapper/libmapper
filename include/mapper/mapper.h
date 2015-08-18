@@ -196,7 +196,7 @@ void mapper_signal_set_instance_allocation_mode(mapper_signal sig,
  *  instance ID is received.
  *  \param sig  The signal to operate on.
  *  \return     The allocation mode of the provided signal. */
-mapper_instance_allocation_type mapper_instance_allocation_mode(mapper_signal sig);
+mapper_instance_allocation_type mapper_signal_instance_allocation_mode(mapper_signal sig);
 
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
@@ -215,19 +215,29 @@ void mapper_signal_set_instance_event_callback(mapper_signal sig,
                                                mapper_instance_event_handler h,
                                                int flags, const void *user_data);
 
+/*! Associate a signal or signal instance with an arbitrary pointer.
+ *  \param sig          The signal to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_signal_set_user_data(mapper_signal sig, const void *user_data);
+
+/*! Retrieve the arbitrary pointer associated with a signal instance.
+ *  \param sig          The signal to operate on.
+ *  \return             A pointer associated with this signal. */
+void *mapper_signal_user_data(mapper_signal sig);
+
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
  *  \param instance     The instance to operate on.
  *  \param user_data    A pointer to user data to be associated
  *                      with this instance. */
-void mapper_signal_set_instance_data(mapper_signal sig, int instance,
-                                     const void *user_data);
+void mapper_signal_set_instance_user_data(mapper_signal sig, int instance,
+                                          const void *user_data);
 
 /*! Retrieve the arbitrary pointer associated with a signal instance.
  *  \param sig          The signal to operate on.
  *  \param instance     The instance to operate on.
  *  \return             A pointer associated with this instance. */
-void *mapper_signal_instance_data(mapper_signal sig, int instance);
+void *mapper_signal_instance_user_data(mapper_signal sig, int instance);
 
 /*! A signal handler function can be called whenever a signal value changes. */
 typedef void mapper_signal_update_handler(mapper_signal sig, int instance,
