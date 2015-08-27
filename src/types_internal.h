@@ -233,15 +233,62 @@ typedef mapper_network_t *mapper_network;
 
 typedef struct _mapper_history
 {
-    char type;                      /*!< The type of this signal, specified as
-                                     *   an OSC type character. */
-    int position;                   /*!< Current position in the circular buffer. */
-    int size;                       /*!< History size of the buffer. */
-    int length;                     /*!< Vector length. */
-    void *value;                    /*!< Value of the signal for each sample of
-                                     *   stored history. */
-    mapper_timetag_t *timetag;      /*!< Timetag for each sample of stored history. */
+    char type;                  /*!< The type of this signal, specified as an
+                                 *   OSC type character. */
+    int position;               //!< Current position in the circular buffer.
+    int size;                   //!< History size of the buffer.
+    int length;                 //!< Vector length.
+    void *value;                /*!< Value of the signal for each sample of
+                                 *   stored history. */
+    mapper_timetag_t *timetag;  //!< Timetag for each sample of stored history.
 } mapper_history_t, *mapper_history;
+
+/*! Bit flags for indicating signal instance status. */
+#define MAPPER_RELEASED_LOCALLY  0x01
+#define MAPPER_RELEASED_REMOTELY 0x02
+
+/*! A signal instance is defined as a vector of values, along with some
+ *  metadata. */
+typedef struct _mapper_signal_instance
+{
+    /*! User-assignable instance id. */
+    int id;
+
+    /*! Index for accessing associated value history */
+    int index;
+
+    /*! Status of this instance. */
+    int is_active;
+
+    /*! User data of this instance. */
+    void *user_data;
+
+    /*! The instance's creation timestamp. */
+    mapper_timetag_t created;
+
+    /*! Indicates whether this instance has a value. */
+    int has_value;
+    char *has_value_flags;
+
+    /*! The current value of this signal instance. */
+    void *value;
+
+    /*! The timetag associated with the current value. */
+    mapper_timetag_t timetag;
+} mapper_signal_instance_t, *mapper_signal_instance;
+
+typedef struct _mapper_signal_id_map
+{
+    /*! Pointer to id_map in use */
+    struct _mapper_id_map *map;
+
+    /*! Pointer to signal instance. */
+    struct _mapper_signal_instance *instance;
+
+    /*! Status of the id_map. Can be either 0 or a combination of
+     *  MAPPER_RELEASED_LOCALLY and MAPPER_RELEASED_REMOTELY. */
+    int status;
+} mapper_signal_id_map_t;
 
 /*! A signal is defined as a vector of values, along with some
  *  metadata. */
@@ -328,7 +375,16 @@ typedef struct _mapper_link {
     struct _mapper_link *next;          //!< Next link in the list.
 } *mapper_link;
 
+/**** Maps and Slots ****/
+
 #define MAX_NUM_MAP_SOURCES 8    // arbitrary
+
+// Slot and Map status MAPPER_ACTIVE is defined in mapper_db.h
+#define MAPPER_STAGED       0x00
+#define MAPPER_TYPE_KNOWN   0x01
+#define MAPPER_LENGTH_KNOWN 0x02
+#define MAPPER_LINK_KNOWN   0x04
+#define MAPPER_READY        0x0F
 
 typedef struct _mapper_slot_internal {
     // each slot can point to local signal or a remote link structure
@@ -355,7 +411,7 @@ typedef struct _mapper_slot {
     int flags;
     int direction;                      //!< DI_INCOMING or DI_OUTGOING
     int causes_update;                  //!< 1 if causes update, 0 otherwise.
-    int use_as_instance;                //!< 1 if sends as instance, 0 otherwise.
+    int use_as_instance;                //!< 1 if used as instance, 0 otherwise.
 
     mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
     mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.

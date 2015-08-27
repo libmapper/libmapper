@@ -146,9 +146,9 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
 
     // check if record of map already exists
     mapper_map map, *maps, *temp;
-    maps = mapper_db_signal_maps(db, destination, MAPPER_INCOMING);
+    maps = mapper_signal_maps(destination, MAPPER_INCOMING);
     for (i = 0; i < num_sources; i++) {
-        temp = mapper_db_signal_maps(db, sources[i], MAPPER_OUTGOING);
+        temp = mapper_signal_maps(sources[i], MAPPER_OUTGOING);
         maps = mapper_map_query_intersection(maps, temp);
     }
     while (maps) {
@@ -323,7 +323,7 @@ int mapper_map_property_index(mapper_map map, unsigned int index,
                                     type, value, &map_table);
 }
 
-mapper_status mapper_map_status(mapper_map map)
+int mapper_map_status(mapper_map map)
 {
     return map ? map->status : 0;
 }
@@ -403,7 +403,7 @@ void mapper_map_set_property(mapper_map map, const char *property, int length,
 {
     if (!map)
         return;
-    // can't set num_sources
+    // can't set these properties
     if (   strcmp(property, "num_sources") == 0
         || strcmp(property, "source") == 0
         || strcmp(property, "sources") == 0
@@ -448,6 +448,25 @@ void mapper_map_set_property(mapper_map map, const char *property, int length,
     }
     mapper_table_add_or_update_typed_value(map->updater, property, length, type,
                                            value);
+}
+
+void mapper_map_remove_property(mapper_map map, const char *property)
+{
+    if (!map || !property)
+        return;
+    if (strcmp(property, "description")==0)
+        mapper_map_set_description(map, 0);
+    else if (   strcmp(property, "expression")==0
+             || strcmp(property, "id")==0
+             || strcmp(property, "mode")==0
+             || strcmp(property, "muted")==0
+             || strcmp(property, "num_sources")==0
+             || strcmp(property, "process_at")==0
+             || strcmp(property, "status")==0) {
+        trace("Cannot remove static map property '%s'\n", property);
+        return;
+    }
+    table_remove_key(map->extra, property, 1);
 }
 
 int mapper_slot_index(mapper_slot slot)
@@ -657,7 +676,15 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
 {
     if (!slot)
         return;
-    if (strcmp(property, "bound_max") == 0) {
+    // Can't set these properties
+    if (   strcmp(property, "direction") == 0
+        || strcmp(property, "length") == 0
+        || strcmp(property, "num_instances") == 0
+        || strcmp(property, "type") == 0) {
+        trace("Cannot set static property '%s'\n", property);
+        return;
+    }
+    else if (strcmp(property, "bound_max") == 0) {
         if (length != 1 || type != 'i')
             return;
         int bound_max = *(int*)value;
@@ -702,6 +729,11 @@ void mapper_slot_set_property(mapper_slot slot, const char *property,
 //        mapper_table_add_or_update_typed_value(slot->updater, property, type,
 //                                               value, length);
 //    }
+}
+
+void mapper_slot_remove_property(mapper_slot slot, const char *property)
+{
+    // TODO: enable removing max and min properties
 }
 
 static int add_scope_internal(mapper_map map, const char *name)
@@ -1680,7 +1712,7 @@ static int set_slot_from_message(mapper_slot slot, mapper_message msg, int mask)
     updated += mapper_update_bool_if_arg(&slot->causes_update, msg,
                                          AT_CAUSES_UPDATE | mask);
 
-    /* sends as instance */
+    /* use as instance */
     updated += mapper_update_bool_if_arg(&slot->use_as_instance, msg,
                                          AT_USE_AS_INSTANCE | mask);
 
@@ -2208,7 +2240,7 @@ static void add_slot_props_to_message(lo_message msg, mapper_slot slot,
         *size -= len + 1;
     }
 
-    // Sends as Instance
+    // Use as Instance
     len = snprintf(*key_ptr, *size, "%s%s", prefix,
                    mapper_param_string(AT_USE_AS_INSTANCE));
     if (len < 0 && len > *size)

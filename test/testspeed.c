@@ -90,7 +90,8 @@ void insig_handler(mapper_signal sig, int instance_id, const void *value,
         if (++received >= iterations)
             switch_modes();
         if (use_instance) {
-            mapper_signal_update_instance(sendsig, counter, value, 1, MAPPER_NOW);
+            mapper_signal_instance_update(sendsig, counter, value, 1,
+                                          MAPPER_NOW);
         }
         else
             mapper_signal_update(sendsig, value, 1, MAPPER_NOW);
@@ -187,7 +188,7 @@ void switch_modes()
         case 1:
             use_instance = 0;
             for (i=1; i<10; i++) {
-                mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
+                mapper_signal_instance_release(sendsig, i, MAPPER_NOW);
             }
             break;
     }
@@ -262,7 +263,7 @@ int main(int argc, char **argv)
     // start things off
     eprintf("STARTING TEST...\n");
     times[0] = current_time();
-    mapper_signal_update_instance(sendsig, counter++, &value, 0, MAPPER_NOW);
+    mapper_signal_instance_update(sendsig, counter++, &value, 0, MAPPER_NOW);
     while (!done) {
         mapper_device_poll(destination, 0);
         mapper_device_poll(source, 0);

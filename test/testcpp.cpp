@@ -74,8 +74,8 @@ int main(int argc, char ** argv)
     std::cout << "device " << dev.name() << " ready..." << std::endl;
     std::cout << "  ordinal: " << dev.ordinal() << std::endl;
     std::cout << "  id: " << dev.id() << std::endl;
-    std::cout << "  interface: " << dev.interface() << std::endl;
-    const struct in_addr* a = dev.ip4();
+    std::cout << "  interface: " << dev.network().interface() << std::endl;
+    const struct in_addr* a = dev.network().ip4();
     if (a)
         std::cout << "  host: " << inet_ntoa(*a) << std::endl;
     std::cout << "  port: " << dev.port() << std::endl;
@@ -165,7 +165,7 @@ int main(int argc, char ** argv)
         std::cout << "input: " << (const char*)(*qsig) << std::endl;
     }
 
-    mapper::Db db(SUBSCRIBE_ALL);
+    mapper::Db db(MAPPER_SUBSCRIBE_ALL);
     mapper::Map map(dev.signals(MAPPER_OUTGOING)[0],
                     dev.signals(MAPPER_INCOMING)[1]);
     map.set_mode(MAPPER_MODE_EXPRESSION).set_expression("y=x[0:1]+123");

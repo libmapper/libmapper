@@ -472,6 +472,11 @@ const char *mapper_libversion(mapper_network net)
     return PACKAGE_VERSION;
 }
 
+mapper_db mapper_network_db(mapper_network net)
+{
+    return &net->db;
+}
+
 void mapper_network_send(mapper_network net)
 {
     if (!net->bundle)
@@ -760,9 +765,8 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
     }
 }
 
-/*! This is the main function to be called once in a while from a
- *  program so that the libmapper bus can be automatically managed.
- */
+/*! This is the main function to be called once in a while from a program so
+ *  that the libmapper bus can be automatically managed. */
 int mapper_network_poll(mapper_network net)
 {
     int count = 0, status;
@@ -812,6 +816,16 @@ int mapper_network_poll(mapper_network net)
         mapper_network_maybe_send_ping(net, 0);
     }
     return count;
+}
+
+const char *mapper_network_interface(mapper_network net)
+{
+    return net->interface_name;
+}
+
+const struct in_addr *mapper_network_ip4(mapper_network net)
+{
+    return &net->interface_ip;
 }
 
 /*! Algorithm for checking collisions and allocating resources. */
@@ -1070,21 +1084,21 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **argv,
         if (types[i] != 's' && types[i] != 'S')
             break;
         else if (strcmp(&argv[i]->s, "all")==0)
-            flags = SUBSCRIBE_ALL;
+            flags = MAPPER_SUBSCRIBE_ALL;
         else if (strcmp(&argv[i]->s, "device")==0)
-            flags |= SUBSCRIBE_DEVICE;
+            flags |= MAPPER_SUBSCRIBE_DEVICES;
         else if (strcmp(&argv[i]->s, "signals")==0)
-            flags |= SUBSCRIBE_DEVICE_SIGNALS;
+            flags |= MAPPER_SUBSCRIBE_SIGNALS;
         else if (strcmp(&argv[i]->s, "inputs")==0)
-            flags |= SUBSCRIBE_DEVICE_INPUTS;
+            flags |= MAPPER_SUBSCRIBE_INPUTS;
         else if (strcmp(&argv[i]->s, "outputs")==0)
-            flags |= SUBSCRIBE_DEVICE_OUTPUTS;
+            flags |= MAPPER_SUBSCRIBE_OUTPUTS;
         else if (strcmp(&argv[i]->s, "maps")==0)
-            flags |= SUBSCRIBE_DEVICE_MAPS;
+            flags |= MAPPER_SUBSCRIBE_MAPS;
         else if (strcmp(&argv[i]->s, "incoming_maps")==0)
-            flags |= SUBSCRIBE_DEVICE_MAPS_IN;
+            flags |= MAPPER_SUBSCRIBE_INCOMING_MAPS;
         else if (strcmp(&argv[i]->s, "outgoing_maps")==0)
-            flags |= SUBSCRIBE_DEVICE_MAPS_OUT;
+            flags |= MAPPER_SUBSCRIBE_OUTGOING_MAPS;
         else if (strcmp(&argv[i]->s, "@version")==0) {
             // next argument is last device version recorded by subscriber
             ++i;
@@ -1307,7 +1321,7 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
  *
  * The message "/map <signalA> -> <signalB>" starts the protocol.  If a device
  * doesn't already have a record for the remote device it will request this
- * information with a "/subscribe" message.
+ * information with a zero-lease "/subscribe" message.
  *
  * "/mapTo" messages are sent between devices until each is satisfied that it
  *  has enough information to initialize the map; at this point each device will
@@ -1319,11 +1333,11 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
  * "/mapped" to its peer.
  *
  * Negotiation of convergent ("many-to-one") maps is governed by the destination
- * device; if the map involves multiple inputs the destination will provoke the
- * creation of simple submaps from the various sources and perform any
- * combination signal-processing, otherwise processing metadata is forwarded to
- * the source device.  A convergent mapping is started with a message in the
- * form: "/map <sourceA> <sourceB> ... <sourceN> -> <destination>"
+ * device; if the map involves inputs from difference devices the destination
+ * will provoke the creation of simple submaps from the various sources and
+ * perform any combination signal-processing, otherwise processing metadata is
+ * forwarded to the source device.  A convergent mapping is started with a
+ * message in the form: "/map <sourceA> <sourceB> ... <sourceN> -> <destination>"
  */
 
 /* Helper function to check if the prefix matches.  Like strcmp(), returns 0 if
@@ -1433,8 +1447,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     // check if we are the destination of this mapping
     if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                    &local_signal_name)==0) {
-        local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                       local_signal_name);
+        local_signal = mapper_device_signal_by_name(dev, local_signal_name);
         if (!local_signal) {
             trace("<%s> no signal found with name '%s'.\n",
                   mapper_device_name(dev), local_signal_name);
@@ -1487,7 +1500,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
             src_names[i] = &argv[src_index+i]->s;
         }
 
-        // create a tentative mapping (flavourless)
+        // create a tentative map (flavourless)
         map = mapper_db_add_or_update_map_params(db, num_sources, src_names,
                                                  &argv[dest_index]->s, 0);
         if (!map) {
@@ -1512,7 +1525,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
 
         // Inform subscribers
         if (dev->local->subscribers) {
-            mapper_network_set_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_IN);
+            mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_INCOMING_MAPS);
             mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
         return 0;
@@ -1540,8 +1553,8 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     return 0;
 }
 
-/*! When the /mapTo message is received by a peer device, create
- *  tentative mapping and respond with own signal metadata. */
+/*! When the /mapTo message is received by a peer device, create a tentative
+ *  map and respond with own signal metadata. */
 static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                           int argc, lo_message msg, void *user_data)
 {
@@ -1564,8 +1577,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
         // check if we are the destination
         if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                        &local_signal_name)==0) {
-            local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                           local_signal_name);
+            local_signal = mapper_device_signal_by_name(dev, local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
                       mapper_device_name(dev), local_signal_name);
@@ -1581,8 +1593,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                 local_signal = 0;
                 break;
             }
-            local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                           local_signal_name);
+            local_signal = mapper_device_signal_by_name(dev, local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
                       mapper_device_name(dev), local_signal_name);
@@ -1636,7 +1647,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                                                     local_signal, id);
     }
 
-    /* If a mapping already exists between these signals, forward the message
+    /* If a map already exists between these signals, forward the message
      * to handler_modify_map() and stop. */
     if (map && map->status >= MAPPER_ACTIVE) {
         handler_modify_map(path, types, argv, argc, msg, user_data);
@@ -1718,8 +1729,8 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             // check if we are the destination
             if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                            &local_signal_name)==0) {
-                local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                               local_signal_name);
+                local_signal = mapper_device_signal_by_name(dev,
+                                                            local_signal_name);
             }
         }
         else {
@@ -1730,8 +1741,8 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                     local_signal = 0;
                     break;
                 }
-                local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                               local_signal_name);
+                local_signal = mapper_device_signal_by_name(dev,
+                                                            local_signal_name);
             }
         }
     }
@@ -1849,7 +1860,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         }
         if (dev->local->subscribers) {
             // Inform subscribers
-            mapper_network_set_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_IN);
+            mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_INCOMING_MAPS);
             mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
 
@@ -1894,8 +1905,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
     // check if we are the destination
     if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                    &local_signal_name)==0) {
-        local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                       local_signal_name);
+        local_signal = mapper_device_signal_by_name(dev, local_signal_name);
         if (!local_signal) {
             trace("<%s> no signal found with name '%s'.\n",
                   mapper_device_name(dev), local_signal_name);
@@ -1912,8 +1922,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
                 local_signal = 0;
                 break;
             }
-            local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                           local_signal_name);
+            local_signal = mapper_device_signal_by_name(dev, local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
                       mapper_device_name(dev), local_signal_name);
@@ -1982,10 +1991,10 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
             // Inform subscribers
             if (map->destination.local->router_sig)
                 mapper_network_set_dest_subscribers(net,
-                                                    SUBSCRIBE_DEVICE_MAPS_IN);
+                                                    MAPPER_SUBSCRIBE_INCOMING_MAPS);
             else
                 mapper_network_set_dest_subscribers(net,
-                                                    SUBSCRIBE_DEVICE_MAPS_OUT);
+                                                    MAPPER_SUBSCRIBE_OUTGOING_MAPS);
             mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
         }
 
@@ -2026,8 +2035,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     // check if we are the destination
     if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
                    &local_signal_name)==0) {
-        local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                       local_signal_name);
+        local_signal = mapper_device_signal_by_name(dev, local_signal_name);
         if (!local_signal) {
             trace("<%s> no signal found with name '%s'.\n",
                   mapper_device_name(dev), local_signal_name);
@@ -2044,8 +2052,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
                 local_signal = 0;
                 break;
             }
-            local_signal = mapper_db_device_signal_by_name(&net->db, dev,
-                                                           local_signal_name);
+            local_signal = mapper_device_signal_by_name(dev, local_signal_name);
             if (!local_signal) {
                 trace("<%s> no signal found with name '%s'.\n",
                       mapper_device_name(dev), local_signal_name);
@@ -2093,9 +2100,9 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     if (dev->local->subscribers) {
         // Inform subscribers
         if (map->destination.local->router_sig)
-            mapper_network_set_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_IN);
+            mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_INCOMING_MAPS);
         else
-            mapper_network_set_dest_subscribers(net, SUBSCRIBE_DEVICE_MAPS_OUT);
+            mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_OUTGOING_MAPS);
         mapper_map_send_state(map, -1, MSG_UNMAPPED, 0);
     }
 

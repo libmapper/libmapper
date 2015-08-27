@@ -31,57 +31,6 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
                                      int flags, int timeout_seconds,
                                      int revision);
 
-/**** Instances ****/
-
-/*! A signal instance is defined as a vector of values, along with some
- *  metadata. */
-typedef struct _mapper_signal_instance
-{
-    /*! User-assignable instance id. */
-    int id;
-
-    /*! Index for accessing associated value history */
-    int index;
-
-    /*! Status of this instance. */
-    int is_active;
-
-    /*! User data of this instance. */
-    void *user_data;
-
-    /*! The instance's creation timestamp. */
-    mapper_timetag_t created;
-
-    /*! Indicates whether this instance has a value. */
-    int has_value;
-    char *has_value_flags;
-
-    /*! The current value of this signal instance. */
-    void *value;
-
-    /*! The timetag associated with the current value. */
-    mapper_timetag_t timetag;
-} mapper_signal_instance_t, *mapper_signal_instance;
-
-/*! Bit flags for indicating signal instance status. */
-#define MAPPER_RELEASED_LOCALLY  0x01
-#define MAPPER_RELEASED_REMOTELY 0x02
-
-typedef struct _mapper_signal_id_map
-{
-    /*! Pointer to id_map in use */
-    struct _mapper_id_map *map;
-
-    /*! Pointer to signal instance. */
-    struct _mapper_signal_instance *instance;
-
-    /*! Status of the id_map. Can be either 0 or a combination of
-     *  MAPPER_RELEASED_LOCALLY and MAPPER_RELEASED_REMOTELY. */
-    int status;
-} mapper_signal_id_map_t;
-
-// Mapper internal functions
-
 /**** Networking ****/
 
 mapper_db mapper_network_add_db(mapper_network net);
@@ -294,7 +243,7 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
                                           int flags, mapper_timetag_t *tt);
 
 /*! Release a specific signal instance. */
-void mapper_signal_release_instance_internal(mapper_signal sig,
+void mapper_signal_instance_release_internal(mapper_signal sig,
                                              int instance_index,
                                              mapper_timetag_t timetag);
 

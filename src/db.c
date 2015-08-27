@@ -59,12 +59,12 @@ void mapper_db_free(mapper_db db)
             continue;
 
         int no_local_device_maps = 1;
-        mapper_signal *sigs = mapper_db_device_signals(db, dev, MAPPER_DIR_ANY);
+        mapper_signal *sigs = mapper_device_signals(dev, MAPPER_DIR_ANY);
         while (sigs) {
             mapper_signal sig = *sigs;
             sigs = mapper_signal_query_next(sigs);
             int no_local_signal_maps = 1;
-            mapper_map *maps = mapper_db_signal_maps(db, sig, MAPPER_DIR_ANY);
+            mapper_map *maps = mapper_signal_maps(sig, MAPPER_DIR_ANY);
             while (maps) {
                 if ((*maps)->local) {
                     no_local_device_maps = no_local_signal_maps = 0;
@@ -362,10 +362,10 @@ void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet)
     if (!dev)
         return;
 
-    mapper_db_remove_maps_by_query(db, mapper_db_device_maps(db, dev, 0));
+    mapper_db_remove_maps_by_query(db, mapper_device_maps(dev, MAPPER_DIR_ANY));
 
-    mapper_db_remove_signals_by_query(db, mapper_db_device_signals(db, dev,
-                                                                   MAPPER_DIR_ANY));
+    mapper_db_remove_signals_by_query(db, mapper_device_signals(dev,
+                                                                MAPPER_DIR_ANY));
 
     mapper_list_remove_item((void**)&db->devices, dev);
 
@@ -620,7 +620,7 @@ mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
 
     mapper_device dev = mapper_db_device_by_name(db, device_name);
     if (dev) {
-        sig = mapper_db_device_signal_by_name(db, dev, name);
+        sig = mapper_device_signal_by_name(dev, name);
         if (sig && sig->local)
             return sig;
     }
@@ -762,65 +762,10 @@ mapper_signal *mapper_db_signals_by_property(mapper_db db, const char *property,
                                   "iicvs", op, length, type, &value, property));
 }
 
-static int cmp_query_device_signals(const void *context_data, mapper_signal sig)
-{
-    uint64_t dev_id = *(int64_t*)context_data;
-    int direction = *(int*)(context_data + sizeof(uint64_t));
-    return ((!direction || (sig->direction & direction))
-            && (dev_id == sig->device->id));
-}
-
-mapper_signal *mapper_db_device_signals(mapper_db db, mapper_device dev,
-                                        mapper_direction dir)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals, cmp_query_device_signals,
-                                  "hi", dev->name ? dev->id : 0, dir));
-}
-
-mapper_signal mapper_db_device_signal_by_name(mapper_db db, mapper_device dev,
-                                              const char *sig_name)
-{
-    if (!dev)
-        return 0;
-    mapper_signal sig = db->signals;
-    if (!sig)
-        return 0;
-
-    while (sig) {
-        if ((sig->device == dev) && strcmp(sig->name, skip_slash(sig_name))==0)
-            return sig;
-        sig = mapper_list_next(sig);
-    }
-    return 0;
-}
-
-mapper_signal mapper_db_device_signal_by_index(mapper_db db, mapper_device dev,
-                                               mapper_direction dir, int index)
-{
-    if (!dev || index < 0)
-        return 0;
-    mapper_signal sig = db->signals;
-    if (!sig)
-        return 0;
-
-    int count = -1;
-    while (sig && count < index) {
-        if ((sig->device == dev) && (!dir || (sig->direction & dir))) {
-            if (++count == index)
-                return sig;
-        }
-        sig = mapper_list_next(sig);
-    }
-    return 0;
-}
-
 void mapper_db_remove_signal(mapper_db db, mapper_signal sig)
 {
     // remove any stored maps using this signal
-    mapper_db_remove_maps_by_query(db, mapper_db_signal_maps(db, sig, 0));
+    mapper_db_remove_maps_by_query(db, mapper_signal_maps(sig, MAPPER_DIR_ANY));
 
     mapper_list_remove_item((void**)&db->signals, sig);
 
@@ -848,7 +793,7 @@ void mapper_db_remove_signal_by_name(mapper_db db, const char *device_name,
     mapper_device dev = mapper_db_device_by_name(db, device_name);
     if (!dev)
         return;
-    mapper_signal sig = mapper_db_device_signal_by_name(db, dev, signal_name);
+    mapper_signal sig = mapper_device_signal_by_name(dev, signal_name);
     if (sig && !sig->local)
         mapper_db_remove_signal(db, sig);
 }
@@ -1145,62 +1090,6 @@ mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db,
                                   &value, property));
 }
 
-static int cmp_query_device_maps(const void *context_data, mapper_map map)
-{
-    uint64_t dev_id = *(uint64_t*)context_data;
-    int direction = *(int*)(context_data + sizeof(uint64_t));
-    if (!direction || (direction & MAPPER_OUTGOING)) {
-        int i;
-        for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i].signal->device->id == dev_id)
-                return 1;
-        }
-    }
-    if (!direction || (direction & MAPPER_INCOMING)) {
-        if (map->destination.signal->device->id == dev_id)
-            return 1;
-    }
-    return 0;
-}
-
-mapper_map *mapper_db_device_maps(mapper_db db, mapper_device dev,
-                                  mapper_direction dir)
-{
-    if (!dev)
-        return 0;
-    return ((mapper_map *)
-            mapper_list_new_query(db->maps, cmp_query_device_maps,
-                                  "hi", dev->id, dir));
-}
-
-static int cmp_query_signal_maps(const void *context_data, mapper_map map)
-{
-    mapper_signal sig = *(mapper_signal *)context_data;
-    int direction = *(int*)(context_data + sizeof(int64_t));
-    if (!direction || (direction & MAPPER_OUTGOING)) {
-        int i;
-        for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i].signal == sig)
-                return 1;
-        }
-    }
-    if (!direction || (direction & MAPPER_INCOMING)) {
-        if (map->destination.signal == sig)
-            return 1;
-    }
-    return 0;
-}
-
-mapper_map *mapper_db_signal_maps(mapper_db db, mapper_signal sig,
-                                  mapper_direction dir)
-{
-    if (!sig)
-        return 0;
-    return ((mapper_map *)
-            mapper_list_new_query(db->maps, cmp_query_signal_maps,
-                                  "vi", &sig, dir));
-}
-
 void mapper_db_remove_maps_by_query(mapper_db db, mapper_map_t **maps)
 {
     while (maps) {
@@ -1311,25 +1200,25 @@ static void subscribe_internal(mapper_db db, mapper_device dev, int flags,
     set_network_dest(db, dev);
     lo_message m = lo_message_new();
     if (m) {
-        if (flags & SUBSCRIBE_ALL)
+        if (flags & MAPPER_SUBSCRIBE_ALL)
             lo_message_add_string(m, "all");
         else {
-            if (flags & SUBSCRIBE_DEVICE)
+            if (flags & MAPPER_SUBSCRIBE_DEVICES)
                 lo_message_add_string(m, "device");
-            if (flags & SUBSCRIBE_DEVICE_SIGNALS)
+            if (flags & MAPPER_SUBSCRIBE_SIGNALS)
                 lo_message_add_string(m, "signals");
             else {
-                if (flags & SUBSCRIBE_DEVICE_INPUTS)
+                if (flags & MAPPER_SUBSCRIBE_INPUTS)
                     lo_message_add_string(m, "inputs");
-                else if (flags & SUBSCRIBE_DEVICE_OUTPUTS)
+                else if (flags & MAPPER_SUBSCRIBE_OUTPUTS)
                     lo_message_add_string(m, "outputs");
             }
-            if (flags & SUBSCRIBE_DEVICE_MAPS)
+            if (flags & MAPPER_SUBSCRIBE_MAPS)
                 lo_message_add_string(m, "maps");
             else {
-                if (flags & SUBSCRIBE_DEVICE_MAPS_IN)
+                if (flags & MAPPER_SUBSCRIBE_INCOMING_MAPS)
                     lo_message_add_string(m, "incoming_maps");
-                else if (flags & SUBSCRIBE_DEVICE_MAPS_OUT)
+                else if (flags & MAPPER_SUBSCRIBE_OUTGOING_MAPS)
                     lo_message_add_string(m, "outgoing_maps");
             }
         }
@@ -1484,7 +1373,7 @@ void mapper_db_subscribe(mapper_db db, mapper_device dev, int flags, int timeout
 void mapper_db_unsubscribe(mapper_db db, mapper_device dev)
 {
     if (!dev)
-        mapper_db_autosubscribe(db, SUBSCRIBE_NONE);
+        mapper_db_autosubscribe(db, MAPPER_SUBSCRIBE_NONE);
     unsubscribe_internal(db, dev, 1);
 }
 

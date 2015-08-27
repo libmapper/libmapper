@@ -45,7 +45,7 @@ void printmap(mapper_map map)
 /*! Creation of a local dummy device. */
 int setup_database()
 {
-    db = mapper_db_new(0, SUBSCRIBE_ALL);
+    db = mapper_db_new(0, MAPPER_SUBSCRIBE_ALL);
     if (!db)
         goto error;
     printf("Database created.\n");
@@ -92,7 +92,7 @@ void loop()
             printdevice(tempdev);
 
             int numsigs = tempdev->num_outputs;
-            psig = mapper_db_device_signals(db, tempdev, MAPPER_OUTGOING);
+            psig = mapper_device_signals(tempdev, MAPPER_OUTGOING);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_signal_query_next(psig);
@@ -100,7 +100,7 @@ void loop()
                 mapper_signal_pp(tempsig, 0);
             }
             numsigs = tempdev->num_inputs;
-            psig = mapper_db_device_signals(db, tempdev, MAPPER_INCOMING);
+            psig = mapper_device_signals(tempdev, MAPPER_INCOMING);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_signal_query_next(psig);

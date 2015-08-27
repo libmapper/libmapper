@@ -10,14 +10,22 @@ extern "C" {
 
 #include <lo/lo.h>
 
-typedef enum {
-    MAPPER_STAGED       = 0x00,
-    MAPPER_TYPE_KNOWN   = 0x01,
-    MAPPER_LENGTH_KNOWN = 0x02,
-    MAPPER_LINK_KNOWN   = 0x04,
-    MAPPER_READY        = 0x0F,
-    MAPPER_ACTIVE       = 0x1F
-} mapper_status;
+/*! Bit flags for coordinating metadata subscriptions. Subsets of device
+ *  information must also include SUB_DEVICE. */
+#define MAPPER_SUBSCRIBE_NONE           0x00
+#define MAPPER_SUBSCRIBE_DEVICES        0x01
+#define MAPPER_SUBSCRIBE_INPUTS         0x02
+#define MAPPER_SUBSCRIBE_OUTPUTS        0x04
+#define MAPPER_SUBSCRIBE_SIGNALS        0x06 /* (MAPPER_SUBSCRIBE_INPUTS
+                                                | MAPPER_SUBSCRIBE_OUTPUTS) */
+#define MAPPER_SUBSCRIBE_INCOMING_MAPS  0x10
+#define MAPPER_SUBSCRIBE_OUTGOING_MAPS  0x20
+#define MAPPER_SUBSCRIBE_MAPS           0x30 /* ( MAPPER_SUBSCRIBE_INCOMING_MAPS
+                                                | MAPPER_SUBSCRIBE_OUTGOING_MAPS) */
+#define MAPPER_SUBSCRIBE_ALL            0xFF
+
+/* Value for map status when it is active */
+#define MAPPER_ACTIVE   0x1F
 
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
@@ -73,13 +81,11 @@ typedef enum {
 
 /*! The set of possible actions on an instance, used to register callbacks
  *  to inform them of what is happening. */
-typedef enum {
-    MAPPER_NEW_INSTANCE         = 0x01, //!< New instance has been created.
-    MAPPER_UPSTREAM_RELEASE     = 0x02, //!< Instance was released upstream.
-    MAPPER_DOWNSTREAM_RELEASE   = 0x04, //!< Instance was released downstream.
-    MAPPER_INSTANCE_OVERFLOW    = 0x08, //!< No local instances left.
-    MAPPER_INSTANCE_ALL         = 0x0F
-} mapper_instance_event;
+#define MAPPER_NEW_INSTANCE         0x01 //!< New instance has been created.
+#define MAPPER_UPSTREAM_RELEASE     0x02 //!< Instance was released upstream.
+#define MAPPER_DOWNSTREAM_RELEASE   0x04 //!< Instance was released downstream.
+#define MAPPER_INSTANCE_OVERFLOW    0x08 //!< No local instances left.
+#define MAPPER_INSTANCE_ALL         0x0F
 
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup mapdb */
@@ -87,7 +93,6 @@ typedef enum {
     MAPPER_NO_STEALING,
     MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance
     MAPPER_STEAL_NEWEST,    //!< Steal the newest instance
-    NUM_MAPPER_INSTANCE_ALLOCATION_TYPES
 } mapper_instance_allocation_type;
 
 /*! The set of possible actions on a database record, used to inform callbacks

@@ -68,6 +68,19 @@ namespace mapper {
             { return _net; }
         std::string libversion()
             { return std::string(mapper_libversion()); }
+        std::string interface() const
+            { return mapper_network_interface(_net); }
+        const struct in_addr *ip4() const
+            { return mapper_network_ip4(_net); }
+        std::string group() const
+            { return mapper_network_group(_net); }
+        int port() const
+            { return mapper_network_port(_net); }
+    protected:
+        friend class Device;
+        friend class Db;
+        Network(mapper_network net)
+            { _net = net; }
     private:
         mapper_network _net;
     };
@@ -523,111 +536,14 @@ namespace mapper {
             return update(&value[0],
                           (int)value.size() / mapper_signal_length(_sig), *tt);
         }
-        Signal& update_instance(int instance_id, void *value, int count, Timetag tt)
-        {
-            mapper_signal_update_instance(_sig, instance_id, value, count, *tt);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, int *value, int count, Timetag tt)
-        {
-            if (mapper_signal_type(_sig) == 'i')
-                mapper_signal_update_instance(_sig, instance_id, value, count, *tt);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, float *value, int count, Timetag tt)
-        {
-            if (mapper_signal_type(_sig) == 'f')
-                mapper_signal_update_instance(_sig, instance_id, value, count, *tt);
-            return (*this);
-        }
-        Signal& update_instance(int instance_id, double *value, int count, Timetag tt)
-        {
-            if (mapper_signal_type(_sig) == 'd')
-                mapper_signal_update_instance(_sig, instance_id, value, count, *tt);
-            return (*this);
-        }
-        template <typename T>
-        Signal& update_instance(int instance_id, T value)
-            { return update_instance(instance_id, &value, 1, 0); }
-        template <typename T>
-        Signal& update_instance(int instance_id, T* value, int count=0)
-            { return update_instance(instance_id, value, count, 0); }
-        template <typename T>
-        Signal& update_instance(int instance_id, T* value, Timetag tt)
-            { return update_instance(instance_id, value, 1, tt); }
-        template <typename T, size_t N>
-        Signal& update_instance(int instance_id, std::array<T,N> value, Timetag tt=0)
-        {
-            return update_instance(instance_id,
-                                   &value[0], N / mapper_signal_length(_sig), tt);
-        }
-        template <typename T>
-        Signal& update_instance(int instance_id, std::vector<T> value, Timetag tt=0)
-        {
-            return update_instance(instance_id, &value[0],
-                                   value.size() / mapper_signal_length(_sig), tt);
-        }
         const void *value() const
             { return mapper_signal_value(_sig, 0); }
         const void *value(Timetag tt) const
             { return mapper_signal_value(_sig, tt); }
-        const void *instance_value(int instance_id) const
-            { return mapper_signal_instance_value(_sig, instance_id, 0); }
-        const void *instance_value(int instance_id, Timetag tt) const
-            { return mapper_signal_instance_value(_sig, instance_id, tt); }
         int query_remotes() const
             { return mapper_signal_query_remotes(_sig, MAPPER_NOW); }
         int query_remotes(Timetag tt) const
             { return mapper_signal_query_remotes(_sig, *tt); }
-        Signal& reserve_instances(int num)
-            { mapper_signal_reserve_instances(_sig, num, 0, 0); return (*this); }
-        Signal& reserve_instances(int num, int *instance_ids, void **user_data)
-        {
-            mapper_signal_reserve_instances(_sig, num, instance_ids, user_data);
-            return (*this);
-        }
-        Signal& release_instance(int instance_id)
-        {
-            mapper_signal_release_instance(_sig, instance_id, MAPPER_NOW);
-            return (*this);
-        }
-        Signal& release_instance(int instance_id, Timetag tt)
-        {
-            mapper_signal_release_instance(_sig, instance_id, *tt);
-            return (*this);
-        }
-        Signal& remove_instance(int instance_id)
-            { mapper_signal_remove_instance(_sig, instance_id); return (*this); }
-        int oldest_active_instance(int *instance_id)
-            { return mapper_signal_oldest_active_instance(_sig, instance_id); }
-        int newest_active_instance(int *instance_id)
-            { return mapper_signal_newest_active_instance(_sig, instance_id); }
-        int num_active_instances() const
-            { return mapper_signal_num_active_instances(_sig); }
-        int num_reserved_instances() const
-            { return mapper_signal_num_reserved_instances(_sig); }
-        int active_instance_id(int index) const
-        { return mapper_signal_active_instance_id(_sig, index); }
-        Signal& set_instance_allocation_mode(mapper_instance_allocation_type mode)
-        {
-            mapper_signal_set_instance_allocation_mode(_sig, mode);
-            return (*this);
-        }
-        mapper_instance_allocation_type instance_allocation_mode() const
-            { return mapper_signal_instance_allocation_mode(_sig); }
-        Signal& set_instance_event_callback(mapper_instance_event_handler h,
-                                            int flags, void *user_data)
-        {
-            mapper_signal_set_instance_event_callback(_sig, h, flags, user_data);
-            return (*this);
-        }
-        Signal& set_instance_user_data(int instance_id, void *user_data)
-        {
-            mapper_signal_set_instance_user_data(_sig, instance_id, user_data);
-            return (*this);
-        }
-        void *instance_user_data(int instance_id) const
-            { return mapper_signal_instance_user_data(_sig, instance_id); }
         Signal& set_user_data(void *user_data)
         {
             mapper_signal_set_user_data(_sig, user_data);
@@ -645,6 +561,123 @@ namespace mapper {
             { mapper_signal_set_maximum(_sig, value); return (*this); }
         Signal& set_rate(int rate)
             { mapper_signal_set_rate(_sig, rate); return (*this); }
+
+        class Instance {
+        public:
+            Instance& update(void *value, int count, Timetag tt)
+            {
+                mapper_signal_instance_update(_sig, _id, value, count, *tt);
+                return (*this);
+            }
+            Instance& instance(int *value, int count, Timetag tt)
+            {
+                if (mapper_signal_type(_sig) == 'i')
+                    mapper_signal_instance_update(_sig, _id, value, count, *tt);
+                return (*this);
+            }
+            Instance& instance(float *value, int count, Timetag tt)
+            {
+                if (mapper_signal_type(_sig) == 'f')
+                    mapper_signal_instance_update(_sig, _id, value, count, *tt);
+                return (*this);
+            }
+            Instance& instance(double *value, int count, Timetag tt)
+            {
+                if (mapper_signal_type(_sig) == 'd')
+                    mapper_signal_instance_update(_sig, _id, value, count, *tt);
+                return (*this);
+            }
+
+            Instance& release()
+            {
+                mapper_signal_instance_release(_sig, _id, MAPPER_NOW);
+                return (*this);
+            }
+            Instance& release(Timetag tt)
+            {
+                mapper_signal_instance_release(_sig, _id, *tt);
+                return (*this);
+            }
+
+            template <typename T>
+            Instance& update(T value)
+                { return update(&value, 1, 0); }
+            template <typename T>
+            Instance& update(T* value, int count=0)
+                { return update(value, count, 0); }
+            template <typename T>
+            Instance& update(T* value, Timetag tt)
+                { return update(value, 1, tt); }
+            template <typename T, size_t N>
+            Instance& update(std::array<T,N> value, Timetag tt=0)
+            {
+                return update(&value[0], N / mapper_signal_length(_sig), tt);
+            }
+            template <typename T>
+            Instance& update(std::vector<T> value, Timetag tt=0)
+            {
+                return update(&value[0],
+                              value.size() / mapper_signal_length(_sig), tt);
+            }
+
+            Instance& set_user_data(void *user_data)
+            {
+                mapper_signal_instance_set_user_data(_sig, _id, user_data);
+                return (*this);
+            }
+            void *user_data() const
+                { return mapper_signal_instance_user_data(_sig, _id); }
+
+            const void *value() const
+                { return mapper_signal_instance_value(_sig, _id, 0); }
+            const void *value(Timetag tt) const
+                { return mapper_signal_instance_value(_sig, _id, tt); }
+        protected:
+            friend class Signal;
+            Instance(mapper_signal sig, int id)
+                { _sig = sig; _id = id; }
+        private:
+                mapper_signal _sig;
+                uint64_t _id;
+        };
+        Instance instance(int index) const
+        {
+            return Instance(_sig, mapper_signal_instance_id(_sig, index));
+        }
+        Instance active_instance(int index) const
+        {
+            return Instance(_sig, mapper_signal_active_instance_id(_sig, index));
+        }
+        Signal& reserve_instances(int num)
+            { mapper_signal_reserve_instances(_sig, num, 0, 0); return (*this); }
+        Signal& reserve_instances(int num, int *instance_ids, void **user_data)
+        {
+            mapper_signal_reserve_instances(_sig, num, instance_ids, user_data);
+            return (*this);
+        }
+        Signal& remove_instance(Instance instance)
+            { mapper_signal_remove_instance(_sig, instance._id); return (*this); }
+        int oldest_active_instance(int *instance_id)
+            { return mapper_signal_oldest_active_instance(_sig, instance_id); }
+        int newest_active_instance(int *instance_id)
+            { return mapper_signal_newest_active_instance(_sig, instance_id); }
+        int num_active_instances() const
+            { return mapper_signal_num_active_instances(_sig); }
+        int num_reserved_instances() const
+            { return mapper_signal_num_reserved_instances(_sig); }
+        Signal& set_instance_allocation_mode(mapper_instance_allocation_type mode)
+        {
+            mapper_signal_set_instance_allocation_mode(_sig, mode);
+            return (*this);
+        }
+        mapper_instance_allocation_type instance_allocation_mode() const
+            { return mapper_signal_instance_allocation_mode(_sig); }
+        Signal& set_instance_event_callback(mapper_instance_event_handler h,
+                                            int flags, void *user_data)
+        {
+            mapper_signal_set_instance_event_callback(_sig, h, flags, user_data);
+            return (*this);
+        }
 
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
@@ -817,14 +850,20 @@ namespace mapper {
             return (*this);
         }
 
+        Network network() const
+            { return new Network(mapper_device_network(_dev)); }
         int num_signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_device_num_signals(_dev, dir); }
 
         int num_maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_device_num_maps(_dev, dir); }
 
+        Signal signal(const string_type& name)
+            { return Signal(mapper_device_signal_by_name(_dev, name)); }
+        Signal signal(uint64_t id)
+            { return Signal(mapper_device_signal_by_id(_dev, id)); }
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
-            { return Signal::Query(mapper_db_device_signals(_db, _dev, dir)); }
+            { return Signal::Query(mapper_device_signals(_dev, dir)); }
 
         int poll(int block_ms=0) const
             { return mapper_device_poll(_dev, block_ms); }
@@ -842,10 +881,6 @@ namespace mapper {
             { return mapper_device_id(_dev); }
         int port() const
             { return mapper_device_port(_dev); }
-        const struct in_addr *ip4() const
-            { return mapper_device_ip4(_dev); }
-        std::string interface() const
-            { return mapper_device_interface(_dev); }
         int ordinal() const
             { return mapper_device_ordinal(_dev); }
         Device& remove_property(const string_type &name)
@@ -1058,7 +1093,7 @@ namespace mapper {
             { mapper_map_unmap(_map); }
         int num_sources() const
             { return mapper_map_num_sources(_map); }
-        mapper_status status()
+        int status()
             { return mapper_map_status(_map); }
         mapper_mode mode() const
             { return mapper_map_mode(_map); }
@@ -1262,11 +1297,11 @@ namespace mapper {
                 mapper_slot_set_causes_update(_slot, (int)value);
                 return (*this);
             }
-            bool sends_as_instance() const
-                { return mapper_slot_sends_as_instance(_slot); }
-            Slot& set_sends_as_instance(bool value)
+            bool use_as_instance() const
+                { return mapper_slot_use_as_instance(_slot); }
+            Slot& set_use_as_instance(bool value)
             {
-                mapper_slot_set_sends_as_instance(_slot, (int)value);
+                mapper_slot_set_use_as_instance(_slot, (int)value);
                 return (*this);
             }
             Property property(const string_type &name) const
@@ -1358,7 +1393,7 @@ namespace mapper {
         Db(mapper_db db)
             { _db = db; }
     public:
-        Db(int flags = SUBSCRIBE_ALL)
+        Db(int flags = MAPPER_SUBSCRIBE_ALL)
             { _db = mapper_db_new(0, flags); }
         ~Db() {}
         const Db& update(int block_ms=0) const
@@ -1449,7 +1484,7 @@ namespace mapper {
             return (*this);
         }
 
-        Signal signal_by_id(uint64_t id) const
+        Signal signal(uint64_t id) const
             { return Signal(mapper_db_signal_by_id(_db, id)); }
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Signal::Query(mapper_db_signals(_db, dir)); }
@@ -1474,12 +1509,12 @@ namespace mapper {
         Signal::Query device_signals(const device_type& dev,
                                      mapper_direction dir=MAPPER_DIR_ANY) const
         {
-            return Signal::Query(mapper_db_device_signals(_db, dev, dir));
+            return Signal::Query(mapper_device_signals(dev, dir));
         }
         Signal device_signal_by_name(const device_type& dev,
                                      const string_type& name) const
         {
-            return Signal(mapper_db_device_signal_by_name(_db, dev, name));
+            return Signal(mapper_device_signal_by_name(dev, name));
         }
 
         // db maps
@@ -1514,13 +1549,13 @@ namespace mapper {
                                mapper_direction dir=MAPPER_DIR_ANY) const
         {
             return Map::Query(
-                mapper_db_device_maps(_db, (mapper_device)dev, dir));
+                mapper_device_maps((mapper_device)dev, dir));
         }
         Map::Query signal_maps(const signal_type& signal,
                                mapper_direction dir=MAPPER_DIR_ANY) const
         {
             return Map::Query(
-                mapper_db_signal_maps(_db, (mapper_signal)signal, dir));
+                mapper_signal_maps((mapper_signal)signal, dir));
         }
     private:
         mapper_db _db;

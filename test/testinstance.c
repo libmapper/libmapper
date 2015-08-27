@@ -78,12 +78,12 @@ void insig_handler(mapper_signal sig, int instance_id, const void *value,
     else {
         eprintf("--> destination %s instance %ld got NULL\n",
                 mapper_signal_name(sig), (long)instance_id);
-        mapper_signal_release_instance(sig, instance_id, MAPPER_NOW);
+        mapper_signal_instance_release(sig, instance_id, MAPPER_NOW);
     }
 }
 
-void more_handler(mapper_signal sig, int instance_id,
-                  mapper_instance_event event, mapper_timetag_t *timetag)
+void more_handler(mapper_signal sig, int instance_id, int event,
+                  mapper_timetag_t *timetag)
 {
     if (event & MAPPER_INSTANCE_OVERFLOW) {
         eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
@@ -91,7 +91,7 @@ void more_handler(mapper_signal sig, int instance_id,
     }
     else if (event & MAPPER_UPSTREAM_RELEASE) {
         eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
-        mapper_signal_release_instance(sig, instance_id, MAPPER_NOW);
+        mapper_signal_instance_release(sig, instance_id, MAPPER_NOW);
     }
 }
 
@@ -184,13 +184,13 @@ void loop()
                 // try to destroy an instance
                 j = rand() % 10;
                 eprintf("--> Retiring sender instance %i\n", j);
-                mapper_signal_release_instance(sendsig, j, MAPPER_NOW);
+                mapper_signal_instance_release(sendsig, j, MAPPER_NOW);
                 break;
             default:
                 j = rand() % 10;
                 // try to update an instance
                 value = (rand() % 10) * 1.0f;
-                mapper_signal_update_instance(sendsig, j, &value, 0, MAPPER_NOW);
+                mapper_signal_instance_update(sendsig, j, &value, 0, MAPPER_NOW);
                 eprintf("--> sender instance %d updated to %f\n", j, value);
                 sent++;
                 break;
@@ -269,7 +269,7 @@ int main(int argc, char **argv)
     stats[1] = received;
 
     for (i=0; i<10; i++)
-        mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
+        mapper_signal_instance_release(sendsig, i, MAPPER_NOW);
     sent = received = 0;
 
     mapper_signal_set_instance_allocation_mode(recvsig, MAPPER_STEAL_OLDEST);
@@ -284,7 +284,7 @@ int main(int argc, char **argv)
     sent = received = 0;
 
     for (i=0; i<10; i++)
-        mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
+        mapper_signal_instance_release(sendsig, i, MAPPER_NOW);
     sent = received = 0;
 
     mapper_signal_set_instance_event_callback(recvsig, more_handler,

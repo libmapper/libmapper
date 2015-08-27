@@ -164,13 +164,13 @@ void mapper_device_free(mapper_device dev)
         free(s);
     }
 
-    mapper_signal *sig = mapper_db_device_signals(&net->db, dev, MAPPER_DIR_ANY);
+    mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
     while (sig) {
         if ((*sig)->local) {
             // release active instances
             for (i = 0; i < (*sig)->local->id_map_length; i++) {
                 if ((*sig)->local->id_maps[i].instance) {
-                    mapper_signal_release_instance_internal(*sig, i, MAPPER_NOW);
+                    mapper_signal_instance_release_internal(*sig, i, MAPPER_NOW);
                 }
             }
         }
@@ -245,7 +245,7 @@ void mapper_device_registered(mapper_device dev)
 {
     int i;
     /* Add unique device id to locally-activated signal instances. */
-    mapper_signal *sig = mapper_db_device_signals(dev->db, dev, MAPPER_DIR_ANY);
+    mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
     while (sig) {
         if ((*sig)->local) {
             for (i = 0; i < (*sig)->local->id_map_length; i++) {
@@ -806,7 +806,7 @@ static uint64_t get_unused_signal_id(mapper_device dev)
         done = 1;
         id = mapper_device_unique_id(dev);
         // check if input signal exists with this id
-        mapper_signal *sig = mapper_db_device_signals(dev->db, dev, MAPPER_DIR_ANY);
+        mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
         while (sig) {
             if ((*sig)->id == id) {
                 done = 0;
@@ -833,7 +833,7 @@ mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
 
     mapper_db db = dev->db;
     mapper_signal sig;
-    if ((sig = mapper_db_device_signal_by_name(db, dev, name)))
+    if ((sig = mapper_device_signal_by_name(dev, name)))
         return sig;
 
     sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
@@ -852,7 +852,8 @@ mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
 
     if (dev->local->registered) {
         // Notify subscribers
-        mapper_network_set_dest_subscribers(db->network, SUBSCRIBE_DEVICE_INPUTS);
+        mapper_network_set_dest_subscribers(db->network,
+                                            MAPPER_SUBSCRIBE_INPUTS);
         mapper_signal_send_state(sig);
     }
 
@@ -871,7 +872,7 @@ mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
 
     mapper_db db = dev->db;
     mapper_signal sig;
-    if ((sig = mapper_db_device_signal_by_name(db, dev, name)))
+    if ((sig = mapper_device_signal_by_name(dev, name)))
         return sig;
 
     sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
@@ -890,7 +891,8 @@ mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
 
     if (dev->local->registered) {
         // Notify subscribers
-        mapper_network_set_dest_subscribers(db->network, SUBSCRIBE_DEVICE_OUTPUTS);
+        mapper_network_set_dest_subscribers(db->network,
+                                            MAPPER_SUBSCRIBE_OUTPUTS);
         mapper_signal_send_state(sig);
     }
     return sig;
@@ -1002,7 +1004,7 @@ void mapper_device_remove_input(mapper_device dev, mapper_signal sig)
     if (dev->local->registered) {
         // Notify subscribers
         mapper_network_set_dest_subscribers(dev->db->network,
-                                            SUBSCRIBE_DEVICE_INPUTS);
+                                            MAPPER_SUBSCRIBE_INPUTS);
         mapper_signal_send_removed(sig);
     }
 
@@ -1036,7 +1038,7 @@ void mapper_device_remove_output(mapper_device dev, mapper_signal sig)
     if (dev->local->registered) {
         // Notify subscribers
         mapper_network_set_dest_subscribers(dev->db->network,
-                                            SUBSCRIBE_DEVICE_OUTPUTS);
+                                            MAPPER_SUBSCRIBE_OUTPUTS);
         mapper_signal_send_removed(sig);
     }
 
@@ -1054,6 +1056,76 @@ int mapper_device_num_signals(mapper_device dev, mapper_direction dir)
             + (dir & MAPPER_OUTGOING) * dev->num_outputs);
 }
 
+static int cmp_query_device_signals(const void *context_data, mapper_signal sig)
+{
+    uint64_t dev_id = *(int64_t*)context_data;
+    int direction = *(int*)(context_data + sizeof(uint64_t));
+    return ((!direction || (sig->direction & direction))
+            && (dev_id == sig->device->id));
+}
+
+mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir)
+{
+    if (!dev || !dev->db->signals)
+        return 0;
+    return ((mapper_signal *)
+            mapper_list_new_query(dev->db->signals, cmp_query_device_signals,
+                                  "hi", dev->name ? dev->id : 0, dir));
+}
+
+mapper_signal mapper_device_signal_by_id(mapper_device dev, uint64_t id)
+{
+    if (!dev)
+        return 0;
+    mapper_signal sig = dev->db->signals;
+    if (!sig)
+        return 0;
+
+    while (sig) {
+        if ((sig->device == dev) && (sig->id == id))
+            return sig;
+        sig = mapper_list_next(sig);
+    }
+    return 0;
+}
+
+mapper_signal mapper_device_signal_by_name(mapper_device dev,
+                                           const char *sig_name)
+{
+    if (!dev)
+        return 0;
+    mapper_signal sig = dev->db->signals;
+    if (!sig)
+        return 0;
+
+    while (sig) {
+        if ((sig->device == dev) && strcmp(sig->name, skip_slash(sig_name))==0)
+        return sig;
+        sig = mapper_list_next(sig);
+    }
+    return 0;
+}
+
+mapper_signal mapper_device_signal_by_index(mapper_device dev, int index,
+                                            mapper_direction dir)
+{
+    if (!dev || index < 0)
+        return 0;
+    mapper_signal sig = dev->db->signals;
+    if (!sig)
+        return 0;
+
+    int count = -1;
+    while (sig && count < index) {
+        if ((sig->device == dev) && (!dir || (sig->direction & dir))) {
+            if (++count == index)
+            return sig;
+        }
+        sig = mapper_list_next(sig);
+    }
+    return 0;
+}
+
 int mapper_device_num_maps(mapper_device dev, mapper_direction dir)
 {
     if (!dev)
@@ -1062,6 +1134,33 @@ int mapper_device_num_maps(mapper_device dev, mapper_direction dir)
         return dev->num_incoming_maps + dev->num_outgoing_maps;
     return (  ((dir & MAPPER_INCOMING) ? dev->num_incoming_maps : 0)
             + ((dir & MAPPER_OUTGOING) ? dev->num_outgoing_maps : 0));
+}
+
+static int cmp_query_device_maps(const void *context_data, mapper_map map)
+{
+    uint64_t dev_id = *(uint64_t*)context_data;
+    int direction = *(int*)(context_data + sizeof(uint64_t));
+    if (!direction || (direction & MAPPER_OUTGOING)) {
+        int i;
+        for (i = 0; i < map->num_sources; i++) {
+            if (map->sources[i].signal->device->id == dev_id)
+            return 1;
+        }
+    }
+    if (!direction || (direction & MAPPER_INCOMING)) {
+        if (map->destination.signal->device->id == dev_id)
+        return 1;
+    }
+    return 0;
+}
+
+mapper_map *mapper_device_maps(mapper_device dev, mapper_direction dir)
+{
+    if (!dev || !dev->db->maps)
+        return 0;
+    return ((mapper_map *)
+            mapper_list_new_query(dev->db->maps, cmp_query_device_maps,
+                                  "hi", dev->id, dir));
 }
 
 int mapper_device_poll(mapper_device dev, int block_ms)
@@ -1284,7 +1383,7 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
     trace("bound to port %i\n", dev->port);
 
     // add signal methods
-    mapper_signal *sig = mapper_db_device_signals(dev->db, dev, MAPPER_DIR_ANY);
+    mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
     while (sig) {
         if ((*sig)->local->update_handler)
             lo_server_add_method(dev->local->server, (*sig)->path, NULL,
@@ -1315,6 +1414,11 @@ const char *mapper_device_name(mapper_device dev)
     return dev->name;
 }
 
+const char *mapper_device_host(mapper_device dev)
+{
+    return dev->host;
+}
+
 uint64_t mapper_device_id(mapper_device dev)
 {
     if (dev->local->registered)
@@ -1336,23 +1440,6 @@ unsigned int mapper_device_port(mapper_device dev)
         return 0;
 }
 
-const struct in_addr *mapper_device_ip4(mapper_device dev)
-{
-    if (!dev || !dev->local)
-        return 0;
-    if (dev->local->registered)
-        return &dev->db->network->interface_ip;
-    else
-        return 0;
-}
-
-const char *mapper_device_interface(mapper_device dev)
-{
-    if (!dev || !dev->local)
-        return 0;
-    return dev->db->network->interface_name;
-}
-
 unsigned int mapper_device_ordinal(mapper_device dev)
 {
     if (dev->local->registered)
@@ -1367,6 +1454,21 @@ int mapper_device_ready(mapper_device dev)
         return 0;
 
     return dev->local->registered;
+}
+
+void mapper_device_synced(mapper_device dev, mapper_timetag_t *timetag)
+{
+    if (!dev || !timetag)
+        return;
+    if (dev->local)
+        mapper_clock_now(&dev->db->network->clock, timetag);
+    else
+        mapper_timetag_copy(timetag, dev->synced);
+}
+
+int mapper_device_version(mapper_device dev)
+{
+    return dev ? dev->version : 0;
 }
 
 void mapper_device_set_property(mapper_device dev, const char *property,
@@ -1591,7 +1693,7 @@ void mapper_device_send_inputs(mapper_device dev, int min, int max)
         max = dev->num_inputs-1;
 
     int i = 0;
-    mapper_signal *sig = mapper_db_device_signals(dev->db, dev, MAPPER_INCOMING);
+    mapper_signal *sig = mapper_device_signals(dev, MAPPER_INCOMING);
     while (sig) {
         if (i > max) {
             mapper_signal_query_done(sig);
@@ -1614,7 +1716,7 @@ void mapper_device_send_outputs(mapper_device dev, int min, int max)
         max = dev->num_outputs-1;
 
     int i = 0;
-    mapper_signal *sig = mapper_db_device_signals(dev->db, dev, MAPPER_OUTGOING);
+    mapper_signal *sig = mapper_device_signals(dev, MAPPER_OUTGOING);
     while (sig) {
         if (i > max) {
             mapper_signal_query_done(sig);
@@ -1736,13 +1838,13 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     // bring new subscriber up to date
     mapper_network_set_dest_mesh(dev->db->network, address);
     mapper_device_send_state(dev);
-    if (flags & SUBSCRIBE_DEVICE_INPUTS)
+    if (flags & MAPPER_SUBSCRIBE_INPUTS)
         mapper_device_send_inputs(dev, -1, -1);
-    if (flags & SUBSCRIBE_DEVICE_OUTPUTS)
+    if (flags & MAPPER_SUBSCRIBE_OUTPUTS)
         mapper_device_send_outputs(dev, -1, -1);
-    if (flags & SUBSCRIBE_DEVICE_MAPS_IN)
+    if (flags & MAPPER_SUBSCRIBE_INCOMING_MAPS)
         mapper_device_send_incoming_maps(dev, -1, -1);
-    if (flags & SUBSCRIBE_DEVICE_MAPS_OUT)
+    if (flags & MAPPER_SUBSCRIBE_OUTGOING_MAPS)
         mapper_device_send_outgoing_maps(dev, -1, -1);
     mapper_network_send(dev->db->network);
 }

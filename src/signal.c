@@ -204,7 +204,7 @@ void mapper_signal_free(mapper_signal sig)
         // Free instances
         for (i = 0; i < sig->local->id_map_length; i++) {
             if (sig->local->id_maps[i].instance) {
-                mapper_signal_release_instance_internal(sig, i, MAPPER_NOW);
+                mapper_signal_instance_release_internal(sig, i, MAPPER_NOW);
             }
         }
         free(sig->local->id_maps);
@@ -728,7 +728,7 @@ int mapper_signal_reserve_instances(mapper_signal sig, int num, int *ids,
     return count;
 }
 
-void mapper_signal_update_instance(mapper_signal sig, int instance_id,
+void mapper_signal_instance_update(mapper_signal sig, int instance_id,
                                    const void *value, int count,
                                    mapper_timetag_t timetag)
 {
@@ -736,7 +736,7 @@ void mapper_signal_update_instance(mapper_signal sig, int instance_id,
         return;
 
     if (!value) {
-        mapper_signal_release_instance(sig, instance_id, timetag);
+        mapper_signal_instance_release(sig, instance_id, timetag);
         return;
     }
 
@@ -746,6 +746,15 @@ void mapper_signal_update_instance(mapper_signal sig, int instance_id,
         mapper_signal_update_internal(sig, index, value, count, timetag);
 }
 
+int mapper_signal_instance_is_active(mapper_signal sig, int instance_id)
+{
+    if (!sig)
+        return 0;
+    int index = mapper_signal_find_instance_with_local_id(sig, instance_id, 0);
+    if (index < 0)
+        return 0;
+    return sig->local->id_maps[index].instance->is_active;
+}
 
 int mapper_signal_oldest_active_instance(mapper_signal sig, int *id)
 {
@@ -849,7 +858,7 @@ static void mapper_signal_update_internal(mapper_signal sig, int instance_index,
                                count, si->timetag);
 }
 
-void mapper_signal_release_instance(mapper_signal sig, int id,
+void mapper_signal_instance_release(mapper_signal sig, int id,
                                     mapper_timetag_t timetag)
 {
     if (!sig || !sig->local)
@@ -858,10 +867,10 @@ void mapper_signal_release_instance(mapper_signal sig, int id,
     int index = mapper_signal_find_instance_with_local_id(sig, id,
                                                           MAPPER_RELEASED_REMOTELY);
     if (index >= 0)
-        mapper_signal_release_instance_internal(sig, index, timetag);
+        mapper_signal_instance_release_internal(sig, index, timetag);
 }
 
-void mapper_signal_release_instance_internal(mapper_signal sig,
+void mapper_signal_instance_release_internal(mapper_signal sig,
                                              int instance_index,
                                              mapper_timetag_t tt)
 {
@@ -913,7 +922,7 @@ void mapper_signal_remove_instance(mapper_signal sig, int instance_id)
                 // First release instance
                 mapper_timetag_t tt = sig->device->db->network->clock.now;
                 mapper_device_now(sig->device, &tt);
-                mapper_signal_release_instance_internal(sig, i, tt);
+                mapper_signal_instance_release_internal(sig, i, tt);
             }
             break;
         }
@@ -994,6 +1003,18 @@ int mapper_signal_num_reserved_instances(mapper_signal sig)
     return j;
 }
 
+int mapper_signal_instance_id(mapper_signal sig, int index)
+{
+    if (!sig || !sig->local)
+        return -1;
+    int i;
+    for (i = 0; i < sig->num_instances; i++) {
+        if (i == index)
+            return sig->local->instances[i]->id;
+    }
+    return 0;
+}
+
 int mapper_signal_active_instance_id(mapper_signal sig, int index)
 {
     if (!sig || !sig->local)
@@ -1054,7 +1075,7 @@ void *mapper_signal_user_data(mapper_signal sig)
     return sig ? sig->user_data : 0;
 }
 
-void mapper_signal_set_instance_user_data(mapper_signal sig, int instance_id,
+void mapper_signal_instance_set_user_data(mapper_signal sig, int instance_id,
                                           const void *user_data)
 {
     if (!sig || !sig->local)
@@ -1187,6 +1208,33 @@ int mapper_signal_num_maps(mapper_signal sig, mapper_direction dir)
         return sig->num_incoming_maps + sig->num_outgoing_maps;
     return (  ((dir & MAPPER_INCOMING) ? sig->num_incoming_maps : 0)
             + ((dir & MAPPER_OUTGOING) ? sig->num_outgoing_maps : 0));
+}
+
+static int cmp_query_signal_maps(const void *context_data, mapper_map map)
+{
+    mapper_signal sig = *(mapper_signal *)context_data;
+    int direction = *(int*)(context_data + sizeof(int64_t));
+    if (!direction || (direction & MAPPER_OUTGOING)) {
+        int i;
+        for (i = 0; i < map->num_sources; i++) {
+            if (map->sources[i].signal == sig)
+            return 1;
+        }
+    }
+    if (!direction || (direction & MAPPER_INCOMING)) {
+        if (map->destination.signal == sig)
+        return 1;
+    }
+    return 0;
+}
+
+mapper_map *mapper_signal_maps(mapper_signal sig, mapper_direction dir)
+{
+    if (!sig || !sig->device->db->maps)
+        return 0;
+    return ((mapper_map *)
+            mapper_list_new_query(sig->device->db->maps, cmp_query_signal_maps,
+                                  "vi", &sig, dir));
 }
 
 float mapper_signal_rate(mapper_signal sig)
@@ -1329,13 +1377,13 @@ void mapper_signal_remove_property(mapper_signal sig, const char *property)
 {
     if (!sig || !property)
         return;
-    if (strcmp(property, "direction") == 0 ||
-        strcmp(property, "id") == 0 ||
-        strcmp(property, "length") == 0 ||
-        strcmp(property, "name") == 0 ||
-        strcmp(property, "rate") == 0 ||
-        strcmp(property, "type") == 0 ||
-        strcmp(property, "user_data") == 0) {
+    if (   strcmp(property, "direction") == 0
+        || strcmp(property, "id") == 0
+        || strcmp(property, "length") == 0
+        || strcmp(property, "name") == 0
+        || strcmp(property, "rate") == 0
+        || strcmp(property, "type") == 0
+        || strcmp(property, "user_data") == 0) {
         trace("Cannot remove static signal property '%s'\n", property);
         return;
     }
@@ -1345,7 +1393,8 @@ void mapper_signal_remove_property(mapper_signal sig, const char *property)
         mapper_signal_set_maximum(sig, 0);
     else if (strcmp(property, "minimum")==0)
         mapper_signal_set_minimum(sig, 0);
-    table_remove_key(sig->extra, property, 1);
+    else
+        table_remove_key(sig->extra, property, 1);
 }
 
 static int mapper_signal_add_id_map(mapper_signal sig, mapper_signal_instance si,
