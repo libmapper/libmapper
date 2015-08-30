@@ -24,8 +24,8 @@ static int mapper_signal_oldest_active_instance_internal(mapper_signal sig);
 
 static int mapper_signal_newest_active_instance_internal(mapper_signal sig);
 
-static int mapper_signal_find_instance_with_local_id(mapper_signal sig, int id,
-                                                     int flags);
+static int mapper_signal_find_instance_with_local_id(mapper_signal sig,
+                                                     mapper_id id, int flags);
 
 static int mapper_signal_add_id_map(mapper_signal sig, mapper_signal_instance si,
                                     mapper_id_map map);
@@ -108,22 +108,20 @@ static mapper_string_table_t sig_table = {
 
 static int compare_ids(const void *l, const void *r)
 {
-    if ((*(mapper_signal_instance *)l)->id < (*(mapper_signal_instance *)r)->id)
-        return -1;
-    if ((*(mapper_signal_instance *)l)->id == (*(mapper_signal_instance *)r)->id)
-        return 0;
-    return 1;
+    return memcmp(&(*(mapper_signal_instance *)l)->id,
+                  &(*(mapper_signal_instance *)r)->id,
+                  sizeof(mapper_id));
 }
 
 static mapper_signal_instance find_instance_by_id(mapper_signal sig,
-                                                  int instance_id)
+                                                  mapper_id id)
 {
     if (!sig->num_instances)
         return 0;
 
     mapper_signal_instance_t si;
     mapper_signal_instance sip = &si;
-    si.id = instance_id;
+    si.id = id;
 
     mapper_signal_instance *sipp = bsearch(&sip, sig->local->instances,
                                            sig->num_instances,
@@ -364,8 +362,8 @@ static void mapper_signal_init_instance(mapper_signal_instance si)
     lo_timetag_now(&si->created);
 }
 
-static int mapper_signal_find_instance_with_local_id(mapper_signal sig, int id,
-                                                     int flags)
+static int mapper_signal_find_instance_with_local_id(mapper_signal sig,
+                                                     mapper_id id, int flags)
 {
     int i;
     for (i = 0; i < sig->local->id_map_length; i++) {
@@ -381,7 +379,7 @@ static int mapper_signal_find_instance_with_local_id(mapper_signal sig, int id,
 }
 
 int mapper_signal_find_instance_with_global_id(mapper_signal sig,
-                                               uint64_t global_id,
+                                               mapper_id global_id,
                                                int flags)
 {
     int i;
@@ -409,7 +407,7 @@ static mapper_signal_instance reserved_instance(mapper_signal sig)
     return 0;
 }
 
-int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
+int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
                                          int flags, mapper_timetag_t *tt)
 {
     if (!sig || !sig->local)
@@ -422,7 +420,7 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
     mapper_signal_instance si;
     int i;
     for (i = 0; i < sig->local->id_map_length; i++) {
-        if (maps[i].instance && maps[i].map->local == instance_id) {
+        if (maps[i].instance && maps[i].map->local == id) {
             if (maps[i].status & ~flags)
                 return -1;
             else {
@@ -433,14 +431,14 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
 
     // check if device has record of id map
     mapper_id_map map = mapper_device_find_instance_id_map_by_local(sig->device,
-                                                                    instance_id);
+                                                                    id);
 
     /* No instance with that id exists - need to try to activate instance and
      * create new id map. */
-    if ((si = find_instance_by_id(sig, instance_id))) {
+    if ((si = find_instance_by_id(sig, id))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
-            map = mapper_device_add_instance_id_map(sig->device, instance_id,
+            map = mapper_device_add_instance_id_map(sig->device, id,
                                                     mapper_device_unique_id(sig->device));
         }
         else {
@@ -451,14 +449,14 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
         mapper_signal_init_instance(si);
         i = mapper_signal_add_id_map(sig, si, map);
         if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
-            event_h(sig, instance_id, MAPPER_NEW_INSTANCE, tt);
+            event_h(sig, id, MAPPER_NEW_INSTANCE, tt);
         }
         return i;
     }
 
     if (event_h && (sig->local->instance_event_flags & MAPPER_INSTANCE_OVERFLOW)) {
         // call instance event handler
-        event_h(sig, -1, MAPPER_INSTANCE_OVERFLOW, tt);
+        event_h(sig, 0, MAPPER_INSTANCE_OVERFLOW, tt);
     }
     else if (update_h) {
         if (sig->local->instance_allocation_type == MAPPER_STEAL_OLDEST) {
@@ -480,10 +478,10 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
         return -1;
 
     // try again
-    if ((si = find_instance_by_id(sig, instance_id))) {
+    if ((si = find_instance_by_id(sig, id))) {
         if (!map) {
             // Claim id map locally add id map to device and link from signal
-            map = mapper_device_add_instance_id_map(sig->device, instance_id,
+            map = mapper_device_add_instance_id_map(sig->device, id,
                                                     mapper_device_unique_id(sig->device));
         }
         else {
@@ -492,14 +490,14 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, int instance_id,
         mapper_signal_init_instance(si);
         i = mapper_signal_add_id_map(sig, si, map);
         if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
-            event_h(sig, instance_id, MAPPER_NEW_INSTANCE, tt);
+            event_h(sig, id, MAPPER_NEW_INSTANCE, tt);
         }
         return i;
     }
     return -1;
 }
 
-int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
+int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id,
                                           int flags, mapper_timetag_t *tt)
 {
     if (!sig || !sig->local)
@@ -552,8 +550,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
         if (!si) {
             /* TODO: Once signal groups are explicit, allow re-mapping to
              * another instance if possible. */
-            trace("Signal %s has no instance %i available.\n",
-                  sig->name, map->local);
+            trace("Signal %s has no instance %llu available.\n", sig->name,
+                  map->local);
             return -1;
         }
         else if (!si->is_active) {
@@ -573,7 +571,7 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
     // try releasing instance in use
     if (event_h && (sig->local->instance_event_flags & MAPPER_INSTANCE_OVERFLOW)) {
         // call instance event handler
-        event_h(sig, -1, MAPPER_INSTANCE_OVERFLOW, tt);
+        event_h(sig, 0, MAPPER_INSTANCE_OVERFLOW, tt);
     }
     else if (update_h) {
         if (sig->local->instance_allocation_type == MAPPER_STEAL_OLDEST) {
@@ -613,8 +611,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
     else {
         si = find_instance_by_id(sig, map->local);
         if (!si) {
-            trace("Signal %s has no instance %i available.",
-                  sig->name, map->local);
+            trace("Signal %s has no instance %llu available.", sig->name,
+                  map->local);
             return -1;
         }
         if (si) {
@@ -636,13 +634,13 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
     return -1;
 }
 
-static int mapper_signal_reserve_instance_internal(mapper_signal sig, int *id,
-                                                   void *user_data)
+static int reserve_instance_internal(mapper_signal sig, mapper_id *id,
+                                     void *user_data)
 {
     if (sig->num_instances >= MAX_INSTANCES)
         return -1;
 
-    int i, lowest, found;
+    int i, lowest_index, cont;
     mapper_signal_instance si;
 
     // check if instance with this id already exists! If so, stop here.
@@ -663,33 +661,35 @@ static int mapper_signal_reserve_instance_internal(mapper_signal sig, int *id,
     if (id)
         si->id = *id;
     else {
-        // find lowest unused positive id
-        lowest = -1, found = 0;
-        while (!found) {
-            lowest++;
-            found = 1;
+        // find lowest unused id
+        mapper_id lowest_id = 0;
+        cont = 1;
+        while (cont) {
+            cont = 0;
             for (i = 0; i < sig->num_instances; i++) {
-                if (sig->local->instances[i]->id == lowest) {
-                    found = 0;
+                if (sig->local->instances[i]->id == lowest_id) {
+                    cont = 1;
                     break;
                 }
             }
+            lowest_id += cont;
         }
-        si->id = lowest;
+        si->id = lowest_id;
     }
     // find lowest unused positive index
-    lowest = -1, found = 0;
-    while (!found) {
-        lowest++;
-        found = 1;
+    lowest_index = 0;
+    cont = 1;
+    while (cont) {
+        cont = 0;
         for (i = 0; i < sig->num_instances; i++) {
-            if (sig->local->instances[i]->index == lowest) {
-                found = 0;
+            if (sig->local->instances[i]->index == lowest_index) {
+                cont = 1;
                 break;
             }
         }
+        lowest_index += cont;
     }
-    si->index = lowest;
+    si->index = lowest_index;
 
     mapper_signal_init_instance(si);
     si->user_data = user_data;
@@ -708,7 +708,7 @@ static int mapper_signal_reserve_instance_internal(mapper_signal sig, int *id,
     return highest;
 }
 
-int mapper_signal_reserve_instances(mapper_signal sig, int num, int *ids,
+int mapper_signal_reserve_instances(mapper_signal sig, int num, mapper_id *ids,
                                     void **user_data)
 {
     if (!sig || !sig->local)
@@ -716,8 +716,8 @@ int mapper_signal_reserve_instances(mapper_signal sig, int num, int *ids,
 
     int i, count = 0, highest = -1, result;
     for (i = 0; i < num; i++) {
-        result = mapper_signal_reserve_instance_internal(sig, ids ? &ids[i] : 0,
-                                                         user_data ? user_data[i] : 0);
+        result = reserve_instance_internal(sig, ids ? &ids[i] : 0,
+                                           user_data ? user_data[i] : 0);
         if (result == -1)
             continue;
         highest = result;
@@ -728,7 +728,7 @@ int mapper_signal_reserve_instances(mapper_signal sig, int num, int *ids,
     return count;
 }
 
-void mapper_signal_instance_update(mapper_signal sig, int instance_id,
+void mapper_signal_instance_update(mapper_signal sig, mapper_id id,
                                    const void *value, int count,
                                    mapper_timetag_t timetag)
 {
@@ -736,36 +736,35 @@ void mapper_signal_instance_update(mapper_signal sig, int instance_id,
         return;
 
     if (!value) {
-        mapper_signal_instance_release(sig, instance_id, timetag);
+        mapper_signal_instance_release(sig, id, timetag);
         return;
     }
 
-    int index = mapper_signal_instance_with_local_id(sig, instance_id, 0,
-                                                     &timetag);
+    int index = mapper_signal_instance_with_local_id(sig, id, 0, &timetag);
     if (index >= 0)
         mapper_signal_update_internal(sig, index, value, count, timetag);
 }
 
-int mapper_signal_instance_is_active(mapper_signal sig, int instance_id)
+int mapper_signal_instance_is_active(mapper_signal sig, mapper_id id)
 {
     if (!sig)
         return 0;
-    int index = mapper_signal_find_instance_with_local_id(sig, instance_id, 0);
+    int index = mapper_signal_find_instance_with_local_id(sig, id, 0);
     if (index < 0)
         return 0;
     return sig->local->id_maps[index].instance->is_active;
 }
 
-int mapper_signal_oldest_active_instance(mapper_signal sig, int *id)
+mapper_id mapper_signal_oldest_active_instance(mapper_signal sig)
 {
     if (!sig || !sig->local)
-        return 1;
+        return 0;
 
     int index = mapper_signal_oldest_active_instance_internal(sig);
     if (index < 0)
-        return 1;
+        return 0;
     else
-        *id = sig->local->id_maps[index].map->local;
+        return sig->local->id_maps[index].map->local;
     return 0;
 }
 
@@ -793,16 +792,16 @@ int mapper_signal_oldest_active_instance_internal(mapper_signal sig)
     return oldest;
 }
 
-int mapper_signal_newest_active_instance(mapper_signal sig, int *id)
+mapper_id mapper_signal_newest_active_instance(mapper_signal sig)
 {
     if (!sig || !sig->local)
-        return 1;
+        return 0;
 
     int index = mapper_signal_newest_active_instance_internal(sig);
     if (index < 0)
-        return 1;
+        return 0;
     else
-        *id = sig->local->id_maps[index].map->local;
+        return sig->local->id_maps[index].map->local;
     return 0;
 }
 
@@ -858,7 +857,7 @@ static void mapper_signal_update_internal(mapper_signal sig, int instance_index,
                                count, si->timetag);
 }
 
-void mapper_signal_instance_release(mapper_signal sig, int id,
+void mapper_signal_instance_release(mapper_signal sig, mapper_id id,
                                     mapper_timetag_t timetag)
 {
     if (!sig || !sig->local)
@@ -910,14 +909,14 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
     smap->instance = 0;
 }
 
-void mapper_signal_remove_instance(mapper_signal sig, int instance_id)
+void mapper_signal_remove_instance(mapper_signal sig, mapper_id id)
 {
     if (!sig || !sig->local)
         return;
 
     int i;
     for (i = 0; i < sig->num_instances; i++) {
-        if (sig->local->instances[i]->id == instance_id) {
+        if (sig->local->instances[i]->id == id) {
             if (sig->local->instances[i]->is_active) {
                 // First release instance
                 mapper_timetag_t tt = sig->device->db->network->clock.now;
@@ -961,13 +960,13 @@ static void *mapper_signal_instance_value_internal(mapper_signal sig,
     return si->value;
 }
 
-const void *mapper_signal_instance_value(mapper_signal sig, int instance_id,
+const void *mapper_signal_instance_value(mapper_signal sig, mapper_id id,
                                          mapper_timetag_t *timetag)
 {
     if (!sig || !sig->local)
         return 0;
 
-    int index = mapper_signal_find_instance_with_local_id(sig, instance_id,
+    int index = mapper_signal_find_instance_with_local_id(sig, id,
                                                           MAPPER_RELEASED_REMOTELY);
     if (index < 0)
         return 0;
@@ -1003,10 +1002,10 @@ int mapper_signal_num_reserved_instances(mapper_signal sig)
     return j;
 }
 
-int mapper_signal_instance_id(mapper_signal sig, int index)
+mapper_id mapper_signal_instance_id(mapper_signal sig, int index)
 {
     if (!sig || !sig->local)
-        return -1;
+        return 0;
     int i;
     for (i = 0; i < sig->num_instances; i++) {
         if (i == index)
@@ -1015,10 +1014,10 @@ int mapper_signal_instance_id(mapper_signal sig, int index)
     return 0;
 }
 
-int mapper_signal_active_instance_id(mapper_signal sig, int index)
+mapper_id mapper_signal_active_instance_id(mapper_signal sig, int index)
 {
     if (!sig || !sig->local)
-        return -1;
+        return 0;
     int i, j = -1;
     for (i = 0; i < sig->local->id_map_length; i++) {
         if (sig->local->id_maps[i].instance)
@@ -1026,7 +1025,7 @@ int mapper_signal_active_instance_id(mapper_signal sig, int index)
         if (j >= index)
             return sig->local->id_maps[i].map->local;
     }
-    return -1;
+    return 0;
 }
 
 void mapper_signal_set_instance_allocation_mode(mapper_signal sig,
@@ -1075,21 +1074,21 @@ void *mapper_signal_user_data(mapper_signal sig)
     return sig ? sig->user_data : 0;
 }
 
-void mapper_signal_instance_set_user_data(mapper_signal sig, int instance_id,
+void mapper_signal_instance_set_user_data(mapper_signal sig, mapper_id id,
                                           const void *user_data)
 {
     if (!sig || !sig->local)
         return;
-    mapper_signal_instance si = find_instance_by_id(sig, instance_id);
+    mapper_signal_instance si = find_instance_by_id(sig, id);
     if (si)
         si->user_data = (void*)user_data;
 }
 
-void *mapper_signal_instance_user_data(mapper_signal sig, int instance_id)
+void *mapper_signal_instance_user_data(mapper_signal sig, mapper_id id)
 {
     if (!sig || !sig->local)
         return 0;
-    mapper_signal_instance si = find_instance_by_id(sig, instance_id);
+    mapper_signal_instance si = find_instance_by_id(sig, id);
     if (si)
         return si->user_data;
     return 0;
@@ -1170,7 +1169,7 @@ mapper_direction mapper_signal_direction(mapper_signal sig)
     return sig->direction;
 }
 
-uint64_t mapper_signal_id(mapper_signal sig)
+mapper_id mapper_signal_id(mapper_signal sig)
 {
     return sig->id;
 }

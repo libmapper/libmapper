@@ -69,11 +69,14 @@ namespace mapper {
         std::string libversion()
             { return std::string(mapper_libversion()); }
         std::string interface() const
-            { return mapper_network_interface(_net); }
+        {
+            const char *iface = mapper_network_interface(_net);
+            return iface ? std::string(iface) : 0;
+        }
         const struct in_addr *ip4() const
             { return mapper_network_ip4(_net); }
         std::string group() const
-            { return mapper_network_group(_net); }
+            { return std::string(mapper_network_group(_net)); }
         int port() const
             { return mapper_network_port(_net); }
     protected:
@@ -446,7 +449,7 @@ namespace mapper {
             { return _sig ? true : false; }
         operator const char*() const
             { return mapper_signal_name(_sig); }
-        operator uint64_t() const
+        operator mapper_id() const
             { return mapper_signal_id(_sig); }
         template <typename... Values>
         Signal& set_property(Values... values)
@@ -551,8 +554,12 @@ namespace mapper {
         }
         void *user_data() const
             { return mapper_signal_user_data(_sig); }
-        Signal& set_callback(mapper_signal_update_handler *handler, void *user_data)
-            { mapper_signal_set_callback(_sig, handler, user_data); return (*this); }
+        Signal& set_callback(mapper_signal_update_handler *handler,
+                             void *user_data)
+        {
+            mapper_signal_set_callback(_sig, handler, user_data);
+            return (*this);
+        }
         int num_maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_signal_num_maps(_sig, dir); }
         Signal& set_minimum(void *value)
@@ -634,11 +641,11 @@ namespace mapper {
                 { return mapper_signal_instance_value(_sig, _id, tt); }
         protected:
             friend class Signal;
-            Instance(mapper_signal sig, int id)
+            Instance(mapper_signal sig, mapper_id id)
                 { _sig = sig; _id = id; }
         private:
                 mapper_signal _sig;
-                uint64_t _id;
+                mapper_id _id;
         };
         Instance instance(int index) const
         {
@@ -650,17 +657,24 @@ namespace mapper {
         }
         Signal& reserve_instances(int num)
             { mapper_signal_reserve_instances(_sig, num, 0, 0); return (*this); }
-        Signal& reserve_instances(int num, int *instance_ids, void **user_data)
+        Signal& reserve_instances(int num, mapper_id *instance_ids,
+                                  void **user_data)
         {
             mapper_signal_reserve_instances(_sig, num, instance_ids, user_data);
             return (*this);
         }
         Signal& remove_instance(Instance instance)
             { mapper_signal_remove_instance(_sig, instance._id); return (*this); }
-        int oldest_active_instance(int *instance_id)
-            { return mapper_signal_oldest_active_instance(_sig, instance_id); }
-        int newest_active_instance(int *instance_id)
-            { return mapper_signal_newest_active_instance(_sig, instance_id); }
+        Instance oldest_active_instance(mapper_id *instance_id)
+        {
+            return Instance(_sig,
+                            mapper_signal_oldest_active_instance(_sig));
+        }
+        Instance newest_active_instance(void **instance_id)
+        {
+            return Instance(_sig,
+                            mapper_signal_newest_active_instance(_sig));
+        }
         int num_active_instances() const
             { return mapper_signal_num_active_instances(_sig); }
         int num_reserved_instances() const
@@ -816,8 +830,16 @@ namespace mapper {
             { return _dev; }
         operator const char*() const
             { return mapper_device_name(_dev); }
-        operator uint64_t() const
+        operator mapper_id() const
             { return mapper_device_id(_dev); }
+
+        Device& set_user_data(void *user_data)
+        {
+            mapper_device_set_user_data(_dev, user_data);
+            return (*this);
+        }
+        void *user_data() const
+            { return mapper_device_user_data(_dev); }
 
         Signal add_input(const string_type &name, int length, char type,
                          const string_type &unit, void *minimum,
@@ -851,7 +873,7 @@ namespace mapper {
         }
 
         Network network() const
-            { return new Network(mapper_device_network(_dev)); }
+            { return Network(mapper_device_network(_dev)); }
         int num_signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_device_num_signals(_dev, dir); }
 
@@ -860,7 +882,7 @@ namespace mapper {
 
         Signal signal(const string_type& name)
             { return Signal(mapper_device_signal_by_name(_dev, name)); }
-        Signal signal(uint64_t id)
+        Signal signal(mapper_id id)
             { return Signal(mapper_device_signal_by_id(_dev, id)); }
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Signal::Query(mapper_device_signals(_dev, dir)); }
@@ -877,7 +899,7 @@ namespace mapper {
             { return mapper_device_ready(_dev); }
         std::string name() const
             { return std::string(mapper_device_name(_dev)); }
-        uint64_t id() const
+        mapper_id id() const
             { return mapper_device_id(_dev); }
         int port() const
             { return mapper_device_port(_dev); }
@@ -1131,8 +1153,15 @@ namespace mapper {
             else
                 return Property(0, 0, 0, 0, 0);
         }
-        uint64_t id() const
+        mapper_id id() const
             { return mapper_map_id(_map); }
+        Map& set_user_data(void *user_data)
+        {
+            mapper_map_set_user_data(_map, user_data);
+            return (*this);
+        }
+        void *user_data() const
+            { return mapper_map_user_data(_map); }
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -1449,7 +1478,7 @@ namespace mapper {
 
         Device device_by_name(const string_type &name) const
             { return Device(mapper_db_device_by_name(_db, name)); }
-        Device device_by_id(uint32_t id) const
+        Device device_by_id(mapper_id id) const
             { return Device(mapper_db_device_by_id(_db, id)); }
         Device::Query devices() const
             { return Device::Query(mapper_db_devices(_db)); }
@@ -1484,7 +1513,7 @@ namespace mapper {
             return (*this);
         }
 
-        Signal signal(uint64_t id) const
+        Signal signal(mapper_id id) const
             { return Signal(mapper_db_signal_by_id(_db, id)); }
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Signal::Query(mapper_db_signals(_db, dir)); }
@@ -1531,7 +1560,7 @@ namespace mapper {
             return (*this);
         }
 
-        Map map_by_id(uint64_t id) const
+        Map map_by_id(mapper_id id) const
             { return Map(mapper_db_map_by_id(_db, id)); }
         Map::Query maps() const
             { return Map::Query(mapper_db_maps(_db)); }

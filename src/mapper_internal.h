@@ -83,13 +83,14 @@ void mapper_device_start_server(mapper_device dev, int port);
 void mapper_device_on_id_and_ordinal(mapper_device dev,
                                      mapper_allocated_t *resource);
 
-mapper_id_map mapper_device_add_instance_id_map(mapper_device dev, int local_id,
+mapper_id_map mapper_device_add_instance_id_map(mapper_device dev,
+                                                mapper_id local_id,
                                                 uint64_t global_id);
 
 void mapper_device_remove_instance_id_map(mapper_device dev, mapper_id_map map);
 
 mapper_id_map mapper_device_find_instance_id_map_by_local(mapper_device dev,
-                                                          int local_id);
+                                                          mapper_id local_id);
 
 mapper_id_map mapper_device_find_instance_id_map_by_global(mapper_device dev,
                                                            uint64_t global_id);
@@ -218,16 +219,17 @@ int mapper_signal_find_instance_with_global_id(mapper_signal sig,
 
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
- *  \param sig   The signal owning the desired instance.
- *  \param id    The requested signal instance ID.
- *  \param flags Bitflags indicating if search should include released instances.
- *  \param tt    Timetag associated with this action.
- *  \return      The index of the retrieved signal instance, or -1 if no free
- *               instances were available and allocation of a new instance
- *               was unsuccessful according to the selected allocation
- *               strategy. */
-int mapper_signal_instance_with_local_id(mapper_signal sig, int id, int flags,
-                                         mapper_timetag_t *tt);
+ *  \param sig      The signal owning the desired instance.
+ *  \param instance The requested signal instance ID.
+ *  \param flags    Bitflags indicating if search should include released
+ *                  instances.
+ *  \param tt       Timetag associated with this action.
+ *  \return         The index of the retrieved signal instance, or -1 if no free
+ *                  instances were available and allocation of a new instance
+ *                  was unsuccessful according to the selected allocation
+ *                  strategy. */
+int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id local_id,
+                                         int flags, mapper_timetag_t *tt);
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.

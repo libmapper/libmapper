@@ -82,7 +82,7 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, const void *value,
+void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
                    int count, mapper_timetag_t *timetag)
 {
     if (value) {
@@ -98,7 +98,7 @@ void insig_handler(mapper_signal sig, int instance_id, const void *value,
     }
     else
         eprintf("--> destination %s instance %ld got NULL\n",
-                sig->name, (long)instance_id);
+                sig->name, (long)instance);
 }
 
 /*! Creation of a local destination. */

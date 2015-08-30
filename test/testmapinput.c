@@ -29,7 +29,7 @@ int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
 
-void insig_handler(mapper_signal sig, int instance_id, const void *value,
+void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
                    int count, mapper_timetag_t *timetag)
 {
     if (value) {

@@ -97,6 +97,30 @@ int mapper_signal_query_remotes(mapper_signal sig, mapper_timetag_t tt);
  *                  or zero if none.  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_signal_maps(mapper_signal sig, mapper_direction dir);
 
+/*! Associate a signal or signal instance with an arbitrary pointer.
+ *  \param sig          The signal to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_signal_set_user_data(mapper_signal sig, const void *user_data);
+
+/*! Retrieve the arbitrary pointer associated with a signal instance.
+ *  \param sig          The signal to operate on.
+ *  \return             A pointer associated with this signal. */
+void *mapper_signal_user_data(mapper_signal sig);
+
+/*! A signal handler function can be called whenever a signal value changes. */
+typedef void mapper_signal_update_handler(mapper_signal sig, mapper_id instance,
+                                          const void *value, int count,
+                                          mapper_timetag_t *tt);
+
+/*! Set or unset the message handler for a signal.
+ *  \param sig          The signal to operate on.
+ *  \param handler      A pointer to a mapper_signal_update_handler function
+ *                      for processing incoming messages.
+ *  \param user_data    User context pointer to be passed to handler. */
+void mapper_signal_set_callback(mapper_signal sig,
+                                mapper_signal_update_handler *handler,
+                                const void *user_data);
+
 /**** Instances ****/
 
 /*! Add new instances to the reserve list. Note that if instance ids are
@@ -108,13 +132,13 @@ mapper_map *mapper_signal_maps(mapper_signal sig, mapper_direction dir);
  *  \param user_data    Array of user context pointers, one for each new instance,
  *                      or 0 if not needed.
  *  \return             Number of instances added. */
-int mapper_signal_reserve_instances(mapper_signal sig, int num, int *ids,
+int mapper_signal_reserve_instances(mapper_signal sig, int num, mapper_id *ids,
                                     void **user_data);
 
 /*! Update the value of a specific signal instance.
  *  The signal will be routed according to external requests.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The identifier of the instance to update.
+ *  \param instance     The identifier of the instance to update.
  *  \param value        A pointer to a new value for this signal.  If the signal
  *                      type is 'i', this should be int*; if the signal type is
  *                      'f', this should be float* (etc).  It should be an array
@@ -126,53 +150,49 @@ int mapper_signal_reserve_instances(mapper_signal sig, int num, int *ids,
  *                      time.  See mapper_device_start_queue() for more
  *                      information on bundling multiple signal updates with the
  *                      same timetag. */
-void mapper_signal_instance_update(mapper_signal sig, int instance_id,
+void mapper_signal_instance_update(mapper_signal sig, mapper_id instance,
                                    const void *value, int count,
                                    mapper_timetag_t tt);
 
 /*! Release a specific instance of a signal by removing it from the list
  *  of active instances and adding it to the reserve list.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The identifier of the instance to suspend.
+ *  \param instance     The identifier of the instance to suspend.
  *  \param tt           The time at which the instance was released; if NULL,
  *                      will be tagged with the current time. See
  *                      mapper_device_start_queue() for more information on
  *                      bundling multiple signal updates with the same timetag. */
-void mapper_signal_instance_release(mapper_signal sig, int instance_id,
+void mapper_signal_instance_release(mapper_signal sig, mapper_id instance,
                                     mapper_timetag_t tt);
 
 /*! Remove a specific instance of a signal and free its memory.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The identifier of the instance to suspend. */
-void mapper_signal_remove_instance(mapper_signal sig, int instance_id);
+ *  \param instance     The identifier of the instance to suspend. */
+void mapper_signal_remove_instance(mapper_signal sig, mapper_id instance);
 
 /*! Return whether a given signal instance is currently active.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The identifier of the instance to check.
+ *  \param instance     The identifier of the instance to check.
  *  \return             Non-zero if the instance is active, zero otherwise. */
-int mapper_signal_instance_is_active(mapper_signal sig, int instance_id);
+int mapper_signal_instance_is_active(mapper_signal sig, mapper_id instance);
 
 /*! Get the local id of the oldest active instance.
  *  \param sig          The signal to operate on.
- *  \param instance_id  A location to receive the instance identifier.
- *  \return             Zero if an instance id has been found, non-zero
- *                      otherwise. */
-int mapper_signal_oldest_active_instance(mapper_signal sig, int *instance_id);
+ *  \return             The instance identifier, or zero if unsuccessful. */
+mapper_id mapper_signal_oldest_active_instance(mapper_signal sig);
 
 /*! Get the local id of the newest active instance.
  *  \param sig          The signal to operate on.
- *  \param instance_id  A location to receive the instance identifier.
- *  \return             Zero if an instance id has been found, non-zero
- *                      otherwise. */
-int mapper_signal_newest_active_instance(mapper_signal sig, int *instance_id);
+ *  \return             The instance identifier, or zero if unsuccessful. */
+mapper_id mapper_signal_newest_active_instance(mapper_signal sig);
 
 /*! Get a signal_instance's value.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The identifier of the instance to operate on.
+ *  \param instance     The identifier of the instance to operate on.
  *  \param tt           A location to receive the value's time tag. May be 0.
  *  \return             A pointer to an array containing the value of the signal
  *                      instance, or 0 if the signal instance has no value. */
-const void *mapper_signal_instance_value(mapper_signal sig, int instance_id,
+const void *mapper_signal_instance_value(mapper_signal sig, mapper_id instance,
                                          mapper_timetag_t *tt);
 
 /*! Return the number of active instances owned by a signal.
@@ -187,27 +207,28 @@ int mapper_signal_num_reserved_instances(mapper_signal sig);
 
 /*! Get a signal instance's identifier by its index.  Intended to be used for
  *  iterating over the active instances.
- *  \param sig    The signal to operate on.
- *  \param index  The numerical index of the ID to retrieve.  Shall be
- *                between zero and the return value of
- *                mapper_signal_num_active_instances().
- *  \return       The instance ID associated with the given index. */
-int mapper_signal_instance_id(mapper_signal sig, int index);
+ *  \param sig      The signal to operate on.
+ *  \param index    The numerical index of the ID to retrieve.  Shall be between
+ *                  zero and the return value of mapper_signal_num_instances().
+ *  \return         The instance ID associated with the given index, or zero if
+ *                  unsuccessful. */
+mapper_id mapper_signal_instance_id(mapper_signal sig, int index);
 
 /*! Get an active signal instance's ID by its index.  Intended to be used for
  *  iterating over the active instances.
- *  \param sig    The signal to operate on.
- *  \param index  The numerical index of the ID to retrieve.  Shall be
- *                between zero and the return value of
- *                mapper_signal_num_active_instances().
- *  \return       The instance ID associated with the given index. */
-int mapper_signal_active_instance_id(mapper_signal sig, int index);
+ *  \param sig      The signal to operate on.
+ *  \param index    The numerical index of the ID to retrieve.  Shall be between
+ *                  zero and the return value of
+ *                  mapper_signal_num_active_instances().
+ *  \return         The instance ID associated with the given index, or zero if
+ *                  unsuccessful. */
+mapper_id mapper_signal_active_instance_id(mapper_signal sig, int index);
 
 /*! Set the allocation method to be used when a previously-unseen
  *  instance ID is received.
- *  \param sig  The signal to operate on.
- *  \param mode Method to use for adding or reallocating active instances
- *              if no reserved instances are available. */
+ *  \param sig      The signal to operate on.
+ *  \param mode     Method to use for adding or reallocating active instances
+ *                  if no reserved instances are available. */
 void mapper_signal_set_instance_allocation_mode(mapper_signal sig,
                                                 mapper_instance_allocation_type mode);
 
@@ -219,7 +240,7 @@ mapper_instance_allocation_type mapper_signal_instance_allocation_mode(mapper_si
 
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
-typedef void mapper_instance_event_handler(mapper_signal sig, int instance_id,
+typedef void mapper_instance_event_handler(mapper_signal sig, mapper_id instance,
                                            int event, mapper_timetag_t *tt);
 
 /*! Set the handler to be called on signal instance management events.
@@ -234,43 +255,19 @@ void mapper_signal_set_instance_event_callback(mapper_signal sig,
                                                mapper_instance_event_handler h,
                                                int flags, const void *user_data);
 
-/*! Associate a signal or signal instance with an arbitrary pointer.
- *  \param sig          The signal to operate on.
- *  \param user_data    A pointer to user data to be associated. */
-void mapper_signal_set_user_data(mapper_signal sig, const void *user_data);
-
-/*! Retrieve the arbitrary pointer associated with a signal instance.
- *  \param sig          The signal to operate on.
- *  \return             A pointer associated with this signal. */
-void *mapper_signal_user_data(mapper_signal sig);
-
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The identifier of the instance to operate on.
+ *  \param instance     The identifier of the instance to operate on.
  *  \param user_data    A pointer to user data to be associated
  *                      with this instance. */
-void mapper_signal_instance_set_user_data(mapper_signal sig, int instance_id,
+void mapper_signal_instance_set_user_data(mapper_signal sig, mapper_id instance,
                                           const void *user_data);
 
 /*! Retrieve the arbitrary pointer associated with a signal instance.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The identifier of the instance to operate on.
+ *  \param instance     The identifier of the instance to operate on.
  *  \return             A pointer associated with this instance. */
-void *mapper_signal_instance_user_data(mapper_signal sig, int instance_id);
-
-/*! A signal handler function can be called whenever a signal value changes. */
-typedef void mapper_signal_update_handler(mapper_signal sig, int instance_id,
-                                          const void *value, int count,
-                                          mapper_timetag_t *tt);
-
-/*! Set or unset the message handler for a signal.
- *  \param sig       The signal to operate on.
- *  \param handler   A pointer to a mapper_signal_update_handler
- *                   function for processing incoming messages.
- *  \param user_data User context pointer to be passed to handler. */
-void mapper_signal_set_callback(mapper_signal sig,
-                                mapper_signal_update_handler *handler,
-                                const void *user_data);
+void *mapper_signal_instance_user_data(mapper_signal sig, mapper_id instance);
 
 /**** Signal properties ****/
 
@@ -292,7 +289,7 @@ mapper_direction mapper_signal_direction(mapper_signal sig);
 /*! Get the unique id for a specific signal.
  *  \param sig      The signal to check.
  *  \return         The signal id. */
-uint64_t mapper_signal_id(mapper_signal sig);
+mapper_id mapper_signal_id(mapper_signal sig);
 
 /*! Indicate whether this signal is local.
  *  \param sig      The signal to check.
@@ -528,6 +525,16 @@ void mapper_device_free(mapper_device dev);
  *  \return             The device network data structure. */
 mapper_network mapper_device_network(mapper_device dev);
 
+/*! Associate a device with an arbitrary pointer.
+ *  \param dev          The device to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_device_set_user_data(mapper_device dev, const void *user_data);
+
+/*! Retrieve the arbitrary pointer associated with a device.
+ *  \param dev          The device to operate on.
+ *  \return             A pointer associated with this device. */
+void *mapper_device_user_data(mapper_device dev);
+
 /*! Add an input signal to a mapper device.  Values and strings
  *  pointed to by this call (except user_data) will be copied.
  *  For minimum and maximum, actual type must correspond to 'type'.
@@ -593,7 +600,7 @@ mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir);
  *  \param dev      Device record to query.
  *  \param id       Id of the signal to find in the database.
  *  \return         Information about the signal, or zero if not found. */
-mapper_signal mapper_device_signal_by_id(mapper_device dev, uint64_t id);
+mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id);
 
 /*! Find information for a registered signal.
  *  \param dev      Device record to query.
@@ -743,9 +750,8 @@ const char *mapper_device_host(mapper_device dev);
 
 /*! Return the unique id allocated to this device by the mapper network.
  *  \param dev  The device to query.
- *  \return     An integer indicating the device's id, or zero if it is
- *              not available. */
-uint64_t mapper_device_id(mapper_device dev);
+ *  \return     The device's id, or zero if it is not available. */
+mapper_id mapper_device_id(mapper_device dev);
 
 /*! Indicate whether this device is local.
  *  \param dev  The device to query.
@@ -924,6 +930,16 @@ void mapper_network_send_message(mapper_network net, const char *path,
 mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
                           mapper_signal destination);
 
+/*! Associate a map with an arbitrary pointer.
+ *  \param map          The map to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_map_set_user_data(mapper_map map, const void *user_data);
+
+/*! Retrieve the arbitrary pointer associated with a map.
+ *  \param map          The map to operate on.
+ *  \return             A pointer associated with this map. */
+void *mapper_map_user_data(mapper_map map);
+
 /*! Synchronize the given map with the libmapper network.
  *  \param map      The map to synchronize. */
 void mapper_map_sync(mapper_map map);
@@ -962,7 +978,7 @@ mapper_slot mapper_map_slot_by_signal(mapper_map map, mapper_signal sig);
 /*! Get the unique id for a specific map.
  *  \param map      The map to check.
  *  \return         The unique id assigned to this map. */
-uint64_t mapper_map_id(mapper_map map);
+mapper_id mapper_map_id(mapper_map map);
 
 /*! Get the mode property for a specific map.
  *  \param map      The map to check.
@@ -1450,7 +1466,7 @@ mapper_device mapper_db_device_by_name(mapper_db db, const char *name);
  *  \param db       The database to query.
  *  \param id       Unique id identifying the device to find in the database.
  *  \return         Information about the device, or zero if not found. */
-mapper_device mapper_db_device_by_id(mapper_db db, uint64_t id);
+mapper_device mapper_db_device_by_id(mapper_db db, mapper_id id);
 
 /*! Return the list of devices with a substring in their name.
  *  \param db       The database to query.
@@ -1506,7 +1522,7 @@ void mapper_db_remove_signal_callback(mapper_db db, mapper_db_signal_handler *h,
  *  \param db       The database to query.
  *  \param id       Unique id of the signal to find in the database.
  *  \return         Information about the signal, or zero if not found. */
-mapper_signal mapper_db_signal_by_id(mapper_db db, uint64_t id);
+mapper_signal mapper_db_signal_by_id(mapper_db db, mapper_id id);
 
 /*! Return the list of all known signals across all devices.
  *  \param db       The database to query.
@@ -1582,7 +1598,7 @@ mapper_map *mapper_db_maps(mapper_db db);
  *  \param id       Unique id identifying the map.
  *  \return         A pointer to a structure containing information on the
  *                  found map, or 0 if not found. */
-mapper_map mapper_db_map_by_id(mapper_db db, uint64_t id);
+mapper_map mapper_db_map_by_id(mapper_db db, mapper_id);
 
 /*! Return the list of maps matching the given property.
  *  \param db       The database to query.

@@ -421,7 +421,7 @@ mapper_device mapper_db_device_by_name(mapper_db db, const char *name)
     return 0;
 }
 
-mapper_device mapper_db_device_by_id(mapper_db db, uint64_t id)
+mapper_device mapper_db_device_by_id(mapper_db db, mapper_id id)
 {
     mapper_device dev = db->devices;
     while (dev) {
@@ -683,7 +683,7 @@ mapper_signal *mapper_db_signals(mapper_db db, mapper_direction dir)
             mapper_list_new_query(db->signals, cmp_query_signals, "i", dir));
 }
 
-mapper_signal mapper_db_signal_by_id(mapper_db db, uint64_t id)
+mapper_signal mapper_db_signal_by_id(mapper_db db, mapper_id id)
 {
     mapper_signal sig = db->signals;
     if (!sig)
@@ -968,7 +968,7 @@ mapper_map *mapper_db_maps(mapper_db db)
     return mapper_list_from_data(db->maps);
 }
 
-mapper_map mapper_db_map_by_id(mapper_db db, uint64_t id)
+mapper_map mapper_db_map_by_id(mapper_db db, mapper_id id)
 {
     mapper_map map = db->maps;
     if (!map)

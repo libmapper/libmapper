@@ -236,6 +236,17 @@ void mapper_device_free(mapper_device dev)
 //    mapper_device_send_state(dev, MAPPER_UPDATED_PROPS);
 //}
 
+void mapper_device_set_user_data(mapper_device dev, const void *user_data)
+{
+    if (dev)
+        dev->user_data = (void*)user_data;
+}
+
+void *mapper_device_user_data(mapper_device dev)
+{
+    return dev ? dev->user_data : 0;
+}
+
 mapper_network mapper_device_network(mapper_device dev)
 {
     return dev->db->network;
@@ -306,7 +317,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     mapper_device dev;
     int i = 0, j, k, count = 1, nulls = 0;
     int is_instance_update = 0, id_map_index, slot_index = -1;
-    uint64_t instance_id;
+    uint64_t global_id;
     mapper_id_map id_map;
     mapper_map map = 0;
     mapper_slot slot = 0;
@@ -352,7 +363,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 return 0;
             }
             is_instance_update = 1;
-            instance_id = argv[argnum+1]->i64;
+            global_id = argv[argnum+1]->i64;
             argnum += 2;
         }
         else if (strcmp(&argv[argnum]->s, "@slot") == 0 && argc >= argnum + 2) {
@@ -421,7 +432,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 
     if (is_instance_update) {
         id_map_index = mapper_signal_find_instance_with_global_id(sig,
-                                                                  instance_id,
+                                                                  global_id,
                                                                   MAPPER_RELEASED_LOCALLY);
         if (id_map_index < 0) {
             // no instance found with this map
@@ -430,12 +441,12 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 return 0;
             }
             // otherwise try to init reserved/stolen instance with device map
-            id_map_index = mapper_signal_instance_with_global_id(sig, instance_id,
+            id_map_index = mapper_signal_instance_with_global_id(sig, global_id,
                                                                  0, &tt);
             if (id_map_index < 0) {
 #ifdef DEBUG
                 printf("no local instances available for global instance id"
-                       " %llu\n", instance_id);
+                       " %llu\n", global_id);
 #endif
                 return 0;
             }
@@ -523,7 +534,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             else if (is_instance_update && !active) {
                 // may need to activate instance
                 id_map_index = mapper_signal_find_instance_with_global_id(sig,
-                                                                          instance_id,
+                                                                          global_id,
                                                                           MAPPER_RELEASED_REMOTELY);
                 if (id_map_index < 0) {
                     // no instance found with this map
@@ -533,12 +544,12 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     }
                     // otherwise try to init reserved/stolen instance with device map
                     id_map_index = mapper_signal_instance_with_global_id(sig,
-                                                                         instance_id,
+                                                                         global_id,
                                                                          0, &tt);
                     if (id_map_index < 0) {
 #ifdef DEBUG
                         printf("no local instances available for global"
-                               " instance id %llu\n", instance_id);
+                               " instance id %llu\n", global_id);
 #endif
                         return 0;
                     }
@@ -1289,7 +1300,8 @@ void mapper_device_reserve_instance_id_map(mapper_device dev)
     dev->local->reserve_id_map = map;
 }
 
-mapper_id_map mapper_device_add_instance_id_map(mapper_device dev, int local_id,
+mapper_id_map mapper_device_add_instance_id_map(mapper_device dev,
+                                                mapper_id local_id,
                                                 uint64_t global_id)
 {
     if (!dev->local->reserve_id_map)
@@ -1321,7 +1333,7 @@ void mapper_device_remove_instance_id_map(mapper_device dev, mapper_id_map map)
 }
 
 mapper_id_map mapper_device_find_instance_id_map_by_local(mapper_device dev,
-                                                          int local_id)
+                                                          mapper_id local_id)
 {
     mapper_id_map map = dev->local->active_id_map;
     while (map) {

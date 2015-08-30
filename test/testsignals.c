@@ -12,7 +12,7 @@ mapper_device dev = 0;
 mapper_signal inputs[100];
 mapper_signal outputs[100];
 
-void sig_handler(mapper_signal sig, int instance_id, const void *value,
+void sig_handler(mapper_signal sig, mapper_id instance, const void *value,
                  int count, mapper_timetag_t *timetag)
 {
     if (value) {

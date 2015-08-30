@@ -252,7 +252,7 @@ typedef struct _mapper_history
 typedef struct _mapper_signal_instance
 {
     /*! User-assignable instance id. */
-    int id;
+    mapper_id id;
 
     /*! Index for accessing associated value history */
     int index;
@@ -327,7 +327,7 @@ struct _mapper_signal {
     mapper_device device;
     char *path;         //! OSC path.  Must start with '/'.
     char *name;         //! The name of this signal (path+1).
-    uint64_t id;        //!< Unique id identifying this signal.
+    mapper_id id;       //!< Unique id identifying this signal.
 
     char *unit;         //!< The unit of this signal, or NULL for N/A.
     char *description;  //!< Description of this signal, or NULL for N/A.
@@ -452,13 +452,15 @@ typedef struct _mapper_map {
     mapper_map_internal local;
     mapper_slot sources;
     mapper_slot_t destination;
-    uint64_t id;                        //!< Unique id identifying this map
+    mapper_id id;                       //!< Unique id identifying this map
 
     struct _mapper_map_scope scope;
 
     /*! Extra properties associated with this map. */
     struct _mapper_string_table *extra;
     struct _mapper_string_table *updater;
+
+    void *user_data;
 
     char *expression;
     char *description;
@@ -494,11 +496,11 @@ typedef struct _mapper_router {
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
 typedef struct _mapper_id_map {
-    uint64_t global;                        //!< Hash for originating device.
+    mapper_id global;               //!< Hash for originating device.
+    mapper_id local;                //!< Local instance id to map.
     int refcount_local;
-    int local;                              //!< Local instance id to map.
     int refcount_global;
-    struct _mapper_id_map *next;            //!< The next id map in the list.
+    struct _mapper_id_map *next;    //!< The next id map in the list.
 } mapper_id_map_t, *mapper_id_map;
 
 /**** Device ****/
@@ -548,7 +550,7 @@ struct _mapper_device {
     struct _mapper_string_table *extra;
     struct _mapper_string_table *updater;
 
-    uint64_t id;                //!< Unique id identifying this device.
+    mapper_id id;               //!< Unique id identifying this device.
     char *host;                 //!< Device network host name.
 
     mapper_timetag_t timetag;

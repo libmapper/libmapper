@@ -16,7 +16,7 @@
 
 int received = 0;
 
-void insig_handler(mapper_signal sig, int instance_id, const void *value,
+void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
                    int count, mapper_timetag_t *timetag)
 {
     if (value) {

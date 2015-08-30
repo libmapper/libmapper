@@ -59,6 +59,7 @@ static property_table_value_t map_values[] = {
     { 'i', {0}, -1,         MAP_OFFSET(num_sources) },
     { 'i', {0}, -1,         MAP_OFFSET(process_location) },
     { 'i', {0}, -1,         MAP_OFFSET(status) },
+    { 'i', {0},  0,         MAP_OFFSET(user_data) },
 };
 
 /* This table must remain in alphabetical order. */
@@ -70,6 +71,7 @@ static string_table_node_t map_strings[] = {
     { "num_sources",        &map_values[4] },
     { "process_at",         &map_values[5] },
     { "status",             &map_values[6] },
+    { "user_data",          &map_values[7] },
 };
 
 const int NUM_MAP_STRINGS = sizeof(map_strings)/sizeof(map_strings[0]);
@@ -216,6 +218,17 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
 void mapper_map_unmap(mapper_map map)
 {
     mapper_map_send_state(map, -1, MSG_UNMAP, 0);
+}
+
+void mapper_map_set_user_data(mapper_map map, const void *user_data)
+{
+    if (map)
+        map->user_data = (void*)user_data;
+}
+
+void *mapper_map_user_data(mapper_map map)
+{
+    return map ? map->user_data : 0;
 }
 
 void mapper_map_sync(mapper_map map)
@@ -640,12 +653,12 @@ static void set_extrema_prop(mapper_slot slot, const char *propname, int length,
     char fullpropname[128];
     if (slot == &slot->map->destination) {
         // destination slot
-        snprintf(fullpropname, 128, "dst@%s", fullpropname);
+        snprintf(fullpropname, 128, "dst@%s", propname);
     }
     else {
         // source slot - figure out which slot we are
         if (slot->map->num_sources == 1)
-            snprintf(fullpropname, 16, "src@%s", propname);
+            snprintf(fullpropname, 128, "src@%s", propname);
         else {
             for (i = 0; i < slot->map->num_sources; i++) {
                 if (&slot->map->sources[i] == slot) {

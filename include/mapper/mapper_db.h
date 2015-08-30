@@ -31,6 +31,10 @@ extern "C" {
  *  used by OSC. */
 typedef lo_timetag mapper_timetag_t;
 
+/*! This data structure must be large enough to hold a system pointer or a
+ *  uin64_t */
+typedef uint64_t mapper_id;
+
 /*! Possible operations for composing db queries. */
 typedef enum {
     MAPPER_OP_UNDEFINED = -1,

@@ -67,22 +67,22 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, int instance_id, const void *value,
+void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
                    int count, mapper_timetag_t *timetag)
 {
     if (value) {
-        eprintf("--> destination %s instance %ld got %f\n",
-                mapper_signal_name(sig), (long)instance_id, (*(float*)value));
+        eprintf("--> destination %s instance %i got %f\n",
+                mapper_signal_name(sig), (int)instance, (*(float*)value));
         received++;
     }
     else {
-        eprintf("--> destination %s instance %ld got NULL\n",
-                mapper_signal_name(sig), (long)instance_id);
-        mapper_signal_instance_release(sig, instance_id, MAPPER_NOW);
+        eprintf("--> destination %s instance %i got NULL\n",
+                mapper_signal_name(sig), (int)instance);
+        mapper_signal_instance_release(sig, instance, MAPPER_NOW);
     }
 }
 
-void more_handler(mapper_signal sig, int instance_id, int event,
+void more_handler(mapper_signal sig, mapper_id instance, int event,
                   mapper_timetag_t *timetag)
 {
     if (event & MAPPER_INSTANCE_OVERFLOW) {
@@ -91,7 +91,7 @@ void more_handler(mapper_signal sig, int instance_id, int event,
     }
     else if (event & MAPPER_UPSTREAM_RELEASE) {
         eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
-        mapper_signal_instance_release(sig, instance_id, MAPPER_NOW);
+        mapper_signal_instance_release(sig, instance, MAPPER_NOW);
     }
 }
 
@@ -114,7 +114,7 @@ int setup_destination()
     mapper_signal_remove_instance(recvsig, 0);
     int i;
     for (i=100; i<104; i++) {
-        mapper_signal_reserve_instances(recvsig, 1, &i, 0);
+        mapper_signal_reserve_instances(recvsig, 1, (mapper_id*)&i, 0);
     }
 
     eprintf("Input signal registered.\n");
@@ -152,8 +152,9 @@ void print_instance_ids(mapper_signal sig)
 {
     int i, n = mapper_signal_num_active_instances(sig);
     eprintf("active %s: [", mapper_signal_name(sig));
-    for (i=0; i<n; i++)
-        eprintf(" %ld", (long)mapper_signal_active_instance_id(sig, i));
+    for (i=0; i<n; i++) {
+        eprintf(" %i", (int)mapper_signal_active_instance_id(sig, i));
+    }
     eprintf(" ]   ");
 }
 
@@ -174,24 +175,26 @@ void map_signals()
 void loop()
 {
     eprintf("-------------------- GO ! --------------------\n");
-    int i = 0, j = 0;
+    int i = 0;
     float value = 0;
+    mapper_id instance;
 
     while (i < iterations && !done) {
         // here we should create, update and destroy some instances
+        instance = (rand() % 10);
         switch (rand() % 5) {
             case 0:
                 // try to destroy an instance
-                j = rand() % 10;
-                eprintf("--> Retiring sender instance %i\n", j);
-                mapper_signal_instance_release(sendsig, j, MAPPER_NOW);
+                eprintf("--> Retiring sender instance %i\n", (int)instance);
+                mapper_signal_instance_release(sendsig, (long)instance, MAPPER_NOW);
                 break;
             default:
-                j = rand() % 10;
                 // try to update an instance
                 value = (rand() % 10) * 1.0f;
-                mapper_signal_instance_update(sendsig, j, &value, 0, MAPPER_NOW);
-                eprintf("--> sender instance %d updated to %f\n", j, value);
+                mapper_signal_instance_update(sendsig, instance, &value, 0,
+                                              MAPPER_NOW);
+                eprintf("--> sender instance %llu updated to %f\n", instance,
+                        value);
                 sent++;
                 break;
         }
