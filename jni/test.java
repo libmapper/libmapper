@@ -1,97 +1,89 @@
 
-import Mapper.*;
-import Mapper.Device.*;
+import mapper.*;
+import mapper.db.*;
+import mapper.signal.*;
+import mapper.map.*;
 import java.util.Arrays;
 import java.util.Iterator;
 
 class test {
     public static void main(String [] args) {
         final Device dev = new Device("javatest");
-        final Monitor mon = new Monitor(Mapper.Monitor.SUBSCRIBE_ALL);
+        final Db db = new Db(SubscriptionType.ALL);
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
-        Runtime.getRuntime().addShutdownHook(new Thread()
-            {
+        Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override
-                public void run()
-                    {
+                public void run() {
                         dev.free();
-                        mon.free();
+                        db.free();
                     }
             });
 
-        mon.Db.addDeviceCallback(new Mapper.Db.DeviceListener() {
-            public void onEvent(Mapper.Db.Device dev, int event) {
+        db.addDeviceListener(new DeviceListener() {
+            public void onEvent(Device dev, mapper.db.Event event) {
                 System.out.println("db onEvent() for device "+dev.name());
             }});
 
-        mon.Db.addSignalCallback(new Mapper.Db.SignalListener() {
-            public void onEvent(Mapper.Db.Signal sig, int event) {
-                System.out.println("db onEvent() for signal "+sig.fullName());
+        db.addSignalListener(new SignalListener() {
+            public void onEvent(Signal sig, mapper.db.Event event) {
+                System.out.println("db onEvent() for signal "
+                                   +sig.device().name()+":"+sig.name());
             }});
 
-        mon.Db.addMapCallback(new Mapper.Db.MapListener() {
-            public void onEvent(Mapper.Db.Map map, int event) {
+        db.addMapListener(new MapListener() {
+            public void onEvent(Map map, mapper.db.Event event) {
                 System.out.print("db onEvent() for map ");
-                for (int i = 0; i < map.numSources; i++)
-                    System.out.print(map.sources[i].signal().fullName()+" ");
-                System.out.println("-> "+map.destination.signal().fullName()
-                                   +" @expr "+map.expression);
+                for (int i = 0; i < map.numSources(); i++) {
+                    Map.Slot slot = map.sources[i];
+                    System.out.print(slot.signal().device().name()
+                                     +":"+slot.signal().name()+" ");
+                }
+                Map.Slot slot = map.destination;
+                System.out.println("-> "+slot.signal().device().name()+":"
+                                   +slot.signal().name()
+                                   +" @expr "+map.expression());
             }});
 
-        Mapper.Device.Signal inp1 = dev.addInput("insig1", 1, 'f', "Hz",
-                                                 new PropertyValue('f', 2.0),
-                                                 null, new InputListener() {
-            public void onInput(Mapper.Device.Signal sig,
-                                int instanceId,
-                                float[] v,
-                                TimeTag tt) {
-                System.out.println(" >> in onInput() for "+sig.name()+": "
+        Signal inp1 = dev.addInput("insig1", 1, 'f', "Hz", new Value('f', 2.0),
+                                   null, new UpdateListener() {
+            public void onUpdate(Signal sig, int instanceId, float[] v,
+                                 TimeTag tt) {
+                System.out.println(" >> in onUpdate() for "+sig.name()+": "
                                    +Arrays.toString(v));
             }});
 
         System.out.println("Input signal name: "+inp1.name());
 
-        Signal out1 = dev.addOutput("outsig1", 1, 'i', "Hz",
-                                    new PropertyValue('i', 0.0),
-                                    new PropertyValue('i', 1.0));
-        Signal out2 = dev.addOutput("outsig2", 1, 'f', "Hz",
-                                    new PropertyValue(0.0f),
-                                    new PropertyValue(1.0f));
+        Signal out1 = dev.addOutput("outsig1", 1, 'i', "Hz", new Value('i', 0.0),
+                                    new Value('i', 1.0));
+        Signal out2 = dev.addOutput("outsig2", 1, 'f', "Hz", new Value(0.0f),
+                                    new Value(1.0f));
 
-        System.out.println("Output signal index: "+out1.index());
-        System.out.println("Zeroeth output signal name: "+dev.getOutput(0).name());
-
-        dev.setProperty("width", new PropertyValue(256));
-        dev.setProperty("height", new PropertyValue(12.5));
-        dev.setProperty("depth", new PropertyValue("67"));
-        dev.setProperty("deletethis", new PropertyValue("should not see me"));
+        dev.setProperty("width", new Value(256));
+        dev.setProperty("height", new Value(12.5));
+        dev.setProperty("depth", new Value("67"));
+        dev.setProperty("deletethis", new Value("should not see me"));
         dev.removeProperty("deletethis");
 
-        out1.setProperty("width", new PropertyValue(new int[] {10, 11, 12}));
-        out1.setProperty("height", new PropertyValue(6.25));
-        out1.setProperty("depth", new PropertyValue(new String[]{"one","two"}));
-        out1.setProperty("deletethis", new PropertyValue("or me"));
+        out1.setProperty("width", new Value(new int[] {10, 11, 12}));
+        out1.setProperty("height", new Value(6.25));
+        out1.setProperty("depth", new Value(new String[]{"one","two"}));
+        out1.setProperty("deletethis", new Value("or me"));
         out1.removeProperty("deletethis");
-        out1.setMinimum(new PropertyValue(12));
+        out1.setMinimum(new Value(12));
 
         System.out.println("Signal properties:");
-        System.out.println("  Name of out1: " + out1.properties().name());
+        System.out.println("  Name of out1: " + out1.name());
 
-        System.out.println("  Looking up `height': "
-                           + out1.properties().property("height"));
-        System.out.println("  Looking up `width': "
-                           + out1.properties().property("width"));
-        System.out.println("  Looking up `depth': "
-                           + out1.properties().property("depth"));
+        System.out.println("  Looking up `height': " + out1.property("height"));
+        System.out.println("  Looking up `width': " + out1.property("width"));
+        System.out.println("  Looking up `depth': " + out1.property("depth"));
         System.out.println("  Looking up `deletethis': "
-                           + out1.properties().property("deletethis")
-                           + " (should be null)");
-        System.out.println("  Looking up minimum: "
-                           + out1.properties().minimum());
-        System.out.println("  Looking up maximum: "
-                           + out1.properties().maximum());
+                           + out1.property("deletethis") + " (should be null)");
+        System.out.println("  Looking up minimum: " + out1.minimum());
+        System.out.println("  Looking up maximum: " + out1.maximum());
 
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
@@ -102,27 +94,26 @@ class test {
         System.out.println("Device name: "+dev.name());
         System.out.println("Device port: "+dev.port());
         System.out.println("Device ordinal: "+dev.ordinal());
-        System.out.println("Device interface: "+dev.iface());
-        System.out.println("Device ip4: "+dev.ip4());
+        System.out.println("Device interface: "+dev.network().iface());
 
-        Mapper.Db.Map m = new Mapper.Db.Map();
-        m.mode = Mapper.Db.Map.MO_EXPRESSION;
-        m.expression = "y=x*100";
-        m.source.minimum = new PropertyValue(15);
-        m.source.maximum = new PropertyValue(-15);
-        m.destination.maximum = new PropertyValue(1000);
-        m.destination.minimum = new PropertyValue(-2000);
-        mon.map(out1, inp1, m);
+        Map map = new Map(out1, inp1);
+        map.setMode(Mode.EXPRESSION);
+        map.setExpression("y=x*100");
+        map.source().setMinimum(new Value(15));
+        map.source().setMaximum(new Value(-15));
+        map.destination().setMaximum(new Value(1000));
+        map.destination().setMinimum(new Value(-2000));
+        map.sync();
 
-        while ((dev.numIncomingMaps()) <= 0) { dev.poll(100); }
+        while (!map.isActive()) { dev.poll(100); }
 
         int i = 0;
-        double [] ar = new double [] {0};
         TimeTag tt = new TimeTag(0,0);
 
         // Signal should report no value before the first update.
-        if (out1.value(ar, tt))
-            System.out.println("Signal has value: " + ar[0]);
+        Value v = out1.value(tt);
+        if (!v.isEmpty())
+            System.out.println("Signal has value: " + v);
         else
             System.out.println("Signal has no value.");
 
@@ -130,104 +121,99 @@ class test {
         out1.update(new int []{i}, TimeTag.NOW);
 
         // Test instances
-        out1.setInstanceEventCallback(new InstanceEventListener() {
-                public void onEvent(Mapper.Device.Signal sig,
-                                    int instanceId,
-                                    int event,
+        out1.setInstanceEventListener(new InstanceEventListener() {
+                public void onEvent(Signal sig, int instanceId, int event,
                                     TimeTag tt)
                     {
-                        System.out.println("Instance "
-                                           + instanceId
+                        System.out.println("Instance " + instanceId
                                            + " event " + event);
                     }
-            }, InstanceEventListener.IN_ALL);
+            }, mapper.signal.InstanceEvent.ALL);
 
         System.out.println(inp1.name() + " allocation mode: "
-                           + inp1.instanceAllocationMode());
-        inp1.setInstanceAllocationMode(Device.Signal.IN_STEAL_NEWEST);
+                           + inp1.instanceStealingMode());
+        inp1.setInstanceStealingMode(StealingMode.NEWEST);
         System.out.println(inp1.name() + " allocation mode: "
-                           + inp1.instanceAllocationMode());
+                           + inp1.instanceStealingMode());
 
-        out1.reserveInstances(new int[]{10, 11, 12});
-        out1.updateInstance(10, new int[]{-8});
-        out1.instanceValue(10, new int[]{0});
-        out1.releaseInstance(10);
+        out1.reserveInstances(4);
+        Signal.Instance instance1 = out1.instance();
+        instance1.update(new int[]{-8});
+        v = instance1.value();
 
-        out2.reserveInstances(3);
-        out2.updateInstance(1, new float[]{21.9f});
-        out2.instanceValue(1, new float[]{0});
-        out2.updateInstance(1, new double[]{48.12});
-        out2.instanceValue(1, new double[]{0});
-        out2.releaseInstance(1);
+        Signal.Instance instance2 = out2.instance();
+        instance2.update(new float[]{21.9f});
+        instance2.value();
+        instance2.update(new double[]{48.12});
+        instance2.value();
+        instance2.release();
 
-        inp1.reserveInstances(3, new InputListener() {
-                public void onInput(Mapper.Device.Signal sig,
-                                    int instanceId,
-                                    float[] v,
-                                    TimeTag tt) {
-                    System.out.println("in onInput() for "
-                                       +sig.name()+" instance "
-                                       +instanceId+": "
+        instance1.release();
+
+        inp1.reserveInstances(2, new InstanceUpdateListener() {
+            public void onUpdate(Signal.Instance inst, float[] v, TimeTag tt) {
+                System.out.println("in onInstanceUpdate() for "
+                                   +inst.signal().name()+" instance "
+                                   +inst.id()+": "
+                                   +Arrays.toString(v));
+            }});
+
+        Signal.Instance instance3 = inp1.instance();
+        System.out.println(inp1.name() + " instance listener is "
+                           + instance3.updateListener());
+        instance3.setUpdateListener(new InstanceUpdateListener() {
+                public void onUpdate(Signal.Instance inst, float[] v, TimeTag tt) {
+                    System.out.println("in alternate-onInstanceUpdate() for "
+                                       +inst.signal().name()+" instance "
+                                       +inst.id()+": "
                                        +Arrays.toString(v));
                 }});
-        System.out.println(inp1.name() + " instance 1 cb is "
-                           + inp1.getInstanceCallback(1));
-        inp1.setInstanceCallback(1, new InputListener() {
-                public void onInput(Mapper.Device.Signal sig,
-                                    int instanceId,
-                                    float[] v,
-                                    TimeTag tt) {
-                    System.out.println("in onInput() for "
-                                       +sig.name()+" instance 1: "
-                                       +Arrays.toString(v));
-                }});
-        System.out.println(inp1.name() + " instance 1 cb is "
-                           + inp1.getInstanceCallback(1));
-        inp1.setInstanceCallback(1, null);
-        System.out.println(inp1.name() + " instance 1 cb is "
-                           + inp1.getInstanceCallback(1));
+        System.out.println(inp1.name() + " instance listener is "
+                           + instance3.updateListener());
+        instance3.setUpdateListener(null);
+        System.out.println(inp1.name() + " instance listener is "
+                           + instance3.updateListener());
 
         while (i <= 100) {
             System.out.print("Updated value to: " + i);
             out1.update(i);
 
-            // Note, we are testing an implicit cast from int to float
-            // here because we are passing a double[] into
-            // out1.value().
-            if (out1.value(ar, tt))
-                System.out.print("  Signal has value: " + ar[0]);
+            v = out1.value(tt);
+            if (!v.isEmpty())
+                System.out.print("  Signal has value: " + v);
             else
                 System.out.print("  Signal has no value.");
             if (i == 50) {
-                Mapper.Db.Map mod = new Mapper.Db.Map();
-                mod.expression = "y=x*-100";
-                mon.modifyMap(out1, inp1, mod);
+                map.setExpression("y=x*-100");
+                map.sync();
             }
             dev.poll(50);
-            mon.poll();
+            db.update();
             i++;
         }
 
-        // check monitor.db records
+        // check db records
         System.out.println("Db records:");
 
-        Iterator<Mapper.Db.Device> devs = mon.Db.devices().iterator();
+        Iterator<Device> devs = db.devices().iterator();
         while (devs.hasNext()) {
             System.out.println("  device: " + devs.next().name());
         }
 
         // another iterator style
-        Mapper.Db.SignalCollection ins = mon.Db.inputs();
-        for (Mapper.Db.Signal s : ins) {
+        mapper.signal.Query ins = db.inputs();
+        for (Signal s : ins) {
             System.out.println("  signal: " + s.name());
         }
 
-        Mapper.Db.MapCollection maps = mon.Db.maps();
-        for (Mapper.Db.Map mm : maps) {
+        mapper.map.Query maps = db.maps();
+        for (Map m : maps) {
             System.out.print("  mapping: ");
-            for (i = 0; i < mm.numSources; i++)
-                System.out.print(mm.sources[i].signal().fullName()+" ");
-            System.out.println("-> "+mm.destination.signal().fullName());
+            for (i = 0; i < m.numSources(); i++)
+                System.out.print(m.sources[i].signal().device().name()+":"
+                                 +m.sources[i].signal().name()+" ");
+            System.out.println("-> "+m.destination.signal().device().name()+":"
+                               +m.destination.signal().name());
         }
 
         System.out.println();

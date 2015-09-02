@@ -1,6 +1,6 @@
 
-import Mapper.*;
-import Mapper.Device.*;
+import mapper.*;
+import mapper.signal.*;
 import java.util.Arrays;
 
 class testspeed {
@@ -8,7 +8,6 @@ class testspeed {
 
     public static void main(String [] args) {
         final Device dev = new Device("javatest");
-        final Monitor mon = new Monitor(Mapper.Monitor.SUBSCRIBE_ALL);
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -18,21 +17,17 @@ class testspeed {
                 public void run()
                     {
                         dev.free();
-                        mon.free();
                     }
             });
 
-        InputListener h = new InputListener() {
-            public void onInput(Mapper.Device.Signal sig,
-                                int instanceId,
-                                float[] v,
-                                TimeTag tt) {
+        UpdateListener l = new UpdateListener() {
+            public void onUpdate(Signal sig, int instanceId, float[] v,
+                                 TimeTag tt) {
                 testspeed.updated = true;
             }
         };
 
-        Mapper.Device.Signal in = dev.addInput("insig", 1, 'f', "Hz", null,
-                                               null, h);
+        Signal in = dev.addInput("insig", 1, 'f', "Hz", null, null, l);
 
         Signal out = dev.addOutput("outsig", 1, 'i', "Hz", null, null);
 
@@ -42,10 +37,8 @@ class testspeed {
         }
         System.out.println("Device is ready.");
 
-        mon.map(out, in);
-        while ((dev.numIncomingMaps()) <= 0) { dev.poll(100); }
-
-        mon.free();
+        Map map = new Map(out, in);
+        while (!map.isActive()) { dev.poll(100); }
 
         double then = dev.now().getDouble();
         int i = 0;

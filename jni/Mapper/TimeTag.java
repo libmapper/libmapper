@@ -1,5 +1,5 @@
 
-package Mapper;
+package mapper;
 
 public class TimeTag
 {

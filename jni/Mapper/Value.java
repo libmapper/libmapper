@@ -1,37 +1,41 @@
 
-package Mapper;
+package mapper;
 import java.util.Arrays;
 
 /* Contains a value representable by supported types, which correspond
  * with OSC types. */
-public class PropertyValue
+public class Value
 {
-    public PropertyValue()                       { length=0; type = 0; }
-    public PropertyValue(int i)                  { setValue('i', i);   }
-    public PropertyValue(float f)                { setValue('f', f);   }
-    public PropertyValue(double d)               { setValue('d', d);   }
-    public PropertyValue(String s)               { setValue('s', s);   }
-    public PropertyValue(int[] i)                { setValue('i', i);   }
-    public PropertyValue(float[] f)              { setValue('f', f);   }
-    public PropertyValue(double[] d)             { setValue('d', d);   }
-    public PropertyValue(String[] s)             { setValue('s', s);   }
-    public PropertyValue(char _type, int i)      { setValue(_type, i); }
-    public PropertyValue(char _type, float f)    { setValue(_type, f); }
-    public PropertyValue(char _type, double d)   { setValue(_type, d); }
-    public PropertyValue(char _type, String s)   { setValue(_type, s); }
-    public PropertyValue(char _type, int[] i)    { setValue(_type, i); }
-    public PropertyValue(char _type, float[] f)  { setValue(_type, f); }
-    public PropertyValue(char _type, double[] d) { setValue(_type, d); }
-    public PropertyValue(char _type, String[] s) { setValue(_type, s); }
+    public Value()                       { length=0; type = 0; }
+    public Value(int i)                  { set('i', i);   }
+    public Value(float f)                { set('f', f);   }
+    public Value(double d)               { set('d', d);   }
+    public Value(String s)               { set('s', s);   }
+    public Value(int[] i)                { set('i', i);   }
+    public Value(float[] f)              { set('f', f);   }
+    public Value(double[] d)             { set('d', d);   }
+    public Value(String[] s)             { set('s', s);   }
+    public Value(char _type, int i)      { set(_type, i); }
+    public Value(char _type, float f)    { set(_type, f); }
+    public Value(char _type, double d)   { set(_type, d); }
+    public Value(char _type, String s)   { set(_type, s); }
+    public Value(char _type, int[] i)    { set(_type, i); }
+    public Value(char _type, float[] f)  { set(_type, f); }
+    public Value(char _type, double[] d) { set(_type, d); }
+    public Value(char _type, String[] s) { set(_type, s); }
 
     // TODO handle entire set of OSC types
-    public class PropertyException extends RuntimeException {
-        public PropertyException() {
-            super("Property does not contain requested type.");
+    public class Exception extends RuntimeException {
+        public Exception() {
+            super("Value does not contain requested type.");
         }
-        public PropertyException(String msg) {
+        public Exception(String msg) {
             super(msg);
         }
+    }
+
+    public boolean isEmpty() {
+        return length == 0;
     }
 
     public Object value() {
@@ -83,7 +87,7 @@ public class PropertyValue
     public int intValue() {
         if (type == 'i')
             return _i[0];
-        throw new PropertyException();
+        throw new Exception();
     }
 
     public float floatValue() {
@@ -91,7 +95,7 @@ public class PropertyValue
             return _f[0];
         else if (type == 'i')
             return _i[0];
-        throw new PropertyException();
+        throw new Exception();
     }
 
     public double doubleValue() {
@@ -101,16 +105,16 @@ public class PropertyValue
             return _f[0];
         else if (type == 'i')
             return _i[0];
-        throw new PropertyException();
+        throw new Exception();
     }
 
     public String stringValue() {
         if (type == 's' || type == 'S')
             return _s[0];
-        throw new PropertyException();
+        throw new Exception();
     }
 
-    public void setValue(char _type, int i) {
+    public void set(char _type, int i) {
         switch (_type) {
             case 'i':
                 _i = new int[1];
@@ -133,13 +137,13 @@ public class PropertyValue
                 _s[0] = String.valueOf(i);
                 break;
             default:
-                throw new PropertyException("Cannot cast int to requested type.");
+                throw new Exception("Cannot cast int to requested type.");
         }
         type = _type;
         length = 1;
     }
 
-    public void setValue(char _type, float f) {
+    public void set(char _type, float f) {
         switch (_type) {
             case 'i':
                 _i = new int[1];
@@ -162,13 +166,13 @@ public class PropertyValue
                 _s[0] = String.valueOf(f);
                 break;
             default:
-                throw new PropertyException("Cannot cast float to requested type.");
+                throw new Exception("Cannot cast float to requested type.");
         }
         type = _type;
         length = 1;
     }
 
-    public void setValue(char _type, double d) {
+    public void set(char _type, double d) {
         switch (_type) {
             case 'i':
                 _i = new int[1];
@@ -191,13 +195,13 @@ public class PropertyValue
                 _s[0] = String.valueOf(d);
                 break;
             default:
-                throw new PropertyException("Cannot cast double to requested type.");
+                throw new Exception("Cannot cast double to requested type.");
         }
         type = _type;
         length = 1;
     }
 
-    public void setValue(char _type, String s) {
+    public void set(char _type, String s) {
         switch (_type) {
             case 'i':
                 _i = new int[1];
@@ -220,13 +224,13 @@ public class PropertyValue
                 _s[0] = s;
                 break;
             default:
-                throw new PropertyException("Cannot cast String to requested type.");
+                throw new Exception("Cannot cast String to requested type.");
         }
         type = _type;
         length = 1;
     }
 
-    public void setValue(char _type, int[] i) {
+    public void set(char _type, int[] i) {
         switch (_type) {
             case 'i':
                 _i = i.clone();
@@ -252,13 +256,13 @@ public class PropertyValue
                     _s[n] = String.valueOf(i[n]);
                 break;
             default:
-                throw new PropertyException("Cannot cast int to requested type.");
+                throw new Exception("Cannot cast int to requested type.");
         }
         type = _type;
         length = i.length;
     }
-    
-    public void setValue(char _type, float[] f) {
+
+    public void set(char _type, float[] f) {
         switch (_type) {
             case 'i':
                 _i = new int[f.length];
@@ -284,13 +288,13 @@ public class PropertyValue
                     _s[n] = String.valueOf(f[n]);
                 break;
             default:
-                throw new PropertyException("Cannot cast float to requested type.");
+                throw new Exception("Cannot cast float to requested type.");
         }
         type = _type;
         length = f.length;
     }
-    
-    public void setValue(char _type, double[] d) {
+
+    public void set(char _type, double[] d) {
         switch (_type) {
             case 'i':
                 _i = new int[d.length];
@@ -316,13 +320,13 @@ public class PropertyValue
                     _s[n] = String.valueOf(d[n]);
                 break;
             default:
-                throw new PropertyException("Cannot cast double to requested type.");
+                throw new Exception("Cannot cast double to requested type.");
         }
         type = _type;
         length = d.length;
     }
-    
-    public void setValue(char _type, String[] s) {
+
+    public void set(char _type, String[] s) {
         switch (_type) {
             case 'i':
                 _i = new int[s.length];
@@ -345,7 +349,7 @@ public class PropertyValue
                 _s = s.clone();
                 break;
             default:
-                throw new PropertyException("Cannot cast String to requested type.");
+                throw new Exception("Cannot cast String to requested type.");
         }
         type = _type;
         length = s.length;

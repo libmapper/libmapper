@@ -1,7 +1,6 @@
 
-package Mapper.Db;
+package mapper.db;
 
 public class SignalListener {
-    public void onEvent(Mapper.Db.Signal record,
-                        int action) {};
+    public void onEvent(mapper.Signal record, mapper.db.Event event) {};
 }

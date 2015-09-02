@@ -1,6 +1,6 @@
 
-package Mapper.Db;
+package mapper.db;
 
 public class MapListener {
-    public void onEvent(Mapper.Db.Map record, int action) {};
+    public void onEvent(mapper.Map record, mapper.db.Event event) {};
 }
