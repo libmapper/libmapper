@@ -459,13 +459,13 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
         event_h(sig, 0, MAPPER_INSTANCE_OVERFLOW, tt);
     }
     else if (update_h) {
-        if (sig->local->instance_allocation_type == MAPPER_STEAL_OLDEST) {
+        if (sig->local->instance_stealing_mode == MAPPER_STEAL_OLDEST) {
             i = mapper_signal_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
             update_h(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
         }
-        else if (sig->local->instance_allocation_type == MAPPER_STEAL_NEWEST) {
+        else if (sig->local->instance_stealing_mode == MAPPER_STEAL_NEWEST) {
             i = mapper_signal_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
@@ -574,13 +574,13 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
         event_h(sig, 0, MAPPER_INSTANCE_OVERFLOW, tt);
     }
     else if (update_h) {
-        if (sig->local->instance_allocation_type == MAPPER_STEAL_OLDEST) {
+        if (sig->local->instance_stealing_mode == MAPPER_STEAL_OLDEST) {
             i = mapper_signal_oldest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
             update_h(sig, sig->local->id_maps[i].map->local, 0, 0, tt);
         }
-        else if (sig->local->instance_allocation_type == MAPPER_STEAL_NEWEST) {
+        else if (sig->local->instance_stealing_mode == MAPPER_STEAL_NEWEST) {
             i = mapper_signal_newest_active_instance_internal(sig);
             if (i < 0)
                 return -1;
@@ -1028,18 +1028,17 @@ mapper_id mapper_signal_active_instance_id(mapper_signal sig, int index)
     return 0;
 }
 
-void mapper_signal_set_instance_allocation_mode(mapper_signal sig,
-                                                mapper_instance_allocation_type mode)
+void mapper_signal_set_instance_stealing_mode(mapper_signal sig,
+                                              mapper_instance_stealing_type mode)
 {
     if (sig && sig->local)
-        sig->local->instance_allocation_type = mode;
+        sig->local->instance_stealing_mode = mode;
 }
 
-mapper_instance_allocation_type
-mapper_signal_instance_allocation_mode(mapper_signal sig)
+mapper_instance_stealing_type mapper_signal_instance_stealing_mode(mapper_signal sig)
 {
     if (sig && sig->local)
-        return sig->local->instance_allocation_type;
+        return sig->local->instance_stealing_mode;
     return 0;
 }
 

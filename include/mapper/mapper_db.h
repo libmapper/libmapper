@@ -97,7 +97,7 @@ typedef enum {
     MAPPER_NO_STEALING,
     MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance
     MAPPER_STEAL_NEWEST,    //!< Steal the newest instance
-} mapper_instance_allocation_type;
+} mapper_instance_stealing_type;
 
 /*! The set of possible actions on a database record, used to inform callbacks
  *  of what is happening to a record. */

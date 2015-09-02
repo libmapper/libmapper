@@ -12,7 +12,7 @@
 static void send_or_bundle_message(mapper_link link, const char *path,
                                    lo_message msg, mapper_timetag_t tt);
 
-static int map_in_scope(mapper_map map, uint64_t id)
+static int map_in_scope(mapper_map map, mapper_id id)
 {
     int i;
     id &= 0xFFFFFFFF00000000; // interested in device hash part only
@@ -562,10 +562,10 @@ static int router_signal_store_slot(mapper_router_signal rs, mapper_slot slot)
     return i;
 }
 
-static uint64_t unused_map_id(mapper_device dev, mapper_router rtr)
+static mapper_id unused_map_id(mapper_device dev, mapper_router rtr)
 {
     int i, done = 0;
-    uint64_t id;
+    mapper_id id;
     while (!done) {
         done = 1;
         id = mapper_device_unique_id(dev);
@@ -950,7 +950,7 @@ mapper_map mapper_router_find_incoming_map(mapper_router rtr,
 
 mapper_map mapper_router_find_incoming_map_by_id(mapper_router rtr,
                                                  mapper_signal local_dest,
-                                                 uint64_t id)
+                                                 mapper_id id)
 {
     mapper_router_signal rs = rtr->signals;
     while (rs && rs->signal != local_dest)
@@ -970,7 +970,7 @@ mapper_map mapper_router_find_incoming_map_by_id(mapper_router rtr,
 
 mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
                                                  mapper_signal local_src,
-                                                 uint64_t id)
+                                                 mapper_id id)
 {
     int i;
     mapper_router_signal rs = router->signals;
@@ -1032,7 +1032,7 @@ mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
 }
 
 mapper_link mapper_router_find_link_by_remote_id(mapper_router router,
-                                                 uint64_t id)
+                                                 mapper_id id)
 {
     mapper_link link = router->links;
     while (link) {

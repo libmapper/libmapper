@@ -275,7 +275,7 @@ int main(int argc, char **argv)
         mapper_signal_instance_release(sendsig, i, MAPPER_NOW);
     sent = received = 0;
 
-    mapper_signal_set_instance_allocation_mode(recvsig, MAPPER_STEAL_OLDEST);
+    mapper_signal_set_instance_stealing_mode(recvsig, MAPPER_STEAL_OLDEST);
     eprintf("\n**********************************************\n");
     eprintf("************ STEAL OLDEST INSTANCE ***********\n");
     if (!verbose)

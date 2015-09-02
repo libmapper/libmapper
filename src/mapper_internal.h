@@ -85,7 +85,7 @@ void mapper_device_on_id_and_ordinal(mapper_device dev,
 
 mapper_id_map mapper_device_add_instance_id_map(mapper_device dev,
                                                 mapper_id local_id,
-                                                uint64_t global_id);
+                                                mapper_id global_id);
 
 void mapper_device_remove_instance_id_map(mapper_device dev, mapper_id_map map);
 
@@ -93,11 +93,9 @@ mapper_id_map mapper_device_find_instance_id_map_by_local(mapper_device dev,
                                                           mapper_id local_id);
 
 mapper_id_map mapper_device_find_instance_id_map_by_global(mapper_device dev,
-                                                           uint64_t global_id);
+                                                           mapper_id global_id);
 
 const char *mapper_device_name(mapper_device dev);
-
-uint64_t mapper_device_unique_id(mapper_device dev);
 
 void mapper_device_send_state(mapper_device dev);
 
@@ -145,11 +143,11 @@ mapper_map mapper_router_find_incoming_map(mapper_router router,
 
 mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
                                                  mapper_signal local_dest,
-                                                 uint64_t id);
+                                                 mapper_id id);
 
 mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
                                                  mapper_signal local_src,
-                                                 uint64_t id);
+                                                 mapper_id id);
 
 mapper_slot mapper_router_find_slot(mapper_router router, mapper_signal signal,
                                     int slot_number);
@@ -160,7 +158,7 @@ mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
 
 /*! Find a link by remote device id in a linked list of links. */
 mapper_link mapper_router_find_link_by_remote_id(mapper_router router,
-                                                 uint64_t id);
+                                                 mapper_id id);
 
 void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
 
@@ -215,7 +213,7 @@ void mapper_signal_send_removed(mapper_signal sig);
  *  \return          The index of the retrieved signal instance, or -1 if no active
  *                   instances match the specified instance ID map. */
 int mapper_signal_find_instance_with_global_id(mapper_signal sig,
-                                               uint64_t global_id, int flags);
+                                               mapper_id global_id, int flags);
 
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
@@ -241,7 +239,7 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id local_id,
  *                   instances were available and allocation of a new instance
  *                   was unsuccessful according to the selected allocation
  *                   strategy. */
-int mapper_signal_instance_with_global_id(mapper_signal sig, uint64_t global_id,
+int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id,
                                           int flags, mapper_timetag_t *tt);
 
 /*! Release a specific signal instance. */

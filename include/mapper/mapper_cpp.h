@@ -571,6 +571,10 @@ namespace mapper {
 
         class Instance {
         public:
+            Instance(mapper_signal sig, mapper_id id)
+                { _sig = sig; _id = id; }
+            bool operator == (Instance i)
+                { return (_id == i._id); }
             Instance& update(void *value, int count, Timetag tt)
             {
                 mapper_signal_instance_update(_sig, _id, value, count, *tt);
@@ -595,16 +599,10 @@ namespace mapper {
                 return (*this);
             }
 
-            Instance& release()
-            {
-                mapper_signal_instance_release(_sig, _id, MAPPER_NOW);
-                return (*this);
-            }
-            Instance& release(Timetag tt)
-            {
-                mapper_signal_instance_release(_sig, _id, *tt);
-                return (*this);
-            }
+            void release()
+                { mapper_signal_instance_release(_sig, _id, MAPPER_NOW); }
+            void release(Timetag tt)
+                { mapper_signal_instance_release(_sig, _id, *tt); }
 
             template <typename T>
             Instance& update(T value)
@@ -641,36 +639,40 @@ namespace mapper {
                 { return mapper_signal_instance_value(_sig, _id, tt); }
         protected:
             friend class Signal;
-            Instance(mapper_signal sig, mapper_id id)
-                { _sig = sig; _id = id; }
         private:
-                mapper_signal _sig;
-                mapper_id _id;
+            mapper_id _id;
+            mapper_signal _sig;
         };
-        Instance instance(int index) const
+        Instance instance(mapper_id id = 0)
         {
-            return Instance(_sig, mapper_signal_instance_id(_sig, index));
+            if (!id)
+                id = mapper_device_unique_id(mapper_signal_device(_sig));
+            // TODO: wait before activating instance?
+            mapper_signal_instance_set_user_data(_sig, id, 0);
+            return Instance(_sig, id);
         }
-        Instance active_instance(int index) const
+        Signal& reserve_instances(int num, mapper_id *ids = 0)
+        {
+            mapper_signal_reserve_instances(_sig, num, ids, 0);
+            return (*this);
+        }
+        Signal& reserve_instances(int num, mapper_id *ids, void **user_data)
+        {
+            mapper_signal_reserve_instances(_sig, num, ids, user_data);
+            return (*this);
+        }
+        Instance active_instance_at_index(int index) const
         {
             return Instance(_sig, mapper_signal_active_instance_id(_sig, index));
         }
-        Signal& reserve_instances(int num)
-            { mapper_signal_reserve_instances(_sig, num, 0, 0); return (*this); }
-        Signal& reserve_instances(int num, mapper_id *instance_ids,
-                                  void **user_data)
-        {
-            mapper_signal_reserve_instances(_sig, num, instance_ids, user_data);
-            return (*this);
-        }
         Signal& remove_instance(Instance instance)
             { mapper_signal_remove_instance(_sig, instance._id); return (*this); }
-        Instance oldest_active_instance(mapper_id *instance_id)
+        Instance oldest_active_instance(mapper_id instance_id)
         {
             return Instance(_sig,
                             mapper_signal_oldest_active_instance(_sig));
         }
-        Instance newest_active_instance(void **instance_id)
+        Instance newest_active_instance(mapper_id instance_id)
         {
             return Instance(_sig,
                             mapper_signal_newest_active_instance(_sig));
@@ -679,13 +681,13 @@ namespace mapper {
             { return mapper_signal_num_active_instances(_sig); }
         int num_reserved_instances() const
             { return mapper_signal_num_reserved_instances(_sig); }
-        Signal& set_instance_allocation_mode(mapper_instance_allocation_type mode)
+        Signal& set_instance_stealing_mode(mapper_instance_stealing_type mode)
         {
-            mapper_signal_set_instance_allocation_mode(_sig, mode);
+            mapper_signal_set_instance_stealing_mode(_sig, mode);
             return (*this);
         }
-        mapper_instance_allocation_type instance_allocation_mode() const
-            { return mapper_signal_instance_allocation_mode(_sig); }
+        mapper_instance_stealing_type instance_stealing_mode() const
+            { return mapper_signal_instance_stealing_mode(_sig); }
         Signal& set_instance_event_callback(mapper_instance_event_handler h,
                                             int flags, void *user_data)
         {

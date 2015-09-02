@@ -224,19 +224,19 @@ mapper_id mapper_signal_instance_id(mapper_signal sig, int index);
  *                  unsuccessful. */
 mapper_id mapper_signal_active_instance_id(mapper_signal sig, int index);
 
-/*! Set the allocation method to be used when a previously-unseen
- *  instance ID is received.
+/*! Set the stealing method to be used when a previously-unseen instance ID is
+ *  received and no instances are available.
  *  \param sig      The signal to operate on.
  *  \param mode     Method to use for adding or reallocating active instances
  *                  if no reserved instances are available. */
-void mapper_signal_set_instance_allocation_mode(mapper_signal sig,
-                                                mapper_instance_allocation_type mode);
+void mapper_signal_set_instance_stealing_mode(mapper_signal sig,
+                                              mapper_instance_stealing_type mode);
 
 /*! Get the allocation method to be used when a previously-unseen
  *  instance ID is received.
  *  \param sig  The signal to operate on.
  *  \return     The allocation mode of the provided signal. */
-mapper_instance_allocation_type mapper_signal_instance_allocation_mode(mapper_signal sig);
+mapper_instance_stealing_type mapper_signal_instance_stealing_mode(mapper_signal sig);
 
 /*! A handler function to be called whenever a signal instance management
  *  event occurs. */
@@ -519,6 +519,9 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
 
 //! Free resources used by a mapper device.
 void mapper_device_free(mapper_device dev);
+
+/*! Return a unique id associated with a given device. */
+mapper_id mapper_device_unique_id(mapper_device dev);
 
 /*! Retrieve the networking structure from a device.
  *  \param dev          The device to use.
@@ -1332,6 +1335,8 @@ void mapper_slot_set_use_as_instance(mapper_slot slot, int use_as_instance);
  *  \param length   The length of value array. */
 void mapper_slot_set_property(mapper_slot slot, const char *property,
                               int length, char type, const void *value);
+
+void mapper_slot_remove_property(mapper_slot slot, const char *property);
 
 /*! Helper to print the properties of a specific slot.
  *  \param slot     The slot to print. */

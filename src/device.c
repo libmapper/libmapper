@@ -317,7 +317,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     mapper_device dev;
     int i = 0, j, k, count = 1, nulls = 0;
     int is_instance_update = 0, id_map_index, slot_index = -1;
-    uint64_t global_id;
+    mapper_id global_id;
     mapper_id_map id_map;
     mapper_map map = 0;
     mapper_slot slot = 0;
@@ -809,10 +809,10 @@ static int handler_query(const char *path, const char *types, lo_arg **argv,
     return 0;
 }
 
-static uint64_t get_unused_signal_id(mapper_device dev)
+static mapper_id get_unused_signal_id(mapper_device dev)
 {
     int done = 0;
-    uint64_t id;
+    mapper_id id;
     while (!done) {
         done = 1;
         id = mapper_device_unique_id(dev);
@@ -1069,8 +1069,8 @@ int mapper_device_num_signals(mapper_device dev, mapper_direction dir)
 
 static int cmp_query_device_signals(const void *context_data, mapper_signal sig)
 {
-    uint64_t dev_id = *(int64_t*)context_data;
-    int direction = *(int*)(context_data + sizeof(uint64_t));
+    mapper_id dev_id = *(mapper_id*)context_data;
+    int direction = *(int*)(context_data + sizeof(mapper_id));
     return ((!direction || (sig->direction & direction))
             && (dev_id == sig->device->id));
 }
@@ -1084,7 +1084,7 @@ mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir)
                                   "hi", dev->name ? dev->id : 0, dir));
 }
 
-mapper_signal mapper_device_signal_by_id(mapper_device dev, uint64_t id)
+mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id)
 {
     if (!dev)
         return 0;
@@ -1149,8 +1149,8 @@ int mapper_device_num_maps(mapper_device dev, mapper_direction dir)
 
 static int cmp_query_device_maps(const void *context_data, mapper_map map)
 {
-    uint64_t dev_id = *(uint64_t*)context_data;
-    int direction = *(int*)(context_data + sizeof(uint64_t));
+    mapper_id dev_id = *(mapper_id*)context_data;
+    int direction = *(int*)(context_data + sizeof(mapper_id));
     if (!direction || (direction & MAPPER_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
@@ -1302,7 +1302,7 @@ void mapper_device_reserve_instance_id_map(mapper_device dev)
 
 mapper_id_map mapper_device_add_instance_id_map(mapper_device dev,
                                                 mapper_id local_id,
-                                                uint64_t global_id)
+                                                mapper_id global_id)
 {
     if (!dev->local->reserve_id_map)
         mapper_device_reserve_instance_id_map(dev);
@@ -1345,7 +1345,7 @@ mapper_id_map mapper_device_find_instance_id_map_by_local(mapper_device dev,
 }
 
 mapper_id_map mapper_device_find_instance_id_map_by_global(mapper_device dev,
-                                                           uint64_t global_id)
+                                                           mapper_id global_id)
 {
     mapper_id_map map = dev->local->active_id_map;
     while (map) {
@@ -1431,7 +1431,7 @@ const char *mapper_device_host(mapper_device dev)
     return dev->host;
 }
 
-uint64_t mapper_device_id(mapper_device dev)
+mapper_id mapper_device_id(mapper_device dev)
 {
     if (dev->local->registered)
         return dev->id;
@@ -1548,7 +1548,7 @@ void mapper_device_now(mapper_device dev, mapper_timetag_t *timetag)
     mapper_clock_now(&dev->db->network->clock, timetag);
 }
 
-uint64_t mapper_device_unique_id(mapper_device dev) {
+mapper_id mapper_device_unique_id(mapper_device dev) {
     return ++dev->db->resource_counter | dev->id;
 }
 

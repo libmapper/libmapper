@@ -290,7 +290,7 @@ mapper_slot mapper_map_slot_by_signal(mapper_map map, mapper_signal sig)
     return 0;
 }
 
-uint64_t mapper_map_id(mapper_map map)
+mapper_id mapper_map_id(mapper_map map)
 {
     return map->id;
 }

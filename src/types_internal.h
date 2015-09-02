@@ -308,7 +308,7 @@ typedef struct _mapper_local_signal
     char *has_complete_value;
 
     /*! Type of voice stealing to perform on instances. */
-    mapper_instance_allocation_type instance_allocation_type;
+    mapper_instance_stealing_type instance_stealing_mode;
 
     /*! An optional function to be called when the signal value changes. */
     void *update_handler;
