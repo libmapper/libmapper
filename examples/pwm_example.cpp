@@ -14,7 +14,7 @@ void ctrlc(int)
     done = 1;
 }
 
-void handler_freq(mapper_signal sig, int instance_id, const void *value,
+void handler_freq(mapper_signal sig, mapper_id instance, const void *value,
                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
@@ -23,7 +23,7 @@ void handler_freq(mapper_signal sig, int instance_id, const void *value,
     }
 }
 
-void handler_gain(mapper_signal sig, int instance_id, const void *value,
+void handler_gain(mapper_signal sig, mapper_id instance, const void *value,
                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
@@ -34,7 +34,7 @@ void handler_gain(mapper_signal sig, int instance_id, const void *value,
         set_gain(0);
 }
 
-void handler_duty(mapper_signal sig, int instance_id, const void *value,
+void handler_duty(mapper_signal sig, mapper_id instance, const void *value,
                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
