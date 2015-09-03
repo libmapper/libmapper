@@ -293,7 +293,7 @@ AS_IF([test x$enable_debug = xyes],
 # (see autoconf manual section 4.9)
 CFLAGS="-I. $CFLAGS"
 
-AM_CONDITIONAL(TESTS, test x$enable_tests = xyes)
+AM_CONDITIONAL(TESTS, test "x$enable_tests" = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
 AM_CONDITIONAL(HAVE_SWIG, test "x$swig_enabled" = xyes)

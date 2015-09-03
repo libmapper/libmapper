@@ -1,4 +1,4 @@
-
+if TESTS
 TEST_CFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 TEST_CXXFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 
@@ -115,6 +115,7 @@ testsync_LDADD = $(TEST_LDADD)
 testvector_CFLAGS = $(TEST_CFLAGS)
 testvector_SOURCES = testvector.c
 testvector_LDADD = $(TEST_LDADD)
+endif
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! ./$$i -qt; then exit 1; fi; done
