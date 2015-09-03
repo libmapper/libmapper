@@ -487,6 +487,8 @@ namespace mapper {
             else
                 return Property(0, 0, 0, 0, this);
         }
+        mapper_id id() const
+            { return mapper_signal_id(_sig); }
         std::string name() const
             { return std::string(mapper_signal_name(_sig)); }
         char type() const
@@ -575,6 +577,8 @@ namespace mapper {
                 { _sig = sig; _id = id; }
             bool operator == (Instance i)
                 { return (_id == i._id); }
+            operator mapper_id() const
+                { return _id; }
             Instance& update(void *value, int count, Timetag tt)
             {
                 mapper_signal_instance_update(_sig, _id, value, count, *tt);
@@ -624,6 +628,9 @@ namespace mapper {
                 return update(&value[0],
                               value.size() / mapper_signal_length(_sig), tt);
             }
+
+            mapper_id id() const
+                { return _id; }
 
             Instance& set_user_data(void *user_data)
             {
@@ -1111,6 +1118,8 @@ namespace mapper {
             { return _map; }
         operator bool() const
             { return _map; }
+        operator mapper_id() const
+            { return mapper_map_id(_map); }
         const Map& sync() const
             { mapper_map_sync(_map); return (*this); }
         void unmap()
