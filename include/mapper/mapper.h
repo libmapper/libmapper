@@ -121,7 +121,7 @@ void mapper_signal_set_callback(mapper_signal sig,
                                 mapper_signal_update_handler *handler,
                                 const void *user_data);
 
-/**** Instances ****/
+/**** Signal Instances ****/
 
 /*! Add new instances to the reserve list. Note that if instance ids are
  *  specified, libmapper will not add multiple instances with the same id.
@@ -603,7 +603,7 @@ mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir);
  *  \param dev      Device record to query.
  *  \param id       Id of the signal to find in the database.
  *  \return         Information about the signal, or zero if not found. */
-mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id);
+mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id);
 
 /*! Find information for a registered signal.
  *  \param dev      Device record to query.
@@ -698,7 +698,7 @@ int mapper_device_poll(mapper_device dev, int block_ms);
  *  needed can change throughout the life of a device, therefore this
  *  function should be called whenever the list of file descriptors is
  *  needed.
- *  \param md   The device to count file descriptors for.
+ *  \param dev  The device to count file descriptors for.
  *  \return     The number of file descriptors needed for the indicated
  *              device. */
 int mapper_device_num_fds(mapper_device dev);
@@ -858,7 +858,7 @@ void mapper_device_pp(mapper_device dev);
        needs to be explicitly created if you plan to override default settings
        for the multicast bus.  */
 
-/*! Create an network with custom parameters.  Creating an network object
+/*! Create a network with custom parameters.  Creating a network object
  *  manually is only required if you wish to specify custom network
  *  parameters.  Creating a device or admin without specifying an
  *  network will give you an object working on the "standard"
@@ -877,31 +877,34 @@ void mapper_device_pp(mapper_device dev);
 mapper_network mapper_network_new(const char *interface, const char *group,
                                   int port);
 
-/*! Free an network structure created with mapper_network_new(). */
+/*! Free a network structure created with mapper_network_new().
+ *  \param net      The network structure to free. */
 void mapper_network_free(mapper_network net);
 
 /*! Return the mapper_db structure used for tracking the network.
- *  \param dev  The network structure to query.
- *  \return     The mapper_db used by this network structure. */
+ *  \param net      The network structure to query.
+ *  \return         The mapper_db used by this network structure. */
 mapper_db mapper_network_db(mapper_network net);
 
 /*! Return a string indicating the name of the network interface in use.
- *  \param dev  The network structure to query.
- *  \return     A string containing the name of the network interface. */
+ *  \param net      The network structure to query.
+ *  \return         A string containing the name of the network interface. */
 const char *mapper_network_interface(mapper_network net);
 
 /*! Return the IPv4 address used by a device to receive signals, if available.
- *  \param dev  The network structure to query.
- *  \return     A pointer to an in_addr struct indicating the network's IP
- *              address, or zero if it is not available.  In general this
- *              will be the IPv4 address associated with the selected
- *              local network interface. */
+ *  \param net      The network structure to query.
+ *  \return         A pointer to an in_addr struct indicating the network's IP
+ *                  address, or zero if it is not available.  In general this
+ *                  will be the IPv4 address associated with the selected
+ *                  local network interface. */
 const struct in_addr *mapper_network_ip4(mapper_network net);
 
-/*! Retrieve the name of the multicast group currently in use. */
+/*! Retrieve the name of the multicast group currently in use.
+ *  \param net      The network structure to query. */
 const char *mapper_network_group(mapper_network net);
 
-/*! Retrieve the name of the multicast port currently in use. */
+/*! Retrieve the name of the multicast port currently in use.
+ *  \param net      The network structure to query. */
 int mapper_network_port(mapper_network net);
 
 /*! Interface to send an arbitrary OSC message to the administrative bus.
@@ -1070,7 +1073,7 @@ void mapper_map_remove_property(mapper_map map, const char *property);
  *  instance updates across the map. Changes to remote maps will not take effect
  *  until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
- *  \param device   Device to add as a scope for this map. After taking effect,
+ *  \param dev      Device to add as a scope for this map. After taking effect,
  *                  this setting will cause instance updates originating at this
  *                  device to be propagated across the map. */
 void mapper_map_add_scope(mapper_map map, mapper_device dev);
@@ -1079,7 +1082,7 @@ void mapper_map_add_scope(mapper_map map, mapper_device dev);
  *  instance updates across the map. Changes to remote maps will not take effect
  *  until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
- *  \param device   Device to remove as a scope for this map. After taking effect,
+ *  \param dev      Device to remove as a scope for this map. After taking effect,
  *                  this setting will cause instance updates originating at this
  *                  device to be blocked from propagating across the map. */
 void mapper_map_remove_scope(mapper_map map, mapper_device dev);
@@ -1354,7 +1357,7 @@ void mapper_slot_pp(mapper_slot slot);
        queried. */
 
 /*! Create a peer in the libmapper distributed database.
- *  \param network              A previously allocated network structure to use.
+ *  \param net                  A previously allocated network structure to use.
  *                              If 0, one will be allocated for use with this
  *                              database.
  *  \param autosubscribe_flags  Sets whether the database should automatically
@@ -1603,7 +1606,7 @@ mapper_map *mapper_db_maps(mapper_db db);
  *  \param id       Unique id identifying the map.
  *  \return         A pointer to a structure containing information on the
  *                  found map, or 0 if not found. */
-mapper_map mapper_db_map_by_id(mapper_db db, mapper_id);
+mapper_map mapper_db_map_by_id(mapper_db db, mapper_id id);
 
 /*! Return the list of maps matching the given property.
  *  \param db       The database to query.

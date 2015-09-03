@@ -218,7 +218,7 @@ int mapper_signal_find_instance_with_global_id(mapper_signal sig,
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
  *  \param sig      The signal owning the desired instance.
- *  \param instance The requested signal instance ID.
+ *  \param local_id The requested signal instance ID.
  *  \param flags    Bitflags indicating if search should include released
  *                  instances.
  *  \param tt       Timetag associated with this action.
