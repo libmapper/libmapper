@@ -69,14 +69,14 @@ interface to use.
 
 An example of creating a device:
 
-    mapper_device my_device = mdev_new( "test", 9000, 0 );
+    mapper_device my_device = mapper_device_new( "test", 9000, 0 );
 
 Polling the device
 ------------------
 
 The device lifecycle looks like this, in terrible ASCII diagram art:
 
-    mdev_new -> mdev_poll +-> mdev_free
+    mapper_device_new -> mapper_device_poll +-> mapper_device_free
                   |       |
                   +----<--+
 
@@ -98,19 +98,19 @@ how you want your application to behave.  It takes a number of
 milliseconds during which it should do some work, or 0 if it should
 check for any immediate actions and then return without waiting:
 
-    int mdev_poll( mapper_device md,
-                   int block_ms );
+    int mapper_device_poll( mapper_device dev,
+                            int block_ms );
 
 An example of calling it with non-blocking behaviour:
 
-    mdev_poll( my_device, 0 );
+    mapper_device_poll( my_device, 0 );
 
 If your polling is in the middle of a processing function or in
 response to a GUI event for example, non-blocking behaviour is
 desired.  On the other hand if you put it in the middle of a loop
 which reads incoming data at intervals or steps through a simulation
-for example, you can use `mdev_poll` as your "sleep" function, so that
-it will react to network activity while waiting.
+for example, you can use `mapper_device_poll` as your "sleep" function,
+so that it will react to network activity while waiting.
 
 It returns the number of messages handled, so optionally you could
 continue to call it until there are no more messages waiting.  Of
@@ -126,8 +126,8 @@ stated differently, it will "time-quantize" the message handling.
 This is not necessarily bad, but you should be aware of this effect.
 
 Since there is a delay before the device is completely initialized, it
-is sometimes useful to be able to determine this using `mdev_ready`.
-Only when `mdev_ready` returns non-zero is it valid to use the
+is sometimes useful to be able to determine this using `mapper_device_ready`.
+Only when `mapper_device_ready` returns non-zero is it valid to use the
 device's name.
 
 Freeing the device
@@ -139,7 +139,7 @@ program.  This not only frees memory, but also sends some messages to
 
 An example of freeing a device:
 
-    mdev_free( my_device );
+    mapper_device_free( my_device );
 
 Signals
 =======
@@ -168,23 +168,23 @@ We'll start with creating a "output", so we will first talk about how
 to update output signals.  A signal requires a bit more information than
 a device, much of which is optional:
 
-    mapper_signal mdev_add_input( mapper_device dev,
-                                  const char *name,
-                                  int length,
-                                  char type,
-                                  const char *unit,
-                                  void *minimum,
-                                  void *maximum,
-                                  mapper_signal_handler *handler,
-                                  void *user_data );
+    mapper_signal mapper_device_add_input( mapper_device dev,
+                                           const char *name,
+                                           int length,
+                                           char type,
+                                           const char *unit,
+                                           void *minimum,
+                                           void *maximum,
+                                           mapper_signal_handler *handler,
+                                           void *user_data );
 
-    mapper_signal mdev_add_output( mapper_device dev,
-                                   const char *name,
-                                   int length,
-                                   char type,
-                                   const char *unit,
-                                   void *minimum,
-                                   void *maximum );
+    mapper_signal mapper_device_add_output( mapper_device dev,
+                                            const char *name,
+                                            int length,
+                                            char type,
+                                            const char *unit,
+                                            void *minimum,
+                                            void *maximum );
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
@@ -220,38 +220,38 @@ that function during callback in `user_data`.
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:
 
-    mapper_signal outputA = mdev_add_output( dev, "/outA", 1, 'i', 0, 0, 0 );
+    mapper_signal outputA = mapper_device_add_output( dev, "/outA", 1, 'i', 0, 0, 0 );
 
 An example of a `float` signal where some more information is provided:
 
     float minimum = 0.0f;
     float maximum = 5.0f;
-    mapper_signal sensor1_voltage = mdev_add_output( dev, "/sensor1", 1, 'f',
-                                                     "V", &minimum, &maximum );
+    mapper_signal sensor1_voltage = mapper_device_add_output( dev, "/sensor1", 1, 'f',
+                                                              "V", &minimum, &maximum );
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
  
-    mapper_device my_sender = mdev_new( "test_sender", 9000, 0 );
-    mapper_signal sensor1_voltage = mdev_add_output( my_sender, "/sensor1",
-                                                     1, 'f', "V",
-                                                     &minimum, &maximum );
+    mapper_device my_sender = mapper_device_new( "test_sender", 9000, 0 );
+    mapper_signal sensor1_voltage = mapper_device_add_output( my_sender, "/sensor1",
+                                                              1, 'f', "V",
+                                                              &minimum, &maximum );
     
     while ( !done ) {
-        mdev_poll( my_sender, 50 );
+        mapper_device_poll( my_sender, 50 );
         ... do stuff ...
         ... update signals ...
     }
     
-    mdev_free( my_sender );
+    mapper_device_free( my_sender );
 
 Note that although you have a pointer to the mapper_signal structure
-(which was returned by `mdev_add_output()`), its memory is "owned" by the
+(which was returned by `mapper_device_add_output()`), its memory is "owned" by the
 device.  In other words, you should not worry about freeing its
 memory - this will happen automatically when the device is destroyed.
 It is possible to retrieve a device's inputs or outputs by name or by
 index at a later time using the functions
-`mdev_get_<input/output>_by_<name/index>`.
+`mapper_device_get_<input/output>_by_<name/index>`.
 
 Updating signals
 ----------------
@@ -264,12 +264,12 @@ be a mouse-controlled GUI slider.  However it's getting the data, it
 must provide it to _libmapper_ so that it will be sent to other
 devices if that signal is mapped.
 
-This is accomplished by the `msig_update` function:
+This is accomplished by the `mapper_signal_update` function:
 
-    void msig_update( mapper_signal sig,
-                      void *value,
-                      int count,
-                      mapper_timetag_t timetag );
+    void mapper_signal_update( mapper_signal sig,
+                               void *value,
+                               int count,
+                               mapper_timetag_t timetag );
 
 As you can see, a `void*` pointer must be provided.  This must point
 to a data structure identified by the signal's `length` and `type`.
@@ -286,18 +286,18 @@ and libmapper will tag the update with the current time.
 
 To simplify things even further, a short-hand is provided for scalar signals of particular types:
 
-    void msig_update_int( mapper_signal sig, int value );
+    void mapper_signal_update_int( mapper_signal sig, int value );
 
-    void msig_update_float( mapper_signal sig, float value );
+    void mapper_signal_update_float( mapper_signal sig, float value );
 
 So in the "sensor 1 voltage" example, assuming in "do stuff" we have
 some code which reads sensor 1's value into a float variable called
 `v1`, the loop becomes:
 
     while ( !done ) {
-        mdev_poll( my_device, 50 );
+        mapper_device_poll( my_device, 50 );
         float v1 = read_sensor_1();
-        msig_update_float( sensor1_voltage, v1 );
+        mapper_signal_update_float( sensor1_voltage, v1 );
     }
 
 This is about all that is needed to expose sensor 1's voltage to the
@@ -346,14 +346,14 @@ Now that we know how to create a sender, it would be useful to also
 know how to receive signals, so that we can create a sender-receiver
 pair to test out the provided mapping functionality. The current value
 and timestamp for a signal can be retrieved at any time by calling
-`msig_value()`, however for event-driven applications you may want to
+`mapper_signal_value()`, however for event-driven applications you may want to
 be informed of new values as they are received or generated.
 
-As mentioned above, the `mdev_add_input()` function takes an optional
+As mentioned above, the `mapper_device_add_input()` function takes an optional
 `handler` and `user_data`.  This is a function that will be called
 whenever the value of that signal changes.  To create a receiver for a
 synthesizer parameter "pulse width" (given as a ratio between 0 and
-1), specify a handler when calling `mdev_add_input()`.  We'll imagine
+1), specify a handler when calling `mapper_device_add_input()`.  We'll imagine
 there is some C++ synthesizer implemented as a class `Synthesizer`
 which has functions `setPulseWidth()` which sets the pulse width in a
 thread-safe manner, and `startAudioInBackground()` which sets up the
@@ -572,7 +572,7 @@ you can call it like this:
 
     lo_arg x;
     x.f = 12.5;
-    mdev_set_property( my_device, "x", 'f', &x );
+    mapper_device_set_property( my_device, "x", 'f', &x );
 
 In practice it is safe to cast to `lo_arg*`:
 
@@ -584,8 +584,8 @@ To specify strings, it is necessary to perform such a cast, since the
 string:
 
     char *sensingMethod = "resistive";
-    msig_set_property( sensor1, "sensingMethod",
-                       's', (lo_arg*)sensingMethod );
+    mapper_signal_set_property( sensor1, "sensingMethod",
+                                's', (lo_arg*)sensingMethod );
 
 ## Reserved keys
 
