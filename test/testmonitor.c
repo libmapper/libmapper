@@ -92,7 +92,7 @@ void loop()
             printdevice(tempdev);
 
             int numsigs = tempdev->num_outputs;
-            psig = mapper_device_signals(tempdev, MAPPER_OUTGOING);
+            psig = mapper_device_signals(tempdev, MAPPER_DIR_OUTGOING);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_signal_query_next(psig);
@@ -100,7 +100,7 @@ void loop()
                 mapper_signal_pp(tempsig, 0);
             }
             numsigs = tempdev->num_inputs;
-            psig = mapper_device_signals(tempdev, MAPPER_INCOMING);
+            psig = mapper_device_signals(tempdev, MAPPER_DIR_INCOMING);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_signal_query_next(psig);

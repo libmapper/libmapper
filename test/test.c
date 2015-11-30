@@ -48,23 +48,24 @@ int setup_source()
     float mnf[]={3.2,2,0}, mxf[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    sendsig_1 = mapper_device_add_output(source, "/outsig_1", 1, 'd',
-                                         "Hz", &mnd, &mxd);
-    sendsig_2 = mapper_device_add_output(source, "/outsig_2", 1, 'f',
-                                         "mm", mnf, mxf);
-    sendsig_3 = mapper_device_add_output(source, "/outsig_3", 3, 'f',
-                                         0, mnf, mxf);
-    sendsig_4 = mapper_device_add_output(source, "/outsig_4", 1, 'f',
-                                         0, mnf, mxf);
+    sendsig_1 = mapper_device_add_output(source, "outsig_1", 1, 'd', "Hz",
+                                         &mnd, &mxd);
+    sendsig_2 = mapper_device_add_output(source, "outsig_2", 1, 'f', "mm",
+                                         mnf, mxf);
+    sendsig_3 = mapper_device_add_output(source, "outsig_3", 3, 'f', 0,
+                                         mnf, mxf);
+    sendsig_4 = mapper_device_add_output(source, "outsig_4", 1, 'f', 0,
+                                         mnf, mxf);
 
-    eprintf("Output signal /outsig registered.\n");
+    eprintf("Output signal 'outsig' registered.\n");
 
     // Make sure we can add and remove outputs without crashing.
-    mapper_device_remove_output(source, mapper_device_add_output(source, "/outsig_5", 1,
-                                                                 'f', 0, &mnf, &mxf));
+    mapper_device_remove_signal(source,
+                                mapper_device_add_output(source, "outsig_5", 1,
+                                                         'f', 0, &mnf, &mxf));
 
-    eprintf("Number of outputs: %d\n", mapper_device_num_signals(source,
-                                                                 MAPPER_OUTGOING));
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
 
     return 0;
 
@@ -121,24 +122,25 @@ int setup_destination()
     float mnf[]={0,0,0}, mxf[]={1,1,1};
     double mnd=0, mxd=1;
 
-    recvsig_1 = mapper_device_add_input(destination, "/insig_1", 1, 'f',
-                                        0, mnf, mxf, insig_handler, 0);
-    recvsig_2 = mapper_device_add_input(destination, "/insig_2", 1, 'd',
-                                        0, &mnd, &mxd, insig_handler, 0);
-    recvsig_3 = mapper_device_add_input(destination, "/insig_3", 3, 'f',
-                                        0, mnf, mxf, insig_handler, 0);
-    recvsig_4 = mapper_device_add_input(destination, "/insig_4", 1, 'f',
-                                        0, mnf, mxf, insig_handler, 0);
+    recvsig_1 = mapper_device_add_input(destination, "insig_1", 1, 'f', 0,
+                                        mnf, mxf, insig_handler, 0);
+    recvsig_2 = mapper_device_add_input(destination, "insig_2", 1, 'd', 0,
+                                        &mnd, &mxd, insig_handler, 0);
+    recvsig_3 = mapper_device_add_input(destination, "insig_3", 3, 'f', 0,
+                                        mnf, mxf, insig_handler, 0);
+    recvsig_4 = mapper_device_add_input(destination, "insig_4", 1, 'f', 0,
+                                        mnf, mxf, insig_handler, 0);
 
-    eprintf("Input signal /insig registered.\n");
+    eprintf("Input signal 'insig' registered.\n");
 
     // Make sure we can add and remove inputs and inputs within crashing.
-    mapper_device_remove_input(destination,
-                               mapper_device_add_input(destination, "/insig_5", 1,
-                                                       'f', 0, &mnf, &mxf, 0, 0));
+    mapper_device_remove_signal(destination,
+                                mapper_device_add_input(destination,
+                                                        "insig_5", 1, 'f', 0,
+                                                        &mnf, &mxf, 0, 0));
 
-    eprintf("Number of inputs: %d\n", mapper_device_num_signals(destination,
-                                                                MAPPER_INCOMING));
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
 
     return 0;
 
@@ -182,7 +184,7 @@ void loop()
         maps[3] = mapper_map_new(1, &sendsig_3, recvsig_4);
 
         for (i = 0; i < 4; i++) {
-            mapper_map_sync(maps[i]);
+            mapper_map_push(maps[i]);
         }
 
         // wait until all maps has been established
@@ -192,7 +194,7 @@ void loop()
             mapper_device_poll(destination, 10);
             num_maps = 0;
             for (i = 0; i < 4; i++) {
-                num_maps += (mapper_map_status(maps[i]) == MAPPER_ACTIVE);
+                num_maps += (mapper_map_ready(maps[i]));
             }
         }
     }
@@ -203,18 +205,18 @@ void loop()
     while ((!terminate || i < 50) && !done) {
         mapper_device_poll(source, 100);
         mapper_signal_update_double(sendsig_1, ((i % 10) * 1.0f));
-        eprintf("/outsig_1 value updated to %d -->\n", i % 10);
+        eprintf("outsig_1 value updated to %d -->\n", i % 10);
 
         mapper_signal_update_float(sendsig_2, ((i % 10) * 1.0f));
-        eprintf("/outsig_2 value updated to %d -->\n", i % 10);
+        eprintf("outsig_2 value updated to %d -->\n", i % 10);
 
         val[0] = val[1] = val[2] = (i % 10) * 1.0f;
         mapper_signal_update(sendsig_3, val, 1, MAPPER_NOW);
-        eprintf("/outsig_3 value updated to [%f,%f,%f] -->\n",
+        eprintf("outsig_3 value updated to [%f,%f,%f] -->\n",
                val[0], val[1], val[2]);
 
         mapper_signal_update_float(sendsig_4, ((i % 10) * 1.0f));
-        eprintf("/outsig_4 value updated to %d -->\n", i % 10);
+        eprintf("outsig_4 value updated to %d -->\n", i % 10);
 
         eprintf("Sent %i messages.\n", 4);
         sent += 4;

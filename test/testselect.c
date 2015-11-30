@@ -53,9 +53,9 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
+    sendsig = mapper_device_add_output(source, "outsig", 1, 'f', "Hz", &mn, &mx);
 
-    eprintf("Output signal /outsig registered.\n");
+    eprintf("Output signal 'outsig' registered.\n");
 
     return 0;
 
@@ -97,10 +97,10 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
-                             0, &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "insig", 1, 'f', 0, &mn, &mx,
+                                      insig_handler, 0);
 
-    eprintf("Input signal /insig registered.\n");
+    eprintf("Input signal 'insig' registered.\n");
 
     return 0;
 
@@ -123,10 +123,10 @@ int setup_maps()
     int count = 0;
 
     mapper_map map = mapper_map_new(1, &sendsig, recvsig);
-    mapper_map_sync(map);
+    mapper_map_push(map);
 
     // wait until mapping has been established
-    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
+    while (!done && !mapper_map_ready(map)) {
         if (count++ > 50)
             return 1;
         mapper_device_poll(source, 10);

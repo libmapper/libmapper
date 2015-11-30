@@ -24,9 +24,6 @@ extern "C" {
                                                 | MAPPER_SUBSCRIBE_OUTGOING_MAPS) */
 #define MAPPER_SUBSCRIBE_ALL            0xFF
 
-/* Value for map status when it is active */
-#define MAPPER_ACTIVE   0x1F
-
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
 typedef lo_timetag mapper_timetag_t;
@@ -52,12 +49,13 @@ typedef enum {
 /*! Describes what happens when the range boundaries are exceeded.
  *  @ingroup mapdb */
 typedef enum {
-    MAPPER_UNDEFINED,
-    MAPPER_NONE,    //!< Value is passed through unchanged. This is the default.
-    MAPPER_MUTE,    //!< Value is muted.
-    MAPPER_CLAMP,   //!< Value is limited to the boundary.
-    MAPPER_FOLD,    //!< Value continues in opposite direction.
-    MAPPER_WRAP,    //!< Value appears as modulus offset at the opposite boundary.
+    MAPPER_BOUND_UNDEFINED,
+    MAPPER_BOUND_NONE,    //!< Value is passed through unchanged. This is the default.
+    MAPPER_BOUND_MUTE,    //!< Value is muted.
+    MAPPER_BOUND_CLAMP,   //!< Value is limited to the boundary.
+    MAPPER_BOUND_FOLD,    //!< Value continues in opposite direction.
+    MAPPER_BOUND_WRAP,    /*!< Value appears as modulus offset at the opposite
+                           *   boundary. */
     NUM_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
@@ -72,15 +70,17 @@ typedef enum {
 } mapper_mode;
 
 typedef enum {
-    MAPPER_SOURCE = 1,
-    MAPPER_DESTINATION
+    MAPPER_LOC_UNDEFINED,
+    MAPPER_LOC_SOURCE,
+    MAPPER_LOC_DESTINATION,
+    NUM_MAPPER_LOCATIONS
 } mapper_location;
 
 /*! The set of possible directions for a signal or mapping slot. */
 typedef enum {
-    MAPPER_DIR_ANY  = 0x00,
-    MAPPER_INCOMING = 0x01,
-    MAPPER_OUTGOING = 0x02,
+    MAPPER_DIR_ANY      = 0x00,
+    MAPPER_DIR_INCOMING = 0x01,
+    MAPPER_DIR_OUTGOING = 0x02,
 } mapper_direction;
 
 /*! The set of possible actions on an instance, used to register callbacks

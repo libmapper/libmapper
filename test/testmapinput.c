@@ -65,14 +65,14 @@ int setup_devices()
     float mnf2[]={3.2,2,0}, mxf2[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    inputs[0] = mapper_device_add_input(devices[0], "/insig_1", 1, 'f',
-                                        0, mnf1, mxf1, insig_handler, 0);
-    inputs[1] = mapper_device_add_input(devices[0], "/insig_2", 1, 'd',
-                                        0, &mnd, &mxd, insig_handler, 0);
-    inputs[2] = mapper_device_add_input(devices[1], "/insig_3", 3, 'f',
-                                        0, mnf1, mxf1, insig_handler, 0);
-    inputs[3] = mapper_device_add_input(devices[1], "/insig_4", 1, 'f',
-                                        0, mnf2, mxf2, insig_handler, 0);
+    inputs[0] = mapper_device_add_input(devices[0], "insig_1", 1, 'f', 0,
+                                        mnf1, mxf1, insig_handler, 0);
+    inputs[1] = mapper_device_add_input(devices[0], "insig_2", 1, 'd', 0,
+                                         &mnd, &mxd, insig_handler, 0);
+    inputs[2] = mapper_device_add_input(devices[1], "insig_3", 3, 'f', 0,
+                                        mnf1, mxf1, insig_handler, 0);
+    inputs[3] = mapper_device_add_input(devices[1], "insig_4", 1, 'f', 0,
+                                        mnf2, mxf2, insig_handler, 0);
 
     /* In this test inputs[2] will never get its full vector value from
      * external updates – for the handler to be called we will need to
@@ -117,25 +117,25 @@ void loop()
         mapper_map maps[2];
         // map input to another input on same device
         maps[0] = mapper_map_new(1, &inputs[0], inputs[1]);
-        mapper_map_sync(maps[0]);
+        mapper_map_push(maps[0]);
 
         // map input to an input on another device
         maps[1] = mapper_map_new(1, &inputs[1], inputs[2]);
-        mapper_map_sync(maps[1]);
+        mapper_map_push(maps[1]);
 
         // wait until mapping has been established
-        int status = 0;
-        while (!done && (status < MAPPER_ACTIVE)) {
+        int ready = 0;
+        while (!done && !ready) {
             mapper_device_poll(devices[0], 100);
             mapper_device_poll(devices[1], 100);
-            status = mapper_map_status(maps[0]) & mapper_map_status(maps[1]);
+            ready = mapper_map_ready(maps[0]) & mapper_map_ready(maps[1]);
         }
     }
 
     i = 0;
     while ((!terminate || i < 50) && !done) {
         mapper_signal_update_float(inputs[0], ((i % 10) * 1.0f));
-        eprintf("/insig_1 value updated to %d -->\n", i % 10);
+        eprintf("insig_1 value updated to %d -->\n", i % 10);
         sent += 1;
 
         recvd = mapper_device_poll(devices[0], 50);

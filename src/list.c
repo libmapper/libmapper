@@ -78,7 +78,7 @@ static mapper_list_header_t* mapper_list_new_item(size_t size)
                "unexpected offset for data in mapper_list_header_t");
 
     size += LIST_HEADER_SIZE;
-    lh = malloc(size);
+    lh = calloc(1, size);
     if (!lh)
         return 0;
 

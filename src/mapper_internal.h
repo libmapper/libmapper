@@ -4,21 +4,21 @@
 
 #include "types_internal.h"
 #include <mapper/mapper.h>
+#include <string.h>
 
-// Structs that refer to things defined in mapper.h are declared here
-// instead of in types_internal.h
+/* Structs that refer to things defined in mapper.h are declared here instead
+   of in types_internal.h */
 
 /**** Signals ****/
 
 #define MAPPER_MAX_VECTOR_LEN 128
 
-/*! Get the full OSC name of a signal, including device name
- *  prefix.
+/*! Get the full OSC name of a signal, including device name prefix.
  *  \param sig  The signal value to query.
  *  \param name A string to accept the name.
  *  \param len  The length of string pointed to by name.
- *  \return The number of characters used, or 0 if error.  Note that
- *          in some cases the name may not be available. */
+ *  \return     The number of characters used, or 0 if error.  Note that in some
+ *              cases the name may not be available. */
 int mapper_signal_full_name(mapper_signal sig, char *name, int len);
 
 int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg);
@@ -60,6 +60,8 @@ void mapper_network_free_messages(mapper_network net);
 
 /***** Device *****/
 
+void init_device_prop_table(mapper_device dev);
+
 void mapper_device_registered(mapper_device dev);
 
 void mapper_device_add_signal_methods(mapper_device dev, mapper_signal sig);
@@ -97,7 +99,7 @@ mapper_id_map mapper_device_find_instance_id_map_by_global(mapper_device dev,
 
 const char *mapper_device_name(mapper_device dev);
 
-void mapper_device_send_state(mapper_device dev);
+void mapper_device_send_state(mapper_device dev, int flags);
 
 /***** Router *****/
 
@@ -114,8 +116,8 @@ void mapper_router_num_instances_changed(mapper_router r,
                                          mapper_signal sig,
                                          int size);
 
-/*! For a given signal instance, calculate mapping outputs and
- *  forward to destinations. */
+/*! For a given signal instance, calculate mapping outputs and forward to
+ *  destinations. */
 void mapper_router_process_signal(mapper_router r, mapper_signal sig,
                                   int instance_index, const void *value,
                                   int count, mapper_timetag_t timetag);
@@ -166,22 +168,20 @@ void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
 
 /**** Signals ****/
 
-/*! Create a signal structure and fill it with provided
- *  arguments. Values and strings pointed to by this call (except
- *  user_data) will be copied. Signals should be freed by mapper_signal_free()
- *  only if they are not registered with a device.
- *  For minimum, maximum, and value, if type='f', should be float*, or
- *  if type='i', then should be int*.
- *  \param name The name of the signal, starting with '/'.
- *  \param length The length of the signal vector, or 1 for a scalar.
- *  \param type The type fo the signal value.
- *  \param is_output The direction of the signal, 1 for output, 0 for input.
- *  \param unit The unit of the signal, or 0 for none.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none.
- *  \param handler Function to be called when the value of the
- *                 signal is updated.
- *  \param user_data User context pointer to be passed to handler. */
+/*! Create a signal structure and fill it with provided arguments.  Values and
+ *  strings pointed to by this call (except user_data) will be copied. Signals
+ *  should be freed by mapper_signal_free() only if they are not registered with
+ *  a device.  For minimum, maximum, and value, if type='f', should be float*,
+ *  if type='i', then should be int*, or if type='d', should be double*.
+ *  \param name         The name of the signal, starting with '/'.
+ *  \param length       The length of the signal vector, or 1 for a scalar.
+ *  \param type         The type fo the signal value.
+ *  \param is_output    The direction of the signal, 1 for output, 0 for input.
+ *  \param unit         The unit of the signal, or 0 for none.
+ *  \param minimum      Pointer to a minimum value, or 0 for none.
+ *  \param maximum      Pointer to a maximum value, or 0 for none.
+ *  \param handler      Function to be called when the signal value is updated.
+ *  \param user_data    User context pointer to be passed to handler. */
 mapper_signal mapper_signal_new(const char *name, int length, char type,
                                 int is_output, const char *unit,
                                 const void *minimum, const void *maximum,
@@ -191,16 +191,16 @@ mapper_signal mapper_signal_new(const char *name, int length, char type,
 /*! Free memory used by a mapper_signal. Call this only for signals
  *  that are not registered with a device. Registered signals will be
  *  freed by mapper_device_free().
- *  \param sig The signal to free. */
+ *  \param sig      The signal to free. */
 void mapper_signal_free(mapper_signal sig);
 
-/*! Coerce a signal instance value to a particular type and vector length
- *  and add it to a lo_message. */
+/*! Coerce a signal instance value to a particular type and vector length and
+ *  add it to a lo_message. */
 void message_add_coerced_signal_instance_value(lo_message m, mapper_signal sig,
                                                mapper_signal_instance si,
                                                int length, char type);
 
-void mapper_signal_send_state(mapper_signal sig);
+void mapper_signal_send_state(mapper_signal sig, int flags);
 
 void mapper_signal_send_removed(mapper_signal sig);
 
@@ -273,11 +273,18 @@ lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
 int mapper_map_set_from_message(mapper_map map, mapper_message_t *msg,
                                 int override);
 
-const char *mapper_param_string(mapper_message_param_t param);
+mapper_property_t mapper_property_from_string(const char *str);
+const char *mapper_property_string(mapper_property_t prop);
+
+const char *mapper_protocol_string(mapper_property_t prop);
 
 const char *mapper_boundary_action_string(mapper_boundary_action bound);
 
 mapper_boundary_action mapper_boundary_action_from_string(const char *string);
+
+const char *mapper_location_string(mapper_location loc);
+
+mapper_location mapper_location_from_string(const char *string);
 
 const char *mapper_mode_string(mapper_mode mode);
 
@@ -286,16 +293,22 @@ mapper_mode mapper_mode_from_string(const char *string);
 int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
                           int flags);
 
+void mapper_map_init(mapper_map map);
+
+/**** Slot ****/
+
+void mapper_slot_init(mapper_slot slot);
+
+int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
+                                 int *status);
+
+void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
+                                      int is_dest, char **key_ptr, int *size,
+                                      int flags);
+
+void mapper_slot_upgrade_extrema_memory(mapper_slot slot);
+
 /**** Database ****/
-
-int mapper_db_property_index(const void *thestruct, table extra,
-                             unsigned int index, const char **property,
-                             int *length, char *type, const void **value,
-                             table proptable);
-
-int mapper_db_property(const void *thestruct, table extra, const char *property,
-                       int *length, char *type, const void **value,
-                       table proptable);
 
 /**** Local device database ****/
 
@@ -303,25 +316,25 @@ int mapper_db_property(const void *thestruct, table extra, const char *property,
  *  parameters.
  *  \param db           The database to operate on.
  *  \param device_name  The name of the device.
- *  \param params       The parsed message parameters containing new device
+ *  \param props        The parsed message parameters containing new device
  *                      information.
  *  \return             Pointer to the device database entry. */
-mapper_device mapper_db_add_or_update_device_params(mapper_db db,
-                                                    const char *device_name,
-                                                    mapper_message_t *params);
+mapper_device mapper_db_add_or_update_device(mapper_db db,
+                                             const char *device_name,
+                                             mapper_message_t *props);
 
 /*! Add or update an entry in the signal database using parsed message
  *  parameters.
  *  \param db          The database to operate on.
  *  \param signal_name The name of the signal.
  *  \param device_name The name of the device associated with this signal.
- *  \param params      The parsed message parameters containing new signal
+ *  \param props       The parsed message parameters containing new signal
  *                     information.
  *  \return            Pointer to the signal database entry. */
-mapper_signal mapper_db_add_or_update_signal_params(mapper_db db,
-                                                    const char *signal_name,
-                                                    const char *device_name,
-                                                    mapper_message_t *params);
+mapper_signal mapper_db_add_or_update_signal(mapper_db db,
+                                             const char *signal_name,
+                                             const char *device_name,
+                                             mapper_message_t *props);
 
 /*! Initialize an already-allocated mapper_signal structure. */
 void mapper_signal_init(mapper_signal sig, const char *name, int length,
@@ -330,19 +343,18 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
                         mapper_signal_update_handler *handler,
                         const void *user_data);
 
-/*! Add or update an entry in the map database using parsed
- *  message parameters.
+/*! Add or update an entry in the map database using parsed message parameters.
  *  \param db           The database to operate on.
  *  \param num_srcs     The number of source slots for this map
  *  \param src_names    The full name of the source signal.
  *  \param dest_name    The full name of the destination signal.
- *  \param params       The parsed message parameters containing new
+ *  \param props        The parsed message parameters containing new
  *                      map information.
  *  \return             Pointer to the map database entry. */
-mapper_map mapper_db_add_or_update_map_params(mapper_db db, int num_srcs,
-                                              const char **src_names,
-                                              const char *dest_name,
-                                              mapper_message_t *params);
+mapper_map mapper_db_add_or_update_map(mapper_db db, int num_srcs,
+                                       const char **src_names,
+                                       const char *dest_name,
+                                       mapper_message_t *props);
 
 /*! Remove a device from the database. */
 void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet);
@@ -362,8 +374,8 @@ void mapper_db_remove_maps_by_query(mapper_db db, mapper_map *maps);
 /*! Remove a specific map from the database. */
 void mapper_db_remove_map(mapper_db db, mapper_map map);
 
-/*! Dump device information database to the screen.  Useful for
- *  debugging, only works when compiled in debug mode. */
+/*! Dump device information database to the screen.  Useful for debugging, only
+ *  works when compiled in debug mode. */
 void mapper_db_dump(mapper_db db);
 
 void mapper_db_remove_all_callbacks(mapper_db db);
@@ -378,14 +390,14 @@ mapper_device mapper_db_expired_device(mapper_db db, uint32_t last_ping);
 /*! Parse the device and signal names from an OSC path. */
 int mapper_parse_names(const char *string, char **devnameptr, char **signameptr);
 
-/*! Parse a message based on an OSC path and parameters.
+/*! Parse a message based on an OSC path and named properties.
  *  \param argc     Number of arguments in the argv array.
  *  \param types    String containing message parameter types.
  *  \param argv     Vector of lo_arg structures.
  *  \return         A mapper_message structure. Should be freed when done using
  *                  mapper_message_free. */
-mapper_message mapper_message_parse_params(int argc, const char *types,
-                                           lo_arg **argv);
+mapper_message mapper_message_parse_properties(int argc, const char *types,
+                                               lo_arg **argv);
 
 void mapper_message_free(mapper_message msg);
 
@@ -395,141 +407,19 @@ void mapper_message_free(mapper_message msg);
  *  function to ensure it only processes the number of parameters indicated
  *  by the 'length' property.
  *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
+ *  \param prop     Symbolic identifier of the property to look for.
  *  \return         Pointer to mapper_message_atom, or zero if not found. */
-mapper_message_atom mapper_message_param(mapper_message_t *msg,
-                                         mapper_message_param_t param);
+mapper_message_atom mapper_message_property(mapper_message_t *msg,
+                                            mapper_property_t prop);
 
-/*! Helper to get a direct parameter value only if it's a string.
+/*! Helper to return the boundary action from a message property.
  *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         A string containing the parameter value or zero if
- *                  not found. */
-const char* mapper_message_param_if_string(mapper_message_t *msg,
-                                           mapper_message_param_t param);
-
-/*! Helper to get a direct parameter value only if it's a char type,
- *  or if it's a string of length one.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         A string containing the parameter value or zero if
- *                  not found. */
-const char* mapper_message_param_if_char(mapper_message_t *msg,
-                                         mapper_message_param_t param);
-
-
-/*! Helper to get a direct parameter value only if it's an int or boolean.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \param value    Location of int to receive value.
- *  \return         Zero if not found, otherwise non-zero. */
-int mapper_message_param_if_int(mapper_message_t *msg,
-                                mapper_message_param_t param,
-                                int *value);
-
-/*! Helper to get a direct parameter value only if it's an int64.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \param value    Location of int64 to receive value.
- *  \return         Zero if not found, otherwise non-zero. */
-int mapper_message_param_if_int64(mapper_message_t *msg,
-                                  mapper_message_param_t param,
-                                  int64_t *value);
-
-/*! Helper to get a direct parameter value only if it's a float.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \param value    Location of float to receive value.
- *  \return         Zero if not found, otherwise non-zero. */
-int mapper_message_param_if_float(mapper_message_t *msg,
-                                  mapper_message_param_t param,
-                                  float *value);
-
-/*! Helper to update a direct parameter value only if it's a string.
- *  \param pdest    Pointer to receive the updated value.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         1 if the parameter has been found and updated. */
-int mapper_update_string_if_arg(char **pdest, mapper_message_t *msg,
-                                mapper_message_param_t param);
-
-/*! Helper to update a direct parameter value only if it's a char type.
- *  \param pdest    Pointer to receive the updated value.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         1 if the parameter has been found and updated. */
-int mapper_update_char_if_arg(char *pdest, mapper_message_t *msg,
-                              mapper_message_param_t param);
-
-/*! Helper to update a direct parameter value only if it's a boolean.
- *  \param pdest    Pointer to receive the updated value.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         1 if the parameter has been found and updated. */
-int mapper_update_bool_if_arg(int *pdest, mapper_message_t *msg,
-                              mapper_message_param_t param);
-
-/*! Helper to update a direct parameter value only if it's an int.
- *  \param pdest    Pointer to receive the updated value.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         1 if the parameter has been found and updated. */
-int mapper_update_int_if_arg(int *pdest, mapper_message_t *msg,
-                             mapper_message_param_t param);
-
-/*! Helper to update a direct parameter value only if it's an int64.
- *  \param pdest    Pointer to receive the updated value.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         1 if the parameter has been found and updated. */
-int mapper_update_int64_if_arg(int64_t *pdest, mapper_message_t *msg,
-                               mapper_message_param_t param);
-
-/*! Helper to update a direct parameter value only if it's a float.
- *  \param pdest    Pointer to receive the updated value.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         1 if the parameter has been found and updated. */
-int mapper_update_float_if_arg(float *pdest, mapper_message_t *msg,
-                               mapper_message_param_t param);
-
-/*! Helper to update a direct parameter value only if it's a double.
- *  \param pdest    Pointer to receive the updated value.
- *  \param msg      Structure containing parameter info.
- *  \param param    Symbolic identifier of the parameter to look for.
- *  \return         1 if the parameter has been found and updated. */
-int mapper_update_double_if_arg(double *pdest, mapper_message_t *msg,
-                                mapper_message_param_t param);
-
-/*! Helper to return the boundary action from a message parameter.
- *  \param msg Structure containing parameter info.
- *  \param param Either AT_BOUND_MIN or AT_BOUND_MAX.
- *  \return The boundary action, or -1 if not found. */
+ *  \param prop     Either MAPPER_BOUND_MIN or MAPPER_BOUND_MAX.
+ *  \return         The boundary action, or -1 if not found. */
 mapper_boundary_action mapper_message_boundary_action(mapper_message_t *msg,
-                                                      mapper_message_param_t param);
+                                                      mapper_property_t prop);
 
-/*! Helper to return the signal direction from a message parameter.
- *  \param msg Structure containing parameter info.
- *  \return 0 for input, 1 for output, or -1 if not found. */
-int mapper_message_signal_direction(mapper_message_t *msg);
-
-/*! Helper to return the mode type from a message parameter.
- *  \param msg Structure containing parameter info.
- *  \return The mode type, or -1 if not found. */
-mapper_mode mapper_message_mode(mapper_message_t *msg);
-
-/*! Helper to return the 'mute' state from a message parameter.
- *  \param msg Structure containing parameter info.
- *  \return The muted state (0 or 1), or -1 if not found. */
-int mapper_message_mute(mapper_message_t *msg);
-
-/*! Store 'extra' parameters specified in a mapper_message to a table.
- *  \param t    Table to edit.
- *  \param msg  Message containing parameters.
- *  \return The number of parameters added or modified. */
-int mapper_message_add_or_update_extra_params(table t, mapper_message_t *msg);
-
-void mapper_message_add_typed_value(lo_message m, int length, char type,
+void mapper_message_add_typed_value(lo_message msg, int length, char type,
                                     const void *value);
 
 /*! Prepare a lo_message for sending based on a map struct. */
@@ -581,73 +471,72 @@ void mapper_expr_free(mapper_expr expr);
 /**** String tables ****/
 
 /*! Create a new string table. */
-table table_new();
+mapper_table mapper_table_new();
 
 /*! Clear the contents of a string table.
- * \param t Table to free. */
-void table_clear(table t);
+ * \param tab Table to free. */
+void mapper_table_clear(mapper_table tab);
 
 /*! Free a string table.
- * \param t Table to free. */
-void table_free(table t);
-
-/*! Add a string to a table. */
-void table_add(table t, const char *key, const void *value, int is_mapper_prop);
-
-/*! Sort a table.  Call this after table_add and before table_find. */
-void table_sort(table t);
+ * \param tab Table to free. */
+void mapper_table_free(mapper_table tab);
 
 /*! Look up a value in a table.  Returns 0 if found, 1 if not found,
  *  and fills in value if found. */
-int table_find(table t, const char *key, void **value);
+mapper_table_record_t *mapper_table_record(mapper_table tab,
+                                           mapper_property_t index,
+                                           const char *key);
 
-/*! Look up a value in a table.  Returns the value directly, which may
- *  be zero, but also returns 0 if not found. */
-void *table_find_p(table t, const char *key);
+int mapper_table_property(mapper_table tab, const char *name, int *length,
+                          char *type, const void **value);
 
-/*! Look up a value in a table.  Returns a pointer to the value,
- *  allowing it to be modified in-place.  Returns 0 if not found. */
-void **table_find_pp(table t, const char *key);
+int mapper_table_property_index(mapper_table tab, unsigned int index,
+                                const char **name, int *length, char *type,
+                                const void **value);
 
-/*! Remove a key-value pair from a table (by key). free_key is
- *  non-zero to indicate that key should be free()'d. */
-void table_remove_key(table t, const char *key, int free_key);
+/*! Remove a key-value pair from a table (by index or key). */
+int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
+                               const char *key, int free_value, int flags);
 
-/*! Get the value at a particular index. */
-void *table_value_at_index_p(table t, unsigned int index);
+/*! Update a value in a table if the key already exists, or add it otherwise.
+ *  Returns 0 if no add took place.  Sorts the table before exiting.
+ *  \param tab          Table to update.
+ *  \param index        Index to store.
+ *  \param key          Key to store if not already indexed.
+ *  \param type         OSC type of value to add.
+ *  \param args         Value(s) to add
+ *  \param length       Number of OSC argument in array
+ *  \param flags        MAPPER_LOCAL_MODIFY or MAPPER_REMOTE_MODIFY,
+ *                      or MAPPER_NON_MODIFABLE.
+ *  \return             The number of table values added or modified. */
+int mapper_table_set_record(mapper_table tab, mapper_property_t index,
+                            const char *key, int length, char type,
+                            const void *args, int flags);
 
-/*! Get the key at a particular index. */
-const char *table_key_at_index(table t, unsigned int index);
+/*! Sync an existing value with a table. Records added using this method must
+ *  be added in alphabetical order since table_sort() will not be called.
+ *  Key and value will not be copied by the table, and will not be freed when
+ *  the table is cleared or deleted. */
+void mapper_table_link_value(mapper_table tab, mapper_property_t index,
+                             int length, char type, void *value, int flags);
 
-/*! Update a value in a table if the key already exists, or add it
- *  otherwise.  Returns 0 if no add took place.  Sorts the table
- *  before exiting, so this should be considered a longer operation
- *  than table_add. */
-int table_add_or_update(table t, const char *key, const void *value);
+/*! Add a typed OSC argument from a mapper_message to a string table.
+ *  \param tab      Table to update.
+ *  \param atom     Message atom containing pointers to message key and value.
+ *  \return         The number of table values added or modified. */
+int mapper_table_set_record_from_atom(mapper_table tab, mapper_message_atom atom,
+                                      int flags);
+
+int mapper_table_set_from_message(mapper_table tab, mapper_message msg,
+                                  int flags);
 
 #ifdef DEBUG
 /*! Dump a table of OSC values. */
-void table_dump_osc_values(table t);
+void mapper_table_dump(mapper_table tab);
 #endif
 
-/*! Add a typed OSC argument from a mapper_message to a string table.
- *  \param t        Table to update.
- *  \param atom     Message atom containing pointers to message key and value.
- *  \return The number of table values added or modified. */
-int mapper_table_add_or_update_message_atom(table t, mapper_message_atom atom);
-
-/*! Add a typed argument to a string table.
- *  \param t        Table to update.
- *  \param key      Key to store.
- *  \param type     OSC type of value to add.
- *  \param args     Value(s) to add
- *  \param length   Number of OSC argument in array
- *  \return         The number of table values added or modified. */
-int mapper_table_add_or_update_typed_value(table t, const char *key, int length,
-                                           char type, const void *args);
-
 /*! Add arguments contained in a string table to a lo_message */
-void mapper_message_add_value_table(lo_message m, table t);
+const char **mapper_message_add_table(lo_message msg, mapper_table tab);
 
 /**** Lists ****/
 
@@ -720,20 +609,20 @@ static void die_unless(...) {};
 inline static int mapper_type_size(char type)
 {
     switch (type) {
-    case 'i': return sizeof(int);
-    case 'b':
-    case 'T':
-    case 'F': return sizeof(int);
-    case 'f': return sizeof(float);
-    case 'd': return sizeof(double);
-    case 's':
-    case 'S': return sizeof(char*);
-    case 'h': return sizeof(int64_t);
-    case 't': return sizeof(mapper_timetag_t);
-    case 'c': return sizeof(char);
-    default:
-        die_unless(0, "getting size of unknown type %c\n", type);
-        return 0;
+        case 'i': return sizeof(int);
+        case 'b':
+        case 'T':
+        case 'F': return sizeof(int);
+        case 'f': return sizeof(float);
+        case 'd': return sizeof(double);
+        case 's':
+        case 'S': return sizeof(char*);
+        case 'h': return sizeof(int64_t);
+        case 't': return sizeof(mapper_timetag_t);
+        case 'c': return sizeof(char);
+        default:
+            die_unless(0, "Unknown type '%c' in mapper_type_size().\n", type);
+            return 0;
     }
 }
 
@@ -784,6 +673,16 @@ inline static int is_number_type(char type)
     }
 }
 
+/*! Helper to check if type is a boolean. */
+inline static int is_boolean_type(char type)
+{
+    switch (type) {
+        case 'T':
+        case 'F':   return 1;
+        default:    return 0;
+    }
+}
+
 /*! Helper to check if type is a string. */
 inline static int is_string_type(char type)
 {
@@ -794,12 +693,27 @@ inline static int is_string_type(char type)
     }
 }
 
+/*! Helper to check if type is a string or void* */
+inline static int is_ptr_type(char type)
+{
+    switch (type) {
+        case 's':
+        case 'S':
+        case 'v':   return 1;
+        default:    return 0;
+    }
+}
+
+/*! Helper to check if data type matches, but allowing 'T' and 'F' for bool. */
+inline static int type_match(const char l, const char r)
+{
+    return (l == r) || (strchr("bTF", l) && strchr("bTF", r));
+}
+
 /*! Helper to remove a leading slash '/' from a string. */
 inline static const char *skip_slash(const char *string)
 {
     return string + (string && string[0]=='/');
 }
-
-int mapper_property_set_string(char **property, const char *string);
 
 #endif // __MAPPER_INTERNAL_H__

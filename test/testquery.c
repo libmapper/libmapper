@@ -60,15 +60,16 @@ int setup_source()
     int mn[]={0,0,0,0}, mx[]={10,10,10,10};
 
     for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 20, "%s%i", "/outsig_", i);
-        sendsig[i] = mapper_device_add_output(source, sig_name, i+1, 'i', 0, mn, mx);
+        snprintf(sig_name, 20, "%s%i", "outsig_", i);
+        sendsig[i] = mapper_device_add_output(source, sig_name, i+1, 'i', 0,
+                                              mn, mx);
         mapper_signal_set_callback(sendsig[i], query_response_handler, 0);
         mapper_signal_update(sendsig[i], mn, 0, MAPPER_NOW);
     }
 
     eprintf("Output signals registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_num_signals(source, MAPPER_OUTGOING));
+            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
 
     return 0;
 
@@ -108,14 +109,14 @@ int setup_destination()
     float mn[]={0,0,0,0}, mx[]={1,1,1,1};
 
     for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 10, "%s%i", "/insig_", i);
-        recvsig[i] = mapper_device_add_input(destination, sig_name, i+1,
-                                             'f', 0, mn, mx, insig_handler, 0);
+        snprintf(sig_name, 10, "%s%i", "insig_", i);
+        recvsig[i] = mapper_device_add_input(destination, sig_name, i+1, 'f', 0,
+                                             mn, mx, insig_handler, 0);
     }
 
-    eprintf("Input signal /insig registered.\n");
+    eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_num_signals(destination, MAPPER_INCOMING));
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
 
     return 0;
 
@@ -150,14 +151,14 @@ int setup_maps()
     mapper_map maps[4] = {0, 0, 0, 0};
     for (i = 0; i < 2; i++) {
         maps[i] = mapper_map_new(1, &sendsig[i], recvsig[i]);
-        mapper_map_sync(maps[i]);
+        mapper_map_push(maps[i]);
     }
 
     // swap the last two signals to mix up signal vector lengths
     maps[2] = mapper_map_new(1, &sendsig[2], recvsig[3]);
-    mapper_map_sync(maps[2]);
+    mapper_map_push(maps[2]);
     maps[3] = mapper_map_new(1, &sendsig[3], recvsig[2]);
-    mapper_map_sync(maps[3]);
+    mapper_map_push(maps[3]);
 
     i = 0;
     int ready = 0;
@@ -169,7 +170,7 @@ int setup_maps()
             return 1;
         ready = 1;
         for (i = 0; i < 4; i++) {
-            if (mapper_map_status(maps[i]) < MAPPER_ACTIVE) {
+            if (!mapper_map_ready(maps[i])) {
                 ready = 0;
                 break;
             }

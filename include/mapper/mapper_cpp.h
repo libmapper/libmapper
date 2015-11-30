@@ -61,9 +61,9 @@ namespace mapper {
     {
     public:
         Network(const string_type &iface=0, const string_type &group=0, int port=0)
-            { _net = mapper_network_new(iface, group, port); }
+            { _net = mapper_network_new(iface, group, port); _owned = 1; }
         ~Network()
-            { if (_net) mapper_network_free(_net); }
+            { if (_owned && _net) mapper_network_free(_net); }
         operator mapper_network() const
             { return _net; }
         std::string libversion()
@@ -83,9 +83,10 @@ namespace mapper {
         friend class Device;
         friend class Db;
         Network(mapper_network net)
-            { _net = net; }
+            { _net = net; _owned = 0; }
     private:
         mapper_network _net;
+        int _owned;
     };
 
     class Timetag
@@ -822,19 +823,22 @@ namespace mapper {
         {
             _dev = mapper_device_new(name_prefix, port, net);
             _db = mapper_device_db(_dev);
+            _owned = 1;
         }
         Device(const string_type &name_prefix)
         {
             _dev = mapper_device_new(name_prefix, 0, 0);
             _db = mapper_device_db(_dev);
+            _owned = 1;
         }
         Device(mapper_device dev)
         {
             _dev = dev;
             _db = mapper_device_db(_dev);
+            _owned = 0;
         }
         ~Device()
-            { if (_dev) mapper_device_free(_dev); }
+            { if (_owned && _dev) mapper_device_free(_dev); }
         operator mapper_device() const
             { return _dev; }
         operator const char*() const
@@ -851,26 +855,23 @@ namespace mapper {
             { return mapper_device_user_data(_dev); }
 
         Signal add_input(const string_type &name, int length, char type,
-                         const string_type &unit, void *minimum,
-                         void *maximum, mapper_signal_update_handler handler,
-                         void *user_data)
+                         const string_type &unit=0, void *minimum=0,
+                         void *maximum=0, mapper_signal_update_handler handler=0,
+                         void *user_data=0)
         {
             return Signal(mapper_device_add_input(_dev, name, length, type,
                                                   unit, minimum, maximum,
                                                   handler, user_data));
         }
         Signal add_output(const string_type &name, int length, char type,
-                          const string_type &unit, void *minimum=0, void *maximum=0)
+                          const string_type &unit=0, void *minimum=0,
+                          void *maximum=0)
         {
             return Signal(mapper_device_add_output(_dev, name, length, type,
                                                    unit, minimum, maximum));
         }
         Device& remove_signal(Signal sig)
             { mapper_device_remove_signal(_dev, sig); return (*this); }
-        Device& remove_input(Signal input)
-            { mapper_device_remove_input(_dev, input); return (*this); }
-        Device& remove_output(Signal output)
-            { mapper_device_remove_output(_dev, output); return (*this); }
 
         template <typename... Values>
         Device& set_property(Values... values)
@@ -1061,6 +1062,7 @@ namespace mapper {
     private:
         mapper_device _dev;
         mapper_db _db;
+        int _owned;
     };
 
     class signal_type {
@@ -1120,14 +1122,14 @@ namespace mapper {
             { return _map; }
         operator mapper_id() const
             { return mapper_map_id(_map); }
-        const Map& sync() const
-            { mapper_map_sync(_map); return (*this); }
+        const Map& push() const
+            { mapper_map_push(_map); return (*this); }
         void unmap()
             { mapper_map_unmap(_map); }
         int num_sources() const
             { return mapper_map_num_sources(_map); }
-        int status()
-            { return mapper_map_status(_map); }
+        bool ready() const
+            { return mapper_map_ready(_map); }
         mapper_mode mode() const
             { return mapper_map_mode(_map); }
         Map& set_mode(mapper_mode mode)

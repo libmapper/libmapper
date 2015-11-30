@@ -346,7 +346,7 @@ const char *mapper_signal_unit(mapper_signal sig);
 
 /*! Look up a signal property by name.
  *  \param sig      The signal to check.
- *  \param property The name of the property to retrieve.
+ *  \param name     The name of the property to retrieve.
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
@@ -354,14 +354,14 @@ const char *mapper_signal_unit(mapper_signal sig);
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
-int mapper_signal_property(mapper_signal sig, const char *property,
-                           int *length, char *type, const void **value);
+int mapper_signal_property(mapper_signal sig, const char *name, int *length,
+                           char *type, const void **value);
 
 /*! Look up a signal property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
  *  \param sig      The signal to check.
  *  \param index    Numerical index of a signal property.
- *  \param property Address of a string pointer to receive the name of
+ *  \param name     Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
@@ -371,7 +371,7 @@ int mapper_signal_property(mapper_signal sig, const char *property,
  *                  property's value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_signal_property_index(mapper_signal sig, unsigned int index,
-                                 const char **property, int *length, char *type,
+                                 const char **name, int *length, char *type,
                                  const void **value);
 
 /*! Set the description property for a specific signal.
@@ -405,17 +405,21 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit);
 /*! Set a property of a signal.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
  *  \param sig      The signal to operate on.
- *  \param property The name of the property to add.
+ *  \param name     The name of the property to add.
  *  \param length   The length of value array.
  *  \param type     The property  datatype.
  *  \param value    An array of property values. */
-void mapper_signal_set_property(mapper_signal sig, const char *property,
+void mapper_signal_set_property(mapper_signal sig, const char *name,
                                 int length, char type, const void *value);
+
+/*! Push any property changes out to the network.
+ *  \param sig      The signal to operate on. */
+void mapper_signal_push(mapper_signal sig);
 
 /*! Remove a property of a signal.
  *  \param sig      The signal to operate on.
- *  \param property The name of the property to remove. */
-void mapper_signal_remove_property(mapper_signal sig, const char *property);
+ *  \param name     The name of the property to remove. */
+void mapper_signal_remove_property(mapper_signal sig, const char *name);
 
 /*! Get the union of two signal queries (signals matching query1 OR query2).
  *  \param query1   The first signal query.
@@ -538,10 +542,9 @@ void mapper_device_set_user_data(mapper_device dev, const void *user_data);
  *  \return             A pointer associated with this device. */
 void *mapper_device_user_data(mapper_device dev);
 
-/*! Add an input signal to a mapper device.  Values and strings
- *  pointed to by this call (except user_data) will be copied.
- *  For minimum and maximum, actual type must correspond to 'type'.
- *  If type='i', then int*; if type='f', then float*.
+/*! Add an input signal to a mapper device.  Values and strings pointed to by
+ *  this call (except user_data) will be copied.  For minimum and maximum,
+ *  actual type must correspond to 'type' (if type='i', then int*, etc).
  *  \param dev          The device to add a signal to.
  *  \param name         The name of the signal.
  *  \param length   	The length of the signal vector, or 1 for a scalar.
@@ -558,15 +561,14 @@ mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
                                       mapper_signal_update_handler *handler,
                                       const void *user_data);
 
-/*! Add an output signal to a mapper device.  Values and strings
- *  pointed to by this call will be copied.
- *  For minimum and maximum, actual type must correspond to 'type'.
- *  If type='i', then int*; if type='f', then float*.
+/*! Add an output signal to a mapper device.  Values and strings pointed to by
+ *  this call (except user_data) will be copied.  For minimum and maximum,
+ *  actual type must correspond to 'type' (if type='i', then int*, etc).
  *  \param dev          The device to add a signal to.
  *  \param name         The name of the signal.
- *  \param length       The length of the signal vector, or 1 for a scalar.
+ *  \param length   	The length of the signal vector, or 1 for a scalar.
  *  \param type         The type fo the signal value.
- *  \param unit     	The unit of the signal, or 0 for none.
+ *  \param unit         The unit of the signal, or 0 for none.
  *  \param minimum      Pointer to a minimum value, or 0 for none.
  *  \param maximum      Pointer to a maximum value, or 0 for none. */
 mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
@@ -577,16 +579,6 @@ mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
  * \param dev The device to remove a signal from.
  * \param sig The signal to remove. */
 void mapper_device_remove_signal(mapper_device dev, mapper_signal sig);
-
-/* Remove a device's input signal.
- * \param dev The device to remove a signal from.
- * \param sig The signal to remove. */
-void mapper_device_remove_input(mapper_device dev, mapper_signal sig);
-
-/* Remove a device's output signal.
- * \param dev The device to remove a signal from.
- * \param sig The signal to remove. */
-void mapper_device_remove_output(mapper_device dev, mapper_signal sig);
 
 //! Return the number of signals.
 int mapper_device_num_signals(mapper_device dev, mapper_direction dir);
@@ -638,7 +630,7 @@ mapper_map *mapper_device_maps(mapper_device dev, mapper_direction dir);
 
 /*! Look up a device property by name.
  *  \param dev      The device record to check.
- *  \param property The name of the property to retrieve.
+ *  \param name     The name of the property to retrieve.
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
@@ -646,14 +638,14 @@ mapper_map *mapper_device_maps(mapper_device dev, mapper_direction dir);
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
-int mapper_device_property(mapper_device dev, const char *property, int *length,
+int mapper_device_property(mapper_device dev, const char *name, int *length,
                            char *type, const void **value);
 
 /*! Look up a device property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
  *  \param dev      The device record to check.
  *  \param index    Numerical index of a device property.
- *  \param property Address of a string pointer to receive the name of
+ *  \param name     Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
@@ -663,23 +655,27 @@ int mapper_device_property(mapper_device dev, const char *property, int *length,
  *                  property's value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_device_property_index(mapper_device dev, unsigned int index,
-                                 const char **property, int *length, char *type,
+                                 const char **name, int *length, char *type,
                                  const void **value);
 
 /*! Set a property of a device.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
  *  \param dev      The device to operate on.
- *  \param property The name of the property to add.
+ *  \param name     The name of the property to add.
  *  \param length   The length of value array.
  *  \param type     The property  datatype.
  *  \param value    An array of property values. */
-void mapper_device_set_property(mapper_device dev, const char *property,
+void mapper_device_set_property(mapper_device dev, const char *name,
                                 int length, char type, const void *value);
+
+/*! Push any property changes out to the network.
+ *  \param dev      The device to operate on. */
+void mapper_device_push(mapper_device dev);
 
 /*! Remove a property of a device.
  *  \param dev      The device to operate on.
- *  \param property The name of the property to remove. */
-void mapper_device_remove_property(mapper_device dev, const char *property);
+ *  \param name     The name of the property to remove. */
+void mapper_device_remove_property(mapper_device dev, const char *name);
 
 /*! Poll this device for new messages.
  *  Note, if you have multiple devices, the right thing to do is call
@@ -932,7 +928,7 @@ void mapper_network_send_message(mapper_network net, const char *path,
  *  \return             A map data structure – either loaded from the db
  *                      (if the map already existed) or newly created. In the
  *                      latter case the map will not take effect until it has
- *                      been added to the network using mapper_map_sync(). */
+ *                      been added to the network using mapper_map_push(). */
 mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
                           mapper_signal destination);
 
@@ -945,10 +941,6 @@ void mapper_map_set_user_data(mapper_map map, const void *user_data);
  *  \param map          The map to operate on.
  *  \return             A pointer associated with this map. */
 void *mapper_map_user_data(mapper_map map);
-
-/*! Synchronize the given map with the libmapper network.
- *  \param map      The map to synchronize. */
-void mapper_map_sync(mapper_map map);
 
 /*! Remove a map between a set of signals.
  *  \param map      The map to destroy. */
@@ -1003,8 +995,8 @@ int mapper_map_muted(mapper_map map);
 
 /*! Get the process location for a specific map.
  *  \param map      The map to check.
- *  \return         LOC_SOURCE if processing is evaluated at the source
- *                  device, LOC_DESTINATION otherwise. */
+ *  \return         MAPPER_LOC_SOURCE if processing is evaluated at the source
+ *                  device, MAPPER_LOC_DESTINATION otherwise. */
 mapper_location mapper_map_process_location(mapper_map map);
 
 /*! Get the scopes property for a specific map.
@@ -1013,11 +1005,10 @@ mapper_location mapper_map_process_location(mapper_map map);
  *                  or zero if none.  Use mapper_map_query_next() to iterate. */
 mapper_device *mapper_map_scopes(mapper_map map);
 
-/*! Get the status of a specific map.
- *  \param map      The map to check.
- *  \return         The current status of the given map.  A value of
- *                  MAPPER_ACTIVE indicates that the map has been established. */
-int mapper_map_status(mapper_map map);
+/*! Detect whether a map is completely initialized.
+ *  \param map  The device to query.
+ *  \return     Non-zero if map is completely initialized, zero otherwise. */
+int mapper_map_ready(mapper_map map);
 
 /*! Set the description property for a specific map. Changes to remote maps will
  *  not take effect until synchronized with the network using mapper_map_sync().
@@ -1028,8 +1019,8 @@ void mapper_map_set_description(mapper_map map, const char *description);
 /*! Set the mode property for a specific map. Changes to remote maps will not
  *  take effect until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
- *  \param mode     The mode value to set, can be one of MO_EXPRESSION,
- *                  MO_LINEAR, or MO_RAW. */
+ *  \param mode     The mode value to set, can be one of MAPPER_MODE_EXPRESSION,
+ *                  MAPPER_MODE_LINEAR, or MAPPER_MODE_RAW. */
 void mapper_map_set_mode(mapper_map map, mapper_mode mode);
 
 /*! Set the expression property for a specific map. Changes to remote maps will not
@@ -1050,28 +1041,33 @@ void mapper_map_set_muted(mapper_map map, int muted);
  *  location to LO_SOURCE for all maps. Changes to remote maps will not take
  *  effect until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
- *  \param location LOC_SOURCE to indicate processing should be handled by the
- *                  source device, LOC_DESTINATION for the destination device. */
+ *  \param location MAPPER_LOC_SOURCE to indicate processing should be handled
+ *                  by the source device, MAPPER_LOC_DESTINATION for the
+ *                  destination. */
 void mapper_map_set_process_location(mapper_map map, mapper_location location);
 
 /*! Set an arbitrary property for a specific map.  Changes to remote maps will
  *  not take effect until synchronized with the network using mapper_map_sync().
  *  \param map      The map to modify.
- *  \param property The name of the property to add.
+ *  \param name     The name of the property to add.
  *  \param length   The length of value array.
  *  \param type     The property  datatype.
  *  \param value    An array of property values. */
-void mapper_map_set_property(mapper_map map, const char *property, int length,
+void mapper_map_set_property(mapper_map map, const char *name, int length,
                              char type, const void *value);
+
+/*! Push any property changes out to the network.
+ *  \param map      The map to operate on. */
+void mapper_map_push(mapper_map map);
 
 /*! Remove a property of a map.
  *  \param map      The map to operate on.
- *  \param property The name of the property to remove. */
-void mapper_map_remove_property(mapper_map map, const char *property);
+ *  \param name     The name of the property to remove. */
+void mapper_map_remove_property(mapper_map map, const char *name);
 
 /*! Add a scope to this map. Map scopes configure the propagation of signal
  *  instance updates across the map. Changes to remote maps will not take effect
- *  until synchronized with the network using mapper_map_sync().
+ *  until synchronized with the network using mapper_map_push().
  *  \param map      The map to modify.
  *  \param dev      Device to add as a scope for this map. After taking effect,
  *                  this setting will cause instance updates originating at this
@@ -1080,7 +1076,7 @@ void mapper_map_add_scope(mapper_map map, mapper_device dev);
 
 /*! Remove a scope from this map. Map scopes configure the propagation of signal
  *  instance updates across the map. Changes to remote maps will not take effect
- *  until synchronized with the network using mapper_map_sync().
+ *  until synchronized with the network using mapper_map_push().
  *  \param map      The map to modify.
  *  \param dev      Device to remove as a scope for this map. After taking effect,
  *                  this setting will cause instance updates originating at this
@@ -1089,7 +1085,7 @@ void mapper_map_remove_scope(mapper_map map, mapper_device dev);
 
 /*! Look up a map property by name.
  *  \param map      The map to check.
- *  \param property The name of the property to retrieve.
+ *  \param name     The name of the property to retrieve.
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
@@ -1097,14 +1093,14 @@ void mapper_map_remove_scope(mapper_map map, mapper_device dev);
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
-int mapper_map_property(mapper_map map, const char *property, int *length,
+int mapper_map_property(mapper_map map, const char *name, int *length,
                         char *type, const void **value);
 
 /*! Look up a map property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
  *  \param map      The map to check.
  *  \param index    Numerical index of a map property.
- *  \param property Address of a string pointer to receive the name of
+ *  \param name     Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
@@ -1114,7 +1110,7 @@ int mapper_map_property(mapper_map map, const char *property, int *length,
  *                  property's value. (Required.)
  *  \return Zero if found, otherwise non-zero. */
 int mapper_map_property_index(mapper_map map, unsigned int index,
-                              const char **property, int *length, char *type,
+                              const char **name, int *length, char *type,
                               const void **value);
 
 /*! Get the union of two map queries (maps matching query1 OR query2).
@@ -1224,7 +1220,7 @@ void mapper_slot_minimum(mapper_slot slot, int *length, char *type, void **value
 
 /*! Look up a map property by name.
  *  \param slot     The map slot to check.
- *  \param property The name of the property to retrieve.
+ *  \param name     The name of the property to retrieve.
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
  *  \param type     A pointer to a location to receive the type of the
@@ -1232,14 +1228,14 @@ void mapper_slot_minimum(mapper_slot slot, int *length, char *type, void **value
  *  \param value    A pointer to a location to receive the address of the
  *                  property's value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
-int mapper_slot_property(mapper_slot slot, const char *property, int *length,
+int mapper_slot_property(mapper_slot slot, const char *name, int *length,
                          char *type, const void **value);
 
 /*! Look up a map slot property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
  *  \param slot     The map slot to check.
  *  \param index    Numerical index of a map slot property.
- *  \param property Address of a string pointer to receive the name of
+ *  \param name     Address of a string pointer to receive the name of
  *                  indexed property.  May be zero.
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.)
@@ -1249,7 +1245,7 @@ int mapper_slot_property(mapper_slot slot, const char *property, int *length,
  *                  property's value. (Required.)
  *  \return         Zero if found, otherwise non-zero. */
 int mapper_slot_property_index(mapper_slot slot, unsigned int index,
-                               const char **property, int *length, char *type,
+                               const char **name, int *length, char *type,
                                const void **value);
 
 /*! Get the "send as instance" property for a specific map slot. If enabled,
@@ -1271,7 +1267,7 @@ mapper_signal mapper_slot_signal(mapper_slot slot);
 /*! Set the boundary maximum property for a specific map slot. This property
  *  controls behaviour when a value exceeds the specified slot maximum value.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_map_sync().
+ *  network using mapper_map_push().
  *  \param slot     The slot to modify.
  *  \param action   The boundary maximum setting. */
 void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action action);
@@ -1279,7 +1275,7 @@ void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action action);
 /*! Set the boundary minimum property for a specific map slot. This property
  *  controls behaviour when a value is less than the slot minimum value.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_map_sync().
+ *  network using mapper_map_push().
  *  \param slot     The slot to modify.
  *  \param action   The boundary minimum setting. */
 void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action action);
@@ -1287,7 +1283,7 @@ void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action action);
 /*! Set the calibrating property for a specific map slot. When enabled, the
  *  slot minimum and maximum values will be updated based on processed data.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_map_sync().
+ *  network using mapper_map_push().
  *  \param slot         The slot to modify.
  *  \param calibrating  One to enable calibration, 0 otherwise. */
 void mapper_slot_set_calibrating(mapper_slot slot, int calibrating);
@@ -1295,14 +1291,14 @@ void mapper_slot_set_calibrating(mapper_slot slot, int calibrating);
 /*! Set the "causes update" property for a specific map slot. When enabled,
  *  updates to this slot will cause computation of a new map output.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_map_sync().
+ *  network using mapper_map_push().
  *  \param slot             The slot to modify.
  *  \param causes_update    One to enable "causes update", 0 otherwise. */
 void mapper_slot_set_causes_update(mapper_slot slot, int causes_update);
 
 /*! Set the "maximum" property for a specific map slot.  Changes to remote maps
  *  will not take effect until synchronized with the network using
- *  mapper_map_sync().
+ *  mapper_map_push().
  *  \param slot     The slot to modify.
  *  \param type     The data type of the update.
  *  \param value    An array of values.
@@ -1312,7 +1308,7 @@ void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
 
 /*! Set the "minimum" property for a specific map slot.  Changes to remote maps
  *  will not take effect until synchronized with the network using
- *  mapper_map_sync().
+ *  mapper_map_push().
  *  \param slot     The slot to modify.
  *  \param type     The data type of the update.
  *  \param value    An array of values.
@@ -1323,23 +1319,26 @@ void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
 /*! Set the "use as instance" property for a specific map slot.  If enabled,
  *  updates to this slot will be treated as updates to a specific instance.
  *  Changes to remote maps will not take effect until synchronized with the
- *  network using mapper_map_sync().
+ *  network using mapper_map_push().
  *  \param slot             The slot to modify.
  *  \param use_as_instance  One to send as instance update, 0 otherwise. */
 void mapper_slot_set_use_as_instance(mapper_slot slot, int use_as_instance);
 
 /*! Set an arbitrary property for a specific map slot.  Changes to remote maps
  *  will not take effect until synchronized with the network using
- *  mapper_map_sync().
+ *  mapper_map_push().
  *  \param slot     The slot to modify.
- *  \param property The name of the property to add.
+ *  \param name     The name of the property to add.
  *  \param type     The property  datatype.
  *  \param value    An array of property values.
  *  \param length   The length of value array. */
-void mapper_slot_set_property(mapper_slot slot, const char *property,
-                              int length, char type, const void *value);
+void mapper_slot_set_property(mapper_slot slot, const char *name, int length,
+                              char type, const void *value);
 
-void mapper_slot_remove_property(mapper_slot slot, const char *property);
+/*! Remove a property of a map slot.
+ *  \param slot     The slot to operate on.
+ *  \param name     The name of the property to remove. */
+void mapper_slot_remove_property(mapper_slot slot, const char *name);
 
 /*! Helper to print the properties of a specific slot.
  *  \param slot     The slot to print. */
@@ -1485,17 +1484,18 @@ mapper_device *mapper_db_devices_by_name_match(mapper_db db, const char *pattern
 
 /*! Return the list of devices matching the given property.
  *  \param db       The database to query.
- *  \param property The name of the property to search for.
+ *  \param name     The name of the property to search for.
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
- *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
- *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
- *                  or OP_DOES_NOT_EXIST.
+ *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
+ *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
+ *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
+ *                  MAPPER_OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_device_query_next() to iterate. */
-mapper_device *mapper_db_devices_by_property(mapper_db db, const char *property,
+mapper_device *mapper_db_devices_by_property(mapper_db db, const char *name,
                                              int length, char type,
                                              const void *value, mapper_op op);
 
@@ -1556,17 +1556,18 @@ mapper_signal *mapper_db_signals_by_name_match(mapper_db db, const char *pattern
 
 /*! Return the list of signals matching the given property.
  *  \param db       The database to query.
- *  \param property The name of the property to search for.
+ *  \param name     The name of the property to search for.
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
- *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
- *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
- *                  or OP_DOES_NOT_EXIST.
+ *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
+ *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
+ *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
+ *                  MAPPER_OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_signals_by_property(mapper_db db, const char *property,
+mapper_signal *mapper_db_signals_by_property(mapper_db db, const char *name,
                                              int length, char type,
                                              const void *value, mapper_op op);
 
@@ -1610,68 +1611,71 @@ mapper_map mapper_db_map_by_id(mapper_db db, mapper_id id);
 
 /*! Return the list of maps matching the given property.
  *  \param db       The database to query.
- *  \param property The name of the property to search for.
+ *  \param name     The name of the property to search for.
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
- *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
- *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
- *                  or OP_DOES_NOT_EXIST.
+ *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
+ *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
+ *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
+ *                  MAPPER_OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_property(mapper_db db, const char *property,
+mapper_map *mapper_db_maps_by_property(mapper_db db, const char *name,
                                        int length, char type, const void *value,
                                        mapper_op op);
 
 /*! Return the list of maps matching the given slot property.
  *  \param db       The database to query.
- *  \param property The name of the property to search for.
+ *  \param name     The name of the property to search for.
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
- *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
- *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
- *                  or OP_DOES_NOT_EXIST.
+ *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
+ *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
+ *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
+ *                  MAPPER_OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *property,
+mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *name,
                                             int length, char type,
                                             const void *value, mapper_op op);
 
 /*! Return the list of maps matching the given source slot property.
  *  \param db       The database to query.
- *  \param property The name of the property to search for.
+ *  \param name     The name of the property to search for.
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
- *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
- *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
- *                  or OP_DOES_NOT_EXIST.
+ *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
+ *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
+ *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
+ *                  MAPPER_OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db,
-                                                const char *property,
+                                                const char *name,
                                                 int length, char type,
                                                 const void *value,
                                                 mapper_op op);
 
 /*! Return the list of maps matching the given destination slot property.
  *  \param db       The database to query.
- *  \param property The name of the property to search for.
+ *  \param name     The name of the property to search for.
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
  *  \param op       A string specifying the comparison operator, can be one of
- *                  OP_EQUAL, OP_NOT_EQUAL, OP_GREATER_THAN, OP_LESS_THAN,
- *                  OP_GREATER_THAN_OR_EQUAL, OP_LESS_THAN_OR_EQUAL, OP_EXISTS,
- *                  or OP_DOES_NOT_EXIST.
+ *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
+ *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
+ *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
+ *                  MAPPER_OP_DOES_NOT_EXIST.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db,
-                                                 const char *property,
+mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db, const char *name,
                                                  int length, char type,
                                                  const void *value,
                                                  mapper_op op);

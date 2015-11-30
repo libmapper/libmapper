@@ -142,14 +142,9 @@ int setup_source()
 
     mapper_device_set_map_handler(source, on_map, 0);
 
-    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
+    sendsig = mapper_device_add_output(source, "outsig", 1, 'f', "Hz", &mn, &mx);
 
-    // Add custom meta-data specifying that this signal supports a
-    // special TCP transport.
-    char *str = "tcp";
-    mapper_signal_set_property(sendsig, "transport", 1, 's', str);
-
-    eprintf("Output signal /outsig registered.\n");
+    eprintf("Output signal 'outsig' registered.\n");
 
     return 0;
 
@@ -192,19 +187,10 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
-                                      0, &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "insig", 1, 'f', 0, &mn, &mx,
+                                       insig_handler, 0);
 
-    // Add custom meta-data specifying a special transport for this
-    // signal.
-    char *str = "tcp";
-    mapper_signal_set_property(recvsig, "transport", 1, 's', str);
-
-    // Add custom meta-data specifying a port to use for this signal's
-    // custom transport.
-    mapper_signal_set_property(recvsig, "tcpPort", 1, 'i', &tcp_port);
-
-    eprintf("Input signal /insig registered.\n");
+    eprintf("Input signal 'insig' registered.\n");
 
     return 0;
 
@@ -240,7 +226,15 @@ void loop()
 
     if (autoconnect) {
         mapper_map map = mapper_map_new(1, &sendsig, recvsig);
-        mapper_map_sync(map);
+
+        // Add custom meta-data specifying a special transport for this map.
+        char *str = "tcp";
+        mapper_map_set_property(map, "transport", 1, 's', str);
+
+        // Add custom meta-data specifying a port to use for this map's
+        // custom transport.
+        mapper_map_set_property(map, "tcpPort", 1, 'i', &tcp_port);
+        mapper_map_push(map);
     }
 
     // Set up a mini TCP server for our custom stream

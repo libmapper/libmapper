@@ -30,7 +30,7 @@
 #include "config.h"
 #include <mapper/mapper.h>
 
-extern const char* prop_message_strings[NUM_AT_PARAMS];
+extern const char* prop_message_strings[NUM_AT_PROPERTIES];
 
 // set to 1 to force mesh comms to use multicast bus instead for debugging
 #define FORCE_COMMS_TO_BUS      0
@@ -406,7 +406,7 @@ mapper_network mapper_network_new(const char *iface, const char *group, int port
 
     net->own_network = 1;
     net->db.network = net;
-    net->db.timeout_sec = MAPPER_TIMEOUT_SEC;
+    net->db.timeout_sec = TIMEOUT_SEC;
     net->interface_name = 0;
 
     /* Default standard ip and port is group 224.0.1.3, port 7570 */
@@ -617,7 +617,7 @@ static void mapper_network_probe_device_name(mapper_network net,
      * ordinal is not yet locked, so we have to build it manually at
      * this point. */
     char name[256];
-    trace("</%s.?::%p> probing name\n", dev->identifier, net);
+    trace("<%s.?::%p> probing name\n", dev->identifier, net);
     snprintf(name, 256, "%s.%d", dev->identifier, dev->local->ordinal.value);
 
     /* Calculate an id from the name and store it in id.value */
@@ -807,8 +807,8 @@ int mapper_network_poll(mapper_network net)
             mapper_network_add_device_methods(net, dev);
             mapper_network_maybe_send_ping(net, 1);
 
-            trace("</%s.?::%p> registered as <%s>\n",
-                  dev->identifier, net, mapper_device_name(dev));
+            trace("<%s.?::%p> registered as <%s>\n", dev->identifier, net,
+                  mapper_device_name(dev));
         }
     }
     else {
@@ -902,13 +902,13 @@ static int handler_device(const char *path, const char *types,
     const char *name = &argv[0]->s;
     lo_address a = lo_message_get_source(msg);
 
-    mapper_message params = mapper_message_parse_params(argc-1, &types[1],
-                                                        &argv[1]);
+    mapper_message props = mapper_message_parse_properties(argc-1, &types[1],
+                                                           &argv[1]);
 
     if (net->db.autosubscribe) {
         trace("<network> got /device %s + %i arguments\n", name, argc-1);
         mapper_device remote;
-        remote = mapper_db_add_or_update_device_params(&net->db, name, params);
+        remote = mapper_db_add_or_update_device(&net->db, name, props);
         if (!remote->subscribed) {
             mapper_db_subscribe(&net->db, remote, net->db.autosubscribe, -1);
             remote->subscribed = 1;
@@ -916,7 +916,7 @@ static int handler_device(const char *path, const char *types,
     }
 
     if (!dev) {
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
 
@@ -926,28 +926,28 @@ static int handler_device(const char *path, const char *types,
     else {
         // ignore own messages
         trace("<%s> ignoring /device %s\n", mapper_device_name(dev), &argv[0]->s);
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
     // Discover whether the device is linked.
     mapper_link link = mapper_router_find_link_by_remote_name(dev->local->router,
                                                               name);
     if (!link) {
-        trace("<%s> ignoring /device '%s', no link.\n",
-              mapper_device_name(dev), name);
-        mapper_message_free(params);
+        trace("<%s> ignoring /device '%s', no link.\n", mapper_device_name(dev),
+              name);
+        mapper_message_free(props);
         return 0;
     }
     else if (link->remote_device->host) {
         // already have metadata, can ignore this message
         trace("<%s> ignoring /device '%s', link already set.\n",
               mapper_device_name(dev), name);
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
     if (!a) {
         trace("can't perform /linkTo, address unknown\n");
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
     // Find the sender's hostname
@@ -955,21 +955,23 @@ static int handler_device(const char *path, const char *types,
     const char *admin_port = lo_address_get_port(a);
     if (!host) {
         trace("can't perform /linkTo, host unknown\n");
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
     // Retrieve the port
-    int data_port = 0;
-    mapper_update_int_if_arg(&data_port, params, AT_PORT);
-    mapper_message_free(params);
-    if (!data_port) {
+    mapper_message_atom atom = mapper_message_property(props, AT_PORT);
+    if (!atom || atom->length != 1 || atom->types[0] != 'i') {
         trace("can't perform /linkTo, port unknown\n");
+        mapper_message_free(props);
         return 0;
     }
+    int data_port = (atom->values[0])->i;
+
+    mapper_message_free(props);
 
     mapper_router_update_link(dev->local->router, link, host, atoi(admin_port),
                               data_port);
-    trace("<%s> activated router to %s -> host: %s, port: %d\n",
+    trace("<%s> activated router to device %s at %s:%d\n",
           mapper_device_name(dev), name, host, data_port);
 
     // check if we have maps waiting for this link
@@ -979,14 +981,13 @@ static int handler_device(const char *path, const char *types,
             if (!rs->slots[i])
                 continue;
             mapper_map map = rs->slots[i]->map;
-            if (rs->slots[i]->direction == MAPPER_OUTGOING) {
+            if (rs->slots[i]->direction == MAPPER_DIR_OUTGOING) {
                 // only send /mapTo once even if we have multiple local sources
                 if (map->local->one_source && (rs->slots[i] != &map->sources[0]))
                     continue;
                 if (map->destination.local->link == link) {
                     mapper_network_set_dest_mesh(net, link->admin_addr);
-                    mapper_map_send_state(map, -1, MSG_MAP_TO,
-                                          MAPPER_STATIC_PROPS);
+                    mapper_map_send_state(map, -1, MSG_MAP_TO, STATIC_PROPS);
                 }
             }
             else {
@@ -996,7 +997,7 @@ static int handler_device(const char *path, const char *types,
                     mapper_network_set_dest_mesh(net, link->admin_addr);
                     j = mapper_map_send_state(map,
                                               map->local->one_source ? -1 : j,
-                                              MSG_MAP_TO, MAPPER_STATIC_PROPS);
+                                              MSG_MAP_TO, STATIC_PROPS);
                 }
             }
         }
@@ -1165,10 +1166,10 @@ static int handler_signal_info(const char *path, const char *types,
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen]=0;
 
-    mapper_message params = mapper_message_parse_params(argc-1, &types[1],
-                                                        &argv[1]);
-    mapper_db_add_or_update_signal_params(&net->db, signamep, devname, params);
-    mapper_message_free(params);
+    mapper_message props = mapper_message_parse_properties(argc-1, &types[1],
+                                                           &argv[1]);
+    mapper_db_add_or_update_signal(&net->db, signamep, devname, props);
+    mapper_message_free(props);
 
     return 0;
 }
@@ -1219,8 +1220,8 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
 
     name = &argv[0]->s;
 
-    trace("</%s.?::%p> got /name/registered %s %i \n",
-          dev->identifier, net, name, temp_id);
+    trace("<%s.?::%p> got /name/registered %s %i \n", dev->identifier, net,
+          name, temp_id);
 
     if (dev->local->ordinal.locked) {
         /* Parse the ordinal from the complete name which is in the
@@ -1288,8 +1289,8 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
             temp_id = (int) argv[1]->f;
     }
 
-    trace("</%s.?::%p> got /name/probe %s %i \n",
-          dev->identifier, net, name, temp_id);
+    trace("<%s.?::%p> got /name/probe %s %i \n", dev->identifier, net, name,
+          temp_id);
 
     id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
     if (id == dev->id) {
@@ -1365,7 +1366,7 @@ static int prefix_cmp(const char *str1, const char *str2, const char **rest)
 }
 
 static int parse_signal_names(const char *types, lo_arg **argv, int argc,
-                              int *src_index, int *dest_index, int *param_index)
+                              int *src_index, int *dest_index, int *prop_index)
 {
     // old protocol: /connect src dest
     // new protocol: /map src1 ... srcN -> dest
@@ -1388,8 +1389,8 @@ static int parse_signal_names(const char *types, lo_arg **argv, int argc,
                 i++;
             }
         }
-        if (param_index)
-            *param_index = *src_index + num_sources;
+        if (prop_index)
+            *prop_index = *src_index + num_sources;
     }
     else {
         *src_index = 0;
@@ -1408,8 +1409,8 @@ static int parse_signal_names(const char *types, lo_arg **argv, int argc,
             }
             i++;
         }
-        if (param_index)
-            *param_index = *dest_index+1;
+        if (prop_index)
+            *prop_index = *dest_index+1;
     }
 
     // check that all signal names are well formed
@@ -1435,12 +1436,12 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     mapper_db db = &net->db;
     mapper_device dev = net->device;
     mapper_signal local_signal = 0;
-    int i, num_sources, src_index, dest_index, param_index;
+    int i, num_sources, src_index, dest_index, prop_index;
 
     const char *local_signal_name = 0;
 
     num_sources = parse_signal_names(types, argv, argc, &src_index,
-                                     &dest_index, &param_index);
+                                     &dest_index, &prop_index);
     if (!num_sources)
         return 0;
 
@@ -1471,20 +1472,20 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     }
 
     // parse arguments from message if any
-    mapper_message params = mapper_message_parse_params(argc-param_index,
-                                                        &types[param_index],
-                                                        &argv[param_index]);
+    mapper_message props = mapper_message_parse_properties(argc-prop_index,
+                                                           &types[prop_index],
+                                                           &argv[prop_index]);
 
     mapper_map map = 0;
-    mapper_message_atom atom = mapper_message_param(params, AT_ID);
+    mapper_message_atom atom = mapper_message_property(props, AT_ID);
     if (atom && atom->types[0] == 'h') {
         map = mapper_db_map_by_id(db, (atom->values[0])->i64);
 
         /* If a mapping already exists between these signals, forward the
          * message to handler_modify_map() and stop. */
-        if (map && map->status >= MAPPER_ACTIVE) {
+        if (map && map->status >= STATUS_ACTIVE) {
             handler_modify_map(path, types, argv, argc, msg, user_data);
-            mapper_message_free(params);
+            mapper_message_free(props);
             return 0;
         }
     }
@@ -1501,8 +1502,8 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         }
 
         // create a tentative map (flavourless)
-        map = mapper_db_add_or_update_map_params(db, num_sources, src_names,
-                                                 &argv[dest_index]->s, 0);
+        map = mapper_db_add_or_update_map(db, num_sources, src_names,
+                                          &argv[dest_index]->s, 0);
         if (!map) {
             trace("error creating local map.\n");
             return 0;
@@ -1510,14 +1511,14 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     }
 
     if (!map->local)
-        mapper_router_add_map(dev->local->router, map, MAPPER_INCOMING);
+        mapper_router_add_map(dev->local->router, map, MAPPER_DIR_INCOMING);
 
-    mapper_map_set_from_message(map, params, 1);
-    mapper_message_free(params);
+    mapper_map_set_from_message(map, props, 1);
+    mapper_message_free(props);
 
-    if (map->status == MAPPER_READY) {
+    if (map->status == STATUS_READY) {
         trace("map references only local signals... setting state to ACTIVE.\n");
-        map->status = MAPPER_ACTIVE;
+        map->status = STATUS_ACTIVE;
         ++dev->num_outgoing_maps;
         ++dev->num_incoming_maps;
 //        ++map->sources[i].local->link->num_outgoing_maps;
@@ -1526,7 +1527,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         // Inform subscribers
         if (dev->local->subscribers) {
             mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_INCOMING_MAPS);
-            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
+            mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
         return 0;
     }
@@ -1534,7 +1535,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     if (map->local->one_source && !map->sources[0].local->router_sig
         && map->sources[0].local->link && map->sources[0].local->link->admin_addr) {
         mapper_network_set_dest_mesh(net, map->sources[0].local->link->admin_addr);
-        mapper_map_send_state(map, -1, MSG_MAP_TO, MAPPER_STATIC_PROPS);
+        mapper_map_send_state(map, -1, MSG_MAP_TO, STATIC_PROPS);
     }
     else {
         for (i = 0; i < num_sources; i++) {
@@ -1547,7 +1548,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
                 continue;
             mapper_network_set_dest_mesh(net,
                                          map->sources[i].local->link->admin_addr);
-            i = mapper_map_send_state(map, i, MSG_MAP_TO, MAPPER_STATIC_PROPS);
+            i = mapper_map_send_state(map, i, MSG_MAP_TO, STATIC_PROPS);
         }
     }
     return 0;
@@ -1563,12 +1564,12 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     mapper_device dev = net->device;
     mapper_signal local_signal = 0;
     mapper_map map;
-    int i, num_sources, src_index, dest_index, param_index;
+    int i, num_sources, src_index, dest_index, prop_index;
 
     const char *local_signal_name = 0;
 
     num_sources = parse_signal_names(types, argv, argc, &src_index,
-                                     &dest_index, &param_index);
+                                     &dest_index, &prop_index);
     if (!num_sources)
         return 0;
 
@@ -1622,18 +1623,18 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
         trace("error in /mapTo: signal names out of order.\n");
         return 0;
     }
-    mapper_message params = mapper_message_parse_params(argc-param_index,
-                                                        &types[param_index],
-                                                        &argv[param_index]);
-    if (!params) {
+    mapper_message props = mapper_message_parse_properties(argc-prop_index,
+                                                           &types[prop_index],
+                                                           &argv[prop_index]);
+    if (!props) {
         trace("<%s> ignoring /mapTo, no properties.\n", mapper_device_name(dev));
         return 0;
     }
-    mapper_message_atom atom = mapper_message_param(params, AT_ID);
+    mapper_message_atom atom = mapper_message_property(props, AT_ID);
     if (!atom || atom->types[0] != 'h') {
         trace("<%s> ignoring /mapTo, no 'id' property.\n",
               mapper_device_name(dev));
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
     uint64_t id = (atom->values[0])->i64;
@@ -1649,7 +1650,9 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
 
     /* If a map already exists between these signals, forward the message
      * to handler_modify_map() and stop. */
-    if (map && map->status >= MAPPER_ACTIVE) {
+    if (map && map->status >= STATUS_ACTIVE) {
+        trace("<%s> forwarding /mapTo to modify handler (map already exists)\n",
+              mapper_device_name(dev));
         handler_modify_map(path, types, argv, argc, msg, user_data);
         return 0;
     }
@@ -1660,40 +1663,40 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
             src_names[i] = &argv[src_index+i]->s;
         }
         // create a tentative mapping (flavourless)
-        map = mapper_db_add_or_update_map_params(db, num_sources, src_names,
-                                                 &argv[dest_index]->s, 0);
+        map = mapper_db_add_or_update_map(db, num_sources, src_names,
+                                          &argv[dest_index]->s, 0);
         if (!map) {
             trace("error creating local map in handler_map_to\n");
             return 0;
         }
 
         mapper_router_add_map(dev->local->router, map,
-                              src_index ? MAPPER_OUTGOING : MAPPER_INCOMING);
+                              src_index ? MAPPER_DIR_OUTGOING : MAPPER_DIR_INCOMING);
     }
 
     /* TODO: handle passing @numInstances prop from signals, set sensible
      * defaults for new mappings. */
 
     /* Set map properties. */
-    mapper_map_set_from_message(map, params, 1);
+    mapper_map_set_from_message(map, props, 1);
 
-    if (map->status == MAPPER_READY) {
-        if (map->destination.direction == MAPPER_OUTGOING) {
+    if (map->status == STATUS_READY) {
+        if (map->destination.direction == MAPPER_DIR_OUTGOING) {
             mapper_network_set_dest_mesh(net,
                                          map->destination.local->link->admin_addr);
-            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
+            mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
                 mapper_network_set_dest_mesh(net,
                                              map->sources[i].local->link->admin_addr);
                 i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
-                                          MSG_MAPPED, MAPPER_STATIC_PROPS);
+                                          MSG_MAPPED, STATIC_PROPS);
             }
         }
     }
-
-    mapper_message_free(params);
+    mapper_network_send(net);
+    mapper_message_free(props);
     return 0;
 }
 
@@ -1707,11 +1710,11 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     mapper_device dev = net->device;
     mapper_signal local_signal = 0;
     mapper_map map;
-    int i, num_sources, src_index, dest_index, param_index;
+    int i, num_sources, src_index, dest_index, prop_index;
     const char *local_signal_name;
 
     num_sources = parse_signal_names(types, argv, argc, &src_index,
-                                     &dest_index, &param_index);
+                                     &dest_index, &prop_index);
     if (!num_sources)
         return 0;
 
@@ -1762,11 +1765,11 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     printf("\n");
 #endif
 
-    mapper_message params = 0;
+    mapper_message props = 0;
     if (local_signal || net->db.autosubscribe) {
-        params = mapper_message_parse_params(argc-param_index,
-                                             &types[param_index],
-                                             &argv[param_index]);
+        props = mapper_message_parse_properties(argc-prop_index,
+                                                &types[prop_index],
+                                                &argv[prop_index]);
     }
     if (!local_signal) {
         if (net->db.autosubscribe) {
@@ -1774,18 +1777,18 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             for (i = 0; i < num_sources; i++) {
                 src_names[i] = &argv[src_index+i]->s;
             }
-            mapper_db_add_or_update_map_params(&net->db, num_sources, src_names,
-                                               &argv[dest_index]->s, params);
+            mapper_db_add_or_update_map(&net->db, num_sources, src_names,
+                                        &argv[dest_index]->s, props);
         }
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
 
-    mapper_message_atom atom = mapper_message_param(params, AT_ID);
+    mapper_message_atom atom = mapper_message_property(props, AT_ID);
     if (!atom || atom->types[0] != 'h') {
         trace("<%s> ignoring /mapped, no 'id' property.\n",
               mapper_device_name(dev));
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
     uint64_t id = (atom->values[0])->i64;
@@ -1800,50 +1803,50 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     }
     if (!map) {
         trace("<%s> no map found for /mapped.\n", mapper_device_name(dev));
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
     if (src_index && map->num_sources != num_sources) {
         trace("<%s> wrong num_sources in /mapped.\n", mapper_device_name(dev));
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
 
     if (map->local->is_local) {
         // no need to update since all properties are local
-        mapper_message_free(params);
+        mapper_message_free(props);
         return 0;
     }
 
     // TODO: if this endpoint is map admin, do not allow overwiting props
-    int updated = mapper_map_set_from_message(map, params, 0);
+    int updated = mapper_map_set_from_message(map, props, 0);
 
-    if (map->status < MAPPER_READY) {
-        mapper_message_free(params);
+    if (map->status < STATUS_READY) {
+        mapper_message_free(props);
         return 0;
     }
-    if (map->status == MAPPER_READY) {
-        map->status = MAPPER_ACTIVE;
+    if (map->status == STATUS_READY) {
+        map->status = STATUS_ACTIVE;
 
         // Inform remote peer(s)
-        if (map->destination.direction == MAPPER_OUTGOING) {
+        if (map->destination.direction == MAPPER_DIR_OUTGOING) {
             mapper_network_set_dest_mesh(net,
                                          map->destination.local->link->admin_addr);
-            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
+            mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
                 mapper_network_set_dest_mesh(net,
                                              map->sources[i].local->link->admin_addr);
                 i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
-                                          MSG_MAPPED, MAPPER_STATIC_PROPS);
+                                          MSG_MAPPED, STATIC_PROPS);
             }
         }
         updated++;
     }
     if (updated) {
         // Update map counts
-        if (map->destination.direction == MAPPER_OUTGOING) {
+        if (map->destination.direction == MAPPER_DIR_OUTGOING) {
             ++dev->num_outgoing_maps;
             ++map->destination.local->link->num_outgoing_maps;
         }
@@ -1861,7 +1864,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         if (dev->local->subscribers) {
             // Inform subscribers
             mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_INCOMING_MAPS);
-            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
+            mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
 
         // Call local map handler if it exists
@@ -1869,7 +1872,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         if (h)
             h(map, MAPPER_ADDED, dev->local->map_handler_userdata);
     }
-    mapper_message_free(params);
+    mapper_message_free(props);
     return 0;
 }
 
@@ -1882,14 +1885,14 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
     mapper_device dev = net->device;
     mapper_map map = 0;
     mapper_signal local_signal = 0;
-    int i, num_sources, src_index, dest_index, param_index;
+    int i, num_sources, src_index, dest_index, prop_index;
     const char *local_signal_name;
 
     if (argc < 4)
         return 0;
 
     num_sources = parse_signal_names(types, argv, argc, &src_index,
-                                     &dest_index, &param_index);
+                                     &dest_index, &prop_index);
     if (!num_sources)
         return 0;
 
@@ -1956,16 +1959,16 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         return 0;
     }
 
-    mapper_message params = mapper_message_parse_params(argc-param_index,
-                                                        &types[param_index],
-                                                        &argv[param_index]);
-    if (!params) {
+    mapper_message props = mapper_message_parse_properties(argc-prop_index,
+                                                           &types[prop_index],
+                                                           &argv[prop_index]);
+    if (!props) {
         trace("<%s> ignoring /map/modify, no properties.\n",
               mapper_device_name(dev));
         return 0;
     }
 
-    int updated = mapper_map_set_from_message(map, params, 1);
+    int updated = mapper_map_set_from_message(map, props, 1);
 
     // TODO: check for self-connections, don't need to send updates
 
@@ -1975,7 +1978,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         if (!map->destination.local->router_sig) {
             mapper_network_set_dest_mesh(net,
                                          map->destination.local->link->admin_addr);
-            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
+            mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
@@ -1983,7 +1986,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
                     continue;
                 mapper_network_set_dest_mesh(net,
                                              map->sources[i].local->link->admin_addr);
-                i = mapper_map_send_state(map, i, MSG_MAPPED, MAPPER_STATIC_PROPS);
+                i = mapper_map_send_state(map, i, MSG_MAPPED, STATIC_PROPS);
             }
         }
 
@@ -1995,7 +1998,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
             else
                 mapper_network_set_dest_subscribers(net,
                                                     MAPPER_SUBSCRIBE_OUTGOING_MAPS);
-            mapper_map_send_state(map, -1, MSG_MAPPED, MAPPER_STATIC_PROPS);
+            mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
 
         // Call local map handler if it exists
@@ -2003,7 +2006,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         if (h)
             h(map, MAPPER_MODIFIED, dev->local->map_handler_userdata);
     }
-    mapper_message_free(params);
+    mapper_message_free(props);
     return 0;
 }
 

@@ -59,26 +59,26 @@ int main(int argc, char **argv)
     args[11] = (lo_arg*)"@srcLength";
     args[12] = (lo_arg*)&src_length;
 
-    msg = mapper_message_parse_params(13, "sssffffsiscsi", args);
+    msg = mapper_message_parse_properties(13, "sssffffsiscsi", args);
     if (!msg) {
         eprintf("1: Error parsing.\n");
         result = 1;
         goto done;
     }
 
-    atom = mapper_message_param(msg, AT_HOST);
+    atom = mapper_message_property(msg, AT_HOST);
     if (!atom) {
-        eprintf("1: Could not get @host param.\n");
+        eprintf("1: Could not get @host property.\n");
         result = 1;
         goto done;
     }
     if (!is_string_type(atom->types[0])) {
-        eprintf("1: Type error retrieving @host param.");
+        eprintf("1: Type error retrieving @host property.");
         result = 1;
         goto done;
     }
     if (atom->length != 1) {
-        eprintf("1: Length error retrieving @host param.");
+        eprintf("1: Length error retrieving @host property.");
         result = 1;
         goto done;
     }
@@ -89,19 +89,19 @@ int main(int argc, char **argv)
     if (result)
         goto done;
 
-    atom = mapper_message_param(msg, AT_PORT);
+    atom = mapper_message_property(msg, AT_PORT);
     if (!atom) {
-        eprintf("1: Could not get @port param.\n");
+        eprintf("1: Could not get @port property.\n");
         result = 1;
         goto done;
     }
     if (atom->types[0] != 'i') {
-        eprintf("1: Type error retrieving @port param.");
+        eprintf("1: Type error retrieving @port property.");
         result = 1;
         goto done;
     }
     if (atom->length != 1) {
-        eprintf("1: Length error retrieving @port param.");
+        eprintf("1: Length error retrieving @port property.");
         result = 1;
         goto done;
     }
@@ -112,19 +112,19 @@ int main(int argc, char **argv)
     if (result)
         goto done;
 
-    atom = mapper_message_param(msg, SRC_SLOT_PARAM(0) | AT_MIN);
+    atom = mapper_message_property(msg, SRC_SLOT_PROPERTY(0) | AT_MIN);
     if (!atom) {
-        eprintf("1: Could not get @src@min param.\n");
+        eprintf("1: Could not get @src@min property.\n");
         result = 1;
         goto done;
     }
     if (atom->types[0] != 'f') {
-        eprintf("1: Type error retrieving @src@min param.");
+        eprintf("1: Type error retrieving @src@min property.");
         result = 1;
         goto done;
     }
     if (atom->length != 4) {
-        eprintf("1: Length error retrieving @src@min param.");
+        eprintf("1: Length error retrieving @src@min property.");
         result = 1;
         goto done;
     }
@@ -145,33 +145,33 @@ int main(int argc, char **argv)
     args[1] = (lo_arg*)&port;
     args[2] = (lo_arg*)"@host";
 
-    msg = mapper_message_parse_params(3, "sis", args);
+    msg = mapper_message_parse_properties(3, "sis", args);
     if (!msg) {
         eprintf("2: Error parsing.\n");
         result = 1;
         goto done;
     }
 
-    atom = mapper_message_param(msg, AT_PORT);
+    atom = mapper_message_property(msg, AT_PORT);
     if (!atom) {
-        eprintf("2: Could not get @port param.\n");
+        eprintf("2: Could not get @port property.\n");
         result = 1;
         goto done;
     }
     if (atom->types[0] != 'i') {
-        eprintf("2: Type error retrieving @port param.");
+        eprintf("2: Type error retrieving @port property.");
         result = 1;
         goto done;
     }
     if (atom->length != 1) {
-        eprintf("2: Length error retrieving @port param.");
+        eprintf("2: Length error retrieving @port property.");
         result = 1;
         goto done;
     }
 
-    atom = mapper_message_param(msg, AT_HOST);
+    atom = mapper_message_property(msg, AT_HOST);
     if (atom) {
-        eprintf("2: Error, should not have been able to retrieve @host param.\n");
+        eprintf("2: Error, should not have been able to retrieve @host property.\n");
         result = 1;
         goto done;
     }

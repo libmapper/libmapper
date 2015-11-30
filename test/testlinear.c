@@ -37,11 +37,11 @@ int setup_source(char *iface)
     eprintf("source created.\n");
 
     int mn=0, mx=1;
-    sendsig = mapper_device_add_output(source, "/outsig", 1, 'i', 0, &mn, &mx);
+    sendsig = mapper_device_add_output(source, "outsig", 1, 'i', 0, &mn, &mx);
 
-    eprintf("Output signal /outsig registered.\n");
+    eprintf("Output signal 'outsig' registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_num_signals(source, MAPPER_OUTGOING));
+            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
     return 0;
 
   error:
@@ -75,12 +75,12 @@ int setup_destination(char *iface)
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f', 0,
-                                      &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "insig", 1, 'f', 0, &mn, &mx,
+                                      insig_handler, 0);
 
-    eprintf("Input signal /insig registered.\n");
+    eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_num_signals(destination, MAPPER_INCOMING));
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
     return 0;
 
   error:
@@ -99,7 +99,7 @@ void cleanup_destination()
 
 int setup_maps()
 {
-    float src_min = 0., src_max = 100., dest_min = -10., dest_max = 10.;
+    float src_min = 0.f, src_max = 100.f, dest_min = -10.f, dest_max = 10.f;
 
     mapper_map map = mapper_map_new(1, &sendsig, recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_LINEAR);
@@ -111,12 +111,12 @@ int setup_maps()
     slot = mapper_map_destination_slot(map);
     mapper_slot_set_minimum(slot, 1, 'f', &dest_min);
     mapper_slot_set_maximum(slot, 1, 'f', &dest_max);
-    mapper_slot_set_bound_min(slot, MAPPER_FOLD);
+    mapper_slot_set_bound_min(slot, MAPPER_BOUND_FOLD);
 
-    mapper_map_sync(map);
+    mapper_map_push(map);
 
     // Wait until mapping has been established
-    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
+    while (!done && !mapper_map_ready(map)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }

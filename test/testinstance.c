@@ -42,14 +42,14 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
+    sendsig = mapper_device_add_output(source, "outsig", 1, 'f', 0, &mn, &mx);
     if (!sendsig)
         goto error;
     mapper_signal_reserve_instances(sendsig, 9, 0, 0);
 
     eprintf("Output signal registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_num_signals(source, MAPPER_OUTGOING));
+            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
 
     return 0;
 
@@ -105,21 +105,21 @@ int setup_destination()
 
     float mn=0;//, mx=1;
 
-    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
-                                      0, &mn, 0, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "insig", 1, 'f', 0, &mn, 0,
+                                       insig_handler, 0);
     if (!recvsig)
         goto error;
 
     // remove the default instance "0"
     mapper_signal_remove_instance(recvsig, 0);
     int i;
-    for (i=100; i<104; i++) {
+    for (i=2; i<10; i+=2) {
         mapper_signal_reserve_instances(recvsig, 1, (mapper_id*)&i, 0);
     }
 
     eprintf("Input signal registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_num_signals(destination, MAPPER_INCOMING));
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
 
     return 0;
 
@@ -150,23 +150,38 @@ void wait_local_devices()
 
 void print_instance_ids(mapper_signal sig)
 {
-    int i, n = mapper_signal_num_active_instances(sig);
-    eprintf("active %s: [", mapper_signal_name(sig));
+    int i, n = mapper_signal_num_instances(sig);
+    eprintf("%s: [ ", mapper_signal_name(sig));
     for (i=0; i<n; i++) {
-        eprintf(" %i", (int)mapper_signal_active_instance_id(sig, i));
+        eprintf("%1i, ", (int)mapper_signal_instance_id(sig, i));
     }
-    eprintf(" ]   ");
+    eprintf("\b\b ]   ");
+}
+
+void print_instance_vals(mapper_signal sig)
+{
+    int i, id, n = mapper_signal_num_instances(sig);
+    eprintf("%s: [ ", mapper_signal_name(sig));
+    for (i=0; i<n; i++) {
+        id = mapper_signal_instance_id(sig, i);
+        float *val = (float*)mapper_signal_instance_value(sig, id, 0);
+        if (val)
+            printf("%1.0f, ", *val);
+        else
+            printf("–, ");
+    }
+    eprintf("\b\b ]   ");
 }
 
 void map_signals()
 {
     mapper_map map = mapper_map_new(1, &sendsig, recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
-    mapper_map_set_expression(map, "foo=1;  y=y{-1}+foo");
-    mapper_map_sync(map);
+    mapper_map_set_expression(map, "y=y{-1}+1");//"foo=1;  y=y{-1}+foo");
+    mapper_map_push(map);
 
     // wait until mapping has been established
-    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
+    while (!done && !mapper_map_ready(map)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }
@@ -199,15 +214,20 @@ void loop()
                 break;
         }
 
-        print_instance_ids(sendsig);
-        print_instance_ids(recvsig);
-        eprintf("\n");
-
         mapper_device_poll(destination, 100);
         mapper_device_poll(source, 0);
         i++;
 
-        if (!verbose) {
+        if (verbose) {
+            print_instance_ids(sendsig);
+            print_instance_ids(recvsig);
+            eprintf("\n");
+
+            print_instance_vals(sendsig);
+            print_instance_vals(recvsig);
+            printf("\n");
+        }
+        else {
             printf("\r  Sent: %4i, Received: %4i   ", sent, received);
             fflush(stdout);
         }

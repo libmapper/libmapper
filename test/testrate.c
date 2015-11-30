@@ -43,13 +43,13 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
+    sendsig = mapper_device_add_output(source, "outsig", 1, 'f', "Hz", &mn, &mx);
 
     // This signal will be updated at 100 Hz
     mapper_signal_set_rate(sendsig, 100);
 
     // Check by both methods that the property was set
-    eprintf("Rate for /outsig is set to: %f\n", sendsig->rate);
+    eprintf("Rate for 'outsig' is set to: %f\n", sendsig->rate);
 
     const float *a;
     char t;
@@ -67,7 +67,7 @@ int setup_source()
         exit(1);
     }
     if (t=='f')
-        eprintf("Rate for /outsig is set to: %f\n", a[0]);
+        eprintf("Rate for 'outsig' is set to: %f\n", a[0]);
     else {
         eprintf("Rate property was unexpected type `%c'\n", t);
         mapper_device_free(source);
@@ -82,7 +82,7 @@ int setup_source()
         exit(1);
     }
 
-    eprintf("Output signal /outsig registered.\n");
+    eprintf("Output signal 'outsig' registered.\n");
 
     return 0;
 
@@ -126,13 +126,13 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
-                                      0, &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "insig", 1, 'f', 0, &mn, &mx,
+                                      insig_handler, 0);
 
     // This signal is expected to be updated at 100 Hz
     mapper_signal_set_rate(recvsig, 100);
 
-    eprintf("Input signal /insig registered.\n");
+    eprintf("Input signal 'insig' registered.\n");
 
     return 0;
 
@@ -165,11 +165,11 @@ int setup_maps()
 {
     int i = 0;
     mapper_map map = mapper_map_new(1, &sendsig, recvsig);
-    mapper_map_sync(map);
+    mapper_map_push(map);
 
     i = 0;
     // wait until mapping has been established
-    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
+    while (!done && !mapper_map_ready(map)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
         if (i++ > 100)

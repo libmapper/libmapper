@@ -42,9 +42,9 @@ int setup_sources()
         if (!sources[i])
             goto error;
         eprintf("source %d created.\n", i);
-        sendsig[i][0] = mapper_device_add_output(sources[i], "/sendsig1", 1,
+        sendsig[i][0] = mapper_device_add_output(sources[i], "sendsig1", 1,
                                                  'i', 0, &mni, &mxi);
-        sendsig[i][1] = mapper_device_add_output(sources[i], "/sendsig2", 1,
+        sendsig[i][1] = mapper_device_add_output(sources[i], "sendsig2", 1,
                                                  'f', 0, &mnf, &mxf);
     }
     return 0;
@@ -89,12 +89,12 @@ int setup_destination()
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = mapper_device_add_input(destination, "/recvsig", 1, 'f', 0,
+    recvsig = mapper_device_add_input(destination, "recvsig", 1, 'f', 0,
                                       &mn, &mx, insig_handler, 0);
 
-    eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mapper_device_num_signals(destination,
-                                                                MAPPER_INCOMING));
+    eprintf("Input signal 'insig' registered.\n");
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
     return 0;
 
   error:
@@ -127,15 +127,14 @@ int setup_maps()
 
     mapper_slot_set_causes_update(slot1, 0);
 
-    mapper_map_sync(map);
+    mapper_map_push(map);
 
     // wait until mappings have been established
     int i;
-    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
+    while (!done && !mapper_map_ready(map)) {
         for (i = 0; i < NUM_SOURCES; i++)
             mapper_device_poll(sources[i], 10);
         mapper_device_poll(destination, 10);
-        printf("waiting... status:%d\n", mapper_map_status(map));
     }
 
     return 0;

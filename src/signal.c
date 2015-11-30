@@ -30,82 +30,6 @@ static int mapper_signal_find_instance_with_local_id(mapper_signal sig,
 static int mapper_signal_add_id_map(mapper_signal sig, mapper_signal_instance si,
                                     mapper_id_map map);
 
-/* Static data for property tables embedded in the signal data structure.
- *
- * Signals have properties that can be indexed by name, and can have extra
- * properties attached to them either by using setter functions on a local
- * signal, or if they are specified in the description of remote signals.
- * The utility of this is to allow for attaching of arbitrary metadata to
- * objects on the network.  For example, a signal could have a 'position'
- * value to indicate its physical position in the room.
- *
- * It is also useful to be able to look up standard properties like vector
- * length, name, or unit by specifying these as a string.
- *
- * The following data provides a string table (as usable by the implementation
- * in table.c) for indexing the static data existing in the signal data
- * structure.  Some of these static properties may not actually exist, such as
- * 'minimum' and 'maximum' which are optional properties of signals.  Therefore
- * an 'indirect' form is available where the table points to a pointer to the
- * value, which may be null.
- *
- * A property lookup consists of looking through the 'extra' properties of a
- * structure.  If the requested property is not found, then the 'static'
- * properties are searched---in the worst case, an unsuccessful lookup may
- * therefore take twice as long.
- *
- * To iterate through all available properties, the caller must request by
- * index, starting at 0, and incrementing until failure.  They are not
- * guaranteed to be in a particular order.
- */
-
-#define SIG_OFFSET(x)   offsetof(mapper_signal_t, x)
-#define SIG_TYPE        (SIG_OFFSET(type))
-#define SIG_LENGTH      (SIG_OFFSET(length))
-
-/* Here type 'o', which is not an OSC type, was reserved to mean "same type as
- * the signal's type".  The lookup and index functions will return the sig->type
- * instead of the value's type. */
-static property_table_value_t sig_values[] = {
-    { 's', {1},        -1,         SIG_OFFSET(description) },
-    { 'i', {0},        -1,         SIG_OFFSET(direction) },
-    { 'h', {0},        -1,         SIG_OFFSET(id) },
-    { 'i', {0},        -1,         SIG_OFFSET(length) },
-    { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(maximum) },
-    { 'o', {SIG_TYPE}, SIG_LENGTH, SIG_OFFSET(minimum) },
-    { 's', {1},        -1,         SIG_OFFSET(name) },
-    { 'i', {0},        -1,         SIG_OFFSET(num_incoming_maps) },
-    { 'i', {0},        -1,         SIG_OFFSET(num_instances) },
-    { 'i', {0},        -1,         SIG_OFFSET(num_outgoing_maps) },
-    { 'f', {0},        -1,         SIG_OFFSET(rate) },
-    { 'c', {0},        -1,         SIG_OFFSET(type) },
-    { 's', {1},        -1,         SIG_OFFSET(unit) },
-    { 'i', {0},         0,         SIG_OFFSET(user_data) },
-};
-
-/* This table must remain in alphabetical order. */
-static string_table_node_t sig_strings[] = {
-    { "description",        &sig_values[0] },
-    { "direction",          &sig_values[1] },
-    { "id",                 &sig_values[2] },
-    { "length",             &sig_values[3] },
-    { "max",                &sig_values[4] },
-    { "min",                &sig_values[5] },
-    { "name",               &sig_values[6] },
-    { "num_incoming_maps",  &sig_values[7] },
-    { "num_instances",      &sig_values[8] },
-    { "num_outgoing_maps",  &sig_values[9] },
-    { "rate",               &sig_values[10] },
-    { "type",               &sig_values[11] },
-    { "unit",               &sig_values[12] },
-    { "user_data",          &sig_values[13] },
-};
-
-const int NUM_SIG_STRINGS = sizeof(sig_strings)/sizeof(sig_strings[0]);
-static mapper_string_table_t sig_table = {
-    sig_strings, NUM_SIG_STRINGS, NUM_SIG_STRINGS
-};
-
 static int compare_ids(const void *l, const void *r)
 {
     return memcmp(&(*(mapper_signal_instance *)l)->id,
@@ -139,7 +63,9 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
                         const void *user_data)
 {
     int i;
-    if (!name || check_signal_length(length) || check_signal_type(type))
+    if (!name)
+        return;
+    if (sig->local && (check_signal_length(length) || check_signal_type(type)))
         return;
 
     name = skip_slash(name);
@@ -151,18 +77,12 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
     sig->length = length;
     sig->type = type;
     sig->direction = direction;
-    sig->unit = unit ? strdup(unit) : 0;
-    sig->extra = table_new();
-    sig->updater = table_new();
+    sig->unit = unit ? strdup(unit) : strdup("unknown");
     sig->minimum = sig->maximum = 0;
-    sig->description = 0;
 
     sig->num_instances = 0;
 
     sig->user_data = (void*)user_data;
-
-    mapper_signal_set_minimum(sig, minimum);
-    mapper_signal_set_maximum(sig, maximum);
 
     if (sig->local) {
         sig->local->update_handler = handler;
@@ -178,25 +98,69 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
         sig->local->id_map_length = 1;
         sig->local->id_maps = calloc(1, sizeof(struct _mapper_signal_id_map));
     }
+
+    sig->props = mapper_table_new();
+    sig->staged_props = mapper_table_new();
+    int flags = sig->local ? NON_MODIFIABLE : MODIFIABLE;
+
+    // these properties need to be added in alphabetical order
+    mapper_table_link_value(sig->props, AT_DESCRIPTION, 1, 's',
+                            &sig->description, flags | INDIRECT);
+
+    mapper_table_link_value(sig->props, AT_DIRECTION, 1, 'i', &sig->direction,
+                            flags);
+
+    mapper_table_link_value(sig->props, AT_ID, 1, 'h', &sig->id, flags);
+
+    mapper_table_link_value(sig->props, AT_LENGTH, 1, 'i', &sig->length, flags);
+
+    mapper_table_link_value(sig->props, AT_MAX, sig->length, sig->type,
+                            &sig->maximum,
+                            ((sig->local ? LOCAL_MODIFY : MODIFIABLE)
+                             | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE));
+
+    mapper_table_link_value(sig->props, AT_MIN, sig->length, sig->type,
+                            &sig->minimum,
+                            ((sig->local ? LOCAL_MODIFY : MODIFIABLE)
+                             | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE));
+
+    mapper_table_link_value(sig->props, AT_NAME, 1, 's', &sig->name,
+                            flags | INDIRECT);
+
+    mapper_table_link_value(sig->props, AT_NUM_INCOMING_MAPS, 1, 'i',
+                            &sig->num_incoming_maps, flags);
+
+    mapper_table_link_value(sig->props, AT_NUM_INSTANCES, 1, 'i',
+                            &sig->num_instances, flags);
+
+    mapper_table_link_value(sig->props, AT_NUM_OUTGOING_MAPS, 1, 'i',
+                            &sig->num_outgoing_maps, flags);
+
+    // TODO: should rate be settable or only derived from calls to update()?
+    mapper_table_link_value(sig->props, AT_RATE, 1, 'f', &sig->rate,
+                            sig->local ? LOCAL_MODIFY : MODIFIABLE);
+
+    mapper_table_link_value(sig->props, AT_TYPE, 1, 'c', &sig->type, flags);
+
+    mapper_table_link_value(sig->props, AT_UNIT, 1, 's', &sig->unit,
+                            (sig->local ? LOCAL_MODIFY : MODIFIABLE) | INDIRECT);
+
+    mapper_table_link_value(sig->props, AT_USER_DATA, 1, 'v', &sig->user_data,
+                            LOCAL_MODIFY | INDIRECT);
+
+    mapper_table_link_value(sig->props, AT_VERSION, 1, 'i', &sig->version,
+                            flags);
+
+    if (minimum)
+        mapper_signal_set_minimum(sig, minimum);
+    if (maximum)
+        mapper_signal_set_maximum(sig, maximum);
 }
 
 void mapper_signal_free(mapper_signal sig)
 {
     int i;
     if (!sig) return;
-
-    if (sig->minimum)
-        free(sig->minimum);
-    if (sig->maximum)
-        free(sig->maximum);
-    if (sig->path)
-        free(sig->path);
-    if (sig->description)
-        free(sig->description);
-    if (sig->unit)
-        free(sig->unit);
-    if (sig->extra)
-        table_free(sig->extra);
 
     if (sig->local) {
         // Free instances
@@ -218,16 +182,27 @@ void mapper_signal_free(mapper_signal sig)
             free(sig->local->has_complete_value);
         free(sig->local);
     }
+
+    if (sig->props)
+        mapper_table_free(sig->props);
+    if (sig->staged_props)
+        mapper_table_free(sig->staged_props);
 }
 
-//void mapper_signal_sync(mapper_signal sig)
-//{
-//    if (!sig || !sig->updater->len)
-//        return;
-//
-//    mapper_network_set_dest_bus(sig->device->db->network);
-//    mapper_signal_send_state(sig, MAPPER_UPDATED_PROPS);
-//}
+void mapper_signal_push(mapper_signal sig)
+{
+    if (!sig || !sig->props->dirty)
+        return;
+
+    if (sig->local)
+        mapper_network_set_dest_subscribers(sig->device->db->network,
+                                            sig->direction == MAPPER_DIR_OUTGOING
+                                            ? MAPPER_SUBSCRIBE_OUTPUTS
+                                            : MAPPER_SUBSCRIBE_INPUTS);
+    else
+        mapper_network_set_dest_bus(sig->device->db->network);
+    mapper_signal_send_state(sig, UPDATED_PROPS);
+}
 
 void mapper_signal_update(mapper_signal sig, const void *value, int count,
                           mapper_timetag_t tt)
@@ -864,7 +839,7 @@ void mapper_signal_instance_release(mapper_signal sig, mapper_id id,
         return;
 
     int index = mapper_signal_find_instance_with_local_id(sig, id,
-                                                          MAPPER_RELEASED_REMOTELY);
+                                                          RELEASED_REMOTELY);
     if (index >= 0)
         mapper_signal_instance_release_internal(sig, index, timetag);
 }
@@ -885,7 +860,7 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
     else
         ttp = &tt;
 
-    if (!(smap->status & MAPPER_RELEASED_REMOTELY)) {
+    if (!(smap->status & RELEASED_REMOTELY)) {
         mapper_device_route_signal(sig->device, sig, instance_index, 0, 0, *ttp);
     }
 
@@ -894,14 +869,14 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
         mapper_device_remove_instance_id_map(sig->device, smap->map);
         smap->map = 0;
     }
-    else if ((sig->direction & MAPPER_OUTGOING)
-             || smap->status & MAPPER_RELEASED_REMOTELY) {
+    else if ((sig->direction & MAPPER_DIR_OUTGOING)
+             || smap->status & RELEASED_REMOTELY) {
         // TODO: consider multiple upstream source instances?
         smap->map = 0;
     }
     else {
         // mark map as locally-released but do not remove it
-        sig->local->id_maps[instance_index].status |= MAPPER_RELEASED_LOCALLY;
+        sig->local->id_maps[instance_index].status |= RELEASED_LOCALLY;
     }
 
     // Put instance back in reserve list
@@ -967,7 +942,7 @@ const void *mapper_signal_instance_value(mapper_signal sig, mapper_id id,
         return 0;
 
     int index = mapper_signal_find_instance_with_local_id(sig, id,
-                                                          MAPPER_RELEASED_REMOTELY);
+                                                          RELEASED_REMOTELY);
     if (index < 0)
         return 0;
     return mapper_signal_instance_value_internal(sig, index, timetag);
@@ -1160,7 +1135,10 @@ mapper_device mapper_signal_device(mapper_signal sig)
 
 const char *mapper_signal_description(mapper_signal sig)
 {
-    return sig->description;
+    mapper_table_record_t *rec = mapper_table_record(sig->props, AT_DESCRIPTION, 0);
+    if (rec && rec->type == 's')
+        return (const char*)rec->value;
+    return 0;
 }
 
 mapper_direction mapper_signal_direction(mapper_signal sig)
@@ -1204,22 +1182,22 @@ int mapper_signal_num_maps(mapper_signal sig, mapper_direction dir)
         return 0;
     if (!dir)
         return sig->num_incoming_maps + sig->num_outgoing_maps;
-    return (  ((dir & MAPPER_INCOMING) ? sig->num_incoming_maps : 0)
-            + ((dir & MAPPER_OUTGOING) ? sig->num_outgoing_maps : 0));
+    return (  ((dir & MAPPER_DIR_INCOMING) ? sig->num_incoming_maps : 0)
+            + ((dir & MAPPER_DIR_OUTGOING) ? sig->num_outgoing_maps : 0));
 }
 
 static int cmp_query_signal_maps(const void *context_data, mapper_map map)
 {
     mapper_signal sig = *(mapper_signal *)context_data;
     int direction = *(int*)(context_data + sizeof(int64_t));
-    if (!direction || (direction & MAPPER_OUTGOING)) {
+    if (!direction || (direction & MAPPER_DIR_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
             if (map->sources[i].signal == sig)
             return 1;
         }
     }
-    if (!direction || (direction & MAPPER_INCOMING)) {
+    if (!direction || (direction & MAPPER_DIR_INCOMING)) {
         if (map->destination.signal == sig)
         return 1;
     }
@@ -1250,149 +1228,75 @@ const char *mapper_signal_unit(mapper_signal sig)
     return sig->unit;
 }
 
-int mapper_signal_property(mapper_signal sig, const char *property, int *length,
+int mapper_signal_property(mapper_signal sig, const char *name, int *length,
                            char *type, const void **value)
 {
-    if (!sig)
-        return 0;
-    return mapper_db_property(sig, sig->extra, property, length, type, value,
-                              &sig_table);
+    return mapper_table_property(sig->props, name, length, type, value);
 }
 
 int mapper_signal_property_index(mapper_signal sig, unsigned int index,
-                                 const char **property, int *length, char *type,
+                                 const char **name, int *length, char *type,
                                  const void **value)
 {
-    if (!sig)
-        return 0;
-    return mapper_db_property_index(sig, sig->extra, index, property, length,
-                                    type, value, &sig_table);
+    return mapper_table_property_index(sig->props, index, name, length, type,
+                                       value);
 }
 
 void mapper_signal_set_description(mapper_signal sig, const char *description)
 {
-    if (!sig)
+    if (!sig || !sig->local)
         return;
-    mapper_property_set_string(&sig->description, description);
+    mapper_table_set_record(sig->props, AT_DESCRIPTION, NULL, 1, 's',
+                            description, LOCAL_MODIFY);
 }
 
 void mapper_signal_set_maximum(mapper_signal sig, const void *maximum)
 {
-    if (!sig)
+    if (!sig || !sig->local)
         return;
-    if (maximum) {
-        if (!sig->maximum)
-            sig->maximum = malloc(mapper_signal_vector_bytes(sig));
-        memcpy(sig->maximum, maximum, mapper_signal_vector_bytes(sig));
-    }
-    else {
-        if (sig->maximum)
-            free(sig->maximum);
-        sig->maximum = 0;
-    }
+    mapper_table_set_record(sig->props, AT_MAX, NULL, sig->length, sig->type,
+                            maximum, LOCAL_MODIFY);
 }
 
 void mapper_signal_set_minimum(mapper_signal sig, const void *minimum)
 {
-    if (!sig)
+    if (!sig || !sig->local)
         return;
-    if (minimum) {
-        if (!sig->minimum)
-            sig->minimum = malloc(mapper_signal_vector_bytes(sig));
-        memcpy(sig->minimum, minimum, mapper_signal_vector_bytes(sig));
-    }
-    else {
-        if (sig->minimum)
-            free(sig->minimum);
-        sig->minimum = 0;
-    }
+    mapper_table_set_record(sig->props, AT_MIN, NULL, sig->length, sig->type,
+                            minimum, LOCAL_MODIFY);
 }
 
 void mapper_signal_set_rate(mapper_signal sig, float rate)
 {
-    if (!sig)
+    if (!sig || !sig->local)
         return;
-    sig->rate = rate;
+    mapper_table_set_record(sig->props, AT_RATE, NULL, 1, 'f', &rate,
+                            LOCAL_MODIFY);
 }
 
 void mapper_signal_set_unit(mapper_signal sig, const char *unit)
 {
-    if (!sig)
+    if (!sig || !sig->local)
         return;
-    mapper_property_set_string(&sig->unit, unit);
+    mapper_table_set_record(sig->props, AT_UNIT, NULL, 1, 's', unit,
+                            LOCAL_MODIFY);
 }
 
 // TODO: use sig_table to simplify error check
-void mapper_signal_set_property(mapper_signal sig, const char *property,
-                                int length, char type, const void *value)
+void mapper_signal_set_property(mapper_signal sig, const char *name, int length,
+                                char type, const void *value)
 {
-    if (!sig || !property)
-        return;
-    if (   strcmp(property, "direction") == 0
-        || strcmp(property, "id") == 0
-        || strcmp(property, "length") == 0
-        || strcmp(property, "name") == 0
-        || strcmp(property, "type") == 0
-        || strcmp(property, "user_data") == 0) {
-        trace("Cannot set static signal property '%s'\n", property);
-        return;
-    }
-    if (strcmp(property, "min") == 0 || strcmp(property, "minimum") == 0) {
-        if (!length || !value)
-            mapper_signal_set_minimum(sig, 0);
-        else if (length == sig->length && type == sig->type)
-            mapper_signal_set_minimum(sig, value);
-        // TODO: if types differ need to cast entire vector
-        return;
-    }
-    else if (strcmp(property, "max") == 0 || strcmp(property, "maximum") == 0) {
-        if (!length || !value)
-            mapper_signal_set_maximum(sig, 0);
-        else if (length == sig->length && type == sig->type)
-            mapper_signal_set_maximum(sig, value);
-        // TODO: if types differ need to cast entire vector
-        return;
-    }
-    else if ((strcmp(property, "unit") == 0 || strcmp(property, "units") == 0)
-             && is_string_type(type)) {
-        mapper_property_set_string(&sig->unit, length ? (const char*)value : 0);
-        return;
-    }
-    else if (strcmp(property, "value") == 0) {
-        if (!length || !value)
-            mapper_signal_update(sig, 0, 0, MAPPER_NOW);
-        else if (length == sig->length || type == sig->type)
-            mapper_signal_update(sig, value, 1, MAPPER_NOW);
-        return;
-    }
-
-    mapper_table_add_or_update_typed_value(sig->extra, property, length,
-                                           type, value);
+    mapper_property_t prop = mapper_property_from_string(name);
+    mapper_table_set_record(sig->props, prop, name, length, type, value,
+                            sig->local ? LOCAL_MODIFY : REMOTE_MODIFY);
 }
 
 // TODO: use sig_table to simplify error check
-void mapper_signal_remove_property(mapper_signal sig, const char *property)
+void mapper_signal_remove_property(mapper_signal sig, const char *name)
 {
-    if (!sig || !property)
-        return;
-    if (   strcmp(property, "direction") == 0
-        || strcmp(property, "id") == 0
-        || strcmp(property, "length") == 0
-        || strcmp(property, "name") == 0
-        || strcmp(property, "rate") == 0
-        || strcmp(property, "type") == 0
-        || strcmp(property, "user_data") == 0) {
-        trace("Cannot remove static signal property '%s'\n", property);
-        return;
-    }
-    if (strcmp(property, "description")==0)
-        mapper_signal_set_description(sig, 0);
-    else if (strcmp(property, "maximum")==0)
-        mapper_signal_set_maximum(sig, 0);
-    else if (strcmp(property, "minimum")==0)
-        mapper_signal_set_minimum(sig, 0);
-    else
-        table_remove_key(sig->extra, property, 1);
+    mapper_property_t prop = mapper_property_from_string(name);
+    mapper_table_remove_record(sig->props, prop, name, 1,
+                               sig->local ? LOCAL_MODIFY : REMOTE_MODIFY);
 }
 
 static int mapper_signal_add_id_map(mapper_signal sig, mapper_signal_instance si,
@@ -1486,7 +1390,7 @@ void message_add_coerced_signal_instance_value(lo_message m,
 /* TODO: this message needs to be dispatched immediately since liblo will not
  * cache the signal name string. The protocol should be updated to send
  * device and signal names as separate strings. */
-void mapper_signal_send_state(mapper_signal sig)
+void mapper_signal_send_state(mapper_signal sig, int flags)
 {
     lo_message msg = lo_message_new();
     if (!msg) {
@@ -1494,65 +1398,49 @@ void mapper_signal_send_state(mapper_signal sig)
         return;
     }
 
+    /* signal name */
     char sig_name[1024];
     mapper_signal_full_name(sig, sig_name, 1024);
     lo_message_add_string(msg, sig_name);
 
-    /* unique id */
-    lo_message_add_string(msg, mapper_param_string(AT_ID));
-    lo_message_add_int64(msg, sig->id);
-
-    /* direction */
-    lo_message_add_string(msg, mapper_param_string(AT_DIRECTION));
-    if (sig->direction == MAPPER_OUTGOING)
-        lo_message_add_string(msg, "output");
-    else
-        lo_message_add_string(msg, "input");
-
-    /* data type */
-    lo_message_add_string(msg, mapper_param_string(AT_TYPE));
-    lo_message_add_char(msg, sig->type);
-
-    /* vector length */
-    lo_message_add_string(msg, mapper_param_string(AT_LENGTH));
-    lo_message_add_int32(msg, sig->length);
-
-    /* unit */
-    if (sig->unit) {
-        lo_message_add_string(msg, mapper_param_string(AT_UNITS));
-        lo_message_add_string(msg, sig->unit);
+    /* properties */
+    int i, indirect;
+    mapper_table_t *tab = ((flags == UPDATED_PROPS)
+                           ? sig->staged_props : sig->props);
+    mapper_table_record_t *rec;
+    for (i = 0; i < tab->num_records; i++) {
+        rec = &tab->records[i];
+        indirect = (flags != UPDATED_PROPS) && (rec->flags & INDIRECT);
+        if (!rec->value)
+            continue;
+        if (indirect && !(*rec->value))
+            continue;
+        switch (rec->index) {
+            case AT_USER_DATA:
+                // local access only
+                break;
+            case AT_NAME:
+                // already sent
+                break;
+            case AT_DIRECTION:
+                lo_message_add_string(msg, mapper_protocol_string(AT_DIRECTION));
+                if (sig->direction == MAPPER_DIR_OUTGOING)
+                    lo_message_add_string(msg, "output");
+                else
+                    lo_message_add_string(msg, "input");
+                break;
+            case AT_EXTRA:
+                lo_message_add_string(msg, rec->key);
+                mapper_message_add_typed_value(msg, rec->length, rec->type,
+                                               indirect ? *rec->value : rec->value);
+                break;
+            default:
+                lo_message_add_string(msg, mapper_protocol_string(rec->index));
+                mapper_message_add_typed_value(msg, rec->length, rec->type,
+                                               indirect ? *rec->value : rec->value);
+                break;
+        }
     }
-
-    /* minimum */
-    if (sig->minimum) {
-        lo_message_add_string(msg, mapper_param_string(AT_MIN));
-        mapper_message_add_typed_value(msg, sig->length, sig->type, sig->minimum);
-    }
-
-    /* maximum */
-    if (sig->maximum) {
-        lo_message_add_string(msg, mapper_param_string(AT_MAX));
-        mapper_message_add_typed_value(msg, sig->length, sig->type, sig->maximum);
-    }
-
-    /* number of instances */
-    lo_message_add_string(msg, mapper_param_string(AT_INSTANCES));
-    lo_message_add_int32(msg, sig->num_instances);
-
-    /* number of incoming maps */
-    lo_message_add_string(msg, mapper_param_string(AT_NUM_INCOMING_MAPS));
-    lo_message_add_int32(msg, sig->num_incoming_maps);
-
-    /* number of outgoing maps */
-    lo_message_add_string(msg, mapper_param_string(AT_NUM_OUTGOING_MAPS));
-    lo_message_add_int32(msg, sig->num_outgoing_maps);
-
-    /* update rate */
-    lo_message_add_string(msg, mapper_param_string(AT_RATE));
-    lo_message_add_float(msg, sig->rate);
-
-    /* "extra" properties */
-    mapper_message_add_value_table(msg, sig->extra);
 
     mapper_network_add_message(sig->device->db->network, 0, MSG_SIGNAL, msg);
 }
@@ -1612,89 +1500,65 @@ void mapper_signal_query_done(mapper_signal *sig)
     mapper_list_query_done((void**)sig);
 }
 
-/*! Update information about a signal record based on message parameters. */
+/*! Update information about a signal record based on message properties. */
 int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
 {
     mapper_message_atom atom;
-    int i, updated = 0, result;
+    int i, updated = 0, len_type_diff = 0;
 
-    if (!msg)
+    if (!msg || sig->local)
         return updated;
 
-    updated += mapper_message_add_or_update_extra_params(sig->extra, msg);
-
-    // If this is a local signal, only allow "extra" proparties to be set
-    if (sig->local)
-        return updated;
-
-    int direction = mapper_message_signal_direction(msg);
-    if (direction) {
-        if (direction & MAPPER_INCOMING) {
-            if (!(sig->direction & MAPPER_INCOMING))
-                ++sig->device->num_inputs;
-        }
-        else if (sig->direction & MAPPER_INCOMING)
-            --sig->device->num_inputs;
-
-        if (direction & MAPPER_OUTGOING) {
-            if (!(sig->direction & MAPPER_OUTGOING))
-                ++sig->device->num_outputs;
-        }
-        else if (sig->direction & MAPPER_OUTGOING)
-            --sig->device->num_outputs;
-        sig->direction = direction;
-    }
-
-    updated += mapper_update_int64_if_arg((int64_t*)&sig->id, msg, AT_ID);
-
-    updated += mapper_update_char_if_arg(&sig->type, msg, AT_TYPE);
-
-    updated += mapper_update_int_if_arg(&sig->length, msg, AT_LENGTH);
-
-    updated += mapper_update_string_if_arg((char**)&sig->unit, msg, AT_UNITS);
-
-    updated += mapper_update_int_if_arg(&sig->num_instances, msg, AT_INSTANCES);
-
-    if (!sig->type || !sig->length)
-        return updated;
-
-    /* maximum */
-    atom = mapper_message_param(msg, AT_MAX);
-    if (atom && is_number_type(atom->types[0])) {
-        if (!sig->maximum)
-            sig->maximum = calloc(1, sig->length * mapper_type_size(sig->type));
-        for (i = 0; i < atom->length && i < sig->length; i++) {
-            result = propval_set_from_lo_arg(sig->maximum, sig->type,
-                                             atom->values[i], atom->types[i], i);
-            if (result == -1) {
-                free(sig->maximum);
-                sig->maximum = 0;
+    for (i = 0; i < msg->num_atoms; i++) {
+        atom = &msg->atoms[i];
+        switch (atom->index) {
+            case AT_DIRECTION: {
+                int dir = 0;
+                if (strcmp(&(*atom->values)->s, "output")==0)
+                    dir = MAPPER_DIR_OUTGOING;
+                else if (strcmp(&(*atom->values)->s, "input")==0)
+                    dir = MAPPER_DIR_INCOMING;
+                else
+                    break;
+                if (dir & MAPPER_DIR_INCOMING) {
+                    if (!(sig->direction & MAPPER_DIR_INCOMING))
+                        ++sig->device->num_inputs;
+                }
+                else if (sig->direction & MAPPER_DIR_INCOMING)
+                    --sig->device->num_inputs;
+                if (dir & MAPPER_DIR_OUTGOING) {
+                    if (!(sig->direction & MAPPER_DIR_OUTGOING))
+                        ++sig->device->num_outputs;
+                }
+                else if (sig->direction & MAPPER_DIR_OUTGOING)
+                    --sig->device->num_outputs;
+                mapper_table_set_record(sig->props, AT_DIRECTION, NULL, 1, 'i',
+                                        &dir, REMOTE_MODIFY);
                 break;
             }
-            else
-                updated += result;
-        }
-    }
-
-    /* minimum */
-    atom = mapper_message_param(msg, AT_MIN);
-    if (atom && is_number_type(atom->types[0])) {
-        if (!sig->minimum)
-            sig->minimum = calloc(1, sig->length * mapper_type_size(sig->type));
-        for (i = 0; i < atom->length && i < sig->length; i++) {
-            result = propval_set_from_lo_arg(sig->minimum, sig->type,
-                                             atom->values[i], atom->types[i], i);
-            if (result == -1) {
-                free(sig->minimum);
-                sig->minimum = 0;
+            case AT_LENGTH:
+            case AT_TYPE:
+                len_type_diff += mapper_table_set_record_from_atom(sig->props,
+                                                                   atom,
+                                                                   REMOTE_MODIFY);
                 break;
-            }
-            else
-                updated += result;
+            default:
+                updated += mapper_table_set_record_from_atom(sig->props, atom,
+                                                             REMOTE_MODIFY);
+                break;
         }
     }
-
-    return updated;
+    if (len_type_diff) {
+        // may need to upgrade extrema props for associated map slots
+        mapper_map *maps = mapper_signal_maps(sig, MAPPER_DIR_ANY);
+        mapper_slot slot;
+        while (maps) {
+            slot = mapper_map_slot_by_signal(*maps, sig);
+            mapper_slot_upgrade_extrema_memory(slot);
+            maps = mapper_map_query_next(maps);
+        }
+    }
+    return updated + len_type_diff;
 }
 
 void mapper_signal_pp(mapper_signal sig, int include_device_name)
@@ -1704,10 +1568,10 @@ void mapper_signal_pp(mapper_signal sig, int include_device_name)
     else
         printf("%s, direction=", sig->name);
     switch (sig->direction) {
-        case MAPPER_OUTGOING:
+        case MAPPER_DIR_OUTGOING:
             printf("output");
             break;
-        case MAPPER_INCOMING:
+        case MAPPER_DIR_INCOMING:
             printf("input");
             break;
         default:

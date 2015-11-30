@@ -56,16 +56,16 @@ int main(int argc, char ** argv)
 
     mapper::Device dev("mydevice");
 
-    mapper::Signal sig = dev.add_input("in1", 1, 'f', "meters", 0,
-                                       0, insig_handler, 0);
-    dev.remove_input(sig);
-    dev.add_input("in2", 2, 'i', 0, 0, 0, insig_handler, 0);
-    dev.add_input("in3", 2, 'i', 0, 0, 0, insig_handler, 0);
-    dev.add_input("in4", 2, 'i', 0, 0, 0, insig_handler, 0);
+    mapper::Signal sig = dev.add_input("in1", 1, 'f', "meters", 0, 0,
+                                       insig_handler);
+    dev.remove_signal(sig);
+    dev.add_input("in2", 2, 'i', 0, 0, 0, insig_handler);
+    dev.add_input("in3", 2, 'i', 0, 0, 0, insig_handler);
+    dev.add_input("in4", 2, 'i', 0, 0, 0, insig_handler);
 
-    sig = dev.add_output("out1", 1, 'f', "na", 0, 0);
-    dev.remove_output(sig);
-    sig = dev.add_output("out2", 3, 'd', "meters", 0, 0);
+    sig = dev.add_output("out1", 1, 'f', "na");
+    dev.remove_signal(sig);
+    sig = dev.add_output("out2", 3, 'd', "meters");
 
     while (!dev.ready()) {
         dev.poll(100);
@@ -80,10 +80,10 @@ int main(int argc, char ** argv)
         std::cout << "  host: " << inet_ntoa(*a) << std::endl;
     std::cout << "  port: " << dev.port() << std::endl;
     std::cout << "  num_fds: " << dev.num_fds() << std::endl;
-    std::cout << "  num_inputs: " << dev.num_signals(MAPPER_INCOMING) << std::endl;
-    std::cout << "  num_outputs: " << dev.num_signals(MAPPER_OUTGOING) << std::endl;
-    std::cout << "  num_incoming_maps: " << dev.num_maps(MAPPER_INCOMING) << std::endl;
-    std::cout << "  num_outgoing_maps: " << dev.num_maps(MAPPER_OUTGOING) << std::endl;
+    std::cout << "  num_inputs: " << dev.num_signals(MAPPER_DIR_INCOMING) << std::endl;
+    std::cout << "  num_outputs: " << dev.num_signals(MAPPER_DIR_OUTGOING) << std::endl;
+    std::cout << "  num_incoming_maps: " << dev.num_maps(MAPPER_DIR_INCOMING) << std::endl;
+    std::cout << "  num_outgoing_maps: " << dev.num_maps(MAPPER_DIR_OUTGOING) << std::endl;
 
     // access properties through the property getter
     std::cout << "name: " << (const char*)dev.property("name") << std::endl;
@@ -160,20 +160,20 @@ int main(int argc, char ** argv)
 
     std::cout << "signal: " << (const char*)sig << std::endl;
 
-    mapper::Signal::Query qsig = dev.signals(MAPPER_INCOMING).begin();
+    mapper::Signal::Query qsig = dev.signals(MAPPER_DIR_INCOMING).begin();
     for (; qsig != qsig.end(); ++qsig) {
         std::cout << "input: " << (const char*)(*qsig) << std::endl;
     }
 
     mapper::Db db(MAPPER_SUBSCRIBE_ALL);
-    mapper::Map map(dev.signals(MAPPER_OUTGOING)[0],
-                    dev.signals(MAPPER_INCOMING)[1]);
+    mapper::Map map(dev.signals(MAPPER_DIR_OUTGOING)[0],
+                    dev.signals(MAPPER_DIR_INCOMING)[1]);
     map.set_mode(MAPPER_MODE_EXPRESSION).set_expression("y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
     map.source().set_minimum(mapper::Property(0, 3, d));
-    map.sync();
+    map.push();
 
-    while (map.status() < MAPPER_ACTIVE) {
+    while (!map.ready()) {
         dev.poll(100);
     }
 
@@ -197,11 +197,11 @@ int main(int argc, char ** argv)
     std::cout << "db records:" << std::endl;
     for (auto const &device : db.devices()) {
         std::cout << "  device: " << (const char*)device.property("name") << std::endl;
-        for (auto const &signal : device.signals(MAPPER_INCOMING)) {
+        for (auto const &signal : device.signals(MAPPER_DIR_INCOMING)) {
             std::cout << "  input signal: " << device.name()
                       << "/" << signal.name() << std::endl;
         }
-        for (auto const &signal : device.signals(MAPPER_OUTGOING)) {
+        for (auto const &signal : device.signals(MAPPER_DIR_OUTGOING)) {
             std::cout << "  output signal: " << device.name()
                       << "/" << signal.name() << std::endl;
         }

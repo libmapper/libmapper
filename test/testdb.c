@@ -55,11 +55,8 @@ int main(int argc, char **argv)
         }
     }
 
-    lo_arg *args[20];
+    lo_message lom;
     mapper_message msg;
-    int port=1234;
-    int one_i=1, two_i=2;
-    float zero_f=0.f, one_f=1.f, two_f=2.f;
     uint64_t id = 1;
     mapper_network net = mapper_network_new(0, 0, 0);
     mapper_db db = &net->db;
@@ -70,148 +67,336 @@ int main(int argc, char **argv)
 
     /* Test the database functions */
 
-    args[0] = (lo_arg*)"@port";
-    args[1] = (lo_arg*)&port;
-    args[2] = (lo_arg*)"@host";
-    args[3] = (lo_arg*)"localhost";
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
+    lo_message_add_string(lom, "@port");
+    lo_message_add_int32(lom, 1234);
+    lo_message_add_string(lom, "@host");
+    lo_message_add_string(lom, "localhost");
 
-    if (!(msg = mapper_message_parse_params(4, "siss", args))) {
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mapper_db_add_or_update_device_params(db, "testdb.1", msg);
-    mapper_db_add_or_update_device_params(db, "testdb__.2", msg);
-
-    port = 3000;
-    args[3] = (lo_arg*)"192.168.0.100";
-    mapper_db_add_or_update_device_params(db, "testdb.3", msg);
-    port = 5678;
-    mapper_db_add_or_update_device_params(db, "testdb__.4", msg);
+    mapper_db_add_or_update_device(db, "testdb.1", msg);
+    mapper_db_add_or_update_device(db, "testdb__.2", msg);
 
     mapper_message_free(msg);
+    lo_message_free(lom);
 
-    args[0] = (lo_arg*)"@direction";
-    args[1] = (lo_arg*)"input";
-    args[2] = (lo_arg*)"@type";
-    args[3] = (lo_arg*)"f";
-    args[4] = (lo_arg*)"@id";
-    args[5] = (lo_arg*)&id;
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
+    lo_message_add_string(lom, "@port");
+    lo_message_add_int32(lom, 3000);
+    lo_message_add_string(lom, "@host");
+    lo_message_add_string(lom, "192.168.0.100");
 
-    if (!(msg = mapper_message_parse_params(6, "ssscsh", args))) {
-        eprintf("2: Error, parsing failed.\n");
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
+    mapper_db_add_or_update_device(db, "testdb.3", msg);
+
+    mapper_message_free(msg);
+    lo_message_free(lom);
+
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
+    lo_message_add_string(lom, "@port");
+    lo_message_add_int32(lom, 5678);
+    lo_message_add_string(lom, "@host");
+    lo_message_add_string(lom, "192.168.0.100");
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
+    mapper_db_add_or_update_device(db, "testdb__.4", msg);
+
+    mapper_message_free(msg);
+    lo_message_free(lom);
+
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
+    lo_message_add_string(lom, "@direction");
+    lo_message_add_string(lom, "input");
+    lo_message_add_string(lom, "@type");
+    lo_message_add_char(lom, 'f');
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
+    mapper_db_add_or_update_signal(db, "in1", "testdb.1", msg);
+
+    mapper_message_free(msg);
+    lo_message_free(lom);
+
+    lom = lo_message_new();
+    if (!lom) {
         result = 1;
         goto done;
     }
 
     id++;
-    mapper_db_add_or_update_signal_params(db, "in1", "testdb.1", msg);
-    id++;
-    mapper_db_add_or_update_signal_params(db, "in2", "testdb.1", msg);
+    lo_message_add_string(lom, "@direction");
+    lo_message_add_string(lom, "input");
+    lo_message_add_string(lom, "@type");
+    lo_message_add_char(lom, 'f');
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
 
-    mapper_message_free(msg);
-
-    args[1] = (lo_arg*)"output";
-
-    if (!(msg = mapper_message_parse_params(6, "ssscsh", args))) {
-        eprintf("2: Error, parsing failed.\n");
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
-    id++;
-    mapper_db_add_or_update_signal_params(db, "out1", "testdb.1", msg);
-    id++;
-    mapper_db_add_or_update_signal_params(db, "out2", "testdb.1", msg);
-    id++;
-    mapper_db_add_or_update_signal_params(db, "out1", "testdb__.2", msg);
+
+    mapper_db_add_or_update_signal(db, "in2", "testdb.1", msg);
 
     mapper_message_free(msg);
+    lo_message_free(lom);
 
-    args[0] = (lo_arg*)"@mode";
-    args[1] = (lo_arg*)"bypass";
-    args[2] = (lo_arg*)"@boundMin";
-    args[3] = (lo_arg*)"none";
-    args[4] = (lo_arg*)"@id";
-    args[5] = (lo_arg*)&id;
-
-    if (!(msg = mapper_message_parse_params(6, "sssssh", args))) {
-        eprintf("4: Error, parsing failed.\n");
+    lom = lo_message_new();
+    if (!lom) {
         result = 1;
         goto done;
     }
 
     id++;
+    lo_message_add_string(lom, "@direction");
+    lo_message_add_string(lom, "output");
+    lo_message_add_string(lom, "@type");
+    lo_message_add_char(lom, 'f');
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
+    mapper_db_add_or_update_signal(db, "out1", "testdb.1", msg);
+
+    mapper_message_free(msg);
+    lo_message_free(lom);
+
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
+
+    id++;
+    lo_message_add_string(lom, "@direction");
+    lo_message_add_string(lom, "output");
+    lo_message_add_string(lom, "@type");
+    lo_message_add_char(lom, 'f');
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
+    mapper_db_add_or_update_signal(db, "out2", "testdb.1", msg);
+
+    mapper_message_free(msg);
+    lo_message_free(lom);
+
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
+
+    id++;
+    lo_message_add_string(lom, "@direction");
+    lo_message_add_string(lom, "output");
+    lo_message_add_string(lom, "@type");
+    lo_message_add_char(lom, 'f');
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
+    mapper_db_add_or_update_signal(db, "out1", "testdb__.2", msg);
+
+    mapper_message_free(msg);
+    lo_message_free(lom);
+
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
+
+    id++;
+    lo_message_add_string(lom, "@mode");
+    lo_message_add_string(lom, "bypass");
+    lo_message_add_string(lom, "@dst@bound_min");
+    lo_message_add_string(lom, "none");
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
     const char *src_sig_name = "testdb.1/out2";
-    mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in1",
-                                       msg);
+    mapper_db_add_or_update_map(db, 1, &src_sig_name, "testdb__.2/in1", msg);
+
+    mapper_message_free(msg);
+    lo_message_free(lom);
+
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
 
     id++;
+    lo_message_add_string(lom, "@mode");
+    lo_message_add_string(lom, "bypass");
+    lo_message_add_string(lom, "@dst@bound_min");
+    lo_message_add_string(lom, "none");
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
     src_sig_name = "testdb__.2/out1";
-    mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb.1/in1",
-                                       msg);
+    mapper_db_add_or_update_map(db, 1, &src_sig_name, "testdb.1/in1", msg);
 
     mapper_message_free(msg);
+    lo_message_free(lom);
 
-    args[0] = (lo_arg*)"@mode";
-    args[1] = (lo_arg*)"expression";
-    args[2] = (lo_arg*)"@expression";
-    args[3] = (lo_arg*)"(x-10)*80";
-    args[4] = (lo_arg*)"@boundMin";
-    args[5] = (lo_arg*)"clamp";
-    args[6] = (lo_arg*)"@src@length";
-    args[7] = (lo_arg*)&two_i;
-    args[8] = (lo_arg*)"@src@type";
-    args[9] = (lo_arg*)"f";
-    args[10] = (lo_arg*)"@src@min";
-    args[11] = (lo_arg*)&zero_f;
-    args[12] = (lo_arg*)&one_f;
-    args[13] = (lo_arg*)"@src@max";
-    args[14] = (lo_arg*)&one_f;
-    args[15] = (lo_arg*)&two_f;
-    args[16] = (lo_arg*)"@id";
-    args[17] = (lo_arg*)&id;
-
-    if (!(msg = mapper_message_parse_params(18, "sssssssisssffsffsh", args))) {
-        eprintf("5: Error, parsing failed.\n");
+    lom = lo_message_new();
+    if (!lom) {
         result = 1;
         goto done;
     }
 
     id++;
-    src_sig_name = "testdb.1/out1";
-    mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in2",
-                                       msg);
+    lo_message_add_string(lom, "@mode");
+    lo_message_add_string(lom, "expression");
+    lo_message_add_string(lom, "@expression");
+    lo_message_add_string(lom, "(x-10)*80");
+    lo_message_add_string(lom, "@dst@bound_min");
+    lo_message_add_string(lom, "clamp");
+    lo_message_add_string(lom, "@src@min");
+    lo_message_add_float(lom, 0.f);
+    lo_message_add_float(lom, 1.f);
+    lo_message_add_string(lom, "@src@max");
+    lo_message_add_float(lom, 1.f);
+    lo_message_add_float(lom, 2.f);
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
 
-    id++;
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
     src_sig_name = "testdb.1/out1";
-    mapper_db_add_or_update_map_params(db, 1, &src_sig_name, "testdb__.2/in1",
-                                       msg);
+    mapper_db_add_or_update_map(db, 1, &src_sig_name, "testdb__.2/in2", msg);
 
     mapper_message_free(msg);
+    lo_message_free(lom);
 
-    args[6] = (lo_arg*)"@src@length";
-    args[7] = (lo_arg*)&one_i;
-    args[8] = (lo_arg*)&two_i;
-    args[9] = (lo_arg*)"@dst@length";
-    args[10] = (lo_arg*)&one_i;
-    args[11] = (lo_arg*)"@src@type";
-    args[12] = (lo_arg*)"f";
-    args[13] = (lo_arg*)"i";
-    args[14] = (lo_arg*)"@id";
-    args[15] = (lo_arg*)&id;
-
-    if (!(msg = mapper_message_parse_params(16, "sssssssiisissssh", args))) {
-        eprintf("5: Error, parsing failed.\n");
+    lom = lo_message_new();
+    if (!lom) {
         result = 1;
         goto done;
     }
 
     id++;
-    const char *multi_source[] = {"testdb__.2/out1", "testdb__.2/out2"};
-    mapper_db_add_or_update_map_params(db, 2, multi_source, "testdb.1/in2", msg);
+    lo_message_add_string(lom, "@mode");
+    lo_message_add_string(lom, "expression");
+    lo_message_add_string(lom, "@expression");
+    lo_message_add_string(lom, "(x-10)*80");
+    lo_message_add_string(lom, "@dst@bound_min");
+    lo_message_add_string(lom, "clamp");
+    lo_message_add_string(lom, "@src@min");
+    lo_message_add_float(lom, 0.f);
+    lo_message_add_float(lom, 1.f);
+    lo_message_add_string(lom, "@src@max");
+    lo_message_add_float(lom, 1.f);
+    lo_message_add_float(lom, 2.f);
+    lo_message_add_string(lom, "@id");
+    lo_message_add_int64(lom, id);
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
+    src_sig_name = "testdb.1/out1";
+    mapper_db_add_or_update_map(db, 1, &src_sig_name, "testdb__.2/in1", msg);
 
     mapper_message_free(msg);
+    lo_message_free(lom);
 
     /*********/
 
@@ -343,6 +528,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'port'<5678:\n");
 
+    int port = 5678;
     pdev = mapper_db_devices_by_property(db, "port", 1, 'i', &port,
                                          MAPPER_OP_LESS_THAN);
 
@@ -516,8 +702,8 @@ int main(int argc, char **argv)
         psig = mapper_signal_query_next(psig);
     }
 
-    if (count != 4) {
-        eprintf("Expected 4 records, but counted %d.\n", count);
+    if (count != 3) {
+        eprintf("Expected 3 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
@@ -621,8 +807,8 @@ int main(int argc, char **argv)
         psig = mapper_signal_query_next(psig);
     }
 
-    if (count != 2) {
-        eprintf("Expected 2 records, but counted %d.\n", count);
+    if (count != 1) {
+        eprintf("Expected 1 record, but counted %d.\n", count);
         result = 1;
         goto done;
     }
@@ -636,7 +822,7 @@ int main(int argc, char **argv)
     psig = mapper_db_signals_by_name(db, "out1");
     pmap = 0;
     while (psig) {
-        pmap2 = mapper_signal_maps(*psig, MAPPER_OUTGOING);
+        pmap2 = mapper_signal_maps(*psig, MAPPER_DIR_OUTGOING);
         pmap = mapper_map_query_union(pmap, pmap2);
         psig = mapper_signal_query_next(psig);
     }
@@ -659,8 +845,8 @@ int main(int argc, char **argv)
         pmap = mapper_map_query_next(pmap);
     }
 
-    if (count != 4) {
-        eprintf("Expected 4 records, but counted %d.\n", count);
+    if (count != 3) {
+        eprintf("Expected 3 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
@@ -704,7 +890,7 @@ int main(int argc, char **argv)
     psig = mapper_db_signals_by_name(db, "in2");
     pmap = 0;
     while (psig) {
-        pmap2 = mapper_signal_maps(*psig, MAPPER_INCOMING);
+        pmap2 = mapper_signal_maps(*psig, MAPPER_DIR_INCOMING);
         pmap = mapper_map_query_union(pmap, pmap2);
         psig = mapper_signal_query_next(psig);
     }
@@ -727,8 +913,8 @@ int main(int argc, char **argv)
         pmap = mapper_map_query_next(pmap);
     }
 
-    if (count != 2) {
-        eprintf("Expected 2 records, but counted %d.\n", count);
+    if (count != 1) {
+        eprintf("Expected 1 record, but counted %d.\n", count);
         result = 1;
         goto done;
     }
@@ -739,7 +925,7 @@ int main(int argc, char **argv)
 
     dev = mapper_db_device_by_name(db, "testdb__.2");
     sig = mapper_device_signal_by_name(dev, "in1");
-    pmap = mapper_signal_maps(sig, MAPPER_INCOMING);
+    pmap = mapper_signal_maps(sig, MAPPER_DIR_INCOMING);
 
     count=0;
     if (!pmap) {
@@ -773,12 +959,12 @@ int main(int argc, char **argv)
     // get maps with source signal
     dev = mapper_db_device_by_name(db, "testdb__.2");
     sig = mapper_device_signal_by_name(dev, "out1");
-    pmap = mapper_signal_maps(sig, MAPPER_OUTGOING);
+    pmap = mapper_signal_maps(sig, MAPPER_DIR_OUTGOING);
 
     // get maps with destination signal
     dev = mapper_db_device_by_name(db, "testdb.1");
     sig = mapper_device_signal_by_name(dev, "in1");
-    pmap2 = mapper_signal_maps(sig, MAPPER_INCOMING);
+    pmap2 = mapper_signal_maps(sig, MAPPER_DIR_INCOMING);
 
     // intersect map queries
     pmap = mapper_map_query_intersection(pmap, pmap2);
@@ -820,7 +1006,7 @@ int main(int argc, char **argv)
 
     pmap = 0;
     while (psig) {
-        pmap2 = mapper_signal_maps(*psig, MAPPER_OUTGOING);
+        pmap2 = mapper_signal_maps(*psig, MAPPER_DIR_OUTGOING);
         pmap = mapper_map_query_union(pmap, pmap2);
         psig = mapper_signal_query_next(psig);
     }
@@ -850,8 +1036,8 @@ int main(int argc, char **argv)
         pmap = mapper_map_query_next(pmap);
     }
 
-    if (count != 2) {
-        eprintf("Expected 2 records, but counted %d.\n", count);
+    if (count != 1) {
+        eprintf("Expected 1 record, but counted %d.\n", count);
         result = 1;
         goto done;
     }

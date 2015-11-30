@@ -13,49 +13,69 @@
 #define TRACING 0
 #endif
 
-const char* prop_message_strings[] =
-{
-    "@boundMax",        /* AT_BOUND_MAX */
-    "@boundMin",        /* AT_BOUND_MIN */
-    "@calibrating",     /* AT_CALIBRATING */
-    "@causesUpdate",    /* AT_CAUSES_UPDATE */
-    "@direction",       /* AT_DIRECTION */
-    "@expression",      /* AT_EXPRESSION */
-    "@host",            /* AT_HOST */
-    "@id",              /* AT_ID */
-    "@instances",       /* AT_INSTANCES */
-    "@length",          /* AT_LENGTH */
-    "@libVersion",      /* AT_LIB_VERSION */
-    "@max",             /* AT_MAX */
-    "@min",             /* AT_MIN */
-    "@mode",            /* AT_MODE */
-    "@mute",            /* AT_MUTE */
-    "@numMapsIn",       /* AT_NUM_INCOMING_MAPS */
-    "@numMapsOut",      /* AT_NUM_OUTGOING_MAPS */
-    "@numInputs",       /* AT_NUM_INPUTS */
-    "@numOutputs",      /* AT_NUM_OUTPUTS */
-    "@port",            /* AT_PORT */
-    "@processAt",       /* AT_PROCESS */
-    "@rate",            /* AT_RATE */
-    "@rev",             /* AT_REV */
-    "@scope",           /* AT_SCOPE */
-    "@useAsInstance",   /* AT_USE_AS_INSTANCE */
-    "@slot",            /* AT_SLOT */
-    "@status",          /* AT_STATUS */
-    "@type",            /* AT_TYPE */
-    "@units",           /* AT_UNITS */
-    "",                 /* AT_EXTRA (special case, does not represent a
-                         * specific property name) */
+/* length = 0 indicates variable length. */
+typedef struct {
+    const char *name;
+    int length;
+    char store_type;
+    char protocol_type;
+} static_property_t;
+
+const static_property_t static_properties[] = {
+    { "@bound_max",         1, 'i', 's' },  /* AT_BOUND_MAX */
+    { "@bound_min",         1, 'i', 's' },  /* AT_BOUND_MIN */
+    { "@calibrating",       1, 'b', 'b' },  /* AT_CALIBRATING */
+    { "@causes_update",     1, 'b', 'b' },  /* AT_CAUSES_UPDATE */
+    { "@description",       1, 's', 's' },  /* AT_DESCRIPTION */
+    { "@direction",         1, 'i', 's' },  /* AT_DIRECTION */
+    { "@expression",        1, 's', 's' },  /* AT_EXPRESSION */
+    { "@host",              1, 's', 's' },  /* AT_HOST */
+    { "@id",                1, 'h', 'h' },  /* AT_ID */
+    { "@instance",          1, 'i', 'i' },  /* AT_INSTANCE */
+    { "@length",            1, 'i', 'i' },  /* AT_LENGTH */
+    { "@lib_version",       1, 's', 's' },  /* AT_LIB_VERSION */
+    { "@max",               0, 'n', 'n' },  /* AT_MAX */
+    { "@min",               0, 'n', 'n' },  /* AT_MIN */
+    { "@mode",              1, 'i', 's' },  /* AT_MODE */
+    { "@muted",             1, 'b', 'b' },  /* AT_MUTED */
+    { "@name",              1, 's', 's' },  /* AT_NAME */
+    { "@num_incoming_maps", 1, 'i', 'i' },  /* AT_NUM_INCOMING_MAPS */
+    { "@num_inputs",        1, 'i', 'i' },  /* AT_NUM_INPUTS */
+    { "@num_instances",     1, 'i', 'i' },  /* AT_NUM_INSTANCES */
+    { "@num_outgoing_maps", 1, 'i', 'i' },  /* AT_NUM_OUTGOING_MAPS */
+    { "@num_outputs",       1, 'i', 'i' },  /* AT_NUM_OUTPUTS */
+    { "@port",              1, 'i', 'i' },  /* AT_PORT */
+    { "@process_location",  1, 'i', 's' },  /* AT_PROCESS */
+    { "@rate",              1, 'f', 'f' },  /* AT_RATE */
+    { "@scope",             0, 'D', 's' },  /* AT_SCOPE */
+    { "@slot",              0, 'i', 'i' },  /* AT_SLOT */
+    { "@status",            1, 'i', 'i' },  /* AT_STATUS */
+    { "@synced",            1, 't', 't' },  /* AT_SYNCED */
+    { "@type",              1, 'c', 'c' },  /* AT_TYPE */
+    { "@unit",              1, 's', 's' },  /* AT_UNIT */
+    { "@use_as_instance",   1, 'b', 'b' },  /* AT_USE_AS_INSTANCE */
+    { "@user_data",         1, 'v',  0  },  /* AT_USER_DATA */
+    { "@version",           1, 'i', 'i' },  /* AT_VERSION */
+    { "",                   0, 'a', 'a' },  /* AT_EXTRA (special case, does not
+                                             * represent a specific property
+                                             * name) */
 };
 
 const char* mapper_boundary_action_strings[] =
 {
-    NULL,          /* MAPPER_UNDEFINED */
-    "none",        /* MAPPER_NONE */
-    "mute",        /* MAPPER_MUTE */
-    "clamp",       /* MAPPER_CLAMP */
-    "fold",        /* MAPPER_FOLD */
-    "wrap",        /* MAPPER_WRAP */
+    NULL,          /* MAPPER_BOUND_UNDEFINED */
+    "none",        /* MAPPER_BOUND_NONE */
+    "mute",        /* MAPPER_BOUND_MUTE */
+    "clamp",       /* MAPPER_BOUND_CLAMP */
+    "fold",        /* MAPPER_BOUND_FOLD */
+    "wrap",        /* MAPPER_BOUND_WRAP */
+};
+
+const char* mapper_location_strings[] =
+{
+    NULL,           /* MAPPER_LOC_UNDEFINED */
+    "source",       /* MAPPER_LOC_SOURCE */
+    "destination",  /* MAPPER_LOC_DESTINATION */
 };
 
 const char* mapper_mode_strings[] =
@@ -65,12 +85,6 @@ const char* mapper_mode_strings[] =
     "linear",      /* MAPPER_MODE_LINEAR */
     "expression",  /* MAPPER_MODE_EXPRESSION */
 };
-
-inline static int type_match(const char l, const char r)
-{
-    // allow TRUE and FALSE in value vectors, otherwise enforce same type
-    return (l == r || ((l == 'T' || l == 'F') && (r == 'T' || r == 'F')));
-}
 
 int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
 {
@@ -97,102 +111,159 @@ int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
     return (signame - devname - 1);
 }
 
-mapper_message mapper_message_parse_params(int argc, const char *types,
-                                           lo_arg **argv)
+mapper_message mapper_message_parse_properties(int argc, const char *types,
+                                               lo_arg **argv)
 {
-    int i, j, slot_index, num_params=0;
-    // get the number of params
+    int i, slot_index, num_props=0;
+    // get the number of props
     for (i = 0; i < argc; i++) {
-        if (types[i] == 's' || types[i] == 'S')
-            num_params += (argv[i]->s == '@');
+        if (types[i] != 's' && types[i] != 'S')
+            continue;
+        if  (argv[i]->s == '@' || (strncmp(&argv[i]->s, "-@", 2)==0)
+             || (strncmp(&argv[i]->s, "+@", 2)==0))
+            ++num_props;
     }
-    if (!num_params)
+    if (!num_props)
         return 0;
 
     mapper_message msg = ((mapper_message)
                           calloc(1, sizeof(struct _mapper_message)));
     msg->atoms = ((mapper_message_atom_t*)
-                  calloc(1, sizeof(struct _mapper_message_atom) * num_params));
+                  calloc(1, sizeof(struct _mapper_message_atom) * num_props));
     mapper_message_atom atom = &msg->atoms[0];
+    const char *key;
 
     for (i = 0; i < argc; i++) {
         if (!is_string_type(types[i])) {
-            /* parameter ID not a string */
+            /* property ID not a string */
 #ifdef DEBUG
-            trace("message parameter '");
+            trace("message item '");
             lo_arg_pp(types[i], argv[i]);
             trace("' not a string.\n");
 #endif
             continue;
         }
-        if (argv[i]->s == '@') {
-            // new parameter
-            if (atom->types)
-                ++msg->num_atoms;
-            atom = &msg->atoms[msg->num_atoms];
-            atom->key = &argv[i]->s;
+        key = &argv[i]->s;
+        if (strncmp(&argv[i]->s, "+@", 2)==0) {
+            atom->index = PROPERTY_ADD;
+            ++key;
+        }
+        else if (strncmp(&argv[i]->s, "-@", 2)==0) {
+            atom->index = PROPERTY_REMOVE;
+            ++key;
+        }
+        if (key[0] != '@') // not a property key
+            continue;
 
-            // try to find matching index for static props
-            if (strncmp(atom->key, "@dst@", 5)==0) {
-                atom->index = DST_SLOT_PARAM;
+        // new property
+        if (atom->types)
+            ++msg->num_atoms;
+        atom = &msg->atoms[msg->num_atoms];
+        atom->key = key;
+
+        // try to find matching index for static props
+        if (strncmp(atom->key, "@dst@", 5)==0) {
+            atom->index = DST_SLOT_PROPERTY;
+            atom->key += 5;
+        }
+        else if (strncmp(atom->key, "@src", 4)==0) {
+            if (atom->key[4] == '@') {
+                atom->index = SRC_SLOT_PROPERTY(0);
                 atom->key += 5;
             }
-            else if (strncmp(atom->key, "@src", 4)==0) {
-                if (atom->key[4] == '@') {
-                    atom->index = SRC_SLOT_PARAM(0);
-                    atom->key += 5;
+            else if (atom->key[4] == '.') {
+                // in form 'src.<ordinal>'
+                slot_index = atoi(atom->key + 5);
+                if (slot_index >= MAX_NUM_MAP_SOURCES) {
+                    trace("Bad slot ordinal in property '%s'.\n", atom->key);
+                    atom->types = 0;
+                    continue;
                 }
-                else if (atom->key[4] == '.') {
-                    // in form 'src.<ordinal>'
-                    slot_index = atoi(atom->key + 5);
-                    if (slot_index >= MAX_NUM_MAP_SOURCES) {
-                        trace("Bad slot ordinal in param '%s'.\n", atom->key);
-                        atom->types = 0;
-                        continue;
-                    }
-                    atom->key = strchr(atom->key + 5, '@');
-                    if (!atom->key || !(++atom->key)) {
-                        trace("No sub-parameter found in key '%s'.\n", atom->key);
-                        atom->types = 0;
-                        continue;
-                    }
-                    atom->index = SRC_SLOT_PARAM(slot_index);
+                atom->key = strchr(atom->key + 5, '@');
+                if (!atom->key || !(++atom->key)) {
+                    trace("No sub-property found in key '%s'.\n", atom->key);
+                    atom->types = 0;
+                    continue;
                 }
+                atom->index = SRC_SLOT_PROPERTY(slot_index);
             }
-            else
-                ++atom->key;
-            for (j = 0; j < NUM_AT_PARAMS; j++) {
-                if (strcmp(atom->key, prop_message_strings[j]+1)==0) {
-                    atom->index |= j;
-                    break;
-                }
-            }
-            if (j == NUM_AT_PARAMS)
-                atom->index = AT_EXTRA;
         }
+        else
+            ++atom->key;
+        atom->index |= mapper_property_from_string(atom->key);
+
         if (msg->num_atoms < 0)
             continue;
         atom->types = &types[i+1];
         atom->values = &argv[i+1];
         while (++i < argc) {
-            if ((types[i] == 's' || types[i] == 'S') && (argv[i]->s == '@')) {
-                /* Arrived at next param index. */
+            if ((types[i] == 's' || types[i] == 'S')
+                && strspn(&argv[i]->s, "+-@")) {
+                /* Arrived at next property index. */
                 i--;
                 break;
             }
             else if (!type_match(types[i], atom->types[0])) {
-                trace("value vector for key %s has heterogeneous types.\n",
+                trace("Value vector for key '%s' has heterogeneous types.\n",
                       atom->key);
                 atom->length = 0;
                 atom->types = 0;
                 break;
             }
-            atom->length++;
+            else
+                atom->length++;
         }
         if (!atom->length) {
-            trace("key %s has no values.\n", atom->key);
+            trace("Key '%s' has no values.\n", atom->key);
             atom->types = 0;
             continue;
+        }
+        // check type against static props
+        if (MASK_PROP_BITFLAGS(atom->index) < AT_EXTRA) {
+            static_property_t prop;
+            prop = static_properties[MASK_PROP_BITFLAGS(atom->index)];
+            if (prop.length) {
+                if (prop.length != atom->length) {
+                    trace("Static property '%s' cannot have length %d.\n",
+                          static_properties[MASK_PROP_BITFLAGS(atom->index)].name,
+                          atom->length);
+                    atom->length = 0;
+                    atom->types = 0;
+                    continue;
+                }
+                if (atom->index & (PROPERTY_ADD | PROPERTY_REMOVE)) {
+                    trace("Cannot add or remove values from static property '%s'.\n",
+                          static_properties[MASK_PROP_BITFLAGS(atom->index)].name);
+                    continue;
+                }
+            }
+            if (!prop.protocol_type) {
+                trace("Static property '%s' cannot be set by message.\n",
+                      static_properties[MASK_PROP_BITFLAGS(atom->index)].name);
+                continue;
+            }
+            if (prop.protocol_type == 'n') {
+                if (!is_number_type(atom->types[0])) {
+                    trace("Static property '%s' cannot have type '%c' (2).\n",
+                          static_properties[MASK_PROP_BITFLAGS(atom->index)].name,
+                          atom->types[0]);
+                    continue;
+                }
+            }
+            else if (prop.protocol_type == 'b') {
+                if (!is_boolean_type(atom->types[0])) {
+                    trace("Static property '%s' cannot have type '%c' (2).\n",
+                          static_properties[MASK_PROP_BITFLAGS(atom->index)].name,
+                          atom->types[0]);
+                    continue;
+                }
+            }
+            else if (prop.protocol_type != atom->types[0]) {
+                trace("Static property '%s' cannot have type '%c' (1).\n",
+                      static_properties[MASK_PROP_BITFLAGS(atom->index)].name,
+                      atom->types[0]);
+                continue;
+            }
         }
     }
     // reset last atom if no types
@@ -208,14 +279,21 @@ mapper_message mapper_message_parse_params(int argc, const char *types,
     printf("%d parsed mapper_messages:\n", msg->num_atoms);
     for (i = 0; i < msg->num_atoms; i++) {
         atom = &msg->atoms[i];
-        if (atom->index & DST_SLOT_PARAM)
-            printf("  'dst/%s' [%d]: ", atom->key, atom->index);
-        else if (atom->index >> SRC_SLOT_PARAM_BIT_OFFSET)
-            printf("  'src%d/%s' [%d]: ",
-                   (atom->index >> SRC_SLOT_PARAM_BIT_OFFSET) - 1, atom->key,
+        if (atom->index & PROPERTY_ADD)
+            printf(" +");
+        else if (atom->index & PROPERTY_REMOVE)
+            printf(" -");
+        else
+            printf("  ");
+        if (atom->index & DST_SLOT_PROPERTY)
+            printf("'dst/%s' [%d]: ", atom->key, atom->index);
+        else if (atom->index >> SRC_SLOT_PROPERTY_BIT_OFFSET)
+            printf("'src%d/%s' [%d]: ",
+                   (atom->index >> SRC_SLOT_PROPERTY_BIT_OFFSET) - 1, atom->key,
                    atom->index);
         else
-            printf("  '%s' [%d]: ", atom->key, atom->index);
+            printf("'%s' [%d]: ", atom->key, atom->index);
+        int j;
         for (j = 0; j < atom->length; j++) {
             lo_arg_pp(atom->types[j], atom->values[j]);
             printf(", ");
@@ -235,266 +313,16 @@ void mapper_message_free(mapper_message msg)
     }
 }
 
-mapper_message_atom mapper_message_param(mapper_message msg,
-                                         mapper_message_param_t param)
+mapper_message_atom mapper_message_property(mapper_message msg,
+                                            mapper_property_t prop)
 {
     int i;
     for (i = 0; i < msg->num_atoms; i++) {
-        if (msg->atoms[i].index == param) {
+        if (msg->atoms[i].index == prop) {
             if (!msg->atoms[i].length || !msg->atoms[i].types)
                 return 0;
             return &msg->atoms[i];
         }
-    }
-    return 0;
-}
-
-const char* mapper_message_param_if_string(mapper_message msg,
-                                           mapper_message_param_t param)
-{
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || !atom->values)
-        return 0;
-
-    if (!atom->types)
-        return 0;
-
-    if (!is_string_type(atom->types[0]))
-        return 0;
-
-    return &(*(atom->values))->s;
-}
-
-const char* mapper_message_param_if_char(mapper_message msg,
-                                         mapper_message_param_t param)
-{
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || !atom->values)
-        return 0;
-
-    if (!atom->types)
-        return 0;
-
-    if (is_string_type(atom->types[0])
-        && (&(*atom->values)->s)[0] && (&(*atom->values)->s)[1]==0)
-        return &(*atom->values)->s;
-
-    if (atom->types[0] == 'c')
-        return (char*)&(*atom->values)->c;
-
-    return 0;
-}
-
-int mapper_message_param_if_int(mapper_message msg,
-                                mapper_message_param_t param, int *value)
-{
-    die_unless(value!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom)
-        return 1;
-
-    if (!atom->types)
-        return 1;
-
-    if (atom->types[0] == 'i' && *atom->values)
-        *value = (*atom->values)->i;
-    else if (atom->types[0] == 'T')
-        *value = 1;
-    else if (atom->types[0] == 'F')
-        *value = 0;
-    else
-        return 1;
-
-    return 0;
-}
-
-int mapper_message_param_if_int64(mapper_message msg,
-                                  mapper_message_param_t param,
-                                  int64_t *value)
-{
-    die_unless(value!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom)
-        return 1;
-
-    if (!atom->types)
-        return 1;
-
-    if (atom->types[0] != 'h')
-        return 1;
-
-    *value = (*atom->values)->i64;
-    return 0;
-}
-
-int mapper_message_param_if_float(mapper_message msg,
-                                  mapper_message_param_t param,
-                                  float *value)
-{
-    die_unless(value!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || !atom->values)
-        return 1;
-
-    if (!atom->types)
-        return 1;
-
-    if (atom->types[0] != 'f')
-        return 1;
-
-    *value = (*atom->values)->f;
-    return 0;
-}
-
-int mapper_message_param_if_double(mapper_message msg,
-                                   mapper_message_param_t param,
-                                   double *value)
-{
-    die_unless(value!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || !atom->values)
-        return 1;
-
-    if (!atom->types)
-        return 1;
-
-    if (atom->types[0] != 'd')
-        return 1;
-
-    *value = (*atom->values)->d;
-    return 0;
-}
-
-int mapper_message_add_or_update_extra_params(table tab, mapper_message msg)
-{
-    int i, updated = 0;
-    for (i = 0; i < msg->num_atoms; i++) {
-        if (msg->atoms[i].index != AT_EXTRA)
-            continue;
-        updated += mapper_table_add_or_update_message_atom(tab, &msg->atoms[i]);
-    }
-    return updated;
-}
-
-int mapper_update_string_if_arg(char **pdest_str, mapper_message msg,
-                                mapper_message_param_t param)
-{
-    die_unless(pdest_str!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-
-    if (atom && atom->values && is_string_type(atom->types[0])
-        && (!(*pdest_str) || strcmp((*pdest_str), &(*atom->values)->s))) {
-        char *str = (char*) realloc((void*)(*pdest_str),
-                                    strlen(&(*atom->values)->s)+1);
-        strcpy(str, &(*atom->values)->s);
-        (*pdest_str) = str;
-        return 1;
-    }
-    return 0;
-}
-
-int mapper_update_char_if_arg(char *pdest_char, mapper_message msg,
-                              mapper_message_param_t param)
-{
-    die_unless(pdest_char!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-
-    if (!atom || !atom->values)
-        return 0;
-
-    if (is_string_type(atom->types[0])) {
-        if (*pdest_char != (&(*atom->values)->s)[0]) {
-            (*pdest_char) = (&(*atom->values)->s)[0];
-            return 1;
-        }
-    }
-    else if (atom->types[0]=='c') {
-        if (*pdest_char != (*atom->values)->c) {
-            (*pdest_char) = (*atom->values)->c;
-            return 1;
-        }
-    }
-    return 0;
-}
-
-int mapper_update_bool_if_arg(int *pdest_bool, mapper_message msg,
-                              mapper_message_param_t param)
-{
-    die_unless(pdest_bool!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || (atom->types[0] != 'T' && atom->types[0] != 'F'))
-        return 0;
-
-    if ((atom->types[0] != 'T') != !(*pdest_bool)) {
-        (*pdest_bool) = (atom->types[0]=='T');
-        return 1;
-    }
-    return 0;
-}
-
-int mapper_update_int_if_arg(int *pdest_int, mapper_message msg,
-                             mapper_message_param_t param)
-{
-    die_unless(pdest_int!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || atom->types[0] != 'i')
-        return 0;
-    if (*pdest_int != (&(*atom->values)->i)[0]) {
-        (*pdest_int) = (&(*atom->values)->i)[0];
-        return 1;
-    }
-    return 0;
-}
-
-int mapper_update_int64_if_arg(int64_t *pdest_int64, mapper_message msg,
-                               mapper_message_param_t param)
-{
-    die_unless(pdest_int64!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || atom->types[0] != 'h')
-        return 0;
-    if (*pdest_int64 != (&(*atom->values)->i64)[0]) {
-        (*pdest_int64) = (&(*atom->values)->i64)[0];
-        return 1;
-    }
-    return 0;
-}
-
-int mapper_update_float_if_arg(float *pdest_float, mapper_message msg,
-                               mapper_message_param_t param)
-{
-    die_unless(pdest_float!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || atom->types[0] != 'f')
-        return 0;
-    if (*pdest_float != (&(*atom->values)->f)[0]) {
-        (*pdest_float) = (&(*atom->values)->f)[0];
-        return 1;
-    }
-    return 0;
-}
-
-int mapper_update_double_if_arg(double *pdest_double, mapper_message msg,
-                                mapper_message_param_t param)
-{
-    die_unless(pdest_double!=0, "bad pointer");
-
-    mapper_message_atom atom = mapper_message_param(msg, param);
-    if (!atom || atom->types[0] != 'd')
-        return 0;
-    if (*pdest_double != (&(*atom->values)->d)[0]) {
-        (*pdest_double) = (&(*atom->values)->d)[0];
-        return 1;
     }
     return 0;
 }
@@ -577,44 +405,100 @@ void mapper_message_add_typed_value(lo_message m, int length, char type,
     }
 }
 
-void mapper_message_add_value_table(lo_message m, table t)
+const char **mapper_message_add_table(lo_message msg, mapper_table tab)
 {
-    string_table_node_t *n = t->store;
-    int i, remove;
-    for (i=0; i<t->len; i++) {
-        remove = (n->key[0]=='-');
-        char keyname[256];
-        snprintf(keyname, 256, "-@%s", n->key + remove);
-        lo_message_add_string(m, keyname + 1 - remove);
-        mapper_property_value_t *v = n->value;
-        mapper_message_add_typed_value(m, v->length, v->type, v->value);
-        n++;
+    int i, len;
+    char temp[256];
+    const char **propnames = calloc(1, sizeof(char*) * tab->num_records);
+    mapper_table_record_t *rec = tab->records;
+
+    for (i = 0; i < tab->num_records; i++) {
+        if (!rec->value || ((rec->flags & INDIRECT) && !*rec->value))
+            continue;
+        len = 0;
+        if (rec->index & PROPERTY_ADD) {
+            snprintf(temp, 256, "+");
+            ++len;
+        }
+        else if (rec->index & PROPERTY_REMOVE) {
+            snprintf(temp, 256, "-");
+            ++len;
+        }
+        if (rec->index & DST_SLOT_PROPERTY) {
+            snprintf(temp + len, 256 - len, "@dst");
+            len += 4;
+        }
+        else if (rec->index >> SRC_SLOT_PROPERTY_BIT_OFFSET) {
+            snprintf(temp + len, 256 - len, "@src.%d",
+                     rec->index >> SRC_SLOT_PROPERTY_BIT_OFFSET);
+            len = strlen(temp);
+        }
+        int masked = MASK_PROP_BITFLAGS(rec->index);
+        if (masked < 0 || masked >= AT_EXTRA) {
+            trace("skipping malformed property.\n");
+            continue;
+        }
+        if (masked == AT_EXTRA) {
+            snprintf(temp + len, 256 - len, "@%s", rec->key);
+            len = strlen(temp);
+        }
+        else {
+            snprintf(temp + len, 256 - len, "%s",
+                     static_properties[masked].name);
+        }
+        if (len) {
+            propnames[i] = strdup(temp);
+            lo_message_add_string(msg, propnames[i]);
+        }
+        else {
+            // can use static string
+            lo_message_add_string(msg, static_properties[masked].name);
+        }
+        mapper_message_add_typed_value(msg, rec->length, rec->type, rec->value);
+        rec++;
     }
+    return propnames;
 }
 
-const char *mapper_param_string(mapper_message_param_t param)
+const char *mapper_protocol_string(mapper_property_t prop)
 {
-    die_unless(param < NUM_AT_PARAMS,
-               "called mapper_param_string() with bad parameter.\n");
-
-    return prop_message_strings[param];
+    prop = MASK_PROP_BITFLAGS(prop);
+    die_unless(prop < NUM_AT_PROPERTIES,
+               "called mapper_protocol_string() with bad property index %d.\n",
+               prop);
+    return static_properties[prop].name;
 }
 
-int mapper_message_signal_direction(mapper_message msg)
+const char *mapper_property_string(mapper_property_t prop)
 {
-    const char *str = mapper_message_param_if_string(msg, AT_DIRECTION);
-    if (!str)
-        return 0;
-    if (strcmp(str, "output")==0)
-        return MAPPER_OUTGOING;
-    if (strcmp(str, "input")==0)
-        return MAPPER_INCOMING;
-    return 0;
+    prop = MASK_PROP_BITFLAGS(prop);
+    die_unless(prop < NUM_AT_PROPERTIES,
+               "called mapper_property_string() with bad property index %d.\n",
+               prop);
+    return static_properties[prop].name + 1;
+}
+
+mapper_property_t mapper_property_from_string(const char *string)
+{
+    // property names are stored alphabetically so we can use a binary search
+    int beg = 0, end = NUM_AT_PROPERTIES - 2;
+    int mid = (beg + end) * 0.5, cmp;
+    while (beg <= end) {
+        cmp = strcmp(string, static_properties[mid].name + 1);
+        if (cmp > 0)
+            beg = mid + 1;
+        else if (cmp == 0)
+            return mid;
+        else
+            end = mid - 1;
+        mid = (beg + end) * 0.5;
+    }
+    return AT_EXTRA;
 }
 
 const char *mapper_boundary_action_string(mapper_boundary_action bound)
 {
-    if (bound <= MAPPER_UNDEFINED || bound > NUM_MAPPER_BOUNDARY_ACTIONS)
+    if (bound <= MAPPER_BOUND_UNDEFINED || bound > NUM_MAPPER_BOUNDARY_ACTIONS)
         return "unknown";
     return mapper_boundary_action_strings[bound];
 }
@@ -622,13 +506,32 @@ const char *mapper_boundary_action_string(mapper_boundary_action bound)
 mapper_boundary_action mapper_boundary_action_from_string(const char *str)
 {
     if (!str)
-        return MAPPER_UNDEFINED;
+        return MAPPER_BOUND_UNDEFINED;
     int i;
-    for (i = MAPPER_UNDEFINED+1; i < NUM_MAPPER_BOUNDARY_ACTIONS; i++) {
+    for (i = MAPPER_BOUND_UNDEFINED+1; i < NUM_MAPPER_BOUNDARY_ACTIONS; i++) {
         if (strcmp(str, mapper_boundary_action_strings[i])==0)
             return i;
     }
-    return MAPPER_UNDEFINED;
+    return MAPPER_BOUND_UNDEFINED;
+}
+
+const char *mapper_location_string(mapper_location loc)
+{
+    if (loc <= 0 || loc > NUM_MAPPER_LOCATIONS)
+        return "unknown";
+    return mapper_location_strings[loc];
+}
+
+mapper_location mapper_location_from_string(const char *str)
+{
+    if (!str)
+        return MAPPER_LOC_UNDEFINED;
+    int i;
+    for (i = MAPPER_LOC_UNDEFINED+1; i < 3; i++) {
+        if (strcmp(str, mapper_location_strings[i])==0)
+            return i;
+    }
+    return MAPPER_LOC_UNDEFINED;
 }
 
 const char *mapper_mode_string(mapper_mode mode)
@@ -648,14 +551,6 @@ mapper_mode mapper_mode_from_string(const char *str)
             return i;
     }
     return MAPPER_MODE_UNDEFINED;
-}
-
-int mapper_message_mute(mapper_message msg)
-{
-    int mute;
-    if (mapper_message_param_if_int(msg, AT_MUTE, &mute))
-        return -1;
-    return mute;
 }
 
 // Helper for setting property value from different lo_arg types
@@ -790,32 +685,13 @@ void propval_set_double(void *to, const char type, int index, double from)
     }
 }
 
-int mapper_property_set_string(char **property, const char *string)
-{
-    if (*property) {
-        if (!string) {
-            free(*property);
-            *property = 0;
-            return 1;
-        }
-        else if (strcmp(*property, string)) {
-            *property = realloc(*property, strlen(string)+1);
-            memcpy(*property, string, strlen(string)+1);
-            return 1;
-        }
-    }
-    else if (string) {
-        *property = strdup(string);
-        return 1;
-    }
-    return 0;
-}
-
 void mapper_property_pp(int length, char type, const void *value)
 {
     int i;
-    if (!value || length < 1)
+    if (!value || length < 1) {
+        printf("NULL");
         return;
+    }
 
     if (length > 1)
         printf("[");
@@ -847,6 +723,13 @@ void mapper_property_pp(int length, char type, const void *value)
                 printf("%d, ", pi[i]);
             break;
         }
+        case 'b':
+        {
+            int *pi = (int*)value;
+            for (i = 0; i < length; i++)
+                printf("%c, ", pi[i] ? 'T' : 'F');
+            break;
+        }
         case 'd':
         {
             double *pd = (double*)value;
@@ -873,6 +756,13 @@ void mapper_property_pp(int length, char type, const void *value)
             char *pi = (char*)value;
             for (i = 0; i < length; i++)
                 printf("%c, ", pi[i]);
+            break;
+        }
+        case 'v':
+        {
+            void **v = (void**)value;
+            for (i = 0; i < length; i++)
+                printf("%p, ", v[i]);
             break;
         }
         default:

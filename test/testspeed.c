@@ -57,14 +57,14 @@ int setup_source()
         goto error;
     eprintf("source created.\n");
 
-    sendsig = mapper_device_add_output(source, "/outsig", 1, 'f', 0, 0, 0);
+    sendsig = mapper_device_add_output(source, "outsig", 1, 'f', 0, 0, 0);
     if (!sendsig)
         goto error;
     mapper_signal_reserve_instances(sendsig, 9, 0, 0);
 
     eprintf("Output signal registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_num_signals(source, MAPPER_OUTGOING));
+            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
 
     return 0;
 
@@ -109,15 +109,15 @@ int setup_destination()
         goto error;
     eprintf("destination created.\n");
 
-    recvsig = mapper_device_add_input(destination, "/insig", 1, 'f',
-                                      0, 0, 0, insig_handler, 0);
+    recvsig = mapper_device_add_input(destination, "insig", 1, 'f', 0, 0, 0,
+                                      insig_handler, 0);
     if (!recvsig)
         goto error;
     mapper_signal_reserve_instances(recvsig, 9, 0, 0);
 
     eprintf("Input signal registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_num_signals(destination, MAPPER_INCOMING));
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
 
     return 0;
 
@@ -149,10 +149,10 @@ void map_signals()
     mapper_map map = mapper_map_new(1, &sendsig, recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
     mapper_map_set_expression(map, "y=y{-1}+1");
-    mapper_map_sync(map);
+    mapper_map_push(map);
 
     // wait until mapping has been established
-    while (!done && (mapper_map_status(map) < MAPPER_ACTIVE)) {
+    while (!done && !mapper_map_ready(map)) {
         mapper_device_poll(source, 10);
         mapper_device_poll(destination, 10);
     }
