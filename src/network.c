@@ -323,8 +323,7 @@ static void mapper_network_remove_device_methods(mapper_network net,
         snprintf(fullpath, 256,
                  network_message_strings[device_handlers[i].str_index],
                  mapper_device_name(net->device));
-        // make sure method isn't also used by a device
-        // TODO: can remove all handlers not used for autosubscribe settings
+        // make sure method isn't also used by a db
         if (net->db.autosubscribe) {
             int found = 0;
             for (j=0; j < NUM_DB_HANDLERS; j++) {
@@ -466,7 +465,6 @@ mapper_network mapper_network_new(const char *iface, const char *group, int port
     return net;
 }
 
-// TODO: move to header?
 const char *mapper_libversion(mapper_network net)
 {
     return PACKAGE_VERSION;
@@ -1674,9 +1672,6 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                               src_index ? MAPPER_DIR_OUTGOING : MAPPER_DIR_INCOMING);
     }
 
-    /* TODO: handle passing @numInstances prop from signals, set sensible
-     * defaults for new mappings. */
-
     /* Set map properties. */
     mapper_map_set_from_message(map, props, 1);
 
@@ -1970,9 +1965,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
 
     int updated = mapper_map_set_from_message(map, props, 1);
 
-    // TODO: check for self-connections, don't need to send updates
-
-    if (updated) {
+    if (updated && !map->local->is_local) {
         // TODO: may not need to inform all remote peers
         // Inform remote peer(s) of relevant changes
         if (!map->destination.local->router_sig) {
@@ -2124,7 +2117,6 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
 static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
                             int argc, lo_message msg, void *user_data)
 {
-    // TODO: devices should check if they are target, clean up old maps
     mapper_network net = (mapper_network) user_data;
     int i, id_index;
     uint64_t *id = 0;

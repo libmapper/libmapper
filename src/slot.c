@@ -469,7 +469,6 @@ void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
                 break;
         }
     }
-    // TODO: add signal boundary action if not overridden by slot properties
 }
 
 void mapper_slot_pp(mapper_slot slot)

@@ -1282,7 +1282,6 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit)
                             LOCAL_MODIFY);
 }
 
-// TODO: use sig_table to simplify error check
 void mapper_signal_set_property(mapper_signal sig, const char *name, int length,
                                 char type, const void *value)
 {
@@ -1291,7 +1290,6 @@ void mapper_signal_set_property(mapper_signal sig, const char *name, int length,
                             sig->local ? LOCAL_MODIFY : REMOTE_MODIFY);
 }
 
-// TODO: use sig_table to simplify error check
 void mapper_signal_remove_property(mapper_signal sig, const char *name)
 {
     mapper_property_t prop = mapper_property_from_string(name);

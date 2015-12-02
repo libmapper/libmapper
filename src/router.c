@@ -26,7 +26,6 @@ static int map_in_scope(mapper_map map, mapper_id id)
 static void mapper_link_free(mapper_link link)
 {
     if (link) {
-        // TODO: check if device record is used by db, and if not remove it
         if (link->admin_addr)
             lo_address_free(link->admin_addr);
         if (link->data_addr)
@@ -41,7 +40,6 @@ static void mapper_link_free(mapper_link link)
     }
 }
 
-// TODO: reuse device listed in db for remote
 mapper_link mapper_router_add_link(mapper_router rtr, mapper_device dev)
 {
     if (!dev)

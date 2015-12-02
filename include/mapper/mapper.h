@@ -1609,6 +1609,13 @@ mapper_map *mapper_db_maps(mapper_db db);
  *                  found map, or 0 if not found. */
 mapper_map mapper_db_map_by_id(mapper_db db, mapper_id id);
 
+/*! Return the list of maps that use the given scope.
+ *  \param db       The database to query.
+ *  \param dev      The device owning the scope to query.
+ *  \return         A souble-pointer to the first item in a list of results.
+ *                  Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_db_maps_by_scope(mapper_db db, mapper_device dev);
+
 /*! Return the list of maps matching the given property.
  *  \param db       The database to query.
  *  \param name     The name of the property to search for.

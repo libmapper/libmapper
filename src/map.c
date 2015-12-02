@@ -256,10 +256,23 @@ mapper_location mapper_map_process_location(mapper_map map)
     return map->process_location;
 }
 
-// TODO: use query functionality to retrieve map scopes
+static int cmp_query_map_scopes(const void *context_data, mapper_device dev)
+{
+    mapper_map_scope scope = (mapper_map_scope)context_data;
+    for (int i = 0; i < scope->size; i++) {
+        if (!scope->devices[i] || scope->devices[i]->id == dev->id)
+            return 1;
+    }
+    return 0;
+}
+
 mapper_device *mapper_map_scopes(mapper_map map)
 {
-    return 0;
+    if (!map || !map->scope.size)
+        return 0;
+    return ((mapper_device *)
+            mapper_list_new_query(map->db->devices, cmp_query_map_scopes,
+                                  "v", &map->scope));
 }
 
 int mapper_map_property(mapper_map map, const char *name, int *length,
@@ -385,68 +398,87 @@ static int add_scope_internal(mapper_map map, const char *name)
 {
     int i;
     if (!map || !name)
-        return 1;
+        return 0;
+    mapper_device dev = 0;
 
-    // Check if scope is already stored for this map
+    if (strcmp(name, "all")==0) {
+        for (i = 0; i < map->scope.size; i++) {
+            if (!map->scope.devices[i])
+                return 0;
+        }
+    }
+    else {
+        dev = mapper_db_add_or_update_device(map->db, name, 0);
+        for (i = 0; i < map->scope.size; i++) {
+            if (map->scope.devices[i] && map->scope.devices[i]->id == dev->id)
+                return 0;
+        }
+    }
+
+    // not found - add a new scope
+    i = ++map->scope.size;
+    map->scope.devices = realloc(map->scope.devices, i * sizeof(mapper_device));
+    map->scope.devices[i-1] = dev;
+    return 1;
+}
+
+static int remove_scope_internal(mapper_map map, const char *name)
+{
+    int i;
+    if (!map || !name)
+        return 0;
     if (strcmp(name, "all")==0)
         name = 0;
     for (i = 0; i < map->scope.size; i++) {
         if (!map->scope.devices[i]) {
             if (!name)
-                return 1;
+                break;
         }
         else if (name && strcmp(map->scope.devices[i]->name, name) == 0)
-            return 1;
+            break;
     }
+    if (i == map->scope.size)
+        return 0;
 
-    // not found - add a new scope
-    mapper_device dev = name ? mapper_db_device_by_name(map->db, name) : 0;
-    i = ++map->scope.size;
-    map->scope.devices = realloc(map->scope.devices, i * sizeof(mapper_device));
-    map->scope.devices[i-1] = dev;
-    return 0;
-}
-
-static int remove_scope_internal(mapper_map map, int index)
-{
-    int i;
-
-    for (i = index+1; i < map->scope.size; i++) {
+    // found - remove scope at index i
+    for (; i < map->scope.size; i++) {
         map->scope.devices[i-1] = map->scope.devices[i];
     }
     map->scope.size--;
     map->scope.devices = realloc(map->scope.devices,
                                  map->scope.size * sizeof(mapper_device));
-    return 0;
+    return 1;
 }
 
-static int mapper_map_update_scope(mapper_map map,
-                                   mapper_message_atom atom)
+static int mapper_map_update_scope(mapper_map map, mapper_message_atom atom)
 {
     int i, j, updated = 0, num = atom->length;
     lo_arg **scope_list = atom->values;
     if (scope_list && *scope_list) {
         if (num == 1 && strcmp(&scope_list[0]->s, "none")==0)
             num = 0;
+        const char *name, *no_slash;
 
         // First remove old scopes that are missing
         for (i = 0; i < map->scope.size; i++) {
             int found = 0;
             for (j = 0; j < num; j++) {
+                name = &scope_list[j]->s;
                 if (!map->scope.devices[i]) {
-                    if (strcmp(&scope_list[j]->s, "all") == 0) {
+                    if (strcmp(name, "all") == 0) {
                         found = 1;
                         break;
                     }
                     break;
                 }
-                if (strcmp(map->scope.devices[i]->name, &scope_list[j]->s) == 0) {
+                no_slash = name[0] == '/' ? name + 1 : name;
+                if (strcmp(no_slash, map->scope.devices[i]->name) == 0) {
                     found = 1;
                     break;
                 }
             }
             if (!found) {
-                remove_scope_internal(map, i);
+                remove_scope_internal(map, &scope_list[i]->s);
                 ++updated;
             }
         }
@@ -1039,17 +1071,16 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
             return;
     }
     else {
-        // TODO: check if expression has changed
-        mapper_table_set_record(map->props, AT_EXPRESSION, NULL, 1, 's',
-                                expr, REMOTE_MODIFY);
-        map->mode = MAPPER_MODE_EXPRESSION;
+        if (mapper_table_set_record(map->props, AT_EXPRESSION, NULL, 1, 's',
+                                    expr, REMOTE_MODIFY)) {
+            map->mode = MAPPER_MODE_EXPRESSION;
+        }
         return;
     }
 
-    /* Special case: if we are the receiver and the new expression
-     * evaluates to a constant we can update immediately. */
-    /* TODO: should call handler for all instances updated
-     * through this map. */
+    /* Special case: if we are the receiver and the new expression evaluates to
+     * a constant we can update immediately. */
+    /* TODO: should call handler for all instances updated through this map. */
     int use_as_instance = 0;
     for (i = 0; i < map->num_sources; i++) {
         if (map->sources[i].use_as_instance) {
@@ -1241,7 +1272,7 @@ static int mapper_map_check_status(mapper_map map)
 // if 'override' flag is not set, only remote properties can be set
 int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override)
 {
-    int i, j, k, updated = 0;
+    int i, j, updated = 0;
     mapper_message_atom atom;
     if (!msg) {
         if (map->local && map->status < STATUS_READY) {
@@ -1346,27 +1377,11 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                 break;
             case AT_SCOPE | PROPERTY_ADD:
                 for (j = 0; j < atom->length; j++)
-                    updated += (1 - add_scope_internal(map, &(atom->values[j])->s));
+                    updated += add_scope_internal(map, &(atom->values[j])->s);
                 break;
             case AT_SCOPE | PROPERTY_REMOVE:
-                for (j = 0; j < atom->length; j++) {
-                    // find scope
-                    for (k = 0; k < map->scope.size; k++) {
-                        if (!map->scope.devices[k]) {
-                            if (strcmp(&(atom->values[j])->s, "all") == 0) {
-                                remove_scope_internal(map, k);
-                                ++updated;
-                            }
-                            break;
-                        }
-                        else if (strcmp(map->scope.devices[k]->name,
-                                        &(atom->values[j])->s)==0) {
-                            remove_scope_internal(map, k);
-                            ++updated;
-                            break;
-                        }
-                    }
-                }
+                for (j = 0; j < atom->length; j++)
+                    updated += remove_scope_internal(map, &(atom->values[j])->s);
                 break;
             case AT_MODE: {
                 int mode = mapper_mode_from_string(&(atom->values[0])->s);
@@ -1616,6 +1631,17 @@ static const char *add_properties_to_message(mapper_map map, lo_message msg,
                 mapper_message_add_typed_value(msg, rec->length, rec->type,
                                                indirect ? *rec->value : rec->value);
                 break;
+        }
+    }
+
+    // Scope
+    if (map->scope.size) {
+        lo_message_add_string(msg, mapper_protocol_string(AT_SCOPE));
+        for (i = 0; i < map->scope.size; i++) {
+            if (map->scope.devices[i])
+                lo_message_add_string(msg, map->scope.devices[i]->name);
+            else
+                lo_message_add_string(msg, "all");
         }
     }
 

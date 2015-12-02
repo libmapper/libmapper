@@ -421,7 +421,6 @@ typedef struct _mapper_slot_internal {
     char status;
 } mapper_slot_internal_t, *mapper_slot_internal;
 
-// TODO: remove type, length, flags
 typedef struct _mapper_slot {
     mapper_slot_internal local;         //!< Pointer to local resources if any
     struct _mapper_map *map;            //!< Pointer to parent map
@@ -434,9 +433,7 @@ typedef struct _mapper_slot {
     void *minimum;                      //!< Array of minima, or NULL for N/A
     void *maximum;                      //!< Array of maxima, or NULL for N/A
     int id;                             //!< Slot ID
-//    int length;
     int num_instances;
-    int flags;
     int direction;                      //!< DI_INCOMING or DI_OUTGOING
     int causes_update;                  //!< 1 if causes update, 0 otherwise.
     int use_as_instance;                //!< 1 if used as instance, 0 otherwise.
@@ -444,7 +441,6 @@ typedef struct _mapper_slot {
     mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
     mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.
     int calibrating;                    //!< >1 if calibrating, 0 otherwise
-//    char type;
 } mapper_slot_t, *mapper_slot;
 
 /*! The mapper_map_internal structure is a linked list of mappings for a given
@@ -456,7 +452,6 @@ typedef struct _mapper_map_internal {
     int is_admin;
     int is_local;
 
-    // TODO: move expr_vars into expr structure?
     mapper_expr expr;                   //!< The mapping expression.
     mapper_history *expr_vars;          //!< User variables values.
     int num_expr_vars;                  //!< Number of user variables.

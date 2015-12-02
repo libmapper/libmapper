@@ -200,6 +200,13 @@ void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet)
 
     mapper_db_remove_maps_by_query(db, mapper_device_maps(dev, MAPPER_DIR_ANY));
 
+    // remove matching maps scopes
+    mapper_map *maps = mapper_db_maps_by_scope(db, dev);
+    while (maps) {
+        mapper_map_remove_scope(*maps, dev);
+        maps = mapper_map_query_next(maps);
+    }
+
     mapper_db_remove_signals_by_query(db, mapper_device_signals(dev,
                                                                 MAPPER_DIR_ANY));
 
@@ -813,6 +820,27 @@ mapper_map mapper_db_map_by_id(mapper_db db, mapper_id id)
     return 0;
 }
 
+static int cmp_query_maps_by_scope(const void *context_data, mapper_map map)
+{
+    mapper_id id = *(mapper_id*)context_data;
+    for (int i = 0; i < map->scope.size; i++) {
+        if (map->scope.devices[i]) {
+            if (map->scope.devices[i]->id == id)
+                return 1;
+        }
+        else if (id == 0)
+            return 1;
+    }
+    return 0;
+}
+
+mapper_map *mapper_db_maps_by_scope(mapper_db db, mapper_device dev)
+{
+    return ((mapper_map *)
+            mapper_list_new_query(db->maps, cmp_query_maps_by_scope,
+                                  "h", dev ? dev->id : 0));
+}
+
 static int cmp_query_maps_by_property(const void *context_data, mapper_map map)
 {
     int op = *(int*)context_data;
@@ -1144,7 +1172,6 @@ static void on_device_autosubscribe(mapper_device dev, mapper_record_action a,
 
 static void mapper_db_autosubscribe(mapper_db db, int flags)
 {
-    // TODO: remove autorenewing subscription record if necessary
     if (!db->autosubscribe && flags) {
         mapper_db_add_device_callback(db, on_device_autosubscribe, db);
         mapper_db_request_devices(db);
