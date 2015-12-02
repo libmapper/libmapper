@@ -1135,33 +1135,43 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
     e.variables = 0;
     e.num_variables = 0;
     mapper_history_t h;
-    // TODO: this variable should not be mapper_value_t?
-    mapper_value_t v;
+
+    void *v = malloc(mapper_type_size(stack[length-1].datatype) * vector_length);
     h.type = stack[length-1].datatype;
-    h.value = &v;
+    h.value = v;
     h.position = -1;
-    h.length = 1;
+    h.length = vector_length;
     h.size = 1;
 
-    if (!mapper_expr_evaluate(&e, 0, 0, &h, 0, 0))
+    if (!mapper_expr_evaluate(&e, 0, 0, &h, 0, 0)) {
+        free(v);
         return 0;
+    }
 
-    switch (stack[length-1].datatype) {
+    int i;
+    switch (h.type) {
         case 'f':
-            stack[0].f = v.f;
+            for (i = 0; i < vector_length; i++)
+                stack[i].f = ((float*)v)[i];
             break;
         case 'd':
-            stack[0].d = v.d;
+            for (i = 0; i < vector_length; i++)
+                stack[i].d = ((double*)v)[i];
             break;
         case 'i':
-            stack[0].i = v.i32;
+            for (i = 0; i < vector_length; i++)
+                stack[i].i = ((int*)v)[i];
             break;
         default:
+            free(v);
             return 0;
         break;
     }
-    stack[0].toktype = TOK_CONST;
-    stack[0].datatype = stack[length-1].datatype;
+    for (i = 0; i < vector_length; i++) {
+        stack[i].toktype = TOK_CONST;
+        stack[i].datatype = stack[length-1].datatype;
+    }
+    free(v);
     return length-1;
 }
 
