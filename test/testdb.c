@@ -1044,8 +1044,7 @@ int main(int argc, char **argv)
 
     /*********/
 done:
-    while (db->devices)
-        mapper_db_remove_device(db, db->devices, 1);
+    mapper_network_free(net);
     if (!verbose)
         printf("..................................................");
     printf("Test %s.\n", result ? "FAILED" : "PASSED");

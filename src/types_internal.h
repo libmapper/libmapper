@@ -143,16 +143,18 @@ typedef struct _mapper_db {
     fptr_list signal_callbacks;         //<! List of signal record callbacks.
     fptr_list map_callbacks;            //<! List of mapping record callbacks.
 
+    /*! Linked-list of autorenewing device subscriptions. */
+    mapper_subscription subscriptions;
+
     /*! Flags indicating whether information on signals and mappings should
      *  be automatically subscribed to when a new device is seen.*/
     int autosubscribe;
 
-    /*! Linked-list of autorenewing device subscriptions. */
-    mapper_subscription subscriptions;
-
     /*! The time after which the db will declare devices "unresponsive". */
     int timeout_sec;
     uint32_t resource_counter;
+
+    int own_network;
 } mapper_db_t, *mapper_db;
 
 /**** Messages ****/
@@ -555,6 +557,8 @@ typedef struct _mapper_local_device {
 
     /*! Server used to handle incoming messages. */
     lo_server server;
+
+    int own_network;
 } mapper_local_device_t, *mapper_local_device;
 
 

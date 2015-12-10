@@ -997,7 +997,7 @@ void printtoken(mapper_token_t tok)
                          tok.assignment_offset, tok.vector_index);
             break;
         case TOK_END:       printf("END\n");                    return;
-        default:            printf("(unknown token)");          return;
+        default:            printf("(unknown token)\n");        return;
     }
     printf("%s", tokstr);
     // indent
@@ -1548,7 +1548,8 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
     mapper_variable_t variables[N_USER_VARS];
     int num_variables = 0;
 
-    int assign_mask = TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE;
+    int assign_mask = (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE
+                       | TOK_OPEN_CURLY);
     int OBJECT_TOKENS = (TOK_VAR | TOK_CONST | TOK_FUNC | TOK_VFUNC
                          | TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE);
 
@@ -1571,9 +1572,13 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
         if (variable && tok.toktype != TOK_OPEN_SQUARE
             && tok.toktype != TOK_OPEN_CURLY)
             variable = 0;
-        if (!((tok.toktype & allow_toktype & (assigning ? assign_mask : 0xFFFF))
-              | (assigning ? TOK_ASSIGNMENT : 0))) {
-            {FAIL("Illegal token sequence.");}
+        if (assigning) {
+            if (tok.toktype != TOK_ASSIGNMENT
+                && !(tok.toktype & allow_toktype & assign_mask))
+                {FAIL("Illegal token sequence. (1)");}
+        }
+        else if (!(tok.toktype & allow_toktype)) {
+            {FAIL("Illegal token sequence. (2)");}
         }
         switch (tok.toktype) {
             case TOK_CONST:
@@ -1655,8 +1660,9 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                     if (num_variables >= N_USER_VARS)
                         {FAIL("Maximum number of variables exceeded.");}
                     char varname[6];
+                    int varindex = num_variables;
                     do {
-                        snprintf(varname, 6, "var%2d", abs(rand()));
+                        snprintf(varname, 6, "var%d", varindex++);
                     } while (find_variable_by_name(variables, num_variables,
                                                    varname, 6) >= 0);
                     // need to store new variable
@@ -1671,6 +1677,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                     num_variables++;
                     newtok.datatype = 'd';
                     newtok.vector_length = 1;
+                    newtok.vector_length_locked = 0;
                     newtok.history_index = 0;
                     newtok.vector_index = 0;
                     newtok.assignment_offset = 0;
@@ -1900,13 +1907,14 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                     else if (outstack[outstack_index].history_index < MAX_HISTORY)
                     {FAIL("Input history index cannot be < -100.");}
                 }
-
-                if (outstack[outstack_index].var == VAR_X
-                    && outstack[outstack_index].history_index < oldest_input)
-                    oldest_input = outstack[outstack_index].history_index;
-                else if (outstack[outstack_index].var == VAR_Y
-                         && outstack[outstack_index].history_index < oldest_output)
-                    oldest_output = outstack[outstack_index].history_index;
+                if (outstack[outstack_index].var == VAR_X) {
+                    if (outstack[outstack_index].history_index < oldest_input)
+                        oldest_input = outstack[outstack_index].history_index;
+                }
+                else if (outstack[outstack_index].var == VAR_Y) {
+                    if (outstack[outstack_index].history_index < oldest_output)
+                        oldest_output = outstack[outstack_index].history_index;
+                }
                 else {
                     // user-defined variable
                     int var_idx = outstack[outstack_index].var;
@@ -2029,6 +2037,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
             {FAIL("Unmatched parentheses or misplaced comma.");}
         POP_OPERATOR_TO_OUTPUT();
     }
+
     // pop assignment operator(s) to output
     while (opstack_index >= 0) {
         if (!opstack_index && opstack[opstack_index].toktype < TOK_ASSIGNMENT)
@@ -2041,6 +2050,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
         }
         POP_OPERATOR();
     }
+
     // check vector length and type
     if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
         {FAIL("Malformed expression (9).");}

@@ -95,6 +95,10 @@ int main(int argc, char **argv)
     mapper_signal sig = mapper_device_add_input(dev, "test", 1, 'f', "Hz",
                                                 0, 0, 0, 0);
 
+    while (!mapper_device_ready(dev)) {
+        mapper_device_poll(dev, 100);
+    }
+
     /* Test that default parameters are all listed. */
     eprintf("Test 1:  checking default parameters... ");
     seen = check_keys(sig);

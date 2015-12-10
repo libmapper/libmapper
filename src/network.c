@@ -578,7 +578,7 @@ void mapper_network_free_messages(mapper_network net)
  */
 void mapper_network_free(mapper_network net)
 {
-    if (!net || !net->own_network)
+    if (!net)
         return;
 
     if (net->own_network)

@@ -145,6 +145,7 @@ int main(int argc, char **argv)
     args[1] = (lo_arg*)&port;
     args[2] = (lo_arg*)"@host";
 
+    mapper_message_free(msg);
     msg = mapper_message_parse_properties(3, "sis", args);
     if (!msg) {
         eprintf("2: Error parsing.\n");
@@ -178,6 +179,7 @@ int main(int argc, char **argv)
 
     /*****/
 done:
+    mapper_message_free(msg);
     if (!verbose)
         printf("..................................................");
     printf("Test %s.\n", result ? "FAILED" : "PASSED");

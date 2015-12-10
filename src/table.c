@@ -54,10 +54,10 @@ void table_clear(mapper_table tab)
                             free(vals[j]);
                     }
                 }
-                if (rec->length > 1 || rec->type == 's' || rec->type == 'v')
-                    free(value);
+                free(value);
             }
-            free(rec->value);
+            if (rec->flags & INDIRECT)
+                *rec->value = 0;
         }
     }
     tab->num_records = 0;
@@ -330,6 +330,8 @@ static void update_value_elements(mapper_table_record_t *rec, int length,
      * string, otherwise just copy over the old value. */
     if (type == 's' || type == 'S') {
         if (length == 1) {
+            if (value)
+                free(value);
             value = strdup((char*)args);
         }
         else {

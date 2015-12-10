@@ -54,6 +54,9 @@ typedef int query_compare_func_t(const void *context_data, const void *item);
 /*! Function for freeing query context */
 typedef void query_free_func_t(mapper_list_header_t *lh);
 
+/*! Function for handling compound queries. */
+static int cmp_compound_query(const void *context_data, const void *dev);
+
 /*! Contains some function pointers and data for handling query context. */
 typedef struct _query_info {
     unsigned int size;
@@ -193,6 +196,14 @@ void **mapper_list_query_continuation(mapper_list_header_t *lh)
 
 static void free_query_single_context(mapper_list_header_t *lh)
 {
+    if (lh->query_context->query_compare == cmp_compound_query) {
+        // this is a compound query – we need to free components also
+        void *data = &lh->query_context->data;
+        mapper_list_header_t *lh1 = *(mapper_list_header_t**)data;
+        mapper_list_header_t *lh2 = *(mapper_list_header_t**)(data+sizeof(void*));
+        free_query_single_context(lh1);
+        free_query_single_context(lh2);
+    }
     free(lh->query_context);
     free(lh);
 }

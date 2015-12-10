@@ -165,9 +165,9 @@ int parse_and_eval(int expectation)
 
     eprintf("**********************************\n");
     eprintf("Parsing string '%s'\n", str);
-    if (!(e = mapper_expr_new_from_string(str, num_sources,
-                                          src_types, src_lengths,
-                                          outh.type, outh.length))) {
+    e = mapper_expr_new_from_string(str, num_sources, src_types, src_lengths,
+                                    outh.type, outh.length);
+    if (!e) {
         eprintf("Parser FAILED.\n");
         goto fail;
     }
@@ -501,6 +501,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
+
     snprintf(str, 256, "sin(x)");
     setup_test('i', 1, src_int, 'f', 3, dest_float);
     if (parse_and_eval(EXPECT_FAILURE))

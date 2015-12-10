@@ -325,8 +325,10 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
         mapper_slot dst_slot = &map->destination;
         mapper_slot to = (map->process_location == MAPPER_LOC_SOURCE ? dst_slot : slot);
         int to_size = mapper_type_size(to->signal->type) * to->signal->length;
-        char typestring[to->signal->length * count];
-        memset(typestring, to->signal->type, to->signal->length * count);
+        char src_types[slot->signal->length * count];
+        memset(src_types, slot->signal->type, slot->signal->length * count);
+        char dst_types[to->signal->length * count];
+        memset(dst_types, to->signal->type, to->signal->length * count);
         k = 0;
         for (j = 0; j < count; j++) {
             // copy input history
@@ -339,7 +341,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
             // process source boundary behaviour
             if ((mapper_boundary_perform(&islot->history[id], slot,
-                                         typestring + to->signal->length * k))) {
+                                         src_types + slot->signal->length * k))) {
                 // back up position index
                 --islot->history[id].position;
                 if (islot->history[id].position < 0)
@@ -355,13 +357,14 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 continue;
 
             if (!(mapper_map_perform(map, slot, instance,
-                                     typestring + to->signal->length * k)))
+                                     dst_types + to->signal->length * k)))
                 continue;
 
             if (map->process_location == MAPPER_LOC_SOURCE) {
                 // also process destination boundary behaviour
                 if ((mapper_boundary_perform(&map->destination.local->history[id],
-                                             slot, typestring + to->signal->length * k))) {
+                                             dst_slot,
+                                             dst_types + to->signal->length * k))) {
                     // back up position index
                     --map->destination.local->history[id].position;
                     if (map->destination.local->history[id].position < 0)
@@ -376,7 +379,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 memcpy((char*)out_value_p + to_size * j, result, to_size);
             }
             else {
-                msg = mapper_map_build_message(map, slot, result, 1, typestring,
+                msg = mapper_map_build_message(map, slot, result, 1, dst_types,
                                                slot->use_as_instance ? id_map : 0);
                 if (msg)
                     send_or_bundle_message(map->destination.local->link,
@@ -386,7 +389,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
         }
         if (count > 1 && slot->direction == MAPPER_DIR_OUTGOING
             && (!slot->use_as_instance || in_scope)) {
-            msg = mapper_map_build_message(map, slot, out_value_p, k, typestring,
+            msg = mapper_map_build_message(map, slot, out_value_p, k, dst_types,
                                            slot->use_as_instance ? id_map : 0);
             if (msg)
                 send_or_bundle_message(map->destination.local->link,
@@ -776,7 +779,8 @@ static void free_slot_memory(mapper_slot slot)
     int i;
     if (!slot->local)
         return;
-    if (!slot->local->router_sig) {
+    // TODO: use router_signal for holding memory of local slots for effiency
+//    if (!slot->local->router_sig) {
         if (slot->local->history) {
             for (i = 0; i < slot->num_instances; i++) {
                 free(slot->local->history[i].value);
@@ -784,7 +788,7 @@ static void free_slot_memory(mapper_slot slot)
             }
             free(slot->local->history);
         }
-    }
+//    }
     free(slot->local);
 }
 

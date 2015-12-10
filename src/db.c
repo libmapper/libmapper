@@ -225,6 +225,14 @@ void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet)
         mapper_table_free(dev->props);
     if (dev->staged_props)
         mapper_table_free(dev->staged_props);
+    if (dev->description)
+        free(dev->description);
+    if (dev->host)
+        free(dev->host);
+    if (dev->name)
+        free(dev->name);
+    if (dev->user_data)
+        free(dev->user_data);
     mapper_list_free_item(dev);
 }
 
@@ -951,26 +959,12 @@ void mapper_db_remove_maps_by_query(mapper_db db, mapper_map *maps)
     while (maps) {
         mapper_map map = *maps;
         maps = mapper_map_query_next(maps);
-        if (!map->local)
-            mapper_db_remove_map(db, map);
+        mapper_db_remove_map(db, map);
     }
-}
-
-static void free_slot(mapper_slot slot)
-{
-    if (slot->minimum)
-        free(slot->minimum);
-    if (slot->maximum)
-        free(slot->maximum);
-    if (slot->props)
-        mapper_table_free(slot->props);
-    if (slot->staged_props)
-        mapper_table_free(slot->staged_props);
 }
 
 void mapper_db_remove_map(mapper_db db, mapper_map map)
 {
-    int i;
     if (!map)
         return;
 
@@ -983,20 +977,8 @@ void mapper_db_remove_map(mapper_db db, mapper_map map)
         cb = cb->next;
     }
 
-    if (map->sources) {
-        for (i = 0; i < map->num_sources; i++) {
-            free_slot(&map->sources[i]);
-        }
-        free(map->sources);
-    }
-    free_slot(&map->destination);
-    if (map->scope.size && map->scope.devices) {
-        free(map->scope.devices);
-    }
-    if (map->props)
-        mapper_table_free(map->props);
-    if (map->staged_props)
-        mapper_table_free(map->staged_props);
+    mapper_map_free(map);
+
     mapper_list_free_item(map);
 }
 

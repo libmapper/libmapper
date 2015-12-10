@@ -295,9 +295,13 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
 
 void mapper_map_init(mapper_map map);
 
+void mapper_map_free(mapper_map map);
+
 /**** Slot ****/
 
 void mapper_slot_init(mapper_slot slot);
+
+void mapper_slot_free(mapper_slot slot);
 
 int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
                                  int *status);

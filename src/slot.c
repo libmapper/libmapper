@@ -45,6 +45,18 @@ void mapper_slot_init(mapper_slot slot)
                             &slot->use_as_instance, MODIFIABLE);
 }
 
+void mapper_slot_free(mapper_slot slot)
+{
+    if (slot->minimum)
+        free(slot->minimum);
+    if (slot->maximum)
+        free(slot->maximum);
+    if (slot->props)
+        mapper_table_free(slot->props);
+    if (slot->staged_props)
+        mapper_table_free(slot->staged_props);
+}
+
 int mapper_slot_index(mapper_slot slot)
 {
     if (slot == &slot->map->destination)
@@ -258,6 +270,8 @@ void mapper_slot_upgrade_extrema_memory(mapper_slot slot)
         }
         mapper_table_set_record(slot->props, AT_MIN, NULL, slot->signal->length,
                                 slot->signal->type, new_mem, REMOTE_MODIFY);
+        if (new_mem)
+            free(new_mem);
     }
     rec = mapper_table_record(slot->props, AT_MAX, NULL);
     if (rec && rec->value && *rec->value) {
@@ -297,6 +311,8 @@ void mapper_slot_upgrade_extrema_memory(mapper_slot slot)
         }
         mapper_table_set_record(slot->props, AT_MAX, NULL, slot->signal->length,
                                 slot->signal->type, new_mem, REMOTE_MODIFY);
+        if (new_mem)
+            free(new_mem);
     }
 }
 

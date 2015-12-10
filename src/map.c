@@ -188,10 +188,27 @@ void mapper_map_push(mapper_map map)
 
 void mapper_map_free(mapper_map map)
 {
-    if (!map)
-        return;
-    free(map->sources);
-    free(map);
+    int i;
+    if (map->sources) {
+        for (i = 0; i < map->num_sources; i++) {
+            mapper_slot_free(&map->sources[i]);
+        }
+        free(map->sources);
+    }
+    mapper_slot_free(&map->destination);
+    if (map->scope.size && map->scope.devices) {
+        free(map->scope.devices);
+    }
+    if (map->props)
+        mapper_table_free(map->props);
+    if (map->staged_props)
+        mapper_table_free(map->staged_props);
+    if (map->description)
+        free(map->description);
+    if (map->expression)
+        free(map->expression);
+    if (map->user_data)
+        free(map->user_data);
 }
 
 const char *mapper_map_description(mapper_map map)
@@ -630,7 +647,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                                  typestring));
 }
 
-int mapper_boundary_perform(mapper_history history, mapper_slot s,
+int mapper_boundary_perform(mapper_history history, mapper_slot slot,
                             char *typestring)
 {
     int i, muted = 0;
@@ -639,16 +656,16 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
     double dest_min, dest_max, swap, total_range, difference, modulo_difference;
     mapper_boundary_action bound_min, bound_max;
 
-    if (   s->bound_min == MAPPER_BOUND_NONE
-        && s->bound_max == MAPPER_BOUND_NONE) {
+    if (   slot->bound_min == MAPPER_BOUND_NONE
+        && slot->bound_max == MAPPER_BOUND_NONE) {
         return 0;
     }
-    if (!s->minimum && (   s->bound_min != MAPPER_BOUND_NONE
-                        || s->bound_max == MAPPER_BOUND_WRAP)) {
+    if (!slot->minimum && (   slot->bound_min != MAPPER_BOUND_NONE
+                           || slot->bound_max == MAPPER_BOUND_WRAP)) {
         return 0;
     }
-    if (!s->maximum && (   s->bound_max != MAPPER_BOUND_NONE
-                        || s->bound_min == MAPPER_BOUND_WRAP)) {
+    if (!slot->maximum && (   slot->bound_max != MAPPER_BOUND_NONE
+                           || slot->bound_min == MAPPER_BOUND_WRAP)) {
         return 0;
     }
 
@@ -658,16 +675,16 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
             continue;
         }
         value = propval_double(mapper_history_value_ptr(*history),
-                               s->signal->type, i);
-        dest_min = propval_double(s->minimum, s->signal->type, i);
-        dest_max = propval_double(s->maximum, s->signal->type, i);
+                               slot->signal->type, i);
+        dest_min = propval_double(slot->minimum, slot->signal->type, i);
+        dest_max = propval_double(slot->maximum, slot->signal->type, i);
         if (dest_min < dest_max) {
-            bound_min = s->bound_min;
-            bound_max = s->bound_max;
+            bound_min = slot->bound_min;
+            bound_max = slot->bound_max;
         }
         else {
-            bound_min = s->bound_max;
-            bound_max = s->bound_min;
+            bound_min = slot->bound_max;
+            bound_max = slot->bound_min;
             swap = dest_max;
             dest_max = dest_min;
             dest_min = swap;
@@ -800,8 +817,8 @@ int mapper_boundary_perform(mapper_history history, mapper_slot s,
                     break;
             }
         }
-        propval_set_double(mapper_history_value_ptr(*history), s->signal->type,
-                           i, value);
+        propval_set_double(mapper_history_value_ptr(*history),
+                           slot->signal->type, i, value);
     }
     return (muted == history->length);
 }
@@ -1111,8 +1128,9 @@ void mapper_map_set_mode_expression(mapper_map map, const char *expr)
 static void init_slot_history(mapper_slot slot)
 {
     int i;
-    if (slot->local->history)
+    if (slot->local->history) {
         return;
+    }
     slot->local->history = malloc(sizeof(struct _mapper_history)
                                   * slot->num_instances);
     slot->local->history_size = 1;

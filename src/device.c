@@ -85,6 +85,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
                                               sizeof(mapper_device_t));
     dev->db = db;
     dev->local = (mapper_local_device)calloc(1, sizeof(mapper_local_device_t));
+    dev->local->own_network = 1 - net->own_network;
 
     mapper_device_start_server(dev, port);
 
@@ -129,6 +130,7 @@ void mapper_device_free(mapper_device dev)
         free(dev);
         return;
     }
+    mapper_db db = dev->db;
     mapper_network net = dev->db->network;
 
     // free any queued outgoing messages without sending
@@ -144,18 +146,19 @@ void mapper_device_free(mapper_device dev)
         free(s);
     }
 
-    mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
-    while (sig) {
-        if ((*sig)->local) {
+    mapper_signal *sigs = mapper_device_signals(dev, MAPPER_DIR_ANY);
+    while (sigs) {
+        mapper_signal sig = *sigs;
+        sigs = mapper_signal_query_next(sigs);
+        if (sig->local) {
             // release active instances
-            for (i = 0; i < (*sig)->local->id_map_length; i++) {
-                if ((*sig)->local->id_maps[i].instance) {
-                    mapper_signal_instance_release_internal(*sig, i, MAPPER_NOW);
+            for (i = 0; i < sig->local->id_map_length; i++) {
+                if (sig->local->id_maps[i].instance) {
+                    mapper_signal_instance_release_internal(sig, i, MAPPER_NOW);
                 }
             }
         }
-        mapper_device_remove_signal(dev, *sig);
-        sig = mapper_signal_query_next(sig);
+        mapper_device_remove_signal(dev, sig);
     }
 
     if (dev->local->registered) {
@@ -198,14 +201,21 @@ void mapper_device_free(mapper_device dev)
         free(dev->local->router);
     }
 
+    int own_network = dev->local->own_network;
+
     if (dev->local->server)
         lo_server_free(dev->local->server);
     free(dev->local);
 
-    if (!net->own_network)
+    if (dev->identifier)
+        free(dev->identifier);
+
+    mapper_db_remove_device(dev->db, dev, 1);
+
+    if (own_network) {
+        mapper_db_free(db);
         mapper_network_free(net);
-    else
-        mapper_network_remove_device(net, dev);
+    }
 }
 
 void mapper_device_push(mapper_device dev)

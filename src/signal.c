@@ -183,10 +183,18 @@ void mapper_signal_free(mapper_signal sig)
         free(sig->local);
     }
 
+    if (sig->maximum)
+        free(sig->maximum);
+    if (sig->minimum)
+        free(sig->minimum);
     if (sig->props)
         mapper_table_free(sig->props);
     if (sig->staged_props)
         mapper_table_free(sig->staged_props);
+    if (sig->unit)
+        free(sig->unit);
+    if (sig->path)
+        free(sig->path);
 }
 
 void mapper_signal_push(mapper_signal sig)
