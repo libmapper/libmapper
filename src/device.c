@@ -858,7 +858,13 @@ static mapper_signal mapper_device_add_signal(mapper_device dev,
                        handler, user_data);
 
     sig->id = get_unused_signal_id(dev);
-    dev->num_inputs++;
+
+    if (dir == MAPPER_DIR_INCOMING)
+        dev->num_inputs++;
+    if (dir == MAPPER_DIR_OUTGOING) {
+        dev->num_outputs++;
+    }
+
     mapper_device_increment_version(dev);
 
     mapper_device_add_signal_methods(dev, sig);
@@ -1009,8 +1015,8 @@ int mapper_device_num_signals(mapper_device dev, mapper_direction dir)
         return 0;
     if (!dir)
         return dev->num_inputs + dev->num_outputs;
-    return (  (dir & MAPPER_DIR_INCOMING) * dev->num_inputs
-            + (dir & MAPPER_DIR_OUTGOING) * dev->num_outputs);
+    return (  (dir == MAPPER_DIR_INCOMING) * dev->num_inputs
+            + (dir == MAPPER_DIR_OUTGOING) * dev->num_outputs);
 }
 
 static int cmp_query_device_signals(const void *context_data, mapper_signal sig)
