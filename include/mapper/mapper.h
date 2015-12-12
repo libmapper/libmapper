@@ -465,7 +465,7 @@ mapper_signal *mapper_signal_query_next(mapper_signal *query);
 /*! Copy a previously-constructed signal query.
  *  \param query    The previous signal record pointer.
  *  \return         A double-pointer to the copy of the list, or zero if none.
- *                  Use mapper_db_map_query_next() to iterate. */
+ *                  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_signal_query_copy(mapper_signal *query);
 
 /*! Given a signal record pointer returned from a previous mapper_db_signal*()

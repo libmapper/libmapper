@@ -138,19 +138,19 @@ namespace mapper {
     public:
         template <typename T>
         Property(const string_type &_name, T _value)
-            { name = _name; _set(_value); parent = NULL; owned = false; }
+            { name = _name; owned = false; _set(_value); parent = NULL; }
         template <typename T>
         Property(const string_type &_name, int _length, T& _value)
-            { name = _name; _set(_length, _value); parent = NULL; owned = false; }
+            { name = _name; owned = false; _set(_length, _value); parent = NULL; }
         template <typename T, size_t N>
         Property(const string_type &_name, std::array<T, N> _value)
-            { name = _name; _set(_value); parent = NULL; owned = false; }
+            { name = _name; owned = false; _set(_value); parent = NULL; }
         template <typename T>
         Property(const string_type &_name, std::vector<T> _value)
-            { name = _name; _set(_value); parent = NULL; owned = false; }
+            { name = _name; owned = false; _set(_value); parent = NULL; }
         template <typename T>
         Property(const string_type &_name, int _length, char _type, T& _value)
-            { name = _name; _set(_length, _type, _value); parent = NULL; owned = false; }
+            { name = _name; owned = false; _set(_length, _type, _value); parent = NULL; }
 
         ~Property()
             { maybe_free(); }
@@ -293,7 +293,17 @@ namespace mapper {
         bool owned;
 
         void maybe_free()
-            { if (owned && value) free((void*)value); owned = false; }
+        {
+            if (owned && value) {
+                if (type == 's' && length > 1) {
+                    for (int i = 0; i < length; i++) {
+                        free(((char**)value)[i]);
+                    }
+                }
+                free((void*)value);
+                owned = false;
+            }
+        }
         void _set(int _length, bool _value[])
         {
             int *ivalue = (int*)malloc(sizeof(int)*_length);
@@ -342,39 +352,47 @@ namespace mapper {
         {
             length = N;
             type = 's';
-            // need to copy string array
-            char **temp = (char**)malloc(sizeof(char*) * length);
-            for (int i = 0; i < length; i++) {
-                temp[i] = (char*)_values[i];
+            if (length == 1) {
+                value = strdup(_values[0]);
             }
-            value = temp;
-            owned = true;
+            else if (length > 1) {
+                // need to copy string array
+                value = (char**)malloc(sizeof(char*) * length);
+                for (int i = 0; i < length; i++) {
+                    ((char**)value)[i] = strdup((char*)_values[i]);
+                }
+                owned = true;
+            }
         }
         template <size_t N>
         void _set(std::array<std::string, N>& _values)
         {
             length = N;
             type = 's';
-            // need to copy string array
-            char **temp = (char**)malloc(sizeof(char*) * length);
-            for (int i = 0; i < length; i++) {
-                temp[i] = (char*)_values[i].c_str();
+            if (length == 1) {
+                value = strdup(_values[0].c_str());
             }
-            value = temp;
-            owned = true;
+            else if (length > 1) {
+                // need to copy string array
+                value = (char**)malloc(sizeof(char*) * length);
+                for (int i = 0; i < length; i++) {
+                    ((char**)value)[i] = strdup((char*)_values[i].c_str());
+                }
+                owned = true;
+            }
         }
         void _set(std::string _values[], int _length)
         {
             length = _length;
             type = 's';
             if (length == 1) {
-                value = _values[0].c_str();
+                value = strdup(_values[0].c_str());
             }
             else if (length > 1) {
                 // need to copy string array
                 value = malloc(sizeof(char*) * length);
                 for (int i = 0; i < length; i++) {
-                    ((char**)value)[i] = (char*)_values[i].c_str();
+                    ((char**)value)[i] = strdup((char*)_values[i].c_str());
                 }
                 owned = true;
             }
@@ -387,22 +405,28 @@ namespace mapper {
             length = (int)_value.size();
             type = 's';
             if (length == 1)
-                value = _value[0];
-            else
-                value = _value.data();
+                value = strdup(_value[0]);
+            else {
+                // need to copy string array since std::vector may free it
+                value = malloc(sizeof(char*) * length);
+                for (int i = 0; i < length; i++) {
+                    ((char**)value)[i] = strdup((char*)_value[i]);
+                }
+                owned = true;
+            }
         }
         void _set(std::vector<std::string>& _value)
         {
             length = (int)_value.size();
             type = 's';
             if (length == 1) {
-                value = _value[0].c_str();
+                value = strdup(_value[0].c_str());
             }
             else if (length > 1) {
                 // need to copy string array
                 value = malloc(sizeof(char*) * length);
                 for (int i = 0; i < length; i++) {
-                    ((char**)value)[i] = (char*)_value[i].c_str();
+                    ((char**)value)[i] = strdup((char*)_value[i].c_str());
                 }
                 owned = true;
             }
@@ -1437,7 +1461,11 @@ namespace mapper {
     public:
         Db(int flags = MAPPER_SUBSCRIBE_ALL)
             { _db = mapper_db_new(0, flags); }
-        ~Db() {}
+        ~Db()
+        {
+            if (_db)
+                mapper_db_free(_db);
+        }
         const Db& update(int block_ms=0) const
         {
             mapper_db_update(_db, block_ms);

@@ -405,15 +405,20 @@ static void update_value_elements(mapper_table_record_t *rec, int length,
     }
 
     if (realloced) {
-        if (indirect) {
-            if (*rec->value)
-                free(*rec->value);
+        void *old_val = indirect ? *rec->value : rec->value;
+        if (indirect)
             *rec->value = value;
-        }
-        else {
-            if (rec->value)
-                free(rec->value);
+        else
             rec->value = value;
+        if (old_val) {
+            if (rec->type == 's' && rec->length > 1) {
+                // free elements
+                for (i = 0; i < rec->length; i++) {
+                    if (((char**)old_val)[i])
+                        free(((char**)old_val)[i]);
+                }
+            }
+            free(old_val);
         }
     }
     rec->length = length;
@@ -629,15 +634,20 @@ static void update_value_elements_osc(mapper_table_record_t *rec, int length,
     }
 
     if (realloced) {
-        if (indirect) {
-            if (*rec->value)
-                free(*rec->value);
+        void *old_val = indirect ? *rec->value : rec->value;
+        if (indirect)
             *rec->value = value;
-        }
-        else {
-            if (rec->value)
-                free(rec->value);
+        else
             rec->value = value;
+        if (old_val) {
+            if (rec->type == 's' && rec->length > 1) {
+                // free elements
+                for (i = 0; i < rec->length; i++) {
+                    if (((char**)old_val)[i])
+                        free(((char**)old_val)[i]);
+                }
+            }
+            free(old_val);
         }
     }
 

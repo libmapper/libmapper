@@ -446,7 +446,7 @@ void *mapper_list_query_index(void **query, int index)
 static int cmp_compound_query(const void *context_data, const void *dev)
 {
     mapper_list_header_t *lh1 = *(mapper_list_header_t**)context_data;
-    mapper_list_header_t *lh2 = *(mapper_list_header_t**)(context_data + sizeof(void*));
+    mapper_list_header_t *lh2 = *(mapper_list_header_t**)(context_data+sizeof(void*));
     mapper_op op = *(mapper_op*)(context_data + sizeof(void*) * 2);
 
     query_info_t *c1 = lh1->query_context, *c2 = lh2->query_context;
@@ -481,8 +481,10 @@ static mapper_list_header_t *mapper_list_header_copy(mapper_list_header_t *lh)
         mapper_list_header_t *lh2 = *(mapper_list_header_t**)(data+sizeof(void*));
         lh1 = mapper_list_header_copy(lh1);
         lh2 = mapper_list_header_copy(lh2);
-        memcpy(data, lh1, sizeof(void*));
-        memcpy(data+1, lh2, sizeof(void*));
+        memcpy(data, &lh1, sizeof(void*));
+        memcpy(data+sizeof(void*), &lh2, sizeof(void*));
+        lh1 = *(mapper_list_header_t**)data;
+        lh2 = *(mapper_list_header_t**)(data+sizeof(void*));
     }
     return copy;
 }
@@ -494,7 +496,6 @@ void **mapper_list_query_copy(void **query)
 
     mapper_list_header_t *lh = mapper_list_header_by_self(query);
     mapper_list_header_t *copy = mapper_list_header_copy(lh);
-
     return &copy->self;
 }
 

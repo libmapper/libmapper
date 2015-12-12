@@ -56,7 +56,7 @@ const static_property_t static_properties[] = {
     { "@use_as_instance",   1, 'b', 'b' },  /* AT_USE_AS_INSTANCE */
     { "@user_data",         1, 'v',  0  },  /* AT_USER_DATA */
     { "@version",           1, 'i', 'i' },  /* AT_VERSION */
-    { "",                   0, 'a', 'a' },  /* AT_EXTRA (special case, does not
+    { "@extra",             0, 'a', 'a' },  /* AT_EXTRA (special case, does not
                                              * represent a specific property
                                              * name) */
 };
