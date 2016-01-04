@@ -539,7 +539,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
          * sample sets source min and max */
         switch (slot->signal->type) {
             case 'f': {
-                float *v = mapper_history_value_ptr(*from);
+                float *v = mapper_history_value_ptr(from[instance]);
                 float *src_min = (float*)slot->minimum;
                 float *src_max = (float*)slot->maximum;
                 if (!slot->calibrating) {
@@ -565,7 +565,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 break;
             }
             case 'i': {
-                int *v = mapper_history_value_ptr(*from);
+                int *v = mapper_history_value_ptr(from[instance]);
                 int *src_min = (int*)slot->minimum;
                 int *src_max = (int*)slot->maximum;
                 if (!slot->calibrating) {
@@ -591,7 +591,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 break;
             }
             case 'd': {
-                double *v = mapper_history_value_ptr(*from);
+                double *v = mapper_history_value_ptr(from[instance]);
                 double *src_min = (double*)slot->minimum;
                 double *src_max = (double*)slot->maximum;
                 if (!slot->calibrating) {

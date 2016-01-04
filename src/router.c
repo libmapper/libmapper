@@ -262,13 +262,13 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
             // need to reset user variable memory for this instance
             for (j = 0; j < imap->num_expr_vars; j++) {
-                memset(imap->expr_vars[instance][j].value, 0, sizeof(double)
+                memset(imap->expr_vars[id][j].value, 0, sizeof(double)
                        * imap->expr_vars[i][j].length
                        * imap->expr_vars[i][j].size);
-                memset(imap->expr_vars[instance][j].timetag, 0,
+                memset(imap->expr_vars[id][j].timetag, 0,
                        sizeof(mapper_timetag_t)
-                       * imap->expr_vars[instance][j].size);
-                imap->expr_vars[instance][j].position = -1;
+                       * imap->expr_vars[id][j].size);
+                imap->expr_vars[id][j].position = -1;
             }
 
             mapper_slot dst_slot = &map->destination;
@@ -380,7 +380,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             if (map->process_location == MAPPER_LOC_SOURCE && !slot->causes_update)
                 continue;
 
-            if (!(mapper_map_perform(map, slot, instance,
+            if (!(mapper_map_perform(map, slot, id,
                                      dst_types + to->signal->length * k)))
                 continue;
 
