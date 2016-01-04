@@ -915,11 +915,12 @@ struct _mapper_expr
 {
     mapper_token tokens;
     mapper_token start;
+    mapper_variable variables;
+    int start_offset;
     int length;
     int vector_size;
     int input_history_size;
     int output_history_size;
-    mapper_variable variables;
     int num_variables;
     int constant_output;
 };
@@ -1130,6 +1131,7 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
 {
     struct _mapper_expr e;
     e.start = stack;
+    e.start_offset = 0;
     e.length = length;
     e.vector_size = vector_length;
     e.variables = 0;
@@ -1961,8 +1963,6 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                         }
                     }
                     else if (outstack[outstack_index].history_index == 0) {
-                        if (variables[var].assigned)
-                            {FAIL("Variable already assigned.");}
                         variables[var].assigned = 1;
                     }
                     // nothing extraordinary, continue as normal
@@ -1987,8 +1987,6 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                         }
                     }
                     else if (outstack[outstack_index].history_index == 0) {
-                        if (variables[var].assigned)
-                            {FAIL("Variable already assigned.");}
                         variables[var].assigned = 1;
                     }
                     while (outstack_index >= 0) {
@@ -2068,6 +2066,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
 
     mapper_expr expr = malloc(sizeof(struct _mapper_expr));
     expr->length = outstack_index + 1;
+    expr->start_offset = 0;
 
     // copy tokens
     expr->tokens = malloc(sizeof(struct _token)*expr->length);
@@ -2202,11 +2201,16 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
 #endif
         return 0;
     }
-    mapper_value_t stack[expr->length][expr->vector_size];
-    int dims[expr->length];
+    mapper_token_t *tok = expr->start;
+    int length = expr->length;
+    if (output->position >= 0) {
+        tok += expr->start_offset;
+        length -= expr->start_offset;
+    }
+    mapper_value_t stack[length][expr->vector_size];
+    int dims[length];
 
     int i, j, k, top = -1, count = 0, found, updated = 0;
-    mapper_token_t *tok = expr->start;
 
     // init typestring
     if (typestring)
@@ -2218,7 +2222,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
     for (i = 0; i < expr->num_variables; i++)
         expr->variables[i].assigned = 0;
 
-    while (count < expr->length && tok->toktype != TOK_END) {
+    while (count < length && tok->toktype != TOK_END) {
         switch (tok->toktype) {
         case TOK_CONST:
             ++top;
@@ -2252,8 +2256,10 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             int idx;
             if (tok->var == VAR_Y) {
 #if TRACING
-                printf("loading variable y{%d}[%d]\n", tok->history_index,
+                printf("loading variable y{%d}[%d] ", tok->history_index,
                        tok->vector_index);
+                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+                printf(" \n");
 #endif
                 ++top;
                 dims[top] = tok->vector_length;
@@ -2287,8 +2293,10 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             }
             else if (tok->var >= VAR_X) {
 #if TRACING
-                printf("loading variable x%d{%d}[%d]\n", tok->var-VAR_X,
+                printf("loading variable x%d{%d}[%d] ", tok->var-VAR_X,
                        tok->history_index, tok->vector_index);
+                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+                printf(" \n");
 #endif
                 ++top;
                 dims[top] = tok->vector_length;
@@ -2322,9 +2330,11 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             }
             else if (expr_vars) {
 #if TRACING
-                printf("loading variable %s{%d}[%d]\n",
+                printf("loading variable %s{%d}[%d] ",
                        expr->variables[tok->var].name, tok->history_index,
                        tok->vector_index);
+                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+                printf(" \n");
 #endif
                 // TODO: allow other data types?
                 ++top;
@@ -2438,7 +2448,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                             found = 0;
                             tok++;
                             count++;
-                            while (count < expr->length && tok->toktype != TOK_END) {
+                            while (count < length && tok->toktype != TOK_END) {
                                 if (tok->toktype == TOK_ASSIGNMENT)
                                     found = 1;
                                 else if (found) {
@@ -2557,7 +2567,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                             found = 0; // found assignment
                             tok++;
                             count++;
-                            while (count < expr->length && tok->toktype != TOK_END) {
+                            while (count < length && tok->toktype != TOK_END) {
                                 if (tok->toktype == TOK_ASSIGNMENT)
                                     found = 1;
                                 else if (found) {
@@ -2656,7 +2666,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                             found = 0; // found assignment
                             tok++;
                             count++;
-                            while (count < expr->length && tok->toktype != TOK_END) {
+                            while (count < length && tok->toktype != TOK_END) {
                                 if (tok->toktype == TOK_ASSIGNMENT)
                                     found = 1;
                                 else if (found) {
@@ -2979,10 +2989,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             /* If assignment was history initialization, move expression start
              * token pointer so we don't evaluate this section again. */
             if (tok->history_index != 0) {
-                int offset = tok - expr->start + 1;
-                expr->start = tok+1;
-                expr->length -= offset;
-                count -= offset;
+                expr->start_offset = tok - expr->start + 1;
             }
             break;
         default: goto error;

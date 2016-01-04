@@ -59,11 +59,12 @@ struct _mapper_expr
 {
     void *tokens;
     void *start;
+    mapper_variable variables;
+    int start_offset;
     int length;
     int vector_size;
     int input_history_size;
     int output_history_size;
-    mapper_variable variables;
     int num_variables;
     int constant_output;
 };
