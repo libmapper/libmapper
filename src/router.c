@@ -243,6 +243,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
     int i, j, k, id = sig->local->id_maps[instance].instance->index;
     mapper_map map;
+    mapper_map_internal imap;
 
     if (!value) {
         mapper_slot_internal islot;
@@ -254,21 +255,35 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
             slot = rs->slots[i];
             map = slot->map;
+            imap = map->local;
 
             if (map->status < STATUS_ACTIVE)
                 continue;
 
-            if (slot->direction == MAPPER_DIR_OUTGOING) {
-                mapper_slot dst_slot = &map->destination;
-                mapper_slot_internal dst_islot = dst_slot->local;
+            // need to reset user variable memory for this instance
+            for (j = 0; j < imap->num_expr_vars; j++) {
+                memset(imap->expr_vars[instance][j].value, 0, sizeof(double)
+                       * imap->expr_vars[i][j].length
+                       * imap->expr_vars[i][j].size);
+                memset(imap->expr_vars[instance][j].timetag, 0,
+                       sizeof(mapper_timetag_t)
+                       * imap->expr_vars[instance][j].size);
+                imap->expr_vars[instance][j].position = -1;
+            }
 
-                // also need to reset associated output memory
-                dst_islot->history[id].position= -1;
-                memset(dst_islot->history[id].value, 0, dst_islot->history_size
-                       * dst_slot->signal->length * mapper_type_size(dst_slot->signal->type));
-                memset(dst_islot->history[id].timetag, 0, dst_islot->history_size
-                       * sizeof(mapper_timetag_t));
+            mapper_slot dst_slot = &map->destination;
+            mapper_slot_internal dst_islot = dst_slot->local;
 
+            // also need to reset associated output memory
+            dst_islot->history[id].position= -1;
+            memset(dst_islot->history[id].value, 0, dst_islot->history_size
+                   * dst_slot->signal->length * mapper_type_size(dst_slot->signal->type));
+            memset(dst_islot->history[id].timetag, 0, dst_islot->history_size
+                   * sizeof(mapper_timetag_t));
+            dst_islot->history[id].position = -1;
+
+            if (slot->direction == MAPPER_DIR_OUTGOING
+                && !(sig->local->id_maps[instance].status & RELEASED_REMOTELY)) {
                 if (!slot->use_as_instance)
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, 0);
                 else if (map_in_scope(map, id_map->global))
@@ -276,25 +291,34 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 if (msg)
                     send_or_bundle_message(dst_islot->link,
                                            dst_slot->signal->path, msg, tt);
-                continue;
             }
-            else if (!map_in_scope(map, id_map->global))
-                continue;
+
             for (j = 0; j < map->num_sources; j++) {
-                if (!map->sources[j].use_as_instance)
-                    continue;
                 slot = &map->sources[j];
                 islot = slot->local;
-                // send release to upstream
-                msg = mapper_map_build_message(map, slot, 0, 1, 0, id_map);
-                if (msg)
-                    send_or_bundle_message(islot->link, slot->signal->path, msg, tt);
 
                 // also need to reset associated input memory
                 memset(islot->history[id].value, 0, islot->history_size
                        * slot->signal->length * mapper_type_size(slot->signal->type));
                 memset(islot->history[id].timetag, 0, islot->history_size
                        * sizeof(mapper_timetag_t));
+                islot->history[id].position = -1;
+
+                if (!map->sources[j].use_as_instance)
+                    continue;
+
+                if (!map_in_scope(map, id_map->global))
+                    continue;
+
+                if (sig->local->id_maps[instance].status & RELEASED_REMOTELY)
+                    continue;
+
+                if (slot->direction == MAPPER_DIR_INCOMING) {
+                    // send release to upstream
+                    msg = mapper_map_build_message(map, slot, 0, 1, 0, id_map);
+                    if (msg)
+                        send_or_bundle_message(islot->link, slot->signal->path, msg, tt);
+                }
             }
         }
         return;
@@ -316,7 +340,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             continue;
 
         int in_scope = map_in_scope(map, id_map->global);
-        // TODO: should we continue for out-of-scope local destinaton updates?
+        // TODO: should we continue for out-of-scope local destination updates?
         if (slot->use_as_instance && !in_scope) {
             continue;
         }

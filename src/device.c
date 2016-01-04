@@ -316,7 +316,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     mapper_id global_id;
     mapper_id_map id_map;
     mapper_map map = 0;
-    mapper_slot slot = 0;
+    mapper_slot src_slot = 0;
+    mapper_slot_internal src_islot;
 
     if (!sig || !(dev = sig->device)) {
 #ifdef DEBUG
@@ -386,14 +387,15 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 
     if (slot_index >= 0) {
         // retrieve mapping associated with this slot
-        slot = mapper_router_find_slot(dev->local->router, sig, slot_index);
-        if (!slot) {
+        src_slot = mapper_router_find_slot(dev->local->router, sig, slot_index);
+        if (!src_slot) {
 #ifdef DEBUG
             printf("error in handler_signal: slot %d not found.\n", slot_index);
 #endif
             return 0;
         }
-        map = slot->map;
+        src_islot = src_slot->local;
+        map = src_slot->map;
         if (map->status < STATUS_READY) {
 #ifdef DEBUG
             printf("error in handler_signal: mapping not yet ready.\n");
@@ -407,8 +409,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             return 0;
         }
         if (map->process_location == MAPPER_LOC_DESTINATION) {
-            count = check_types(types, value_len, slot->signal->type,
-                                slot->signal->length);
+            count = check_types(types, value_len, src_slot->signal->type,
+                                src_slot->signal->length);
         }
         else {
             // value has already been processed at source device
@@ -482,16 +484,18 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             return 0;
     }
     mapper_signal_instance si = sig->local->id_maps[id_map_index].instance;
+    int id = si->index;
     id_map = sig->local->id_maps[id_map_index].map;
 
-    int size = (slot ? mapper_type_size(slot->signal->type) : mapper_type_size(sig->type));
+    int size = (src_slot ? mapper_type_size(src_slot->signal->type)
+                : mapper_type_size(sig->type));
     void *out_buffer = alloca(count * value_len * size);
     int vals, out_count = 0, active = 1;
 
     if (map) {
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
-            for (j = 0; j < slot->signal->length; j++, k++) {
+            for (j = 0; j < src_slot->signal->length; j++, k++) {
                 vals += (types[k] != 'N');
             }
             /* partial vector updates not allowed in convergent mappings
@@ -506,6 +510,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     return 0;
                 }
                 if (is_instance_update) {
+                    // TODO: mark SLOT status as remotely released rather than map
                     sig->local->id_maps[id_map_index].status |= RELEASED_REMOTELY;
                     id_map->refcount_global--;
                     if (id_map->refcount_global <= 0 && id_map->refcount_local <= 0) {
@@ -521,9 +526,17 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 if (update_h) {
                     update_h(sig, id_map->local, 0, 1, &tt);
                 }
+                if (map->process_location != MAPPER_LOC_DESTINATION)
+                    continue;
+                /* Reset memory for corresponding source slot. */
+                memset(src_islot->history[id].value, 0, src_islot->history_size
+                       * src_slot->signal->length * size);
+                memset(src_islot->history[id].timetag, 0,
+                       src_islot->history_size * sizeof(mapper_timetag_t));
+                src_islot->history[id].position = -1;
                 continue;
             }
-            else if (vals != slot->signal->length) {
+            else if (vals != src_slot->signal->length) {
 #ifdef DEBUG
                 printf("error in handler_signal: partial vector update applied "
                        "to convergent mapping slot.");
@@ -553,32 +566,30 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                         return 0;
                     }
                 }
-                si = sig->local->id_maps[id_map_index].instance;
-                id_map = sig->local->id_maps[id_map_index].map;
             }
-            slot->local->history[si->index].position = ((slot->local->history[si->index].position + 1)
-                                                        % slot->local->history[si->index].size);
-            memcpy(mapper_history_value_ptr(slot->local->history[si->index]),
-                   argv[i*count], size * slot->signal->length);
-            memcpy(mapper_history_tt_ptr(slot->local->history[si->index]),
-                   &tt, sizeof(mapper_timetag_t));
-            if (slot->causes_update) {
+            src_islot->history[id].position = ((src_islot->history[id].position + 1)
+                                               % src_islot->history[id].size);
+            memcpy(mapper_history_value_ptr(src_islot->history[id]),
+                   argv[i*count], size * src_slot->signal->length);
+            memcpy(mapper_history_tt_ptr(src_islot->history[id]), &tt,
+                   sizeof(mapper_timetag_t));
+            if (src_slot->causes_update) {
                 char typestring[map->destination.signal->length];
                 mapper_history sources[map->num_sources];
                 for (j = 0; j < map->num_sources; j++)
-                    sources[j] = &map->sources[j].local->history[si->index];
+                    sources[j] = &map->sources[j].local->history[id];
                 if (!mapper_expr_evaluate(map->local->expr, sources,
-                                          &map->local->expr_vars[si->index],
-                                          &map->destination.local->history[si->index],
+                                          &map->local->expr_vars[id],
+                                          &map->destination.local->history[id],
                                           &tt, typestring)) {
                     continue;
                 }
                 // TODO: check if expression has triggered instance-release
-                if (mapper_boundary_perform(&map->destination.local->history[si->index],
+                if (mapper_boundary_perform(&map->destination.local->history[id],
                                             &map->destination, typestring)) {
                     continue;
                 }
-                void *result = mapper_history_value_ptr(map->destination.local->history[si->index]);
+                void *result = mapper_history_value_ptr(map->destination.local->history[id]);
                 vals = 0;
                 for (j = 0; j < map->destination.signal->length; j++) {
                     if (typestring[j] == 'N')

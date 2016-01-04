@@ -177,7 +177,7 @@ void map_signals()
 {
     mapper_map map = mapper_map_new(1, &sendsig, recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
-    mapper_map_set_expression(map, "y=y{-1}+1");//"foo=1;  y=y{-1}+foo");
+    mapper_map_set_expression(map, "y{-1}=-10;y=y{-1}+1");
     mapper_map_push(map);
 
     // wait until mapping has been established

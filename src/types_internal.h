@@ -404,7 +404,6 @@ typedef struct _mapper_link {
 
 #define MAX_NUM_MAP_SOURCES 8    // arbitrary
 
-// Slot and Map status MAPPER_ACTIVE is defined in mapper_db.h
 #define STATUS_STAGED       0x00
 #define STATUS_TYPE_KNOWN   0x01
 #define STATUS_LENGTH_KNOWN 0x02
@@ -493,7 +492,7 @@ typedef struct _mapper_map {
     mapper_mode mode;                   //!< MO_LINEAR or MO_EXPRESSION
     int muted;                          //!< 1 to mute mapping, 0 to unmute
     int num_sources;
-    int process_location;               //!< 1 for source, 0 for destination
+    mapper_location process_location;
     int status;
     int version;
 } mapper_map_t, *mapper_map;

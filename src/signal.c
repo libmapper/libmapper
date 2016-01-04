@@ -868,9 +868,7 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
     else
         ttp = &tt;
 
-    if (!(smap->status & RELEASED_REMOTELY)) {
-        mapper_device_route_signal(sig->device, sig, instance_index, 0, 0, *ttp);
-    }
+    mapper_device_route_signal(sig->device, sig, instance_index, 0, 0, *ttp);
 
     smap->map->refcount_local--;
     if (smap->map->refcount_local <= 0 && smap->map->refcount_global <= 0) {

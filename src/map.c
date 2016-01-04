@@ -1243,7 +1243,7 @@ static void apply_mode(mapper_map map)
 
 static int mapper_map_check_status(mapper_map map)
 {
-    if (map->status >= STATUS_READY)
+    if (bitmatch(map->status, STATUS_READY))
         return map->status;
 
     map->status |= METADATA_OK;
@@ -1347,8 +1347,7 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
             }
             case AT_EXPRESSION: {
                     const char *expr_str = &atom->values[0]->s;
-                    if (map->local && (map->status & STATUS_LENGTH_KNOWN)
-                        && (map->status & STATUS_TYPE_KNOWN)) {
+                    if (map->local && bitmatch(map->status, STATUS_READY)) {
                         if (strstr(expr_str, "y{-")) {
                             int loc = MAPPER_LOC_DESTINATION;
                             updated += mapper_table_set_record(map->props,
