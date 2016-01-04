@@ -921,6 +921,7 @@ static int replace_expression_string(mapper_map map, const char *expr_str)
         // copy expression string but do not execute it
         mapper_table_set_record(map->props, AT_EXPRESSION, NULL, 1, 's',
                                 expr_str, REMOTE_MODIFY);
+        mapper_expr_free(expr);
         return 1;
     }
 

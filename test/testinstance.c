@@ -208,8 +208,8 @@ void loop()
                 value = (rand() % 10) * 1.0f;
                 mapper_signal_instance_update(sendsig, instance, &value, 0,
                                               MAPPER_NOW);
-                eprintf("--> sender instance %llu updated to %f\n", instance,
-                        value);
+                eprintf("--> sender instance %llu updated to %f\n",
+                        (unsigned long long)instance, value);
                 sent++;
                 break;
         }

@@ -280,7 +280,7 @@ static void seed_srand()
     unsigned int s;
 
 #ifndef WIN32
-    FILE *f = fopen("/dev/random", "rb");
+    FILE *f = fopen("/dev/urandom", "rb");
     if (f) {
         if (fread(&s, 4, 1, f)==1) {
             srand(s);

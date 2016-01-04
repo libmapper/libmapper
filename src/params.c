@@ -741,7 +741,7 @@ void mapper_property_pp(int length, char type, const void *value)
         {
             int64_t *pi = (int64_t*)value;
             for (i = 0; i < length; i++)
-                printf("%lli, ", pi[i]);
+                printf("%lli, ", (long long)pi[i]);
             break;
         }
         case 't':

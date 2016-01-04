@@ -174,7 +174,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
                                const char *key, int flags, int free_value)
 {
     mapper_table_record_t *rec = mapper_table_record(tab, index, key);
-    if (!rec || !rec->flags & MODIFIABLE || !rec->value)
+    if (!rec || !(rec->flags & MODIFIABLE) || !rec->value)
         return 0;
 
     if (index != AT_EXTRA) {

@@ -223,7 +223,6 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
     va_start(aq, types);
 
     int i = 0, j, size = 0, num_args;
-    const char *s;
     while (types[i]) {
         switch (types[i]) {
             case 'i':
@@ -365,7 +364,6 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
         }
         i++;
     }
-    s = va_arg(aq, const char*);
     va_end(aq);
 
     lh->query_context->size = sizeof(query_info_t)+size;
