@@ -47,14 +47,14 @@ void mapper_slot_init(mapper_slot slot)
 
 void mapper_slot_free(mapper_slot slot)
 {
-    if (slot->minimum)
-        free(slot->minimum);
-    if (slot->maximum)
-        free(slot->maximum);
     if (slot->props)
         mapper_table_free(slot->props);
     if (slot->staged_props)
         mapper_table_free(slot->staged_props);
+    if (slot->minimum)
+        free(slot->minimum);
+    if (slot->maximum)
+        free(slot->maximum);
 }
 
 int mapper_slot_index(mapper_slot slot)
