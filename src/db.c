@@ -229,6 +229,8 @@ void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet)
         free(dev->description);
     if (dev->host)
         free(dev->host);
+    if (!dev->local && dev->lib_version)
+        free(dev->lib_version);
     if (dev->name)
         free(dev->name);
     if (dev->user_data)
