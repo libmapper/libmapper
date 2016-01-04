@@ -95,17 +95,27 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
     // check if record of map already exists
     mapper_map map, *maps, *temp;
     maps = mapper_signal_maps(destination, MAPPER_DIR_INCOMING);
-    for (i = 0; i < num_sources; i++) {
-        temp = mapper_signal_maps(sources[i], MAPPER_DIR_OUTGOING);
-        maps = mapper_map_query_intersection(maps, temp);
-    }
-    while (maps) {
-        if ((*maps)->num_sources == num_sources) {
-            map = *maps;
-            mapper_map_query_done(maps);
-            return map;
+    if (maps) {
+        for (i = 0; i < num_sources; i++) {
+            mapper_signal sig = mapper_db_signal_by_id(db, mapper_signal_id(sources[i]));
+            if (sig) {
+                temp = mapper_signal_maps(sig, MAPPER_DIR_OUTGOING);
+                maps = mapper_map_query_intersection(maps, temp);
+            }
+            else {
+                mapper_map_query_done(maps);
+                maps = 0;
+                break;
+            }
         }
-        maps = mapper_map_query_next(maps);
+        while (maps) {
+            if ((*maps)->num_sources == num_sources) {
+                map = *maps;
+                mapper_map_query_done(maps);
+                return map;
+            }
+            maps = mapper_map_query_next(maps);
+        }
     }
 
     int order[num_sources];
