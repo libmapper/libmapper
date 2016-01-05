@@ -263,8 +263,8 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             // need to reset user variable memory for this instance
             for (j = 0; j < imap->num_expr_vars; j++) {
                 memset(imap->expr_vars[id][j].value, 0, sizeof(double)
-                       * imap->expr_vars[i][j].length
-                       * imap->expr_vars[i][j].size);
+                       * imap->expr_vars[id][j].length
+                       * imap->expr_vars[id][j].size);
                 memset(imap->expr_vars[id][j].timetag, 0,
                        sizeof(mapper_timetag_t)
                        * imap->expr_vars[id][j].size);
@@ -859,16 +859,14 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
     }
 
     // free buffers associated with user-defined expression variables
-    if (map->local->num_expr_vars) {
-        for (i = 0; i < map->local->num_var_instances; i++) {
-            if (map->local->num_expr_vars) {
-                for (j = 0; j < map->local->num_expr_vars; j++) {
-                    free(map->local->expr_vars[i][j].value);
-                    free(map->local->expr_vars[i][j].timetag);
-                }
+    for (i = 0; i < map->local->num_var_instances; i++) {
+        if (map->local->num_expr_vars) {
+            for (j = 0; j < map->local->num_expr_vars; j++) {
+                free(map->local->expr_vars[i][j].value);
+                free(map->local->expr_vars[i][j].timetag);
             }
-            free(map->local->expr_vars[i]);
         }
+        free(map->local->expr_vars[i]);
     }
     if (map->local->expr_vars)
         free(map->local->expr_vars);

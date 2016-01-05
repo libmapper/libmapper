@@ -1289,7 +1289,7 @@ static int mapper_map_check_status(mapper_map map)
         }
         init_slot_history(&map->destination);
         if (!map->local->expr_vars) {
-            map->local->expr_vars = calloc(1, sizeof(mapper_history)
+            map->local->expr_vars = calloc(1, sizeof(mapper_history*)
                                            * map->local->num_var_instances);
         }
         map->status = STATUS_READY;
@@ -1502,8 +1502,6 @@ void reallocate_map_histories(mapper_map map)
                 map->local->expr_vars[i][j].type = 'd';
                 map->local->expr_vars[i][j].length = 0;
                 map->local->expr_vars[i][j].size = 0;
-                map->local->expr_vars[i][j].value = 0;
-                map->local->expr_vars[i][j].timetag = 0;
                 map->local->expr_vars[i][j].position = -1;
             }
             for (j = 0; j < new_num_vars; j++) {
