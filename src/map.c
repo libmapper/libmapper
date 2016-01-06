@@ -413,12 +413,11 @@ void mapper_map_remove_property(mapper_map map, const char *name)
 {
     // check if property is in static property table
     mapper_property_t prop = mapper_property_from_string(name);
-    if (prop == AT_USER_DATA) {
+    if (prop == AT_USER_DATA)
         map->user_data = 0;
-        return;
-    }
-    mapper_table_set_record(map->staged_props, prop | PROPERTY_REMOVE, name, 0,
-                            0, 0, REMOTE_MODIFY);
+    else
+        mapper_table_set_record(map->staged_props, prop, name, 0, 0, 0,
+                                REMOTE_MODIFY);
 }
 
 static int add_scope_internal(mapper_map map, const char *name)

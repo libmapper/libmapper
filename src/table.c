@@ -332,7 +332,7 @@ static void update_value_elements(mapper_table_record_t *rec, int length,
         if (length == 1) {
             if (value)
                 free(value);
-            value = strdup((char*)args);
+            value = args ? strdup((char*)args) : 0;
         }
         else {
             const char **from = (const char**)args;
