@@ -447,16 +447,16 @@ mapper_signal *mapper_signal_query_intersection(mapper_signal *query1,
 mapper_signal *mapper_signal_query_difference(mapper_signal *query1,
                                               mapper_signal *query2);
 
-/*! Given a signal record pointer returned from a previous mapper_db_signal*()
- *  call, get an indexed item in the list.
+/*! Given a signal record pointer returned from a previous signal query, get an
+ *  indexed item in the list.
  *  \param query    The previous signal record pointer.
  *  \param index    The index of the list element to retrieve.
  *  \return         A pointer to the signal record, or zero if it doesn't
  *                  exist. */
 mapper_signal mapper_signal_query_index(mapper_signal *query, int index);
 
-/*! Given a signal record pointer returned from a previous mapper_db_signal*()
- *  call, get the next item in the list.
+/*! Given a signal record pointer returned from a previous signal query, get the
+ *  next item in the list.
  *  \param query    The previous signal record pointer.
  *  \return         A double-pointer to the next signal record in the list, or
  *                  zero if no more signals. */
@@ -468,8 +468,8 @@ mapper_signal *mapper_signal_query_next(mapper_signal *query);
  *                  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_signal_query_copy(mapper_signal *query);
 
-/*! Given a signal record pointer returned from a previous mapper_db_signal*()
- *  call, indicate that we are done iterating.
+/*! Given a signal record pointer returned from a previous signal query,
+ *  indicate that we are done iterating.
  *  \param query    The previous signal record pointer. */
 void mapper_signal_query_done(mapper_signal *query);
 
@@ -812,16 +812,16 @@ mapper_device *mapper_device_query_intersection(mapper_device *query1,
 mapper_device *mapper_device_query_difference(mapper_device *query1,
                                               mapper_device *query2);
 
-/*! Given a device record pointer returned from a previous mapper_db_device*()
- *  call, get an indexed item in the list.
+/*! Given a device record pointer returned from a previous device query, get an
+ *  indexed item in the list.
  *  \param query    The previous device record pointer.
  *  \param index    The index of the list element to retrieve.
  *  \return         A pointer to the device record, or zero if it doesn't
  *                  exist. */
 mapper_device mapper_device_query_index(mapper_device *query, int index);
 
-/*! Given a device record pointer returned from a previous mapper_db_device*()
- *  call, get the next item in the list.
+/*! Given a device record pointer returned from a previous device query, get the
+ *  next item in the list.
  *  \param query    The previous device record pointer.
  *  \return         A double-pointer to the next device record in the list, or
  *                  zero if no more devices. */
@@ -833,8 +833,8 @@ mapper_device *mapper_device_query_next(mapper_device *query);
  *                  Use mapper_device_query_next() to iterate. */
 mapper_device *mapper_device_query_copy(mapper_device *query);
 
-/*! Given a device record pointer returned from a previous mapper_db_device*()
- *  call, indicate that we are done iterating.
+/*! Given a device record pointer returned from a previous device query,
+ *  indicate that we are done iterating.
  *  \param query    The previous device record pointer. */
 void mapper_device_query_done(mapper_device *query);
 
@@ -1135,15 +1135,15 @@ mapper_map *mapper_map_query_intersection(mapper_map *query1, mapper_map *query2
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_map_query_difference(mapper_map *query1, mapper_map *query2);
 
-/*! Given a map record pointer returned from a previous mapper_db_map*()
- *  call, get an indexed item in the list.
+/*! Given a map record pointer returned from a previous map query, get an
+ *  indexed item in the list.
  *  \param query    The previous map record pointer.
  *  \param index    The index of the list element to retrieve.
  *  \return         A pointer to the map record, or zero if it doesn't exist. */
 mapper_map mapper_map_query_index(mapper_map *query, int index);
 
-/*! Given a map record pointer returned from a previous mapper_db_map*() call,
- *  get the next item in the list.
+/*! Given a map record pointer returned from a previous map query, get the next
+ *  item in the list.
  *  \param query    The previous map record pointer.
  *  \return         A double-pointer to the next map record in the list, or
  *                  zero if no more maps. */
@@ -1155,8 +1155,8 @@ mapper_map *mapper_map_query_next(mapper_map *query);
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_map_query_copy(mapper_map *query);
 
-/*! Given a map record pointer returned from a previous mapper_db_map*() call,
- *  indicate that we are done iterating.
+/*! Given a map record pointer returned from a previous map*() query, indicate
+ *  that we are done iterating.
  *  \param query    The previous map record pointer. */
 void mapper_map_query_done(mapper_map *query);
 
@@ -1488,11 +1488,7 @@ mapper_device *mapper_db_devices_by_name_match(mapper_db db, const char *pattern
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be one of
- *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
- *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
- *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
- *                  MAPPER_OP_DOES_NOT_EXIST.
+ *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_device_query_next() to iterate. */
 mapper_device *mapper_db_devices_by_property(mapper_db db, const char *name,
@@ -1560,11 +1556,7 @@ mapper_signal *mapper_db_signals_by_name_match(mapper_db db, const char *pattern
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be one of
- *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
- *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
- *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
- *                  MAPPER_OP_DOES_NOT_EXIST.
+ *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_db_signals_by_property(mapper_db db, const char *name,
@@ -1622,11 +1614,7 @@ mapper_map *mapper_db_maps_by_scope(mapper_db db, mapper_device dev);
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be one of
- *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
- *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
- *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
- *                  MAPPER_OP_DOES_NOT_EXIST.
+ *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_property(mapper_db db, const char *name,
@@ -1639,11 +1627,7 @@ mapper_map *mapper_db_maps_by_property(mapper_db db, const char *name,
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be one of
- *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
- *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
- *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
- *                  MAPPER_OP_DOES_NOT_EXIST.
+ *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *name,
@@ -1656,18 +1640,12 @@ mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *name,
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be one of
- *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
- *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
- *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
- *                  MAPPER_OP_DOES_NOT_EXIST.
+ *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db,
-                                                const char *name,
+mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db, const char *name,
                                                 int length, char type,
-                                                const void *value,
-                                                mapper_op op);
+                                                const void *value, mapper_op op);
 
 /*! Return the list of maps matching the given destination slot property.
  *  \param db       The database to query.
@@ -1675,11 +1653,7 @@ mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db,
  *  \param length   The value length.
  *  \param type     The value type.
  *  \param value    The value.
- *  \param op       A string specifying the comparison operator, can be one of
- *                  MAPPER_OP_EQUAL, MAPPER_OP_NOT_EQUAL, MAPPER_OP_GREATER_THAN,
- *                  MAPPER_OP_LESS_THAN, MAPPER_OP_GREATER_THAN_OR_EQUAL,
- *                  MAPPER_OP_LESS_THAN_OR_EQUAL, MAPPER_OP_EXISTS, or
- *                  MAPPER_OP_DOES_NOT_EXIST.
+ *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db, const char *name,
