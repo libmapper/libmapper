@@ -944,7 +944,7 @@ void *mapper_map_user_data(mapper_map map);
 
 /*! Remove a map between a set of signals.
  *  \param map      The map to destroy. */
-void mapper_map_unmap(mapper_map map);
+void mapper_map_release(mapper_map map);
 
 /*! Get the description for a specific signal.
  *  \param map      The map to check.

@@ -1143,8 +1143,8 @@ namespace mapper {
             { return mapper_map_id(_map); }
         const Map& push() const
             { mapper_map_push(_map); return (*this); }
-        void unmap()
-            { mapper_map_unmap(_map); }
+        void release()
+            { mapper_map_release(_map); }
         int num_sources() const
             { return mapper_map_num_sources(_map); }
         bool ready() const

@@ -163,7 +163,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
     return map;
 }
 
-void mapper_map_unmap(mapper_map map)
+void mapper_map_release(mapper_map map)
 {
     mapper_map_send_state(map, -1, MSG_UNMAP, 0);
 }
