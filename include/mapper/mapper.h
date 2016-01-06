@@ -542,6 +542,28 @@ void mapper_device_set_user_data(mapper_device dev, const void *user_data);
  *  \return             A pointer associated with this device. */
 void *mapper_device_user_data(mapper_device dev);
 
+/*! Add a signal to a mapper device.  Values and strings pointed to by
+ *  this call (except user_data) will be copied.  For minimum and maximum,
+ *  actual type must correspond to 'type' (if type='i', then int*, etc).
+ *  \param dev          The device to add a signal to.
+ *  \param dir          The signal direction: MAPPER_DIR_INCOMING for inputs or
+ *                      MAPPER_DIR_OUTGOING for outputs.
+ *  \param name         The name of the signal.
+ *  \param length   	The length of the signal vector, or 1 for a scalar.
+ *  \param type         The type fo the signal value.
+ *  \param unit         The unit of the signal, or 0 for none.
+ *  \param minimum      Pointer to a minimum value, or 0 for none.
+ *  \param maximum      Pointer to a maximum value, or 0 for none.
+ *  \param handler      Function to be called when the value of the
+ *                      signal is updated.
+ *  \param user_data    User context pointer to be passed to handler. */
+mapper_signal mapper_device_add_signal(mapper_device dev,
+                                       mapper_direction dir, const char *name,
+                                       int length, char type, const char *unit,
+                                       const void *minimum, const void *maximum,
+                                       mapper_signal_update_handler *handler,
+                                       const void *user_data);
+
 /*! Add an input signal to a mapper device.  Values and strings pointed to by
  *  this call (except user_data) will be copied.  For minimum and maximum,
  *  actual type must correspond to 'type' (if type='i', then int*, etc).
@@ -555,11 +577,11 @@ void *mapper_device_user_data(mapper_device dev);
  *  \param handler      Function to be called when the value of the
  *                      signal is updated.
  *  \param user_data    User context pointer to be passed to handler. */
-mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
-                                      int length, char type, const char *unit,
-                                      const void *minimum, const void *maximum,
-                                      mapper_signal_update_handler *handler,
-                                      const void *user_data);
+mapper_signal mapper_device_add_input_signal(mapper_device dev, const char *name,
+                                             int length, char type, const char *unit,
+                                             const void *minimum, const void *maximum,
+                                             mapper_signal_update_handler *handler,
+                                             const void *user_data);
 
 /*! Add an output signal to a mapper device.  Values and strings pointed to by
  *  this call (except user_data) will be copied.  For minimum and maximum,
@@ -571,9 +593,9 @@ mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
  *  \param unit         The unit of the signal, or 0 for none.
  *  \param minimum      Pointer to a minimum value, or 0 for none.
  *  \param maximum      Pointer to a maximum value, or 0 for none. */
-mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
-                                       int length, char type, const char *unit,
-                                       const void *minimum, const void *maximum);
+mapper_signal mapper_device_add_output_signal(mapper_device dev, const char *name,
+                                              int length, char type, const char *unit,
+                                              const void *minimum, const void *maximum);
 
 /* Remove a device's signal.
  * \param dev The device to remove a signal from.

@@ -65,14 +65,14 @@ int setup_devices()
     float mnf2[]={3.2,2,0}, mxf2[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    inputs[0] = mapper_device_add_input(devices[0], "insig_1", 1, 'f', 0,
-                                        mnf1, mxf1, insig_handler, 0);
-    inputs[1] = mapper_device_add_input(devices[0], "insig_2", 1, 'd', 0,
-                                         &mnd, &mxd, insig_handler, 0);
-    inputs[2] = mapper_device_add_input(devices[1], "insig_3", 3, 'f', 0,
-                                        mnf1, mxf1, insig_handler, 0);
-    inputs[3] = mapper_device_add_input(devices[1], "insig_4", 1, 'f', 0,
-                                        mnf2, mxf2, insig_handler, 0);
+    inputs[0] = mapper_device_add_input_signal(devices[0], "insig_1", 1, 'f', 0,
+                                               mnf1, mxf1, insig_handler, 0);
+    inputs[1] = mapper_device_add_input_signal(devices[0], "insig_2", 1, 'd', 0,
+                                               &mnd, &mxd, insig_handler, 0);
+    inputs[2] = mapper_device_add_input_signal(devices[1], "insig_3", 3, 'f', 0,
+                                               mnf1, mxf1, insig_handler, 0);
+    inputs[3] = mapper_device_add_input_signal(devices[1], "insig_4", 1, 'f', 0,
+                                               mnf2, mxf2, insig_handler, 0);
 
     /* In this test inputs[2] will never get its full vector value from
      * external updates – for the handler to be called we will need to

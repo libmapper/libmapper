@@ -841,14 +841,12 @@ static mapper_id get_unused_signal_id(mapper_device dev)
 }
 
 // Add a signal to a mapper device.
-static mapper_signal mapper_device_add_signal(mapper_device dev,
-                                              mapper_direction dir,
-                                              const char *name, int length,
-                                              char type, const char *unit,
-                                              const void *minimum,
-                                              const void *maximum,
-                                              mapper_signal_update_handler *handler,
-                                              const void *user_data)
+mapper_signal mapper_device_add_signal(mapper_device dev,
+                                       mapper_direction dir, const char *name,
+                                       int length, char type, const char *unit,
+                                       const void *minimum, const void *maximum,
+                                       mapper_signal_update_handler *handler,
+                                       const void *user_data)
 {
     if (!dev || !dev->local)
         return 0;
@@ -892,20 +890,20 @@ static mapper_signal mapper_device_add_signal(mapper_device dev,
     return sig;
 }
 
-mapper_signal mapper_device_add_input(mapper_device dev, const char *name,
-                                      int length, char type, const char *unit,
-                                      const void *minimum, const void *maximum,
-                                      mapper_signal_update_handler *handler,
-                                      const void *user_data)
+mapper_signal mapper_device_add_input_signal(mapper_device dev, const char *name,
+                                             int length, char type, const char *unit,
+                                             const void *minimum, const void *maximum,
+                                             mapper_signal_update_handler *handler,
+                                             const void *user_data)
 {
     return mapper_device_add_signal(dev, MAPPER_DIR_INCOMING, name, length,
                                     type, unit, minimum, maximum, handler,
                                     user_data);
 }
 
-mapper_signal mapper_device_add_output(mapper_device dev, const char *name,
-                                       int length, char type, const char *unit,
-                                       const void *minimum, const void *maximum)
+mapper_signal mapper_device_add_output_signal(mapper_device dev, const char *name,
+                                              int length, char type, const char *unit,
+                                              const void *minimum, const void *maximum)
 {
     return mapper_device_add_signal(dev, MAPPER_DIR_OUTGOING, name, length,
                                     type, unit, minimum, maximum, 0, 0);

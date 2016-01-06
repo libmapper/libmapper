@@ -56,16 +56,16 @@ int main(int argc, char ** argv)
 
     mapper::Device dev("mydevice");
 
-    mapper::Signal sig = dev.add_input("in1", 1, 'f', "meters", 0, 0,
-                                       insig_handler);
+    mapper::Signal sig = dev.add_input_signal("in1", 1, 'f', "meters", 0, 0,
+                                              insig_handler);
     dev.remove_signal(sig);
-    dev.add_input("in2", 2, 'i', 0, 0, 0, insig_handler);
-    dev.add_input("in3", 2, 'i', 0, 0, 0, insig_handler);
-    dev.add_input("in4", 2, 'i', 0, 0, 0, insig_handler);
+    dev.add_input_signal("in2", 2, 'i', 0, 0, 0, insig_handler);
+    dev.add_input_signal("in3", 2, 'i', 0, 0, 0, insig_handler);
+    dev.add_input_signal("in4", 2, 'i', 0, 0, 0, insig_handler);
 
-    sig = dev.add_output("out1", 1, 'f', "na");
+    sig = dev.add_output_signal("out1", 1, 'f', "na");
     dev.remove_signal(sig);
-    sig = dev.add_output("out2", 3, 'd', "meters");
+    sig = dev.add_output_signal("out2", 3, 'd', "meters");
 
     while (!dev.ready()) {
         dev.poll(100);

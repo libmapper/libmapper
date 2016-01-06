@@ -53,7 +53,8 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig = mapper_device_add_output(source, "outsig", 1, 'f', "Hz", &mn, &mx);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'f', "Hz",
+                                              &mn, &mx);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -97,8 +98,8 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input(destination, "insig", 1, 'f', 0, &mn, &mx,
-                                      insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0,
+                                             &mn, &mx, insig_handler, 0);
 
     eprintf("Input signal 'insig' registered.\n");
 

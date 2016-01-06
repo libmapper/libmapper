@@ -61,8 +61,8 @@ int setup_source()
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 20, "%s%i", "outsig_", i);
-        sendsig[i] = mapper_device_add_output(source, sig_name, i+1, 'i', 0,
-                                              mn, mx);
+        sendsig[i] = mapper_device_add_output_signal(source, sig_name, i+1, 'i',
+                                                     0, mn, mx);
         mapper_signal_set_callback(sendsig[i], query_response_handler, 0);
         mapper_signal_update(sendsig[i], mn, 0, MAPPER_NOW);
     }
@@ -110,8 +110,9 @@ int setup_destination()
 
     for (int i = 0; i < 4; i++) {
         snprintf(sig_name, 10, "%s%i", "insig_", i);
-        recvsig[i] = mapper_device_add_input(destination, sig_name, i+1, 'f', 0,
-                                             mn, mx, insig_handler, 0);
+        recvsig[i] = mapper_device_add_input_signal(destination, sig_name, i+1,
+                                                    'f', 0, mn, mx,
+                                                    insig_handler, 0);
     }
 
     eprintf("Input signal 'insig' registered.\n");

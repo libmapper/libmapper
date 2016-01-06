@@ -46,13 +46,14 @@ int main(int argc, char ** argv)
     for (i = 0; i < 100; i++) {
         mapper_device_poll(dev, 100);
         snprintf(signame, 32, "in%i", i);
-        if (!(inputs[i] = mapper_device_add_input(dev, signame, 1, 'f', 0, 0,
-                                                  0, sig_handler, 0))) {
+        if (!(inputs[i] = mapper_device_add_input_signal(dev, signame, 1, 'f', 0,
+                                                         0, 0, sig_handler, 0))) {
             result = 1;
             goto done;
         }
         snprintf(signame, 32, "out%i", i);
-        if (!(outputs[i] = mapper_device_add_output(dev, signame, 1, 'f', 0, 0, 0))) {
+        if (!(outputs[i] = mapper_device_add_output_signal(dev, signame, 1, 'f',
+                                                           0, 0, 0))) {
             result = 1;
             goto done;
         }

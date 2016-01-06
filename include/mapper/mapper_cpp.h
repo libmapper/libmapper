@@ -873,21 +873,33 @@ namespace mapper {
         void *user_data() const
             { return mapper_device_user_data(_dev); }
 
-        Signal add_input(const string_type &name, int length, char type,
-                         const string_type &unit=0, void *minimum=0,
-                         void *maximum=0, mapper_signal_update_handler handler=0,
-                         void *user_data=0)
+        Signal add_signal(mapper_direction dir, const string_type &name,
+                          int length, char type, const string_type &unit=0,
+                          void *minimum=0, void *maximum=0,
+                          mapper_signal_update_handler handler=0,
+                          void *user_data=0)
         {
-            return Signal(mapper_device_add_input(_dev, name, length, type,
-                                                  unit, minimum, maximum,
-                                                  handler, user_data));
+            return Signal(mapper_device_add_signal(_dev, dir, name, length, type,
+                                                   unit, minimum, maximum,
+                                                   handler, user_data));
         }
-        Signal add_output(const string_type &name, int length, char type,
-                          const string_type &unit=0, void *minimum=0,
-                          void *maximum=0)
+        Signal add_input_signal(const string_type &name, int length, char type,
+                                const string_type &unit=0,
+                                void *minimum=0, void *maximum=0,
+                                mapper_signal_update_handler handler=0,
+                                void *user_data=0)
         {
-            return Signal(mapper_device_add_output(_dev, name, length, type,
-                                                   unit, minimum, maximum));
+            return Signal(mapper_device_add_input_signal(_dev, name, length, type,
+                                                         unit, minimum, maximum,
+                                                         handler, user_data));
+        }
+        Signal add_output_signal(const string_type &name, int length, char type,
+                                 const string_type &unit=0, void *minimum=0,
+                                 void *maximum=0)
+        {
+            return Signal(mapper_device_add_output_signal(_dev, name, length,
+                                                          type, unit,
+                                                          minimum, maximum));
         }
         Device& remove_signal(Signal sig)
             { mapper_device_remove_signal(_dev, sig); return (*this); }

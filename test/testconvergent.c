@@ -42,10 +42,10 @@ int setup_sources()
         if (!sources[i])
             goto error;
         eprintf("source %d created.\n", i);
-        sendsig[i][0] = mapper_device_add_output(sources[i], "sendsig1", 1,
-                                                 'i', 0, &mni, &mxi);
-        sendsig[i][1] = mapper_device_add_output(sources[i], "sendsig2", 1,
-                                                 'f', 0, &mnf, &mxf);
+        sendsig[i][0] = mapper_device_add_output_signal(sources[i], "sendsig1", 1,
+                                                        'i', 0, &mni, &mxi);
+        sendsig[i][1] = mapper_device_add_output_signal(sources[i], "sendsig2", 1,
+                                                        'f', 0, &mnf, &mxf);
     }
     return 0;
 
@@ -89,8 +89,8 @@ int setup_destination()
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = mapper_device_add_input(destination, "recvsig", 1, 'f', 0,
-                                      &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "recvsig", 1, 'f', 0,
+                                             &mn, &mx, insig_handler, 0);
 
     eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",

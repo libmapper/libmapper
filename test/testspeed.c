@@ -57,7 +57,7 @@ int setup_source()
         goto error;
     eprintf("source created.\n");
 
-    sendsig = mapper_device_add_output(source, "outsig", 1, 'f', 0, 0, 0);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'f', 0, 0, 0);
     if (!sendsig)
         goto error;
     mapper_signal_reserve_instances(sendsig, 9, 0, 0);
@@ -109,8 +109,8 @@ int setup_destination()
         goto error;
     eprintf("destination created.\n");
 
-    recvsig = mapper_device_add_input(destination, "insig", 1, 'f', 0, 0, 0,
-                                      insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0, 0,
+                                             0, insig_handler, 0);
     if (!recvsig)
         goto error;
     mapper_signal_reserve_instances(recvsig, 9, 0, 0);
