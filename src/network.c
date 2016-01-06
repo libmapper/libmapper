@@ -826,6 +826,16 @@ const struct in_addr *mapper_network_ip4(mapper_network net)
     return &net->interface_ip;
 }
 
+const char *mapper_network_group(mapper_network net)
+{
+    return lo_address_get_hostname(net->bus_addr);
+}
+
+int mapper_network_port(mapper_network net)
+{
+    return lo_server_get_port(net->bus_server);
+}
+
 /*! Algorithm for checking collisions and allocating resources. */
 static int check_collisions(mapper_network net, mapper_allocated resource)
 {
@@ -2287,4 +2297,11 @@ void mapper_network_send_message(mapper_network net, const char *path,
     /* We cannot depend on string arguments sticking around for liblo to
      * serialize later: trigger immediate dispatch. */
     mapper_network_send(net);
+}
+
+void mapper_network_now(mapper_network net, mapper_timetag_t *timetag)
+{
+    if (!net || !timetag)
+        return;
+    mapper_clock_now(&net->clock, timetag);
 }
