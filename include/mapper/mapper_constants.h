@@ -1,5 +1,5 @@
-#ifndef __MAPPER_DB_H__
-#define __MAPPER_DB_H__
+#ifndef __MAPPER_CONSTANTS_H__
+#define __MAPPER_CONSTANTS_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +32,7 @@ typedef lo_timetag mapper_timetag_t;
  *  uin64_t */
 typedef uint64_t mapper_id;
 
-/*! Possible operations for composing db queries. */
+/*! Possible operations for composing database queries. */
 typedef enum {
     MAPPER_OP_UNDEFINED = -1,
     MAPPER_OP_DOES_NOT_EXIST,
@@ -47,7 +47,7 @@ typedef enum {
 } mapper_op;
 
 /*! Describes what happens when the range boundaries are exceeded.
- *  @ingroup mapdb */
+ *  @ingroup map */
 typedef enum {
     MAPPER_BOUND_UNDEFINED,
     MAPPER_BOUND_NONE,    //!< Value is passed through unchanged. This is the default.
@@ -60,7 +60,7 @@ typedef enum {
 } mapper_boundary_action;
 
 /*! Describes the map modes.
- *  @ingroup mapdb */
+ *  @ingroup map */
 typedef enum {
     MAPPER_MODE_UNDEFINED,  //!< Not yet defined
     MAPPER_MODE_RAW,        //!< No type coercion
@@ -92,7 +92,7 @@ typedef enum {
 #define MAPPER_INSTANCE_ALL         0x0F
 
 /*! Describes the voice-stealing mode for instances.
- *  @ingroup mapdb */
+ *  @ingroup map */
 typedef enum {
     MAPPER_NO_STEALING,
     MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance
@@ -112,4 +112,4 @@ typedef enum {
 }
 #endif
 
-#endif // __MAPPER_DB_H__
+#endif // __MAPPER_CONSTANTS_H__

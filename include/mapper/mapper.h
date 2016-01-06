@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include <mapper/mapper_db.h>
+#include <mapper/mapper_constants.h>
 #include <mapper/mapper_types.h>
 
 #define MAPPER_NOW ((mapper_timetag_t){0L,1L})

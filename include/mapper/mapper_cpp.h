@@ -3,8 +3,6 @@
 #define _MAPPER_CPP_H_
 
 #include <mapper/mapper.h>
-//#include <mapper/mapper_types.h>
-//#include <mapper/mapper_db.h>
 
 #include <functional>
 #include <memory>
@@ -15,9 +13,6 @@
 #include <initializer_list>
 #include <vector>
 #include <iterator>
-
-//#include <lo/lo.h>
-//#include <lo/lo_cpp.h>
 
 /* TODO:
  *      signal update handlers

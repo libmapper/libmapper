@@ -328,11 +328,11 @@ mapper_message_atom mapper_message_property(mapper_message msg,
 }
 
 /* helper for mapper_message_varargs() */
-void mapper_message_add_typed_value(lo_message m, int length, char type,
+void mapper_message_add_typed_value(lo_message msg, int length, char type,
                                     const void *value)
 {
     int i;
-    if (length < 1)
+    if (type && length < 1)
         return;
 
     switch (type) {
@@ -340,11 +340,11 @@ void mapper_message_add_typed_value(lo_message m, int length, char type,
         case 'S':
         {
             if (length == 1)
-                lo_message_add_string(m, (char*)value);
+                lo_message_add_string(msg, (char*)value);
             else {
                 char **vals = (char**)value;
                 for (i = 0; i < length; i++)
-                    lo_message_add_string(m, vals[i]);
+                    lo_message_add_string(msg, vals[i]);
             }
             break;
         }
@@ -352,52 +352,56 @@ void mapper_message_add_typed_value(lo_message m, int length, char type,
         {
             float *vals = (float*)value;
             for (i = 0; i < length; i++)
-                lo_message_add_float(m, vals[i]);
+                lo_message_add_float(msg, vals[i]);
             break;
         }
         case 'd':
         {
             double *vals = (double*)value;
             for (i = 0; i < length; i++)
-                lo_message_add_double(m, vals[i]);
+                lo_message_add_double(msg, vals[i]);
             break;
         }
         case 'i':
         {
             int *vals = (int*)value;
             for (i = 0; i < length; i++)
-                lo_message_add_int32(m, vals[i]);
+                lo_message_add_int32(msg, vals[i]);
             break;
         }
         case 'h':
         {
             int64_t *vals = (int64_t*)value;
             for (i = 0; i < length; i++)
-                lo_message_add_int64(m, vals[i]);
+                lo_message_add_int64(msg, vals[i]);
             break;
         }
         case 't':
         {
             mapper_timetag_t *vals = (mapper_timetag_t*)value;
             for (i = 0; i < length; i++)
-                lo_message_add_timetag(m, vals[i]);
+                lo_message_add_timetag(msg, vals[i]);
             break;
         }
         case 'c':
         {
             char *vals = (char*)value;
             for (i = 0; i < length; i++)
-                lo_message_add_char(m, vals[i]);
+                lo_message_add_char(msg, vals[i]);
             break;
         }
         case 'b': {
             int *vals = (int*)value;
             for (i = 0; i < length; i++) {
                 if (vals[i])
-                    lo_message_add_true(m);
+                    lo_message_add_true(msg);
                 else
-                    lo_message_add_false(m);
+                    lo_message_add_false(msg);
             }
+            break;
+        }
+        case 0: {
+            lo_message_add_nil(msg);
             break;
         }
         default:

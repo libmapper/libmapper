@@ -14,7 +14,7 @@
  #endif
 #endif
 
-#include <mapper/mapper_db.h>
+#include <mapper/mapper_constants.h>
 
 /**** Defined in mapper.h ****/
 
@@ -447,7 +447,7 @@ typedef struct _mapper_slot {
 /*! The mapper_map_internal structure is a linked list of mappings for a given
  *  signal.  Each signal can be associated with multiple inputs or outputs. This
  *  structure only contains state information used for performing mapping, the
- *  properties are publically defined in mapper_db.h. */
+ *  properties are publically defined in mapper_constants.h. */
 typedef struct _mapper_map_internal {
     struct _mapper_router *router;
     int is_admin;
@@ -470,7 +470,7 @@ typedef struct _mapper_map_scope {
 } mapper_map_scope_t, *mapper_map_scope;
 
 /*! A record that describes the properties of a mapping.
- *  @ingroup mapdb */
+ *  @ingroup map */
 typedef struct _mapper_map {
     mapper_db db;                       //!< Pointer back to the db.
     mapper_map_internal local;
@@ -610,13 +610,11 @@ struct _mapper_device {
 /* Maximum number of "extra" properties for a signal, device, or map. */
 #define NUM_EXTRA_PROPERTIES 20
 
-///*! Strings that correspond to mapper_message_param_t. */
-//extern const char* mapper_property_strings[];
-
-/*! Strings that correspond to mapper_boundary_action, defined in mapper_db.h. */
+/*! Strings that correspond to mapper_boundary_action, defined in
+ *  mapper_constants.h. */
 extern const char* mapper_boundary_action_strings[];
 
-/*! Strings that correspond to mapper_mode, defined in mapper_db.h. */
+/*! Strings that correspond to mapper_mode, defined in mapper_constants.h. */
 extern const char* mapper_mode_strings[];
 
 /*! Queriable representation of a parameterized message parsed from an incoming
