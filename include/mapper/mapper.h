@@ -635,6 +635,11 @@ mapper_signal mapper_device_signal_by_name(mapper_device dev,
 mapper_signal mapper_device_signal_by_index(mapper_device dev, int index,
                                             mapper_direction dir);
 
+/*! Get the description for a specific device.
+ *  \param dev      The device to check.
+ *  \return         The device description if it is defined, or NULL. */
+const char *mapper_device_description(mapper_device dev);
+
 /*! Return the number of maps associated with a specific device.
  *  \param dev      The device to check.
  *  \param dir      The direction of the maps relative to the given device.  Can
@@ -679,6 +684,11 @@ int mapper_device_property(mapper_device dev, const char *name, int *length,
 int mapper_device_property_index(mapper_device dev, unsigned int index,
                                  const char **name, int *length, char *type,
                                  const void **value);
+
+/*! Set the description property for a specific local device.
+ *  \param dev          The device to modify.
+ *  \param description  The description value to set. */
+void mapper_device_set_description(mapper_device dev, const char *description);
 
 /*! Set a property of a device.  Can be used to provide arbitrary
  *  metadata.  Value pointed to will be copied.
