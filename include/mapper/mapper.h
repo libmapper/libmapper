@@ -1043,35 +1043,35 @@ mapper_device *mapper_map_scopes(mapper_map map);
 int mapper_map_ready(mapper_map map);
 
 /*! Set the description property for a specific map. Changes to remote maps will
- *  not take effect until synchronized with the network using mapper_map_sync().
+ *  not take effect until synchronized with the network using mapper_map_push().
  *  \param map          The map to modify.
  *  \param description  The description value to set. */
 void mapper_map_set_description(mapper_map map, const char *description);
 
 /*! Set the mode property for a specific map. Changes to remote maps will not
- *  take effect until synchronized with the network using mapper_map_sync().
+ *  take effect until synchronized with the network using mapper_map_push().
  *  \param map      The map to modify.
  *  \param mode     The mode value to set, can be one of MAPPER_MODE_EXPRESSION,
  *                  MAPPER_MODE_LINEAR, or MAPPER_MODE_RAW. */
 void mapper_map_set_mode(mapper_map map, mapper_mode mode);
 
 /*! Set the expression property for a specific map. Changes to remote maps will not
- *  take effect until synchronized with the network using mapper_map_sync().
+ *  take effect until synchronized with the network using mapper_map_push().
  *  \param map          The map to modify.
  *  \param expression   A string specifying an expression to be evaluated by
  *                      the map. */
 void mapper_map_set_expression(mapper_map map, const char *expression);
 
 /*! Set the muted property for a specific map. Changes to remote maps will not
- *  take effect until synchronized with the network using mapper_map_sync().
+ *  take effect until synchronized with the network using mapper_map_push().
  *  \param map      The map to modify.
  *  \param muted    1 to mute this map, or 0 unmute. */
 void mapper_map_set_muted(mapper_map map, int muted);
 
 /*! Set the process location property for a specific map. Depending on the map
  *  topology and expression specified it may not be possible to set the process
- *  location to LO_SOURCE for all maps. Changes to remote maps will not take
- *  effect until synchronized with the network using mapper_map_sync().
+ *  location to MAPPER_LOC_SOURCE for all maps. Changes to remote maps will not
+ *  take effect until synchronized with the network using mapper_map_push().
  *  \param map      The map to modify.
  *  \param location MAPPER_LOC_SOURCE to indicate processing should be handled
  *                  by the source device, MAPPER_LOC_DESTINATION for the
@@ -1079,7 +1079,7 @@ void mapper_map_set_muted(mapper_map map, int muted);
 void mapper_map_set_process_location(mapper_map map, mapper_location location);
 
 /*! Set an arbitrary property for a specific map.  Changes to remote maps will
- *  not take effect until synchronized with the network using mapper_map_sync().
+ *  not take effect until synchronized with the network using mapper_map_push().
  *  \param map      The map to modify.
  *  \param name     The name of the property to add.
  *  \param length   The length of value array.

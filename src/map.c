@@ -938,7 +938,7 @@ static int replace_expression_string(mapper_map map, const char *expr_str)
     return 0;
 }
 
-void mapper_map_set_mode_raw(mapper_map map)
+static void mapper_map_set_mode_raw(mapper_map map)
 {
     map->mode = MAPPER_MODE_RAW;
     reallocate_map_histories(map);
@@ -1072,7 +1072,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
     return 1;
 }
 
-void mapper_map_set_mode_expression(mapper_map map, const char *expr)
+static void mapper_map_set_mode_expression(mapper_map map, const char *expr)
 {
     if (map->status < (STATUS_TYPE_KNOWN | STATUS_LENGTH_KNOWN))
         return;
