@@ -122,18 +122,18 @@ for input signals there is an additional argument:
 
 examples:
 
-    mapper::Signal sig_in = dev.add_input( "/my_input", 1, 'f', "m/s", 0, 0, h )
+    mapper::Signal sig_in = dev.add_input_signal( "/my_input", 1, 'f', "m/s", 0, 0, h )
 
     int min[4] = {1,2,3,4};
     int max[4] = {10,11,12,13};
-    mapper::Signal sig_out = dev.add_output( "/my_output", 4, 'i', 0, min, max )
+    mapper::Signal sig_out = dev.add_output_signal( "/my_output", 4, 'i', 0, min, max )
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
 usual single-valued signals, a length of 1 should be specified.  A
 signal name should start with "/", as this is how it is represented in
 the OSC address.  (One will be added if you forget to do this.)
-Finally, supported types are currently 'i', 'f', or 'd' (specified as
+Finally, supported types are currently `'i'`, `'f'`, or `'d'` (specified as
 characters in C, not strings), for `int`, `float`, or `double` values,
 respectively.
 
@@ -151,7 +151,7 @@ it is available.  It is also helpful documentation for users.
 Notice that optional values are provided as `void*` pointers.  This is
 because a signal can either be `int`, `float` or `double`, and your
 maximum and minimum values should correspond in type.  So you should
-pass in a `int*`, `*float` or `*double` by taking the address of a
+pass in a `int*`, `float*` or `double*` by taking the address of a
 local variable.
 
 Lastly, it is usually necessary to be informed when input signal
@@ -163,21 +163,21 @@ that function during callback in `user_data`.
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:
 
-    mapper::Signal outputA = dev.add_output( "/outA", 1, 'i', 0, 0, 0 );
+    mapper::Signal outputA = dev.add_output_signal( "/outA", 1, 'i', 0, 0, 0 );
 
 An example of a `float` signal where some more information is provided:
 
     float minimum = 0.0f;
     float maximum = 5.0f;
-    mapper::Signal sensor1_voltage = dev.add_output( "/sensor1", 1, 'f',
-                                                     "V", &minimum, &maximum );
+    mapper::Signal sensor1 = dev.add_output_signal( "/sensor1", 1, 'f', "V",
+                                                    &minimum, &maximum );
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
  
     mapper::Device dev( "test_sender");
-    mapper::Signal sensor1_voltage = dev( "/sensor1", 1, 'f', "V",
-                                          &minimum, &maximum );
+    mapper::Signal sensor1 = dev.add_output_signal( "/sensor1", 1, 'f', "V",
+                                                    &minimum, &maximum );
     
     while ( !done ) {
         dev.poll( 50 );
@@ -229,17 +229,17 @@ program does not have access to upstream timing information (e.g., from a
 microcontroller sampling sensor values), you can omit the argument
 and libmapper will tag the update with the current time.
 
-So in the "sensor 1 voltage" example, assuming in "do stuff" we have
+So in the "sensor 1" example, assuming in "do stuff" we have
 some code which reads sensor 1's value into a float variable called
 `v1`, the loop becomes:
 
     while ( !done ) {
         dev.poll( 50 );
         float v1 = read_sensor_1();
-        sensor1_voltage.update( v1 );
+        sensor1.update( v1 );
     }
 
-This is about all that is needed to expose sensor 1's voltage to the
+This is about all that is needed to expose sensor 1's value to the
 network as a mappable parameter.  The _libmapper_ GUI can now map this
 value to a receiver, where it could control a synthesizer parameter or
 change the brightness of an LED, or whatever else you want to do.
@@ -247,8 +247,8 @@ change the brightness of an LED, or whatever else you want to do.
 Signal conditioning
 -------------------
 
-Most synthesizers of course will not know what to do with
-"voltage"--it is an electrical property that has nothing to do with
+Most synthesizers of course will not know what to do with the value of
+sensor1--it is an electrical property that has nothing to do with
 sound or music.  This is where _libmapper_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_
@@ -328,8 +328,8 @@ Then `main()` will look like,
         mapper::Device my_receiver( "test_receiver" );
         
         mapper::Signal synth_pulsewidth =
-            dev.add_input( "/synth/pulsewidth", 1, 'f', 0, &min_pw,
-                           &max_pw, pulsewidth_handler, &synth );
+            dev.add_input_signal( "/synth/pulsewidth", 1, 'f', 0, &min_pw,
+                                  &max_pw, pulsewidth_handler, &synth );
         
         while ( !done )
             dev.poll( 50 );

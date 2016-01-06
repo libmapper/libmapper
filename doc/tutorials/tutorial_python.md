@@ -159,9 +159,9 @@ for input signals there is an additional argument:
 
 examples:
 
-    sig_in = dev.add_input( "/my_input", 1, 'f', "m/s", -10, 10, h )
+    sig_in = dev.add_input_signal( "/my_input", 1, 'f', "m/s", -10, 10, h )
 
-    sig_out = dev.add_output( "/my_output", 4, 'i', None, 0, 1000 )
+    sig_out = dev.add_output_signal( "/my_output", 4, 'i', None, 0, 1000 )
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
@@ -190,15 +190,15 @@ in the `handler` parameter.
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:
 
-    outA = dev.add_output( "/outA", 1, 'i', None, None, None )
+    outA = dev.add_output_signal( "/outA", 1, 'i', None, None, None )
 
 or omitting some arguments:
 
-    outA = dev.add_output( "/outA", 1, 'i' )
+    outA = dev.add_output_signal( "/outA", 1, 'i' )
 
 An example of a `float` signal where some more information is provided:
 
-    sensor1_voltage = dev.add_output( "/sensor1", 1, 'f', "V", 0.0, 5.0 )
+    sensor1 = dev.add_output_signal( "/sensor1", 1, 'f', "V", 0.0, 5.0 )
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
@@ -206,7 +206,7 @@ for it.  To recap, let's review the code so far:
     import mapper
 
     dev = mapper.device( "test_sender" )
-    sensor1_voltage = dev.add_output( "/sensor1", 1, 'f', "V", 0.0, 5.0 )
+    sensor1 = dev.add_output_signal( "/sensor1", 1, 'f', "V", 0.0, 5.0 )
     
     while 1:
         dev.poll( 50 )
@@ -215,7 +215,7 @@ for it.  To recap, let's review the code so far:
 
 It is possible to retrieve a device's inputs or outputs by name or by
 index at a later time using the functions
-`get_<input/output>_by_<name/index>`.
+`get_signal_by_<name/index>`.
 
 Updating signals
 ----------------
@@ -239,7 +239,7 @@ some code which reads sensor 1's value into a float variable called
     while 1:
         dev.poll( 50 )
         v1 = read_sensor_1()
-        sensor1_voltage.update( v1 )
+        sensor1.update( v1 )
 
 This is about all that is needed to expose sensor 1's voltage to the
 network as a mappable parameter.  The _libmapper_ GUI can now be used
@@ -288,11 +288,11 @@ Now that we know how to create a sender, it would be useful to also
 know how to receive signals, so that we can create a sender-receiver
 pair to test out the provided mapping functionality.
 
-As mentioned above, the `add_input` function takes an optional
+As mentioned above, the `add_input_signal()` function takes an optional
 `handler`.  This is a function that will be called whenever the value
 of that signal changes.  To create a receiver for a synthesizer
 parameter "pulse width" (given as a ratio between 0 and 1), specify
-a handler when calling `add_input`.  We'll imagine there is some
+a handler when calling `add_input_signal()`.  We'll imagine there is some
 python synthesizer implemented as a class `synthesizer` which has
 functions `setPulseWidth()` which sets the pulse width in a
 thread-safe manner, and `startAudioInBackground()` which sets up the
@@ -329,7 +329,7 @@ Then our program will look like this:
             print sig, val
 
     dev = mapper.device( 'pyo_example' )
-    dev.add_input( '/freq', 1, 'f', 'Hz', 20, 2000, freq_handler )
+    dev.add_input_signal( '/freq', 1, 'f', 'Hz', 20, 2000, freq_handler )
 
     while True:
         dev.poll( 100 )
@@ -347,7 +347,8 @@ instead of a separate handler:
     sine = Sine( freq=200, mul=0.5 ).out()
 
     dev = mapper.device( 'pyo_example' )
-    dev.add_input( '/freq', 1, 'f', "Hz", 20, 2000, lambda s, i, f, t: sine.setFreq(f) )
+    dev.add_input_signal( '/freq', 1, 'f', "Hz", 20, 2000,
+                          lambda s, i, f, t: sine.setFreq(f) )
 
     while True:
         dev.poll( 100 )

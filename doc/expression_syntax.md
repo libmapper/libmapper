@@ -155,19 +155,19 @@ currently libmapper will reject expressions referring to sample delays `> 100`.
 
 Initializing filters
 --------------------
-Past values of the filter output `y{-n}` can be set using additional sub-expressions, separated using commas:
+Past values of the filter output `y{-n}` can be set using additional sub-expressions, separated using semicolons:
 
-* `y = y{-1} + x`, `y{-1} = 100`
+* `y = y{-1} + x`;`y{-1} = 100`
 
 Filter initialization takes place the first time the expression evaluator is called;
 after this point the initialization sub-expressions will not be evaluated. This means
 the filter could be initialized with the first sample of `x` for example:
 
-* `y = y{-1} + x`, `y{-1} = x * 2`
+* `y = y{-1} + x`;`y{-1} = x * 2`
 
 A function could also be used for initialization:
 
-* `y = y{-1} + x`, `y{-1} = uniform(1000)` — initialize `y{-1}` to a random value
+* `y = y{-1} + x`;`y{-1} = uniform(1000)` — initialize `y{-1}` to a random value
 
 Any past values that are not explicitly initialized are given the value `0`.
 
@@ -183,13 +183,13 @@ subsequent calls to the evaluator. In the following example, the user-defined va
 value `x`, *independent* of the output value `y` which is set to give the difference
 between the current sample and the moving average:
 
-* `ema = ema{-1} * 0.9 + x * 0.1`, `y = x - ema`
+* `ema = ema{-1} * 0.9 + x * 0.1`; `y = x - ema`
 
-Just like the output variable `y` we can initialize past values of user-defined variables
-before expression evaluation. **Initialization will always be performed first**, after
-which sub-expressions are evaluated **in the order they are written**. For example, the
-expression string `y=ema*2, ema=ema{-1}*0.9+x*0.1, ema{-1}=90` will be evaluated in the
-following order:
+As with the output variable `y`, we can also initialize past values of user-defined
+variables before expression evaluation. **Initialization will always be performed first**,
+after which sub-expressions are evaluated **in the order they are written**. For example,
+the expression string `y=ema*2`;`ema=ema{-1}*0.9+x*0.1`;`ema{-1}=90` will be evaluated in
+the following order:
 
 1. `ema{-1}=90` — initialize the past value of variable `ema` to `90`
 2. `y=ema*2` — set output variable `y` to equal the **current** value of `ema` multiplied

@@ -168,23 +168,23 @@ We'll start with creating a "output", so we will first talk about how
 to update output signals.  A signal requires a bit more information than
 a device, much of which is optional:
 
-    mapper_signal mapper_device_add_input( mapper_device dev,
-                                           const char *name,
-                                           int length,
-                                           char type,
-                                           const char *unit,
-                                           void *minimum,
-                                           void *maximum,
-                                           mapper_signal_handler *handler,
-                                           void *user_data );
+    mapper_signal mapper_device_add_input_signal( mapper_device dev,
+                                                  const char *name,
+                                                  int length,
+                                                  char type,
+                                                  const char *unit,
+                                                  void *minimum,
+                                                  void *maximum,
+                                                  mapper_signal_handler *handler,
+                                                  void *user_data );
 
-    mapper_signal mapper_device_add_output( mapper_device dev,
-                                            const char *name,
-                                            int length,
-                                            char type,
-                                            const char *unit,
-                                            void *minimum,
-                                            void *maximum );
+    mapper_signal mapper_device_add_output_signal( mapper_device dev,
+                                                   const char *name,
+                                                   int length,
+                                                   char type,
+                                                   const char *unit,
+                                                   void *minimum,
+                                                   void *maximum );
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
@@ -220,22 +220,23 @@ that function during callback in `user_data`.
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:
 
-    mapper_signal outputA = mapper_device_add_output( dev, "/outA", 1, 'i', 0, 0, 0 );
+    mapper_signal outputA = mapper_device_add_output_signal( dev, "/outA", 1,
+                                                             'i', 0, 0, 0 );
 
 An example of a `float` signal where some more information is provided:
 
     float minimum = 0.0f;
     float maximum = 5.0f;
-    mapper_signal sensor1_voltage = mapper_device_add_output( dev, "/sensor1", 1, 'f',
-                                                              "V", &minimum, &maximum );
+    mapper_signal sensor1 = mapper_device_add_output_signal( dev, "/sensor1", 1, 'f',
+                                                             "V", &minimum, &maximum );
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
  
     mapper_device my_sender = mapper_device_new( "test_sender", 9000, 0 );
-    mapper_signal sensor1_voltage = mapper_device_add_output( my_sender, "/sensor1",
-                                                              1, 'f', "V",
-                                                              &minimum, &maximum );
+    mapper_signal sensor1 = mapper_device_add_output_signal( my_sender, "/sensor1",
+                                                             1, 'f', "V",
+                                                             &minimum, &maximum );
     
     while ( !done ) {
         mapper_device_poll( my_sender, 50 );
@@ -251,7 +252,7 @@ device.  In other words, you should not worry about freeing its
 memory - this will happen automatically when the device is destroyed.
 It is possible to retrieve a device's inputs or outputs by name or by
 index at a later time using the functions
-`mapper_device_get_<input/output>_by_<name/index>`.
+`mapper_device_signal_by_<name/index>`.
 
 Updating signals
 ----------------
@@ -290,17 +291,17 @@ To simplify things even further, a short-hand is provided for scalar signals of 
 
     void mapper_signal_update_float( mapper_signal sig, float value );
 
-So in the "sensor 1 voltage" example, assuming in "do stuff" we have
+So in the "sensor 1" example, assuming in "do stuff" we have
 some code which reads sensor 1's value into a float variable called
 `v1`, the loop becomes:
 
     while ( !done ) {
         mapper_device_poll( my_device, 50 );
         float v1 = read_sensor_1();
-        mapper_signal_update_float( sensor1_voltage, v1 );
+        mapper_signal_update_float( sensor1, v1 );
     }
 
-This is about all that is needed to expose sensor 1's voltage to the
+This is about all that is needed to expose sensor 1's value to the
 network as a mappable parameter.  The _libmapper_ GUI can now map this
 value to a receiver, where it could control a synthesizer parameter or
 change the brightness of an LED, or whatever else you want to do.
@@ -308,8 +309,8 @@ change the brightness of an LED, or whatever else you want to do.
 Signal conditioning
 -------------------
 
-Most synthesizers of course will not know what to do with
-"voltage"--it is an electrical property that has nothing to do with
+Most synthesizers of course will not know what to do with the value of
+sensor1--it is an electrical property that has nothing to do with
 sound or music.  This is where _libmapper_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_
@@ -389,9 +390,9 @@ Then `main()` will look like,
                                                        9000, 0 );
         
         mapper_signal synth_pulsewidth =
-            mapper_device_add_input( my_receiver, "/synth/pulsewidth",
-                                     1, 'f', 0, &min_pw, &max_pw,
-                                     pulsewidth_handler, &synth );
+            mapper_device_add_input_signal( my_receiver, "/synth/pulsewidth",
+                                            1, 'f', 0, &min_pw, &max_pw,
+                                            pulsewidth_handler, &synth );
         
         while ( !done )
             mapper_device_poll( my_receiver, 50 );
@@ -560,32 +561,18 @@ The property interface is through the functions,
                                      char type,
                                      void *value );
     
-As you can see, _libmapper_ reuses the `lo_arg` union from the _liblo_
-OSC library, which can be used to hold any OSC-compatible value.  The
-type of the `value` argument is specified by `type`, and can be any
-`lo_type` value; floats are `'f'` or `LO_FLOAT`, 32-bit integers are
-`'i'` or `LO_INT32`, and strings are `'s'` or `LO_STRING`, but you
-should consult the _liblo_ documentation for more information.
+The type of the `value` argument is specified by `type`: floats are `'f'`,
+32-bit integers are `'i'`, doubles are `'d'`, and strings are `'s'`.
 
 For example, to store a `float` indicating the X position of a device,
 you can call it like this:
 
-    lo_arg x;
-    x.f = 12.5;
-    mapper_device_set_property( my_device, "x", 'f', &x );
-
-In practice it is safe to cast to `lo_arg*`:
-
     float x = 12.5;
-    mapper_device_set_property( my_device, "x", 1, 'f', (lo_arg*)&x );
-
-To specify strings, it is necessary to perform such a cast, since the
-`lo_arg*` you provide should actually point to the beginning of the
-string:
+    mapper_device_set_property( my_device, "x", 'f', &x );
 
     char *sensingMethod = "resistive";
     mapper_signal_set_property( sensor1, "sensingMethod",
-                                's', (lo_arg*)sensingMethod );
+                                's', sensingMethod );
 
 ## Reserved keys
 

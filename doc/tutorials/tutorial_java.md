@@ -149,9 +149,9 @@ for input signals there is an additional argument:
 
 examples:
 
-    Mapper.Device.Signal in = dev.addInput( "/my_input", 1, 'f', "m/s",
-                                             new PropertyValue(-10.f),
-                                             null, new InputListener() {
+    Mapper.Device.Signal in = dev.addInputSignal( "/my_input", 1, 'f', "m/s",
+                                                  new PropertyValue(-10.f),
+                                                  null, new InputListener() {
             public void onInput( Mapper.Device.Signal sig,
                                  int instanceID,
                                  float[] value,
@@ -159,7 +159,7 @@ examples:
                 System.out.println("got input for signal "+sig.name);
             }});
 
-    Mapper.Device.Signal out = dev.addOutput( "/my_output", 4, 'i', null, 0, 1000 )
+    Mapper.Device.Signal out = dev.addOutputSignal( "/my_output", 4, 'i', null, 0, 1000 )
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
@@ -183,12 +183,12 @@ in the `InputListener` parameter.
 An example of creating a "barebones" integer scalar output signal with
 no unit, minimum, or maximum information:
 
-    Mapper.Device.Signal outA = dev.addOutput( "/outA", 1, 'i', null, null, null );
+    Mapper.Device.Signal outA = dev.addOutputSignal( "/outA", 1, 'i', null, null, null );
 
 An example of a `float` signal where some more information is provided:
 
-    Mapper.Device.Signal sensor1_voltage = dev.addOutput( "/sensor1", 1,     'f',
-                                                                      "V", 0.0, 5.0 )
+    Mapper.Device.Signal sensor1 = dev.addOutputSignal( "/sensor1", 1, 'f',
+                                                        "V", 0.0, 5.0 )
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
@@ -199,9 +199,9 @@ for it.  To recap, let's review the code so far:
         public static void main() {
             final Mapper.Device dev = new Mapper.Device( "testDevice" );
             Mapper.Device.Signal sensor1 =
-                dev.addOutput( "sensor1", 1, 'f', "V",
-                               new PropertyValue( 0.f ),
-                               new PropertyValue( 5.f ) );
+                dev.addOutputSignal( "sensor1", 1, 'f', "V",
+                                     new PropertyValue( 0.f ),
+                                     new PropertyValue( 5.f ) );
             while ( 1 ) {
                 dev.poll(50);
                 ... do stuff ...
@@ -229,7 +229,7 @@ This is accomplished by the `update()` function:
 
     <sig>.update( <value> )
 
-So in the "sensor 1 voltage" example, assuming we have some code which
+So in the "sensor 1" example, assuming we have some code which
 reads sensor 1's value into a float variable called `v1`, the loop becomes:
 
     while ( 1 ) {
@@ -238,7 +238,7 @@ reads sensor 1's value into a float variable called `v1`, the loop becomes:
         sensor1.update( v1 );
     }
 
-This is about all that is needed to expose sensor 1's voltage to the
+This is about all that is needed to expose sensor 1's value to the
 network as a mappable parameter.  The _libmapper_ GUI can now be used
 to create a mapping between this value and a receiver, where it could
 control a synthesizer parameter or change the brightness of an LED,
@@ -247,8 +247,8 @@ or whatever else you want to do.
 Signal conditioning
 -------------------
 
-Most synthesizers of course will not know what to do with
-"voltage" – it is an electrical property that has nothing to do with
+Most synthesizers of course will not know what to do with the value of
+sernsor1--it is an electrical property that has nothing to do with
 sound or music.  This is where _libmapper_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_
@@ -321,10 +321,10 @@ Then our program will look like this:
         }}
 
     final Mapper.Device dev = new Mapper.Device( "mySynth" );
-    Mapper.Device.Signal pw = dev.addInput( "pulseWidth", 1, 'f', "Hz",
-                                            new PropertyValue( 0.f ),
-                                            new PropertyValue( 1.f ),
-                                            freqHandler );
+    Mapper.Device.Signal pw = dev.addInputSignal( "pulseWidth", 1, 'f', "Hz",
+                                                  new PropertyValue( 0.f ),
+                                                  new PropertyValue( 1.f ),
+                                                  freqHandler );
 
     while (1) {
         dev.poll( 100 );
@@ -334,10 +334,10 @@ Then our program will look like this:
 
 Alternately, we can declare the InputListener as part of the `addInput()` function:
 
-    Mapper.Device.Signal pw = dev.addInput( "pulseWidth", 1, 'f', "Hz",
-                                            new PropertyValue( 0.f ),
-                                            new PropertyValue( 1.f ),
-                                            new InputListener() {
+    Mapper.Device.Signal pw = dev.addInputSignal( "pulseWidth", 1, 'f', "Hz",
+                                                  new PropertyValue( 0.f ),
+                                                  new PropertyValue( 1.f ),
+                                                  new InputListener() {
         public void onInput( Mapper.Device.Signal sig,
                              int instanceId,
                              float[] value,
