@@ -46,8 +46,9 @@ class test {
                                    +" @expr "+map.expression());
             }});
 
-        Signal inp1 = dev.addInput("insig1", 1, 'f', "Hz", new Value('f', 2.0),
-                                   null, new UpdateListener() {
+        Signal inp1 = dev.addInputSignal("insig1", 1, 'f', "Hz",
+                                         new Value('f', 2.0), null,
+                                         new UpdateListener() {
             public void onUpdate(Signal sig, int instanceId, float[] v,
                                  TimeTag tt) {
                 System.out.println(" >> in onUpdate() for "+sig.name()+": "
@@ -56,10 +57,11 @@ class test {
 
         System.out.println("Input signal name: "+inp1.name());
 
-        Signal out1 = dev.addOutput("outsig1", 1, 'i', "Hz", new Value('i', 0.0),
-                                    new Value('i', 1.0));
-        Signal out2 = dev.addOutput("outsig2", 1, 'f', "Hz", new Value(0.0f),
-                                    new Value(1.0f));
+        Signal out1 = dev.addOutputSignal("outsig1", 1, 'i', "Hz",
+                                          new Value('i', 0.0),
+                                          new Value('i', 1.0));
+        Signal out2 = dev.addOutputSignal("outsig2", 1, 'f', "Hz",
+                                          new Value(0.0f), new Value(1.0f));
 
         dev.setProperty("width", new Value(256));
         dev.setProperty("height", new Value(12.5));
@@ -103,9 +105,9 @@ class test {
         map.source().setMaximum(new Value(-15));
         map.destination().setMaximum(new Value(1000));
         map.destination().setMinimum(new Value(-2000));
-        map.sync();
+        map.push();
 
-        while (!map.isActive()) { dev.poll(100); }
+        while (!map.ready()) { dev.poll(100); }
 
         int i = 0;
         TimeTag tt = new TimeTag(0,0);
@@ -185,10 +187,10 @@ class test {
                 System.out.print("  Signal has no value.");
             if (i == 50) {
                 map.setExpression("y=x*-100");
-                map.sync();
+                map.push();
             }
             dev.poll(50);
-            db.update();
+            db.poll();
             i++;
         }
 

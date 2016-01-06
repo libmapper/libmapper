@@ -680,12 +680,12 @@ JNIEXPORT jobject JNICALL Java_mapper_Db_flush
     return obj;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Db_update
+JNIEXPORT jobject JNICALL Java_mapper_Db_poll
   (JNIEnv *env, jobject obj, jint block_ms)
 {
     mapper_db db = get_db_from_jobject(env, obj);
     if (db)
-        mapper_db_update(db, block_ms);
+        mapper_db_poll(db, block_ms);
     return obj;
 }
 
@@ -1203,7 +1203,7 @@ JNIEXPORT jint JNICALL Java_mapper_Device_mapperDevicePoll
     return mapper_device_poll(dev, block_ms);
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Device_addInput
+JNIEXPORT jobject JNICALL Java_mapper_Device_addInputSignal
   (JNIEnv *env, jobject obj, jstring name, jint length, jchar type,
    jstring unit, jobject minimum, jobject maximum, jobject listener)
 {
@@ -1221,8 +1221,10 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_addInput
         return 0;
     }
 
-    mapper_signal sig = mapper_device_add_input(dev, cname, length, type, cunit,
-                                                0, 0, java_signal_update_cb, ctx);
+    mapper_signal sig = mapper_device_add_input_signal(dev, cname, length, type,
+                                                       cunit, 0, 0,
+                                                       java_signal_update_cb,
+                                                       ctx);
 
     (*env)->ReleaseStringUTFChars(env, name, cname);
     if (unit)
@@ -1243,7 +1245,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_addInput
     return sigobj;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Device_addOutput
+JNIEXPORT jobject JNICALL Java_mapper_Device_addOutputSignal
   (JNIEnv *env, jobject obj, jstring name, jint length, jchar type,
    jstring unit, jobject minimum, jobject maximum)
 {
@@ -1261,8 +1263,8 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_addOutput
         return 0;
     }
 
-    mapper_signal sig = mapper_device_add_output(dev, cname, length, type,
-                                                 cunit, 0, 0);
+    mapper_signal sig = mapper_device_add_output_signal(dev, cname, length, type,
+                                                        cunit, 0, 0);
 
     (*env)->ReleaseStringUTFChars(env, name, cname);
     if (unit)
@@ -1804,12 +1806,12 @@ JNIEXPORT jlong JNICALL Java_mapper_Map_mapperMapNew
     return map ? jlong_ptr(map) : 0;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Map_sync
+JNIEXPORT jobject JNICALL Java_mapper_Map_push
   (JNIEnv *env, jobject obj)
 {
     mapper_map map = get_map_from_jobject(env, obj);
     if (map)
-        mapper_map_sync(map);
+        mapper_map_push(map);
     return obj;
 }
 
@@ -1959,11 +1961,11 @@ JNIEXPORT jint JNICALL Java_mapper_Map_numSources
     return map ? mapper_map_num_sources(map) : 0;
 }
 
-JNIEXPORT jboolean JNICALL Java_mapper_Map_isActive
+JNIEXPORT jboolean JNICALL Java_mapper_Map_ready
   (JNIEnv *env, jobject obj)
 {
     mapper_map map = get_map_from_jobject(env, obj);
-    return map ? (mapper_map_status(map) == MAPPER_ACTIVE) : 0;
+    return map ? (mapper_map_ready(map)) : 0;
 }
 
 /**** mapper_Network.h ****/
@@ -2816,7 +2818,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_maps
 
     mapper_map *maps = 0;
     mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (signal)
+    if (sig)
         maps = mapper_signal_maps(sig, direction);
 
     jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");

@@ -27,9 +27,9 @@ class testspeed {
             }
         };
 
-        Signal in = dev.addInput("insig", 1, 'f', "Hz", null, null, l);
+        Signal in = dev.addInputSignal("insig", 1, 'f', "Hz", null, null, l);
 
-        Signal out = dev.addOutput("outsig", 1, 'i', "Hz", null, null);
+        Signal out = dev.addOutputSignal("outsig", 1, 'i', "Hz", null, null);
 
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
@@ -38,7 +38,7 @@ class testspeed {
         System.out.println("Device is ready.");
 
         Map map = new Map(out, in);
-        while (!map.isActive()) { dev.poll(100); }
+        while (!map.ready()) { dev.poll(100); }
 
         double then = dev.now().getDouble();
         int i = 0;

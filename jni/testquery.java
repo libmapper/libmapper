@@ -18,14 +18,14 @@ class testquery {
                     }
             });
 
-        Signal inp1 = dev.addInput("insig1", 1, 'f', "Hz", null, null,
-                                   new UpdateListener() {
+        Signal inp1 = dev.addInputSignal("insig1", 1, 'f', "Hz", null, null,
+                                         new UpdateListener() {
             public void onUpdate(Signal sig, int instanceId, float[] v,
                                  TimeTag tt) {
                     System.out.println("in onUpdate(): "+Arrays.toString(v));
                 }});
 
-        Signal out1 = dev.addOutput("outsig1", 1, 'i', "Hz", null, null);
+        Signal out1 = dev.addOutputSignal("outsig1", 1, 'i', "Hz", null, null);
         out1.setUpdateListener(
             new UpdateListener() {
             public void onUpdate(Signal sig, int instanceId, int[] v, TimeTag tt) {
@@ -44,7 +44,7 @@ class testquery {
         System.out.println("Device interface: "+dev.network().iface());
 
         Map map = new Map(out1, inp1);
-        while (!map.isActive()) { dev.poll(100); }
+        while (!map.ready()) { dev.poll(100); }
 
         int i = 100;
         while (i >= 0) {

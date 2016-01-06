@@ -101,8 +101,8 @@ public class Map
         destination = new Slot(mapperMapDstSlotPtr(_map));
     }
 
-    /* sync */
-    public native Map sync();
+    /* push */
+    public native Map push();
 
     /* properties */
     public native Value property(String property);
@@ -139,8 +139,8 @@ public class Map
     /* property: numSources */
     public native int numSources();
 
-    /* property: isActive */
-    public native boolean isActive();
+    /* property: ready */
+    public native boolean ready();
 
     public Slot source(int index) {
         if (index > _num_sources)

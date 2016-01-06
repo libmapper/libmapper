@@ -63,9 +63,9 @@ public class Db
     /* flush */
     public native Db flush();
 
-    /* update */
-    public native Db update(int timeout);
-    public Db update() { return update(0); }
+    /* poll */
+    public native Db poll(int timeout);
+    public Db poll() { return poll(0); }
 
     /* subscriptions */
     private native void mapperDbSubscribe(long db, mapper.Device dev, int flags,

@@ -31,27 +31,19 @@ public class Device
     public int poll() { return mapperDevicePoll(_dev, 0); }
 
     /* add signals */
-    public native Signal addInput(String name, int length, char type, String unit,
-                                  Value minimum, Value maximum,
-                                  mapper.signal.UpdateListener l);
-    public native Signal addInput(String name, int length, char type, String unit,
-                                  Value minimum, Value maximum,
-                                  mapper.signal.InstanceUpdateListener l);
+    public native Signal addInputSignal(String name, int length, char type,
+                                        String unit, Value minimum, Value maximum,
+                                        mapper.signal.UpdateListener l);
+    public native Signal addInputSignal(String name, int length, char type,
+                                        String unit, Value minimum, Value maximum,
+                                        mapper.signal.InstanceUpdateListener l);
 
-    public native Signal addOutput(String name, int length, char type,
-                                   String unit, Value minimum, Value maximum);
+    public native Signal addOutputSignal(String name, int length, char type,
+                                         String unit, Value minimum, Value maximum);
 
     /* remove signals */
     private native void mapperDeviceRemoveSignal(long _d, Signal sig);
     public Device removeSignal(Signal sig) {
-        mapperDeviceRemoveSignal(_dev, sig);
-        return this;
-    }
-    public Device removeInput(Signal sig) {
-        mapperDeviceRemoveSignal(_dev, sig);
-        return this;
-    }
-    public Device removeOutput(Signal sig) {
         mapperDeviceRemoveSignal(_dev, sig);
         return this;
     }

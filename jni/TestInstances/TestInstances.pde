@@ -31,15 +31,15 @@ void setup()
 
   /* Note: null for the UpdateListener, since we are specifying
    * this later per-instance. */
-  sig_x_in = dev.addInput("x", 1, 'i', "pixels",
-                          new Value(0), new Value(width), null);
-  sig_y_in = dev.addInput("y", 1, 'i', "pixels",
-                          new Value(0), new Value(height), null);
+  sig_x_in = dev.addInputSignal("x", 1, 'i', "pixels",
+                                new Value(0), new Value(width), null);
+  sig_y_in = dev.addInputSignal("y", 1, 'i', "pixels",
+                                new Value(0), new Value(height), null);
 
-  sig_x_out = dev.addOutput("x", 1, 'i', "pixels",
-                            new Value(0), new Value(width));
-  sig_y_out = dev.addOutput("y", 1, 'i', "pixels",
-                            new Value(0), new Value(height));
+  sig_x_out = dev.addOutputSignal("x", 1, 'i', "pixels",
+                                  new Value(0), new Value(width));
+  sig_y_out = dev.addOutputSignal("y", 1, 'i', "pixels",
+                                  new Value(0), new Value(height));
 
   InstanceEventListener evin = new InstanceEventListener() {
     public void onEvent(mapper.Signal sig, int instanceId, int event, TimeTag tt) {
@@ -179,4 +179,3 @@ class Circle
     sig_y_out.updateInstance(id, (int)by);
   }
 }
-
