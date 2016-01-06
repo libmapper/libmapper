@@ -53,12 +53,12 @@ int main()
     float max1 = 1;
     float max1000 = 1000;
 
-    mapper_device_add_input(dev, "/freq", 1, 'f', "Hz", &min0, &max1000,
-                            handler_freq, 0);
-    mapper_device_add_input(dev, "/gain", 1, 'f', "Hz", &min0, &max1,
-                            handler_gain, 0);
-    mapper_device_add_input(dev, "/duty", 1, 'f', "Hz", &min0, &max1,
-                            handler_duty, 0);
+    mapper_device_add_input_signal(dev, "/freq", 1, 'f', "Hz", &min0, &max1000,
+                                   handler_freq, 0);
+    mapper_device_add_input_signal(dev, "/gain", 1, 'f', "Hz", &min0, &max1,
+                                   handler_gain, 0);
+    mapper_device_add_input_signal(dev, "/duty", 1, 'f', "Hz", &min0, &max1,
+                                   handler_duty, 0);
 
     run_synth();
 
