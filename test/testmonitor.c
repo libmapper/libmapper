@@ -71,7 +71,7 @@ void loop()
     int i = 0;
     while ((!terminate || i++ < 200) && !done)
     {
-        mapper_db_update(db, polltime_ms);
+        mapper_db_poll(db, polltime_ms);
 
         if (update++ < 0)
             continue;

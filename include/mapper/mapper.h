@@ -1403,7 +1403,7 @@ mapper_db mapper_db_new(mapper_network net, int autosubscribe_flags);
  *  \param block_ms The number of milliseconds to block, or 0 for
  *                  non-blocking behaviour.
  *  \return         The number of handled messages. */
-int mapper_db_update(mapper_db db, int block_ms);
+int mapper_db_poll(mapper_db db, int block_ms);
 
 /*! Free a database. */
 void mapper_db_free(mapper_db db);

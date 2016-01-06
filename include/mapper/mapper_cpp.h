@@ -1473,9 +1473,9 @@ namespace mapper {
             if (_db)
                 mapper_db_free(_db);
         }
-        const Db& update(int block_ms=0) const
+        const Db& poll(int block_ms=0) const
         {
-            mapper_db_update(_db, block_ms);
+            mapper_db_poll(_db, block_ms);
             return (*this);
         }
         const Db& flush() const

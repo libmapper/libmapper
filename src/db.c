@@ -1104,7 +1104,7 @@ static void unsubscribe_internal(mapper_db db, mapper_device dev,
     }
 }
 
-int mapper_db_update(mapper_db db, int block_ms)
+int mapper_db_poll(mapper_db db, int block_ms)
 {
     int ping_time = db->network->clock.next_ping;
     int count = mapper_network_poll(db->network);

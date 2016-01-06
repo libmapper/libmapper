@@ -180,7 +180,7 @@ int main(int argc, char ** argv)
     std::vector <double> v(3);
     while (i++ < 100) {
         dev.poll(10);
-        db.update();
+        db.poll();
         v[i%3] = i;
         sig.update(v);
     }
