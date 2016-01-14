@@ -485,6 +485,9 @@ void mapper_table_clear(mapper_table tab);
  * \param tab Table to free. */
 void mapper_table_free(mapper_table tab);
 
+/*! Get the number of records stored in a table. */
+int mapper_table_num_records(mapper_table tab);
+
 /*! Look up a value in a table.  Returns 0 if found, 1 if not found,
  *  and fills in value if found. */
 mapper_table_record_t *mapper_table_record(mapper_table tab,

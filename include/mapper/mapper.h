@@ -344,6 +344,11 @@ char mapper_signal_type(mapper_signal sig);
  *  \return         The signal unit if it is defined, or NULL. */
 const char *mapper_signal_unit(mapper_signal sig);
 
+/*! Get the total number of properties for a specific signal.
+ *  \param sig      The signal to check.
+ *  \return         The number of properties. */
+int mapper_signal_num_properties(mapper_signal sig);
+
 /*! Look up a signal property by name.
  *  \param sig      The signal to check.
  *  \param name     The name of the property to retrieve.
@@ -654,6 +659,11 @@ int mapper_device_num_maps(mapper_device dev, mapper_direction dir);
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_device_maps(mapper_device dev, mapper_direction dir);
+
+/*! Get the total number of properties for a specific device.
+ *  \param dev      The device to check.
+ *  \return         The number of properties. */
+int mapper_device_num_properties(mapper_device dev);
 
 /*! Look up a device property by name.
  *  \param dev      The device record to check.
@@ -1115,6 +1125,11 @@ void mapper_map_add_scope(mapper_map map, mapper_device dev);
  *                  device to be blocked from propagating across the map. */
 void mapper_map_remove_scope(mapper_map map, mapper_device dev);
 
+/*! Get the total number of properties for a specific map.
+ *  \param map      The map to check.
+ *  \return         The number of properties. */
+int mapper_map_num_properties(mapper_map map);
+
 /*! Look up a map property by name.
  *  \param map      The map to check.
  *  \param name     The name of the property to retrieve.
@@ -1249,6 +1264,11 @@ void mapper_slot_maximum(mapper_slot slot, int *length, char *type, void **value
  *  \param length   A pointer to a location to receive the vector length of
  *                  the property value. (Required.). */
 void mapper_slot_minimum(mapper_slot slot, int *length, char *type, void **value);
+
+/*! Get the total number of properties for a specific slot.
+ *  \param slot     The slot to check.
+ *  \return         The number of properties. */
+int mapper_slot_num_properties(mapper_slot slot);
 
 /*! Look up a map property by name.
  *  \param slot     The map slot to check.

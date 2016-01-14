@@ -124,6 +124,10 @@ void mapper_slot_minimum(mapper_slot slot, int *length, char *type, void **value
         *value = slot->minimum;
 }
 
+int mapper_slot_num_properties(mapper_slot slot) {
+    return mapper_table_num_records(slot->props);
+}
+
 int mapper_slot_property(mapper_slot slot, const char *name, int *length,
                          char *type, const void **value)
 {

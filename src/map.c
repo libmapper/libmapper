@@ -302,6 +302,10 @@ mapper_device *mapper_map_scopes(mapper_map map)
                                   "v", &map->scope));
 }
 
+int mapper_map_num_properties(mapper_map map) {
+    return mapper_table_num_records(map->props);
+}
+
 int mapper_map_property(mapper_map map, const char *name, int *length,
                         char *type, const void **value)
 {

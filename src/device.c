@@ -1468,6 +1468,10 @@ void mapper_device_set_description(mapper_device dev, const char *description)
                             description, LOCAL_MODIFY);
 }
 
+int mapper_device_num_properties(mapper_device dev) {
+    return mapper_table_num_records(dev->props);
+}
+
 int mapper_device_property(mapper_device dev, const char *name,
                            int *length, char *type, const void **value)
 {

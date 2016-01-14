@@ -1238,6 +1238,10 @@ const char *mapper_signal_unit(mapper_signal sig)
     return sig->unit;
 }
 
+int mapper_signal_num_properties(mapper_signal sig) {
+    return mapper_table_num_records(sig->props);
+}
+
 int mapper_signal_property(mapper_signal sig, const char *name, int *length,
                            char *type, const void **value)
 {

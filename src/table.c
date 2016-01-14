@@ -107,6 +107,21 @@ static void table_sort(mapper_table tab)
           compare_records);
 }
 
+int mapper_table_num_records(mapper_table tab)
+{
+    int i, count = 0;
+    mapper_table_record_t *rec;
+    for (i = 0; i < tab->num_records; i++) {
+        rec = &tab->records[i];
+        if (!rec->value)
+            continue;
+        if ((rec->flags & INDIRECT) && !(*rec->value))
+            continue;
+        ++count;
+    }
+    return count;
+}
+
 mapper_table_record_t *mapper_table_record(mapper_table tab,
                                            mapper_property_t index,
                                            const char *key)
@@ -154,7 +169,7 @@ int mapper_table_property_index(mapper_table tab, unsigned int index,
             continue;
         if (j == index)
             break;
-        j++;
+        ++j;
     }
     if (i == tab->num_records)
         return -1;
@@ -211,7 +226,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
 
     for (i = index + 1; i < tab->num_records; i++)
         tab->records[i-1] = tab->records[i];
-    tab->num_records --;
+    --tab->num_records;
 
     return 0;
 }
@@ -717,7 +732,7 @@ void mapper_table_dump(mapper_table tab)
         value = (rec->flags & INDIRECT) ? *rec->value : rec->value;
         mapper_property_pp(rec->length, rec->type, value);
         printf("\n");
-        rec++;
+        ++rec;
     }
 }
 #endif
