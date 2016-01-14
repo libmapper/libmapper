@@ -1695,9 +1695,11 @@ mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *name,
  *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db, const char *name,
-                                                int length, char type,
-                                                const void *value, mapper_op op);
+mapper_map *mapper_db_maps_by_source_slot_property(mapper_db db,
+                                                   const char *name,
+                                                   int length, char type,
+                                                   const void *value,
+                                                   mapper_op op);
 
 /*! Return the list of maps matching the given destination slot property.
  *  \param db       The database to query.
@@ -1708,10 +1710,11 @@ mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db, const char *name,
  *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db, const char *name,
-                                                 int length, char type,
-                                                 const void *value,
-                                                 mapper_op op);
+mapper_map *mapper_db_maps_by_destination_slot_property(mapper_db db,
+                                                        const char *name,
+                                                        int length, char type,
+                                                        const void *value,
+                                                        mapper_op op);
 
 /* @} */
 

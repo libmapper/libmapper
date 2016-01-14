@@ -69,6 +69,8 @@ typedef enum {
     NUM_MAPPER_MODES
 } mapper_mode;
 
+/*! Describes the possible locations for map stream processing.
+ *  @ingroup map */
 typedef enum {
     MAPPER_LOC_UNDEFINED,
     MAPPER_LOC_SOURCE,
@@ -76,7 +78,8 @@ typedef enum {
     NUM_MAPPER_LOCATIONS
 } mapper_location;
 
-/*! The set of possible directions for a signal or mapping slot. */
+/*! The set of possible directions for a signal or mapping slot.
+ *  @ingroup map */
 typedef enum {
     MAPPER_DIR_ANY      = 0x00,
     MAPPER_DIR_INCOMING = 0x01,
@@ -100,7 +103,8 @@ typedef enum {
 } mapper_instance_stealing_type;
 
 /*! The set of possible actions on a database record, used to inform callbacks
- *  of what is happening to a record. */
+ *  of what is happening to a record.
+ *  @ingroup db */
 typedef enum {
     MAPPER_ADDED,
     MAPPER_MODIFIED,

@@ -928,9 +928,10 @@ mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *name,
                                   "iiicvs", 0, op, length, type, &value, name));
 }
 
-mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db, const char *name,
-                                                int length, char type,
-                                                const void *value, mapper_op op)
+mapper_map *mapper_db_maps_by_source_slot_property(mapper_db db,
+                                                   const char *name, int length,
+                                                   char type, const void *value,
+                                                   mapper_op op)
 {
     if (!name || !check_type(type) || length < 1)
         return 0;
@@ -942,9 +943,11 @@ mapper_map *mapper_db_maps_by_src_slot_property(mapper_db db, const char *name,
                                   type, &value, name));
 }
 
-mapper_map *mapper_db_maps_by_dest_slot_property(mapper_db db, const char *name,
-                                                 int length, char type,
-                                                 const void *value, mapper_op op)
+mapper_map *mapper_db_maps_by_destination_slot_property(mapper_db db,
+                                                        const char *name,
+                                                        int length, char type,
+                                                        const void *value,
+                                                        mapper_op op)
 {
     if (!name || !check_type(type) || length < 1)
         return 0;
