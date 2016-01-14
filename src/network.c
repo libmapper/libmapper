@@ -619,7 +619,7 @@ static void mapper_network_probe_device_name(mapper_network net,
     snprintf(name, 256, "%s.%d", dev->identifier, dev->local->ordinal.value);
 
     /* Calculate an id from the name and store it in id.value */
-    dev->id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+    dev->id = (uint64_t)crc32(0L, (const Bytef *)name, strlen(name)) << 32;
 
     /* For the same reason, we can't use mapper_network_send()
      * here. */
@@ -1251,7 +1251,7 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
         }
     }
     else {
-        id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+        id = (uint64_t)crc32(0L, (const Bytef *)name, strlen(name)) << 32;
         if (id == dev->id) {
             if (argc > 1) {
                 if (types[1] == 'i')
@@ -1300,7 +1300,7 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
     trace("<%s.?::%p> got /name/probe %s %i \n", dev->identifier, net, name,
           temp_id);
 
-    id = crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+    id = (uint64_t)crc32(0L, (const Bytef *)name, strlen(name)) << 32;
     if (id == dev->id) {
         if (dev->local->ordinal.locked) {
             current_time = mapper_get_current_time();

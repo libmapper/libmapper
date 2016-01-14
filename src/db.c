@@ -169,7 +169,8 @@ mapper_device mapper_db_add_or_update_device(mapper_db db, const char *name,
         dev = (mapper_device)mapper_list_add_item((void**)&db->devices,
                                                   sizeof(*dev));
         dev->name = strdup(no_slash);
-        dev->id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash)) << 32;
+        dev->id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash));
+        dev->id <<= 32;
         dev->db = db;
         init_device_prop_table(dev);
         rc = 1;
