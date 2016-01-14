@@ -1892,7 +1892,7 @@ JNIEXPORT jint JNICALL Java_mapper_Map_mapperMapMode
     return map ? mapper_map_mode(map) : 0;
 }
 
-JNIEXPORT void JNICALL Java_mapper_Map_mapperSetMode
+JNIEXPORT void JNICALL Java_mapper_Map_mapperMapSetMode
   (JNIEnv *env, jobject obj, jlong jmap, jint mode)
 {
     mapper_map map = (mapper_map) ptr_jlong(jmap);
@@ -1914,6 +1914,21 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_setMuted
     if (map)
         mapper_map_set_muted(map, (int)value);
     return obj;
+}
+
+JNIEXPORT jint JNICALL Java_mapper_Map_mapperMapProcessLoc
+  (JNIEnv *env, jobject obj, jlong jmap)
+{
+    mapper_map map = (mapper_map) ptr_jlong(jmap);
+    return map ? mapper_map_process_location(map) : 0;
+}
+
+JNIEXPORT void JNICALL Java_mapper_Map_mapperMapSetProcessLoc
+  (JNIEnv *env, jobject obj, jlong jmap, jint loc)
+{
+    mapper_map map = (mapper_map) ptr_jlong(jmap);
+    if (map)
+        mapper_map_set_process_location(map, loc);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Map_scopes

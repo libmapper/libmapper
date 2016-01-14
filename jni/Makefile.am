@@ -19,7 +19,8 @@ JCLASSES = mapper/NativeLib.class mapper/Db.class                           \
            mapper/Device.class mapper/device/Query.class                    \
            mapper/Direction.class                                           \
            mapper/Map.class mapper/map/BoundaryAction.class                 \
-           mapper/map/Mode.class mapper/map/Query.class                     \
+           mapper/map/Location.class mapper/map/Mode.class                  \
+           mapper/map/Query.class                                           \
            mapper/Network.class                                             \
            mapper/Value.class                                               \
            mapper/Signal.class                                              \

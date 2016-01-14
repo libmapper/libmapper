@@ -121,15 +121,26 @@ public class Map
     public Mode mode() {
         return Mode.values()[mapperMapMode(_map)];
     }
-    private native void mapperSetMode(long map, int mode);
+    private native void mapperMapSetMode(long map, int mode);
     public Map setMode(Mode mode) {
-        mapperSetMode(_map, mode.value());
+        mapperMapSetMode(_map, mode.value());
         return this;
     }
 
     /* property: muted */
     public native boolean muted();
     public native Map setMuted(boolean muted);
+
+    /* property: processing location */
+    private native int mapperMapProcessLoc(long map);
+    public Location processLocation() {
+        return Location.values()[mapperMapProcessLoc(_map)];
+    }
+    private native void mapperMapSetProcessLoc(long map, int loc);
+    public Map setProcessLocation(Location loc) {
+        mapperMapSetProcessLoc(_map, loc.value());
+        return this;
+    }
 
     /* property: scopes */
     public native mapper.device.Query scopes();
