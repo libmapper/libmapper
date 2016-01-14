@@ -197,8 +197,6 @@ void mapper_signal_free(mapper_signal sig)
         free(sig->path);
     if (sig->unit)
         free(sig->unit);
-    if (sig->user_data)
-        free(sig->user_data);
 }
 
 void mapper_signal_push(mapper_signal sig)
@@ -1302,9 +1300,12 @@ void mapper_signal_set_property(mapper_signal sig, const char *name, int length,
     mapper_property_t prop = mapper_property_from_string(name);
     if ((prop != AT_EXTRA) && !sig->local)
         return;
-    mapper_table_set_record(sig->local ? sig->props : sig->staged_props, prop,
-                            name, length, type, value,
-                            sig->local ? LOCAL_MODIFY : REMOTE_MODIFY);
+    if (prop == AT_USER_DATA)
+        sig->user_data = (void*)value;
+    else
+        mapper_table_set_record(sig->local ? sig->props : sig->staged_props,
+                                prop, name, length, type, value,
+                                sig->local ? LOCAL_MODIFY : REMOTE_MODIFY);
 }
 
 void mapper_signal_remove_property(mapper_signal sig, const char *name)

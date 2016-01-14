@@ -217,8 +217,6 @@ void mapper_map_free(mapper_map map)
         free(map->description);
     if (map->expression)
         free(map->expression);
-    if (map->user_data)
-        free(map->user_data);
 }
 
 const char *mapper_map_description(mapper_map map)
@@ -409,8 +407,11 @@ void mapper_map_set_property(mapper_map map, const char *name, int length,
                              char type, const void *value)
 {
     mapper_property_t prop = mapper_property_from_string(name);
-    mapper_table_set_record(map->staged_props, prop, name, length, type, value,
-                            REMOTE_MODIFY);
+    if (prop == AT_USER_DATA)
+        map->user_data = (void*)value;
+    else
+        mapper_table_set_record(map->staged_props, prop, name, length, type,
+                                value, REMOTE_MODIFY);
 }
 
 void mapper_map_remove_property(mapper_map map, const char *name)
