@@ -215,6 +215,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
 {
     if (!list || !compare_func || !types)
         return 0;
+
     mapper_list_header_t *lh = (mapper_list_header_t*)malloc(LIST_HEADER_SIZE);
     lh->next = mapper_list_query_continuation;
     lh->query_type = QUERY_DYNAMIC;
@@ -375,6 +376,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
     // try evaluating the first item
     if (lh->query_context->query_compare(&lh->query_context->data, list))
         return &lh->self;
+
     return mapper_list_query_continuation(lh);
 }
 
@@ -468,6 +470,9 @@ static mapper_list_header_t *mapper_list_header_copy(mapper_list_header_t *lh)
 {
     mapper_list_header_t *copy = (mapper_list_header_t*)malloc(LIST_HEADER_SIZE);
     memcpy(copy, lh, LIST_HEADER_SIZE);
+
+    if (!lh->query_context)
+        return copy;
 
     copy->query_context = (query_info_t*)malloc(lh->query_context->size);
     memcpy(copy->query_context, lh->query_context, lh->query_context->size);
