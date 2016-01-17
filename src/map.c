@@ -138,7 +138,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
             map->sources[i].signal =
                 mapper_db_add_or_update_signal(db, sources[order[i]]->name,
                                                sources[order[i]]->device->name, 0);
-            if (!map->sources[i].id) {
+            if (!map->sources[i].signal->id) {
                 map->sources[i].signal->id = sources[order[i]]->id;
                 map->sources[i].signal->direction = sources[order[i]]->direction;
             }
@@ -147,7 +147,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
             }
         }
         map->sources[i].map = map;
-        map->id = i;
+        map->sources[i].id = i;
     }
     map->destination.signal = destination;
     map->destination.map = map;

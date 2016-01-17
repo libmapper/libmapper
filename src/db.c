@@ -350,17 +350,11 @@ static int compare_value(mapper_op op, int length, char type, const void *val1,
                 difference += abs(compare);
             }
             break;
+        case 'h':
         case 't':
             for (i = 0; i < length; i++) {
                 compare += ((uint64_t*)val1)[i] > ((uint64_t*)val2)[i];
                 compare -= ((uint64_t*)val1)[i] < ((uint64_t*)val2)[i];
-                difference += abs(compare);
-            }
-            break;
-        case 'h':
-            for (i = 0; i < length; i++) {
-                compare += ((char*)val1)[i] > ((char*)val2)[i];
-                compare -= ((char*)val1)[i] < ((char*)val2)[i];
                 difference += abs(compare);
             }
             break;
@@ -703,21 +697,22 @@ mapper_map mapper_db_add_or_update_map(mapper_db db, int num_sources,
 
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
-    int64_t id = 0;
+    uint64_t id = 0;
     if (props) {
         mapper_message_atom atom = mapper_message_property(props, AT_ID);
         if (!atom || atom->types[0] != 'h') {
             trace("No 'id' property found in map metadata, aborting.\n");
             return 0;
         }
-        id = *(int64_t*)atom->values;
+        id = atom->values[0]->i64;
+        map = mapper_db_map_by_id(db, id);
     }
-    map = mapper_db_map_by_id(db, id);
 
     if (!map) {
         map = (mapper_map)mapper_list_add_item((void**)&db->maps,
                                                sizeof(mapper_map_t));
         map->db = db;
+        map->id = id;
         map->num_sources = num_sources;
         map->sources = (mapper_slot) calloc(1, sizeof(struct _mapper_slot)
                                             * num_sources);

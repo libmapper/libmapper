@@ -83,7 +83,8 @@ void loop()
 
         printf("-------------------------------\n");
 
-        printf("Registered devices and signals:\n");
+        printf("Registered devices (%d) and signals (%d):\n",
+               mapper_db_num_devices(db), mapper_db_num_signals(db));
         mapper_device *pdev = mapper_db_devices(db), tempdev;
         mapper_signal *psig, tempsig;
         while (pdev) {
@@ -109,7 +110,7 @@ void loop()
 
         printf("-------------------------------\n");
 
-        printf("Registered maps:\n");
+        printf("Registered maps (%d):\n", mapper_db_num_maps(db));
         mapper_map *pmap = mapper_db_maps(db);
         while (pmap) {
             printmap(*pmap);
