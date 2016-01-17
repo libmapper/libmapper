@@ -237,6 +237,17 @@ void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet)
     mapper_list_free_item(dev);
 }
 
+int mapper_db_num_devices(mapper_db db)
+{
+    int count = 0;
+    mapper_device dev = db->devices;
+    while (dev) {
+        ++count;
+        dev = mapper_list_next(dev);
+    }
+    return count;
+}
+
 mapper_device *mapper_db_devices(mapper_db db)
 {
     return mapper_list_from_data(db->devices);
@@ -517,6 +528,17 @@ static int cmp_query_signals(const void *context_data, mapper_signal sig)
 {
     int direction = *(int*)context_data;
     return !direction || (sig->direction & direction);
+}
+
+int mapper_db_num_signals(mapper_db db)
+{
+    int count = 0;
+    mapper_signal sig = db->signals;
+    while (sig) {
+        ++count;
+        sig = mapper_list_next(sig);
+    }
+    return count;
 }
 
 mapper_signal *mapper_db_signals(mapper_db db, mapper_direction dir)
@@ -809,6 +831,17 @@ void mapper_db_remove_map_callback(mapper_db db, mapper_map_handler *h,
                                    const void *user)
 {
     remove_callback(&db->map_callbacks, h, user);
+}
+
+int mapper_db_num_maps(mapper_db db)
+{
+    int count = 0;
+    mapper_map map = db->maps;
+    while (map) {
+        ++count;
+        map = mapper_list_next(map);
+    }
+    return count;
 }
 
 mapper_map *mapper_db_maps(mapper_db db)

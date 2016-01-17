@@ -1503,6 +1503,11 @@ void mapper_db_add_device_callback(mapper_db db, mapper_db_device_handler *h,
 void mapper_db_remove_device_callback(mapper_db db, mapper_db_device_handler *h,
                                       const void *user);
 
+/*! Return the number of devices stored in the database.
+ *  \param db       The database to query.
+ *  \return         The number of devices. */
+int mapper_db_num_devices(mapper_db db);
+
 /*! Return the whole list of devices.
  *  \param db       The database to query.
  *  \return         A double-pointer to the first item in the list of results.
@@ -1580,6 +1585,11 @@ void mapper_db_remove_signal_callback(mapper_db db, mapper_db_signal_handler *h,
  *  \return         Information about the signal, or zero if not found. */
 mapper_signal mapper_db_signal_by_id(mapper_db db, mapper_id id);
 
+/*! Return the number of signals stored in the database.
+ *  \param db       The database to query.
+ *  \return         The number of signals. */
+int mapper_db_num_signals(mapper_db db);
+
 /*! Return the list of all known signals across all devices.
  *  \param db       The database to query.
  *  \param dir      The direction of the signals to return. Can be
@@ -1639,6 +1649,11 @@ void mapper_db_add_map_callback(mapper_db db, mapper_map_handler *h,
  *                  when adding the callback. */
 void mapper_db_remove_map_callback(mapper_db db, mapper_map_handler *h,
                                    const void *user);
+
+/*! Return the number of maps stored in the database.
+ *  \param db       The database to query.
+ *  \return         The number of maps. */
+int mapper_db_num_maps(mapper_db db);
 
 /*! Return a list of all registered maps.
  *  \param db       The database to query.
