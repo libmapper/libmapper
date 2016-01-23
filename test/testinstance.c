@@ -46,7 +46,7 @@ int setup_source()
                                               &mn, &mx);
     if (!sendsig)
         goto error;
-    mapper_signal_reserve_instances(sendsig, 9, 0, 0);
+    mapper_signal_reserve_instances(sendsig, 10, 0, 0);
 
     eprintf("Output signal registered.\n");
     eprintf("Number of outputs: %d\n",
@@ -111,8 +111,6 @@ int setup_destination()
     if (!recvsig)
         goto error;
 
-    // remove the default instance "0"
-    mapper_signal_remove_instance(recvsig, 0);
     int i;
     for (i=2; i<10; i+=2) {
         mapper_signal_reserve_instances(recvsig, 1, (mapper_id*)&i, 0);

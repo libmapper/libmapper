@@ -176,6 +176,12 @@ void mapper_signal_remove_instance(mapper_signal sig, mapper_id instance);
  *  \return             Non-zero if the instance is active, zero otherwise. */
 int mapper_signal_instance_is_active(mapper_signal sig, mapper_id instance);
 
+/*! Activate a specific signal instance.
+ *  \param sig          The signal to operate on.
+ *  \param instance     The identifier of the instance to activate.
+ *  \return             Non-zero if the instance is active, zero otherwise. */
+int mapper_signal_instance_activate(mapper_signal sig, mapper_id id);
+
 /*! Get the local id of the oldest active instance.
  *  \param sig          The signal to operate on.
  *  \return             The instance identifier, or zero if unsuccessful. */
@@ -223,6 +229,16 @@ mapper_id mapper_signal_instance_id(mapper_signal sig, int index);
  *  \return         The instance ID associated with the given index, or zero if
  *                  unsuccessful. */
 mapper_id mapper_signal_active_instance_id(mapper_signal sig, int index);
+
+/*! Get a reserved signal instance's ID by its index.  Intended to be used for
+ *  iterating over the reserved instances.
+ *  \param sig      The signal to operate on.
+ *  \param index    The numerical index of the ID to retrieve.  Shall be between
+ *                  zero and the return value of
+ *                  mapper_signal_num_active_instances().
+ *  \return         The instance ID associated with the given index, or zero if
+ *                  unsuccessful. */
+mapper_id mapper_signal_reserved_instance_id(mapper_signal sig, int index);
 
 /*! Set the stealing method to be used when a previously-unseen instance ID is
  *  received and no instances are available.

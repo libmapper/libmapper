@@ -427,10 +427,11 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
                                                     mapper_device_unique_id(sig->device));
         }
         else {
-            map->refcount_local++;
+            ++map->refcount_local;
         }
 
         // store pointer to device map in a new signal map
+        si->is_active = 1;
         mapper_signal_init_instance(si);
         i = mapper_signal_add_id_map(sig, si, map);
         if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
@@ -470,8 +471,9 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
                                                     mapper_device_unique_id(sig->device));
         }
         else {
-            map->refcount_local++;
+            ++map->refcount_local;
         }
+        si->is_active = 1;
         mapper_signal_init_instance(si);
         i = mapper_signal_add_id_map(sig, si, map);
         if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
@@ -543,8 +545,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
             si->is_active = 1;
             mapper_signal_init_instance(si);
             i = mapper_signal_add_id_map(sig, si, map);
-            map->refcount_local++;
-            map->refcount_global++;
+            ++map->refcount_local;
+            ++map->refcount_global;
 
             if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
                 event_h(sig, si->id, MAPPER_NEW_INSTANCE, tt);
@@ -607,8 +609,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
             si->is_active = 1;
             mapper_signal_init_instance(si);
             i = mapper_signal_add_id_map(sig, si, map);
-            map->refcount_local++;
-            map->refcount_global++;
+            ++map->refcount_local;
+            ++map->refcount_global;
 
             if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
                 event_h(sig, si->id, MAPPER_NEW_INSTANCE, tt);
@@ -679,7 +681,7 @@ static int reserve_instance_internal(mapper_signal sig, mapper_id *id,
     mapper_signal_init_instance(si);
     si->user_data = user_data;
 
-    sig->num_instances ++;
+    ++sig->num_instances;
     qsort(sig->local->instances, sig->num_instances,
           sizeof(mapper_signal_instance), compare_ids);
 
@@ -696,17 +698,26 @@ static int reserve_instance_internal(mapper_signal sig, mapper_id *id,
 int mapper_signal_reserve_instances(mapper_signal sig, int num, mapper_id *ids,
                                     void **user_data)
 {
-    if (!sig || !sig->local)
+    if (!sig || !sig->local || !num)
         return 0;
 
-    int i, count = 0, highest = -1, result;
-    for (i = 0; i < num; i++) {
+    int i = 0, count = 0, highest = -1, result;
+    if (sig->num_instances == 1 && !sig->local->instances[0]->id
+        && !sig->local->instances[0]->user_data) {
+        // we will overwite the default instance first
+        if (ids)
+            sig->local->instances[0]->id = ids[0];
+        sig->local->instances[0]->user_data = user_data;
+        ++i;
+        ++count;
+    }
+    for (; i < num; i++) {
         result = reserve_instance_internal(sig, ids ? &ids[i] : 0,
                                            user_data ? user_data[i] : 0);
         if (result == -1)
             continue;
         highest = result;
-        count++;
+        ++count;
     }
     if (highest != -1)
         mapper_device_num_instances_changed(sig->device, sig, highest + 1);
@@ -872,7 +883,7 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
 
     mapper_device_route_signal(sig->device, sig, instance_index, 0, 0, *ttp);
 
-    smap->map->refcount_local--;
+    --smap->map->refcount_local;
     if (smap->map->refcount_local <= 0 && smap->map->refcount_global <= 0) {
         mapper_device_remove_instance_id_map(sig->device, smap->map);
         smap->map = 0;
@@ -918,7 +929,7 @@ void mapper_signal_remove_instance(mapper_signal sig, mapper_id id)
     if (sig->local->instances[i]->has_value_flags)
         free(sig->local->instances[i]->has_value_flags);
     free(sig->local->instances[i]);
-    i++;
+    ++i;
     for (; i < sig->num_instances; i++) {
         sig->local->instances[i-1] = sig->local->instances[i];
     }
@@ -968,7 +979,7 @@ int mapper_signal_num_active_instances(mapper_signal sig)
     int i, j = 0;
     for (i = 0; i < sig->local->id_map_length; i++) {
         if (sig->local->id_maps[i].instance)
-            j++;
+            ++j;
     }
     return j;
 }
@@ -980,7 +991,7 @@ int mapper_signal_num_reserved_instances(mapper_signal sig)
     int i, j = 0;
     for (i = 0; i < sig->num_instances; i++) {
         if (!sig->local->instances[i]->is_active)
-            j++;
+            ++j;
     }
     return j;
 }
@@ -1004,9 +1015,23 @@ mapper_id mapper_signal_active_instance_id(mapper_signal sig, int index)
     int i, j = -1;
     for (i = 0; i < sig->local->id_map_length; i++) {
         if (sig->local->id_maps[i].instance)
-            j++;
-        if (j >= index)
+            ++j;
+        if (j == index)
             return sig->local->id_maps[i].map->local;
+    }
+    return 0;
+}
+
+mapper_id mapper_signal_reserved_instance_id(mapper_signal sig, int index)
+{
+    if (!sig || !sig->local)
+        return 0;
+    int i, j = -1;
+    for (i = 0; i < sig->num_instances; i++) {
+        if (!sig->local->instances[i]->is_active)
+            ++j;
+        if (j == index)
+            return sig->local->instances[i]->id;
     }
     return 0;
 }
@@ -1054,6 +1079,14 @@ void mapper_signal_set_user_data(mapper_signal sig, const void *user_data)
 void *mapper_signal_user_data(mapper_signal sig)
 {
     return sig ? sig->user_data : 0;
+}
+
+int mapper_signal_instance_activate(mapper_signal sig, mapper_id id)
+{
+    if (!sig || !sig->local)
+        return 0;
+    int index = mapper_signal_instance_with_local_id(sig, id, 0, 0);
+    return index >= 0;
 }
 
 void mapper_signal_instance_set_user_data(mapper_signal sig, mapper_id id,

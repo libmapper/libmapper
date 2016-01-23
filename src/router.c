@@ -284,6 +284,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
             if (slot->direction == MAPPER_DIR_OUTGOING
                 && !(sig->local->id_maps[instance].status & RELEASED_REMOTELY)) {
+                msg = 0;
                 if (!slot->use_as_instance)
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, 0);
                 else if (map_in_scope(map, id_map->global))
@@ -475,7 +476,7 @@ int mapper_router_send_query(mapper_router rtr, mapper_signal sig,
 // path: not owned, will not be freed (assumed is signal name, owned by signal)
 // message: will be owned, will be freed when done
 void send_or_bundle_message(mapper_link link, const char *path,
-                            lo_message m, mapper_timetag_t tt)
+                            lo_message msg, mapper_timetag_t tt)
 {
     // Check if a matching bundle exists
     mapper_queue q = link->queues;
@@ -487,12 +488,12 @@ void send_or_bundle_message(mapper_link link, const char *path,
     }
     if (q) {
         // Add message to existing bundle
-        lo_bundle_add_message(q->bundle, path, m);
+        lo_bundle_add_message(q->bundle, path, msg);
     }
     else {
         // Send message immediately
         lo_bundle b = lo_bundle_new(tt);
-        lo_bundle_add_message(b, path, m);
+        lo_bundle_add_message(b, path, msg);
         lo_send_bundle_from(link->data_addr,
                             link->local_device->local->server, b);
         lo_bundle_free_messages(b);

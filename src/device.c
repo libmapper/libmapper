@@ -1449,8 +1449,6 @@ void mapper_device_set_property(mapper_device dev, const char *name, int length,
         mapper_table_set_record(dev->local ? dev->props : dev->staged_props,
                                 prop, name, length, type, value,
                                 dev->local ? LOCAL_MODIFY : REMOTE_MODIFY);
-    printf("mapper_device_set_property('%s', %p)\n", name, value);
-    mapper_table_dump(dev->props);
 }
 
 void mapper_device_remove_property(mapper_device dev, const char *name)
