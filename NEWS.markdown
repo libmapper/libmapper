@@ -6,80 +6,192 @@ Changes from 0.3 to 0.4
 Released _________
 
 This is still a development release, and includes many API changes,
-improvements, and new features since 0.3.
+improvements, and new features since 0.3. They are summarized very briefly here:
 
-They are summarized very briefly here:
+### Structural changes
 
-  * _Monitor subscriptions_. The API and underlying protocol for
-  synchronizing monitors has been switched to a subscription-with-lease
-  model.
-  * automatic recovery of memory from dropped links, e.g. when the peer device crashes
-  * removal of links from public API
-    * automatic device linking
-  * _Language bindings_
-    * added C++ headers (still not quite complete)
-    * improved consistency between Python and Java bindings
-    * added monitor and db functions to Java bindings
-  * _Expression parser and evaluator_.
-    * vector indexing
-    * user-defined variables
-    * filter initialization
-    * vector functions (any/all/min/max/mean?)
-    * expression optimization
-  * _Convergent mapping_. Convergent or many-to-one mapping refers to
-  scenarios in which multiple source signals are connected to the same
-  destination signal. Prior to 0.4, libmapper would allow a naïve
-  implementation of convergent mapping: multiple sources could be
-  connected to a given destination, however their values would overwrite
-  each other at each source update. Starting with version 0.4, three
-  other methods for convergent mapping are also available:
-    * _updating specific vector elements or element ranges_. By using
-    the vector indexing functionality mentioned above, parts of vector
-    destinations can be updated by different sources; vectors updates
-    are now null-padded so elements not addressed in the expression
-    property will not be overwritten
-    * _destination value reference_. References to past values of the
-    destination in the expression string (e.g. _y=y{-1}+x_) now refer
-    to the _actual value_ of the destination signal rather than the
-    output of the expression. If the past behaviour is desired, a
-    user-defined variable can be used to cache the expression output
-    (e.g. _foo=foo+x; y=foo_). Note that if the destination value
-    is referenced in the expression string libmapper will automatically
-    move signal processing to the destination device.
-    * _multi-source connections_. Finally, libmapper connections can
-    now be created with multiple source signals, and expressions used
-    to combine the source values arbitrarily. To support this
-    functionality, the endpoints of connections are now represented
-    using the mapper_db_connection_slot data structure; each connection
-    has a single destination slot and at least one source slot. The
-    `range` property of connections has been transformed into separate
-    `minimum` and `maximum` properties of the connection slots. If all
-    source slots belong to the same device, signal processing will be
-    handled by the source device, otherwise the destination will handle
-    evaluation of the expression.
+The data structures in libmapper have been reconceived to increase consistency
+and clarity. Some data structures have been merged and/or renamed:
 
-  * protocol changes
-    * monitor subscriptions
-    * null-padding
-    * explicit connection direction
-    * explicit instance indexing
-  * file format
-    * no more links
-  * _Connection modes_. The connection modes `MO_BYPASS`, `MO_REVERSE`
-  and `MO_CALIBRATE` have been removed; only `MO_LINEAR` and
-  `MO_EXPRESSION` remain. It was decided that calling a mode bypass
-  was misleading since libmapper was automatically adding type coercion
-  and vector padding as needed; connections between signals without
-  known extrema now default to `MO_EXPRESSION` with an automatically-
-  generated expression taking into account vector-length mismatches.
-  "Reverse" connections are now handled with explicit connection
-  directions (which incidentally also supports connections from one
-  "input" signal to another "input" signal); `calibrating` is now a
-  separate property of a connection
+* `mapper_device` + `mapper_db_device` ––> `mapper_device`
+* `mapper_signal` + `mapper_db_signal` ––> `mapper_signal`
+* `mapper_link` ––> (removed)
+* `mapper_connection` + `mapper_db_connection` ––> `mapper_map`
+* `mapper_admin` ––> `mapper_network`
+* `mapper_monitor` ––> (removed)
+* `mapper_db` ––> `mapper_database`
 
-Additional changes:
+This means that the database now represents remote devices and signals using the
+same data structures that are used for local devices and signals. Property
+getter and setter functions for these structures are the same whether the entity
+is local or remote.
 
-  * faster/more efficient device and monitor polling using select()
+The `mapper_map` structure is now a "top-level" object, and is used for
+creating, modifying, and destroying mapping connections. Changes to a map (and
+to other structures that represent non-local resources) must be explicitly
+synchronized with the network using the `_push()` function, e.g.:
+
+    mapper_map map = mapper_map_new(outsig, insig);
+    mapper_map_set_expression(map, "y=x+2");
+    mapper_map_push();
+
+Or in C++:
+
+    mapper::Map map(outsig, insig);
+    map.set_expression("y=x+2");
+    map.push();
+
+Or in Python:
+
+    map = mapper.map(outsig, insig)
+    map.expression = "y=x+2"
+    map.push()
+
+In all these cases the arguments for the map constructor are no longer the
+*names* of the signals in question, but are **signal objects**: `mapper_signal`
+in C, `mapper::Signal` in C++, etc. These could be local signals or signals
+retrieved from the database.
+
+There is also a new data structure called *mapper_slot* for representing map
+endpoints (see below under **convergent mapping**).
+
+### Function naming
+
+The names of many functions have been changed to make them consistent with the
+names of the data structures they concerns, e.g. `mdev_poll()` has been renamed
+to `mapper_device_poll()`.
+
+### Expression parser and evaluator
+
+New capabilities have been added to the expression parser and evaluator, including:
+* vector indexing
+* user-defined variables
+* filter initialization
+* vector functions (any/all/min/max/mean?)
+* expression optimization
+
+### Database queries
+
+Previous versions of libmapper contained many duplicate functions for accessing
+e.g. signals belonging to a device: one for retrieving them from a `mapper_device`
+and another for retrieving them from the database. In version 0.4 all object
+queries have been unified, and children of objects (e.g. signals, maps) are
+retrieved by querying their parent. For example, all devices can be retrieved
+from the database like this:
+
+    mapper_device *devs = mapper_db_devices(db);
+    while (devs) {
+        printf("retrieved device '%s'\n", mapper_device_name(*devs));
+        devs = mapper_device_query_next(devs);
+    }
+
+The old way of retrieving the output signals belonging to a particular device
+was to call:
+
+    mapper_db_signal *sigs = mapper_db_get_outputs_by_device_name(db, name);
+
+and the new way:
+
+    mapper_signal *sigs = mapper_device_signals(dev, MAPPER_DIR_OUTGOING);
+
+Queries can be combined using union, intersection, or difference operators,
+making it easy to e.g. find maps with a specific source and destination device
+without requiring a specific dedicated function to do so:
+
+    mapper_map *src = mapper_device_maps(src_dev, MAPPER_DIR_OUTGOING);
+    mapper_map *dst = mapper_device_maps(dst_dev, MAPPER_DIR_INCOMING);
+    mapper_map *maps = mapper_map_query_intersection(src, dst);
+    while (maps) {
+        mapper_map_pp(*maps);
+        maps = mapper_map_query_next(maps);
+    }
+
+Since the data structures `mapper_device`, `mapper_signal`, and `mapper_map` can
+all be queried by arbitrary property, it is quite easy to build arbitrary queries.
+
+    int value = 10;
+    mapper_map *maps = mapper_db_maps_by_property(db, "foo", 1, 'i', &value,
+                                                  MAPPER_OP_LESS_THAN);
+
+### Convergent mapping
+
+Convergent or many-to-one mapping refers to scenarios in which multiple source
+signals are connected to the same destination signal. Prior to 0.4, libmapper
+would allow a naïve implementation of convergent mapping: multiple sources
+could be connected to a given destination, however their values would overwrite
+each other at each source update. Starting with version 0.4, three other methods
+for convergent mapping are also available:
+
+* _updating specific vector elements or element ranges_. By using the vector
+indexing functionality mentioned above, parts of vector destinations can be
+updated by different sources; vectors updates are now null-padded so elements
+not addressed in the expression property will not be overwritten
+* _destination value reference_. References to past values of the destination in
+the expression string (e.g. _y=y{-1}+x_) now refer to the _actual value_ of the
+destination signal rather than the output of the expression. If the past
+behaviour is desired, a user-defined variable can be used to cache the
+expression output (e.g. _foo=foo+x; y=foo_). Note that if the destination value
+is referenced in the expression string libmapper will automatically move signal
+processing to the destination device.
+* _multi-source maps_. Lastly, maps can now be created with multiple source
+signals, and expressions used to combine the source values arbitrarily. To
+support this functionality, the endpoints of maps are now represented using the
+`mapper_slot` data structure; each map has a single destination slot and at
+least one source slot. Several properties that used to belong to connections
+have been moved to the map slots:
+
+  * `map->range` ––> `slot->minimum` and `slot->maximum`
+  * `map->bound_max` ––> `slot->bound_max`
+  * `map->bound_min` ––> `slot->bound_min`
+  * `map->send_as_instance` ––> `slot->use_as_instance`
+
+The connection mode `MO_CALIBRATING` has become a slot mode as well.
+
+If all source slots belong to the same device, signal processing will be handled
+by the source device by default, otherwise the destination will handle
+evaluation of the expression. This can be controlled by setting the
+`process_location` property of a map
+
+The `mode` property of maps has changed a bit:
+
+* `MO_BYPASS` has been removed since it didn't really describe what was going
+on - although the expression evaluator was not being called the updates were
+still undergoing type-coercion and vector padding/truncation. There is a new
+mode called `MAPPER_MODE_RAW` that is used internally only when setting up
+convergent maps.
+* `MO_REVERSE` has been removed and replaced with directed maps; if a map from
+sink->source is desired it is simply set up that way, e.g.
+`mapper_map_new(sink_sig, source_sig)`.
+* `MO_CALIBRATE` has been removed and replaced with the `mapper_slot` property
+`calibrating`.
+* `MO_EXPRESSION` has been renamed `MAPPER_MODE_EXPRESSION`
+* `MO_LINEAR` has been renamed `MAPPER_MODE_LINEAR`
+
+### Changes under the hood
+
+There have also been a number of internal improvements that have minimal effect
+on the API but improve memory-management and add functionality
+
+* _Database subscriptions_: The underlying protocol for synchronizing databases
+with the libmapper network has been switched to a subscription-with-lease model.
+This improves the granularity of reported changes to remote objects while
+reducing network traffic.
+* *Memory management:* Memory is now recovered from dropped connections, e.g.
+when a peer device crashes or doesn't disconnect properly.
+* Devices now create network links automatically as needed.
+* *Protocol changes:* In addition to the database subscriptoin changes, some
+other updated have been made to the libmapper protocol:
+  * null-padding of incomplete vector updates 
+  * references to maps in the protocol now have an explicit direction
+  * instance updates are explicitly tagged with their index, i.e. `@instance 2`
+* *Efficient polling:* select() is not used internally to wait on servers,
+resulting in less wasted processing and more responsive performance.
+
+### Language bindings
+
+* added C++ headers (mostly complete)
+* improved consistency between Python and Java bindings
+* added database functionality to the Java bindings
 
 Changes from 0.2 to 0.3
 -----------------------
