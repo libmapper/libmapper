@@ -1363,6 +1363,13 @@ namespace mapper {
                                         (void*)(const void*)value);
                 return (*this);
             }
+            bool calibrating() const
+                { return mapper_slot_calibrating(_slot); }
+            Slot& set_calibrating(bool value)
+            {
+                mapper_slot_set_calibrating(_slot, (int)value);
+                return (*this);
+            }
             bool causes_update() const
                 { return mapper_slot_causes_update(_slot); }
             Slot& set_causes_update(bool value)
