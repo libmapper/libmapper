@@ -60,7 +60,7 @@ int setup_source()
     sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'f', 0, 0, 0);
     if (!sendsig)
         goto error;
-    mapper_signal_reserve_instances(sendsig, 9, 0, 0);
+    mapper_signal_reserve_instances(sendsig, 10, 0, 0);
 
     eprintf("Output signal registered.\n");
     eprintf("Number of outputs: %d\n",
@@ -113,7 +113,7 @@ int setup_destination()
                                              0, insig_handler, 0);
     if (!recvsig)
         goto error;
-    mapper_signal_reserve_instances(recvsig, 9, 0, 0);
+    mapper_signal_reserve_instances(recvsig, 10, 0, 0);
 
     eprintf("Input signal registered.\n");
     eprintf("Number of inputs: %d\n",
