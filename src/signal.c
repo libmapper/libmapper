@@ -205,12 +205,12 @@ void mapper_signal_push(mapper_signal sig)
         return;
 
     if (sig->local)
-        mapper_network_set_dest_subscribers(sig->device->db->network,
+        mapper_network_set_dest_subscribers(sig->device->database->network,
                                             sig->direction == MAPPER_DIR_OUTGOING
                                             ? MAPPER_SUBSCRIBE_OUTPUTS
                                             : MAPPER_SUBSCRIBE_INPUTS);
     else
-        mapper_network_set_dest_bus(sig->device->db->network);
+        mapper_network_set_dest_bus(sig->device->database->network);
     mapper_signal_send_state(sig, UPDATED_PROPS);
 }
 
@@ -222,7 +222,7 @@ void mapper_signal_update(mapper_signal sig, const void *value, int count,
 
     mapper_timetag_t *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->device->db->network->clock.now;
+        ttp = &sig->device->database->network->clock.now;
         mapper_device_now(sig->device, ttp);
     }
     else
@@ -256,7 +256,7 @@ void mapper_signal_update_int(mapper_signal sig, int value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->device->db->network->clock.now;
+    mapper_timetag_t *tt = &sig->device->database->network->clock.now;
     mapper_device_now(sig->device, tt);
 
     int index = 0;
@@ -287,7 +287,7 @@ void mapper_signal_update_float(mapper_signal sig, float value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->device->db->network->clock.now;
+    mapper_timetag_t *tt = &sig->device->database->network->clock.now;
     mapper_device_now(sig->device, tt);
 
     int index = 0;
@@ -318,7 +318,7 @@ void mapper_signal_update_double(mapper_signal sig, double value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->device->db->network->clock.now;
+    mapper_timetag_t *tt = &sig->device->database->network->clock.now;
     mapper_device_now(sig->device, tt);
 
     int index = 0;
@@ -875,7 +875,7 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
 
     mapper_timetag_t *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->device->db->network->clock.now;
+        ttp = &sig->device->database->network->clock.now;
         mapper_device_now(sig->device, ttp);
     }
     else
@@ -913,7 +913,7 @@ void mapper_signal_remove_instance(mapper_signal sig, mapper_id id)
         if (sig->local->instances[i]->id == id) {
             if (sig->local->instances[i]->is_active) {
                 // First release instance
-                mapper_timetag_t tt = sig->device->db->network->clock.now;
+                mapper_timetag_t tt = sig->device->database->network->clock.now;
                 mapper_device_now(sig->device, &tt);
                 mapper_signal_instance_release_internal(sig, i, tt);
             }
@@ -1142,7 +1142,7 @@ int mapper_signal_query_remotes(mapper_signal sig, mapper_timetag_t tt)
 
     mapper_timetag_t *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->device->db->network->clock.now;
+        ttp = &sig->device->database->network->clock.now;
         mapper_device_now(sig->device, ttp);
     }
     else
@@ -1247,11 +1247,11 @@ static int cmp_query_signal_maps(const void *context_data, mapper_map map)
 
 mapper_map *mapper_signal_maps(mapper_signal sig, mapper_direction dir)
 {
-    if (!sig || !sig->device->db->maps)
+    if (!sig || !sig->device->database->maps)
         return 0;
     return ((mapper_map *)
-            mapper_list_new_query(sig->device->db->maps, cmp_query_signal_maps,
-                                  "vi", &sig, dir));
+            mapper_list_new_query(sig->device->database->maps,
+                                  cmp_query_signal_maps, "vi", &sig, dir));
 }
 
 float mapper_signal_rate(mapper_signal sig)
@@ -1496,7 +1496,8 @@ void mapper_signal_send_state(mapper_signal sig, int flags)
         }
     }
 
-    mapper_network_add_message(sig->device->db->network, 0, MSG_SIGNAL, msg);
+    mapper_network_add_message(sig->device->database->network, 0, MSG_SIGNAL,
+                               msg);
 }
 
 void mapper_signal_send_removed(mapper_signal sig)
@@ -1509,7 +1510,7 @@ void mapper_signal_send_removed(mapper_signal sig)
     char sig_name[1024];
     mapper_signal_full_name(sig, sig_name, 1024);
     lo_message_add_string(msg, sig_name);
-    mapper_network_add_message(sig->device->db->network, 0,
+    mapper_network_add_message(sig->device->database->network, 0,
                                MSG_SIGNAL_REMOVED, msg);
 }
 

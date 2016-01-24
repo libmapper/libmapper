@@ -17,7 +17,7 @@
 /* TODO:
  *      signal update handlers
  *      instance event handlers
- *      db handlers
+ *      database handlers
  *      device mapping handlers
  */
 
@@ -41,7 +41,7 @@ namespace mapper {
     class Signal;
     class GenericObject;
     class Property;
-    class Db;
+    class Database;
 
     // Helper class to allow polymorphism on "const char *" and "std::string".
     class string_type {
@@ -76,7 +76,7 @@ namespace mapper {
             { return mapper_network_port(_net); }
     protected:
         friend class Device;
-        friend class Db;
+        friend class Database;
         Network(mapper_network net)
             { _net = net; _owned = 0; }
     private:
@@ -265,7 +265,7 @@ namespace mapper {
         int length;
         const void *value;
     protected:
-        friend class Db;
+        friend class Database;
         friend class GenericObject;
         friend class Device;
         friend class Signal;
@@ -841,19 +841,19 @@ namespace mapper {
         Device(const string_type &name_prefix, int port, Network net)
         {
             _dev = mapper_device_new(name_prefix, port, net);
-            _db = mapper_device_db(_dev);
+            _db = mapper_device_database(_dev);
             _owned = 1;
         }
         Device(const string_type &name_prefix)
         {
             _dev = mapper_device_new(name_prefix, 0, 0);
-            _db = mapper_device_db(_dev);
+            _db = mapper_device_database(_dev);
             _owned = 1;
         }
         Device(mapper_device dev)
         {
             _dev = dev;
-            _db = mapper_device_db(_dev);
+            _db = mapper_device_database(_dev);
             _owned = 0;
         }
         ~Device()
@@ -1092,7 +1092,7 @@ namespace mapper {
         };
     private:
         mapper_device _dev;
-        mapper_db _db;
+        mapper_database _db;
         int _owned;
     };
 
@@ -1444,7 +1444,7 @@ namespace mapper {
             return (*this);
         }
     protected:
-        friend class Db;
+        friend class Database;
         Map(mapper_map map)
             { _map = map; }
         Map& set_property(Property *p)
@@ -1467,124 +1467,126 @@ namespace mapper {
         mapper_device _dev;
     };
 
-    class Db
+    class Database
     {
     protected:
-        Db(mapper_db db)
+        Database(mapper_database db)
             { _db = db; }
     public:
-        Db(int flags = MAPPER_SUBSCRIBE_ALL)
-            { _db = mapper_db_new(0, flags); }
-        ~Db()
+        Database(int flags = MAPPER_SUBSCRIBE_ALL)
+            { _db = mapper_database_new(0, flags); }
+        ~Database()
         {
             if (_db)
-                mapper_db_free(_db);
+                mapper_database_free(_db);
         }
-        const Db& poll(int block_ms=0) const
+        const Database& poll(int block_ms=0) const
         {
-            mapper_db_poll(_db, block_ms);
+            mapper_database_poll(_db, block_ms);
             return (*this);
         }
-        const Db& flush() const
+        const Database& flush() const
         {
-            mapper_db_flush(_db, mapper_db_timeout(_db), 0);
+            mapper_database_flush(_db, mapper_database_timeout(_db), 0);
             return (*this);
         }
-        const Db& flush(int timeout_sec, int quiet=0) const
+        const Database& flush(int timeout_sec, int quiet=0) const
         {
-            mapper_db_flush(_db, timeout_sec, quiet);
+            mapper_database_flush(_db, timeout_sec, quiet);
             return (*this);
         }
 
         // subscriptions
-        const Db& request_devices() const
+        const Database& request_devices() const
         {
-            mapper_db_request_devices(_db);
+            mapper_database_request_devices(_db);
             return (*this);
         }
-        const Db& subscribe(const device_type& dev, int flags, int timeout)
+        const Database& subscribe(const device_type& dev, int flags, int timeout)
         {
-            mapper_db_subscribe(_db, dev, flags, timeout);
+            mapper_database_subscribe(_db, dev, flags, timeout);
             return (*this);
         }
-        const Db& subscribe(int flags)
-            { mapper_db_subscribe(_db, 0, flags, -1); return (*this); }
-        const Db& unsubscribe(const device_type& dev)
+        const Database& subscribe(int flags)
+            { mapper_database_subscribe(_db, 0, flags, -1); return (*this); }
+        const Database& unsubscribe(const device_type& dev)
         {
-            mapper_db_unsubscribe(_db, dev);
+            mapper_database_unsubscribe(_db, dev);
             return (*this);
         }
-        const Db& unsubscribe()
-            { mapper_db_unsubscribe(_db, 0); return (*this); }
+        const Database& unsubscribe()
+            { mapper_database_unsubscribe(_db, 0); return (*this); }
 
-        // db_devices
-        const Db& add_device_callback(mapper_db_device_handler *handler,
-                                      void *user_data) const
+        // database_devices
+        const Database& add_device_callback(mapper_database_device_handler *h,
+                                            void *user_data) const
         {
-            mapper_db_add_device_callback(_db, handler, user_data);
+            mapper_database_add_device_callback(_db, h, user_data);
             return (*this);
         }
-        const Db& remove_device_callback(mapper_db_device_handler *handler,
+        const Database& remove_device_callback(mapper_database_device_handler *h,
                                          void *user_data) const
         {
-            mapper_db_remove_device_callback(_db, handler, user_data);
+            mapper_database_remove_device_callback(_db, h, user_data);
             return (*this);
         }
 
         Device device_by_name(const string_type &name) const
-            { return Device(mapper_db_device_by_name(_db, name)); }
+            { return Device(mapper_database_device_by_name(_db, name)); }
         Device device_by_id(mapper_id id) const
-            { return Device(mapper_db_device_by_id(_db, id)); }
+            { return Device(mapper_database_device_by_id(_db, id)); }
         Device::Query devices() const
-            { return Device::Query(mapper_db_devices(_db)); }
+            { return Device::Query(mapper_database_devices(_db)); }
         Device::Query local_devices() const
-            { return Device::Query(mapper_db_local_devices(_db)); }
+            { return Device::Query(mapper_database_local_devices(_db)); }
         Device::Query devices_by_name_match(const string_type &pattern) const
         {
-            return Device::Query(mapper_db_devices_by_name_match(_db, pattern));
+            return Device::Query(mapper_database_devices_by_name_match(_db,
+                                                                       pattern));
         }
         Device::Query devices_by_property(const Property& p, mapper_op op) const
         {
             return Device::Query(
-                mapper_db_devices_by_property(_db, p.name, p.length, p.type,
-                                              p.value, op));
+                mapper_database_devices_by_property(_db, p.name, p.length,
+                                                    p.type, p.value, op));
         }
         Device::Query devices_by_property(const Property& p) const
         {
             return devices_by_property(p, MAPPER_OP_EXISTS);
         }
 
-        // db_signals
-        const Db& add_signal_callback(mapper_db_signal_handler *handler,
-                                      void *user_data) const
+        // database_signals
+        const Database& add_signal_callback(mapper_database_signal_handler *h,
+                                            void *user_data) const
         {
-            mapper_db_add_signal_callback(_db, handler, user_data);
+            mapper_database_add_signal_callback(_db, h, user_data);
             return (*this);
         }
-        const Db& remove_signal_callback(mapper_db_signal_handler *handler,
-                                         void *user_data) const
+        const Database& remove_signal_callback(mapper_database_signal_handler *h,
+                                               void *user_data) const
         {
-            mapper_db_remove_signal_callback(_db, handler, user_data);
+            mapper_database_remove_signal_callback(_db, h, user_data);
             return (*this);
         }
 
         Signal signal(mapper_id id) const
-            { return Signal(mapper_db_signal_by_id(_db, id)); }
+            { return Signal(mapper_database_signal_by_id(_db, id)); }
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
-            { return Signal::Query(mapper_db_signals(_db, dir)); }
+            { return Signal::Query(mapper_database_signals(_db, dir)); }
         Signal::Query signals_by_name(const string_type &name) const
         {
-            return Signal::Query(mapper_db_signals_by_name(_db, name));
+            return Signal::Query(mapper_database_signals_by_name(_db, name));
         }
         Signal::Query signals_by_name_match(const string_type &pattern) const
         {
-            return Signal::Query(mapper_db_signals_by_name_match(_db, pattern));
+            return Signal::Query(mapper_database_signals_by_name_match(_db,
+                                                                       pattern));
         }
         Signal::Query signals_by_property(const Property& p, mapper_op op) const
         {
             return Signal::Query(
-                mapper_db_signals_by_property(_db, p.name, p.length, p.type,
-                                              p.value, op));
+                mapper_database_signals_by_property(_db, p.name, p.length,
+                                                    p.type, p.value, op));
         }
         Signal::Query signals_by_property(const Property& p) const
         {
@@ -1601,29 +1603,29 @@ namespace mapper {
             return Signal(mapper_device_signal_by_name(dev, name));
         }
 
-        // db maps
-        const Db& add_map_callback(mapper_map_handler *handler,
-                                   void *user_data) const
+        // database maps
+        const Database& add_map_callback(mapper_map_handler *h,
+                                         void *user_data) const
         {
-            mapper_db_add_map_callback(_db, handler, user_data);
+            mapper_database_add_map_callback(_db, h, user_data);
             return (*this);
         }
-        const Db& remove_map_callback(mapper_map_handler *handler,
+        const Database& remove_map_callback(mapper_map_handler *handler,
                                       void *user_data) const
         {
-            mapper_db_remove_map_callback(_db, handler, user_data);
+            mapper_database_remove_map_callback(_db, handler, user_data);
             return (*this);
         }
 
         Map map_by_id(mapper_id id) const
-            { return Map(mapper_db_map_by_id(_db, id)); }
+            { return Map(mapper_database_map_by_id(_db, id)); }
         Map::Query maps() const
-            { return Map::Query(mapper_db_maps(_db)); }
+            { return Map::Query(mapper_database_maps(_db)); }
         Map::Query maps_by_property(const Property& p, mapper_op op) const
         {
             return Map::Query(
-                mapper_db_maps_by_property(_db, p.name, p.length, p.type,
-                                           p.value, op));
+                mapper_database_maps_by_property(_db, p.name, p.length, p.type,
+                                                 p.value, op));
         }
         Map::Query maps_by_property(const Property& p) const
         {
@@ -1642,7 +1644,7 @@ namespace mapper {
                 mapper_signal_maps((mapper_signal)signal, dir));
         }
     private:
-        mapper_db _db;
+        mapper_database _db;
     };
 };
 

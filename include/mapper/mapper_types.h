@@ -25,7 +25,7 @@ typedef void *mapper_network;
 
 //! An internal structure to handle network database.
 //! This can be retrieved by calling mapper_network_db() or mapper_device_db().
-typedef void *mapper_db;
+typedef void *mapper_database;
 
 //! An internal data structure defining a mapper queue
 //! Used to handle a queue of mapper signals

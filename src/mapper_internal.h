@@ -33,9 +33,9 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
 
 /**** Networking ****/
 
-mapper_db mapper_network_add_db(mapper_network net);
+mapper_database mapper_network_add_database(mapper_network net);
 
-void mapper_network_remove_db(mapper_network net);
+void mapper_network_remove_database(mapper_network net);
 
 void mapper_network_add_device(mapper_network net, mapper_device dev);
 
@@ -323,9 +323,9 @@ void mapper_slot_upgrade_extrema_memory(mapper_slot slot);
  *  \param props        The parsed message parameters containing new device
  *                      information.
  *  \return             Pointer to the device database entry. */
-mapper_device mapper_db_add_or_update_device(mapper_db db,
-                                             const char *device_name,
-                                             mapper_message_t *props);
+mapper_device mapper_database_add_or_update_device(mapper_database db,
+                                                   const char *device_name,
+                                                   mapper_message_t *props);
 
 /*! Add or update an entry in the signal database using parsed message
  *  parameters.
@@ -335,10 +335,10 @@ mapper_device mapper_db_add_or_update_device(mapper_db db,
  *  \param props       The parsed message parameters containing new signal
  *                     information.
  *  \return            Pointer to the signal database entry. */
-mapper_signal mapper_db_add_or_update_signal(mapper_db db,
-                                             const char *signal_name,
-                                             const char *device_name,
-                                             mapper_message_t *props);
+mapper_signal mapper_database_add_or_update_signal(mapper_database db,
+                                                   const char *signal_name,
+                                                   const char *device_name,
+                                                   mapper_message_t *props);
 
 /*! Initialize an already-allocated mapper_signal structure. */
 void mapper_signal_init(mapper_signal sig, const char *name, int length,
@@ -355,40 +355,45 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
  *  \param props        The parsed message parameters containing new
  *                      map information.
  *  \return             Pointer to the map database entry. */
-mapper_map mapper_db_add_or_update_map(mapper_db db, int num_srcs,
-                                       const char **src_names,
-                                       const char *dest_name,
-                                       mapper_message_t *props);
+mapper_map mapper_database_add_or_update_map(mapper_database db, int num_srcs,
+                                             const char **src_names,
+                                             const char *dest_name,
+                                             mapper_message_t *props);
 
 /*! Remove a device from the database. */
-void mapper_db_remove_device(mapper_db db, mapper_device dev, int quiet);
+void mapper_database_remove_device(mapper_database db, mapper_device dev,
+                                   int quiet);
 
-void mapper_db_remove_signal(mapper_db db, mapper_signal sig);
+void mapper_database_remove_signal(mapper_database db, mapper_signal sig);
 
 /*! Remove a named signal from the database if it exists. */
-void mapper_db_remove_signal_by_name(mapper_db db, const char *dev_name,
-                                     const char *sig_name);
+void mapper_database_remove_signal_by_name(mapper_database db,
+                                           const char *dev_name,
+                                           const char *sig_name);
 
 /*! Remove signals in the provided query. */
-void mapper_db_remove_signals_by_query(mapper_db db, mapper_signal *sigs);
+void mapper_database_remove_signals_by_query(mapper_database db,
+                                             mapper_signal *sigs);
 
 /*! Remove maps in the provided query. */
-void mapper_db_remove_maps_by_query(mapper_db db, mapper_map *maps);
+void mapper_database_remove_maps_by_query(mapper_database db,
+                                          mapper_map *maps);
 
 /*! Remove a specific map from the database. */
-void mapper_db_remove_map(mapper_db db, mapper_map map);
+void mapper_database_remove_map(mapper_database db, mapper_map map);
 
 /*! Dump device information database to the screen.  Useful for debugging, only
  *  works when compiled in debug mode. */
-void mapper_db_dump(mapper_db db);
+void mapper_database_dump(mapper_database db);
 
-void mapper_db_remove_all_callbacks(mapper_db db);
+void mapper_database_remove_all_callbacks(mapper_database db);
 
 /*! Check device records for unresponsive devices. */
-void mapper_db_check_device_status(mapper_db db, uint32_t now_sec);
+void mapper_database_check_device_status(mapper_database db, uint32_t now_sec);
 
 /*! Flush device records for unresponsive devices. */
-mapper_device mapper_db_expired_device(mapper_db db, uint32_t last_ping);
+mapper_device mapper_database_expired_device(mapper_database db,
+                                             uint32_t last_ping);
 
 /**** Messages ****/
 /*! Parse the device and signal names from an OSC path. */

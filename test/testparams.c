@@ -28,7 +28,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        eprintf("testdb.c: possible arguments "
+                        eprintf("testparams.c: possible arguments "
                                 "-q quiet (suppress output), "
                                 "-h help\n");
                         return 1;

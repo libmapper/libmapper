@@ -90,14 +90,15 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
         return 0;
 
     mapper_local_device ldev = destination->device->local;
-    mapper_db db = destination->device->db;
+    mapper_database db = destination->device->database;
 
     // check if record of map already exists
     mapper_map map, *maps, *temp;
     maps = mapper_signal_maps(destination, MAPPER_DIR_INCOMING);
     if (maps) {
+        mapper_signal sig;
         for (i = 0; i < num_sources; i++) {
-            mapper_signal sig = mapper_db_signal_by_id(db, mapper_signal_id(sources[i]));
+            sig = mapper_database_signal_by_id(db, mapper_signal_id(sources[i]));
             if (sig) {
                 temp = mapper_signal_maps(sig, MAPPER_DIR_OUTGOING);
                 maps = mapper_map_query_intersection(maps, temp);
@@ -126,7 +127,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
 
     map = (mapper_map)mapper_list_add_item((void**)&db->maps,
                                            sizeof(mapper_map_t));
-    map->db = db;
+    map->database = db;
     map->num_sources = num_sources;
     map->sources = (mapper_slot) calloc(1, sizeof(struct _mapper_slot)
                                         * num_sources);
@@ -136,8 +137,8 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
         }
         else {
             map->sources[i].signal =
-                mapper_db_add_or_update_signal(db, sources[order[i]]->name,
-                                               sources[order[i]]->device->name, 0);
+                mapper_database_add_or_update_signal(db, sources[order[i]]->name,
+                                                     sources[order[i]]->device->name, 0);
             if (!map->sources[i].signal->id) {
                 map->sources[i].signal->id = sources[order[i]]->id;
                 map->sources[i].signal->direction = sources[order[i]]->direction;
@@ -192,7 +193,7 @@ void mapper_map_push(mapper_map map)
     else
         cmd = MSG_MAP;
 
-    mapper_network_set_dest_bus(map->db->network);
+    mapper_network_set_dest_bus(map->database->network);
     mapper_map_send_state(map, -1, cmd, UPDATED_PROPS);
 }
 
@@ -296,7 +297,7 @@ mapper_device *mapper_map_scopes(mapper_map map)
     if (!map || !map->scope.size)
         return 0;
     return ((mapper_device *)
-            mapper_list_new_query(map->db->devices, cmp_query_map_scopes,
+            mapper_list_new_query(map->database->devices, cmp_query_map_scopes,
                                   "v", &map->scope));
 }
 
@@ -439,7 +440,7 @@ static int add_scope_internal(mapper_map map, const char *name)
         }
     }
     else {
-        dev = mapper_db_add_or_update_device(map->db, name, 0);
+        dev = mapper_database_add_or_update_device(map->database, name, 0);
         for (i = 0; i < map->scope.size; i++) {
             if (map->scope.devices[i] && map->scope.devices[i]->id == dev->id)
                 return 0;
@@ -1123,7 +1124,7 @@ static void mapper_map_set_mode_expression(mapper_map map, const char *expr)
     use_as_instance += map->destination.use_as_instance;
     if (mapper_expr_constant_output(map->local->expr) && !use_as_instance) {
         mapper_timetag_t now;
-        mapper_clock_now(&map->db->network->clock, &now);
+        mapper_clock_now(&map->database->network->clock, &now);
 
         // evaluate expression
         mapper_expr_evaluate(map->local->expr, 0, 0,
@@ -1757,8 +1758,8 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
     lo_message_add_int64(msg, *((int64_t*)&map->id));
 
     if (!flags) {
-        mapper_network_add_message(map->db->network, 0, cmd, msg);
-        mapper_network_send(map->db->network);
+        mapper_network_add_message(map->database->network, 0, cmd, msg);
+        mapper_network_send(map->database->network);
         return i-1;
     }
 
@@ -1768,9 +1769,9 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
         keys = add_properties_to_message(map, msg, slot, flags);
     }
 
-    mapper_network_add_message(map->db->network, 0, cmd, msg);
+    mapper_network_add_message(map->database->network, 0, cmd, msg);
     // send immediately since message refers to generated strings
-    mapper_network_send(map->db->network);
+    mapper_network_send(map->database->network);
 
     if (keys)
         free((char*)keys);

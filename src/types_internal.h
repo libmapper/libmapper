@@ -133,7 +133,7 @@ typedef struct _mapper_subscription {
     struct _mapper_subscription *next;
 } *mapper_subscription;
 
-typedef struct _mapper_db {
+typedef struct _mapper_database {
     struct _mapper_network *network;
     mapper_device devices;              //<! List of devices.
     mapper_signal signals;              //<! List of signals.
@@ -150,12 +150,12 @@ typedef struct _mapper_db {
      *  be automatically subscribed to when a new device is seen.*/
     int autosubscribe;
 
-    /*! The time after which the db will declare devices "unresponsive". */
+    /*! The time after which the database will declare devices "unresponsive". */
     int timeout_sec;
     uint32_t resource_counter;
 
     int own_network;
-} mapper_db_t, *mapper_db;
+} mapper_database_t, *mapper_database;
 
 /**** Messages ****/
 
@@ -248,7 +248,7 @@ typedef struct _mapper_network {
     struct in_addr interface_ip;    /*!< The IP address of interface. */
     struct _mapper_device *device;  /*!< Device that this structure is
                                      *   in charge of. */
-    mapper_db_t db;                 /*<! Database of local and remote libmapper
+    mapper_database_t database;     /*<! Database of local and remote libmapper
                                      *   objects. */
     mapper_clock_t clock;           /*!< Clock for processing timed events. */
     lo_bundle bundle;               /*!< Bundle pointer for sending
@@ -261,7 +261,7 @@ typedef struct _mapper_network {
                                      *  it was created by mapper_network_new()
                                      *  and should be freed by
                                      *  mapper_network_free(). */
-    int db_methods_added;
+    int database_methods_added;
 } mapper_network_t;
 
 /*! The handle to this device is a pointer. */
@@ -472,7 +472,7 @@ typedef struct _mapper_map_scope {
 /*! A record that describes the properties of a mapping.
  *  @ingroup map */
 typedef struct _mapper_map {
-    mapper_db db;                       //!< Pointer back to the db.
+    mapper_database database;           //!< Pointer back to the database.
     mapper_map_internal local;
     mapper_slot sources;
     mapper_slot_t destination;
@@ -563,7 +563,7 @@ typedef struct _mapper_local_device {
 
 /*! A record that keeps information about a device on the network. */
 struct _mapper_device {
-    mapper_db db;               //!< Pointer back to the db.
+    mapper_database database;   //!< Pointer back to the database.
     mapper_local_device local;
     char *lib_version;          //!< libmapper version of device.
     void *user_data;            //!< User modifiable data.

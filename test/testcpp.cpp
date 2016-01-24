@@ -165,7 +165,7 @@ int main(int argc, char ** argv)
         std::cout << "input: " << (const char*)(*qsig) << std::endl;
     }
 
-    mapper::Db db(MAPPER_SUBSCRIBE_ALL);
+    mapper::Database db(MAPPER_SUBSCRIBE_ALL);
     mapper::Map map(dev.signals(MAPPER_DIR_OUTGOING)[0],
                     dev.signals(MAPPER_DIR_INCOMING)[1]);
     map.set_mode(MAPPER_MODE_EXPRESSION).set_expression("y=x[0:1]+123");
@@ -193,8 +193,8 @@ int main(int argc, char ** argv)
         std::cout << "  r device: " << (const char*)(*qdev) << std::endl;
     }
 
-    // check db records
-    std::cout << "db records:" << std::endl;
+    // check database records
+    std::cout << "database records:" << std::endl;
     for (auto const &device : db.devices()) {
         std::cout << "  device: " << (const char*)device.property("name") << std::endl;
         for (auto const &signal : device.signals(MAPPER_DIR_INCOMING)) {

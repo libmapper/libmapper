@@ -67,7 +67,7 @@ mapper_link mapper_router_add_link(mapper_router rtr, mapper_device dev)
     link->clock.new = 1;
     link->clock.sent.message_id = 0;
     link->clock.response.message_id = -1;
-    mapper_clock_t *clock = &rtr->device->db->network->clock;
+    mapper_clock_t *clock = &rtr->device->database->network->clock;
     mapper_clock_now(clock, &clock->now);
     link->clock.response.timetag.sec = clock->now.sec + 10;
 
@@ -80,9 +80,9 @@ mapper_link mapper_router_add_link(mapper_router rtr, mapper_device dev)
     lo_message m = lo_message_new();
     if (m) {
         lo_message_add_string(m, "device");
-        mapper_network_set_dest_bus(rtr->device->db->network);
-        mapper_network_add_message(rtr->device->db->network, cmd, 0, m);
-        mapper_network_send(rtr->device->db->network);
+        mapper_network_set_dest_bus(rtr->device->database->network);
+        mapper_network_add_message(rtr->device->database->network, cmd, 0, m);
+        mapper_network_send(rtr->device->database->network);
     }
 
     return link;

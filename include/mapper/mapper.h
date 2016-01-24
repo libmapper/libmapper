@@ -842,7 +842,7 @@ void mapper_device_send_queue(mapper_device dev, mapper_timetag_t tt);
 /*! Get access to the device's underlying lo_server. */
 lo_server mapper_device_lo_server(mapper_device dev);
 
-mapper_db mapper_device_db(mapper_device dev);
+mapper_database mapper_device_database(mapper_device dev);
 
 /*! Get the union of two device queries (devices matching query1 OR query2).
  *  \param query1   The first device query.
@@ -935,10 +935,10 @@ mapper_network mapper_network_new(const char *interface, const char *group,
  *  \param net      The network structure to free. */
 void mapper_network_free(mapper_network net);
 
-/*! Return the mapper_db structure used for tracking the network.
+/*! Return the mapper_database structure used for tracking the network.
  *  \param net      The network structure to query.
- *  \return         The mapper_db used by this network structure. */
-mapper_db mapper_network_db(mapper_network net);
+ *  \return         The mapper_database used by this network structure. */
+mapper_database mapper_network_database(mapper_network net);
 
 /*! Return a string indicating the name of the network interface in use.
  *  \param net      The network structure to query.
@@ -1432,20 +1432,20 @@ void mapper_slot_pp(mapper_slot slot);
  *                              and maps when it encounters a previously-unseen
  *                              device.
  *  \return                     The new database. */
-mapper_db mapper_db_new(mapper_network net, int autosubscribe_flags);
+mapper_database mapper_database_new(mapper_network net, int autosubscribe_flags);
 
 /*! Update a database.
  *  \param db       The database to update.
  *  \param block_ms The number of milliseconds to block, or 0 for
  *                  non-blocking behaviour.
  *  \return         The number of handled messages. */
-int mapper_db_poll(mapper_db db, int block_ms);
+int mapper_database_poll(mapper_database db, int block_ms);
 
 /*! Free a database. */
-void mapper_db_free(mapper_db db);
+void mapper_database_free(mapper_database db);
 
 /*! Subscribe to information about a specific device.
- *  \param db       The db to use.
+ *  \param db       The database to use.
  *  \param dev      The device of interest. If NULL the admin will
  *                  automatically subscribe to all discovered devices.
  *  \param flags    Bitflags setting the type of information of interest.  Can
@@ -1456,51 +1456,51 @@ void mapper_db_free(mapper_db db);
  *  \param timeout  The length in seconds for this subscription. If set to -1,
  *                  the admin will automatically renew the subscription until
  *                  it is freed or this function is called again. */
-void mapper_db_subscribe(mapper_db db, mapper_device dev, int flags,
-                         int timeout);
+void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
+                               int timeout);
 
 /*! Unsubscribe from information about a specific device.
- *  \param db       The db to use.
+ *  \param db       The database to use.
  *  \param dev      The device of interest. If NULL the admin will unsubscribe
  *                  from all devices. */
-void mapper_db_unsubscribe(mapper_db db, mapper_device dev);
+void mapper_database_unsubscribe(mapper_database db, mapper_device dev);
 
 /*! Set the timeout in seconds after which a database will declare a device
  *  "unresponsive". Defaults to MAPPER_TIMEOUT_SEC.
  *  \param db       The database to use.
  *  \param timeout  The timeout in seconds. */
-void mapper_db_set_timeout(mapper_db db, int timeout);
+void mapper_database_set_timeout(mapper_database db, int timeout);
 
 /*! Get the timeout in seconds after which a database will declare a device
  *  "unresponsive". Defaults to MAPPER_TIMEOUT_SEC.
  *  \param db       The database to use.
  *  \return         The current timeout in seconds. */
-int mapper_db_timeout(mapper_db db);
+int mapper_database_timeout(mapper_database db);
 
 /*! Retrieve the networking structure from a database.
  *  \param db       The database to use.
  *  \return         The database network data structure. */
-mapper_network mapper_db_network(mapper_db db);
+mapper_network mapper_database_network(mapper_database db);
 
 /*! Remove unresponsive devices from the database.
  *  \param db       The database to flush.
  *  \param timeout  The number of seconds a device must have been unresponsive
  *                  before removal.
  *  \param quiet    1 to disable callbacks during db flush, 0 otherwise. */
-void mapper_db_flush(mapper_db db, int timeout, int quiet);
+void mapper_database_flush(mapper_database db, int timeout, int quiet);
 
 /*! Send a requestfor all active devices to report in. */
-void mapper_db_request_devices(mapper_db db);
+void mapper_database_request_devices(mapper_database db);
 
 /*! A callback function prototype for when a device record is added or updated.
- *  Such a function is passed in to mapper_db_add_device_callback().
+ *  Such a function is passed in to mapper_database_add_device_callback().
  *  \param dev      The device record.
  *  \param action   A value of mapper_record_action indicating what is
  *                  happening to the device record.
  *  \param user     The user context pointer registered with this callback. */
-typedef void mapper_db_device_handler(mapper_device dev,
-                                      mapper_record_action action,
-                                      const void *user);
+typedef void mapper_database_device_handler(mapper_device dev,
+                                            mapper_record_action action,
+                                            const void *user);
 
 /*! Register a callback for when a device record is added or updated
  *  in the database.
@@ -1508,52 +1508,56 @@ typedef void mapper_db_device_handler(mapper_device dev,
  *  \param h        Callback function.
  *  \param user     A user-defined pointer to be passed to the callback
  *                  for context . */
-void mapper_db_add_device_callback(mapper_db db, mapper_db_device_handler *h,
-                                   const void *user);
+void mapper_database_add_device_callback(mapper_database db,
+                                         mapper_database_device_handler *h,
+                                         const void *user);
 
 /*! Remove a device record callback from the database service.
  *  \param db       The database to query.
  *  \param h        Callback function.
  *  \param user     The user context pointer that was originally specified
  *                  when adding the callback. */
-void mapper_db_remove_device_callback(mapper_db db, mapper_db_device_handler *h,
-                                      const void *user);
+void mapper_database_remove_device_callback(mapper_database db,
+                                            mapper_database_device_handler *h,
+                                            const void *user);
 
 /*! Return the number of devices stored in the database.
  *  \param db       The database to query.
  *  \return         The number of devices. */
-int mapper_db_num_devices(mapper_db db);
+int mapper_database_num_devices(mapper_database db);
 
 /*! Return the whole list of devices.
  *  \param db       The database to query.
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_device_query_next() to iterate. */
-mapper_device *mapper_db_devices(mapper_db db);
+mapper_device *mapper_database_devices(mapper_database db);
 
 /*! Return the list of local devices.
  *  \param db       The database to query.
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_device_query_next() to iterate. */
-mapper_device *mapper_db_local_devices(mapper_db db);
+mapper_device *mapper_database_local_devices(mapper_database db);
 
 /*! Find information for a registered device.
  *  \param db       The database to query.
  *  \param name     Name of the device to find in the database.
  *  \return         Information about the device, or zero if not found. */
-mapper_device mapper_db_device_by_name(mapper_db db, const char *name);
+mapper_device mapper_database_device_by_name(mapper_database db,
+                                             const char *name);
 
 /*! Look up information for a registered device using its unique id.
  *  \param db       The database to query.
  *  \param id       Unique id identifying the device to find in the database.
  *  \return         Information about the device, or zero if not found. */
-mapper_device mapper_db_device_by_id(mapper_db db, mapper_id id);
+mapper_device mapper_database_device_by_id(mapper_database db, mapper_id id);
 
 /*! Return the list of devices with a substring in their name.
  *  \param db       The database to query.
  *  \param pattern  The substring to search for.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_device_query_next() to iterate. */
-mapper_device *mapper_db_devices_by_name_match(mapper_db db, const char *pattern);
+mapper_device *mapper_database_devices_by_name_match(mapper_database db,
+                                                     const char *pattern);
 
 /*! Return the list of devices matching the given property.
  *  \param db       The database to query.
@@ -1564,19 +1568,20 @@ mapper_device *mapper_db_devices_by_name_match(mapper_db db, const char *pattern
  *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_device_query_next() to iterate. */
-mapper_device *mapper_db_devices_by_property(mapper_db db, const char *name,
-                                             int length, char type,
-                                             const void *value, mapper_op op);
+mapper_device *mapper_database_devices_by_property(mapper_database db,
+                                                   const char *name, int length,
+                                                   char type, const void *value,
+                                                   mapper_op op);
 
 /*! A callback function prototype for when a signal record is added or updated.
- *  Such a function is passed in to mapper_db_add_signal_callback().
+ *  Such a function is passed in to mapper_database_add_signal_callback().
  *  \param sig      The signal record.
  *  \param action   A value of mapper_record_action indicating what is
  *                  happening to the signal record.
  *  \param user     The user context pointer registered with this callback. */
-typedef void mapper_db_signal_handler(mapper_signal sig,
-                                      mapper_record_action action,
-                                      const void *user);
+typedef void mapper_database_signal_handler(mapper_signal sig,
+                                            mapper_record_action action,
+                                            const void *user);
 
 /*! Register a callback for when a signal record is added or updated
  *  in the database.
@@ -1584,27 +1589,29 @@ typedef void mapper_db_signal_handler(mapper_signal sig,
  *  \param h        Callback function.
  *  \param user     A user-defined pointer to be passed to the callback
  *                  for context . */
-void mapper_db_add_signal_callback(mapper_db db, mapper_db_signal_handler *h,
-                                   const void *user);
+void mapper_database_add_signal_callback(mapper_database db,
+                                         mapper_database_signal_handler *h,
+                                         const void *user);
 
 /*! Remove a signal record callback from the database service.
  *  \param db       The database to query.
  *  \param h        Callback function.
  *  \param user     The user context pointer that was originally specified
  *                  when adding the callback. */
-void mapper_db_remove_signal_callback(mapper_db db, mapper_db_signal_handler *h,
-                                      const void *user);
+void mapper_database_remove_signal_callback(mapper_database db,
+                                            mapper_database_signal_handler *h,
+                                            const void *user);
 
 /*! Find information for a registered signal.
  *  \param db       The database to query.
  *  \param id       Unique id of the signal to find in the database.
  *  \return         Information about the signal, or zero if not found. */
-mapper_signal mapper_db_signal_by_id(mapper_db db, mapper_id id);
+mapper_signal mapper_database_signal_by_id(mapper_database db, mapper_id id);
 
 /*! Return the number of signals stored in the database.
  *  \param db       The database to query.
  *  \return         The number of signals. */
-int mapper_db_num_signals(mapper_db db);
+int mapper_database_num_signals(mapper_database db);
 
 /*! Return the list of all known signals across all devices.
  *  \param db       The database to query.
@@ -1612,21 +1619,23 @@ int mapper_db_num_signals(mapper_db db);
  *                  MAPPER_INCOMING, MAPPER_OUTGOING, or MAPPER_DIR_ANY.
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_signals(mapper_db db, mapper_direction dir);
+mapper_signal *mapper_database_signals(mapper_database db, mapper_direction dir);
 
 /*! Find information for registered signals.
  *  \param db       The database to query.
  *  \param sig_name Name of the signal to find in the database.
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_signals_by_name(mapper_db db, const char *sig_name);
+mapper_signal *mapper_database_signals_by_name(mapper_database db,
+                                               const char *sig_name);
 
 /*! Find information for registered signals.
  *  \param db       The database to query.
  *  \param pattern  The substring to search for.
  *  \return         A double-pointer to the first item in the list of results.
  *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_signals_by_name_match(mapper_db db, const char *pattern);
+mapper_signal *mapper_database_signals_by_name_match(mapper_database db,
+                                                     const char *pattern);
 
 /*! Return the list of signals matching the given property.
  *  \param db       The database to query.
@@ -1637,12 +1646,14 @@ mapper_signal *mapper_db_signals_by_name_match(mapper_db db, const char *pattern
  *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_db_signals_by_property(mapper_db db, const char *name,
-                                             int length, char type,
-                                             const void *value, mapper_op op);
+mapper_signal *mapper_database_signals_by_property(mapper_database db,
+                                                   const char *name, int length,
+                                                   char type, const void *value,
+                                                   mapper_op op);
 
 /*! A callback function prototype for when a map record is added or updated in
- *  the database. Such a function is passed in to mapper_db_add_map_callback().
+ *  the database. Such a function is passed in to
+ *  mapper_database_add_map_callback().
  *  \param map      The map record.
  *  \param action   A value of mapper_record_action indicating what is
  *                  happening to the map record.
@@ -1655,41 +1666,42 @@ typedef void mapper_map_handler(mapper_map map, mapper_record_action action,
  *  \param h        Callback function.
  *  \param user     A user-defined pointer to be passed to the callback
  *                  for context . */
-void mapper_db_add_map_callback(mapper_db db, mapper_map_handler *h,
-                                const void *user);
+void mapper_database_add_map_callback(mapper_database db, mapper_map_handler *h,
+                                      const void *user);
 
 /*! Remove a map record callback from the database service.
  *  \param db       The database to query.
  *  \param h        Callback function.
  *  \param user     The user context pointer that was originally specified
  *                  when adding the callback. */
-void mapper_db_remove_map_callback(mapper_db db, mapper_map_handler *h,
-                                   const void *user);
+void mapper_database_remove_map_callback(mapper_database db,
+                                         mapper_map_handler *h,
+                                         const void *user);
 
 /*! Return the number of maps stored in the database.
  *  \param db       The database to query.
  *  \return         The number of maps. */
-int mapper_db_num_maps(mapper_db db);
+int mapper_database_num_maps(mapper_database db);
 
 /*! Return a list of all registered maps.
  *  \param db       The database to query.
  *  \return         A double-pointer to the first item in the list of results,
  *                  or zero if none.  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps(mapper_db db);
+mapper_map *mapper_database_maps(mapper_database db);
 
 /*! Return the map that match the given map id.
  *  \param db       The database to query.
  *  \param id       Unique id identifying the map.
  *  \return         A pointer to a structure containing information on the
  *                  found map, or 0 if not found. */
-mapper_map mapper_db_map_by_id(mapper_db db, mapper_id id);
+mapper_map mapper_database_map_by_id(mapper_database db, mapper_id id);
 
 /*! Return the list of maps that use the given scope.
  *  \param db       The database to query.
  *  \param dev      The device owning the scope to query.
  *  \return         A souble-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_scope(mapper_db db, mapper_device dev);
+mapper_map *mapper_database_maps_by_scope(mapper_database db, mapper_device dev);
 
 /*! Return the list of maps matching the given property.
  *  \param db       The database to query.
@@ -1700,9 +1712,10 @@ mapper_map *mapper_db_maps_by_scope(mapper_db db, mapper_device dev);
  *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_property(mapper_db db, const char *name,
-                                       int length, char type, const void *value,
-                                       mapper_op op);
+mapper_map *mapper_database_maps_by_property(mapper_database db,
+                                             const char *name, int length,
+                                             char type, const void *value,
+                                             mapper_op op);
 
 /*! Return the list of maps matching the given slot property.
  *  \param db       The database to query.
@@ -1713,39 +1726,10 @@ mapper_map *mapper_db_maps_by_property(mapper_db db, const char *name,
  *  \param op       The comparison operator.
  *  \return         A double-pointer to the first item in a list of results.
  *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_slot_property(mapper_db db, const char *name,
-                                            int length, char type,
-                                            const void *value, mapper_op op);
-
-/*! Return the list of maps matching the given source slot property.
- *  \param db       The database to query.
- *  \param name     The name of the property to search for.
- *  \param length   The value length.
- *  \param type     The value type.
- *  \param value    The value.
- *  \param op       The comparison operator.
- *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_source_slot_property(mapper_db db,
-                                                   const char *name,
-                                                   int length, char type,
-                                                   const void *value,
-                                                   mapper_op op);
-
-/*! Return the list of maps matching the given destination slot property.
- *  \param db       The database to query.
- *  \param name     The name of the property to search for.
- *  \param length   The value length.
- *  \param type     The value type.
- *  \param value    The value.
- *  \param op       The comparison operator.
- *  \return         A double-pointer to the first item in a list of results.
- *                  Use mapper_map_query_next() to iterate. */
-mapper_map *mapper_db_maps_by_destination_slot_property(mapper_db db,
-                                                        const char *name,
-                                                        int length, char type,
-                                                        const void *value,
-                                                        mapper_op op);
+mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
+                                                  const char *name, int length,
+                                                  char type, const void *value,
+                                                  mapper_op op);
 
 /* @} */
 

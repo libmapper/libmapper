@@ -130,8 +130,8 @@ static struct handler_method_assoc device_handlers[] = {
 const int NUM_DEVICE_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
 
-// handlers needed by db for archiving
-static struct handler_method_assoc db_handlers[] = {
+// handlers needed by database for archiving
+static struct handler_method_assoc database_handlers[] = {
     {MSG_MAPPED,                NULL,       handler_mapped},
     {MSG_DEVICE,                NULL,       handler_device},
     {MSG_UNMAPPED,              NULL,       handler_unmapped},
@@ -140,8 +140,8 @@ static struct handler_method_assoc db_handlers[] = {
     {MSG_SIGNAL,                NULL,       handler_signal_info},
     {MSG_SIGNAL_REMOVED,        "s",        handler_signal_removed},
 };
-const int NUM_DB_HANDLERS =
-sizeof(db_handlers)/sizeof(db_handlers[0]);
+const int NUM_DATABASE_HANDLERS =
+sizeof(database_handlers)/sizeof(database_handlers[0]);
 
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
@@ -323,11 +323,11 @@ static void mapper_network_remove_device_methods(mapper_network net,
         snprintf(fullpath, 256,
                  network_message_strings[device_handlers[i].str_index],
                  mapper_device_name(net->device));
-        // make sure method isn't also used by a db
-        if (net->db.autosubscribe) {
+        // make sure method isn't also used by a database
+        if (net->database.autosubscribe) {
             int found = 0;
-            for (j=0; j < NUM_DB_HANDLERS; j++) {
-                if (device_handlers[i].str_index == db_handlers[j].str_index) {
+            for (j=0; j < NUM_DATABASE_HANDLERS; j++) {
+                if (device_handlers[i].str_index == database_handlers[j].str_index) {
                     found = 1;
                     break;
                 }
@@ -346,38 +346,38 @@ static void mapper_network_remove_device_methods(mapper_network net,
     }
 }
 
-mapper_db mapper_network_add_db(mapper_network net)
+mapper_database mapper_network_add_database(mapper_network net)
 {
-    if (net->db_methods_added)
-        return &net->db;
+    if (net->database_methods_added)
+        return &net->database;
 
-    // add db methods
+    // add database methods
     int i;
-    for (i=0; i < NUM_DB_HANDLERS; i++) {
+    for (i=0; i < NUM_DATABASE_HANDLERS; i++) {
         lo_server_add_method(net->bus_server,
-                             network_message_strings[db_handlers[i].str_index],
-                             db_handlers[i].types, db_handlers[i].h, net);
+                             network_message_strings[database_handlers[i].str_index],
+                             database_handlers[i].types, database_handlers[i].h, net);
 #if !FORCE_COMMS_TO_BUS
         lo_server_add_method(net->mesh_server,
-                             network_message_strings[db_handlers[i].str_index],
-                             db_handlers[i].types, db_handlers[i].h, net);
+                             network_message_strings[database_handlers[i].str_index],
+                             database_handlers[i].types, database_handlers[i].h, net);
 #endif
     }
-    return &net->db;
+    return &net->database;
 }
 
-void mapper_network_remove_db(mapper_network net)
+void mapper_network_remove_database(mapper_network net)
 {
-    if (!net->db_methods_added)
+    if (!net->database_methods_added)
         return;
 
     int i, j;
-    for (i=0; i < NUM_DB_HANDLERS; i++) {
+    for (i=0; i < NUM_DATABASE_HANDLERS; i++) {
         // make sure method isn't also used by a device
         if (net->device) {
             int found = 0;
             for (j=0; j < NUM_DEVICE_HANDLERS; j++) {
-                if (db_handlers[i].str_index == device_handlers[j].str_index) {
+                if (database_handlers[i].str_index == device_handlers[j].str_index) {
                     found = 1;
                     break;
                 }
@@ -386,15 +386,15 @@ void mapper_network_remove_db(mapper_network net)
                 continue;
         }
         lo_server_del_method(net->bus_server,
-                             network_message_strings[db_handlers[i].str_index],
-                             db_handlers[i].types);
+                             network_message_strings[database_handlers[i].str_index],
+                             database_handlers[i].types);
 #if !FORCE_COMMS_TO_BUS
         lo_server_del_method(net->mesh_server,
-                             network_message_strings[db_handlers[i].str_index],
-                             db_handlers[i].types);
+                             network_message_strings[database_handlers[i].str_index],
+                             database_handlers[i].types);
 #endif
     }
-    net->db_methods_added = 0;
+    net->database_methods_added = 0;
 }
 
 mapper_network mapper_network_new(const char *iface, const char *group, int port)
@@ -404,8 +404,8 @@ mapper_network mapper_network_new(const char *iface, const char *group, int port
         return NULL;
 
     net->own_network = 1;
-    net->db.network = net;
-    net->db.timeout_sec = TIMEOUT_SEC;
+    net->database.network = net;
+    net->database.timeout_sec = TIMEOUT_SEC;
     net->interface_name = 0;
 
     /* Default standard ip and port is group 224.0.1.3, port 7570 */
@@ -470,9 +470,9 @@ const char *mapper_libversion(mapper_network net)
     return PACKAGE_VERSION;
 }
 
-mapper_db mapper_network_db(mapper_network net)
+mapper_database mapper_network_database(mapper_network net)
 {
-    return &net->db;
+    return &net->database;
 }
 
 void mapper_network_send(mapper_network net)
@@ -582,7 +582,7 @@ void mapper_network_free(mapper_network net)
         return;
 
     if (net->own_network)
-        mapper_db_free(&net->db);
+        mapper_database_free(&net->database);
 
     // send out any cached messages
     mapper_network_send(net);
@@ -661,7 +661,7 @@ void mapper_network_remove_device(mapper_network net, mapper_device dev)
     if (dev) {
         mapper_network_remove_device_methods(net, dev);
         // TODO: should release of local device trigger local device handler?
-        mapper_db_remove_device(&net->db, dev, 0);
+        mapper_database_remove_device(&net->database, dev, 0);
         net->device = 0;
     }
 }
@@ -913,12 +913,13 @@ static int handler_device(const char *path, const char *types,
     mapper_message props = mapper_message_parse_properties(argc-1, &types[1],
                                                            &argv[1]);
 
-    if (net->db.autosubscribe) {
+    if (net->database.autosubscribe) {
         trace("<network> got /device %s + %i arguments\n", name, argc-1);
         mapper_device remote;
-        remote = mapper_db_add_or_update_device(&net->db, name, props);
+        remote = mapper_database_add_or_update_device(&net->database, name, props);
         if (!remote->subscribed) {
-            mapper_db_subscribe(&net->db, remote, net->db.autosubscribe, -1);
+            mapper_database_subscribe(&net->database, remote,
+                                      net->database.autosubscribe, -1);
             remote->subscribed = 1;
         }
     }
@@ -1067,11 +1068,11 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
         }
     }
 
-    dev = mapper_db_device_by_name(&net->db, name);
+    dev = mapper_database_device_by_name(&net->database, name);
     if (dev) {
         // remove subscriptions
-        mapper_db_unsubscribe(&net->db, dev);
-        mapper_db_remove_device(&net->db, dev, 0);
+        mapper_database_unsubscribe(&net->database, dev);
+        mapper_database_remove_device(&net->database, dev, 0);
     }
 
     return 0;
@@ -1176,7 +1177,7 @@ static int handler_signal_info(const char *path, const char *types,
 
     mapper_message props = mapper_message_parse_properties(argc-1, &types[1],
                                                            &argv[1]);
-    mapper_db_add_or_update_signal(&net->db, signamep, devname, props);
+    mapper_database_add_or_update_signal(&net->database, signamep, devname, props);
     mapper_message_free(props);
 
     return 0;
@@ -1205,7 +1206,7 @@ static int handler_signal_removed(const char *path, const char *types,
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen]=0;
 
-    mapper_db_remove_signal_by_name(&net->db, devname, signamep);
+    mapper_database_remove_signal_by_name(&net->database, devname, signamep);
 
     return 0;
 }
@@ -1441,7 +1442,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
                        int argc, lo_message msg, void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
-    mapper_db db = &net->db;
+    mapper_database db = &net->database;
     mapper_device dev = net->device;
     mapper_signal local_signal = 0;
     int i, num_sources, src_index, dest_index, prop_index;
@@ -1487,7 +1488,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     mapper_map map = 0;
     mapper_message_atom atom = mapper_message_property(props, AT_ID);
     if (atom && atom->types[0] == 'h') {
-        map = mapper_db_map_by_id(db, (atom->values[0])->i64);
+        map = mapper_database_map_by_id(db, (atom->values[0])->i64);
 
         /* If a mapping already exists between these signals, forward the
          * message to handler_modify_map() and stop. */
@@ -1510,8 +1511,8 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         }
 
         // create a tentative map (flavourless)
-        map = mapper_db_add_or_update_map(db, num_sources, src_names,
-                                          &argv[dest_index]->s, 0);
+        map = mapper_database_add_or_update_map(db, num_sources, src_names,
+                                                &argv[dest_index]->s, 0);
         if (!map) {
             trace("error creating local map.\n");
             return 0;
@@ -1568,7 +1569,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                           int argc, lo_message msg, void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
-    mapper_db db = &net->db;
+    mapper_database db = &net->database;
     mapper_device dev = net->device;
     mapper_signal local_signal = 0;
     mapper_map map;
@@ -1671,8 +1672,8 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
             src_names[i] = &argv[src_index+i]->s;
         }
         // create a tentative mapping (flavourless)
-        map = mapper_db_add_or_update_map(db, num_sources, src_names,
-                                          &argv[dest_index]->s, 0);
+        map = mapper_database_add_or_update_map(db, num_sources, src_names,
+                                                &argv[dest_index]->s, 0);
         if (!map) {
             trace("error creating local map in handler_map_to\n");
             return 0;
@@ -1771,19 +1772,20 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
 #endif
 
     mapper_message props = 0;
-    if (local_signal || net->db.autosubscribe) {
+    if (local_signal || net->database.autosubscribe) {
         props = mapper_message_parse_properties(argc-prop_index,
                                                 &types[prop_index],
                                                 &argv[prop_index]);
     }
     if (!local_signal) {
-        if (net->db.autosubscribe) {
+        if (net->database.autosubscribe) {
             const char *src_names[num_sources];
             for (i = 0; i < num_sources; i++) {
                 src_names[i] = &argv[src_index+i]->s;
             }
-            mapper_db_add_or_update_map(&net->db, num_sources, src_names,
-                                        &argv[dest_index]->s, props);
+            mapper_database_add_or_update_map(&net->database, num_sources,
+                                              src_names, &argv[dest_index]->s,
+                                              props);
         }
         mapper_message_free(props);
         return 0;
@@ -2151,9 +2153,9 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
         printf(" %s", &argv[i]->s);
 #endif
 
-    mapper_map map = mapper_db_map_by_id(&net->db, *id);
+    mapper_map map = mapper_database_map_by_id(&net->database, *id);
     if (map)
-        mapper_db_remove_map(&net->db, map);
+        mapper_database_remove_map(&net->database, map);
 
     return 0;
 }
@@ -2228,24 +2230,26 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
 
     mapper_device dev = 0;
     if (types[0] == 's' || types[0] == 'S') {
-        if ((dev = mapper_db_device_by_name(&net->db, &argv[0]->s))) {
+        if ((dev = mapper_database_device_by_name(&net->database, &argv[0]->s))) {
             mapper_timetag_copy(&dev->synced, lo_message_get_timestamp(msg));
         }
-        if (net->db.autosubscribe && (!dev || !dev->subscribed)) {
+        if (net->database.autosubscribe && (!dev || !dev->subscribed)) {
             // only create device record after requesting more information
             if (dev) {
-                mapper_db_subscribe(&net->db, dev, net->db.autosubscribe, -1);
+                mapper_database_subscribe(&net->database, dev,
+                                          net->database.autosubscribe, -1);
                 dev->subscribed = 1;
             }
             else {
                 mapper_device_t temp;
                 temp.name = &argv[0]->s;
-                mapper_db_subscribe(&net->db, &temp, net->db.autosubscribe, 0);
+                mapper_database_subscribe(&net->database, &temp,
+                                          net->database.autosubscribe, 0);
             }
         }
     }
     else if (types[0] == 'i') {
-        if ((dev = mapper_db_device_by_id(&net->db, argv[0]->i)))
+        if ((dev = mapper_database_device_by_id(&net->database, argv[0]->i)))
             mapper_timetag_copy(&dev->synced, lo_message_get_timestamp(msg));
     }
 

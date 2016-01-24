@@ -13,7 +13,7 @@
 #define usleep(x) Sleep(x/1000)
 #endif
 
-mapper_db db = 0;
+mapper_database db = 0;
 
 int verbose = 1;
 int terminate = 0;
@@ -22,7 +22,7 @@ int update = 0;
 
 const int polltime_ms = 100;
 
-void dbpause()
+void monitor_pause()
 {
     // Don't pause normally, but this is left here to be easily
     // enabled for debugging purposes.
@@ -45,7 +45,7 @@ void printmap(mapper_map map)
 /*! Creation of a local dummy device. */
 int setup_database()
 {
-    db = mapper_db_new(0, MAPPER_SUBSCRIBE_ALL);
+    db = mapper_database_new(0, MAPPER_SUBSCRIBE_ALL);
     if (!db)
         goto error;
     printf("Database created.\n");
@@ -61,7 +61,7 @@ void cleanup_database()
     if (db) {
         printf("\rFreeing database.. ");
         fflush(stdout);
-        mapper_db_free(db);
+        mapper_database_free(db);
         printf("ok\n");
     }
 }
@@ -71,7 +71,7 @@ void loop()
     int i = 0;
     while ((!terminate || i++ < 200) && !done)
     {
-        mapper_db_poll(db, polltime_ms);
+        mapper_database_poll(db, polltime_ms);
 
         if (update++ < 0)
             continue;
@@ -84,8 +84,8 @@ void loop()
         printf("-------------------------------\n");
 
         printf("Registered devices (%d) and signals (%d):\n",
-               mapper_db_num_devices(db), mapper_db_num_signals(db));
-        mapper_device *pdev = mapper_db_devices(db), tempdev;
+               mapper_database_num_devices(db), mapper_database_num_signals(db));
+        mapper_device *pdev = mapper_database_devices(db), tempdev;
         mapper_signal *psig, tempsig;
         while (pdev) {
             tempdev = *pdev;
@@ -110,8 +110,8 @@ void loop()
 
         printf("-------------------------------\n");
 
-        printf("Registered maps (%d):\n", mapper_db_num_maps(db));
-        mapper_map *pmap = mapper_db_maps(db);
+        printf("Registered maps (%d):\n", mapper_database_num_maps(db));
+        mapper_map *pmap = mapper_database_maps(db);
         while (pmap) {
             printmap(*pmap);
             pmap = mapper_map_query_next(pmap);
@@ -136,10 +136,10 @@ void on_device(mapper_device dev, mapper_record_action a, const void *user)
         break;
     case MAPPER_EXPIRED:
         printf("unresponsive.\n");
-        mapper_db_flush(db, 10, 0);
+        mapper_database_flush(db, 10, 0);
         break;
     }
-    dbpause();
+    monitor_pause();
     update = 1;
 }
 
@@ -160,7 +160,7 @@ void on_signal(mapper_signal sig, mapper_record_action a, const void *user)
         printf("unresponsive.\n");
         break;
     }
-    dbpause();
+    monitor_pause();
     update = 1;
 }
 
@@ -187,7 +187,7 @@ void on_map(mapper_map map, mapper_record_action a, const void *user)
         printf("unresponsive.\n");
         break;
     }
-    dbpause();
+    monitor_pause();
     update = 1;
 }
 
@@ -234,16 +234,16 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mapper_db_add_device_callback(db, on_device, 0);
-    mapper_db_add_signal_callback(db, on_signal, 0);
-    mapper_db_add_map_callback(db, on_map, 0);
+    mapper_database_add_device_callback(db, on_device, 0);
+    mapper_database_add_signal_callback(db, on_signal, 0);
+    mapper_database_add_map_callback(db, on_map, 0);
 
     loop();
 
   done:
-    mapper_db_remove_device_callback(db, on_device, 0);
-    mapper_db_remove_signal_callback(db, on_signal, 0);
-    mapper_db_remove_map_callback(db, on_map, 0);
+    mapper_database_remove_device_callback(db, on_device, 0);
+    mapper_database_remove_signal_callback(db, on_signal, 0);
+    mapper_database_remove_map_callback(db, on_map, 0);
     cleanup_database();
     return result;
 }
