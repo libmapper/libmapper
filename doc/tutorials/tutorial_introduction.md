@@ -17,6 +17,7 @@ Essentially, each device only needs to do a few things:
 Detailed tutorials are provided for using libmapper in the following programming languages and environments:
 
   - C
+  - C++
   - Python
   - Java
   - Max/MSP

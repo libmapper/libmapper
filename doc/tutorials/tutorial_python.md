@@ -17,16 +17,15 @@ Overview of the API organization
 
 The libmapper API is is divided into the following sections:
 
-* Signals
+* Networks
 * Devices
-* Admins
-* Device database
-* Signal database
-* Connections database
-* Monitors
+* Signals
+* Maps
+* Slots
+* Databases
 
-For this tutorial, the only sections to pay attention to are Devices
-and Signals.  Admins is reserved for providing custom networking
+For this tutorial, the only sections to pay attention to are **Devices**
+and **Signals**.  **Networks** are reserved for providing custom networking
 configurations, but in general you don't need to worry about it.
 
 Monitor and the various database modules are used to keep track of
@@ -412,12 +411,12 @@ more instances you can use:
 
 After reserving instances you can update a specific instance:
 
-    <sig>.update_instance( int instance_id,
+    <sig>.instance_update( int instance_id,
                            <value> )
 
 or
 
-    <sig>.update_instance( int instance_id,
+    <sig>.instance_update( int instance_id,
                            <value>,
                            double timetag )
 
@@ -449,7 +448,7 @@ the receiver signal, the _instance allocation mode_ can be set for an
 input signal to set an action to take in case all allocated instances are in
 use and a previously unseen instance id is received. Use the function:
 
-    <sig>.set_instance_allocation_mode( mapper_instance_allocation_type mode );
+    <sig>.set_instance_stealing_mode( mapper_instance_stealing_type mode );
 
 The argument `mode` can have one of the following values:
 
@@ -466,7 +465,7 @@ to release (e.g. the sound with the lowest volume), you can create an `instance_
         # user code chooses which instance to release
         id = choose_instance_to_release( msig )
 
-        sig.release_instance( id, timetag )
+        sig.instance_release( id, timetag )
 
 For this function to be called when instance stealing is necessary, we
 need to register it for `mapper.IN_OVERFLOW` events:

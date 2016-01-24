@@ -16,15 +16,15 @@ Overview of the API organization
 If you take a look at the API documentation, there is a section called
 "modules".  This is divided into the following sections:
 
-* Network
+* Networks
 * Devices
 * Signals
 * Maps
 * Slots
-* Db
+* Databases
 
-For this tutorial, the only sections to pay attention to are Devices
-and Signals.  Network is reserved for providing custom networking
+For this tutorial, the only sections to pay attention to are **Devices**
+and **Signals**.  **Networks** are reserved for providing custom networking
 configurations, but in general you don't need to worry about it.
 
 The database module is used to keep track of what devices, signals
@@ -62,7 +62,7 @@ appropriate.^[Strictly this is only necessary for devices on the same
 computer, but port numbers are in abundance so we just allocate one
 per device to keep things consistent.]
 
-The third parameter of mdev_new is an optional admin instance.  It is
+The third parameter of mdev_new is an optional network instance.  It is
 not necessary to provide this, but can be used to specify different
 networking parameters, such as specifying the name of the network
 interface to use.
@@ -77,8 +77,8 @@ Polling the device
 The device lifecycle looks like this, in terrible ASCII diagram art:
 
     mapper_device_new -> mapper_device_poll +-> mapper_device_free
-                  |       |
-                  +----<--+
+                            |               |
+                            +-------<-------+
 
 In other words, after a device is created, it must be continuously
 polled during its lifetime, and then explicitly freed when it is no
@@ -456,8 +456,8 @@ more instances you can use:
 
 After reserving instances you can update a specific instance:
 
-    mapper_signal_update_instance(mapper_signal sig,
-                                  int instance_id,
+    mapper_signal_instance_update(mapper_signal sig,
+                                  mapper_id instance_id,
                                   void *value,
                                   int count,
                                   mapper_timetag_t timetag)
@@ -494,15 +494,15 @@ the receiver signal, the _instance allocation mode_ can be set for an
 input signal to set an action to take in case all allocated instances are in
 use and a previously unseen instance id is received. Use the function:
 
-    void mapper_signal_set_instance_allocation_mode(mapper_signal sig,
-                                                    mapper_instance_allocation_type mode);
+    void mapper_signal_set_instance_stealing_mode(mapper_signal sig,
+                                                  mapper_instance_allocation_type mode);
 
 The argument `mode` can have one of the following values:
 
-* `IN_UNDEFINED` Default value, in which no stealing of instances will occur;
-* `IN_STEAL_OLDEST` Release the oldest active instance and reallocate its
+* `MAPPER_NO_STEALING` Default value, in which no stealing of instances will occur;
+* `MAPPER_STEAL_OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `IN_STEAL_NEWEST` Release the newest active instance and reallocate its
+* `MAPPER_STEAL_NEWEST` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance
@@ -520,11 +520,11 @@ to release (e.g. the sound with the lowest volume), you can create an `instance_
     }
 
 For this function to be called when instance stealing is necessary, we
-need to register it for `IN_OVERFLOW` events:
+need to register it for `MAPPER_INSTANCE_OVERFLOW` events:
 
     mapper_signal_set_instance_event_callback( sig,
                                                my_handler,
-                                               IN_OVERFLOW,
+                                               MAPPER_INSTANCE_OVERFLOW,
                                                *user_context);
 
 Publishing metadata

@@ -390,7 +390,7 @@ more instances you can use:
 
 After reserving instances you can update a specific instance, for example:
 
-    sig.update_instance( int instance_id,
+    sig.instance_update( int instance_id,
                          void *value,
                          int count,
                          Timetag timetag)
@@ -455,7 +455,7 @@ For this function to be called when instance stealing is necessary, we
 need to register it for `IN_OVERFLOW` events:
 
     sig.set_instance_event_callback( my_handler,
-                                     MAPPER_OVERFLOW,
+                                     MAPPER_INSTANCE_OVERFLOW,
                                      *user_context);
 
 Publishing metadata

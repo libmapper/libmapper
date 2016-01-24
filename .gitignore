@@ -59,8 +59,7 @@ test/test
 test/testconvergent
 test/testcpp
 test/testcustomtransport
-test/testdb
-test/testdynamic
+test/testdatabase
 test/testexpression
 test/testinstance
 test/testlinear
@@ -74,10 +73,8 @@ test/testprops
 test/testquery
 test/testqueue
 test/testrate
-test/testrecv
 test/testreverse
 test/testselect
-test/testsend
 test/testsignals
 test/testspeed
 test/testsync

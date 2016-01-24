@@ -15,21 +15,20 @@ Overview of the API organization
 
 The libmapper API is is divided into the following sections:
 
-* Signals
+* Networks
 * Devices
-* Admins
-* Device database
-* Signal database
-* Connections database
-* Monitors
+* Signals
+* Maps
+* Slots
+* Databases
 
-For this tutorial, the only sections to pay attention to are **Devices**
-and **Signals**.  Use of **Admins** is reserved for providing custom networking configurations, and in general you don't need to worry about it.
+For this tutorial, the only sections to pay attention to are `Devices`
+and `Signals`.  **Networks** are reserved for providing custom networking
+configurations, and in general you don't need to worry about it.
 
-**Monitors** and the various **database** modules are used to keep track of
-what devices, signals and connections are on the network.  Devices do
-not need to worry about this.  It is used mainly for creating user
-interfaces for mapping design and will also not be covered in this tutorial.
+The database module is used to keep track of what devices, signals
+and maps are on the network.  It is used mainly for creating user
+interfaces for mapping design and will also not be covered here.
 
 Devices
 =======
@@ -48,7 +47,7 @@ to use for exchanging signal data.  If desired, a second argument setting
 a specific "starting port" can be given, but the allocation algorithm will
 possibly choose another port number close to it if the port is in use.
 
-A third optional parameter of the constructor is an admin object.  It is
+A third optional parameter of the constructor is a network object.  It is
 not necessary to provide this, but can be used to specify different
 networking parameters, such as specifying the name of the network
 interface to use.
@@ -149,10 +148,10 @@ for input signals there is an additional argument:
 
 examples:
 
-    Mapper.Device.Signal in = dev.addInputSignal( "/my_input", 1, 'f', "m/s",
-                                                  new PropertyValue(-10.f),
-                                                  null, new InputListener() {
-            public void onInput( Mapper.Device.Signal sig,
+    Mapper.Signal in = dev.addInputSignal( "/my_input", 1, 'f', "m/s",
+                                           new PropertyValue(-10.f),
+                                           null, new InputListener() {
+            public void onInput( Mapper.Signal sig,
                                  int instanceID,
                                  float[] value,
                                  Mapper.TimeTag tt) {
@@ -183,12 +182,12 @@ in the `InputListener` parameter.
 An example of creating a "barebones" integer scalar output signal with
 no unit, minimum, or maximum information:
 
-    Mapper.Device.Signal outA = dev.addOutputSignal( "/outA", 1, 'i', null, null, null );
+    Mapper.Signal outA = dev.addOutputSignal( "/outA", 1, 'i', null, null, null );
 
 An example of a `float` signal where some more information is provided:
 
-    Mapper.Device.Signal sensor1 = dev.addOutputSignal( "/sensor1", 1, 'f',
-                                                        "V", 0.0, 5.0 )
+    Mapper.Signal sensor1 = dev.addOutputSignal( "/sensor1", 1, 'f',
+                                                 "V", 0.0, 5.0 )
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
@@ -198,7 +197,7 @@ for it.  To recap, let's review the code so far:
     class test {
         public static void main() {
             final Mapper.Device dev = new Mapper.Device( "testDevice" );
-            Mapper.Device.Signal sensor1 =
+            Mapper.Signal sensor1 =
                 dev.addOutputSignal( "sensor1", 1, 'f', "V",
                                      new PropertyValue( 0.f ),
                                      new PropertyValue( 5.f ) );
@@ -210,9 +209,8 @@ for it.  To recap, let's review the code so far:
         }
     }
 
-It is possible to retrieve a device's inputs or outputs by name or by
-index at a later time using the functions `getInput()` and `getOutput()`,
-passing either the signal name or its index as an argument.
+It is possible to retrieve a device's inputs or outputs at a later time
+using the functions `inputs()` and `outputs()`.
 
 Updating signals
 ----------------
@@ -298,7 +296,7 @@ audio thread.
 We need to create a handler function for libmapper to update the synth:
 
     InputListener freqHandler = new InputListener() {
-        public void onInput( Mapper.Device.Signal sig,
+        public void onInput( Mapper.Signal sig,
                              int instanceId,
                              float[] value,
                              TimeTag tt ) {
@@ -313,7 +311,7 @@ Then our program will look like this:
     startAudioInBackground();
 
     InputListener freqHandler = new InputListener() {
-        public void onInput( Mapper.Device.Signal sig,
+        public void onInput( Mapper.Signal sig,
                              int instanceId,
                              float[] value,
                              Mapper.TimeTag tt ) {
@@ -321,10 +319,10 @@ Then our program will look like this:
         }}
 
     final Mapper.Device dev = new Mapper.Device( "mySynth" );
-    Mapper.Device.Signal pw = dev.addInputSignal( "pulseWidth", 1, 'f', "Hz",
-                                                  new PropertyValue( 0.f ),
-                                                  new PropertyValue( 1.f ),
-                                                  freqHandler );
+    Mapper.Signal pw = dev.addInputSignal( "pulseWidth", 1, 'f', "Hz",
+                                           new PropertyValue( 0.f ),
+                                           new PropertyValue( 1.f ),
+                                           freqHandler );
 
     while (1) {
         dev.poll( 100 );
@@ -334,11 +332,11 @@ Then our program will look like this:
 
 Alternately, we can declare the InputListener as part of the `addInput()` function:
 
-    Mapper.Device.Signal pw = dev.addInputSignal( "pulseWidth", 1, 'f', "Hz",
-                                                  new PropertyValue( 0.f ),
-                                                  new PropertyValue( 1.f ),
-                                                  new InputListener() {
-        public void onInput( Mapper.Device.Signal sig,
+    Mapper.Signal pw = dev.addInputSignal( "pulseWidth", 1, 'f', "Hz",
+                                           new PropertyValue( 0.f ),
+                                           new PropertyValue( 1.f ),
+                                           new InputListener() {
+        public void onInput( Mapper.Signal sig,
                              int instanceId,
                              float[] value,
                              Mapper.TimeTag tt ) {
@@ -438,21 +436,22 @@ the receiver signal, the _instance allocation mode_ can be set for an
 input signal to set an action to take in case all allocated instances are in
 use and a previously unseen instance id is received. Use the function:
 
-    <sig>.setInstanceAllocationMode( mode );
+    <sig>.setInstanceStealingMode( mode );
 
 The argument `mode` can have one of the following values:
 
-* `Mapper.Signal.IN_UNDEFINED` Default value, in which no stealing of instances will occur;
-* `Mapper.Signal.IN_STEAL_OLDEST` Release the oldest active instance and reallocate its
-  resources to the new instance;
-* `Mapper.Signal.IN_STEAL_NEWEST` Release the newest active instance and reallocate its
-  resources to the new instance;
+* `Mapper.signal.StealingMode.NONE` Default value, in which no stealing of
+instances will occur;
+* `Mapper.signal.StealingMode.OLDEST` Release the oldest active instance and
+reallocate its resources to the new instance;
+* `Mapper.signal.StealingMode.NEWEST` Release the newest active instance and
+reallocate its resources to the new instance;
 
 If you want to use another method for determining which active instance
 to release (e.g. the sound with the lowest volume), you can create an `instanceEventListener` for the signal and write the method yourself:
 
     Mapper.instanceEventListener myHandler = new Mapper.instanceEventListener() {    
-        public void onEvent( Mapper.Device.Signal sig,
+        public void onEvent( Mapper.Signal sig,
                              int instanceId,
                              int event,
                              Mapper.TimeTag tt ) {
@@ -462,10 +461,10 @@ to release (e.g. the sound with the lowest volume), you can create an `instanceE
     }
 
 For this function to be called when instance stealing is necessary, we
-need to register it for `Mapper.instanceEventListener.IN_OVERFLOW` events:
+need to register it for `Mapper.signal.instanceEvent.OVERFLOW` events:
 
     <sig>.setInstanceEventCallback( myHandler,
-                                    Mapper.instanceEventListener.IN_OVERFLOW );
+                                    Mapper.signal.instanceEvent.OVERFLOW );
 
 
 Publishing metadata
