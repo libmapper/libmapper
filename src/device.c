@@ -326,6 +326,13 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
         return 0;
     }
 
+    if (!sig->num_instances) {
+#ifdef DEBUG
+        printf("signal '%s' has no instances.\n", sig->name);
+#endif
+        return 0;
+    }
+
     if (!argc)
         return 0;
 
@@ -477,9 +484,12 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
         }
     }
     else {
+        // use the first available instance
         id_map_index = 0;
         if (!sig->local->id_maps[0].instance)
-            id_map_index = mapper_signal_instance_with_local_id(sig, 0, 1, &tt);
+            id_map_index = mapper_signal_instance_with_local_id(sig,
+                                                                sig->local->instances[0]->id,
+                                                                1, &tt);
         if (id_map_index < 0)
             return 0;
     }
