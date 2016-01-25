@@ -6,30 +6,32 @@ libmapperjni_@MAJOR_VERSION@_la_LDFLAGS = -export-dynamic -version-info @SO_VERS
 libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
     $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 
-JHEADERS = mapper_Db.h mapper_device_Query.h mapper_Device.h                \
+JHEADERS = mapper_Database.h mapper_device_Query.h mapper_Device.h          \
            mapper_map_Query.h mapper_Map.h mapper_Map_Slot.h                \
            mapper_Network.h mapper_signal_Query.h mapper_Signal.h           \
            mapper_Signal_Instance.h
 
 JFLAGS = -source 1.5 -target 1.5
-JCLASSES = mapper/NativeLib.class mapper/Db.class                           \
-           mapper/db/DeviceListener.class mapper/db/Event.class             \
-           mapper/db/MapListener.class mapper/db/Operator.class             \
-           mapper/db/SignalListener.class mapper/db/SubscriptionType.class  \
+JCLASSES = mapper/NativeLib.class mapper/Database.class                     \
+           mapper/database/DeviceListener.class mapper/database/Event.class \
+           mapper/database/MapListener.class mapper/database/Operator.class \
+           mapper/database/SignalListener.class                             \
+           mapper/database/SubscriptionType.class                           \
            mapper/Device.class mapper/device/Query.class                    \
            mapper/Direction.class                                           \
            mapper/Map.class mapper/map/BoundaryAction.class                 \
            mapper/map/Location.class mapper/map/Mode.class                  \
            mapper/map/Query.class                                           \
            mapper/Network.class                                             \
-           mapper/Value.class                                               \
+           mapper/Property.class                                            \
            mapper/Signal.class                                              \
            mapper/signal/InstanceEvent.class                                \
            mapper/signal/InstanceEventListener.class                        \
            mapper/signal/InstanceUpdateListener.class                       \
            mapper/signal/Query.class mapper/signal/StealingMode.class       \
            mapper/signal/UpdateListener.class                               \
-           mapper/Timetag.class
+           mapper/Timetag.class                                             \
+           mapper/Value.class
 
 JCLASSESINTERNAL = mapper/device/Query$$1.class mapper/map/Query$$1.class   \
                    mapper/Map$$Slot.class                                   \
@@ -50,7 +52,7 @@ mapper_%.h: mapper/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_db_%.h: mapper/db/%.class
+mapper_database_%.h: mapper/database/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 

@@ -21,8 +21,7 @@ class testspeed {
             });
 
         UpdateListener l = new UpdateListener() {
-            public void onUpdate(Signal sig, int instanceId, float[] v,
-                                 TimeTag tt) {
+            public void onUpdate(Signal sig, float[] v, TimeTag tt) {
                 testspeed.updated = true;
             }
         };
@@ -37,8 +36,10 @@ class testspeed {
         }
         System.out.println("Device is ready.");
 
-        Map map = new Map(out, in);
-        while (!map.ready()) { dev.poll(100); }
+        Map map = new Map(out, in).push();
+        while (!map.ready()) {
+            dev.poll(100);
+        }
 
         double then = dev.now().getDouble();
         int i = 0;
@@ -47,6 +48,8 @@ class testspeed {
                 out.update(i);
                 i++;
                 testspeed.updated = false;
+                if ((i % 1000) == 0)
+                    System.out.print(".");
             }
             dev.poll(1);
         }

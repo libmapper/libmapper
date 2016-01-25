@@ -1,7 +1,7 @@
 
-package mapper.db;
+package mapper.database;
 
-/*! Possible operations for composing db queries. */
+/*! Possible operations for composing database queries. */
 public enum Operator {
     DOES_NOT_EXIST          (0),
     EQUAL                   (1),

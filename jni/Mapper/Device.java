@@ -3,6 +3,7 @@ package mapper;
 
 import mapper.NativeLib;
 import mapper.device.*;
+import mapper.Property;
 import mapper.signal.UpdateListener;
 import mapper.signal.InstanceUpdateListener;
 import mapper.Value;
@@ -31,15 +32,28 @@ public class Device
     public int poll() { return mapperDevicePoll(_dev, 0); }
 
     /* add signals */
-    public native Signal addInputSignal(String name, int length, char type,
-                                        String unit, Value minimum, Value maximum,
-                                        mapper.signal.UpdateListener l);
-    public native Signal addInputSignal(String name, int length, char type,
-                                        String unit, Value minimum, Value maximum,
-                                        mapper.signal.InstanceUpdateListener l);
+    private native Signal mapperAddSignal(int direction, String name,
+                                          int length, char type, String unit,
+                                          Value minimum, Value maximum,
+                                          mapper.signal.UpdateListener l);
+    public Signal addSignal(Direction dir, String name, int length, char type,
+                            String unit, Value minimum, Value maximum,
+                            mapper.signal.UpdateListener l) {
+        return mapperAddSignal(dir.value(), name, length, type, unit, minimum,
+                               maximum, l);
+    }
+    public Signal addInputSignal(String name, int length, char type,
+                                 String unit, Value minimum, Value maximum,
+                                 mapper.signal.UpdateListener l) {
+        return mapperAddSignal(Direction.INCOMING.value(), name, length, type,
+                               unit, minimum, maximum, l);
+    }
 
-    public native Signal addOutputSignal(String name, int length, char type,
-                                         String unit, Value minimum, Value maximum);
+    public Signal addOutputSignal(String name, int length, char type,
+                                  String unit, Value minimum, Value maximum) {
+        return mapperAddSignal(Direction.OUTGOING.value(), name, length, type,
+                               unit, minimum, maximum, null);
+    }
 
     /* remove signals */
     private native void mapperDeviceRemoveSignal(long _d, Signal sig);
@@ -55,9 +69,17 @@ public class Device
     }
 
     /* properties */
-    public native Value property(String property);
-    public native Device setProperty(String property, Value p);
-    public native Device removeProperty(String property);
+    public native int numProperties();
+    public native Value property(String name);
+    public native Property property(int index);
+    public native Device setProperty(String name, Value value);
+    public Device setProperty(Property prop) {
+        return setProperty(prop.name, prop.value);
+    }
+    public native Device removeProperty(String name);
+    public Device removeProperty(Property prop) {
+        return removeProperty(prop.name);
+    }
 
     /* property: host */
     public native String host();

@@ -18,5 +18,20 @@ public enum InstanceEvent {
         return _value;
     }
 
+    public static InstanceEvent getInstance(int value) {
+        switch (value) {
+            case 0x01:
+                return NEW_INSTANCE;
+            case 0x02:
+                return UPSTREAM_RELEASE;
+            case 0x04:
+                return DOWNSTREAM_RELEASE;
+            case 0x08:
+                return OVERFLOW;
+            default:
+                return ALL;
+        }
+    }
+
     private int _value;
 }

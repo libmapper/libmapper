@@ -1,7 +1,7 @@
 
-package mapper.db;
+package mapper.database;
 
-/*! Bit flags for coordinating db metadata subscriptions. */
+/*! Bit flags for coordinating database metadata subscriptions. */
 public enum SubscriptionType {
     NONE            (0x00),
     DEVICES         (0x01),

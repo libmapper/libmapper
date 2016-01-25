@@ -20,16 +20,14 @@ class testreverse {
 
         Signal inp1 = dev.addInputSignal("insig1", 1, 'f', "Hz", null, null,
                                          new UpdateListener() {
-                public void onUpdate(Signal sig, int instanceId, float[] v,
-                                     TimeTag tt) {
+                public void onUpdate(Signal sig, float[] v, TimeTag tt) {
                     System.out.println("in onUpdate(): "+Arrays.toString(v));
                 }});
 
         Signal out1 = dev.addOutputSignal("outsig1", 1, 'i', "Hz", null, null);
         out1.setUpdateListener(
             new UpdateListener() {
-                public void onUpdate(Signal sig, int instanceId, int[] v,
-                                     TimeTag tt) {
+                public void onUpdate(Signal sig, int[] v, TimeTag tt) {
                     System.out.println("  >> in onUpdate(): "+Arrays.toString(v));
                 }});
 
@@ -44,8 +42,11 @@ class testreverse {
         System.out.println("Device ordinal: "+dev.ordinal());
         System.out.println("Device interface: "+dev.network().iface());
 
-        Map map = new Map(inp1, out1);
-        while (!map.ready()) { dev.poll(100); }
+        Map map = new Map(inp1, out1).push();
+        while (!map.ready()) {
+            System.out.println("waiting for map");
+            dev.poll(100);
+        }
 
         int i = 100;
         while (i >= 0) {

@@ -37,23 +37,16 @@ public class Signal
         return this;
     }
     public native Signal setUpdateListener(UpdateListener l);
+    public native Signal setInstanceUpdateListener(InstanceUpdateListener l);
+    public native InstanceUpdateListener instanceUpdateListener();
 
-    private native void mapperSignalReserveInstances(long sig, int num, long[] ids,
-                                                     InstanceUpdateListener l);
+    private native void mapperSignalReserveInstances(long sig, int num, long[] ids);
     public Signal reserveInstances(int num) {
-        mapperSignalReserveInstances(_sig, num, null, null);
+        mapperSignalReserveInstances(_sig, num, null);
         return this;
     }
     public Signal reserveInstances(long[] ids) {
-        mapperSignalReserveInstances(_sig, 0, ids, null);
-        return this;
-    }
-    public Signal reserveInstances(int num, InstanceUpdateListener l) {
-        mapperSignalReserveInstances(_sig, num, null, l);
-        return this;
-    }
-    public Signal reserveInstances(long[] ids, InstanceUpdateListener l) {
-        mapperSignalReserveInstances(_sig, 0, ids, l);
+        mapperSignalReserveInstances(_sig, 0, ids);
         return this;
     }
 
@@ -61,7 +54,10 @@ public class Signal
         return new Instance(this, id);
     }
     public Instance instance() {
-        return new Instance(this, 0);
+        return new Instance(this);
+    }
+    public Instance instance(Object obj) {
+        return new Instance(this, obj);
     }
 
     /* instance management */
@@ -139,16 +135,22 @@ public class Signal
 
     public class Instance
     {
-        private native long mapperInstance(long id);
+        private native long mapperInstance(boolean hasId, long id, Object obj);
         private Instance(Signal sig, long id) {
             _sigobj = sig;
             _sigptr = sig._sig;
-            _id = mapperInstance(id);
+            _id = mapperInstance(true, id, null);
         }
-
-        /* callbacks */
-        public native Signal setUpdateListener(InstanceUpdateListener l);
-        public native InstanceUpdateListener updateListener();
+        private Instance(Signal sig, Object obj) {
+            _sigobj = sig;
+            _sigptr = sig._sig;
+            _id = mapperInstance(false, 0, obj);
+        }
+        private Instance(Signal sig) {
+            _sigobj = sig;
+            _sigptr = sig._sig;
+            _id = mapperInstance(false, 0, null);
+        }
 
         /* release */
         public native void release(TimeTag tt);
@@ -228,6 +230,10 @@ public class Signal
         public Value value() {
             return instanceValue(_id, null);
         }
+
+        /* userObject */
+        public native Object userReference();
+        public native Instance setUserReference(Object obj);
 
         private Signal _sigobj;
         private long _sigptr;

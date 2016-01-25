@@ -26,9 +26,11 @@ public class Network
 
     public native String iface();
 
-    /* retrieve associated Db */
-    private native long mapperNetworkDb(long _n);
-    public mapper.Db db() { return new mapper.Db(mapperNetworkDb(_net)); }
+    /* retrieve associated Database */
+    private native long mapperNetworkDatabase(long _n);
+    public mapper.Database database() {
+        return new mapper.Database(mapperNetworkDatabase(_net));
+    }
 
     /* send an arbitrary message */
     // TODO
