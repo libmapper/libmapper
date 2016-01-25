@@ -707,7 +707,8 @@ int mapper_signal_reserve_instances(mapper_signal sig, int num, mapper_id *ids,
         // we will overwite the default instance first
         if (ids)
             sig->local->instances[0]->id = ids[0];
-        sig->local->instances[0]->user_data = user_data;
+        if (user_data)
+            sig->local->instances[0]->user_data = user_data[0];
         ++i;
         ++count;
     }
