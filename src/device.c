@@ -1448,30 +1448,41 @@ int mapper_device_version(mapper_device dev)
     return dev ? dev->version : 0;
 }
 
-void mapper_device_set_property(mapper_device dev, const char *name, int length,
-                                char type, const void *value)
+int mapper_device_set_property(mapper_device dev, const char *name, int length,
+                               char type, const void *value)
 {
     mapper_property_t prop = mapper_property_from_string(name);
-    if ((prop != AT_EXTRA) && !dev->local)
-        return;
-    if (prop == AT_USER_DATA)
-        dev->user_data = (void*)value;
+    if (prop == AT_USER_DATA) {
+        if (dev->user_data != (void*)value) {
+            dev->user_data = (void*)value;
+            return 1;
+        }
+    }
+    else if ((prop != AT_EXTRA) && !dev->local)
+        return 0;
     else
-        mapper_table_set_record(dev->local ? dev->props : dev->staged_props,
-                                prop, name, length, type, value,
-                                dev->local ? LOCAL_MODIFY : REMOTE_MODIFY);
+        return mapper_table_set_record(dev->local ? dev->props : dev->staged_props,
+                                       prop, name, length, type, value,
+                                       dev->local ? LOCAL_MODIFY : REMOTE_MODIFY);
+    return 0;
 }
 
-void mapper_device_remove_property(mapper_device dev, const char *name)
+int mapper_device_remove_property(mapper_device dev, const char *name)
 {
     mapper_property_t prop = mapper_property_from_string(name);
-    if (prop == AT_USER_DATA)
-        dev->user_data = 0;
+    if (prop == AT_USER_DATA) {
+        if (dev->user_data) {
+            dev->user_data = 0;
+            return 1;
+        }
+    }
     else if (dev->local)
-        mapper_table_remove_record(dev->props, prop, name, 1, LOCAL_MODIFY);
+        return mapper_table_remove_record(dev->props, prop, name, 1,
+                                          LOCAL_MODIFY);
     else if (prop == AT_EXTRA)
-        mapper_table_set_record(dev->staged_props, prop, name, 0, 0, NULL,
-                                REMOTE_MODIFY);
+        return mapper_table_set_record(dev->staged_props, prop, name, 0, 0,
+                                       NULL, REMOTE_MODIFY);
+    return 0;
 }
 
 void mapper_device_set_description(mapper_device dev, const char *description)

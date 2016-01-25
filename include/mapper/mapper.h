@@ -429,9 +429,10 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit);
  *  \param name     The name of the property to add.
  *  \param length   The length of value array.
  *  \param type     The property  datatype.
- *  \param value    An array of property values. */
-void mapper_signal_set_property(mapper_signal sig, const char *name,
-                                int length, char type, const void *value);
+ *  \param value    An array of property values.
+ *  \return         1 if property has been changed, 0 otherwise. */
+int mapper_signal_set_property(mapper_signal sig, const char *name,
+                               int length, char type, const void *value);
 
 /*! Push any property changes out to the network.
  *  \param sig      The signal to operate on. */
@@ -439,8 +440,9 @@ void mapper_signal_push(mapper_signal sig);
 
 /*! Remove a property of a signal.
  *  \param sig      The signal to operate on.
- *  \param name     The name of the property to remove. */
-void mapper_signal_remove_property(mapper_signal sig, const char *name);
+ *  \param name     The name of the property to remove.
+ *  \return         1 if property has been removed, 0 otherwise. */
+int mapper_signal_remove_property(mapper_signal sig, const char *name);
 
 /*! Get the union of two signal queries (signals matching query1 OR query2).
  *  \param query1   The first signal query.
@@ -722,9 +724,10 @@ void mapper_device_set_description(mapper_device dev, const char *description);
  *  \param name     The name of the property to add.
  *  \param length   The length of value array.
  *  \param type     The property  datatype.
- *  \param value    An array of property values. */
-void mapper_device_set_property(mapper_device dev, const char *name,
-                                int length, char type, const void *value);
+ *  \param value    An array of property values.
+ *  \return         1 if property has been changed, 0 otherwise. */
+int mapper_device_set_property(mapper_device dev, const char *name,
+                               int length, char type, const void *value);
 
 /*! Push any property changes out to the network.
  *  \param dev      The device to operate on. */
@@ -732,8 +735,9 @@ void mapper_device_push(mapper_device dev);
 
 /*! Remove a property of a device.
  *  \param dev      The device to operate on.
- *  \param name     The name of the property to remove. */
-void mapper_device_remove_property(mapper_device dev, const char *name);
+ *  \param name     The name of the property to remove.
+ *  \return         1 if property has been removed, 0 otherwise. */
+int mapper_device_remove_property(mapper_device dev, const char *name);
 
 /*! Poll this device for new messages.
  *  Note, if you have multiple devices, the right thing to do is call
@@ -1110,9 +1114,10 @@ void mapper_map_set_process_location(mapper_map map, mapper_location location);
  *  \param name     The name of the property to add.
  *  \param length   The length of value array.
  *  \param type     The property  datatype.
- *  \param value    An array of property values. */
-void mapper_map_set_property(mapper_map map, const char *name, int length,
-                             char type, const void *value);
+ *  \param value    An array of property values.
+ *  \return         1 if property has been changed, 0 otherwise. */
+int mapper_map_set_property(mapper_map map, const char *name, int length,
+                            char type, const void *value);
 
 /*! Push any property changes out to the network.
  *  \param map      The map to operate on. */
@@ -1120,8 +1125,9 @@ void mapper_map_push(mapper_map map);
 
 /*! Remove a property of a map.
  *  \param map      The map to operate on.
- *  \param name     The name of the property to remove. */
-void mapper_map_remove_property(mapper_map map, const char *name);
+ *  \param name     The name of the property to remove.
+ *  \return         1 if property has been removed, 0 otherwise. */
+int mapper_map_remove_property(mapper_map map, const char *name);
 
 /*! Add a scope to this map. Map scopes configure the propagation of signal
  *  instance updates across the map. Changes to remote maps will not take effect
@@ -1399,14 +1405,16 @@ void mapper_slot_set_use_as_instance(mapper_slot slot, int use_as_instance);
  *  \param name     The name of the property to add.
  *  \param type     The property  datatype.
  *  \param value    An array of property values.
- *  \param length   The length of value array. */
-void mapper_slot_set_property(mapper_slot slot, const char *name, int length,
-                              char type, const void *value);
+ *  \param length   The length of value array.
+ *  \return         1 if property has been changed, 0 otherwise. */
+int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
+                             char type, const void *value);
 
 /*! Remove a property of a map slot.
  *  \param slot     The slot to operate on.
- *  \param name     The name of the property to remove. */
-void mapper_slot_remove_property(mapper_slot slot, const char *name);
+ *  \param name     The name of the property to remove.
+ *  \return         1 if property has been removed, 0 otherwise. */
+int mapper_slot_remove_property(mapper_slot slot, const char *name);
 
 /*! Helper to print the properties of a specific slot.
  *  \param slot     The slot to print. */

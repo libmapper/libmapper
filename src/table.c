@@ -199,6 +199,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
                 free(*rec->value);
                 *rec->value = 0;
             }
+            return 1;
         }
         else {
             trace("Cannot remove static property [%d] '%s'\n", index,
@@ -228,7 +229,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
         tab->records[i-1] = tab->records[i];
     --tab->num_records;
 
-    return 0;
+    return 1;
 }
 
 static int is_value_different(mapper_table_record_t *rec, int length, char type,

@@ -215,21 +215,21 @@ void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
                             value, REMOTE_MODIFY);
 }
 
-void mapper_slot_set_property(mapper_slot slot, const char *name, int length,
-                              char type, const void *value)
+int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
+                             char type, const void *value)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     prop = slot_prop_index(slot, prop);
-    mapper_table_set_record(slot->staged_props, prop, name, length, type, value,
-                            REMOTE_MODIFY);
+    return mapper_table_set_record(slot->staged_props, prop, name, length, type,
+                                   value, REMOTE_MODIFY);
 }
 
-void mapper_slot_remove_property(mapper_slot slot, const char *name)
+int mapper_slot_remove_property(mapper_slot slot, const char *name)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     prop = slot_prop_index(slot, prop) | PROPERTY_REMOVE;
-    mapper_table_set_record(slot->staged_props, prop, name, 0, 0, 0,
-                            REMOTE_MODIFY);
+    return mapper_table_set_record(slot->staged_props, prop, name, 0, 0, 0,
+                                   REMOTE_MODIFY);
 }
 
 void mapper_slot_upgrade_extrema_memory(mapper_slot slot)

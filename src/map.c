@@ -404,26 +404,36 @@ void mapper_map_remove_scope(mapper_map map, mapper_device device)
                                 device->name, REMOTE_MODIFY);
 }
 
-void mapper_map_set_property(mapper_map map, const char *name, int length,
-                             char type, const void *value)
+int mapper_map_set_property(mapper_map map, const char *name, int length,
+                            char type, const void *value)
 {
     mapper_property_t prop = mapper_property_from_string(name);
-    if (prop == AT_USER_DATA)
-        map->user_data = (void*)value;
+    if (prop == AT_USER_DATA) {
+        if (map->user_data != (void*)value) {
+            map->user_data = (void*)value;
+            return 1;
+        }
+    }
     else
-        mapper_table_set_record(map->staged_props, prop, name, length, type,
-                                value, REMOTE_MODIFY);
+        return mapper_table_set_record(map->staged_props, prop, name, length,
+                                       type, value, REMOTE_MODIFY);
+    return 0;
 }
 
-void mapper_map_remove_property(mapper_map map, const char *name)
+int mapper_map_remove_property(mapper_map map, const char *name)
 {
     // check if property is in static property table
     mapper_property_t prop = mapper_property_from_string(name);
-    if (prop == AT_USER_DATA)
-        map->user_data = 0;
+    if (prop == AT_USER_DATA) {
+        if (map->user_data) {
+            map->user_data = 0;
+            return 1;
+        }
+    }
     else
-        mapper_table_set_record(map->staged_props, prop, name, 0, 0, 0,
-                                REMOTE_MODIFY);
+        return mapper_table_set_record(map->staged_props, prop, name, 0, 0, 0,
+                                       REMOTE_MODIFY);
+    return 0;
 }
 
 static int add_scope_internal(mapper_map map, const char *name)

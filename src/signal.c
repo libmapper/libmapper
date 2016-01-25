@@ -1328,30 +1328,41 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit)
                             LOCAL_MODIFY);
 }
 
-void mapper_signal_set_property(mapper_signal sig, const char *name, int length,
-                                char type, const void *value)
+int mapper_signal_set_property(mapper_signal sig, const char *name, int length,
+                               char type, const void *value)
 {
     mapper_property_t prop = mapper_property_from_string(name);
-    if ((prop != AT_EXTRA) && !sig->local)
-        return;
-    if (prop == AT_USER_DATA)
-        sig->user_data = (void*)value;
+    if (prop == AT_USER_DATA) {
+        if (sig->user_data != (void*)value) {
+            sig->user_data = (void*)value;
+            return 1;
+        }
+    }
+    else if ((prop != AT_EXTRA) && !sig->local)
+        return 0;
     else
-        mapper_table_set_record(sig->local ? sig->props : sig->staged_props,
-                                prop, name, length, type, value,
-                                sig->local ? LOCAL_MODIFY : REMOTE_MODIFY);
+        return mapper_table_set_record(sig->local ? sig->props : sig->staged_props,
+                                       prop, name, length, type, value,
+                                       sig->local ? LOCAL_MODIFY : REMOTE_MODIFY);
+    return 0;
 }
 
-void mapper_signal_remove_property(mapper_signal sig, const char *name)
+int mapper_signal_remove_property(mapper_signal sig, const char *name)
 {
     mapper_property_t prop = mapper_property_from_string(name);
-    if (prop == AT_USER_DATA)
-        sig->user_data = 0;
+    if (prop == AT_USER_DATA) {
+        if (sig->user_data) {
+            sig->user_data = 0;
+            return 1;
+        }
+    }
     else if (sig->local)
-        mapper_table_remove_record(sig->props, prop, name, 1, LOCAL_MODIFY);
+        return mapper_table_remove_record(sig->props, prop, name, 1,
+                                          LOCAL_MODIFY);
     else if (prop == AT_EXTRA)
-        mapper_table_set_record(sig->staged_props, prop, name, 0, 0, NULL,
-                                REMOTE_MODIFY);
+        return mapper_table_set_record(sig->staged_props, prop, name, 0, 0,
+                                       NULL, REMOTE_MODIFY);
+    return 0;
 }
 
 static int mapper_signal_add_id_map(mapper_signal sig, mapper_signal_instance si,
