@@ -4,7 +4,7 @@ _CXX =  $(filter-out ccache,$(CXX))
 all-local: _mapper.$(PYEXT)
 
 $(builddir)/%_wrap.c %.py: %.i
-	$(SWIG) -I$(top_srcdir)/include -python -o $(builddir)/mapper_wrap.c \
+	$(SWIG) -I$(top_srcdir)/include -python -modern -o $(builddir)/mapper_wrap.c \
 		$(srcdir)/mapper.i
 
 # Don't interfere with distutils CFLAGS

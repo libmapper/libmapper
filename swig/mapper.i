@@ -14,7 +14,7 @@
         return NULL;
     }
     $1 = PyList_Size($input);
-    $2 = (int *) malloc($1*sizeof(int));
+    $2 = (int*) malloc($1*sizeof(int));
     for (i = 0; i < $1; i++) {
         PyObject *s = PyList_GetItem($input,i);
         if (PyInt_Check(s))
@@ -70,6 +70,7 @@
     if ($input == Py_None)
         $1 = 0;
     else {
+        val->name = 0;
         val->type = 0;
         check_type($input, &val->type, 1, 1);
         if (!val->type) {
@@ -83,7 +84,7 @@
             val->length = 1;
         val->value = malloc(val->length * mapper_type_size(val->type));
         val->free_value = 1;
-        if (py_to_prop($input, val->value, val->type, val->length)) {
+        if (py_to_prop($input, &val->value, val->type, val->length)) {
             free(val->value);
             PyErr_SetString(PyExc_ValueError,
                             "Problem parsing property value.");
@@ -94,7 +95,7 @@
 %}
 %typemap(out) maybePropVal {
     if ($1) {
-        $result = prop_to_py($1->type, $1->length, $1->value);
+        $result = prop_to_py($1->name, $1->type, $1->length, $1->value);
         if ($result)
             free($1);
     }
@@ -106,9 +107,12 @@
 %typemap(freearg) maybePropVal {
     if ($1) {
         maybePropVal prop = (maybePropVal)$1;
-        if (prop->value && prop->free_value) {
-            free(prop->value);
+        if (prop->free_value) {
+            if (prop->value)
+                free(prop->value);
         }
+        // memory leak when allocated from C
+//        free(prop);
     }
 }
 %typemap(out) maybeInt {
@@ -121,191 +125,19 @@
         Py_INCREF($result);
     }
  }
+%typemap(in) booltype {
+    $1 = PyObject_IsTrue($input);
+ }
 %typemap(out) booltype {
     PyObject *o = $1 ? Py_True : Py_False;
     Py_INCREF(o);
     return o;
  }
 
-%typemap(freearg) (int, mapper_db_map_slot_t*) {
-    if ($1) {
-        if ($1->minimum)
-            free($1->minimum);
-        if ($1->maximum)
-            free($1->maximum);
-    }
-}
-
-%typemap(in) mapper_db_map_t* %{
-    mapper_db_map_t *p = alloca(sizeof(mapper_db_map_t));
-    $1 = 0;
-    if (PyDict_Check($input)) {
-        memset(p, 0, sizeof(mapper_db_map_t));
-        PyObject *keys = PyDict_Keys($input);
-        if (keys) {
-            int i = PyList_GET_SIZE(keys), k;
-            for (i=i-1; i>=0; --i) {
-                PyObject *o = PyList_GetItem(keys, i);
-                if (PyString_Check(o)) {
-                    PyObject *v = PyDict_GetItem($input, o);
-                    char *s = PyString_AsString(o);
-                    if (strcmp(s, "expression")==0) {
-                        if (PyString_Check(v)) {
-                            p->expression = PyString_AsString(v);
-                            p->flags |= MAP_EXPRESSION;
-                        }
-                    }
-                    else if (strcmp(s, "mode")==0) {
-                        int ecode = SWIG_AsVal_int(v, &k);
-                        if (SWIG_IsOK(ecode)) {
-                            p->mode = k;
-                            p->flags |= MAP_MODE;
-                        }
-                    }
-                    else if (strcmp(s, "muted")==0) {
-                        k = -1;
-                        if (v == Py_True)
-                            k = 1;
-                        else if (v == Py_False) {
-                            k = 0;
-                        }
-                        else {
-                            int ecode = SWIG_AsVal_int(v, &k);
-                            if (SWIG_IsOK(ecode))
-                                k = k!=0;
-                            else
-                                k = -1;
-                        }
-                        if (k>-1) {
-                            p->muted = k;
-                            p->flags |= MAP_MUTED;
-                        }
-                    }
-                    else if (strcmp(s, "scope_names")==0) {
-                        // could be array or single string
-                        if (PyString_Check(v)) {
-                            p->scope.size = 1;
-                            char *scope = PyString_AsString(v);
-                            p->scope.names = &scope;
-                        }
-                        else if (PyList_Check(v)) {
-                            p->scope.size = PyList_Size(v);
-                            p->scope.names = malloc(p->scope.size
-                                                    * sizeof(char *));
-                            for (k=0; k<p->scope.size; k++) {
-                                PyObject *element = PySequence_GetItem(v, k);
-                                if (!PyString_Check(element)) {
-                                    p->scope.size = 0;
-                                    for (--k; k>=0; k--)
-                                        free(p->scope.names[k]);
-                                    free(p->scope.names);
-                                    break;
-                                }
-                                p->scope.names[k] =
-                                    strdup(PyString_AsString(element));
-                            }
-                        }
-                        if (p->scope.size > 0)
-                            p->flags |= MAP_SCOPE_NAMES;
-                    }
-                    else if (strcmp(s, "source")==0 || strcmp(s, "sources")==0) {
-                        if (PyList_Check(v)) {
-                            p->num_sources = PyList_Size(v);
-                            p->sources = calloc(1, p->num_sources *
-                                                sizeof(mapper_db_map_slot_t));
-                            for (k = 0; k < p->num_sources; k++) {
-                                PyObject *element = PySequence_GetItem(v, k);
-                                py_to_slot(element, &p->sources[k]);
-                            }
-                        }
-                        else {
-                            p->num_sources = 1;
-                            p->sources = calloc(1, sizeof(mapper_db_map_slot_t));
-                            py_to_slot(v, &p->sources[0]);
-                        }
-                    }
-                    else if (strcmp(s, "dest")==0 || strcmp(s, "destination")==0) {
-                        py_to_slot(v, &p->destination);
-                    }
-                }
-            }
-            Py_DECREF(keys);
-            $1 = p;
-        }
-    }
- %}
-
-%typemap(freearg) mapper_db_map_t* {
-    if ($1) {
-        if ($1->scope.size > 1) {
-            int i;
-            for (i=0; i<$1->scope.size; i++) {
-                free($1->scope.names[i]);
-            }
-            free($1->scope.names);
-        }
-    }
-}
-
-%typemap(out) mapper_db_device_t ** {
-    if ($1) {
-        // Return the dict and an opaque pointer.
-        // The pointer will be hidden by a Python generator interface.
-        PyObject *o = device_to_py(*$1);
-        if (o!=Py_None)
-            $result = Py_BuildValue("(Ol)", o, $1);
-        else
-            $result = Py_BuildValue("(OO)", Py_None, Py_None);
-    }
-    else {
-        $result = Py_BuildValue("(OO)", Py_None, Py_None);
-    }
- }
-
-%typemap(out) mapper_db_device {
-    return device_to_py($1);
- }
-
-%typemap(out) mapper_db_signal_t ** {
-    if ($1) {
-        // Return the dict and an opaque pointer.
-        // The pointer will be hidden by a Python generator interface.
-        PyObject *o = signal_to_py(*$1);
-        if (o!=Py_None)
-            $result = Py_BuildValue("(Ol)", o, $1);
-        else
-            $result = Py_BuildValue("(OO)", Py_None, Py_None);
-    }
-    else {
-        $result = Py_BuildValue("(OO)", Py_None, Py_None);
-    }
- }
-
-%typemap(out) mapper_db_signal {
-    return signal_to_py($1);
- }
-
-%typemap(out) mapper_db_map_t ** {
-    if ($1) {
-        // Return the dict and an opaque pointer.
-        // The pointer will be hidden by a Python generator interface.
-        PyObject *o = map_to_py(*$1);
-        if (o!=Py_None)
-            $result = Py_BuildValue("(Ol)", o, $1);
-        else
-            $result = Py_BuildValue("(OO)", Py_None, Py_None);
-    }
-    else {
-        $result = Py_BuildValue("(OO)", Py_None, Py_None);
-    }
- }
-
-%typemap(out) mapper_db_map {
-    return map_to_py($1);
- }
-
 %{
+#include <assert.h>
 #include <mapper_internal.h>
+static int my_error = 0;
 
 // Note: inet_ntoa() crashes on OS X if this header isn't included!
 // On the other hand, doesn't compile on Windows if it is.
@@ -315,29 +147,39 @@
 
 typedef struct _device {} device;
 typedef struct _signal {} signal__;
-typedef struct _monitor {} monitor;
-typedef struct _db {} db;
-typedef struct _admin {} admin;
+typedef struct _map {} map;
+typedef struct _slot {} slot;
+typedef struct _database {} database;
+typedef struct _network {} network;
+
+typedef struct _device_query {
+    mapper_device *query;
+} device_query;
+
+typedef struct _signal_query {
+    mapper_signal *query;
+} signal_query;
+
+typedef struct _map_query {
+    mapper_map *query;
+} map_query;
 
 PyThreadState *_save;
 
-static int py_to_prop(PyObject *from, void *to, char type, int length)
+static int py_to_prop(PyObject *from, void **to, char type, int length)
 {
     // here we are assuming sufficient memory has already been allocated
     if (!from || !length)
         return 1;
 
     int i;
-    PyObject *v = 0;
-    if (length > 1)
-        v = PyList_New(length);
 
     switch (type) {
         case 's':
         {
             // only strings are valid
             if (length > 1) {
-                char **str_to = (char**)to;
+                char **str_to = (char**)*to;
                 for (i=0; i<length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
                     if (!PyString_Check(element))
@@ -356,7 +198,7 @@ static int py_to_prop(PyObject *from, void *to, char type, int length)
         case 'c':
         {
             // only strings are valid
-            char *char_to = (char*)to;
+            char *char_to = (char*)*to;
             if (length > 1) {
                 for (i=0; i<length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
@@ -376,7 +218,7 @@ static int py_to_prop(PyObject *from, void *to, char type, int length)
         }
         case 'i':
         {
-            int *int_to = (int*)to;
+            int *int_to = (int*)*to;
             if (length > 1) {
                 for (i=0; i<length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
@@ -412,7 +254,7 @@ static int py_to_prop(PyObject *from, void *to, char type, int length)
         }
         case 'f':
         {
-            float *float_to = (float*)to;
+            float *float_to = (float*)*to;
             if (length > 1) {
                 for (i=0; i<length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
@@ -489,43 +331,8 @@ static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
     return 0;
 }
 
-static void alloc_and_copy_maybe_vector(PyObject *v, char *type,
-                                        void **value, int *length)
-{
-    // need to check type of arguments!
-    int type_set = *type;
-    if (check_type(v, type, type_set, 1)) {
-        PyErr_SetString(PyExc_ValueError, "Type mismatch.");
-        return;
-    }
-    if (*type == 0) {
-        PyErr_SetString(PyExc_ValueError, "Error finding type.");
-        return;
-    }
-    if (*value)
-        free(*value);
-
-    int obj_len = 1;
-    if (PySequence_Check(v))
-        obj_len = PySequence_Size(v);
-
-    if (!*length)
-        *length = obj_len;
-    else if (obj_len != *length) {
-        *value = 0;
-        PyErr_SetString(PyExc_ValueError,
-                        "Vector lengths don't match.");
-        return;
-    }
-
-    *value = malloc(*length * mapper_type_size(*type));
-    if (py_to_prop(v, *value, *type, *length)) {
-        free(*value);
-        *value = 0;
-    }
-}
-
-static PyObject *prop_to_py(char type, int length, const void *value)
+static PyObject *prop_to_py(const char *name, char type, int length,
+                            const void *value)
 {
     if (!length)
         return 0;
@@ -618,230 +425,12 @@ static PyObject *prop_to_py(char type, int length, const void *value)
             return 0;
             break;
     }
+    if (name) {
+        PyObject *o = Py_BuildValue("sO", name, v);
+        return o;
+    }
     return v;
 }
-
-static PyObject *device_to_py(mapper_db_device_t *dev)
-{
-    if (!dev) return Py_None;
-    PyObject *o = PyDict_New();
-    if (!o)
-        return Py_None;
-    else {
-        int i=0;
-        const char *property;
-        char type;
-        const void *value;
-        int length;
-        while (!mapper_db_device_property_index(dev, i, &property,
-                                                &type, &value, &length))
-        {
-            if (strcmp(property, "user_data")==0) {
-                i++;
-                continue;
-            }
-            PyObject *v = 0;
-            if ((v = prop_to_py(type, length, value))) {
-                PyDict_SetItemString(o, property, v);
-                Py_DECREF(v);
-            }
-            i++;
-        }
-    }
-    return o;
-}
-
-static PyObject *signal_to_py(mapper_db_signal_t *sig)
-{
-    if (!sig) return Py_None;
-    PyObject *o = PyDict_New();
-    if (!o)
-        return Py_None;
-    else {
-        int i=0;
-        const char *property;
-        char type;
-        const void *value;
-        int length;
-        while (!mapper_db_signal_property_index(sig, i, &property,
-                                                &type, &value, &length))
-        {
-            if (strcmp(property, "user_data")==0) {
-                i++;
-                continue;
-            }
-            PyObject *v = 0;
-            if ((v = prop_to_py(type, length, value))) {
-                PyDict_SetItemString(o, property, v);
-                Py_DECREF(v);
-            }
-            i++;
-        }
-    }
-    return o;
-}
-
-static PyObject *slot_to_py(mapper_db_map_slot slot)
-{
-    if (!slot) return Py_None;
-    PyObject *o = PyDict_New();
-    if (!o)
-        return Py_None;
-    int i=0;
-    const char *property;
-    char type;
-    const void *value;
-    int length;
-    char full_name[256];
-    snprintf(full_name, 256, "%s/%s", slot->signal->name,
-             slot->signal->device->name);
-    PyDict_SetItemString(o, "name", prop_to_py('s', 1, full_name));
-    while (!mapper_db_map_slot_property_index(slot, i, &property, &type,
-                                              &value, &length)) {
-        PyObject *v = 0;
-        if ((v = prop_to_py(type, length, value))) {
-            PyDict_SetItemString(o, property, v);
-            Py_DECREF(v);
-        }
-        i++;
-    }
-    return o;
-}
-
-static PyObject *map_to_py(mapper_db_map_t *con)
-{
-    if (!con) return Py_None;
-    PyObject *o = PyDict_New();
-    if (!o)
-        return Py_None;
-    else {
-        int i=0;
-        const char *property;
-        char type;
-        const void *value;
-        int length;
-        while (!mapper_db_map_property_index(con, i, &property, &type,
-                                             &value, &length)) {
-            PyObject *v = 0;
-            if ((v = prop_to_py(type, length, value))) {
-                PyDict_SetItemString(o, property, v);
-                Py_DECREF(v);
-            }
-            i++;
-        }
-        PyObject *srcs = 0;
-        if (con->num_sources > 1) {
-            srcs = PyList_New(con->num_sources);
-            for (i = 0; i < con->num_sources; i++) {
-                PyList_SetItem(srcs, i, slot_to_py(&con->sources[i]));
-            }
-        }
-        else if (con->num_sources == 1)
-            srcs = slot_to_py(&con->sources[0]);
-        PyDict_SetItemString(o, "sources", srcs);
-        PyDict_SetItemString(o, "destination", slot_to_py(&con->destination));
-    }
-    return o;
-}
-
-static void py_to_slot(PyObject *input, mapper_db_map_slot slot) {
-    if (!PyDict_Check(input)) {
-        return;
-    }
-    PyObject *keys = PyDict_Keys(input);
-    if (keys) {
-        // first try to retrieve type if provided
-        int i = PyList_GET_SIZE(keys);
-        for (i=i-1; i>=0; --i) {
-            PyObject *o = PyList_GetItem(keys, i);
-            if (PyString_Check(o)) {
-                PyObject *v = PyDict_GetItem(input, o);
-                char *s = PyString_AsString(o);
-                if (strcmp(s, "type")==0) {
-                    if (PyString_Check(v))
-                    slot->type = PyString_AsString(v)[0];
-                }
-            }
-        }
-        i = PyList_GET_SIZE(keys);
-        for (i=i-1; i>=0; --i) {
-            PyObject *o = PyList_GetItem(keys, i);
-            if (PyString_Check(o)) {
-                PyObject *v = PyDict_GetItem(input, o);
-                char *s = PyString_AsString(o);
-                if (strcmp(s, "min")==0 || strcmp(s, "minimum")==0) {
-                    alloc_and_copy_maybe_vector(v, &slot->type, &slot->minimum,
-                                                &slot->length);
-                    if (slot->minimum) {
-                        slot->flags |= MAP_SLOT_MIN_KNOWN;
-                    }
-                }
-                else if (strcmp(s, "max")==0 || strcmp(s, "maximum")==0) {
-                    alloc_and_copy_maybe_vector(v, &slot->type, &slot->maximum,
-                                                &slot->length);
-                    if (slot->maximum) {
-                        slot->flags |= MAP_SLOT_MAX_KNOWN;
-                    }
-                }
-                else if (strcmp(s, "cause_update")==0) {
-                    int cause_update = -1;
-                    if (v == Py_True)
-                        cause_update = 1;
-                    else if (v == Py_False)
-                        cause_update = 0;
-                    else if (PyInt_Check(v))
-                        cause_update = PyInt_AsLong(v);
-                    if (cause_update > -1) {
-                        slot->cause_update = cause_update;
-                        slot->flags |= MAP_SLOT_CAUSE_UPDATE;
-                    }
-                }
-                else if (strcmp(s, "calibrating")==0) {
-                    int calibrating = -1;
-                    if (v == Py_True)
-                        calibrating = 1;
-                    else if (v == Py_False)
-                        calibrating = 0;
-                    else if (PyInt_Check(v))
-                        calibrating = PyInt_AsLong(v);
-                    if (calibrating > -1) {
-                        slot->calibrating = calibrating;
-                        slot->flags |= MAP_SLOT_CALIBRATING;
-                    }
-                }
-                else if (strcmp(s, "send_as_instance")==0) {
-                    int send_as_instance = -1;
-                    if (v == Py_True)
-                        send_as_instance = 1;
-                    else if (v == Py_False)
-                        send_as_instance = 0;
-                    else if (PyInt_Check(v))
-                        send_as_instance = PyInt_AsLong(v);
-                    if (send_as_instance > -1) {
-                        slot->send_as_instance = send_as_instance;
-                        slot->flags |= MAP_SLOT_SEND_AS_INSTANCE;
-                    }
-                }
-                else if (strcmp(s, "bound_max")==0 && PyInt_Check(v)) {
-                    int bound = PyInt_AsLong(v);
-                    if (bound >= 0 && bound < N_MAPPER_BOUNDARY_ACTIONS) {
-                        slot->bound_max = bound;
-                        slot->flags |= MAP_SLOT_BOUND_MAX;
-                    }
-                }
-                else if (strcmp(s, "bound_min")==0 && PyInt_Check(v)) {
-                    int bound = PyInt_AsLong(v);
-                    if (bound >= 0 && bound < N_MAPPER_BOUNDARY_ACTIONS) {
-                        slot->bound_min = bound;
-                        slot->flags |= MAP_SLOT_BOUND_MIN;
-                    }
-                }
-            }
-        }
-        Py_DECREF(keys);
-    }
-}
-
 
 /* Note: We want to call the signal object 'signal', but there is
  * already a function in the C standard library called signal().
@@ -853,65 +442,64 @@ static void py_to_slot(PyObject *input, mapper_db_map_slot slot) {
 
 /* Wrapper for callback back to python when a mapper_signal handler is
  * called. */
-static void msig_handler_py(struct _mapper_signal *msig,
-                            mapper_db_signal props,
-                            int instance_id,
-                            void *v,
-                            int count,
-                            mapper_timetag_t *tt)
+static void signal_handler_py(mapper_signal sig, mapper_id instance,
+                              const void *value, int count,
+                              mapper_timetag_t *tt)
 {
+    printf("signal_handler_py()\n");
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;
     PyObject *valuelist=0;
     PyObject *result=0;
     int i;
 
-    PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
+    PyObject *py_sig = SWIG_NewPointerObj(SWIG_as_voidptr(sig),
                                           SWIGTYPE_p__signal, 0);
 
     double timetag = mapper_timetag_double(*tt);
+    char type = mapper_signal_type(sig);
+    int length = mapper_signal_length(sig);
 
-    if (v) {
-        if (props->type == 'i') {
-            int *vint = (int *)v;
-            if (props->length > 1 || count > 1) {
-                valuelist = PyList_New(props->length * count);
-                for (i=0; i<props->length * count; i++) {
+    if (value) {
+        if (type == 'i') {
+            int *vint = (int*)value;
+            if (length > 1 || count > 1) {
+                valuelist = PyList_New(length * count);
+                for (i=0; i<length * count; i++) {
                     PyObject *o = Py_BuildValue("i", vint[i]);
                     PyList_SET_ITEM(valuelist, i, o);
                 }
-                arglist = Py_BuildValue("(OiOd)", py_msig, instance_id,
-                                        valuelist, timetag);
+                arglist = Py_BuildValue("(OLOd)", py_sig, instance, valuelist,
+                                        timetag);
             }
             else
-                arglist = Py_BuildValue("(Oiid)", py_msig, instance_id,
-                                        *(int*)v, timetag);
+                arglist = Py_BuildValue("(OLid)", py_sig, instance,
+                                        *(int*)value, timetag);
         }
-        else if (props->type == 'f') {
-            if (props->length > 1 || count > 1) {
-                float *vfloat = (float *)v;
-                valuelist = PyList_New(props->length * count);
-                for (i=0; i<props->length * count; i++) {
+        else if (type == 'f') {
+            if (length > 1 || count > 1) {
+                float *vfloat = (float*)value;
+                valuelist = PyList_New(length * count);
+                for (i=0; i<length * count; i++) {
                     PyObject *o = Py_BuildValue("f", vfloat[i]);
                     PyList_SET_ITEM(valuelist, i, o);
                 }
-                arglist = Py_BuildValue("(OiOd)", py_msig, instance_id,
-                                        valuelist, timetag);
+                arglist = Py_BuildValue("(OLOd)", py_sig, instance, valuelist,
+                                        timetag);
             }
             else
-                arglist = Py_BuildValue("(Oifd)", py_msig, instance_id,
-                                        *(float*)v, timetag);
+                arglist = Py_BuildValue("(OLfd)", py_sig, instance,
+                                        *(float*)value, timetag);
         }
     }
     else {
-        arglist = Py_BuildValue("(OiOd)", py_msig, instance_id,
-                                Py_None, timetag);
+        arglist = Py_BuildValue("(OiOd)", py_sig, instance, Py_None, timetag);
     }
     if (!arglist) {
-        printf("[mapper] Could not build arglist (msig_handler_py).\n");
+        printf("[mapper] Could not build arglist (signal_handler_py).\n");
         return;
     }
-    PyObject **callbacks = (PyObject**)props->user_data;
+    PyObject **callbacks = (PyObject**)mapper_signal_user_data(sig);
     result = PyEval_CallObject(callbacks[0], arglist);
     Py_DECREF(arglist);
     Py_XDECREF(valuelist);
@@ -919,19 +507,16 @@ static void msig_handler_py(struct _mapper_signal *msig,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a mapper_signal_instance_event
- * handler is called. */
-static void msig_instance_event_handler_py(struct _mapper_signal *msig,
-                                           mapper_db_signal props,
-                                           int instance_id,
-                                           msig_instance_event_t event,
-                                           mapper_timetag_t *tt)
+/* Wrapper for callback back to python when a mapper_instance_event handler
+ * is called. */
+static void instance_event_handler_py(mapper_signal sig, mapper_id instance,
+                                      int event, mapper_timetag_t *tt)
 {
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;
     PyObject *result=0;
 
-    PyObject *py_msig = SWIG_NewPointerObj(SWIG_as_voidptr(msig),
+    PyObject *py_sig = SWIG_NewPointerObj(SWIG_as_voidptr(sig),
                                           SWIGTYPE_p__signal, 0);
 
     unsigned long long int timetag = 0;
@@ -940,12 +525,12 @@ static void msig_instance_event_handler_py(struct _mapper_signal *msig,
         timetag = (timetag << 32) + tt->frac;
     }
 
-    arglist = Py_BuildValue("(OiiL)", py_msig, instance_id, event, timetag);
+    arglist = Py_BuildValue("(OLiL)", py_sig, instance, event, timetag);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (msig_instance_event_handler_py).\n");
+        printf("[mapper] Could not build arglist (instance_event_handler_py).\n");
         return;
     }
-    PyObject **callbacks = (PyObject**)props->user_data;
+    PyObject **callbacks = (PyObject**)mapper_signal_user_data(sig);
     result = PyEval_CallObject(callbacks[1], arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
@@ -953,17 +538,15 @@ static void msig_instance_event_handler_py(struct _mapper_signal *msig,
 }
 
 /* Wrapper for callback back to python when a device map handler is called. */
-static void device_map_handler_py(mapper_device dev, mapper_signal signal,
-                                  mapper_db_map map, mapper_db_map_slot slot,
-                                  mapper_direction_t direction,
-                                  mapper_device_local_action_t action,
-                                  void *user)
+static void device_map_handler_py(mapper_map map, mapper_record_action action,
+                                  const void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("OOOii", device_to_py(&dev->props),
-                                      signal_to_py(&signal->props),
-                                      map_to_py(map), direction,
-                                      action);
+
+    PyObject *py_map = SWIG_NewPointerObj(SWIG_as_voidptr(map),
+                                          SWIGTYPE_p__map, 0);
+
+    PyObject *arglist = Py_BuildValue("Oi", py_map, action);
     if (!arglist) {
         printf("[mapper] Could not build arglist (device_map_handler_py).\n");
         return;
@@ -975,6 +558,7 @@ static void device_map_handler_py(mapper_device dev, mapper_signal signal,
 }
 
 typedef struct {
+    const char *name;
     char type;
     int length;
     void *value;
@@ -1069,16 +653,20 @@ static int coerce_prop(maybePropVal val, char type)
 typedef int* maybeInt;
 typedef int booltype;
 
-/* Wrapper for callback back to python when a mapper_db_device handler
+/* Wrapper for callback back to python when a mapper_database_device handler
  * is called. */
-static void device_db_handler_py(mapper_db_device record,
-                                 mapper_db_action_t action,
-                                 void *user)
+static void device_database_handler_py(mapper_device dev,
+                                       mapper_record_action action,
+                                       const void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("(Oi)", device_to_py(record), action);
+
+    PyObject *py_dev = SWIG_NewPointerObj(SWIG_as_voidptr(dev),
+                                          SWIGTYPE_p__device, 0);
+
+    PyObject *arglist = Py_BuildValue("(Oi)", py_dev, action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (device_db_handler_py).\n");
+        printf("[mapper] Could not build arglist (device_database_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
@@ -1087,16 +675,20 @@ static void device_db_handler_py(mapper_db_device record,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a mapper_db_signal handler
+/* Wrapper for callback back to python when a mapper_database_signal handler
  * is called. */
-static void signal_db_handler_py(mapper_db_signal record,
-                                 mapper_db_action_t action,
-                                 void *user)
+static void signal_database_handler_py(mapper_signal sig,
+                                       mapper_record_action action,
+                                       const void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("(Oi)", signal_to_py(record), action);
+
+    PyObject *py_sig = SWIG_NewPointerObj(SWIG_as_voidptr(sig),
+                                          SWIGTYPE_p__signal, 0);
+
+    PyObject *arglist = Py_BuildValue("(Oi)", py_sig, action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (signal_db_handler_py).\n");
+        printf("[mapper] Could not build arglist (signal_database_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
@@ -1105,381 +697,491 @@ static void signal_db_handler_py(mapper_db_signal record,
     _save = PyEval_SaveThread();
 }
 
-/* Wrapper for callback back to python when a mapper_db_map handler
+/* Wrapper for callback back to python when a mapper_database_map handler
  * is called. */
-static void map_db_handler_py(mapper_db_map record, mapper_db_action_t action,
-                              void *user)
+static void map_database_handler_py(mapper_map map, mapper_record_action action,
+                                    const void *user)
 {
     PyEval_RestoreThread(_save);
-    PyObject *arglist = Py_BuildValue("(Oi)", map_to_py(record), action);
+
+    PyObject *py_map = SWIG_NewPointerObj(SWIG_as_voidptr(map),
+                                           SWIGTYPE_p__map, 0);
+
+    PyObject *arglist = Py_BuildValue("(Oi)", py_map, action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (map_db_handler_py).\n");
+        printf("[mapper] Could not build arglist (map_database_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
+}
+
+static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir,
+                                         const char *name, int length,
+                                         const char type, const char *unit,
+                                         maybePropVal minimum, maybePropVal maximum,
+                                         PyObject *PyFunc)
+{
+    int i;
+    void *h = 0;
+    PyObject **callbacks = 0;
+    if (PyFunc) {
+        h = signal_handler_py;
+        callbacks = malloc(2 * sizeof(PyObject*));
+        callbacks[0] = PyFunc;
+        callbacks[1] = 0;
+        Py_INCREF(PyFunc);
+    }
+    void *pmn=0, *pmx=0;
+    int pmn_coerced=0, pmx_coerced=0;
+    if (type == 'f')
+    {
+        if (minimum && minimum->length == length) {
+            if (minimum->type == 'f')
+                pmn = minimum->value;
+            else if (minimum->type == 'i') {
+                float *to = (float*)malloc(length * sizeof(float));
+                int *from = (int*)minimum->value;
+                for (i=0; i<length; i++) {
+                    to[i] = (float)from[i];
+                }
+                pmn = to;
+                pmn_coerced = 1;
+            }
+        }
+        if (maximum && maximum->length == length) {
+            if (maximum->type == 'f')
+                pmx = maximum->value;
+            else if (maximum->type == 'i') {
+                float *to = (float*)malloc(length * sizeof(float));
+                int *from = (int*)maximum->value;
+                for (i=0; i<length; i++) {
+                    to[i] = (float)from[i];
+                }
+                pmx = to;
+                pmx_coerced = 1;
+            }
+        }
+    }
+    else if (type == 'i')
+    {
+        if (minimum && minimum->length == length) {
+            if (minimum->type == 'i')
+                pmn = minimum->value;
+            else if (minimum->type == 'f') {
+                int *to = (int*)malloc(length * sizeof(int));
+                float *from = (float*)minimum->value;
+                for (i=0; i<length; i++) {
+                    to[i] = (int)from[i];
+                }
+                pmn = to;
+                pmn_coerced = 1;
+            }
+        }
+        if (maximum && maximum->length == length) {
+            if (maximum->type == 'i')
+                pmx = maximum->value;
+            else if (maximum->type == 'f') {
+                int *to = (int*)malloc(length * sizeof(int));
+                float *from = (float*)maximum->value;
+                for (i=0; i<length; i++) {
+                    to[i] = (int)from[i];
+                }
+                pmx = to;
+                pmx_coerced = 1;
+            }
+        }
+    }
+    mapper_signal sig = mapper_device_add_signal(dev, dir, name, length, type,
+                                                 unit, pmn, pmx, h, callbacks);
+    if (pmn_coerced)
+        free(pmn);
+    if (pmx_coerced)
+        free(pmx);
+    return sig;
 }
 
 %}
 
-typedef enum _mapper_boundary_action {
-    BA_UNDEFINED,   //!< Not yet defined
-    BA_NONE,        //!< Value is passed through unchanged. This is the default.
-    BA_MUTE,        //!< Value is muted.
-    BA_CLAMP,       //!< Value is limited to the boundary.
-    BA_FOLD,        //!< Value continues in opposite direction.
-    BA_WRAP,        //!< Value appears as modulus offset at the opposite boundary.
-    N_MAPPER_BOUNDARY_ACTIONS
+typedef enum {
+    MAPPER_BOUND_UNDEFINED,
+    MAPPER_BOUND_NONE,    //!< Value is passed through unchanged. This is the default.
+    MAPPER_BOUND_MUTE,    //!< Value is muted.
+    MAPPER_BOUND_CLAMP,   //!< Value is limited to the boundary.
+    MAPPER_BOUND_FOLD,    //!< Value continues in opposite direction.
+    MAPPER_BOUND_WRAP,    /*!< Value appears as modulus offset at the opposite
+                           *   boundary. */
+    NUM_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
-/*! Describes the map mode.
- *  @ingroup mapdb */
-typedef enum _mapper_mode_type {
-    MO_UNDEFINED,    //!< Not yet defined
-    MO_RAW,
-    MO_LINEAR,       //!< Linear scaling
-    MO_EXPRESSION,   //!< Expression
-    N_MAPPER_MODE_TYPES
-} mapper_mode_type;
-
-/*! Describes the voice-stealing mode for instances.
- *  @ingroup mapdb */
-typedef enum _mapper_instance_allocation_type {
-    IN_UNDEFINED,    //!< Not yet defined
-    IN_STEAL_OLDEST, //!< Steal the oldest instance
-    IN_STEAL_NEWEST, //!< Steal the newest instance
-    N_MAPPER_INSTANCE_ALLOCATION_TYPES
-} mapper_instance_allocation_type;
-
-/*! The set of possible actions on an instance, used to register callbacks
- *  to inform them of what is happening. */
+/*! Describes the map mode. */
 typedef enum {
-    IN_NEW                  = 0x01, //!< New instance has been created.
-    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance released by upstream device.
-    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance released by downstream device.
-    IN_OVERFLOW             = 0x08  //!< No instances left.
-} msig_instance_event_t;
+    MAPPER_MODE_UNDEFINED,  //!< Not yet defined
+    MAPPER_MODE_RAW,        //!< No type coercion
+    MAPPER_MODE_LINEAR,     //!< Linear scaling
+    MAPPER_MODE_EXPRESSION, //!< Expression
+    NUM_MAPPER_MODES
+} mapper_mode;
 
-/*! The set of possible directions for a signal or map slot. */
+/*! Describes the possible locations for map stream processing. */
 typedef enum {
-    DI_OUTGOING = 0x01,
-    DI_INCOMING = 0x02,
-    DI_BOTH     = 0x03,
-} mapper_direction_t;
+    MAPPER_LOC_UNDEFINED,
+    MAPPER_LOC_SOURCE,
+    MAPPER_LOC_DESTINATION,
+    NUM_MAPPER_LOCATIONS
+} mapper_location;
 
-/*! Possible monitor subscribe settings. */
-%constant int SUBSCRIBE_NONE            = 0x00;
-%constant int SUBSCRIBE_DEVICE          = 0x01;
-%constant int SUBSCRIBE_DEVICE_INPUTS   = 0x02;
-%constant int SUBSCRIBE_DEVICE_OUTPUTS  = 0x04;
-%constant int SUBSCRIBE_DEVICE_SIGNALS  = 0x06;
-%constant int SUBSCRIBE_DEVICE_MAPS_IN  = 0x10;
-%constant int SUBSCRIBE_DEVICE_MAPS_OUT = 0x20;
-%constant int SUBSCRIBE_DEVICE_MAPS     = 0x30;
-%constant int SUBSCRIBE_ALL             = 0xFF;
-
-/*! The set of possible actions on a database record, used
- *  to inform callbacks of what is happening to a record. */
+/*! The set of possible directions for a signal or mapping slot. */
 typedef enum {
-    MDB_MODIFY,
-    MDB_NEW,
-    MDB_REMOVE,
-    MDB_UNRESPONSIVE,
-} mapper_db_action_t;
+    MAPPER_DIR_ANY      = 0x00,
+    MAPPER_DIR_INCOMING = 0x01,
+    MAPPER_DIR_OUTGOING = 0x02,
+} mapper_direction;
 
+/*! Describes the voice-stealing mode for instances. */
 typedef enum {
-    MDEV_LOCAL_ESTABLISHED,
-    MDEV_LOCAL_MODIFIED,
-    MDEV_LOCAL_DESTROYED,
-} mapper_device_local_action_t;
+    MAPPER_NO_STEALING,
+    MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance
+    MAPPER_STEAL_NEWEST,    //!< Steal the newest instance
+} mapper_instance_stealing_type;
+
+/*! The set of possible actions on an instance, used to register callbacks to
+ *  inform them of what is happening. */
+%constant int MAPPER_NEW_INSTANCE       = 0x01;
+%constant int MAPPER_UPSTREAM_RELEASE   = 0x02;
+%constant int MAPPER_DOWNSTREAM_RELEASE = 0x04;
+%constant int MAPPER_INSTANCE_OVERFLOW  = 0x08;
+%constant int MAPPER_INSTANCE_ALL       = 0x0F;
+
+/*! Possible subscription settings. */
+%constant int MAPPER_SUBSCRIBE_NONE             = 0x00;
+%constant int MAPPER_SUBSCRIBE_DEVICES          = 0x01;
+%constant int MAPPER_SUBSCRIBE_INPUTS           = 0x02;
+%constant int MAPPER_SUBSCRIBE_OUTPUTS          = 0x04;
+%constant int MAPPER_SUBSCRIBE_SIGNALS          = 0x06;
+%constant int MAPPER_SUBSCRIBE_INCOMING_MAPS    = 0x10;
+%constant int MAPPER_SUBSCRIBE_OUTGOING_MAPS    = 0x20;
+%constant int MAPPER_SUBSCRIBE_MAPS             = 0x30;
+%constant int MAPPER_SUBSCRIBE_ALL              = 0xFF;
+
+/*! The set of possible actions on a database record, used to inform callbacks
+ *  of what is happening to a record. */
+typedef enum {
+    MAPPER_ADDED,
+    MAPPER_MODIFIED,
+    MAPPER_REMOVED,
+    MAPPER_EXPIRED,
+} mapper_record_action;
 
 typedef struct _device {} device;
 typedef struct _signal {} signal;
-typedef struct _monitor {} monitor;
-typedef struct _db {} db;
-typedef struct _admin {} admin;
+typedef struct _map {} map;
+typedef struct _slot {} slot;
+typedef struct _database {} database;
+typedef struct _network {} network;
+
+typedef struct _device_query {
+    mapper_device *query;
+} device_query;
+
+%exception _device_query::next {
+    assert(!my_error);
+    $action
+    if (my_error) {
+        my_error = 0;
+        PyErr_SetString(PyExc_StopIteration, "End of list");
+        return NULL;
+    }
+}
+
+%extend _device_query {
+    _device_query(const device_query *orig) {
+        struct _device_query *d = malloc(sizeof(struct _device_query));
+        d->query = mapper_device_query_copy(orig->query);
+        return d;
+    }
+    ~_device_query() {
+        mapper_device_query_done($self->query);
+    }
+    struct _device_query *__iter__() {
+        return $self;
+    }
+    device *next() {
+        mapper_device result = 0;
+        if ($self->query) {
+            result = *($self->query);
+            $self->query = mapper_device_query_next($self->query);
+        }
+        if (result)
+            return (device*)result;
+        my_error = 1;
+        return NULL;
+    }
+}
 
 %extend _device {
-    _device(const char *name, int port=0, admin *DISOWN=0) {
-        device *d = (device *)mdev_new(name, port, (mapper_admin) DISOWN);
+    _device(const char *name, int port=0, network *DISOWN=0) {
+        device *d = (device*)mapper_device_new(name, port, (mapper_network) DISOWN);
         return d;
     }
     ~_device() {
-        mdev_free((mapper_device)$self);
+        mapper_device_free((mapper_device)$self);
+    }
+    network *network() {
+        return (network*)mapper_device_network((mapper_device)$self);
+    }
+    database *database() {
+        return (database*)mapper_device_database((mapper_device)$self);
+    }
+
+    // functions
+    /* Note, these functions return memory which is _not_ owned by Python.
+     * Correspondingly, the SWIG default is to set thisown to False, which is
+     * correct for this case. */
+    signal *add_signal(mapper_direction dir, const char *name, int length=1,
+                       const char type='f', const char *unit=0,
+                       maybePropVal minimum=0, maybePropVal maximum=0,
+                       PyObject *PyFunc=0)
+    {
+        return (signal*)add_signal_internal((mapper_device)$self, dir, name,
+                                            length, type, unit, minimum,
+                                            maximum, PyFunc);
+    }
+    signal *add_input_signal(const char *name, int length=1,
+                             const char type='f', const char *unit=0,
+                             maybePropVal minimum=0, maybePropVal maximum=0,
+                             PyObject *PyFunc=0)
+    {
+        return (signal*)add_signal_internal((mapper_device)$self,
+                                            MAPPER_DIR_INCOMING, name, length,
+                                            type, unit, minimum, maximum,
+                                            PyFunc);
+    }
+    signal *add_output_signal(const char *name, int length=1, const char type='f',
+                              const char *unit=0, maybePropVal minimum=0,
+                              maybePropVal maximum=0, PyObject *PyFunc=0)
+    {
+        return (signal*)add_signal_internal((mapper_device)$self,
+                                            MAPPER_DIR_OUTGOING, name, length,
+                                            type, unit, minimum, maximum,
+                                            PyFunc);
+    }
+    double now() {
+        mapper_timetag_t tt;
+        mapper_device_now((mapper_device)$self, &tt);
+        return mapper_timetag_double(tt);
     }
     int poll(int timeout=0) {
         _save = PyEval_SaveThread();
-        int rc = mdev_poll((mapper_device)$self, timeout);
+        int rc = mapper_device_poll((mapper_device)$self, timeout);
         PyEval_RestoreThread(_save);
         return rc;
     }
+    void push() {
+        mapper_device_push((mapper_device)$self);
+    }
     int ready() {
-        return mdev_ready((mapper_device)$self);
+        return mapper_device_ready((mapper_device)$self);
     }
-
-    // Note, these functions return memory which is _not_ owned by
-    // Python.  Correspondingly, the SWIG default is to set thisown to
-    // False, which is correct for this case.
-    signal* add_input(const char *name, int length=1, const char type='f',
-                      const char *unit=0, maybePropVal minimum=0,
-                      maybePropVal maximum=0, PyObject *PyFunc=0)
-    {
-        int i;
-        void *h = 0;
-        PyObject **callbacks = 0;
-        if (PyFunc) {
-            h = msig_handler_py;
-            callbacks = malloc(2 * sizeof(PyObject*));
-            callbacks[0] = PyFunc;
-            callbacks[1] = 0;
-            Py_INCREF(PyFunc);
-        }
-        void *pmn=0, *pmx=0;
-        int pmn_coerced=0, pmx_coerced=0;
-        if (type == 'f')
-        {
-            if (minimum && minimum->length == length) {
-                if (minimum->type == 'f')
-                    pmn = minimum->value;
-                else if (minimum->type == 'i') {
-                    float *to = (float*)malloc(length * sizeof(float));
-                    int *from = (int*)minimum->value;
-                    for (i=0; i<length; i++) {
-                        to[i] = (float)from[i];
-                    }
-                    pmn = to;
-                    pmn_coerced = 1;
-                }
-            }
-            if (maximum && maximum->length == length) {
-                if (maximum->type == 'f')
-                    pmx = maximum->value;
-                else if (maximum->type == 'i') {
-                    float *to = (float*)malloc(length * sizeof(float));
-                    int *from = (int*)maximum->value;
-                    for (i=0; i<length; i++) {
-                        to[i] = (float)from[i];
-                    }
-                    pmx = to;
-                    pmx_coerced = 1;
-                }
-            }
-        }
-        else if (type == 'i')
-        {
-            if (minimum && minimum->length == length) {
-                if (minimum->type == 'i')
-                    pmn = minimum->value;
-                else if (minimum->type == 'f') {
-                    int *to = (int*)malloc(length * sizeof(int));
-                    float *from = (float*)minimum->value;
-                    for (i=0; i<length; i++) {
-                        to[i] = (int)from[i];
-                    }
-                    pmn = to;
-                    pmn_coerced = 1;
-                }
-            }
-            if (maximum && maximum->length == length) {
-                if (maximum->type == 'i')
-                    pmx = maximum->value;
-                else if (maximum->type == 'f') {
-                    int *to = (int*)malloc(length * sizeof(int));
-                    float *from = (float*)maximum->value;
-                    for (i=0; i<length; i++) {
-                        to[i] = (int)from[i];
-                    }
-                    pmx = to;
-                    pmx_coerced = 1;
-                }
-            }
-        }
-        mapper_signal msig = mdev_add_input((mapper_device)$self, name,
-                                            length, type, unit, pmn, pmx,
-                                            h, callbacks);
-        if (pmn_coerced)
-            free(pmn);
-        if (pmx_coerced)
-            free(pmx);
-        return (signal *)msig;
-    }
-    signal* add_output(const char *name, int length=1, const char type='f',
-                       const char *unit=0, maybePropVal minimum=0,
-                       maybePropVal maximum=0)
-    {
-        int i;
-        void *pmn=0, *pmx=0;
-        int pmn_coerced=0, pmx_coerced=0;
-        if (type == 'f')
-        {
-            if (minimum && minimum->length == length) {
-                if (minimum->type == 'f')
-                    pmn = minimum->value;
-                else if (minimum->type == 'i') {
-                    float *to = (float*)malloc(length * sizeof(float));
-                    int *from = (int*)minimum->value;
-                    for (i=0; i<length; i++) {
-                        to[i] = (float)from[i];
-                    }
-                    pmn = to;
-                    pmn_coerced = 1;
-                }
-            }
-            if (maximum && maximum->length == length) {
-                if (maximum->type == 'f')
-                    pmx = maximum->value;
-                else if (maximum->type == 'i') {
-                    float *to = (float*)malloc(length * sizeof(float));
-                    int *from = (int*)maximum->value;
-                    for (i=0; i<length; i++) {
-                        to[i] = (float)from[i];
-                    }
-                    pmx = to;
-                    pmx_coerced = 1;
-                }
-            }
-        }
-        else if (type == 'i')
-        {
-            if (minimum && minimum->length == length) {
-                if (minimum->type == 'i')
-                    pmn = minimum->value;
-                else if (minimum->type == 'f') {
-                    int *to = (int*)malloc(length * sizeof(int));
-                    float *from = (float*)minimum->value;
-                    for (i=0; i<length; i++) {
-                        to[i] = (int)from[i];
-                    }
-                    pmn = to;
-                    pmn_coerced = 1;
-                }
-            }
-            if (maximum && maximum->length == length) {
-                if (maximum->type == 'i')
-                    pmx = maximum->value;
-                else if (maximum->type == 'f') {
-                    int *to = (int*)malloc(length * sizeof(int));
-                    float *from = (float*)maximum->value;
-                    for (i=0; i<length; i++) {
-                        to[i] = (int)from[i];
-                    }
-                    pmx = to;
-                    pmx_coerced = 1;
-                }
-            }
-        }
-        mapper_signal msig = mdev_add_output((mapper_device)$self, name, length,
-                                             type, unit, pmn, pmx);
-        if (pmn_coerced)
-            free(pmn);
-        if (pmx_coerced)
-            free(pmx);
-        return (signal *)msig;
-    }
-    void remove_input(signal *sig) {
+    void remove_signal(signal *sig) {
         mapper_signal msig = (mapper_signal)sig;
-        if (msig->props.user_data) {
-            PyObject **callbacks = msig->props.user_data;
+        if (msig->user_data) {
+            PyObject **callbacks = msig->user_data;
             Py_XDECREF(callbacks[0]);
             Py_XDECREF(callbacks[1]);
             free(callbacks);
         }
-        return mdev_remove_input((mapper_device)$self, (mapper_signal)sig);
-    }
-    void remove_output(signal *sig) {
-        mapper_signal msig = (mapper_signal)sig;
-        if (msig->props.user_data) {
-            Py_XDECREF((PyObject*)msig->props.user_data);
-        }
-        return mdev_remove_output((mapper_device)$self, msig);
-    }
-    maybeInt get_port() {
-        mapper_device md = (mapper_device)$self;
-        int port = mdev_port(md);
-        if (port) {
-            int *pi = malloc(sizeof(int));
-            *pi = port;
-            return pi;
-        }
-        return 0;
-    }
-    const char *get_name() { return mdev_name((mapper_device)$self); }
-    const char *get_ip4() {
-        const struct in_addr *a = mdev_ip4((mapper_device)$self);
-        return a ? inet_ntoa(*a) : 0;
-    }
-    const char *get_interface() { return mdev_interface((mapper_device)$self); }
-    unsigned int get_ordinal() { return mdev_ordinal((mapper_device)$self); }
-    int get_num_inputs() { return mdev_num_inputs((mapper_device)$self); }
-    int get_num_outputs() { return mdev_num_outputs((mapper_device)$self); }
-    int get_num_incoming_maps()
-        { return mdev_num_incoming_maps((mapper_device)$self); }
-    int get_num_outgoing_maps()
-        { return mdev_num_outgoing_maps((mapper_device)$self); }
-    signal *input(const char *name) {
-        return (signal *)mdev_input_by_name((mapper_device)$self, name, 0);
-    }
-    signal *output(const char *name) {
-        return (signal *)mdev_output_by_name((mapper_device)$self, name, 0);
-    }
-    signal *input(int index) {
-        return (signal *)mdev_input_by_index((mapper_device)$self, index);
-    }
-    signal *output(int index) {
-        return (signal *)mdev_output_by_index((mapper_device)$self, index);
-    }
-    mapper_db_device get_properties() {
-        return mdev_properties((mapper_device)$self);
-    }
-    void set_property(const char *key, maybePropVal val=0) {
-        if (val)
-            mdev_set_property((mapper_device)$self, key, val->type,
-                              val->value, val->length);
-        else
-            mdev_remove_property((mapper_device)$self, key);
-    }
-    void remove_property(const char *key) {
-        mdev_remove_property((mapper_device)$self, key);
-    }
-    double now() {
-        mapper_timetag_t tt;
-        mdev_now((mapper_device)$self, &tt);
-        return mapper_timetag_double(tt);
-    }
-    double start_queue(double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        mdev_start_queue((mapper_device)$self, tt);
-        return mapper_timetag_double(tt);
+        return mapper_device_remove_signal((mapper_device)$self, msig);
     }
     void send_queue(double timetag) {
         mapper_timetag_t tt;
         mapper_timetag_set_double(&tt, timetag);
-        mdev_send_queue((mapper_device)$self, tt);
+        mapper_device_send_queue((mapper_device)$self, tt);
     }
-    void set_map_callback(PyObject *PyFunc=0) {
+    void set_map_handler(PyObject *PyFunc=0) {
         void *h = 0;
         if (PyFunc) {
             Py_XINCREF(PyFunc);
             h = device_map_handler_py;
         }
         else
-            Py_XDECREF(((mapper_device)$self)->map_cb_userdata);
-        mdev_set_map_callback((mapper_device)$self, h, PyFunc);
+            Py_XDECREF(((mapper_device)$self)->local->map_handler_userdata);
+        mapper_device_set_map_handler((mapper_device)$self, h, PyFunc);
+    }
+    double start_queue(double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
+        mapper_device_start_queue((mapper_device)$self, tt);
+        return mapper_timetag_double(tt);
+    }
+    double synced() {
+        mapper_timetag_t tt;
+        mapper_device_synced((mapper_device)$self, &tt);
+        return mapper_timetag_double(tt);
+    }
+    mapper_id unique_id() {
+        return mapper_device_unique_id((mapper_device)$self);
+    }
+
+    // property getters
+    int get_num_properties() {
+        return mapper_device_num_properties((mapper_device)$self);
+    }
+    const char *get_description() {
+        return mapper_device_description((mapper_device)$self);
+    }
+    const char *get_host() {
+        return mapper_device_host((mapper_device)$self);
+    }
+    mapper_id get_id() {
+        return mapper_device_id((mapper_device)$self);
+    }
+    booltype get_is_local() {
+        return mapper_device_is_local((mapper_device)$self);
+    }
+    const char *get_libversion() {
+        return mapper_libversion();
+    }
+    const char *get_name() {
+        return mapper_device_name((mapper_device)$self);
+    }
+    int get_num_maps(mapper_direction dir=MAPPER_DIR_ANY) {
+        return mapper_device_num_maps((mapper_device)$self, dir);
+    }
+    int get_num_signals() {
+        return mapper_device_num_signals((mapper_device)$self, MAPPER_DIR_ANY);
+    }
+    int get_num_input_signals() {
+        return mapper_device_num_signals((mapper_device)$self,
+                                         MAPPER_DIR_INCOMING);
+    }
+    int get_num_output_signals() {
+        return mapper_device_num_signals((mapper_device)$self,
+                                         MAPPER_DIR_OUTGOING);
+    }
+    unsigned int get_ordinal() {
+        return mapper_device_ordinal((mapper_device)$self);
+    }
+    maybeInt get_port() {
+        mapper_device md = (mapper_device)$self;
+        int port = mapper_device_port(md);
+        if (port) {
+            int *pi = malloc(sizeof(int));
+            *pi = port;
+        }
+        return 0;
+    }
+    int get_version() {
+        return mapper_device_version((mapper_device)$self);
+    }
+    maybePropVal get_property(const char *key) {
+        mapper_device dev = (mapper_device)$self;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_device_property(dev, key, &length, &type, &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = 0;
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+    maybePropVal get_property(int index) {
+        mapper_device dev = (mapper_device)$self;
+        const char *name;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_device_property_index(dev, index, &name, &length, &type,
+                                          &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = name;
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+
+    // property setters
+    void set_description(const char *description) {
+        mapper_device_set_description((mapper_device)$self, description);
+    }
+    void set_property(const char *key, maybePropVal val=0) {
+        if (!key || strcmp(key, "user_data")==0)
+            return;
+        if (val)
+            mapper_device_set_property((mapper_device)$self, key, val->length,
+                                       val->type, val->value);
+        else
+            mapper_device_remove_property((mapper_device)$self, key);
+    }
+    void remove_property(const char *key) {
+        if (!key || strcmp(key, "user_data")==0)
+            return;
+        mapper_device_remove_property((mapper_device)$self, key);
+    }
+
+    // signal getters
+    signal *signal(mapper_id id) {
+        return (signal*)mapper_device_signal_by_id((mapper_device)$self, id);
+    }
+    signal *signal(int index, mapper_direction dir) {
+        return (signal*)mapper_device_signal_by_index((mapper_device)$self,
+                                                      index, dir);
+    }
+    signal *signal(const char *name) {
+        return (signal*)mapper_device_signal_by_name((mapper_device)$self, name);
+    }
+    signal_query *signals(mapper_direction dir=MAPPER_DIR_ANY) {
+        signal_query *ret = malloc(sizeof(struct _signal_query));
+        ret->query = mapper_device_signals((mapper_device)$self, dir);
+        return ret;
+    }
+
+    // map getters
+    map_query *maps(mapper_direction dir=MAPPER_DIR_ANY) {
+        map_query *ret = malloc(sizeof(struct _map_query));
+        ret->query = mapper_device_maps((mapper_device)$self, dir);
+        return ret;
     }
     %pythoncode {
-        port = property(get_port)
+        description = property(get_description, set_description)
+        id = property(get_id)
+        is_local = property(get_is_local)
         name = property(get_name)
-        ip4 = property(get_ip4)
-        interface = property(get_interface)
+        num_maps = property(get_num_maps)
+        num_properties = property(get_num_properties)
+        num_signals = property(get_num_signals)
+        num_input_signals = property(get_num_input_signals)
+        num_output_signals = property(get_num_output_signals)
         ordinal = property(get_ordinal)
-        num_inputs = property(get_num_inputs)
-        num_outputs = property(get_num_outputs)
-        num_incoming_maps = property(get_num_incoming_maps)
-        num_outgoing_maps = property(get_num_outgoing_maps)
+        port = property(get_port)
+        version = property(get_version)
+        def get_properties(self):
+            props = {}
+            for i in range(self.num_properties):
+                prop = self.get_property(i)
+                if prop:
+                    props[prop[0]] = prop[1];
+            return props
         def __propgetter(self):
             device = self
             props = self.get_properties()
@@ -1495,87 +1197,87 @@ typedef struct _admin {} admin;
     }
 }
 
+typedef struct _signal_query {
+    mapper_signal *query;
+} signal_query;
+
+%exception _signal_query::next {
+    assert(!my_error);
+    $action
+    if (my_error) {
+        my_error = 0;
+        PyErr_SetString(PyExc_StopIteration, "End of list");
+        return NULL;
+    }
+}
+
+%extend _signal_query {
+    _signal_query(const signal_query *orig) {
+        struct _signal_query *s = malloc(sizeof(struct _signal_query));
+        s->query = mapper_signal_query_copy(orig->query);
+        return s;
+    }
+    ~_signal_query() {
+        mapper_signal_query_done($self->query);
+    }
+    struct _signal_query *__iter__() {
+        return $self;
+    }
+    signal *next() {
+        mapper_signal result = 0;
+        if ($self->query) {
+            result = *($self->query);
+            $self->query = mapper_signal_query_next($self->query);
+        }
+        if (result)
+            return (signal*)result;
+        my_error = 1;
+        return NULL;
+    }
+}
+
 %extend _signal {
-    const char *get_name() {
-        return ((mapper_signal)$self)->props.name;
+    device *device() {
+        return (device*)mapper_signal_device((mapper_signal)$self);
     }
-    void update(maybePropVal val=0, double timetag=0) {
+
+    // functions
+    int active_instance_id(int index) {
+        return mapper_signal_active_instance_id((mapper_signal)$self, index);
+    }
+    int instance_id(int index) {
+        return mapper_signal_instance_id((mapper_signal)$self, index);
+    }
+    void push() {
+        mapper_signal_push((mapper_signal)$self);
+    }
+    int query_remotes(double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
-        mapper_signal sig = (mapper_signal)$self;
-        if (!val) {
-            msig_update(sig, 0, 1, tt);
-            return;
-        }
-        else if ( val->length < sig->props.length ||
-                 (val->length % sig->props.length) != 0) {
-            printf("Signal update requires multiples of %i values.\n",
-                   sig->props.length);
-            return;
-        }
-        int count = val->length / sig->props.length;
-        if (coerce_prop(val, sig->props.type)) {
-            printf("update: type mismatch\n");
-            return;
-        }
-        msig_update(sig, val->value, count, tt);
-    }
-    void reserve_instances(int num=1) {
-        msig_reserve_instances((mapper_signal)$self, num, 0, 0);
-    }
-    void reserve_instances(int num_int, int *argv) {
-        msig_reserve_instances((mapper_signal)$self, num_int, argv, 0);
-    }
-    void update_instance(int id, maybePropVal val=0, double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        mapper_signal sig = (mapper_signal)$self;
-        if (!val) {
-            msig_update(sig, 0, 1, tt);
-            return;
-        }
-        else if (val->length < sig->props.length ||
-                 (val->length % sig->props.length) != 0) {
-            printf("Signal update requires multiples of %i values.\n",
-                   sig->props.length);
-            return;
-        }
-        int count = val->length / sig->props.length;
-        if (coerce_prop(val, sig->props.type)) {
-            printf("update: type mismatch\n");
-            return;
-        }
-        msig_update_instance(sig, id, val->value, count, tt);
+        return mapper_signal_query_remotes((mapper_signal)$self, tt);
     }
     void release_instance(int id, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
-        msig_release_instance((mapper_signal)$self, id, tt);
+        mapper_signal_instance_release((mapper_signal)$self, id, tt);
     }
     void remove_instance(int id) {
-        msig_remove_instance((mapper_signal)$self, id);
+        mapper_signal_remove_instance((mapper_signal)$self, id);
     }
-    int active_instance_id(int index) {
-        return msig_active_instance_id((mapper_signal)$self, index);
+    void reserve_instances(int num=1) {
+        mapper_signal_reserve_instances((mapper_signal)$self, num, 0, 0);
     }
-    int num_active_instances() {
-        return msig_num_active_instances((mapper_signal)$self);
-    }
-    int num_reserved_instances() {
-        return msig_num_reserved_instances((mapper_signal)$self);
-    }
-    void set_allocation_mode(mapper_instance_allocation_type mode) {
-        msig_set_instance_allocation_mode((mapper_signal)$self, mode);
+    void reserve_instances(int num_int, mapper_id *argv) {
+        mapper_signal_reserve_instances((mapper_signal)$self, num_int, argv, 0);
     }
     void set_instance_event_callback(PyObject *PyFunc=0, int flags=0) {
-        mapper_signal_instance_event_handler *h = 0;
-        mapper_signal msig = (mapper_signal)$self;
-        PyObject **callbacks = (PyObject**)msig->props.user_data;
+        mapper_instance_event_handler *h = 0;
+        mapper_signal sig = (mapper_signal)$self;
+        PyObject **callbacks = (PyObject**)sig->user_data;
         if (PyFunc) {
-            h = msig_instance_event_handler_py;
+            h = instance_event_handler_py;
             if (callbacks) {
                 callbacks[1] = PyFunc;
             }
@@ -1595,15 +1297,15 @@ typedef struct _admin {} admin;
                 callbacks = 0;
             }
         }
-        msig_set_instance_event_callback((mapper_signal)$self, h,
-                                         flags, callbacks);
+        mapper_signal_set_instance_event_callback((mapper_signal)$self, h,
+                                                  flags, callbacks);
     }
     void set_callback(PyObject *PyFunc=0) {
         mapper_signal_update_handler *h = 0;
-        mapper_signal msig = (mapper_signal)$self;
-        PyObject **callbacks = (PyObject**)msig->props.user_data;
+        mapper_signal sig = (mapper_signal)$self;
+        PyObject **callbacks = (PyObject**)sig->user_data;
         if (PyFunc) {
-            h = msig_handler_py;
+            h = signal_handler_py;
             if (callbacks) {
                 callbacks[0] = PyFunc;
             }
@@ -1624,53 +1326,84 @@ typedef struct _admin {} admin;
                 callbacks = 0;
             }
         }
-        msig_set_callback((mapper_signal)$self, h, callbacks);
+        mapper_signal_set_callback((mapper_signal)$self, h, callbacks);
     }
-    int query_remotes(double timetag=0) {
+    void update(maybePropVal val=0, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
-        return msig_query_remotes((mapper_signal)$self, tt);
-    }
-    void set_minimum(maybePropVal val=0) {
         mapper_signal sig = (mapper_signal)$self;
         if (!val) {
-            msig_set_minimum((mapper_signal)$self, 0);
+            mapper_signal_update(sig, 0, 1, tt);
             return;
         }
-        else if (sig->props.length != val->length) {
-            printf("set_minimum: value length must be %i\n", sig->props.length);
+        else if ( val->length < sig->length ||
+                 (val->length % sig->length) != 0) {
+            printf("Signal update requires multiples of %i values.\n",
+                   sig->length);
             return;
         }
-        else if (coerce_prop(val, sig->props.type)) {
-            printf("set_minimum: value type mismatch\n");
+        int count = val->length / sig->length;
+        if (coerce_prop(val, sig->type)) {
+            printf("update: type mismatch\n");
             return;
         }
-        msig_set_minimum((mapper_signal)$self, val->value);
+        mapper_signal_update(sig, val->value, count, tt);
     }
-    void set_maximum(maybePropVal val=0) {
+    void update_instance(int id, maybePropVal val=0, double timetag=0) {
+        mapper_timetag_t tt = MAPPER_NOW;
+        if (timetag)
+            mapper_timetag_set_double(&tt, timetag);
         mapper_signal sig = (mapper_signal)$self;
         if (!val) {
-            msig_set_maximum((mapper_signal)$self, 0);
+            mapper_signal_update(sig, 0, 1, tt);
             return;
         }
-        else if (sig->props.length != val->length) {
-            printf("set_maximum: value length must be %i\n", sig->props.length);
+        else if (val->length < sig->length ||
+                 (val->length % sig->length) != 0) {
+            printf("Signal update requires multiples of %i values.\n",
+                   sig->length);
             return;
         }
-        else if (coerce_prop(val, sig->props.type)) {
-            printf("set_maximum: value type mismatch\n");
+        int count = val->length / sig->length;
+        if (coerce_prop(val, sig->type)) {
+            printf("update: type mismatch\n");
             return;
         }
-        msig_set_maximum((mapper_signal)$self, val->value);
+        mapper_signal_instance_update(sig, id, val->value, count, tt);
+    }
+
+    // property getters
+    int get_num_properties() {
+        return mapper_signal_num_properties((mapper_signal)$self);
+    }
+    const char *get_description() {
+        return mapper_signal_description((mapper_signal)$self);
+    }
+    int get_direction() {
+        return ((mapper_signal)$self)->direction;
+    }
+    mapper_id get_id() {
+        return mapper_signal_id((mapper_signal)$self);
+    }
+    booltype get_is_local() {
+        return mapper_signal_is_local((mapper_signal)$self);
+    }
+    mapper_instance_stealing_type get_instance_stealing_mode()
+    {
+        return mapper_signal_instance_stealing_mode((mapper_signal)$self);
+    }
+    int get_length() {
+        return ((mapper_signal)$self)->length;
     }
     maybePropVal get_minimum() {
         mapper_signal sig = (mapper_signal)$self;
-        if (sig->props.minimum) {
+        if (sig->minimum) {
             maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->type = sig->props.type;
-            prop->length = sig->props.length;
-            prop->value = sig->props.minimum;
+            prop->name = 0;
+            prop->type = sig->type;
+            prop->length = sig->length;
+            prop->value = sig->minimum;
             prop->free_value = 0;
             return prop;
         }
@@ -1678,48 +1411,193 @@ typedef struct _admin {} admin;
     }
     maybePropVal get_maximum() {
         mapper_signal sig = (mapper_signal)$self;
-        if (sig->props.maximum) {
+        if (sig->maximum) {
             maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->type = sig->props.type;
-            prop->length = sig->props.length;
-            prop->value = sig->props.maximum;
+            prop->name = 0;
+            prop->type = sig->type;
+            prop->length = sig->length;
+            prop->value = sig->maximum;
             prop->free_value = 0;
             return prop;
         }
         return 0;
     }
-    int get_length() { return ((mapper_signal)$self)->props.length; }
-    char get_type() { return ((mapper_signal)$self)->props.type; }
-    int get_direction() { return ((mapper_signal)$self)->props.direction; }
-    const char* get_device_name() {
-        return ((mapper_signal)$self)->props.device->name;
+    const char *get_name() {
+        return ((mapper_signal)$self)->name;
     }
-    const char* get_unit() {
-        return ((mapper_signal)$self)->props.unit;
+    int get_num_active_instances() {
+        return mapper_signal_num_active_instances((mapper_signal)$self);
     }
-    mapper_db_signal get_properties() {
-        return msig_properties((mapper_signal)$self);
+    int get_num_instances() {
+        return mapper_signal_num_instances((mapper_signal)$self);
+    }
+    int get_num_maps(mapper_direction dir=MAPPER_DIR_ANY) {
+        return mapper_signal_num_maps((mapper_signal)$self, dir);
+    }
+    int get_num_reserved_instances() {
+        return mapper_signal_num_reserved_instances((mapper_signal)$self);
+    }
+    float get_rate() {
+        return mapper_signal_rate((mapper_signal)$self);
+    }
+    char get_type() {
+        return ((mapper_signal)$self)->type;
+    }
+    const char *get_unit() {
+        return ((mapper_signal)$self)->unit;
+    }
+    maybePropVal get_property(const char *key) {
+        mapper_signal sig = (mapper_signal)$self;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_signal_property(sig, key, &length, &type, &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = 0;
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+    maybePropVal get_property(int index) {
+        printf("<signal>.get_property(%d)\n", index);
+        mapper_signal sig = (mapper_signal)$self;
+        const char *name;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_signal_property_index(sig, index, &name, &length, &type,
+                                          &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                printf("  type == 'v', returning null\n");
+                return 0;
+            }
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = name;
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            printf("  returning prop @ %p\n", prop);
+            return prop;
+        }
+        printf("  prop not found\n");
+        return 0;
+    }
+    maybePropVal value() {
+        mapper_signal sig = (mapper_signal)$self;
+        const void *value = mapper_signal_value(sig, 0);
+        if (!value)
+            return 0;
+        maybePropVal prop = malloc(sizeof(maybePropVal));
+        prop->name = 0;
+        prop->length = sig->length;
+        prop->type = sig->type;
+        prop->value = (void*)value;
+        return prop;
+    }
+
+    // property setters
+    void set_description(const char *description) {
+        mapper_signal_set_description((mapper_signal)$self, description);
+    }
+    void set_instance_stealing_mode(mapper_instance_stealing_type mode) {
+        mapper_signal_set_instance_stealing_mode((mapper_signal)$self, mode);
+    }
+    void set_maximum(maybePropVal val=0) {
+        mapper_signal sig = (mapper_signal)$self;
+        if (!val) {
+            mapper_signal_set_maximum((mapper_signal)$self, 0);
+            return;
+        }
+        else if (sig->length != val->length) {
+            printf("set_maximum: value length must be %i\n", sig->length);
+            return;
+        }
+        else if (coerce_prop(val, sig->type)) {
+            printf("set_maximum: value type mismatch\n");
+            return;
+        }
+        mapper_signal_set_maximum((mapper_signal)$self, val->value);
+    }
+    void set_minimum(maybePropVal val=0) {
+        mapper_signal sig = (mapper_signal)$self;
+        if (!val) {
+            mapper_signal_set_minimum((mapper_signal)$self, 0);
+            return;
+        }
+        else if (sig->length != val->length) {
+            printf("set_minimum: value length must be %i\n", sig->length);
+            return;
+        }
+        else if (coerce_prop(val, sig->type)) {
+            printf("set_minimum: value type mismatch\n");
+            return;
+        }
+        mapper_signal_set_minimum((mapper_signal)$self, val->value);
+    }
+    void set_rate(float rate) {
+        mapper_signal_set_rate((mapper_signal)$self, rate);
+    }
+    void set_unit(const char *unit) {
+        mapper_signal_set_unit((mapper_signal)$self, unit);
     }
     void set_property(const char *key, maybePropVal val=0) {
+        if (!key || strcmp(key, "user_data")==0)
+            return;
         if (val)
-            msig_set_property((mapper_signal)$self, key, val->type,
-                              val->value, val->length);
+            mapper_signal_set_property((mapper_signal)$self, key, val->length,
+                                       val->type, val->value);
         else
-            msig_remove_property((mapper_signal)$self, key);
+            mapper_signal_remove_property((mapper_signal)$self, key);
     }
     void remove_property(const char *key) {
-        msig_remove_property((mapper_signal)$self, key);
+        if (!key || strcmp(key, "user_data")==0)
+            return;
+        mapper_signal_remove_property((mapper_signal)$self, key);
+    }
+    map_query *maps(mapper_direction dir=MAPPER_DIR_ANY) {
+        map_query *ret = malloc(sizeof(struct _map_query));
+        ret->query = mapper_signal_maps((mapper_signal)$self, dir);
+        return ret;
     }
     %pythoncode {
-        minimum = property(get_minimum, set_minimum)
-        maximum = property(get_maximum, set_maximum)
-        name = property(get_name)
-        full_name = property(get_full_name)
-        length = property(get_length)
-        type = property(get_type)
+        description = property(get_description, set_description)
         direction = property(get_direction)
-        device_name = property(get_device_name)
-        unit = property(get_unit)
+        id = property(get_id)
+        instance_stealing_mode = property(get_instance_stealing_mode,
+                                          set_instance_stealing_mode)
+        is_local = property(get_is_local)
+        length = property(get_length)
+        maximum = property(get_maximum, set_maximum)
+        minimum = property(get_minimum, set_minimum)
+        name = property(get_name)
+        num_active_instances = property(get_num_active_instances)
+        num_instances = property(get_num_instances)
+        num_maps = property(get_num_maps)
+        num_properties = property(get_num_properties)
+        num_reserved_instances = property(get_num_reserved_instances)
+        rate = property(get_rate, set_rate)
+        type = property(get_type)
+        unit = property(get_unit, set_unit)
+        def get_properties(self):
+            print 'signal get props:', self.num_properties, 'props'
+            props = {}
+            print 'alloc\'d prop dict'
+            for i in range(self.num_properties):
+                print 'should be getting prop', i
+                prop = self.get_property(i)
+                if prop:
+                    props[prop[0]] = prop[1];
+            return props
         def __propgetter(self):
             signal = self
             props = self.get_properties()
@@ -1732,262 +1610,610 @@ typedef struct _admin {} admin;
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
-        def __setattr__(self, name, value):
-            try:
-                {'minimum': self.set_minimum,
-                 'maximum': self.set_maximum}[name](value)
-            except KeyError:
-                _swig_setattr(self, signal, name, value)
     }
 }
 
-%extend _monitor {
-    _monitor(admin *DISOWN=0, int subscribe_flags=0x00) {
-        return (monitor *)mmon_new((mapper_admin) DISOWN, subscribe_flags);
+typedef struct _map_query {
+    mapper_map *query;
+} map_query;
+
+%exception _map_query::next {
+    assert(!my_error);
+    $action
+    if (my_error) {
+        my_error = 0;
+        PyErr_SetString(PyExc_StopIteration, "End of list");
+        return NULL;
     }
-    ~_monitor() {
-        mmon_free((mapper_monitor)$self);
+}
+
+%extend _map_query {
+    _map_query(const map_query *orig) {
+        struct _map_query *mq = malloc(sizeof(struct _map_query));
+        mq->query = mapper_map_query_copy(orig->query);
+        return mq;
+    }
+    ~_map_query() {
+        mapper_map_query_done($self->query);
+    }
+    struct _map_query *__iter__() {
+        return $self;
+    }
+    map *next() {
+        mapper_map result = 0;
+        if ($self->query) {
+            result = *($self->query);
+            $self->query = mapper_map_query_next($self->query);
+        }
+        if (result)
+            return (map*)result;
+        my_error = 1;
+        return NULL;
+    }
+}
+
+%extend _map {
+    _map(signal *src, signal *dst) {
+        mapper_signal msig = (mapper_signal)src;
+        return (map*)mapper_map_new(1, &msig, (mapper_signal)dst);
+    }
+    ~_map() {
+        ;
+    }
+    void push() {
+        mapper_map_pp((mapper_map)$self);
+        mapper_map_push((mapper_map)$self);
+    }
+    void release() {
+        mapper_map_release((mapper_map)$self);
+    }
+    void ready() {
+        mapper_map_ready((mapper_map)$self);
+    }
+
+    // slot getters
+    // TODO: return generator for source slot iterable
+    slot *source(int index=0) {
+        return (slot*)mapper_map_source_slot((mapper_map)$self, index);
+    }
+    slot *destination() {
+        return (slot*)mapper_map_destination_slot((mapper_map)$self);
+    }
+    slot *slot(signal *sig) {
+        return (slot*)mapper_map_slot_by_signal((mapper_map)$self,
+                                                (mapper_signal)sig);
+    }
+
+    // scopes
+    void add_scope(device *dev) {
+        mapper_map_add_scope((mapper_map)$self, (mapper_device)dev);
+    }
+    void remove_scope(device *dev) {
+        mapper_map_remove_scope((mapper_map)$self, (mapper_device)dev);
+    }
+    device_query *scopes() {
+        device_query *ret = malloc(sizeof(struct _device_query));
+        ret->query = mapper_map_scopes((mapper_map)$self);
+        return ret;
+    }
+
+    // property getters
+    int get_num_properties() {
+        return mapper_map_num_properties((mapper_map)$self);
+    }
+    const char *get_description() {
+        return mapper_map_description((mapper_map)$self);
+    }
+    const char *get_expression() {
+        return mapper_map_expression((mapper_map)$self);
+    }
+    mapper_id get_id() {
+        return mapper_map_id((mapper_map)$self);
+    }
+    mapper_mode get_mode() {
+        return mapper_map_mode((mapper_map)$self);
+    }
+    booltype get_muted() {
+        return mapper_map_muted((mapper_map)$self);
+    }
+    int get_num_sources() {
+        return mapper_map_num_sources((mapper_map)$self);
+    }
+    mapper_location get_process_location() {
+        return mapper_map_process_location((mapper_map)$self);
+    }
+    maybePropVal get_property(const char *key) {
+        mapper_map map = (mapper_map)$self;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_map_property(map, key, &length, &type, &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = 0;
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+    maybePropVal get_property(int index) {
+        mapper_map map = (mapper_map)$self;
+        const char *name;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_map_property_index(map, index, &name, &length, &type,
+                                       &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = name;
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+
+    // property setters
+    void set_description(const char *description) {
+        mapper_map_set_description((mapper_map)$self, description);
+    }
+    void set_expression(const char *expression) {
+        mapper_map_set_expression((mapper_map)$self, expression);
+    }
+    void set_mode(mapper_mode mode) {
+        mapper_map_set_mode((mapper_map)$self, mode);
+    }
+    void set_muted(booltype muted) {
+        mapper_map_set_muted((mapper_map)$self, muted);
+    }
+    void set_process_location(mapper_location loc) {
+        mapper_map_set_process_location((mapper_map)$self, loc);
+    }
+    void set_property(const char *key, maybePropVal val=0) {
+        if (!key || strcmp(key, "user_data")==0)
+            return;
+        if (val)
+            mapper_map_set_property((mapper_map)$self, key, val->length,
+                                    val->type, val->value);
+        else
+            mapper_map_remove_property((mapper_map)$self, key);
+    }
+    void remove_property(const char *key) {
+        if (!key || strcmp(key, "user_data")==0)
+            return;
+        mapper_map_remove_property((mapper_map)$self, key);
+    }
+    %pythoncode {
+        description = property(get_description, set_description)
+        expression = property(get_expression, set_expression)
+        id = property(get_id)
+        mode = property(get_mode, set_mode)
+        muted = property(get_muted, set_muted)
+        num_properties = property(get_num_properties)
+        num_sources = property(get_num_sources)
+        process_location = property(get_process_location, set_process_location)
+        def get_properties(self):
+            props = {}
+            for i in range(self.num_properties):
+                prop = self.get_property(i)
+                if prop:
+                    props[prop[0]] = prop[1];
+            return props
+        def __propgetter(self):
+            map = self
+            props = self.get_properties()
+            class propsetter(dict):
+                __getitem__ = props.__getitem__
+                def __setitem__(self, key, value):
+                    props[key] = value
+                    map.set_property(key, value)
+            return propsetter(self.get_properties())
+        properties = property(__propgetter)
+        def set_properties(self, props):
+            [self.set_property(k, props[k]) for k in props]
+    }
+}
+
+%extend _slot {
+    signal *signal() {
+        return (signal*)mapper_slot_signal((mapper_slot)$self);
+    }
+
+    // property getters
+    int get_num_properties() {
+        return mapper_slot_num_properties((mapper_slot)$self);
+    }
+    mapper_boundary_action get_bound_max() {
+        return mapper_slot_bound_max((mapper_slot)$self);
+    }
+    mapper_boundary_action get_bound_min() {
+        return mapper_slot_bound_min((mapper_slot)$self);
+    }
+    booltype get_calibrating() {
+        return mapper_slot_calibrating((mapper_slot)$self);
+    }
+    booltype get_causes_update() {
+        return mapper_slot_causes_update((mapper_slot)$self);
+    }
+    int get_index() {
+        return mapper_slot_index((mapper_slot)$self);
+    }
+    maybePropVal get_minimum() {
+        mapper_slot slot = (mapper_slot)$self;
+        if (slot->minimum) {
+            mapper_signal sig = mapper_slot_signal(slot);
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = 0;
+            prop->type = sig->type;
+            prop->length = sig->length;
+            prop->value = slot->minimum;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+    maybePropVal get_maximum() {
+        mapper_slot slot = (mapper_slot)$self;
+        if (slot->maximum) {
+            mapper_signal sig = mapper_slot_signal(slot);
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = 0;
+            prop->type = sig->type;
+            prop->length = sig->length;
+            prop->value = slot->maximum;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+    booltype get_use_as_instance() {
+        return mapper_slot_use_as_instance((mapper_slot)$self);
+    }
+    maybePropVal get_property(const char *key) {
+        mapper_slot slot = (mapper_slot)$self;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_slot_property(slot, key, &length, &type, &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = 0;
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+    maybePropVal get_property(int index) {
+        mapper_slot slot = (mapper_slot)$self;
+        const char *name;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_slot_property_index(slot, index, &name, &length, &type,
+                                        &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            maybePropVal prop = malloc(sizeof(maybePropVal));
+            prop->name = name;
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+
+    // property setters
+    void set_bound_max(mapper_boundary_action action) {
+        mapper_slot_set_bound_max((mapper_slot)$self, action);
+    }
+    void set_bound_min(mapper_boundary_action action) {
+        mapper_slot_set_bound_min((mapper_slot)$self, action);
+    }
+    void set_calibrating(booltype calibrating) {
+        mapper_slot_set_calibrating((mapper_slot)$self, calibrating);
+    }
+    void set_causes_update(booltype causes_update) {
+        mapper_slot_set_causes_update((mapper_slot)$self, causes_update);
+    }
+    void set_maximum(maybePropVal val=0) {
+        if (!val)
+            mapper_slot_set_maximum((mapper_slot)$self, 0, 0, 0);
+        else
+            mapper_slot_set_maximum((mapper_slot)$self, val->length, val->type,
+                                    val->value);
+    }
+    void set_minimum(maybePropVal val=0) {
+        if (!val)
+            mapper_slot_set_minimum((mapper_slot)$self, 0, 0, 0);
+        else
+            mapper_slot_set_minimum((mapper_slot)$self,val->length, val->type,
+                                    val->value);
+    }
+    void set_property(const char *key, maybePropVal val=0) {
+        if (!key || strcmp(key, "user_data")==0)
+            return;
+        if (val)
+            mapper_slot_set_property((mapper_slot)$self, key, val->length,
+                                     val->type, val->value);
+        else
+            mapper_slot_remove_property((mapper_slot)$self, key);
+    }
+    void set_use_as_instance(booltype use_as_instance) {
+        mapper_slot_set_use_as_instance((mapper_slot)$self, use_as_instance);
+    }
+    void remove_property(const char *key) {
+        if (!key || strcmp(key, "user_data")==0)
+            return;
+        mapper_slot_remove_property((mapper_slot)$self, key);
+    }
+    %pythoncode {
+        bound_max = property(get_bound_max, set_bound_max)
+        bound_min = property(get_bound_min, set_bound_min)
+        calibrating = property(get_calibrating, set_calibrating)
+        causes_update = property(get_causes_update, set_causes_update)
+        index = property(get_index)
+        maximum = property(get_maximum, set_maximum)
+        minimum = property(get_minimum, set_minimum)
+        num_properties = property(get_num_properties)
+        use_as_instance = property(get_use_as_instance, set_use_as_instance)
+        def get_properties(self):
+            props = {}
+            for i in range(self.num_properties):
+                prop = self.get_property(i)
+                if prop:
+                    props[prop[0]] = prop[1];
+            return props
+        def __propgetter(self):
+            slot = self
+            props = self.get_properties()
+            class propsetter(dict):
+                __getitem__ = props.__getitem__
+                def __setitem__(self, key, value):
+                    props[key] = value
+                    slot.set_property(key, value)
+            return propsetter(self.get_properties())
+        properties = property(__propgetter)
+        def set_properties(self, props):
+            [self.set_property(k, props[k]) for k in props]
+    }
+}
+
+%extend _database {
+    _database(network *DISOWN=0, int subscribe_flags=0x00) {
+        return (database*)mapper_database_new((mapper_network)DISOWN,
+                                              subscribe_flags);
+    }
+    ~_database() {
+        mapper_database_free((mapper_database)$self);
+    }
+    const char *libversion() {
+        return mapper_libversion();
     }
     int poll(int timeout=0) {
         _save = PyEval_SaveThread();
-        int rc = mmon_poll((mapper_monitor)$self, timeout);
+        int rc = mapper_database_poll((mapper_database)$self, timeout);
         PyEval_RestoreThread(_save);
         return rc;
     }
-    db *get_db() {
-        return (db *)mmon_db((mapper_monitor)$self);
+    void subscribe(device *dev, int subscribe_flags=0, int timeout=0) {
+        return mapper_database_subscribe((mapper_database)$self,
+                                         (mapper_device)dev,
+                                         subscribe_flags, timeout);
     }
-    void subscribe(const char *name, int subscribe_flags=0, int timeout=0) {
-        return mmon_subscribe((mapper_monitor)$self, name,
-                              subscribe_flags, timeout);
-    }
-    void unsubscribe(const char *name) {
-        return mmon_unsubscribe((mapper_monitor)$self, name);
+    void unsubscribe(device *dev) {
+        return mapper_database_unsubscribe((mapper_database)$self,
+                                           (mapper_device)dev);
     }
     void request_devices() {
-        mmon_request_devices((mapper_monitor)$self);
+        mapper_database_request_devices((mapper_database)$self);
     }
-    void map(int num_sources, const char **sources, const char *dest,
-             mapper_db_map_t *properties=0) {
-        if (!sources || !dest)
-            return;
-        if (properties) {
-            mmon_map_signals_by_name((mapper_monitor)$self, num_sources,
-                                     sources, dest, properties);
-        }
-        else
-            mmon_map_signals_by_name((mapper_monitor)$self, num_sources,
-                                     sources, dest, 0);
+    void flush(int timeout=-1, int quiet=1) {
+        mapper_database_flush((mapper_database)$self, timeout, quiet);
     }
-    void modify_map(int num_sources, const char **sources, const char *dest,
-                    mapper_db_map_t *properties) {
-        if (!sources || !dest || !properties)
-            return;
-        mmon_modify_map_by_signal_names((mapper_monitor)$self, num_sources,
-                                        sources, dest, properties);
+    network *network() {
+        return (network*)mapper_database_network((mapper_database)$self);
     }
-    void unmap(int num_sources, const char **sources, const char *dest) {
-        if (!sources || !dest)
-            return;
-        mmon_unmap_signals_by_name((mapper_monitor)$self, num_sources,
-                                   sources, dest);
+    int timeout() {
+        return mapper_database_timeout((mapper_database)$self);
     }
-    double now() {
-        mapper_timetag_t tt;
-        mmon_now((mapper_monitor)$self, &tt);
-        return mapper_timetag_double(tt);
+    void set_timeout(int timeout) {
+        mapper_database_set_timeout((mapper_database)$self, timeout);
     }
-    void flush(int timeout = ADMIN_TIMEOUT_SEC, int quiet = 1) {
-        mmon_flush_db((mapper_monitor)$self, timeout, quiet);
-    }
-    %pythoncode {
-        db = property(get_db)
-    }
-}
-
-%extend _db {
     void add_device_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_device_callback((mapper_db)$self,
-                                      device_db_handler_py, PyFunc);
+        mapper_database_add_device_callback((mapper_database)$self,
+                                            device_database_handler_py, PyFunc);
     }
     void remove_device_callback(PyObject *PyFunc) {
-        mapper_db_remove_device_callback((mapper_db)$self,
-                                         device_db_handler_py, PyFunc);
+        mapper_database_remove_device_callback((mapper_database)$self,
+                                               device_database_handler_py,
+                                               PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_signal_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_signal_callback((mapper_db)$self,
-                                      signal_db_handler_py, PyFunc);
+        mapper_database_add_signal_callback((mapper_database)$self,
+                                            signal_database_handler_py, PyFunc);
     }
     void remove_signal_callback(PyObject *PyFunc) {
-        mapper_db_remove_signal_callback((mapper_db)$self,
-                                         signal_db_handler_py, PyFunc);
+        mapper_database_remove_signal_callback((mapper_database)$self,
+                                               signal_database_handler_py,
+                                               PyFunc);
         Py_XDECREF(PyFunc);
     }
     void add_map_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
-        mapper_db_add_map_callback((mapper_db)$self, map_db_handler_py, PyFunc);
+        mapper_database_add_map_callback((mapper_database)$self,
+                                         map_database_handler_py, PyFunc);
     }
     void remove_map_callback(PyObject *PyFunc) {
-        mapper_db_remove_map_callback((mapper_db)$self, map_db_handler_py, PyFunc);
+        mapper_database_remove_map_callback((mapper_database)$self,
+                                            map_database_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
     }
-    mapper_db_device device(const char *device_name) {
-        return mapper_db_device_by_name((mapper_db)$self, device_name);
+    mapper_device device(const char *device_name) {
+        return mapper_database_device_by_name((mapper_database)$self,
+                                              device_name);
     }
-    mapper_db_device_t **__get_devices() {
-        return mapper_db_devices((mapper_db)$self);
+    mapper_device device(mapper_id id) {
+        return mapper_database_device_by_id((mapper_database)$self, id);
     }
-    mapper_db_device_t **__get_devices(const char *device) {
-        return mapper_db_devices_by_name_match((mapper_db)$self, device);
+    device_query *devices() {
+        device_query *ret = malloc(sizeof(struct _device_query));
+        ret->query = mapper_database_devices((mapper_database)$self);
+        return ret;
     }
-    mapper_db_device_t **device_next(long iterator) {
-        return mapper_db_device_next((mapper_db_device_t**)iterator);
+    device_query *devices_by_name_match(const char *pattern) {
+        device_query *ret = malloc(sizeof(struct _device_query));
+        ret->query = mapper_database_devices_by_name_match((mapper_database)$self,
+                                                           pattern);
+        return ret;
     }
-    mapper_db_signal_t **__get_inputs() {
-        return mapper_db_inputs((mapper_db)$self);
+    device_query *devices_by_property(maybePropVal val=0,
+                                      mapper_op op=MAPPER_OP_EQUAL) {
+        if (!val || !val->name)
+            return 0;
+        device_query *ret = malloc(sizeof(struct _device_query));
+        ret->query = mapper_database_devices_by_property((mapper_database)$self,
+                                                         val->name, val->length,
+                                                         val->type, val->value,
+                                                         op);
+        return ret;
     }
-    mapper_db_signal_t **__get_inputs(const char *device_name) {
-        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
-                                                        device_name);
-        return mapper_db_device_inputs((mapper_db)$self, dev);
+    device_query *local_devices() {
+        device_query *ret = malloc(sizeof(struct _device_query));
+        ret->query = mapper_database_local_devices((mapper_database)$self);
+        return ret;
     }
-    mapper_db_signal_t **__get_outputs() {
-        return mapper_db_outputs((mapper_db)$self);
+    mapper_signal signal(mapper_id id) {
+        return mapper_database_signal_by_id((mapper_database)$self, id);
     }
-    mapper_db_signal_t **__get_outputs(const char *device_name) {
-        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
-                                                        device_name);
-        return mapper_db_device_outputs((mapper_db)$self, dev);
+    signal_query *signals(mapper_direction dir=MAPPER_DIR_ANY) {
+        signal_query *ret = malloc(sizeof(struct _signal_query));
+        ret->query = mapper_database_signals((mapper_database)$self, dir);
+        return ret;
     }
-    mapper_db_signal input(const char *device_name, const char *signal_name) {
-        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
-                                                        device_name);
-        return mapper_db_device_input_by_name((mapper_db)$self, dev, signal_name);
+    signal_query *signals_by_name(const char *name) {
+        signal_query *ret = malloc(sizeof(struct _signal_query));
+        ret->query = mapper_database_signals_by_name((mapper_database)$self,
+                                                     name);
+        return ret;
     }
-    mapper_db_signal output(const char *device_name, const char *signal_name) {
-        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
-                                                        device_name);
-        return mapper_db_device_output_by_name((mapper_db)$self, dev, signal_name);
+    signal_query *signals_by_name_match(const char *name) {
+        signal_query *ret = malloc(sizeof(struct _signal_query));
+        ret->query = mapper_database_signals_by_name_match((mapper_database)$self,
+                                                           name);
+        return ret;
     }
-    mapper_db_signal_t **__match_inputs_by_device_name(const char *device_name,
-                                                       const char *pattern) {
-        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
-                                                        device_name);
-        return mapper_db_device_inputs_by_name_match((mapper_db)$self, dev,
-                                                     pattern);
+    signal_query *signals_by_property(maybePropVal val=0,
+                                      mapper_op op=MAPPER_OP_EQUAL) {
+        if (!val || !val->name)
+            return 0;
+        signal_query *ret = malloc(sizeof(struct _signal_query));
+        ret->query = mapper_database_signals_by_property((mapper_database)$self,
+                                                         val->name, val->length,
+                                                         val->type, val->value,
+                                                         op);
+        return ret;
     }
-    mapper_db_signal_t **__match_outputs_by_device_name(const char *device_name,
-                                                        char const *pattern) {
-        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
-                                                        device_name);
-        return mapper_db_device_outputs_by_name_match((mapper_db)$self, dev,
-                                                      pattern);
+    mapper_map map(mapper_id id) {
+        return mapper_database_map_by_id((mapper_database)$self, id);
     }
-    mapper_db_signal_t **signal_next(long iterator) {
-        return mapper_db_signal_next((mapper_db_signal_t**)iterator);
+    map_query *maps() {
+        map_query *ret = malloc(sizeof(struct _map_query));
+        ret->query = mapper_database_maps((mapper_database)$self);
+        return ret;
     }
-    mapper_db_map_t **get_maps() {
-        return mapper_db_maps((mapper_db)$self);
+    map_query *maps_by_property(maybePropVal prop=0,
+                                mapper_op op=MAPPER_OP_EQUAL) {
+        if (!prop || !prop->name)
+            return 0;
+        map_query *ret = malloc(sizeof(struct _map_query));
+        ret->query = mapper_database_maps_by_property((mapper_database)$self,
+                                                      prop->name, prop->length,
+                                                      prop->type, prop->value,
+                                                      op);
+        return ret;
     }
-    mapper_db_map_t **get_maps_by_device_name(const char *device_name) {
-        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
-                                                        device_name);
-        return mapper_db_device_maps((mapper_db)$self, dev);
+    map_query *maps_by_scope(device *dev) {
+        map_query *ret = malloc(sizeof(struct _map_query));
+        ret->query = mapper_database_maps_by_scope((mapper_database)$self,
+                                                   (mapper_device)dev);
+        return ret;
     }
-//    mapper_db_map_t **get_maps_by_src_signal_name(const char *src_signal) {
-//        return mapper_db_signal_outgoing_maps((mapper_db)$self, src_signal);
-//    }
-//    mapper_db_map_t **get_maps_by_src_device_and_signal_names(
-//        const char *src_device, const char *src_signal) {
-//        return mapper_db_maps_by_src_device_and_signal_names(
-//            (mapper_db)$self, src_device, src_signal);
-//    }
-//    mapper_db_map_t **get_maps_by_dest_signal_name(const char *dest_signal) {
-//        mapper_db_device dev = mapper_db_device_by_name((mapper_db)$self,
-//                                                            device_name);
-//        return mapper_db_signal_incoming_maps((mapper_db)$self, dest_signal);
-//    }
-//    mapper_db_map_t **get_maps_by_dest_device_and_signal_names(
-//        const char *dest_device, const char *dest_signal) {
-//        return mapper_db_maps_by_dest_device_and_signal_names(
-//            (mapper_db)$self, dest_device, dest_signal);
-//    }
-//    mapper_db_map_t **get_maps_by_device_and_signal_names(
-//        const char *src_device,  const char *src_signal,
-//        const char *dest_device, const char *dest_signal) {
-//        return mapper_db_maps_by_device_and_signal_names(
-//            (mapper_db)$self, 1, &src_device, &src_signal,
-//            dest_device, dest_signal);
-//    }
-//    mapper_db_map_t **get_maps_by_device_and_signal_names(
-//        int num_sources, const char **src_devices,  const char **src_signals,
-//        const char *dest_device, const char *dest_signal) {
-//        return mapper_db_maps_by_device_and_signal_names(
-//            (mapper_db)$self, num_sources, src_devices, src_signals,
-//            dest_device, dest_signal);
-//    }
-//    mapper_db_map map_by_signal_full_names(
-//        int num_sources, const char **src_names, const char *dest_name) {
-//        return mapper_db_map_by_signal_full_names(
-//             (mapper_db)$self, num_sources, src_names, dest_name);
-//    }
-//    mapper_db_map_t **get_maps_by_src_dest_device_names(
-//        const char *src_device_name, const char *dest_device_name) {
-//        return mapper_db_maps_by_src_dest_device_names(
-//            (mapper_db)$self, 1, &src_device_name, dest_device_name);
-//    }
-//    mapper_db_map_t **get_maps_by_src_dest_device_names(
-//        int num_sources, const char **src_dev_names, const char *dest_dev_name) {
-//        return mapper_db_maps_by_src_dest_device_names(
-//            (mapper_db)$self, num_sources, src_dev_names, dest_dev_name);
-//    }
-    mapper_db_map map_by_hash(int hash) {
-        return mapper_db_map_by_hash((mapper_db)$self, hash);
-    }
-    mapper_db_map_t **map_next(long iterator) {
-        return mapper_db_map_next((mapper_db_map_t**)iterator);
-    }
-    %pythoncode {
-        def make_iterator(first, next):
-            def it(self, *args):
-                (d, p) = first(self, *args)
-                while p:
-                    yield d
-                    (d, p) = next(self, p)
-            return it
-        devices = make_iterator(__get_devices, device_next)
-        inputs = make_iterator(__get_inputs, signal_next)
-        outputs = make_iterator(__get_outputs, signal_next)
-        match_inputs = make_iterator(__match_inputs_by_device_name, signal_next)
-        match_outputs = make_iterator(__match_outputs_by_device_name, signal_next)
-        maps = make_iterator(get_all_maps, map_next)
-        maps_by_device_name = make_iterator(get_maps_by_device_name, map_next)
-//        maps_by_src_signal_name = make_iterator(get_maps_by_src_signal_name,
-//                                                map_next)
-//        maps_by_src_device_and_signal_names = make_iterator(
-//            get_maps_by_src_device_and_signal_names, map_next)
-//        maps_by_dest_signal_name = make_iterator(get_maps_by_dest_signal_name,
-//                                                 map_next)
-//        maps_by_dest_device_and_signal_names = make_iterator(
-//            get_maps_by_dest_device_and_signal_names, map_next)
-//        maps_by_device_and_signal_names = make_iterator(
-//            get_maps_by_device_and_signal_names, map_next)
-//        maps_by_src_dest_device_names = make_iterator(
-//            get_maps_by_src_dest_device_names, map_next)
+    map_query *maps_by_slot_property(maybePropVal prop=0,
+                                     mapper_op op=MAPPER_OP_EQUAL) {
+        if (!prop || !prop->name)
+            return 0;
+        map_query *ret = malloc(sizeof(struct _map_query));
+        ret->query = mapper_database_maps_by_slot_property((mapper_database)$self,
+                                                           prop->name, prop->length,
+                                                           prop->type, prop->value,
+                                                           op);
+        return ret;
     }
 }
 
-%extend _admin {
-    _admin(const char *iface=0, const char *ip=0, int port=7570) {
-        return (admin *)mapper_admin_new(iface, ip, port);
+%extend _network {
+    _network(const char *iface=0, const char *ip=0, int port=7570) {
+        return (network*)mapper_network_new(iface, ip, port);
     }
-    ~_admin() {
-        mapper_admin_free((mapper_admin)$self);
+    ~_network() {
+        mapper_network_free((mapper_network)$self);
     }
     const char *libversion() {
-        return mapper_admin_libversion((mapper_admin)$self);
+        return mapper_libversion();
+    }
+    database *database() {
+        return (database*)mapper_network_database((mapper_network)$self);
+    }
+    const char *get_group() {
+        return mapper_network_group((mapper_network)$self);
+    }
+    const char *get_interface() {
+        return mapper_network_interface((mapper_network)$self);
+    }
+    const char *get_ip4() {
+        const struct in_addr *a = mapper_network_ip4((mapper_network)$self);
+        return a ? inet_ntoa(*a) : 0;
+    }
+    double now() {
+        mapper_timetag_t tt;
+        mapper_network_now((mapper_network)$self, &tt);
+        return mapper_timetag_double(tt);
+    }
+    int get_port() {
+        return mapper_network_port((mapper_network)$self);
+    }
+//    void send_message() {
+//        return mapper_network_send_message();
+//    }
+    %pythoncode {
+        group = property(get_group)
+        ip4 = property(get_ip4)
+        interface = property(get_interface)
+        port = property(get_port)
     }
 }
