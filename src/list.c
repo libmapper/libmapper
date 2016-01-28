@@ -433,11 +433,11 @@ void *mapper_list_query_index(void **query, int index)
     // Reset to beginning of list
     lh->self = lh->start;
 
-    int i = 0;
-    while (query) {
-        query = mapper_list_query_next(query);
-        if ((++i) == index)
+    int i = 1;
+    while ((query = mapper_list_query_next(query))) {
+        if (i == index)
             return *query;
+        ++i;
     }
     return 0;
 }
