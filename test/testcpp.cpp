@@ -56,6 +56,9 @@ int main(int argc, char ** argv)
 
     mapper::Device dev("mydevice");
 
+    // make a copy of the device to check reference counting
+    mapper::Device devcopy(dev);
+
     mapper::Signal sig = dev.add_input_signal("in1", 1, 'f', "meters", 0, 0,
                                               insig_handler);
     dev.remove_signal(sig);

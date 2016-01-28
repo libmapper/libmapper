@@ -11,6 +11,7 @@
 #include <string>
 #include <sstream>
 #include <initializer_list>
+#include <array>
 #include <vector>
 #include <iterator>
 
@@ -822,6 +823,18 @@ namespace mapper {
             {
                 return Signal(mapper_signal_query_index(_sigs, index));
             }
+
+            operator std::vector<Signal>() const
+            {
+                std::vector<Signal> vec;
+                // use a copy
+                mapper_signal *cpy = mapper_signal_query_copy(_sigs);
+                while (cpy) {
+                    vec.push_back(Signal(*cpy));
+                    cpy = mapper_signal_query_next(cpy);
+                }
+                return vec;
+            }
         private:
             mapper_signal *_sigs;
         };
@@ -843,21 +856,40 @@ namespace mapper {
             _dev = mapper_device_new(name_prefix, port, net);
             _db = mapper_device_database(_dev);
             _owned = 1;
+            _refcount_ptr = (int*)malloc(sizeof(int));
+            *_refcount_ptr = 1;
         }
         Device(const string_type &name_prefix)
         {
             _dev = mapper_device_new(name_prefix, 0, 0);
             _db = mapper_device_database(_dev);
             _owned = 1;
+            _refcount_ptr = (int*)malloc(sizeof(int));
+            *_refcount_ptr = 1;
+        }
+        Device(Device& orig) {
+            if (orig) {
+                _dev = orig._dev;
+                _db = orig._db;
+                _owned = orig._owned;
+                _refcount_ptr = orig._refcount_ptr;
+                if (_owned)
+                    incr_refcount();
+            }
         }
         Device(mapper_device dev)
         {
             _dev = dev;
             _db = mapper_device_database(_dev);
             _owned = 0;
+            _refcount_ptr = (int*)malloc(sizeof(int));
+            *_refcount_ptr = 1;
         }
         ~Device()
-            { if (_owned && _dev) mapper_device_free(_dev); }
+        {
+            if (_owned && _dev && decr_refcount() <= 0)
+                mapper_device_free(_dev);
+        }
         operator mapper_device() const
             { return _dev; }
         operator const char*() const
@@ -1087,6 +1119,18 @@ namespace mapper {
             {
                 return Device(mapper_device_query_index(_devs, index));
             }
+
+            operator std::vector<Device>() const
+            {
+                std::vector<Device> vec;
+                // use a copy
+                mapper_device *cpy = mapper_device_query_copy(_devs);
+                while (cpy) {
+                    vec.push_back(Device(*cpy));
+                    cpy = mapper_device_query_next(cpy);
+                }
+                return vec;
+            }
         private:
             mapper_device *_devs;
         };
@@ -1094,6 +1138,11 @@ namespace mapper {
         mapper_device _dev;
         mapper_database _db;
         int _owned;
+        int* _refcount_ptr;
+        int incr_refcount()
+            { return _refcount_ptr ? ++(*_refcount_ptr) : 0; }
+        int decr_refcount()
+            { return _refcount_ptr ? --(*_refcount_ptr) : 0; }
     };
 
     class signal_type {
@@ -1107,6 +1156,10 @@ namespace mapper {
     class Map : public GenericObject
     {
     public:
+        Map(const Map& orig)
+            { _map = orig._map; }
+        Map(mapper_map map)
+            { _map = map; }
         Map(signal_type source, signal_type destination)
         {
             mapper_signal cast = source;
@@ -1133,7 +1186,7 @@ namespace mapper {
             }
             _map = mapper_map_new(N, cast, destination);
         }
-        Map(std::vector<signal_type>& sources, signal_type destination)
+        Map(std::vector<Signal>& sources, signal_type destination)
         {
             if (sources.size()) {
                 _map = 0;
@@ -1145,8 +1198,6 @@ namespace mapper {
             }
                 _map = mapper_map_new(num_sources, cast, destination);
         }
-        ~Map()
-            {}
         operator mapper_map() const
             { return _map; }
         operator bool() const
@@ -1303,7 +1354,21 @@ namespace mapper {
             }
 
             Map operator [] (int index)
-                { return Map(mapper_map_query_index(_maps, index)); }
+            {
+                return Map(mapper_map_query_index(_maps, index));
+            }
+
+            operator std::vector<Map>() const
+            {
+                std::vector<Map> vec;
+                // use a copy
+                mapper_map *cpy = mapper_map_query_copy(_maps);
+                while (cpy) {
+                    vec.push_back(Map(*cpy));
+                    cpy = mapper_map_query_next(cpy);
+                }
+                return vec;
+            }
         private:
             mapper_map *_maps;
         };
@@ -1445,8 +1510,6 @@ namespace mapper {
         }
     protected:
         friend class Database;
-        Map(mapper_map map)
-            { _map = map; }
         Map& set_property(Property *p)
         {
             if (_map)
@@ -1531,10 +1594,10 @@ namespace mapper {
             return (*this);
         }
 
-        Device device_by_name(const string_type &name) const
-            { return Device(mapper_database_device_by_name(_db, name)); }
         Device device_by_id(mapper_id id) const
             { return Device(mapper_database_device_by_id(_db, id)); }
+        Device device_by_name(const string_type &name) const
+            { return Device(mapper_database_device_by_name(_db, name)); }
         Device::Query devices() const
             { return Device::Query(mapper_database_devices(_db)); }
         Device::Query local_devices() const
