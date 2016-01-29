@@ -126,7 +126,7 @@ namespace mapper {
         friend class Property;
         virtual AbstractObjectWithSetter& set_property(Property *p) = 0;
     public:
-        virtual AbstractObjectWithSetter& remove_property(const string_type &name) = 0;
+        virtual AbstractObjectWithSetter& remove_property(const string_type &key) = 0;
     };
 
     class Property
@@ -480,10 +480,10 @@ namespace mapper {
                 set_property(&p);
             return (*this);
         }
-        Signal& remove_property(const string_type &name)
+        Signal& remove_property(const string_type &key)
         {
-            if (_sig)
-                mapper_signal_remove_property(_sig, name);
+            if (_sig && key)
+                mapper_signal_remove_property(_sig, key);
             return (*this);
         }
         Property property(const string_type &name) const
@@ -835,6 +835,45 @@ namespace mapper {
                 }
                 return vec;
             }
+
+            // also enable some Signal methods
+            Query& remove_property(const string_type &key)
+            {
+                if (!key)
+                    return (*this);
+                // use a copy
+                mapper_signal *cpy = mapper_signal_query_copy(_sigs);
+                while (cpy) {
+                    mapper_signal_remove_property(*cpy, key);
+                    cpy = mapper_signal_query_next(cpy);
+                }
+                return (*this);
+            }
+            template <typename... Values>
+            Query& set_property(Values... values)
+            {
+                Property p(values...);
+                if (!p)
+                    return (*this);
+                // use a copy
+                mapper_signal *cpy = mapper_signal_query_copy(_sigs);
+                while (cpy) {
+                    mapper_signal_set_property(*cpy, p.name, p.length, p.type,
+                                               p.value);
+                    cpy = mapper_signal_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& set_user_data(void *user_data)
+            {
+                // use a copy
+                mapper_signal *cpy = mapper_signal_query_copy(_sigs);
+                while (cpy) {
+                    mapper_signal_set_user_data(*cpy, user_data);
+                    cpy = mapper_signal_query_next(cpy);
+                }
+                return (*this);
+            }
         private:
             mapper_signal *_sigs;
         };
@@ -978,10 +1017,10 @@ namespace mapper {
             { return mapper_device_port(_dev); }
         int ordinal() const
             { return mapper_device_ordinal(_dev); }
-        Device& remove_property(const string_type &name)
+        Device& remove_property(const string_type &key)
         {
-            if (_dev)
-                mapper_device_remove_property(_dev, name);
+            if (_dev && key)
+                mapper_device_remove_property(_dev, key);
             return (*this);
         }
         Property property(const string_type &name) const
@@ -1130,6 +1169,45 @@ namespace mapper {
                     cpy = mapper_device_query_next(cpy);
                 }
                 return vec;
+            }
+
+            // also enable some Device methods
+            Query& remove_property(const string_type &key)
+            {
+                if (!key)
+                    return (*this);
+                // use a copy
+                mapper_device *cpy = mapper_device_query_copy(_devs);
+                while (cpy) {
+                    mapper_device_remove_property(*cpy, key);
+                    cpy = mapper_device_query_next(cpy);
+                }
+                return (*this);
+            }
+            template <typename... Values>
+            Query& set_property(Values... values)
+            {
+                Property p(values...);
+                if (!p)
+                    return (*this);
+                // use a copy
+                mapper_device *cpy = mapper_device_query_copy(_devs);
+                while (cpy) {
+                    mapper_device_set_property(*cpy, p.name, p.length, p.type,
+                                               p.value);
+                    cpy = mapper_device_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& set_user_data(void *user_data)
+            {
+                // use a copy
+                mapper_device *cpy = mapper_device_query_copy(_devs);
+                while (cpy) {
+                    mapper_device_set_user_data(*cpy, user_data);
+                    cpy = mapper_device_query_next(cpy);
+                }
+                return (*this);
             }
         private:
             mapper_device *_devs;
@@ -1370,6 +1448,85 @@ namespace mapper {
                 }
                 return vec;
             }
+
+            // also enable some Map methods
+            Query& push()
+            {
+                // use a copy
+                mapper_map *cpy = mapper_map_query_copy(_maps);
+                while (cpy) {
+                    mapper_map_push(*cpy);
+                    cpy = mapper_map_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& release()
+            {
+                // use a copy
+                mapper_map *cpy = mapper_map_query_copy(_maps);
+                while (cpy) {
+                    mapper_map_release(*cpy);
+                    cpy = mapper_map_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& remove_property(const string_type &key)
+            {
+                if (!key)
+                    return (*this);
+                // use a copy
+                mapper_map *cpy = mapper_map_query_copy(_maps);
+                while (cpy) {
+                    mapper_map_remove_property(*cpy, key);
+                    cpy = mapper_map_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& set_expression(const string_type &expression)
+            {
+                // use a copy
+                mapper_map *cpy = mapper_map_query_copy(_maps);
+                while (cpy) {
+                    mapper_map_set_expression(*cpy, expression);
+                    cpy = mapper_map_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& set_mode(mapper_mode mode)
+            {
+                // use a copy
+                mapper_map *cpy = mapper_map_query_copy(_maps);
+                while (cpy) {
+                    mapper_map_set_mode(*cpy, mode);
+                    cpy = mapper_map_query_next(cpy);
+                }
+                return (*this);
+            }
+            template <typename... Values>
+            Query& set_property(Values... values)
+            {
+                Property p(values...);
+                if (!p)
+                    return (*this);
+                // use a copy
+                mapper_map *cpy = mapper_map_query_copy(_maps);
+                while (cpy) {
+                    mapper_map_set_property(*cpy, p.name, p.length, p.type,
+                                            p.value);
+                    cpy = mapper_map_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& set_user_data(void *user_data)
+            {
+                // use a copy
+                mapper_map *cpy = mapper_map_query_copy(_maps);
+                while (cpy) {
+                    mapper_map_set_user_data(*cpy, user_data);
+                    cpy = mapper_map_query_next(cpy);
+                }
+                return (*this);
+            }
         private:
             mapper_map *_maps;
         };
@@ -1493,7 +1650,12 @@ namespace mapper {
                                              p->value);
                 return (*this);
             }
-            Slot& remove_property(const string_type &name) { return (*this); }
+            Slot& remove_property(const string_type &key)
+            {
+                if (_slot && key)
+                    mapper_slot_remove_property(_slot, key);
+                return (*this);
+            }
         private:
             mapper_slot _slot;
         };
@@ -1518,7 +1680,12 @@ namespace mapper {
                                         p->value);
             return (*this);
         }
-        Map& remove_property(const string_type &name) { return (*this); }
+        Map& remove_property(const string_type &key)
+        {
+            if (_map && key)
+                mapper_map_remove_property(_map, key);
+            return (*this);
+        }
     private:
         mapper_map _map;
     };
