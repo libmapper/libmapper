@@ -285,6 +285,7 @@ static jobject build_Value(JNIEnv *env, const int length, const char type,
     }
 
     switch (type) {
+        case 'b':
         case 'i': {
             if (length == 1) {
                 methodID = (*env)->GetMethodID(env, cls, "<init>", "(CI)V");
@@ -391,6 +392,18 @@ static int get_Value_elements(JNIEnv *env, jobject jprop, void **value,
     jobject o = 0;
 
     switch (*type) {
+        case 'b': {
+            valf = (*env)->GetFieldID(env, cls, "_b", "[Z");
+            o = (*env)->GetObjectField(env, jprop, valf);
+            int *ints = malloc(sizeof(int) * length);
+            jboolean jbool;
+            for (int i = 0; i < length; i++) {
+                jbool = (jboolean) (*env)->GetObjectArrayElement(env, o, i);
+                ints[i] = jbool ? 1 : 0;
+            }
+            *value = ints;
+            break;
+        }
         case 'i':
             valf = (*env)->GetFieldID(env, cls, "_i", "[I");
             o = (*env)->GetObjectField(env, jprop, valf);
@@ -453,6 +466,12 @@ static void release_Value_elements(JNIEnv *env, jobject jprop, void *value)
     jobject o = 0;
 
     switch (type) {
+        case 'b': {
+            int *ints = (int*)value;
+            if (ints)
+                free(ints);
+            break;
+        }
         case 'i':
             valf = (*env)->GetFieldID(env, cls, "_i", "[I");
             o = (*env)->GetObjectField(env, jprop, valf);

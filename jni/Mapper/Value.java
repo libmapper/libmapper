@@ -7,6 +7,7 @@ import java.util.Arrays;
 public class Value
 {
     public Value()                       { length=0; type = 0; }
+    public Value(boolean b)              { set('b', b);   }
     public Value(int i)                  { set('i', i);   }
     public Value(float f)                { set('f', f);   }
     public Value(double d)               { set('d', d);   }
@@ -40,6 +41,14 @@ public class Value
 
     public Object value() {
         switch (type) {
+            case 'b': {
+                if (length == 1)
+                    return new Boolean(_b[0]);
+                else if (length > 1) {
+                    boolean[] b = _b.clone();
+                    return b;
+                }
+            }
             case 'i': {
                 if (length == 1)
                     return new Integer(_i[0]);
@@ -72,16 +81,14 @@ public class Value
                     return v;
                 }
             }
-            case 'S': {
-                if (length == 1)
-                    return _s[0];
-                else if (length > 1) {
-                    String[] v = _s.clone();
-                    return v;
-                }
-            }
         }
         return null;
+    }
+
+    public boolean booleanValue() {
+        if (type == 'b')
+            return _b[0];
+        throw new Exception();
     }
 
     public int intValue() {
@@ -109,13 +116,46 @@ public class Value
     }
 
     public String stringValue() {
-        if (type == 's' || type == 'S')
+        if (type == 's')
             return _s[0];
         throw new Exception();
     }
 
+    public void set(char _type, boolean b) {
+        switch (_type) {
+            case 'b':
+                _b = new boolean[1];
+                _b[0] = b;
+                break;
+            case 'i':
+                _i = new int[1];
+                _i[0] = b ? 1 : 0;
+                break;
+            case 'f':
+                _f = new float[1];
+                _f[0] = b ? 1 : 0;
+                break;
+            case 'd':
+                _d = new double[1];
+                _d[0] = b ? 1 : 0;
+                break;
+            case 's':
+                _s = new String[1];
+                _s[0] = String.valueOf(b);
+                break;
+            default:
+                throw new Exception("Cannot cast boolean to requested type.");
+        }
+        type = _type;
+        length = 1;
+    }
+
     public void set(char _type, int i) {
         switch (_type) {
+            case 'b':
+                _b = new boolean[1];
+                _b[0] = (i != 0);
+                break;
             case 'i':
                 _i = new int[1];
                 _i[0] = i;
@@ -132,10 +172,6 @@ public class Value
                 _s = new String[1];
                 _s[0] = String.valueOf(i);
                 break;
-            case 'S':
-                _s = new String[1];
-                _s[0] = String.valueOf(i);
-                break;
             default:
                 throw new Exception("Cannot cast int to requested type.");
         }
@@ -145,6 +181,10 @@ public class Value
 
     public void set(char _type, float f) {
         switch (_type) {
+            case 'b':
+                _b = new boolean[1];
+                _b[0] = (f != 0.f);
+                break;
             case 'i':
                 _i = new int[1];
                 _i[1] = (int)f;
@@ -161,10 +201,6 @@ public class Value
                 _s = new String[1];
                 _s[0] = String.valueOf(f);
                 break;
-            case 'S':
-                _s = new String[1];
-                _s[0] = String.valueOf(f);
-                break;
             default:
                 throw new Exception("Cannot cast float to requested type.");
         }
@@ -174,6 +210,10 @@ public class Value
 
     public void set(char _type, double d) {
         switch (_type) {
+            case 'b':
+                _b = new boolean[1];
+                _b[0] = (d != 0.0);
+                break;
             case 'i':
                 _i = new int[1];
                 _i[0] = (int)d;
@@ -190,10 +230,6 @@ public class Value
                 _s = new String[1];
                 _s[0] = String.valueOf(d);
                 break;
-            case 'S':
-                _s = new String[1];
-                _s[0] = String.valueOf(d);
-                break;
             default:
                 throw new Exception("Cannot cast double to requested type.");
         }
@@ -203,6 +239,10 @@ public class Value
 
     public void set(char _type, String s) {
         switch (_type) {
+            case 'b':
+                _b = new boolean[1];
+                _b[0] = Boolean.parseBoolean(s);
+                break;
             case 'i':
                 _i = new int[1];
                 _i[0] = Integer.parseInt(s);
@@ -219,10 +259,6 @@ public class Value
                 _s = new String[1];
                 _s[0] = s;
                 break;
-            case 'S':
-                _s = new String[1];
-                _s[0] = s;
-                break;
             default:
                 throw new Exception("Cannot cast String to requested type.");
         }
@@ -230,8 +266,45 @@ public class Value
         length = 1;
     }
 
+    public void set(char _type, boolean[] b) {
+        switch (_type) {
+            case 'b':
+                _b = b.clone();
+                break;
+            case 'i':
+                _i = new int[b.length];
+                for (int n = 0; n < b.length; n++)
+                    _i[n] = b[n] ? 1 : 0;
+                break;
+            case 'f':
+                _f = new float[b.length];
+                for (int n = 0; n < b.length; n++)
+                    _f[n] = b[n] ? 1.f : 0.f;
+                break;
+            case 'd':
+                _d = new double[b.length];
+                for (int n = 0; n < b.length; n++)
+                    _d[n] = b[n] ? 1.0 : 0.0;
+                break;
+            case 's':
+                _s = new String[b.length];
+                for (int n = 0; n < b.length; n++)
+                    _s[n] = String.valueOf(b[n]);
+                break;
+            default:
+                throw new Exception("Cannot cast int to requested type.");
+        }
+        type = _type;
+        length = b.length;
+    }
+
     public void set(char _type, int[] i) {
         switch (_type) {
+            case 'b':
+                _b = new boolean[i.length];
+                for (int n = 0; n < i.length; n++)
+                    _b[0] = (i[n] != 0);
+                break;
             case 'i':
                 _i = i.clone();
                 break;
@@ -250,11 +323,6 @@ public class Value
                 for (int n = 0; n < i.length; n++)
                     _s[n] = String.valueOf(i[n]);
                 break;
-            case 'S':
-                _s = new String[i.length];
-                for (int n = 0; n < i.length; n++)
-                    _s[n] = String.valueOf(i[n]);
-                break;
             default:
                 throw new Exception("Cannot cast int to requested type.");
         }
@@ -264,6 +332,11 @@ public class Value
 
     public void set(char _type, float[] f) {
         switch (_type) {
+            case 'b':
+                _b = new boolean[f.length];
+                for (int n = 0; n < f.length; n++)
+                    _b[0] = (f[n] != 0.f);
+                break;
             case 'i':
                 _i = new int[f.length];
                 for (int n = 0; n < f.length; n++)
@@ -282,11 +355,6 @@ public class Value
                 for (int n = 0; n < f.length; n++)
                     _s[n] = String.valueOf(f[n]);
                 break;
-            case 'S':
-                _s = new String[f.length];
-                for (int n = 0; n < f.length; n++)
-                    _s[n] = String.valueOf(f[n]);
-                break;
             default:
                 throw new Exception("Cannot cast float to requested type.");
         }
@@ -296,6 +364,11 @@ public class Value
 
     public void set(char _type, double[] d) {
         switch (_type) {
+            case 'b':
+                _b = new boolean[d.length];
+                for (int n = 0; n < d.length; n++)
+                    _b[0] = (d[n] != 0.0);
+                break;
             case 'i':
                 _i = new int[d.length];
                 for (int n = 0; n < d.length; n++)
@@ -314,11 +387,6 @@ public class Value
                 for (int n = 0; n < d.length; n++)
                     _s[n] = String.valueOf(d[n]);
                 break;
-            case 'S':
-                _s = new String[d.length];
-                for (int n = 0; n < d.length; n++)
-                    _s[n] = String.valueOf(d[n]);
-                break;
             default:
                 throw new Exception("Cannot cast double to requested type.");
         }
@@ -328,6 +396,11 @@ public class Value
 
     public void set(char _type, String[] s) {
         switch (_type) {
+            case 'b':
+                _b = new boolean[s.length];
+                for (int n = 0; n < s.length; n++)
+                    _b[0] = Boolean.parseBoolean(s[n]);
+                break;
             case 'i':
                 _i = new int[s.length];
                 for (int n = 0; n < s.length; n++)
@@ -345,8 +418,6 @@ public class Value
                 break;
             case 's':
                 _s = s.clone();
-            case 'S':
-                _s = s.clone();
                 break;
             default:
                 throw new Exception("Cannot cast String to requested type.");
@@ -358,11 +429,11 @@ public class Value
     public String toString() {
         String s;
         switch (type) {
+            case 'b': s = Arrays.toString(_b); break;
             case 'i': s = Arrays.toString(_i); break;
             case 'f': s = Arrays.toString(_f); break;
             case 'd': s = Arrays.toString(_d); break;
             case 's': s = Arrays.toString(_s); break;
-            case 'S': s = Arrays.toString(_s); break;
             default: s = null;
         }
         return "<type="+type+", length="+length+", value="+s+">";
@@ -371,6 +442,7 @@ public class Value
     public char type;
     public int length;
 
+    private boolean[] _b;
     private int[] _i;
     private float[] _f;
     private double[] _d;
