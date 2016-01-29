@@ -1258,10 +1258,9 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceFree
         mapper_signal_set_instance_event_callback(temp, 0, 0, 0);
 
         // check if we have active instances
-        while (mapper_signal_num_active_instances(temp)) {
-            mapper_id id = mapper_signal_active_instance_id(temp, 0);
-            if (!id)
-                continue;
+        int i;
+        for (i = 0; i < mapper_signal_num_active_instances(temp); i++) {
+            mapper_id id = mapper_signal_instance_id(temp, i);
             instance_jni_context ictx;
             ictx = mapper_signal_instance_user_data(temp, id);
             if (!ictx)
