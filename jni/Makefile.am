@@ -30,7 +30,7 @@ JCLASSES = mapper/NativeLib.class mapper/Database.class                     \
            mapper/signal/InstanceUpdateListener.class                       \
            mapper/signal/Query.class mapper/signal/StealingMode.class       \
            mapper/signal/UpdateListener.class                               \
-           mapper/Timetag.class                                             \
+           mapper/TimeTag.class                                             \
            mapper/Value.class
 
 JCLASSESINTERNAL = mapper/device/Query$$1.class mapper/map/Query$$1.class   \
