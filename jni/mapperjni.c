@@ -764,6 +764,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_flush
 JNIEXPORT jobject JNICALL Java_mapper_Database_poll
   (JNIEnv *env, jobject obj, jint block_ms)
 {
+    genv = env;
     mapper_database db = get_database_from_jobject(env, obj);
     if (db)
         mapper_database_poll(db, block_ms);
@@ -810,8 +811,18 @@ static void java_database_device_cb(mapper_device record,
     if (!cls)
         return;
     jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
-    jobject devobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(record));
+    jobject devobj;
+    if (mid)
+        devobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(record));
+    else {
+        printf("Error looking up Device init method\n");
+        return;
+    }
     jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    if (!eventobj) {
+        printf("Error looking up database event\n");
+        return;
+    }
 
     jobject obj = (jobject)user_data;
     cls = (*genv)->GetObjectClass(genv, obj);
@@ -824,7 +835,7 @@ static void java_database_device_cb(mapper_device record,
                 bailing = 1;
         }
         else {
-            printf("Did not successfully look up onEvent method.\n");
+            printf("Error looking up onEvent method.\n");
         }
     }
 }
@@ -877,7 +888,7 @@ static void java_database_signal_cb(mapper_signal record,
                 bailing = 1;
         }
         else {
-            printf("Did not successfully look up onEvent method.\n");
+            printf("Error looking up onEvent method.\n");
         }
     }
 }
@@ -929,7 +940,7 @@ static void java_database_map_cb(mapper_map record, mapper_record_action action,
                 bailing = 1;
         }
         else {
-            printf("Did not successfully look up onEvent method.\n");
+            printf("Error looking up onEvent method.\n");
         }
     }
 }
