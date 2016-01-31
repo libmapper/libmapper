@@ -187,8 +187,8 @@ void mapper_map_push(mapper_map map)
         return;
     int cmd;
     if (map->status >= STATUS_ACTIVE) {
-        if (!map->props->dirty)
-            return;
+//        if (!map->staged_props->dirty)
+//            return;
         cmd = MSG_MODIFY_MAP;
     }
     else
@@ -196,6 +196,9 @@ void mapper_map_push(mapper_map map)
 
     mapper_network_set_dest_bus(map->database->network);
     mapper_map_send_state(map, -1, cmd, UPDATED_PROPS);
+
+    // clear the staged properties
+    mapper_table_clear(map->staged_props);
 }
 
 void mapper_map_free(mapper_map map)
@@ -1676,18 +1679,20 @@ static const char *add_properties_to_message(mapper_map map, lo_message msg,
         }
     }
 
-    // Scope
-    if (map->scope.size) {
-        lo_message_add_string(msg, mapper_protocol_string(AT_SCOPE));
-        for (i = 0; i < map->scope.size; i++) {
-            if (map->scope.devices[i])
-                lo_message_add_string(msg, map->scope.devices[i]->name);
-            else
-                lo_message_add_string(msg, "all");
+    if (flags != UPDATED_PROPS) {
+        // Scope
+        if (map->scope.size) {
+            lo_message_add_string(msg, mapper_protocol_string(AT_SCOPE));
+            for (i = 0; i < map->scope.size; i++) {
+                if (map->scope.devices[i])
+                    lo_message_add_string(msg, map->scope.devices[i]->name);
+                else
+                    lo_message_add_string(msg, "all");
+            }
         }
     }
 
-    // Slot
+    // Slot id
     if (map->destination.direction == MAPPER_DIR_INCOMING
         && map->status < STATUS_READY && flags != UPDATED_PROPS) {
         lo_message_add_string(msg, mapper_protocol_string(AT_SLOT));

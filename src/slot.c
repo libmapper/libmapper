@@ -425,8 +425,8 @@ void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
     else
         snprintf(prefix, 16, "@src.%d", slot->id);
 
-    // use length from associated signal
-    if (slot->signal->local) {
+    if (flags != UPDATED_PROPS && slot->signal->local) {
+        // include length from associated signal
         len = snprintf(*key_ptr, *size, "%s%s", prefix,
                        mapper_protocol_string(AT_LENGTH));
         if (len < 0 || len > *size)
@@ -435,10 +435,8 @@ void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
         lo_message_add_int32(msg, slot->signal->length);
         *key_ptr += len + 1;
         *size -= len + 1;
-    }
 
-    // use type from associated signal
-    if (slot->signal->local) {
+        // include type from associated signal
         len = snprintf(*key_ptr, *size, "%s%s", prefix,
                        mapper_protocol_string(AT_TYPE));
         if (len < 0 && len > *size)
@@ -488,6 +486,10 @@ void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
                 *size -= len + 1;
                 break;
         }
+    }
+    if (flags == UPDATED_PROPS) {
+        // clear the staged properties
+        mapper_table_clear(slot->staged_props);
     }
 }
 

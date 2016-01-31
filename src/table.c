@@ -35,7 +35,7 @@ mapper_table mapper_table_new()
     return tab;
 }
 
-void table_clear(mapper_table tab)
+void mapper_table_clear(mapper_table tab)
 {
     int i, j, free_values = 1;
     for (i = 0; i < tab->num_records; i++) {
@@ -67,7 +67,7 @@ void table_clear(mapper_table tab)
 
 void mapper_table_free(mapper_table tab)
 {
-    table_clear(tab);
+    mapper_table_clear(tab);
     free(tab->records);
     free(tab);
 }

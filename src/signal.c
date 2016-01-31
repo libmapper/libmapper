@@ -212,6 +212,9 @@ void mapper_signal_push(mapper_signal sig)
     else
         mapper_network_set_dest_bus(sig->device->database->network);
     mapper_signal_send_state(sig, UPDATED_PROPS);
+
+    // clear the staged properties
+    mapper_table_clear(sig->staged_props);
 }
 
 void mapper_signal_update(mapper_signal sig, const void *value, int count,

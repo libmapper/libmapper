@@ -229,6 +229,9 @@ void mapper_device_push(mapper_device dev)
     else
         mapper_network_set_dest_bus(dev->database->network);
     mapper_device_send_state(dev, UPDATED_PROPS);
+
+    // clear the staged properties
+    mapper_table_clear(dev->staged_props);
 }
 
 void mapper_device_set_user_data(mapper_device dev, const void *user_data)
