@@ -765,6 +765,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_poll
   (JNIEnv *env, jobject obj, jint block_ms)
 {
     genv = env;
+    bailing = 0;
     mapper_database db = get_database_from_jobject(env, obj);
     if (db)
         mapper_database_poll(db, block_ms);
@@ -1277,7 +1278,8 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceFree
   (JNIEnv *env, jobject obj, jlong jdev)
 {
     mapper_device dev = (mapper_device)ptr_jlong(jdev);
-
+    if (!dev || !mapper_device_is_local(dev))
+        return;
     /* Free all references to Java objects. */
     mapper_signal *sigs = mapper_device_signals(dev, MAPPER_DIR_ANY);
     while (sigs) {
@@ -1333,6 +1335,8 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
         return 0;
 
     mapper_device dev = get_device_from_jobject(env, obj);
+    if (!dev || !mapper_device_is_local(dev))
+        return 0;
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
     const char *cunit = unit ? (*env)->GetStringUTFChars(env, unit, 0) : 0;
 
@@ -1370,7 +1374,7 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceRemoveSignal
   (JNIEnv *env, jobject obj, jlong jdev, jobject jsig)
 {
     mapper_device dev = (mapper_device) ptr_jlong(jdev);
-    if (!dev)
+    if (!dev || !mapper_device_is_local(dev))
         return;
     mapper_signal sig = get_signal_from_jobject(env, jsig);
     if (sig) {
@@ -1566,6 +1570,8 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_startQueue
   (JNIEnv *env, jobject obj, jobject ttobj)
 {
     mapper_device dev = get_device_from_jobject(env, obj);
+    if (!dev || !mapper_device_is_local(dev))
+        return 0;
     mapper_timetag_t tt, *ptt = 0;
     ptt = get_timetag_from_jobject(env, ttobj, &tt);
     if (dev && ptt)
@@ -1577,6 +1583,8 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_sendQueue
   (JNIEnv *env, jobject obj, jobject ttobj)
 {
     mapper_device dev = get_device_from_jobject(env, obj);
+    if (!dev || !mapper_device_is_local(dev))
+        return 0;
     mapper_timetag_t tt, *ptt = 0;
     ptt = get_timetag_from_jobject(env, ttobj, &tt);
     if (dev && ptt)
