@@ -14,18 +14,5 @@ public enum Event
         return _value;
     }
 
-    public static Event getInstance(int value) {
-        switch (value) {
-            case 0:
-                return ADDED;
-            case 1:
-                return MODIFIED;
-            case 2:
-                return REMOVED;
-            default:
-                return EXPIRED;
-        }
-    }
-
     private int _value;
 }

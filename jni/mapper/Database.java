@@ -74,6 +74,9 @@ public class Database
         mapperDatabaseSubscribe(_db, dev, type.value(), lease);
         return this;
     }
+    public Database subscribe(mapper.Device dev, SubscriptionType type) {
+        return subscribe(dev, type, -1);
+    }
     public Database subscribe(mapper.Device dev, Set<SubscriptionType> types,
                               int lease) {
         int flags = 0;
@@ -84,6 +87,10 @@ public class Database
         mapperDatabaseSubscribe(_db, dev, flags, lease);
         return this;
     }
+    public Database subscribe(mapper.Device dev, Set<SubscriptionType> types) {
+        return subscribe(dev, types, -1);
+    }
+
     public native Database unsubscribe(mapper.Device dev);
     public native Database requestDevices();
 

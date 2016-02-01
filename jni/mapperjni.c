@@ -35,6 +35,21 @@ typedef struct {
     jobject user_ref;
 } instance_jni_context_t, *instance_jni_context;
 
+const char *event_strings[] = {
+    "ADDED",
+    "MODIFIED",
+    "REMOVED",
+    "EXPIRED"
+};
+
+const char *instance_event_strings[] = {
+    "NEW",
+    "UPSTREAM_RELEASE",
+    "DOWNSTREAM_RELEASE",
+    "OVERFLOW",
+    "ALL"
+};
+
 /**** Helpers ****/
 
 static void throwIllegalArgumentLength(JNIEnv *env, mapper_signal sig, int al)
@@ -229,12 +244,14 @@ static jobject get_jobject_from_database_record_action(JNIEnv *env,
     jobject obj = 0;
     jclass cls = (*env)->FindClass(env, "mapper/database/Event");
     if (cls) {
-        jmethodID mid = (*env)->GetStaticMethodID(env, cls, "getInstance",
-                                                  "(I)Lmapper/database/Event;");
-        if (mid)
-            obj = (*env)->NewObject(env, cls, mid, event);
+        jfieldID fid = (*env)->GetStaticFieldID(env, cls, event_strings[event],
+                                                "Lmapper/database/Event;");
+        if (fid) {
+            obj = (*env)->GetStaticObjectField(env, cls, fid);
+        }
         else {
-            printf("Error looking up Database Event constructor.\n");
+            printf("Error looking up database/Event field '%s'.\n",
+                   event_strings[event]);
             exit(1);
         }
     }
@@ -246,13 +263,13 @@ static jobject get_jobject_from_instance_event(JNIEnv *env, int event)
     jobject obj = 0;
     jclass cls = (*env)->FindClass(env, "mapper/signal/InstanceEvent");
     if (cls) {
-        jmethodID mid;
-        mid = (*env)->GetStaticMethodID(env, cls, "getInstance",
-                                        "(I)Lmapper/signal/InstanceEvent;");
-        if (mid)
-            obj = (*env)->NewObject(env, cls, mid, event);
+        jfieldID fid = (*env)->GetStaticFieldID(env, cls,
+                                                instance_event_strings[event],
+                                                "Lmapper/signal/InstanceEvent;");
+        if (fid)
+            obj = (*env)->GetStaticObjectField(env, cls, fid);
         else {
-            printf("Error looking up InstanceEvent constructor.\n");
+            printf("Error looking up InstanceEvent field.\n");
             exit(1);
         }
     }
@@ -596,7 +613,7 @@ static void java_signal_update_cb(mapper_signal sig, mapper_id instance,
                         bailing = 1;
                 }
                 else {
-                    printf("Did not successfully look up onUpdate method.\n");
+                    printf("Error looking up onUpdate method.\n");
                     exit(1);
                 }
                 if (vobj)
@@ -639,7 +656,7 @@ static void java_signal_update_cb(mapper_signal sig, mapper_id instance,
                     bailing = 1;
             }
             else {
-                printf("Did not successfully look up onUpdate method.\n");
+                printf("Error looking up onUpdate method.\n");
                 exit(1);
             }
         }
@@ -680,7 +697,7 @@ static void java_signal_instance_event_cb(mapper_signal sig, mapper_id instance,
             bailing = 1;
     }
     else {
-        printf("Did not successfully look up onEvent method.\n");
+        printf("Error looking up onEvent method.\n");
         exit(1);
     }
 
@@ -2187,7 +2204,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
         mapper_device dev = mapper_signal_device(sig);
         id = mapper_device_unique_id(dev);
         if (!mapper_signal_instance_activate(sig, id)) {
-            printf("could not activate instance with id %llu\n", id);
+            printf("Could not activate instance with id %llu\n", id);
             return 0;
         }
     }
@@ -2195,7 +2212,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
     instance_jni_context ctx = ((instance_jni_context)
                                 mapper_signal_instance_user_data(sig, id));
     if (!ctx) {
-        printf("no context found for instance %llu\n", id);
+        printf("No context found for instance %llu\n", id);
         return 0;
     }
 

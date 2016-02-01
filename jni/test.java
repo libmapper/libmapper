@@ -25,18 +25,18 @@ class test {
 
         db.addDeviceListener(new DeviceListener() {
             public void onEvent(Device dev, mapper.database.Event event) {
-                System.out.println("db onEvent() for device "+dev.name());
+                System.out.println("db onEvent("+event+") for device "+dev.name());
             }});
 
         db.addSignalListener(new SignalListener() {
             public void onEvent(Signal sig, mapper.database.Event event) {
-                System.out.println("db onEvent() for signal "
+                System.out.println("db onEvent("+event+") for signal "
                                    +sig.device().name()+":"+sig.name());
             }});
 
         db.addMapListener(new MapListener() {
             public void onEvent(Map map, mapper.database.Event event) {
-                System.out.print("db onEvent() for map ");
+                System.out.print("db onEvent("+event+") for map ");
                 for (int i = 0; i < map.numSources(); i++) {
                     Map.Slot slot = map.sources[i];
                     System.out.print(slot.signal().device().name()
