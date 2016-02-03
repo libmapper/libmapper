@@ -530,7 +530,7 @@ static int mapper_map_update_scope(mapper_map map, mapper_message_atom atom)
         }
         // ...then add any new scopes
         for (i = 0; i < num; i++) {
-            updated += (1 - add_scope_internal(map, &scope_list[i]->s));
+            updated += add_scope_internal(map, &scope_list[i]->s);
         }
     }
     return updated;
