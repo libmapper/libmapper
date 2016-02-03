@@ -450,7 +450,6 @@ typedef struct _mapper_slot {
  *  properties are publically defined in mapper_constants.h. */
 typedef struct _mapper_map_internal {
     struct _mapper_router *router;
-    int is_admin;
     int is_local;
 
     mapper_expr expr;                   //!< The mapping expression.

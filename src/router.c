@@ -706,8 +706,6 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map,
     map->scope.devices = (mapper_device *) malloc(sizeof(mapper_device)
                                                   * map->scope.size);
 
-    // is_admin property will be corrected later if necessary
-    imap->is_admin = 1;
     if (dir == MAPPER_DIR_INCOMING)
         map->id = unused_map_id(rtr->device, rtr);
 
