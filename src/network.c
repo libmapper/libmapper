@@ -1094,21 +1094,21 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **argv,
         if (types[i] != 's' && types[i] != 'S')
             break;
         else if (strcmp(&argv[i]->s, "all")==0)
-            flags = MAPPER_SUBSCRIBE_ALL;
+            flags = MAPPER_OBJ_ALL;
         else if (strcmp(&argv[i]->s, "device")==0)
-            flags |= MAPPER_SUBSCRIBE_DEVICES;
+            flags |= MAPPER_OBJ_DEVICES;
         else if (strcmp(&argv[i]->s, "signals")==0)
-            flags |= MAPPER_SUBSCRIBE_SIGNALS;
+            flags |= MAPPER_OBJ_SIGNALS;
         else if (strcmp(&argv[i]->s, "inputs")==0)
-            flags |= MAPPER_SUBSCRIBE_INPUTS;
+            flags |= MAPPER_OBJ_INPUT_SIGNALS;
         else if (strcmp(&argv[i]->s, "outputs")==0)
-            flags |= MAPPER_SUBSCRIBE_OUTPUTS;
+            flags |= MAPPER_OBJ_OUTPUT_SIGNALS;
         else if (strcmp(&argv[i]->s, "maps")==0)
-            flags |= MAPPER_SUBSCRIBE_MAPS;
+            flags |= MAPPER_OBJ_MAPS;
         else if (strcmp(&argv[i]->s, "incoming_maps")==0)
-            flags |= MAPPER_SUBSCRIBE_INCOMING_MAPS;
+            flags |= MAPPER_OBJ_INCOMING_MAPS;
         else if (strcmp(&argv[i]->s, "outgoing_maps")==0)
-            flags |= MAPPER_SUBSCRIBE_OUTGOING_MAPS;
+            flags |= MAPPER_OBJ_OUTGOING_MAPS;
         else if (strcmp(&argv[i]->s, "@version")==0) {
             // next argument is last device version recorded by subscriber
             ++i;
@@ -1535,7 +1535,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
 
         // Inform subscribers
         if (dev->local->subscribers) {
-            mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_INCOMING_MAPS);
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_INCOMING_MAPS);
             mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
         return 0;
@@ -1870,7 +1870,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         }
         if (dev->local->subscribers) {
             // Inform subscribers
-            mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_INCOMING_MAPS);
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_INCOMING_MAPS);
             mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
 
@@ -1971,10 +1971,10 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
             // Inform subscribers
             if (map->destination.local->router_sig)
                 mapper_network_set_dest_subscribers(net,
-                                                    MAPPER_SUBSCRIBE_INCOMING_MAPS);
+                                                    MAPPER_OBJ_INCOMING_MAPS);
             else
                 mapper_network_set_dest_subscribers(net,
-                                                    MAPPER_SUBSCRIBE_OUTGOING_MAPS);
+                                                    MAPPER_OBJ_OUTGOING_MAPS);
             mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
         }
 
@@ -2078,9 +2078,9 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     if (dev->local->subscribers) {
         // Inform subscribers
         if (map->destination.local->router_sig)
-            mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_INCOMING_MAPS);
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_INCOMING_MAPS);
         else
-            mapper_network_set_dest_subscribers(net, MAPPER_SUBSCRIBE_OUTGOING_MAPS);
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_OUTGOING_MAPS);
         mapper_map_send_state(map, -1, MSG_UNMAPPED, 0);
     }
 

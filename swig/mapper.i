@@ -855,16 +855,16 @@ typedef enum {
 %constant int MAPPER_INSTANCE_OVERFLOW  = 0x08;
 %constant int MAPPER_INSTANCE_ALL       = 0x0F;
 
-/*! Possible subscription settings. */
-%constant int MAPPER_SUBSCRIBE_NONE             = 0x00;
-%constant int MAPPER_SUBSCRIBE_DEVICES          = 0x01;
-%constant int MAPPER_SUBSCRIBE_INPUTS           = 0x02;
-%constant int MAPPER_SUBSCRIBE_OUTPUTS          = 0x04;
-%constant int MAPPER_SUBSCRIBE_SIGNALS          = 0x06;
-%constant int MAPPER_SUBSCRIBE_INCOMING_MAPS    = 0x10;
-%constant int MAPPER_SUBSCRIBE_OUTGOING_MAPS    = 0x20;
-%constant int MAPPER_SUBSCRIBE_MAPS             = 0x30;
-%constant int MAPPER_SUBSCRIBE_ALL              = 0xFF;
+/*! Possible object types for subscriptions. */
+%constant int MAPPER_OBJ_NONE           = 0x00;
+%constant int MAPPER_OBJ_DEVICES        = 0x01;
+%constant int MAPPER_OBJ_INPUT_SIGNALS  = 0x02;
+%constant int MAPPER_OBJ_OUTPUT_SIGNALS = 0x04;
+%constant int MAPPER_OBJ_SIGNALS        = 0x06;
+%constant int MAPPER_OBJ_INCOMING_MAPS  = 0x10;
+%constant int MAPPER_OBJ_OUTGOING_MAPS  = 0x20;
+%constant int MAPPER_OBJ_MAPS           = 0x30;
+%constant int MAPPER_OBJ_ALL            = 0xFF;
 
 /*! The set of possible actions on a database record, used to inform callbacks
  *  of what is happening to a record. */

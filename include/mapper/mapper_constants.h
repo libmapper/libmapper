@@ -10,19 +10,18 @@ extern "C" {
 
 #include <lo/lo.h>
 
-/*! Bit flags for coordinating metadata subscriptions. Subsets of device
- *  information must also include SUB_DEVICE. */
-#define MAPPER_SUBSCRIBE_NONE           0x00
-#define MAPPER_SUBSCRIBE_DEVICES        0x01
-#define MAPPER_SUBSCRIBE_INPUTS         0x02
-#define MAPPER_SUBSCRIBE_OUTPUTS        0x04
-#define MAPPER_SUBSCRIBE_SIGNALS        0x06 /* (MAPPER_SUBSCRIBE_INPUTS
-                                                | MAPPER_SUBSCRIBE_OUTPUTS) */
-#define MAPPER_SUBSCRIBE_INCOMING_MAPS  0x10
-#define MAPPER_SUBSCRIBE_OUTGOING_MAPS  0x20
-#define MAPPER_SUBSCRIBE_MAPS           0x30 /* ( MAPPER_SUBSCRIBE_INCOMING_MAPS
-                                                | MAPPER_SUBSCRIBE_OUTGOING_MAPS) */
-#define MAPPER_SUBSCRIBE_ALL            0xFF
+/*! Bit flags for coordinating metadata subscriptions. */
+#define MAPPER_OBJ_NONE           0x00
+#define MAPPER_OBJ_DEVICES        0x01
+#define MAPPER_OBJ_INPUT_SIGNALS  0x02
+#define MAPPER_OBJ_OUTPUT_SIGNALS 0x04
+#define MAPPER_OBJ_SIGNALS        0x06 /* (  MAPPER_OBJ_INPUT_SIGNALS
+                                           | MAPPER_OBJ_OUTPUT_SIGNALS) */
+#define MAPPER_OBJ_INCOMING_MAPS  0x10
+#define MAPPER_OBJ_OUTGOING_MAPS  0x20
+#define MAPPER_OBJ_MAPS           0x30 /* (  MAPPER_OBJ_INCOMING_MAPS
+                                           | MAPPER_OBJ_OUTGOING_MAPS) */
+#define MAPPER_OBJ_ALL            0xFF
 
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */

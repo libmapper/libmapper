@@ -1704,7 +1704,7 @@ namespace mapper {
         Database(mapper_database db)
             { _db = db; }
     public:
-        Database(int flags = MAPPER_SUBSCRIBE_ALL)
+        Database(int flags = MAPPER_OBJ_ALL)
             { _db = mapper_database_new(0, flags); }
         ~Database()
         {

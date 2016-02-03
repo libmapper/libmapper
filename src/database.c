@@ -1062,25 +1062,25 @@ static void subscribe_internal(mapper_database db, mapper_device dev, int flags,
     set_network_dest(db, dev);
     lo_message m = lo_message_new();
     if (m) {
-        if (flags & MAPPER_SUBSCRIBE_ALL)
+        if (flags & MAPPER_OBJ_ALL)
             lo_message_add_string(m, "all");
         else {
-            if (flags & MAPPER_SUBSCRIBE_DEVICES)
+            if (flags & MAPPER_OBJ_DEVICES)
                 lo_message_add_string(m, "device");
-            if (flags & MAPPER_SUBSCRIBE_SIGNALS)
+            if (flags & MAPPER_OBJ_SIGNALS)
                 lo_message_add_string(m, "signals");
             else {
-                if (flags & MAPPER_SUBSCRIBE_INPUTS)
+                if (flags & MAPPER_OBJ_INPUT_SIGNALS)
                     lo_message_add_string(m, "inputs");
-                else if (flags & MAPPER_SUBSCRIBE_OUTPUTS)
+                else if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
                     lo_message_add_string(m, "outputs");
             }
-            if (flags & MAPPER_SUBSCRIBE_MAPS)
+            if (flags & MAPPER_OBJ_MAPS)
                 lo_message_add_string(m, "maps");
             else {
-                if (flags & MAPPER_SUBSCRIBE_INCOMING_MAPS)
+                if (flags & MAPPER_OBJ_INCOMING_MAPS)
                     lo_message_add_string(m, "incoming_maps");
-                else if (flags & MAPPER_SUBSCRIBE_OUTGOING_MAPS)
+                else if (flags & MAPPER_OBJ_OUTGOING_MAPS)
                     lo_message_add_string(m, "outgoing_maps");
             }
         }
@@ -1235,7 +1235,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
 void mapper_database_unsubscribe(mapper_database db, mapper_device dev)
 {
     if (!dev)
-        mapper_database_autosubscribe(db, MAPPER_SUBSCRIBE_NONE);
+        mapper_database_autosubscribe(db, MAPPER_OBJ_NONE);
     unsubscribe_internal(db, dev, 1);
 }
 

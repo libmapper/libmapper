@@ -10,7 +10,7 @@ class test {
     public static void main(String [] args) {
         final Device dev1 = new Device("javatest");
         final Device dev2 = new Device("javatest");
-        final Database db = new Database(SubscriptionType.ALL);
+        final Database db = new Database(ObjectType.ALL);
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".

@@ -168,7 +168,7 @@ int main(int argc, char ** argv)
         std::cout << "input: " << (const char*)(*qsig) << std::endl;
     }
 
-    mapper::Database db(MAPPER_SUBSCRIBE_ALL);
+    mapper::Database db(MAPPER_OBJ_ALL);
     mapper::Map map(dev.signals(MAPPER_DIR_OUTGOING)[0],
                     dev.signals(MAPPER_DIR_INCOMING)[1]);
     map.set_mode(MAPPER_MODE_EXPRESSION).set_expression("y=x[0:1]+123");

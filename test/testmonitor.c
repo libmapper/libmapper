@@ -45,7 +45,7 @@ void printmap(mapper_map map)
 /*! Creation of a local dummy device. */
 int setup_database()
 {
-    db = mapper_database_new(0, MAPPER_SUBSCRIBE_ALL);
+    db = mapper_database_new(0, MAPPER_OBJ_ALL);
     if (!db)
         goto error;
     printf("Database created.\n");

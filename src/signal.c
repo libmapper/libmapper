@@ -207,8 +207,8 @@ void mapper_signal_push(mapper_signal sig)
     if (sig->local)
         mapper_network_set_dest_subscribers(sig->device->database->network,
                                             sig->direction == MAPPER_DIR_OUTGOING
-                                            ? MAPPER_SUBSCRIBE_OUTPUTS
-                                            : MAPPER_SUBSCRIBE_INPUTS);
+                                            ? MAPPER_OBJ_OUTPUT_SIGNALS
+                                            : MAPPER_OBJ_INPUT_SIGNALS);
     else
         mapper_network_set_dest_bus(sig->device->database->network);
     mapper_signal_send_state(sig, UPDATED_PROPS);

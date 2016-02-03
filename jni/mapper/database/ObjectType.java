@@ -2,18 +2,18 @@
 package mapper.database;
 
 /*! Bit flags for coordinating database metadata subscriptions. */
-public enum SubscriptionType {
+public enum ObjectType {
     NONE            (0x00),
     DEVICES         (0x01),
-    DEVICE_INPUTS   (0x02),
-    DEVICE_OUTPUTS  (0x04),
-    DEVICE_SIGNALS  (0x06),
-    DEVICE_MAPS_IN  (0x10),
-    DEVICE_MAPS_OUT (0x20),
-    DEVICE_MAPS     (0x30),
+    INPUT_SIGNALS   (0x02),
+    OUTPUT_SIGNALS  (0x04),
+    SIGNALS         (0x06),
+    INCOMING_MAPS   (0x10),
+    OUTGOING_MAPS   (0x20),
+    MAPS            (0x30),
     ALL             (0xFF);
 
-    SubscriptionType(int value) {
+    ObjectType(int value) {
         this._value = value;
     }
 

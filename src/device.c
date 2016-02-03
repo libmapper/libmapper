@@ -225,7 +225,7 @@ void mapper_device_push(mapper_device dev)
 
     if (dev->local)
         mapper_network_set_dest_subscribers(dev->database->network,
-                                            MAPPER_SUBSCRIBE_DEVICES);
+                                            MAPPER_OBJ_DEVICES);
     else
         mapper_network_set_dest_bus(dev->database->network);
     mapper_device_send_state(dev, UPDATED_PROPS);
@@ -895,8 +895,8 @@ mapper_signal mapper_device_add_signal(mapper_device dev,
         // Notify subscribers
         mapper_network_set_dest_subscribers(db->network,
                                             (dir == MAPPER_DIR_INCOMING)
-                                            ? MAPPER_SUBSCRIBE_INPUTS
-                                            : MAPPER_SUBSCRIBE_OUTPUTS);
+                                            ? MAPPER_OBJ_INPUT_SIGNALS
+                                            : MAPPER_OBJ_OUTPUT_SIGNALS);
         mapper_signal_send_state(sig, STATIC_PROPS);
     }
 
@@ -1022,8 +1022,8 @@ void mapper_device_remove_signal(mapper_device dev, mapper_signal sig)
         // Notify subscribers
         mapper_network_set_dest_subscribers(dev->database->network,
                                             (dir == MAPPER_DIR_INCOMING)
-                                            ? MAPPER_SUBSCRIBE_INPUTS
-                                            : MAPPER_SUBSCRIBE_OUTPUTS);
+                                            ? MAPPER_OBJ_INPUT_SIGNALS
+                                            : MAPPER_OBJ_OUTPUT_SIGNALS);
         mapper_signal_send_removed(sig);
     }
 
@@ -1799,13 +1799,13 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     // bring new subscriber up to date
     mapper_network_set_dest_mesh(dev->database->network, address);
     mapper_device_send_state(dev, STATIC_PROPS);
-    if (flags & MAPPER_SUBSCRIBE_INPUTS)
+    if (flags & MAPPER_OBJ_INPUT_SIGNALS)
         mapper_device_send_inputs(dev, -1, -1);
-    if (flags & MAPPER_SUBSCRIBE_OUTPUTS)
+    if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
         mapper_device_send_outputs(dev, -1, -1);
-    if (flags & MAPPER_SUBSCRIBE_INCOMING_MAPS)
+    if (flags & MAPPER_OBJ_INCOMING_MAPS)
         mapper_device_send_incoming_maps(dev, -1, -1);
-    if (flags & MAPPER_SUBSCRIBE_OUTGOING_MAPS)
+    if (flags & MAPPER_OBJ_OUTGOING_MAPS)
         mapper_device_send_outgoing_maps(dev, -1, -1);
     mapper_network_send(dev->database->network);
 }

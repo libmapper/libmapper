@@ -11,9 +11,9 @@ public class Database
 {
     /* constructor */
     private native long mapperDatabaseNew(int subscribe_flags);
-    public Database(Set<SubscriptionType> types) {
+    public Database(Set<ObjectType> types) {
         int flags = 0;
-        for (SubscriptionType t : SubscriptionType.values()) {
+        for (ObjectType t : ObjectType.values()) {
             if (types.contains(t))
                 flags |= t.value();
         }
@@ -22,14 +22,14 @@ public class Database
         _sig_listener = null;
         _map_listener = null;
     }
-    public Database(SubscriptionType type) {
+    public Database(ObjectType type) {
         _db = mapperDatabaseNew(type.value());
         _dev_listener = null;
         _sig_listener = null;
         _map_listener = null;
     }
     public Database() {
-        _db = mapperDatabaseNew(SubscriptionType.ALL.value());
+        _db = mapperDatabaseNew(ObjectType.ALL.value());
         _dev_listener = null;
         _sig_listener = null;
         _map_listener = null;
@@ -70,24 +70,24 @@ public class Database
     /* subscriptions */
     private native void mapperDatabaseSubscribe(long db, mapper.Device dev,
                                                 int flags, int timeout);
-    public Database subscribe(mapper.Device dev, SubscriptionType type, int lease) {
+    public Database subscribe(mapper.Device dev, ObjectType type, int lease) {
         mapperDatabaseSubscribe(_db, dev, type.value(), lease);
         return this;
     }
-    public Database subscribe(mapper.Device dev, SubscriptionType type) {
+    public Database subscribe(mapper.Device dev, ObjectType type) {
         return subscribe(dev, type, -1);
     }
-    public Database subscribe(mapper.Device dev, Set<SubscriptionType> types,
+    public Database subscribe(mapper.Device dev, Set<ObjectType> types,
                               int lease) {
         int flags = 0;
-        for (SubscriptionType t : SubscriptionType.values()) {
+        for (ObjectType t : ObjectType.values()) {
             if (types.contains(t))
                 flags |= t.value();
         }
         mapperDatabaseSubscribe(_db, dev, flags, lease);
         return this;
     }
-    public Database subscribe(mapper.Device dev, Set<SubscriptionType> types) {
+    public Database subscribe(mapper.Device dev, Set<ObjectType> types) {
         return subscribe(dev, types, -1);
     }
 

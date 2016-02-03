@@ -16,7 +16,7 @@ JCLASSES = mapper/NativeLib.class mapper/Database.class                     \
            mapper/database/DeviceListener.class mapper/database/Event.class \
            mapper/database/MapListener.class mapper/database/Operator.class \
            mapper/database/SignalListener.class                             \
-           mapper/database/SubscriptionType.class                           \
+           mapper/database/ObjectType.class                                 \
            mapper/Device.class mapper/device/Query.class                    \
            mapper/Direction.class                                           \
            mapper/Map.class mapper/map/BoundaryAction.class                 \
