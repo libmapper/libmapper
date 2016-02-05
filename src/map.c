@@ -1363,12 +1363,15 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                                                              REMOTE_MODIFY);
                 break;
             case AT_PROCESS_LOCATION: {
-                int loc = ((strcmp(&(atom->values[0])->s, "source")==0)
-                           ? MAPPER_LOC_SOURCE : MAPPER_LOC_DESTINATION);
-                if (map->local && !map->local->one_source) {
-                    /* Processing must take place at destination if map
-                     * includes source signals from different devices. */
-                    loc = MAPPER_LOC_DESTINATION;
+                mapper_location loc = mapper_location_from_string(&(atom->values[0])->s);
+                if (map->local) {
+                    if (loc == MAPPER_LOC_UNDEFINED)
+                        break;
+                    if (!map->local->one_source) {
+                        /* Processing must take place at destination if map
+                         * includes source signals from different devices. */
+                        loc = MAPPER_LOC_DESTINATION;
+                    }
                 }
                 updated += mapper_table_set_record(map->props,
                                                    AT_PROCESS_LOCATION, NULL, 1,
@@ -1377,13 +1380,10 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
             }
             case AT_EXPRESSION: {
                     const char *expr_str = &atom->values[0]->s;
+                    mapper_location orig_loc = map->process_location;
                     if (map->local && bitmatch(map->status, STATUS_READY)) {
                         if (strstr(expr_str, "y{-")) {
-                            int loc = MAPPER_LOC_DESTINATION;
-                            updated += mapper_table_set_record(map->props,
-                                                               AT_PROCESS_LOCATION,
-                                                               NULL, 1, 'i',
-                                                               &loc, REMOTE_MODIFY);
+                            map->process_location = MAPPER_LOC_DESTINATION;
                         }
                         int should_compile = 0;
                         if (map->process_location == MAPPER_LOC_DESTINATION) {
@@ -1398,23 +1398,28 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                             }
                         }
                         if (should_compile) {
-                            if (!replace_expression_string(map, expr_str))
+                            if (!replace_expression_string(map, expr_str)) {
                                 reallocate_map_histories(map);
+                            }
                             else {
-                                updated += mapper_table_set_record(map->props,
-                                                                   AT_EXPRESSION,
-                                                                   NULL, 1, 's',
-                                                                   expr_str,
-                                                                   REMOTE_MODIFY);
+                                // restore original process location
+                                map->process_location = orig_loc;
+                                break;
                             }
                         }
                     }
-                    else {
+                    if (orig_loc != map->process_location) {
+                        mapper_location loc = map->process_location;
+                        map->process_location = orig_loc;
                         updated += mapper_table_set_record(map->props,
-                                                           AT_EXPRESSION, NULL,
-                                                           1, 's', expr_str,
-                                                           REMOTE_MODIFY);
+                                                           AT_PROCESS_LOCATION,
+                                                           NULL, 1, 'i',
+                                                           &loc, REMOTE_MODIFY);
                     }
+                    updated += mapper_table_set_record(map->props,
+                                                       AT_EXPRESSION, NULL,
+                                                       1, 's', expr_str,
+                                                       REMOTE_MODIFY);
                 }
                 break;
             case AT_SCOPE:
@@ -1432,6 +1437,8 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                 break;
             case AT_MODE: {
                 int mode = mapper_mode_from_string(&(atom->values[0])->s);
+                if (map->local && mode == MAPPER_MODE_UNDEFINED)
+                    break;
                 updated += mapper_table_set_record(map->props, AT_MODE, NULL,
                                                    1, 'i', &mode, REMOTE_MODIFY);
                 break;

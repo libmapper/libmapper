@@ -1896,14 +1896,63 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         return 0;
 
     // check the map's id
-    for (i = 0; i < argc; i++) {
+    for (i = 3; i < argc; i++) {
         if (types[i] != 's' && types[i] != 'S')
-            return 0;
+            continue;
         if (strcmp(&argv[i]->s, "@id")==0)
             break;
     }
     if (i < argc && types[++i] == 'h')
         map = mapper_database_map_by_id(dev->database, argv[i]->i64);
+    else {
+        // try to find map by signal names
+        mapper_signal local_signal = 0;
+        int num_sources, src_index, dest_index, prop_index;
+        const char *local_signal_name;
+        num_sources = parse_signal_names(types, argv, argc, &src_index,
+                                         &dest_index, &prop_index);
+        if (!num_sources)
+            return 0;
+        if (!is_alphabetical(num_sources, &argv[src_index])) {
+            trace("error in /map/modify: signal names out of order.");
+            return 0;
+        }
+        const char *src_names[num_sources];
+        for (i = 0; i < num_sources; i++) {
+            src_names[i] = &argv[src_index+i]->s;
+        }
+        // check if we are the destination
+        if (prefix_cmp(&argv[dest_index]->s, mapper_device_name(dev),
+                       &local_signal_name)==0) {
+            local_signal = mapper_device_signal_by_name(dev, local_signal_name);
+            if (!local_signal) {
+                trace("<%s> no signal found with name '%s'.\n",
+                      mapper_device_name(dev), local_signal_name);
+            }
+            map = mapper_router_find_incoming_map(dev->local->router, local_signal,
+                                                  num_sources, src_names);
+        }
+        else {
+            // check if we are a source – all sources must match!
+            for (i = 0; i < num_sources; i++) {
+                if (prefix_cmp(src_names[i], mapper_device_name(dev),
+                               &local_signal_name)) {
+                    local_signal = 0;
+                    break;
+                }
+                local_signal = mapper_device_signal_by_name(dev, local_signal_name);
+                if (!local_signal) {
+                    trace("<%s> no signal found with name '%s'.\n",
+                          mapper_device_name(dev), local_signal_name);
+                    break;
+                }
+            }
+            if (local_signal)
+                map = mapper_router_find_outgoing_map(dev->local->router, local_signal,
+                                                      num_sources, src_names,
+                                                      &argv[dest_index]->s);
+        }
+    }
 
 #ifdef DEBUG
     printf("-- <%s> %s /map/modify", mapper_device_name(dev),
@@ -1928,6 +1977,14 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         if (!map->local->one_source) {
             /* if map has sources from different remote devices, processing must
              * occur at the destination. */
+            loc = MAPPER_LOC_DESTINATION;
+        }
+        else if ((atom = mapper_message_property(props, AT_EXPRESSION))) {
+            if (strstr(&atom->values[0]->s, "y={-")) {
+                loc = MAPPER_LOC_DESTINATION;
+            }
+        }
+        else if (map->expression && strstr(map->expression, "y{-")) {
             loc = MAPPER_LOC_DESTINATION;
         }
     }
