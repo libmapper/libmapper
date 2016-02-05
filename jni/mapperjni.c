@@ -1750,7 +1750,14 @@ JNIEXPORT void JNICALL Java_mapper_map_Query_mapperMapQueryDone
 
 /**** mapper_Map_Slot.h ****/
 
-JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_property
+JNIEXPORT jint JNICALL Java_mapper_Map_00024Slot_numProperties
+  (JNIEnv *env, jobject obj)
+{
+    mapper_slot slot = get_slot_from_jobject(env, obj);
+    return slot ? mapper_slot_num_properties(slot) : 0;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_property__Ljava_lang_String_2
   (JNIEnv *env, jobject obj, jstring key)
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
@@ -1765,6 +1772,25 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_property
 
     (*env)->ReleaseStringUTFChars(env, key, ckey);
     return o;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_property__I
+  (JNIEnv *env, jobject obj, jint index)
+{
+    mapper_slot slot = get_slot_from_jobject(env, obj);
+    const char *key = 0;
+    char type;
+    int length;
+    const void *value;
+    jobject val = 0, prop = 0;
+
+    if (mapper_slot_property_index(slot, index, &key, &length, &type, &value))
+        return 0;
+
+    val = build_Value(env, length, type, value);
+    prop = build_Property(env, key, val);
+
+    return prop;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setProperty
@@ -1963,7 +1989,14 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_push
     return obj;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Map_property
+JNIEXPORT jint JNICALL Java_mapper_Map_numProperties
+  (JNIEnv *env, jobject obj)
+{
+    mapper_map map = get_map_from_jobject(env, obj);
+    return map ? mapper_map_num_properties(map) : 0;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Map_property__Ljava_lang_String_2
   (JNIEnv *env, jobject obj, jstring key)
 {
     mapper_map map = get_map_from_jobject(env, obj);
@@ -1978,6 +2011,25 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_property
 
     (*env)->ReleaseStringUTFChars(env, key, ckey);
     return o;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Map_property__I
+  (JNIEnv *env, jobject obj, jint index)
+{
+    mapper_map map = get_map_from_jobject(env, obj);
+    const char *key = 0;
+    char type;
+    int length;
+    const void *value;
+    jobject val = 0, prop = 0;
+
+    if (mapper_map_property_index(map, index, &key, &length, &type, &value))
+        return 0;
+
+    val = build_Value(env, length, type, value);
+    prop = build_Property(env, key, val);
+
+    return prop;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Map_setProperty
@@ -2860,7 +2912,14 @@ JNIEXPORT jint JNICALL Java_mapper_Signal_queryRemotes
     return mapper_signal_query_remotes(sig, ptt ? *ptt : MAPPER_NOW);
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Signal_property
+JNIEXPORT jint JNICALL Java_mapper_Signal_numProperties
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    return sig ? mapper_signal_num_properties(sig) : 0;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Signal_property__Ljava_lang_String_2
   (JNIEnv *env, jobject obj, jstring key)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
@@ -2875,6 +2934,25 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_property
 
     (*env)->ReleaseStringUTFChars(env, key, ckey);
     return o;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Signal_property__I
+  (JNIEnv *env, jobject obj, jint index)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    const char *key = 0;
+    char type;
+    int length;
+    const void *value;
+    jobject val = 0, prop = 0;
+
+    if (mapper_signal_property_index(sig, index, &key, &length, &type, &value))
+        return 0;
+
+    val = build_Value(env, length, type, value);
+    prop = build_Property(env, key, val);
+
+    return prop;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Signal_setProperty

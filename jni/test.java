@@ -25,18 +25,26 @@ class test {
 
         db.addDeviceListener(new DeviceListener() {
             public void onEvent(Device dev, mapper.database.Event event) {
-                System.out.println("db onEvent("+event+") for device "+dev.name());
+                System.out.println("db record "+event+" for device "+dev.name());
+                for (int i = 0; i < dev.numProperties(); i++) {
+                    Property p = dev.property(i);
+                    System.out.println("  " + p.name + ": " + p.value);
+                }
             }});
 
         db.addSignalListener(new SignalListener() {
             public void onEvent(Signal sig, mapper.database.Event event) {
-                System.out.println("db onEvent("+event+") for signal "
+                System.out.println("db record "+event+" for signal "
                                    +sig.device().name()+":"+sig.name());
+                for (int i = 0; i < sig.numProperties(); i++) {
+                    Property p = sig.property(i);
+                    System.out.println("  " + p.name + ": " + p.value);
+                }
             }});
 
         db.addMapListener(new MapListener() {
             public void onEvent(Map map, mapper.database.Event event) {
-                System.out.print("db onEvent("+event+") for map ");
+                System.out.print("db record "+event+" for map ");
                 for (int i = 0; i < map.numSources(); i++) {
                     Map.Slot slot = map.sources[i];
                     System.out.print(slot.signal().device().name()
@@ -44,8 +52,11 @@ class test {
                 }
                 Map.Slot slot = map.destination;
                 System.out.println("-> "+slot.signal().device().name()+":"
-                                   +slot.signal().name()
-                                   +" @expr "+map.expression());
+                                   +slot.signal().name());
+                for (int i = 0; i < map.numProperties(); i++) {
+                    Property p = map.property(i);
+                    System.out.println("  " + p.name + ": " + p.value);
+                }
             }});
 
         Signal inp1 = dev1.addInputSignal("insig1", 1, 'f', "Hz",

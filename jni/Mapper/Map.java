@@ -14,9 +14,17 @@ public class Map
         }
 
         /* properties */
+        public native int numProperties();
         public native Value property(String property);
+        public native Property property(int index);
         public native Slot setProperty(String property, Value p);
+        public Slot setProperty(Property prop) {
+            return setProperty(prop.name, prop.value);
+        }
         public native Slot removeProperty(String property);
+        public Slot removeProperty(Property prop) {
+            return removeProperty(prop.name);
+        }
 
         private native int mapperSlotBoundMax(long slot);
         public BoundaryAction boundMax() {
@@ -105,9 +113,17 @@ public class Map
     public native Map push();
 
     /* properties */
+    public native int numProperties();
     public native Value property(String property);
+    public native Property property(int index);
     public native Map setProperty(String property, Value p);
+    public Map setProperty(Property prop) {
+        return setProperty(prop.name, prop.value);
+    }
     public native Map removeProperty(String property);
+    public Map removeProperty(Property prop) {
+        return removeProperty(prop.name);
+    }
 
     /* property: expression */
     public native String expression();

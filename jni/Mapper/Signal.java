@@ -245,9 +245,17 @@ public class Signal
     public int queryRemotes() { return queryRemotes(null); };
 
     /* property */
+    public native int numProperties();
     public native Value property(String property);
+    public native Property property(int index);
     public native Signal setProperty(String property, Value p);
+    public Signal setProperty(Property prop) {
+        return setProperty(prop.name, prop.value);
+    }
     public native Signal removeProperty(String property);
+    public Signal removeProperty(Property prop) {
+        return removeProperty(prop.name);
+    }
 
     /* property: direction */
     private native int direction(long sig);
