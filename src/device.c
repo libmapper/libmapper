@@ -263,6 +263,7 @@ void mapper_device_registered(mapper_device dev)
                     (*sig)->local->id_maps[i].map->global |= dev->id;
                 }
             }
+            (*sig)->id |= dev->id;
         }
         sig = mapper_signal_query_next(sig);
     }
@@ -876,10 +877,9 @@ mapper_signal mapper_device_add_signal(mapper_device dev,
     sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
 
     sig->device = dev;
+    sig->id = get_unused_signal_id(dev);
     mapper_signal_init(sig, name, length, type, dir, unit, minimum, maximum,
                        handler, user_data);
-
-    sig->id = get_unused_signal_id(dev);
 
     if (dir == MAPPER_DIR_INCOMING)
         dev->num_inputs++;
@@ -1055,8 +1055,7 @@ mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir)
         return 0;
     return ((mapper_signal *)
             mapper_list_new_query(dev->database->signals,
-                                  cmp_query_device_signals, "hi",
-                                  dev->name ? dev->id : 0, dir));
+                                  cmp_query_device_signals, "hi", dev->id, dir));
 }
 
 mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id)
@@ -1527,7 +1526,12 @@ void mapper_device_now(mapper_device dev, mapper_timetag_t *timetag)
 }
 
 mapper_id mapper_device_unique_id(mapper_device dev) {
-    return ++dev->database->resource_counter | dev->id;
+    if (!dev)
+        return 0;
+    mapper_id id = ++dev->database->resource_counter;
+    if (dev->local && dev->local->registered)
+        id |= dev->id;
+    return id;
 }
 
 void mapper_device_send_state(mapper_device dev, int flags)
