@@ -219,6 +219,13 @@ int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
                              char type, const void *value)
 {
     mapper_property_t prop = mapper_property_from_string(name);
+    if (prop == AT_BOUND_MAX || prop == AT_BOUND_MIN) {
+        if (type != 'i' || length != 1 || !value)
+            return 0;
+        int bound = *(int*)value;
+        if (bound < MAPPER_BOUND_UNDEFINED || bound >= NUM_MAPPER_BOUNDARY_ACTIONS)
+            return 0;
+    }
     prop = slot_prop_index(slot, prop);
     return mapper_table_set_record(slot->staged_props, prop, name, length, type,
                                    value, REMOTE_MODIFY);
@@ -511,9 +518,13 @@ void mapper_slot_pp(mapper_slot slot)
         die_unless(val!=0, "returned zero value\n");
         if (length) {
             printf(", %s=", key);
-            if (strncmp(key, "bound", 5)==0)
-                printf("%s", mapper_boundary_action_strings[*((int*)val)]
-                       ?: "undefined");
+            if (strncmp(key, "bound", 5)==0) {
+                int bound = *(int*)val;
+                if (bound > 0 && bound < NUM_MAPPER_BOUNDARY_ACTIONS)
+                    printf("%s", mapper_boundary_action_strings[bound]);
+                else
+                    printf("undefined");
+            }
             else
                 mapper_property_pp(length, type, val);
         }
