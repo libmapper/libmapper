@@ -1175,6 +1175,8 @@ static int handler_signal_info(const char *path, const char *types,
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen]=0;
 
+    trace("<network> got /signal %s:%s\n", devname, signamep);
+
     mapper_message props = mapper_message_parse_properties(argc-1, &types[1],
                                                            &argv[1]);
     mapper_database_add_or_update_signal(&net->database, signamep, devname, props);
@@ -1205,6 +1207,8 @@ static int handler_signal_removed(const char *path, const char *types,
     char devname[1024];
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen]=0;
+
+    trace("<network> got /signal/removed %s:%s\n", devname, signamep);
 
     mapper_database_remove_signal_by_name(&net->database, devname, signamep);
 
