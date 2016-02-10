@@ -595,7 +595,7 @@ int run_tests()
         return 1;
     eprintf("Expected: ->2\n");
 
-    /* Functions with memory: schmidt() */
+    /* Functions with memory: schmitt() */
     snprintf(str, 256, "y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
     setup_test('i', 1, src_int, 'f', 1, dest_float);
     if (parse_and_eval(EXPECT_SUCCESS))

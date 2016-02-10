@@ -987,7 +987,7 @@ void mapper_network_send_message(mapper_network net, const char *path,
  *  \param num_sources  The number of source signals in this map.
  *  \param sources      Array of source signal data structures.
  *  \param destination  Destination signal data structure.
- *  \return             A map data structure – either loaded from the db
+ *  \return             A map data structure – either loaded from the database
  *                      (if the map already existed) or newly created. In the
  *                      latter case the map will not take effect until it has
  *                      been added to the network using mapper_map_push(). */
@@ -1422,14 +1422,14 @@ void mapper_slot_print(mapper_slot slot);
 
 /* @} */
 
-/***** Db *****/
+/***** Database *****/
 
-/*! @defgroup db Dbs
+/*! @defgroup database Databases
 
-    @{ Dbs are the primary interface through which a program may observe the
-       network and store information about devices and signals that are present.
-       Each Db has a database of devices, signals, and maps, which can be
-       queried. */
+    @{ Databases are the primary interface through which a program may observe
+       the network and store information about devices and signals that are
+       present.  Each Database has a database of devices, signals, and maps,
+       which can be queried. */
 
 /*! Create a peer in the libmapper distributed database.
  *  \param net                  A previously allocated network structure to use.
@@ -1449,7 +1449,8 @@ mapper_database mapper_database_new(mapper_network net, int autosubscribe_flags)
  *  \return         The number of handled messages. */
 int mapper_database_poll(mapper_database db, int block_ms);
 
-/*! Free a database. */
+/*! Free a database.
+ *  \param db       The database to free. */
 void mapper_database_free(mapper_database db);
 
 /*! Subscribe to information about a specific device.
@@ -1494,10 +1495,11 @@ mapper_network mapper_database_network(mapper_database db);
  *  \param db       The database to flush.
  *  \param timeout  The number of seconds a device must have been unresponsive
  *                  before removal.
- *  \param quiet    1 to disable callbacks during db flush, 0 otherwise. */
+ *  \param quiet    1 to disable callbacks during flush, 0 otherwise. */
 void mapper_database_flush(mapper_database db, int timeout, int quiet);
 
-/*! Send a requestfor all active devices to report in. */
+/*! Send a request to the network for all active devices to report in.
+ *  \param          The database to use. */
 void mapper_database_request_devices(mapper_database db);
 
 /*! A callback function prototype for when a device record is added or updated.
