@@ -169,8 +169,8 @@ void on_map(mapper_map map, mapper_record_action a, const void *user)
     int i;
     printf("Map ");
     for (i = 0; i < map->num_sources; i++)
-        printf("%s/%s ", map->sources[i].signal->device->name,
-               map->sources[i].signal->name);
+        printf("%s/%s ", map->sources[i]->signal->device->name,
+               map->sources[i]->signal->name);
     printf("-> %s/%s ", map->destination.signal->device->name,
            map->destination.signal->name);
     switch (a) {

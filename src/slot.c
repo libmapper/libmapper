@@ -63,7 +63,7 @@ int mapper_slot_index(mapper_slot slot)
         return 0;
     int i;
     for (i = 0; i < slot->map->num_sources; i++) {
-        if (slot == &slot->map->sources[i])
+        if (slot == slot->map->sources[i])
             return i;
     }
     return -1;
@@ -154,7 +154,7 @@ static int slot_prop_index(mapper_slot slot, mapper_property_t prop)
             index = prop | SRC_SLOT_PROPERTY(0);
         else {
             for (i = 0; i < slot->map->num_sources; i++) {
-                if (&slot->map->sources[i] == slot) {
+                if (slot->map->sources[i] == slot) {
                     index = prop | SRC_SLOT_PROPERTY(i);
                     break;
                 }

@@ -473,7 +473,7 @@ typedef struct _mapper_map_scope {
 typedef struct _mapper_map {
     mapper_database database;           //!< Pointer back to the database.
     mapper_map_internal local;
-    mapper_slot sources;
+    mapper_slot *sources;
     mapper_slot_t destination;
     mapper_id id;                       //!< Unique id identifying this map
 

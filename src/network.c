@@ -992,7 +992,7 @@ static int handler_device(const char *path, const char *types,
             mapper_map map = rs->slots[i]->map;
             if (rs->slots[i]->direction == MAPPER_DIR_OUTGOING) {
                 // only send /mapTo once even if we have multiple local sources
-                if (map->local->one_source && (rs->slots[i] != &map->sources[0]))
+                if (map->local->one_source && (rs->slots[i] != map->sources[0]))
                     continue;
                 if (map->destination.local->link == link) {
                     mapper_network_set_dest_mesh(net, link->admin_addr);
@@ -1001,7 +1001,7 @@ static int handler_device(const char *path, const char *types,
             }
             else {
                 for (j = 0; j < map->num_sources; j++) {
-                    if (map->sources[j].local->link != link)
+                    if (map->sources[j]->local->link != link)
                         continue;
                     mapper_network_set_dest_mesh(net, link->admin_addr);
                     j = mapper_map_send_state(map,
@@ -1530,7 +1530,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         map->status = STATUS_ACTIVE;
         ++dev->num_outgoing_maps;
         ++dev->num_incoming_maps;
-//        ++map->sources[i].local->link->num_outgoing_maps;
+//        ++map->sources[i]->local->link->num_outgoing_maps;
 //        ++map->destination.local->link->num_incoming_maps;
 
         // Inform subscribers
@@ -1541,22 +1541,22 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         return 0;
     }
 
-    if (map->local->one_source && !map->sources[0].local->router_sig
-        && map->sources[0].local->link && map->sources[0].local->link->admin_addr) {
-        mapper_network_set_dest_mesh(net, map->sources[0].local->link->admin_addr);
+    if (map->local->one_source && !map->sources[0]->local->router_sig
+        && map->sources[0]->local->link && map->sources[0]->local->link->admin_addr) {
+        mapper_network_set_dest_mesh(net, map->sources[0]->local->link->admin_addr);
         mapper_map_send_state(map, -1, MSG_MAP_TO, STATIC_PROPS);
     }
     else {
         for (i = 0; i < num_sources; i++) {
             // do not send if is local mapping
-            if (map->sources[i].local->router_sig)
+            if (map->sources[i]->local->router_sig)
                 continue;
             // do not send if device host/port not yet known
-            if (!map->sources[i].local->link
-                || !map->sources[i].local->link->admin_addr)
+            if (!map->sources[i]->local->link
+                || !map->sources[i]->local->link->admin_addr)
                 continue;
             mapper_network_set_dest_mesh(net,
-                                         map->sources[i].local->link->admin_addr);
+                                         map->sources[i]->local->link->admin_addr);
             i = mapper_map_send_state(map, i, MSG_MAP_TO, STATIC_PROPS);
         }
     }
@@ -1695,7 +1695,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
         else {
             for (i = 0; i < map->num_sources; i++) {
                 mapper_network_set_dest_mesh(net,
-                                             map->sources[i].local->link->admin_addr);
+                                             map->sources[i]->local->link->admin_addr);
                 i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
                                           MSG_MAPPED, STATIC_PROPS);
             }
@@ -1844,7 +1844,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         else {
             for (i = 0; i < map->num_sources; i++) {
                 mapper_network_set_dest_mesh(net,
-                                             map->sources[i].local->link->admin_addr);
+                                             map->sources[i]->local->link->admin_addr);
                 i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
                                           MSG_MAPPED, STATIC_PROPS);
             }
@@ -1861,10 +1861,10 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             ++dev->num_incoming_maps;
             mapper_link link = 0;
             for (i = 0; i < map->num_sources; i++) {
-                if (!map->sources[i].local->link
-                    || map->sources[i].local->link == link)
+                if (!map->sources[i]->local->link
+                    || map->sources[i]->local->link == link)
                     continue;
-                link = map->sources[i].local->link;
+                link = map->sources[i]->local->link;
                 ++link->num_incoming_maps;
             }
         }
@@ -1997,7 +1997,7 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         }
     }
     else {
-        if (!map->sources[0].signal->local) {
+        if (!map->sources[0]->signal->local) {
             trace("<%s> ignoring /map/modify, slaved to remote device.\n",
                   mapper_device_name(dev));
             return 0;
@@ -2016,10 +2016,10 @@ static int handler_modify_map(const char *path, const char *types, lo_arg **argv
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
-                if (map->sources[i].local->router_sig)
+                if (map->sources[i]->local->router_sig)
                     continue;
                 mapper_network_set_dest_mesh(net,
-                                             map->sources[i].local->link->admin_addr);
+                                             map->sources[i]->local->link->admin_addr);
                 i = mapper_map_send_state(map, i, MSG_MAPPED, STATIC_PROPS);
             }
         }
@@ -2124,10 +2124,10 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     }
     else {
         for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i].local->router_sig)
+            if (map->sources[i]->local->router_sig)
                 continue;
             mapper_network_set_dest_mesh(net,
-                                         map->sources[i].local->link->admin_addr);
+                                         map->sources[i]->local->link->admin_addr);
             i = mapper_map_send_state(map, i, MSG_UNMAP, 0);
         }
     }

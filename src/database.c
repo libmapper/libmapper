@@ -691,11 +691,11 @@ void mapper_database_remove_signals_by_query(mapper_database db,
 
 static int compare_slot_names(const void *l, const void *r)
 {
-    int result = strcmp(((mapper_slot)l)->signal->device->name,
-                        ((mapper_slot)r)->signal->device->name);
+    int result = strcmp((*(mapper_slot*)l)->signal->device->name,
+                        (*(mapper_slot*)r)->signal->device->name);
     if (result == 0)
-        return strcmp(((mapper_slot)l)->signal->name,
-                      ((mapper_slot)r)->signal->name);
+        return strcmp((*(mapper_slot*)l)->signal->name,
+                      (*(mapper_slot*)r)->signal->name);
     return result;
 }
 
@@ -732,9 +732,9 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         map->database = db;
         map->id = id;
         map->num_sources = num_sources;
-        map->sources = (mapper_slot) calloc(1, sizeof(struct _mapper_slot)
-                                            * num_sources);
+        map->sources = (mapper_slot*) malloc(sizeof(mapper_slot) * num_sources);
         for (i = 0; i < num_sources; i++) {
+            map->sources[i] = (mapper_slot) calloc(1, sizeof(struct _mapper_slot));
             devnamelen = mapper_parse_names(src_names[i], &devnamep, &signame);
             if (!devnamelen || devnamelen >= 256) {
                 trace("error extracting device name\n");
@@ -747,14 +747,14 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             devname[devnamelen] = 0;
 
             // also add source signal if necessary
-            map->sources[i].signal =
+            map->sources[i]->signal =
                 mapper_database_add_or_update_signal(db, signame, devname, 0);
-            map->sources[i].id = i;
-            map->sources[i].causes_update = 1;
-            map->sources[i].map = map;
-            if (map->sources[i].signal->local) {
-                map->sources[i].num_instances = map->sources[i].signal->num_instances;
-                map->sources[i].use_as_instance = map->sources[i].num_instances > 1;
+            map->sources[i]->id = i;
+            map->sources[i]->causes_update = 1;
+            map->sources[i]->map = map;
+            if (map->sources[i]->signal->local) {
+                map->sources[i]->num_instances = map->sources[i]->signal->num_instances;
+                map->sources[i]->use_as_instance = map->sources[i]->num_instances > 1;
             }
         }
         devnamelen = mapper_parse_names(dest_name, &devnamep, &signame);
@@ -781,8 +781,9 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         mapper_map_init(map);
         rc = 1;
     }
-    else if (map->num_sources < num_sources) {
-        // add one or more sources
+    else {
+        int changed = 0;
+        // may need to add sources to existing map
         for (i = 0; i < num_sources; i++) {
             devnamelen = mapper_parse_names(src_names[i], &devnamep, &signame);
             if (!devnamelen || devnamelen >= 256) {
@@ -792,35 +793,47 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             strncpy(devname, devnamep, devnamelen);
             devname[devnamelen] = 0;
             for (j = 0; j < map->num_sources; j++) {
-                if (strlen(map->sources[j].signal->device->name) == devnamelen
-                    && strcmp(devname, map->sources[j].signal->device->name)==0
-                    && strcmp(signame, map->sources[j].signal->name)==0) {
-                    map->sources[j].id = i;
+                if (strlen(map->sources[j]->signal->device->name) == devnamelen
+                    && strcmp(devname, map->sources[j]->signal->device->name)==0
+                    && strcmp(signame, map->sources[j]->signal->name)==0) {
+                    map->sources[j]->id = i;
                     break;
                 }
             }
             if (j == map->num_sources) {
+                ++changed;
                 map->num_sources++;
                 map->sources = realloc(map->sources, sizeof(struct _mapper_slot)
                                        * map->num_sources);
-                map->sources[j].signal =
+                map->sources[j] = (mapper_slot) calloc(1, sizeof(struct _mapper_slot));
+                map->sources[j]->direction = MAPPER_DIR_OUTGOING;
+                map->sources[j]->signal =
                     mapper_database_add_or_update_signal(db, signame, devname, 0);
-                map->sources[j].id = i;
-                map->sources[j].causes_update = 1;
-                if (map->sources[j].signal->local) {
-                    map->sources[j].num_instances = map->sources[j].signal->num_instances;
-                    map->sources[j].use_as_instance = map->sources[j].num_instances > 1;
+                map->sources[j]->causes_update = 1;
+                map->sources[j]->map = map;
+                if (map->sources[j]->signal->local) {
+                    map->sources[j]->num_instances = map->sources[j]->signal->num_instances;
+                    map->sources[j]->use_as_instance = map->sources[j]->num_instances > 1;
                 }
+                mapper_slot_init(map->sources[j]);
+                rc = 1;
             }
         }
-        // slots should be in alphabetical order
-        qsort(map->sources, map->num_sources,
-              sizeof(mapper_slot_t), compare_slot_names);
+        if (changed) {
+            // slots should be in alphabetical order
+            qsort(map->sources, map->num_sources, sizeof(mapper_slot),
+                  compare_slot_names);
+            // fix slot ids
+            for (i = 0; i < num_sources; i++)
+                map->sources[i]->id = i;
+        }
     }
 
     if (map) {
         updated = mapper_map_set_from_message(map, props, 0);
 
+        if (map->status < STATUS_ACTIVE)
+            return map;
         if (rc || updated) {
             fptr_list cb = db->map_callbacks;
             while (cb) {
@@ -952,8 +965,8 @@ static int cmp_query_maps_by_slot_property(const void *context_data,
     }
     if (!direction || direction & MAPPER_DIR_OUTGOING) {
         for (i = 0; i < map->num_sources; i++) {
-            if (!mapper_slot_property(&map->sources[i], name, &length2,
-                                      &type2, &value2)
+            if (!mapper_slot_property(map->sources[i], name, &length2, &type2,
+                                      &value2)
                 && type1 == type2 && length1 == length2
                 && compare_value(op, length1, type1, value2, value1))
                 return 1;

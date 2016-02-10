@@ -591,7 +591,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 char typestring[map->destination.signal->length];
                 mapper_history sources[map->num_sources];
                 for (j = 0; j < map->num_sources; j++)
-                    sources[j] = &map->sources[j].local->history[id];
+                    sources[j] = &map->sources[j]->local->history[id];
                 if (!mapper_expr_evaluate(map->local->expr, sources,
                                           &map->local->expr_vars[id],
                                           &map->destination.local->history[id],
@@ -976,8 +976,8 @@ static void send_unmap(mapper_network net, mapper_map map)
     int i, len = 0, result;
     for (i = 0; i < map->num_sources; i++) {
         result = snprintf(&source_names[len], 1024-len, "%s%s",
-                          map->sources[i].signal->device->name,
-                          map->sources[i].signal->path);
+                          map->sources[i]->signal->device->name,
+                          map->sources[i]->signal->path);
         if (result < 0 || (len + result + 1) >= 1024) {
             trace("Error encoding sources for /unmap msg");
             lo_message_free(m);
@@ -1128,7 +1128,7 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
     if (!direction || (direction & MAPPER_DIR_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i].signal->device->id == dev_id)
+            if (map->sources[i]->signal->device->id == dev_id)
             return 1;
         }
     }

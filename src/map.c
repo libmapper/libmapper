@@ -76,7 +76,7 @@ void mapper_map_init(mapper_map map)
 
     int i;
     for (i = 0; i < map->num_sources; i++)
-        mapper_slot_init(&map->sources[i]);
+        mapper_slot_init(map->sources[i]);
     mapper_slot_init(&map->destination);
 }
 
@@ -93,10 +93,10 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
     mapper_database db = destination->device->database;
 
     // check if record of map already exists
+    mapper_signal sig;
     mapper_map map, *maps, *temp;
     maps = mapper_signal_maps(destination, MAPPER_DIR_INCOMING);
     if (maps) {
-        mapper_signal sig;
         for (i = 0; i < num_sources; i++) {
             sig = mapper_database_signal_by_id(db, mapper_signal_id(sources[i]));
             if (sig) {
@@ -129,26 +129,26 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
                                            sizeof(mapper_map_t));
     map->database = db;
     map->num_sources = num_sources;
-    map->sources = (mapper_slot) calloc(1, sizeof(struct _mapper_slot)
-                                        * num_sources);
+    map->sources = (mapper_slot*) malloc(sizeof(mapper_slot) * num_sources);
     for (i = 0; i < num_sources; i++) {
+        map->sources[i] = (mapper_slot)calloc(1, sizeof(struct _mapper_slot));
         if (sources[order[i]]->device->local == ldev) {
-            map->sources[i].signal = sources[order[i]];
+            sig = sources[order[i]];
         }
         else {
-            map->sources[i].signal =
-                mapper_database_add_or_update_signal(db, sources[order[i]]->name,
-                                                     sources[order[i]]->device->name, 0);
-            if (!map->sources[i].signal->id) {
-                map->sources[i].signal->id = sources[order[i]]->id;
-                map->sources[i].signal->direction = sources[order[i]]->direction;
+            sig = mapper_database_add_or_update_signal(db, sources[order[i]]->name,
+                                                       sources[order[i]]->device->name, 0);
+            if (!sig->id) {
+                sig->id = sources[order[i]]->id;
+                sig->direction = sources[order[i]]->direction;
             }
-            if (!map->sources[i].signal->device->id) {
-                map->sources[i].signal->device->id = sources[order[i]]->device->id;
+            if (!sig->device->id) {
+                sig->device->id = sources[order[i]]->device->id;
             }
         }
-        map->sources[i].map = map;
-        map->sources[i].id = i;
+        map->sources[i]->signal = sig;
+        map->sources[i]->map = map;
+        map->sources[i]->id = i;
     }
     map->destination.signal = destination;
     map->destination.map = map;
@@ -206,7 +206,8 @@ void mapper_map_free(mapper_map map)
     int i;
     if (map->sources) {
         for (i = 0; i < map->num_sources; i++) {
-            mapper_slot_free(&map->sources[i]);
+            mapper_slot_free(map->sources[i]);
+            free(map->sources[i]);
         }
         free(map->sources);
     }
@@ -241,7 +242,7 @@ mapper_slot mapper_map_source_slot(mapper_map map, int index)
 {
     if (index < 0 || index >= map->num_sources)
         return 0;
-    return &map->sources[index];
+    return map->sources[index];
 }
 
 mapper_slot mapper_map_destination_slot(mapper_map map)
@@ -255,8 +256,8 @@ mapper_slot mapper_map_slot_by_signal(mapper_map map, mapper_signal sig)
     if (map->destination.signal->id == sig->id)
         return &map->destination;
     for (i = 0; i < map->num_sources; i++) {
-        if (map->sources[i].signal->id == sig->id)
-            return &map->sources[i];
+        if (map->sources[i]->signal->id == sig->id)
+            return map->sources[i];
     }
     return 0;
 }
@@ -657,7 +658,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                mapper_history_tt_ptr(from[instance]),
                sizeof(mapper_timetag_t));
         for (i = 0; i < from->length; i++)
-            typestring[i] = map->sources[0].signal->type;
+            typestring[i] = map->sources[0]->signal->type;
         return 1;
     }
 
@@ -668,7 +669,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
 
     mapper_history sources[map->num_sources];
     for (i = 0; i < map->num_sources; i++)
-        sources[i] = &map->sources[i].local->history[instance];
+        sources[i] = &map->sources[i]->local->history[instance];
     return (mapper_expr_evaluate(map->local->expr, sources,
                                  &map->local->expr_vars[instance],
                                  &to[instance],
@@ -919,8 +920,8 @@ static int replace_expression_string(mapper_map map, const char *expr_str)
     char source_types[map->num_sources];
     int source_lengths[map->num_sources];
     for (i = 0; i < map->num_sources; i++) {
-        source_types[i] = map->sources[i].signal->type;
-        source_lengths[i] = map->sources[i].signal->length;
+        source_types[i] = map->sources[i]->signal->type;
+        source_lengths[i] = map->sources[i]->signal->length;
     }
     mapper_expr expr = mapper_expr_new_from_string(expr_str,
                                                    map->num_sources,
@@ -976,17 +977,17 @@ static int mapper_map_set_mode_linear(mapper_map map)
     char expr[256] = "";
     const char *e = expr;
 
-    if (   !map->sources[0].minimum  || !map->sources[0].maximum
+    if (   !map->sources[0]->minimum  || !map->sources[0]->maximum
         || !map->destination.minimum || !map->destination.maximum)
         return 1;
 
-    int min_length = map->sources[0].signal->length < map->destination.signal->length ?
-                     map->sources[0].signal->length : map->destination.signal->length;
+    int min_length = map->sources[0]->signal->length < map->destination.signal->length ?
+                     map->sources[0]->signal->length : map->destination.signal->length;
     double src_min, src_max, dest_min, dest_max;
 
-    if (map->destination.signal->length == map->sources[0].signal->length)
+    if (map->destination.signal->length == map->sources[0]->signal->length)
         snprintf(expr, 256, "y=x*");
-    else if (map->destination.signal->length > map->sources[0].signal->length) {
+    else if (map->destination.signal->length > map->sources[0]->signal->length) {
         if (min_length == 1)
             snprintf(expr, 256, "y[0]=x*");
         else
@@ -1006,10 +1007,10 @@ static int mapper_map_set_mode_linear(mapper_map map)
 
     for (i = 0; i < min_length; i++) {
         // get multiplier
-        src_min = propval_double(map->sources[0].minimum,
-                                 map->sources[0].signal->type, i);
-        src_max = propval_double(map->sources[0].maximum,
-                                 map->sources[0].signal->type, i);
+        src_min = propval_double(map->sources[0]->minimum,
+                                 map->sources[0]->signal->type, i);
+        src_max = propval_double(map->sources[0]->maximum,
+                                 map->sources[0]->signal->type, i);
         len = strlen(expr);
         if (src_min == src_max)
             snprintf(expr+len, 256-len, "0,");
@@ -1035,10 +1036,10 @@ static int mapper_map_set_mode_linear(mapper_map map)
 
     // add offset
     for (i = 0; i < min_length; i++) {
-        src_min = propval_double(map->sources[0].minimum,
-                                 map->sources[0].signal->type, i);
-        src_max = propval_double(map->sources[0].maximum,
-                                 map->sources[0].signal->type, i);
+        src_min = propval_double(map->sources[0]->minimum,
+                                 map->sources[0]->signal->type, i);
+        src_max = propval_double(map->sources[0]->maximum,
+                                 map->sources[0]->signal->type, i);
 
         len = strlen(expr);
         if (src_min == src_max)
@@ -1074,7 +1075,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
-                if (map->sources[i].local->router_sig)
+                if (map->sources[i]->local->router_sig)
                     should_compile = 1;
             }
         }
@@ -1105,7 +1106,7 @@ static void mapper_map_set_mode_expression(mapper_map map, const char *expr)
     }
     else {
         for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i].local->router_sig)
+            if (map->sources[i]->local->router_sig)
                 should_compile = 1;
         }
     }
@@ -1130,7 +1131,7 @@ static void mapper_map_set_mode_expression(mapper_map map, const char *expr)
     /* TODO: should call handler for all instances updated through this map. */
     int use_as_instance = 0;
     for (i = 0; i < map->num_sources; i++) {
-        if (map->sources[i].use_as_instance) {
+        if (map->sources[i]->use_as_instance) {
             use_as_instance = 1;
             break;
         }
@@ -1195,10 +1196,10 @@ static void apply_mode(mapper_map map)
             if (!map->expression) {
                 char expr_str[256] = "";
                 if (map->num_sources == 1) {
-                    if (map->sources[0].signal->length == map->destination.signal->length)
+                    if (map->sources[0]->signal->length == map->destination.signal->length)
                         snprintf(expr_str, 256, "y=x");
                     else {
-                        if (map->sources[0].signal->length > map->destination.signal->length) {
+                        if (map->sources[0]->signal->length > map->destination.signal->length) {
                             // truncate source
                             if (map->destination.signal->length == 1)
                                 snprintf(expr_str, 256, "y=x[0]");
@@ -1208,11 +1209,11 @@ static void apply_mode(mapper_map map)
                         }
                         else {
                             // truncate destination
-                            if (map->sources[0].signal->length == 1)
+                            if (map->sources[0]->signal->length == 1)
                                 snprintf(expr_str, 256, "y[0]=x");
                             else
                                 snprintf(expr_str, 256, "y[0:%i]=x",
-                                         map->sources[0].signal->length-1);
+                                         map->sources[0]->signal->length-1);
                         }
                     }
                 }
@@ -1220,10 +1221,10 @@ static void apply_mode(mapper_map map)
                     // check vector lengths
                     int i, j, max_vec_len = 0, min_vec_len = INT_MAX;
                     for (i = 0; i < map->num_sources; i++) {
-                        if (map->sources[i].signal->length > max_vec_len)
-                            max_vec_len = map->sources[i].signal->length;
-                        if (map->sources[i].signal->length < min_vec_len)
-                            min_vec_len = map->sources[i].signal->length;
+                        if (map->sources[i]->signal->length > max_vec_len)
+                            max_vec_len = map->sources[i]->signal->length;
+                        if (map->sources[i]->signal->length < min_vec_len)
+                            min_vec_len = map->sources[i]->signal->length;
                     }
                     int offset = 0, dest_vec_len;
                     if (max_vec_len < map->destination.signal->length) {
@@ -1237,16 +1238,16 @@ static void apply_mode(mapper_map map)
                         dest_vec_len = map->destination.signal->length;
                     }
                     for (i = 0; i < map->num_sources; i++) {
-                        if (map->sources[i].signal->length > dest_vec_len) {
+                        if (map->sources[i]->signal->length > dest_vec_len) {
                             snprintf(expr_str + offset, 256 - offset,
                                      "x%d[0:%d]+", i, dest_vec_len-1);
                             offset = strlen(expr_str);
                         }
-                        else if (map->sources[i].signal->length < dest_vec_len) {
+                        else if (map->sources[i]->signal->length < dest_vec_len) {
                             snprintf(expr_str + offset, 256 - offset,
                                      "[x%d,0", i);
                             offset = strlen(expr_str);
-                            for (j = 1; j < dest_vec_len - map->sources[0].signal->length; j++) {
+                            for (j = 1; j < dest_vec_len - map->sources[0]->signal->length; j++) {
                                 snprintf(expr_str + offset, 256 - offset, ",0");
                                 offset += 2;
                             }
@@ -1290,21 +1291,21 @@ static int mapper_map_check_status(mapper_map map)
 
     int i;
     for (i = 0; i < map->num_sources; i++) {
-        if (map->sources[i].signal->length)
-            map->sources[i].local->status |= STATUS_LENGTH_KNOWN;
-        if (map->sources[i].signal->type)
-            map->sources[i].local->status |= STATUS_TYPE_KNOWN;
-        if (map->sources[i].local->router_sig
-            || (map->sources[i].local->link
-                && map->sources[i].local->link->remote_device->host))
-            map->sources[i].local->status |= STATUS_LINK_KNOWN;
-        map->status &= (map->sources[i].local->status | mask);
+        if (map->sources[i]->signal->length)
+            map->sources[i]->local->status |= STATUS_LENGTH_KNOWN;
+        if (map->sources[i]->signal->type)
+            map->sources[i]->local->status |= STATUS_TYPE_KNOWN;
+        if (map->sources[i]->local->router_sig
+            || (map->sources[i]->local->link
+                && map->sources[i]->local->link->remote_device->host))
+            map->sources[i]->local->status |= STATUS_LINK_KNOWN;
+        map->status &= (map->sources[i]->local->status | mask);
     }
 
     if (map->status == METADATA_OK) {
         // allocate memory for map history
         for (i = 0; i < map->num_sources; i++) {
-            init_slot_history(&map->sources[i]);
+            init_slot_history(map->sources[i]);
         }
         init_slot_history(&map->destination);
         if (!map->local->expr_vars) {
@@ -1335,7 +1336,7 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
         atom = mapper_message_property(msg, AT_SLOT);
         if (atom && atom->length == map->num_sources) {
             for (i = 0; i < map->num_sources; i++) {
-                map->sources[i].id = (atom->values[i])->i32;
+                map->sources[i]->id = (atom->values[i])->i32;
             }
         }
     }
@@ -1347,8 +1348,8 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
 
     // set source slot properties
     for (i = 0; i < map->num_sources; i++) {
-        updated += mapper_slot_set_from_message(&map->sources[i], msg,
-                                                SRC_SLOT_PROPERTY(map->sources[i].id),
+        updated += mapper_slot_set_from_message(map->sources[i], msg,
+                                                SRC_SLOT_PROPERTY(map->sources[i]->id),
                                                 &status);
     }
 
@@ -1393,7 +1394,7 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                         }
                         else {
                             for (j = 0; j < map->num_sources; j++) {
-                                if (map->sources[j].local->router_sig)
+                                if (map->sources[j]->local->router_sig)
                                     should_compile = 1;
                             }
                         }
@@ -1484,7 +1485,7 @@ void reallocate_map_histories(mapper_map map)
 
     // Reallocate source histories
     for (i = 0; i < map->num_sources; i++) {
-        slot = &map->sources[i];
+        slot = map->sources[i];
         islot = slot->local;
 
         history_size = mapper_expr_input_history_size(map->local->expr, i);
@@ -1704,21 +1705,21 @@ static const char *add_properties_to_message(mapper_map map, lo_message msg,
         && map->status < STATUS_READY && flags != UPDATED_PROPS) {
         lo_message_add_string(msg, mapper_protocol_string(AT_SLOT));
         i = (slot >= 0) ? slot : 0;
-        link = map->sources[i].local ? map->sources[i].local->link : 0;
+        link = map->sources[i]->local ? map->sources[i]->local->link : 0;
         for (; i < map->num_sources; i++) {
-            if ((slot >= 0) && link && (link != map->sources[i].local->link))
+            if ((slot >= 0) && link && (link != map->sources[i]->local->link))
                 break;
-            lo_message_add_int32(msg, map->sources[i].id);
+            lo_message_add_int32(msg, map->sources[i]->id);
         }
     }
 
     /* source properties */
     i = (slot >= 0) ? slot : 0;
-    link = map->sources[i].local ? map->sources[i].local->link : 0;
+    link = map->sources[i]->local ? map->sources[i]->local->link : 0;
     for (; i < map->num_sources; i++) {
-        if ((slot >= 0) && link && (link != map->sources[i].local->link))
+        if ((slot >= 0) && link && (link != map->sources[i]->local->link))
             break;
-        mapper_slot_add_props_to_message(msg, &map->sources[i], 0, &key_ptr,
+        mapper_slot_add_props_to_message(msg, map->sources[i], 0, &key_ptr,
                                          &size, flags);
     }
 
@@ -1754,13 +1755,13 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
     // add mapping sources
     int i = (slot >= 0) ? slot : 0;
     int len = 0, result;
-    mapper_link link = map->sources[i].local ? map->sources[i].local->link : 0;
+    mapper_link link = map->sources[i]->local ? map->sources[i]->local->link : 0;
     for (; i < map->num_sources; i++) {
-        if ((slot >= 0) && link && (link != map->sources[i].local->link))
+        if ((slot >= 0) && link && (link != map->sources[i]->local->link))
             break;
         result = snprintf(&source_names[len], 1024-len, "%s%s",
-                          map->sources[i].signal->device->name,
-                          map->sources[i].signal->path);
+                          map->sources[i]->signal->device->name,
+                          map->sources[i]->signal->path);
         if (result < 0 || (len + result + 1) >= 1024) {
             trace("Error encoding sources for combined /mapped msg");
             lo_message_free(msg);
@@ -1848,8 +1849,8 @@ void mapper_map_pp(mapper_map map)
     }
 
     for (i = 0; i < map->num_sources; i++) {
-        printf("%s/%s ", map->sources[i].signal->device->name,
-               map->sources[i].signal->name);
+        printf("%s/%s ", map->sources[i]->signal->device->name,
+               map->sources[i]->signal->name);
     }
     printf("-> %s/%s\n", map->destination.signal->device->name,
            map->destination.signal->name);

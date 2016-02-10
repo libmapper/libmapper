@@ -1238,7 +1238,7 @@ static int cmp_query_signal_maps(const void *context_data, mapper_map map)
     if (!direction || (direction & MAPPER_DIR_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i].signal == sig)
+            if (map->sources[i]->signal == sig)
             return 1;
         }
     }
