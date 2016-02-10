@@ -500,7 +500,7 @@ void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
     }
 }
 
-void mapper_slot_pp(mapper_slot slot)
+void mapper_slot_print(mapper_slot slot)
 {
     printf("%s/%s", slot->signal->device->name, slot->signal->name);
     int i = 0;
@@ -526,7 +526,7 @@ void mapper_slot_pp(mapper_slot slot)
                     printf("undefined");
             }
             else
-                mapper_property_pp(length, type, val);
+                mapper_property_print(length, type, val);
         }
     }
 }

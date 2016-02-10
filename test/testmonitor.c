@@ -33,13 +33,13 @@ void monitor_pause()
 void printdevice(mapper_device dev)
 {
     printf(" └─ ");
-    mapper_device_pp(dev);
+    mapper_device_print(dev);
 }
 
 void printmap(mapper_map map)
 {
     printf(" └─ ");
-    mapper_map_pp(map);
+    mapper_map_print(map);
 }
 
 /*! Creation of a local dummy device. */
@@ -97,14 +97,14 @@ void loop()
                 tempsig = *psig;
                 psig = mapper_signal_query_next(psig);
                 printf("    %s ", psig ? "├─" : "└─");
-                mapper_signal_pp(tempsig, 0);
+                mapper_signal_print(tempsig, 0);
             }
             psig = mapper_device_signals(tempdev, MAPPER_DIR_INCOMING);
             while (psig) {
                 tempsig = *psig;
                 psig = mapper_signal_query_next(psig);
                 printf("    %s ", psig ? "├─" : "└─");
-                mapper_signal_pp(tempsig, 0);
+                mapper_signal_print(tempsig, 0);
             }
         }
 

@@ -50,7 +50,7 @@ void on_map(mapper_map map, mapper_record_action action, const void *user)
 {
     if (verbose) {
         printf("Map: ");
-        mapper_map_pp(map);
+        mapper_map_print(map);
     }
 
     // we are looking for a map with one source (sendsig) and one dest (recvsig)

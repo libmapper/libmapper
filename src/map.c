@@ -1840,7 +1840,7 @@ void mapper_map_query_done(mapper_map *map)
     mapper_list_query_done((void**)map);
 }
 
-void mapper_map_pp(mapper_map map)
+void mapper_map_print(mapper_map map)
 {
     int i;
     if (!map) {
@@ -1856,11 +1856,11 @@ void mapper_map_pp(mapper_map map)
            map->destination.signal->name);
     for (i = 0; i < map->num_sources; i++) {
         printf("    source[%d]: ", i);
-        mapper_slot_pp(&map->sources[i]);
+        mapper_slot_print(map->sources[i]);
         printf("\n");
     }
     printf("    destination: ");
-    mapper_slot_pp(&map->destination);
+    mapper_slot_print(&map->destination);
     printf("\n    properties: ");
 
     i = 0;
@@ -1878,7 +1878,7 @@ void mapper_map_pp(mapper_map map)
             else if (strcmp(key, mapper_property_string(AT_PROCESS_LOCATION))==0)
                 printf("%s", mapper_location_string(*(int*)val) ?: "undefined");
             else
-                mapper_property_pp(length, type, val);
+                mapper_property_print(length, type, val);
             printf(", ");
         }
     }

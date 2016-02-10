@@ -1814,7 +1814,7 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     mapper_network_send(dev->database->network);
 }
 
-void mapper_device_pp(mapper_device dev)
+void mapper_device_print(mapper_device dev)
 {
     if (!dev) {
         printf("NULL\n");
@@ -1846,7 +1846,7 @@ void mapper_device_pp(mapper_device dev)
         }
         else if (len) {
             printf(", %s=", name);
-            mapper_property_pp(len, type, val);
+            mapper_property_print(len, type, val);
         }
     }
     printf("\n");

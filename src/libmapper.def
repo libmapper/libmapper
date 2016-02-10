@@ -59,7 +59,7 @@ EXPORTS
     mapper_device_ordinal                               @58
     mapper_device_poll                                  @59
     mapper_device_port                                  @60
-    mapper_device_pp                                    @61
+    mapper_device_print                                 @61
     mapper_device_property                              @62
     mapper_device_property_index                        @63
     mapper_device_push                                  @64
@@ -99,7 +99,7 @@ EXPORTS
     mapper_map_new                                      @98
     mapper_map_num_properties                           @99
     mapper_map_num_sources                              @100
-    mapper_map_pp                                       @101
+    mapper_map_print                                    @101
     mapper_map_process_location                         @102
     mapper_map_property                                 @103
     mapper_map_property_index                           @104
@@ -135,7 +135,7 @@ EXPORTS
     mapper_network_now                                  @134
     mapper_network_port                                 @135
     mapper_network_send_message                         @136
-    mapper_property_pp                                  @137
+    mapper_property_print                               @137
     mapper_signal_active_instance_id                    @138
     mapper_signal_description                           @139
     mapper_signal_device                                @140
@@ -162,7 +162,7 @@ EXPORTS
     mapper_signal_num_properties                        @161
     mapper_signal_num_reserved_instances                @162
     mapper_signal_oldest_active_instance                @163
-    mapper_signal_pp                                    @164
+    mapper_signal_print                                 @164
     mapper_signal_property                              @165
     mapper_signal_property_index                        @166
     mapper_signal_push                                  @167
@@ -206,7 +206,7 @@ EXPORTS
     mapper_slot_num_properties                          @205
     mapper_slot_property                                @206
     mapper_slot_property_index                          @207
-    mapper_slot_pp                                      @208
+    mapper_slot_print                                   @208
     mapper_slot_remove_property                         @209
     mapper_slot_set_bound_max                           @210
     mapper_slot_set_bound_min                           @211

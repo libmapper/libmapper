@@ -500,7 +500,7 @@ void mapper_signal_query_done(mapper_signal *query);
  *  \param sig                  The signal to print.
  *  \param include_device_name  1 to include the parent device name, 0
  *                              otherwise. */
-void mapper_signal_pp(mapper_signal sig, int include_device_name);
+void mapper_signal_print(mapper_signal sig, int include_device_name);
 
 /* @} */
 
@@ -902,7 +902,7 @@ void mapper_device_query_done(mapper_device *query);
 
 /*! Helper to print the properties of a specific device.
  *  \param dev      The device to print. */
-void mapper_device_pp(mapper_device dev);
+void mapper_device_print(mapper_device dev);
 
 /* @} */
 
@@ -1231,7 +1231,7 @@ void mapper_map_query_done(mapper_map *query);
 
 /*! Helper to print the properties of a specific map.
  *  \param map      The map to print. */
-void mapper_map_pp(mapper_map map);
+void mapper_map_print(mapper_map map);
 
 /* @} */
 
@@ -1418,7 +1418,7 @@ int mapper_slot_remove_property(mapper_slot slot, const char *name);
 
 /*! Helper to print the properties of a specific slot.
  *  \param slot     The slot to print. */
-void mapper_slot_pp(mapper_slot slot);
+void mapper_slot_print(mapper_slot slot);
 
 /* @} */
 
@@ -1805,7 +1805,7 @@ const char *mapper_libversion();
  *  \param length   The vector length of the value.
  *  \param type     The value type.
  *  \param value    A pointer to the property value to print. */
-void mapper_property_pp(int length, char type, const void *value);
+void mapper_property_print(int length, char type, const void *value);
 
 #ifdef __cplusplus
 }

@@ -14,19 +14,19 @@ int verbose = 1;
 void printdevice(mapper_device dev)
 {
     if (verbose)
-        mapper_device_pp(dev);
+        mapper_device_print(dev);
 }
 
 void printsignal(mapper_signal sig)
 {
     if (verbose)
-        mapper_signal_pp(sig, 1);
+        mapper_signal_print(sig, 1);
 }
 
 void printmap(mapper_map map)
 {
     if (verbose)
-        mapper_map_pp(map);
+        mapper_map_print(map);
 }
 
 int main(int argc, char **argv)
@@ -406,7 +406,7 @@ int main(int argc, char **argv)
 
     if (verbose) {
         eprintf("Dump:\n");
-        mapper_database_dump(db);
+        mapper_database_print(db);
     }
 
     /*********/

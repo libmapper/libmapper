@@ -1631,7 +1631,7 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
     return updated + len_type_diff;
 }
 
-void mapper_signal_pp(mapper_signal sig, int include_device_name)
+void mapper_signal_print(mapper_signal sig, int include_device_name)
 {
     if (include_device_name)
         printf("%s:%s, direction=", sig->device->name, sig->name);
@@ -1663,7 +1663,7 @@ void mapper_signal_pp(mapper_signal sig, int include_device_name)
 
         if (length) {
             printf(", %s=", key);
-            mapper_property_pp(length, type, val);
+            mapper_property_print(length, type, val);
         }
     }
     printf("\n");

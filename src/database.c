@@ -1034,27 +1034,27 @@ void mapper_database_remove_all_callbacks(mapper_database db)
     }
 }
 
-void mapper_database_dump(mapper_database db)
+void mapper_database_print(mapper_database db)
 {
 #ifdef DEBUG
     mapper_device dev = db->devices;
     printf("Registered devices:\n");
     while (dev) {
-        mapper_device_pp(dev);
+        mapper_device_print(dev);
         dev = mapper_list_next(dev);
     }
 
     mapper_signal sig = db->signals;
     printf("Registered signals:\n");
     while (sig) {
-        mapper_signal_pp(sig, 1);
+        mapper_signal_print(sig, 1);
         sig = mapper_list_next(sig);
     }
 
     mapper_map map = db->maps;
     printf("Registered maps:\n");
     while (map) {
-        mapper_map_pp(map);
+        mapper_map_print(map);
         map = mapper_list_next(map);
     }
 #endif

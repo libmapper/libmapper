@@ -382,9 +382,9 @@ void mapper_database_remove_maps_by_query(mapper_database db,
 /*! Remove a specific map from the database. */
 void mapper_database_remove_map(mapper_database db, mapper_map map);
 
-/*! Dump device information database to the screen.  Useful for debugging, only
+/*! Print device information database to the screen.  Useful for debugging, only
  *  works when compiled in debug mode. */
-void mapper_database_dump(mapper_database db);
+void mapper_database_print(mapper_database db);
 
 void mapper_database_remove_all_callbacks(mapper_database db);
 
@@ -543,8 +543,8 @@ int mapper_table_set_from_message(mapper_table tab, mapper_message msg,
                                   int flags);
 
 #ifdef DEBUG
-/*! Dump a table of OSC values. */
-void mapper_table_dump(mapper_table tab);
+/*! Print a table of OSC values. */
+void mapper_table_print(mapper_table tab);
 #endif
 
 /*! Add arguments contained in a string table to a lo_message */

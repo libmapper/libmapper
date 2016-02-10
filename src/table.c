@@ -713,7 +713,7 @@ int mapper_table_set_from_message(mapper_table tab, mapper_message msg,
 }
 
 #ifdef DEBUG
-void mapper_table_dump(mapper_table tab)
+void mapper_table_print(mapper_table tab)
 {
     mapper_table_record_t *rec = tab->records;
     void *value;
@@ -731,7 +731,7 @@ void mapper_table_dump(mapper_table tab)
         }
         printf(": ");
         value = (rec->flags & INDIRECT) ? *rec->value : rec->value;
-        mapper_property_pp(rec->length, rec->type, value);
+        mapper_property_print(rec->length, rec->type, value);
         printf("\n");
         ++rec;
     }

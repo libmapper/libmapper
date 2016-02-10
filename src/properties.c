@@ -689,7 +689,7 @@ void propval_set_double(void *to, const char type, int index, double from)
     }
 }
 
-void mapper_property_pp(int length, char type, const void *value)
+void mapper_property_print(int length, char type, const void *value)
 {
     int i;
     if (!value || length < 1) {
