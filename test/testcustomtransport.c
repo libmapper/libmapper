@@ -140,7 +140,7 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    mapper_device_set_map_handler(source, on_map, 0);
+    mapper_device_set_map_callback(source, on_map, 0);
 
     sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'f', "Hz",
                                               &mn, &mx);

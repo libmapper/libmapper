@@ -39,7 +39,7 @@ void init_device_prop_table(mapper_device dev)
                             &dev->lib_version, flags | INDIRECT);
 
     mapper_table_link_value(dev->props, AT_NAME, 1, 's', &dev->name,
-                            flags | INDIRECT);
+                            flags | INDIRECT | LOCAL_ACCESS_ONLY);
 
     mapper_table_link_value(dev->props, AT_NUM_INCOMING_MAPS, 1, 'i',
                             &dev->num_incoming_maps, flags);
@@ -55,12 +55,14 @@ void init_device_prop_table(mapper_device dev)
 
     mapper_table_link_value(dev->props, AT_PORT, 1, 'i', &dev->port, flags);
 
-    mapper_table_link_value(dev->props, AT_STATUS, 1, 'i', &dev->status, flags);
+    mapper_table_link_value(dev->props, AT_STATUS, 1, 'i', &dev->status,
+                            flags | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(dev->props, AT_SYNCED, 1, 't', &dev->synced, flags);
+    mapper_table_link_value(dev->props, AT_SYNCED, 1, 't', &dev->synced,
+                            flags | LOCAL_ACCESS_ONLY);
 
     mapper_table_link_value(dev->props, AT_USER_DATA, 1, 'v', &dev->user_data,
-                            LOCAL_MODIFY | INDIRECT);
+                            LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
 
     mapper_table_link_value(dev->props, AT_VERSION, 1, 'i', &dev->version,
                             flags);
@@ -220,18 +222,25 @@ void mapper_device_free(mapper_device dev)
 
 void mapper_device_push(mapper_device dev)
 {
-    if (!dev || !dev->props->dirty)
+    if (!dev)
         return;
+    mapper_network net = dev->database->network;
 
-    if (dev->local)
-        mapper_network_set_dest_subscribers(dev->database->network,
-                                            MAPPER_OBJ_DEVICES);
-    else
-        mapper_network_set_dest_bus(dev->database->network);
-    mapper_device_send_state(dev, UPDATED_PROPS);
+    if (dev->local) {
+//        if (!dev->props->dirty)
+//            return;
+        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+        mapper_device_send_state(dev, MSG_DEVICE);
+    }
+    else {
+//        if (!dev->staged_props->dirty)
+//            return;
+        mapper_network_set_dest_bus(net);
+        mapper_device_send_state(dev, MSG_DEVICE_SET_PROPS);
 
-    // clear the staged properties
-    mapper_table_clear(dev->staged_props);
+        // clear the staged properties
+        mapper_table_clear(dev->staged_props);
+    }
 }
 
 void mapper_device_set_user_data(mapper_device dev, const void *user_data)
@@ -302,6 +311,7 @@ static int check_types(const char *types, int len, char type, int vector_len)
  * - Vectors are of homogeneous type ('i', 'f' or 'd') however individual
  *   elements may have no value (type 'N')
  * - A vector consisting completely of nulls indicates a signal instance release
+ *   TODO: use more specific message for release?
  * - Updates to a specific signal instance are indicated using the label
  *   "@instance" followed by two integers which uniquely identify this instance
  *   within the network of libmapper devices
@@ -897,7 +907,7 @@ mapper_signal mapper_device_add_signal(mapper_device dev,
                                             (dir == MAPPER_DIR_INCOMING)
                                             ? MAPPER_OBJ_INPUT_SIGNALS
                                             : MAPPER_OBJ_OUTPUT_SIGNALS);
-        mapper_signal_send_state(sig, STATIC_PROPS);
+        mapper_signal_send_state(sig, MSG_SIGNAL);
     }
 
     return sig;
@@ -991,7 +1001,6 @@ static void send_unmap(mapper_network net, mapper_map map)
              map->destination.signal->path);
     lo_message_add_string(m, dest_name);
     mapper_network_add_message(net, 0, MSG_UNMAP, m);
-    mapper_network_send(net);
 }
 
 void mapper_device_remove_signal(mapper_device dev, mapper_signal sig)
@@ -1534,7 +1543,7 @@ mapper_id mapper_device_unique_id(mapper_device dev) {
     return id;
 }
 
-void mapper_device_send_state(mapper_device dev, int flags)
+void mapper_device_send_state(mapper_device dev, network_message_t cmd)
 {
     if (!dev)
         return;
@@ -1548,45 +1557,15 @@ void mapper_device_send_state(mapper_device dev, int flags)
     lo_message_add_string(msg, mapper_device_name(dev));
 
     /* properties */
-    int i, indirect;
-    mapper_table_t *tab = ((flags == UPDATED_PROPS)
-                           ? dev->staged_props : dev->props);
-    mapper_table_record_t *rec;
-    for (i = 0; i < tab->num_records; i++) {
-        rec = &tab->records[i];
-        indirect = (flags != UPDATED_PROPS) && (rec->flags & INDIRECT);
-        if (!rec->value)
-            continue;
-        if (indirect && !(*rec->value))
-            continue;
-        switch (rec->index) {
-            case AT_STATUS:
-            case AT_SYNCED:
-            case AT_USER_DATA:
-                // local access only
-                break;
-            case AT_NAME:
-                // already sent
-                break;
-            case AT_EXTRA:
-                lo_message_add_string(msg, rec->key);
-                mapper_message_add_typed_value(msg, rec->length, rec->type,
-                                               indirect ? *rec->value : rec->value);
-                break;
-            default:
-                lo_message_add_string(msg, mapper_protocol_string(rec->index));
-                mapper_message_add_typed_value(msg, rec->length, rec->type,
-                                               indirect ? *rec->value : rec->value);
-                break;
-        }
-    }
+    mapper_table_add_to_message(cmd == MSG_DEVICE
+                                ? dev->props : dev->staged_props, msg);
 
-    mapper_network_add_message(dev->database->network, 0, MSG_DEVICE, msg);
+    mapper_network_add_message(dev->database->network, 0, cmd, msg);
 }
 
-void mapper_device_set_map_handler(mapper_device dev,
-                                   mapper_device_map_handler *h,
-                                   const void *user)
+void mapper_device_set_map_callback(mapper_device dev,
+                                    mapper_device_map_handler *h,
+                                    const void *user)
 {
     if (!dev || !dev->local)
         return;
@@ -1665,7 +1644,7 @@ void mapper_device_send_inputs(mapper_device dev, int min, int max)
             return;
         }
         if (i >= min)
-            mapper_signal_send_state(*sig, STATIC_PROPS);
+            mapper_signal_send_state(*sig, MSG_SIGNAL);
         i++;
         sig = mapper_signal_query_next(sig);
     }
@@ -1688,7 +1667,7 @@ void mapper_device_send_outputs(mapper_device dev, int min, int max)
             return;
         }
         if (i >= min)
-            mapper_signal_send_state(*sig, STATIC_PROPS);
+            mapper_signal_send_state(*sig, MSG_SIGNAL);
         i++;
         sig = mapper_signal_query_next(sig);
     }
@@ -1707,7 +1686,7 @@ static void mapper_device_send_incoming_maps(mapper_device dev, int min, int max
             if (count >= min) {
                 mapper_map map = rs->slots[i]->map;
                 mapper_network_init(dev->database->network);
-                mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
+                mapper_map_send_state(map, -1, MSG_MAPPED);
             }
             count++;
         }
@@ -1728,7 +1707,7 @@ static void mapper_device_send_outgoing_maps(mapper_device dev, int min, int max
             if (count >= min) {
                 mapper_map map = rs->slots[i]->map;
                 mapper_network_init(dev->database->network);
-                mapper_map_send_state(map, -1, MSG_MAPPED, STATIC_PROPS);
+                mapper_map_send_state(map, -1, MSG_MAPPED);
             }
             count++;
         }
@@ -1802,7 +1781,7 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
 
     // bring new subscriber up to date
     mapper_network_set_dest_mesh(dev->database->network, address);
-    mapper_device_send_state(dev, STATIC_PROPS);
+    mapper_device_send_state(dev, MSG_DEVICE);
     if (flags & MAPPER_OBJ_INPUT_SIGNALS)
         mapper_device_send_inputs(dev, -1, -1);
     if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
@@ -1811,7 +1790,10 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
         mapper_device_send_incoming_maps(dev, -1, -1);
     if (flags & MAPPER_OBJ_OUTGOING_MAPS)
         mapper_device_send_outgoing_maps(dev, -1, -1);
-    mapper_network_send(dev->database->network);
+
+    // address is not cached if timeout is 0 so we need to send immediately
+    if (!timeout_seconds)
+        mapper_network_send(dev->database->network);
 }
 
 void mapper_device_print(mapper_device dev)

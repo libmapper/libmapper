@@ -824,8 +824,22 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             qsort(map->sources, map->num_sources, sizeof(mapper_slot),
                   compare_slot_names);
             // fix slot ids
-            for (i = 0; i < num_sources; i++)
+            mapper_table tab;
+            mapper_table_record_t *rec;
+            for (i = 0; i < num_sources; i++) {
                 map->sources[i]->id = i;
+                // also need to correct slot table indices
+                tab = map->sources[i]->props;
+                for (j = 0; j < tab->num_records; j++) {
+                    rec = &tab->records[j];
+                    rec->index = MASK_PROP_BITFLAGS(rec->index) | SRC_SLOT_PROPERTY(i);
+                }
+                tab = map->sources[i]->staged_props;
+                for (j = 0; j < tab->num_records; j++) {
+                    rec = &tab->records[j];
+                    rec->index = MASK_PROP_BITFLAGS(rec->index) | SRC_SLOT_PROPERTY(i);
+                }
+            }
         }
     }
 

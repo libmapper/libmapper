@@ -51,7 +51,8 @@ void mapper_map_init(mapper_map map)
     mapper_table_link_value(map->props, AT_EXPRESSION, 1, 's', &map->expression,
                             MODIFIABLE | INDIRECT);
 
-    mapper_table_link_value(map->props, AT_ID, 1, 'h', &map->id, NON_MODIFIABLE);
+    mapper_table_link_value(map->props, AT_ID, 1, 'h', &map->id,
+                            NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
 
     mapper_table_link_value(map->props, AT_NUM_INPUTS, 1, 'i', &map->num_sources,
                             NON_MODIFIABLE);
@@ -69,7 +70,7 @@ void mapper_map_init(mapper_map map)
                             NON_MODIFIABLE);
 
     mapper_table_link_value(map->props, AT_USER_DATA, 1, 'v', &map->user_data,
-                            MODIFIABLE | INDIRECT);
+                            MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
 
     mapper_table_link_value(map->props, AT_VERSION, 1, 'i', &map->version,
                             REMOTE_MODIFY);
@@ -167,7 +168,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
 void mapper_map_release(mapper_map map)
 {
     mapper_network_set_dest_bus(map->database->network);
-    mapper_map_send_state(map, -1, MSG_UNMAP, 0);
+    mapper_map_send_state(map, -1, MSG_UNMAP);
 }
 
 void mapper_map_set_user_data(mapper_map map, const void *user_data)
@@ -189,13 +190,13 @@ void mapper_map_push(mapper_map map)
     if (map->status >= STATUS_ACTIVE) {
 //        if (!map->staged_props->dirty)
 //            return;
-        cmd = MSG_MODIFY_MAP;
+        cmd = MSG_MAP_MODIFY;
     }
     else
         cmd = MSG_MAP;
 
     mapper_network_set_dest_bus(map->database->network);
-    mapper_map_send_state(map, -1, cmd, UPDATED_PROPS);
+    mapper_map_send_state(map, -1, cmd);
 
     // clear the staged properties
     mapper_table_clear(map->staged_props);
@@ -1178,6 +1179,8 @@ static void init_slot_history(mapper_slot slot)
 
 static void apply_mode(mapper_map map)
 {
+    if (map->process_location == MAPPER_LOC_DESTINATION && !map->destination.local)
+        return;
     switch (map->mode) {
         case MAPPER_MODE_RAW:
             mapper_map_set_mode_raw(map);
@@ -1335,8 +1338,22 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
         // check if AT_SLOT property is defined
         atom = mapper_message_property(msg, AT_SLOT);
         if (atom && atom->length == map->num_sources) {
+            mapper_table tab;
+            mapper_table_record_t *rec;
             for (i = 0; i < map->num_sources; i++) {
-                map->sources[i]->id = (atom->values[i])->i32;
+                int id = (atom->values[i])->i32;
+                map->sources[i]->id = id;
+                // also need to correct slot table indices
+                tab = map->sources[i]->props;
+                for (j = 0; j < tab->num_records; j++) {
+                    rec = &tab->records[j];
+                    rec->index = MASK_PROP_BITFLAGS(rec->index) | SRC_SLOT_PROPERTY(id);
+                }
+                tab = map->sources[i]->staged_props;
+                for (j = 0; j < tab->num_records; j++) {
+                    rec = &tab->records[j];
+                    rec->index = MASK_PROP_BITFLAGS(rec->index) | SRC_SLOT_PROPERTY(id);
+                }
             }
         }
     }
@@ -1634,104 +1651,7 @@ void mhist_realloc(mapper_history history,
 
 /* If the "slot_index" argument is >= 0, we can assume this message will be sent
  * to a peer device rather than an administrator. */
-static const char *add_properties_to_message(mapper_map map, lo_message msg,
-                                             int slot, int flags)
-{
-    int i, indirect, size = 512;
-    char *keys = malloc(size * sizeof(char));
-    char *key_ptr = keys;
-    mapper_link link;
-
-    mapper_table_t *tab = ((flags == UPDATED_PROPS)
-                           ? map->staged_props : map->props);
-    mapper_table_record_t *rec;;
-    for (i = 0; i < tab->num_records; i++) {
-        rec = &tab->records[i];
-        indirect = (flags != UPDATED_PROPS) && (rec->flags & INDIRECT);
-        if (!rec->value)
-            continue;
-        if (indirect && !(*rec->value))
-            continue;
-        switch (rec->index) {
-            case AT_ID:
-                // already added
-                break;
-            case AT_USER_DATA:
-                // local access only
-                break;
-            case AT_MODE:
-                if (rec->type != 'i')
-                    break;
-                lo_message_add_string(msg, mapper_protocol_string(AT_MODE));
-                lo_message_add_string(msg, mapper_mode_string(*(int*)rec->value));
-                break;
-            case AT_PROCESS_LOCATION:
-                if (rec->type != 'i')
-                    break;
-                lo_message_add_string(msg,
-                                      mapper_protocol_string(AT_PROCESS_LOCATION));
-                lo_message_add_string(msg,
-                                      mapper_location_string(*(int*)rec->value));
-                break;
-            case AT_EXTRA:
-                lo_message_add_string(msg, rec->key);
-                mapper_message_add_typed_value(msg, rec->length, rec->type,
-                                               rec->value);
-                break;
-            default:
-                // description, expression, muted, scopes, status etc
-                lo_message_add_string(msg, mapper_protocol_string(rec->index));
-                mapper_message_add_typed_value(msg, rec->length, rec->type,
-                                               indirect ? *rec->value : rec->value);
-                break;
-        }
-    }
-
-    if (flags != UPDATED_PROPS) {
-        // Scope
-        if (map->scope.size) {
-            lo_message_add_string(msg, mapper_protocol_string(AT_SCOPE));
-            for (i = 0; i < map->scope.size; i++) {
-                if (map->scope.devices[i])
-                    lo_message_add_string(msg, map->scope.devices[i]->name);
-                else
-                    lo_message_add_string(msg, "all");
-            }
-        }
-    }
-
-    // Slot id
-    if (map->destination.direction == MAPPER_DIR_INCOMING
-        && map->status < STATUS_READY && flags != UPDATED_PROPS) {
-        lo_message_add_string(msg, mapper_protocol_string(AT_SLOT));
-        i = (slot >= 0) ? slot : 0;
-        link = map->sources[i]->local ? map->sources[i]->local->link : 0;
-        for (; i < map->num_sources; i++) {
-            if ((slot >= 0) && link && (link != map->sources[i]->local->link))
-                break;
-            lo_message_add_int32(msg, map->sources[i]->id);
-        }
-    }
-
-    /* source properties */
-    i = (slot >= 0) ? slot : 0;
-    link = map->sources[i]->local ? map->sources[i]->local->link : 0;
-    for (; i < map->num_sources; i++) {
-        if ((slot >= 0) && link && (link != map->sources[i]->local->link))
-            break;
-        mapper_slot_add_props_to_message(msg, map->sources[i], 0, &key_ptr,
-                                         &size, flags);
-    }
-
-    /* destination properties */
-    mapper_slot_add_props_to_message(msg, &map->destination, 1, &key_ptr, &size,
-                                     flags);
-
-    return keys;
-}
-
-int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
-                          int flags)
+int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
 {
     if (cmd == MSG_MAPPED && map->status < STATUS_READY)
         return slot;
@@ -1781,24 +1701,54 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
     lo_message_add_string(msg, mapper_protocol_string(AT_ID));
     lo_message_add_int64(msg, *((int64_t*)&map->id));
 
-    if (!flags) {
+    if (cmd == MSG_UNMAP || cmd == MSG_UNMAPPED) {
         mapper_network_add_message(map->database->network, 0, cmd, msg);
-        mapper_network_send(map->database->network);
         return i-1;
     }
 
-    const char *keys = 0;
-    if (flags) {
-        // add other properties
-        keys = add_properties_to_message(map, msg, slot, flags);
+    // add other properties
+    int staged = (cmd == MSG_MAP) || (cmd == MSG_MAP_MODIFY);
+    mapper_table_add_to_message(staged ? map->staged_props : map->props, msg);
+
+    if (!staged) {
+        // add scopes
+        if (map->scope.size) {
+            lo_message_add_string(msg, mapper_protocol_string(AT_SCOPE));
+            for (i = 0; i < map->scope.size; i++) {
+                if (map->scope.devices[i])
+                    lo_message_add_string(msg, map->scope.devices[i]->name);
+                else
+                    lo_message_add_string(msg, "all");
+            }
+        }
     }
 
-    mapper_network_add_message(map->database->network, 0, cmd, msg);
-    // send immediately since message refers to generated strings
-    mapper_network_send(map->database->network);
+    // add slot id
+    if (map->destination.direction == MAPPER_DIR_INCOMING
+        && map->status < STATUS_READY && !staged) {
+        lo_message_add_string(msg, mapper_protocol_string(AT_SLOT));
+        i = (slot >= 0) ? slot : 0;
+        link = map->sources[i]->local ? map->sources[i]->local->link : 0;
+        for (; i < map->num_sources; i++) {
+            if ((slot >= 0) && link && (link != map->sources[i]->local->link))
+                break;
+            lo_message_add_int32(msg, map->sources[i]->id);
+        }
+    }
 
-    if (keys)
-        free((char*)keys);
+    /* source properties */
+    i = (slot >= 0) ? slot : 0;
+    link = map->sources[i]->local ? map->sources[i]->local->link : 0;
+    for (; i < map->num_sources; i++) {
+        if ((slot >= 0) && link && (link != map->sources[i]->local->link))
+            break;
+        mapper_slot_add_props_to_message(msg, map->sources[i], 0, staged);
+    }
+
+    /* destination properties */
+    mapper_slot_add_props_to_message(msg, &map->destination, 1, staged);
+
+    mapper_network_add_message(map->database->network, 0, cmd, msg);
 
     return i-1;
 }

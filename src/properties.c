@@ -288,8 +288,7 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
         if (atom->index & DST_SLOT_PROPERTY)
             printf("'dst/%s' [%d]: ", atom->key, atom->index);
         else if (atom->index >> SRC_SLOT_PROPERTY_BIT_OFFSET)
-            printf("'src%d/%s' [%d]: ",
-                   (atom->index >> SRC_SLOT_PROPERTY_BIT_OFFSET) - 1, atom->key,
+            printf("'src%d/%s' [%d]: ", SRC_SLOT(atom->index), atom->key,
                    atom->index);
         else
             printf("'%s' [%d]: ", atom->key, atom->index);
@@ -407,61 +406,6 @@ void mapper_message_add_typed_value(lo_message msg, int length, char type,
         default:
             break;
     }
-}
-
-const char **mapper_message_add_table(lo_message msg, mapper_table tab)
-{
-    int i, len;
-    char temp[256];
-    const char **propnames = calloc(1, sizeof(char*) * tab->num_records);
-    mapper_table_record_t *rec = tab->records;
-
-    for (i = 0; i < tab->num_records; i++) {
-        if (!rec->value || ((rec->flags & INDIRECT) && !*rec->value))
-            continue;
-        len = 0;
-        if (rec->index & PROPERTY_ADD) {
-            snprintf(temp, 256, "+");
-            ++len;
-        }
-        else if (rec->index & PROPERTY_REMOVE) {
-            snprintf(temp, 256, "-");
-            ++len;
-        }
-        if (rec->index & DST_SLOT_PROPERTY) {
-            snprintf(temp + len, 256 - len, "@dst");
-            len += 4;
-        }
-        else if (rec->index >> SRC_SLOT_PROPERTY_BIT_OFFSET) {
-            snprintf(temp + len, 256 - len, "@src.%d",
-                     rec->index >> SRC_SLOT_PROPERTY_BIT_OFFSET);
-            len = strlen(temp);
-        }
-        int masked = MASK_PROP_BITFLAGS(rec->index);
-        if (masked < 0 || masked >= AT_EXTRA) {
-            trace("skipping malformed property.\n");
-            continue;
-        }
-        if (masked == AT_EXTRA) {
-            snprintf(temp + len, 256 - len, "@%s", rec->key);
-            len = strlen(temp);
-        }
-        else {
-            snprintf(temp + len, 256 - len, "%s",
-                     static_properties[masked].name);
-        }
-        if (len) {
-            propnames[i] = strdup(temp);
-            lo_message_add_string(msg, propnames[i]);
-        }
-        else {
-            // can use static string
-            lo_message_add_string(msg, static_properties[masked].name);
-        }
-        mapper_message_add_typed_value(msg, rec->length, rec->type, rec->value);
-        rec++;
-    }
-    return propnames;
 }
 
 const char *mapper_protocol_string(mapper_property_t prop)

@@ -89,15 +89,16 @@ typedef struct _mapper_property_value {
 } mapper_property_value_t;
 
 // bit flags for tracking permissions for modifying properties
-#define NON_MODIFIABLE  0x00
-#define LOCAL_MODIFY    0x01
-#define REMOTE_MODIFY   0x02
-#define MODIFIABLE      0x03
-#define MUTABLE_TYPE    0x04
-#define MUTABLE_LENGTH  0x08
-#define INDIRECT        0x10
-#define PROP_OWNED      0x20
-#define PROP_DIRTY      0x40
+#define NON_MODIFIABLE      0x00
+#define LOCAL_MODIFY        0x01
+#define REMOTE_MODIFY       0x02
+#define MODIFIABLE          0x03
+#define LOCAL_ACCESS_ONLY   0x04
+#define MUTABLE_TYPE        0x08
+#define MUTABLE_LENGTH      0x10
+#define INDIRECT            0x20
+#define PROP_OWNED          0x40
+#define PROP_DIRTY          0x80
 
 /*! Used to hold look-up table records. */
 typedef struct {
@@ -161,22 +162,24 @@ typedef struct _mapper_database {
 
 /*! Some useful strings for sending administrative messages. */
 typedef enum {
+    MSG_DEVICE,
+    MSG_DEVICE_SET_PROPS,
+    MSG_LOGOUT,
     MSG_MAP,
     MSG_MAP_TO,
     MSG_MAPPED,
-    MSG_MODIFY_MAP,
-    MSG_DEVICE,
-    MSG_UNMAP,
-    MSG_UNMAPPED,
-    MSG_PING,
-    MSG_LOGOUT,
+    MSG_MAP_MODIFY,
     MSG_NAME_PROBE,
     MSG_NAME_REG,
+    MSG_PING,
     MSG_SIGNAL,
     MSG_SIGNAL_REMOVED,
+    MSG_SIGNAL_SET_PROPS,
     MSG_SUBSCRIBE,
-    MSG_UNSUBSCRIBE,
     MSG_SYNC,
+    MSG_UNMAP,
+    MSG_UNMAPPED,
+    MSG_UNSUBSCRIBE,
     MSG_WHO,
     NUM_MSG_STRINGS
 } network_message_t;
@@ -459,8 +462,6 @@ typedef struct _mapper_map_internal {
 
     int one_source;
 
-    mapper_mode mode;                   //!< Raw, linear, or expression.
-
 } mapper_map_internal_t, *mapper_map_internal;
 
 typedef struct _mapper_map_scope {
@@ -595,15 +596,13 @@ struct _mapper_device {
 
 /**** Messages ****/
 
-#define STATIC_PROPS        0x10
-#define UPDATED_PROPS       0x20
-
 #define PROPERTY_ADD        0x040
 #define PROPERTY_REMOVE     0x080
 #define DST_SLOT_PROPERTY   0x100
 // currently 9 bits are used for mapper_property_t enum, add/remove, and dest slot
 #define SRC_SLOT_PROPERTY_BIT_OFFSET    9
 #define SRC_SLOT_PROPERTY(index) ((index + 1) << SRC_SLOT_PROPERTY_BIT_OFFSET)
+#define SRC_SLOT(index) ((index >> SRC_SLOT_PROPERTY_BIT_OFFSET) - 1)
 #define MASK_PROP_BITFLAGS(index) (index & 0x3F)
 
 /* Maximum number of "extra" properties for a signal, device, or map. */

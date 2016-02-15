@@ -180,7 +180,7 @@ int mapper_signal_instance_is_active(mapper_signal sig, mapper_id instance);
  *  \param sig          The signal to operate on.
  *  \param instance     The identifier of the instance to activate.
  *  \return             Non-zero if the instance is active, zero otherwise. */
-int mapper_signal_instance_activate(mapper_signal sig, mapper_id id);
+int mapper_signal_instance_activate(mapper_signal sig, mapper_id instance);
 
 /*! Get the local id of the oldest active instance.
  *  \param sig          The signal to operate on.
@@ -517,7 +517,7 @@ void mapper_signal_print(mapper_signal sig, int include_device_name);
 
 /*! A callback function prototype for when a map is added, updated, or removed
  *  from a given device.  Such a function is passed in to
- *  mapper_device_set_map_handler().
+ *  mapper_device_set_map_callback().
  *  \param map      The map record.
  *  \param action   A value of mapper_record_action indicating what is
  *                  happening to the map record.
@@ -529,9 +529,9 @@ typedef void mapper_device_map_handler(mapper_map map,
 /*! Set a function to be called when a map involving a device's local signals is
  *  established, modified or destroyed, indicated by the action parameter to the
  *  provided function. */
-void mapper_device_set_map_handler(mapper_device dev,
-                                   mapper_device_map_handler *h,
-                                   const void *user);
+void mapper_device_set_map_callback(mapper_device dev,
+                                    mapper_device_map_handler *h,
+                                    const void *user);
 
 /*! Allocate and initialize a mapper device.
  *  \param name_prefix  A short descriptive string to identify the device.
@@ -1499,7 +1499,7 @@ mapper_network mapper_database_network(mapper_database db);
 void mapper_database_flush(mapper_database db, int timeout, int quiet);
 
 /*! Send a request to the network for all active devices to report in.
- *  \param          The database to use. */
+ *  \param db       The database to use. */
 void mapper_database_request_devices(mapper_database db);
 
 /*! A callback function prototype for when a device record is added or updated.
@@ -1665,25 +1665,25 @@ mapper_signal *mapper_database_signals_by_property(mapper_database db,
  *  the database. Such a function is passed in to
  *  mapper_database_add_map_callback().
  *  \param map      The map record.
- *  \param action   A value of mapper_record_action indicating what is
- *                  happening to the map record.
+ *  \param action   A value of mapper_record_action indicating what is happening
+ *                  to the map record.
  *  \param user     The user context pointer registered with this callback. */
 typedef void mapper_map_handler(mapper_map map, mapper_record_action action,
                                 const void *user);
 
 /*! Register a callback for when a map record is added or updated.
- *  \param db       The database to query.
+ *  \param db       The database to which the callback should be added.
  *  \param h        Callback function.
- *  \param user     A user-defined pointer to be passed to the callback
- *                  for context . */
+ *  \param user     A user-defined pointer to be passed to the callback for
+ *                  context . */
 void mapper_database_add_map_callback(mapper_database db, mapper_map_handler *h,
                                       const void *user);
 
 /*! Remove a map record callback from the database service.
- *  \param db       The database to query.
+ *  \param db       The database from which the callback should be removed.
  *  \param h        Callback function.
- *  \param user     The user context pointer that was originally specified
- *                  when adding the callback. */
+ *  \param user     The user context pointer that was originally specified when
+ *                  adding the callback. */
 void mapper_database_remove_map_callback(mapper_database db,
                                          mapper_map_handler *h,
                                          const void *user);
@@ -1702,8 +1702,8 @@ mapper_map *mapper_database_maps(mapper_database db);
 /*! Return the map that match the given map id.
  *  \param db       The database to query.
  *  \param id       Unique id identifying the map.
- *  \return         A pointer to a structure containing information on the
- *                  found map, or 0 if not found. */
+ *  \return         A pointer to a structure containing information on the found
+ *                  map, or 0 if not found. */
 mapper_map mapper_database_map_by_id(mapper_database db, mapper_id id);
 
 /*! Return the list of maps that use the given scope.

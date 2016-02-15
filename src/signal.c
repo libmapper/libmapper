@@ -125,7 +125,7 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
                              | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE));
 
     mapper_table_link_value(sig->props, AT_NAME, 1, 's', &sig->name,
-                            flags | INDIRECT);
+                            flags | INDIRECT | LOCAL_ACCESS_ONLY);
 
     mapper_table_link_value(sig->props, AT_NUM_INCOMING_MAPS, 1, 'i',
                             &sig->num_incoming_maps, flags);
@@ -146,7 +146,7 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
                             (sig->local ? LOCAL_MODIFY : MODIFIABLE) | INDIRECT);
 
     mapper_table_link_value(sig->props, AT_USER_DATA, 1, 'v', &sig->user_data,
-                            LOCAL_MODIFY | INDIRECT);
+                            LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
 
     mapper_table_link_value(sig->props, AT_VERSION, 1, 'i', &sig->version,
                             flags);
@@ -201,20 +201,29 @@ void mapper_signal_free(mapper_signal sig)
 
 void mapper_signal_push(mapper_signal sig)
 {
-    if (!sig || !sig->props->dirty)
+    if (!sig)
         return;
+    mapper_network net = sig->device->database->network;
 
-    if (sig->local)
-        mapper_network_set_dest_subscribers(sig->device->database->network,
-                                            sig->direction == MAPPER_DIR_OUTGOING
-                                            ? MAPPER_OBJ_OUTPUT_SIGNALS
-                                            : MAPPER_OBJ_INPUT_SIGNALS);
-    else
-        mapper_network_set_dest_bus(sig->device->database->network);
-    mapper_signal_send_state(sig, UPDATED_PROPS);
+    if (sig->local) {
+//        if (!sig->props->dirty)
+//            return;
+        // TODO: make direction flags compatible with MAPPER_OBJ flags
+        mapper_direction dir = ((sig->direction == MAPPER_DIR_OUTGOING)
+                                ? MAPPER_OBJ_OUTPUT_SIGNALS
+                                : MAPPER_OBJ_INPUT_SIGNALS);
+        mapper_network_set_dest_subscribers(net, dir);
+        mapper_signal_send_state(sig, MSG_SIGNAL);
+    }
+    else {
+//        if (!sig->staged_props->dirty)
+//            return;
+        mapper_network_set_dest_bus(net);
+        mapper_signal_send_state(sig, MSG_SIGNAL_SET_PROPS);
 
-    // clear the staged properties
-    mapper_table_clear(sig->staged_props);
+        // clear the staged properties
+        mapper_table_clear(sig->staged_props);
+    }
 }
 
 void mapper_signal_update(mapper_signal sig, const void *value, int count,
@@ -1456,11 +1465,10 @@ void message_add_coerced_signal_instance_value(lo_message m,
         lo_message_add_nil(m);
 }
 
-/* TODO: this message needs to be dispatched immediately since liblo will not
- * cache the signal name string. The protocol should be updated to send
- * device and signal names as separate strings. */
-void mapper_signal_send_state(mapper_signal sig, int flags)
+void mapper_signal_send_state(mapper_signal sig, network_message_t cmd)
 {
+    if (!sig)
+        return;
     lo_message msg = lo_message_new();
     if (!msg) {
         trace("couldn't allocate lo_message\n");
@@ -1473,46 +1481,10 @@ void mapper_signal_send_state(mapper_signal sig, int flags)
     lo_message_add_string(msg, sig_name);
 
     /* properties */
-    int i, indirect;
-    mapper_table_t *tab = ((flags == UPDATED_PROPS)
-                           ? sig->staged_props : sig->props);
-    mapper_table_record_t *rec;
-    for (i = 0; i < tab->num_records; i++) {
-        rec = &tab->records[i];
-        indirect = (flags != UPDATED_PROPS) && (rec->flags & INDIRECT);
-        if (!rec->value)
-            continue;
-        if (indirect && !(*rec->value))
-            continue;
-        switch (rec->index) {
-            case AT_USER_DATA:
-                // local access only
-                break;
-            case AT_NAME:
-                // already sent
-                break;
-            case AT_DIRECTION:
-                lo_message_add_string(msg, mapper_protocol_string(AT_DIRECTION));
-                if (sig->direction == MAPPER_DIR_OUTGOING)
-                    lo_message_add_string(msg, "output");
-                else
-                    lo_message_add_string(msg, "input");
-                break;
-            case AT_EXTRA:
-                lo_message_add_string(msg, rec->key);
-                mapper_message_add_typed_value(msg, rec->length, rec->type,
-                                               indirect ? *rec->value : rec->value);
-                break;
-            default:
-                lo_message_add_string(msg, mapper_protocol_string(rec->index));
-                mapper_message_add_typed_value(msg, rec->length, rec->type,
-                                               indirect ? *rec->value : rec->value);
-                break;
-        }
-    }
+    mapper_table_add_to_message(cmd == MSG_SIGNAL
+                                ? sig->props : sig->staged_props, msg);
 
-    mapper_network_add_message(sig->device->database->network, 0, MSG_SIGNAL,
-                               msg);
+    mapper_network_add_message(sig->device->database->network, 0, cmd, msg);
 }
 
 void mapper_signal_send_removed(mapper_signal sig)

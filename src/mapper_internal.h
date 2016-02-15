@@ -99,7 +99,7 @@ mapper_id_map mapper_device_find_instance_id_map_by_global(mapper_device dev,
 
 const char *mapper_device_name(mapper_device dev);
 
-void mapper_device_send_state(mapper_device dev, int flags);
+void mapper_device_send_state(mapper_device dev, network_message_t cmd);
 
 /***** Router *****/
 
@@ -200,7 +200,7 @@ void message_add_coerced_signal_instance_value(lo_message m, mapper_signal sig,
                                                mapper_signal_instance si,
                                                int length, char type);
 
-void mapper_signal_send_state(mapper_signal sig, int flags);
+void mapper_signal_send_state(mapper_signal sig, network_message_t cmd);
 
 void mapper_signal_send_removed(mapper_signal sig);
 
@@ -290,8 +290,7 @@ const char *mapper_mode_string(mapper_mode mode);
 
 mapper_mode mapper_mode_from_string(const char *string);
 
-int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd,
-                          int flags);
+int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd);
 
 void mapper_map_init(mapper_map map);
 
@@ -307,8 +306,7 @@ int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
                                  int *status);
 
 void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
-                                      int is_dest, char **key_ptr, int *size,
-                                      int flags);
+                                      int is_dest, int staged);
 
 void mapper_slot_upgrade_extrema_memory(mapper_slot slot);
 
@@ -548,7 +546,7 @@ void mapper_table_print(mapper_table tab);
 #endif
 
 /*! Add arguments contained in a string table to a lo_message */
-const char **mapper_message_add_table(lo_message msg, mapper_table tab);
+void mapper_table_add_to_message(mapper_table tab, lo_message msg);
 
 /**** Lists ****/
 
