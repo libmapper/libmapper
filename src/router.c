@@ -858,17 +858,18 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
     }
 
     // free buffers associated with user-defined expression variables
-    for (i = 0; i < map->local->num_var_instances; i++) {
-        if (map->local->num_expr_vars) {
-            for (j = 0; j < map->local->num_expr_vars; j++) {
-                free(map->local->expr_vars[i][j].value);
-                free(map->local->expr_vars[i][j].timetag);
+    if (map->local->expr_vars) {
+        for (i = 0; i < map->local->num_var_instances; i++) {
+            if (map->local->num_expr_vars) {
+                for (j = 0; j < map->local->num_expr_vars; j++) {
+                    free(map->local->expr_vars[i][j].value);
+                    free(map->local->expr_vars[i][j].timetag);
+                }
             }
+            free(map->local->expr_vars[i]);
         }
-        free(map->local->expr_vars[i]);
-    }
-    if (map->local->expr_vars)
         free(map->local->expr_vars);
+    }
     if (map->local->expr)
         mapper_expr_free(map->local->expr);
 
