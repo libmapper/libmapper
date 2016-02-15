@@ -11,17 +11,15 @@ extern "C" {
 #include <lo/lo.h>
 
 /*! Bit flags for coordinating metadata subscriptions. */
-#define MAPPER_OBJ_NONE           0x00
-#define MAPPER_OBJ_DEVICES        0x01
-#define MAPPER_OBJ_INPUT_SIGNALS  0x02
-#define MAPPER_OBJ_OUTPUT_SIGNALS 0x04
-#define MAPPER_OBJ_SIGNALS        0x06 /* (  MAPPER_OBJ_INPUT_SIGNALS
-                                           | MAPPER_OBJ_OUTPUT_SIGNALS) */
-#define MAPPER_OBJ_INCOMING_MAPS  0x10
-#define MAPPER_OBJ_OUTGOING_MAPS  0x20
-#define MAPPER_OBJ_MAPS           0x30 /* (  MAPPER_OBJ_INCOMING_MAPS
-                                           | MAPPER_OBJ_OUTGOING_MAPS) */
-#define MAPPER_OBJ_ALL            0xFF
+#define MAPPER_OBJ_NONE           0x00  //!< No objects.
+#define MAPPER_OBJ_DEVICES        0x01  //!< Devices only.
+#define MAPPER_OBJ_INPUT_SIGNALS  0x02  //!< Input signals.
+#define MAPPER_OBJ_OUTPUT_SIGNALS 0x04  //!< Output signals.
+#define MAPPER_OBJ_SIGNALS        0x06  //!< All signals.
+#define MAPPER_OBJ_INCOMING_MAPS  0x10  //!< Incoming maps.
+#define MAPPER_OBJ_OUTGOING_MAPS  0x20  //!< Outgoing maps.
+#define MAPPER_OBJ_MAPS           0x30  //!< All maps.
+#define MAPPER_OBJ_ALL            0xFF  //!< All objects: devices, signals, maps.
 
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
@@ -34,35 +32,35 @@ typedef uint64_t mapper_id;
 /*! Possible operations for composing database queries. */
 typedef enum {
     MAPPER_OP_UNDEFINED = -1,
-    MAPPER_OP_DOES_NOT_EXIST,
-    MAPPER_OP_EQUAL,
-    MAPPER_OP_EXISTS,
-    MAPPER_OP_GREATER_THAN,
-    MAPPER_OP_GREATER_THAN_OR_EQUAL,
-    MAPPER_OP_LESS_THAN,
-    MAPPER_OP_LESS_THAN_OR_EQUAL,
-    MAPPER_OP_NOT_EQUAL,
+    MAPPER_OP_DOES_NOT_EXIST,           //!< Property does not exist.
+    MAPPER_OP_EQUAL,                    //!< Property value == query value.
+    MAPPER_OP_EXISTS,                   //!< Property exists for this entity.
+    MAPPER_OP_GREATER_THAN,             //!< Property value > query value.
+    MAPPER_OP_GREATER_THAN_OR_EQUAL,    //!< Property value >= query value
+    MAPPER_OP_LESS_THAN,                //!< Property value < query value
+    MAPPER_OP_LESS_THAN_OR_EQUAL,       //!< Property value <= query value
+    MAPPER_OP_NOT_EQUAL,                //!< Property value != query value
     NUM_MAPPER_OPS
 } mapper_op;
 
 /*! Describes what happens when the range boundaries are exceeded.
  *  @ingroup map */
 typedef enum {
-    MAPPER_BOUND_UNDEFINED,
-    MAPPER_BOUND_NONE,    //!< Value is passed through unchanged. This is the default.
-    MAPPER_BOUND_MUTE,    //!< Value is muted.
-    MAPPER_BOUND_CLAMP,   //!< Value is limited to the boundary.
-    MAPPER_BOUND_FOLD,    //!< Value continues in opposite direction.
-    MAPPER_BOUND_WRAP,    /*!< Value appears as modulus offset at the opposite
-                           *   boundary. */
+    MAPPER_BOUND_UNDEFINED, //!< Not yet defined.
+    MAPPER_BOUND_NONE,      //!< Value is passed through unchanged (default).
+    MAPPER_BOUND_MUTE,      //!< Value is muted if it exceeds the range boundary.
+    MAPPER_BOUND_CLAMP,     //!< Value is limited to the range boundary.
+    MAPPER_BOUND_FOLD,      //!< Value continues in opposite direction.
+    MAPPER_BOUND_WRAP,      /*!< Value appears as modulus offset at the opposite
+                             *   boundary. */
     NUM_MAPPER_BOUNDARY_ACTIONS
 } mapper_boundary_action;
 
 /*! Describes the map modes.
  *  @ingroup map */
 typedef enum {
-    MAPPER_MODE_UNDEFINED,  //!< Not yet defined
-    MAPPER_MODE_RAW,        //!< No type coercion
+    MAPPER_MODE_UNDEFINED,  //!< Mode is not yet defined
+    MAPPER_MODE_RAW,        //!< No type coercion or vector trucation/padding
     MAPPER_MODE_LINEAR,     //!< Linear scaling
     MAPPER_MODE_EXPRESSION, //!< Expression
     NUM_MAPPER_MODES
@@ -71,18 +69,18 @@ typedef enum {
 /*! Describes the possible locations for map stream processing.
  *  @ingroup map */
 typedef enum {
-    MAPPER_LOC_UNDEFINED,
-    MAPPER_LOC_SOURCE,
-    MAPPER_LOC_DESTINATION,
+    MAPPER_LOC_UNDEFINED,   //!< Not yet defined
+    MAPPER_LOC_SOURCE,      //!< Processing is performed by the source device.
+    MAPPER_LOC_DESTINATION, //!< Processing is performed by the destination device.
     NUM_MAPPER_LOCATIONS
 } mapper_location;
 
 /*! The set of possible directions for a signal or mapping slot.
  *  @ingroup map */
 typedef enum {
-    MAPPER_DIR_ANY      = 0x00,
-    MAPPER_DIR_INCOMING = 0x01,
-    MAPPER_DIR_OUTGOING = 0x02,
+    MAPPER_DIR_ANY      = 0x00,         //!< Either incoming or outgoing
+    MAPPER_DIR_INCOMING = 0x01,         //!< Incoming: signal or slot is an input
+    MAPPER_DIR_OUTGOING = 0x02,         //!< Outgoing: signal or slot is an output
 } mapper_direction;
 
 /*! The set of possible actions on an instance, used to register callbacks
@@ -96,19 +94,20 @@ typedef enum {
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup map */
 typedef enum {
-    MAPPER_NO_STEALING,
-    MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance
-    MAPPER_STEAL_NEWEST,    //!< Steal the newest instance
+    MAPPER_NO_STEALING,     //!< No stealing will take place.
+    MAPPER_STEAL_OLDEST,    //!< Steal the oldest instance.
+    MAPPER_STEAL_NEWEST,    //!< Steal the newest instance.
 } mapper_instance_stealing_type;
 
 /*! The set of possible actions on a database record, used to inform callbacks
  *  of what is happening to a record.
- *  @ingroup db */
+ *  @ingroup database */
 typedef enum {
-    MAPPER_ADDED,
-    MAPPER_MODIFIED,
-    MAPPER_REMOVED,
-    MAPPER_EXPIRED,
+    MAPPER_ADDED,           //!< New record has been added to the database.
+    MAPPER_MODIFIED,        //!< The existing record has been modified.
+    MAPPER_REMOVED,         //!< The existing record has been removed.
+    MAPPER_EXPIRED,         /*!< The database has lost contact with the remote
+                             *   entity. */
 } mapper_record_action;
 
 #ifdef __cplusplus
