@@ -10,53 +10,46 @@ def h(sig, id, f, timetag):
 
 def setup(d):
     sig = d.add_input_signal("freq", 1, 'i', "Hz", None, None, h)
-    print 'inputs', d.num_input_signals
-    print 'minimum', sig.minimum
-    sig.minimum = 34.0
-    print 'minimum', sig.minimum
-    sig.minimum = 12
-    print 'minimum', sig.minimum
-    sig.minimum = None
-    print 'minimum', sig.minimum
 
-    print 'port', d.port
-    print 'device name', d.name
-    print 'device port', d.port
-    print 'device ip', d.network().ip4
-    print 'device interface', d.network().interface
-    print 'device ordinal', d.ordinal
-    print 'signal name', sig.name
     while not d.ready():
         d.poll(10)
-    print 'port', d.port
+
     print 'device name', d.name
     print 'device port', d.port
     print 'device ip', d.network().ip4
     print 'device interface', d.network().interface
     print 'device ordinal', d.ordinal
-    print 'signal name', sig.name
-    print 'signal direction', sig.direction
-    print 'signal length', sig.length
-    print 'signal type', sig.type
-    print 'signal direction', sig.direction
-    print 'signal unit', sig.unit
+
     d.set_properties({"testInt":5, "testFloat":12.7, "testString":["test","foo"],
-                      "removed1":"shouldn't see this"})
+                     "removed1":"shouldn't see this"})
     d.properties['testInt'] = 7
 #    d.set_properties({"removed1":None, "removed2":"test"})
-    d.remove_property("removed1")
+#    d.remove_property("removed1")
 
     print 'Printing', d.num_properties, 'properties:'
     for key, value in d.properties.items():
         print '  ', key, ':', value
 
     print 'device properties:', d.properties
-    print 'check'
-    print 'signal properties:', sig.properties
-    print 'check2'
+
+    print 'signal name', sig.name
+    print 'signal direction', sig.direction
+    print 'signal length', sig.length
+    print 'signal type', sig.type
+    print 'signal direction', sig.direction
+    print 'signal unit', sig.unit
+    print 'signal minimum', sig.minimum
+    sig.minimum = 34.0
+    print 'signal minimum', sig.minimum
+    sig.minimum = 12
+    print 'signal minimum', sig.minimum
+    sig.minimum = None
+    print 'signal minimum', sig.minimum
+
     sig.properties['testInt'] = 3
-    print 'check3'
+
     print 'signal properties:', sig.properties
+
     d.add_input_signal("insig", 4, 'f', None, None, None, h)
     d.add_output_signal("outsig", 4, 'f')
     print 'setup done!'
@@ -69,7 +62,7 @@ def database_cb(rectype, record, action):
     if rectype is 'device':
         print '  ', record.name
 
-db = mapper.database(subscribe_flags=mapper.MAPPER_SUBSCRIBE_ALL)
+db = mapper.database(subscribe_flags=mapper.MAPPER_OBJ_ALL)
 
 db.add_device_callback(lambda x,y:database_cb('device',x,y))
 db.add_signal_callback(lambda x,y:database_cb('signal',x,y))
@@ -107,8 +100,8 @@ for i in range(1000):
         map.mode = mapper.MAPPER_MODE_LINEAR
         map.push()
 
-#    if i==800:
-#        map.release()
+    if i==800:
+        map.release()
 
 print 'devices and signals:'
 for i in db.devices():
@@ -120,3 +113,10 @@ print 'maps:'
 for i in db.maps():
     print "    ", i.source().signal().device().name, ':', i.source().signal().name,\
         '->', i.destination().signal().device().name, ':', i.destination().signal().name
+
+# combining queries
+print 'signals matching \'out\' or \'req\':'
+q1 = db.signals_by_name_match("out")
+q1.join(db.signals_by_name_match("req"))
+for i in q1:
+    print "    ", i.name

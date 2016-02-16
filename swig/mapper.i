@@ -7,14 +7,14 @@
     }
     $1 = $input;
  }
-%typemap(in) (int num_int, int *argv) {
+%typemap(in) (int num_ids, mapper_id *argv) {
     int i;
     if (!PyList_Check($input)) {
         PyErr_SetString(PyExc_ValueError, "Expecting a list");
         return NULL;
     }
     $1 = PyList_Size($input);
-    $2 = (int*) malloc($1*sizeof(int));
+    $2 = (mapper_id*) malloc($1*sizeof(mapper_id));
     for (i = 0; i < $1; i++) {
         PyObject *s = PyList_GetItem($input,i);
         if (PyInt_Check(s))
@@ -29,10 +29,10 @@
         }
     }
 }
-%typemap(typecheck) (int num_int, int *argv) {
+%typemap(typecheck) (int num_ids, mapper_id *argv) {
     $1 = PyList_Check($input) ? 1 : 0;
 }
-%typemap(freearg) (int num_int, int *argv) {
+%typemap(freearg) (int num_ids, mapper_id *argv) {
     if ($2) free($2);
 }
 %typemap(in) (int num_sources, const char **sources) {
@@ -65,54 +65,112 @@
 %typemap(freearg) (int num_sources, const char **sources) {
     if ($2) free($2);
 }
-%typemap(in) maybePropVal %{
-    propval *val = alloca(sizeof(*val));
+%typemap(in) property_value %{
+    property_value_t *prop = alloca(sizeof(*prop));
     if ($input == Py_None)
         $1 = 0;
     else {
-        val->name = 0;
-        val->type = 0;
-        check_type($input, &val->type, 1, 1);
-        if (!val->type) {
+        prop->type = 0;
+        check_type($input, &prop->type, 1, 1);
+        if (!prop->type) {
             PyErr_SetString(PyExc_ValueError,
                             "Problem determining value type.");
             return NULL;
         }
         if (PyList_Check($input))
-            val->length = PyList_Size($input);
+            prop->length = PyList_Size($input);
         else
-            val->length = 1;
-        val->value = malloc(val->length * mapper_type_size(val->type));
-        val->free_value = 1;
-        if (py_to_prop($input, &val->value, val->type, val->length)) {
-            free(val->value);
-            PyErr_SetString(PyExc_ValueError,
-                            "Problem parsing property value.");
+            prop->length = 1;
+        prop->value = malloc(prop->length * mapper_type_size(prop->type));
+        prop->free_value = 1;
+        if (py_to_prop($input, prop, 0)) {
+            free(prop->value);
+            PyErr_SetString(PyExc_ValueError, "Problem parsing property value.");
             return NULL;
         }
-        $1 = val;
+        $1 = prop;
     }
 %}
-%typemap(out) maybePropVal {
+%typemap(out) property_value {
     if ($1) {
-        $result = prop_to_py($1->name, $1->type, $1->length, $1->value);
+        $result = prop_to_py($1, 0);
         if ($result)
             free($1);
+        else {
+            $result = Py_None;
+            Py_INCREF($result);
+        }
     }
     else {
         $result = Py_None;
         Py_INCREF($result);
     }
  }
-%typemap(freearg) maybePropVal {
+%typemap(freearg) property_value {
     if ($1) {
-        maybePropVal prop = (maybePropVal)$1;
+        property_value prop = (property_value)$1;
         if (prop->free_value) {
             if (prop->value)
                 free(prop->value);
         }
-        // memory leak when allocated from C
-//        free(prop);
+        else
+            free(prop);
+    }
+}
+%typemap(in) named_property %{
+    named_property_t *prop = alloca(sizeof(*prop));
+    if ($input == Py_None)
+        $1 = 0;
+        else {
+            prop->name = 0;
+            prop->value.type = 0;
+            check_type($input, &prop->value.type, 1, 1);
+            if (!prop->value.type) {
+                PyErr_SetString(PyExc_ValueError,
+                                "Problem determining value type.");
+                return NULL;
+            }
+            if (PyList_Check($input))
+                prop->value.length = PyList_Size($input);
+            else
+                prop->value.length = 1;
+            prop->value.value = malloc(prop->value.length
+                                       * mapper_type_size(prop->value.type));
+            prop->value.free_value = 1;
+            if (py_to_prop($input, &prop->value, &prop->name)) {
+                free(prop->value.value);
+                PyErr_SetString(PyExc_ValueError,
+                                "Problem parsing property value.");
+                return NULL;
+            }
+            $1 = prop;
+        }
+    %}
+%typemap(out) named_property {
+    if ($1) {
+        named_property prop = (named_property)$1;
+        $result = prop_to_py(&prop->value, prop->name);
+        if ($result)
+            free($1);
+        else {
+            $result = Py_None;
+            Py_INCREF($result);
+        }
+    }
+    else {
+        $result = Py_None;
+        Py_INCREF($result);
+    }
+}
+%typemap(freearg) named_property {
+    if ($1) {
+        named_property prop = (named_property)$1;
+        if (prop->value.free_value) {
+            if (prop->value.value)
+                free(prop->value.value);
+        }
+        else
+            free(prop);
     }
 }
 %typemap(out) maybeInt {
@@ -164,23 +222,35 @@ typedef struct _map_query {
     mapper_map *query;
 } map_query;
 
+typedef struct {
+    void *value;
+    int length;
+    char free_value;
+    char type;
+} property_value_t, *property_value;
+
+typedef struct {
+    const char *name;
+    property_value_t value;
+} named_property_t, *named_property;
+
 PyThreadState *_save;
 
-static int py_to_prop(PyObject *from, void **to, char type, int length)
+static int py_to_prop(PyObject *from, property_value prop, const char **name)
 {
     // here we are assuming sufficient memory has already been allocated
-    if (!from || !length)
+    if (!from || !prop->length)
         return 1;
 
     int i;
 
-    switch (type) {
+    switch (prop->type) {
         case 's':
         {
             // only strings are valid
-            if (length > 1) {
-                char **str_to = (char**)*to;
-                for (i=0; i<length; i++) {
+            if (prop->length > 1) {
+                char **str_to = (char**)prop->value;
+                for (i = 0; i < prop->length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
                     if (!PyString_Check(element))
                         return 1;
@@ -190,7 +260,7 @@ static int py_to_prop(PyObject *from, void **to, char type, int length)
             else {
                 if (!PyString_Check(from))
                     return 1;
-                char **str_to = (char**)to;
+                char **str_to = (char**)&prop->value;
                 *str_to = strdup(PyString_AsString(from));
             }
             break;
@@ -198,9 +268,9 @@ static int py_to_prop(PyObject *from, void **to, char type, int length)
         case 'c':
         {
             // only strings are valid
-            char *char_to = (char*)*to;
-            if (length > 1) {
-                for (i=0; i<length; i++) {
+            char *char_to = (char*)prop->value;
+            if (prop->length > 1) {
+                for (i = 0; i < prop->length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
                     if (!PyString_Check(element))
                         return 1;
@@ -218,9 +288,9 @@ static int py_to_prop(PyObject *from, void **to, char type, int length)
         }
         case 'i':
         {
-            int *int_to = (int*)*to;
-            if (length > 1) {
-                for (i=0; i<length; i++) {
+            int *int_to = (int*)prop->value;
+            if (prop->length > 1) {
+                for (i = 0; i < prop->length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
                     if (PyInt_Check(element))
                         int_to[i] = PyInt_AsLong(element);
@@ -254,9 +324,9 @@ static int py_to_prop(PyObject *from, void **to, char type, int length)
         }
         case 'f':
         {
-            float *float_to = (float*)*to;
-            if (length > 1) {
-                for (i=0; i<length; i++) {
+            float *float_to = (float*)prop->value;
+            if (prop->length > 1) {
+                for (i = 0; i < prop->length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
                     if (PyFloat_Check(element))
                         float_to[i] = PyFloat_AsDouble(element);
@@ -331,89 +401,89 @@ static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
     return 0;
 }
 
-static PyObject *prop_to_py(const char *name, char type, int length,
-                            const void *value)
+static PyObject *prop_to_py(property_value prop, const char *name)
 {
-    if (!length)
+    if (!prop->length)
         return 0;
+
     int i;
     PyObject *v = 0;
-    if (length > 1)
-        v = PyList_New(length);
+    if (prop->length > 1)
+        v = PyList_New(prop->length);
 
-    switch (type) {
+    switch (prop->type) {
         case 's':
         case 'S':
         {
-            if (length > 1) {
-                char **vect = (char**)value;
-                for (i=0; i<length; i++)
+            if (prop->length > 1) {
+                char **vect = (char**)prop->value;
+                for (i=0; i<prop->length; i++)
                     PyList_SetItem(v, i, PyString_FromString(vect[i]));
             }
             else
-                v = PyString_FromString((char*)value);
+                v = PyString_FromString((char*)prop->value);
             break;
         }
         case 'c':
         {
-            if (length > 1) {
-                char *vect = (char*)value;
-                for (i=0; i<length; i++)
+            if (prop->length > 1) {
+                char *vect = (char*)prop->value;
+                for (i=0; i<prop->length; i++)
                     PyList_SetItem(v, i, Py_BuildValue("c", vect[i]));
             }
             else
-                v = Py_BuildValue("c", *(char*)value);
+                v = Py_BuildValue("c", *(char*)prop->value);
             break;
         }
         case 'i':
         {
-            if (length > 1) {
-                int *vect = (int*)value;
-                for (i=0; i<length; i++)
+            if (prop->length > 1) {
+                int *vect = (int*)prop->value;
+                for (i=0; i<prop->length; i++)
                     PyList_SetItem(v, i, Py_BuildValue("i", vect[i]));
             }
             else
-                v = Py_BuildValue("i", *(int*)value);
+                v = Py_BuildValue("i", *(int*)prop->value);
             break;
         }
         case 'h':
         {
-            if (length > 1) {
-                int64_t *vect = (int64_t*)value;
-                for (i=0; i<length; i++)
+            if (prop->length > 1) {
+                int64_t *vect = (int64_t*)prop->value;
+                for (i=0; i<prop->length; i++)
                     PyList_SetItem(v, i, Py_BuildValue("l", vect[i]));
             }
             else
-                v = Py_BuildValue("l", *(int64_t*)value);
+                v = Py_BuildValue("l", *(int64_t*)prop->value);
             break;
         }
         case 'f':
         {
-            if (length > 1) {
-                float *vect = (float*)value;
-                for (i=0; i<length; i++)
+            if (prop->length > 1) {
+                float *vect = (float*)prop->value;
+                for (i=0; i<prop->length; i++)
                     PyList_SetItem(v, i, Py_BuildValue("f", vect[i]));
             }
             else
-                v = Py_BuildValue("f", *(float*)value);
+                v = Py_BuildValue("f", *(float*)prop->value);
             break;
         }
         case 'd':
         {
-            if (length > 1) {
-                double *vect = (double*)value;
-                for (i=0; i<length; i++)
+            if (prop->length > 1) {
+                double *vect = (double*)prop->value;
+                for (i=0; i<prop->length; i++)
                     PyList_SetItem(v, i, Py_BuildValue("d", vect[i]));
             }
             else
-                v = Py_BuildValue("d", *(double*)value);
+                v = Py_BuildValue("d", *(double*)prop->value);
             break;
         }
         case 't':
         {
-            mapper_timetag_t *vect = (mapper_timetag_t*)value;
-            if (length > 1) {
-                for (i=0; i<length; i++)
+            mapper_timetag_t *vect = (mapper_timetag_t*)prop->value;
+            if (prop->length > 1) {
+                for (i=0; i<prop->length; i++)
                     PyList_SetItem(v, i, Py_BuildValue("d",
                         mapper_timetag_double(vect[i])));
             }
@@ -446,7 +516,6 @@ static void signal_handler_py(mapper_signal sig, mapper_id instance,
                               const void *value, int count,
                               mapper_timetag_t *tt)
 {
-    printf("signal_handler_py()\n");
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;
     PyObject *valuelist=0;
@@ -557,90 +626,82 @@ static void device_map_handler_py(mapper_map map, mapper_record_action action,
     _save = PyEval_SaveThread();
 }
 
-typedef struct {
-    const char *name;
-    char type;
-    int length;
-    void *value;
-    int free_value;
-} propval, *maybePropVal;
-
-static int coerce_prop(maybePropVal val, char type)
+static int coerce_prop(property_value prop, char type)
 {
     int i;
-    if (!val)
+    if (!prop)
         return 1;
-    if (val->type == type)
+    if (prop->type == type)
         return 0;
 
     switch (type) {
         case 'i':
         {
-            int *to = malloc(val->length * sizeof(int));
-            if (val->type == 'f') {
-                float *from = (float*)val->value;
-                for (i=0; i<val->length; i++)
+            int *to = malloc(prop->length * sizeof(int));
+            if (prop->type == 'f') {
+                float *from = (float*)prop->value;
+                for (i = 0; i < prop->length; i++)
                     to[i] = (int)from[i];
             }
-            else if (val->type == 'd') {
-                double *from = (double*)val->value;
-                for (i=0; i<val->length; i++)
+            else if (prop->type == 'd') {
+                double *from = (double*)prop->value;
+                for (i = 0; i < prop->length; i++)
                     to[i] = (int)from[i];
             }
             else {
                 free(to);
                 return 1;
             }
-            if (val->free_value)
-                free(val->value);
-            val->value = to;
-            val->free_value = 1;
+            if (prop->free_value)
+                free(prop->value);
+            prop->value = to;
+            prop->free_value = 1;
             break;
         }
         case 'f':
         {
-            float *to = malloc(val->length * sizeof(float));
-            if (val->type == 'i') {
-                int *from = (int*)val->value;
-                for (i=0; i<val->length; i++)
+            float *to = malloc(prop->length * sizeof(float));
+            if (prop->type == 'i') {
+                int *from = (int*)prop->value;
+                for (i = 0; i < prop->length; i++)
                     to[i] = (float)from[i];
             }
-            else if (val->type == 'd') {
-                double *from = (double*)val->value;
-                for (i=0; i<val->length; i++)
+            else if (prop->type == 'd') {
+                double *from = (double*)prop->value;
+                for (i = 0; i < prop->length; i++)
                     to[i] = (float)from[i];
             }
             else {
                 free(to);
                 return 1;
             }
-            if (val->free_value)
-                free(val->value);
-            val->value = to;
-            val->free_value = 1;
+            if (prop->free_value)
+                free(prop->value);
+            prop->value = to;
+            prop->free_value = 1;
             break;
         }
         case 'd':
         {
-            double *to = malloc(val->length * sizeof(double));
-            if (val->type == 'i') {
-                int *from = (int*)val->value;
-                for (i=0; i<val->length; i++)
+            double *to = malloc(prop->length * sizeof(double));
+            if (prop->type == 'i') {
+                int *from = (int*)prop->value;
+                for (i = 0; i < prop->length; i++)
                     to[i] = (double)from[i];
             }
-            else if (val->type == 'f') {
-                float *from = (float*)val->value;
-                for (i=0; i<val->length; i++)
+            else if (prop->type == 'f') {
+                float *from = (float*)prop->value;
+                for (i = 0; i < prop->length; i++)
                     to[i] = (double)from[i];
             }
             else {
                 free(to);
                 return 1;
             }
-            if (val->free_value)
-                free(val->value);
-            val->value = to;
-            val->free_value = 1;
+            if (prop->free_value)
+                free(prop->value);
+            prop->value = to;
+            prop->free_value = 1;
             break;
         }
         default:
@@ -721,7 +782,8 @@ static void map_database_handler_py(mapper_map map, mapper_record_action action,
 static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir,
                                          const char *name, int length,
                                          const char type, const char *unit,
-                                         maybePropVal minimum, maybePropVal maximum,
+                                         property_value minimum,
+                                         property_value maximum,
                                          PyObject *PyFunc)
 {
     int i;
@@ -904,6 +966,7 @@ typedef struct _device_query {
     }
     ~_device_query() {
         mapper_device_query_done($self->query);
+        free($self);
     }
     struct _device_query *__iter__() {
         return $self;
@@ -918,6 +981,30 @@ typedef struct _device_query {
             return (device*)result;
         my_error = 1;
         return NULL;
+    }
+    device_query *join(device_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_device *copy = mapper_device_query_copy(q->query);
+        $self->query = mapper_device_query_union($self->query, copy);
+        return $self;
+    }
+    device_query *intersect(device_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_device *copy = mapper_device_query_copy(q->query);
+        $self->query = mapper_device_query_intersection($self->query, copy);
+        return $self;
+    }
+    device_query *subtract(device_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_device *copy = mapper_device_query_copy(q->query);
+        $self->query = mapper_device_query_difference($self->query, copy);
+        return $self;
     }
 }
 
@@ -942,7 +1029,7 @@ typedef struct _device_query {
      * correct for this case. */
     signal *add_signal(mapper_direction dir, const char *name, int length=1,
                        const char type='f', const char *unit=0,
-                       maybePropVal minimum=0, maybePropVal maximum=0,
+                       property_value minimum=0, property_value maximum=0,
                        PyObject *PyFunc=0)
     {
         return (signal*)add_signal_internal((mapper_device)$self, dir, name,
@@ -951,7 +1038,7 @@ typedef struct _device_query {
     }
     signal *add_input_signal(const char *name, int length=1,
                              const char type='f', const char *unit=0,
-                             maybePropVal minimum=0, maybePropVal maximum=0,
+                             property_value minimum=0, property_value maximum=0,
                              PyObject *PyFunc=0)
     {
         return (signal*)add_signal_internal((mapper_device)$self,
@@ -960,8 +1047,8 @@ typedef struct _device_query {
                                             PyFunc);
     }
     signal *add_output_signal(const char *name, int length=1, const char type='f',
-                              const char *unit=0, maybePropVal minimum=0,
-                              maybePropVal maximum=0, PyObject *PyFunc=0)
+                              const char *unit=0, property_value minimum=0,
+                              property_value maximum=0, PyObject *PyFunc=0)
     {
         return (signal*)add_signal_internal((mapper_device)$self,
                                             MAPPER_DIR_OUTGOING, name, length,
@@ -1000,7 +1087,7 @@ typedef struct _device_query {
         mapper_timetag_set_double(&tt, timetag);
         mapper_device_send_queue((mapper_device)$self, tt);
     }
-    void set_map_handler(PyObject *PyFunc=0) {
+    void set_map_callback(PyObject *PyFunc=0) {
         void *h = 0;
         if (PyFunc) {
             Py_XINCREF(PyFunc);
@@ -1008,7 +1095,7 @@ typedef struct _device_query {
         }
         else
             Py_XDECREF(((mapper_device)$self)->local->map_handler_userdata);
-        mapper_device_set_map_handler((mapper_device)$self, h, PyFunc);
+        mapper_device_set_map_callback((mapper_device)$self, h, PyFunc);
     }
     double start_queue(double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
@@ -1077,7 +1164,7 @@ typedef struct _device_query {
     int get_version() {
         return mapper_device_version((mapper_device)$self);
     }
-    maybePropVal get_property(const char *key) {
+    property_value get_property(const char *key) {
         mapper_device dev = (mapper_device)$self;
         int length;
         char type;
@@ -1087,8 +1174,7 @@ typedef struct _device_query {
                 // don't include user_data
                 return 0;
             }
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = 0;
+            property_value prop = malloc(sizeof(property_value_t));
             prop->length = length;
             prop->type = type;
             prop->value = (void*)value;
@@ -1097,7 +1183,7 @@ typedef struct _device_query {
         }
         return 0;
     }
-    maybePropVal get_property(int index) {
+    named_property get_property(int index) {
         mapper_device dev = (mapper_device)$self;
         const char *name;
         int length;
@@ -1109,12 +1195,12 @@ typedef struct _device_query {
                 // don't include user_data
                 return 0;
             }
-            maybePropVal prop = malloc(sizeof(maybePropVal));
+            named_property prop = malloc(sizeof(named_property_t));
             prop->name = name;
-            prop->length = length;
-            prop->type = type;
-            prop->value = (void*)value;
-            prop->free_value = 0;
+            prop->value.length = length;
+            prop->value.type = type;
+            prop->value.value = (void*)value;
+            prop->value.free_value = 0;
             return prop;
         }
         return 0;
@@ -1124,7 +1210,7 @@ typedef struct _device_query {
     void set_description(const char *description) {
         mapper_device_set_description((mapper_device)$self, description);
     }
-    void set_property(const char *key, maybePropVal val=0) {
+    void set_property(const char *key, property_value val=0) {
         if (!key || strcmp(key, "user_data")==0)
             return;
         if (val)
@@ -1219,6 +1305,7 @@ typedef struct _signal_query {
     }
     ~_signal_query() {
         mapper_signal_query_done($self->query);
+        free($self);
     }
     struct _signal_query *__iter__() {
         return $self;
@@ -1233,6 +1320,30 @@ typedef struct _signal_query {
             return (signal*)result;
         my_error = 1;
         return NULL;
+    }
+    signal_query *join(signal_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_signal *copy = mapper_signal_query_copy(q->query);
+        $self->query = mapper_signal_query_union($self->query, copy);
+        return $self;
+    }
+    signal_query *intersect(signal_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_signal *copy = mapper_signal_query_copy(q->query);
+        $self->query = mapper_signal_query_intersection($self->query, copy);
+        return $self;
+    }
+    signal_query *subtract(signal_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_signal *copy = mapper_signal_query_copy(q->query);
+        $self->query = mapper_signal_query_difference($self->query, copy);
+        return $self;
     }
 }
 
@@ -1269,8 +1380,8 @@ typedef struct _signal_query {
     void reserve_instances(int num=1) {
         mapper_signal_reserve_instances((mapper_signal)$self, num, 0, 0);
     }
-    void reserve_instances(int num_int, mapper_id *argv) {
-        mapper_signal_reserve_instances((mapper_signal)$self, num_int, argv, 0);
+    void reserve_instances(int num_ids, mapper_id *argv) {
+        mapper_signal_reserve_instances((mapper_signal)$self, num_ids, argv, 0);
     }
     void set_instance_event_callback(PyObject *PyFunc=0, int flags=0) {
         mapper_instance_event_handler *h = 0;
@@ -1328,7 +1439,7 @@ typedef struct _signal_query {
         }
         mapper_signal_set_callback((mapper_signal)$self, h, callbacks);
     }
-    void update(maybePropVal val=0, double timetag=0) {
+    void update(property_value val=0, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
@@ -1350,7 +1461,7 @@ typedef struct _signal_query {
         }
         mapper_signal_update(sig, val->value, count, tt);
     }
-    void update_instance(int id, maybePropVal val=0, double timetag=0) {
+    void update_instance(int id, property_value val=0, double timetag=0) {
         mapper_timetag_t tt = MAPPER_NOW;
         if (timetag)
             mapper_timetag_set_double(&tt, timetag);
@@ -1396,11 +1507,10 @@ typedef struct _signal_query {
     int get_length() {
         return ((mapper_signal)$self)->length;
     }
-    maybePropVal get_minimum() {
+    property_value get_minimum() {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->minimum) {
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = 0;
+            property_value prop = malloc(sizeof(property_value_t));
             prop->type = sig->type;
             prop->length = sig->length;
             prop->value = sig->minimum;
@@ -1409,11 +1519,10 @@ typedef struct _signal_query {
         }
         return 0;
     }
-    maybePropVal get_maximum() {
+    property_value get_maximum() {
         mapper_signal sig = (mapper_signal)$self;
         if (sig->maximum) {
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = 0;
+            property_value prop = malloc(sizeof(property_value_t));
             prop->type = sig->type;
             prop->length = sig->length;
             prop->value = sig->maximum;
@@ -1446,7 +1555,7 @@ typedef struct _signal_query {
     const char *get_unit() {
         return ((mapper_signal)$self)->unit;
     }
-    maybePropVal get_property(const char *key) {
+    property_value get_property(const char *key) {
         mapper_signal sig = (mapper_signal)$self;
         int length;
         char type;
@@ -1456,8 +1565,7 @@ typedef struct _signal_query {
                 // don't include user_data
                 return 0;
             }
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = 0;
+            property_value prop = malloc(sizeof(property_value_t));
             prop->length = length;
             prop->type = type;
             prop->value = (void*)value;
@@ -1466,8 +1574,8 @@ typedef struct _signal_query {
         }
         return 0;
     }
-    maybePropVal get_property(int index) {
-        printf("<signal>.get_property(%d)\n", index);
+    named_property get_property(int index) {
+        fflush(stdout);
         mapper_signal sig = (mapper_signal)$self;
         const char *name;
         int length;
@@ -1477,28 +1585,24 @@ typedef struct _signal_query {
                                           &value)) {
             if (type == 'v') {
                 // don't include user_data
-                printf("  type == 'v', returning null\n");
                 return 0;
             }
-            maybePropVal prop = malloc(sizeof(maybePropVal));
+            named_property prop = malloc(sizeof(named_property_t));
             prop->name = name;
-            prop->length = length;
-            prop->type = type;
-            prop->value = (void*)value;
-            prop->free_value = 0;
-            printf("  returning prop @ %p\n", prop);
+            prop->value.length = length;
+            prop->value.type = type;
+            prop->value.value = (void*)value;
+            prop->value.free_value = 0;
             return prop;
         }
-        printf("  prop not found\n");
         return 0;
     }
-    maybePropVal value() {
+    property_value value() {
         mapper_signal sig = (mapper_signal)$self;
         const void *value = mapper_signal_value(sig, 0);
         if (!value)
             return 0;
-        maybePropVal prop = malloc(sizeof(maybePropVal));
-        prop->name = 0;
+        property_value prop = malloc(sizeof(property_value_t));
         prop->length = sig->length;
         prop->type = sig->type;
         prop->value = (void*)value;
@@ -1512,7 +1616,7 @@ typedef struct _signal_query {
     void set_instance_stealing_mode(mapper_instance_stealing_type mode) {
         mapper_signal_set_instance_stealing_mode((mapper_signal)$self, mode);
     }
-    void set_maximum(maybePropVal val=0) {
+    void set_maximum(property_value val=0) {
         mapper_signal sig = (mapper_signal)$self;
         if (!val) {
             mapper_signal_set_maximum((mapper_signal)$self, 0);
@@ -1528,7 +1632,7 @@ typedef struct _signal_query {
         }
         mapper_signal_set_maximum((mapper_signal)$self, val->value);
     }
-    void set_minimum(maybePropVal val=0) {
+    void set_minimum(property_value val=0) {
         mapper_signal sig = (mapper_signal)$self;
         if (!val) {
             mapper_signal_set_minimum((mapper_signal)$self, 0);
@@ -1550,7 +1654,7 @@ typedef struct _signal_query {
     void set_unit(const char *unit) {
         mapper_signal_set_unit((mapper_signal)$self, unit);
     }
-    void set_property(const char *key, maybePropVal val=0) {
+    void set_property(const char *key, property_value val=0) {
         if (!key || strcmp(key, "user_data")==0)
             return;
         if (val)
@@ -1589,11 +1693,9 @@ typedef struct _signal_query {
         type = property(get_type)
         unit = property(get_unit, set_unit)
         def get_properties(self):
-            print 'signal get props:', self.num_properties, 'props'
+            num_props = self.num_properties
             props = {}
-            print 'alloc\'d prop dict'
-            for i in range(self.num_properties):
-                print 'should be getting prop', i
+            for i in range(num_props):
                 prop = self.get_property(i)
                 if prop:
                     props[prop[0]] = prop[1];
@@ -1635,6 +1737,7 @@ typedef struct _map_query {
     }
     ~_map_query() {
         mapper_map_query_done($self->query);
+        free($self);
     }
     struct _map_query *__iter__() {
         return $self;
@@ -1650,6 +1753,30 @@ typedef struct _map_query {
         my_error = 1;
         return NULL;
     }
+    map_query *join(map_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_map *copy = mapper_map_query_copy(q->query);
+        $self->query = mapper_map_query_union($self->query, copy);
+        return $self;
+    }
+    map_query *intersect(map_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_map *copy = mapper_map_query_copy(q->query);
+        $self->query = mapper_map_query_intersection($self->query, copy);
+        return $self;
+    }
+    map_query *subtract(map_query *q) {
+        if (!q || !q->query)
+            return $self;
+        // need to use a copy of q
+        mapper_map *copy = mapper_map_query_copy(q->query);
+        $self->query = mapper_map_query_difference($self->query, copy);
+        return $self;
+    }
 }
 
 %extend _map {
@@ -1660,15 +1787,15 @@ typedef struct _map_query {
     ~_map() {
         ;
     }
-    void push() {
-        mapper_map_pp((mapper_map)$self);
+    map *push() {
         mapper_map_push((mapper_map)$self);
+        return $self;
     }
     void release() {
         mapper_map_release((mapper_map)$self);
     }
-    void ready() {
-        mapper_map_ready((mapper_map)$self);
+    booltype ready() {
+        return mapper_map_ready((mapper_map)$self);
     }
 
     // slot getters
@@ -1722,7 +1849,7 @@ typedef struct _map_query {
     mapper_location get_process_location() {
         return mapper_map_process_location((mapper_map)$self);
     }
-    maybePropVal get_property(const char *key) {
+    property_value get_property(const char *key) {
         mapper_map map = (mapper_map)$self;
         int length;
         char type;
@@ -1732,8 +1859,7 @@ typedef struct _map_query {
                 // don't include user_data
                 return 0;
             }
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = 0;
+            property_value prop = malloc(sizeof(property_value_t));
             prop->length = length;
             prop->type = type;
             prop->value = (void*)value;
@@ -1742,7 +1868,7 @@ typedef struct _map_query {
         }
         return 0;
     }
-    maybePropVal get_property(int index) {
+    named_property get_property(int index) {
         mapper_map map = (mapper_map)$self;
         const char *name;
         int length;
@@ -1754,12 +1880,12 @@ typedef struct _map_query {
                 // don't include user_data
                 return 0;
             }
-            maybePropVal prop = malloc(sizeof(maybePropVal));
+            named_property prop = malloc(sizeof(named_property_t));
             prop->name = name;
-            prop->length = length;
-            prop->type = type;
-            prop->value = (void*)value;
-            prop->free_value = 0;
+            prop->value.length = length;
+            prop->value.type = type;
+            prop->value.value = (void*)value;
+            prop->value.free_value = 0;
             return prop;
         }
         return 0;
@@ -1781,7 +1907,7 @@ typedef struct _map_query {
     void set_process_location(mapper_location loc) {
         mapper_map_set_process_location((mapper_map)$self, loc);
     }
-    void set_property(const char *key, maybePropVal val=0) {
+    void set_property(const char *key, property_value val=0) {
         if (!key || strcmp(key, "user_data")==0)
             return;
         if (val)
@@ -1850,12 +1976,11 @@ typedef struct _map_query {
     int get_index() {
         return mapper_slot_index((mapper_slot)$self);
     }
-    maybePropVal get_minimum() {
+    property_value get_minimum() {
         mapper_slot slot = (mapper_slot)$self;
         if (slot->minimum) {
             mapper_signal sig = mapper_slot_signal(slot);
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = 0;
+            property_value prop = malloc(sizeof(property_value_t));
             prop->type = sig->type;
             prop->length = sig->length;
             prop->value = slot->minimum;
@@ -1864,12 +1989,11 @@ typedef struct _map_query {
         }
         return 0;
     }
-    maybePropVal get_maximum() {
+    property_value get_maximum() {
         mapper_slot slot = (mapper_slot)$self;
         if (slot->maximum) {
             mapper_signal sig = mapper_slot_signal(slot);
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = 0;
+            property_value prop = malloc(sizeof(property_value_t));
             prop->type = sig->type;
             prop->length = sig->length;
             prop->value = slot->maximum;
@@ -1881,7 +2005,7 @@ typedef struct _map_query {
     booltype get_use_as_instance() {
         return mapper_slot_use_as_instance((mapper_slot)$self);
     }
-    maybePropVal get_property(const char *key) {
+    property_value get_property(const char *key) {
         mapper_slot slot = (mapper_slot)$self;
         int length;
         char type;
@@ -1891,8 +2015,7 @@ typedef struct _map_query {
                 // don't include user_data
                 return 0;
             }
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = 0;
+            property_value prop = malloc(sizeof(property_value_t));
             prop->length = length;
             prop->type = type;
             prop->value = (void*)value;
@@ -1901,7 +2024,7 @@ typedef struct _map_query {
         }
         return 0;
     }
-    maybePropVal get_property(int index) {
+    named_property get_property(int index) {
         mapper_slot slot = (mapper_slot)$self;
         const char *name;
         int length;
@@ -1913,12 +2036,11 @@ typedef struct _map_query {
                 // don't include user_data
                 return 0;
             }
-            maybePropVal prop = malloc(sizeof(maybePropVal));
-            prop->name = name;
-            prop->length = length;
-            prop->type = type;
-            prop->value = (void*)value;
-            prop->free_value = 0;
+            named_property prop = malloc(sizeof(named_property_t));
+            prop->value.length = length;
+            prop->value.type = type;
+            prop->value.value = (void*)value;
+            prop->value.free_value = 0;
             return prop;
         }
         return 0;
@@ -1937,21 +2059,21 @@ typedef struct _map_query {
     void set_causes_update(booltype causes_update) {
         mapper_slot_set_causes_update((mapper_slot)$self, causes_update);
     }
-    void set_maximum(maybePropVal val=0) {
+    void set_maximum(property_value val=0) {
         if (!val)
             mapper_slot_set_maximum((mapper_slot)$self, 0, 0, 0);
         else
             mapper_slot_set_maximum((mapper_slot)$self, val->length, val->type,
                                     val->value);
     }
-    void set_minimum(maybePropVal val=0) {
+    void set_minimum(property_value val=0) {
         if (!val)
             mapper_slot_set_minimum((mapper_slot)$self, 0, 0, 0);
         else
             mapper_slot_set_minimum((mapper_slot)$self,val->length, val->type,
                                     val->value);
     }
-    void set_property(const char *key, maybePropVal val=0) {
+    void set_property(const char *key, property_value val=0) {
         if (!key || strcmp(key, "user_data")==0)
             return;
         if (val)
@@ -2091,13 +2213,14 @@ typedef struct _map_query {
                                                            pattern);
         return ret;
     }
-    device_query *devices_by_property(maybePropVal val=0,
+    device_query *devices_by_property(named_property prop=0,
                                       mapper_op op=MAPPER_OP_EQUAL) {
-        if (!val || !val->name)
+        if (!prop || !prop->name)
             return 0;
+        property_value val = &prop->value;
         device_query *ret = malloc(sizeof(struct _device_query));
         ret->query = mapper_database_devices_by_property((mapper_database)$self,
-                                                         val->name, val->length,
+                                                         prop->name, val->length,
                                                          val->type, val->value,
                                                          op);
         return ret;
@@ -2127,13 +2250,14 @@ typedef struct _map_query {
                                                            name);
         return ret;
     }
-    signal_query *signals_by_property(maybePropVal val=0,
+    signal_query *signals_by_property(named_property prop=0,
                                       mapper_op op=MAPPER_OP_EQUAL) {
-        if (!val || !val->name)
+        if (!prop || !prop->name)
             return 0;
+        property_value val = &prop->value;
         signal_query *ret = malloc(sizeof(struct _signal_query));
         ret->query = mapper_database_signals_by_property((mapper_database)$self,
-                                                         val->name, val->length,
+                                                         prop->name, val->length,
                                                          val->type, val->value,
                                                          op);
         return ret;
@@ -2146,14 +2270,15 @@ typedef struct _map_query {
         ret->query = mapper_database_maps((mapper_database)$self);
         return ret;
     }
-    map_query *maps_by_property(maybePropVal prop=0,
+    map_query *maps_by_property(named_property prop=0,
                                 mapper_op op=MAPPER_OP_EQUAL) {
         if (!prop || !prop->name)
             return 0;
+        property_value val = &prop->value;
         map_query *ret = malloc(sizeof(struct _map_query));
         ret->query = mapper_database_maps_by_property((mapper_database)$self,
-                                                      prop->name, prop->length,
-                                                      prop->type, prop->value,
+                                                      prop->name, val->length,
+                                                      val->type, val->value,
                                                       op);
         return ret;
     }
@@ -2163,14 +2288,15 @@ typedef struct _map_query {
                                                    (mapper_device)dev);
         return ret;
     }
-    map_query *maps_by_slot_property(maybePropVal prop=0,
+    map_query *maps_by_slot_property(named_property prop=0,
                                      mapper_op op=MAPPER_OP_EQUAL) {
         if (!prop || !prop->name)
             return 0;
+        property_value val = &prop->value;
         map_query *ret = malloc(sizeof(struct _map_query));
         ret->query = mapper_database_maps_by_slot_property((mapper_database)$self,
-                                                           prop->name, prop->length,
-                                                           prop->type, prop->value,
+                                                           prop->name, val->length,
+                                                           val->type, val->value,
                                                            op);
         return ret;
     }
