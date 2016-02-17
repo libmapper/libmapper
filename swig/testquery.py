@@ -21,7 +21,7 @@ while not src.ready() or not dest.ready():
     dest.poll(10)
 
 map = mapper.map(outsig, insig)
-map.mode = mapper.MAPPER_MODE_LINEAR
+map.mode = mapper.MODE_LINEAR
 map.push()
 
 while not map.ready():

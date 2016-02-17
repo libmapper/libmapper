@@ -10,13 +10,13 @@ def sig_h(sig, id, f, timetag):
         print sig, f
 
 def action_name(action):
-    if action is mapper.MAPPER_ADDED:
+    if action is mapper.ADDED:
         return 'ADDED'
-    elif action is mapper.MAPPER_MODIFIED:
+    elif action is mapper.MODIFIED:
         return 'MODIFIED'
-    elif action is mapper.MAPPER_REMOVED:
+    elif action is mapper.REMOVED:
         return 'REMOVED'
-    elif action is mapper.MAPPER_EXPIRED:
+    elif action is mapper.EXPIRED:
         return 'EXPIRED'
 
 def map_h(map, action):

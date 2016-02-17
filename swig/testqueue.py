@@ -18,11 +18,11 @@ while not src.ready() or not dest.ready():
     dest.poll(10)
 
 map1 = mapper.map(outsig1, insig1)
-map1.mode = mapper.MAPPER_MODE_LINEAR
+map1.mode = mapper.MODE_LINEAR
 map1.push()
 
 map2 = mapper.map(outsig2, insig2)
-map2.mode = mapper.MAPPER_MODE_LINEAR
+map2.mode = mapper.MODE_LINEAR
 map2.push()
 
 while not map1.ready() or not map2.ready():

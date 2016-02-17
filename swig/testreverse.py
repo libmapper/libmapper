@@ -20,8 +20,7 @@ while not src.ready() or not dest.ready():
     src.poll(10)
     dest.poll(10)
 
-map = mapper.map(insig, outsig)
-map.push()
+map = mapper.map(insig, outsig).push()
 
 while not map.ready():
     src.poll(10)

@@ -62,7 +62,7 @@ def database_cb(rectype, record, action):
     if rectype is 'device':
         print '  ', record.name
 
-db = mapper.database(subscribe_flags=mapper.MAPPER_OBJ_ALL)
+db = mapper.database(subscribe_flags=mapper.OBJ_ALL)
 
 db.add_device_callback(lambda x,y:database_cb('device',x,y))
 db.add_signal_callback(lambda x,y:database_cb('signal',x,y))
@@ -80,12 +80,12 @@ for i in range(1000):
     
     if i==250:
         map = mapper.map(outsig, dev.signal("insig"))
-        map.mode = mapper.MAPPER_MODE_EXPRESSION
-#        map.expression = 'y=y{-1}+x'
-        map.expression = 'y=x*1000'
+        map.mode = mapper.MODE_EXPRESSION
+        map.expression = 'y=y{-1}+x'
+#        map.expression = 'y=x*1000'
         map.source().minimum = [1,2,3,4]
-        map.source().bound_min = mapper.MAPPER_BOUND_WRAP
-        map.source().bound_max = mapper.MAPPER_BOUND_CLAMP
+        map.source().bound_min = mapper.BOUND_WRAP
+        map.source().bound_max = mapper.BOUND_CLAMP
         map.push()
 
 #        # test creating multi-source map
@@ -97,7 +97,7 @@ for i in range(1000):
     if i==500:
         map.source().minimum = [10,11,12,13]
         map.muted = True
-        map.mode = mapper.MAPPER_MODE_LINEAR
+        map.mode = mapper.MODE_LINEAR
         map.push()
 
     if i==800:
