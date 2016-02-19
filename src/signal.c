@@ -65,8 +65,6 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
     int i;
     if (!name)
         return;
-    if (sig->local && (check_signal_length(length) || check_signal_type(type)))
-        return;
 
     name = skip_slash(name);
     int len = strlen(name)+2;
@@ -1548,11 +1546,13 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
     mapper_message_atom atom;
     int i, updated = 0, len_type_diff = 0;
 
-    if (!msg || sig->local)
+    if (!msg)
         return updated;
 
     for (i = 0; i < msg->num_atoms; i++) {
         atom = &msg->atoms[i];
+        if (sig->local && atom->index != AT_EXTRA)
+            continue;
         switch (atom->index) {
             case AT_DIRECTION: {
                 int dir = 0;
