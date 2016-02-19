@@ -1134,6 +1134,16 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
 {
     mapper_id dev_id = *(mapper_id*)context_data;
     int direction = *(int*)(context_data + sizeof(mapper_id));
+    if (direction == MAPPER_DIR_BOTH) {
+        if (map->destination.signal->device->id != dev_id)
+            return 0;
+        int i;
+        for (i = 0; i < map->num_sources; i++) {
+            if (map->sources[i]->signal->device->id != dev_id)
+                return 0;
+        }
+        return 1;
+    }
     if (!direction || (direction & MAPPER_DIR_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
