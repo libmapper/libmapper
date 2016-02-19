@@ -88,7 +88,7 @@ EXPORTS
     mapper_device_unique_id                             @87
     mapper_device_user_data                             @88
     mapper_device_version                               @89
-    mapper_libversion                                   @90
+    mapper_version                                      @90
     mapper_map_add_scope                                @91
     mapper_map_description                              @92
     mapper_map_destination_slot                         @93

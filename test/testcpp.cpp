@@ -214,13 +214,13 @@ int main(int argc, char ** argv)
         if (m.num_sources() > 1)
             std::cout << "[";
         for (int i = 0; i < m.num_sources(); i++) {
-            std::cout << m.source(i).device().name()
+            std::cout << m.source(i).signal().device().name()
                       << "/" << m.source(i).signal().name() << ", ";
         }
         std::cout << "\b\b";
         if (m.num_sources() > 1)
             std::cout << "]";
-        std::cout << " -> " << m.destination().device().name()
+        std::cout << " -> " << m.destination().signal().device().name()
                   << "/" << m.destination().signal().name() << std::endl;
     }
 

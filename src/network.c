@@ -470,7 +470,7 @@ mapper_network mapper_network_new(const char *iface, const char *group, int port
     return net;
 }
 
-const char *mapper_libversion(mapper_network net)
+const char *mapper_version()
 {
     return PACKAGE_VERSION;
 }

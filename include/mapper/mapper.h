@@ -839,7 +839,7 @@ void mapper_device_send_queue(mapper_device dev, mapper_timetag_t tt);
  *  \return             The liblo server sued by this device. */
 lo_server mapper_device_lo_server(mapper_device dev);
 
-/*! Return the internal mapper_database structure by a device.
+/*! Return the internal mapper_database structure used by a device.
  *  \param dev          The device structure to query.
  *  \return             The mapper_database used by this device. */
 mapper_database mapper_device_database(mapper_device dev);
@@ -1813,7 +1813,7 @@ void mapper_timetag_copy(mapper_timetag_t *ttl, mapper_timetag_t ttr);
 
 /*! Get the version of libmapper.
  *  \return             A string specifying the version of libmapper. */
-const char *mapper_libversion();
+const char *mapper_version();
 
 /*! Helper for printing typed values.
  *  \param length       The vector length of the value.

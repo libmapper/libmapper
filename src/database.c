@@ -654,9 +654,9 @@ void mapper_database_remove_signal(mapper_database db, mapper_signal sig)
     }
 
     if (sig->direction & MAPPER_DIR_INCOMING)
-        sig->device->num_inputs--;
+        --sig->device->num_inputs;
     if (sig->direction & MAPPER_DIR_OUTGOING)
-        sig->device->num_outputs--;
+        --sig->device->num_outputs;
 
     mapper_signal_free(sig);
 
@@ -802,7 +802,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             }
             if (j == map->num_sources) {
                 ++changed;
-                map->num_sources++;
+                ++map->num_sources;
                 map->sources = realloc(map->sources, sizeof(struct _mapper_slot)
                                        * map->num_sources);
                 map->sources[j] = (mapper_slot) calloc(1, sizeof(struct _mapper_slot));
