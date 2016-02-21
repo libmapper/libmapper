@@ -85,7 +85,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
                           mapper_signal destination)
 {
     int i;
-    if (!sources || !destination)
+    if (!sources || !*sources || !destination)
         return 0;
     if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES)
         return 0;
@@ -340,7 +340,7 @@ void mapper_map_set_description(mapper_map map, const char *description)
 
 void mapper_map_set_mode(mapper_map map, mapper_mode mode)
 {
-    if (mode > MAPPER_MODE_UNDEFINED && mode < NUM_MAPPER_MODES) {
+    if (map && mode > MAPPER_MODE_UNDEFINED && mode < NUM_MAPPER_MODES) {
         mapper_table_set_record(map->staged_props, AT_MODE, NULL, 1, 'i', &mode,
                                 REMOTE_MODIFY);
     }
@@ -348,24 +348,32 @@ void mapper_map_set_mode(mapper_map map, mapper_mode mode)
 
 void mapper_map_set_expression(mapper_map map, const char *expression)
 {
+    if (!map)
+        return;
     mapper_table_set_record(map->staged_props, AT_EXPRESSION, NULL, 1, 's',
                             expression, REMOTE_MODIFY);
 }
 
 void mapper_map_set_muted(mapper_map map, int muted)
 {
+    if (!map)
+        return;
     mapper_table_set_record(map->staged_props, AT_MUTED, NULL, 1, 'b', &muted,
                             REMOTE_MODIFY);
 }
 
 void mapper_map_set_process_location(mapper_map map, mapper_location location)
 {
+    if (!map)
+        return;
     mapper_table_set_record(map->staged_props, AT_PROCESS_LOCATION, NULL, 1,
                             'i', &location, REMOTE_MODIFY);
 }
 
 void mapper_map_add_scope(mapper_map map, mapper_device device)
 {
+    if (!map || !device)
+        return;
     mapper_property_t prop = AT_SCOPE | PROPERTY_ADD;
     mapper_table_record_t *rec = mapper_table_record(map->staged_props, prop,
                                                      NULL);
@@ -389,6 +397,8 @@ void mapper_map_add_scope(mapper_map map, mapper_device device)
 
 void mapper_map_remove_scope(mapper_map map, mapper_device device)
 {
+    if (!map || !device)
+        return;
     mapper_property_t prop = AT_SCOPE | PROPERTY_REMOVE;
     mapper_table_record_t *rec = mapper_table_record(map->staged_props, prop,
                                                      NULL);
@@ -413,6 +423,8 @@ void mapper_map_remove_scope(mapper_map map, mapper_device device)
 int mapper_map_set_property(mapper_map map, const char *name, int length,
                             char type, const void *value)
 {
+    if (!map)
+        return 0;
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
         if (map->user_data != (void*)value) {
@@ -428,6 +440,8 @@ int mapper_map_set_property(mapper_map map, const char *name, int length,
 
 int mapper_map_remove_property(mapper_map map, const char *name)
 {
+    if (!map)
+        return 0;
     // check if property is in static property table
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
@@ -939,11 +953,13 @@ static int replace_expression_string(mapper_map map, const char *expr_str)
     int output_history_size = mapper_expr_output_history_size(expr);
     if (output_history_size > 1 && map->process_location == MAPPER_LOC_SOURCE) {
         map->process_location = MAPPER_LOC_DESTINATION;
-        // copy expression string but do not execute it
-        mapper_table_set_record(map->props, AT_EXPRESSION, NULL, 1, 's',
-                                expr_str, REMOTE_MODIFY);
-        mapper_expr_free(expr);
-        return 1;
+        if (!map->destination.signal->local) {
+            // copy expression string but do not execute it
+            mapper_table_set_record(map->props, AT_EXPRESSION, NULL, 1, 's',
+                                    expr_str, REMOTE_MODIFY);
+            mapper_expr_free(expr);
+            return 1;
+        }
     }
 
     if (map->local->expr)
@@ -1069,7 +1085,9 @@ static int mapper_map_set_mode_linear(mapper_map map)
     // If everything is successful, replace the map's expression.
     if (e) {
         int should_compile = 0;
-        if (map->process_location == MAPPER_LOC_DESTINATION) {
+        if (map->local->is_local)
+            should_compile = 1;
+        else if (map->process_location == MAPPER_LOC_DESTINATION) {
             // check if destination is local
             if (map->destination.local->router_sig)
                 should_compile = 1;
@@ -1100,7 +1118,9 @@ static void mapper_map_set_mode_expression(mapper_map map, const char *expr)
         return;
 
     int i, should_compile = 0;
-    if (map->process_location == MAPPER_LOC_DESTINATION) {
+    if (map->local->is_local)
+        should_compile = 1;
+    else if (map->process_location == MAPPER_LOC_DESTINATION) {
         // check if destination is local
         if (map->destination.local->router_sig)
             should_compile = 1;
@@ -1383,8 +1403,10 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
             case AT_PROCESS_LOCATION: {
                 mapper_location loc = mapper_location_from_string(&(atom->values[0])->s);
                 if (map->local) {
-                    if (loc == MAPPER_LOC_UNDEFINED)
+                    if (loc == MAPPER_LOC_UNDEFINED) {
+                        trace("map process location is undefined!\n");
                         break;
+                    }
                     if (!map->local->one_source) {
                         /* Processing must take place at destination if map
                          * includes source signals from different devices. */
@@ -1404,7 +1426,9 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                             map->process_location = MAPPER_LOC_DESTINATION;
                         }
                         int should_compile = 0;
-                        if (map->process_location == MAPPER_LOC_DESTINATION) {
+                        if (map->local->is_local)
+                            should_compile = 1;
+                        else if (map->process_location == MAPPER_LOC_DESTINATION) {
                             // check if destination is local
                             if (map->destination.local->router_sig)
                                 should_compile = 1;
