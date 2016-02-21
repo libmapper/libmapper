@@ -54,6 +54,8 @@ def setup(d):
     d.add_output_signal("outsig", 4, 'f')
     print 'setup done!'
 
+#check libmapper version
+print 'using libmapper version', mapper.version
 dev = mapper.device("test")
 setup(dev)
 
@@ -82,7 +84,6 @@ for i in range(1000):
         map = mapper.map(outsig, dev.signal("insig"))
         map.mode = mapper.MODE_EXPRESSION
         map.expression = 'y=y{-1}+x'
-#        map.expression = 'y=x*1000'
         map.source().minimum = [1,2,3,4]
         map.source().bound_min = mapper.BOUND_WRAP
         map.source().bound_max = mapper.BOUND_CLAMP

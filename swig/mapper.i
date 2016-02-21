@@ -929,6 +929,8 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %constant int REMOVED                   = MAPPER_REMOVED;
 %constant int EXPIRED                   = MAPPER_EXPIRED;
 
+%constant char* version                 = PACKAGE_VERSION;
+
 typedef struct _device {} device;
 typedef struct _signal {} signal;
 typedef struct _map {} map;
@@ -1124,9 +1126,6 @@ typedef struct _device_query {
     }
     booltype get_is_local() {
         return mapper_device_is_local((mapper_device)$self);
-    }
-    const char *get_libversion() {
-        return mapper_libversion();
     }
     const char *get_name() {
         return mapper_device_name((mapper_device)$self);
@@ -2160,9 +2159,6 @@ typedef struct _map_query {
     ~_database() {
         mapper_database_free((mapper_database)$self);
     }
-    const char *libversion() {
-        return mapper_libversion();
-    }
     int poll(int timeout=0) {
         _save = PyEval_SaveThread();
         int rc = mapper_database_poll((mapper_database)$self, timeout);
@@ -2347,9 +2343,6 @@ typedef struct _map_query {
     }
     ~_network() {
         mapper_network_free((mapper_network)$self);
-    }
-    const char *libversion() {
-        return mapper_libversion();
     }
     database *database() {
         return (database*)mapper_network_database((mapper_network)$self);
