@@ -1081,7 +1081,7 @@ static void set_network_dest(mapper_database db, mapper_device dev)
 }
 
 static void subscribe_internal(mapper_database db, mapper_device dev, int flags,
-                               int timeout, int version)
+                               int timeout)
 {
     char cmd[1024];
     snprintf(cmd, 1024, "/%s/subscribe", dev->name);
@@ -1113,10 +1113,10 @@ static void subscribe_internal(mapper_database db, mapper_device dev, int flags,
         }
         lo_message_add_string(m, "@lease");
         lo_message_add_int32(m, timeout);
-        if (version >= 0) {
-            lo_message_add_string(m, "@version");
-            lo_message_add_int32(m, version);
-        }
+
+        lo_message_add_string(m, "@version");
+        lo_message_add_int32(m, dev->version);
+
         mapper_network_add_message(db->network, cmd, 0, m);
         mapper_network_send(db->network);
     }
@@ -1162,7 +1162,7 @@ int mapper_database_poll(mapper_database db, int block_ms)
     while (s) {
         if (s->lease_expiration_sec < db->network->clock.now.sec) {
             subscribe_internal(db, s->device, s->flags,
-                               AUTOSUBSCRIBE_INTERVAL, -1);
+                               AUTOSUBSCRIBE_INTERVAL);
             // leave 10-second buffer for subscription renewal
             s->lease_expiration_sec = (db->network->clock.now.sec
                                        + AUTOSUBSCRIBE_INTERVAL - 10);
@@ -1256,7 +1256,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         timeout = AUTOSUBSCRIBE_INTERVAL;
     }
 
-    subscribe_internal(db, dev, flags, timeout, 0);
+    subscribe_internal(db, dev, flags, timeout);
 }
 
 void mapper_database_unsubscribe(mapper_database db, mapper_device dev)
