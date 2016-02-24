@@ -190,8 +190,8 @@ int main(int argc, char ** argv)
 
     // try combining queries
     mapper::Device::Query qdev = db.devices_by_name_match("my");
-    qdev += db.devices_by_property(mapper::Property("num_inputs", 4),
-                                   MAPPER_OP_GREATER_THAN_OR_EQUAL);
+    qdev += db.devices(mapper::Property("num_inputs", 4),
+                       MAPPER_OP_GREATER_THAN_OR_EQUAL);
     for (; qdev != qdev.end(); qdev++) {
         std::cout << "  r device: " << (const char*)(*qdev) << std::endl;
     }

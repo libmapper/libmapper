@@ -446,9 +446,11 @@ namespace mapper {
 
     class signal_type {
     public:
-        signal_type(mapper_signal sig) { _sig = sig; }
-        signal_type(const Signal& sig);// { _sig = (mapper_signal)sig; }
-        operator mapper_signal() const { return _sig; }
+        signal_type(mapper_signal sig)
+            { _sig = sig; }
+        inline signal_type(const Signal& sig); // defined later
+        operator mapper_signal() const
+            { return _sig; }
         mapper_signal _sig;
     };
 
@@ -762,7 +764,7 @@ namespace mapper {
         {
         public:
             ~Slot() {}
-            Signal signal() const;
+            inline Signal signal() const;
             mapper_boundary_action bound_min() const
                 { return mapper_slot_bound_min(_slot); }
             Slot& set_bound_min(mapper_boundary_action bound_min)
@@ -942,7 +944,7 @@ namespace mapper {
             { return mapper_signal_name(_sig); }
         operator mapper_id() const
             { return mapper_signal_id(_sig); }
-        Device device() const;
+        inline Device device() const;
         Map::Query maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Map::Query(mapper_signal_maps(_sig, dir)); }
         template <typename... Values>
@@ -1365,7 +1367,7 @@ namespace mapper {
             return (*this);
         }
     public:
-        Device(const string_type &name_prefix, int port, Network net)
+        Device(const string_type &name_prefix, int port, const Network& net)
         {
             _dev = mapper_device_new(name_prefix, port, net);
             _db = mapper_device_database(_dev);
@@ -1772,9 +1774,9 @@ namespace mapper {
             return (*this);
         }
 
-        Device device_by_id(mapper_id id) const
+        Device device(mapper_id id) const
             { return Device(mapper_database_device_by_id(_db, id)); }
-        Device device_by_name(const string_type &name) const
+        Device device(const string_type &name) const
             { return Device(mapper_database_device_by_name(_db, name)); }
         Device::Query devices() const
             { return Device::Query(mapper_database_devices(_db)); }
@@ -1785,15 +1787,15 @@ namespace mapper {
             return Device::Query(mapper_database_devices_by_name_match(_db,
                                                                        pattern));
         }
-        Device::Query devices_by_property(const Property& p, mapper_op op) const
+        Device::Query devices(const Property& p, mapper_op op) const
         {
             return Device::Query(
                 mapper_database_devices_by_property(_db, p.name, p.length,
                                                     p.type, p.value, op));
         }
-        Device::Query devices_by_property(const Property& p) const
+        inline Device::Query devices(const Property& p) const
         {
-            return devices_by_property(p, MAPPER_OP_EXISTS);
+            return devices(p, MAPPER_OP_EXISTS);
         }
 
         // database_signals
@@ -1814,7 +1816,7 @@ namespace mapper {
             { return Signal(mapper_database_signal_by_id(_db, id)); }
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Signal::Query(mapper_database_signals(_db, dir)); }
-        Signal::Query signals_by_name(const string_type &name) const
+        Signal::Query signals(const string_type &name) const
         {
             return Signal::Query(mapper_database_signals_by_name(_db, name));
         }
@@ -1823,15 +1825,15 @@ namespace mapper {
             return Signal::Query(mapper_database_signals_by_name_match(_db,
                                                                        pattern));
         }
-        Signal::Query signals_by_property(const Property& p, mapper_op op) const
+        Signal::Query signals(const Property& p, mapper_op op) const
         {
             return Signal::Query(
                 mapper_database_signals_by_property(_db, p.name, p.length,
                                                     p.type, p.value, op));
         }
-        Signal::Query signals_by_property(const Property& p) const
+        inline Signal::Query signals(const Property& p) const
         {
-            return signals_by_property(p, MAPPER_OP_EXISTS);
+            return signals(p, MAPPER_OP_EXISTS);
         }
 
         // database maps
@@ -1848,19 +1850,19 @@ namespace mapper {
             return (*this);
         }
 
-        Map map_by_id(mapper_id id) const
+        Map map(mapper_id id) const
             { return Map(mapper_database_map_by_id(_db, id)); }
         Map::Query maps() const
             { return Map::Query(mapper_database_maps(_db)); }
-        Map::Query maps_by_property(const Property& p, mapper_op op) const
+        Map::Query maps(const Property& p, mapper_op op) const
         {
             return Map::Query(
                 mapper_database_maps_by_property(_db, p.name, p.length, p.type,
                                                  p.value, op));
         }
-        Map::Query maps_by_property(const Property& p) const
+        inline Map::Query maps(const Property& p) const
         {
-            return maps_by_property(p, MAPPER_OP_EXISTS);
+            return maps(p, MAPPER_OP_EXISTS);
         }
     private:
         mapper_database _db;
@@ -1877,8 +1879,6 @@ namespace mapper {
 
     inline std::string version()
         { return std::string(mapper_version()); }
-
-    typedef mapper_record_action record_action;
 };
 
 #endif // _MAPPER_CPP_H_
