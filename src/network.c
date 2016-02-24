@@ -1982,7 +1982,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         // Call local map handler if it exists
         mapper_device_map_handler *h = dev->local->map_handler;
         if (h)
-            h(map, MAPPER_ADDED, dev->local->map_handler_userdata);
+            h(dev, map, MAPPER_ADDED);
     }
     mapper_message_free(props);
     return 0;
@@ -2143,7 +2143,7 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
         // Call local map handler if it exists
         mapper_device_map_handler *h = dev->local->map_handler;
         if (h)
-            h(map, MAPPER_MODIFIED, dev->local->map_handler_userdata);
+            h(dev, map, MAPPER_MODIFIED);
     }
     mapper_message_free(props);
     return 0;
@@ -2249,7 +2249,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     // Call local map handler if it exists
     mapper_device_map_handler *h = dev->local->map_handler;
     if (h)
-        h(map, MAPPER_REMOVED, dev->local->map_handler_userdata);
+        h(dev, map, MAPPER_REMOVED);
 
     /* The mapping is removed. */
     mapper_router_remove_map(dev->local->router, map);

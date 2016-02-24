@@ -113,11 +113,9 @@ typedef void mapper_signal_update_handler(mapper_signal sig, mapper_id instance,
 /*! Set or unset the message handler for a signal.
  *  \param sig          The signal to operate on.
  *  \param handler      A pointer to a mapper_signal_update_handler function
- *                      for processing incoming messages.
- *  \param user_data    User context pointer to be passed to handler. */
+ *                      for processing incoming messages. */
 void mapper_signal_set_callback(mapper_signal sig,
-                                mapper_signal_update_handler *handler,
-                                const void *user_data);
+                                mapper_signal_update_handler *handler);
 
 /**** Signal Instances ****/
 
@@ -260,13 +258,11 @@ typedef void mapper_instance_event_handler(mapper_signal sig, mapper_id instance
  *  \param sig          The signal to operate on.
  *  \param h            A handler function for instance management events.
  *  \param flags        Bitflags for indicating the types of events which should
- *                      trigger the callback. Can be a combination of MAPPER_NEW,
- *                      MAPPER_UPSTREAM_RELEASE, MAPPER_DOWNSTREAM_RELEASE, and
- *                      MAPPER_INSTANCE_OVERFLOW.
- *  \param user_data    User context pointer to be passed to handler. */
+ *                      trigger the callback. Can be a combination of values
+ *                      from the enum mapper_instance_event. */
 void mapper_signal_set_instance_event_callback(mapper_signal sig,
                                                mapper_instance_event_handler h,
-                                               int flags, const void *user_data);
+                                               int flags);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
@@ -513,20 +509,20 @@ void mapper_signal_print(mapper_signal sig, int device_name);
 /*! A callback function prototype for when a map is added, updated, or removed
  *  from a given device.  Such a function is passed in to
  *  mapper_device_set_map_callback().
+ *  \param dev          The device that registered this callback.
  *  \param map          The map record.
  *  \param action       A value of mapper_record_action indicating what is
- *                      happening to the map record.
- *  \param user         The user context pointer registered with this callback.*/
-typedef void mapper_device_map_handler(mapper_map map,
-                                       mapper_record_action action,
-                                       const void *user);
+ *                      happening to the map record.*/
+typedef void mapper_device_map_handler(mapper_device dev, mapper_map map,
+                                       mapper_record_action action);
 
 /*! Set a function to be called when a map involving a device's local signals is
  *  established, modified or destroyed, indicated by the action parameter to the
- *  provided function. */
+ *  provided function.
+ *  \param dev          The device to use.
+ *  \param handler      Function to be called when the local maps change. */
 void mapper_device_set_map_callback(mapper_device dev,
-                                    mapper_device_map_handler *h,
-                                    const void *user);
+                                    mapper_device_map_handler *handler);
 
 /*! Allocate and initialize a mapper device.
  *  \param name_prefix  A short descriptive string to identify the device.
@@ -1506,11 +1502,13 @@ void mapper_database_request_devices(mapper_database db);
 
 /*! A callback function prototype for when a device record is added or updated.
  *  Such a function is passed in to mapper_database_add_device_callback().
+ *  \param db           The database that registered this callback.
  *  \param dev          The device record.
  *  \param action       A value of mapper_record_action indicating what is
  *                      happening to the device record.
  *  \param user         The user context pointer registered with this callback. */
-typedef void mapper_database_device_handler(mapper_device dev,
+typedef void mapper_database_device_handler(mapper_database db,
+                                            mapper_device dev,
                                             mapper_record_action action,
                                             const void *user);
 
@@ -1587,11 +1585,13 @@ mapper_device *mapper_database_devices_by_property(mapper_database db,
 
 /*! A callback function prototype for when a signal record is added or updated.
  *  Such a function is passed in to mapper_database_add_signal_callback().
+ *  \param db           The database that registered this callback.
  *  \param sig          The signal record.
  *  \param action       A value of mapper_record_action indicating what is
  *                      happening to the signal record.
  *  \param user         The user context pointer registered with this callback. */
-typedef void mapper_database_signal_handler(mapper_signal sig,
+typedef void mapper_database_signal_handler(mapper_database db,
+                                            mapper_signal sig,
                                             mapper_record_action action,
                                             const void *user);
 
@@ -1665,12 +1665,13 @@ mapper_signal *mapper_database_signals_by_property(mapper_database db,
 /*! A callback function prototype for when a map record is added or updated in
  *  the database. Such a function is passed in to
  *  mapper_database_add_map_callback().
+ *  \param db           The database that registered this callback.
  *  \param map          The map record.
  *  \param action       A value of mapper_record_action indicating what is
  *                      happening to the map record.
  *  \param user         The user context pointer registered with this callback. */
-typedef void mapper_map_handler(mapper_map map, mapper_record_action action,
-                                const void *user);
+typedef void mapper_map_handler(mapper_database db, mapper_map map,
+                                mapper_record_action action, const void *user);
 
 /*! Register a callback for when a map record is added or updated.
  *  \param db           The database to which the callback should be added.

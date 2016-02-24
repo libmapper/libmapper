@@ -818,7 +818,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_requestDevices
     return obj;
 }
 
-static void java_database_device_cb(mapper_device record,
+static void java_database_device_cb(mapper_database db, mapper_device dev,
                                     mapper_record_action action,
                                     const void *user_data)
 {
@@ -832,7 +832,7 @@ static void java_database_device_cb(mapper_device record,
     jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
     jobject devobj;
     if (mid)
-        devobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(record));
+        devobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(dev));
     else {
         printf("Error looking up Device init method\n");
         return;
@@ -881,7 +881,7 @@ JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseRemoveDeviceCB
     (*env)->DeleteGlobalRef(env, listener);
 }
 
-static void java_database_signal_cb(mapper_signal record,
+static void java_database_signal_cb(mapper_database db, mapper_signal sig,
                                     mapper_record_action action,
                                     const void *user_data)
 {
@@ -893,7 +893,7 @@ static void java_database_signal_cb(mapper_signal record,
     if (!cls)
     return;
     jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
-    jobject sigobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(record));
+    jobject sigobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(sig));
     jobject eventobj = get_jobject_from_database_record_action(genv, action);
 
     jobject obj = (jobject)user_data;
@@ -934,7 +934,8 @@ JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseRemoveSignalCB
     (*env)->DeleteGlobalRef(env, listener);
 }
 
-static void java_database_map_cb(mapper_map record, mapper_record_action action,
+static void java_database_map_cb(mapper_database db, mapper_map map,
+                                 mapper_record_action action,
                                  const void *user_data)
 {
     if (bailing || !user_data)
@@ -945,7 +946,7 @@ static void java_database_map_cb(mapper_map record, mapper_record_action action,
     if (!cls)
         return;
     jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
-    jobject mapobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(record));
+    jobject mapobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(map));
     jobject eventobj = get_jobject_from_database_record_action(genv, action);
 
     jobject obj = (jobject)user_data;
@@ -1305,7 +1306,7 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceFree
         sigs = mapper_signal_query_next(sigs);
 
         // do not call instance event callback
-        mapper_signal_set_instance_event_callback(temp, 0, 0, 0);
+        mapper_signal_set_instance_event_callback(temp, 0, 0);
 
         // check if we have active instances
         int i;
@@ -1397,7 +1398,7 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceRemoveSignal
     mapper_signal sig = get_signal_from_jobject(env, jsig);
     if (sig) {
         // do not call instance event callback
-        mapper_signal_set_instance_event_callback(sig, 0, 0, 0);
+        mapper_signal_set_instance_event_callback(sig, 0, 0);
 
         // check if we have active instances
         while (mapper_signal_num_active_instances(sig)) {
@@ -2453,11 +2454,11 @@ JNIEXPORT void JNICALL Java_mapper_Signal_mapperSignalSetInstanceEventCB
         ctx->instanceEventListener = (*env)->NewGlobalRef(env, listener);
         mapper_signal_set_instance_event_callback(sig,
                                                   java_signal_instance_event_cb,
-                                                  flags, ctx);
+                                                  flags);
     }
     else {
         ctx->instanceEventListener = 0;
-        mapper_signal_set_instance_event_callback(sig, 0, flags, 0);
+        mapper_signal_set_instance_event_callback(sig, 0, flags);
     }
 }
 
@@ -2473,11 +2474,11 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_setUpdateListener
         (*env)->DeleteGlobalRef(env, ctx->listener);
     if (listener) {
         ctx->listener = (*env)->NewGlobalRef(env, listener);
-        mapper_signal_set_callback(sig, java_signal_update_cb, ctx);
+        mapper_signal_set_callback(sig, java_signal_update_cb);
     }
     else {
         ctx->listener = 0;
-        mapper_signal_set_callback(sig, 0, 0);
+        mapper_signal_set_callback(sig, 0);
     }
     return obj;
 }

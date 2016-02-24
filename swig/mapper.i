@@ -608,8 +608,8 @@ static void instance_event_handler_py(mapper_signal sig, mapper_id instance,
 }
 
 /* Wrapper for callback back to python when a device map handler is called. */
-static void device_map_handler_py(mapper_map map, mapper_record_action action,
-                                  const void *user)
+static void device_map_handler_py(mapper_device dev, mapper_map map,
+                                  mapper_record_action action)
 {
     PyEval_RestoreThread(_save);
 
@@ -621,7 +621,7 @@ static void device_map_handler_py(mapper_map map, mapper_record_action action,
         printf("[mapper] Could not build arglist (device_map_handler_py).\n");
         return;
     }
-    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    PyObject *result = PyEval_CallObject((PyObject*)dev->user_data, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
@@ -717,7 +717,7 @@ typedef int booltype;
 
 /* Wrapper for callback back to python when a mapper_database_device handler
  * is called. */
-static void device_database_handler_py(mapper_device dev,
+static void device_database_handler_py(mapper_database db, mapper_device dev,
                                        mapper_record_action action,
                                        const void *user)
 {
@@ -739,7 +739,7 @@ static void device_database_handler_py(mapper_device dev,
 
 /* Wrapper for callback back to python when a mapper_database_signal handler
  * is called. */
-static void signal_database_handler_py(mapper_signal sig,
+static void signal_database_handler_py(mapper_database db, mapper_signal sig,
                                        mapper_record_action action,
                                        const void *user)
 {
@@ -761,7 +761,8 @@ static void signal_database_handler_py(mapper_signal sig,
 
 /* Wrapper for callback back to python when a mapper_database_map handler
  * is called. */
-static void map_database_handler_py(mapper_map map, mapper_record_action action,
+static void map_database_handler_py(mapper_database db, mapper_map map,
+                                    mapper_record_action action,
                                     const void *user)
 {
     PyEval_RestoreThread(_save);
@@ -1092,8 +1093,9 @@ typedef struct _device_query {
             h = device_map_handler_py;
         }
         else
-            Py_XDECREF(((mapper_device)$self)->local->map_handler_userdata);
-        mapper_device_set_map_callback((mapper_device)$self, h, PyFunc);
+            Py_XDECREF(((mapper_device)$self)->user_data);
+        ((mapper_device)$self)->user_data = PyFunc;
+        mapper_device_set_map_callback((mapper_device)$self, h);
         return $self;
     }
     double start_queue(double timetag=0) {
@@ -1411,7 +1413,7 @@ typedef struct _signal_query {
             }
         }
         mapper_signal_set_instance_event_callback((mapper_signal)$self, h,
-                                                  flags, callbacks);
+                                                  flags);
         return $self;
     }
     signal *set_callback(PyObject *PyFunc=0) {
@@ -1440,7 +1442,7 @@ typedef struct _signal_query {
                 callbacks = 0;
             }
         }
-        mapper_signal_set_callback((mapper_signal)$self, h, callbacks);
+        mapper_signal_set_callback((mapper_signal)$self, h);
         return $self;
     }
     signal *update(property_value val=0, double timetag=0) {

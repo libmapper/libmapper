@@ -1063,7 +1063,7 @@ mapper_instance_stealing_type mapper_signal_instance_stealing_mode(mapper_signal
 
 void mapper_signal_set_instance_event_callback(mapper_signal sig,
                                                mapper_instance_event_handler h,
-                                               int flags, const void *user_data)
+                                               int flags)
 {
     if (!sig || !sig->local)
         return;
@@ -1075,9 +1075,6 @@ void mapper_signal_set_instance_event_callback(mapper_signal sig,
     }
 
     sig->local->instance_event_handler = h;
-    // TODO: use separate user_data for instance event callback?
-    sig->user_data = (void*)user_data;
-
     sig->local->instance_event_flags = flags;
 }
 
@@ -1123,21 +1120,18 @@ void *mapper_signal_instance_user_data(mapper_signal sig, mapper_id id)
 /**** Queries ****/
 
 void mapper_signal_set_callback(mapper_signal sig,
-                                mapper_signal_update_handler *handler,
-                                const void *user_data)
+                                mapper_signal_update_handler *handler)
 {
     if (!sig || !sig->local)
         return;
     if (!sig->local->update_handler && handler) {
         // Need to register a new liblo methods
         sig->local->update_handler = handler;
-        sig->user_data = (void*)user_data;
         mapper_device_add_signal_methods(sig->device, sig);
     }
     else if (sig->local->update_handler && !handler) {
         // Need to remove liblo methods
         sig->local->update_handler = 0;
-        sig->user_data = (void*)user_data;
         mapper_device_remove_signal_methods(sig->device, sig);
     }
 }

@@ -66,7 +66,7 @@ int setup_source()
 
     sendsig = mapper_device_add_output_signal(source, "outsig", 2, 'f', 0,
                                               mn, mx);
-    mapper_signal_set_callback(sendsig, insig_handler, 0);
+    mapper_signal_set_callback(sendsig, insig_handler);
 
     eprintf("Output signals registered.\n");
     eprintf("Number of outputs: %d\n",

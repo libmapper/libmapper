@@ -46,7 +46,7 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_map(mapper_map map, mapper_record_action action, const void *user)
+void on_map(mapper_device dev, mapper_map map, mapper_record_action action)
 {
     if (verbose) {
         printf("Map: ");
@@ -140,7 +140,7 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    mapper_device_set_map_callback(source, on_map, 0);
+    mapper_device_set_map_callback(source, on_map);
 
     sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'f', "Hz",
                                               &mn, &mx);

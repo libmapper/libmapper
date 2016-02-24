@@ -186,7 +186,7 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
             fptr_list cb = db->device_callbacks;
             while (cb) {
                 mapper_database_device_handler *h = cb->f;
-                h(dev, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
+                h(db, dev, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
                 cb = cb->next;
             }
         }
@@ -220,7 +220,7 @@ void mapper_database_remove_device(mapper_database db, mapper_device dev,
         fptr_list cb = db->device_callbacks;
         while (cb) {
             mapper_database_device_handler *h = cb->f;
-            h(dev, MAPPER_REMOVED, cb->context);
+            h(db, dev, MAPPER_REMOVED, cb->context);
             cb = cb->next;
         }
     }
@@ -446,7 +446,7 @@ void mapper_database_check_device_status(mapper_database db, uint32_t time_sec)
             fptr_list cb = db->device_callbacks;
             while (cb) {
                 mapper_database_device_handler *h = cb->f;
-                h(dev, MAPPER_EXPIRED, cb->context);
+                h(db, dev, MAPPER_EXPIRED, cb->context);
                 cb = cb->next;
             }
         }
@@ -508,7 +508,7 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
             while (cb) {
                 temp = cb->next;
                 mapper_database_signal_handler *h = cb->f;
-                h(sig, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
+                h(db, sig, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
                 cb = temp;
             }
         }
@@ -649,7 +649,7 @@ void mapper_database_remove_signal(mapper_database db, mapper_signal sig)
     fptr_list cb = db->signal_callbacks;
     while (cb) {
         mapper_database_signal_handler *h = cb->f;
-        h(sig, MAPPER_REMOVED, cb->context);
+        h(db, sig, MAPPER_REMOVED, cb->context);
         cb = cb->next;
     }
 
@@ -852,7 +852,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             fptr_list cb = db->map_callbacks;
             while (cb) {
                 mapper_map_handler *h = cb->f;
-                h(map, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
+                h(db, map, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
                 cb = cb->next;
             }
         }
@@ -1022,7 +1022,7 @@ void mapper_database_remove_map(mapper_database db, mapper_map map)
     fptr_list cb = db->map_callbacks;
     while (cb) {
         mapper_map_handler *h = cb->f;
-        h(map, MAPPER_REMOVED, cb->context);
+        h(db, map, MAPPER_REMOVED, cb->context);
         cb = cb->next;
     }
 
@@ -1190,11 +1190,9 @@ int mapper_database_poll(mapper_database db, int block_ms)
     return count;
 }
 
-static void on_device_autosubscribe(mapper_device dev, mapper_record_action a,
-                                    const void *user)
+static void on_device_autosubscribe(mapper_database db, mapper_device dev,
+                                    mapper_record_action a, const void *user)
 {
-    mapper_database db = (mapper_database)(user);
-
     // New subscriptions are handled in network.c as response to "sync" msg
     if (a == MAPPER_REMOVED) {
         unsubscribe_internal(db, dev, 0);

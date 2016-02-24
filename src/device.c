@@ -1574,13 +1574,11 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd)
 }
 
 void mapper_device_set_map_callback(mapper_device dev,
-                                    mapper_device_map_handler *h,
-                                    const void *user)
+                                    mapper_device_map_handler *h)
 {
     if (!dev || !dev->local)
         return;
     dev->local->map_handler = h;
-    dev->local->map_handler_userdata = (void*)user;
 }
 
 mapper_database mapper_device_database(mapper_device dev)

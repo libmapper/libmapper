@@ -311,7 +311,7 @@ int main(int argc, char **argv)
 
     mapper_signal_set_instance_event_callback(recvsig, more_handler,
                                               MAPPER_INSTANCE_OVERFLOW
-                                              | MAPPER_UPSTREAM_RELEASE, 0);
+                                              | MAPPER_UPSTREAM_RELEASE);
     eprintf("\n**********************************************\n");
     eprintf("*********** CALLBACK -> ADD INSTANCE *********\n");
     if (!verbose)

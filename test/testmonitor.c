@@ -121,7 +121,8 @@ void loop()
     }
 }
 
-void on_device(mapper_device dev, mapper_record_action a, const void *user)
+void on_device(mapper_database db, mapper_device dev, mapper_record_action a,
+               const void *user)
 {
     printf("Device %s ", dev->name);
     switch (a) {
@@ -143,7 +144,8 @@ void on_device(mapper_device dev, mapper_record_action a, const void *user)
     update = 1;
 }
 
-void on_signal(mapper_signal sig, mapper_record_action a, const void *user)
+void on_signal(mapper_database db, mapper_signal sig, mapper_record_action a,
+               const void *user)
 {
     printf("Signal %s/%s ", sig->device->name, sig->name);
     switch (a) {
@@ -164,7 +166,8 @@ void on_signal(mapper_signal sig, mapper_record_action a, const void *user)
     update = 1;
 }
 
-void on_map(mapper_map map, mapper_record_action a, const void *user)
+void on_map(mapper_database db, mapper_map map, mapper_record_action a,
+            const void *user)
 {
     int i;
     printf("Map ");

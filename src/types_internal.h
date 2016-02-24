@@ -541,7 +541,6 @@ typedef struct _mapper_local_device {
 
     /*! Function to call for custom map handling. */
     void *map_handler;
-    void *map_handler_userdata;
 
     mapper_subscriber subscribers;  /*!< Linked-list of subscribed peers. */
 
