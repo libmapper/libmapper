@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <signal.h>
 
-#include <mapper/mapper.h>
+#include <mapper/mapper_cpp.h>
 
 #include "pwm_synth/pwm.h"
 
@@ -47,18 +47,18 @@ int main()
 {
     signal(SIGINT, ctrlc);
 
-    mapper_device dev = mapper_device_new("pwm", 9000, 0);
+    mapper::Device dev("pwm");
 
     float min0 = 0;
     float max1 = 1;
     float max1000 = 1000;
 
-    mapper_device_add_input_signal(dev, "/freq", 1, 'f', "Hz", &min0, &max1000,
-                                   handler_freq, 0);
-    mapper_device_add_input_signal(dev, "/gain", 1, 'f', "Hz", &min0, &max1,
-                                   handler_gain, 0);
-    mapper_device_add_input_signal(dev, "/duty", 1, 'f', "Hz", &min0, &max1,
-                                   handler_duty, 0);
+    dev.add_input_signal("/freq", 1, 'f', "Hz", &min0, &max1000,
+                         handler_freq, 0);
+    dev.add_input_signal("/gain", 1, 'f', "Hz", &min0, &max1,
+                         handler_gain, 0);
+    dev.add_input_signal("/duty", 1, 'f', "Hz", &min0, &max1,
+                         handler_duty, 0);
 
     run_synth();
 
@@ -69,9 +69,7 @@ int main()
     printf("Press Ctrl-C to quit.\n");
 
     while (!done)
-        mapper_device_poll(dev, 10);
-
-    mapper_device_free(dev);
+        dev.poll(10);
 
     set_freq(0);
     sleep(1);
