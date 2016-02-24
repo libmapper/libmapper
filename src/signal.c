@@ -207,10 +207,10 @@ void mapper_signal_push(mapper_signal sig)
 //        if (!sig->props->dirty)
 //            return;
         // TODO: make direction flags compatible with MAPPER_OBJ flags
-        mapper_direction dir = ((sig->direction == MAPPER_DIR_OUTGOING)
-                                ? MAPPER_OBJ_OUTPUT_SIGNALS
-                                : MAPPER_OBJ_INPUT_SIGNALS);
-        mapper_network_set_dest_subscribers(net, dir);
+        mapper_object_type obj = ((sig->direction == MAPPER_DIR_OUTGOING)
+                                  ? MAPPER_OBJ_OUTPUT_SIGNALS
+                                  : MAPPER_OBJ_INPUT_SIGNALS);
+        mapper_network_set_dest_subscribers(net, obj);
         mapper_signal_send_state(sig, MSG_SIGNAL);
     }
     else {

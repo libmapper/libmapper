@@ -669,7 +669,8 @@ static void java_signal_update_cb(mapper_signal sig, mapper_id instance,
 }
 
 static void java_signal_instance_event_cb(mapper_signal sig, mapper_id instance,
-                                          int event, mapper_timetag_t *tt)
+                                          mapper_instance_event event,
+                                          mapper_timetag_t *tt)
 {
     if (bailing)
         return;

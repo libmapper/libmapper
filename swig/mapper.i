@@ -579,7 +579,8 @@ static void signal_handler_py(mapper_signal sig, mapper_id instance,
 /* Wrapper for callback back to python when a mapper_instance_event handler
  * is called. */
 static void instance_event_handler_py(mapper_signal sig, mapper_id instance,
-                                      int event, mapper_timetag_t *tt)
+                                      mapper_instance_event event,
+                                      mapper_timetag_t *tt)
 {
     PyEval_RestoreThread(_save);
     PyObject *arglist=0;

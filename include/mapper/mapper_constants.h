@@ -11,15 +11,17 @@ extern "C" {
 #include <lo/lo.h>
 
 /*! Bit flags for coordinating metadata subscriptions. */
-#define MAPPER_OBJ_NONE           0x00  //!< No objects.
-#define MAPPER_OBJ_DEVICES        0x01  //!< Devices only.
-#define MAPPER_OBJ_INPUT_SIGNALS  0x02  //!< Input signals.
-#define MAPPER_OBJ_OUTPUT_SIGNALS 0x04  //!< Output signals.
-#define MAPPER_OBJ_SIGNALS        0x06  //!< All signals.
-#define MAPPER_OBJ_INCOMING_MAPS  0x10  //!< Incoming maps.
-#define MAPPER_OBJ_OUTGOING_MAPS  0x20  //!< Outgoing maps.
-#define MAPPER_OBJ_MAPS           0x30  //!< All maps.
-#define MAPPER_OBJ_ALL            0xFF  //!< All objects: devices, signals, maps.
+typedef enum {
+    MAPPER_OBJ_NONE           = 0x00, //!< No objects.
+    MAPPER_OBJ_DEVICES        = 0x01, //!< Devices only.
+    MAPPER_OBJ_INPUT_SIGNALS  = 0x02, //!< Input signals.
+    MAPPER_OBJ_OUTPUT_SIGNALS = 0x04, //!< Output signals.
+    MAPPER_OBJ_SIGNALS        = 0x06, //!< All signals.
+    MAPPER_OBJ_INCOMING_MAPS  = 0x10, //!< Incoming maps.
+    MAPPER_OBJ_OUTGOING_MAPS  = 0x20, //!< Outgoing maps.
+    MAPPER_OBJ_MAPS           = 0x30, //!< All maps.
+    MAPPER_OBJ_ALL            = 0xFF  //!< All objects: devices, signals, maps.
+} mapper_object_type;
 
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
@@ -90,11 +92,13 @@ typedef enum {
 
 /*! The set of possible actions on an instance, used to register callbacks
  *  to inform them of what is happening. */
-#define MAPPER_NEW_INSTANCE         0x01 //!< New instance has been created.
-#define MAPPER_UPSTREAM_RELEASE     0x02 //!< Instance was released upstream.
-#define MAPPER_DOWNSTREAM_RELEASE   0x04 //!< Instance was released downstream.
-#define MAPPER_INSTANCE_OVERFLOW    0x08 //!< No local instances left.
-#define MAPPER_INSTANCE_ALL         0x0F
+typedef enum {
+    MAPPER_NEW_INSTANCE       = 0x01, //!< New instance has been created.
+    MAPPER_UPSTREAM_RELEASE   = 0x02, //!< Instance was released upstream.
+    MAPPER_DOWNSTREAM_RELEASE = 0x04, //!< Instance was released downstream.
+    MAPPER_INSTANCE_OVERFLOW  = 0x08, //!< No local instances left.
+    MAPPER_INSTANCE_ALL       = 0x0F,
+} mapper_instance_event;
 
 /*! Describes the voice-stealing mode for instances.
  *  @ingroup map */

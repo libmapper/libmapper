@@ -253,7 +253,8 @@ mapper_instance_stealing_type mapper_signal_instance_stealing_mode(mapper_signal
 /*! A handler function to be called whenever a signal instance management event
  *  occurs. */
 typedef void mapper_instance_event_handler(mapper_signal sig, mapper_id instance,
-                                           int event, mapper_timetag_t *tt);
+                                           mapper_instance_event event,
+                                           mapper_timetag_t *tt);
 
 /*! Set the handler to be called on signal instance management events.
  *  \param sig          The signal to operate on.

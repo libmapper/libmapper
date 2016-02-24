@@ -83,8 +83,8 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
     }
 }
 
-void more_handler(mapper_signal sig, mapper_id instance, int event,
-                  mapper_timetag_t *timetag)
+void more_handler(mapper_signal sig, mapper_id instance,
+                  mapper_instance_event event, mapper_timetag_t *timetag)
 {
     if (event & MAPPER_INSTANCE_OVERFLOW) {
         eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
