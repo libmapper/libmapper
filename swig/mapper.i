@@ -1149,13 +1149,12 @@ typedef struct _device_query {
         return mapper_device_ordinal((mapper_device)$self);
     }
     maybeInt get_port() {
-        mapper_device md = (mapper_device)$self;
-        int port = mapper_device_port(md);
+        int *pi = 0, port = mapper_device_port((mapper_device)$self);
         if (port) {
-            int *pi = malloc(sizeof(int));
+            pi = malloc(sizeof(int));
             *pi = port;
         }
-        return 0;
+        return pi;
     }
     int get_version() {
         return mapper_device_version((mapper_device)$self);
