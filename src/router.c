@@ -661,10 +661,15 @@ static void alloc_and_init_local_slot(mapper_router rtr, mapper_slot slot,
     slot->causes_update = 1;
 }
 
-void mapper_router_add_map(mapper_router rtr, mapper_map map,
-                           mapper_direction dir)
+void mapper_router_add_map(mapper_router rtr, mapper_map map)
 {
-    int i, ready = 1;
+    int i;
+    int local_dst = map->destination.signal->local ? 1 : 0;
+    int local_src = 0;
+    for (i = 0; i < map->num_sources; i++) {
+        if (map->sources[i]->signal->local)
+            ++local_src;
+    }
 
     if (map->local) {
         trace("error in mapper_router_add_map – local structures already exist.\n");
@@ -700,52 +705,42 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map,
     }
     imap->num_var_instances = max_num_instances;
 
-    // scopes
-    int scope_count = 0;
-    map->scope.size = (dir == MAPPER_DIR_OUTGOING) ? 1 : map->num_sources;
-    map->scope.devices = (mapper_device *) malloc(sizeof(mapper_device)
-                                                  * map->scope.size);
-
-    if (dir == MAPPER_DIR_INCOMING)
+    // assign a unique id to this map if we are the destination
+    if (local_dst)
         map->id = unused_map_id(rtr->device, rtr);
 
-    /* apply ids - will be overwritten if necessary by message */
+    /* assign indexes to source slots - may be overwritten later by message */
     for (i = 0; i < map->num_sources; i++) {
         map->sources[i]->id = i;
     }
-    map->destination.id = ((dir == MAPPER_DIR_OUTGOING)
-                           ? -1 : map->destination.local->router_sig->id_counter++);
+    map->destination.id = (local_dst
+                           ? map->destination.local->router_sig->id_counter++ : -1);
 
     // add scopes
-    if (dir == MAPPER_DIR_OUTGOING) {
-        ready = 0;
+    int scope_count = 0;
+    map->scope.size = map->num_sources;
+    map->scope.devices = (mapper_device *) malloc(sizeof(mapper_device)
+                                                  * map->scope.size);
 
-        // apply local scope as default
-        map->scope.devices[0] = rtr->device;
+    for (i = 0; i < map->num_sources; i++) {
+        // check that scope has not already been added
+        int j, found = 0;
+        for (j = 0; j < scope_count; j++) {
+            if (map->scope.devices[j] == map->sources[i]->signal->device) {
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            map->scope.devices[scope_count] = map->sources[i]->signal->device;
+            ++scope_count;
+        }
     }
-    else {
-        for (i = 0; i < map->num_sources; i++) {
-            if (!map->sources[i]->signal->local)
-                ready = 0;
-            // check that scope has not already been added
-            int j, found = 0;
-            for (j = 0; j < scope_count; j++) {
-                if (map->scope.devices[j] == map->sources[i]->signal->device) {
-                    found = 1;
-                    break;
-                }
-            }
-            if (!found) {
-                map->scope.devices[scope_count] = map->sources[i]->signal->device;
-                ++scope_count;
-            }
-        }
 
-        if (scope_count != map->num_sources) {
-            map->scope.size = scope_count;
-            map->scope.devices = realloc(map->scope.devices,
-                                         sizeof(mapper_device) * scope_count);
-        }
+    if (scope_count != map->num_sources) {
+        map->scope.size = scope_count;
+        map->scope.devices = realloc(map->scope.devices,
+                                     sizeof(mapper_device) * scope_count);
     }
 
     // check if all sources belong to same remote device
@@ -763,7 +758,7 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map,
     else
         map->process_location = MAPPER_LOC_DESTINATION;
 
-    if (ready) {
+    if (local_dst && (local_src == map->num_sources)) {
         // all reference signals are local
         imap->is_local = 1;
         mapper_link link = map->sources[0]->local->link;
@@ -941,13 +936,13 @@ mapper_map mapper_router_find_outgoing_map(mapper_router rtr,
 }
 
 mapper_map mapper_router_find_incoming_map(mapper_router rtr,
-                                           mapper_signal local_dest,
+                                           mapper_signal local_dst,
                                            int num_sources,
                                            const char **src_names)
 {
     // find associated router_signal
     mapper_router_signal rs = rtr->signals;
-    while (rs && rs->signal != local_dest)
+    while (rs && rs->signal != local_dst)
         rs = rs->next;
     if (!rs)
         return 0;
@@ -974,11 +969,11 @@ mapper_map mapper_router_find_incoming_map(mapper_router rtr,
 }
 
 mapper_map mapper_router_find_incoming_map_by_id(mapper_router rtr,
-                                                 mapper_signal local_dest,
+                                                 mapper_signal local_dst,
                                                  mapper_id id)
 {
     mapper_router_signal rs = rtr->signals;
-    while (rs && rs->signal != local_dest)
+    while (rs && rs->signal != local_dst)
         rs = rs->next;
     if (!rs)
         return 0;

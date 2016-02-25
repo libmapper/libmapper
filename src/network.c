@@ -1624,7 +1624,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     }
 
     if (!map->local)
-        mapper_router_add_map(dev->local->router, map, MAPPER_DIR_INCOMING);
+        mapper_router_add_map(dev->local->router, map);
 
     mapper_map_set_from_message(map, props, 1);
     mapper_message_free(props);
@@ -1785,8 +1785,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
             return 0;
         }
 
-        mapper_router_add_map(dev->local->router, map,
-                              src_index ? MAPPER_DIR_OUTGOING : MAPPER_DIR_INCOMING);
+        mapper_router_add_map(dev->local->router, map);
     }
 
     /* Set map properties. */

@@ -126,8 +126,7 @@ int mapper_router_send_query(mapper_router router,
                              mapper_signal sig,
                              mapper_timetag_t tt);
 
-void mapper_router_add_map(mapper_router router, mapper_map map,
-                           mapper_direction direction);
+void mapper_router_add_map(mapper_router router, mapper_map map);
 
 int mapper_router_remove_map(mapper_router router, mapper_map map);
 
