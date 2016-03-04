@@ -699,9 +699,23 @@ static int compare_slot_names(const void *l, const void *r)
     return result;
 }
 
+static mapper_signal add_sig_from_whole_name(mapper_database db,
+                                             const char* name)
+{
+    char *devnamep, *signame, devname[256];
+    int devnamelen = mapper_parse_names(name, &devnamep, &signame);
+    if (!devnamelen || devnamelen >= 256) {
+        trace("error extracting device name\n");
+        return 0;
+    }
+    strncpy(devname, devnamep, devnamelen);
+    devname[devnamelen] = 0;
+    return mapper_database_add_or_update_signal(db, signame, devname, 0);
+}
+
 mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources,
                                              const char **src_names,
-                                             const char *dest_name,
+                                             const char *dst_name,
                                              mapper_message_t *props)
 {
     if (num_sources >= MAX_NUM_MAP_SOURCES) {
@@ -710,8 +724,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     }
 
     mapper_map map = 0;
-    int rc = 0, updated = 0, devnamelen, i, j;
-    char *devnamep, *signame, devname[256];
+    int rc = 0, updated = 0, i, j;
 
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
@@ -727,6 +740,17 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     }
 
     if (!map) {
+        // add signals first in case signal handlers trigger map queries
+        mapper_signal dst_sig = add_sig_from_whole_name(db, dst_name);
+        if (!dst_sig)
+            return 0;
+        mapper_signal src_sigs[num_sources];
+        for (i = 0; i < num_sources; i++) {
+            src_sigs[i] = add_sig_from_whole_name(db, src_names[i]);
+            if (!src_sigs[i])
+                return 0;
+        }
+
         map = (mapper_map)mapper_list_add_item((void**)&db->maps,
                                                sizeof(mapper_map_t));
         map->database = db;
@@ -735,20 +759,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         map->sources = (mapper_slot*) malloc(sizeof(mapper_slot) * num_sources);
         for (i = 0; i < num_sources; i++) {
             map->sources[i] = (mapper_slot) calloc(1, sizeof(struct _mapper_slot));
-            devnamelen = mapper_parse_names(src_names[i], &devnamep, &signame);
-            if (!devnamelen || devnamelen >= 256) {
-                trace("error extracting device name\n");
-                // clean up partially-built record
-                mapper_list_remove_item((void**)&db->maps, map);
-                mapper_list_free_item(map);
-                return 0;
-            }
-            strncpy(devname, devnamep, devnamelen);
-            devname[devnamelen] = 0;
-
-            // also add source signal if necessary
-            map->sources[i]->signal =
-                mapper_database_add_or_update_signal(db, signame, devname, 0);
+            map->sources[i]->signal = src_sigs[i];
             map->sources[i]->id = i;
             map->sources[i]->causes_update = 1;
             map->sources[i]->map = map;
@@ -757,22 +768,9 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                 map->sources[i]->use_as_instance = map->sources[i]->num_instances > 1;
             }
         }
-        devnamelen = mapper_parse_names(dest_name, &devnamep, &signame);
-        if (!devnamelen || devnamelen >= 256) {
-            trace("error extracting device name\n");
-            // clean up partially-built record
-            mapper_list_remove_item((void**)&db->maps, map);
-            mapper_list_free_item(map);
-            return 0;
-        }
-        strncpy(devname, devnamep, devnamelen);
-        devname[devnamelen] = 0;
-        map->destination.map = map;
-
-        // also add destination signal if necessary
-        map->destination.signal =
-            mapper_database_add_or_update_signal(db, signame, devname, 0);
+        map->destination.signal = dst_sig;
         map->destination.causes_update = 1;
+        map->destination.map = map;
         if (map->destination.signal->local) {
             map->destination.num_instances = map->destination.signal->num_instances;
             map->destination.use_as_instance = map->destination.num_instances > 1;
@@ -785,17 +783,11 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         int changed = 0;
         // may need to add sources to existing map
         for (i = 0; i < num_sources; i++) {
-            devnamelen = mapper_parse_names(src_names[i], &devnamep, &signame);
-            if (!devnamelen || devnamelen >= 256) {
-                trace("error extracting device name\n");
+            mapper_signal src_sig = add_sig_from_whole_name(db, src_names[i]);
+            if (!src_sig)
                 return 0;
-            }
-            strncpy(devname, devnamep, devnamelen);
-            devname[devnamelen] = 0;
             for (j = 0; j < map->num_sources; j++) {
-                if (strlen(map->sources[j]->signal->device->name) == devnamelen
-                    && strcmp(devname, map->sources[j]->signal->device->name)==0
-                    && strcmp(signame, map->sources[j]->signal->name)==0) {
+                if (map->sources[j]->signal == src_sig) {
                     map->sources[j]->id = i;
                     break;
                 }
@@ -807,8 +799,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                                        * map->num_sources);
                 map->sources[j] = (mapper_slot) calloc(1, sizeof(struct _mapper_slot));
                 map->sources[j]->direction = MAPPER_DIR_OUTGOING;
-                map->sources[j]->signal =
-                    mapper_database_add_or_update_signal(db, signame, devname, 0);
+                map->sources[j]->signal = src_sig;
                 map->sources[j]->causes_update = 1;
                 map->sources[j]->map = map;
                 if (map->sources[j]->signal->local) {
