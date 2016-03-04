@@ -96,6 +96,7 @@ for i in range(1000):
 #        map.push()
 
     if i==500:
+        print 'muting map'
         map.source().minimum = [10,11,12,13]
         map.muted = True
         map.mode = mapper.MODE_LINEAR

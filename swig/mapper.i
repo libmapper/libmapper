@@ -1442,6 +1442,7 @@ typedef struct _signal_query {
                 callbacks = 0;
             }
         }
+        mapper_signal_set_user_data((mapper_signal)$self, callbacks);
         mapper_signal_set_callback((mapper_signal)$self, h);
         return $self;
     }
