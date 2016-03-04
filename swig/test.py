@@ -117,8 +117,8 @@ for i in db.maps():
         '->', i.destination().signal().device().name, ':', i.destination().signal().name
 
 # combining queries
-print 'signals matching \'out\' or \'req\':'
-q1 = db.signals_by_name_match("out")
-q1.join(db.signals_by_name_match("req"))
+print 'signals matching \'out*\' or \'*req\':'
+q1 = db.signals("out*")
+q1.join(db.signals("*req"))
 for i in q1:
     print "    ", i.name

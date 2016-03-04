@@ -291,19 +291,47 @@ mapper_device mapper_database_device_by_id(mapper_database db, mapper_id id)
     return 0;
 }
 
-static int cmp_query_devices_by_name_match(const void *context_data,
-                                           mapper_device dev)
+static int match_pattern(const char* string, const char* pattern)
 {
-    const char *pattern = (const char*)context_data;
-    return strstr(dev->name, pattern)!=0;
+    if (!string || !pattern)
+        return 0;
+
+    if (!strchr(pattern, '*'))
+        return strcmp(string, pattern)==0;
+
+    // 1) tokenize pattern using strtok() with delimiter character '*'
+    // 2) use strstr() to check if token exists in offset string
+    char *str = (char*)string, *tok;
+    char dup[strlen(pattern)+1], *pat = dup;
+    strcpy(pat, pattern);
+    int ends_wild = pattern[strlen(pattern)-1]  == '*';
+    while (str && *str) {
+        tok = strtok(pat, "*");
+        if (!tok)
+            return ends_wild;
+        str = strstr(str, tok);
+        if (str && *str)
+            str += strlen(tok);
+        else
+            return 0;
+        // subsequent calls to strtok() need first argument to be NULL
+        pat = NULL;
+    }
+    return 1;
 }
 
-mapper_device *mapper_database_devices_by_name_match(mapper_database db,
-                                                     const char *pattern)
+static int cmp_query_devices_by_name(const void *context_data, mapper_device dev)
+{
+    const char *name = (const char*)context_data;
+    return match_pattern(dev->name, name);
+}
+
+mapper_device *mapper_database_devices_by_name(mapper_database db,
+                                               const char *name)
 {
     return ((mapper_device *)
-            mapper_list_new_query(db->devices, cmp_query_devices_by_name_match,
-                                  "s", pattern));
+            mapper_list_new_query(db->devices, cmp_query_devices_by_name,
+                                  "s", name));
 }
 
 static inline int check_type(char type)
@@ -575,7 +603,7 @@ static int cmp_query_signals_by_name(const void *context_data,
     int direction = *(int*)context_data;
     const char *name = (const char*)(context_data + sizeof(int));
     return ((!direction || (sig->direction & direction))
-            && (strcmp(sig->name, name)==0));
+            && (match_pattern(sig->name, name)));
 }
 
 mapper_signal *mapper_database_signals_by_name(mapper_database db,
@@ -584,21 +612,6 @@ mapper_signal *mapper_database_signals_by_name(mapper_database db,
     return ((mapper_signal *)
             mapper_list_new_query(db->signals, cmp_query_signals_by_name,
                                   "is", MAPPER_DIR_ANY, name));
-}
-
-static int cmp_query_signals_by_name_match(const void *context_data,
-                                           mapper_signal sig)
-{
-    const char *pattern = (const char*)(context_data);
-    return (strstr(sig->name, pattern)!=0);
-}
-
-mapper_signal *mapper_database_signals_by_name_match(mapper_database db,
-                                                     const char *pattern)
-{
-    return ((mapper_signal *)
-            mapper_list_new_query(db->signals, cmp_query_signals_by_name_match,
-                                  "s", pattern));
 }
 
 static int cmp_query_signals_by_property(const void *context_data,

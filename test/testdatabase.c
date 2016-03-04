@@ -469,16 +469,16 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices matching '__':\n");
 
-    pdev = mapper_database_devices_by_name_match(db, "__");
+    pdev = mapper_database_devices_by_name(db, "*__*");
 
     count=0;
     if (!pdev) {
-        eprintf("mapper_database_devices_by_name_match() returned 0.\n");
+        eprintf("mapper_database_devices_by_name() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*pdev) {
-        eprintf("mapper_database_devices_by_name_match() returned something "
+        eprintf("mapper_database_devices_by_name() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -718,19 +718,19 @@ int main(int argc, char **argv)
 
     dev = mapper_database_device_by_name(db, "testdatabase.1");
     psig = mapper_device_signals(dev, MAPPER_DIR_ANY);
-    psig2 = mapper_database_signals_by_name_match(db, "in");
+    psig2 = mapper_database_signals_by_name(db, "*in*");
     psig = mapper_signal_query_intersection(psig, psig2);
 
     count=0;
     if (!psig) {
         eprintf("intersection of mapper_device_signals() and "
-                "mapper_database_signals_by_name_match() returned 0.\n");
+                "mapper_database_signals_by_name() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
         eprintf("intersection of mapper_device_signals() and "
-                "mapper_database_signals_by_name_match() returned something "
+                "mapper_database_signals_by_name() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -754,19 +754,19 @@ int main(int argc, char **argv)
 
     dev = mapper_database_device_by_name(db, "testdatabase.1");
     psig = mapper_device_signals(dev, MAPPER_DIR_ANY);
-    psig2 = mapper_database_signals_by_name_match(db, "out");
+    psig2 = mapper_database_signals_by_name(db, "*out*");
     psig = mapper_signal_query_intersection(psig, psig2);
 
     count=0;
     if (!psig) {
         eprintf("intersection of mapper_device_signals() and "
-                "mapper_database_signals_by_name_match() returned 0.\n");
+                "mapper_database_signals_by_name() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
         eprintf("intersection of mapper_device_signals() and "
-                "mapper_database_signals_by_name_match() returned something "
+                "mapper_database_signals_by_name() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -790,19 +790,19 @@ int main(int argc, char **argv)
 
     dev = mapper_database_device_by_name(db, "testdatabase__.2");
     psig = mapper_device_signals(dev, MAPPER_DIR_ANY);
-    psig2 = mapper_database_signals_by_name_match(db, "out");
+    psig2 = mapper_database_signals_by_name(db, "*out*");
     psig = mapper_signal_query_intersection(psig, psig2);
 
     count=0;
     if (!psig) {
         eprintf("intersection of mapper_device_signals() and "
-                "mapper_database_signals_by_name_match() returned 0.\n");
+                "mapper_database_signals_by_name() returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*psig) {
         eprintf("intersection of mapper_device_signals() and "
-                "mapper_database_signals_by_name_match() returned something "
+                "mapper_database_signals_by_name() returned something "
                 "which pointed to 0.\n");
         result = 1;
         goto done;
@@ -1008,7 +1008,7 @@ int main(int argc, char **argv)
     // build source query
     dev = mapper_database_device_by_name(db, "testdatabase__.2");
     psig = mapper_device_signals(dev, MAPPER_DIR_ANY);
-    psig2 = mapper_database_signals_by_name_match(db, "out");
+    psig2 = mapper_database_signals_by_name(db, "*out*");
     psig = mapper_signal_query_intersection(psig, psig2);
 
     pmap = 0;

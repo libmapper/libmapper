@@ -161,12 +161,12 @@ public class Database
     public native mapper.Device device(long id);
     public native mapper.device.Query devices();
     public native mapper.device.Query localDevices();
-    public native mapper.device.Query devicesByNameMatch(String pattern);
+    public native mapper.device.Query devices(String name);
 
     private native long mapperDatabaseDevicesByProp(long db, String name,
                                                     Value value, int op);
-    public mapper.device.Query devicesByProperty(String name, Value value,
-                                                 mapper.database.Operator op) {
+    public mapper.device.Query devices(String name, Value value,
+                                       mapper.database.Operator op) {
         return new mapper.device.Query(mapperDatabaseDevicesByProp(_db, name,
                                                                    value,
                                                                    op.value()));
@@ -175,21 +175,20 @@ public class Database
     // signals
     public native mapper.Signal signal(long id);
 
-    private native long mapperDatabaseSignals(long db, String pattern,
-                                              int direction);
+    private native long mapperDatabaseSignals(long db, String name, int dir);
     public mapper.signal.Query signals() {
         return new mapper.signal.Query(mapperDatabaseSignals(_db, null, 0));
     }
-    public mapper.signal.Query signalsByNameMatch(String pattern) {
-        return new mapper.signal.Query(mapperDatabaseSignals(_db, pattern, 0));
+    public mapper.signal.Query signals(String name) {
+        return new mapper.signal.Query(mapperDatabaseSignals(_db, name, 0));
     }
 
     public mapper.signal.Query inputs() {
         return new mapper.signal.Query(mapperDatabaseSignals(_db, null,
                                                              Direction.INCOMING.value()));
     }
-    public mapper.signal.Query inputsByNameMatch(String pattern) {
-        return new mapper.signal.Query(mapperDatabaseSignals(_db, pattern,
+    public mapper.signal.Query inputs(String name) {
+        return new mapper.signal.Query(mapperDatabaseSignals(_db, name,
                                                              Direction.INCOMING.value()));
     }
 
@@ -197,8 +196,8 @@ public class Database
         return new mapper.signal.Query(mapperDatabaseSignals(_db, null,
                                                              Direction.OUTGOING.value()));
     }
-    public mapper.signal.Query outputsByNameMatch(String pattern) {
-        return new mapper.signal.Query(mapperDatabaseSignals(_db, pattern,
+    public mapper.signal.Query outputs(String name) {
+        return new mapper.signal.Query(mapperDatabaseSignals(_db, name,
                                                              Direction.OUTGOING.value()));
     }
 

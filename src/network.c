@@ -1058,7 +1058,6 @@ static int handler_device_set_props(const char *path, const char *types,
 static int handler_logout(const char *path, const char *types, lo_arg **argv,
                           int argc, lo_message msg, void *user_data)
 {
-    lo_message_pp(msg);
     mapper_network net = (mapper_network) user_data;
     mapper_device dev = net->device;
 
@@ -2061,7 +2060,6 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
 #ifdef DEBUG
     printf("-- <%s> %s /map/modify", mapper_device_name(dev),
            map && map->local ? "got" : "ignoring");
-    lo_message_pp(msg);
 #endif
     if (!map || !map->local) {
         return 0;

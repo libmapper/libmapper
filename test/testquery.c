@@ -176,7 +176,6 @@ int setup_maps()
                 break;
             }
         }
-        printf("waiting....\n");
     }
 
     return 0;

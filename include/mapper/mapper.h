@@ -1561,13 +1561,13 @@ mapper_device mapper_database_device_by_name(mapper_database db,
  *  \return             Information about the device, or zero if not found. */
 mapper_device mapper_database_device_by_id(mapper_database db, mapper_id id);
 
-/*! Return the list of devices with a substring in their name.
+/*! Return the list of devices matching a name or pattern.
  *  \param db           The database to query.
- *  \param pattern  	The substring to search for.
+ *  \param name         The name or pattern to search for. Use '*' for wildcard.
  *  \return             A double-pointer to the first item in a list of results.
  *                      Use mapper_device_query_next() to iterate. */
-mapper_device *mapper_database_devices_by_name_match(mapper_database db,
-                                                     const char *pattern);
+mapper_device *mapper_database_devices_by_name(mapper_database db,
+                                               const char *name);
 
 /*! Return the list of devices matching the given property.
  *  \param db           The database to query.
@@ -1632,21 +1632,14 @@ int mapper_database_num_signals(mapper_database db);
  *                      results.  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_database_signals(mapper_database db, mapper_direction dir);
 
-/*! Find information for registered signals.
+/*! Return a list of signals matching a name.
  *  \param db           The database to query.
- *  \param sig_name     Name of the signal to find in the database.
+ *  \param name         Name of the signal to find in the database.  Use '*' for
+ *                      wildcards.
  *  \return             A double-pointer to the first item in the list of
  *                      results.  Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_database_signals_by_name(mapper_database db,
-                                               const char *sig_name);
-
-/*! Find information for registered signals.
- *  \param db           The database to query.
- *  \param pattern      The substring to search for.
- *  \return             A double-pointer to the first item in the list of
- *                      results.  Use mapper_signal_query_next() to iterate. */
-mapper_signal *mapper_database_signals_by_name_match(mapper_database db,
-                                                     const char *pattern);
+                                               const char *name);
 
 /*! Return the list of signals matching the given property.
  *  \param db           The database to query.

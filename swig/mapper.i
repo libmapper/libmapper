@@ -2245,10 +2245,10 @@ typedef struct _map_query {
         ret->query = mapper_database_devices((mapper_database)$self);
         return ret;
     }
-    device_query *devices_by_name_match(const char *pattern) {
+    device_query *devices(const char *name) {
         device_query *ret = malloc(sizeof(struct _device_query));
-        ret->query = mapper_database_devices_by_name_match((mapper_database)$self,
-                                                           pattern);
+        ret->query = mapper_database_devices_by_name((mapper_database)$self,
+                                                     name);
         return ret;
     }
     device_query *devices_by_property(named_property prop=0,
@@ -2276,16 +2276,10 @@ typedef struct _map_query {
         ret->query = mapper_database_signals((mapper_database)$self, dir);
         return ret;
     }
-    signal_query *signals_by_name(const char *name) {
+    signal_query *signals(const char *name) {
         signal_query *ret = malloc(sizeof(struct _signal_query));
         ret->query = mapper_database_signals_by_name((mapper_database)$self,
                                                      name);
-        return ret;
-    }
-    signal_query *signals_by_name_match(const char *name) {
-        signal_query *ret = malloc(sizeof(struct _signal_query));
-        ret->query = mapper_database_signals_by_name_match((mapper_database)$self,
-                                                           name);
         return ret;
     }
     signal_query *signals_by_property(named_property prop=0,

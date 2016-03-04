@@ -5,7 +5,7 @@ EXPORTS
     mapper_db_device_by_id                              @4
     mapper_db_device_by_name                            @5
     mapper_db_devices                                   @6
-    mapper_db_devices_by_name_match                     @7
+    mapper_db_devices_by_name                           @7
     mapper_db_devices_by_property                       @8
     mapper_db_flush                                     @9
     mapper_db_free                                      @10
@@ -31,7 +31,6 @@ EXPORTS
     mapper_db_signal_by_id                              @30
     mapper_db_signals                                   @31
     mapper_db_signals_by_name                           @32
-    mapper_db_signals_by_name_match                     @33
     mapper_db_signals_by_property                       @34
     mapper_db_subscribe                                 @35
     mapper_db_timeout                                   @36

@@ -1786,10 +1786,9 @@ namespace mapper {
             { return Device::Query(mapper_database_devices(_db)); }
         Device::Query local_devices() const
             { return Device::Query(mapper_database_local_devices(_db)); }
-        Device::Query devices_by_name_match(const string_type &pattern) const
+        Device::Query devices(const string_type &name) const
         {
-            return Device::Query(mapper_database_devices_by_name_match(_db,
-                                                                       pattern));
+            return Device::Query(mapper_database_devices_by_name(_db, name));
         }
         Device::Query devices(const Property& p, mapper_op op) const
         {
@@ -1823,11 +1822,6 @@ namespace mapper {
         Signal::Query signals(const string_type &name) const
         {
             return Signal::Query(mapper_database_signals_by_name(_db, name));
-        }
-        Signal::Query signals_by_name_match(const string_type &pattern) const
-        {
-            return Signal::Query(mapper_database_signals_by_name_match(_db,
-                                                                       pattern));
         }
         Signal::Query signals(const Property& p, mapper_op op) const
         {

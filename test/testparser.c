@@ -644,10 +644,10 @@ int main(int argc, char **argv)
 
     result = run_tests();
     eprintf("**********************************\n");
-    printf("Test %s ", result ? "FAILED" : "PASSED");
+    printf("...............Test %s ", result ? "FAILED" : "PASSED");
     if (!result)
-        printf("in %f seconds using %d tokens in total.\n",
+        printf("(%f seconds, %d tokens).\n",
                total_elapsed_time, token_count);
     else
-        printf("\n");
+        printf(".\n");
 }

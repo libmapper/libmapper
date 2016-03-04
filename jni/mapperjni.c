@@ -1021,7 +1021,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_device__J
     return (*env)->NewObject(env, cls, mid, jlong_ptr(dev));
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Database_devices
+JNIEXPORT jobject JNICALL Java_mapper_Database_devices__
   (JNIEnv *env, jobject obj)
 {
     jclass cls = (*env)->FindClass(env, "mapper/device/Query");
@@ -1053,7 +1053,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_localDevices
     return (*env)->NewObject(env, cls, mid, jlong_ptr(devs));
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Database_devicesByNameMatch
+JNIEXPORT jobject JNICALL Java_mapper_Database_devices__Ljava_lang_String_2
   (JNIEnv *env, jobject obj, jstring s)
 {
     jclass cls = (*env)->FindClass(env, "mapper/device/Query");
@@ -1063,9 +1063,9 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_devicesByNameMatch
     mapper_device *devs = 0;
     mapper_database db = get_database_from_jobject(env, obj);
     if (db) {
-        const char *pattern = (*env)->GetStringUTFChars(env, s, 0);
-        devs = mapper_database_devices_by_name_match(db, pattern);
-        (*env)->ReleaseStringUTFChars(env, s, pattern);
+        const char *name = (*env)->GetStringUTFChars(env, s, 0);
+        devs = mapper_database_devices_by_name(db, name);
+        (*env)->ReleaseStringUTFChars(env, s, name);
     }
 
     jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
@@ -1114,9 +1114,9 @@ JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseSignals
 
     mapper_signal *sigs = 0;
     if (s) {
-        const char *pattern = (*env)->GetStringUTFChars(env, s, 0);
-        sigs = mapper_database_signals_by_name_match(db, pattern);
-        (*env)->ReleaseStringUTFChars(env, s, pattern);
+        const char *name = (*env)->GetStringUTFChars(env, s, 0);
+        sigs = mapper_database_signals_by_name(db, name);
+        (*env)->ReleaseStringUTFChars(env, s, name);
     }
     else {
         sigs = mapper_database_signals(db, jdir);
