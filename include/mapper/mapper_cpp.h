@@ -764,6 +764,8 @@ namespace mapper {
         {
         public:
             ~Slot() {}
+            operator mapper_slot() const
+                { return _slot; }
             inline Signal signal() const;
             mapper_boundary_action bound_min() const
                 { return mapper_slot_bound_min(_slot); }
@@ -868,8 +870,6 @@ namespace mapper {
             friend class Map;
             Slot(mapper_slot slot)
                 { _slot = slot; }
-            operator mapper_slot() const
-                { return _slot; }
             Slot& set_property(Property *p)
             {
                 if (_slot)
@@ -987,7 +987,7 @@ namespace mapper {
             { return mapper_signal_id(_sig); }
         std::string name() const
             { return std::string(mapper_signal_name(_sig)); }
-        mapper_direction direction()
+        mapper_direction direction() const
             { return mapper_signal_direction(_sig); }
         char type() const
             { return mapper_signal_type(_sig); }
@@ -1475,6 +1475,11 @@ namespace mapper {
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Signal::Query(mapper_device_signals(_dev, dir)); }
 
+        Device& set_map_callback(mapper_device_map_handler h)
+        {
+            mapper_device_set_map_callback(_dev, h);
+            return (*this);
+        }
         Map::Query maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Map::Query(mapper_device_maps(_dev, dir)); }
 
