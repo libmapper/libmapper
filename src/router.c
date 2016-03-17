@@ -23,119 +23,6 @@ static int map_in_scope(mapper_map map, mapper_id id)
     return 0;
 }
 
-static void mapper_link_free(mapper_link link)
-{
-    if (link) {
-        if (link->admin_addr)
-            lo_address_free(link->admin_addr);
-        if (link->data_addr)
-            lo_address_free(link->data_addr);
-        while (link->queues) {
-            mapper_queue queue = link->queues;
-            lo_bundle_free_messages(queue->bundle);
-            link->queues = queue->next;
-            free(queue);
-        }
-        free(link);
-    }
-}
-
-mapper_link mapper_router_add_link(mapper_router rtr, mapper_device dev)
-{
-    if (!dev)
-        return 0;
-
-    char str[16];
-    mapper_link link = (mapper_link) calloc(1, sizeof(struct _mapper_link));
-    link->remote_device = dev;
-
-    link->local_device = rtr->device;
-    link->num_incoming_maps = 0;
-    link->num_outgoing_maps = 0;
-
-    if (link->local_device == link->remote_device) {
-        /* Add data_addr for use by self-connections. In the future we may
-         * decide to call local handlers directly, however this could result in
-         * unfortunate loops/stack overflow. Sending data for self-connections
-         * to localhost adds the messages to liblo's stack and imposes a delay
-         * since the receiving handler will not be called until
-         * mapper_device_poll(). */
-        snprintf(str, 16, "%d", rtr->device->port);
-        link->data_addr = lo_address_new("localhost", str);
-    }
-
-    link->clock.new = 1;
-    link->clock.sent.message_id = 0;
-    link->clock.response.message_id = -1;
-    mapper_clock_t *clock = &rtr->device->database->network->clock;
-    mapper_clock_now(clock, &clock->now);
-    link->clock.response.timetag.sec = clock->now.sec + 10;
-
-    link->next = rtr->links;
-    rtr->links = link;
-
-    // request missing metadata
-    char cmd[256];
-    snprintf(cmd, 256, "/%s/subscribe", dev->name);
-    lo_message m = lo_message_new();
-    if (m) {
-        lo_message_add_string(m, "device");
-        mapper_network_set_dest_bus(rtr->device->database->network);
-        mapper_network_add_message(rtr->device->database->network, cmd, 0, m);
-        mapper_network_send(rtr->device->database->network);
-    }
-
-    return link;
-}
-
-void mapper_router_update_link(mapper_router router, mapper_link link,
-                               const char *host, int admin_port, int data_port)
-{
-    char str[16];
-    mapper_table_set_record(link->remote_device->props, AT_HOST, NULL, 1, 's',
-                            host, MODIFIABLE);
-    mapper_table_set_record(link->remote_device->props, AT_PORT, NULL, 1, 'i',
-                            &data_port, MODIFIABLE);
-    sprintf(str, "%d", data_port);
-    link->data_addr = lo_address_new(host, str);
-    sprintf(str, "%d", admin_port);
-    link->admin_addr = lo_address_new(host, str);
-}
-
-void mapper_router_remove_link(mapper_router router, mapper_link link)
-{
-    int i, j;
-    // check if any maps use this link
-    mapper_router_signal rs = router->signals;
-    while (rs) {
-        for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i])
-                continue;
-            mapper_map map = rs->slots[i]->map;
-            if (map->destination.local->link == link) {
-                mapper_router_remove_map(router, map);
-                continue;
-            }
-            for (j = 0; j < map->num_sources; j++) {
-                if (map->sources[j]->local->link == link) {
-                    mapper_router_remove_map(router, map);
-                    break;
-                }
-            }
-        }
-        rs = rs->next;
-    }
-    mapper_link *links = &router->links;
-    while (*links) {
-        if (*links == link) {
-            *links = (*links)->next;
-            break;
-        }
-        links = &(*links)->next;
-    }
-    mapper_link_free(link);
-}
-
 static void reallocate_slot_instances(mapper_slot slot, int size)
 {
     int i;
@@ -290,7 +177,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 else if (map_in_scope(map, id_map->global))
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, id_map);
                 if (msg)
-                    send_or_bundle_message(dst_islot->link,
+                    send_or_bundle_message(dst_slot->link,
                                            dst_slot->signal->path, msg, tt);
             }
 
@@ -318,7 +205,8 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                     // send release to upstream
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, id_map);
                     if (msg)
-                        send_or_bundle_message(islot->link, slot->signal->path, msg, tt);
+                        send_or_bundle_message(slot->link, slot->signal->path,
+                                               msg, tt);
                 }
             }
         }
@@ -407,17 +295,17 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 msg = mapper_map_build_message(map, slot, result, 1, dst_types,
                                                slot->use_as_instance ? id_map : 0);
                 if (msg)
-                    send_or_bundle_message(map->destination.local->link,
+                    send_or_bundle_message(map->destination.link,
                                            dst_slot->signal->path, msg, tt);
             }
-            k++;
+            ++k;
         }
         if (count > 1 && slot->direction == MAPPER_DIR_OUTGOING
             && (!slot->use_as_instance || in_scope)) {
             msg = mapper_map_build_message(map, slot, out_value_p, k, dst_types,
                                            slot->use_as_instance ? id_map : 0);
             if (msg)
-                send_or_bundle_message(map->destination.local->link,
+                send_or_bundle_message(map->destination.link,
                                        dst_slot->signal->path, msg, tt);
         }
     }
@@ -459,15 +347,15 @@ int mapper_router_send_query(mapper_router rtr, mapper_signal sig,
 
         if (rs->slots[i]->direction == MAPPER_DIR_OUTGOING) {
             snprintf(query_string, 256, "%s/get", map->destination.signal->path);
-            send_or_bundle_message(map->destination.local->link, query_string, msg, tt);
+            send_or_bundle_message(map->destination.link, query_string, msg, tt);
         }
         else {
             for (j = 0; j < map->num_sources; j++) {
                 snprintf(query_string, 256, "%s/get", map->sources[j]->signal->path);
-                send_or_bundle_message(map->sources[j]->local->link, query_string, msg, tt);
+                send_or_bundle_message(map->sources[j]->link, query_string, msg, tt);
             }
         }
-        count++;
+        ++count;
     }
     return count;
 }
@@ -475,11 +363,12 @@ int mapper_router_send_query(mapper_router rtr, mapper_signal sig,
 // note on memory handling of mapper_router_bundle_message():
 // path: not owned, will not be freed (assumed is signal name, owned by signal)
 // message: will be owned, will be freed when done
-void send_or_bundle_message(mapper_link link, const char *path,
-                            lo_message msg, mapper_timetag_t tt)
+void send_or_bundle_message(mapper_link link, const char *path, lo_message msg,
+                            mapper_timetag_t tt)
 {
+    mapper_link_internal ilink = link->local;
     // Check if a matching bundle exists
-    mapper_queue q = link->queues;
+    mapper_queue q = ilink->queues;
     while (q) {
         if (memcmp(&q->tt, &tt,
                    sizeof(mapper_timetag_t))==0)
@@ -494,57 +383,8 @@ void send_or_bundle_message(mapper_link link, const char *path,
         // Send message immediately
         lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, msg);
-        lo_send_bundle_from(link->data_addr,
-                            link->local_device->local->server, b);
+        lo_send_bundle_from(ilink->data_addr, link->local_device->local->server, b);
         lo_bundle_free_messages(b);
-    }
-}
-
-void mapper_router_start_queue(mapper_router rtr, mapper_timetag_t tt)
-{
-    // first check if queue already exists
-    mapper_link link = rtr->links;
-    while (link) {
-        mapper_queue queue = link->queues;
-        while (queue) {
-            if (memcmp(&queue->tt, &tt, sizeof(mapper_timetag_t))==0)
-                return;
-            queue = queue->next;
-        }
-
-        // need to create new queue
-        queue = malloc(sizeof(struct _mapper_queue));
-        memcpy(&queue->tt, &tt, sizeof(mapper_timetag_t));
-        queue->bundle = lo_bundle_new(tt);
-        queue->next = link->queues;
-        link->queues = queue;
-        link = link->next;
-    }
-}
-
-void mapper_router_send_queue(mapper_router rtr, mapper_timetag_t tt)
-{
-    mapper_link link = rtr->links;
-    while (link) {
-        mapper_queue *queue = &link->queues;
-        while (*queue) {
-            if (memcmp(&(*queue)->tt, &tt, sizeof(mapper_timetag_t))==0)
-                break;
-            queue = &(*queue)->next;
-        }
-        if (*queue) {
-#ifdef HAVE_LIBLO_BUNDLE_COUNT
-            if (lo_bundle_count((*queue)->bundle))
-#endif
-                lo_send_bundle_from(link->data_addr,
-                                    link->local_device->local->server,
-                                    (*queue)->bundle);
-            lo_bundle_free_messages((*queue)->bundle);
-            mapper_queue temp = *queue;
-            *queue = (*queue)->next;
-            free(temp);
-        }
-        link = link->next;
     }
 }
 
@@ -649,11 +489,15 @@ static void alloc_and_init_local_slot(mapper_router rtr, mapper_slot slot,
     }
     if (!slot->signal->local || (is_src && slot->map->destination.signal->local)) {
         mapper_link link;
-        link = mapper_router_find_link_by_remote_name(rtr,
-                                                      slot->signal->device->name);
-        if (!link)
-            link = mapper_router_add_link(rtr, slot->signal->device);
-        slot->local->link = link;
+        link = mapper_device_link_by_remote_device(rtr->device,
+                                                   slot->signal->device);
+        if (!link) {
+            link = mapper_database_add_or_update_link(rtr->device->database,
+                                                      rtr->device, slot->signal->device,
+                                                      0);
+        }
+        mapper_link_init(link, 1);
+        slot->link = link;
     }
 
     // set some sensible defaults
@@ -709,7 +553,7 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
     if (local_dst)
         map->id = unused_map_id(rtr->device, rtr);
 
-    /* assign indexes to source slots - may be overwritten later by message */
+    /* assign indices to source slots - may be overwritten later by message */
     for (i = 0; i < map->num_sources; i++) {
         map->sources[i]->id = i;
     }
@@ -746,7 +590,7 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
     // check if all sources belong to same remote device
     imap->one_source = 1;
     for (i = 1; i < map->num_sources; i++) {
-        if (map->sources[i]->local->link != map->sources[0]->local->link) {
+        if (map->sources[i]->link != map->sources[0]->link) {
             imap->one_source = 0;
             break;
         }
@@ -761,8 +605,7 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
     if (local_dst && (local_src == map->num_sources)) {
         // all reference signals are local
         imap->is_local = 1;
-        mapper_link link = map->sources[0]->local->link;
-        map->destination.local->link = link;
+        map->destination.link = map->sources[0]->link;
     }
 }
 
@@ -826,14 +669,10 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
                 break;
             }
         }
-        if (map->status >= STATUS_READY && map->destination.local->link) {
-            map->destination.local->link->num_incoming_maps--;
-            check_link(rtr, map->destination.local->link);
-        }
     }
-    else if (map->status >= STATUS_READY && map->destination.local->link) {
-        map->destination.local->link->num_outgoing_maps--;
-        check_link(rtr, map->destination.local->link);
+    else if (map->status >= STATUS_READY && map->destination.link) {
+        --map->destination.link->num_maps[0];
+        check_link(rtr, map->destination.link);
     }
     free_slot_memory(&map->destination);
     for (i = 0; i < map->num_sources; i++) {
@@ -845,9 +684,9 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
                 }
             }
         }
-        if (map->status >= STATUS_READY && map->sources[i]->local->link) {
-            map->sources[i]->local->link->num_incoming_maps--;
-            check_link(rtr, map->sources[i]->local->link);
+        else if (map->status >= STATUS_READY && map->sources[i]->link) {
+            --map->sources[i]->link->num_maps[1];
+            check_link(rtr, map->sources[i]->link);
         }
         free_slot_memory(map->sources[i]);
     }
@@ -882,7 +721,7 @@ static int match_slot(mapper_device dev, mapper_slot slot, const char *full_name
         return 1;
     int len = sig_name - full_name;
     const char *slot_devname = (slot->local->router_sig ? mapper_device_name(dev)
-                                : slot->local->link->remote_device->name);
+                                : slot->link->remote_device->name);
 
     // first compare device name
     if (strlen(slot_devname) != len || strncmp(full_name, slot_devname, len))
@@ -1031,34 +870,4 @@ mapper_slot mapper_router_find_slot(mapper_router router, mapper_signal signal,
         }
     }
     return NULL;
-}
-
-mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
-                                                   const char *name)
-{
-    int n = strlen(name);
-    const char *slash = strchr(name+1, '/');
-    if (slash)
-        n = slash - name;
-
-    mapper_link link = router->links;
-    while (link) {
-        if (strncmp(link->remote_device->name, name, n)==0
-            && link->remote_device->name[n]==0)
-            return link;
-        link = link->next;
-    }
-    return 0;
-}
-
-mapper_link mapper_router_find_link_by_remote_id(mapper_router router,
-                                                 mapper_id id)
-{
-    mapper_link link = router->links;
-    while (link) {
-        if (id == link->remote_device->id)
-            return link;
-        link = link->next;
-    }
-    return 0;
 }

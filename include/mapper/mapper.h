@@ -506,6 +506,24 @@ void mapper_signal_print(mapper_signal sig, int device_name);
        user-specified metadata.  Devices signals can be connected, which is
        accomplished by requests from an external GUI. */
 
+/*! A callback function prototype for when a link is added, updated, or removed
+ *  from a given device.  Such a function is passed in to
+ *  mapper_device_set_link_callback().
+ *  \param dev          The device that registered this callback.
+ *  \param link         The link record.
+ *  \param action       A value of mapper_record_action indicating what is
+ *                      happening to the link record.*/
+typedef void mapper_device_link_handler(mapper_device dev, mapper_link link,
+                                        mapper_record_action action);
+
+/*! Set a function to be called when a link involving a device's local signals
+ *  is established, modified or destroyed, indicated by the action parameter to
+ *  the provided function.
+ *  \param dev          The device to use.
+ *  \param handler      Function to be called when the local maps change. */
+void mapper_device_set_link_callback(mapper_device dev,
+                                     mapper_device_link_handler *handler);
+
 /*! A callback function prototype for when a map is added, updated, or removed
  *  from a given device.  Such a function is passed in to
  *  mapper_device_set_map_callback().
@@ -655,6 +673,26 @@ mapper_signal mapper_device_signal_by_index(mapper_device dev, int index,
  *  \param dev          The device to check.
  *  \return             The device description if it is defined, or NULL. */
 const char *mapper_device_description(mapper_device dev);
+
+/*! Return the number of network links associated with a specific device.
+ *  \param dev          The device to check.
+ *  \param dir          The direction of the links relative to the given device.
+ *  \return             The number of associated links. */
+int mapper_device_num_links(mapper_device dev, mapper_direction dir);
+
+/*! Return the list of network links associated with a given device.
+ *  \param dev          Device record query.
+ *  \param dir          The direction of the link relative to the given device.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results. Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_device_links(mapper_device dev, mapper_direction dir);
+
+/*! Find information for a registered link.
+ *  \param dev          Device record to query.
+ *  \param remote_dev   Remote device.
+ *  \return             Information about the link, or zero if not found. */
+mapper_link mapper_device_link_by_remote_device(mapper_device dev,
+                                                mapper_device remote_dev);
 
 /*! Return the number of maps associated with a specific device.
  *  \param dev          The device to check.
@@ -967,6 +1005,149 @@ void mapper_network_send_message(mapper_network net, const char *path,
 
 /* @} */
 
+/***** Links *****/
+
+/*! @defgroup links Links
+
+    @{ Links define network connections between pairs of devices. */
+
+/*! Get the mapper_device for a specific link endpoint.
+ *  \param link         The link to check.
+ *  \param idx          The endpoint index, must be 0 or 1.
+ *  \return         	The endpoints's device. */
+mapper_device mapper_link_device(mapper_link link, int idx);
+
+/*! Get the number of maps associated with a specific link endpoint.
+ *  \param link         The link to check.
+ *  \param idx          The endpoint index, must be 0 or 1.
+ *  \param dir          The direction of the maps relative to the given endpoint.
+ *  \return             The number of associated maps. */
+int mapper_link_num_maps(mapper_link link, int idx, mapper_direction dir);
+
+/*! Get the unique id for a specific link.
+ *  \param link         The link to check.
+ *  \return             The unique id assigned to this link. */
+mapper_id mapper_link_id(mapper_link link);
+
+/*! Associate a link with an arbitrary pointer.
+ *  \param link         The link to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_link_set_user_data(mapper_link link, const void *user_data);
+
+/*! Retrieve the arbitrary pointer associated with a link.
+ *  \param link         The link to operate on.
+ *  \return             A pointer associated with this link. */
+void *mapper_link_user_data(mapper_link link);
+
+/*! Get the total number of properties for a specific link.
+ *  \param link         The link to check.
+ *  \return             The number of properties. */
+int mapper_link_num_properties(mapper_link link);
+
+/*! Look up a link property by name.
+ *  \param link         The link to check.
+ *  \param name         The name of the property to retrieve.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_link_property(mapper_link link, const char *name, int *length,
+                         char *type, const void **value);
+
+/*! Look up a link property by index. To iterate all properties,
+ *  call this function from index=0, increasing until it returns zero.
+ *  \param link         The link to check.
+ *  \param index        Numerical index of a map property.
+ *  \param name         Address of a string pointer to receive the name of
+ *                      indexed property.  May be zero.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_link_property_index(mapper_link link, unsigned int index,
+                               const char **name, int *length, char *type,
+                               const void **value);
+
+/*! Set an arbitrary property for a specific link.  Changes to remote links will
+ *  not take effect until synchronized with the network using mapper_link_push().
+ *  \param link         The link to modify.
+ *  \param name         The name of the property to add.
+ *  \param length       The length of value array.
+ *  \param type     	The property  datatype.
+ *  \param value        An array of property values.
+ *  \return             1 if property has been changed, 0 otherwise. */
+int mapper_link_set_property(mapper_link link, const char *name, int length,
+                             char type, const void *value);
+
+/*! Remove a property of a link.
+ *  \param link         The link to operate on.
+ *  \param name         The name of the property to remove.
+ *  \return             1 if property has been removed, 0 otherwise. */
+int mapper_link_remove_property(mapper_link link, const char *name);
+
+/*! Push any property changes out to the network.
+ *  \param link         The link to operate on. */
+void mapper_link_push(mapper_link link);
+
+/*! Get the union of two link queries (link matching query1 OR query2).
+ *  \param query1       The first link query.
+ *  \param query2   	The second link query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_link_query_union(mapper_link *query1, mapper_link *query2);
+
+/*! Get the intersection of two link queries (links matching query1 AND query2).
+ *  \param query1       The first link query.
+ *  \param query2   	The second link query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                  	Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_link_query_intersection(mapper_link *query1, mapper_link *query2);
+
+/*! Get the difference between two link queries (links matching query1 but NOT
+ *  query2).
+ *  \param query1       The first link query.
+ *  \param query2   	The second link query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_link_query_difference(mapper_link *query1, mapper_link *query2);
+
+/*! Given a link record pointer returned from a previous link query, get an
+ *  indexed item in the list.
+ *  \param query        The previous link record pointer.
+ *  \param index    	The index of the list element to retrieve.
+ *  \return             A pointer to the link record, or zero if it doesn't exist. */
+mapper_link mapper_link_query_index(mapper_link *query, int index);
+
+/*! Given a link record pointer returned from a previous link query, get the next
+ *  item in the list.
+ *  \param query        The previous link record pointer.
+ *  \return             A double-pointer to the next link record in the list, or
+ *                      zero if no more maps. */
+mapper_link *mapper_link_query_next(mapper_link *query);
+
+/*! Copy a previously-constructed link query.
+ *  \param query        The previous link record pointer.
+ *  \return             A double-pointer to the copy of the list, or zero if
+ *                      none. Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_link_query_copy(mapper_link *query);
+
+/*! Given a link record pointer returned from a previous link query, indicate
+ *  that we are done iterating.
+ *  \param query        The previous link record pointer. */
+void mapper_link_query_done(mapper_link *query);
+
+/*! Helper to print the properties of a specific network link.
+ *  \param link         The link to print. */
+void mapper_link_print(mapper_link link);
+
+/* @} */
+
 /***** Maps *****/
 
 /*! @defgroup maps Maps
@@ -1220,7 +1401,7 @@ mapper_map *mapper_map_query_next(mapper_map *query);
  *                      none. Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_map_query_copy(mapper_map *query);
 
-/*! Given a map record pointer returned from a previous map*() query, indicate
+/*! Given a map record pointer returned from a previous map query, indicate
  *  that we are done iterating.
  *  \param query        The previous map record pointer. */
 void mapper_map_query_done(mapper_map *query);
@@ -1655,6 +1836,69 @@ mapper_signal *mapper_database_signals_by_property(mapper_database db,
                                                    char type, const void *value,
                                                    mapper_op op);
 
+/*! A callback function prototype for when a link record is added or updated in
+ *  the database. Such a function is passed in to
+ *  mapper_database_add_link_callback().
+ *  \param db           The database that registered this callback.
+ *  \param link         The link record.
+ *  \param action       A value of mapper_record_action indicating what is
+ *                      happening to the link record.
+ *  \param user         The user context pointer registered with this callback. */
+typedef void mapper_database_link_handler(mapper_database db, mapper_link link,
+                                          mapper_record_action action,
+                                          const void *user);
+
+/*! Register a callback for when a link record is added or updated.
+ *  \param db           The database to which the callback should be added.
+ *  \param h            Callback function.
+ *  \param user         A user-defined pointer to be passed to the callback for
+ *                      context . */
+void mapper_database_add_link_callback(mapper_database db,
+                                       mapper_database_link_handler *h,
+                                       const void *user);
+
+/*! Remove a link record callback from the database service.
+ *  \param db           The database from which the callback should be removed.
+ *  \param h            Callback function.
+ *  \param user     	The user context pointer that was originally specified
+ *                      when adding the callback. */
+void mapper_database_remove_link_callback(mapper_database db,
+                                          mapper_database_link_handler *h,
+                                          const void *user);
+
+/*! Return the number of links stored in the database.
+ *  \param db           The database to query.
+ *  \return             The number of links. */
+int mapper_database_num_links(mapper_database db);
+
+/*! Return a list of all registered links.
+ *  \param db           The database to query.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results, or zero if none.  Use mapper_link_query_next()
+ *                      to iterate. */
+mapper_link *mapper_database_links(mapper_database db);
+
+/*! Return the link that matches the given id.
+ *  \param db           The database to query.
+ *  \param id           Unique id identifying the link.
+ *  \return             A pointer to a structure containing information on the
+ *                      found link, or 0 if not found. */
+mapper_link mapper_database_link_by_id(mapper_database db, mapper_id id);
+
+/*! Return the list of links matching the given property.
+ *  \param db           The database to query.
+ *  \param name         The name of the property to search for.
+ *  \param length       The value length.
+ *  \param type         The value type.
+ *  \param value        The value.
+ *  \param op           The comparison operator.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_map_query_next() to iterate. */
+mapper_link *mapper_database_links_by_property(mapper_database db,
+                                               const char *name, int length,
+                                               char type, const void *value,
+                                               mapper_op op);
+
 /*! A callback function prototype for when a map record is added or updated in
  *  the database. Such a function is passed in to
  *  mapper_database_add_map_callback().
@@ -1663,15 +1907,17 @@ mapper_signal *mapper_database_signals_by_property(mapper_database db,
  *  \param action       A value of mapper_record_action indicating what is
  *                      happening to the map record.
  *  \param user         The user context pointer registered with this callback. */
-typedef void mapper_map_handler(mapper_database db, mapper_map map,
-                                mapper_record_action action, const void *user);
+typedef void mapper_database_map_handler(mapper_database db, mapper_map map,
+                                         mapper_record_action action,
+                                         const void *user);
 
 /*! Register a callback for when a map record is added or updated.
  *  \param db           The database to which the callback should be added.
  *  \param h            Callback function.
  *  \param user         A user-defined pointer to be passed to the callback for
  *                      context . */
-void mapper_database_add_map_callback(mapper_database db, mapper_map_handler *h,
+void mapper_database_add_map_callback(mapper_database db,
+                                      mapper_database_map_handler *h,
                                       const void *user);
 
 /*! Remove a map record callback from the database service.
@@ -1680,7 +1926,7 @@ void mapper_database_add_map_callback(mapper_database db, mapper_map_handler *h,
  *  \param user     	The user context pointer that was originally specified
  *                      when adding the callback. */
 void mapper_database_remove_map_callback(mapper_database db,
-                                         mapper_map_handler *h,
+                                         mapper_database_map_handler *h,
                                          const void *user);
 
 /*! Return the number of maps stored in the database.
@@ -1695,7 +1941,7 @@ int mapper_database_num_maps(mapper_database db);
  *                      to iterate. */
 mapper_map *mapper_database_maps(mapper_database db);
 
-/*! Return the map that match the given map id.
+/*! Return the map that matches the given id.
  *  \param db           The database to query.
  *  \param id           Unique id identifying the map.
  *  \return             A pointer to a structure containing information on the

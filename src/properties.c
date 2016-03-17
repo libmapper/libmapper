@@ -42,6 +42,8 @@ const static_property_t static_properties[] = {
     { "@num_incoming_maps", 1, 'i', 'i' },  /* AT_NUM_INCOMING_MAPS */
     { "@num_inputs",        1, 'i', 'i' },  /* AT_NUM_INPUTS */
     { "@num_instances",     1, 'i', 'i' },  /* AT_NUM_INSTANCES */
+    { "@num_links",         1, 'i', 'i' },  /* AT_NUM_LINKS */
+    { "@num_maps",          2, 'i', 'i' },  /* AT_NUM_MAPS */
     { "@num_outgoing_maps", 1, 'i', 'i' },  /* AT_NUM_OUTGOING_MAPS */
     { "@num_outputs",       1, 'i', 'i' },  /* AT_NUM_OUTPUTS */
     { "@port",              1, 'i', 'i' },  /* AT_PORT */

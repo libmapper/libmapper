@@ -177,9 +177,13 @@ void mapper_device_free(mapper_device dev)
         }
     }
 
-    // Links reference parent signals so release them first
-    while (dev->local->router->links)
-        mapper_router_remove_link(dev->local->router, dev->local->router->links);
+    // Release links to other devices
+    mapper_link *links = mapper_device_links(dev, MAPPER_DIR_ANY);
+    while (links) {
+        mapper_link link = *links;
+        links = mapper_link_query_next(links);
+        mapper_database_remove_link(dev->database, link);
+    }
 
     // Release device id maps
     mapper_id_map map;
@@ -236,7 +240,7 @@ void mapper_device_push(mapper_device dev)
 //        if (!dev->staged_props->dirty)
 //            return;
         mapper_network_set_dest_bus(net);
-        mapper_device_send_state(dev, MSG_DEVICE_SET_PROPS);
+        mapper_device_send_state(dev, MSG_DEVICE_MODIFY);
 
         // clear the staged properties
         mapper_table_clear(dev->staged_props);
@@ -1124,17 +1128,23 @@ int mapper_device_num_maps(mapper_device dev, mapper_direction dir)
 {
     if (!dev)
         return 0;
-    if (!dir)
-        return dev->num_incoming_maps + dev->num_outgoing_maps;
-    return (  ((dir & MAPPER_DIR_INCOMING) ? dev->num_incoming_maps : 0)
-            + ((dir & MAPPER_DIR_OUTGOING) ? dev->num_outgoing_maps : 0));
+    switch (dir) {
+        case MAPPER_DIR_ANY:
+            return dev->num_incoming_maps + dev->num_outgoing_maps;
+        case MAPPER_DIR_INCOMING:
+            return dev->num_incoming_maps;
+        case MAPPER_DIR_OUTGOING:
+            return dev->num_outgoing_maps;
+        default:
+            return 0;
+    }
 }
 
 static int cmp_query_device_maps(const void *context_data, mapper_map map)
 {
     mapper_id dev_id = *(mapper_id*)context_data;
-    int direction = *(int*)(context_data + sizeof(mapper_id));
-    if (direction == MAPPER_DIR_BOTH) {
+    mapper_direction dir = *(int*)(context_data + sizeof(mapper_id));
+    if (dir == MAPPER_DIR_BOTH) {
         if (map->destination.signal->device->id != dev_id)
             return 0;
         int i;
@@ -1144,14 +1154,14 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
         }
         return 1;
     }
-    if (!direction || (direction & MAPPER_DIR_OUTGOING)) {
+    if (!dir || (dir & MAPPER_DIR_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
             if (map->sources[i]->signal->device->id == dev_id)
             return 1;
         }
     }
-    if (!direction || (direction & MAPPER_DIR_INCOMING)) {
+    if (!dir || (dir & MAPPER_DIR_INCOMING)) {
         if (map->destination.signal->device->id == dev_id)
         return 1;
     }
@@ -1165,6 +1175,96 @@ mapper_map *mapper_device_maps(mapper_device dev, mapper_direction dir)
     return ((mapper_map *)
             mapper_list_new_query(dev->database->maps, cmp_query_device_maps,
                                   "hi", dev->id, dir));
+}
+
+int mapper_device_num_links(mapper_device dev, mapper_direction dir)
+{
+    if (!dev)
+        return 0;
+    switch (dir) {
+        case MAPPER_DIR_ANY:
+            return dev->num_incoming_links + dev->num_outgoing_links;
+        case MAPPER_DIR_INCOMING:
+            return dev->num_incoming_links;
+        case MAPPER_DIR_OUTGOING:
+            return dev->num_outgoing_links;
+        default:
+            return 0;
+    }
+}
+
+static int cmp_query_device_links(const void *context_data, mapper_link link)
+{
+    mapper_id dev_id = *(mapper_id*)context_data;
+    mapper_direction dir = *(int*)(context_data + sizeof(mapper_id));
+    if (link->devices[0]->id == dev_id) {
+        switch (dir) {
+            case MAPPER_DIR_ANY:
+                return link->num_maps[0] || link->num_maps[1];
+            case MAPPER_DIR_BOTH:
+                return link->num_maps[0] && link->num_maps[1];
+            case MAPPER_DIR_INCOMING:
+                return link->num_maps[1];
+            case MAPPER_DIR_OUTGOING:
+                return link->num_maps[0];
+        }
+    }
+    else if (link->devices[1]->id == dev_id) {
+        switch (dir) {
+            case MAPPER_DIR_ANY:
+                return link->num_maps[0] || link->num_maps[1];
+            case MAPPER_DIR_BOTH:
+                return link->num_maps[0] && link->num_maps[1];
+            case MAPPER_DIR_INCOMING:
+                return link->num_maps[0];
+            case MAPPER_DIR_OUTGOING:
+                return link->num_maps[1];
+        }
+    }
+    return 0;
+}
+
+mapper_link *mapper_device_links(mapper_device dev, mapper_direction dir)
+{
+    if (!dev || !dev->database->links)
+        return 0;
+    return ((mapper_link *)
+            mapper_list_new_query(dev->database->links, cmp_query_device_links,
+                                  "hi", dev->id, dir));
+}
+
+mapper_link mapper_device_link_by_id(mapper_device dev, mapper_id id)
+{
+    if (!dev)
+        return 0;
+    mapper_link link = dev->database->links;
+    while (link) {
+        if (((link->devices[0] == dev) || (link->devices[1] == dev))
+             && (link->id == id))
+            return link;
+        link = mapper_list_next(link);
+    }
+    return 0;
+}
+
+mapper_link mapper_device_link_by_remote_device(mapper_device dev,
+                                                mapper_device remote_dev)
+{
+    if (!dev)
+        return 0;
+    mapper_link link = dev->database->links;
+    while (link) {
+        if (link->devices[0] == dev) {
+            if (link->devices[1] == remote_dev)
+                return link;
+        }
+        else if (link->devices[1] == dev) {
+            if (link->devices[0] == remote_dev)
+                return link;
+        }
+        link = mapper_list_next(link);
+    }
+    return 0;
 }
 
 int mapper_device_poll(mapper_device dev, int block_ms)
@@ -1264,19 +1364,32 @@ void mapper_device_route_signal(mapper_device dev, mapper_signal sig,
                                  value, count, timetag);
 }
 
-// Function to start a mapper queue
+// Function to start a signal update queue
 void mapper_device_start_queue(mapper_device dev, mapper_timetag_t tt)
 {
     if (!dev)
         return;
-    mapper_router_start_queue(dev->local->router, tt);
+
+    mapper_link link = dev->database->links;
+    while (link) {
+        if (link->local)
+            mapper_link_start_queue(link, tt);
+        link = mapper_list_next(link);
+    }
 }
 
+// Function to send a signal update queue
 void mapper_device_send_queue(mapper_device dev, mapper_timetag_t tt)
 {
     if (!dev)
         return;
-    mapper_router_send_queue(dev->local->router, tt);
+
+    mapper_link link = dev->database->links;
+    while (link) {
+        if (link->local)
+            mapper_link_send_queue(link, tt);
+        link = mapper_list_next(link);
+    }
 }
 
 int mapper_device_route_query(mapper_device dev, mapper_signal sig,

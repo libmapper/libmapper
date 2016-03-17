@@ -17,9 +17,12 @@ typedef enum {
     MAPPER_OBJ_INPUT_SIGNALS  = 0x02, //!< Input signals.
     MAPPER_OBJ_OUTPUT_SIGNALS = 0x04, //!< Output signals.
     MAPPER_OBJ_SIGNALS        = 0x06, //!< All signals.
-    MAPPER_OBJ_INCOMING_MAPS  = 0x10, //!< Incoming maps.
-    MAPPER_OBJ_OUTGOING_MAPS  = 0x20, //!< Outgoing maps.
-    MAPPER_OBJ_MAPS           = 0x30, //!< All maps.
+    MAPPER_OBJ_INCOMING_LINKS = 0x10, //!< Links supporting incoming maps.
+    MAPPER_OBJ_OUTGOING_LINKS = 0x20, //!< Links supporting outgoing maps.
+    MAPPER_OBJ_LINKS          = 0x30, //!< All links.
+    MAPPER_OBJ_INCOMING_MAPS  = 0x40, //!< Incoming maps.
+    MAPPER_OBJ_OUTGOING_MAPS  = 0x80, //!< Outgoing maps.
+    MAPPER_OBJ_MAPS           = 0xC0, //!< All maps.
     MAPPER_OBJ_ALL            = 0xFF  //!< All objects: devices, signals, maps.
 } mapper_object_type;
 

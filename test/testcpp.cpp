@@ -209,6 +209,10 @@ int main(int argc, char ** argv)
                       << "/" << signal.name() << std::endl;
         }
     }
+    for (auto const& link : db.links()) {
+        std::cout << "  link: " << link.device(0).name() << " <-> "
+                  << link.device(1).name() << std::endl;
+    }
     for (auto const &m : db.maps()) {
         std::cout << "  map: ";
         if (m.num_sources() > 1)

@@ -211,6 +211,9 @@ void mapper_database_remove_device(mapper_database db, mapper_device dev,
         maps = mapper_map_query_next(maps);
     }
 
+    mapper_database_remove_links_by_query(db, mapper_device_links(dev,
+                                                                  MAPPER_DIR_ANY));
+
     mapper_database_remove_signals_by_query(db, mapper_device_signals(dev,
                                                                 MAPPER_DIR_ANY));
 
@@ -700,6 +703,154 @@ void mapper_database_remove_signals_by_query(mapper_database db,
     }
 }
 
+/**** Link records ****/
+
+mapper_link mapper_database_add_or_update_link(mapper_database db,
+                                               mapper_device dev1,
+                                               mapper_device dev2,
+                                               mapper_message_t *props)
+{
+    mapper_link link = 0;
+    int rc = 0, updated = 0;
+    if (!dev1 || !dev2)
+        return 0;
+    link = mapper_device_link_by_remote_device(dev1, dev2);
+
+    if (!link) {
+        link = (mapper_link)mapper_list_add_item((void**)&db->links,
+                                                  sizeof(mapper_link_t));
+        if (dev2->local) {
+            link->local_device = dev2;
+            link->remote_device = dev1;
+        }
+        else {
+            link->local_device = dev1;
+            link->remote_device = dev2;
+        }
+        mapper_link_init(link, 0);
+        rc = 1;
+    }
+
+    if (link) {
+        updated = mapper_link_set_from_message(link, props);
+
+        if (rc || updated) {
+            // TODO: Should we really allow callbacks to free themselves?
+            fptr_list cb = db->link_callbacks, temp;
+            while (cb) {
+                temp = cb->next;
+                mapper_database_link_handler *h = cb->f;
+                h(db, link, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
+                cb = temp;
+            }
+        }
+    }
+    return link;
+}
+
+void mapper_database_add_link_callback(mapper_database db,
+                                       mapper_database_link_handler *h,
+                                       const void *user)
+{
+    add_callback(&db->link_callbacks, h, user);
+}
+
+void mapper_database_remove_link_callback(mapper_database db,
+                                          mapper_database_link_handler *h,
+                                          const void *user)
+{
+    remove_callback(&db->link_callbacks, h, user);
+}
+
+int mapper_database_num_links(mapper_database db)
+{
+    int count = 0;
+    mapper_link link = db->links;
+    while (link) {
+        ++count;
+        link = mapper_list_next(link);
+    }
+    return count;
+}
+
+mapper_link *mapper_database_links(mapper_database db)
+{
+    return mapper_list_from_data(db->links);
+}
+
+mapper_link mapper_database_link_by_id(mapper_database db, mapper_id id)
+{
+    mapper_link link = db->links;
+    while (link) {
+        if (link->id == id)
+            return link;
+        link = mapper_list_next(link);
+    }
+    return 0;
+}
+
+static int cmp_query_links_by_property(const void *context_data, mapper_link link)
+{
+    int op = *(int*)context_data;
+    int length = *(int*)(context_data + sizeof(int));
+    char type = *(char*)(context_data + sizeof(int) * 2);
+    void *value = *(void**)(context_data + sizeof(int) * 3);
+    const char *name = (const char*)(context_data + sizeof(int) * 3
+                                     + sizeof(void*));
+    int _length;
+    char _type;
+    const void *_value;
+    if (mapper_link_property(link, name, &_length, &_type, &_value))
+        return (op == MAPPER_OP_DOES_NOT_EXIST);
+    if (op == MAPPER_OP_EXISTS)
+        return 1;
+    if (op == MAPPER_OP_DOES_NOT_EXIST)
+        return 0;
+    if (_type != type || _length != length)
+        return 0;
+    return compare_value(op, length, type, _value, value);
+}
+
+mapper_link *mapper_database_links_by_property(mapper_database db,
+                                               const char *name, int length,
+                                               char type, const void *value,
+                                               mapper_op op)
+{
+    if (!name || !check_type(type) || length < 1)
+        return 0;
+    if (op <= MAPPER_OP_UNDEFINED || op >= NUM_MAPPER_OPS)
+        return 0;
+    return ((mapper_link *)
+            mapper_list_new_query(db->links, cmp_query_links_by_property,
+                                  "iicvs", op, length, type, &value, name));
+}
+
+void mapper_database_remove_links_by_query(mapper_database db, mapper_link *links)
+{
+    while (links) {
+        mapper_link link = *links;
+        links = mapper_link_query_next(links);
+        mapper_database_remove_link(db, link);
+    }
+}
+
+void mapper_database_remove_link(mapper_database db, mapper_link link)
+{
+    if (!link)
+        return;
+
+    mapper_list_remove_item((void**)&db->links, link);
+
+    fptr_list cb = db->link_callbacks;
+    while (cb) {
+        mapper_database_link_handler *h = cb->f;
+        h(db, link, MAPPER_REMOVED, cb->context);
+        cb = cb->next;
+    }
+    mapper_link_free(link);
+    mapper_list_free_item(link);
+}
+
 /**** Map records ****/
 
 static int compare_slot_names(const void *l, const void *r)
@@ -757,11 +908,14 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         mapper_signal dst_sig = add_sig_from_whole_name(db, dst_name);
         if (!dst_sig)
             return 0;
+        mapper_link link;
         mapper_signal src_sigs[num_sources];
         for (i = 0; i < num_sources; i++) {
             src_sigs[i] = add_sig_from_whole_name(db, src_names[i]);
             if (!src_sigs[i])
                 return 0;
+            link = mapper_database_add_or_update_link(db, dst_sig->device,
+                                                      src_sigs[i]->device, 0);
         }
 
         map = (mapper_map)mapper_list_add_item((void**)&db->maps,
@@ -855,7 +1009,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         if (rc || updated) {
             fptr_list cb = db->map_callbacks;
             while (cb) {
-                mapper_map_handler *h = cb->f;
+                mapper_database_map_handler *h = cb->f;
                 h(db, map, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
                 cb = cb->next;
             }
@@ -865,14 +1019,15 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     return map;
 }
 
-void mapper_database_add_map_callback(mapper_database db, mapper_map_handler *h,
+void mapper_database_add_map_callback(mapper_database db,
+                                      mapper_database_map_handler *h,
                                       const void *user)
 {
     add_callback(&db->map_callbacks, h, user);
 }
 
 void mapper_database_remove_map_callback(mapper_database db,
-                                         mapper_map_handler *h,
+                                         mapper_database_map_handler *h,
                                          const void *user)
 {
     remove_callback(&db->map_callbacks, h, user);
@@ -897,8 +1052,6 @@ mapper_map *mapper_database_maps(mapper_database db)
 mapper_map mapper_database_map_by_id(mapper_database db, mapper_id id)
 {
     mapper_map map = db->maps;
-    if (!map)
-        return 0;
     while (map) {
         if (map->id == id)
             return map;
@@ -1025,7 +1178,7 @@ void mapper_database_remove_map(mapper_database db, mapper_map map)
 
     fptr_list cb = db->map_callbacks;
     while (cb) {
-        mapper_map_handler *h = cb->f;
+        mapper_database_map_handler *h = cb->f;
         h(db, map, MAPPER_REMOVED, cb->context);
         cb = cb->next;
     }
@@ -1044,6 +1197,10 @@ void mapper_database_remove_all_callbacks(mapper_database db)
     }
     while ((cb = db->signal_callbacks)) {
         db->signal_callbacks = db->signal_callbacks->next;
+        free(cb);
+    }
+    while ((cb = db->link_callbacks)) {
+        db->link_callbacks = db->link_callbacks->next;
         free(cb);
     }
     while ((cb = db->map_callbacks)) {
@@ -1067,6 +1224,13 @@ void mapper_database_print(mapper_database db)
     while (sig) {
         mapper_signal_print(sig, 1);
         sig = mapper_list_next(sig);
+    }
+
+    mapper_link link = db->links;
+    printf("Registered links:\n");
+    while (link) {
+        mapper_link_print(link);
+        link = mapper_list_next(link);
     }
 
     mapper_map map = db->maps;

@@ -60,22 +60,24 @@ typedef enum {
     AT_NUM_INCOMING_MAPS,   /* 0x11 */
     AT_NUM_INPUTS,          /* 0x12 */
     AT_NUM_INSTANCES,       /* 0x13 */
-    AT_NUM_OUTGOING_MAPS,   /* 0x14 */
-    AT_NUM_OUTPUTS,         /* 0x15 */
-    AT_PORT,                /* 0x16 */
-    AT_PROCESS_LOCATION,    /* 0x17 */
-    AT_RATE,                /* 0x18 */
-    AT_SCOPE,               /* 0x19 */
-    AT_SLOT,                /* 0x1A */
-    AT_STATUS,              /* 0x1B */
-    AT_SYNCED,              /* 0x1C */
-    AT_TYPE,                /* 0x1D */
-    AT_UNIT,                /* 0x1E */
-    AT_USE_AS_INSTANCE,     /* 0x1F */
-    AT_USER_DATA,           /* 0x20 */
-    AT_VERSION,             /* 0x21 */
-    AT_EXTRA,               /* 0x22 */
-    NUM_AT_PROPERTIES       /* 0x23 */
+    AT_NUM_LINKS,           /* 0x14 */
+    AT_NUM_MAPS,            /* 0x15 */
+    AT_NUM_OUTGOING_MAPS,   /* 0x16 */
+    AT_NUM_OUTPUTS,         /* 0x17 */
+    AT_PORT,                /* 0x18 */
+    AT_PROCESS_LOCATION,    /* 0x19 */
+    AT_RATE,                /* 0x1A */
+    AT_SCOPE,               /* 0x1B */
+    AT_SLOT,                /* 0x1C */
+    AT_STATUS,              /* 0x1D */
+    AT_SYNCED,              /* 0x1E */
+    AT_TYPE,                /* 0x1F */
+    AT_UNIT,                /* 0x20 */
+    AT_USE_AS_INSTANCE,     /* 0x21 */
+    AT_USER_DATA,           /* 0x22 */
+    AT_VERSION,             /* 0x23 */
+    AT_EXTRA,               /* 0x24 */
+    NUM_AT_PROPERTIES       /* 0x25 */
 } mapper_property_t;
 
 /**** String tables ****/
@@ -139,9 +141,11 @@ typedef struct _mapper_database {
     mapper_device devices;              //<! List of devices.
     mapper_signal signals;              //<! List of signals.
     struct _mapper_map *maps;           //<! List of mappings.
+    struct _mapper_link *links;         //<! List of network links.
     struct _mapper_map *staged_maps;    //<! List of staged mappings.
     fptr_list device_callbacks;         //<! List of device record callbacks.
     fptr_list signal_callbacks;         //<! List of signal record callbacks.
+    fptr_list link_callbacks;           //<! List of link record callbacks.
     fptr_list map_callbacks;            //<! List of mapping record callbacks.
 
     /*! Linked-list of autorenewing device subscriptions. */
@@ -163,7 +167,9 @@ typedef struct _mapper_database {
 /*! Some useful strings for sending administrative messages. */
 typedef enum {
     MSG_DEVICE,
-    MSG_DEVICE_SET_PROPS,
+    MSG_DEVICE_MODIFY,
+    MSG_LINKED,
+    MSG_LINK_MODIFY,
     MSG_LOGOUT,
     MSG_MAP,
     MSG_MAP_TO,
@@ -174,9 +180,10 @@ typedef enum {
     MSG_PING,
     MSG_SIGNAL,
     MSG_SIGNAL_REMOVED,
-    MSG_SIGNAL_SET_PROPS,
+    MSG_SIGNAL_MODIFY,
     MSG_SUBSCRIBE,
     MSG_SYNC,
+    MSG_UNLINKED,
     MSG_UNMAP,
     MSG_UNMAPPED,
     MSG_UNSUBSCRIBE,
@@ -388,20 +395,29 @@ typedef struct _mapper_queue {
 
 /*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
-typedef struct _mapper_link {
-    mapper_device local_device;         //!< Pointer to parent device
-    mapper_device remote_device;
+typedef struct _mapper_link_internal {
     lo_address admin_addr;              //!< Network address of remote endpoint
     lo_address data_addr;               //!< Network address of remote endpoint
     mapper_queue queues;                /*!< Linked-list of message queues
                                          *   waiting to be sent. */
     mapper_sync_clock_t clock;
+} *mapper_link_internal;
 
-    int num_incoming_maps;
-    int num_outgoing_maps;
-
-    struct _mapper_link *next;          //!< Next link in the list.
-} *mapper_link;
+typedef struct _mapper_link {
+    mapper_link_internal local;
+    mapper_id id;
+    struct _mapper_table *props;
+    struct _mapper_table *staged_props;
+    void *user_data;
+    union {
+        mapper_device devices[2];
+        struct {
+            mapper_device local_device;
+            mapper_device remote_device;
+        };
+    };
+    int *num_maps;
+} mapper_link_t, *mapper_link;
 
 /**** Maps and Slots ****/
 
@@ -417,10 +433,8 @@ typedef struct _mapper_link {
 typedef struct _mapper_slot_internal {
     // each slot can point to local signal or a remote link structure
     struct _mapper_router_signal *router_sig;    //!< Parent signal if local
-    mapper_link link;                       //!< Remote device if not local
-
-    mapper_history history;                 /*!< Array of value histories
-                                             *   for each signal instance. */
+    mapper_history history;                 /*!< Array of value histories for
+                                             *   each signal instance. */
     int history_size;                       //!< History size.
     char status;
 } mapper_slot_internal_t, *mapper_slot_internal;
@@ -429,6 +443,7 @@ typedef struct _mapper_slot {
     mapper_slot_internal local;         //!< Pointer to local resources if any
     struct _mapper_map *map;            //!< Pointer to parent map
     mapper_signal signal;               //!< Pointer to parent signal
+    mapper_link link;
 
     /*! Properties associated with this slot. */
     struct _mapper_table *props;
@@ -515,7 +530,6 @@ typedef struct _mapper_router_signal {
 typedef struct _mapper_router {
     struct _mapper_device *device;  //!< The device associated with this link.
     mapper_router_signal signals;   //!< The list of mappings for each signal.
-    mapper_link links;              //!< The list of links to other devices.
 } mapper_router_t, *mapper_router;
 
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
@@ -538,6 +552,9 @@ typedef struct _mapper_local_device {
 
     int n_output_callbacks;
     mapper_router router;
+
+    /*! Function to call for custom link handling. */
+    void *link_handler;
 
     /*! Function to call for custom map handling. */
     void *map_handler;
@@ -585,6 +602,8 @@ struct _mapper_device {
     int port;                   //!< Device network port.
     int num_inputs;             //!< Number of associated input signals.
     int num_outputs;            //!< Number of associated output signals.
+    int num_incoming_links;     //!< Number of incoming network connections.
+    int num_outgoing_links;     //!< Number of outgoing network connections.
     int num_incoming_maps;      //!< Number of associated incoming maps.
     int num_outgoing_maps;      //!< Number of associated outgoing maps.
     int version;                //!< Reported device state version.

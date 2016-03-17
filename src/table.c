@@ -810,8 +810,11 @@ void mapper_table_print(mapper_table tab)
     void *value;
     int i;
     for (i = 0; i < tab->num_records; i++) {
-        printf("%d (%s) '%s' ", rec->index, mapper_property_string(rec->index),
-               rec->key);
+        printf("%d ", rec->index);
+        if (rec->key)
+            printf("'%s' ", rec->key);
+        else
+            printf("(%s) ", mapper_property_string(rec->index));
         if (rec->flags & (INDIRECT | PROP_OWNED)) {
             printf("[");
             if (rec->flags & INDIRECT)

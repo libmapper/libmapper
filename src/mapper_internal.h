@@ -103,13 +103,6 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd);
 
 /***** Router *****/
 
-mapper_link mapper_router_add_link(mapper_router router, mapper_device dev);
-
-void mapper_router_update_link(mapper_router router, mapper_link link,
-                               const char *host, int admin_port, int data_port);
-
-void mapper_router_remove_link(mapper_router router, mapper_link link);
-
 void mapper_router_remove_signal(mapper_router router, mapper_router_signal rs);
 
 void mapper_router_num_instances_changed(mapper_router r,
@@ -152,18 +145,6 @@ mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
 
 mapper_slot mapper_router_find_slot(mapper_router router, mapper_signal signal,
                                     int slot_number);
-
-/*! Find a link by remote device name in a linked list of links. */
-mapper_link mapper_router_find_link_by_remote_name(mapper_router router,
-                                                const char *name);
-
-/*! Find a link by remote device id in a linked list of links. */
-mapper_link mapper_router_find_link_by_remote_id(mapper_router router,
-                                                 mapper_id id);
-
-void mapper_router_start_queue(mapper_router router, mapper_timetag_t tt);
-
-void mapper_router_send_queue(mapper_router router, mapper_timetag_t tt);
 
 /**** Signals ****/
 
@@ -246,7 +227,23 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
                                              int instance_index,
                                              mapper_timetag_t timetag);
 
-/**** Map ****/
+/**** Links ****/
+
+void mapper_link_init(mapper_link link, int is_local);
+void mapper_link_connect(mapper_link link, const char *host, int admin_port,
+                      int data_port);
+void mapper_link_free(mapper_link link);
+int mapper_link_set_from_message(mapper_link link, mapper_message msg);
+void mapper_link_send_state(mapper_link link, network_message_t cmd, int staged);
+void mapper_link_start_queue(mapper_link link, mapper_timetag_t tt);
+void mapper_link_send_queue(mapper_link link, mapper_timetag_t tt);
+
+mapper_link mapper_database_add_or_update_link(mapper_database db,
+                                               mapper_device dev1,
+                                               mapper_device dev2,
+                                               mapper_message_t *props);
+
+/**** Maps ****/
 
 void mhist_realloc(mapper_history history, int history_size,
                    int sample_size, int is_output);
@@ -371,6 +368,13 @@ void mapper_database_remove_signal_by_name(mapper_database db,
 /*! Remove signals in the provided query. */
 void mapper_database_remove_signals_by_query(mapper_database db,
                                              mapper_signal *sigs);
+
+/*! Remove links in the provided query. */
+void mapper_database_remove_links_by_query(mapper_database db,
+                                           mapper_link *links);
+
+/*! Remove a specific link from the database. */
+void mapper_database_remove_link(mapper_database db, mapper_link link);
 
 /*! Remove maps in the provided query. */
 void mapper_database_remove_maps_by_query(mapper_database db,

@@ -36,6 +36,12 @@ void printdevice(mapper_device dev)
     mapper_device_print(dev);
 }
 
+void printlink(mapper_link link)
+{
+    printf(" └─ ");
+    mapper_link_print(link);
+}
+
 void printmap(mapper_map map)
 {
     printf(" └─ ");
@@ -106,6 +112,15 @@ void loop()
                 printf("    %s ", psig ? "├─" : "└─");
                 mapper_signal_print(tempsig, 0);
             }
+        }
+
+        printf("-------------------------------\n");
+
+        printf("Registered links (%d):\n", mapper_database_num_links(db));
+        mapper_link *plink = mapper_database_links(db);
+        while (plink) {
+            printlink(*plink);
+            plink = mapper_link_query_next(plink);
         }
 
         printf("-------------------------------\n");

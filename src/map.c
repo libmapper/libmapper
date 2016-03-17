@@ -1307,8 +1307,7 @@ static int mapper_map_check_status(mapper_map map)
     if (map->destination.signal->type)
         map->destination.local->status |= STATUS_TYPE_KNOWN;
     if (map->destination.local->router_sig
-        || (map->destination.local->link
-            && map->destination.local->link->remote_device->host))
+        || (map->destination.link && map->destination.link->remote_device->host))
         map->destination.local->status |= STATUS_LINK_KNOWN;
     map->status &= (map->destination.local->status | mask);
 
@@ -1319,8 +1318,8 @@ static int mapper_map_check_status(mapper_map map)
         if (map->sources[i]->signal->type)
             map->sources[i]->local->status |= STATUS_TYPE_KNOWN;
         if (map->sources[i]->local->router_sig
-            || (map->sources[i]->local->link
-                && map->sources[i]->local->link->remote_device->host))
+            || (map->sources[i]->link
+                && map->sources[i]->link->remote_device->host))
             map->sources[i]->local->status |= STATUS_LINK_KNOWN;
         map->status &= (map->sources[i]->local->status | mask);
     }
@@ -1336,6 +1335,17 @@ static int mapper_map_check_status(mapper_map map)
                                            * map->local->num_var_instances);
         }
         map->status = STATUS_READY;
+        // update in/out counts for link
+        if (map->destination.link)
+            ++map->destination.link->num_maps[0];
+        mapper_link last = 0, link;
+        for (i = 0; i < map->num_sources; i++) {
+            link = map->sources[i]->link;
+            if (link && link != last) {
+                ++map->sources[i]->link->num_maps[1];
+                last = link;
+            }
+        }
         apply_mode(map);
     }
     return map->status;
@@ -1699,9 +1709,9 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
     // add mapping sources
     int i = (slot >= 0) ? slot : 0;
     int len = 0, result;
-    mapper_link link = map->sources[i]->local ? map->sources[i]->local->link : 0;
+    mapper_link link = map->sources[i]->local ? map->sources[i]->link : 0;
     for (; i < map->num_sources; i++) {
-        if ((slot >= 0) && link && (link != map->sources[i]->local->link))
+        if ((slot >= 0) && link && (link != map->sources[i]->link))
             break;
         result = snprintf(&source_names[len], 1024-len, "%s%s",
                           map->sources[i]->signal->device->name,
@@ -1752,9 +1762,9 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
         && map->status < STATUS_READY && !staged) {
         lo_message_add_string(msg, mapper_protocol_string(AT_SLOT));
         i = (slot >= 0) ? slot : 0;
-        link = map->sources[i]->local ? map->sources[i]->local->link : 0;
+        link = map->sources[i]->local ? map->sources[i]->link : 0;
         for (; i < map->num_sources; i++) {
-            if ((slot >= 0) && link && (link != map->sources[i]->local->link))
+            if ((slot >= 0) && link && (link != map->sources[i]->link))
                 break;
             lo_message_add_int32(msg, map->sources[i]->id);
         }
@@ -1762,9 +1772,9 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
 
     /* source properties */
     i = (slot >= 0) ? slot : 0;
-    link = map->sources[i]->local ? map->sources[i]->local->link : 0;
+    link = map->sources[i]->local ? map->sources[i]->link : 0;
     for (; i < map->num_sources; i++) {
-        if ((slot >= 0) && link && (link != map->sources[i]->local->link))
+        if ((slot >= 0) && link && (link != map->sources[i]->link))
             break;
         mapper_slot_add_props_to_message(msg, map->sources[i], 0, staged);
     }

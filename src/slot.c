@@ -456,7 +456,6 @@ void mapper_slot_print(mapper_slot slot)
         if (strcmp(key, "device_name")==0 || strcmp(key, "signal_name")==0)
             continue;
 
-        die_unless(val!=0, "returned zero value\n");
         if (length) {
             printf(", %s=", key);
             if (strncmp(key, "bound", 5)==0) {

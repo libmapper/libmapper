@@ -217,7 +217,7 @@ void mapper_signal_push(mapper_signal sig)
 //        if (!sig->staged_props->dirty)
 //            return;
         mapper_network_set_dest_bus(net);
-        mapper_signal_send_state(sig, MSG_SIGNAL_SET_PROPS);
+        mapper_signal_send_state(sig, MSG_SIGNAL_MODIFY);
 
         // clear the staged properties
         mapper_table_clear(sig->staged_props);

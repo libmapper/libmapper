@@ -41,6 +41,7 @@ namespace mapper {
     class Device;
     class Signal;
     class Map;
+    class Link;
     class GenericObject;
     class Property;
     class Database;
@@ -269,6 +270,7 @@ namespace mapper {
         friend class GenericObject;
         friend class Device;
         friend class Signal;
+        friend class Link;
         friend class Map;
         Property(const string_type &_name, int _length, char _type,
                  const void *_value, const AbstractObjectWithSetter *_parent)
@@ -454,6 +456,248 @@ namespace mapper {
         mapper_signal _sig;
     };
 
+    class Link : public GenericObject
+    {
+    public:
+        Link(const Link& orig)
+            { _link = orig._link; }
+        Link(mapper_link link)
+            { _link = link; }
+        operator mapper_link() const
+            { return _link; }
+        operator bool() const
+            { return _link; }
+        operator mapper_id() const
+            { return mapper_link_id(_link); }
+        const Link& push() const
+            { mapper_link_push(_link); return (*this); }
+        inline Device device(int idx) const;
+        mapper_id id() const
+            { return mapper_link_id(_link); }
+        int num_maps(int idx=0, mapper_direction dir=MAPPER_DIR_ANY) const
+            { return mapper_link_num_maps(_link, idx, dir); }
+        Link& set_user_data(void *user_data)
+        {
+            mapper_link_set_user_data(_link, user_data);
+            return (*this);
+        }
+        void *user_data() const
+            { return mapper_link_user_data(_link); }
+        int num_properties() const
+            { return mapper_link_num_properties(_link); }
+        Property property(const string_type& name) const
+        {
+            char type;
+            const void *value;
+            int length;
+            if (!mapper_link_property(_link, name, &length, &type, &value))
+                return Property(name, length, type, value);
+            else
+                return Property(name, 0, 0, 0, 0);
+        }
+        Property property(int index) const
+        {
+            const char *name;
+            char type;
+            const void *value;
+            int length;
+            if (!mapper_link_property_index(_link, index, &name, &length, &type,
+                                            &value))
+                return Property(name, length, type, value);
+            else
+                return Property(0, 0, 0, 0, 0);
+        }
+        template <typename... Values>
+        Link& set_property(Values... values)
+        {
+            Property p(values...);
+            if (p)
+                set_property(&p);
+            return (*this);
+        }
+        Link& remove_property(const string_type &key)
+        {
+            if (_link && key)
+                mapper_link_remove_property(_link, key);
+            return (*this);
+        }
+        class Query : public std::iterator<std::input_iterator_tag, int>
+        {
+        public:
+            Query(mapper_link *links)
+                { _links = links; }
+            // override copy constructor
+            Query(const Query& orig)
+                { _links = mapper_link_query_copy(orig._links); }
+            ~Query()
+                { mapper_link_query_done(_links); }
+            operator mapper_link*() const
+                { return _links; }
+            bool operator==(const Query& rhs)
+                { return (_links == rhs._links); }
+            bool operator!=(const Query& rhs)
+                { return (_links != rhs._links); }
+            Query& operator++()
+            {
+                if (_links != NULL)
+                    _links = mapper_link_query_next(_links);
+                return (*this);
+            }
+            Query operator++(int)
+                { Query tmp(*this); operator++(); return tmp; }
+            Link operator*()
+                { return Link(*_links); }
+            Query begin()
+                { return Query(_links); }
+            Query end()
+                { return Query(0); }
+            
+            // Combination functions
+            Query& join(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_union(_links, rhs_cpy);
+                return (*this);
+            }
+            Query& intersect(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_intersection(_links, rhs_cpy);
+                return (*this);
+            }
+            Query& subtract(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_difference(_links, rhs_cpy);
+                return (*this);
+            }
+            Query operator+(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                return Query(mapper_link_query_union(lhs_cpy, rhs_cpy));
+            }
+            Query operator*(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                return Query(mapper_link_query_intersection(lhs_cpy, rhs_cpy));
+            }
+            Query operator-(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                return Query(mapper_link_query_difference(lhs_cpy, rhs_cpy));
+            }
+            Query& operator+=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_union(_links, rhs_cpy);
+                return (*this);
+            }
+            Query& operator*=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_intersection(_links, rhs_cpy);
+                return (*this);
+            }
+            Query& operator-=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_difference(_links, rhs_cpy);
+                return (*this);
+            }
+            
+            Link operator [] (int index)
+            {
+                return Link(mapper_link_query_index(_links, index));
+            }
+            
+            operator std::vector<Link>() const
+            {
+                std::vector<Link> vec;
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    vec.push_back(Link(*cpy));
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return vec;
+            }
+            
+            // also enable some Link methods
+            Query& push()
+            {
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    mapper_link_push(*cpy);
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& remove_property(const string_type &key)
+            {
+                if (!key)
+                    return (*this);
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    mapper_link_remove_property(*cpy, key);
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return (*this);
+            }
+            template <typename... Values>
+            Query& set_property(Values... values)
+            {
+                Property p(values...);
+                if (!p)
+                    return (*this);
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    mapper_link_set_property(*cpy, p.name, p.length, p.type,
+                                             p.value);
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& set_user_data(void *user_data)
+            {
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    mapper_link_set_user_data(*cpy, user_data);
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return (*this);
+            }
+        private:
+            mapper_link *_links;
+        };
+    protected:
+        friend class Database;
+        Link& set_property(Property *p)
+        {
+            if (_link)
+                mapper_link_set_property(_link, p->name, p->length, p->type,
+                                         p->value);
+            return (*this);
+        }
+    private:
+        mapper_link _link;
+    };
+
     class Map : public GenericObject
     {
     public:
@@ -535,6 +779,8 @@ namespace mapper {
             mapper_map_set_muted(_map, (int)value);
             return (*this);
         }
+        int num_properties() const
+            { return mapper_map_num_properties(_map); }
         Property property(const string_type& name) const
         {
             char type;
@@ -836,6 +1082,8 @@ namespace mapper {
                 mapper_slot_set_use_as_instance(_slot, (int)value);
                 return (*this);
             }
+            int num_properties() const
+                { return mapper_slot_num_properties(_slot); }
             Property property(const string_type &name) const
             {
                 char type;
@@ -866,6 +1114,12 @@ namespace mapper {
                     set_property(&p);
                 return (*this);
             }
+            Slot& remove_property(const string_type &key)
+            {
+                if (_slot && key)
+                    mapper_slot_remove_property(_slot, key);
+                return (*this);
+            }
         protected:
             friend class Map;
             Slot(mapper_slot slot)
@@ -875,12 +1129,6 @@ namespace mapper {
                 if (_slot)
                     mapper_slot_set_property(_slot, p->name, p->length, p->type,
                                              p->value);
-                return (*this);
-            }
-            Slot& remove_property(const string_type &key)
-            {
-                if (_slot && key)
-                    mapper_slot_remove_property(_slot, key);
                 return (*this);
             }
         private:
@@ -898,6 +1146,12 @@ namespace mapper {
                 set_property(&p);
             return (*this);
         }
+        Map& remove_property(const string_type &key)
+        {
+            if (_map && key)
+                mapper_map_remove_property(_map, key);
+            return (*this);
+        }
     protected:
         friend class Database;
         Map& set_property(Property *p)
@@ -905,12 +1159,6 @@ namespace mapper {
             if (_map)
                 mapper_map_set_property(_map, p->name, p->length, p->type,
                                         p->value);
-            return (*this);
-        }
-        Map& remove_property(const string_type &key)
-        {
-            if (_map && key)
-                mapper_map_remove_property(_map, key);
             return (*this);
         }
     private:
@@ -961,6 +1209,8 @@ namespace mapper {
                 mapper_signal_remove_property(_sig, key);
             return (*this);
         }
+        int num_properties() const
+            { return mapper_signal_num_properties(_sig); }
         Property property(const string_type &name) const
         {
             char type;
@@ -1054,9 +1304,9 @@ namespace mapper {
         }
         void *user_data() const
             { return mapper_signal_user_data(_sig); }
-        Signal& set_callback(mapper_signal_update_handler *handler)
+        Signal& set_callback(mapper_signal_update_handler *h)
         {
-            mapper_signal_set_callback(_sig, handler);
+            mapper_signal_set_callback(_sig, h);
             return (*this);
         }
         int num_maps(mapper_direction dir=MAPPER_DIR_ANY) const
@@ -1462,9 +1712,11 @@ namespace mapper {
 
         Network network() const
             { return Network(mapper_device_network(_dev)); }
+
         int num_signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_device_num_signals(_dev, dir); }
-
+        int num_links(mapper_direction dir=MAPPER_DIR_ANY) const
+            { return mapper_device_num_links(_dev, dir); }
         int num_maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_device_num_maps(_dev, dir); }
 
@@ -1475,11 +1727,22 @@ namespace mapper {
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Signal::Query(mapper_device_signals(_dev, dir)); }
 
+        Device& set_link_callback(mapper_device_link_handler h)
+        {
+            mapper_device_set_link_callback(_dev, h);
+            return (*this);
+        }
         Device& set_map_callback(mapper_device_map_handler h)
         {
             mapper_device_set_map_callback(_dev, h);
             return (*this);
         }
+        Link link(Device remote)
+        {
+            return Link(mapper_device_link_by_remote_device(_dev, remote._dev));
+        }
+        Link::Query links(mapper_direction dir=MAPPER_DIR_ANY) const
+            { return Link::Query(mapper_device_links(_dev, dir)); }
         Map::Query maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Map::Query(mapper_device_maps(_dev, dir)); }
 
@@ -1507,6 +1770,8 @@ namespace mapper {
                 mapper_device_remove_property(_dev, key);
             return (*this);
         }
+        int num_properties() const
+            { return mapper_device_num_properties(_dev); }
         Property property(const string_type &name) const
         {
             char type;
@@ -1778,6 +2043,8 @@ namespace mapper {
             return (*this);
         }
 
+        int num_devices() const
+            { return mapper_database_num_devices(_db); }
         Device device(mapper_id id) const
             { return Device(mapper_database_device_by_id(_db, id)); }
         Device device(const string_type &name) const
@@ -1815,6 +2082,8 @@ namespace mapper {
             return (*this);
         }
 
+        int num_signals() const
+            { return mapper_database_num_signals(_db); }
         Signal signal(mapper_id id) const
             { return Signal(mapper_database_signal_by_id(_db, id)); }
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
@@ -1834,20 +2103,53 @@ namespace mapper {
             return signals(p, MAPPER_OP_EXISTS);
         }
 
+        // database links
+        const Database& add_link_callback(mapper_database_link_handler *h,
+                                          void *user_data) const
+        {
+            mapper_database_add_link_callback(_db, h, user_data);
+            return (*this);
+        }
+        const Database& remove_link_callback(mapper_database_link_handler *h,
+                                             void *user_data) const
+        {
+            mapper_database_remove_link_callback(_db, h, user_data);
+            return (*this);
+        }
+
+        int num_links() const
+            { return mapper_database_num_links(_db); }
+        Link link(mapper_id id) const
+            { return Link(mapper_database_link_by_id(_db, id)); }
+        Link::Query links() const
+            { return Link::Query(mapper_database_links(_db)); }
+        Link::Query links(const Property& p, mapper_op op) const
+        {
+            return Link::Query(
+                mapper_database_links_by_property(_db, p.name, p.length, p.type,
+                                                  p.value, op));
+        }
+        inline Link::Query links(const Property& p) const
+        {
+            return links(p, MAPPER_OP_EXISTS);
+        }
+
         // database maps
-        const Database& add_map_callback(mapper_map_handler *h,
+        const Database& add_map_callback(mapper_database_map_handler *h,
                                          void *user_data) const
         {
             mapper_database_add_map_callback(_db, h, user_data);
             return (*this);
         }
-        const Database& remove_map_callback(mapper_map_handler *handler,
+        const Database& remove_map_callback(mapper_database_map_handler *h,
                                       void *user_data) const
         {
-            mapper_database_remove_map_callback(_db, handler, user_data);
+            mapper_database_remove_map_callback(_db, h, user_data);
             return (*this);
         }
 
+        int num_maps() const
+            { return mapper_database_num_maps(_db); }
         Map map(mapper_id id) const
             { return Map(mapper_database_map_by_id(_db, id)); }
         Map::Query maps() const
@@ -1865,6 +2167,9 @@ namespace mapper {
     private:
         mapper_database _db;
     };
+
+    Device Link::device(int idx) const
+        { return Device(mapper_link_device(_link, idx)); }
 
     signal_type::signal_type(const Signal& sig)
         { _sig = (mapper_signal)sig; }
