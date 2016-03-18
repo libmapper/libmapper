@@ -23,7 +23,8 @@ extern const char* network_message_strings[NUM_MSG_STRINGS];
 void init_device_prop_table(mapper_device dev)
 {
     dev->props = mapper_table_new();
-    dev->staged_props = mapper_table_new();
+    if (!dev->local)
+        dev->staged_props = mapper_table_new();
     int flags = dev->local ? NON_MODIFIABLE : MODIFIABLE;
 
     // these properties need to be added in alphabetical order

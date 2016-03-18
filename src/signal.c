@@ -96,9 +96,11 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
         sig->local->id_map_length = 1;
         sig->local->id_maps = calloc(1, sizeof(struct _mapper_signal_id_map));
     }
+    else {
+        sig->staged_props = mapper_table_new();
+    }
 
     sig->props = mapper_table_new();
-    sig->staged_props = mapper_table_new();
     int flags = sig->local ? NON_MODIFIABLE : MODIFIABLE;
 
     // these properties need to be added in alphabetical order
