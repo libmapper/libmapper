@@ -10,7 +10,9 @@ static int compare_records(const void *l, const void *r)
 {
     mapper_table_record_t *rec_l = (mapper_table_record_t*)l;
     mapper_table_record_t *rec_r = (mapper_table_record_t*)r;
-    if ((rec_l->index == AT_EXTRA) && (rec_r->index == AT_EXTRA)) {
+    int idx_l = MASK_PROP_BITFLAGS(rec_l->index);
+    int idx_r = MASK_PROP_BITFLAGS(rec_r->index);
+    if ((idx_l == AT_EXTRA) && (idx_r == AT_EXTRA)) {
         const char *str_l = rec_l->key, *str_r = rec_r->key;
         if (str_l[0] == '@')
             ++str_l;
@@ -18,11 +20,11 @@ static int compare_records(const void *l, const void *r)
             ++str_r;
         return strcmp(str_l, str_r);
     }
-    if (rec_l->index == AT_EXTRA)
+    if (idx_l == AT_EXTRA)
         return 1;
-    if (rec_r->index == AT_EXTRA)
+    if (idx_r == AT_EXTRA)
         return -1;
-    return rec_l->index - rec_r->index;
+    return idx_l - idx_r;
 }
 
 mapper_table mapper_table_new()
