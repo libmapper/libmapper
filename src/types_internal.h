@@ -361,7 +361,6 @@ struct _mapper_signal {
     mapper_device device;
     char *path;         //! OSC path.  Must start with '/'.
     char *name;         //! The name of this signal (path+1).
-    char *description;  //!< A short description of this signal.
     mapper_id id;       //!< Unique id identifying this signal.
 
     char *unit;         //!< The unit of this signal, or NULL for N/A.
@@ -476,7 +475,6 @@ typedef struct _mapper_map_internal {
     int num_var_instances;
 
     int one_source;
-
 } mapper_map_internal_t, *mapper_map_internal;
 
 typedef struct _mapper_map_scope {
@@ -498,7 +496,6 @@ typedef struct _mapper_map {
     /*! Properties associated with this map. */
     struct _mapper_table *props;
     struct _mapper_table *staged_props;
-    char *description;                  //!< A short description of this map.
 
     void *user_data;
 
@@ -561,12 +558,13 @@ typedef struct _mapper_local_device {
 
     mapper_subscriber subscribers;  /*!< Linked-list of subscribed peers. */
 
-    /*! The list of active instance id mappings. */
+    /*! The list of active instance id maps. */
     struct _mapper_id_map *active_id_map;
 
-    /*! The list of reserve instance id mappings. */
+    /*! The list of reserve instance id maps. */
     struct _mapper_id_map *reserve_id_map;
 
+    // TODO: move to network
     int link_timeout_sec;   /* Number of seconds after which unresponsive
                              * links will be removed, or 0 for never. */
 
@@ -581,25 +579,20 @@ typedef struct _mapper_local_device {
 struct _mapper_device {
     mapper_database database;   //!< Pointer back to the database.
     mapper_local_device local;
-    char *lib_version;          //!< libmapper version of device.
     void *user_data;            //!< User modifiable data.
 
     char *identifier;           //!< The identifier (prefix) for this device.
     char *name;                 //!< The full name for this device, or zero.
-    char *description;          //!< A short description of this device.
 
     /*! Properties associated with this device. */
     struct _mapper_table *props;
     struct _mapper_table *staged_props;
 
     mapper_id id;               //!< Unique id identifying this device.
-    char *host;                 //!< Device network host name.
 
-    mapper_timetag_t timetag;
-    mapper_timetag_t synced; //!< Timestamp of last sync.
+    mapper_timetag_t synced;    //!< Timestamp of last sync.
 
     int ordinal;
-    int port;                   //!< Device network port.
     int num_inputs;             //!< Number of associated input signals.
     int num_outputs;            //!< Number of associated output signals.
     int num_incoming_links;     //!< Number of incoming network connections.

@@ -745,7 +745,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
                 mapper_database_remove_link(dev->database, link);
             }
         }
-        else if (link->remote_device->host && num_maps) {
+        else if (mapper_device_host(link->remote_device) && num_maps) {
             /* Only send pings if this link has associated maps, ensuring empty
              * links are removed after the ping timeout. */
             lo_bundle b = lo_bundle_new(clock->now);
@@ -952,7 +952,7 @@ static int handler_device(const char *path, const char *types,
               name);
         return 0;
     }
-    else if (link->remote_device->host) {
+    else if (mapper_device_host(link->remote_device)) {
         // already have metadata, can ignore this message
         trace("<%s> ignoring /device '%s', link already set.\n",
               mapper_device_name(dev), name);

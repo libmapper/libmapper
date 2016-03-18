@@ -28,16 +28,7 @@ void init_device_prop_table(mapper_device dev)
     int flags = dev->local ? NON_MODIFIABLE : MODIFIABLE;
 
     // these properties need to be added in alphabetical order
-    mapper_table_link_value(dev->props, AT_DESCRIPTION, 1, 's',
-                            &dev->description, flags | INDIRECT);
-
-    mapper_table_link_value(dev->props, AT_HOST, 1, 's', &dev->host,
-                            flags | INDIRECT);
-
     mapper_table_link_value(dev->props, AT_ID, 1, 'h', &dev->id, flags);
-
-    mapper_table_link_value(dev->props, AT_LIB_VERSION, 1, 's',
-                            &dev->lib_version, flags | INDIRECT);
 
     mapper_table_link_value(dev->props, AT_NAME, 1, 's', &dev->name,
                             flags | INDIRECT | LOCAL_ACCESS_ONLY);
@@ -54,8 +45,6 @@ void init_device_prop_table(mapper_device dev)
     mapper_table_link_value(dev->props, AT_NUM_OUTPUTS, 1, 'i',
                             &dev->num_outputs, flags);
 
-    mapper_table_link_value(dev->props, AT_PORT, 1, 'i', &dev->port, flags);
-
     mapper_table_link_value(dev->props, AT_STATUS, 1, 'i', &dev->status,
                             flags | LOCAL_ACCESS_ONLY);
 
@@ -67,6 +56,10 @@ void init_device_prop_table(mapper_device dev)
 
     mapper_table_link_value(dev->props, AT_VERSION, 1, 'i', &dev->version,
                             flags);
+
+    if (dev->local)
+        mapper_table_set_record(dev->props, AT_LIB_VERSION, NULL, 1, 's',
+                                PACKAGE_VERSION, NON_MODIFIABLE);
 }
 
 /*! Allocate and initialize a mapper device. This function is called to create
@@ -90,6 +83,8 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     dev->local = (mapper_local_device)calloc(1, sizeof(mapper_local_device_t));
     dev->local->own_network = 1 - net->own_network;
 
+    init_device_prop_table(dev);
+
     mapper_device_start_server(dev, port);
 
     if (!dev->local->server) {
@@ -107,7 +102,6 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
 
     dev->local->ordinal.value = 1;
     dev->identifier = strdup(name_prefix);
-    dev->lib_version = PACKAGE_VERSION;
 
     dev->local->router = (mapper_router)calloc(1, sizeof(mapper_router_t));
     dev->local->router->device = dev;
@@ -117,8 +111,6 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     mapper_network_add_device(net, dev);
 
     dev->status = STATUS_STAGED;
-
-    init_device_prop_table(dev);
 
     return dev;
 }
@@ -954,7 +946,7 @@ void mapper_device_add_signal_methods(mapper_device dev, mapper_signal sig)
         lo_server_add_method(dev->local->server, sig->path, NULL,
                              handler_signal, (void*)(sig));
 
-    dev->local->n_output_callbacks ++;
+    ++dev->local->n_output_callbacks;
 }
 
 void mapper_device_remove_signal_methods(mapper_device dev, mapper_signal sig)
@@ -971,7 +963,7 @@ void mapper_device_remove_signal_methods(mapper_device dev, mapper_signal sig)
 
     lo_server_del_method(dev->local->server, sig->path, NULL);
 
-    dev->local->n_output_callbacks --;
+    --dev->local->n_output_callbacks;
 }
 
 static void send_unmap(mapper_network net, mapper_map map)
@@ -1498,8 +1490,10 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
     // Disable liblo message queueing
     lo_server_enable_queue(dev->local->server, 0, 1);
 
-    dev->port = lo_server_get_port(dev->local->server);
-    trace("bound to port %i\n", dev->port);
+    int portnum = lo_server_get_port(dev->local->server);
+    mapper_table_set_record(dev->props, AT_PORT, NULL, 1, 'i', &portnum,
+                            NON_MODIFIABLE);
+    trace("bound to port %i\n", portnum);
 
     // add signal methods
     mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
@@ -1535,12 +1529,18 @@ const char *mapper_device_name(mapper_device dev)
 
 const char *mapper_device_description(mapper_device dev)
 {
-    return dev->description;
+    mapper_table_record_t *rec = mapper_table_record(dev->props, AT_DESCRIPTION, 0);
+    if (rec && rec->type == 's' && rec->length == 1)
+        return (const char*)rec->value;
+    return 0;
 }
 
 const char *mapper_device_host(mapper_device dev)
 {
-    return dev->host;
+    mapper_table_record_t *rec = mapper_table_record(dev->props, AT_HOST, 0);
+    if (rec && rec->type == 's' && rec->length == 1)
+        return (const char*)rec->value;
+    return 0;
 }
 
 mapper_id mapper_device_id(mapper_device dev)
@@ -1555,7 +1555,10 @@ int mapper_device_is_local(mapper_device dev)
 
 unsigned int mapper_device_port(mapper_device dev)
 {
-    return dev->port;
+    mapper_table_record_t *rec = mapper_table_record(dev->props, AT_PORT, 0);
+    if (rec && rec->type == 'i' && rec->length == 1)
+        return *(int*)rec->value;
+    return 0;
 }
 
 unsigned int mapper_device_ordinal(mapper_device dev)

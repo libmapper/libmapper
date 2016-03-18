@@ -504,80 +504,89 @@ mapper_mode mapper_mode_from_string(const char *str)
 }
 
 // Helper for setting property value from different lo_arg types
-int propval_set_from_lo_arg(void *dest, const char dest_type,
-                            lo_arg *src, const char src_type, int index)
+int set_coerced_value(void *dst, const void *src, int length, char dst_type,
+                      char src_type)
 {
-    if (dest_type == 'f') {
-        float *temp = (float*)dest;
-        if (src_type == 'f') {
-            if (temp[index] != src->f) {
-                temp[index] = src->f;
-                return 1;
+    int i;
+    switch (dst_type) {
+        case 'f':{
+            float *dstf = (float*)dst;
+            switch (src_type) {
+                case 'f':
+                    memcpy(dst, src, sizeof(float) * length);
+                    break;
+                case 'i': {
+                    int *srci = (int*)src;
+                    for (i = 0; i < length; i++) {
+                        dstf[i] = (float)srci[i];
+                    }
+                    break;
+                }
+                case 'd': {
+                    double *srcd = (double*)src;
+                    for (i = 0; i < length; i++) {
+                        dstf[i] = (float)srcd[i];
+                    }
+                    break;
+                }
+                default:
+                    return -1;
             }
+            break;
         }
-        else if (src_type == 'i') {
-            if (temp[index] != (float)src->i) {
-                temp[index] = (float)src->i;
-                return 1;
+        case 'i':{
+            int *dsti = (int*)dst;
+            switch (src_type) {
+                case 'i':
+                    memcpy(dst, src, sizeof(int) * length);
+                    break;
+                case 'f': {
+                    float *srcf = (float*)src;
+                    for (i = 0; i < length; i++) {
+                        dsti[i] = (int)srcf[i];
+                    }
+                    break;
+                }
+                case 'd': {
+                    double *srcd = (double*)src;
+                    for (i = 0; i < length; i++) {
+                        dsti[i] = (int)srcd[i];
+                    }
+                    break;
+                }
+                default:
+                    return -1;
             }
+            break;
         }
-        else if (src_type == 'd') {
-            if (temp[index] != (float)src->d) {
-                temp[index] = (float)src->d;
-                return 1;
+        case 'd':{
+            double *dstd = (double*)dst;
+            switch (src_type) {
+                case 'd':
+                    memcpy(dst, src, sizeof(double) * length);
+                    break;
+                case 'i': {
+                    int *srci = (int*)src;
+                    for (i = 0; i < length; i++) {
+                        dstd[i] = (float)srci[i];
+                    }
+                    break;
+                }
+                case 'f': {
+                    float *srcf = (float*)src;
+                    for (i = 0; i < length; i++) {
+                        dstd[i] = (double)srcf[i];
+                    }
+                    break;
+                }
+                default:
+                    return -1;
             }
+            break;
         }
-        else
+        default:
             return -1;
     }
-    else if (dest_type == 'i') {
-        int *temp = (int*)dest;
-        if (src_type == 'f') {
-            if (temp[index] != (int)src->f) {
-                temp[index] = (int)src->f;
-                return 1;
-            }
-        }
-        else if (src_type == 'i') {
-            if (temp[index] != src->i) {
-                temp[index] = src->i;
-                return 1;
-            }
-        }
-        else if (src_type == 'd') {
-            if (temp[index] != (int)src->d) {
-                temp[index] = (int)src->d;
-                return 1;
-            }
-        }
-        else
-            return -1;
-    }
-    else if (dest_type == 'd') {
-        double *temp = (double*)dest;
-        if (src_type == 'f') {
-            if (temp[index] != (double)src->f) {
-                temp[index] = (double)src->f;
-                return 1;
-            }
-        }
-        else if (src_type == 'i') {
-            if (temp[index] != (double)src->i) {
-                temp[index] = (double)src->i;
-                return 1;
-            }
-        }
-        else if (src_type == 'd') {
-            if (temp[index] != src->d) {
-                temp[index] = src->d;
-                return 1;
-            }
-        }
-        else
-            return -1;
-    }
-    else
-        return -1;
     return 0;
 }
 

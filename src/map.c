@@ -45,9 +45,6 @@ void mapper_map_init(mapper_map map)
     map->staged_props = mapper_table_new();
 
     // these properties need to be added in alphabetical order
-    mapper_table_link_value(map->props, AT_DESCRIPTION, 1, 's',
-                            &map->description, MODIFIABLE | INDIRECT);
-
     mapper_table_link_value(map->props, AT_EXPRESSION, 1, 's', &map->expression,
                             MODIFIABLE | INDIRECT);
 
@@ -220,8 +217,6 @@ void mapper_map_free(mapper_map map)
         mapper_table_free(map->props);
     if (map->staged_props)
         mapper_table_free(map->staged_props);
-    if (map->description)
-        free(map->description);
     if (map->expression)
         free(map->expression);
 }
@@ -1307,7 +1302,8 @@ static int mapper_map_check_status(mapper_map map)
     if (map->destination.signal->type)
         map->destination.local->status |= STATUS_TYPE_KNOWN;
     if (map->destination.local->router_sig
-        || (map->destination.link && map->destination.link->remote_device->host))
+        || (map->destination.link
+            && mapper_device_host(map->destination.link->remote_device)))
         map->destination.local->status |= STATUS_LINK_KNOWN;
     map->status &= (map->destination.local->status | mask);
 
@@ -1319,7 +1315,7 @@ static int mapper_map_check_status(mapper_map map)
             map->sources[i]->local->status |= STATUS_TYPE_KNOWN;
         if (map->sources[i]->local->router_sig
             || (map->sources[i]->link
-                && map->sources[i]->link->remote_device->host))
+                && mapper_device_host(map->sources[i]->link->remote_device)))
             map->sources[i]->local->status |= STATUS_LINK_KNOWN;
         map->status &= (map->sources[i]->local->status | mask);
     }

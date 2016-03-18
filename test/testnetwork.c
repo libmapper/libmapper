@@ -48,7 +48,7 @@ int test_network()
         mapper_network_poll(net);
     }
 
-    eprintf("Using port %d.\n", dev->port);
+    eprintf("Using port %d.\n", mapper_device_port(dev));
     eprintf("Allocated ordinal %d.\n", dev->local->ordinal.value);
 
     eprintf("Delaying for 5 seconds..\n");

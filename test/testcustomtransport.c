@@ -106,7 +106,7 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_action action)
         exit(1);
     }
 
-    const char *host = map->destination.signal->device->host;
+    const char *host = mapper_device_host(map->destination.signal->device);
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 

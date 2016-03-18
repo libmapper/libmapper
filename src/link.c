@@ -43,7 +43,7 @@ void mapper_link_init(mapper_link link, int is_local)
          * since the receiving handler will not be called until
          * mapper_device_poll(). */
         char str[16];
-        snprintf(str, 16, "%d", link->local_device->port);
+        snprintf(str, 16, "%d", mapper_device_port(link->local_device));
         link->local->data_addr = lo_address_new("localhost", str);
     }
 

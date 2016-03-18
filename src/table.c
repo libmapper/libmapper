@@ -691,7 +691,7 @@ int mapper_table_set_record_from_atom(mapper_table tab,
                                   rec->flags & INDIRECT);
         return 1;
     }
-    else if (atom->index == AT_EXTRA) {
+    else {
         /* Need to add a new entry. */
         rec = mapper_table_add(tab, atom->index, atom->key, 0, atom->types[0],
                                0, flags | PROP_OWNED);
@@ -806,28 +806,36 @@ void mapper_table_add_to_message(mapper_table tab, lo_message msg)
 }
 
 #ifdef DEBUG
+void mapper_table_print_record(mapper_table_record_t *rec)
+{
+    if (!rec) {
+        printf("error: no record found");
+        return;
+    }
+    printf("%d ", rec->index);
+    if (rec->key)
+        printf("'%s' ", rec->key);
+    else
+        printf("(%s) ", mapper_property_string(rec->index));
+    if (rec->flags & (INDIRECT | PROP_OWNED)) {
+        printf("[");
+        if (rec->flags & INDIRECT)
+            printf("INDIRECT%s", rec->flags & PROP_OWNED ? ", " : "");
+        if (rec->flags & PROP_OWNED)
+            printf("OWNED");
+        printf("]");
+    }
+    printf(": ");
+    void *value = (rec->flags & INDIRECT) ? *rec->value : rec->value;
+    mapper_property_print(rec->length, rec->type, value);
+}
+
 void mapper_table_print(mapper_table tab)
 {
     mapper_table_record_t *rec = tab->records;
-    void *value;
     int i;
     for (i = 0; i < tab->num_records; i++) {
-        printf("%d ", rec->index);
-        if (rec->key)
-            printf("'%s' ", rec->key);
-        else
-            printf("(%s) ", mapper_property_string(rec->index));
-        if (rec->flags & (INDIRECT | PROP_OWNED)) {
-            printf("[");
-            if (rec->flags & INDIRECT)
-                printf("INDIRECT%s", rec->flags & PROP_OWNED ? ", " : "");
-            if (rec->flags & PROP_OWNED)
-                printf("OWNED");
-            printf("]");
-        }
-        printf(": ");
-        value = (rec->flags & INDIRECT) ? *rec->value : rec->value;
-        mapper_property_print(rec->length, rec->type, value);
+        mapper_table_print_record(rec);
         printf("\n");
         ++rec;
     }

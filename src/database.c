@@ -232,12 +232,6 @@ void mapper_database_remove_device(mapper_database db, mapper_device dev,
         mapper_table_free(dev->props);
     if (dev->staged_props)
         mapper_table_free(dev->staged_props);
-    if (dev->description)
-        free(dev->description);
-    if (dev->host)
-        free(dev->host);
-    if (!dev->local && dev->lib_version)
-        free(dev->lib_version);
     if (dev->name)
         free(dev->name);
     mapper_list_free_item(dev);

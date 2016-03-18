@@ -234,44 +234,16 @@ int mapper_slot_remove_property(mapper_slot slot, const char *name)
 
 void mapper_slot_upgrade_extrema_memory(mapper_slot slot)
 {
-    int i, j;
+    int len;
     mapper_table_record_t *rec;
     rec = mapper_table_record(slot->props, AT_MIN, NULL);
     if (rec && rec->value && *rec->value) {
         void *old_mem = *rec->value;
         void *new_mem = calloc(1, slot->signal->length
                                * mapper_type_size(slot->signal->type));
-        switch (rec->type) {
-            case 'i':
-                for (i = 0, j = 0; i < slot->signal->length; i++, j++) {
-                    propval_set_from_lo_arg(new_mem, slot->signal->type,
-                                            (lo_arg*)&((int*)old_mem)[i],
-                                            'i', i);
-                    if (j >= rec->length)
-                        j = rec->length - 1;
-                }
-                break;
-            case 'f':
-                for (i = 0, j = 0; i < slot->signal->length; i++, j++) {
-                    propval_set_from_lo_arg(new_mem, slot->signal->type,
-                                            (lo_arg*)&((float*)old_mem)[i],
-                                            'f', i);
-                    if (j >= rec->length)
-                        j = rec->length - 1;
-                }
-                break;
-            case 'd':
-                for (i = 0, j = 0; i < slot->signal->length; i++, j++) {
-                    propval_set_from_lo_arg(new_mem, slot->signal->type,
-                                            (lo_arg*)&((double*)old_mem)[i],
-                                            'd', i);
-                    if (j >= rec->length)
-                        j = rec->length - 1;
-                }
-                break;
-            default:
-                break;
-        }
+        len = (rec->length < slot->signal->length
+               ? rec->length : slot->signal->length);
+        set_coerced_value(new_mem, old_mem, len, slot->signal->type, rec->type);
         mapper_table_set_record(slot->props, AT_MIN, NULL, slot->signal->length,
                                 slot->signal->type, new_mem, REMOTE_MODIFY);
         if (new_mem)
@@ -282,37 +254,9 @@ void mapper_slot_upgrade_extrema_memory(mapper_slot slot)
         void *old_mem = *rec->value;
         void *new_mem = calloc(1, slot->signal->length
                                * mapper_type_size(slot->signal->type));
-        switch (rec->type) {
-            case 'i':
-                for (i = 0, j = 0; i < slot->signal->length; i++, j++) {
-                    propval_set_from_lo_arg(new_mem, slot->signal->type,
-                                            (lo_arg*)&((int*)old_mem)[i],
-                                            'i', i);
-                    if (j >= rec->length)
-                        j = rec->length - 1;
-                }
-                break;
-            case 'f':
-                for (i = 0, j = 0; i < slot->signal->length; i++, j++) {
-                    propval_set_from_lo_arg(new_mem, slot->signal->type,
-                                            (lo_arg*)&((float*)old_mem)[i],
-                                            'f', i);
-                    if (j >= rec->length)
-                        j = rec->length - 1;
-                }
-                break;
-            case 'd':
-                for (i = 0, j = 0; i < slot->signal->length; i++, j++) {
-                    propval_set_from_lo_arg(new_mem, slot->signal->type,
-                                            (lo_arg*)&((double*)old_mem)[i],
-                                            'd', i);
-                    if (j >= rec->length)
-                        j = rec->length - 1;
-                }
-                break;
-            default:
-                break;
-        }
+        len = (rec->length < slot->signal->length
+               ? rec->length : slot->signal->length);
+        set_coerced_value(new_mem, old_mem, len, slot->signal->type, rec->type);
         mapper_table_set_record(slot->props, AT_MAX, NULL, slot->signal->length,
                                 slot->signal->type, new_mem, REMOTE_MODIFY);
         if (new_mem)
@@ -376,6 +320,13 @@ int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
             }
             case AT_MAX:
             case AT_MIN:
+                if (atom->types[0] == 'N') {
+                    mapper_table_remove_record(slot->props, atom->index & ~mask,
+                                               NULL, REMOTE_MODIFY, 1);
+                    break;
+                }
+                if (check_signal_type(atom->types[0]))
+                    break;
                 mapper_table_set_record_from_atom(slot->props, atom,
                                                   REMOTE_MODIFY);
                 if (!slot->local || !slot->local->router_sig) {

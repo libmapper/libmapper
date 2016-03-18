@@ -437,8 +437,8 @@ const char *mapper_map_prepare_message(mapper_map map, lo_message msg,
                                        int slot_index);
 
 /*! Helper for setting property value from different lo_arg types. */
-int propval_set_from_lo_arg(void *dest, char dest_type,
-                            lo_arg *src, char src_type, int index);
+int set_coerced_value(void *dst, const void *src, int length, char dest_type,
+                      char src_type);
 
 /*! Helper for setting property value from different double type. */
 void propval_set_double(void *to, char type, int index, double from);
@@ -545,6 +545,7 @@ int mapper_table_set_from_message(mapper_table tab, mapper_message msg,
 
 #ifdef DEBUG
 /*! Print a table of OSC values. */
+void mapper_table_print_record(mapper_table_record_t *tab);
 void mapper_table_print(mapper_table tab);
 #endif
 

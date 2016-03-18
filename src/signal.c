@@ -104,9 +104,6 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
     int flags = sig->local ? NON_MODIFIABLE : MODIFIABLE;
 
     // these properties need to be added in alphabetical order
-    mapper_table_link_value(sig->props, AT_DESCRIPTION, 1, 's',
-                            &sig->description, flags | INDIRECT);
-
     mapper_table_link_value(sig->props, AT_DIRECTION, 1, 'i', &sig->direction,
                             flags);
 
@@ -187,8 +184,6 @@ void mapper_signal_free(mapper_signal sig)
         mapper_table_free(sig->props);
     if (sig->staged_props)
         mapper_table_free(sig->staged_props);
-    if (sig->description)
-        free(sig->description);
     if (sig->maximum)
         free(sig->maximum);
     if (sig->minimum)
