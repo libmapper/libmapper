@@ -170,6 +170,37 @@ int mapper_link_num_maps(mapper_link link, int idx, mapper_direction dir)
     }
 }
 
+static int cmp_query_link_maps(const void *context_data, mapper_map map)
+{
+    mapper_id link_id = *(mapper_id*)context_data;
+    mapper_id dev_id = *(mapper_id*)(context_data + sizeof(mapper_id));
+    mapper_direction dir = *(int*)(context_data + sizeof(mapper_id) * 2);
+    if (!dir || (dir & MAPPER_DIR_OUTGOING)) {
+        int i;
+        for (i = 0; i < map->num_sources; i++) {
+            if (map->sources[i]->link && map->sources[i]->link->id == link_id
+                && map->sources[i]->signal->device->id == dev_id)
+                return 1;
+        }
+    }
+    if (!dir || (dir & MAPPER_DIR_INCOMING)) {
+        if (map->destination.link && map->destination.link->id == link_id
+            && map->destination.signal->device->id == dev_id)
+            return 1;
+    }
+    return 0;
+}
+
+mapper_map *mapper_link_maps(mapper_link link, int idx, mapper_direction dir)
+{
+    if (!link || !link->devices[0]->database->maps || idx < 0 || idx > 1)
+        return 0;
+    return ((mapper_map *)
+            mapper_list_new_query(link->devices[0]->database->maps,
+                                  cmp_query_link_maps, "hhi", link->id,
+                                  link->devices[idx]->id, dir));
+}
+
 mapper_id mapper_link_id(mapper_link link)
 {
     return link->id;
@@ -222,7 +253,8 @@ int mapper_link_remove_property(mapper_link link, const char *name)
                                    REMOTE_MODIFY);
 }
 
-int mapper_link_set_from_message(mapper_link link, mapper_message msg)
+int mapper_link_set_from_message(mapper_link link, mapper_message msg,
+                                 int reversed)
 {
     int i, updated = 0;
 
@@ -240,9 +272,19 @@ int mapper_link_set_from_message(mapper_link link, mapper_message msg)
         }
         else if (link->local && msg->atoms[i].index != AT_EXTRA)
             continue;
-        updated = mapper_table_set_record_from_atom(link->props, &msg->atoms[i],
-                                                    REMOTE_MODIFY);
+        if (msg->atoms[i].index == AT_NUM_MAPS) {
+            if (msg->atoms[i].length != 2 || msg->atoms[i].types[0] != 'i')
+                continue;
+            link->num_maps[0] = msg->atoms[i].values[0+reversed]->i32;
+            link->num_maps[1] = msg->atoms[i].values[1-reversed]->i32;
+        }
+        else {
+            updated = mapper_table_set_record_from_atom(link->props,
+                                                        &msg->atoms[i],
+                                                        REMOTE_MODIFY);
+        }
     }
+    mapper_link_print(link);
     return updated;
 }
 
@@ -316,8 +358,7 @@ void mapper_link_query_done(mapper_link *map)
 
 void mapper_link_print(mapper_link link)
 {
-    printf("%s <-(%d, %d)-> %s", link->devices[0]->name, link->num_maps[0],
-           link->num_maps[1], link->devices[1]->name);
+    printf("%s <-> %s", link->devices[0]->name, link->devices[1]->name);
     int i = 0;
     const char *key;
     char type;

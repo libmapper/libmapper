@@ -727,7 +727,8 @@ mapper_link mapper_database_add_or_update_link(mapper_database db,
     }
 
     if (link) {
-        updated = mapper_link_set_from_message(link, props);
+        updated = mapper_link_set_from_message(link, props,
+                                               link->devices[0] != dev1);
 
         if (rc || updated) {
             // TODO: Should we really allow callbacks to free themselves?

@@ -51,14 +51,14 @@ void mapper_map_init(mapper_map map)
     mapper_table_link_value(map->props, AT_ID, 1, 'h', &map->id,
                             NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(map->props, AT_NUM_INPUTS, 1, 'i', &map->num_sources,
-                            NON_MODIFIABLE);
-
     mapper_table_link_value(map->props, AT_MODE, 1, 'i', &map->mode,
                             MODIFIABLE);
 
     mapper_table_link_value(map->props, AT_MUTED, 1, 'b', &map->muted,
                             MODIFIABLE);
+
+    mapper_table_link_value(map->props, AT_NUM_INPUTS, 1, 'i', &map->num_sources,
+                            NON_MODIFIABLE);
 
     mapper_table_link_value(map->props, AT_PROCESS_LOCATION, 1, 'i',
                             &map->process_location, MODIFIABLE);
@@ -1332,13 +1332,16 @@ static int mapper_map_check_status(mapper_map map)
         }
         map->status = STATUS_READY;
         // update in/out counts for link
-        if (map->destination.link)
+        if (map->destination.link) {
             ++map->destination.link->num_maps[0];
+            map->destination.link->props->dirty = 1;
+        }
         mapper_link last = 0, link;
         for (i = 0; i < map->num_sources; i++) {
             link = map->sources[i]->link;
             if (link && link != last) {
                 ++map->sources[i]->link->num_maps[1];
+                map->sources[i]->link->props->dirty = 1;
                 last = link;
             }
         }
@@ -1721,7 +1724,8 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
         len += result + 1;
     }
 
-    if (map->destination.direction == MAPPER_DIR_OUTGOING) {
+    if (map->destination.direction == MAPPER_DIR_OUTGOING
+        || !map->destination.direction) {
         // add mapping destination
         lo_message_add_string(msg, "->");
         lo_message_add_string(msg, dest_name);

@@ -233,7 +233,7 @@ void mapper_link_init(mapper_link link, int is_local);
 void mapper_link_connect(mapper_link link, const char *host, int admin_port,
                       int data_port);
 void mapper_link_free(mapper_link link);
-int mapper_link_set_from_message(mapper_link link, mapper_message msg);
+int mapper_link_set_from_message(mapper_link link, mapper_message msg, int rev);
 void mapper_link_send_state(mapper_link link, network_message_t cmd, int staged);
 void mapper_link_start_queue(mapper_link link, mapper_timetag_t tt);
 void mapper_link_send_queue(mapper_link link, mapper_timetag_t tt);

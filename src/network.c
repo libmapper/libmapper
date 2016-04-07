@@ -741,6 +741,15 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
                     trace("<%s> Removing link to device %s.\n",
                           mapper_device_name(dev), link->remote_device->name);
                 }
+                // Inform subscribers
+                if (dev->local->subscribers) {
+                    mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+                    mapper_link_send_state(link, MSG_UNLINKED, 0);
+                }
+                // Call local link handler if it exists
+                mapper_device_link_handler *h = dev->local->link_handler;
+                if (h)
+                    h(dev, link, MAPPER_REMOVED);
                 // remove related data structures
                 mapper_database_remove_link(dev->database, link);
             }
@@ -1094,12 +1103,11 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
             trace("<%s> Removing link to expired device %s.\n",
                   mapper_device_name(dev), name);
 
-            // send /unlinked to subscribers
-            mapper_network_set_dest_bus(net);
-            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
-            mapper_link_send_state(link, MSG_UNLINKED, 0);
-            mapper_database_remove_link(dev->database, link);
-
+            // Inform subscribers
+            if (dev->local->subscribers) {
+                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+                mapper_link_send_state(link, MSG_UNLINKED, 0);
+            }
             // Call local link handler if it exists
             mapper_device_link_handler *h = dev->local->link_handler;
             if (h)
@@ -1570,7 +1578,7 @@ static int handler_linked(const char *path, const char *types, lo_arg **argv,
     mapper_message props = mapper_message_parse_properties(argc-3, &types[3],
                                                            &argv[3]);
     if (link)
-        mapper_link_set_from_message(link, props);
+        mapper_link_set_from_message(link, props, link->devices[0] != dev1);
     else
         mapper_database_add_or_update_link(&net->database, dev1, dev2, props);
     mapper_message_free(props);
@@ -1599,7 +1607,7 @@ static int handler_link_modify(const char *path, const char *types,
         return 0;
     mapper_message props = mapper_message_parse_properties(argc-3, &types[3],
                                                            &argv[3]);
-    mapper_link_set_from_message(link, props);
+    mapper_link_set_from_message(link, props, link->devices[0] != dev1);
     mapper_message_free(props);
     return 0;
 }
@@ -2020,6 +2028,38 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     // TODO: if this endpoint is map admin, do not allow overwiting props
     int updated = mapper_map_set_from_message(map, props, 0);
 
+    // link props may have been updated
+    if (map->destination.direction == MAPPER_DIR_OUTGOING) {
+        if (map->destination.link && map->destination.link->props->dirty) {
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+            mapper_link_send_state(map->destination.link, MSG_LINKED, 0);
+            map->destination.link->props->dirty = 0;
+
+            // Call local link handler if it exists
+            mapper_device_link_handler *h = dev->local->link_handler;
+            if (h)
+                h(dev, map->destination.link, MAPPER_ADDED);
+        }
+    }
+    else {
+        mapper_link link = 0;
+        for (i = 0; i < map->num_sources; i++) {
+            if (!map->sources[i]->link || map->sources[i]->link == link)
+                continue;
+            link = map->sources[i]->link;
+            if (!link->props->dirty)
+                continue;
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+            mapper_link_send_state(link, MSG_LINKED, 0);
+            link->props->dirty = 0;
+
+            // Call local link handler if it exists
+            mapper_device_link_handler *h = dev->local->link_handler;
+            if (h)
+                h(dev, link, MAPPER_ADDED);
+        }
+    }
+
     if (map->status < STATUS_READY) {
         mapper_message_free(props);
         return 0;
@@ -2039,25 +2079,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                                              map->sources[i]->link->local->admin_addr);
                 i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
                                           MSG_MAPPED);
-            }
-        }
-        // Update link->num_maps
-        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
-        if (map->destination.direction == MAPPER_DIR_OUTGOING) {
-            ++dev->num_outgoing_maps;
-            ++map->destination.link->num_maps[0];
-            mapper_link_send_state(map->destination.link, MSG_LINKED, 0);
-        }
-        else {
-            ++dev->num_incoming_maps;
-            mapper_link link = 0;
-            for (i = 0; i < map->num_sources; i++) {
-                if (!map->sources[i]->link
-                    || map->sources[i]->link == link)
-                    continue;
-                link = map->sources[i]->link;
-                ++link->num_maps[1];
-                mapper_link_send_state(link, MSG_LINKED, 0);
             }
         }
         updated++;
@@ -2153,7 +2174,7 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
     }
 
 #ifdef DEBUG
-    printf("-- <%s> %s /map/modify", mapper_device_name(dev),
+    printf("-- <%s> %s /map/modify\n", mapper_device_name(dev),
            map && map->local ? "got" : "ignoring");
 #endif
     if (!map || !map->local) {
@@ -2203,21 +2224,23 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
 
     int updated = mapper_map_set_from_message(map, props, 1);
 
-    if (updated && !map->local->is_local) {
-        // TODO: may not need to inform all remote peers
-        // Inform remote peer(s) of relevant changes
-        if (!map->destination.local->router_sig) {
-            mapper_network_set_dest_mesh(net,
-                                         map->destination.link->local->admin_addr);
-            mapper_map_send_state(map, -1, MSG_MAPPED);
-        }
-        else {
-            for (i = 0; i < map->num_sources; i++) {
-                if (map->sources[i]->local->router_sig)
-                    continue;
+    if (updated) {
+        if (!map->local->is_local) {
+            // TODO: may not need to inform all remote peers
+            // Inform remote peer(s) of relevant changes
+            if (!map->destination.local->router_sig) {
                 mapper_network_set_dest_mesh(net,
-                                             map->sources[i]->link->local->admin_addr);
-                i = mapper_map_send_state(map, i, MSG_MAPPED);
+                                             map->destination.link->local->admin_addr);
+                mapper_map_send_state(map, -1, MSG_MAPPED);
+            }
+            else {
+                for (i = 0; i < map->num_sources; i++) {
+                    if (map->sources[i]->local->router_sig)
+                        continue;
+                    mapper_network_set_dest_mesh(net,
+                                                 map->sources[i]->link->local->admin_addr);
+                    i = mapper_map_send_state(map, i, MSG_MAPPED);
+                }
             }
         }
 

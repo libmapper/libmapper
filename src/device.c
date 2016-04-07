@@ -1192,26 +1192,26 @@ static int cmp_query_device_links(const void *context_data, mapper_link link)
     mapper_direction dir = *(int*)(context_data + sizeof(mapper_id));
     if (link->devices[0]->id == dev_id) {
         switch (dir) {
-            case MAPPER_DIR_ANY:
-                return link->num_maps[0] || link->num_maps[1];
             case MAPPER_DIR_BOTH:
                 return link->num_maps[0] && link->num_maps[1];
             case MAPPER_DIR_INCOMING:
                 return link->num_maps[1];
             case MAPPER_DIR_OUTGOING:
                 return link->num_maps[0];
+            default:
+                return 1;
         }
     }
     else if (link->devices[1]->id == dev_id) {
         switch (dir) {
-            case MAPPER_DIR_ANY:
-                return link->num_maps[0] || link->num_maps[1];
             case MAPPER_DIR_BOTH:
                 return link->num_maps[0] && link->num_maps[1];
             case MAPPER_DIR_INCOMING:
                 return link->num_maps[0];
             case MAPPER_DIR_OUTGOING:
                 return link->num_maps[1];
+            default:
+                return 1;
         }
     }
     return 0;
@@ -1688,6 +1688,14 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd)
                                 ? dev->props : dev->staged_props, msg);
 
     mapper_network_add_message(dev->database->network, 0, cmd, msg);
+}
+
+void mapper_device_set_link_callback(mapper_device dev,
+                                     mapper_device_link_handler *h)
+{
+    if (!dev || !dev->local)
+        return;
+    dev->local->link_handler = h;
 }
 
 void mapper_device_set_map_callback(mapper_device dev,

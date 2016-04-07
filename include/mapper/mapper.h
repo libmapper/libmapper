@@ -1024,6 +1024,14 @@ mapper_device mapper_link_device(mapper_link link, int idx);
  *  \return             The number of associated maps. */
 int mapper_link_num_maps(mapper_link link, int idx, mapper_direction dir);
 
+/*! Return the list of maps associated with a given link.
+ *  \param link         The link to check.
+ *  \param idx          The endpoint index, must be 0 or 1.
+ *  \param dir          The direction of the maps relative to the given endpoint.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results. Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_link_maps(mapper_link link, int idx, mapper_direction dir);
+
 /*! Get the unique id for a specific link.
  *  \param link         The link to check.
  *  \return             The unique id assigned to this link. */
