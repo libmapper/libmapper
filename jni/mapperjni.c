@@ -35,6 +35,11 @@ typedef struct {
     jobject user_ref;
 } instance_jni_context_t, *instance_jni_context;
 
+typedef struct {
+    jobject linkListener;
+    jobject mapListener;
+} device_jni_context_t, *device_jni_context;
+
 const char *event_strings[] = {
     "ADDED",
     "MODIFIED",
@@ -158,6 +163,19 @@ static mapper_signal get_instance_from_jobject(JNIEnv *env, jobject obj,
         return sig;
     }
     throwIllegalArgumentSignal(env);
+    return 0;
+}
+
+static mapper_link get_link_from_jobject(JNIEnv *env, jobject obj)
+{
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (cls) {
+        jfieldID val = (*env)->GetFieldID(env, cls, "_link", "J");
+        if (val) {
+            jlong s = (*env)->GetLongField(env, obj, val);
+            return (mapper_link)ptr_jlong(s);
+        }
+    }
     return 0;
 }
 
@@ -881,6 +899,68 @@ JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseRemoveDeviceCB
     (*env)->DeleteGlobalRef(env, listener);
 }
 
+static void java_database_link_cb(mapper_database db, mapper_link link,
+                                  mapper_record_action action,
+                                  const void *user_data)
+{
+    if (bailing || !user_data)
+        return;
+
+    // Create a wrapper class for the link
+    jclass cls = (*genv)->FindClass(genv, "mapper/Link");
+    if (!cls)
+        return;
+    jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
+    jobject linkobj;
+    if (mid)
+        linkobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(link));
+    else {
+        printf("Error looking up Link init method\n");
+        return;
+    }
+    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    if (!eventobj) {
+        printf("Error looking up database event\n");
+        return;
+    }
+
+    jobject obj = (jobject)user_data;
+    cls = (*genv)->GetObjectClass(genv, obj);
+    if (cls) {
+        mid = (*genv)->GetMethodID(genv, cls, "onEvent",
+                                   "(Lmapper/Link;Lmapper/database/Event;)V");
+        if (mid) {
+            (*genv)->CallVoidMethod(genv, obj, mid, linkobj, eventobj);
+            if ((*genv)->ExceptionOccurred(genv))
+                bailing = 1;
+        }
+        else {
+            printf("Error looking up onEvent method.\n");
+        }
+    }
+}
+
+JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseAddLinkCB
+(JNIEnv *env, jobject obj, jlong jdb, jobject listener)
+{
+    mapper_database db = (mapper_database)ptr_jlong(jdb);
+    if (!db || !listener)
+        return;
+    jobject o = (*env)->NewGlobalRef(env, listener);
+    mapper_database_add_link_callback(db, java_database_link_cb, o);
+}
+
+JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseRemoveLinkCB
+(JNIEnv *env, jobject obj, jlong jdb, jobject listener)
+{
+    mapper_database db = (mapper_database)ptr_jlong(jdb);
+    if (!db || !listener)
+        return;
+    // TODO: fix mismatch in user_data
+    mapper_database_remove_link_callback(db, java_database_link_cb, listener);
+    (*env)->DeleteGlobalRef(env, listener);
+}
+
 static void java_database_signal_cb(mapper_database db, mapper_signal sig,
                                     mapper_record_action action,
                                     const void *user_data)
@@ -986,6 +1066,13 @@ JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseRemoveMapCB
     (*env)->DeleteGlobalRef(env, listener);
 }
 
+JNIEXPORT jint JNICALL Java_mapper_Database_numDevices
+  (JNIEnv *env, jobject obj)
+{
+    mapper_database db = get_database_from_jobject(env, obj);
+    return db ? mapper_database_num_devices(db) : 0;
+}
+
 JNIEXPORT jobject JNICALL Java_mapper_Database_device__Ljava_lang_String_2
   (JNIEnv *env, jobject obj, jstring s)
 {
@@ -1089,6 +1176,69 @@ JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseDevicesByProp
                                                          value, op));
 }
 
+JNIEXPORT jint JNICALL Java_mapper_Database_numLinks
+  (JNIEnv *env, jobject obj)
+{
+    mapper_database db = get_database_from_jobject(env, obj);
+    return db ? mapper_database_num_links(db) : 0;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Database_link
+  (JNIEnv *env, jobject obj, jlong jid)
+{
+    jclass cls = (*env)->FindClass(env, "mapper/Link");
+    if (!cls)
+        return 0;
+
+    mapper_link link = 0;
+    mapper_database db = get_database_from_jobject(env, obj);
+    if (db)
+        link = mapper_database_link_by_id(db, jid);
+
+    jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
+    return (*env)->NewObject(env, cls, mid, jlong_ptr(link));
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Database_links
+  (JNIEnv *env, jobject obj)
+{
+    jclass cls = (*env)->FindClass(env, "mapper/link/Query");
+    if (!cls)
+        return 0;
+
+    mapper_link *links = 0;
+    mapper_database db = get_database_from_jobject(env, obj);
+    if (db)
+        links = mapper_database_links(db);
+
+    jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
+    return (*env)->NewObject(env, cls, mid, jlong_ptr(links));
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseLinksByProp
+  (JNIEnv *env, jobject obj, jlong jdb, jstring key, jobject jprop, jint op)
+{
+    if (!key)
+        return 0;
+
+    mapper_database db = (mapper_database) ptr_jlong(jdb);
+
+    const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
+    char type;
+    void *value;
+    int length = get_Value_elements(env, jprop, &value, &type);
+
+    return jlong_ptr(mapper_database_links_by_property(db, ckey, length, type,
+                                                       value, op));
+}
+
+JNIEXPORT jint JNICALL Java_mapper_Database_numSignals
+  (JNIEnv *env, jobject obj, jint dir)
+{
+    mapper_database db = get_database_from_jobject(env, obj);
+    return db ? mapper_database_num_signals(db, dir) : 0;
+}
+
 JNIEXPORT jobject JNICALL Java_mapper_Database_signal
   (JNIEnv *env, jobject obj, jlong jid)
 {
@@ -1139,6 +1289,13 @@ JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseSignalsByProp
 
     return jlong_ptr(mapper_database_signals_by_property(db, ckey, length, type,
                                                          value, op));
+}
+
+JNIEXPORT jint JNICALL Java_mapper_Database_numMaps
+  (JNIEnv *env, jobject obj)
+{
+    mapper_database db = get_database_from_jobject(env, obj);
+    return db ? mapper_database_num_maps(db) : 0;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Database_map
@@ -1290,6 +1447,9 @@ JNIEXPORT jlong JNICALL Java_mapper_Device_mapperDeviceNew
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
     mapper_device dev = mapper_device_new(cname, port, 0);
     (*env)->ReleaseStringUTFChars(env, name, cname);
+    device_jni_context ctx = ((device_jni_context)
+                              calloc(1, sizeof(device_jni_context_t)));
+    mapper_device_set_user_data(dev, ctx);
     return jlong_ptr(dev);
 }
 
@@ -1334,6 +1494,9 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceFree
             (*env)->DeleteGlobalRef(env, ctx->instanceEventListener);
         free(ctx);
     }
+    device_jni_context ctx = (device_jni_context)mapper_device_user_data(dev);
+    if (ctx)
+        free(ctx);
     mapper_device_free(dev);
 }
 
@@ -1545,6 +1708,13 @@ JNIEXPORT jint JNICALL Java_mapper_Device_numMaps
     return dev ? mapper_device_num_maps(dev, dir) : 0;
 }
 
+JNIEXPORT jint JNICALL Java_mapper_Device_numLinks
+  (JNIEnv *env, jobject obj, jint dir)
+{
+    mapper_device dev = get_device_from_jobject(env, obj);
+    return dev ? mapper_device_num_links(dev, dir) : 0;
+}
+
 JNIEXPORT jint JNICALL Java_mapper_Device_ordinal
   (JNIEnv *env, jobject obj)
 {
@@ -1621,6 +1791,122 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_now
     return o;
 }
 
+static void java_device_link_cb(mapper_device dev, mapper_link link,
+                                mapper_record_action action)
+{
+    if (bailing)
+        return;
+
+    // Create a wrapper class for the link
+    jclass cls = (*genv)->FindClass(genv, "mapper/Link");
+    if (!cls)
+        return;
+    jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
+    jobject linkobj;
+    if (mid)
+        linkobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(link));
+    else {
+        printf("Error looking up Link init method\n");
+        return;
+    }
+    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    if (!eventobj) {
+        printf("Error looking up database event\n");
+        return;
+    }
+
+    device_jni_context ctx = (device_jni_context)mapper_device_user_data(dev);
+    if (!ctx || !ctx->linkListener)
+        return;
+    cls = (*genv)->GetObjectClass(genv, ctx->linkListener);
+    if (cls) {
+        mid = (*genv)->GetMethodID(genv, cls, "onEvent",
+                                   "(Lmapper/Link;Lmapper/database/Event;)V");
+        if (mid) {
+            (*genv)->CallVoidMethod(genv, ctx->linkListener, mid, linkobj,
+                                    eventobj);
+            if ((*genv)->ExceptionOccurred(genv))
+                bailing = 1;
+        }
+        else {
+            printf("Error looking up onEvent method.\n");
+        }
+    }
+}
+
+JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceSetLinkCB
+  (JNIEnv *env, jobject obj, jlong jdev, jobject listener)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(jdev);
+    if (!dev || !listener)
+        return;
+    device_jni_context ctx = (device_jni_context)mapper_device_user_data(dev);
+    if (!ctx)
+        return;
+    if (ctx->linkListener)
+        (*env)->DeleteGlobalRef(env, ctx->linkListener);
+    ctx->linkListener = listener ? (*env)->NewGlobalRef(env, listener) : 0;
+    mapper_device_set_link_callback(dev, java_device_link_cb);
+}
+
+static void java_device_map_cb(mapper_device dev, mapper_map map,
+                               mapper_record_action action)
+{
+    if (bailing)
+        return;
+
+    // Create a wrapper class for the map
+    jclass cls = (*genv)->FindClass(genv, "mapper/Map");
+    if (!cls)
+        return;
+    jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
+    jobject mapobj;
+    if (mid)
+        mapobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(map));
+    else {
+        printf("Error looking up Map init method\n");
+        return;
+    }
+    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    if (!eventobj) {
+        printf("Error looking up database event\n");
+        return;
+    }
+
+    device_jni_context ctx = (device_jni_context)mapper_device_user_data(dev);
+    if (!ctx || !ctx->mapListener)
+        return;
+    cls = (*genv)->GetObjectClass(genv, ctx->mapListener);
+    if (cls) {
+        mid = (*genv)->GetMethodID(genv, cls, "onEvent",
+                                   "(Lmapper/Map;Lmapper/database/Event;)V");
+        if (mid) {
+            (*genv)->CallVoidMethod(genv, ctx->mapListener, mid, mapobj,
+                                    eventobj);
+            if ((*genv)->ExceptionOccurred(genv))
+                bailing = 1;
+        }
+        else {
+            printf("Error looking up onEvent method.\n");
+        }
+    }
+}
+
+JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceSetMapCB
+  (JNIEnv *env, jobject obj, jlong jdev, jobject listener)
+{
+    mapper_device dev = (mapper_device)ptr_jlong(jdev);
+    if (!dev || !listener)
+        return;
+    device_jni_context ctx = (device_jni_context)mapper_device_user_data(dev);
+    if (!ctx)
+        return;
+    if (ctx->mapListener)
+        (*env)->DeleteGlobalRef(env, ctx->mapListener);
+    ctx->mapListener = listener ? (*env)->NewGlobalRef(env, listener) : 0;
+    mapper_device_set_map_callback(dev, java_device_map_cb);
+}
+
 JNIEXPORT jobject JNICALL Java_mapper_Device_signal__J
   (JNIEnv *env, jobject obj, jlong id)
 {
@@ -1673,6 +1959,192 @@ JNIEXPORT jlong JNICALL Java_mapper_Device_mapperDeviceMaps
 {
     mapper_device dev = (mapper_device) ptr_jlong(jdev);
     return dev ? jlong_ptr(mapper_device_maps(dev, dir)) : 0;
+}
+
+/**** mapper_link_Query.h ****/
+
+JNIEXPORT jlong JNICALL Java_mapper_link_Query_mapperLinkDeref
+  (JNIEnv *env, jobject obj, jlong jlink)
+{
+    void **ptr = (void**)ptr_jlong(jlink);
+    return jlong_ptr(*ptr);
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_link_Query_mapperLinkQueryCopy
+  (JNIEnv *env, jobject obj, jlong query)
+{
+    mapper_link *links = (mapper_link*) ptr_jlong(query);
+    if (!links)
+        return 0;
+    return jlong_ptr(mapper_link_query_copy(links));
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_link_Query_mapperLinkQueryJoin
+  (JNIEnv *env, jobject obj, jlong query_lhs, jlong query_rhs)
+{
+    mapper_link *links_lhs = (mapper_link*) ptr_jlong(query_lhs);
+    mapper_link *links_rhs = (mapper_link*) ptr_jlong(query_rhs);
+    
+    if (!links_rhs)
+        return query_lhs;
+    
+    // use a copy of rhs
+    mapper_link *links_rhs_cpy = mapper_link_query_copy(links_rhs);
+    return jlong_ptr(mapper_link_query_union(links_lhs, links_rhs_cpy));
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_link_Query_mapperLinkQueryIntersect
+  (JNIEnv *env, jobject obj, jlong query_lhs, jlong query_rhs)
+{
+    mapper_link *links_lhs = (mapper_link*) ptr_jlong(query_lhs);
+    mapper_link *links_rhs = (mapper_link*) ptr_jlong(query_rhs);
+    
+    if (!links_lhs || !links_rhs)
+        return 0;
+    
+    // use a copy of rhs
+    mapper_link *links_rhs_cpy = mapper_link_query_copy(links_rhs);
+    return jlong_ptr(mapper_link_query_intersection(links_lhs, links_rhs_cpy));
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_link_Query_mapperLinkQuerySubtract
+  (JNIEnv *env, jobject obj, jlong query_lhs, jlong query_rhs)
+{
+    mapper_link *links_lhs = (mapper_link*) ptr_jlong(query_lhs);
+    mapper_link *links_rhs = (mapper_link*) ptr_jlong(query_rhs);
+    
+    if (!links_lhs || !links_rhs)
+        return query_lhs;
+    
+    // use a copy of rhs
+    mapper_link *links_rhs_cpy = mapper_link_query_copy(links_rhs);
+    return jlong_ptr(mapper_link_query_difference(links_lhs, links_rhs_cpy));
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_link_Query_mapperLinkQueryNext
+  (JNIEnv *env, jobject obj, jlong query)
+{
+    mapper_link *links = (mapper_link*) ptr_jlong(query);
+    return links ? jlong_ptr(mapper_link_query_next(links)) : 0;
+}
+
+JNIEXPORT void JNICALL Java_mapper_link_Query_mapperLinkQueryDone
+  (JNIEnv *env, jobject obj, jlong query)
+{
+    mapper_link *links = (mapper_link*) ptr_jlong(query);
+    if (links)
+        mapper_link_query_done(links);
+}
+
+/**** mapper_Link.h ****/
+
+JNIEXPORT jobject JNICALL Java_mapper_Link_push
+  (JNIEnv *env, jobject obj)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    if (link)
+        mapper_link_push(link);
+    return obj;
+}
+
+JNIEXPORT jint JNICALL Java_mapper_Link_numProperties
+  (JNIEnv *env, jobject obj)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    return link ? mapper_link_num_properties(link) : 0;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Link_property__Ljava_lang_String_2
+  (JNIEnv *env, jobject obj, jstring key)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
+    char type;
+    int length;
+    const void *value;
+    jobject o = 0;
+
+    if (!mapper_link_property(link, ckey, &length, &type, &value))
+        o = build_Value(env, length, type, value);
+
+    (*env)->ReleaseStringUTFChars(env, key, ckey);
+    return o;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Link_property__I
+  (JNIEnv *env, jobject obj, jint index)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    const char *key = 0;
+    char type;
+    int length;
+    const void *value;
+    jobject val = 0, prop = 0;
+
+    if (mapper_link_property_index(link, index, &key, &length, &type, &value))
+        return 0;
+
+    val = build_Value(env, length, type, value);
+    prop = build_Property(env, key, val);
+
+    return prop;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Link_setProperty
+  (JNIEnv *env, jobject obj, jstring key, jobject jprop)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
+    char type;
+    void *value;
+    int length = get_Value_elements(env, jprop, &value, &type);
+    if (length) {
+        mapper_link_set_property(link, ckey, length, type, value);
+        release_Value_elements(env, jprop, value);
+    }
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Link_removeProperty
+  (JNIEnv *env, jobject obj, jstring key)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    if (link) {
+        const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
+        mapper_link_remove_property(link, ckey);
+        (*env)->ReleaseStringUTFChars(env, key, ckey);
+    }
+    return obj;
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_Link_id
+  (JNIEnv *env, jobject obj)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    return link ? mapper_link_id(link) : 0;
+}
+
+JNIEXPORT jint JNICALL Java_mapper_Link_numMaps
+  (JNIEnv *env, jobject obj, jint index, jint dir)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    return link ? mapper_link_num_maps(link, index, dir) : 0;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Link_device
+  (JNIEnv *env, jobject obj, jint index)
+{
+    jclass cls = (*env)->FindClass(env, "mapper/Device");
+    if (!cls)
+        return 0;
+
+    mapper_device dev = 0;
+    mapper_link link = get_link_from_jobject(env, obj);
+    if (link)
+        dev = mapper_link_device(link, index);
+
+    jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
+    return (*env)->NewObject(env, cls, mid, jlong_ptr(dev));
 }
 
 /**** mapper_map_Query.h ****/
@@ -2570,8 +3042,10 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_oldestActiveInstance
   (JNIEnv *env, jobject obj)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
-    if (!sig)
+    if (!sig) {
+        printf("couldn't retrieve signal in Java_mapper_Signal_oldestActiveInstance()\n");
         return 0;
+    }
     mapper_id id = mapper_signal_oldest_active_instance(sig);
     instance_jni_context ctx = ((instance_jni_context)
                                 mapper_signal_instance_user_data(sig, id));

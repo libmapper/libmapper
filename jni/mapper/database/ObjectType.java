@@ -8,9 +8,12 @@ public enum ObjectType {
     INPUT_SIGNALS   (0x02),
     OUTPUT_SIGNALS  (0x04),
     SIGNALS         (0x06),
-    INCOMING_MAPS   (0x10),
-    OUTGOING_MAPS   (0x20),
-    MAPS            (0x30),
+    INCOMING_LINKS  (0x10),
+    OUTGOING_LINKS  (0x20),
+    LINKS           (0x30),
+    INCOMING_MAPS   (0x40),
+    OUTGOING_MAPS   (0x80),
+    MAPS            (0xC0),
     ALL             (0xFF);
 
     ObjectType(int value) {

@@ -32,6 +32,17 @@ class test {
                 }
             }});
 
+        db.addLinkListener(new LinkListener() {
+            public void onEvent(Link link, mapper.database.Event event) {
+                System.out.println("db record "+event+" for link "
+                                   +link.device(0).name()+"<->"
+                                   +link.device(1).name());
+                for (int i = 0; i < link.numProperties(); i++) {
+                    Property p = link.property(i);
+                    System.out.println("  " + p.name + ": " + p.value);
+                }
+            }});
+
         db.addSignalListener(new SignalListener() {
             public void onEvent(Signal sig, mapper.database.Event event) {
                 System.out.println("db record "+event+" for signal "
@@ -223,14 +234,19 @@ class test {
         }
 
         // another iterator style
-        mapper.signal.Query ins = db.inputs();
+        mapper.link.Query links = db.links();
+        for (Link l : links) {
+            System.out.println("  link: " + l.device(0).name()
+                               + "<->" + l.device(1).name());
+        }
+        mapper.signal.Query ins = db.signals();
         for (Signal s : ins) {
             System.out.println("  signal: " + s.name());
         }
 
         mapper.map.Query maps = db.maps();
         for (Map m : maps) {
-            System.out.print("  mapping: ");
+            System.out.print("  map: ");
             for (i = 0; i < m.numSources(); i++)
                 System.out.print(m.sources[i].signal().device().name()+":"
                                  +m.sources[i].signal().name()+" ");

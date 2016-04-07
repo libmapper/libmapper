@@ -19,24 +19,28 @@ public class Database
         }
         _db = mapperDatabaseNew(flags);
         _dev_listener = null;
+        _link_listener = null;
         _sig_listener = null;
         _map_listener = null;
     }
     public Database(ObjectType type) {
         _db = mapperDatabaseNew(type.value());
         _dev_listener = null;
+        _link_listener = null;
         _sig_listener = null;
         _map_listener = null;
     }
     public Database() {
         _db = mapperDatabaseNew(ObjectType.ALL.value());
         _dev_listener = null;
+        _link_listener = null;
         _sig_listener = null;
         _map_listener = null;
     }
     public Database(long db) {
         _db = db;
         _dev_listener = null;
+        _link_listener = null;
         _sig_listener = null;
         _map_listener = null;
     }
@@ -115,6 +119,26 @@ public class Database
         return this;
     }
 
+    private native void mapperDatabaseAddLinkCB(long db,
+                                                mapper.database.LinkListener l);
+    public Database addLinkListener(mapper.database.LinkListener l) {
+        if (l != _link_listener)
+            mapperDatabaseRemoveLinkCB(_db, _link_listener);
+        mapperDatabaseAddLinkCB(_db, l);
+        _link_listener = l;
+        return this;
+    }
+
+    private native void mapperDatabaseRemoveLinkCB(long db,
+                                                   mapper.database.LinkListener l);
+    public Database removeLinkListener(mapper.database.LinkListener l) {
+        if (l == _link_listener) {
+            mapperDatabaseRemoveLinkCB(_db, l);
+            _link_listener = null;
+        }
+        return this;
+    }
+
     private native void mapperDatabaseAddSignalCB(long db,
                                                   mapper.database.SignalListener l);
     public Database addSignalListener(mapper.database.SignalListener l) {
@@ -157,6 +181,7 @@ public class Database
     }
 
     // devices
+    public native int numDevices();
     public native mapper.Device device(String deviceName);
     public native mapper.Device device(long id);
     public native mapper.device.Query devices();
@@ -172,7 +197,20 @@ public class Database
                                                                    op.value()));
     }
 
+    // links
+    public native int numLinks();
+    public native mapper.Link link(long id);
+    public native mapper.link.Query links();
+    private native long mapperDatabaseLinksByProp(long db, String name,
+                                                  Value value, int op);
+    public mapper.link.Query linksByProperty(String name, Value value,
+                                             mapper.database.Operator op) {
+        return new mapper.link.Query(mapperDatabaseLinksByProp(_db, name, value,
+                                                               op.value()));
+    }
+
     // signals
+    public native int numSignals(int dir);
     public native mapper.Signal signal(long id);
 
     private native long mapperDatabaseSignals(long db, String name, int dir);
@@ -182,23 +220,13 @@ public class Database
     public mapper.signal.Query signals(String name) {
         return new mapper.signal.Query(mapperDatabaseSignals(_db, name, 0));
     }
-
-    public mapper.signal.Query inputs() {
+    public mapper.signal.Query signals(Direction dir) {
         return new mapper.signal.Query(mapperDatabaseSignals(_db, null,
-                                                             Direction.INCOMING.value()));
+                                                             dir.value()));
     }
-    public mapper.signal.Query inputs(String name) {
+    public mapper.signal.Query signals(String name, Direction dir) {
         return new mapper.signal.Query(mapperDatabaseSignals(_db, name,
-                                                             Direction.INCOMING.value()));
-    }
-
-    public mapper.signal.Query outputs() {
-        return new mapper.signal.Query(mapperDatabaseSignals(_db, null,
-                                                             Direction.OUTGOING.value()));
-    }
-    public mapper.signal.Query outputs(String name) {
-        return new mapper.signal.Query(mapperDatabaseSignals(_db, name,
-                                                             Direction.OUTGOING.value()));
+                                                             dir.value()));
     }
 
     private native long mapperDatabaseSignalsByProp(long db, String name,
@@ -211,22 +239,23 @@ public class Database
     }
 
     // maps
+    public native int numMaps();
     public native mapper.Map map(long id);
     public native mapper.map.Query maps();
     private native long mapperDatabaseMapsByProp(long db, String name,
                                                  Value value, int op);
-    public mapper.device.Query mapsByProperty(String name, Value value,
-                                              mapper.database.Operator op) {
-        return new mapper.device.Query(mapperDatabaseMapsByProp(_db, name, value,
-                                                                op.value()));
+    public mapper.map.Query mapsByProperty(String name, Value value,
+                                           mapper.database.Operator op) {
+        return new mapper.map.Query(mapperDatabaseMapsByProp(_db, name, value,
+                                                             op.value()));
     }
     private native long mapperDatabaseMapsBySlotProp(long db, String name,
                                                      Value value, int op);
-    public mapper.device.Query mapsBySlotProperty(String name, Value value,
-                                                  mapper.database.Operator op) {
-        return new mapper.device.Query(mapperDatabaseMapsBySlotProp(_db, name,
-                                                                    value,
-                                                                    op.value()));
+    public mapper.map.Query mapsBySlotProperty(String name, Value value,
+                                               mapper.database.Operator op) {
+        return new mapper.map.Query(mapperDatabaseMapsBySlotProp(_db, name,
+                                                                 value,
+                                                                 op.value()));
     }
 
     /* Note: this is _not_ guaranteed to run, the user should still call free()
@@ -243,7 +272,8 @@ public class Database
     // TODO: enable multiple listeners
     private DeviceListener _dev_listener;
     private SignalListener _sig_listener;
-    private MapListener _map_listener;
+    private mapper.database.MapListener _map_listener;
+    private mapper.database.LinkListener _link_listener;
     public boolean valid() {
         return _db != 0;
     }

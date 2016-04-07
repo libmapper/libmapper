@@ -103,12 +103,10 @@ public class Device
     /* property: num_maps */
     public native int numMaps(int direction);
     public int numMaps() { return numMaps(0); }
-    public int numIncomingMaps() {
-        return numMaps(Direction.INCOMING.value());
-    }
-    public int numOutgoingMaps() {
-        return numMaps(Direction.OUTGOING.value());
-    }
+
+    /* property: num_links */
+    public native int numLinks(int direction);
+    public int numLinks() { return numLinks(0); }
 
     /* property: ordinal */
     public native int ordinal();
@@ -131,6 +129,20 @@ public class Device
 
     /* get current time */
     public native TimeTag now();
+
+    // listeners
+    private native void mapperDeviceSetLinkCB(long dev,
+                                              mapper.device.LinkListener l);
+    public Device setLinkListener(mapper.device.LinkListener l) {
+        mapperDeviceSetLinkCB(_dev, l);
+        return this;
+    }
+    private native void mapperDeviceSetMapCB(long dev,
+                                             mapper.device.MapListener l);
+    public Device setMapListener(mapper.device.MapListener l) {
+        mapperDeviceSetMapCB(_dev, l);
+        return this;
+    }
 
     /* retrieve associated signals */
     public native Signal signal(long id);
