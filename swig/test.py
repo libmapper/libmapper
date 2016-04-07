@@ -105,13 +105,17 @@ for i in range(1000):
     if i==800:
         map.release()
 
-print 'devices and signals:'
+print db.num_devices, 'devices and', db.num_signals, 'signals:'
 for i in db.devices():
     print "  ", i.name
     for j in i.signals():
         print "    ", j.name
 
-print 'maps:'
+print db.num_links, 'links:'
+for i in db.links():
+    print "    ", i.device(0).name, '<->', i.device(1).name
+
+print db.num_maps, 'maps:'
 for i in db.maps():
     print "    ", i.source().signal().device().name, ':', i.source().signal().name,\
         '->', i.destination().signal().device().name, ':', i.destination().signal().name

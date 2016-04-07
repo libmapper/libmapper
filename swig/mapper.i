@@ -6,7 +6,26 @@
         return NULL;
     }
     $1 = $input;
- }
+}
+%typemap(in) (mapper_id id) {
+    if (PyInt_Check($input))
+        $1 = PyInt_AsLong($input);
+    else if (PyLong_Check($input)) {
+        // truncate to 64 bits
+        $1 = PyLong_AsUnsignedLongLong($input);
+        if ($1 == -1) {
+            PyErr_SetString(PyExc_ValueError, "Id value must fit into 64 bits.");
+            return NULL;
+        }
+    }
+    else {
+        PyErr_SetString(PyExc_ValueError, "Id must be int or long type.");
+        return NULL;
+    }
+}
+%typemap(out) mapper_id {
+    $result = Py_BuildValue("l", (uint64_t)$1);
+}
 %typemap(in) (int num_ids, mapper_id *argv) {
     int i;
     if (!PyList_Check($input)) {
@@ -204,6 +223,7 @@ static int my_error = 0;
 #endif
 
 typedef struct _device {} device;
+typedef struct _link {} link__;
 typedef struct _signal {} signal__;
 typedef struct _map {} map;
 typedef struct _slot {} slot;
@@ -213,6 +233,10 @@ typedef struct _network {} network;
 typedef struct _device_query {
     mapper_device *query;
 } device_query;
+
+typedef struct _link_query {
+    mapper_link *query;
+} link_query;
 
 typedef struct _signal_query {
     mapper_signal *query;
@@ -509,10 +533,11 @@ static PyObject *prop_to_py(property_value prop, const char *name)
  * do replacement. Should work as long as signal() doesn't need to be
  * called from the SWIG wrapper code. */
 #define signal signal__
+#define link link__
 
 /* Wrapper for callback back to python when a mapper_signal handler is
  * called. */
-static void signal_handler_py(mapper_signal sig, mapper_id instance,
+static void signal_handler_py(mapper_signal sig, mapper_id id,
                               const void *value, int count,
                               mapper_timetag_t *tt)
 {
@@ -538,11 +563,11 @@ static void signal_handler_py(mapper_signal sig, mapper_id instance,
                     PyObject *o = Py_BuildValue("i", vint[i]);
                     PyList_SET_ITEM(valuelist, i, o);
                 }
-                arglist = Py_BuildValue("(OLOd)", py_sig, instance, valuelist,
+                arglist = Py_BuildValue("(OLOd)", py_sig, id, valuelist,
                                         timetag);
             }
             else
-                arglist = Py_BuildValue("(OLid)", py_sig, instance,
+                arglist = Py_BuildValue("(OLid)", py_sig, id,
                                         *(int*)value, timetag);
         }
         else if (type == 'f') {
@@ -553,16 +578,16 @@ static void signal_handler_py(mapper_signal sig, mapper_id instance,
                     PyObject *o = Py_BuildValue("f", vfloat[i]);
                     PyList_SET_ITEM(valuelist, i, o);
                 }
-                arglist = Py_BuildValue("(OLOd)", py_sig, instance, valuelist,
+                arglist = Py_BuildValue("(OLOd)", py_sig, id, valuelist,
                                         timetag);
             }
             else
-                arglist = Py_BuildValue("(OLfd)", py_sig, instance,
-                                        *(float*)value, timetag);
+                arglist = Py_BuildValue("(OLfd)", py_sig, id, *(float*)value,
+                                        timetag);
         }
     }
     else {
-        arglist = Py_BuildValue("(OiOd)", py_sig, instance, Py_None, timetag);
+        arglist = Py_BuildValue("(OiOd)", py_sig, id, Py_None, timetag);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (signal_handler_py).\n");
@@ -578,7 +603,7 @@ static void signal_handler_py(mapper_signal sig, mapper_id instance,
 
 /* Wrapper for callback back to python when a mapper_instance_event handler
  * is called. */
-static void instance_event_handler_py(mapper_signal sig, mapper_id instance,
+static void instance_event_handler_py(mapper_signal sig, mapper_id id,
                                       mapper_instance_event event,
                                       mapper_timetag_t *tt)
 {
@@ -595,13 +620,38 @@ static void instance_event_handler_py(mapper_signal sig, mapper_id instance,
         timetag = (timetag << 32) + tt->frac;
     }
 
-    arglist = Py_BuildValue("(OLiL)", py_sig, instance, event, timetag);
+    arglist = Py_BuildValue("(OLiL)", py_sig, id, event, timetag);
     if (!arglist) {
         printf("[mapper] Could not build arglist (instance_event_handler_py).\n");
         return;
     }
     PyObject **callbacks = (PyObject**)mapper_signal_user_data(sig);
     result = PyEval_CallObject(callbacks[1], arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+    _save = PyEval_SaveThread();
+}
+
+/* Wrapper for callback back to python when a device map handler is called. */
+static void device_link_handler_py(mapper_device dev, mapper_link link,
+                                   mapper_record_action action)
+{
+    PyEval_RestoreThread(_save);
+
+    PyObject *py_link = SWIG_NewPointerObj(SWIG_as_voidptr(link),
+                                           SWIGTYPE_p__link, 0);
+
+    PyObject *arglist = Py_BuildValue("Oi", py_link, action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (device_link_handler_py).\n");
+        return;
+    }
+    PyObject **callbacks = mapper_device_user_data(dev);
+    if (!callbacks || !callbacks[0]) {
+        printf("[mapper] Could not retrieve callback (device_map_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject(callbacks[0], arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
@@ -621,7 +671,12 @@ static void device_map_handler_py(mapper_device dev, mapper_map map,
         printf("[mapper] Could not build arglist (device_map_handler_py).\n");
         return;
     }
-    PyObject *result = PyEval_CallObject((PyObject*)dev->user_data, arglist);
+    PyObject **callbacks = mapper_device_user_data(dev);
+    if (!callbacks || !callbacks[1]) {
+        printf("[mapper] Could not retrieve callback (device_map_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject(callbacks[1], arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
     _save = PyEval_SaveThread();
@@ -717,7 +772,7 @@ typedef int booltype;
 
 /* Wrapper for callback back to python when a mapper_database_device handler
  * is called. */
-static void device_database_handler_py(mapper_database db, mapper_device dev,
+static void database_device_handler_py(mapper_database db, mapper_device dev,
                                        mapper_record_action action,
                                        const void *user)
 {
@@ -728,7 +783,29 @@ static void device_database_handler_py(mapper_database db, mapper_device dev,
 
     PyObject *arglist = Py_BuildValue("(Oi)", py_dev, action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (device_database_handler_py).\n");
+        printf("[mapper] Could not build arglist (database_device_handler_py).\n");
+        return;
+    }
+    PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
+    Py_DECREF(arglist);
+    Py_XDECREF(result);
+    _save = PyEval_SaveThread();
+}
+
+/* Wrapper for callback back to python when a mapper_database_device handler
+ * is called. */
+static void database_link_handler_py(mapper_database db, mapper_link link,
+                                     mapper_record_action action,
+                                     const void *user)
+{
+    PyEval_RestoreThread(_save);
+
+    PyObject *py_link = SWIG_NewPointerObj(SWIG_as_voidptr(link),
+                                           SWIGTYPE_p__link, 0);
+
+    PyObject *arglist = Py_BuildValue("(Oi)", py_link, action);
+    if (!arglist) {
+        printf("[mapper] Could not build arglist (database_link_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
@@ -739,7 +816,7 @@ static void device_database_handler_py(mapper_database db, mapper_device dev,
 
 /* Wrapper for callback back to python when a mapper_database_signal handler
  * is called. */
-static void signal_database_handler_py(mapper_database db, mapper_signal sig,
+static void database_signal_handler_py(mapper_database db, mapper_signal sig,
                                        mapper_record_action action,
                                        const void *user)
 {
@@ -750,7 +827,7 @@ static void signal_database_handler_py(mapper_database db, mapper_signal sig,
 
     PyObject *arglist = Py_BuildValue("(Oi)", py_sig, action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (signal_database_handler_py).\n");
+        printf("[mapper] Could not build arglist (database_signal_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
@@ -761,18 +838,18 @@ static void signal_database_handler_py(mapper_database db, mapper_signal sig,
 
 /* Wrapper for callback back to python when a mapper_database_map handler
  * is called. */
-static void map_database_handler_py(mapper_database db, mapper_map map,
+static void database_map_handler_py(mapper_database db, mapper_map map,
                                     mapper_record_action action,
                                     const void *user)
 {
     PyEval_RestoreThread(_save);
 
     PyObject *py_map = SWIG_NewPointerObj(SWIG_as_voidptr(map),
-                                           SWIGTYPE_p__map, 0);
+                                          SWIGTYPE_p__map, 0);
 
     PyObject *arglist = Py_BuildValue("(Oi)", py_map, action);
     if (!arglist) {
-        printf("[mapper] Could not build arglist (map_database_handler_py).\n");
+        printf("[mapper] Could not build arglist (database_map_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
@@ -875,6 +952,9 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %constant int OBJ_INPUT_SIGNALS         = MAPPER_OBJ_INPUT_SIGNALS;
 %constant int OBJ_OUTPUT_SIGNALS        = MAPPER_OBJ_OUTPUT_SIGNALS;
 %constant int OBJ_SIGNALS               = MAPPER_OBJ_SIGNALS;
+%constant int OBJ_INCOMING_LINKS        = MAPPER_OBJ_INCOMING_LINKS;
+%constant int OBJ_OUTGOING_LINKS        = MAPPER_OBJ_OUTGOING_LINKS;
+%constant int OBJ_LINKS                 = MAPPER_OBJ_LINKS;
 %constant int OBJ_INCOMING_MAPS         = MAPPER_OBJ_INCOMING_MAPS;
 %constant int OBJ_OUTGOING_MAPS         = MAPPER_OBJ_OUTGOING_MAPS;
 %constant int OBJ_MAPS                  = MAPPER_OBJ_MAPS;
@@ -934,6 +1014,7 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %constant char* version                 = PACKAGE_VERSION;
 
 typedef struct _device {} device;
+typedef struct _link {} link;
 typedef struct _signal {} signal;
 typedef struct _map {} map;
 typedef struct _slot {} slot;
@@ -978,27 +1059,27 @@ typedef struct _device_query {
         my_error = 1;
         return NULL;
     }
-    device_query *join(device_query *q) {
-        if (!q || !q->query)
+    device_query *join(device_query *d) {
+        if (!d || !d->query)
             return $self;
-        // need to use a copy of q
-        mapper_device *copy = mapper_device_query_copy(q->query);
+        // need to use a copy of query
+        mapper_device *copy = mapper_device_query_copy(d->query);
         $self->query = mapper_device_query_union($self->query, copy);
         return $self;
     }
-    device_query *intersect(device_query *q) {
-        if (!q || !q->query)
+    device_query *intersect(device_query *d) {
+        if (!d || !d->query)
             return $self;
-        // need to use a copy of q
-        mapper_device *copy = mapper_device_query_copy(q->query);
+        // need to use a copy of query
+        mapper_device *copy = mapper_device_query_copy(d->query);
         $self->query = mapper_device_query_intersection($self->query, copy);
         return $self;
     }
-    device_query *subtract(device_query *q) {
-        if (!q || !q->query)
+    device_query *subtract(device_query *d) {
+        if (!d || !d->query)
             return $self;
-        // need to use a copy of q
-        mapper_device *copy = mapper_device_query_copy(q->query);
+        // need to use a copy of query
+        mapper_device *copy = mapper_device_query_copy(d->query);
         $self->query = mapper_device_query_difference($self->query, copy);
         return $self;
     }
@@ -1010,6 +1091,14 @@ typedef struct _device_query {
         return d;
     }
     ~_device() {
+        PyObject **callbacks = mapper_device_user_data((mapper_device)$self);
+        if (callbacks) {
+            if (callbacks[0])
+                Py_XDECREF(callbacks[0]);
+            if (callbacks[1])
+                Py_XDECREF(callbacks[1]);
+            free(callbacks);
+        }
         mapper_device_free((mapper_device)$self);
     }
     network *network() {
@@ -1086,15 +1175,49 @@ typedef struct _device_query {
         mapper_device_send_queue((mapper_device)$self, tt);
         return $self;
     }
-    device *set_map_callback(PyObject *PyFunc=0) {
+    device *set_link_callback(PyObject *PyFunc=0) {
         void *h = 0;
+        PyObject **callbacks = mapper_device_user_data((mapper_device)$self);
+        if (!callbacks) {
+            callbacks = calloc(1, 2 * sizeof(PyObject*));
+            mapper_device_set_user_data((mapper_device)$self, callbacks);
+        }
+        else {
+            if (callbacks[0] == PyFunc)
+                return $self;
+            if (callbacks[0])
+                Py_XDECREF(callbacks[0]);
+        }
         if (PyFunc) {
             Py_XINCREF(PyFunc);
+            callbacks[0] = PyFunc;
+            h = device_link_handler_py;
+        }
+        else
+            callbacks[0] = 0;
+        mapper_device_set_link_callback((mapper_device)$self, h);
+        return $self;
+    }
+    device *set_map_callback(PyObject *PyFunc=0) {
+        void *h = 0;
+        PyObject **callbacks = mapper_device_user_data((mapper_device)$self);
+        if (!callbacks) {
+            callbacks = calloc(1, 2 * sizeof(PyObject*));
+            mapper_device_set_user_data((mapper_device)$self, callbacks);
+        }
+        else {
+            if (callbacks[1] == PyFunc)
+                return $self;
+            if (callbacks[1])
+                Py_XDECREF(callbacks[1]);
+        }
+        if (PyFunc) {
+            Py_XINCREF(PyFunc);
+            callbacks[1] = PyFunc;
             h = device_map_handler_py;
         }
         else
-            Py_XDECREF(((mapper_device)$self)->user_data);
-        ((mapper_device)$self)->user_data = PyFunc;
+            callbacks[1] = 0;
         mapper_device_set_map_callback((mapper_device)$self, h);
         return $self;
     }
@@ -1133,19 +1256,14 @@ typedef struct _device_query {
     const char *get_name() {
         return mapper_device_name((mapper_device)$self);
     }
+    int get_num_signals(mapper_direction dir=MAPPER_DIR_ANY) {
+        return mapper_device_num_signals((mapper_device)$self, dir);
+    }
+    int get_num_links(mapper_direction dir=MAPPER_DIR_ANY) {
+        return mapper_device_num_links((mapper_device)$self, dir);
+    }
     int get_num_maps(mapper_direction dir=MAPPER_DIR_ANY) {
         return mapper_device_num_maps((mapper_device)$self, dir);
-    }
-    int get_num_signals() {
-        return mapper_device_num_signals((mapper_device)$self, MAPPER_DIR_ANY);
-    }
-    int get_num_input_signals() {
-        return mapper_device_num_signals((mapper_device)$self,
-                                         MAPPER_DIR_INCOMING);
-    }
-    int get_num_output_signals() {
-        return mapper_device_num_signals((mapper_device)$self,
-                                         MAPPER_DIR_OUTGOING);
     }
     unsigned int get_ordinal() {
         return mapper_device_ordinal((mapper_device)$self);
@@ -1252,14 +1370,194 @@ typedef struct _device_query {
         id = property(get_id)
         is_local = property(get_is_local)
         name = property(get_name)
+        num_signals = property(get_num_signals)
+        num_links = property(get_num_links)
         num_maps = property(get_num_maps)
         num_properties = property(get_num_properties)
-        num_signals = property(get_num_signals)
-        num_input_signals = property(get_num_input_signals)
-        num_output_signals = property(get_num_output_signals)
         ordinal = property(get_ordinal)
         port = property(get_port)
         version = property(get_version)
+        def get_properties(self):
+            props = {}
+            for i in range(self.num_properties):
+                prop = self.get_property(i)
+                if prop:
+                    props[prop[0]] = prop[1];
+            return props
+        def __propgetter(self):
+            device = self
+            props = self.get_properties()
+            class propsetter(dict):
+                __getitem__ = props.__getitem__
+                def __setitem__(self, key, value):
+                    props[key] = value
+                    device.set_property(key, value)
+            return propsetter(self.get_properties())
+        properties = property(__propgetter)
+        def set_properties(self, props):
+            [self.set_property(k, props[k]) for k in props]
+    }
+}
+
+typedef struct _link_query {
+    mapper_link *query;
+} link_query;
+
+%exception _link_query::next {
+    assert(!my_error);
+    $action
+    if (my_error) {
+        my_error = 0;
+        PyErr_SetString(PyExc_StopIteration, "End of list");
+        return NULL;
+    }
+}
+
+%extend _link_query {
+    _link_query(const link_query *orig) {
+        struct _link_query *l = malloc(sizeof(struct _link_query));
+        l->query = mapper_link_query_copy(orig->query);
+        return l;
+    }
+    ~_link_query() {
+        mapper_link_query_done($self->query);
+        free($self);
+    }
+    struct _link_query *__iter__() {
+        return $self;
+    }
+    link *next() {
+        mapper_link result = 0;
+        if ($self->query) {
+            result = *($self->query);
+            $self->query = mapper_link_query_next($self->query);
+        }
+        if (result)
+            return (link*)result;
+        my_error = 1;
+        return NULL;
+    }
+    link_query *join(link_query *l) {
+        if (!l || !l->query)
+            return $self;
+        // need to use a copy of query
+        mapper_link *copy = mapper_link_query_copy(l->query);
+        $self->query = mapper_link_query_union($self->query, copy);
+        return $self;
+    }
+    link_query *intersect(link_query *l) {
+        if (!l || !l->query)
+            return $self;
+        // need to use a copy of query
+        mapper_link *copy = mapper_link_query_copy(l->query);
+        $self->query = mapper_link_query_intersection($self->query, copy);
+        return $self;
+    }
+    link_query *subtract(link_query *l) {
+        if (!l || !l->query)
+            return $self;
+        // need to use a copy of query
+        mapper_link *copy = mapper_link_query_copy(l->query);
+        $self->query = mapper_link_query_difference($self->query, copy);
+        return $self;
+    }
+}
+
+%extend _link {
+    // functions
+    /* Note, these functions return memory which is _not_ owned by Python.
+     * Correspondingly, the SWIG default is to set thisown to False, which is
+     * correct for this case. */
+    link *push() {
+        mapper_link_push((mapper_link)$self);
+        return $self;
+    }
+
+    // property getters
+    int get_num_properties() {
+        return mapper_link_num_properties((mapper_link)$self);
+    }
+    mapper_id get_id() {
+        return mapper_link_id((mapper_link)$self);
+    }
+    int get_num_maps(int index = 0, mapper_direction dir=MAPPER_DIR_ANY) {
+        return mapper_link_num_maps((mapper_link)$self, index, dir);
+    }
+    property_value get_property(const char *key) {
+        mapper_link link = (mapper_link)$self;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_link_property(link, key, &length, &type, &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            property_value prop = malloc(sizeof(property_value_t));
+            prop->length = length;
+            prop->type = type;
+            prop->value = (void*)value;
+            prop->free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+    named_property get_property(int index) {
+        mapper_link link = (mapper_link)$self;
+        const char *name;
+        int length;
+        char type;
+        const void *value;
+        if (!mapper_link_property_index(link, index, &name, &length, &type,
+                                        &value)) {
+            if (type == 'v') {
+                // don't include user_data
+                return 0;
+            }
+            named_property prop = malloc(sizeof(named_property_t));
+            prop->name = name;
+            prop->value.length = length;
+            prop->value.type = type;
+            prop->value.value = (void*)value;
+            prop->value.free_value = 0;
+            return prop;
+        }
+        return 0;
+    }
+
+    // property setters
+    link *set_property(const char *key, property_value val=0) {
+        if (!key || strcmp(key, "user_data")==0)
+            return $self;;
+        if (val)
+            mapper_link_set_property((mapper_link)$self, key, val->length,
+                                     val->type, val->value);
+        else
+            mapper_link_remove_property((mapper_link)$self, key);
+        return $self;
+    }
+    link *remove_property(const char *key) {
+        if (key && strcmp(key, "user_data"))
+            mapper_link_remove_property((mapper_link)$self, key);
+        return $self;
+    }
+
+    // device getters
+    // TODO: return devices as tuple instead
+    device *device(int index = 0) {
+        return (device*)mapper_link_device((mapper_link)$self, index);
+    }
+
+    // map getters
+    map_query *maps(int index = 0, mapper_direction dir=MAPPER_DIR_ANY) {
+        map_query *ret = malloc(sizeof(struct _map_query));
+        ret->query = mapper_link_maps((mapper_link)$self, index, dir);
+        return ret;
+    }
+    %pythoncode {
+        id = property(get_id)
+        num_maps = property(get_num_maps)
+        num_properties = property(get_num_properties)
         def get_properties(self):
             props = {}
             for i in range(self.num_properties):
@@ -1320,27 +1618,27 @@ typedef struct _signal_query {
         my_error = 1;
         return NULL;
     }
-    signal_query *join(signal_query *q) {
-        if (!q || !q->query)
+    signal_query *join(signal_query *s) {
+        if (!s || !s->query)
             return $self;
-        // need to use a copy of q
-        mapper_signal *copy = mapper_signal_query_copy(q->query);
+        // need to use a copy of query
+        mapper_signal *copy = mapper_signal_query_copy(s->query);
         $self->query = mapper_signal_query_union($self->query, copy);
         return $self;
     }
-    signal_query *intersect(signal_query *q) {
-        if (!q || !q->query)
+    signal_query *intersect(signal_query *s) {
+        if (!s || !s->query)
             return $self;
-        // need to use a copy of q
-        mapper_signal *copy = mapper_signal_query_copy(q->query);
+        // need to use a copy of query
+        mapper_signal *copy = mapper_signal_query_copy(s->query);
         $self->query = mapper_signal_query_intersection($self->query, copy);
         return $self;
     }
-    signal_query *subtract(signal_query *q) {
-        if (!q || !q->query)
+    signal_query *subtract(signal_query *s) {
+        if (!s || !s->query)
             return $self;
-        // need to use a copy of q
-        mapper_signal *copy = mapper_signal_query_copy(q->query);
+        // need to use a copy of query
+        mapper_signal *copy = mapper_signal_query_copy(s->query);
         $self->query = mapper_signal_query_difference($self->query, copy);
         return $self;
     }
@@ -1709,9 +2007,8 @@ typedef struct _signal_query {
         type = property(get_type)
         unit = property(get_unit, set_unit)
         def get_properties(self):
-            num_props = self.num_properties
             props = {}
-            for i in range(num_props):
+            for i in range(self.num_properties):
                 prop = self.get_property(i)
                 if prop:
                     props[prop[0]] = prop[1];
@@ -1769,27 +2066,27 @@ typedef struct _map_query {
         my_error = 1;
         return NULL;
     }
-    map_query *join(map_query *q) {
-        if (!q || !q->query)
+    map_query *join(map_query *m) {
+        if (!m || !m->query)
             return $self;
-        // need to use a copy of q
-        mapper_map *copy = mapper_map_query_copy(q->query);
+        // need to use a copy of query
+        mapper_map *copy = mapper_map_query_copy(m->query);
         $self->query = mapper_map_query_union($self->query, copy);
         return $self;
     }
-    map_query *intersect(map_query *q) {
-        if (!q || !q->query)
+    map_query *intersect(map_query *m) {
+        if (!m || !m->query)
             return $self;
-        // need to use a copy of q
-        mapper_map *copy = mapper_map_query_copy(q->query);
+        // need to use a copy of query
+        mapper_map *copy = mapper_map_query_copy(m->query);
         $self->query = mapper_map_query_intersection($self->query, copy);
         return $self;
     }
-    map_query *subtract(map_query *q) {
-        if (!q || !q->query)
+    map_query *subtract(map_query *m) {
+        if (!m || !m->query)
             return $self;
-        // need to use a copy of q
-        mapper_map *copy = mapper_map_query_copy(q->query);
+        // need to use a copy of query
+        mapper_map *copy = mapper_map_query_copy(m->query);
         $self->query = mapper_map_query_difference($self->query, copy);
         return $self;
     }
@@ -2198,25 +2495,38 @@ typedef struct _map_query {
     database *add_device_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
         mapper_database_add_device_callback((mapper_database)$self,
-                                            device_database_handler_py, PyFunc);
+                                            database_device_handler_py, PyFunc);
         return $self;
     }
     database *remove_device_callback(PyObject *PyFunc) {
         mapper_database_remove_device_callback((mapper_database)$self,
-                                               device_database_handler_py,
+                                               database_device_handler_py,
                                                PyFunc);
+        Py_XDECREF(PyFunc);
+        return $self;
+    }
+    database *add_link_callback(PyObject *PyFunc) {
+        Py_XINCREF(PyFunc);
+        mapper_database_add_link_callback((mapper_database)$self,
+                                          database_link_handler_py, PyFunc);
+        return $self;
+    }
+    database *remove_link_callback(PyObject *PyFunc) {
+        mapper_database_remove_link_callback((mapper_database)$self,
+                                             database_link_handler_py,
+                                             PyFunc);
         Py_XDECREF(PyFunc);
         return $self;
     }
     database *add_signal_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
         mapper_database_add_signal_callback((mapper_database)$self,
-                                            signal_database_handler_py, PyFunc);
+                                            database_signal_handler_py, PyFunc);
         return $self;
     }
     database *remove_signal_callback(PyObject *PyFunc) {
         mapper_database_remove_signal_callback((mapper_database)$self,
-                                               signal_database_handler_py,
+                                               database_signal_handler_py,
                                                PyFunc);
         Py_XDECREF(PyFunc);
         return $self;
@@ -2224,14 +2534,17 @@ typedef struct _map_query {
     database *add_map_callback(PyObject *PyFunc) {
         Py_XINCREF(PyFunc);
         mapper_database_add_map_callback((mapper_database)$self,
-                                         map_database_handler_py, PyFunc);
+                                         database_map_handler_py, PyFunc);
         return $self;
     }
     database *remove_map_callback(PyObject *PyFunc) {
         mapper_database_remove_map_callback((mapper_database)$self,
-                                            map_database_handler_py, PyFunc);
+                                            database_map_handler_py, PyFunc);
         Py_XDECREF(PyFunc);
         return $self;
+    }
+    int get_num_devices() {
+        return mapper_database_num_devices((mapper_database)$self);
     }
     mapper_device device(const char *device_name) {
         return mapper_database_device_by_name((mapper_database)$self,
@@ -2246,91 +2559,131 @@ typedef struct _map_query {
         return ret;
     }
     device_query *devices(const char *name) {
+        mapper_device *devs;
+        devs = mapper_database_devices_by_name((mapper_database)$self, name);
         device_query *ret = malloc(sizeof(struct _device_query));
-        ret->query = mapper_database_devices_by_name((mapper_database)$self,
-                                                     name);
+        ret->query = devs;
         return ret;
     }
     device_query *devices_by_property(named_property prop=0,
                                       mapper_op op=MAPPER_OP_EQUAL) {
-        if (!prop || !prop->name)
-            return 0;
-        property_value val = &prop->value;
         device_query *ret = malloc(sizeof(struct _device_query));
-        ret->query = mapper_database_devices_by_property((mapper_database)$self,
-                                                         prop->name, val->length,
-                                                         val->type, val->value,
-                                                         op);
+        if (prop && prop->name) {
+            property_value val = &prop->value;
+            ret->query = mapper_database_devices_by_property((mapper_database)$self,
+                                                             prop->name, val->length,
+                                                             val->type, val->value, op);
+        }
         return ret;
     }
     device_query *local_devices() {
+        mapper_device *devs;
+        devs = mapper_database_local_devices((mapper_database)$self);
         device_query *ret = malloc(sizeof(struct _device_query));
-        ret->query = mapper_database_local_devices((mapper_database)$self);
+        ret->query = devs;
         return ret;
+    }
+    int get_num_links() {
+        return mapper_database_num_links((mapper_database)$self);
+    }
+    mapper_link link(mapper_id id) {
+        return mapper_database_link_by_id((mapper_database)$self, id);
+    }
+    link_query *links() {
+        mapper_link *links;
+        links = mapper_database_links((mapper_database)$self);
+        link_query *ret = malloc(sizeof(struct _link_query));
+        ret->query = links;
+        return ret;
+    }
+    link_query *links_by_property(named_property prop=0,
+                                  mapper_op op=MAPPER_OP_EQUAL) {
+        link_query *ret = malloc(sizeof(struct _link_query));
+        if (prop && prop->name) {
+            property_value val = &prop->value;
+            ret->query = mapper_database_links_by_property((mapper_database)$self,
+                                                           prop->name, val->length,
+                                                           val->type, val->value, op);
+        }
+        return ret;
+    }
+    int get_num_signals(mapper_direction dir=MAPPER_DIR_ANY) {
+        return mapper_database_num_signals((mapper_database)$self, dir);
     }
     mapper_signal signal(mapper_id id) {
         return mapper_database_signal_by_id((mapper_database)$self, id);
     }
     signal_query *signals(mapper_direction dir=MAPPER_DIR_ANY) {
+        mapper_signal *sigs;
+        sigs = mapper_database_signals((mapper_database)$self, dir);
         signal_query *ret = malloc(sizeof(struct _signal_query));
-        ret->query = mapper_database_signals((mapper_database)$self, dir);
+        ret->query = sigs;
         return ret;
     }
     signal_query *signals(const char *name) {
+        mapper_signal *sigs;
+        sigs = mapper_database_signals_by_name((mapper_database)$self, name);
         signal_query *ret = malloc(sizeof(struct _signal_query));
-        ret->query = mapper_database_signals_by_name((mapper_database)$self,
-                                                     name);
+        ret->query = sigs;
         return ret;
     }
     signal_query *signals_by_property(named_property prop=0,
                                       mapper_op op=MAPPER_OP_EQUAL) {
-        if (!prop || !prop->name)
-            return 0;
-        property_value val = &prop->value;
-        signal_query *ret = malloc(sizeof(struct _signal_query));
-        ret->query = mapper_database_signals_by_property((mapper_database)$self,
-                                                         prop->name, val->length,
-                                                         val->type, val->value,
-                                                         op);
+        signal_query *ret = calloc(1, sizeof(struct _signal_query));
+        if (prop && prop->name) {
+            property_value val = &prop->value;
+            ret->query = mapper_database_signals_by_property((mapper_database)$self,
+                                                             prop->name, val->length,
+                                                             val->type, val->value, op);
+        }
         return ret;
+    }
+    int get_num_maps() {
+        return mapper_database_num_maps((mapper_database)$self);
     }
     mapper_map map(mapper_id id) {
         return mapper_database_map_by_id((mapper_database)$self, id);
     }
     map_query *maps() {
+        mapper_map *maps = mapper_database_maps((mapper_database)$self);
         map_query *ret = malloc(sizeof(struct _map_query));
-        ret->query = mapper_database_maps((mapper_database)$self);
+        ret->query = maps;
         return ret;
     }
     map_query *maps_by_property(named_property prop=0,
                                 mapper_op op=MAPPER_OP_EQUAL) {
-        if (!prop || !prop->name)
-            return 0;
-        property_value val = &prop->value;
-        map_query *ret = malloc(sizeof(struct _map_query));
-        ret->query = mapper_database_maps_by_property((mapper_database)$self,
-                                                      prop->name, val->length,
-                                                      val->type, val->value,
-                                                      op);
+        map_query *ret = calloc(1, sizeof(struct _map_query));
+        if (prop && prop->name) {
+            property_value val = &prop->value;
+            ret->query = mapper_database_maps_by_property((mapper_database)$self,
+                                                          prop->name, val->length,
+                                                          val->type, val->value, op);
+        }
         return ret;
     }
     map_query *maps_by_scope(device *dev) {
+        mapper_map *maps = mapper_database_maps_by_scope((mapper_database)$self,
+                                                         (mapper_device)dev);
         map_query *ret = malloc(sizeof(struct _map_query));
-        ret->query = mapper_database_maps_by_scope((mapper_database)$self,
-                                                   (mapper_device)dev);
+        ret->query = maps;
         return ret;
     }
     map_query *maps_by_slot_property(named_property prop=0,
                                      mapper_op op=MAPPER_OP_EQUAL) {
-        if (!prop || !prop->name)
-            return 0;
-        property_value val = &prop->value;
         map_query *ret = malloc(sizeof(struct _map_query));
-        ret->query = mapper_database_maps_by_slot_property((mapper_database)$self,
-                                                           prop->name, val->length,
-                                                           val->type, val->value,
-                                                           op);
+        if (prop && prop->name) {
+            property_value val = &prop->value;
+            ret->query = mapper_database_maps_by_slot_property((mapper_database)$self,
+                                                               prop->name, val->length,
+                                                               val->type, val->value, op);
+        }
         return ret;
+    }
+    %pythoncode {
+        num_devices = property(get_num_devices)
+        num_signals = property(get_num_signals)
+        num_links = property(get_num_links)
+        num_maps = property(get_num_maps)
     }
 }
 
@@ -2371,5 +2724,24 @@ typedef struct _map_query {
         ip4 = property(get_ip4)
         interface = property(get_interface)
         port = property(get_port)
+        def get_properties(self):
+            props = {}
+            for i in range(self.num_properties):
+                prop = self.get_property(i)
+                if prop:
+                    props[prop[0]] = prop[1];
+            return props
+        def __propgetter(self):
+            slot = self
+            props = self.get_properties()
+            class propsetter(dict):
+                __getitem__ = props.__getitem__
+                def __setitem__(self, key, value):
+                    props[key] = value
+                    slot.set_property(key, value)
+            return propsetter(self.get_properties())
+        properties = property(__propgetter)
+        def set_properties(self, props):
+            [self.set_property(k, props[k]) for k in props]
     }
 }
