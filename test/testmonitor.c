@@ -90,7 +90,8 @@ void loop()
         printf("-------------------------------\n");
 
         printf("Registered devices (%d) and signals (%d):\n",
-               mapper_database_num_devices(db), mapper_database_num_signals(db));
+               mapper_database_num_devices(db),
+               mapper_database_num_signals(db, MAPPER_DIR_ANY));
         mapper_device *pdev = mapper_database_devices(db), tempdev;
         mapper_signal *psig, tempsig;
         while (pdev) {

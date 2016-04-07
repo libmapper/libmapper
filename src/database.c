@@ -561,12 +561,13 @@ static int cmp_query_signals(const void *context_data, mapper_signal sig)
     return !direction || (sig->direction & direction);
 }
 
-int mapper_database_num_signals(mapper_database db)
+int mapper_database_num_signals(mapper_database db, mapper_direction dir)
 {
     int count = 0;
     mapper_signal sig = db->signals;
     while (sig) {
-        ++count;
+        if (!dir || dir == sig->direction)
+            ++count;
         sig = mapper_list_next(sig);
     }
     return count;

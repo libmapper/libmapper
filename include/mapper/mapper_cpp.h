@@ -2082,8 +2082,8 @@ namespace mapper {
             return (*this);
         }
 
-        int num_signals() const
-            { return mapper_database_num_signals(_db); }
+        int num_signals(mapper_direction dir=MAPPER_DIR_ANY) const
+            { return mapper_database_num_signals(_db, dir); }
         Signal signal(mapper_id id) const
             { return Signal(mapper_database_signal_by_id(_db, id)); }
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const

@@ -1803,8 +1803,9 @@ mapper_signal mapper_database_signal_by_id(mapper_database db, mapper_id id);
 
 /*! Return the number of signals stored in the database.
  *  \param db           The database to query.
+ *  \param dir          The direction of the signals to count.
  *  \return             The number of signals. */
-int mapper_database_num_signals(mapper_database db);
+int mapper_database_num_signals(mapper_database db, mapper_direction dir);
 
 /*! Return the list of all known signals across all devices.
  *  \param db           The database to query.
