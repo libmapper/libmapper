@@ -2017,11 +2017,6 @@ void mapper_timetag_add(mapper_timetag_t *augend, mapper_timetag_t addend);
 void mapper_timetag_subtract(mapper_timetag_t *minuend,
                              mapper_timetag_t subtrahend);
 
-/*! Add seconds to a given timetag.
- *  \param augend       A previously allocated timetag to augment.
- *  \param addend       An amount in seconds to add. */
-void mapper_timetag_add_double(mapper_timetag_t *augend, double addend);
-
 /*! Return value of mapper_timetag as a double-precision floating point value.
  *  \param tt           The timetag to read.
  *  \return             Value of the timetag as a double-precision float. */

@@ -104,8 +104,6 @@ namespace mapper {
             { return &timetag; }
         operator double() const
             { return mapper_timetag_double(timetag); }
-        Timetag& operator+(double addend)
-            { mapper_timetag_add_double(&timetag, addend); return (*this); }
         Timetag& operator+(Timetag& addend)
         {
             mapper_timetag_add(&timetag, *(mapper_timetag_t*)addend);

@@ -60,21 +60,6 @@ void mapper_timetag_subtract(mapper_timetag_t *tt, mapper_timetag_t subtrahend)
         tt->sec--;
 }
 
-void mapper_timetag_add_double(mapper_timetag_t *a, double b)
-{
-    if (!b)
-        return;
-
-    b += (double)a->frac * multiplier;
-    a->sec += floor(b);
-    b -= floor(b);
-    if (b < 0.0) {
-        a->sec--;
-        b = 1.0 - b;
-    }
-    a->frac = (uint32_t) (((double)b) * (double)(1LL<<32));
-}
-
 double mapper_timetag_double(mapper_timetag_t timetag)
 {
     return (double)timetag.sec + (double)timetag.frac * multiplier;
