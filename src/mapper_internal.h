@@ -269,6 +269,12 @@ lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
 int mapper_map_set_from_message(mapper_map map, mapper_message_t *msg,
                                 int override);
 
+/*! Helper for printing typed values.
+ *  \param length       The vector length of the value.
+ *  \param type         The value type.
+ *  \param value        A pointer to the property value to print. */
+void mapper_property_print(int length, char type, const void *value);
+
 mapper_property_t mapper_property_from_string(const char *str);
 const char *mapper_property_string(mapper_property_t prop);
 

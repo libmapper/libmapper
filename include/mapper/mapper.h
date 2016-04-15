@@ -2048,12 +2048,6 @@ void mapper_timetag_copy(mapper_timetag_t *ttl, mapper_timetag_t ttr);
  *  \return             A string specifying the version of libmapper. */
 const char *mapper_version();
 
-/*! Helper for printing typed values.
- *  \param length       The vector length of the value.
- *  \param type         The value type.
- *  \param value        A pointer to the property value to print. */
-void mapper_property_print(int length, char type, const void *value);
-
 #ifdef __cplusplus
 }
 #endif
