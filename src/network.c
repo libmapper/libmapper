@@ -961,7 +961,7 @@ static int handler_device(const char *path, const char *types,
               name);
         return 0;
     }
-    else if (mapper_device_host(link->remote_device)) {
+    else if (link->local && link->local->admin_addr) {
         // already have metadata, can ignore this message
         trace("<%s> ignoring /device '%s', link already set.\n",
               mapper_device_name(dev), name);
