@@ -152,6 +152,9 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
         mapper_signal_set_minimum(sig, minimum);
     if (maximum)
         mapper_signal_set_maximum(sig, maximum);
+
+    mapper_table_set_record(sig->props, AT_IS_LOCAL, NULL, 1, 'b', &sig->local,
+                            LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
 }
 
 void mapper_signal_free(mapper_signal sig)

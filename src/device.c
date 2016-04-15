@@ -57,9 +57,12 @@ void init_device_prop_table(mapper_device dev)
     mapper_table_link_value(dev->props, AT_VERSION, 1, 'i', &dev->version,
                             flags);
 
-    if (dev->local)
+    if (dev->local) {
         mapper_table_set_record(dev->props, AT_LIB_VERSION, NULL, 1, 's',
                                 PACKAGE_VERSION, NON_MODIFIABLE);
+    }
+    mapper_table_set_record(dev->props, AT_IS_LOCAL, NULL, 1, 'b', &dev->local,
+                            LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
 }
 
 /*! Allocate and initialize a mapper device. This function is called to create

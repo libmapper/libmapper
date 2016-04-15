@@ -32,6 +32,7 @@ const static_property_t static_properties[] = {
     { "@host",              1, 's', 's' },  /* AT_HOST */
     { "@id",                1, 'h', 'h' },  /* AT_ID */
     { "@instance",          1, 'i', 'i' },  /* AT_INSTANCE */
+    { "@is_local",          1, 'b', 'b' },  /* AT_IS_LOCAL */
     { "@length",            1, 'i', 'i' },  /* AT_LENGTH */
     { "@lib_version",       1, 's', 's' },  /* AT_LIB_VERSION */
     { "@max",               0, 'n', 'n' },  /* AT_MAX */

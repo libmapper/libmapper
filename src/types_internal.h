@@ -50,34 +50,35 @@ typedef enum {
     AT_HOST,                /* 0x07 */
     AT_ID,                  /* 0x08 */
     AT_INSTANCE,            /* 0x09 */
-    AT_LENGTH,              /* 0x0A */
-    AT_LIB_VERSION,         /* 0x0B */
-    AT_MAX,                 /* 0x0C */
-    AT_MIN,                 /* 0x0D */
-    AT_MODE,                /* 0x0E */
-    AT_MUTED,               /* 0x0F */
-    AT_NAME,                /* 0x10 */
-    AT_NUM_INCOMING_MAPS,   /* 0x11 */
-    AT_NUM_INPUTS,          /* 0x12 */
-    AT_NUM_INSTANCES,       /* 0x13 */
-    AT_NUM_LINKS,           /* 0x14 */
-    AT_NUM_MAPS,            /* 0x15 */
-    AT_NUM_OUTGOING_MAPS,   /* 0x16 */
-    AT_NUM_OUTPUTS,         /* 0x17 */
-    AT_PORT,                /* 0x18 */
-    AT_PROCESS_LOCATION,    /* 0x19 */
-    AT_RATE,                /* 0x1A */
-    AT_SCOPE,               /* 0x1B */
-    AT_SLOT,                /* 0x1C */
-    AT_STATUS,              /* 0x1D */
-    AT_SYNCED,              /* 0x1E */
-    AT_TYPE,                /* 0x1F */
-    AT_UNIT,                /* 0x20 */
-    AT_USE_AS_INSTANCE,     /* 0x21 */
-    AT_USER_DATA,           /* 0x22 */
-    AT_VERSION,             /* 0x23 */
-    AT_EXTRA,               /* 0x24 */
-    NUM_AT_PROPERTIES       /* 0x25 */
+    AT_IS_LOCAL,            /* 0x0A */
+    AT_LENGTH,              /* 0x0B */
+    AT_LIB_VERSION,         /* 0x0C */
+    AT_MAX,                 /* 0x0D */
+    AT_MIN,                 /* 0x0E */
+    AT_MODE,                /* 0x0F */
+    AT_MUTED,               /* 0x10 */
+    AT_NAME,                /* 0x11 */
+    AT_NUM_INCOMING_MAPS,   /* 0x12 */
+    AT_NUM_INPUTS,          /* 0x13 */
+    AT_NUM_INSTANCES,       /* 0x14 */
+    AT_NUM_LINKS,           /* 0x15 */
+    AT_NUM_MAPS,            /* 0x16 */
+    AT_NUM_OUTGOING_MAPS,   /* 0x17 */
+    AT_NUM_OUTPUTS,         /* 0x18 */
+    AT_PORT,                /* 0x19 */
+    AT_PROCESS_LOCATION,    /* 0x1A */
+    AT_RATE,                /* 0x1B */
+    AT_SCOPE,               /* 0x1C */
+    AT_SLOT,                /* 0x1D */
+    AT_STATUS,              /* 0x1E */
+    AT_SYNCED,              /* 0x1F */
+    AT_TYPE,                /* 0x20 */
+    AT_UNIT,                /* 0x21 */
+    AT_USE_AS_INSTANCE,     /* 0x22 */
+    AT_USER_DATA,           /* 0x23 */
+    AT_VERSION,             /* 0x24 */
+    AT_EXTRA,               /* 0x25 */
+    NUM_AT_PROPERTIES       /* 0x26 */
 } mapper_property_t;
 
 /**** String tables ****/
@@ -467,7 +468,7 @@ typedef struct _mapper_slot {
  *  properties are publically defined in mapper_constants.h. */
 typedef struct _mapper_map_internal {
     struct _mapper_router *router;
-    int is_local;
+    int is_local_only;
 
     mapper_expr expr;                   //!< The mapping expression.
     mapper_history *expr_vars;          //!< User variables values.

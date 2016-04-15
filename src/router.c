@@ -604,7 +604,7 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
 
     if (local_dst && (local_src == map->num_sources)) {
         // all reference signals are local
-        imap->is_local = 1;
+        imap->is_local_only = 1;
         map->destination.link = map->sources[0]->link;
     }
 }

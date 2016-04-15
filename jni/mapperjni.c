@@ -1687,6 +1687,13 @@ JNIEXPORT jlong JNICALL Java_mapper_Device_id
     return dev ? mapper_device_id(dev) : 0;
 }
 
+JNIEXPORT jboolean JNICALL Java_mapper_Device_isLocal
+  (JNIEnv *env, jobject obj)
+{
+    mapper_device dev = get_device_from_jobject(env, obj);
+    return dev ? mapper_device_is_local(dev) : 0;
+}
+
 JNIEXPORT jstring JNICALL Java_mapper_Device_name
   (JNIEnv *env, jobject obj)
 {
@@ -2557,6 +2564,13 @@ JNIEXPORT jlong JNICALL Java_mapper_Map_id
 {
     mapper_map map = get_map_from_jobject(env, obj);
     return map ? mapper_map_id(map) : 0;
+}
+
+JNIEXPORT jboolean JNICALL Java_mapper_Map_isLocal
+  (JNIEnv *env, jobject obj)
+{
+    mapper_map map = get_map_from_jobject(env, obj);
+    return map ? mapper_map_is_local(map) : 0;
 }
 
 JNIEXPORT jint JNICALL Java_mapper_Map_mapperMapMode
@@ -3470,6 +3484,13 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_id
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     return sig ? mapper_signal_id(sig) : 0;
+}
+
+JNIEXPORT jboolean JNICALL Java_mapper_Signal_isLocal
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    return sig ? mapper_signal_is_local(sig) : 0;
 }
 
 JNIEXPORT jint JNICALL Java_mapper_Signal_length

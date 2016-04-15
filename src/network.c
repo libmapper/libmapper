@@ -2019,7 +2019,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
         return 0;
     }
 
-    if (map->local->is_local) {
+    if (map->local->is_local_only) {
         // no need to update since all properties are local
         mapper_message_free(props);
         return 0;
@@ -2225,7 +2225,7 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
     int updated = mapper_map_set_from_message(map, props, 1);
 
     if (updated) {
-        if (!map->local->is_local) {
+        if (!map->local->is_local_only) {
             // TODO: may not need to inform all remote peers
             // Inform remote peer(s) of relevant changes
             if (!map->destination.local->router_sig) {

@@ -23,6 +23,8 @@ void mapper_link_init(mapper_link link, int is_local)
         mapper_table_link_value(link->props, AT_USER_DATA, 1, 'v',
                                 &link->user_data,
                                 MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
+        mapper_table_set_record(link->props, AT_IS_LOCAL, NULL, 1, 'b',
+                                &is_local, LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
     }
     if (!link->staged_props)
         link->staged_props = mapper_table_new();

@@ -72,7 +72,20 @@ void mapper_map_init(mapper_map map)
     mapper_table_link_value(map->props, AT_VERSION, 1, 'i', &map->version,
                             REMOTE_MODIFY);
 
-    int i;
+    int i, is_local = 0;
+    if (map->destination.signal->local)
+        is_local = 1;
+    else {
+        for (i = 0; i < map->num_sources; i++) {
+            if (map->sources[i]->signal->local) {
+                is_local = 1;
+                break;
+            }
+        }
+    }
+    mapper_table_set_record(map->props, AT_IS_LOCAL, NULL, 1, 'b', &is_local,
+                            LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+
     for (i = 0; i < map->num_sources; i++)
         mapper_slot_init(map->sources[i]);
     mapper_slot_init(&map->destination);
@@ -261,6 +274,17 @@ mapper_slot mapper_map_slot_by_signal(mapper_map map, mapper_signal sig)
 mapper_id mapper_map_id(mapper_map map)
 {
     return map->id;
+}
+
+int mapper_map_is_local(mapper_map map)
+{
+    if (map->destination.signal->local)
+        return 1;
+    int i;
+    for (i = 0; i < map->num_sources; i++)
+        if (map->sources[i]->signal->local)
+            return 1;
+    return 0;
 }
 
 mapper_mode mapper_map_mode(mapper_map map)
@@ -1080,7 +1104,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
     // If everything is successful, replace the map's expression.
     if (e) {
         int should_compile = 0;
-        if (map->local->is_local)
+        if (map->local->is_local_only)
             should_compile = 1;
         else if (map->process_location == MAPPER_LOC_DESTINATION) {
             // check if destination is local
@@ -1113,7 +1137,7 @@ static void mapper_map_set_mode_expression(mapper_map map, const char *expr)
         return;
 
     int i, should_compile = 0;
-    if (map->local->is_local)
+    if (map->local->is_local_only)
         should_compile = 1;
     else if (map->process_location == MAPPER_LOC_DESTINATION) {
         // check if destination is local
@@ -1435,7 +1459,7 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                             map->process_location = MAPPER_LOC_DESTINATION;
                         }
                         int should_compile = 0;
-                        if (map->local->is_local)
+                        if (map->local->is_local_only)
                             should_compile = 1;
                         else if (map->process_location == MAPPER_LOC_DESTINATION) {
                             // check if destination is local

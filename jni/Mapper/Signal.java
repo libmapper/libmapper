@@ -266,6 +266,9 @@ public class Signal
     /* property: id */
     public native long id();
 
+    /* property: is_local */
+    public native boolean isLocal();
+
     /* property: length */
     public native int length();
 

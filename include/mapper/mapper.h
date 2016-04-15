@@ -1221,6 +1221,11 @@ mapper_slot mapper_map_slot_by_signal(mapper_map map, mapper_signal sig);
  *  \return             The unique id assigned to this map. */
 mapper_id mapper_map_id(mapper_map map);
 
+/*! Indicate whether this map is local.
+ *  \param map          The map to check.
+ *  \return             1 if the map is local, 0 otherwise. */
+int mapper_map_is_local(mapper_map map);
+
 /*! Get the mode property for a specific map.
  *  \param map          The map to check.
  *  \return             The mode parameter for this map. */

@@ -132,6 +132,9 @@ public class Map
     /* property: id */
     public native long id();
 
+    /* property: is_local */
+    public native boolean isLocal();
+
     /* property: mode */
     private native int mapperMapMode(long map);
     public Mode mode() {
