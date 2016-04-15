@@ -322,7 +322,7 @@ mapper_device *mapper_database_devices_by_name(mapper_database db,
 
 static inline int check_type(char type)
 {
-    return strchr("ifdsct", type) != 0;
+    return strchr("ifdscth", type) != 0;
 }
 
 static int compare_value(mapper_op op, int length, char type, const void *val1,
