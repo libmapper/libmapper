@@ -121,6 +121,8 @@ int mapper_router_send_query(mapper_router router,
 
 void mapper_router_add_map(mapper_router router, mapper_map map);
 
+void mapper_router_remove_link(mapper_router router, mapper_link link);
+
 int mapper_router_remove_map(mapper_router router, mapper_map map);
 
 /*! Find a mapping in a router by local signal and remote signal name. */
@@ -362,32 +364,33 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_srcs,
 
 /*! Remove a device from the database. */
 void mapper_database_remove_device(mapper_database db, mapper_device dev,
-                                   int quiet);
+                                   mapper_record_action action, int quiet);
 
-void mapper_database_remove_signal(mapper_database db, mapper_signal sig);
-
-/*! Remove a named signal from the database if it exists. */
-void mapper_database_remove_signal_by_name(mapper_database db,
-                                           const char *dev_name,
-                                           const char *sig_name);
+void mapper_database_remove_signal(mapper_database db, mapper_signal sig,
+                                   mapper_record_action action);
 
 /*! Remove signals in the provided query. */
 void mapper_database_remove_signals_by_query(mapper_database db,
-                                             mapper_signal *sigs);
+                                             mapper_signal *sigs,
+                                             mapper_record_action action);
 
 /*! Remove links in the provided query. */
 void mapper_database_remove_links_by_query(mapper_database db,
-                                           mapper_link *links);
+                                           mapper_link *links,
+                                           mapper_record_action action);
 
 /*! Remove a specific link from the database. */
-void mapper_database_remove_link(mapper_database db, mapper_link link);
+void mapper_database_remove_link(mapper_database db, mapper_link link,
+                                 mapper_record_action action);
 
 /*! Remove maps in the provided query. */
 void mapper_database_remove_maps_by_query(mapper_database db,
-                                          mapper_map *maps);
+                                          mapper_map *maps,
+                                          mapper_record_action action);
 
 /*! Remove a specific map from the database. */
-void mapper_database_remove_map(mapper_database db, mapper_map map);
+void mapper_database_remove_map(mapper_database db, mapper_map map,
+                                mapper_record_action action);
 
 /*! Print device information database to the screen.  Useful for debugging, only
  *  works when compiled in debug mode. */

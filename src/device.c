@@ -178,7 +178,7 @@ void mapper_device_free(mapper_device dev)
     while (links) {
         mapper_link link = *links;
         links = mapper_link_query_next(links);
-        mapper_database_remove_link(dev->database, link);
+        mapper_database_remove_link(dev->database, link, MAPPER_REMOVED);
     }
 
     // Release device id maps
@@ -212,7 +212,7 @@ void mapper_device_free(mapper_device dev)
     if (dev->identifier)
         free(dev->identifier);
 
-    mapper_database_remove_device(dev->database, dev, 1);
+    mapper_database_remove_device(dev->database, dev, MAPPER_REMOVED, 1);
 
     if (own_network) {
         mapper_database_free(db);
@@ -1036,7 +1036,7 @@ void mapper_device_remove_signal(mapper_device dev, mapper_signal sig)
         mapper_signal_send_removed(sig);
     }
 
-    mapper_database_remove_signal(dev->database, sig);
+    mapper_database_remove_signal(dev->database, sig, MAPPER_REMOVED);
     mapper_device_increment_version(dev);
 }
 

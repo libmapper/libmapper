@@ -46,7 +46,7 @@ void mapper_database_free(mapper_database db)
         mapper_map map = *maps;
         maps = mapper_map_query_next(maps);
         if (!map->local)
-            mapper_database_remove_map(db, map);
+            mapper_database_remove_map(db, map, MAPPER_REMOVED);
     }
 
     /* Remove all non-local devices and signals from the database except for
@@ -74,10 +74,10 @@ void mapper_database_free(mapper_database db)
                 maps = mapper_map_query_next(maps);
             }
             if (no_local_signal_maps)
-                mapper_database_remove_signal(db, sig);
+                mapper_database_remove_signal(db, sig, MAPPER_REMOVED);
         }
         if (no_local_device_maps)
-            mapper_database_remove_device(db, dev, 1);
+            mapper_database_remove_device(db, dev, MAPPER_REMOVED, 1);
     }
 
     if (!db->network->device && !db->network->own_network)
@@ -122,7 +122,7 @@ void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
             else
                 s = &(*s)->next;
         }
-        mapper_database_remove_device(db, dev, quiet);
+        mapper_database_remove_device(db, dev, MAPPER_EXPIRED, quiet);
     }
 }
 
@@ -196,13 +196,14 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
 
 // Internal function called by /logout protocol handler
 void mapper_database_remove_device(mapper_database db, mapper_device dev,
-                                   int quiet)
+                                   mapper_record_action action, int quiet)
 {
     if (!dev)
         return;
 
     mapper_database_remove_maps_by_query(db,
-                                         mapper_device_maps(dev, MAPPER_DIR_ANY));
+                                         mapper_device_maps(dev, MAPPER_DIR_ANY),
+                                         action);
 
     // remove matching maps scopes
     mapper_map *maps = mapper_database_maps_by_scope(db, dev);
@@ -212,10 +213,12 @@ void mapper_database_remove_device(mapper_database db, mapper_device dev,
     }
 
     mapper_database_remove_links_by_query(db, mapper_device_links(dev,
-                                                                  MAPPER_DIR_ANY));
+                                                                  MAPPER_DIR_ANY),
+                                          action);
 
     mapper_database_remove_signals_by_query(db, mapper_device_signals(dev,
-                                                                MAPPER_DIR_ANY));
+                                                                MAPPER_DIR_ANY),
+                                            action);
 
     mapper_list_remove_item((void**)&db->devices, dev);
 
@@ -223,7 +226,7 @@ void mapper_database_remove_device(mapper_database db, mapper_device dev,
         fptr_list cb = db->device_callbacks;
         while (cb) {
             mapper_database_device_handler *h = cb->f;
-            h(db, dev, MAPPER_REMOVED, cb->context);
+            h(db, dev, action, cb->context);
             cb = cb->next;
         }
     }
@@ -638,18 +641,20 @@ mapper_signal *mapper_database_signals_by_property(mapper_database db,
                                   "iicvs", op, length, type, &value, name));
 }
 
-void mapper_database_remove_signal(mapper_database db, mapper_signal sig)
+void mapper_database_remove_signal(mapper_database db, mapper_signal sig,
+                                   mapper_record_action action)
 {
     // remove any stored maps using this signal
     mapper_database_remove_maps_by_query(db,
-                                         mapper_signal_maps(sig, MAPPER_DIR_ANY));
+                                         mapper_signal_maps(sig, MAPPER_DIR_ANY),
+                                         action);
 
     mapper_list_remove_item((void**)&db->signals, sig);
 
     fptr_list cb = db->signal_callbacks;
     while (cb) {
         mapper_database_signal_handler *h = cb->f;
-        h(db, sig, MAPPER_REMOVED, cb->context);
+        h(db, sig, action, cb->context);
         cb = cb->next;
     }
 
@@ -659,31 +664,18 @@ void mapper_database_remove_signal(mapper_database db, mapper_signal sig)
         --sig->device->num_outputs;
 
     mapper_signal_free(sig);
-
     mapper_list_free_item(sig);
 }
 
-// Internal function called by /logout protocol handler.
-void mapper_database_remove_signal_by_name(mapper_database db,
-                                           const char *device_name,
-                                           const char *signal_name)
-{
-    mapper_device dev = mapper_database_device_by_name(db, device_name);
-    if (!dev)
-        return;
-    mapper_signal sig = mapper_device_signal_by_name(dev, signal_name);
-    if (sig && !sig->local)
-        mapper_database_remove_signal(db, sig);
-}
-
 void mapper_database_remove_signals_by_query(mapper_database db,
-                                             mapper_signal *query)
+                                             mapper_signal *query,
+                                             mapper_record_action action)
 {
     while (query) {
         mapper_signal sig = *query;
         query = mapper_signal_query_next(query);
         if (!sig->local)
-            mapper_database_remove_signal(db, sig);
+            mapper_database_remove_signal(db, sig, action);
     }
 }
 
@@ -810,26 +802,33 @@ mapper_link *mapper_database_links_by_property(mapper_database db,
                                   "iicvs", op, length, type, &value, name));
 }
 
-void mapper_database_remove_links_by_query(mapper_database db, mapper_link *links)
+void mapper_database_remove_links_by_query(mapper_database db,
+                                           mapper_link *links,
+                                           mapper_record_action action)
 {
     while (links) {
         mapper_link link = *links;
         links = mapper_link_query_next(links);
-        mapper_database_remove_link(db, link);
+        mapper_database_remove_link(db, link, action);
     }
 }
 
-void mapper_database_remove_link(mapper_database db, mapper_link link)
+void mapper_database_remove_link(mapper_database db, mapper_link link,
+                                 mapper_record_action action)
 {
     if (!link)
         return;
+
+    mapper_database_remove_maps_by_query(db,
+                                         mapper_link_maps(link, 0, MAPPER_DIR_ANY),
+                                         action);
 
     mapper_list_remove_item((void**)&db->links, link);
 
     fptr_list cb = db->link_callbacks;
     while (cb) {
         mapper_database_link_handler *h = cb->f;
-        h(db, link, MAPPER_REMOVED, cb->context);
+        h(db, link, action, cb->context);
         cb = cb->next;
     }
     mapper_link_free(link);
@@ -1141,16 +1140,18 @@ mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
                                   "iicvs", op, length, type, &value, name));
 }
 
-void mapper_database_remove_maps_by_query(mapper_database db, mapper_map *maps)
+void mapper_database_remove_maps_by_query(mapper_database db, mapper_map *maps,
+                                          mapper_record_action action)
 {
     while (maps) {
         mapper_map map = *maps;
         maps = mapper_map_query_next(maps);
-        mapper_database_remove_map(db, map);
+        mapper_database_remove_map(db, map, action);
     }
 }
 
-void mapper_database_remove_map(mapper_database db, mapper_map map)
+void mapper_database_remove_map(mapper_database db, mapper_map map,
+                                mapper_record_action action)
 {
     if (!map)
         return;
@@ -1160,12 +1161,11 @@ void mapper_database_remove_map(mapper_database db, mapper_map map)
     fptr_list cb = db->map_callbacks;
     while (cb) {
         mapper_database_map_handler *h = cb->f;
-        h(db, map, MAPPER_REMOVED, cb->context);
+        h(db, map, action, cb->context);
         cb = cb->next;
     }
 
     mapper_map_free(map);
-
     mapper_list_free_item(map);
 }
 

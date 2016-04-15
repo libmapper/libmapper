@@ -619,6 +619,31 @@ static void check_link(mapper_router rtr, mapper_link link)
      * routines to clean up empty links after the link ping timeout period. */
 }
 
+void mapper_router_remove_link(mapper_router router, mapper_link link)
+{
+    int i, j;
+    // check if any maps use this link
+    mapper_router_signal rs = router->signals;
+    while (rs) {
+        for (i = 0; i < rs->num_slots; i++) {
+            if (!rs->slots[i])
+                continue;
+            mapper_map map = rs->slots[i]->map;
+            if (map->destination.link == link) {
+                mapper_router_remove_map(router, map);
+                continue;
+            }
+            for (j = 0; j < map->num_sources; j++) {
+                if (map->sources[j]->link == link) {
+                    mapper_router_remove_map(router, map);
+                    break;
+                }
+            }
+        }
+        rs = rs->next;
+    }
+}
+
 void mapper_router_remove_signal(mapper_router rtr, mapper_router_signal rs)
 {
     if (rtr && rs) {

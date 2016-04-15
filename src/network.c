@@ -674,7 +674,7 @@ void mapper_network_remove_device(mapper_network net, mapper_device dev)
     if (dev) {
         mapper_network_remove_device_methods(net, dev);
         // TODO: should release of local device trigger local device handler?
-        mapper_database_remove_device(&net->database, dev, 0);
+        mapper_database_remove_device(&net->database, dev, MAPPER_REMOVED, 0);
         net->device = 0;
     }
 }
@@ -749,9 +749,11 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
                 // Call local link handler if it exists
                 mapper_device_link_handler *h = dev->local->link_handler;
                 if (h)
-                    h(dev, link, MAPPER_REMOVED);
+                    h(dev, link, num_maps ? MAPPER_EXPIRED : MAPPER_REMOVED);
                 // remove related data structures
-                mapper_database_remove_link(dev->database, link);
+                mapper_router_remove_link(dev->local->router, link);
+                mapper_database_remove_link(dev->database, link, num_maps
+                                            ? MAPPER_EXPIRED : MAPPER_REMOVED);
             }
         }
         else if (mapper_device_host(link->remote_device) && num_maps) {
@@ -1136,7 +1138,7 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
     if (dev) {
         // remove subscriptions
         mapper_database_unsubscribe(&net->database, dev);
-        mapper_database_remove_device(&net->database, dev, 0);
+        mapper_database_remove_device(&net->database, dev, MAPPER_REMOVED, 0);
     }
 
     return 0;
@@ -1351,7 +1353,12 @@ static int handler_signal_removed(const char *path, const char *types,
 
     trace("<network> got /signal/removed %s:%s\n", devname, signamep);
 
-    mapper_database_remove_signal_by_name(&net->database, devname, signamep);
+    mapper_device dev = mapper_database_device_by_name(&net->database, devname);
+    if (dev && !dev->local) {
+        mapper_signal sig = mapper_device_signal_by_name(dev, signamep);
+        if (sig)
+            mapper_database_remove_signal(&net->database, sig, MAPPER_REMOVED);
+    }
 
     return 0;
 }
@@ -1626,7 +1633,7 @@ static int handler_unlinked(const char *path, const char *types, lo_arg **argv,
         return 0;
     mapper_link link = mapper_device_link_by_remote_device(dev1, dev2);
     if (link)
-        mapper_database_remove_link(&net->database, link);
+        mapper_database_remove_link(&net->database, link, MAPPER_REMOVED);
     return 0;
 }
 
@@ -1728,7 +1735,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
     mapper_map_set_from_message(map, props, 1);
     mapper_message_free(props);
 
-    if (map->status == STATUS_READY) {
+    if (map->local->is_local_only) {
         trace("map references only local signals... setting state to ACTIVE.\n");
         map->status = STATUS_ACTIVE;
         ++dev->num_outgoing_maps;
@@ -2368,6 +2375,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
 
     /* The mapping is removed. */
     mapper_router_remove_map(dev->local->router, map);
+    mapper_database_remove_map(dev->database, map, MAPPER_REMOVED);
     // TODO: remove empty router_signals
     return 0;
 }
@@ -2402,7 +2410,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
 
     mapper_map map = mapper_database_map_by_id(&net->database, *id);
     if (map)
-        mapper_database_remove_map(&net->database, map);
+        mapper_database_remove_map(&net->database, map, MAPPER_REMOVED);
 
     return 0;
 }
