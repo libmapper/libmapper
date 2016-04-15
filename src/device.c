@@ -1100,26 +1100,6 @@ mapper_signal mapper_device_signal_by_name(mapper_device dev,
     return 0;
 }
 
-mapper_signal mapper_device_signal_by_index(mapper_device dev, int index,
-                                            mapper_direction dir)
-{
-    if (!dev || index < 0)
-        return 0;
-    mapper_signal sig = dev->database->signals;
-    if (!sig)
-        return 0;
-
-    int count = -1;
-    while (sig && count < index) {
-        if ((sig->device == dev) && (!dir || (sig->direction & dir))) {
-            if (++count == index)
-            return sig;
-        }
-        sig = mapper_list_next(sig);
-    }
-    return 0;
-}
-
 int mapper_device_num_maps(mapper_device dev, mapper_direction dir)
 {
     if (!dev)

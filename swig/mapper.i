@@ -1346,10 +1346,6 @@ typedef struct _device_query {
     signal *signal(mapper_id id) {
         return (signal*)mapper_device_signal_by_id((mapper_device)$self, id);
     }
-    signal *signal(int index, mapper_direction dir) {
-        return (signal*)mapper_device_signal_by_index((mapper_device)$self,
-                                                      index, dir);
-    }
     signal *signal(const char *name) {
         return (signal*)mapper_device_signal_by_name((mapper_device)$self, name);
     }

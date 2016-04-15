@@ -661,14 +661,6 @@ mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id);
 mapper_signal mapper_device_signal_by_name(mapper_device dev,
                                            const char *sig_name);
 
-/*! Find information for a registered signal.
- *  \param dev          Device record to query.
- *  \param index        Index of the signal to find in the database.
- *  \param dir      	The direction of the signal to return.
- *  \return             Information about the signal, or zero if not found. */
-mapper_signal mapper_device_signal_by_index(mapper_device dev, int index,
-                                            mapper_direction dir);
-
 /*! Get the description for a specific device.
  *  \param dev          The device to check.
  *  \return             The device description if it is defined, or NULL. */
