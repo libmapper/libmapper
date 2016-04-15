@@ -1105,28 +1105,24 @@ mapper_map *mapper_database_maps_by_property(mapper_database db,
 static int cmp_query_maps_by_slot_property(const void *context_data,
                                            mapper_map map)
 {
-    int i, direction = *(int*)context_data;
-    int op = *(int*)(context_data + sizeof(int));
-    int length2, length1 = *(int*)(context_data + sizeof(int) * 2);
-    char type2, type1 = *(char*)(context_data + sizeof(int) * 3);
-    const void *value2, *value1 = *(void**)(context_data + sizeof(int) * 4);
-    const char *name = (const char*)(context_data + sizeof(int) * 4
+    int i, op = *(int*)(context_data);
+    int length2, length1 = *(int*)(context_data + sizeof(int));
+    char type2, type1 = *(char*)(context_data + sizeof(int) * 2);
+    const void *value2, *value1 = *(void**)(context_data + sizeof(int) * 3);
+    const char *name = (const char*)(context_data + sizeof(int) * 3
                                      + sizeof(void*));
-    if (!direction || direction & MAPPER_DIR_INCOMING) {
-        if (!mapper_slot_property(&map->destination, name, &length2,
-                                  &type2, &value2)
+    // check destination slot
+    if (!mapper_slot_property(&map->destination, name, &length2, &type2, &value2)
+        && type1 == type2 && length1 == length2
+        && compare_value(op, length1, type1, value2, value1)) {
+        return 1;
+    }
+    // check source slots
+    for (i = 0; i < map->num_sources; i++) {
+        if (!mapper_slot_property(map->sources[i], name, &length2, &type2, &value2)
             && type1 == type2 && length1 == length2
             && compare_value(op, length1, type1, value2, value1))
             return 1;
-    }
-    if (!direction || direction & MAPPER_DIR_OUTGOING) {
-        for (i = 0; i < map->num_sources; i++) {
-            if (!mapper_slot_property(map->sources[i], name, &length2, &type2,
-                                      &value2)
-                && type1 == type2 && length1 == length2
-                && compare_value(op, length1, type1, value2, value1))
-                return 1;
-        }
     }
     return 0;
 }
@@ -1142,7 +1138,7 @@ mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(db->maps, cmp_query_maps_by_slot_property,
-                                  "iiicvs", 0, op, length, type, &value, name));
+                                  "iicvs", op, length, type, &value, name));
 }
 
 void mapper_database_remove_maps_by_query(mapper_database db, mapper_map *maps)
