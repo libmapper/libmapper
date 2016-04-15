@@ -496,7 +496,8 @@ static void alloc_and_init_local_slot(mapper_router rtr, mapper_slot slot,
                                                       rtr->device, slot->signal->device,
                                                       0);
         }
-        mapper_link_init(link, 1);
+        if (!link->local)
+            mapper_link_init(link, 1);
         slot->link = link;
     }
 
