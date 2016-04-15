@@ -2417,14 +2417,14 @@ JNIEXPORT jlong JNICALL Java_mapper_Map_mapperMapSrcSlotPtr
   (JNIEnv *env, jobject obj, jlong jmap, jint index)
 {
     mapper_map map = (mapper_map) ptr_jlong(jmap);
-    return map ? jlong_ptr(mapper_map_source_slot(map, index)) : 0;
+    return map ? jlong_ptr(mapper_map_slot(map, MAPPER_LOC_SOURCE, index)) : 0;
 }
 
 JNIEXPORT jlong JNICALL Java_mapper_Map_mapperMapDstSlotPtr
   (JNIEnv *env, jobject obj, jlong jmap)
 {
     mapper_map map = (mapper_map) ptr_jlong(jmap);
-    return map ? jlong_ptr(mapper_map_destination_slot(map)) : 0;
+    return map ? jlong_ptr(mapper_map_slot(map, MAPPER_LOC_DESTINATION, 0)) : 0;
 }
 
 JNIEXPORT jlong JNICALL Java_mapper_Map_mapperMapNew

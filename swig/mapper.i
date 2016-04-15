@@ -2110,10 +2110,10 @@ typedef struct _map_query {
     // slot getters
     // TODO: return generator for source slot iterable
     slot *source(int index=0) {
-        return (slot*)mapper_map_source_slot((mapper_map)$self, index);
+        return (slot*)mapper_map_slot((mapper_map)$self, MAPPER_LOC_SOURCE, index);
     }
     slot *destination() {
-        return (slot*)mapper_map_destination_slot((mapper_map)$self);
+        return (slot*)mapper_map_slot((mapper_map)$self, MAPPER_LOC_DESTINATION, 0);
     }
     slot *slot(signal *sig) {
         return (slot*)mapper_map_slot_by_signal((mapper_map)$self,

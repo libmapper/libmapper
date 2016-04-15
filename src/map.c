@@ -247,16 +247,13 @@ int mapper_map_num_sources(mapper_map map)
     return map->num_sources;
 }
 
-mapper_slot mapper_map_source_slot(mapper_map map, int index)
+mapper_slot mapper_map_slot(mapper_map map, mapper_location loc, int index)
 {
-    if (index < 0 || index >= map->num_sources)
+    if (loc == MAPPER_LOC_DESTINATION)
+        return &map->destination;
+    if (loc != MAPPER_LOC_SOURCE || index < 0 || index >= map->num_sources)
         return 0;
     return map->sources[index];
-}
-
-mapper_slot mapper_map_destination_slot(mapper_map map)
-{
-    return &map->destination;
 }
 
 mapper_slot mapper_map_slot_by_signal(mapper_map map, mapper_signal sig)

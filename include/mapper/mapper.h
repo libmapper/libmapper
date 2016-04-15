@@ -1191,16 +1191,13 @@ const char *mapper_map_description(mapper_map map);
  *  \return             The number of sources. */
 int mapper_map_num_sources(mapper_map map);
 
-/*! Get a source slot for a specific map.
+/*! Retrieve a slot for a specific map.
  *  \param map          The map to check.
- *  \param index        The source slot index.
- *  \return             The indexed source slot, or NULL if not available. */
-mapper_slot mapper_map_source_slot(mapper_map map, int index);
-
-/*! Get the destination slot for a specific map.
- *  \param map          The map to check.
- *  \return             The destination slot. */
-mapper_slot mapper_map_destination_slot(mapper_map map);
+ *  \param loc          The map endpoint, must be MAPPER_LOC_SOURCE or
+ *                      MAPPER_LOC_DESTINATION.
+ *  \param index        The slot index.
+ *  \return             The slot, or NULL if not available. */
+mapper_slot mapper_map_slot(mapper_map map, mapper_location loc, int index);
 
 /*! Get the map slot matching a specific signal.
  *  \param map          The map to check.

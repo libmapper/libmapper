@@ -1135,9 +1135,9 @@ namespace mapper {
             mapper_slot _slot;
         };
         Slot destination() const
-            { return Slot(mapper_map_destination_slot(_map)); }
+            { return Slot(mapper_map_slot(_map, MAPPER_LOC_DESTINATION, 0)); }
         Slot source(int index=0) const
-            { return Slot(mapper_map_source_slot(_map, index)); }
+            { return Slot(mapper_map_slot(_map, MAPPER_LOC_SOURCE, index)); }
         template <typename... Values>
         Map& set_property(Values... values)
         {

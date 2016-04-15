@@ -105,11 +105,11 @@ int setup_maps()
     mapper_map map = mapper_map_new(1, &sendsig, recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_LINEAR);
 
-    mapper_slot slot = mapper_map_source_slot(map, 0);
+    mapper_slot slot = mapper_map_slot(map, MAPPER_LOC_SOURCE, 0);
     mapper_slot_set_minimum(slot, 1, 'f', &src_min);
     mapper_slot_set_maximum(slot, 1, 'f', &src_max);
 
-    slot = mapper_map_destination_slot(map);
+    slot = mapper_map_slot(map, MAPPER_LOC_DESTINATION, 0);
     mapper_slot_set_minimum(slot, 1, 'f', &dest_min);
     mapper_slot_set_maximum(slot, 1, 'f', &dest_max);
     mapper_slot_set_bound_min(slot, MAPPER_BOUND_FOLD);
