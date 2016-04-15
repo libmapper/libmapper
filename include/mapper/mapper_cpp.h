@@ -2051,8 +2051,6 @@ namespace mapper {
             { return Device(mapper_database_device_by_name(_db, name)); }
         Device::Query devices() const
             { return Device::Query(mapper_database_devices(_db)); }
-        Device::Query local_devices() const
-            { return Device::Query(mapper_database_local_devices(_db)); }
         Device::Query devices(const string_type &name) const
         {
             return Device::Query(mapper_database_devices_by_name(_db, name));

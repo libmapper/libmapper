@@ -1124,22 +1124,6 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_devices__
     return (*env)->NewObject(env, cls, mid, jlong_ptr(devs));
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Database_localDevices
-  (JNIEnv *env, jobject obj)
-{
-    jclass cls = (*env)->FindClass(env, "mapper/device/Query");
-    if (!cls)
-        return 0;
-
-    mapper_device *devs = 0;
-    mapper_database db = get_database_from_jobject(env, obj);
-    if (db)
-        devs = mapper_database_local_devices(db);
-
-    jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
-    return (*env)->NewObject(env, cls, mid, jlong_ptr(devs));
-}
-
 JNIEXPORT jobject JNICALL Java_mapper_Database_devices__Ljava_lang_String_2
   (JNIEnv *env, jobject obj, jstring s)
 {

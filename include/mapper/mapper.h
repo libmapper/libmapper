@@ -1736,12 +1736,6 @@ int mapper_database_num_devices(mapper_database db);
  *                      results.  Use mapper_device_query_next() to iterate. */
 mapper_device *mapper_database_devices(mapper_database db);
 
-/*! Return the list of local devices.
- *  \param db           The database to query.
- *  \return             A double-pointer to the first item in the list of
- *                      results.  Use mapper_device_query_next() to iterate. */
-mapper_device *mapper_database_local_devices(mapper_database db);
-
 /*! Find information for a registered device.
  *  \param db           The database to query.
  *  \param name         Name of the device to find in the database.

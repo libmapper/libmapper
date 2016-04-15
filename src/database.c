@@ -253,17 +253,6 @@ mapper_device *mapper_database_devices(mapper_database db)
     return mapper_list_from_data(db->devices);
 }
 
-static int cmp_query_local_devices(const void *context_data, mapper_device dev)
-{
-    return dev->local != 0;
-}
-
-mapper_device *mapper_database_local_devices(mapper_database db)
-{
-    return ((mapper_device *)
-            mapper_list_new_query(db->devices, cmp_query_local_devices, "i", 0));
-}
-
 mapper_device mapper_database_device_by_name(mapper_database db,
                                              const char *name)
 {

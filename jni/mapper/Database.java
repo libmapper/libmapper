@@ -185,7 +185,6 @@ public class Database
     public native mapper.Device device(String deviceName);
     public native mapper.Device device(long id);
     public native mapper.device.Query devices();
-    public native mapper.device.Query localDevices();
     public native mapper.device.Query devices(String name);
 
     private native long mapperDatabaseDevicesByProp(long db, String name,

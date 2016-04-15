@@ -2576,13 +2576,6 @@ typedef struct _map_query {
         }
         return ret;
     }
-    device_query *local_devices() {
-        mapper_device *devs;
-        devs = mapper_database_local_devices((mapper_database)$self);
-        device_query *ret = malloc(sizeof(struct _device_query));
-        ret->query = devs;
-        return ret;
-    }
     int get_num_links() {
         return mapper_database_num_links((mapper_database)$self);
     }
