@@ -35,7 +35,7 @@ void mapper_link_init(mapper_link link, int is_local)
                    calloc(1, sizeof(struct _mapper_link_internal)));
 
     if (!link->id && link->local_device->local)
-        link->id = mapper_device_unique_id(link->local_device);
+        link->id = mapper_device_generate_unique_id(link->local_device);
 
     if (link->local_device == link->remote_device) {
         /* Add data_addr for use by self-connections. In the future we may

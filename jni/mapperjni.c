@@ -2726,7 +2726,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
     else {
         // try to steal an active instance
         mapper_device dev = mapper_signal_device(sig);
-        id = mapper_device_unique_id(dev);
+        id = mapper_device_generate_unique_id(dev);
         if (!mapper_signal_instance_activate(sig, id)) {
             printf("Could not activate instance with id %llu\n", id);
             return 0;
@@ -3014,7 +3014,7 @@ JNIEXPORT void JNICALL Java_mapper_Signal_mapperSignalReserveInstances
     instance_jni_context ctx = 0;
     int i;
     for (i = 0; i < num; i++) {
-        mapper_id id = ids ? (ids[i]) : mapper_device_unique_id(dev);
+        mapper_id id = ids ? (ids[i]) : mapper_device_generate_unique_id(dev);
 
         if (!ctx) {
             ctx = ((instance_jni_context)

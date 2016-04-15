@@ -1233,8 +1233,8 @@ typedef struct _device_query {
         mapper_device_synced((mapper_device)$self, &tt);
         return mapper_timetag_double(tt);
     }
-    mapper_id unique_id() {
-        return mapper_device_unique_id((mapper_device)$self);
+    mapper_id generate_unique_id() {
+        return mapper_device_generate_unique_id((mapper_device)$self);
     }
 
     // property getters

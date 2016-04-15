@@ -560,7 +560,7 @@ void mapper_device_free(mapper_device dev);
 /*! Return a unique id associated with a given device.
  *  \param dev          The device to use.
  *  \return             A new unique id. */
-mapper_id mapper_device_unique_id(mapper_device dev);
+mapper_id mapper_device_generate_unique_id(mapper_device dev);
 
 /*! Retrieve the networking structure from a device.
  *  \param dev          The device to use.

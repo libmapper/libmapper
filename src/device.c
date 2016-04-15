@@ -849,7 +849,7 @@ static mapper_id get_unused_signal_id(mapper_device dev)
     mapper_id id;
     while (!done) {
         done = 1;
-        id = mapper_device_unique_id(dev);
+        id = mapper_device_generate_unique_id(dev);
         // check if input signal exists with this id
         mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
         while (sig) {
@@ -1664,7 +1664,7 @@ void mapper_device_now(mapper_device dev, mapper_timetag_t *timetag)
     mapper_clock_now(&dev->database->network->clock, timetag);
 }
 
-mapper_id mapper_device_unique_id(mapper_device dev) {
+mapper_id mapper_device_generate_unique_id(mapper_device dev) {
     if (!dev)
         return 0;
     mapper_id id = ++dev->database->resource_counter;

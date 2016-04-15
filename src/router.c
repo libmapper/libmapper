@@ -437,7 +437,7 @@ static mapper_id unused_map_id(mapper_device dev, mapper_router rtr)
     mapper_id id;
     while (!done) {
         done = 1;
-        id = mapper_device_unique_id(dev);
+        id = mapper_device_generate_unique_id(dev);
         // check if map exists with this id
         mapper_router_signal rs = rtr->signals;
         while (rs) {

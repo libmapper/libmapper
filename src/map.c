@@ -166,7 +166,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
     map->destination.direction = MAPPER_DIR_INCOMING;
 
     // we need to give the map a temporary id – this may be overwritten later
-    map->id = mapper_device_unique_id(destination->device);
+    map->id = mapper_device_generate_unique_id(destination->device);
 
     mapper_map_init(map);
 

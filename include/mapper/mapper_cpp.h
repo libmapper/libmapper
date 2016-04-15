@@ -1400,7 +1400,7 @@ namespace mapper {
         Instance instance(mapper_id id = 0)
         {
             if (!id)
-                id = mapper_device_unique_id(mapper_signal_device(_sig));
+                id = mapper_device_generate_unique_id(mapper_signal_device(_sig));
             // TODO: wait before activating instance?
             mapper_signal_instance_set_user_data(_sig, id, 0);
             return Instance(_sig, id);

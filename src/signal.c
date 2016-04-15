@@ -433,8 +433,8 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
     if ((si = find_instance_by_id(sig, id))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
-            map = mapper_device_add_instance_id_map(sig->device, id,
-                                                    mapper_device_unique_id(sig->device));
+            mapper_id global = mapper_device_generate_unique_id(sig->device);
+            map = mapper_device_add_instance_id_map(sig->device, id, global);
         }
         else {
             ++map->refcount_local;
@@ -477,8 +477,8 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
     if ((si = find_instance_by_id(sig, id))) {
         if (!map) {
             // Claim id map locally add id map to device and link from signal
-            map = mapper_device_add_instance_id_map(sig->device, id,
-                                                    mapper_device_unique_id(sig->device));
+            mapper_id global = mapper_device_generate_unique_id(sig->device);
+            map = mapper_device_add_instance_id_map(sig->device, id, global);
         }
         else {
             ++map->refcount_local;
