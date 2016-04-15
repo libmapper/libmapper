@@ -286,7 +286,6 @@ int mapper_link_set_from_message(mapper_link link, mapper_message msg,
                                                         REMOTE_MODIFY);
         }
     }
-    mapper_link_print(link);
     return updated;
 }
 
@@ -372,6 +371,16 @@ void mapper_link_print(mapper_link link)
             printf(", %s=", key);
             mapper_property_print(length, type, val);
         }
+    }
+    if (link->local) {
+        if (link->local->admin_addr)
+            printf(", admin_addr=%s:%s",
+                   lo_address_get_hostname(link->local->admin_addr),
+                   lo_address_get_port(link->local->admin_addr));
+        if (link->local->data_addr)
+            printf(", data_addr=%s:%s",
+                   lo_address_get_hostname(link->local->data_addr),
+                   lo_address_get_port(link->local->data_addr));
     }
     printf("\n");
 }
