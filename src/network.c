@@ -2479,7 +2479,10 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
 
     mapper_device dev = 0;
     if (types[0] == 's' || types[0] == 'S') {
-        if ((dev = mapper_database_device_by_name(&net->database, &argv[0]->s))) {
+        dev = mapper_database_device_by_name(&net->database, &argv[0]->s);
+        if (dev) {
+            if (dev->local)
+                return 0;
             mapper_timetag_copy(&dev->synced, lo_message_get_timestamp(msg));
         }
         if (net->database.autosubscribe && (!dev || !dev->subscribed)) {
