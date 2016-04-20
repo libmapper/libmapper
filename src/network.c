@@ -922,7 +922,7 @@ static int handler_device(const char *path, const char *types,
     mapper_network net = (mapper_network) user_data;
     mapper_device dev = net->device;
     int i, j;
-    mapper_message props;
+    mapper_message props = 0;
 
     if (argc < 1)
         return 0;
@@ -931,6 +931,18 @@ static int handler_device(const char *path, const char *types,
         return 0;
 
     const char *name = &argv[0]->s;
+
+    if (net->database.autosubscribe) {
+        props = mapper_message_parse_properties(argc-1, &types[1], &argv[1]);
+        trace("<network> got /device %s + %i arguments\n", name, argc-1);
+        mapper_device remote;
+        remote = mapper_database_add_or_update_device(&net->database, name, props);
+        if (!remote->subscribed) {
+            mapper_database_subscribe(&net->database, remote,
+                                      net->database.autosubscribe, -1);
+            remote->subscribed = 1;
+        }
+    }
     if (dev) {
         if (strcmp(&argv[0]->s, mapper_device_name(dev))) {
             trace("<%s> got /device %s\n", mapper_device_name(dev), &argv[0]->s);
@@ -941,19 +953,8 @@ static int handler_device(const char *path, const char *types,
             return 0;
         }
     }
-    else if (net->database.autosubscribe) {
-        props = mapper_message_parse_properties(argc-1, &types[1], &argv[1]);
-        trace("<network> got /device %s + %i arguments\n", name, argc-1);
-        mapper_device remote;
-        remote = mapper_database_add_or_update_device(&net->database, name, props);
-        if (!remote->subscribed) {
-            mapper_database_subscribe(&net->database, remote,
-                                      net->database.autosubscribe, -1);
-            remote->subscribed = 1;
-        }
-        mapper_message_free(props);
-        return 0;
-    }
+    else
+        goto done;
 
     // Discover whether the device is linked.
     mapper_device remote = mapper_database_device_by_name(dev->database, name);
@@ -961,38 +962,36 @@ static int handler_device(const char *path, const char *types,
     if (!link) {
         trace("<%s> ignoring /device '%s', no link.\n", mapper_device_name(dev),
               name);
-        return 0;
+        goto done;
     }
     else if (link->local && link->local->admin_addr) {
         // already have metadata, can ignore this message
         trace("<%s> ignoring /device '%s', link already set.\n",
               mapper_device_name(dev), name);
-        return 0;
+        goto done;
     }
 
     lo_address a = lo_message_get_source(msg);
     if (!a) {
         trace("can't perform /linkTo, address unknown\n");
-        return 0;
+        goto done;
     }
     // Find the sender's hostname
     const char *host = lo_address_get_hostname(a);
     const char *admin_port = lo_address_get_port(a);
     if (!host) {
         trace("can't perform /linkTo, host unknown\n");
-        return 0;
+        goto done;
     }
     // Retrieve the port
-    props = mapper_message_parse_properties(argc-1, &types[1], &argv[1]);
+    if (!props)
+        props = mapper_message_parse_properties(argc-1, &types[1], &argv[1]);
     mapper_message_atom atom = mapper_message_property(props, AT_PORT);
     if (!atom || atom->length != 1 || atom->types[0] != 'i') {
         trace("can't perform /linkTo, port unknown\n");
-        mapper_message_free(props);
-        return 0;
+        goto done;
     }
     int data_port = (atom->values[0])->i;
-
-    mapper_message_free(props);
 
     mapper_link_connect(link, host, atoi(admin_port), data_port);
     trace("<%s> activated router to device %s at %s:%d\n",
@@ -1040,6 +1039,9 @@ static int handler_device(const char *path, const char *types,
         }
         rs = rs->next;
     }
+done:
+    if (props)
+        mapper_message_free(props);
     return 0;
 }
 
