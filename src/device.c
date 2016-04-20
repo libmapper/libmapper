@@ -945,9 +945,8 @@ void mapper_device_add_signal_methods(mapper_device dev, mapper_signal sig)
                          (void*)(sig));
     free(path);
 
-    if (sig->local->update_handler)
-        lo_server_add_method(dev->local->server, sig->path, NULL,
-                             handler_signal, (void*)(sig));
+    lo_server_add_method(dev->local->server, sig->path, NULL,
+                         handler_signal, (void*)(sig));
 
     ++dev->local->n_output_callbacks;
 }
