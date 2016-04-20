@@ -14,7 +14,8 @@ public class Query implements Iterable<mapper.Map> {
             private long _mapcopy = mapperMapQueryCopy(_map);
 
             protected void finalize() {
-                mapperMapQueryDone(_map);
+                if (_mapcopy != 0)
+                    mapperMapQueryDone(_mapcopy);
             }
 
             @Override
@@ -53,7 +54,8 @@ public class Query implements Iterable<mapper.Map> {
     }
 
     protected void finalize() {
-        mapperMapQueryDone(_map);
+        if (_map != 0)
+            mapperMapQueryDone(_map);
     }
 
     private native long mapperMapDeref(long ptr);

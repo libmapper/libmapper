@@ -14,7 +14,8 @@ public class Query implements Iterable<mapper.Signal> {
             private long _sigcopy = mapperSignalQueryCopy(_sig);
 
             protected void finalize() {
-                mapperSignalQueryDone(_sig);
+                if (_sigcopy != 0)
+                    mapperSignalQueryDone(_sigcopy);
             }
 
             @Override
@@ -53,7 +54,8 @@ public class Query implements Iterable<mapper.Signal> {
     }
 
     protected void finalize() {
-        mapperSignalQueryDone(_sig);
+        if (_sig != 0)
+            mapperSignalQueryDone(_sig);
     }
 
     private native long mapperSignalDeref(long ptr);

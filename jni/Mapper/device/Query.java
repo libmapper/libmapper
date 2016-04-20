@@ -14,7 +14,8 @@ public class Query implements Iterable<mapper.Device> {
             private long _devcopy = mapperDeviceQueryCopy(_dev);
 
             protected void finalize() {
-                mapperDeviceQueryDone(_dev);
+                if (_devcopy != 0)
+                    mapperDeviceQueryDone(_devcopy);
             }
 
             @Override
@@ -53,7 +54,8 @@ public class Query implements Iterable<mapper.Device> {
     }
 
     protected void finalize() {
-        mapperDeviceQueryDone(_dev);
+        if (_dev != 0)
+            mapperDeviceQueryDone(_dev);
     }
 
     private native long mapperDeviceDeref(long ptr);

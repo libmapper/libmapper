@@ -14,7 +14,8 @@ public class Query implements Iterable<mapper.Link> {
             private long _linkcopy = mapperLinkQueryCopy(_link);
 
             protected void finalize() {
-                mapperLinkQueryDone(_link);
+                if (_linkcopy != 0)
+                    mapperLinkQueryDone(_linkcopy);
             }
 
             @Override
@@ -53,7 +54,8 @@ public class Query implements Iterable<mapper.Link> {
     }
 
     protected void finalize() {
-        mapperLinkQueryDone(_link);
+        if (_link != 0)
+            mapperLinkQueryDone(_link);
     }
 
     private native long mapperLinkDeref(long ptr);

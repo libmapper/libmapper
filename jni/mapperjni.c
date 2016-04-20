@@ -1490,7 +1490,7 @@ JNIEXPORT jint JNICALL Java_mapper_Device_mapperDevicePoll
     genv = env;
     bailing = 0;
     mapper_device dev = (mapper_device)ptr_jlong(jdev);
-    return mapper_device_poll(dev, block_ms);
+    return dev ? mapper_device_poll(dev, block_ms) : 0;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
@@ -1514,8 +1514,9 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
     }
 
     mapper_signal sig = mapper_device_add_signal(dev, dir, cname, length, type,
-                                                 cunit, 0, 0,
-                                                 java_signal_update_cb, ctx);
+                                                 cunit, 0, 0, listener
+                                                 ? java_signal_update_cb : 0,
+                                                 ctx);
 
     (*env)->ReleaseStringUTFChars(env, name, cname);
     if (unit)
@@ -3041,7 +3042,8 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_oldestActiveInstance
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     if (!sig) {
-        printf("couldn't retrieve signal in Java_mapper_Signal_oldestActiveInstance()\n");
+        printf("couldn't retrieve signal in "
+               " Java_mapper_Signal_oldestActiveInstance()\n");
         return 0;
     }
     mapper_id id = mapper_signal_oldest_active_instance(sig);
