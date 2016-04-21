@@ -228,6 +228,15 @@ int main(int argc, char ** argv)
                   << "/" << m.destination().signal().name() << std::endl;
     }
 
+    // test some timetag manipulation
+    mapper::Timetag tt1(10, 200);
+    mapper::Timetag tt2(10, 300);
+    if (tt1 < tt2)
+        std::cout << "tt1 is less than tt2" << std::endl;
+    tt1 += tt2;
+    if (tt1 >= tt2)
+        std::cout << "(tt1 + tt2) is greater then or equal to tt2" << std::endl;
+
     printf("Test %s.\n", result ? "FAILED" : "PASSED");
     return result;
 }

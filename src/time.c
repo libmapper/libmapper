@@ -65,19 +65,6 @@ double mapper_timetag_double(mapper_timetag_t timetag)
     return (double)timetag.sec + (double)timetag.frac * multiplier;
 }
 
-void mapper_timetag_set_int(mapper_timetag_t *tt, int value)
-{
-    tt->sec = value;
-    tt->frac = 0;
-}
-
-void mapper_timetag_set_float(mapper_timetag_t *tt, float value)
-{
-    tt->sec = floor(value);
-    value -= tt->sec;
-    tt->frac = (uint32_t) (((float)value) * (double)(1LL<<32));
-}
-
 void mapper_timetag_set_double(mapper_timetag_t *tt, double value)
 {
     tt->sec = floor(value);

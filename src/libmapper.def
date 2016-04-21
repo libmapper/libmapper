@@ -249,7 +249,5 @@ EXPORTS
     mapper_timetag_difference                           @248
     mapper_timetag_double                               @249
     mapper_timetag_set_double                           @250
-    mapper_timetag_set_int                              @251
-    mapper_timetag_set_float                            @252
-    mapper_timetag_subtract                             @253
-    mapper_version                                      @254
+    mapper_timetag_subtract                             @251
+    mapper_version                                      @252

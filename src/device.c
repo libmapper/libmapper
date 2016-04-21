@@ -1246,18 +1246,16 @@ int mapper_device_poll(mapper_device dev, int block_ms)
 {
     if (!dev || !dev->local)
         return 0;
+
     int admin_count = mapper_network_poll(dev->database->network);
     int count = 0;
 
     if (dev->local->server) {
-
         /* If a timeout is specified, loop until the time is up. */
-        if (block_ms)
-        {
+        if (block_ms) {
             double then = mapper_get_current_time();
             int left_ms = block_ms;
-            while (left_ms > 0)
-            {
+            while (left_ms > 0) {
                 if (lo_server_recv_noblock(dev->local->server, left_ms))
                     count++;
                 double elapsed = mapper_get_current_time() - then;
@@ -1265,16 +1263,14 @@ int mapper_device_poll(mapper_device dev, int block_ms)
             }
         }
 
-        /* When done, or if non-blocking, check for remaining messages
-         * up to a proportion of the number of input
-         * signals. Arbitrarily choosing 1 for now, since we don't
-         * support "combining" multiple incoming streams, so there's
-         * no point.  Perhaps if this is supported in the future it
-         * can be a heuristic based on a recent number of messages per
-         * channel per poll. */
+        /* When done, or if non-blocking, check for remaining messages up to a
+         * proportion of the number of input signals. Arbitrarily choosing 1 for
+         * now, but perhaps could be a heuristic based on a recent number of
+         * messages per channel per poll. */
         while (count < (dev->num_inputs + dev->local->n_output_callbacks)*1
-               && lo_server_recv_noblock(dev->local->server, 0))
+               && lo_server_recv_noblock(dev->local->server, 0)) {
             count++;
+        }
     }
     else if (block_ms) {
 #ifdef WIN32
@@ -1283,7 +1279,6 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         usleep(block_ms * 1000);
 #endif
     }
-
     return admin_count + count;
 }
 

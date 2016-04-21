@@ -89,33 +89,69 @@ namespace mapper {
     {
     public:
         Timetag(mapper_timetag_t tt)
-            { timetag.sec = tt.sec; timetag.frac = tt.frac; }
-        Timetag(int seconds)
-            { mapper_timetag_set_int(&timetag, seconds); }
-        Timetag(float seconds)
-            { mapper_timetag_set_float(&timetag, seconds); }
+            { _tt.sec = tt.sec; _tt.frac = tt.frac; }
+        Timetag(unsigned long int sec, unsigned long int frac)
+            { _tt.sec = sec; _tt.frac = frac; }
         Timetag(double seconds)
-            { mapper_timetag_set_double(&timetag, seconds); }
+            { mapper_timetag_set_double(&_tt, seconds); }
         uint32_t sec()
-            { return timetag.sec; }
+            { return _tt.sec; }
         uint32_t frac()
-            { return timetag.frac; }
+            { return _tt.frac; }
         operator mapper_timetag_t*()
-            { return &timetag; }
+            { return &_tt; }
         operator double() const
-            { return mapper_timetag_double(timetag); }
-        Timetag& operator+(Timetag& addend)
+            { return mapper_timetag_double(_tt); }
+        Timetag operator+(Timetag& addend)
         {
-            mapper_timetag_add(&timetag, *(mapper_timetag_t*)addend);
+            mapper_timetag_t temp;
+            mapper_timetag_copy(&temp, _tt);
+            mapper_timetag_add(&temp, *(mapper_timetag_t*)addend);
+            return temp;
+        }
+        Timetag operator-(Timetag& subtrahend)
+        {
+            mapper_timetag_t temp;
+            mapper_timetag_copy(&temp, _tt);
+            mapper_timetag_subtract(&temp, *(mapper_timetag_t*)subtrahend);
+            return temp;
+        }
+        Timetag& operator+=(Timetag& addend)
+        {
+            mapper_timetag_add(&_tt, *(mapper_timetag_t*)addend);
             return (*this);
         }
-        Timetag& operator-(Timetag& subtrahend)
+        Timetag& operator-=(Timetag& subtrahend)
         {
-            mapper_timetag_subtract(&timetag, *(mapper_timetag_t*)subtrahend);
+            mapper_timetag_subtract(&_tt, *(mapper_timetag_t*)subtrahend);
             return (*this);
+        }
+        bool operator<(Timetag& rhs)
+        {
+            return (_tt.sec < rhs._tt.sec
+                    || (_tt.sec == rhs._tt.sec && _tt.frac < rhs._tt.frac));
+        }
+        bool operator<=(Timetag& rhs)
+        {
+            return (_tt.sec < rhs._tt.sec
+                    || (_tt.sec == rhs._tt.sec && _tt.frac <= rhs._tt.frac));
+        }
+        bool operator==(Timetag& rhs)
+        {
+            return (_tt.sec == rhs._tt.sec && _tt.frac == rhs._tt.frac);
+        }
+        bool operator>=(Timetag& rhs)
+        {
+            return (_tt.sec > rhs._tt.sec
+                    || (_tt.sec == rhs._tt.sec && _tt.frac >= rhs._tt.frac));
+        }
+        bool operator>(Timetag& rhs)
+        {
+            return (_tt.sec > rhs._tt.sec
+                    || (_tt.sec == rhs._tt.sec && _tt.frac > rhs._tt.frac));
         }
     private:
-        mapper_timetag_t timetag;
+        mapper_timetag_t _tt;
     };
 
     class AbstractObjectWithSetter

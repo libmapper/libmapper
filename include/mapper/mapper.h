@@ -2022,16 +2022,6 @@ void mapper_timetag_subtract(mapper_timetag_t *minuend,
  *  \return             Value of the timetag as a double-precision float. */
 double mapper_timetag_double(mapper_timetag_t tt);
 
-/*! Set value of a mapper_timetag from an integer value.
- *  \param tt           A previously-allocated timetag to set.
- *  \param value        The value in seconds to set. */
-void mapper_timetag_set_int(mapper_timetag_t *tt, int value);
-
-/*! Set value of a mapper_timetag from a floating point value.
- *  \param tt           A previously-allocated timetag to set.
- *  \param value        The value in seconds to set. */
-void mapper_timetag_set_float(mapper_timetag_t *tt, float value);
-
 /*! Set value of a mapper_timetag from a double-precision floating point value.
  *  \param tt           A previously-allocated timetag to set.
  *  \param value        The value in seconds to set. */
