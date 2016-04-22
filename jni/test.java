@@ -144,10 +144,9 @@ class test {
         }
 
         int i = 0;
-        TimeTag tt = new TimeTag(0,0);
 
         // Signal should report no value before the first update.
-        Value v = out1.value(tt);
+        Value v = out1.value();
         if (!v.isEmpty())
             System.out.println("Signal has value: " + v);
         else

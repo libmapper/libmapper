@@ -1,5 +1,6 @@
 
 package mapper;
+import mapper.TimeTag;
 import java.util.Arrays;
 
 /* Contains a value representable by supported types, which correspond
@@ -12,6 +13,7 @@ public class Value
     public Value(float f)                { set('f', f);   }
     public Value(double d)               { set('d', d);   }
     public Value(String s)               { set('s', s);   }
+    public Value(boolean[] b)            { set('b', b);   }
     public Value(int[] i)                { set('i', i);   }
     public Value(float[] f)              { set('f', f);   }
     public Value(double[] d)             { set('d', d);   }
@@ -426,6 +428,13 @@ public class Value
         length = s.length;
     }
 
+    public void setTimeTag(TimeTag tt) {
+        if (tt != null) {
+            timetag.sec = tt.sec;
+            timetag.frac = tt.frac;
+        }
+    }
+
     public String toString() {
         String s;
         switch (type) {
@@ -447,4 +456,5 @@ public class Value
     private float[] _f;
     private double[] _d;
     private String[] _s;
+    public TimeTag timetag = new TimeTag(0, 1);
 }

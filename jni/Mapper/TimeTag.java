@@ -36,4 +36,9 @@ public class TimeTag
     {
         return (sec < rhs.sec || (sec == rhs.sec && frac < rhs.frac));
     }
+
+    public String toString()
+    {
+        return sec + "." + frac;
+    }
 }

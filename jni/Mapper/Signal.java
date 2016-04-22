@@ -124,13 +124,10 @@ public class Signal
     }
 
     /* signal or instance value */
-    private native Value instanceValue(long id, TimeTag tt);
+    private native Value instanceValue(long id);
 
-    public Value value(TimeTag tt) {
-        return instanceValue(0, tt);
-    }
     public Value value() {
-        return instanceValue(0, null);
+        return instanceValue(0);
     }
 
     public class Instance
@@ -224,11 +221,8 @@ public class Signal
         }
 
         /* value */
-        public Value value(TimeTag tt) {
-            return instanceValue(_id, tt);
-        }
         public Value value() {
-            return instanceValue(_id, null);
+            return instanceValue(_id);
         }
 
         /* userObject */
