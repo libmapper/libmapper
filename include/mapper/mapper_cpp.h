@@ -1326,7 +1326,7 @@ namespace mapper {
         const void *value() const
             { return mapper_signal_value(_sig, 0); }
         const void *value(Timetag tt) const
-            { return mapper_signal_value(_sig, tt); }
+            { return mapper_signal_value(_sig, (mapper_timetag_t*)tt); }
         int query_remotes() const
             { return mapper_signal_query_remotes(_sig, MAPPER_NOW); }
         int query_remotes(Timetag tt) const
@@ -1424,7 +1424,10 @@ namespace mapper {
             const void *value() const
                 { return mapper_signal_instance_value(_sig, _id, 0); }
             const void *value(Timetag tt) const
-                { return mapper_signal_instance_value(_sig, _id, tt); }
+            {
+                mapper_timetag_t *_tt = tt;
+                return mapper_signal_instance_value(_sig, _id, _tt);
+            }
         protected:
             friend class Signal;
         private:

@@ -23,7 +23,7 @@ EXPORTS
     mapper_database_num_devices                         @22
     mapper_database_num_links                           @23
     mapper_database_num_maps                            @24
-    mapper_database_num_devices                         @25
+
     mapper_database_num_signals                         @26
     mapper_database_poll                                @27
     mapper_database_remove_device_callback              @28

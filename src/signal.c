@@ -960,8 +960,10 @@ static void *mapper_signal_instance_value_internal(mapper_signal sig,
     if (!si) return 0;
     if (!si->has_value)
         return 0;
-    if (timetag)
-        timetag = &si->timetag;
+    if (timetag) {
+        timetag->sec = si->timetag.sec;
+        timetag->frac = si->timetag.frac;
+    }
     return si->value;
 }
 
