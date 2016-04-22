@@ -10,6 +10,8 @@ extern "C" {
 
 #include <lo/lo.h>
 
+#define MAPPER_NOW ((mapper_timetag_t){0L,1L})
+
 /*! Bit flags for coordinating metadata subscriptions. */
 typedef enum {
     MAPPER_OBJ_NONE           = 0x00, //!< No objects.
