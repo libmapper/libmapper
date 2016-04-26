@@ -1298,6 +1298,10 @@ int mapper_map_set_property(mapper_map map, const char *name, int length,
  *  \param map          The map to operate on. */
 void mapper_map_push(mapper_map map);
 
+/*! Re-create stale map if necessary.
+ *  \param map          The map to operate on. */
+void mapper_map_refresh(mapper_map map);
+
 /*! Remove a property of a map.
  *  \param map          The map to operate on.
  *  \param name         The name of the property to remove.

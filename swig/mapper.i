@@ -2100,6 +2100,10 @@ typedef struct _map_query {
         mapper_map_push((mapper_map)$self);
         return $self;
     }
+    map *refresh() {
+        mapper_map_refresh((mapper_map)$self);
+        return $self;
+    }
     void release() {
         mapper_map_release((mapper_map)$self);
     }

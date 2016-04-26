@@ -112,6 +112,9 @@ public class Map
     /* push */
     public native Map push();
 
+    /* refresh */
+    public native Map refresh();
+
     /* properties */
     public native int numProperties();
     public native Value property(String property);

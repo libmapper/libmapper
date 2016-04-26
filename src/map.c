@@ -212,6 +212,14 @@ void mapper_map_push(mapper_map map)
     mapper_table_clear(map->staged_props);
 }
 
+void mapper_map_refresh(mapper_map map)
+{
+    if (!map)
+        return;
+    mapper_network_set_dest_bus(map->database->network);
+    mapper_map_send_state(map, -1, map->local ? MSG_MAP_TO : MSG_MAP);
+}
+
 void mapper_map_free(mapper_map map)
 {
     int i;

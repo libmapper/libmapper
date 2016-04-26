@@ -2485,6 +2485,15 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_push
     return obj;
 }
 
+JNIEXPORT jobject JNICALL Java_mapper_Map_refresh
+  (JNIEnv *env, jobject obj)
+{
+    mapper_map map = get_map_from_jobject(env, obj);
+    if (map)
+        mapper_map_refresh(map);
+    return obj;
+}
+
 JNIEXPORT jint JNICALL Java_mapper_Map_numProperties
   (JNIEnv *env, jobject obj)
 {
