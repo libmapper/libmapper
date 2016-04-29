@@ -32,7 +32,7 @@ public class Link
     public native long id();
 
     /* property: numMaps */
-    public native int numMaps(int index, int dir);
+    public native int numMaps();
 
     /* devices */
     public native mapper.Device device(int index);

@@ -156,51 +156,31 @@ mapper_device mapper_link_device(mapper_link link, int idx)
     return link->devices[idx];
 }
 
-int mapper_link_num_maps(mapper_link link, int idx, mapper_direction dir)
+int mapper_link_num_maps(mapper_link link)
 {
-    if (idx < 0 || idx > 1)
-        return 0;
-    switch (dir) {
-        case MAPPER_DIR_ANY:
-            return link->num_maps[0] + link->num_maps[1];
-        case MAPPER_DIR_INCOMING:
-            return link->num_maps[idx];
-        case MAPPER_DIR_OUTGOING:
-            return link->num_maps[idx];
-        default:
-            return 0;
-    }
+    return link->num_maps[0] + link->num_maps[1];
 }
 
 static int cmp_query_link_maps(const void *context_data, mapper_map map)
 {
     mapper_id link_id = *(mapper_id*)context_data;
-    mapper_id dev_id = *(mapper_id*)(context_data + sizeof(mapper_id));
-    mapper_direction dir = *(int*)(context_data + sizeof(mapper_id) * 2);
-    if (!dir || (dir & MAPPER_DIR_OUTGOING)) {
-        int i;
-        for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i]->link && map->sources[i]->link->id == link_id
-                && map->sources[i]->signal->device->id == dev_id)
-                return 1;
-        }
-    }
-    if (!dir || (dir & MAPPER_DIR_INCOMING)) {
-        if (map->destination.link && map->destination.link->id == link_id
-            && map->destination.signal->device->id == dev_id)
+    int i;
+    for (i = 0; i < map->num_sources; i++) {
+        if (map->sources[i]->link && map->sources[i]->link->id == link_id)
             return 1;
     }
+    if (map->destination.link && map->destination.link->id == link_id)
+        return 1;
     return 0;
 }
 
-mapper_map *mapper_link_maps(mapper_link link, int idx, mapper_direction dir)
+mapper_map *mapper_link_maps(mapper_link link)
 {
-    if (!link || !link->devices[0]->database->maps || idx < 0 || idx > 1)
+    if (!link || !link->devices[0]->database->maps)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(link->devices[0]->database->maps,
-                                  cmp_query_link_maps, "hhi", link->id,
-                                  link->devices[idx]->id, dir));
+                                  cmp_query_link_maps, "h", link->id));
 }
 
 mapper_id mapper_link_id(mapper_link link)

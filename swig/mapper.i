@@ -1476,8 +1476,8 @@ typedef struct _link_query {
     mapper_id get_id() {
         return mapper_link_id((mapper_link)$self);
     }
-    int get_num_maps(int index = 0, mapper_direction dir=MAPPER_DIR_ANY) {
-        return mapper_link_num_maps((mapper_link)$self, index, dir);
+    int get_num_maps() {
+        return mapper_link_num_maps((mapper_link)$self);
     }
     property_value get_property(const char *key) {
         mapper_link link = (mapper_link)$self;
@@ -1545,9 +1545,9 @@ typedef struct _link_query {
     }
 
     // map getters
-    map_query *maps(int index = 0, mapper_direction dir=MAPPER_DIR_ANY) {
+    map_query *maps() {
         map_query *ret = malloc(sizeof(struct _map_query));
-        ret->query = mapper_link_maps((mapper_link)$self, index, dir);
+        ret->query = mapper_link_maps((mapper_link)$self);
         return ret;
     }
     %pythoncode {

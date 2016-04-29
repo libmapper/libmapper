@@ -490,248 +490,6 @@ namespace mapper {
         mapper_signal _sig;
     };
 
-    class Link : public GenericObject
-    {
-    public:
-        Link(const Link& orig)
-            { _link = orig._link; }
-        Link(mapper_link link)
-            { _link = link; }
-        operator mapper_link() const
-            { return _link; }
-        operator bool() const
-            { return _link; }
-        operator mapper_id() const
-            { return mapper_link_id(_link); }
-        const Link& push() const
-            { mapper_link_push(_link); return (*this); }
-        inline Device device(int idx) const;
-        mapper_id id() const
-            { return mapper_link_id(_link); }
-        int num_maps(int idx=0, mapper_direction dir=MAPPER_DIR_ANY) const
-            { return mapper_link_num_maps(_link, idx, dir); }
-        Link& set_user_data(void *user_data)
-        {
-            mapper_link_set_user_data(_link, user_data);
-            return (*this);
-        }
-        void *user_data() const
-            { return mapper_link_user_data(_link); }
-        int num_properties() const
-            { return mapper_link_num_properties(_link); }
-        Property property(const string_type& name) const
-        {
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_link_property(_link, name, &length, &type, &value))
-                return Property(name, length, type, value);
-            else
-                return Property(name, 0, 0, 0, 0);
-        }
-        Property property(int index) const
-        {
-            const char *name;
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_link_property_index(_link, index, &name, &length, &type,
-                                            &value))
-                return Property(name, length, type, value);
-            else
-                return Property(0, 0, 0, 0, 0);
-        }
-        template <typename... Values>
-        Link& set_property(Values... values)
-        {
-            Property p(values...);
-            if (p)
-                set_property(&p);
-            return (*this);
-        }
-        Link& remove_property(const string_type &key)
-        {
-            if (_link && key)
-                mapper_link_remove_property(_link, key);
-            return (*this);
-        }
-        class Query : public std::iterator<std::input_iterator_tag, int>
-        {
-        public:
-            Query(mapper_link *links)
-                { _links = links; }
-            // override copy constructor
-            Query(const Query& orig)
-                { _links = mapper_link_query_copy(orig._links); }
-            ~Query()
-                { mapper_link_query_done(_links); }
-            operator mapper_link*() const
-                { return _links; }
-            bool operator==(const Query& rhs)
-                { return (_links == rhs._links); }
-            bool operator!=(const Query& rhs)
-                { return (_links != rhs._links); }
-            Query& operator++()
-            {
-                if (_links != NULL)
-                    _links = mapper_link_query_next(_links);
-                return (*this);
-            }
-            Query operator++(int)
-                { Query tmp(*this); operator++(); return tmp; }
-            Link operator*()
-                { return Link(*_links); }
-            Query begin()
-                { return Query(_links); }
-            Query end()
-                { return Query(0); }
-            
-            // Combination functions
-            Query& join(const Query& rhs)
-            {
-                // need to use copy of rhs query
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                _links = mapper_link_query_union(_links, rhs_cpy);
-                return (*this);
-            }
-            Query& intersect(const Query& rhs)
-            {
-                // need to use copy of rhs query
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                _links = mapper_link_query_intersection(_links, rhs_cpy);
-                return (*this);
-            }
-            Query& subtract(const Query& rhs)
-            {
-                // need to use copy of rhs query
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                _links = mapper_link_query_difference(_links, rhs_cpy);
-                return (*this);
-            }
-            Query operator+(const Query& rhs) const
-            {
-                // need to use copies of both queries
-                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                return Query(mapper_link_query_union(lhs_cpy, rhs_cpy));
-            }
-            Query operator*(const Query& rhs) const
-            {
-                // need to use copies of both queries
-                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                return Query(mapper_link_query_intersection(lhs_cpy, rhs_cpy));
-            }
-            Query operator-(const Query& rhs) const
-            {
-                // need to use copies of both queries
-                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                return Query(mapper_link_query_difference(lhs_cpy, rhs_cpy));
-            }
-            Query& operator+=(const Query& rhs)
-            {
-                // need to use copy of rhs query
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                _links = mapper_link_query_union(_links, rhs_cpy);
-                return (*this);
-            }
-            Query& operator*=(const Query& rhs)
-            {
-                // need to use copy of rhs query
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                _links = mapper_link_query_intersection(_links, rhs_cpy);
-                return (*this);
-            }
-            Query& operator-=(const Query& rhs)
-            {
-                // need to use copy of rhs query
-                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
-                _links = mapper_link_query_difference(_links, rhs_cpy);
-                return (*this);
-            }
-            
-            Link operator [] (int index)
-            {
-                return Link(mapper_link_query_index(_links, index));
-            }
-            
-            operator std::vector<Link>() const
-            {
-                std::vector<Link> vec;
-                // use a copy
-                mapper_link *cpy = mapper_link_query_copy(_links);
-                while (cpy) {
-                    vec.push_back(Link(*cpy));
-                    cpy = mapper_link_query_next(cpy);
-                }
-                return vec;
-            }
-            
-            // also enable some Link methods
-            Query& push()
-            {
-                // use a copy
-                mapper_link *cpy = mapper_link_query_copy(_links);
-                while (cpy) {
-                    mapper_link_push(*cpy);
-                    cpy = mapper_link_query_next(cpy);
-                }
-                return (*this);
-            }
-            Query& remove_property(const string_type &key)
-            {
-                if (!key)
-                    return (*this);
-                // use a copy
-                mapper_link *cpy = mapper_link_query_copy(_links);
-                while (cpy) {
-                    mapper_link_remove_property(*cpy, key);
-                    cpy = mapper_link_query_next(cpy);
-                }
-                return (*this);
-            }
-            template <typename... Values>
-            Query& set_property(Values... values)
-            {
-                Property p(values...);
-                if (!p)
-                    return (*this);
-                // use a copy
-                mapper_link *cpy = mapper_link_query_copy(_links);
-                while (cpy) {
-                    mapper_link_set_property(*cpy, p.name, p.length, p.type,
-                                             p.value);
-                    cpy = mapper_link_query_next(cpy);
-                }
-                return (*this);
-            }
-            Query& set_user_data(void *user_data)
-            {
-                // use a copy
-                mapper_link *cpy = mapper_link_query_copy(_links);
-                while (cpy) {
-                    mapper_link_set_user_data(*cpy, user_data);
-                    cpy = mapper_link_query_next(cpy);
-                }
-                return (*this);
-            }
-        private:
-            mapper_link *_links;
-        };
-    protected:
-        friend class Database;
-        Link& set_property(Property *p)
-        {
-            if (_link)
-                mapper_link_set_property(_link, p->name, p->length, p->type,
-                                         p->value);
-            return (*this);
-        }
-    private:
-        mapper_link _link;
-    };
-
     class Map : public GenericObject
     {
     public:
@@ -1199,6 +957,250 @@ namespace mapper {
         }
     private:
         mapper_map _map;
+    };
+
+    class Link : public GenericObject
+    {
+    public:
+        Link(const Link& orig)
+            { _link = orig._link; }
+        Link(mapper_link link)
+            { _link = link; }
+        operator mapper_link() const
+            { return _link; }
+        operator bool() const
+            { return _link; }
+        operator mapper_id() const
+            { return mapper_link_id(_link); }
+        const Link& push() const
+            { mapper_link_push(_link); return (*this); }
+        inline Device device(int idx) const;
+        mapper_id id() const
+            { return mapper_link_id(_link); }
+        int num_maps() const
+            { return mapper_link_num_maps(_link); }
+        Map::Query maps() const
+            { return Map::Query(mapper_link_maps(_link)); }
+        Link& set_user_data(void *user_data)
+        {
+            mapper_link_set_user_data(_link, user_data);
+            return (*this);
+        }
+        void *user_data() const
+            { return mapper_link_user_data(_link); }
+        int num_properties() const
+            { return mapper_link_num_properties(_link); }
+        Property property(const string_type& name) const
+        {
+            char type;
+            const void *value;
+            int length;
+            if (!mapper_link_property(_link, name, &length, &type, &value))
+                return Property(name, length, type, value);
+            else
+                return Property(name, 0, 0, 0, 0);
+        }
+        Property property(int index) const
+        {
+            const char *name;
+            char type;
+            const void *value;
+            int length;
+            if (!mapper_link_property_index(_link, index, &name, &length, &type,
+                                            &value))
+                return Property(name, length, type, value);
+            else
+                return Property(0, 0, 0, 0, 0);
+        }
+        template <typename... Values>
+        Link& set_property(Values... values)
+        {
+            Property p(values...);
+            if (p)
+                set_property(&p);
+            return (*this);
+        }
+        Link& remove_property(const string_type &key)
+        {
+            if (_link && key)
+                mapper_link_remove_property(_link, key);
+            return (*this);
+        }
+        class Query : public std::iterator<std::input_iterator_tag, int>
+        {
+            public:
+            Query(mapper_link *links)
+                { _links = links; }
+            // override copy constructor
+            Query(const Query& orig)
+                { _links = mapper_link_query_copy(orig._links); }
+            ~Query()
+                { mapper_link_query_done(_links); }
+            operator mapper_link*() const
+                { return _links; }
+            bool operator==(const Query& rhs)
+                { return (_links == rhs._links); }
+            bool operator!=(const Query& rhs)
+                { return (_links != rhs._links); }
+            Query& operator++()
+            {
+                if (_links != NULL)
+                    _links = mapper_link_query_next(_links);
+                return (*this);
+            }
+            Query operator++(int)
+                { Query tmp(*this); operator++(); return tmp; }
+            Link operator*()
+                { return Link(*_links); }
+            Query begin()
+                { return Query(_links); }
+            Query end()
+                { return Query(0); }
+
+            // Combination functions
+            Query& join(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_union(_links, rhs_cpy);
+                return (*this);
+            }
+            Query& intersect(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_intersection(_links, rhs_cpy);
+                return (*this);
+            }
+            Query& subtract(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_difference(_links, rhs_cpy);
+                return (*this);
+            }
+            Query operator+(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                return Query(mapper_link_query_union(lhs_cpy, rhs_cpy));
+            }
+            Query operator*(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                return Query(mapper_link_query_intersection(lhs_cpy, rhs_cpy));
+            }
+            Query operator-(const Query& rhs) const
+            {
+                // need to use copies of both queries
+                mapper_link *lhs_cpy = mapper_link_query_copy(_links);
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                return Query(mapper_link_query_difference(lhs_cpy, rhs_cpy));
+            }
+            Query& operator+=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_union(_links, rhs_cpy);
+                return (*this);
+            }
+            Query& operator*=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_intersection(_links, rhs_cpy);
+                return (*this);
+            }
+            Query& operator-=(const Query& rhs)
+            {
+                // need to use copy of rhs query
+                mapper_link *rhs_cpy = mapper_link_query_copy(rhs._links);
+                _links = mapper_link_query_difference(_links, rhs_cpy);
+                return (*this);
+            }
+
+            Link operator [] (int index)
+            {
+                return Link(mapper_link_query_index(_links, index));
+            }
+
+            operator std::vector<Link>() const
+            {
+                std::vector<Link> vec;
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    vec.push_back(Link(*cpy));
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return vec;
+            }
+
+            // also enable some Link methods
+            Query& push()
+            {
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    mapper_link_push(*cpy);
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& remove_property(const string_type &key)
+            {
+                if (!key)
+                    return (*this);
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    mapper_link_remove_property(*cpy, key);
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return (*this);
+            }
+            template <typename... Values>
+            Query& set_property(Values... values)
+            {
+                Property p(values...);
+                if (!p)
+                    return (*this);
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    mapper_link_set_property(*cpy, p.name, p.length, p.type,
+                                             p.value);
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return (*this);
+            }
+            Query& set_user_data(void *user_data)
+            {
+                // use a copy
+                mapper_link *cpy = mapper_link_query_copy(_links);
+                while (cpy) {
+                    mapper_link_set_user_data(*cpy, user_data);
+                    cpy = mapper_link_query_next(cpy);
+                }
+                return (*this);
+            }
+            private:
+            mapper_link *_links;
+        };
+    protected:
+        friend class Database;
+        Link& set_property(Property *p)
+        {
+            if (_link)
+                mapper_link_set_property(_link, p->name, p->length, p->type,
+                                         p->value);
+            return (*this);
+        }
+    private:
+        mapper_link _link;
     };
 
     class Signal : public GenericObject

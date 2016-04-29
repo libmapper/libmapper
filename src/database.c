@@ -819,9 +819,7 @@ void mapper_database_remove_link(mapper_database db, mapper_link link,
     if (!link)
         return;
 
-    mapper_database_remove_maps_by_query(db,
-                                         mapper_link_maps(link, 0, MAPPER_DIR_ANY),
-                                         action);
+    mapper_database_remove_maps_by_query(db, mapper_link_maps(link), action);
 
     mapper_list_remove_item((void**)&db->links, link);
 
@@ -831,6 +829,9 @@ void mapper_database_remove_link(mapper_database db, mapper_link link,
         h(db, link, action, cb->context);
         cb = cb->next;
     }
+
+    // TODO: also clear network info from remote devices?
+
     mapper_link_free(link);
     mapper_list_free_item(link);
 }

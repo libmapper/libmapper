@@ -1331,8 +1331,8 @@ static int mapper_map_check_status(mapper_map map)
     if (map->destination.signal->type)
         map->destination.local->status |= STATUS_TYPE_KNOWN;
     if (map->destination.local->router_sig
-        || (map->destination.link
-            && mapper_device_host(map->destination.link->remote_device)))
+        || (map->destination.link && map->destination.link->local
+            && map->destination.link->local->data_addr))
         map->destination.local->status |= STATUS_LINK_KNOWN;
     map->status &= (map->destination.local->status | mask);
 
@@ -1343,8 +1343,8 @@ static int mapper_map_check_status(mapper_map map)
         if (map->sources[i]->signal->type)
             map->sources[i]->local->status |= STATUS_TYPE_KNOWN;
         if (map->sources[i]->local->router_sig
-            || (map->sources[i]->link
-                && mapper_device_host(map->sources[i]->link->remote_device)))
+            || (map->sources[i]->link && map->sources[i]->link->local
+                && map->sources[i]->link->local->data_addr))
             map->sources[i]->local->status |= STATUS_LINK_KNOWN;
         map->status &= (map->sources[i]->local->status | mask);
     }

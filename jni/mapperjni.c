@@ -2147,10 +2147,10 @@ JNIEXPORT jlong JNICALL Java_mapper_Link_id
 }
 
 JNIEXPORT jint JNICALL Java_mapper_Link_numMaps
-  (JNIEnv *env, jobject obj, jint index, jint dir)
+  (JNIEnv *env, jobject obj)
 {
     mapper_link link = get_link_from_jobject(env, obj);
-    return link ? mapper_link_num_maps(link, index, dir) : 0;
+    return link ? mapper_link_num_maps(link) : 0;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Link_device
