@@ -358,6 +358,9 @@ void mapper_map_set_description(mapper_map map, const char *description)
 {
     if (!map)
         return;
+    if (map->local)
+        mapper_table_set_record(map->props, AT_DESCRIPTION, NULL, 1, 's',
+                                description, REMOTE_MODIFY);
     mapper_table_set_record(map->staged_props, AT_DESCRIPTION, NULL, 1, 's',
                             description, REMOTE_MODIFY);
 }
@@ -382,6 +385,9 @@ void mapper_map_set_muted(mapper_map map, int muted)
 {
     if (!map)
         return;
+    if (map->local)
+        mapper_table_set_record(map->props, AT_MUTED, NULL, 1, 'b', &muted,
+                                REMOTE_MODIFY);
     mapper_table_set_record(map->staged_props, AT_MUTED, NULL, 1, 'b', &muted,
                             REMOTE_MODIFY);
 }
@@ -456,9 +462,15 @@ int mapper_map_set_property(mapper_map map, const char *name, int length,
             return 1;
         }
     }
-    else
+    else {
+        if (map->local && (prop == AT_EXTRA || prop == AT_DESCRIPTION
+                           || prop == AT_MUTED)) {
+            mapper_table_set_record(map->props, prop, name, length,
+                                    type, value, REMOTE_MODIFY);
+        }
         return mapper_table_set_record(map->staged_props, prop, name, length,
                                        type, value, REMOTE_MODIFY);
+    }
     return 0;
 }
 
