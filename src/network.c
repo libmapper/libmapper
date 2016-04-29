@@ -1868,15 +1868,6 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
                                                     local_signal, id);
     }
 
-    /* If a map already exists between these signals, forward the message to
-     * handler_map_modify() and stop. */
-    if (map && map->status >= STATUS_ACTIVE) {
-        trace("<%s> forwarding /mapTo to modify handler (map already exists)\n",
-              mapper_device_name(dev));
-        handler_map_modify(path, types, argv, argc, msg, user_data);
-        return 0;
-    }
-
     if (!map) {
         const char *src_names[num_sources];
         for (i = 0; i < num_sources; i++) {
@@ -1893,10 +1884,12 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
         mapper_router_add_map(dev->local->router, map);
     }
 
-    /* Set map properties. */
-    mapper_map_set_from_message(map, props, 1);
+    if (map->status < STATUS_ACTIVE) {
+        /* Set map properties. */
+        mapper_map_set_from_message(map, props, 1);
+    }
 
-    if (map->status == STATUS_READY) {
+    if (map->status >= STATUS_READY) {
         if (map->destination.direction == MAPPER_DIR_OUTGOING) {
             mapper_network_set_dest_mesh(net,
                                          map->destination.link->local->admin_addr);
@@ -2186,7 +2179,7 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
     printf("-- <%s> %s /map/modify\n", mapper_device_name(dev),
            map && map->local ? "got" : "ignoring");
 #endif
-    if (!map || !map->local) {
+    if (!map || !map->local || map->status < STATUS_ACTIVE) {
         return 0;
     }
 
