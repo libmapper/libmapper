@@ -540,7 +540,8 @@ static int replace_expression_string(mapper_connection c,
 void mapper_connection_set_mode_direct(mapper_connection c)
 {
     c->props.mode = MO_BYPASS;
-    reallocate_connection_histories(c, 1, 1);
+    if (c->parent->signal->props.is_output)
+        reallocate_connection_histories(c, 1, 1);
 }
 
 void mapper_connection_set_mode_linear(mapper_connection c)
@@ -548,6 +549,11 @@ void mapper_connection_set_mode_linear(mapper_connection c)
     int i, len;
     char expr[256] = "";
     const char *e = expr;
+
+    if (!c->parent->signal->props.is_output) {
+        c->props.mode = MO_LINEAR;
+        return;
+    }
 
     if (c->props.range_known != CONNECTION_RANGE_KNOWN)
         return;
@@ -643,6 +649,11 @@ void mapper_connection_set_mode_linear(mapper_connection c)
 void mapper_connection_set_mode_expression(mapper_connection c,
                                            const char *expr)
 {
+    if (!c->parent->signal->props.is_output) {
+        c->props.mode = MO_EXPRESSION;
+        return;
+    }
+
     int input_history_size, output_history_size;
     if (replace_expression_string(c, expr, &input_history_size,
                                   &output_history_size))
@@ -692,6 +703,8 @@ void mapper_connection_set_mode_reverse(mapper_connection c)
 void mapper_connection_set_mode_calibrate(mapper_connection c)
 {
     c->props.mode = MO_CALIBRATE;
+    if (!c->parent->signal->props.is_output)
+        return;
 
     if (c->props.expression)
         free(c->props.expression);

@@ -339,8 +339,6 @@ static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection
             free(c->props.dest_max);
         table_free(c->props.extra, 1);
         for (i=0; i<c->parent->num_instances; i++) {
-            free(c->history[i].value);
-            free(c->history[i].timetag);
             if (c->num_expr_vars) {
                 for (j=0; j<c->num_expr_vars; j++) {
                     free(c->expr_vars[i][j].value);
@@ -351,8 +349,13 @@ static void mapper_receiver_free_connection(mapper_receiver r, mapper_connection
         }
         if (c->expr_vars)
             free(c->expr_vars);
-        if (c->history)
+        if (c->history) {
+            for (i=0; i<c->parent->num_instances; i++) {
+                free(c->history[i].value);
+                free(c->history[i].timetag);
+            }
             free(c->history);
+        }
         for (i=0; i<c->props.scope.size; i++) {
             free(c->props.scope.names[i]);
         }
