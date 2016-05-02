@@ -859,7 +859,7 @@ void mapper_prop_pp(char type, int length, const void *value)
         {
             int64_t *pi = (int64_t*)value;
             for (i = 0; i < length; i++)
-                printf("%lli, ", pi[i]);
+                printf("%lli, ", (long long)pi[i]);
             break;
         }
         case 't':
