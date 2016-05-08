@@ -523,7 +523,8 @@ namespace mapper {
             }
             _map = mapper_map_new(N, cast, destination);
         }
-        Map(std::vector<signal_type>& sources, signal_type destination)
+        template <typename T>
+        Map(std::vector<T>& sources, signal_type destination)
         {
             if (sources.size()) {
                 _map = 0;
