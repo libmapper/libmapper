@@ -1558,18 +1558,6 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
                     dir = MAPPER_DIR_INCOMING;
                 else
                     break;
-                if (dir & MAPPER_DIR_INCOMING) {
-                    if (!(sig->direction & MAPPER_DIR_INCOMING))
-                        ++sig->device->num_inputs;
-                }
-                else if (sig->direction & MAPPER_DIR_INCOMING)
-                    --sig->device->num_inputs;
-                if (dir & MAPPER_DIR_OUTGOING) {
-                    if (!(sig->direction & MAPPER_DIR_OUTGOING))
-                        ++sig->device->num_outputs;
-                }
-                else if (sig->direction & MAPPER_DIR_OUTGOING)
-                    --sig->device->num_outputs;
                 mapper_table_set_record(sig->props, AT_DIRECTION, NULL, 1, 'i',
                                         &dir, REMOTE_MODIFY);
                 break;
