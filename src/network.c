@@ -2068,12 +2068,20 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     }
     if (map->status == STATUS_READY) {
         map->status = STATUS_ACTIVE;
+        mapper_device dev;
 
         // Inform remote peer(s)
         if (map->destination.direction == MAPPER_DIR_OUTGOING) {
             mapper_network_set_dest_mesh(net,
                                          map->destination.link->local->admin_addr);
             mapper_map_send_state(map, -1, MSG_MAPPED);
+            dev = map->sources[0]->signal->device;
+            ++dev->num_outgoing_maps;
+            if (dev->local->subscribers) {
+                // inform device subscribers of change to num_maps
+                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+                mapper_device_send_state(dev, MSG_DEVICE);
+            }
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
@@ -2081,6 +2089,13 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                                              map->sources[i]->link->local->admin_addr);
                 i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
                                           MSG_MAPPED);
+            }
+            dev = map->destination.signal->device;
+            ++dev->num_incoming_maps;
+            if (dev->local->subscribers) {
+                // inform device subscribers of change to num_maps
+                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+                mapper_device_send_state(dev, MSG_DEVICE);
             }
         }
         updated++;
