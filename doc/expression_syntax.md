@@ -1,15 +1,14 @@
 libmapper Expression Syntax
 ===========================
 
-Connections between signals that are maintained by libmapper
-can be configured with optional signal processing in the
-form of an expression.
+Connections between signals that are maintained by libmapper can be configured with
+optional signal processing described in the form of an expression.
 
 ### General Syntax
 
-Expressions in libmapper must always be presented in the form
-`y = x`, where `x` refers to the updated source value and `y` is
-the computed value to be forwarded to the destination.
+Expressions in libmapper must always be presented in the form `y = x`, where `x`
+refers to the updated source value and `y` is the computed value to be applied to the
+destination.
 
 ## Available operators
 
@@ -126,7 +125,7 @@ signals with different vector lengths.
 
 * `y = x[0]` — simple vector indexing
 * `y = x[1:2]` — specify a range within the vector
-* `y = [x[1],x[2],x[0]]` — rearranging ("swizzling") vector elements
+* `y = [x[1],x[2],x[0]]` — rearranging vector elements
 * `y[1] = x` — apply update to a specific element of the output
 * `y[0:2] = x` — apply update to elements `0-2` of the output vector
 * `[y[0],y[2]] = x` — apply update to output vector elements `y[0]` and `y[2]` but
@@ -150,6 +149,14 @@ Impulse Response** ( IIR ) filters - here are some simple examples:
 * `y = y{-1} * 0.9 + x * 0.1` — exponential moving average with current-sample-weight of `0.1`
 * `y = y{-1} + x - 1` — leaky integrator with a constant leak of `1`
 
+Note that `y{-n}` does not refer to the expression output, but rather to the *actual
+value* of the destination signal which may have been set locally or by another map
+since the last time the expression was evaluated. If you wish to reference past samples
+of the expression output you will need to cache the output using a **user-defined
+variable** (see below), e.g.:
+
+* `output = output + x - 1`;`y = output`
+
 Of course the filter can contain references to past samples of both `x` and `y` -
 currently libmapper will reject expressions referring to sample delays `> 100`.
 
@@ -159,9 +166,10 @@ Past values of the filter output `y{-n}` can be set using additional sub-express
 
 * `y = y{-1} + x`;`y{-1} = 100`
 
-Filter initialization takes place the first time the expression evaluator is called;
-after this point the initialization sub-expressions will not be evaluated. This means
-the filter could be initialized with the first sample of `x` for example:
+Filter initialization takes place the first time the expression evaluator is called
+for a given signal instance; after this point the initialization sub-expressions will
+not be evaluated. This means the filter could be initialized with the first sample of
+`x` for example:
 
 * `y = y{-1} + x`;`y{-1} = x * 2`
 
@@ -177,7 +185,7 @@ User-Declared Variables
 
 Up to 8 additional variables can be declared as-needed in the expression. The variable
 names can be any string except for the reserved variable names `x` and `y`.  The values
-of these variables are stored with the connection context and can be accessed in
+of these variables are stored per-instance with the map context and can be accessed in
 subsequent calls to the evaluator. In the following example, the user-defined variable
 `ema` is used to keep track of the `exponential moving average` of the input signal
 value `x`, *independent* of the output value `y` which is set to give the difference
