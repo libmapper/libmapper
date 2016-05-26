@@ -1701,7 +1701,7 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
             return 0;
         }
     }
-    else {
+    if (!map) {
         // try to find map by signal names
         if (!is_alphabetical(num_sources, &argv[src_index])) {
             trace("error in /map: signal names out of order.");

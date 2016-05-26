@@ -100,7 +100,6 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
     if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES)
         return 0;
 
-    mapper_local_device ldev = destination->device->local;
     mapper_database db = destination->device->database;
 
     // check if record of map already exists
@@ -143,10 +142,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
     map->sources = (mapper_slot*) malloc(sizeof(mapper_slot) * num_sources);
     for (i = 0; i < num_sources; i++) {
         map->sources[i] = (mapper_slot)calloc(1, sizeof(struct _mapper_slot));
-        if (sources[order[i]]->device->local == ldev) {
-            sig = sources[order[i]];
-        }
-        else {
+        if (!(sig = mapper_database_signal_by_id(db, sources[order[i]]->id))) {
             sig = mapper_database_add_or_update_signal(db, sources[order[i]]->name,
                                                        sources[order[i]]->device->name, 0);
             if (!sig->id) {
