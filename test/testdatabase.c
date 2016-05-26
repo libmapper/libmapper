@@ -76,6 +76,10 @@ int main(int argc, char **argv)
     lo_message_add_int32(lom, 1234);
     lo_message_add_string(lom, "@host");
     lo_message_add_string(lom, "localhost");
+    lo_message_add_string(lom, "@num_inputs");
+    lo_message_add_int32(lom, 2);
+    lo_message_add_string(lom, "@num_outputs");
+    lo_message_add_int32(lom, 2);
 
     if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
                                                 lo_message_get_types(lom),
@@ -86,6 +90,32 @@ int main(int argc, char **argv)
     }
 
     mapper_database_add_or_update_device(db, "testdatabase.1", msg);
+
+    mapper_message_free(msg);
+    lo_message_free(lom);
+
+    lom = lo_message_new();
+    if (!lom) {
+        result = 1;
+        goto done;
+    }
+    lo_message_add_string(lom, "@port");
+    lo_message_add_int32(lom, 1234);
+    lo_message_add_string(lom, "@host");
+    lo_message_add_string(lom, "localhost");
+    lo_message_add_string(lom, "@num_inputs");
+    lo_message_add_int32(lom, 2);
+    lo_message_add_string(lom, "@num_outputs");
+    lo_message_add_int32(lom, 1);
+
+    if (!(msg = mapper_message_parse_properties(lo_message_get_argc(lom),
+                                                lo_message_get_types(lom),
+                                                lo_message_get_argv(lom)))) {
+        eprintf("1: Error, parsing failed.\n");
+        result = 1;
+        goto done;
+    }
+
     mapper_database_add_or_update_device(db, "testdatabase__.2", msg);
 
     mapper_message_free(msg);
