@@ -162,7 +162,8 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
     map->destination.direction = MAPPER_DIR_INCOMING;
 
     // we need to give the map a temporary id – this may be overwritten later
-    map->id = mapper_device_generate_unique_id(destination->device);
+    if (destination->device->local)
+        map->id = mapper_device_generate_unique_id(destination->device);
 
     mapper_map_init(map);
 
@@ -1768,9 +1769,11 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
         lo_message_add_string(msg, dest_name);
     }
 
-    // Always add unique id
-    lo_message_add_string(msg, mapper_protocol_string(AT_ID));
-    lo_message_add_int64(msg, *((int64_t*)&map->id));
+    // Add unique id
+    if (map->id) {
+        lo_message_add_string(msg, mapper_protocol_string(AT_ID));
+        lo_message_add_int64(msg, *((int64_t*)&map->id));
+    }
 
     if (cmd == MSG_UNMAP || cmd == MSG_UNMAPPED) {
         mapper_network_add_message(map->database->network, 0, cmd, msg);
