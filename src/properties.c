@@ -56,7 +56,7 @@ const static_property_t static_properties[] = {
     { "@synced",            1, 't', 't' },  /* AT_SYNCED */
     { "@type",              1, 'c', 'c' },  /* AT_TYPE */
     { "@unit",              1, 's', 's' },  /* AT_UNIT */
-    { "@use_as_instance",   1, 'b', 'b' },  /* AT_USE_AS_INSTANCE */
+    { "@use_instances",     1, 'b', 'b' },  /* AT_USE_INSTANCES */
     { "@user_data",         1, 'v',  0  },  /* AT_USER_DATA */
     { "@version",           1, 'i', 'i' },  /* AT_VERSION */
     { "@extra",             0, 'a', 'a' },  /* AT_EXTRA (special case, does not

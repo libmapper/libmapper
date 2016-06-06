@@ -55,8 +55,8 @@ void mapper_slot_init(mapper_slot slot)
     mapper_table_link_value(slot->props, index, 1, 'i', &slot->num_instances,
                             local ? NON_MODIFIABLE : MODIFIABLE);
 
-    index = slot_prop_index(slot, AT_USE_AS_INSTANCE);
-    mapper_table_link_value(slot->props, index, 1, 'b', &slot->use_as_instance,
+    index = slot_prop_index(slot, AT_USE_INSTANCES);
+    mapper_table_link_value(slot->props, index, 1, 'b', &slot->use_instances,
                             MODIFIABLE);
 }
 
@@ -114,9 +114,9 @@ int mapper_slot_num_instances(mapper_slot slot)
     return slot->num_instances;
 }
 
-int mapper_slot_use_as_instance(mapper_slot slot)
+int mapper_slot_use_instances(mapper_slot slot)
 {
-    return slot->use_as_instance;
+    return slot->use_instances;
 }
 
 void mapper_slot_maximum(mapper_slot slot, int *length, char *type, void **value)
@@ -185,11 +185,11 @@ void mapper_slot_set_causes_update(mapper_slot slot, int causes_update)
                             &causes_update, REMOTE_MODIFY);
 }
 
-void mapper_slot_set_use_as_instance(mapper_slot slot, int use_as_instance)
+void mapper_slot_set_use_instances(mapper_slot slot, int use_instances)
 {
-    int index = slot_prop_index(slot, AT_USE_AS_INSTANCE);
+    int index = slot_prop_index(slot, AT_USE_INSTANCES);
     mapper_table_set_record(slot->staged_props, index, NULL, 1, 'b',
-                            &use_as_instance, REMOTE_MODIFY);
+                            &use_instances, REMOTE_MODIFY);
 }
 
 void mapper_slot_set_maximum(mapper_slot slot, int length, char type,

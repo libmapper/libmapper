@@ -241,9 +241,9 @@ EXPORTS
     mapper_slot_set_maximum                             @240
     mapper_slot_set_minimum                             @241
     mapper_slot_set_property                            @242
-    mapper_slot_set_use_as_instance                     @243
+    mapper_slot_set_use_instances                       @243
     mapper_slot_signal                                  @244
-    mapper_slot_use_as_instance                         @245
+    mapper_slot_use_instances                           @245
     mapper_timetag_add                                  @246
     mapper_timetag_copy                                 @247
     mapper_timetag_difference                           @248

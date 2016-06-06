@@ -2412,19 +2412,19 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setMinimum
     return Java_mapper_Map_00024Slot_setProperty(env, obj, minstring, minimum);
 }
 
-JNIEXPORT jboolean JNICALL Java_mapper_Map_00024Slot_useAsInstance
+JNIEXPORT jboolean JNICALL Java_mapper_Map_00024Slot_useInstances
   (JNIEnv *env, jobject obj)
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
-    return slot ? mapper_slot_use_as_instance(slot) : 0;
+    return slot ? mapper_slot_use_instances(slot) : 0;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setUseAsInstance
+JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setUseInstances
   (JNIEnv *env, jobject obj, jboolean value)
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
     if (slot)
-        mapper_slot_set_use_as_instance(slot, (int)value);
+        mapper_slot_set_use_instances(slot, (int)value);
     return obj;
 }
 

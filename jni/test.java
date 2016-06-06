@@ -215,7 +215,7 @@ class test {
 
             if (i == 50) {
                 map.setExpression("y=x*-100");
-                map.source().setUseAsInstance(true);
+                map.source().setUseInstances(true);
                 map.push();
             }
             dev1.poll(50);

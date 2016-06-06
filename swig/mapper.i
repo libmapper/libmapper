@@ -2323,8 +2323,8 @@ typedef struct _map_query {
         }
         return 0;
     }
-    booltype get_use_as_instance() {
-        return mapper_slot_use_as_instance((mapper_slot)$self);
+    booltype get_use_instances() {
+        return mapper_slot_use_instances((mapper_slot)$self);
     }
     property_value get_property(const char *key) {
         mapper_slot slot = (mapper_slot)$self;
@@ -2410,8 +2410,8 @@ typedef struct _map_query {
             mapper_slot_remove_property((mapper_slot)$self, key);
         return $self;
     }
-    slot *set_use_as_instance(booltype use_as_instance) {
-        mapper_slot_set_use_as_instance((mapper_slot)$self, use_as_instance);
+    slot *set_use_instances(booltype use_instances) {
+        mapper_slot_set_use_instances((mapper_slot)$self, use_instances);
         return $self;
     }
     slot *remove_property(const char *key) {
@@ -2428,7 +2428,7 @@ typedef struct _map_query {
         maximum = property(get_maximum, set_maximum)
         minimum = property(get_minimum, set_minimum)
         num_properties = property(get_num_properties)
-        use_as_instance = property(get_use_as_instance, set_use_as_instance)
+        use_instances = property(get_use_instances, set_use_instances)
         def get_properties(self):
             props = {}
             for i in range(self.num_properties):

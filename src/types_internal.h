@@ -74,7 +74,7 @@ typedef enum {
     AT_SYNCED,              /* 0x1F */
     AT_TYPE,                /* 0x20 */
     AT_UNIT,                /* 0x21 */
-    AT_USE_AS_INSTANCE,     /* 0x22 */
+    AT_USE_INSTANCES,       /* 0x22 */
     AT_USER_DATA,           /* 0x23 */
     AT_VERSION,             /* 0x24 */
     AT_EXTRA,               /* 0x25 */
@@ -455,7 +455,7 @@ typedef struct _mapper_slot {
     int num_instances;
     int direction;                      //!< DI_INCOMING or DI_OUTGOING
     int causes_update;                  //!< 1 if causes update, 0 otherwise.
-    int use_as_instance;                //!< 1 if used as instance, 0 otherwise.
+    int use_instances;                  //!< 1 if using instances, 0 otherwise.
 
     mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
     mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.

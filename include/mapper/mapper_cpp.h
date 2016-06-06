@@ -870,11 +870,11 @@ namespace mapper {
                 mapper_slot_set_causes_update(_slot, (int)value);
                 return (*this);
             }
-            bool use_as_instance() const
-                { return mapper_slot_use_as_instance(_slot); }
-            Slot& set_use_as_instance(bool value)
+            bool use_instances() const
+                { return mapper_slot_use_instances(_slot); }
+            Slot& set_use_instances(bool value)
             {
-                mapper_slot_set_use_as_instance(_slot, (int)value);
+                mapper_slot_set_use_instances(_slot, (int)value);
                 return (*this);
             }
             int num_properties() const

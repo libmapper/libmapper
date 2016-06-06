@@ -1183,15 +1183,15 @@ static void mapper_map_set_mode_expression(mapper_map map, const char *expr)
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
     /* TODO: should call handler for all instances updated through this map. */
-    int use_as_instance = 0;
+    int use_instances = 0;
     for (i = 0; i < map->num_sources; i++) {
-        if (map->sources[i]->use_as_instance) {
-            use_as_instance = 1;
+        if (map->sources[i]->use_instances) {
+            use_instances = 1;
             break;
         }
     }
-    use_as_instance += map->destination.use_as_instance;
-    if (mapper_expr_constant_output(map->local->expr) && !use_as_instance) {
+    use_instances += map->destination.use_instances;
+    if (mapper_expr_constant_output(map->local->expr) && !use_instances) {
         mapper_timetag_t now;
         mapper_clock_now(&map->database->network->clock, &now);
 

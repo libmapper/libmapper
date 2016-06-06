@@ -917,7 +917,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             map->sources[i]->map = map;
             if (map->sources[i]->signal->local) {
                 map->sources[i]->num_instances = map->sources[i]->signal->num_instances;
-                map->sources[i]->use_as_instance = map->sources[i]->num_instances > 1;
+                map->sources[i]->use_instances = map->sources[i]->num_instances > 1;
             }
         }
         map->destination.signal = dst_sig;
@@ -925,7 +925,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         map->destination.map = map;
         if (map->destination.signal->local) {
             map->destination.num_instances = map->destination.signal->num_instances;
-            map->destination.use_as_instance = map->destination.num_instances > 1;
+            map->destination.use_instances = map->destination.num_instances > 1;
         }
 
         mapper_map_init(map);
@@ -956,7 +956,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                 map->sources[j]->map = map;
                 if (map->sources[j]->signal->local) {
                     map->sources[j]->num_instances = map->sources[j]->signal->num_instances;
-                    map->sources[j]->use_as_instance = map->sources[j]->num_instances > 1;
+                    map->sources[j]->use_instances = map->sources[j]->num_instances > 1;
                 }
                 mapper_slot_init(map->sources[j]);
                 rc = 1;

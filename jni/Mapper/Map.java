@@ -58,8 +58,8 @@ public class Map
         public native Value minimum();
         public native Slot setMinimum(Value p);
 
-        public native boolean useAsInstance();
-        public native Slot setUseAsInstance(boolean useAsInstance);
+        public native boolean useInstances();
+        public native Slot setUseInstances(boolean useInstances);
 
         public native Signal signal();
 

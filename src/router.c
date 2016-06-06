@@ -172,7 +172,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             if (slot->direction == MAPPER_DIR_OUTGOING
                 && !(sig->local->id_maps[instance].status & RELEASED_REMOTELY)) {
                 msg = 0;
-                if (!slot->use_as_instance)
+                if (!slot->use_instances)
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, 0);
                 else if (map_in_scope(map, id_map->global))
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, id_map);
@@ -192,7 +192,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                        * sizeof(mapper_timetag_t));
                 islot->history[id].position = -1;
 
-                if (!map->sources[j]->use_as_instance)
+                if (!map->sources[j]->use_instances)
                     continue;
 
                 if (!map_in_scope(map, id_map->global))
@@ -230,7 +230,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
         int in_scope = map_in_scope(map, id_map->global);
         // TODO: should we continue for out-of-scope local destination updates?
-        if (slot->use_as_instance && !in_scope) {
+        if (slot->use_instances && !in_scope) {
             continue;
         }
 
@@ -293,7 +293,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             }
             else {
                 msg = mapper_map_build_message(map, slot, result, 1, dst_types,
-                                               slot->use_as_instance ? id_map : 0);
+                                               slot->use_instances ? id_map : 0);
                 if (msg)
                     send_or_bundle_message(map->destination.link,
                                            dst_slot->signal->path, msg, tt);
@@ -301,9 +301,9 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             ++k;
         }
         if (count > 1 && slot->direction == MAPPER_DIR_OUTGOING
-            && (!slot->use_as_instance || in_scope)) {
+            && (!slot->use_instances || in_scope)) {
             msg = mapper_map_build_message(map, slot, out_value_p, k, dst_types,
-                                           slot->use_as_instance ? id_map : 0);
+                                           slot->use_instances ? id_map : 0);
             if (msg)
                 send_or_bundle_message(map->destination.link,
                                        dst_slot->signal->path, msg, tt);
@@ -540,13 +540,13 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
         map->destination.num_instances = map->destination.signal->num_instances;
     else
         map->destination.num_instances = max_num_instances;
-    map->destination.use_as_instance = map->destination.num_instances > 1;
+    map->destination.use_instances = map->destination.num_instances > 1;
     for (i = 0; i < map->num_sources; i++) {
         if (map->sources[i]->signal->local)
             map->sources[i]->num_instances = map->sources[i]->signal->num_instances;
         else
             map->sources[i]->num_instances = map->destination.num_instances;
-        map->sources[i]->use_as_instance = map->sources[i]->num_instances > 1;
+        map->sources[i]->use_instances = map->sources[i]->num_instances > 1;
     }
     imap->num_var_instances = max_num_instances;
 

@@ -1503,7 +1503,7 @@ int mapper_slot_property_index(mapper_slot slot, unsigned int index,
  *  updates to this slot will be treated as updates to a specific instance.
  *  \param slot         The slot to check.
  *  \return         	One to send as instance, 0 otherwise. */
-int mapper_slot_use_as_instance(mapper_slot slot);
+int mapper_slot_use_instances(mapper_slot slot);
 
 /*! Get the index for a specific map slot.
  *  \param slot         The slot to check.
@@ -1572,8 +1572,8 @@ void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
  *  Changes to remote maps will not take effect until synchronized with the
  *  network using mapper_map_push().
  *  \param slot             The slot to modify.
- *  \param use_as_instance  One to send as instance update, 0 otherwise. */
-void mapper_slot_set_use_as_instance(mapper_slot slot, int use_as_instance);
+ *  \param use_instances    One to send as instance update, 0 otherwise. */
+void mapper_slot_set_use_instances(mapper_slot slot, int use_instances);
 
 /*! Set an arbitrary property for a specific map slot.  Changes to remote maps
  *  will not take effect until synchronized with the network using
