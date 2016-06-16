@@ -650,12 +650,12 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_addInput
 
     if (minimum) {
         jstring minstring = (*env)->NewStringUTF(env, "min");
-        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, jlong_ptr(s),
                                                            minstring, minimum);
     }
     if (maximum) {
         jstring maxstring = (*env)->NewStringUTF(env, "max");
-        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, jlong_ptr(s),
                                                            maxstring, maximum);
     }
 
@@ -689,12 +689,12 @@ JNIEXPORT jobject JNICALL Java_Mapper_Device_addOutput
 
     if (minimum) {
         jstring minstring = (*env)->NewStringUTF(env, "min");
-        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, jlong_ptr(s),
                                                            minstring, minimum);
     }
     if (maximum) {
         jstring maxstring = (*env)->NewStringUTF(env, "max");
-        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, (jlong)s,
+        Java_Mapper_Device_00024Signal_msig_1set_1property(env, obj, jlong_ptr(s),
                                                            maxstring, maximum);
     }
 
