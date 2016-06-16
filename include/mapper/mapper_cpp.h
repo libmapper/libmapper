@@ -197,7 +197,7 @@ namespace mapper {
         Property& set(int _length, T& _value)
         {
             maybe_free();
-            _set(_value, _length);
+            _set(_length, _value);
             if (parent) parent->set_property(this);
             return (*this);
         }
@@ -374,7 +374,7 @@ namespace mapper {
         void _set(std::array<T, N>& _value)
         {
             if (!_value.empty())
-                _set(_value.data(), N);
+                _set(N, _value.data());
             else
                 length = 0;
         }
@@ -412,7 +412,7 @@ namespace mapper {
                 owned = true;
             }
         }
-        void _set(std::string _values[], int _length)
+        void _set(int _length, std::string _values[])
         {
             length = _length;
             type = 's';
