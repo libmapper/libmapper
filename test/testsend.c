@@ -38,7 +38,7 @@ int test_controller()
     const char *host = "localhost";
     int admin_port = 9000, data_port = 9001;
     mapper_router rt = mapper_router_new(md, host, admin_port, data_port,
-                                         "DESTINATION");
+                                         "/DESTINATION");
     mdev_add_router(md, rt);
     eprintf("Router to %s:%d added.\n", host, data_port);
 
