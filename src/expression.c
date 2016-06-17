@@ -1144,7 +1144,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
         i = top;
         int skip = 0;
         int depth = arity;
-        int operand;
+        int operand = 0;
         // last arg of op or func is at top-1
         type = compare_token_datatype(stack[top-1], type);
         if (stack[top-1].vector_length > vector_length)

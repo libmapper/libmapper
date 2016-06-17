@@ -612,12 +612,12 @@ void mapper_connection_set_mode_linear(mapper_connection c)
     for (i=0; i<min_length; i++) {
         src_min = propval_get_double(c->props.src_min, c->props.src_type, i);
         src_max = propval_get_double(c->props.src_max, c->props.src_type, i);
+        dest_min = propval_get_double(c->props.dest_min, c->props.dest_type, i);
 
         len = strlen(expr);
         if (src_min == src_max)
             snprintf(expr+len, 256-len, "%g,", dest_min);
         else {
-            dest_min = propval_get_double(c->props.dest_min, c->props.dest_type, i);
             dest_max = propval_get_double(c->props.dest_max, c->props.dest_type, i);
             if ((src_min == dest_min) && (src_max == dest_max)) {
                 snprintf(expr+len, 256-len, "0,");
