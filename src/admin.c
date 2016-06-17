@@ -1509,7 +1509,7 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
     if (!flags)
         return;
 
-    if (!(*s)) {
+    if (!(*s) && timeout_seconds) {
         // add new subscriber
         mapper_admin_subscriber sub = malloc(sizeof(struct _mapper_admin_subscriber));
         sub->address = lo_address_new(ip, port);
@@ -1524,7 +1524,7 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
         return;
 
     // bring new subscriber up to date
-    mapper_admin_set_bundle_dest_mesh(admin, (*s)->address);
+    mapper_admin_set_bundle_dest_mesh(admin, s && (*s) ? (*s)->address : address);
     if (flags & SUB_DEVICE)
         mapper_admin_send_device(admin, admin->device);
     if (flags & SUB_DEVICE_INPUTS)
@@ -1539,6 +1539,10 @@ static void mapper_admin_manage_subscriber(mapper_admin admin, lo_address addres
         mapper_admin_send_connections_in(admin, admin->device, -1, -1);
     if (flags & SUB_DEVICE_CONNECTIONS_OUT)
         mapper_admin_send_connections_out(admin, admin->device, -1, -1);
+
+    // address is not cached if timeout is 0 so we need to send immediately
+    if (!s || !(*s))
+        mapper_admin_send_bundle(admin);
 }
 
 /*! Respond to /subscribe message by adding or renewing a subscription. */
