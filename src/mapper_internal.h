@@ -126,27 +126,22 @@ void mapper_router_remove_link(mapper_router router, mapper_link link);
 int mapper_router_remove_map(mapper_router router, mapper_map map);
 
 /*! Find a mapping in a router by local signal and remote signal name. */
-mapper_map mapper_router_find_outgoing_map(mapper_router router,
-                                           mapper_signal local_src,
-                                           int num_sources,
-                                           const char **src_names,
-                                           const char *dest_name);
+mapper_map mapper_router_outgoing_map(mapper_router router,
+                                      mapper_signal local_src,
+                                      int num_sources,
+                                      const char **src_names,
+                                      const char *dest_name);
 
-mapper_map mapper_router_find_incoming_map(mapper_router router,
-                                           mapper_signal local_dest,
-                                           int num_sources,
-                                           const char **src_names);
+mapper_map mapper_router_incoming_map(mapper_router router,
+                                      mapper_signal local_dest,
+                                      int num_sources,
+                                      const char **src_names);
 
-mapper_map mapper_router_find_incoming_map_by_id(mapper_router router,
-                                                 mapper_signal local_dest,
-                                                 mapper_id id);
+mapper_map mapper_router_map_by_id(mapper_router router, mapper_signal local_sig,
+                                   mapper_id id, mapper_direction dir);
 
-mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
-                                                 mapper_signal local_src,
-                                                 mapper_id id);
-
-mapper_slot mapper_router_find_slot(mapper_router router, mapper_signal signal,
-                                    int slot_number);
+mapper_slot mapper_router_slot(mapper_router router, mapper_signal signal,
+                               int slot_number);
 
 /**** Signals ****/
 
@@ -404,6 +399,12 @@ void mapper_database_check_device_status(mapper_database db, uint32_t now_sec);
 /*! Flush device records for unresponsive devices. */
 mapper_device mapper_database_expired_device(mapper_database db,
                                              uint32_t last_ping);
+
+int mapper_database_subscribed_by_device_name(mapper_database db,
+                                              const char *name);
+
+int mapper_database_subscribed_by_signal_name(mapper_database db,
+                                              const char *name);
 
 /**** Messages ****/
 /*! Parse the device and signal names from an OSC path. */

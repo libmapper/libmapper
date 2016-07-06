@@ -758,11 +758,11 @@ static int match_slot(mapper_device dev, mapper_slot slot, const char *full_name
     return 1;
 }
 
-mapper_map mapper_router_find_outgoing_map(mapper_router rtr,
-                                           mapper_signal local_src,
-                                           int num_sources,
-                                           const char **src_names,
-                                           const char *dest_name)
+mapper_map mapper_router_outgoing_map(mapper_router rtr,
+                                      mapper_signal local_src,
+                                      int num_sources,
+                                      const char **src_names,
+                                      const char *dest_name)
 {
     // find associated router_signal
     mapper_router_signal rs = rtr->signals;
@@ -800,10 +800,10 @@ mapper_map mapper_router_find_outgoing_map(mapper_router rtr,
     return 0;
 }
 
-mapper_map mapper_router_find_incoming_map(mapper_router rtr,
-                                           mapper_signal local_dst,
-                                           int num_sources,
-                                           const char **src_names)
+mapper_map mapper_router_incoming_map(mapper_router rtr,
+                                      mapper_signal local_dst,
+                                      int num_sources,
+                                      const char **src_names)
 {
     // find associated router_signal
     mapper_router_signal rs = rtr->signals;
@@ -833,39 +833,18 @@ mapper_map mapper_router_find_incoming_map(mapper_router rtr,
     return 0;
 }
 
-mapper_map mapper_router_find_incoming_map_by_id(mapper_router rtr,
-                                                 mapper_signal local_dst,
-                                                 mapper_id id)
-{
-    mapper_router_signal rs = rtr->signals;
-    while (rs && rs->signal != local_dst)
-        rs = rs->next;
-    if (!rs)
-        return 0;
-
-    int i;
-    for (i = 0; i < rs->num_slots; i++) {
-        if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_DIR_OUTGOING)
-            continue;
-        if (rs->slots[i]->map->id == id)
-            return rs->slots[i]->map;
-    }
-    return 0;
-}
-
-mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
-                                                 mapper_signal local_src,
-                                                 mapper_id id)
+mapper_map mapper_router_map_by_id(mapper_router router, mapper_signal local_sig,
+                                   mapper_id id, mapper_direction dir)
 {
     int i;
     mapper_router_signal rs = router->signals;
-    while (rs && rs->signal != local_src)
+    while (rs && rs->signal != local_sig)
         rs = rs->next;
     if (!rs)
         return 0;
 
     for (i = 0; i < rs->num_slots; i++) {
-        if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_DIR_INCOMING)
+        if (!rs->slots[i] || (dir && rs->slots[i]->direction != dir))
             continue;
         if (rs->slots[i]->map->id == id)
             return rs->slots[i]->map;
@@ -873,8 +852,8 @@ mapper_map mapper_router_find_outgoing_map_by_id(mapper_router router,
     return 0;
 }
 
-mapper_slot mapper_router_find_slot(mapper_router router, mapper_signal signal,
-                                    int slot_id)
+mapper_slot mapper_router_slot(mapper_router router, mapper_signal signal,
+                               int slot_id)
 {
     // only interested in incoming slots
     mapper_router_signal rs = router->signals;

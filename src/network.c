@@ -339,7 +339,7 @@ static void mapper_network_remove_device_methods(mapper_network net,
                  network_message_strings[device_handlers[i].str_index],
                  mapper_device_name(net->device));
         // make sure method isn't also used by a database
-        if (net->database.autosubscribe) {
+        if (net->database.autosubscribe || net->database.subscriptions) {
             int found = 0;
             for (j=0; j < NUM_DATABASE_HANDLERS; j++) {
                 if (device_handlers[i].str_index == database_handlers[j].str_index) {
@@ -932,7 +932,8 @@ static int handler_device(const char *path, const char *types,
 
     const char *name = &argv[0]->s;
 
-    if (net->database.autosubscribe) {
+    if (net->database.autosubscribe
+        || mapper_database_subscribed_by_device_name(&net->database, name)) {
         props = mapper_message_parse_properties(argc-1, &types[1], &argv[1]);
         trace("<network> got /device %s + %i arguments\n", name, argc-1);
         mapper_device remote;
@@ -1064,7 +1065,7 @@ static int handler_device_modify(const char *path, const char *types,
 
     mapper_message props = mapper_message_parse_properties(argc, types, argv);
 
-    trace("<%s> got /%s/set + %d properties.\n", mapper_device_name(dev),
+    trace("<%s> got /%s/modify + %d properties.\n", mapper_device_name(dev),
           mapper_device_name(dev), props->num_atoms);
 
     if (mapper_device_set_from_message(dev, props)) {
@@ -1315,7 +1316,7 @@ static int handler_signal_modify(const char *path, const char *types,
     mapper_message props = mapper_message_parse_properties(argc-1, &types[1],
                                                            &argv[1]);
 
-    trace("<%s> got /%s/signal/set '%s' + %d properties.\n",
+    trace("<%s> got /%s/signal/modify '%s' + %d properties.\n",
           mapper_device_name(dev), mapper_device_name(dev),
           sig->name, props->num_atoms);
 
@@ -1711,8 +1712,8 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         for (i = 0; i < num_sources; i++) {
             src_names[i] = &argv[src_index+i]->s;
         }
-        map = mapper_router_find_incoming_map(dev->local->router, local_signal,
-                                              num_sources, src_names);
+        map = mapper_router_incoming_map(dev->local->router, local_signal,
+                                         num_sources, src_names);
 
         /* If a mapping already exists between these signals, forward the
          * message to handler_map_modify() and stop. */
@@ -1859,15 +1860,9 @@ static int handler_map_to(const char *path, const char *types, lo_arg **argv,
     }
     mapper_id id = (atom->values[0])->i64;
 
-    if (src_index) {
-        map = mapper_router_find_outgoing_map_by_id(dev->local->router,
-                                                    local_signal, id);
-    }
-    else {
-        map = mapper_router_find_incoming_map_by_id(dev->local->router,
-                                                    local_signal, id);
-    }
-
+    map = mapper_router_map_by_id(dev->local->router, local_signal, id,
+                                  src_index ? MAPPER_DIR_OUTGOING :
+                                  MAPPER_DIR_INCOMING);
     if (!map) {
         const char *src_names[num_sources];
         for (i = 0; i < num_sources; i++) {
@@ -1973,14 +1968,26 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     printf("\n");
 #endif
 
-    mapper_message props = 0;
-    if (local_signal || net->database.autosubscribe) {
-        props = mapper_message_parse_properties(argc-prop_index,
-                                                &types[prop_index],
-                                                &argv[prop_index]);
-    }
+    mapper_message props = mapper_message_parse_properties(argc-prop_index,
+                                                           &types[prop_index],
+                                                           &argv[prop_index]);
     if (!local_signal) {
-        if (net->database.autosubscribe) {
+        int store = 0;
+        if (net->database.autosubscribe & MAPPER_OBJ_MAPS)
+            store = 1;
+        else if (mapper_database_subscribed_by_signal_name(&net->database,
+                                                           &argv[dest_index]->s))
+            store = 1;
+        else {
+            for (i = 0; i < num_sources; i++) {
+                if (mapper_database_subscribed_by_signal_name(&net->database,
+                                                              &argv[src_index+i]->s)) {
+                    store = 1;
+                    break;
+                }
+            }
+        }
+        if (store) {
             const char *src_names[num_sources];
             for (i = 0; i < num_sources; i++) {
                 src_names[i] = &argv[src_index+i]->s;
@@ -2002,14 +2009,9 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     }
     mapper_id id = (atom->values[0])->i64;
 
-    if (src_index) {
-        map = mapper_router_find_outgoing_map_by_id(dev->local->router,
-                                                    local_signal, id);
-    }
-    else {
-        map = mapper_router_find_incoming_map_by_id(dev->local->router,
-                                                    local_signal, id);
-    }
+    map = mapper_router_map_by_id(dev->local->router, local_signal, id,
+                                  src_index ? MAPPER_DIR_OUTGOING :
+                                  MAPPER_DIR_INCOMING);
     if (!map) {
         trace("<%s> no map found for /mapped.\n", mapper_device_name(dev));
         mapper_message_free(props);
@@ -2165,8 +2167,8 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
                 trace("<%s> no signal found with name '%s'.\n",
                       mapper_device_name(dev), local_signal_name);
             }
-            map = mapper_router_find_incoming_map(dev->local->router, local_signal,
-                                                  num_sources, src_names);
+            map = mapper_router_incoming_map(dev->local->router, local_signal,
+                                             num_sources, src_names);
         }
         else {
             // check if we are a source – all sources must match!
@@ -2184,9 +2186,9 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
                 }
             }
             if (local_signal)
-                map = mapper_router_find_outgoing_map(dev->local->router, local_signal,
-                                                      num_sources, src_names,
-                                                      &argv[dest_index]->s);
+                map = mapper_router_outgoing_map(dev->local->router, local_signal,
+                                                 num_sources, src_names,
+                                                 &argv[dest_index]->s);
         }
     }
 
@@ -2315,8 +2317,8 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
                   mapper_device_name(dev), local_signal_name);
             return 0;
         }
-        map = mapper_router_find_incoming_map(dev->local->router, local_signal,
-                                              num_sources, src_names);
+        map = mapper_router_incoming_map(dev->local->router, local_signal,
+                                         num_sources, src_names);
     }
     else {
         // check if we are a source – all sources must match!
@@ -2334,9 +2336,9 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
             }
         }
         if (local_signal)
-            map = mapper_router_find_outgoing_map(dev->local->router, local_signal,
-                                                  num_sources, src_names,
-                                                  &argv[dest_index]->s);
+            map = mapper_router_outgoing_map(dev->local->router, local_signal,
+                                             num_sources, src_names,
+                                             &argv[dest_index]->s);
     }
 
 #ifdef DEBUG

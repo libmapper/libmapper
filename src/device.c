@@ -408,7 +408,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 
     if (slot_index >= 0) {
         // retrieve mapping associated with this slot
-        src_slot = mapper_router_find_slot(dev->local->router, sig, slot_index);
+        src_slot = mapper_router_slot(dev->local->router, sig, slot_index);
         if (!src_slot) {
 #ifdef DEBUG
             printf("error in handler_signal: slot %d not found.\n", slot_index);

@@ -1414,6 +1414,37 @@ void mapper_database_unsubscribe(mapper_database db, mapper_device dev)
     unsubscribe_internal(db, dev, 1);
 }
 
+int mapper_database_subscribed_by_device_name(mapper_database db,
+                                              const char *name)
+{
+    mapper_device dev = mapper_database_device_by_name(db, name);
+    if (dev) {
+        mapper_subscription s = subscription(db, dev);
+        return s ? s->flags : 0;
+    }
+    return 0;
+}
+
+int mapper_database_subscribed_by_signal_name(mapper_database db,
+                                              const char *name)
+{
+    // name needs to be split
+    char *devnamep, *signame, devname[256];
+    int devnamelen = mapper_parse_names(name, &devnamep, &signame);
+    if (!devnamelen || devnamelen >= 256) {
+        trace("error extracting device name\n");
+        return 0;
+    }
+    strncpy(devname, devnamep, devnamelen);
+    devname[devnamelen] = 0;
+    mapper_device dev = mapper_database_device_by_name(db, devname);
+    if (dev) {
+        mapper_subscription s = subscription(db, dev);
+        return s ? s->flags : 0;
+    }
+    return 0;
+}
+
 void mapper_database_request_devices(mapper_database db)
 {
     lo_message msg = lo_message_new();
