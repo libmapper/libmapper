@@ -42,7 +42,7 @@ namespace mapper {
     class Signal;
     class Map;
     class Link;
-    class GenericObject;
+    class Object;
     class Property;
     class Database;
 
@@ -154,13 +154,15 @@ namespace mapper {
         mapper_timetag_t _tt;
     };
 
-    class AbstractObjectWithSetter
+    class Object
     {
     protected:
         friend class Property;
-        virtual AbstractObjectWithSetter& set_property(Property *p) = 0;
+        virtual Object& set_property(Property *p) = 0;
     public:
-        virtual AbstractObjectWithSetter& remove_property(const string_type &key) = 0;
+        virtual Object& remove_property(const string_type &key) = 0;
+        virtual Property property(const string_type &name) const = 0;
+        virtual Property property(int index) const = 0;
     };
 
     class Property
@@ -301,17 +303,17 @@ namespace mapper {
         const void *value;
     protected:
         friend class Database;
-        friend class GenericObject;
+        friend class Object;
         friend class Device;
         friend class Signal;
         friend class Link;
         friend class Map;
         Property(const string_type &_name, int _length, char _type,
-                 const void *_value, const AbstractObjectWithSetter *_parent)
+                 const void *_value, const Object *_parent)
         {
             name = _name;
             _set(_length, _type, _value);
-            parent = (AbstractObjectWithSetter *)_parent;
+            parent = (Object *)_parent;
             owned = false;
         }
     private:
@@ -468,16 +470,7 @@ namespace mapper {
             value = _value;
             length = _length;
         }
-        AbstractObjectWithSetter *parent;
-    };
-
-    class GenericObject : public AbstractObjectWithSetter
-    {
-    protected:
-        virtual GenericObject& set_property(Property *p) = 0;
-    public:
-        virtual Property property(const string_type &name) const = 0;
-        virtual Property property(int index) const = 0;
+        Object *parent;
     };
 
     class signal_type {
@@ -490,7 +483,7 @@ namespace mapper {
         mapper_signal _sig;
     };
 
-    class Map : public GenericObject
+    class Map : public Object
     {
     public:
         Map(const Map& orig)
@@ -801,7 +794,7 @@ namespace mapper {
         private:
             mapper_map *_maps;
         };
-        class Slot : public GenericObject
+        class Slot : public Object
         {
         public:
             ~Slot() {}
@@ -960,7 +953,7 @@ namespace mapper {
         mapper_map _map;
     };
 
-    class Link : public GenericObject
+    class Link : public Object
     {
     public:
         Link(const Link& orig)
@@ -1204,7 +1197,7 @@ namespace mapper {
         mapper_link _link;
     };
 
-    class Signal : public GenericObject
+    class Signal : public Object
     {
     protected:
         friend class Property;
@@ -1647,7 +1640,7 @@ namespace mapper {
         };
     };
 
-    class Device : public GenericObject
+    class Device : public Object
     {
     protected:
         Device& set_property(Property *p)
