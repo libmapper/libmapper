@@ -146,6 +146,11 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
 #endif
             continue;
         }
+        // new property
+        if (atom->types || (atom->index & PROPERTY_REMOVE))
+            ++msg->num_atoms;
+        atom = &msg->atoms[msg->num_atoms];
+
         key = &argv[i]->s;
         if (strncmp(&argv[i]->s, "+@", 2)==0) {
             atom->index = PROPERTY_ADD;
@@ -158,20 +163,16 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
         if (key[0] != '@') // not a property key
             continue;
 
-        // new property
-        if (atom->types)
-            ++msg->num_atoms;
-        atom = &msg->atoms[msg->num_atoms];
         atom->key = key;
 
         // try to find matching index for static props
         if (strncmp(atom->key, "@dst@", 5)==0) {
-            atom->index = DST_SLOT_PROPERTY;
+            atom->index |= DST_SLOT_PROPERTY;
             atom->key += 5;
         }
         else if (strncmp(atom->key, "@src", 4)==0) {
             if (atom->key[4] == '@') {
-                atom->index = SRC_SLOT_PROPERTY(0);
+                atom->index |= SRC_SLOT_PROPERTY(0);
                 atom->key += 5;
             }
             else if (atom->key[4] == '.') {
@@ -188,7 +189,7 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
                     atom->types = 0;
                     continue;
                 }
-                atom->index = SRC_SLOT_PROPERTY(slot_index);
+                atom->index |= SRC_SLOT_PROPERTY(slot_index);
             }
         }
         else
@@ -217,9 +218,11 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
                 atom->length++;
         }
         if (!atom->length) {
-            trace("Key '%s' has no values.\n", atom->key);
             atom->types = 0;
-            continue;
+            if (!(atom->index & PROPERTY_REMOVE)) {
+                trace("Key '%s' has no values.\n", atom->key);
+                continue;
+            }
         }
         // check type against static props
         if (MASK_PROP_BITFLAGS(atom->index) < AT_EXTRA) {
@@ -269,8 +272,8 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
             }
         }
     }
-    // reset last atom if no types
-    if (atom->types)
+    // reset last atom if no types unless "remove" flag is set
+    if (atom->types || atom->index & PROPERTY_REMOVE)
         msg->num_atoms++;
     else {
         atom->key = 0;

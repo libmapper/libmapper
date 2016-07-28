@@ -178,6 +178,70 @@ int main(int argc, char **argv)
     }
 
     /*****/
+
+    eprintf("3: removing properties\n");
+
+    args[0] = (lo_arg*)"-@foo";
+    args[1] = (lo_arg*)"@port";
+    args[2] = (lo_arg*)&port;
+    args[3] = (lo_arg*)"-@bar";
+
+    mapper_message_free(msg);
+    msg = mapper_message_parse_properties(4, "ssis", args);
+    if (!msg) {
+        eprintf("3: Error parsing.\n");
+        result = 1;
+        goto done;
+    }
+
+    if (msg->num_atoms != 3) {
+        eprintf("3: Wrong number of atoms.\n");
+        result = 1;
+        goto done;
+    }
+
+    atom = &msg->atoms[0];
+    if (strcmp(atom->key, "foo")) {
+        eprintf("3: Could not get -@foo property.\n");
+        result = 1;
+        goto done;
+    }
+    if (!(atom->index & PROPERTY_REMOVE)) {
+        eprintf("3: Missing PROPERTY_REMOVE flag.\n");
+        result = 1;
+        goto done;
+    }
+
+    atom = mapper_message_property(msg, AT_PORT);
+    if (!atom) {
+        eprintf("3: Could not get @port property.\n");
+        result = 1;
+        goto done;
+    }
+    if (atom->types[0] != 'i') {
+        eprintf("3: Type error retrieving @port property.");
+        result = 1;
+        goto done;
+    }
+    if (atom->length != 1) {
+        eprintf("3: Length error retrieving @port property.");
+        result = 1;
+        goto done;
+    }
+
+    atom = &msg->atoms[2];
+    if (strcmp(atom->key, "bar")) {
+        eprintf("3: Could not get -@bar property.\n");
+        result = 1;
+        goto done;
+    }
+    if (!(atom->index & PROPERTY_REMOVE)) {
+        eprintf("3: Missing PROPERTY_REMOVE flag.\n");
+        result = 1;
+        goto done;
+    }
+
+    /*****/
 done:
     mapper_message_free(msg);
     if (!verbose)
