@@ -47,8 +47,6 @@ The following tasks currently need to be accomplished:
 
 * Add saving/loading of json mapping files
 
-* webmapper GUI needs CSS work, saving/loading
-
 * Documentation, tutorials. 
     * External API. (Steve)
     * How to create a signal-combining device?
@@ -68,8 +66,6 @@ Lower priority tasks
 
 * finish timetag integration - delays, destination interpolation,
   timetag manipulation, timed filters. (In progress)
-
-* Java bindings for monitor functionality. (In progress)
 
 * Ensure correct action is taken (if any) when signals are registered
   and unregistered, or devices disappear and reappear. (Depends on

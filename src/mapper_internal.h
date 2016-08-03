@@ -382,20 +382,20 @@ mapper_receiver mapper_receiver_find_by_src_hash(mapper_receiver receivers,
  *  only if they are not registered with a device.
  *  For minimum, maximum, and value, if type='f', should be float*, or
  *  if type='i', then should be int*.
- *  \param name The name of the signal, starting with '/'.
- *  \param length The length of the signal vector, or 1 for a scalar.
- *  \param type The type fo the signal value.
- *  \param is_output The direction of the signal, 1 for output, 0 for input.
- *  \param unit The unit of the signal, or 0 for none.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none.
- *  \param number of signal instances.
+ *  \param name         The name of the signal, starting with '/'.
+ *  \param length       The length of the signal vector, or 1 for a scalar.
+ *  \param type         The type fo the signal value.
+ *  \param is_output    The direction of the signal, 1 for output, 0 for input.
+ *  \param unit         The unit of the signal, or 0 for none.
+ *  \param minimum      Pointer to a minimum value, or 0 for none.
+ *  \param maximum      Pointer to a maximum value, or 0 for none.
+ *  \param num_inst     Number of signal instances.
  *  \param handler Function to be called when the value of the
  *                 signal is updated.
  *  \param user_data User context pointer to be passed to handler. */
 mapper_signal msig_new(const char *name, int length, char type,
                        int is_output, const char *unit,
-                       void *minimum, void *maximum, int num_instances,
+                       void *minimum, void *maximum, int num_inst,
                        mapper_signal_update_handler *handler,
                        void *user_data);
 
@@ -479,7 +479,9 @@ void msig_release_instance_internal(mapper_signal sig,
  *  result of this operation should be sent to the destination.
  *  \param connection The mapping process to perform.
  *  \param from_value Pointer to current value of the source signal.
+ *  \param expr_vars  Pointer to user-defined variables for this expression.
  *  \param to_value   Pointer to a value to receive the result.
+ *  \param typestring Pointer to a string to receive evaluated types.
  *  \return Zero if the operation was muted, or one if it was performed. */
 int mapper_connection_perform(mapper_connection connection,
                               mapper_signal_history_t *from_value,
@@ -837,7 +839,7 @@ void table_dump_osc_values(table t);
  *  \param t        Table to update.
  *  \param key      Key to store.
  *  \param type     OSC type of value to add.
- *  \param arg      Array of OSC values to add
+ *  \param args     Array of OSC values to add
  *  \param length   Number of OSC argument in array
  *  \return The number of table values added or modified. */
 int mapper_table_add_or_update_msg_value(table t, const char *key,
@@ -848,7 +850,7 @@ int mapper_table_add_or_update_msg_value(table t, const char *key,
  *  \param t        Table to update.
  *  \param key      Key to store.
  *  \param type     OSC type of value to add.
- *  \param arg      Value(s) to add
+ *  \param args     Value(s) to add
  *  \param length   Number of OSC argument in array
  *  \return The number of table values added or modified. */
 int mapper_table_add_or_update_typed_value(table t, const char *key,
