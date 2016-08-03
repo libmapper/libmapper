@@ -188,7 +188,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
     if (!rec || !(rec->flags & MODIFIABLE) || !rec->value)
         return 0;
 
-    if (index != AT_EXTRA) {
+    if (MASK_PROP_BITFLAGS(index) != AT_EXTRA) {
         // set value to null rather than removing key
         if (rec->flags & INDIRECT) {
             if (rec->value && *rec->value) {
@@ -206,13 +206,10 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
 
     /* Calculate its index in the records. */
     int i;
-    index = rec - tab->records;
-
     free((char*)rec->key);
     if (free_value && rec->value) {
         if ((rec->type == 's' || rec->type == 'S') && rec->length > 1) {
             char **vals = (char**)rec->value;
-            int i;
             for (i = 0; i < rec->length; i++) {
                 if (vals[i])
                     free(vals[i]);
@@ -221,7 +218,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
         free(rec->value);
     }
 
-    for (i = index + 1; i < tab->num_records; i++)
+    for (i = rec - tab->records + 1; i < tab->num_records; i++)
         tab->records[i-1] = tab->records[i];
     --tab->num_records;
 
@@ -443,7 +440,7 @@ int set_record_internal(mapper_table tab, mapper_property_t index,
 {
     mapper_table_record_t *rec = mapper_table_record(tab, index, key);
 
-    if (type == 'N')
+    if (flags & PROPERTY_REMOVE)
         return mapper_table_remove_record(tab, index, key, flags, 1);
 
     if (rec) {
@@ -681,8 +678,9 @@ int mapper_table_set_record_from_atom(mapper_table tab,
     mapper_table_record_t *rec = mapper_table_record(tab, atom->index,
                                                      atom->key);
 
-    if (atom->types[0] == 'N')
+    if (atom->index & PROPERTY_REMOVE) {
         return mapper_table_remove_record(tab, atom->index, atom->key, flags, 1);
+    }
 
     if (rec) {
         if (!is_value_different_osc(rec, atom->length, atom->types, atom->values))
@@ -714,93 +712,116 @@ int mapper_table_set_from_message(mapper_table tab, mapper_message msg,
     return updated;
 }
 
-void mapper_table_add_to_message(mapper_table tab, lo_message msg)
+static void mapper_record_add_to_message(mapper_table_record_t *rec,
+                                         lo_message msg)
 {
-    int i, len, indirect, masked;
+    int len, indirect, masked;
     char temp[256];
-    mapper_table_record_t *rec;
 
+    if (rec->flags & LOCAL_ACCESS_ONLY)
+        return;
+
+    masked = MASK_PROP_BITFLAGS(rec->index);
+    indirect = rec->flags & INDIRECT;
+    if (masked != AT_EXTRA) {
+        if (!rec->value || (indirect && !*rec->value))
+            return;
+    }
+
+    // don't bother sending 'undefined' for certain properties
+    if ((masked == AT_BOUND_MAX || masked == AT_BOUND_MIN)
+        && !(*(int*)rec->value))
+        return;
+
+    len = 0;
+    if (rec->index & PROPERTY_ADD) {
+        snprintf(temp, 256, "+");
+        ++len;
+    }
+    else if (rec->index & PROPERTY_REMOVE) {
+        snprintf(temp, 256, "-");
+        ++len;
+    }
+    if (rec->index & DST_SLOT_PROPERTY) {
+        snprintf(temp + len, 256 - len, "@dst");
+        len += 4;
+    }
+    else if (rec->index >> SRC_SLOT_PROPERTY_BIT_OFFSET) {
+        snprintf(temp + len, 256 - len, "@src.%d", SRC_SLOT(rec->index));
+        len = strlen(temp);
+    }
+
+    if (masked < 0 || masked > AT_EXTRA) {
+        trace("skipping malformed property.\n");
+        return;
+    }
+    if (masked == AT_EXTRA) {
+        snprintf(temp + len, 256 - len, "@%s", rec->key);
+        len = strlen(temp);
+    }
+    else {
+        snprintf(temp + len, 256 - len, "%s",
+                 mapper_protocol_string(masked));
+    }
+    if (len) {
+        lo_message_add_string(msg, temp);
+    }
+    else {
+        // can use static string
+        lo_message_add_string(msg, mapper_protocol_string(masked));
+    }
+    if (rec->index & PROPERTY_REMOVE)
+        return;
+    // add value
+    switch (masked) {
+        case AT_BOUND_MAX:
+        case AT_BOUND_MIN: {
+            int bnd = *(int*)rec->value;
+            lo_message_add_string(msg, mapper_boundary_action_string(bnd));
+            break;
+        }
+        case AT_DIRECTION: {
+            int dir = *(int*)rec->value;
+            lo_message_add_string(msg,
+                                  dir == MAPPER_DIR_OUTGOING
+                                  ? "output" : "input");
+            break;
+        }
+        case AT_MODE: {
+            int mod = *(int*)rec->value;
+            lo_message_add_string(msg, mapper_mode_string(mod));
+            break;
+        }
+        case AT_PROCESS_LOCATION: {
+            int loc = *(int*)rec->value;
+            lo_message_add_string(msg, mapper_location_string(loc));
+            break;
+        }
+        default:
+            mapper_message_add_typed_value(msg, rec->length, rec->type,
+                                           indirect ? *rec->value : rec->value);
+            break;
+    }
+}
+
+void mapper_table_add_to_message(mapper_table tab, mapper_table updates,
+                                 lo_message msg)
+{
+    int i;
+    // add all the updates
+    if (updates) {
+        for (i = 0; i < updates->num_records; i++) {
+            mapper_record_add_to_message(&updates->records[i], msg);
+        }
+    }
+    if (!tab)
+        return;
+    // add remaining records
     for (i = 0; i < tab->num_records; i++) {
-        rec = &tab->records[i];
-        if (rec->flags & LOCAL_ACCESS_ONLY)
-            continue;
-        indirect = rec->flags & INDIRECT;
-        if (rec->index != AT_EXTRA) {
-            if (!rec->value || (indirect && !*rec->value))
-                continue;
-        }
-        masked = MASK_PROP_BITFLAGS(rec->index);
-        // don't bother sending 'undefined' for certain properties
-        if ((masked == AT_BOUND_MAX || masked == AT_BOUND_MIN)
-            && !(*(int*)rec->value))
-            continue;
-
-        len = 0;
-        if (rec->index & PROPERTY_ADD) {
-            snprintf(temp, 256, "+");
-            ++len;
-        }
-        else if (rec->index & PROPERTY_REMOVE) {
-            snprintf(temp, 256, "-");
-            ++len;
-        }
-        if (rec->index & DST_SLOT_PROPERTY) {
-            snprintf(temp + len, 256 - len, "@dst");
-            len += 4;
-        }
-        else if (rec->index >> SRC_SLOT_PROPERTY_BIT_OFFSET) {
-            snprintf(temp + len, 256 - len, "@src.%d", SRC_SLOT(rec->index));
-            len = strlen(temp);
-        }
-
-        if (masked < 0 || masked > AT_EXTRA) {
-            trace("skipping malformed property.\n");
-            continue;
-        }
-        if (masked == AT_EXTRA) {
-            snprintf(temp + len, 256 - len, "@%s", rec->key);
-            len = strlen(temp);
-        }
-        else {
-            snprintf(temp + len, 256 - len, "%s",
-                     mapper_protocol_string(masked));
-        }
-        if (len) {
-            lo_message_add_string(msg, temp);
-        }
-        else {
-            // can use static string
-            lo_message_add_string(msg, mapper_protocol_string(masked));
-        }
-        // add value
-        switch (masked) {
-            case AT_BOUND_MAX:
-            case AT_BOUND_MIN: {
-                int bnd = *(int*)rec->value;
-                lo_message_add_string(msg, mapper_boundary_action_string(bnd));
-                break;
-            }
-            case AT_DIRECTION: {
-                int dir = *(int*)rec->value;
-                lo_message_add_string(msg,
-                                      dir == MAPPER_DIR_OUTGOING
-                                      ? "output" : "input");
-                break;
-            }
-            case AT_MODE: {
-                int mod = *(int*)rec->value;
-                lo_message_add_string(msg, mapper_mode_string(mod));
-                break;
-            }
-            case AT_PROCESS_LOCATION: {
-                int loc = *(int*)rec->value;
-                lo_message_add_string(msg, mapper_location_string(loc));
-                break;
-            }
-            default:
-                mapper_message_add_typed_value(msg, rec->length, rec->type,
-                                               indirect ? *rec->value : rec->value);
-                break;
+        // check if updated version exists
+        if (!updates || !mapper_table_record(updates, tab->records[i].index,
+                                             tab->records[i].key)) {
+            mapper_record_add_to_message(&tab->records[i], msg);
         }
     }
 }

@@ -1355,6 +1355,8 @@ int mapper_signal_set_property(mapper_signal sig, const char *name, int length,
 
 int mapper_signal_remove_property(mapper_signal sig, const char *name)
 {
+    if (!sig)
+        return 0;
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
         if (sig->user_data) {
@@ -1366,8 +1368,8 @@ int mapper_signal_remove_property(mapper_signal sig, const char *name)
         return mapper_table_remove_record(sig->props, prop, name, 1,
                                           LOCAL_MODIFY);
     else if (prop == AT_EXTRA)
-        return mapper_table_set_record(sig->staged_props, prop, name, 0, 0,
-                                       NULL, REMOTE_MODIFY);
+        return mapper_table_set_record(sig->staged_props, prop | PROPERTY_REMOVE,
+                                       name, 0, 0, 0, REMOTE_MODIFY);
     return 0;
 }
 
@@ -1475,8 +1477,8 @@ void mapper_signal_send_state(mapper_signal sig, network_message_t cmd)
     lo_message_add_string(msg, sig_name);
 
     /* properties */
-    mapper_table_add_to_message(cmd == MSG_SIGNAL
-                                ? sig->props : sig->staged_props, msg);
+    mapper_table_add_to_message(sig->local ? sig->props : 0, sig->staged_props,
+                                msg);
 
     mapper_network_add_message(sig->device->database->network, 0, cmd, msg);
 }

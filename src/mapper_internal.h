@@ -560,7 +560,8 @@ void mapper_table_print(mapper_table tab);
 #endif
 
 /*! Add arguments contained in a string table to a lo_message */
-void mapper_table_add_to_message(mapper_table tab, lo_message msg);
+void mapper_table_add_to_message(mapper_table tab, mapper_table updates,
+                                 lo_message msg);
 
 /**** Lists ****/
 

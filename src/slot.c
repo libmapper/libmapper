@@ -226,6 +226,8 @@ int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
 
 int mapper_slot_remove_property(mapper_slot slot, const char *name)
 {
+    if (!slot)
+        return 0;
     mapper_property_t prop = mapper_property_from_string(name);
     prop = slot_prop_index(slot, prop) | PROPERTY_REMOVE;
     return mapper_table_set_record(slot->staged_props, prop, name, 0, 0, 0,
@@ -384,7 +386,8 @@ void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
         lo_message_add_char(msg, slot->signal->type);
     }
 
-    mapper_table_add_to_message(staged ? slot->staged_props : slot->props, msg);
+    mapper_table_add_to_message(0, staged ? slot->staged_props : slot->props,
+                                msg);
 
     if (staged) {
         // clear the staged properties

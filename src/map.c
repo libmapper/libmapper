@@ -475,7 +475,6 @@ int mapper_map_remove_property(mapper_map map, const char *name)
 {
     if (!map)
         return 0;
-    // check if property is in static property table
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
         if (map->user_data) {
@@ -484,8 +483,8 @@ int mapper_map_remove_property(mapper_map map, const char *name)
         }
     }
     else
-        return mapper_table_set_record(map->staged_props, prop, name, 0, 0, 0,
-                                       REMOTE_MODIFY);
+        return mapper_table_set_record(map->staged_props, prop | PROPERTY_REMOVE,
+                                       name, 0, 0, 0, REMOTE_MODIFY);
     return 0;
 }
 
@@ -1439,7 +1438,7 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
 
     for (i = 0; i < msg->num_atoms; i++) {
         atom = &msg->atoms[i];
-        switch (atom->index) {
+        switch (MASK_PROP_BITFLAGS(atom->index)) {
             case AT_NUM_INPUTS:
             case AT_STATUS:
                 if (map->local)
@@ -1545,6 +1544,12 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
             default:
                 break;
         }
+        if (map->local && map->destination.direction == MAPPER_DIR_INCOMING
+            && atom->types[0] == 'N') {
+            // need to ensure that removed props are propagated to peer
+            mapper_table_set_record_from_atom(map->staged_props, atom,
+                                              REMOTE_MODIFY);
+        }
     }
 
     if (map->local) {
@@ -1554,6 +1559,15 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
         }
         else if (updated)
             apply_mode(map);
+        if (map->destination.direction == MAPPER_DIR_INCOMING
+            && map->staged_props->num_records) {
+            for (i = 0; i < map->num_sources; i++) {
+                mapper_network_set_dest_mesh(map->database->network,
+                                             map->sources[i]->link->local->admin_addr);
+                i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
+                                          MSG_MAP_MODIFY);
+            }
+        }
     }
     return updated;
 }
@@ -1782,7 +1796,7 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
 
     // add other properties
     int staged = (cmd == MSG_MAP) || (cmd == MSG_MAP_MODIFY);
-    mapper_table_add_to_message(staged ? map->staged_props : map->props, msg);
+    mapper_table_add_to_message(0, staged ? map->staged_props : map->props, msg);
 
     if (!staged) {
         // add scopes

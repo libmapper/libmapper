@@ -1584,6 +1584,8 @@ int mapper_device_set_property(mapper_device dev, const char *name, int length,
 
 int mapper_device_remove_property(mapper_device dev, const char *name)
 {
+    if (!dev)
+        return 0;
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
         if (dev->user_data) {
@@ -1595,8 +1597,8 @@ int mapper_device_remove_property(mapper_device dev, const char *name)
         return mapper_table_remove_record(dev->props, prop, name, 1,
                                           LOCAL_MODIFY);
     else if (prop == AT_EXTRA)
-        return mapper_table_set_record(dev->staged_props, prop, name, 0, 0,
-                                       NULL, REMOTE_MODIFY);
+        return mapper_table_set_record(dev->staged_props, prop | PROPERTY_REMOVE,
+                                       name, 0, 0, 0, REMOTE_MODIFY);
     return 0;
 }
 
@@ -1661,8 +1663,8 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd)
     lo_message_add_string(msg, mapper_device_name(dev));
 
     /* properties */
-    mapper_table_add_to_message(cmd == MSG_DEVICE
-                                ? dev->props : dev->staged_props, msg);
+    mapper_table_add_to_message(dev->local ? dev->props : 0, dev->staged_props,
+                                msg);
 
     mapper_network_add_message(dev->database->network, 0, cmd, msg);
 }

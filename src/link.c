@@ -230,9 +230,11 @@ int mapper_link_set_property(mapper_link link, const char *name, int length,
 
 int mapper_link_remove_property(mapper_link link, const char *name)
 {
+    if (!link)
+        return 0;
     mapper_property_t prop = mapper_property_from_string(name);
-    return mapper_table_set_record(link->staged_props, prop, name, 0, 0, 0,
-                                   REMOTE_MODIFY);
+    return mapper_table_set_record(link->staged_props, prop | PROPERTY_REMOVE,
+                                   name, 0, 0, 0, REMOTE_MODIFY);
 }
 
 int mapper_link_set_from_message(mapper_link link, mapper_message msg,
@@ -292,7 +294,7 @@ void mapper_link_send_state(mapper_link link, network_message_t cmd, int staged)
     lo_message_add_string(msg, link->devices[1]->name);
 
     if (cmd != MSG_UNLINKED) {
-        mapper_table_add_to_message(staged ? link->staged_props : link->props,
+        mapper_table_add_to_message(0, staged ? link->staged_props : link->props,
                                     msg);
     }
     mapper_network_add_message(link->devices[0]->database->network, 0, cmd, msg);
