@@ -104,37 +104,37 @@ int main(int argc, char ** argv)
     dev.property("name").print();
     std::cout << std::endl;
 
-    // test std::array<std::string>
-    std::array<std::string, 3> array1 = {{"one", "two", "three"}};
-    dev.property("foo").set(array1);
-    dev.property("foo").print();
-    std::cout << std::endl;
-
-    // test std::array<const char*>
-    std::array<const char*, 3> array2 = {{"four", "five", "six"}};
-    dev.property("foo").set(array2);
-    dev.property("foo").print();
-    std::cout << std::endl;
-
-    // test plain array of const char*
-    const char* array3[3] = {"seven", "eight", "nine"};
-    dev.property("foo").set(array3, 3);
-    dev.property("foo").print();
-    std::cout << std::endl;
-
-    // test std::vector<const char*>
-    const char *array4[3] = {"ten", "eleven", "twelve"};
-    std::vector<const char*> vector1(array4, std::end(array4));
-    dev.property("foo").set(vector1);
-    dev.property("foo").print();
-    std::cout << std::endl;
-
-    // test std::vector<std::string>
-    const char *array5[3] = {"thirteen", "14", "15"};
-    std::vector<std::string> vector2(array5, std::end(array5));
-    dev.property("foo").set(vector2);
-    dev.property("foo").print();
-    std::cout << std::endl;
+//    // test std::array<std::string>
+//    std::array<std::string, 3> array1 = {{"one", "two", "three"}};
+//    dev.property("foo").set(array1);
+//    dev.property("foo").print();
+//    std::cout << std::endl;
+//
+//    // test std::array<const char*>
+//    std::array<const char*, 3> array2 = {{"four", "five", "six"}};
+//    dev.property("foo").set(array2);
+//    dev.property("foo").print();
+//    std::cout << std::endl;
+//
+//    // test plain array of const char*
+//    const char* array3[3] = {"seven", "eight", "nine"};
+//    dev.property("foo").set(array3, 3);
+//    dev.property("foo").print();
+//    std::cout << std::endl;
+//
+//    // test std::vector<const char*>
+//    const char *array4[3] = {"ten", "eleven", "twelve"};
+//    std::vector<const char*> vector1(array4, std::end(array4));
+//    dev.property("foo").set(vector1);
+//    dev.property("foo").print();
+//    std::cout << std::endl;
+//
+//    // test std::vector<std::string>
+//    const char *array5[3] = {"thirteen", "14", "15"};
+//    std::vector<std::string> vector2(array5, std::end(array5));
+//    dev.property("foo").set(vector2);
+//    dev.property("foo").print();
+//    std::cout << std::endl;
 
     mapper::Property p("temp", "tempstring");
     dev.properties().set(p);

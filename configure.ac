@@ -15,7 +15,7 @@ AC_INIT([libmapper],[m4_esyscmd_s([git describe --always])],[dot_mapper@googlegr
 #
 # If any interfaces have been removed since the last public release, then set
 # age to 0.
-SO_VERSION=2:0:0
+SO_VERSION=4:0:0
 
 AC_CONFIG_SRCDIR([src/device.c])
 AC_CONFIG_HEADERS([src/config.h])

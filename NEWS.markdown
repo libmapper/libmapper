@@ -1,6 +1,39 @@
 
 # libmapper NEWS
 
+Changes from 0.3 to 0.4
+-----------------------
+
+Released August 3, 2016.
+
+This is still a development release, and includes many API changes,
+improvements, and new features since 0.3.
+
+They are summarized very briefly here:
+
+  * _Monitors._ The monitor functionality of libmapper has been rewritten to use
+    leased subscriptions instead of queries. This change simplifies both the
+    monitor API and the underlying codebase, in addition to increasing the
+    granularity of updates, decreasing wasted bandwidth, and fixing a problem
+    with notifications of signal addition or removal.
+  * _Vector properties._ Properties of objects (devices, signals, links, and
+    connections) can now have vector values. This includes signal minima and
+    maxima, so "linear" mode connections can now be calibrated per-element.
+  * _Expressions._ Vector elements can now be explicitly referenced in the
+    expression string using the notation `x[n]`, and element ranges can be
+    referenced using the notation `x[a:b]`. The destination signal (`y`) can
+    also be specified using vector indexing, allowing connections to perform
+    partial vector updates – the underlying protocol has also been modified to
+    use null-padding instead of zero-padding to support this capability. Several
+    extra functions are now recognized by the parser, and up to 8 user-defined
+    variables can be (implicitly) declared and used in expressions. See the
+    expression syntax documentation for more information.
+  * _Java bindings._ The Java bindings have been improved and extended to
+    support libmapper's monitor functionality.
+
+As usual, this release is subject to API changes and breakage, however libmapper
+is starting to approach a more mature and stable state.
+
 Changes from 0.2 to 0.3
 -----------------------
 
