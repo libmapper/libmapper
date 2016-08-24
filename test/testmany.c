@@ -30,15 +30,14 @@ int sent = 0;
 int received = 0;
 
 /*! Internal function to get the current time. */
-static double get_current_time()
+static double current_time()
 {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return (double) tv.tv_sec + tv.tv_usec / 1000000.0; 
+    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
+void insig_handler(mapper_signal sig, int instance_id, void *value, int count,
                    mapper_timetag_t timetag)
 {
     if (value) {
@@ -52,15 +51,18 @@ int setup_devices() {
 	float mn=0, mx=1;
 
 	for (int i = 0; i < num_devices; i++) {
-		device_list[i] = mdev_new("device", 0, 0);
+		device_list[i] = mapper_device_new("device", 0, 0);
         if (!device_list[i])
 			goto error;
 
         // give each device 10 inputs and 10 outputs
 		for (int j = 0; j < 10; j++) {
-			sprintf(str, "/sig%d", j);
-			mdev_add_input(device_list[i], str, 1, 'f', 0, &mn, &mx, 0, 0);
-            mdev_add_output(device_list[i], str, 1, 'f', 0, &mn, &mx);
+			sprintf(str, "in%d", j);
+			mapper_device_add_input_signal(device_list[i], str, 1, 'f', 0,
+                                           &mn, &mx, 0, 0);
+            sprintf(str, "out%d", j);
+            mapper_device_add_output_signal(device_list[i], str, 1, 'f', 0,
+                                            &mn, &mx);
 		}
 	}
     return 0;
@@ -77,7 +79,7 @@ void cleanup_devices() {
 		dest = device_list[i];
 
 		if (dest) {
-			mdev_free(dest);
+			mapper_device_free(dest);
 			eprintf(".");
 		}
 	}
@@ -91,8 +93,8 @@ void wait_local_devices(int *cancel) {
 		keep_waiting = 0;
 
 		for (i = 0; i < num_devices; i++) {
-			mdev_poll(device_list[i], 50);
-			if (!mdev_ready(device_list[i])) {
+			mapper_device_poll(device_list[i], 50);
+			if (!mapper_device_ready(device_list[i])) {
 				keep_waiting = 1;
 			}
             printf(".");
@@ -105,7 +107,7 @@ void wait_local_devices(int *cancel) {
 	}
     eprintf("\nRegistered devices:\n");
     for ( i=0; i<num_devices; i++)
-        eprintf("  %s\n", mdev_name(device_list[i]));
+        eprintf("  %s\n", mapper_device_name(device_list[i]));
 }
 
 void loop() {
@@ -114,7 +116,7 @@ void loop() {
 
     while (i >= 0 && !done) {
 		for (int i = 0; i < num_devices; i++) {
-			mdev_poll(device_list[i], 0);
+			mapper_device_poll(device_list[i], 0);
 		}
 
         usleep(50 * 1000);
@@ -128,7 +130,7 @@ void ctrlc(int sig) {
 
 int main(int argc, char *argv[])
 {
-    double now = get_current_time();
+    double now = current_time();
     int i, j, result = 0;
 
     // process flags for -v verbose, -t terminate, -h help
@@ -177,7 +179,7 @@ int main(int argc, char *argv[])
     }
 
     wait_local_devices(&done);
-    now = get_current_time() - now;
+    now = current_time() - now;
     eprintf("Allocated %d devices in %f seconds.\n", num_devices, now);
 
     if (!terminate)

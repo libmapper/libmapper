@@ -1,4 +1,4 @@
-
+if TESTS
 TEST_CFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 TEST_CXXFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 
@@ -8,27 +8,25 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testadmin testcustomtransport testdb testexpression \
-                  testinstance testlinear testmany testmonitor testparams \
-                  testparser testprops testqueue testquery testrate testrecv \
-                  testreverse testselect testsend testsignals testspeed testsync \
-                  testvector
-if HAVE_LAMBDA
-noinst_PROGRAMS += testcpp
-endif
+noinst_PROGRAMS = test testconvergent testcpp testcustomtransport testdatabase \
+                  testexpression testinstance testlinear testmany testmapinput \
+                  testmonitor testnetwork testparams testparser testprops      \
+                  testqueue testquery testrate testreverse testselect          \
+                  testsignals testspeed testsync testvector
 
-test_all_ordered = testparams testprops testdb testparser testadmin testmany \
-                   testsend testrecv test testlinear testexpression testqueue \
-                   testquery testrate testinstance testreverse testselect \
-                   testvector testcustomtransport testspeed testsync testcpp
+test_all_ordered = testparams testprops testdatabase testparser testnetwork    \
+                   testmany test testlinear testexpression testqueue testquery \
+                   testrate testinstance testreverse testselect testvector     \
+                   testcustomtransport testspeed testsync testcpp testmapinput \
+                   testconvergent
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
 test_LDADD = $(TEST_LDADD)
 
-testadmin_CFLAGS = $(TEST_CFLAGS)
-testadmin_SOURCES = testadmin.c
-testadmin_LDADD = $(TEST_LDADD)
+testconvergent_CFLAGS = $(TEST_CFLAGS)
+testconvergent_SOURCES = testconvergent.c
+testconvergent_LDADD = $(TEST_LDADD)
 
 testcpp_CXXFLAGS = $(TEST_CXXFLAGS)
 testcpp_SOURCES = testcpp.cpp
@@ -38,9 +36,9 @@ testcustomtransport_CFLAGS = $(TEST_CFLAGS)
 testcustomtransport_SOURCES = testcustomtransport.c
 testcustomtransport_LDADD = $(TEST_LDADD)
 
-testdb_CFLAGS = $(TEST_CFLAGS)
-testdb_SOURCES = testdb.c
-testdb_LDADD = $(TEST_LDADD)
+testdatabase_CFLAGS = $(TEST_CFLAGS)
+testdatabase_SOURCES = testdatabase.c
+testdatabase_LDADD = $(TEST_LDADD)
 
 testexpression_CFLAGS = $(TEST_CFLAGS)
 testexpression_SOURCES = testexpression.c
@@ -58,9 +56,17 @@ testmany_CFLAGS = $(TEST_CFLAGS)
 testmany_SOURCES = testmany.c
 testmany_LDADD = $(TEST_LDADD)
 
+testmapinput_CFLAGS = $(TEST_CFLAGS)
+testmapinput_SOURCES = testmapinput.c
+testmapinput_LDADD = $(TEST_LDADD)
+
 testmonitor_CFLAGS = $(TEST_CFLAGS)
 testmonitor_SOURCES = testmonitor.c
 testmonitor_LDADD = $(TEST_LDADD)
+
+testnetwork_CFLAGS = $(TEST_CFLAGS)
+testnetwork_SOURCES = testnetwork.c
+testnetwork_LDADD = $(TEST_LDADD)
 
 testparams_CFLAGS = $(TEST_CFLAGS)
 testparams_SOURCES = testparams.c
@@ -86,10 +92,6 @@ testrate_CFLAGS = $(TEST_CFLAGS)
 testrate_SOURCES = testrate.c
 testrate_LDADD = $(TEST_LDADD)
 
-testrecv_CFLAGS = $(TEST_CFLAGS)
-testrecv_SOURCES = testrecv.c
-testrecv_LDADD = $(TEST_LDADD)
-
 testreverse_CFLAGS = $(TEST_CFLAGS)
 testreverse_SOURCES = testreverse.c
 testreverse_LDADD = $(TEST_LDADD)
@@ -97,10 +99,6 @@ testreverse_LDADD = $(TEST_LDADD)
 testselect_CFLAGS = $(TEST_CFLAGS)
 testselect_SOURCES = testselect.c
 testselect_LDADD = $(TEST_LDADD)
-
-testsend_CFLAGS = $(TEST_CFLAGS)
-testsend_SOURCES = testsend.c
-testsend_LDADD = $(TEST_LDADD)
 
 testsignals_CFLAGS = $(TEST_CFLAGS)
 testsignals_SOURCES = testsignals.c
@@ -117,6 +115,7 @@ testsync_LDADD = $(TEST_LDADD)
 testvector_CFLAGS = $(TEST_CFLAGS)
 testvector_SOURCES = testvector.c
 testvector_LDADD = $(TEST_LDADD)
+endif
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! ./$$i -qt; then exit 1; fi; done

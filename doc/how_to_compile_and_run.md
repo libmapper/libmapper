@@ -11,12 +11,8 @@ Linux and OS X
 
 ### Dependencies
 
-libmapper currently depends on the SVN repository version of liblo.
-If you already have liblo's latest release (0.26) installed, we
-recommend uninstalling it.  If this causes trouble due to other
-packages requiring it, installing SVN liblo to a local prefix may
-override it, but please be warned that this may complicate the build
-process.  Please consult the [LibLo project page][liblo] for details.
+libmapper depends version 0.27 of liblo or later.
+Please consult the [LibLo project page][liblo] for details.
 
 [liblo]: http://liblo.sourceforge.net
 

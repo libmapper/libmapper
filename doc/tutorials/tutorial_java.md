@@ -15,22 +15,20 @@ Overview of the API organization
 
 The libmapper API is is divided into the following sections:
 
-* Signals
+* Networks
 * Devices
-* Admins
-* Device database
-* Signal database
-* Connections database
-* Links database
-* Monitors
+* Signals
+* Maps
+* Slots
+* Databases
 
-For this tutorial, the only sections to pay attention to are **Devices**
-and **Signals**.  Use of **Admins** is reserved for providing custom networking configurations, and in general you don't need to worry about it.
+For this tutorial, the only sections to pay attention to are `Devices`
+and `Signals`.  **Networks** are reserved for providing custom networking
+configurations, and in general you don't need to worry about it.
 
-**Monitors** and the various **database** modules are used to keep track of
-what devices, signals and connections are on the network.  Devices do
-not need to worry about this.  It is used mainly for creating user
-interfaces for mapping design and will also not be covered in this tutorial.
+The database module is used to keep track of what devices, signals
+and maps are on the network.  It is used mainly for creating user
+interfaces for mapping design and will also not be covered here.
 
 Devices
 =======
@@ -49,7 +47,7 @@ to use for exchanging signal data.  If desired, a second argument setting
 a specific "starting port" can be given, but the allocation algorithm will
 possibly choose another port number close to it if the port is in use.
 
-A third optional parameter of the constructor is an admin object.  It is
+A third optional parameter of the constructor is a network object.  It is
 not necessary to provide this, but can be used to specify different
 networking parameters, such as specifying the name of the network
 interface to use.
@@ -115,16 +113,27 @@ Signals
 
 Now that we know how to create a device and poll it, we only
 need to know how to add signals in order to give our program some
-input/output functionality.
+input/output functionality.  While libmapper enables arbitrary connections
+between _any_ declared signals, we still find it helpful to distinguish
+between two type of signals: `inputs` and `outputs`. 
 
-We'll start with creating a "sender", so we will first talk about how
-to update output signals.
+- `outputs` signals are _sources_ of data, updated locally by their parent device
+- `inputs` signals are _consumers_ of data and are **not** generally
+updated locally by their parent device.
+
+This can become a bit confusing, since the "reverb" parameter of a sound
+synthesizer might be updated locally through user interaction with a GUI,
+however the normal use of this signal is as a _destination_ for control data
+streams so it should be defined as an `input` signal.  Note that this distinction
+is to help with GUI organization and user-understanding – _libmapper_
+enables connections from output signals to input signals if desired.
 
 Creating a signal
 -----------------
 
-A signal requires a bit more information than a device, much of which
-is optional:
+We'll start with creating a "sender", so we will first talk about how
+to update output signals.  A signal requires a bit more information than
+a device, much of which is optional:
 
 * a name for the signal (must be unique within a device's inputs or outputs)
 * the signal's vector length
@@ -139,17 +148,17 @@ for input signals there is an additional argument:
 
 examples:
 
-    Mapper.Device.Signal in = dev.addInput( "/my_input", 1, 'f', "m/s",
-                                             new PropertyValue(-10.f),
-                                             null, new InputListener() {
-            public void onInput( Mapper.Device.Signal sig,
+    Mapper.Signal in = dev.addInputSignal( "/my_input", 1, 'f', "m/s",
+                                           new PropertyValue(-10.f),
+                                           null, new InputListener() {
+            public void onInput( Mapper.Signal sig,
                                  int instanceID,
                                  float[] value,
                                  Mapper.TimeTag tt) {
                 System.out.println("got input for signal "+sig.name);
             }});
 
-    Mapper.Device.Signal out = dev.addOutput( "/my_output", 4, 'i', null, 0, 1000 )
+    Mapper.Device.Signal out = dev.addOutputSignal( "/my_output", 4, 'i', null, 0, 1000 )
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
@@ -173,12 +182,12 @@ in the `InputListener` parameter.
 An example of creating a "barebones" integer scalar output signal with
 no unit, minimum, or maximum information:
 
-    Mapper.Device.Signal outA = dev.addOutput( "/outA", 1, 'i', null, null, null );
+    Mapper.Signal outA = dev.addOutputSignal( "/outA", 1, 'i', null, null, null );
 
 An example of a `float` signal where some more information is provided:
 
-    Mapper.Device.Signal sensor1_voltage = dev.addOutput( "/sensor1", 1,     'f',
-                                                                      "V", 0.0, 5.0 )
+    Mapper.Signal sensor1 = dev.addOutputSignal( "/sensor1", 1, 'f',
+                                                 "V", 0.0, 5.0 )
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
@@ -188,10 +197,10 @@ for it.  To recap, let's review the code so far:
     class test {
         public static void main() {
             final Mapper.Device dev = new Mapper.Device( "testDevice" );
-            Mapper.Device.Signal sensor1 =
-                dev.addOutput( "sensor1", 1, 'f', "V",
-                               new PropertyValue( 0.f ),
-                               new PropertyValue( 5.f ) );
+            Mapper.Signal sensor1 =
+                dev.addOutputSignal( "sensor1", 1, 'f', "V",
+                                     new PropertyValue( 0.f ),
+                                     new PropertyValue( 5.f ) );
             while ( 1 ) {
                 dev.poll(50);
                 ... do stuff ...
@@ -200,9 +209,8 @@ for it.  To recap, let's review the code so far:
         }
     }
 
-It is possible to retrieve a device's inputs or outputs by name or by
-index at a later time using the functions `getInput()` and `getOutput()`,
-passing either the signal name or its index as an argument.
+It is possible to retrieve a device's inputs or outputs at a later time
+using the functions `inputs()` and `outputs()`.
 
 Updating signals
 ----------------
@@ -219,7 +227,7 @@ This is accomplished by the `update()` function:
 
     <sig>.update( <value> )
 
-So in the "sensor 1 voltage" example, assuming we have some code which
+So in the "sensor 1" example, assuming we have some code which
 reads sensor 1's value into a float variable called `v1`, the loop becomes:
 
     while ( 1 ) {
@@ -228,7 +236,7 @@ reads sensor 1's value into a float variable called `v1`, the loop becomes:
         sensor1.update( v1 );
     }
 
-This is about all that is needed to expose sensor 1's voltage to the
+This is about all that is needed to expose sensor 1's value to the
 network as a mappable parameter.  The _libmapper_ GUI can now be used
 to create a mapping between this value and a receiver, where it could
 control a synthesizer parameter or change the brightness of an LED,
@@ -237,8 +245,8 @@ or whatever else you want to do.
 Signal conditioning
 -------------------
 
-Most synthesizers of course will not know what to do with
-"voltage" – it is an electrical property that has nothing to do with
+Most synthesizers of course will not know what to do with the value of
+sernsor1--it is an electrical property that has nothing to do with
 sound or music.  This is where _libmapper_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_
@@ -288,7 +296,7 @@ audio thread.
 We need to create a handler function for libmapper to update the synth:
 
     InputListener freqHandler = new InputListener() {
-        public void onInput( Mapper.Device.Signal sig,
+        public void onInput( Mapper.Signal sig,
                              int instanceId,
                              float[] value,
                              TimeTag tt ) {
@@ -303,7 +311,7 @@ Then our program will look like this:
     startAudioInBackground();
 
     InputListener freqHandler = new InputListener() {
-        public void onInput( Mapper.Device.Signal sig,
+        public void onInput( Mapper.Signal sig,
                              int instanceId,
                              float[] value,
                              Mapper.TimeTag tt ) {
@@ -311,10 +319,10 @@ Then our program will look like this:
         }}
 
     final Mapper.Device dev = new Mapper.Device( "mySynth" );
-    Mapper.Device.Signal pw = dev.addInput( "pulseWidth", 1, 'f', "Hz",
-                                            new PropertyValue( 0.f ),
-                                            new PropertyValue( 1.f ),
-                                            freqHandler );
+    Mapper.Signal pw = dev.addInputSignal( "pulseWidth", 1, 'f', "Hz",
+                                           new PropertyValue( 0.f ),
+                                           new PropertyValue( 1.f ),
+                                           freqHandler );
 
     while (1) {
         dev.poll( 100 );
@@ -324,11 +332,11 @@ Then our program will look like this:
 
 Alternately, we can declare the InputListener as part of the `addInput()` function:
 
-    Mapper.Device.Signal pw = dev.addInput( "pulseWidth", 1, 'f', "Hz",
-                                            new PropertyValue( 0.f ),
-                                            new PropertyValue( 1.f ),
-                                            new InputListener() {
-        public void onInput( Mapper.Device.Signal sig,
+    Mapper.Signal pw = dev.addInputSignal( "pulseWidth", 1, 'f', "Hz",
+                                           new PropertyValue( 0.f ),
+                                           new PropertyValue( 1.f ),
+                                           new InputListener() {
+        public void onInput( Mapper.Signal sig,
                              int instanceId,
                              float[] value,
                              Mapper.TimeTag tt ) {
@@ -427,21 +435,22 @@ the receiver signal, the _instance allocation mode_ can be set for an
 input signal to set an action to take in case all allocated instances are in
 use and a previously unseen instance id is received. Use the function:
 
-    <sig>.setInstanceAllocationMode( mode );
+    <sig>.setInstanceStealingMode( mode );
 
 The argument `mode` can have one of the following values:
 
-* `Mapper.Signal.IN_UNDEFINED` Default value, in which no stealing of instances will occur;
-* `Mapper.Signal.IN_STEAL_OLDEST` Release the oldest active instance and reallocate its
-  resources to the new instance;
-* `Mapper.Signal.IN_STEAL_NEWEST` Release the newest active instance and reallocate its
-  resources to the new instance;
+* `Mapper.signal.StealingMode.NONE` Default value, in which no stealing of
+instances will occur;
+* `Mapper.signal.StealingMode.OLDEST` Release the oldest active instance and
+reallocate its resources to the new instance;
+* `Mapper.signal.StealingMode.NEWEST` Release the newest active instance and
+reallocate its resources to the new instance;
 
 If you want to use another method for determining which active instance
 to release (e.g. the sound with the lowest volume), you can create an `instanceEventListener` for the signal and write the method yourself:
 
     Mapper.instanceEventListener myHandler = new Mapper.instanceEventListener() {    
-        public void onEvent( Mapper.Device.Signal sig,
+        public void onEvent( Mapper.Signal sig,
                              int instanceId,
                              int event,
                              Mapper.TimeTag tt ) {
@@ -451,10 +460,10 @@ to release (e.g. the sound with the lowest volume), you can create an `instanceE
     }
 
 For this function to be called when instance stealing is necessary, we
-need to register it for `Mapper.instanceEventListener.IN_OVERFLOW` events:
+need to register it for `Mapper.signal.instanceEvent.OVERFLOW` events:
 
     <sig>.setInstanceEventCallback( myHandler,
-                                    Mapper.instanceEventListener.IN_OVERFLOW );
+                                    Mapper.signal.instanceEvent.OVERFLOW );
 
 
 Publishing metadata
@@ -493,25 +502,23 @@ To specify a string property of a signal `sig`:
 
     sig.setProperty( "sensingMethod", new PropertyValue( "resistive" ) );
 
+## Reserved keys
+
 In general you can use any property name not already in use by the
-device or signal data structure.  Reserved words for signals are:
+device or signal data structure.
 
-    device_name, direction, length, max, maximum, min, minimum,
-    name, type, unit, user_data, value
+### Reserved keys for devices
 
-for devices, they are:
+`description`, `host`, `id`, `libversion`, `name`, `num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `version`, `user_data`
 
-    host, port, name, user_data
+### Reserved keys for signals
 
-By the way, if you query or set signal properties using these
-keywords, you will get or modify the same information that is
-available directly from the `signal` data structure.
-Therefore this can provide a unified string-based method for accessing
-any signal property:
+`description`, `direction`, `id`, `length`, `max`, `maximum`, `min`, `minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`, `type`, `unit`, `user_data`
 
-    props = sig.properties();
-    sensingMethod = props.property( "sensingMethod" );
-    minimum = props.property( "min" );
+### Reserved keys for maps
 
-Primarily this is an interface meant for network monitors, but may
-come in useful for an application implementing a device.
+`expression`, `id`, `mode`, `muted`, `num_sources`, `process_location`, `status`
+
+### Reserved keys for slots
+
+`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`, `maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`

@@ -70,3 +70,16 @@ Mac Book Pro Processor: 2.2 GHz Intel Core i7, Memory: 4 GB 1333 MHz DDR3, OSX 1
     branch master
       best trial: 100000 messages processed in 2.223340 seconds
       best trial: 100000 messages processed in 2.234057 seconds
+
+Mac Book Pro Processor: 2 GHz Intel Core i7, Memory: 16 GB 1600 MHz DDR3, OSX 10.11.2
+  20160104
+    debug enabled, branch convergent5
+      update_instance()
+        best trial: 100000 messages in 3.080682 seconds
+      update()
+        best trial: 100000 messages in 3.022571 seconds
+    debug disabled, branch convergent5
+      update_instance()
+        best trial: 100000 messages in 2.994815 seconds
+      update()
+        best trial: 100000 messages in 2.990817 seconds

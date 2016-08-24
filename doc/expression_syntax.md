@@ -1,73 +1,119 @@
 libmapper Expression Syntax
 ===========================
 
-Connections between signals that are maintained by libmapper
-can be configured with optional signal processing in the
-form of an expression.
+Connections between signals that are maintained by libmapper can be configured with
+optional signal processing described in the form of an expression.
 
-General Syntax
---------------
+### General Syntax
 
-Expressions in libmapper must always be presented in the form
-`y = x`, where `x` refers to the updated source value and `y` is
-the computed value to be forwarded to the destination. Sub-expressions
-can be used if separated by a semicolon `;` however a value can
-only be assigned to a variable once per timestep – the expression
-`y=x; y=x*2` is not allowed. Spaces may be freely used within the expression,
-they will have no effect on the generated output.
+Expressions in libmapper must always be presented in the form `y = x`, where `x`
+refers to the updated source value and `y` is the computed value to be forwarded
+to the destination. Sub-expressions can be used if separated by a semicolon `;`
+however a value can only be assigned to a variable once per timestep – the
+expression `y=x; y=x*2` is not allowed. Spaces may be freely used within the
+expression, they will have no effect on the generated output.
 
+## Available operators
+
+### Arithmetic operators
+
+* `+` – addition
+* `-` – subtraction
+* `*` – multiplication
+* `/` – division
+* `%` – modulo
+
+### Comparison operators
+
+* `>` – greater than
+* `>=` – greater than or equal
+* `<` – less than
+* `<=` – less than or equal
+* `==` – equal
+* `!=` – not equal
+
+
+### Conditional operators
+
+* `?:` – if / then / else (ternary operation) used in the form `a?b:c`. If the second operand is not included the first will be used in its place. If the last operand is missing (the "else" argument) the function will not generate an output if `a` is false
+
+### Logical operators
+
+* `!` – logical **NOT**
+* `&&` – logical **AND**
+* `||` – logical **OR**
+
+### Bitwise operators
+
+* `<<` – left bitshift
+* `>>` – right bitshift
+* `&` – bitwise **AND**
+* `|` – bitwise **OR**
+* `^` – bitwise **XOR**
 
 Available Functions
 -------------------
 
 ### Absolute value:
 
-* `y = abs(x)` — absolute value
+* `abs(x)` — absolute value
 
 ### Exponential functions:
-* `y = exp(x)` — returns e raised to the given power
-* `y = exp2(x)` — returns 2 raised to the given power
-* `y = log(x)` — computes natural ( base e ) logarithm ( to base e )
-* `y = log10(x)` — computes common ( base 10 ) logarithm
-* `y = log2(x)` – computes the binary ( base 2 ) logarithm
-* `y = logb(x)` — extracts exponent of the number
+* `exp(x)` — returns e raised to the given power
+* `exp2(x)` — returns 2 raised to the given power
+* `log(x)` — computes natural ( base e ) logarithm ( to base e )
+* `log10(x)` — computes common ( base 10 ) logarithm
+* `log2(x)` – computes the binary ( base 2 ) logarithm
+* `logb(x)` — extracts exponent of the number
 
 ### Power functions:
-* `y = sqrt(x)` — square root
-* `y = cbrt(x)` — cubic root
-* `y = hypot(x, n)` — square root of the sum of the squares of two given numbers
-* `y = pow(x, n)` — raise a to the power b
+* `sqrt(x)` — square root
+* `cbrt(x)` — cubic root
+* `hypot(x, n)` — square root of the sum of the squares of two given numbers
+* `pow(x, n)` — raise a to the power b
 
 ### Trigonometric functions:
-* `y = sin(x)` — sine
-* `y = cos(x)` — cosine
-* `y = tan(x)` — tangent
-* `y = asin(x)` — arc sine
-* `y = acos(x)` — arc cosine
-* `y = atan(x)` — arc tangent
-* `y = atan2(x, n)` — arc tangent, using signs to determine quadrants
+* `sin(x)` — sine
+* `cos(x)` — cosine
+* `tan(x)` — tangent
+* `asin(x)` — arc sine
+* `acos(x)` — arc cosine
+* `atan(x)` — arc tangent
+* `atan2(x, n)` — arc tangent, using signs to determine quadrants
 
 ### Hyperbolic functions:
-* `y = sinh(x)` — hyperbolic sine
-* `y = cosh(x)` — hyperbolic cosine
-* `y = tanh(x)` — hyperbolic tangent
+* `sinh(x)` — hyperbolic sine
+* `cosh(x)` — hyperbolic cosine
+* `tanh(x)` — hyperbolic tangent
 
-### Nearest integer floating point comparisons:
-* `y = floor(x)` — nearest integer not greater than the given value
-* `y = round(x)` — nearest integer, rounding away from zero in halfway cases
-* `y = ceil(x)` — nearest integer not less than the given value
-* `y = trunc(x)` — nearest integer not greater in magnitude than the given value
+### Nearest integer floating point:
+* `floor(x)` — nearest integer not greater than the given value
+* `round(x)` — nearest integer, rounding away from zero in halfway cases
+* `ceil(x)` — nearest integer not less than the given value
+* `trunc(x)` — nearest integer not greater in magnitude than the given value
 
 ### Comparison functions:
-* `y = min(x, n)` – smaller of two values
-* `y = max(x, n)` – greater of two values
+* `min(x,y)` – smaller of two values
+* `max(x,y)` – greater of two values
+* `schmitt(x,a,b)` – a comparator with hysteresis ([Schmitt trigger](https://en.wikipedia.org/wiki/Schmitt_trigger)) with input `x`, low threshold `a` and high threshold `b`
 
 ### Random number generation:
-* `y = uniform(x)` — uniform random distribution between 0 and the given value
+* `uniform(x)` — uniform random distribution between 0 and the given value
 
 ### Conversion functions:
-* `y = midiToHz(x)` — convert MIDI note value to Hz
-* `y = hzToMidi(x)` — convert Hz value to MIDI note
+* `midiToHz(x)` — convert MIDI note value to Hz
+* `hzToMidi(x)` — convert Hz value to MIDI note
+
+### Vector functions
+* `any(x)` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
+* `all(x)` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
+* `sum(x)` – output the sum of the elements in vector `x`
+* `mean(x)` – output the average (mean) of the elements in vector `x`
+* `max(x)` – output the maximum element in vector `x` (overloaded function)
+* `min(x)` – output the minimum element in vector `x` (overloaded function)
+
+### Filters
+* `ema(x,w)` – a cheap low-pass filter: calculate a running *exponential moving average* with input `x` and a weight `w` applied to the current sample.
 
 Vectors
 =======
@@ -82,20 +128,20 @@ signals with different vector lengths.
 
 * `y = x[0]` — simple vector indexing
 * `y = x[1:2]` — specify a range within the vector
-* `y = [x[1], x[2], x[0]]` — rearranging ("swizzling") vector elements
+* `y = [x[1],x[2],x[0]]` — rearranging vector elements
 * `y[1] = x` — apply update to a specific element of the output
 * `y[0:2] = x` — apply update to elements `0-2` of the output vector
-* `[y[0], y[2]] = x` — apply update to output vector elements `y[0]` and `y[2]` but
+* `[y[0],y[2]] = x` — apply update to output vector elements `y[0]` and `y[2]` but
 leave `y[1]` unchanged.
 
 ### Vector functions
 
 There are several special functions that operate across all elements of the vector:
 
-* `y = any(x)` — output `1` if **any** of the elements of `x` are non-zero, otherwise output `0`
-* `y = all(x)` — output `1` if **all** of the elements of `x` are non-zero, otherwise output `0`
-* `y = max(x)` — output the largest element of the vector
-* `y = min(x)` — output the smallest element of the vector
+* `any(x)` — output `1` if **any** of the elements of `x` are non-zero, otherwise output `0`
+* `all(x)` — output `1` if **all** of the elements of `x` are non-zero, otherwise output `0`
+* `max(x)` — output the largest element of the vector
+* `min(x)` — output the smallest element of the vector
 
 FIR and IIR Filters
 ===================
@@ -115,18 +161,27 @@ Impulse Response** ( IIR ) filters - here are some simple examples:
 * `y = y{-1} * 0.9 + x * 0.1` — exponential moving average with current-sample-weight of `0.1`
 * `y = y{-1} + x - 1` — leaky integrator with a constant leak of `1`
 
+Note that `y{-n}` does not refer to the expression output, but rather to the *actual
+value* of the destination signal which may have been set locally or by another map
+since the last time the expression was evaluated. If you wish to reference past samples
+of the expression output you will need to cache the output using a **user-defined
+variable** (see below), e.g.:
+
+* `output = output + x - 1`;`y = output`
+
 Of course the filter can contain references to past samples of both `x` and `y` -
 currently libmapper will reject expressions referring to sample delays `> 100`.
 
 Initializing filters
 --------------------
-Past values of the filter output `y{-n}` can be set using additional sub-expressions, separated using commas:
+Past values of the filter output `y{-n}` can be set using additional sub-expressions, separated using semicolons:
 
 * `y = y{-1} + x`; `y{-1} = 100`
 
-Filter initialization takes place the first time the expression evaluator is called;
-after this point the initialization sub-expressions will not be evaluated. This means
-the filter could be initialized with the first sample of `x` for example:
+Filter initialization takes place the first time the expression evaluator is called
+for a given signal instance; after this point the initialization sub-expressions will
+not be evaluated. This means the filter could be initialized with the first sample of
+`x` for example:
 
 * `y = y{-1} + x`; `y{-1} = x * 2`
 
@@ -140,12 +195,20 @@ Any past values that are not explicitly initialized are given the value `0`.
 User-Declared Variables
 =======================
 
-Up to 8 additional variables can be declared as-needed in the expression. The variable names can be any string except for the reserved variable names `x` and `y` or the name of an existing function.  The values of these variables are stored with the connection context and can be accessed in subsequent calls to the evaluator. In the following example, the user-defined variable `ema` is used to keep track of the `exponential moving average` of the input signal value `x`, *independent* of the output value `y` which is set to give the difference between the current sample and the moving average:
+Up to 8 additional variables can be declared as-needed in the expression. The variable
+names can be any string except for the reserved variable names `x` and `y`.  The values
+of these variables are stored per-instance with the map context and can be accessed in
+subsequent calls to the evaluator. In the following example, the user-defined variable
+`ema` is used to keep track of the `exponential moving average` of the input signal
+value `x`, *independent* of the output value `y` which is set to give the difference
+between the current sample and the moving average:
 
 * `ema = ema{-1} * 0.9 + x * 0.1; y = x - ema`
 
 Just like the output variable `y` we can initialize past values of user-defined variables before expression evaluation. **Initialization will always be performed first**, after which sub-expressions are evaluated **in the order they are written**. For example, the expression string `y=ema*2; ema=ema{-1}*0.9+x*0.1; ema{-1}=90` will be evaluated in the following order:
 
 1. `ema{-1}=90` — initialize the past value of variable `ema` to `90`
-2. `y=ema*2` — set output variable `y` to equal the **current** value of `ema` multiplied by `2`. The current value of `ema` is `0` since it has not yet been set.
+2. `y=ema*2` — set output variable `y` to equal the **current** value of `ema` multiplied
+by `2`. The current value of `ema` is `0` since it has not yet been set.
 3. `ema=ema{-1}*0.9+x*0.1` — set the current value of `ema` using current value of `x` and the past value of `ema`
+

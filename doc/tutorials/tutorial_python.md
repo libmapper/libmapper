@@ -17,17 +17,15 @@ Overview of the API organization
 
 The libmapper API is is divided into the following sections:
 
-* Signals
+* Networks
 * Devices
-* Admins
-* Device database
-* Signal database
-* Connections database
-* Links database
-* Monitors
+* Signals
+* Maps
+* Slots
+* Databases
 
-For this tutorial, the only sections to pay attention to are Devices
-and Signals.  Admins is reserved for providing custom networking
+For this tutorial, the only sections to pay attention to are **Devices**
+and **Signals**.  **Networks** are reserved for providing custom networking
 configurations, but in general you don't need to worry about it.
 
 Monitor and the various database modules are used to keep track of
@@ -124,16 +122,28 @@ Signals
 
 Now that we know how to create a device and poll it, we only
 need to know how to add signals in order to give our program some
-input/output functionality.
+input/output functionality.  While libmapper enables arbitrary connections
+between _any_ declared signals, we still find it helpful to distinguish
+between two type of signals: `inputs` and `outputs`. 
 
-We'll start with creating a "sender", so we will first talk about how
-to update output signals.
+- `outputs` signals are _sources_ of data, updated locally by their parent device
+- `inputs` signals are _consumers_ of data and are **not** generally
+updated locally by their parent device.
+
+This can become a bit confusing, since the "reverb" parameter of a sound
+synthesizer might be updated locally through user interaction with a GUI,
+however the normal use of this signal is as a _destination_ for control data
+streams so it should be defined as an `input` signal.  Note that this distinction
+is to help with GUI organization and user-understanding – _libmapper_
+enables connections from output signals to input signals if desired.
 
 Creating a signal
 -----------------
 
-A signal requires a bit more information than a device, much of which
-is optional:
+
+We'll start with creating a "sender", so we will first talk about how
+to update output signals.  A signal requires a bit more information than
+a device, much of which is optional:
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
@@ -148,9 +158,9 @@ for input signals there is an additional argument:
 
 examples:
 
-    sig_in = dev.add_input( "/my_input", 1, 'f', "m/s", -10, 10, h )
+    sig_in = dev.add_input_signal( "/my_input", 1, 'f', "m/s", -10, 10, h )
 
-    sig_out = dev.add_output( "/my_output", 4, 'i', None, 0, 1000 )
+    sig_out = dev.add_output_signal( "/my_output", 4, 'i', None, 0, 1000 )
 
 The only _required_ parameters here are the signal "length", its name,
 and data type.  Signals are assumed to be vectors of values, so for
@@ -179,15 +189,15 @@ in the `handler` parameter.
 An example of creating a "barebones" `int` scalar output signal with
 no unit, minimum, or maximum information:
 
-    outA = dev.add_output( "/outA", 1, 'i', None, None, None )
+    outA = dev.add_output_signal( "/outA", 1, 'i', None, None, None )
 
 or omitting some arguments:
 
-    outA = dev.add_output( "/outA", 1, 'i' )
+    outA = dev.add_output_signal( "/outA", 1, 'i' )
 
 An example of a `float` signal where some more information is provided:
 
-    sensor1_voltage = dev.add_output( "/sensor1", 1, 'f', "V", 0.0, 5.0 )
+    sensor1 = dev.add_output_signal( "/sensor1", 1, 'f', "V", 0.0, 5.0 )
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
@@ -195,7 +205,7 @@ for it.  To recap, let's review the code so far:
     import mapper
 
     dev = mapper.device( "test_sender" )
-    sensor1_voltage = dev.add_output( "/sensor1", 1, 'f', "V", 0.0, 5.0 )
+    sensor1 = dev.add_output_signal( "/sensor1", 1, 'f', "V", 0.0, 5.0 )
     
     while 1:
         dev.poll( 50 )
@@ -204,7 +214,7 @@ for it.  To recap, let's review the code so far:
 
 It is possible to retrieve a device's inputs or outputs by name or by
 index at a later time using the functions
-`get_<input/output>_by_<name/index>`.
+`get_signal_by_<name/index>`.
 
 Updating signals
 ----------------
@@ -228,7 +238,7 @@ some code which reads sensor 1's value into a float variable called
     while 1:
         dev.poll( 50 )
         v1 = read_sensor_1()
-        sensor1_voltage.update( v1 )
+        sensor1.update( v1 )
 
 This is about all that is needed to expose sensor 1's voltage to the
 network as a mappable parameter.  The _libmapper_ GUI can now be used
@@ -277,11 +287,11 @@ Now that we know how to create a sender, it would be useful to also
 know how to receive signals, so that we can create a sender-receiver
 pair to test out the provided mapping functionality.
 
-As mentioned above, the `add_input` function takes an optional
+As mentioned above, the `add_input_signal()` function takes an optional
 `handler`.  This is a function that will be called whenever the value
 of that signal changes.  To create a receiver for a synthesizer
 parameter "pulse width" (given as a ratio between 0 and 1), specify
-a handler when calling `add_input`.  We'll imagine there is some
+a handler when calling `add_input_signal()`.  We'll imagine there is some
 python synthesizer implemented as a class `synthesizer` which has
 functions `setPulseWidth()` which sets the pulse width in a
 thread-safe manner, and `startAudioInBackground()` which sets up the
@@ -318,7 +328,7 @@ Then our program will look like this:
             print sig, val
 
     dev = mapper.device( 'pyo_example' )
-    dev.add_input( '/freq', 1, 'f', 'Hz', 20, 2000, freq_handler )
+    dev.add_input_signal( '/freq', 1, 'f', 'Hz', 20, 2000, freq_handler )
 
     while True:
         dev.poll( 100 )
@@ -336,7 +346,8 @@ instead of a separate handler:
     sine = Sine( freq=200, mul=0.5 ).out()
 
     dev = mapper.device( 'pyo_example' )
-    dev.add_input( '/freq', 1, 'f', "Hz", 20, 2000, lambda s, i, f, t: sine.setFreq(f) )
+    dev.add_input_signal( '/freq', 1, 'f', "Hz", 20, 2000,
+                          lambda s, i, f, t: sine.setFreq(f) )
 
     while True:
         dev.poll( 100 )
@@ -399,12 +410,12 @@ more instances you can use:
 
 After reserving instances you can update a specific instance:
 
-    <sig>.update_instance( int instance_id,
+    <sig>.instance_update( int instance_id,
                            <value> )
 
 or
 
-    <sig>.update_instance( int instance_id,
+    <sig>.instance_update( int instance_id,
                            <value>,
                            double timetag )
 
@@ -436,7 +447,7 @@ the receiver signal, the _instance allocation mode_ can be set for an
 input signal to set an action to take in case all allocated instances are in
 use and a previously unseen instance id is received. Use the function:
 
-    <sig>.set_instance_allocation_mode( mapper_instance_allocation_type mode );
+    <sig>.set_instance_stealing_mode( mapper_instance_stealing_type mode );
 
 The argument `mode` can have one of the following values:
 
@@ -453,7 +464,7 @@ to release (e.g. the sound with the lowest volume), you can create an `instance_
         # user code chooses which instance to release
         id = choose_instance_to_release( msig )
 
-        sig.release_instance( id, timetag )
+        sig.instance_release( id, timetag )
 
 For this function to be called when instance stealing is necessary, we
 need to register it for `mapper.IN_OVERFLOW` events:
@@ -498,23 +509,24 @@ To specify a string property of a signal:
 
     sig.set_property( "sensingMethod", "resistive" )
 
+## Reserved keys
+
 In general you can use any property name not already in use by the
-device or signal data structure.  Reserved words for signals are:
+device or signal data structure.
 
-    device_name, direction, length, max, min, name, type, unit, user_data
+### Reserved keys for devices
 
-for devices, they are:
+`description`, `host`, `id`, `libversion`, `name`, `num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `version`, `user_data`
 
-    host, port, name, user_data
+### Reserved keys for signals
 
-By the way, if you query or set signal properties using these
-keywords, you will get or modify the same information that is
-available directly from the `signal` data structure.
-Therefore this can provide a unified string-based method for accessing
-any signal property:
+`description`, `direction`, `id`, `length`, `max`, `maximum`, `min`, `minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`, `type`, `unit`, `user_data`
 
-    props = sig.get_properties()
-    sensingMethod = props[ 'sensingMethod' ]
+### Reserved keys for maps
 
-Primarily this is an interface meant for network monitors, but may
-come in useful for an application implementing a device.
+`expression`, `id`, `mode`, `muted`, `num_sources`, `process_location`, `status`
+
+### Reserved keys for slots
+
+`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`, `maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`
+

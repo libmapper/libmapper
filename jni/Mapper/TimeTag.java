@@ -1,5 +1,5 @@
 
-package Mapper;
+package mapper;
 
 public class TimeTag
 {
@@ -25,5 +25,20 @@ public class TimeTag
     public double getDouble()
     {
         return (double)sec + (double)frac * multiplier;
+    }
+
+    public boolean isAfter(TimeTag rhs)
+    {
+        return (sec > rhs.sec || (sec == rhs.sec && frac > rhs.frac));
+    }
+
+    public boolean isBefore(TimeTag rhs)
+    {
+        return (sec < rhs.sec || (sec == rhs.sec && frac < rhs.frac));
+    }
+
+    public String toString()
+    {
+        return sec + "." + frac;
     }
 }

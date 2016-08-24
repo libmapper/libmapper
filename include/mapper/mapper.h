@@ -5,17 +5,14 @@
 extern "C" {
 #endif
 
-#include <mapper/mapper_db.h>
+#include <mapper/mapper_constants.h>
 #include <mapper/mapper_types.h>
-
-#define MAPPER_NOW ((mapper_timetag_t){0L,1L})
 
 /*! \mainpage libmapper
 
-This is the API documentation for libmapper, a network-based signal
-mapping framework.  Please see the Modules section for detailed
-information, and be sure to consult the tutorial to get started with
-libmapper concepts.
+This is the API documentation for libmapper, a network-based signal mapping
+framework.  Please see the Modules section for detailed information, and be
+sure to consult the tutorial to get started with libmapper concepts.
 
  */
 
@@ -23,119 +20,114 @@ libmapper concepts.
 
 /*! @defgroup signals Signals
 
-    @{ Signals define inputs or outputs for devices.  A signal
-       consists of a scalar or vector value of some integer or
-       floating-point type.  A mapper_signal is created by adding an
-       input or output to a device.  It can optionally be provided
-       with some metadata such as a signal's range, unit, or other
-       properties.  Signals can be mapped between linked devices
-       anywhere on the network by creating connections through a
-       GUI. */
+    @{ Signals define inputs or outputs for devices.  A signal consists of a
+       scalar or vector value of some integer or floating-point type.  A
+       mapper_signal is created by adding an input or output to a device.  It
+       can optionally be provided with some metadata such as a signal's range,
+       unit, or other properties.  Signals can be mapped by creating maps
+       through a GUI. */
 
-struct _mapper_signal;
-typedef struct _mapper_signal *mapper_signal;
-struct _mapper_connection;
+/*! Update the value of a signal.  The signal will be routed according to
+ *  external requests.
+ *  \param sig          The signal to update.
+ *  \param value        A pointer to a new value for this signal.  If the signal
+ *                      type is 'i', this should be int*; if the signal type is
+ *                      'f', this should be float*.  It should be an array at
+ *                      least as long as the signal's length property.
+ *  \param count        The number of instances of the value that are being
+ *                      updated.  For non-periodic signals, this should be 0 or
+ *                      1.  For periodic signals, this may indicate that a block
+ *                      of values should be accepted, where the last value is
+ *                      the current value.
+ *  \param tt           The time at which the value update was aquired. If the
+ *                      value is MAPPER_NOW, libmapper will tag the value update
+ *                      with the current time.  See mapper_device_start_queue()
+ *                      for more information on bundling multiple signal updates
+ *                      with the same timetag. */
+void mapper_signal_update(mapper_signal sig, const void *value, int count,
+                          mapper_timetag_t tt);
 
-/*! The set of possible actions on an instance, used to register callbacks
- *  to inform them of what is happening. */
-typedef enum {
-    IN_NEW                  = 0x01, //!< New instance has been created.
-    IN_UPSTREAM_RELEASE     = 0x02, //!< Instance has been released by upstream device.
-    IN_DOWNSTREAM_RELEASE   = 0x04, //!< Instance has been released by downstream device.
-    IN_OVERFLOW             = 0x08, //!< No local instances left for incoming remote instance.
-    IN_ALL                  = 0xFF
-} msig_instance_event_t;
+/*! Update the value of a scalar signal of type int. This is a scalar equivalent
+ *  to mapper_signal_update(), for when passing by value is more convenient than
+ *  passing a pointer.  The signal will be routed according to external requests.
+ *  \param sig          The signal to update.
+ *  \param value        A new scalar value for this signal. */
+void mapper_signal_update_int(mapper_signal sig, int value);
 
-/*! A signal handler function can be called whenever a signal value
- *  changes. */
-typedef void mapper_signal_update_handler(mapper_signal msig,
-                                          mapper_db_signal props,
-                                          int instance_id,
-                                          void *value,
-                                          int count,
-                                          mapper_timetag_t *tt);
+/*! Update the value of a scalar signal of type float. This is a scalar
+ *  equivalent to mapper_signal_update(), for when passing by value is more
+ *  convenient than passing a pointer.  The signal will be routed according to
+ *  external requests.
+ *  \param sig          The signal to update.
+ *  \param value        A new scalar value for this signal. */
+void mapper_signal_update_float(mapper_signal sig, float value);
 
-/*! A handler function to be called whenever a signal instance management
- *  event occurs. */
-typedef void mapper_signal_instance_event_handler(mapper_signal msig,
-                                                  mapper_db_signal props,
-                                                  int instance_id,
-                                                  msig_instance_event_t event,
-                                                  mapper_timetag_t *tt);
-
-/*! Update the value of a signal.
- *  The signal will be routed according to external requests.
- *  \param sig      The signal to update.
- *  \param value    A pointer to a new value for this signal.  If the
- *                  signal type is 'i', this should be int*; if the signal type
- *                  is 'f', this should be float*.  It should be an array at
- *                  least as long as the signal's length property.
- *  \param count    The number of instances of the value that are being
- *                  updated.  For non-periodic signals, this should be 0
- *                  or 1.  For periodic signals, this may indicate that a
- *                  block of values should be accepted, where the last
- *                  value is the current value.
- *  \param timetag  The time at which the value update was aquired. If
- *                  the value is MAPPER_NOW, libmapper will tag the
- *                  value update with the current time. See
- *                  mdev_start_queue() for more information on
- *                  bundling multiple signal updates with the same
- *                  timetag. */
-void msig_update(mapper_signal sig, void *value,
-                 int count, mapper_timetag_t timetag);
-
-/*! Update the value of a scalar signal of type int.
- *  This is a scalar equivalent to msig_update(), for when passing by
- *  value is more convenient than passing a pointer.
- *  The signal will be routed according to external requests.
- *  \param sig   The signal to update.
- *  \param value A new scalar value for this signal. */
-void msig_update_int(mapper_signal sig, int value);
-
-/*! Update the value of a scalar signal of type float.
- *  This is a scalar equivalent to msig_update(), for when passing by
- *  value is more convenient than passing a pointer.
- *  The signal will be routed according to external requests.
- *  \param sig The signal to update.
- *  \param value A new scalar value for this signal. */
-void msig_update_float(mapper_signal sig, float value);
-
-/*! Update the value of a scalar signal of type double.
- *  This is a scalar equivalent to msig_update(), for when passing by
- *  value is more convenient than passing a pointer.
- *  The signal will be routed according to external requests.
- *  \param sig The signal to update.
- *  \param value A new scalar value for this signal. */
-void msig_update_double(mapper_signal sig, double value);
+/*! Update the value of a scalar signal of type double. This is a scalar
+ *  equivalent to mapper_signal_update(), for when passing by value is more
+ *  convenient than passing a pointer.  The signal will be routed according to
+ *  external requests.
+ *  \param sig          The signal to update.
+ *  \param value        A new scalar value for this signal. */
+void mapper_signal_update_double(mapper_signal sig, double value);
 
 /*! Get a signal's value.
- *  \param sig      The signal to operate on.
- *  \param timetag  A location to receive the value's time tag.
- *                  May be 0.
- *  \return         A pointer to an array containing the value
- *                  of the signal, or 0 if the signal has no value. */
-void *msig_value(mapper_signal sig, mapper_timetag_t *timetag);
+ *  \param sig          The signal to operate on.
+ *  \param tt           A location to receive the value's time tag. May be 0.
+ *  \return             A pointer to an array containing the value of the
+ *                      signal, or 0 if the signal has no value. */
+const void *mapper_signal_value(mapper_signal sig, mapper_timetag_t *tt);
 
 /*! Query the values of any signals connected via mapping connections.
- *  \param sig      A local output signal. We will be querying the remote
- *                  ends of this signal's mapping connections.
- *  \param tt       A timetag to be attached to the outgoing query. Query
- *                  responses should also be tagged with this time.
- *  \return The number of queries sent, or -1 for error. */
-int msig_query_remotes(mapper_signal sig, mapper_timetag_t tt);
+ *  \param sig          A local output signal. We will be querying the remote
+ *                      ends of this signal's mapping connections.
+ *  \param tt           A timetag to be attached to the outgoing query. Query
+ *                      responses should also be tagged with this time.
+ *  \return             The number of queries sent, or -1 for error. */
+int mapper_signal_query_remotes(mapper_signal sig, mapper_timetag_t tt);
 
-/*! Add a signal to a predefined signal group created using mdev_add_signal_group.
+/*! Return the list of maps associated with a given signal.
+ *  \param sig          Signal record to query for maps.
+ *  \param dir          The direction of the map relative to the given signal.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results or zero if none.  Use mapper_map_query_next()
+ *                      to iterate. */
+mapper_map *mapper_signal_maps(mapper_signal sig, mapper_direction dir);
+
+/*! Associate a signal or signal instance with an arbitrary pointer.
+ *  \param sig          The signal to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_signal_set_user_data(mapper_signal sig, const void *user_data);
+
+/*! Add a signal to a predefined signal group created using
+ *  mapper_device_add_signal_group.
  *  Signals in the same group will have instance ids automatically coordinated.
  *  By default all signals are in the same (default) group.
- *  \param sig      The signal to add.
- *  \param group    A signal group to associate with this signal, or 0
- *                  to reset to the default group. */
-void msig_set_group(mapper_signal sig, mapper_signal_group group);
+ *  \param sig          The signal to add.
+ *  \param group        A signal group to associate with this signal, or 0
+ *                      to reset to the default group. */
+void mapper_signal_set_group(mapper_signal sig, mapper_signal_group group);
 
-/**** Instances ****/
+/*! Retrieve the arbitrary pointer associated with a signal instance.
+ *  \param sig          The signal to operate on.
+ *  \return             A pointer associated with this signal. */
+void *mapper_signal_user_data(mapper_signal sig);
 
-/*! Add new instances to the reserve list. Note that if instance ids are specified,
- *  libmapper will not add multiple instances with the same id.
+/*! A signal handler function can be called whenever a signal value changes. */
+typedef void mapper_signal_update_handler(mapper_signal sig, mapper_id instance,
+                                          const void *value, int count,
+                                          mapper_timetag_t *tt);
+
+/*! Set or unset the message handler for a signal.
+ *  \param sig          The signal to operate on.
+ *  \param handler      A pointer to a mapper_signal_update_handler function
+ *                      for processing incoming messages. */
+void mapper_signal_set_callback(mapper_signal sig,
+                                mapper_signal_update_handler *handler);
+
+/**** Signal Instances ****/
+
+/*! Add new instances to the reserve list. Note that if instance ids are
+ *  specified, libmapper will not add multiple instances with the same id.
  *  \param sig          The signal to which the instances will be added.
  *  \param num          The number of instances to add.
  *  \param ids          Array of integer ids, one for each new instance,
@@ -143,191 +135,370 @@ void msig_set_group(mapper_signal sig, mapper_signal_group group);
  *  \param user_data    Array of user context pointers, one for each new instance,
  *                      or 0 if not needed.
  *  \return             Number of instances added. */
-int msig_reserve_instances(mapper_signal sig, int num, int *ids, void **user_data);
+int mapper_signal_reserve_instances(mapper_signal sig, int num, mapper_id *ids,
+                                    void **user_data);
 
-/*! Update the value of a specific signal instance.
- *  The signal will be routed according to external requests.
+/*! Update the value of a specific signal instance.  The signal will be routed
+ *  according to external requests.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The instance to update.
- *  \param value        A pointer to a new value for this signal.  If the
- *                      signal type is 'i', this should be int*; if the signal type
- *                      is 'f', this should be float*.  It should be an array at
- *                      least as long as the signal's length property.
+ *  \param instance     The identifier of the instance to update.
+ *  \param value        A pointer to a new value for this signal.  If the signal
+ *                      type is 'i', this should be int*; if the signal type is
+ *                      'f', this should be float* (etc).  It should be an array
+ *                      at least as long as the signal's length property.
  *  \param count        The number of values being updated, or 0 for
  *                      non-periodic signals.
- *  \param timetag      The time at which the value update was aquired. If NULL,
+ *  \param tt           The time at which the value update was aquired. If NULL,
  *                      libmapper will tag the value update with the current
- *                      time. See mdev_start_queue() for more information on
- *                      bundling multiple signal updates with the same timetag. */
-void msig_update_instance(mapper_signal sig, int instance_id, void *value,
-                          int count, mapper_timetag_t timetag);
+ *                      time.  See mapper_device_start_queue() for more
+ *                      information on bundling multiple signal updates with the
+ *                      same timetag. */
+void mapper_signal_instance_update(mapper_signal sig, mapper_id instance,
+                                   const void *value, int count,
+                                   mapper_timetag_t tt);
 
-/*! Release a specific instance of a signal by removing it from the list
- *  of active instances and adding it to the reserve list.
- *  \param sig         The signal to operate on.
- *  \param instance_id The instance to suspend.
- *  \param timetag     The time at which the instance was released; if NULL,
- *                     will be tagged with the current time.
- *                     See mdev_start_queue() for more information on
- *                     bundling multiple signal updates with the same timetag. */
-void msig_release_instance(mapper_signal sig, int instance_id,
-                           mapper_timetag_t timetag);
+/*! Release a specific instance of a signal by removing it from the list of
+ *  active instances and adding it to the reserve list.
+ *  \param sig          The signal to operate on.
+ *  \param instance     The identifier of the instance to suspend.
+ *  \param tt           The time at which the instance was released; if NULL,
+ *                      will be tagged with the current time. See
+ *                      mapper_device_start_queue() for more information on
+ *                      bundling multiple signal updates with the same timetag. */
+void mapper_signal_instance_release(mapper_signal sig, mapper_id instance,
+                                    mapper_timetag_t tt);
 
 /*! Remove a specific instance of a signal and free its memory.
- *  \param sig         The signal to operate on.
- *  \param instance_id The instance to suspend. */
-void msig_remove_instance(mapper_signal sig, int instance_id);
+ *  \param sig          The signal to operate on.
+ *  \param instance     The identifier of the instance to suspend. */
+void mapper_signal_remove_instance(mapper_signal sig, mapper_id instance);
+
+/*! Return whether a given signal instance is currently active.
+ *  \param sig          The signal to operate on.
+ *  \param instance     The identifier of the instance to check.
+ *  \return             Non-zero if the instance is active, zero otherwise. */
+int mapper_signal_instance_is_active(mapper_signal sig, mapper_id instance);
+
+/*! Activate a specific signal instance.
+ *  \param sig          The signal to operate on.
+ *  \param instance     The identifier of the instance to activate.
+ *  \return             Non-zero if the instance is active, zero otherwise. */
+int mapper_signal_instance_activate(mapper_signal sig, mapper_id instance);
 
 /*! Get the local id of the oldest active instance.
- *  \param sig         The signal to operate on.
- *  \param instance_id A location to receive the instance id.
- *  \return            Zero if an instance id has been found, non-zero otherwise. */
-int msig_get_oldest_active_instance(mapper_signal sig, int *instance_id);
+ *  \param sig          The signal to operate on.
+ *  \return             The instance identifier, or zero if unsuccessful. */
+mapper_id mapper_signal_oldest_active_instance(mapper_signal sig);
 
 /*! Get the local id of the newest active instance.
- *  \param sig         The signal to operate on.
- *  \param instance_id A location to receive the instance id.
- *  \return            Zero if an instance id has been found, non-zero otherwise. */
-int msig_get_newest_active_instance(mapper_signal sig, int *instance_id);
+ *  \param sig          The signal to operate on.
+ *  \return             The instance identifier, or zero if unsuccessful. */
+mapper_id mapper_signal_newest_active_instance(mapper_signal sig);
 
 /*! Get a signal_instance's value.
- *  \param sig         The signal to operate on.
- *  \param instance_id The instance to operate on.
- *  \param timetag     A location to receive the value's time tag.
- *                     May be 0.
- *  \return            A pointer to an array containing the value
- *                     of the signal instance, or 0 if the signal instance
- *                     has no value. */
-void *msig_instance_value(mapper_signal sig, int instance_id,
-                          mapper_timetag_t *timetag);
-
-/*! Copy group/routing data for sharing an instance abstraction
- *  between multiple signals.
- *  \param from         The signal to copy from.
- *  \param to           The signal to copy to.
- *  \param instance_id  The instance to copy. */
-void msig_match_instances(mapper_signal from, mapper_signal to, int instance_id);
+ *  \param sig          The signal to operate on.
+ *  \param instance     The identifier of the instance to operate on.
+ *  \param tt           A location to receive the value's time tag. May be 0.
+ *  \return             A pointer to an array containing the value of the signal
+ *                      instance, or 0 if the signal instance has no value. */
+const void *mapper_signal_instance_value(mapper_signal sig, mapper_id instance,
+                                         mapper_timetag_t *tt);
 
 /*! Return the number of active instances owned by a signal.
- *  \param  sig The signal to query.
- *  \return     The number of active instances. */
-int msig_num_active_instances(mapper_signal sig);
+ *  \param  sig         The signal to query.
+ *  \return             The number of active instances. */
+int mapper_signal_num_active_instances(mapper_signal sig);
 
 /*! Return the number of reserved instances owned by a signal.
- *  \param  sig The signal to query.
- *  \return     The number of active instances. */
-int msig_num_reserved_instances(mapper_signal sig);
+ *  \param  sig         The signal to query.
+ *  \return             The number of active instances. */
+int mapper_signal_num_reserved_instances(mapper_signal sig);
 
-/*! Get an active signal instance's ID by its index.  Intended to be
- * used for iterating over the active instances.
- *  \param sig    The signal to operate on.
- *  \param index  The numerical index of the ID to retrieve.  Shall be
- *                between zero and the return value of
- *                msig_num_active_instances().
- *  \return       The instance ID associated with the given index. */
-int msig_active_instance_id(mapper_signal sig, int index);
+/*! Get a signal instance's identifier by its index.  Intended to be used for
+ *  iterating over the active instances.
+ *  \param sig          The signal to operate on.
+ *  \param index        The numerical index of the ID to retrieve.  Should be
+ *                      between zero and the number of instances.
+ *  \return             The instance ID associated with the given index, or zero
+ *                      if unsuccessful. */
+mapper_id mapper_signal_instance_id(mapper_signal sig, int index);
 
-/*! Set the allocation method to be used when a previously-unseen
- *  instance ID is received.
- *  \param sig  The signal to operate on.
- *  \param mode Method to use for adding or reallocating active instances
- *              if no reserved instances are available. */
-void msig_set_instance_allocation_mode(mapper_signal sig,
-                                       mapper_instance_allocation_type mode);
+/*! Get an active signal instance's ID by its index.  Intended to be used for
+ *  iterating over the active instances.
+ *  \param sig          The signal to operate on.
+ *  \param index        The numerical index of the ID to retrieve.  Should be
+ *                      between zero and the number of instances.
+ *  \return             The instance ID associated with the given index, or zero
+ *                      if unsuccessful. */
+mapper_id mapper_signal_active_instance_id(mapper_signal sig, int index);
 
-/*! Get the allocation method to be used when a previously-unseen
- *  instance ID is received.
- *  \param sig  The signal to operate on.
- *  \return     The allocation mode of the provided signal. */
-mapper_instance_allocation_type msig_get_instance_allocation_mode(mapper_signal sig);
+/*! Get a reserved signal instance's ID by its index.  Intended to be used for
+ *  iterating over the reserved instances.
+ *  \param sig          The signal to operate on.
+ *  \param index        The numerical index of the ID to retrieve.  Should be
+ *                      between zero and the number of instances.
+ *  \return             The instance ID associated with the given index, or zero
+ *                      if unsuccessful. */
+mapper_id mapper_signal_reserved_instance_id(mapper_signal sig, int index);
+
+/*! Set the stealing method to be used when a previously-unseen instance ID is
+ *  received and no instances are available.
+ *  \param sig          The signal to operate on.
+ *  \param mode         Method to use for reallocating active instances if no
+ *                      reserved instances are available. */
+void mapper_signal_set_instance_stealing_mode(mapper_signal sig,
+                                              mapper_instance_stealing_type mode);
+
+/*! Get the stealing method to be used when a previously-unseen instance ID is
+ *  received.
+ *  \param sig          The signal to operate on.
+ *  \return             The stealing mode of the provided signal. */
+mapper_instance_stealing_type mapper_signal_instance_stealing_mode(mapper_signal sig);
+
+/*! A handler function to be called whenever a signal instance management event
+ *  occurs. */
+typedef void mapper_instance_event_handler(mapper_signal sig, mapper_id instance,
+                                           mapper_instance_event event,
+                                           mapper_timetag_t *tt);
 
 /*! Set the handler to be called on signal instance management events.
  *  \param sig          The signal to operate on.
- *  \param h            A handler function for processing instance managment events.
+ *  \param h            A handler function for instance management events.
  *  \param flags        Bitflags for indicating the types of events which should
- *                      trigger the callback. Can be a combination of IN_NEW,
- *                      IN_UPSTREAM_RELEASE, IN_DOWNSTREAM_RELEASE, and IN_OVERFLOW.
- *  \param user_data    User context pointer to be passed to handler. */
-void msig_set_instance_event_callback(mapper_signal sig,
-                                      mapper_signal_instance_event_handler h,
-                                      int flags, void *user_data);
+ *                      trigger the callback. Can be a combination of values
+ *                      from the enum mapper_instance_event. */
+void mapper_signal_set_instance_event_callback(mapper_signal sig,
+                                               mapper_instance_event_handler h,
+                                               int flags);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The instance to operate on.
- *  \param user_data    A pointer to user data to be associated
- *                      with this instance. */
-void msig_set_instance_data(mapper_signal sig, int instance_id,
-                            void *user_data);
+ *  \param instance     The identifier of the instance to operate on.
+ *  \param user_data    A pointer to user data to be associated with this
+ *                      instance. */
+void mapper_signal_instance_set_user_data(mapper_signal sig, mapper_id instance,
+                                          const void *user_data);
 
 /*! Retrieve the arbitrary pointer associated with a signal instance.
  *  \param sig          The signal to operate on.
- *  \param instance_id  The instance to operate on.
+ *  \param instance     The identifier of the instance to operate on.
  *  \return             A pointer associated with this instance. */
-void *msig_get_instance_data(mapper_signal sig, int instance_id);
-
-/*! Set or unset the message handler for a signal.
- *  \param sig       The signal to operate on.
- *  \param handler   A pointer to a mapper_signal_update_handler
- *                   function for processing incoming messages.
- *  \param user_data User context pointer to be passed to handler. */
-void msig_set_callback(mapper_signal sig,
-                       mapper_signal_update_handler *handler,
-                       void *user_data);
-
-/*! Get the number of connections attatched to a specific signal.
- *  \param sig      The signal to check.
- *  \return         The number of attached connections. */
-int msig_num_connections(mapper_signal sig);
+void *mapper_signal_instance_user_data(mapper_signal sig, mapper_id instance);
 
 /**** Signal properties ****/
 
-/*! Get the full OSC name of a signal, including device name
- *  prefix.
- *  \param sig  The signal value to query.
- *  \param name A string to accept the name.
- *  \param len  The length of string pointed to by name.
- *  \return The number of characters used, or 0 if error.  Note that
- *          in some cases the name may not be available. */
-int msig_full_name(mapper_signal sig, char *name, int len);
+/*! Get the description for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return             The signal description if it is defined, or NULL. */
+const char *mapper_signal_description(mapper_signal sig);
 
-/*! Set or remove the minimum of a signal.
- *  \param sig      The signal to operate on.
- *  \param minimum  Must be the same type as the signal, or 0 to remove
- *                  the minimum. */
-void msig_set_minimum(mapper_signal sig, void *minimum);
+/*! Get the parent mapper_device for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return         	The signal's parent device. */
+mapper_device mapper_signal_device(mapper_signal sig);
+
+/*! Get the direction for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return         	The signal direction. */
+mapper_direction mapper_signal_direction(mapper_signal sig);
+
+/*! Get the unique id for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return             The signal id. */
+mapper_id mapper_signal_id(mapper_signal sig);
+
+/*! Indicate whether this signal is local.
+ *  \param sig          The signal to check.
+ *  \return             1 if the signal is local, 0 otherwise. */
+int mapper_signal_is_local(mapper_signal sig);
+
+/*! Get the vector length for a specific signal.
+ *  \param sig      	The signal to check.
+ *  \return         	The signal vector length. */
+int mapper_signal_length(mapper_signal sig);
+
+/*! Get the maximum for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return             The signal maximum if it is defined, or NULL. */
+void *mapper_signal_maximum(mapper_signal sig);
+
+/*! Get the minimum for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return             The signal minimum if it is defined, or NULL. */
+void *mapper_signal_minimum(mapper_signal sig);
+
+/*! Get the name for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return             The signal name. */
+const char *mapper_signal_name(mapper_signal sig);
+
+/*! Get the number of instances for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return         	The number of allocated signal instances. */
+int mapper_signal_num_instances(mapper_signal sig);
+
+/*! Get the number of maps associated with a specific signal.
+ *  \param sig          The signal to check.
+ *  \param dir          The direction of the maps relative to the given signal.
+ *  \return             The number of associated maps. */
+int mapper_signal_num_maps(mapper_signal sig, mapper_direction dir);
+
+/*! Get the update rate for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return         	The rate for this signal in samples/second, or zero for
+ *                      non-periodic signals. */
+float mapper_signal_rate(mapper_signal sig);
+
+/*! Get the data type for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return             The signal date type. */
+char mapper_signal_type(mapper_signal sig);
+
+/*! Get the unit for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return             The signal unit if it is defined, or NULL. */
+const char *mapper_signal_unit(mapper_signal sig);
+
+/*! Get the total number of properties for a specific signal.
+ *  \param sig      	The signal to check.
+ *  \return             The number of properties. */
+int mapper_signal_num_properties(mapper_signal sig);
+
+/*! Look up a signal property by name.
+ *  \param sig          The signal to check.
+ *  \param name         The name of the property to retrieve.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_signal_property(mapper_signal sig, const char *name, int *length,
+                           char *type, const void **value);
+
+/*! Look up a signal property by index. To iterate all properties, call this
+ *  function from index=0, increasing until it returns zero.
+ *  \param sig          The signal to check.
+ *  \param index        Numerical index of a signal property.
+ *  \param name     	Address of a string pointer to receive the name of
+ *                      indexed property.  May be zero.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_signal_property_index(mapper_signal sig, unsigned int index,
+                                 const char **name, int *length, char *type,
+                                 const void **value);
+
+/*! Set the description property for a specific signal.
+ *  \param sig          The signal to modify.
+ *  \param description  The description value to set. */
+void mapper_signal_set_description(mapper_signal sig, const char *description);
 
 /*! Set or remove the maximum of a signal.
- *  \param sig      The signal to operate on.
- *  \param maximum  Must be the same type as the signal, or 0 to remove
- *                  the maximum. */
-void msig_set_maximum(mapper_signal sig, void *maximum);
+ *  \param sig          The signal to modify.
+ *  \param maximum      Must be the same type as the signal, or 0 to remove the
+ *                      maximum. */
+void mapper_signal_set_maximum(mapper_signal sig, const void *maximum);
+
+/*! Set or remove the minimum of a signal.
+ *  \param sig          The signal to modify.
+ *  \param minimum      Must be the same type as the signal, or 0 to remove the
+ *                      minimum. */
+void mapper_signal_set_minimum(mapper_signal sig, const void *minimum);
 
 /*! Set the rate of a signal.
- *  \param sig      The signal to operate on.
- *  \param rate     A rate for this signal in samples/second, or zero
- *                  for non-periodic signals. */
-void msig_set_rate(mapper_signal sig, float rate);
+ *  \param sig          The signal to modify.
+ *  \param rate         A rate for this signal in samples/second, or zero for
+ *                      non-periodic signals. */
+void mapper_signal_set_rate(mapper_signal sig, float rate);
 
-/*! Get a signal's property structure.
- *  \param sig  The signal to operate on.
- *  \return     A structure containing the signal's properties. */
-mapper_db_signal msig_properties(mapper_signal sig);
+/*! Set the unit of a signal.
+ *  \param sig          The signal to operate on.
+ *  \param unit     	The unit value to set. */
+void mapper_signal_set_unit(mapper_signal sig, const char *unit);
 
-/*! Set a property of a signal.  Can be used to provide arbitrary
- *  metadata.  Value pointed to will be copied.
- *  \param sig       The signal to operate on.
- *  \param property  The name of the property to add.
- *  \param type      The property  datatype.
- *  \param value     An array of property values.
- *  \param length    The length of value array. */
-void msig_set_property(mapper_signal sig, const char *property,
-                       char type, void *value, int length);
+/*! Set a property of a signal.  Can be used to provide arbitrary metadata.
+ *  Value pointed to will be copied.
+ *  \param sig          The signal to operate on.
+ *  \param name         The name of the property to add.
+ *  \param length       The length of value array.
+ *  \param type         The property  datatype.
+ *  \param value        An array of property values.
+ *  \return             1 if property has been changed, 0 otherwise. */
+int mapper_signal_set_property(mapper_signal sig, const char *name,
+                               int length, char type, const void *value);
+
+/*! Push any property changes out to the network.
+ *  \param sig          The signal to operate on. */
+void mapper_signal_push(mapper_signal sig);
 
 /*! Remove a property of a signal.
- *  \param sig       The signal to operate on.
- *  \param property  The name of the property to remove. */
-void msig_remove_property(mapper_signal sig, const char *property);
+ *  \param sig          The signal to operate on.
+ *  \param name         The name of the property to remove.
+ *  \return             1 if property has been removed, 0 otherwise. */
+int mapper_signal_remove_property(mapper_signal sig, const char *name);
+
+/*! Get the union of two signal queries (signals matching query1 OR query2).
+ *  \param query1       The first signal query.
+ *  \param query2       The second signal query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_signal_query_next() to iterate. */
+mapper_signal *mapper_signal_query_union(mapper_signal *query1,
+                                         mapper_signal *query2);
+
+/*! Get the intersection of two signal queries (signals matching query1 AND
+ *  query2).
+ *  \param query1       The first signal query.
+ *  \param query2       The second signal query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_signal_query_next() to iterate. */
+mapper_signal *mapper_signal_query_intersection(mapper_signal *query1,
+                                                mapper_signal *query2);
+
+/*! Get the difference between two signal queries (signals matching query1 but
+ *  NOT query2).
+ *  \param query1       The first signal query.
+ *  \param query2       The second signal query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_signal_query_next() to iterate. */
+mapper_signal *mapper_signal_query_difference(mapper_signal *query1,
+                                              mapper_signal *query2);
+
+/*! Given a signal record pointer returned from a previous signal query, get an
+ *  indexed item in the list.
+ *  \param query        The previous signal record pointer.
+ *  \param index        The index of the list element to retrieve.
+ *  \return             A pointer to the signal record, or zero if it doesn't
+ *                      exist. */
+mapper_signal mapper_signal_query_index(mapper_signal *query, int index);
+
+/*! Given a signal record pointer returned from a previous signal query, get the
+ *  next item in the list.
+ *  \param query        The previous signal record pointer.
+ *  \return             A double-pointer to the next signal record in the list,
+ *                      or zero if no more signals. */
+mapper_signal *mapper_signal_query_next(mapper_signal *query);
+
+/*! Copy a previously-constructed signal query.
+ *  \param query        The previous signal record pointer.
+ *  \return             A double-pointer to the copy of the list, or zero if
+ *                      none.  Use mapper_signal_query_next() to iterate. */
+mapper_signal *mapper_signal_query_copy(mapper_signal *query);
+
+/*! Given a signal record pointer returned from a previous signal query,
+ *  indicate that we are done iterating.
+ *  \param query        The previous signal record pointer. */
+void mapper_signal_query_done(mapper_signal *query);
+
+/*! Helper to print the properties of a specific signal.
+ *  \param sig          The signal to print.
+ *  \param device_name  1 to include the parent device name, 0 otherwise. */
+void mapper_signal_print(mapper_signal sig, int device_name);
 
 /* @} */
 
@@ -335,1219 +506,1553 @@ void msig_remove_property(mapper_signal sig, const char *property);
 
 /*! @defgroup devices Devices
 
-    @{ A device is an entity on the network which has input and/or
-       output signals.  The mapper_device is the primary interface
-       through which a program uses libmapper.  A device must have a
-       name, to which a unique ordinal is subsequently appended.  It
-       can also be given other user-specified metadata.  Devices must
-       be linked before their signals can be connected, which is
+    @{ A device is an entity on the network which has input and/or output
+       signals.  The mapper_device is the primary interface through which a
+       program uses libmapper.  A device must have a name, to which a unique
+       ordinal is subsequently appended.  It can also be given other
+       user-specified metadata.  Devices signals can be connected, which is
        accomplished by requests from an external GUI. */
+
+/*! A callback function prototype for when a link is added, updated, or removed
+ *  from a given device.  Such a function is passed in to
+ *  mapper_device_set_link_callback().
+ *  \param dev          The device that registered this callback.
+ *  \param link         The link record.
+ *  \param action       A value of mapper_record_action indicating what is
+ *                      happening to the link record.*/
+typedef void mapper_device_link_handler(mapper_device dev, mapper_link link,
+                                        mapper_record_action action);
+
+/*! Set a function to be called when a link involving a device's local signals
+ *  is established, modified or destroyed, indicated by the action parameter to
+ *  the provided function.
+ *  \param dev          The device to use.
+ *  \param handler      Function to be called when the local maps change. */
+void mapper_device_set_link_callback(mapper_device dev,
+                                     mapper_device_link_handler *handler);
+
+/*! A callback function prototype for when a map is added, updated, or removed
+ *  from a given device.  Such a function is passed in to
+ *  mapper_device_set_map_callback().
+ *  \param dev          The device that registered this callback.
+ *  \param map          The map record.
+ *  \param action       A value of mapper_record_action indicating what is
+ *                      happening to the map record.*/
+typedef void mapper_device_map_handler(mapper_device dev, mapper_map map,
+                                       mapper_record_action action);
+
+/*! Set a function to be called when a map involving a device's local signals is
+ *  established, modified or destroyed, indicated by the action parameter to the
+ *  provided function.
+ *  \param dev          The device to use.
+ *  \param handler      Function to be called when the local maps change. */
+void mapper_device_set_map_callback(mapper_device dev,
+                                    mapper_device_map_handler *handler);
 
 /*! Allocate and initialize a mapper device.
  *  \param name_prefix  A short descriptive string to identify the device.
  *                      Must not contain spaces or the slash character '/'.
  *  \param port         An optional port for starting the port allocation
  *                      scheme.
- *  \param admin        A previously allocated admin to use.  If 0, an
- *                      admin will be allocated for use with this device.
+ *  \param net          A previously allocated network structure to use.
+ *                      If 0, one will be allocated for use with this device.
  *  \return             A newly allocated mapper device.  Should be free
- *                      using mdev_free(). */
-mapper_device mdev_new(const char *name_prefix, int port, mapper_admin admin);
-
-//! Free resources used by a mapper device.
-void mdev_free(mapper_device dev);
-
-/*! Add an input signal to a mapper device.  Values and strings
- *  pointed to by this call (except user_data) will be copied.
- *  For minimum and maximum, actual type must correspond to 'type'.
- *  If type='i', then int*; if type='f', then float*.
- *  \param dev     The device to add a signal to.
- *  \param name    The name of the signal.
- *  \param length  The length of the signal vector, or 1 for a scalar.
- *  \param type    The type fo the signal value.
- *  \param unit    The unit of the signal, or 0 for none.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none.
- *  \param handler Function to be called when the value of the
- *                 signal is updated.
- *  \param user_data User context pointer to be passed to handler. */
-mapper_signal mdev_add_input(mapper_device dev, const char *name,
-                             int length, char type, const char *unit,
-                             void *minimum, void *maximum,
-                             mapper_signal_update_handler *handler,
-                             void *user_data);
-
-/*! Add an input signal with multiple instances to a mapper device.
- *  Values and strings pointed to by this call (except user_data) will be copied.
- *  For minimum and maximum, actual type must correspond to 'type'.
- *  If type='i', then int*; if type='f', then float*.
- *  \param dev           The device to add a signal to.
- *  \param name          The name of the signal.
- *  \param length        The length of the signal vector, or 1 for a scalar.
- *  \param type          The type fo the signal value.
- *  \param unit          The unit of the signal, or 0 for none.
- *  \param minimum       Pointer to a minimum value, or 0 for none.
- *  \param maximum       Pointer to a maximum value, or 0 for none.
- *  \param num_instances Number of instances to reserve.
- *  \param handler       Function to be called when the value of the
- *                       signal is updated.
- *  \param user_data     User context pointer to be passed to handler. */
-mapper_signal mdev_add_input_with_instances(mapper_device dev, const char *name,
-                                            int length, char type, const char *unit,
-                                            void *minimum, void *maximum,
-                                            int num_instances,
-                                            mapper_signal_update_handler *handler,
-                                            void *user_data);
-
-/*! Add an output signal to a mapper device.  Values and strings
- *  pointed to by this call (except user_data) will be copied.
- *  For minimum and maximum, actual type must correspond to 'type'.
- *  If type='i', then int*; if type='f', then float*.
- *  \param dev     The device to add a signal to.
- *  \param name    The name of the signal.
- *  \param length  The length of the signal vector, or 1 for a scalar.
- *  \param type    The type fo the signal value.
- *  \param unit    The unit of the signal, or 0 for none.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none. */
-mapper_signal mdev_add_output(mapper_device dev, const char *name,
-                              int length, char type, const char *unit,
-                              void *minimum, void *maximum);
-
-/*! Add an output signal with multiple instances to a mapper device.
- *  Values and strings pointed to by this call (except user_data) will be copied.
- *  For minimum and maximum, actual type must correspond to 'type'.
- *  If type='i', then int*; if type='f', then float*.
- *  \param dev     The device to add a signal to.
- *  \param name    The name of the signal.
- *  \param length  The length of the signal vector, or 1 for a scalar.
- *  \param type    The type fo the signal value.
- *  \param unit    The unit of the signal, or 0 for none.
- *  \param num_instances Number of instances to reserve.
- *  \param minimum Pointer to a minimum value, or 0 for none.
- *  \param maximum Pointer to a maximum value, or 0 for none. */
-mapper_signal mdev_add_output_with_instances(mapper_device dev, const char *name,
-                                             int length, char type, const char *unit,
-                                             void *minimum, void *maximum,
-                                             int num_instances);
-
-/* Remove a device's input signal.
- * \param dev The device to remove a signal from.
- * \param sig The signal to remove. */
-void mdev_remove_input(mapper_device dev, mapper_signal sig);
-
-/* Remove a device's output signal.
- * \param dev The device to remove a signal from.
- * \param sig The signal to remove. */
-void mdev_remove_output(mapper_device dev, mapper_signal sig);
-
-//! Return the number of inputs.
-int mdev_num_inputs(mapper_device dev);
-
-//! Return the number of outputs.
-int mdev_num_outputs(mapper_device dev);
-
-//! Define a signal group
-mapper_signal_group mdev_add_signal_group(mapper_device dev);
-
-//! Remove a previously-defined multi-signal group.
-void mdev_remove_signal_group(mapper_device dev, mapper_signal_group group);
-
-//! Return the number of incoming links.
-int mdev_num_links_in(mapper_device dev);
-
-//! Return the number of outgoing links.
-int mdev_num_links_out(mapper_device dev);
-
-//! Return the number of incoming connections.
-int mdev_num_connections_in(mapper_device dev);
-
-//! Return the number of outgoing connections.
-int mdev_num_connections_out(mapper_device dev);
-
-/*! Get input signals.
- *  \param dev Device to search in.
- *  \return Pointer to the linked list of input mapper_signals, or zero
- *          if not found.
- */
-mapper_signal *mdev_get_inputs(mapper_device dev);
-
-/*! Get output signals.
- *  \param dev Device to search in.
- *  \return Pointer to the linked list of output mapper_signals, or zero
- *          if not found.
- */
-mapper_signal *mdev_get_outputs(mapper_device dev);
-
-/*! Get an input signal with a given name.
- *  \param dev   Device to search in.
- *  \param name  Name of input signal to search for. It may optionally
- *               begin with a '/' character.
- *  \param index Optional place to receive the index of the matching signal.
- *  \return Pointer to the mapper_signal describing the signal, or zero
- *          if not found.
- */
-mapper_signal mdev_get_input_by_name(mapper_device dev, const char *name,
-                                     int *index);
-
-/*! Get an output signal with a given name.
- *  \param dev   Device to search in.
- *  \param name  Name of output signal to search for. It may optionally
- *               begin with a '/' character.
- *  \param index Optional place to receive the index of the matching signal.
- *  \return Pointer to the mapper_signal describing the signal, or zero
- *          if not found.
- */
-mapper_signal mdev_get_output_by_name(mapper_device dev, const char *name,
-                                      int *index);
-
-/* Get an input signal with the given index.
- * \param dev   The device to search in.
- * \param index Index of the signal to retrieve.
- * \return Pointer to the mapper_signal describing the signal, or zero
- *         if not found. */
-mapper_signal mdev_get_input_by_index(mapper_device dev, int index);
-
-/* Get an output signal with the given index.
- * \param dev   The device to search in.
- * \param index Index of the signal to retrieve.
- * \return Pointer to the mapper_signal describing the signal, or zero
- *         if not found. */
-mapper_signal mdev_get_output_by_index(mapper_device dev, int index);
-
-/*! Get a device's property structure.
- *  \param dev  The device to operate on.
- *  \return     A structure containing the device's properties. */
-mapper_db_device mdev_properties(mapper_device dev);
-
-/*! Set a property of a device.  Can be used to provide arbitrary
- *  metadata.  Value pointed to will be copied.
- *  \param dev       The device to operate on.
- *  \param property  The name of the property to add.
- *  \param type      The property  datatype.
- *  \param value     An array of property values.
- *  \param length    The length of value array. */
-void mdev_set_property(mapper_device dev, const char *property,
-                       char type, void *value, int length);
-
-/*! Remove a property of a device.
- *  \param dev       The device to operate on.
- *  \param property  The name of the property to remove. */
-void mdev_remove_property(mapper_device dev, const char *property);
-
-/*! Poll this device for new messages.
- *  Note, if you have multiple devices, the right thing to do is call
- *  this function for each of them with block_ms=0, and add your own
- *  sleep if necessary.
- *  \param dev      The device to check messages for.
- *  \param block_ms Number of milliseconds to block waiting for
- *                  messages, or 0 for non-blocking behaviour.
- *  \return The number of handled messages. May be zero if there was
- *          nothing to do. */
-int mdev_poll(mapper_device dev, int block_ms);
-
-/*! Return the number of file descriptors needed for this device.
- *  This can be used to allocated an appropriately-sized list for
- *  called to mdev_get_fds.  Note that the number of descriptors
- *  needed can change throughout the life of a device, therefore this
- *  function should be called whenever the list of file descriptors is
- *  needed.
- *  \param md The device to count file descriptors for.
- *  \return The number of file descriptors needed for the indicated
- *          device. */
-int mdev_num_fds(mapper_device md);
-
-/*! Write the list of file descriptors for this device to the provided
- *  array.  Up to num file descriptors will be written.  These file
- *  descriptors can be used as input for the read array of select or
- *  poll, for example.
- *  \param md  The device to get file descriptors for.
- *  \param fds Memory to receive file descriptors.
- *  \param num The number of file descriptors pointed to by fds.
- *  \return The number of file descriptors actually written to fds. */
-int mdev_get_fds(mapper_device md, int *fds, int num);
-
-/*! If an external event indicates that a file descriptor for this
- *  device needs servicing, this function should be called.
- *  \param md The device that needs servicing.
- *  \param fd The file descriptor that needs servicing. */
-void mdev_service_fd(mapper_device md, int fd);
-
-/*! Detect whether a device is completely initialized.
- *  \return Non-zero if device is completely initialized, i.e., has an
- *  allocated receiving port and unique network name.  Zero
- *  otherwise. */
-int mdev_ready(mapper_device dev);
-
-/*! Return a string indicating the device's full name, if it is
- *  registered.  The returned string must not be externally modified.
- *  \param dev The device to query.
- *  \return String containing the device's full name, or zero if it is
- *  not available. */
-const char *mdev_name(mapper_device dev);
-
-/*! Return the unique ID allocated to this device by the mapper network.
- *  \param dev The device to query.
- *  \return An integer indicating the device's ID, or zero if it is
- *  not available. */
-unsigned int mdev_id(mapper_device dev);
-
-/*! Return the port used by a device to receive signals, if available.
- *  \param dev The device to query.
- *  \return An integer indicating the device's port, or zero if it is
- *  not available. */
-unsigned int mdev_port(mapper_device dev);
-
-/*! Return the IPv4 address used by a device to receive signals, if available.
- *  \param dev The device to query.
- *  \return A pointer to an in_addr struct indicating the device's IP
- *          address, or zero if it is not available.  In general this
- *          will be the IPv4 address associated with the selected
- *          local network interface.
- */
-const struct in_addr *mdev_ip4(mapper_device dev);
-
-/*! Return a string indicating the name of the network interface this
- *  device is listening on.
- *  \param dev The device to query.
- *  \return A string containing the name of the network interface. */
-const char *mdev_interface(mapper_device dev);
-
-/*! Return an allocated ordinal which is appended to this device's
- *  network name.  In general the results of this function are not
- *  valid unless mdev_ready() returns non-zero.
- *  \param dev The device to query.
- *  \return A positive ordinal unique to this device (per name). */
-unsigned int mdev_ordinal(mapper_device dev);
-
-/*! Start a time-tagged mapper queue. */
-void mdev_start_queue(mapper_device md, mapper_timetag_t tt);
-
-/*! Dispatch a time-tagged mapper queue. */
-void mdev_send_queue(mapper_device md, mapper_timetag_t tt);
-
-/*! Get access to the device's underlying lo_server. */
-lo_server mdev_get_lo_server(mapper_device md);
-
-/*! Get the device's synchronization clock offset. */
-double mdev_get_clock_offset(mapper_device md);
-
-/*! The set of possible actions on a local device link or
- *  connection. */
-typedef enum {
-    MDEV_LOCAL_ESTABLISHED,
-    MDEV_LOCAL_MODIFIED,
-    MDEV_LOCAL_DESTROYED,
-} mapper_device_local_action_t;
-
-/*! Function to call when a local device link is established or
- *  destroyed. */
-typedef void mapper_device_link_handler(mapper_device dev,
-                                        mapper_db_link link,
-                                        mapper_device_local_action_t action,
-                                        void *user);
-
-/*! Function to call when a local device connection is established or
- *  destroyed. */
-typedef void mapper_device_connection_handler(mapper_device dev,
-                                              mapper_db_link link,
-                                              mapper_signal sig,
-                                              mapper_db_connection connection,
-                                              mapper_device_local_action_t action,
-                                              void *user);
-
-/*! Set a function to be called when a local device link is
- *  established or destroyed, indicated by the action parameter to the
- *  provided function. */
-void mdev_set_link_callback(mapper_device dev,
-                            mapper_device_link_handler *h, void *user);
-
-/*! Set a function to be called when a local device connection is
- *  established or destroyed, indicated by the action parameter to the
- *  provided function. Important: if a link is destroyed, this
- *  function will not be called for all connections in the link. */
-void mdev_set_connection_callback(mapper_device dev,
-                                  mapper_device_connection_handler *h,
-                                  void *user);
-
-/* @} */
-
-/*** Admins ***/
-
-/*! @defgroup admins Admins
-
-    @{ Admins handle the traffic on the multicast admin bus.  In
-       general, you do not need to worry about this interface, as an
-       admin will be created automatically when allocating a device.
-       An admin only needs to be explicitly created if you plan to
-       override default settings for the admin bus.  */
-
-/*! Create an admin with custom parameters.  Creating an admin object
- *  manually is only required if you wish to specify custom network
- *  parameters.  Creating a device or monitor without specifying an
- *  admin will give you an object working on the "standard"
- *  configuration.
- * \param iface  If non-zero, a string identifying a preferred network
- *               interface.  This string can be enumerated e.g. using
- *               if_nameindex(). If zero, an interface will be
- *               selected automatically.
- * \param group  If non-zero, specify a multicast group address to use.
- *               Zero indicates that the standard group 224.0.1.3 should
- *               be used.
- * \param port   If non-zero, specify a multicast port to use.  Zero
- *               indicates that the standard port 7570 should be used.
- * \return       A newly allocated admin.  Should be freed using
- *               mapper_admin_free() */
-mapper_admin mapper_admin_new(const char *iface, const char *group, int port);
-
-/*! Free an admin created with mapper_admin_new(). */
-void mapper_admin_free(mapper_admin admin);
-
-/*! Get the version of libmapper */
-const char *mapper_admin_libversion(mapper_admin admin);
-
-/* @} */
-
-/**** Device database ****/
-
-/*! The set of possible actions on a database record, used
- *  to inform callbacks of what is happening to a record. */
-typedef enum {
-    MDB_MODIFY,
-    MDB_NEW,
-    MDB_REMOVE,
-    MDB_UNRESPONSIVE,
-} mapper_db_action_t;
-
-/***** Devices *****/
-
-/*! @defgroup devicedb Device database
-
-    @{ A monitor may query information about devices on the network
-       through this interface. */
-
-/*! A callback function prototype for when a device record is added or
- *  updated in the database. Such a function is passed in to
- *  mapper_db_add_device_callback().
- *  \param record  Pointer to the device record.
- *  \param action  A value of mapper_db_action_t indicating what
- *                 is happening to the database record.
- *  \param user    The user context pointer registered with this
- *                 callback. */
-typedef void mapper_db_device_handler(mapper_db_device record,
-                                      mapper_db_action_t action,
-                                      void *user);
-
-/*! Register a callback for when a device record is added or updated
- *  in the database.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user A user-defined pointer to be passed to the callback
- *              for context . */
-void mapper_db_add_device_callback(mapper_db db,
-                                   mapper_db_device_handler *h,
-                                   void *user);
-
-/*! Remove a device record callback from the database service.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user The user context pointer that was originally specified
- *              when adding the callback. */
-void mapper_db_remove_device_callback(mapper_db db,
-                                      mapper_db_device_handler *h,
-                                      void *user);
-
-/*! Return the whole list of devices.
- *  \param db   The database to query.
- *  \return A double-pointer to the first item in the list of devices,
- *          or zero if none.  Use mapper_db_device_next() to
- *          iterate. */
-mapper_db_device_t **mapper_db_get_all_devices(mapper_db db);
-
-/*! Find information for a registered device.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find in the database.
- *  \return            Information about the device, or zero if not found. */
-mapper_db_device mapper_db_get_device_by_name(mapper_db db,
-                                              const char *device_name);
-
-/*! Look up information for a registered device using a hash of its name.
- *  \param db          The database to query.
- *  \param name_hash   CRC-32 name hash of the device to find in the database.
- *  \return            Information about the device, or zero if not found. */
-mapper_db_device mapper_db_get_device_by_name_hash(mapper_db db,
-                                                   uint32_t name_hash);
-
-/*! Return the list of devices with a substring in their name.
- *  \param db             The database to query.
- *  \param device_pattern The substring to search for.
- *  \return    A double-pointer to the first item in a list of matching
- *             devices.  Use mapper_db_device_next() to iterate. */
-mapper_db_device_t **mapper_db_match_devices_by_name(mapper_db db,
-                                                     const char *device_pattern);
-
-/*! Given a device record pointer returned from a previous
- *  mapper_db_return_*() call, get the next item in the list.
- *  \param s The previous device record pointer.
- *  \return  A double-pointer to the next device record in the list, or
- *           zero if no more devices. */
-mapper_db_device_t **mapper_db_device_next(mapper_db_device_t **s);
-
-/*! Given a device record pointer returned from a previous
- *  mapper_db_get_*() call, indicate that we are done iterating.
- *  \param s The previous device record pointer. */
-void mapper_db_device_done(mapper_db_device_t **s);
-
-
-/*! Look up a device property by index. To iterate all properties,
- *  call this function from index=0, increasing until it returns zero.
- *  \param dev      The device to look at.
- *  \param index    Numerical index of a device property.
- *  \param property Address of a string pointer to receive the name of
- *                  indexed property.  May be zero.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_device_property_index(mapper_db_device dev, unsigned int index,
-                                    const char **property, char *type,
-                                    const void **value, int *length);
+ *                      using mapper_device_free(). */
+mapper_device mapper_device_new(const char *name_prefix, int port,
+                                mapper_network net);
+
+/*! Free resources used by a mapper device.
+ *  \param dev          The device to use. */
+void mapper_device_free(mapper_device dev);
+
+/*! Return a unique id associated with a given device.
+ *  \param dev          The device to use.
+ *  \return             A new unique id. */
+mapper_id mapper_device_generate_unique_id(mapper_device dev);
+
+/*! Retrieve the networking structure from a device.
+ *  \param dev          The device to use.
+ *  \return             The device network data structure. */
+mapper_network mapper_device_network(mapper_device dev);
+
+/*! Associate a device with an arbitrary pointer.
+ *  \param dev          The device to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_device_set_user_data(mapper_device dev, const void *user_data);
+
+/*! Retrieve the arbitrary pointer associated with a device.
+ *  \param dev          The device to operate on.
+ *  \return             A pointer associated with this device. */
+void *mapper_device_user_data(mapper_device dev);
+
+/*! Add a signal to a mapper device.  Values and strings pointed to by this call
+ *  (except user_data) will be copied.  For minimum and maximum, actual type
+ *  must correspond to 'type' (if type='i', then int*, etc).
+ *  \param dev          The device to add a signal to.
+ *  \param dir          The signal direction.
+ *  \param name         The name of the signal.
+ *  \param length   	The length of the signal vector, or 1 for a scalar.
+ *  \param type         The type fo the signal value.
+ *  \param unit         The unit of the signal, or 0 for none.
+ *  \param minimum      Pointer to a minimum value, or 0 for none.
+ *  \param maximum      Pointer to a maximum value, or 0 for none.
+ *  \param handler      Function to be called when the value of the signal is
+ *                      updated.
+ *  \param user_data    User context pointer to be passed to handler. */
+mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
+                                       int num_instances, const char *name,
+                                       int length, char type, const char *unit,
+                                       const void *minimum, const void *maximum,
+                                       mapper_signal_update_handler *handler,
+                                       const void *user_data);
+
+/*! Add an input signal to a mapper device.  Values and strings pointed to by
+ *  this call (except user_data) will be copied.  For minimum and maximum,
+ *  actual type must correspond to 'type' (if type='i', then int*, etc).
+ *  \param dev          The device to add a signal to.
+ *  \param name         The name of the signal.
+ *  \param length   	The length of the signal vector, or 1 for a scalar.
+ *  \param type         The type fo the signal value.
+ *  \param unit         The unit of the signal, or 0 for none.
+ *  \param minimum      Pointer to a minimum value, or 0 for none.
+ *  \param maximum      Pointer to a maximum value, or 0 for none.
+ *  \param handler      Function to be called when the value of the
+ *                      signal is updated.
+ *  \param user_data    User context pointer to be passed to handler. */
+mapper_signal mapper_device_add_input_signal(mapper_device dev,
+                                             const char *name,
+                                             int length,
+                                             char type,
+                                             const char *unit,
+                                             const void *minimum,
+                                             const void *maximum,
+                                             mapper_signal_update_handler *handler,
+                                             const void *user_data);
+
+/*! Add an output signal to a mapper device.  Values and strings pointed to by
+ *  this call (except user_data) will be copied.  For minimum and maximum,
+ *  actual type must correspond to 'type' (if type='i', then int*, etc).
+ *  \param dev          The device to add a signal to.
+ *  \param name         The name of the signal.
+ *  \param length   	The length of the signal vector, or 1 for a scalar.
+ *  \param type         The type fo the signal value.
+ *  \param unit         The unit of the signal, or 0 for none.
+ *  \param minimum      Pointer to a minimum value, or 0 for none.
+ *  \param maximum      Pointer to a maximum value, or 0 for none. */
+mapper_signal mapper_device_add_output_signal(mapper_device dev,
+                                              const char *name,
+                                              int length,
+                                              char type,
+                                              const char *unit,
+                                              const void *minimum,
+                                              const void *maximum);
+
+/* Remove a device's signal.
+ * \param dev           The device to remove a signal from.
+ * \param sig           The signal to remove. */
+void mapper_device_remove_signal(mapper_device dev, mapper_signal sig);
+
+/*! Return the number of signals.
+ *  \param dev          The device to use.
+ *  \param dir          The direction of the signals to count. */
+int mapper_device_num_signals(mapper_device dev, mapper_direction dir);
+
+/*! Return the list of signals for a given device.
+ *  \param dev          Device record to query.
+ *  \param dir          The direction of the signals to return.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results. Use mapper_signal_query_next() to iterate. */
+mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir);
+
+/*! Find information for a registered signal.
+ *  \param dev          Device record to query.
+ *  \param id           Id of the signal to find in the database.
+ *  \return             Information about the signal, or zero if not found. */
+mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id);
+
+/*! Find information for a registered signal.
+ *  \param dev          Device record to query.
+ *  \param sig_name 	Name of the signal to find in the database.
+ *  \return             Information about the signal, or zero if not found. */
+mapper_signal mapper_device_signal_by_name(mapper_device dev,
+                                           const char *sig_name);
+
+/*! Get the description for a specific device.
+ *  \param dev          The device to check.
+ *  \return             The device description if it is defined, or NULL. */
+const char *mapper_device_description(mapper_device dev);
+
+/*! Return the number of network links associated with a specific device.
+ *  \param dev          The device to check.
+ *  \param dir          The direction of the links relative to the given device.
+ *  \return             The number of associated links. */
+int mapper_device_num_links(mapper_device dev, mapper_direction dir);
+
+/*! Return the list of network links associated with a given device.
+ *  \param dev          Device record query.
+ *  \param dir          The direction of the link relative to the given device.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results. Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_device_links(mapper_device dev, mapper_direction dir);
+
+/*! Find information for a registered link.
+ *  \param dev          Device record to query.
+ *  \param remote_dev   Remote device.
+ *  \return             Information about the link, or zero if not found. */
+mapper_link mapper_device_link_by_remote_device(mapper_device dev,
+                                                mapper_device remote_dev);
+
+/*! Return the number of maps associated with a specific device.
+ *  \param dev          The device to check.
+ *  \param dir          The direction of the maps relative to the given device.
+ *  \return             The number of associated maps. */
+int mapper_device_num_maps(mapper_device dev, mapper_direction dir);
+
+/*! Return the list of maps associated with a given device.
+ *  \param dev          Device record query.
+ *  \param dir          The direction of the map relative to the given device.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results. Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_device_maps(mapper_device dev, mapper_direction dir);
+
+/*! Get the total number of properties for a specific device.
+ *  \param dev          The device to check.
+ *  \return         	The number of properties. */
+int mapper_device_num_properties(mapper_device dev);
 
 /*! Look up a device property by name.
- *  \param dev      The device to look at.
- *  \param property The name of the property to retrive.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_device_property_lookup(mapper_db_device dev,
-                                     const char *property, char *type,
-                                     const void **value, int *length);
+ *  \param dev          The device record to check.
+ *  \param name         The name of the property to retrieve.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_device_property(mapper_device dev, const char *name, int *length,
+                           char *type, const void **value);
 
-/*! Helper for printing typed mapper_prop values.
- *  \param type     The value type.
- *  \param length   The vector length of the value.
- *  \param value    A pointer to the property value to print. */
-void mapper_prop_pp(char type, int length, const void *value);
+/*! Look up a device property by index. To iterate all properties, call this
+ *  function from index=0, increasing until it returns zero.
+ *  \param dev          The device record to check.
+ *  \param index        Numerical index of a device property.
+ *  \param name         Address of a string pointer to receive the name of
+ *                      indexed property.  May be zero.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                  	property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_device_property_index(mapper_device dev, unsigned int index,
+                                 const char **name, int *length, char *type,
+                                 const void **value);
+
+/*! Set the description property for a specific local device.
+ *  \param dev          The device to modify.
+ *  \param description  The description value to set. */
+void mapper_device_set_description(mapper_device dev, const char *description);
+
+/*! Set a property of a device.  Can be used to provide arbitrary metadata.
+ *  Value pointed to will be copied.
+ *  \param dev          The device to operate on.
+ *  \param name         The name of the property to add.
+ *  \param length   	The length of value array.
+ *  \param type     	The property  datatype.
+ *  \param value    	An array of property values.
+ *  \return             1 if property has been changed, 0 otherwise. */
+int mapper_device_set_property(mapper_device dev, const char *name,
+                               int length, char type, const void *value);
+
+/*! Push any property changes out to the network.
+ *  \param dev      	The device to operate on. */
+void mapper_device_push(mapper_device dev);
+
+/*! Remove a property of a device.
+ *  \param dev          The device to operate on.
+ *  \param name         The name of the property to remove.
+ *  \return             1 if property has been removed, 0 otherwise. */
+int mapper_device_remove_property(mapper_device dev, const char *name);
+
+/*! Poll this device for new messages.  Note, if you have multiple devices, the
+ *  right thing to do is call this function for each of them with block_ms=0,
+ *  and add your own sleep if necessary.
+ *  \param dev          The device to check messages for.
+ *  \param block_ms     Number of milliseconds to block waiting for messages, or
+ *                      0 for non-blocking behaviour.
+ *  \return             The number of handled messages. May be zero if there was
+ *                      nothing to do. */
+int mapper_device_poll(mapper_device dev, int block_ms);
+
+/*! Return the number of file descriptors needed for this device.  This can be
+ *  used to allocated an appropriately-sized list for called to
+ *  mapper_device_fds.  Note that the number of descriptors needed can change
+ *  throughout the life of a device, therefore this function should be called
+ *  whenever the list of file descriptors is needed.
+ *  \param dev          The device to count file descriptors for.
+ *  \return             The number of file descriptors needed for the indicated
+ *                      device. */
+int mapper_device_num_fds(mapper_device dev);
+
+/*! Write the list of file descriptors for this device to the provided array.
+ *  Up to num file descriptors will be written.  These file descriptors can be
+ *  used as input for the read array of select or poll, for example.
+ *  \param dev          The device to get file descriptors for.
+ *  \param fds          Memory to receive file descriptors.
+ *  \param num          The number of file descriptors pointed to by fds.
+ *  \return             The number of file descriptors actually written to fds. */
+int mapper_device_fds(mapper_device dev, int *fds, int num);
+
+/*! If an external event indicates that a file descriptor for this device needs
+ *  servicing, this function should be called.
+ *  \param dev          The device that needs servicing.
+ *  \param fd       	The file descriptor that needs servicing. */
+void mapper_device_service_fd(mapper_device dev, int fd);
+
+/*! Detect whether a device is completely initialized.
+ *  \param dev          The device to query.
+ *  \return             Non-zero if device is completely initialized, i.e., has
+ *                      an allocated receiving port and unique network name.
+ *                      Zero otherwise. */
+int mapper_device_ready(mapper_device dev);
+
+/*! Recover a timetag specifying the last time a device made contact.  If the
+ *  device is local this will be the current time.
+ *  \param dev          The device whose time we are asking for.
+ *  \param tt           A previously allocated timetag to initialize. */
+void mapper_device_synced(mapper_device dev, mapper_timetag_t *tt);
+
+/*! Return the current version number for a device.
+ *  \param dev          The device to query.
+ *  \return             The version number of the device. */
+int mapper_device_version(mapper_device dev);
+
+/*! Return a string indicating the device's full name, if it is registered.
+ *  The returned string must not be externally modified.
+ *  \param dev          The device to query.
+ *  \return             String containing the device's full name, or zero if it
+ *                      is not available. */
+const char *mapper_device_name(mapper_device dev);
+
+/*! Return a string indicating the device's host, if it is registered.  The
+ *  returned string must not be externally modified.
+ *  \param dev          The device to query.
+ *  \return             String containing the device's host, or zero if it is
+ *                      not available. */
+const char *mapper_device_host(mapper_device dev);
+
+/*! Return the unique id allocated to this device by the mapper network.
+ *  \param dev          The device to query.
+ *  \return             The device's id, or zero if it is not available. */
+mapper_id mapper_device_id(mapper_device dev);
+
+/*! Indicate whether this device is local.
+ *  \param dev          The device to query.
+ *  \return             1 if the device is local, 0 otherwise. */
+int mapper_device_is_local(mapper_device dev);
+
+/*! Return the port used by a device to receive signals, if available.
+ *  \param dev      	The device to query.
+ *  \return             An integer indicating the device's port, or zero if it
+ *                      is not available. */
+unsigned int mapper_device_port(mapper_device dev);
+
+/*! Return an allocated ordinal which is appended to this device's network name.
+ *  In general the results of this function are not valid unless
+ *  mapper_device_ready() returns non-zero.
+ *  \param dev          The device to query.
+ *  \return             A positive ordinal unique to this device (per name). */
+unsigned int mapper_device_ordinal(mapper_device dev);
+
+/*! Start a time-tagged mapper queue.
+ *  \param dev          The device to use.
+ *  \param tt           A timetag to use for the updates bundled by this queue. */
+void mapper_device_start_queue(mapper_device dev, mapper_timetag_t tt);
+
+/*! Dispatch a time-tagged mapper queue.
+ *  \param dev          The device to use.
+ *  \param tt           The timetag for an existing queue created with
+ *                      mapper_device_start_queue(). */
+void mapper_device_send_queue(mapper_device dev, mapper_timetag_t tt);
+
+/*! Get access to the device's underlying lo_server.
+ *  \param dev          The device to use.
+ *  \return             The liblo server sued by this device. */
+lo_server mapper_device_lo_server(mapper_device dev);
+
+/*! Return the internal mapper_database structure used by a device.
+ *  \param dev          The device structure to query.
+ *  \return             The mapper_database used by this device. */
+mapper_database mapper_device_database(mapper_device dev);
+
+/*! Get the union of two device queries (devices matching query1 OR query2).
+ *  \param query1       The first device query.
+ *  \param query2       The second device query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_device_query_next() to iterate. */
+mapper_device *mapper_device_query_union(mapper_device *query1,
+                                         mapper_device *query2);
+
+/*! Get the intersection of two device queries (devices matching query1 AND
+ *  query2).
+ *  \param query1       The first device query.
+ *  \param query2       The second device query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_device_query_next() to iterate. */
+mapper_device *mapper_device_query_intersection(mapper_device *query1,
+                                                mapper_device *query2);
+
+/*! Get the difference between two device queries (devices matching query1 but
+ *  NOT query2).
+ *  \param query1       The first device query.
+ *  \param query2       The second device query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_device_query_next() to iterate. */
+mapper_device *mapper_device_query_difference(mapper_device *query1,
+                                              mapper_device *query2);
+
+/*! Given a device record pointer returned from a previous device query, get an
+ *  indexed item in the list.
+ *  \param query        The previous device record pointer.
+ *  \param index        The index of the list element to retrieve.
+ *  \return             A pointer to the device record, or zero if it doesn't
+ *                      exist. */
+mapper_device mapper_device_query_index(mapper_device *query, int index);
+
+/*! Given a device record pointer returned from a previous device query, get the
+ *  next item in the list.
+ *  \param query        The previous device record pointer.
+ *  \return             A double-pointer to the next device record in the list,
+ *                      or zero if no more devices. */
+mapper_device *mapper_device_query_next(mapper_device *query);
+
+/*! Copy a previously-constructed device query.
+ *  \param query        The previous device record pointer.
+ *  \return             A double-pointer to the copy of the list, or zero if
+ *                      none.  Use mapper_device_query_next() to iterate. */
+mapper_device *mapper_device_query_copy(mapper_device *query);
+
+/*! Given a device record pointer returned from a previous device query,
+ *  indicate that we are done iterating.
+ *  \param query        The previous device record pointer. */
+void mapper_device_query_done(mapper_device *query);
+
+/*! Helper to print the properties of a specific device.
+ *  \param dev          The device to print. */
+void mapper_device_print(mapper_device dev);
 
 /* @} */
 
-/***** Signals *****/
+/*** Networking ***/
 
-/*! @defgroup signaldb Signal database
+/*! @defgroup networks Networks
 
-    @{ A monitor may query information about signals on the network
-       through this interface. It is also used by local signals to
-       store property information. */
+    @{ Networks handle the traffic on the multicast bus.  In general, you do not
+       need to worry about this interface, as a network structure will be
+       created automatically when allocating a device.  A network structure only
+       needs to be explicitly created if you plan to override default settings
+       for the multicast bus.  */
 
-/*! A callback function prototype for when a signal record is added or
- *  updated in the database. Such a function is passed in to
- *  mapper_db_add_signal_callback().
- *  \param record  Pointer to the signal record.
- *  \param action  A value of mapper_db_action_t indicating what
- *                 is happening to the database record.
- *  \param user    The user context pointer registered with this
- *                 callback. */
-typedef void mapper_db_signal_handler(mapper_db_signal record,
-                                      mapper_db_action_t action,
-                                      void *user);
+/*! Create a network with custom parameters.  Creating a network object manually
+ *  is only required if you wish to specify custom network parameters.  Creating
+ *  a device or admin without specifying an network will give you an object
+ *  working on the "standard" configuration.
+ * \param interface     If non-zero, a string identifying a preferred network
+ *                      interface.  This string can be enumerated e.g. using
+ *                      if_nameindex(). If zero, an interface will be selected
+ *                      automatically.
+ * \param group         If non-zero, specify a multicast group address to use.
+ *                      Zero indicates that the standard group 224.0.1.3 should
+ *                      be used.
+ * \param port          If non-zero, specify a multicast port to use.  Zero
+ *                      indicates that the standard port 7570 should be used.
+ * \return              A newly allocated network structure.  Should be freed
+ *                      using mapper_network_free() */
+mapper_network mapper_network_new(const char *interface, const char *group,
+                                  int port);
 
-/*! Register a callback for when a signal record is added or updated
- *  in the database.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user A user-defined pointer to be passed to the callback
- *              for context . */
-void mapper_db_add_signal_callback(mapper_db db,
-                                   mapper_db_signal_handler *h,
-                                   void *user);
+/*! Free a network structure created with mapper_network_new().
+ *  \param net          The network structure to free. */
+void mapper_network_free(mapper_network net);
 
-/*! Remove a signal record callback from the database service.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user The user context pointer that was originally specified
- *              when adding the callback. */
-void mapper_db_remove_signal_callback(mapper_db db,
-                                      mapper_db_signal_handler *h,
-                                      void *user);
+/*! Return the mapper_database structure used for tracking the network.
+ *  \param net          The network structure to query.
+ *  \return             The mapper_database used by this network structure. */
+mapper_database mapper_network_database(mapper_network net);
 
-/*! Return the list of all known inputs across all devices.
- *  \param db   The database to query.
- *  \return A double-pointer to the first item in the list of results
- *          or zero if none.  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal_t **mapper_db_get_all_inputs(mapper_db db);
+/*! Return a string indicating the name of the network interface in use.
+ *  \param net          The network structure to query.
+ *  \return             A string containing the name of the network interface. */
+const char *mapper_network_interface(mapper_network net);
 
-/*! Return the list of all known outputs across all devices.
- *  \param db   The database to query.
- *  \return A double-pointer to the first item in the list of results
- *          or zero if none.  Use mapper_db_signal_next() to iterate. */
-mapper_db_signal_t **mapper_db_get_all_outputs(mapper_db db);
+/*! Return the IPv4 address used by a device to receive signals, if available.
+ *  \param net          The network structure to query.
+ *  \return             A pointer to an in_addr struct indicating the network's
+ *                      IP address, or zero if it is not available.  In general
+ *                      this will be the IPv4 address associated with the
+ *                      selected local network interface. */
+const struct in_addr *mapper_network_ip4(mapper_network net);
 
-/*! Return the list of inputs for a given device.
- *  \param db          The database to query.
- *  \param device_name Name of the device to match for outputs.  Must
- *                     be exact, including the leading '/'.
- *  \return A double-pointer to the first item in the list of input
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_signal_t **mapper_db_get_inputs_by_device_name(
-    mapper_db db, const char *device_name);
+/*! Retrieve the name of the multicast group currently in use.
+ *  \param net          The network structure to query. */
+const char *mapper_network_group(mapper_network net);
 
-/*! Return the list of outputs for a given device.
- *  \param db          The database to query.
- *  \param device_name Name of the device to match for outputs.  Must
- *                     be exact, including the leading '/'.
- *  \return A double-pointer to the first item in the list of output
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_signal_t **mapper_db_get_outputs_by_device_name(
-    mapper_db db, const char *device_name);
+/*! Retrieve the name of the multicast port currently in use.
+ *  \param net          The network structure to query. */
+int mapper_network_port(mapper_network net);
 
-/*! Find information for a registered input signal.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find in the database.
- *  \param signal_name Name of the input signal to find in the database.
- *  \return            Information about the signal, or zero if not found. */
-mapper_db_signal mapper_db_get_input_by_device_and_signal_names(
-    mapper_db db, const char *device_name, const char *signal_name);
-
-/*! Find information for a registered output signal.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find in the database.
- *  \param signal_name Name of the output signal to find in the database.
- *  \return            Information about the signal, or zero if not found. */
-mapper_db_signal mapper_db_get_output_by_device_and_signal_names(
-    mapper_db db, const char *device_name, char const *signal_name);
-
-/*! Return the list of inputs for a given device.
- *  \param db            The database to query.
- *  \param device_name   Name of the device to match for inputs.
- *  \param input_pattern A substring to search for in the device inputs.
- *  \return A double-pointer to the first item in the list of input
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_signal_t **mapper_db_match_inputs_by_device_name(
-    mapper_db db, const char *device_name, const char *input_pattern);
-
-/*! Return the list of outputs for a given device.
- *  \param db             The database to query.
- *  \param device_name    Name of the device to match for outputs.
- *  \param output_pattern A substring to search for in the device outputs.
- *  \return A double-pointer to the first item in the list of output
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_signal_t **mapper_db_match_outputs_by_device_name(
-    mapper_db db, const char *device_name, char const *output_pattern);
-
-/*! Given a signal record pointer returned from a previous
- *  mapper_db_get_*() call, get the next item in the list.
- *  \param  s The previous signal record pointer.
- *  \return A double-pointer to the next signal record in the list, or
- *          zero if no more signals. */
-mapper_db_signal_t **mapper_db_signal_next(mapper_db_signal_t **s);
-
-/*! Given a signal record pointer returned from a previous
- *  mapper_db_get_*() call, indicate that we are done iterating.
- *  \param s The previous signal record pointer. */
-void mapper_db_signal_done(mapper_db_signal_t **s);
-
-/*! Look up a signal property by index. To iterate all properties,
- *  call this function from index=0, increasing until it returns zero.
- *  \param sig      The signal to look at.
- *  \param index    Numerical index of a signal property.
- *  \param property Address of a string pointer to receive the name of
- *                  indexed property.  May be zero.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_signal_property_index(mapper_db_signal sig, unsigned int index,
-                                    const char **property, char *type,
-                                    const void **value, int *length);
-
-/*! Look up a signal property by name.
- *  \param sig      The signal to look at.
- *  \param property The name of the property to retrive.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_signal_property_lookup(mapper_db_signal sig,
-                                     const char *property, char *type,
-                                     const void **value, int *length);
-
-/* @} */
-
-/***** Connections *****/
-
-/*! @defgroup connectiondb Connections database
-
-    @{ A monitor may query information about connections between
-       signals on the network through this interface.  It is also used
-       to specify properties during connection requests. */
-
-/*! A callback function prototype for when a connection record is
- *  added or updated in the database. Such a function is passed in to
- *  mapper_db_add_connection_callback().
- *  \param record  Pointer to the connection record.
- *  \param action  A value of mapper_db_action_t indicating what
- *                 is happening to the database record.
- *  \param user    The user context pointer registered with this
- *                 callback. */
-typedef void mapper_db_connection_handler(mapper_db_connection record,
-                                          mapper_db_action_t action,
-                                          void *user);
-
-/*! Register a callback for when a connection record is added or
- *  updated in the database.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user A user-defined pointer to be passed to the callback
- *              for context . */
-void mapper_db_add_connection_callback(mapper_db db,
-                                       mapper_db_connection_handler *h,
-                                       void *user);
-
-/*! Remove a connection record callback from the database service.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user The user context pointer that was originally specified
- *              when adding the callback. */
-void mapper_db_remove_connection_callback(mapper_db db,
-                                          mapper_db_connection_handler *h,
-                                          void *user);
-
-/*! Return a list of all registered connections.
- *  \param db The database to query.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
- *          iterate. */
-mapper_db_connection_t **mapper_db_get_all_connections(mapper_db db);
-
-/*! Return the list of connections that touch the given device name.
- *  \param db          The database to query.
- *  \param device_name Name of the device to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
- *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_device_name(
-    mapper_db db, const char *device_name);
-
-/*! Return the list of connections for a given source signal name.
- *  \param  db         The database to query.
- *  \param  src_signal Name of the source signal.
- *  \return A double-pointer to the first item in the list of results
- *          or zero if none.  Use mapper_db_connection_next() to
- *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_src_signal_name(
-    mapper_db db, const char *src_signal);
-
-/*! Return the list of connections for given source device and signal names.
- *  \param db         The database to query.
- *  \param src_device Exact name of the device to find, including the
- *                    leading '/'.
- *  \param src_signal Exact name of the signal to find,
- *                    including the leading '/'.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
- *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_src_device_and_signal_names(
-    mapper_db db, const char *src_device, const char *src_signal);
-
-/*! Return the list of connections for a given destination signal name.
- *  \param db          The database to query.
- *  \param dest_signal Name of the destination signal to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
- *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_dest_signal_name(
-    mapper_db db, const char *dest_signal);
-
-/*! Return the list of connections for given destination device and signal names.
- *  \param db          The database to query.
- *  \param dest_device Exact name of the device to find, including the
- *                     leading '/'.
- *  \param dest_signal Exact name of the signal to find, including the
- *                     leading '/'.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
- *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_dest_device_and_signal_names(
-    mapper_db db, const char *dest_device, const char *dest_signal);
-
-/*! Return the list of connections that touch any signals in the lists
- *  of sources and destinations provided.
- *  \param db          The database to query.
- *  \param src_device  Exact name of the device to find, including the
- *                     leading '/'.
- *  \param src_signal  Exact name of the signal to find, including the
- *                     leading '/'.
- *  \param dest_device Exact name of the device to find, including the
- *                     leading '/'.
- *  \param dest_signal Exact name of the signal to find, including the
- *                     leading '/'.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
- *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_device_and_signal_names(
-    mapper_db db,
-    const char *src_device,  const char *src_signal,
-    const char *dest_device, const char *dest_signal);
-
-/*! Return the connection that match the exact source and destination
- *  specified by their full names ("/<device>/<signal>").
- *  \param db        The database to query.
- *  \param src_name  Full name of source signal.
- *  \param dest_name Full name of destination signal.
- *  \return A pointer to a structure containing information on the
- *          found connection, or 0 if not found. */
-mapper_db_connection mapper_db_get_connection_by_signal_full_names(
-    mapper_db db, const char *src_name, const char *dest_name);
-
-/*! Return connections that have the specified source and destination
- *  devices.
- *  \param db               The database to query.
- *  \param src_device_name  Name of source device.
- *  \param dest_device_name Name of destination device.
- *  \return A double-pointer to the first item in a list of results,
- *          or 0 if not found. */
-mapper_db_connection_t **mapper_db_get_connections_by_src_dest_device_names(
-    mapper_db db,
-    const char *src_device_name, const char *dest_device_name);
-
-/*! Return the list of connections that touch any signals in the lists
- *  of sources and destinations provided.
- *  \param db   The database to query.
- *  \param src  Double-pointer to the first item in a list
- *              returned from a previous database query.
- *  \param dest Double-pointer to the first item in a list
- *              returned from a previous database query.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_connection_next() to
- *          iterate. */
-mapper_db_connection_t **mapper_db_get_connections_by_signal_queries(
-    mapper_db db,
-    mapper_db_signal_t **src, mapper_db_signal_t **dest);
-
-/*! Given a connection record pointer returned from a previous
- *  mapper_db_get_connections*() call, get the next item in the list.
- *  \param s The previous connection record pointer.
- *  \return  A double-pointer to the next connection record in the
- *           list, or zero if no more connections. */
-mapper_db_connection_t **mapper_db_connection_next(mapper_db_connection_t **s);
-
-/*! Given a connection record pointer returned from a previous
- *  mapper_db_get_*() call, indicate that we are done iterating.
- *  \param s The previous connection record pointer. */
-void mapper_db_connection_done(mapper_db_connection_t **s);
-
-/*! Look up a connection property by index. To iterate all properties,
- *  call this function from index=0, increasing until it returns zero.
- *  \param con      The connection to look at.
- *  \param index    Numerical index of a connection property.
- *  \param property Address of a string pointer to receive the name of
- *                  indexed property.  May be zero.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_connection_property_index(mapper_db_connection con,
-                                        unsigned int index,
-                                        const char **property, char *type,
-                                        const void **value, int *length);
-
-/*! Look up a connection property by name.
- *  \param con      The connection to look at.
- *  \param property The name of the property to retrive.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_connection_property_lookup(mapper_db_connection con,
-                                         const char *property, char *type,
-                                         const void **value, int *length);
+/*! Interface to send an arbitrary OSC message to the administrative bus.
+ *  \param net          The networking structure to use for sending the message.
+ *  \param path         The path for the OSC message.
+ *  \param types        A string specifying the types of subsequent arguments.
+ *  \param ...          A list of arguments. */
+void mapper_network_send_message(mapper_network net, const char *path,
+                                 const char *types, ...);
 
 /* @} */
 
 /***** Links *****/
 
-/*! @defgroup linkdb Links database
+/*! @defgroup links Links
 
-    @{ A monitor may query information about links betweend devices on
-       the network through this interface. */
+    @{ Links define network connections between pairs of devices. */
 
-/*! A callback function prototype for when a link record is added or
- *  updated in the database. Such a function is passed in to
- *  mapper_db_add_link_callback().
- *  \param record  Pointer to the link record.
- *  \param action  A value of mapper_db_action_t indicating what
- *                 is happening to the database record.
- *  \param user    The user context pointer registered with this
- *                 callback. */
-typedef void mapper_db_link_handler(mapper_db_link record,
-                                    mapper_db_action_t action,
-                                    void *user);
+/*! Get the mapper_device for a specific link endpoint.
+ *  \param link         The link to check.
+ *  \param idx          The endpoint index, must be 0 or 1.
+ *  \return         	The endpoints's device. */
+mapper_device mapper_link_device(mapper_link link, int idx);
 
-/*! Register a callback for when a link record is added or updated
- *  in the database.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user A user-defined pointer to be passed to the callback
- *              for context . */
-void mapper_db_add_link_callback(mapper_db db,
-                                 mapper_db_link_handler *h,
-                                 void *user);
+/*! Get the number of maps associated with a specific link endpoint.
+ *  \param link         The link to check.
+ *  \return             The number of associated maps. */
+int mapper_link_num_maps(mapper_link link);
 
-/*! Remove a link record callback from the database service.
- *  \param db   The database to query.
- *  \param h    Callback function.
- *  \param user The user context pointer that was originally specified
- *              when adding the callback. */
-void mapper_db_remove_link_callback(mapper_db db,
-                                    mapper_db_link_handler *h,
-                                    void *user);
+/*! Return the list of maps associated with a given link.
+ *  \param link         The link to check.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results. Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_link_maps(mapper_link link);
 
-/*! Return the whole list of links.
- *  \param db The database to query.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_link_next() to iterate. */
-mapper_db_link_t **mapper_db_get_all_links(mapper_db db);
+/*! Get the unique id for a specific link.
+ *  \param link         The link to check.
+ *  \return             The unique id assigned to this link. */
+mapper_id mapper_link_id(mapper_link link);
 
-/*! Return the list of links that touch the given device name.
- *  \param db       The database to query.
- *  \param dev_name Name of the device to find.
- *  \return A double-pointer to the first item in the list of results,
- *          or zero if none.  Use mapper_db_link_next() to iterate. */
-mapper_db_link_t **mapper_db_get_links_by_device_name(
-    mapper_db db, const char *dev_name);
+/*! Associate a link with an arbitrary pointer.
+ *  \param link         The link to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_link_set_user_data(mapper_link link, const void *user_data);
 
-/*! Return the list of links for a given source name.
- *  \param db              The database to query.
- *  \param src_device_name Name of the source device to find.
- *  \return A double-pointer to the first item in the list of source
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_link_t **mapper_db_get_links_by_src_device_name(
-    mapper_db db, const char *src_device_name);
+/*! Retrieve the arbitrary pointer associated with a link.
+ *  \param link         The link to operate on.
+ *  \return             A pointer associated with this link. */
+void *mapper_link_user_data(mapper_link link);
 
-/*! Return the list of links for a given destination name.
- *  \param db               The database to query.
- *  \param dest_device_name Name of the destination device to find.
- *  \return A double-pointer to the first item in the list of destination
- *          signals, or zero if none.  Use mapper_db_signal_next() to
- *          iterate. */
-mapper_db_link_t **mapper_db_get_links_by_dest_device_name(
-    mapper_db db, const char *dest_device_name);
+/*! Get the total number of properties for a specific link.
+ *  \param link         The link to check.
+ *  \return             The number of properties. */
+int mapper_link_num_properties(mapper_link link);
 
-/*! Return the link structure associated with the exact devices specified.
- *  \param db               The database to query.
- *  \param src_device_name  Name of the source device to find.
- *  \param dest_device_name Name of the destination device to find.
- *  \return A structure containing information on the link, or 0 if
- *          not found. */
-mapper_db_link mapper_db_get_link_by_src_dest_names(mapper_db db,
-    const char *src_device_name, const char *dest_device_name);
-
-/*! Return the list of links that touch devices in both src and dest lists.
- *  \param db The database to query.
- *  \param src_device_list  Double-pointer to the first item in a list
- *                          returned from a previous database query.
- *  \param dest_device_list Double-pointer to the first item in a list
- *                          returned from a previous database query.
- *  \return A double-pointer to the first item in the list of links,
- *          or zero if none.  Use mapper_db_link_next() to iterate. */
-mapper_db_link_t **mapper_db_get_links_by_src_dest_devices(
-    mapper_db db,
-    mapper_db_device_t **src_device_list,
-    mapper_db_device_t **dest_device_list);
-
-/*! Given a link record double-pointer returned from a previous
- *  mapper_db_get_links*() call, get the next item in the list.
- *  \param s The previous link record double-pointer.
- *  \return A double-pointer to the next link record in the list, or
- *          zero if no more links. */
-mapper_db_link_t **mapper_db_link_next(mapper_db_link_t **s);
-
-/*! Given a link record double-pointer returned from a previous
- *  mapper_db_get_*() call, indicate that we are done iterating.
- *  \param s The previous link record double-pointer. */
-void mapper_db_link_done(mapper_db_link_t **s);
+/*! Look up a link property by name.
+ *  \param link         The link to check.
+ *  \param name         The name of the property to retrieve.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_link_property(mapper_link link, const char *name, int *length,
+                         char *type, const void **value);
 
 /*! Look up a link property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
- *  \param link     The link to look at.
- *  \param index    Numerical index of a link property.
- *  \param property Address of a string pointer to receive the name of
- *                  indexed property.  May be zero.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_link_property_index(mapper_db_link link, unsigned int index,
-                                  const char **property, char *type,
-                                  const void **value, int *length);
+ *  \param link         The link to check.
+ *  \param index        Numerical index of a map property.
+ *  \param name         Address of a string pointer to receive the name of
+ *                      indexed property.  May be zero.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_link_property_index(mapper_link link, unsigned int index,
+                               const char **name, int *length, char *type,
+                               const void **value);
 
-/*! Look up a link property by name.
- *  \param link     The link to look at.
- *  \param property The name of the property to retrive.
- *  \param type     A pointer to a location to receive the type of the
- *                  property value. (Required.)
- *  \param value    A pointer to a location to receive the address of the
- *                  property's value. (Required.)
- *  \param length   A pointer to a location to receive the vector length of
- *                  the property value. (Required.)
- *  \return Zero if found, otherwise non-zero. */
-int mapper_db_link_property_lookup(mapper_db_link link,
-                                   const char *property, char *type,
-                                   const void **value, int *length);
+/*! Set an arbitrary property for a specific link.  Changes to remote links will
+ *  not take effect until synchronized with the network using mapper_link_push().
+ *  \param link         The link to modify.
+ *  \param name         The name of the property to add.
+ *  \param length       The length of value array.
+ *  \param type     	The property  datatype.
+ *  \param value        An array of property values.
+ *  \return             1 if property has been changed, 0 otherwise. */
+int mapper_link_set_property(mapper_link link, const char *name, int length,
+                             char type, const void *value);
+
+/*! Remove a property of a link.
+ *  \param link         The link to operate on.
+ *  \param name         The name of the property to remove.
+ *  \return             1 if property has been removed, 0 otherwise. */
+int mapper_link_remove_property(mapper_link link, const char *name);
+
+/*! Push any property changes out to the network.
+ *  \param link         The link to operate on. */
+void mapper_link_push(mapper_link link);
+
+/*! Get the union of two link queries (link matching query1 OR query2).
+ *  \param query1       The first link query.
+ *  \param query2   	The second link query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_link_query_union(mapper_link *query1, mapper_link *query2);
+
+/*! Get the intersection of two link queries (links matching query1 AND query2).
+ *  \param query1       The first link query.
+ *  \param query2   	The second link query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                  	Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_link_query_intersection(mapper_link *query1, mapper_link *query2);
+
+/*! Get the difference between two link queries (links matching query1 but NOT
+ *  query2).
+ *  \param query1       The first link query.
+ *  \param query2   	The second link query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_link_query_difference(mapper_link *query1, mapper_link *query2);
+
+/*! Given a link record pointer returned from a previous link query, get an
+ *  indexed item in the list.
+ *  \param query        The previous link record pointer.
+ *  \param index    	The index of the list element to retrieve.
+ *  \return             A pointer to the link record, or zero if it doesn't exist. */
+mapper_link mapper_link_query_index(mapper_link *query, int index);
+
+/*! Given a link record pointer returned from a previous link query, get the next
+ *  item in the list.
+ *  \param query        The previous link record pointer.
+ *  \return             A double-pointer to the next link record in the list, or
+ *                      zero if no more maps. */
+mapper_link *mapper_link_query_next(mapper_link *query);
+
+/*! Copy a previously-constructed link query.
+ *  \param query        The previous link record pointer.
+ *  \return             A double-pointer to the copy of the list, or zero if
+ *                      none. Use mapper_link_query_next() to iterate. */
+mapper_link *mapper_link_query_copy(mapper_link *query);
+
+/*! Given a link record pointer returned from a previous link query, indicate
+ *  that we are done iterating.
+ *  \param query        The previous link record pointer. */
+void mapper_link_query_done(mapper_link *query);
+
+/*! Helper to print the properties of a specific network link.
+ *  \param link         The link to print. */
+void mapper_link_print(mapper_link link);
 
 /* @} */
 
-/***** Monitors *****/
+/***** Maps *****/
 
-/*! @defgroup monitor Monitors
+/*! @defgroup maps Maps
 
-    @{ Monitors are the primary interface through which a program may
-       observe the network and store information about devices and
-       signals that are present.  Each monitor has a database of
-       devices, signals, connections, and links, which can be queried.
-       A monitor can also make link and connection requests.  In
-       general, the monitor interface is useful for building GUI
-       applications to control the network. */
+    @{ Maps define dataflow connections between sets of signals. A map consists
+       of one or more source slots, one destination slot, and properties which
+       determine how the source data is processed. */
 
-/*! Bit flags for coordinating monitor metadata subscriptions. Subsets of
- *  device information must also include SUB_DEVICE. */
-#define SUB_DEVICE                  0x01
-#define SUB_DEVICE_INPUTS           0x03
-#define SUB_DEVICE_OUTPUTS          0x05
-#define SUB_DEVICE_SIGNALS          0x07 // SUB_DEVICE_INPUTS & SUB_DEVICE_OUTPUTS
-#define SUB_DEVICE_LINKS_IN         0x09
-#define SUB_DEVICE_LINKS_OUT        0x11
-#define SUB_DEVICE_LINKS            0x19 // SUB_DEVICE_LINKS_IN & SUB_DEVICE_LINKS_OUT
-#define SUB_DEVICE_CONNECTIONS_IN   0x21
-#define SUB_DEVICE_CONNECTIONS_OUT  0x41
-#define SUB_DEVICE_CONNECTIONS      0x61 // SUB_DEVICE_CONNECTIONS_IN & SUB_DEVICE_CONNECTION_OUT
-#define SUB_DEVICE_ALL              0xFF
+/*! Create a map between a set of signals.
+ *  \param num_sources  The number of source signals in this map.
+ *  \param sources      Array of source signal data structures.
+ *  \param destination  Destination signal data structure.
+ *  \return             A map data structure – either loaded from the database
+ *                      (if the map already existed) or newly created. In the
+ *                      latter case the map will not take effect until it has
+ *                      been added to the network using mapper_map_push(). */
+mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
+                          mapper_signal destination);
 
-/*! Create a network monitor.
- *  \param admin               A previously allocated admin to use.  If 0, an
- *                             admin will be allocated for use with this monitor.
- *  \param autosubscribe_flags Sets whether the monitor should automatically
- *                             subscribe to information about signals, links,
- *                             and connections when it encounters a
- *                             previously-unseen device.
- *  \return The new monitor. */
-mapper_monitor mapper_monitor_new(mapper_admin admin, int autosubscribe_flags);
+/*! Associate a map with an arbitrary pointer.
+ *  \param map          The map to operate on.
+ *  \param user_data    A pointer to user data to be associated. */
+void mapper_map_set_user_data(mapper_map map, const void *user_data);
 
-/*! Free a network monitor. */
-void mapper_monitor_free(mapper_monitor mon);
+/*! Retrieve the arbitrary pointer associated with a map.
+ *  \param map          The map to operate on.
+ *  \return             A pointer associated with this map. */
+void *mapper_map_user_data(mapper_map map);
 
-/*! Poll a network monitor.
- *  \param mon      The monitor to poll.
- *  \param block_ms The number of milliseconds to block, or 0 for
- *                  non-blocking behaviour.
- *  \return The number of handled messages. */
-int mapper_monitor_poll(mapper_monitor mon, int block_ms);
+/*! Remove a map between a set of signals.
+ *  \param map          The map to destroy. */
+void mapper_map_release(mapper_map map);
 
-/*! Get the database associated with a monitor. This can be used as
- *  long as the monitor remains alive. */
-mapper_db mapper_monitor_get_db(mapper_monitor mon);
+/*! Get the description for a specific signal.
+ *  \param map          The map to check.
+ *  \return             The map description. */
+const char *mapper_map_description(mapper_map map);
 
-/*! Set the timeout in seconds after which a monitor will declare a device
- *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
- *  \param mon      The monitor to use.
- *  \param timeout  The timeout in seconds. */
-void mapper_monitor_set_timeout(mapper_monitor mon, int timeout);
+/*! Get the number of sources for to a specific map.
+ *  \param map          The map to check.
+ *  \return             The number of sources. */
+int mapper_map_num_sources(mapper_map map);
 
-/*! Get the timeout in seconds after which a monitor will declare a device
- *  "unresponsive". Defaults to ADMIN_TIMEOUT_SEC.
- *  \param mon      The monitor to use.
- *  \return The current timeout in seconds. */
-int mapper_monitor_get_timeout(mapper_monitor mon);
+/*! Retrieve a slot for a specific map.
+ *  \param map          The map to check.
+ *  \param loc          The map endpoint, must be MAPPER_LOC_SOURCE or
+ *                      MAPPER_LOC_DESTINATION.
+ *  \param index        The slot index.
+ *  \return             The slot, or NULL if not available. */
+mapper_slot mapper_map_slot(mapper_map map, mapper_location loc, int index);
 
-/*! Remove unresponsive devices from the database.
- *  \param mon         The monitor to use.
- *  \param timeout_sec The number of seconds a device must have been
- *                     unresponsive before removal.
- *  \param quiet       1 to disable callbacks during db flush, 0 otherwise. */
-void mapper_monitor_flush_db(mapper_monitor mon, int timeout_sec, int quiet);
+/*! Get the map slot matching a specific signal.
+ *  \param map          The map to check.
+ *  \param sig          The signal corresponding to the desired slot.
+ *  \return         	The slot, or NULL if not found. */
+mapper_slot mapper_map_slot_by_signal(mapper_map map, mapper_signal sig);
 
-/*! Request that all devices report in. */
-void mapper_monitor_request_devices(mapper_monitor mon);
+/*! Get the unique id for a specific map.
+ *  \param map          The map to check.
+ *  \return             The unique id assigned to this map. */
+mapper_id mapper_map_id(mapper_map map);
+
+/*! Indicate whether this map is local.
+ *  \param map          The map to check.
+ *  \return             1 if the map is local, 0 otherwise. */
+int mapper_map_is_local(mapper_map map);
+
+/*! Get the mode property for a specific map.
+ *  \param map          The map to check.
+ *  \return             The mode parameter for this map. */
+mapper_mode mapper_map_mode(mapper_map map);
+
+/*! Get the expression property for a specific map.
+ *  \param map          The map to check.
+ *  \return             The expression evaulated by this map. */
+const char *mapper_map_expression(mapper_map map);
+
+/*! Get the muted property for a specific map.
+ *  \param map          The map to check.
+ *  \return             One if this map is muted, 0 otherwise. */
+int mapper_map_muted(mapper_map map);
+
+/*! Get the process location for a specific map.
+ *  \param map          The map to check.
+ *  \return             MAPPER_LOC_SOURCE if processing is evaluated at the
+ *                      source device, MAPPER_LOC_DESTINATION otherwise. */
+mapper_location mapper_map_process_location(mapper_map map);
+
+/*! Get the scopes property for a specific map.
+ *  \param map          The map to check.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results or zero if none.  Use mapper_map_query_next() to
+ *                      iterate. */
+mapper_device *mapper_map_scopes(mapper_map map);
+
+/*! Detect whether a map is completely initialized.
+ *  \param map          The device to query.
+ *  \return             Non-zero if map is completely initialized, zero
+ *                      otherwise. */
+int mapper_map_ready(mapper_map map);
+
+/*! Set the description property for a specific map. Changes to remote maps will
+ *  not take effect until synchronized with the network using mapper_map_push().
+ *  \param map          The map to modify.
+ *  \param description  The description value to set. */
+void mapper_map_set_description(mapper_map map, const char *description);
+
+/*! Set the mode property for a specific map. Changes to remote maps will not
+ *  take effect until synchronized with the network using mapper_map_push().
+ *  \param map          The map to modify.
+ *  \param mode         The mode value to set, can be MAPPER_MODE_EXPRESSION,
+ *                      MAPPER_MODE_LINEAR, or MAPPER_MODE_RAW. */
+void mapper_map_set_mode(mapper_map map, mapper_mode mode);
+
+/*! Set the expression property for a specific map. Changes to remote maps will not
+ *  take effect until synchronized with the network using mapper_map_push().
+ *  \param map          The map to modify.
+ *  \param expression   A string specifying an expression to be evaluated by
+ *                      the map. */
+void mapper_map_set_expression(mapper_map map, const char *expression);
+
+/*! Set the muted property for a specific map. Changes to remote maps will not
+ *  take effect until synchronized with the network using mapper_map_push().
+ *  \param map          The map to modify.
+ *  \param muted        1 to mute this map, or 0 unmute. */
+void mapper_map_set_muted(mapper_map map, int muted);
+
+/*! Set the process location property for a specific map. Depending on the map
+ *  topology and expression specified it may not be possible to set the process
+ *  location to MAPPER_LOC_SOURCE for all maps. Changes to remote maps will not
+ *  take effect until synchronized with the network using mapper_map_push().
+ *  \param map      The map to modify.
+ *  \param location     MAPPER_LOC_SOURCE to indicate processing should be
+ *                      handled by the source device, MAPPER_LOC_DESTINATION for
+ *                      the destination. */
+void mapper_map_set_process_location(mapper_map map, mapper_location location);
+
+/*! Set an arbitrary property for a specific map.  Changes to remote maps will
+ *  not take effect until synchronized with the network using mapper_map_push().
+ *  \param map          The map to modify.
+ *  \param name         The name of the property to add.
+ *  \param length       The length of value array.
+ *  \param type     	The property  datatype.
+ *  \param value        An array of property values.
+ *  \return             1 if property has been changed, 0 otherwise. */
+int mapper_map_set_property(mapper_map map, const char *name, int length,
+                            char type, const void *value);
+
+/*! Push any property changes out to the network.
+ *  \param map          The map to operate on. */
+void mapper_map_push(mapper_map map);
+
+/*! Re-create stale map if necessary.
+ *  \param map          The map to operate on. */
+void mapper_map_refresh(mapper_map map);
+
+/*! Remove a property of a map.
+ *  \param map          The map to operate on.
+ *  \param name         The name of the property to remove.
+ *  \return             1 if property has been removed, 0 otherwise. */
+int mapper_map_remove_property(mapper_map map, const char *name);
+
+/*! Add a scope to this map. Map scopes configure the propagation of signal
+ *  instance updates across the map. Changes to remote maps will not take effect
+ *  until synchronized with the network using mapper_map_push().
+ *  \param map          The map to modify.
+ *  \param dev          Device to add as a scope for this map. After taking
+ *                      effect, this setting will cause instance updates
+ *                      originating at this device to be propagated across the
+ *                      map. */
+void mapper_map_add_scope(mapper_map map, mapper_device dev);
+
+/*! Remove a scope from this map. Map scopes configure the propagation of signal
+ *  instance updates across the map. Changes to remote maps will not take effect
+ *  until synchronized with the network using mapper_map_push().
+ *  \param map          The map to modify.
+ *  \param dev          Device to remove as a scope for this map. After taking
+ *                      effect, this setting will cause instance updates
+ *                      originating at this device to be blocked from
+ *                      propagating across the map. */
+void mapper_map_remove_scope(mapper_map map, mapper_device dev);
+
+/*! Get the total number of properties for a specific map.
+ *  \param map          The map to check.
+ *  \return             The number of properties. */
+int mapper_map_num_properties(mapper_map map);
+
+/*! Look up a map property by name.
+ *  \param map          The map to check.
+ *  \param name         The name of the property to retrieve.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_map_property(mapper_map map, const char *name, int *length,
+                        char *type, const void **value);
+
+/*! Look up a map property by index. To iterate all properties,
+ *  call this function from index=0, increasing until it returns zero.
+ *  \param map          The map to check.
+ *  \param index        Numerical index of a map property.
+ *  \param name         Address of a string pointer to receive the name of
+ *                      indexed property.  May be zero.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_map_property_index(mapper_map map, unsigned int index,
+                              const char **name, int *length, char *type,
+                              const void **value);
+
+/*! Get the union of two map queries (maps matching query1 OR query2).
+ *  \param query1       The first map query.
+ *  \param query2   	The second map query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_map_query_union(mapper_map *query1, mapper_map *query2);
+
+/*! Get the intersection of two map queries (maps matching query1 AND query2).
+ *  \param query1       The first map query.
+ *  \param query2   	The second map query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                  	Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_map_query_intersection(mapper_map *query1, mapper_map *query2);
+
+/*! Get the difference between two map queries (maps matching query1 but NOT
+ *  query2).
+ *  \param query1       The first map query.
+ *  \param query2   	The second map query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_map_query_difference(mapper_map *query1, mapper_map *query2);
+
+/*! Given a map record pointer returned from a previous map query, get an
+ *  indexed item in the list.
+ *  \param query        The previous map record pointer.
+ *  \param index    	The index of the list element to retrieve.
+ *  \return             A pointer to the map record, or zero if it doesn't exist. */
+mapper_map mapper_map_query_index(mapper_map *query, int index);
+
+/*! Given a map record pointer returned from a previous map query, get the next
+ *  item in the list.
+ *  \param query        The previous map record pointer.
+ *  \return             A double-pointer to the next map record in the list, or
+ *                      zero if no more maps. */
+mapper_map *mapper_map_query_next(mapper_map *query);
+
+/*! Copy a previously-constructed map query.
+ *  \param query        The previous map record pointer.
+ *  \return             A double-pointer to the copy of the list, or zero if
+ *                      none. Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_map_query_copy(mapper_map *query);
+
+/*! Given a map record pointer returned from a previous map query, indicate
+ *  that we are done iterating.
+ *  \param query        The previous map record pointer. */
+void mapper_map_query_done(mapper_map *query);
+
+/*! Helper to print the properties of a specific map.
+ *  \param map          The map to print. */
+void mapper_map_print(mapper_map map);
+
+/* @} */
+
+/***** Slots *****/
+
+/*! @defgroup slots Slots
+
+    @{ Slots define the endpoints of a map.  Each slot links to a signal
+       structure and handles properties of the map that are specific to an
+       endpoint such as range extrema. */
+
+/*! Get the boundary maximum property for a specific map slot. This property
+ *  controls behaviour when a value exceeds the specified slot maximum value.
+ *  \param slot         The slot to check.
+ *  \return             The boundary maximum setting. */
+mapper_boundary_action mapper_slot_bound_max(mapper_slot slot);
+
+/*! Get the boundary minimum property for a specific map slot. This property
+ *  controls behaviour when a value is less than the specified slot minimum value.
+ *  \param slot         The slot to check.
+ *  \return         	The boundary minimum setting. */
+mapper_boundary_action mapper_slot_bound_min(mapper_slot slot);
+
+/*! Get the calibrating property for a specific map slot. When enabled, the
+ *  slot minimum and maximum values will be updated based on processed data.
+ *  \param slot         The slot to check.
+ *  \return         	One if calibration is enabled, 0 otherwise. */
+int mapper_slot_calibrating(mapper_slot slot);
+
+/*! Get the "causes update" property for a specific map slot. When enabled,
+ *  updates to this slot will cause computation of a new map output.
+ *  \param slot         The slot to check.
+ *  \return             One if causes map update, 0 otherwise. */
+int mapper_slot_causes_update(mapper_slot slot);
+
+/*! Get the "maximum" property for a specific map slot.
+ *  \param slot         The slot to check.
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                  	property's value. (Required.)
+ *  \param length       A pointer to a location to receive the vector length of
+ *                  	the property value. (Required.). */
+void mapper_slot_maximum(mapper_slot slot, int *length, char *type, void **value);
+
+/*! Get the "minimum" property for a specific map slot.
+ *  \param slot         The slot to check.
+ *  \param type         A pointer to a location to receive the type of the
+ *                  	property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                  	property's value. (Required.)
+ *  \param length       A pointer to a location to receive the vector length of
+ *                  	the property value. (Required.). */
+void mapper_slot_minimum(mapper_slot slot, int *length, char *type, void **value);
+
+/*! Get the total number of properties for a specific slot.
+ *  \param slot         The slot to check.
+ *  \return         	The number of properties. */
+int mapper_slot_num_properties(mapper_slot slot);
+
+/*! Look up a map property by name.
+ *  \param slot         The map slot to check.
+ *  \param name     	The name of the property to retrieve.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                  	the property value. (Required.)
+ *  \param type         A pointer to a location to receive the type of the
+ *                      property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                      property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_slot_property(mapper_slot slot, const char *name, int *length,
+                         char *type, const void **value);
+
+/*! Look up a map slot property by index. To iterate all properties,
+ *  call this function from index=0, increasing until it returns zero.
+ *  \param slot         The map slot to check.
+ *  \param index    	Numerical index of a map slot property.
+ *  \param name     	Address of a string pointer to receive the name of
+ *                      indexed property.  May be zero.
+ *  \param length       A pointer to a location to receive the vector length of
+ *                      the property value. (Required.)
+ *  \param type     	A pointer to a location to receive the type of the
+ *                  	property value. (Required.)
+ *  \param value        A pointer to a location to receive the address of the
+ *                  	property's value. (Required.)
+ *  \return             Zero if found, otherwise non-zero. */
+int mapper_slot_property_index(mapper_slot slot, unsigned int index,
+                               const char **name, int *length, char *type,
+                               const void **value);
+
+/*! Get the "send as instance" property for a specific map slot. If enabled,
+ *  updates to this slot will be treated as updates to a specific instance.
+ *  \param slot         The slot to check.
+ *  \return         	One to send as instance, 0 otherwise. */
+int mapper_slot_use_instances(mapper_slot slot);
+
+/*! Get the index for a specific map slot.
+ *  \param slot         The slot to check.
+ *  \return         	The index of the slot in its parent map. */
+int mapper_slot_index(mapper_slot slot);
+
+/*! Get the parent signal for a specific map slot.
+ *  \param slot         The slot to check.
+ *  \return             The slot's parent signal. */
+mapper_signal mapper_slot_signal(mapper_slot slot);
+
+/*! Set the boundary maximum property for a specific map slot. This property
+ *  controls behaviour when a value exceeds the specified slot maximum value.
+ *  Changes to remote maps will not take effect until synchronized with the
+ *  network using mapper_map_push().
+ *  \param slot         The slot to modify.
+ *  \param action       The boundary maximum setting. */
+void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action action);
+
+/*! Set the boundary minimum property for a specific map slot. This property
+ *  controls behaviour when a value is less than the slot minimum value.
+ *  Changes to remote maps will not take effect until synchronized with the
+ *  network using mapper_map_push().
+ *  \param slot         The slot to modify.
+ *  \param action       The boundary minimum setting. */
+void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action action);
+
+/*! Set the calibrating property for a specific map slot. When enabled, the
+ *  slot minimum and maximum values will be updated based on processed data.
+ *  Changes to remote maps will not take effect until synchronized with the
+ *  network using mapper_map_push().
+ *  \param slot         The slot to modify.
+ *  \param calibrating  One to enable calibration, 0 otherwise. */
+void mapper_slot_set_calibrating(mapper_slot slot, int calibrating);
+
+/*! Set the "causes update" property for a specific map slot. When enabled,
+ *  updates to this slot will cause computation of a new map output.
+ *  Changes to remote maps will not take effect until synchronized with the
+ *  network using mapper_map_push().
+ *  \param slot             The slot to modify.
+ *  \param causes_update    One to enable "causes update", 0 otherwise. */
+void mapper_slot_set_causes_update(mapper_slot slot, int causes_update);
+
+/*! Set the "maximum" property for a specific map slot.  Changes to remote maps
+ *  will not take effect until synchronized with the network using
+ *  mapper_map_push().
+ *  \param slot         The slot to modify.
+ *  \param type         The data type of the update.
+ *  \param value        An array of values.
+ *  \param length       Length of the update array. */
+void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
+                             const void *value);
+
+/*! Set the "minimum" property for a specific map slot.  Changes to remote maps
+ *  will not take effect until synchronized with the network using
+ *  mapper_map_push().
+ *  \param slot         The slot to modify.
+ *  \param type         The data type of the update.
+ *  \param value        An array of values.
+ *  \param length   	Length of the update array. */
+void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
+                             const void *value);
+
+/*! Set the "use as instance" property for a specific map slot.  If enabled,
+ *  updates to this slot will be treated as updates to a specific instance.
+ *  Changes to remote maps will not take effect until synchronized with the
+ *  network using mapper_map_push().
+ *  \param slot             The slot to modify.
+ *  \param use_instances    One to send as instance update, 0 otherwise. */
+void mapper_slot_set_use_instances(mapper_slot slot, int use_instances);
+
+/*! Set an arbitrary property for a specific map slot.  Changes to remote maps
+ *  will not take effect until synchronized with the network using
+ *  mapper_map_push().
+ *  \param slot         The slot to modify.
+ *  \param name         The name of the property to add.
+ *  \param type     	The property  datatype.
+ *  \param value        An array of property values.
+ *  \param length       The length of value array.
+ *  \return             1 if property has been changed, 0 otherwise. */
+int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
+                             char type, const void *value);
+
+/*! Remove a property of a map slot.
+ *  \param slot         The slot to operate on.
+ *  \param name     	The name of the property to remove.
+ *  \return             1 if property has been removed, 0 otherwise. */
+int mapper_slot_remove_property(mapper_slot slot, const char *name);
+
+/*! Helper to print the properties of a specific slot.
+ *  \param slot         The slot to print. */
+void mapper_slot_print(mapper_slot slot);
+
+/* @} */
+
+/***** Database *****/
+
+/*! @defgroup database Databases
+
+    @{ Databases are the primary interface through which a program may observe
+       the network and store information about devices and signals that are
+       present.  Each Database has a database of devices, signals, and maps,
+       which can be queried. */
+
+/*! Create a peer in the libmapper distributed database.
+ *  \param net                  A previously allocated network structure to use.
+ *                              If 0, one will be allocated for use with this
+ *                              database.
+ *  \param autosubscribe_flags  Sets whether the database should automatically
+ *                              subscribe to information about signals
+ *                              and maps when it encounters a previously-unseen
+ *                              device.
+ *  \return                     The new database. */
+mapper_database mapper_database_new(mapper_network net, int autosubscribe_flags);
+
+/*! Update a database.
+ *  \param db           The database to update.
+ *  \param block_ms     The number of milliseconds to block, or 0 for
+ *                      non-blocking behaviour.
+ *  \return             The number of handled messages. */
+int mapper_database_poll(mapper_database db, int block_ms);
+
+/*! Free a database.
+ *  \param db           The database to free. */
+void mapper_database_free(mapper_database db);
 
 /*! Subscribe to information about a specific device.
- *  \param mon             The monitor to use.
- *  \param device_name     The name of the device of interest.
- *  \param subscribe_flags Bitflags setting the type of information of interest.
- *                         Can be a combination of SUB_DEVICE, SUB_DEVICE_INPUTS,
- *                         SUB_DEVICE_OUTPUTS, SUB_DEVICE_SIGNALS,
- *                         SUB_DEVICE_LINKS_IN, SUB_DEVICE_LINKS_OUT,
- *                         SUB_DEVICE_LINKS, SUB_DEVICE_CONNECTIONS_IN,
- *                         SUB_DEVICE_CONNECTIONS_OUT, SUB_DEVICE_CONNECTIONS,
- *                         or simply SUB_DEVICE_ALL for all information.
- *  \param timeout         The length in seconds for this subscription. If set
- *                         to -1, libmapper will automatically renew the
- *                         subscription until the monitor is freed or this
- *                         function is called again. */
-void mapper_monitor_subscribe(mapper_monitor mon, const char *device_name,
-                              int subscribe_flags, int timeout);
+ *  \param db           The database to use.
+ *  \param dev          The device of interest. If NULL the admin will
+ *                      automatically subscribe to all discovered devices.
+ *  \param flags        Bitflags setting the type of information of interest.
+ *                      Can be a combination of MAPPER_OBJ_DEVICE,
+ *                      MAPPER_OBJ_INPUT_SIGNALS, MAPPER_OBJ_OUTPUT_SIGNALS,
+ *                      MAPPER_OBJ_SIGNALS, MAPPER_OBJ_INCOMING_MAPS,
+ *                      MAPPER_OBJ_OUTGOING_MAPS, MAPPER_OBJ_MAPS, or simply
+ *                      MAPPER_OBJ_ALL for all information.
+ *  \param timeout      The length in seconds for this subscription. If set to
+ *                      -1, the database will automatically renew the
+ *                      subscription until it is freed or this function is
+ *                      called again. */
+void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
+                               int timeout);
 
 /*! Unsubscribe from information about a specific device.
- *  \param mon             The monitor to use.
- *  \param device_name     The name of the device of interest. */
-void mapper_monitor_unsubscribe(mapper_monitor mon, const char *device_name);
+ *  \param db           The database to use.
+ *  \param dev          The device of interest. If NULL the admin will
+ *                      unsubscribe from all devices. */
+void mapper_database_unsubscribe(mapper_database db, mapper_device dev);
 
-/*! Sets whether the monitor should automatically subscribe to
- *  information on signals, links, and connections when it encounters
- *  a previously-unseen device.*/
-void mapper_monitor_autosubscribe(mapper_monitor mon, int autosubscribe_flags);
+/*! Set the timeout in seconds after which a database will declare a device
+ *  "unresponsive".     Defaults to MAPPER_TIMEOUT_SEC.
+ *  \param db           The database to use.
+ *  \param timeout      The timeout in seconds. */
+void mapper_database_set_timeout(mapper_database db, int timeout);
 
-/*! Interface to add a link between two devices.
- *  \param mon            The monitor to use for sending the message.
- *  \param source_device  Source device name.
- *  \param dest_device    Destination device name.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this link.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_link_t should be
- *                        applied to the new link. See the flags
- *                        prefixed by LINK_ in mapper_db.h. */
-void mapper_monitor_link(mapper_monitor mon,
-                         const char* source_device,
-                         const char* dest_device,
-                         mapper_db_link_t *properties,
-                         unsigned int property_flags);
+/*! Get the timeout in seconds after which a database will declare a device
+ *  "unresponsive". Defaults to MAPPER_TIMEOUT_SEC.
+ *  \param db           The database to use.
+ *  \return             The current timeout in seconds. */
+int mapper_database_timeout(mapper_database db);
 
-/*! Interface to remove a link between two devices.
- *  \param mon           The monitor to use for sending the message.
- *  \param source_device Source device name.
- *  \param dest_device   Destination device name. */
-void mapper_monitor_unlink(mapper_monitor mon,
-                           const char* source_device,
-                           const char* dest_device);
+/*! Retrieve the networking structure from a database.
+ *  \param db           The database to use.
+ *  \return         	The database network data structure. */
+mapper_network mapper_database_network(mapper_database db);
 
-/*! Interface to modify a connection between two signals.
- *  \param mon            The monitor to use for sending the message.
- *  \param source_signal  Source signal name.
- *  \param dest_signal    Destination signal name.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_connection_t should be
- *                        applied to the new connection. See the flags
- *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mapper_monitor_connection_modify(mapper_monitor mon,
-                                      const char *source_signal,
-                                      const char *dest_signal,
-                                      mapper_db_connection_t *properties,
-                                      unsigned int property_flags);
+/*! Remove unresponsive devices from the database.
+ *  \param db           The database to flush.
+ *  \param timeout      The number of seconds a device must have been
+ *                      unresponsive before removal.
+ *  \param quiet        1 to disable callbacks during flush, 0 otherwise. */
+void mapper_database_flush(mapper_database db, int timeout, int quiet);
 
-/*! Interface to add a connection between two signals.
- *  \param mon The monitor to use for sending the message.
- *  \param source_signal  Source signal name.
- *  \param dest_signal    Destination signal name.
- *  \param properties     An optional data structure specifying the
- *                        requested properties of this connection.
- *  \param property_flags Bit flags indicating which properties in the
- *                        provided mapper_db_connection_t should be
- *                        applied to the new connection. See the flags
- *                        prefixed by CONNECTION_ in mapper_db.h. */
-void mapper_monitor_connect(mapper_monitor mon,
-                            const char* source_signal,
-                            const char* dest_signal,
-                            mapper_db_connection_t *properties,
-                            unsigned int property_flags);
+/*! Send a request to the network for all active devices to report in.
+ *  \param db           The database to use. */
+void mapper_database_request_devices(mapper_database db);
 
-/*! Interface to remove a connection between two signals.
- *  \param mon           The monitor to use for sending the message.
- *  \param source_signal Source signal name.
- *  \param dest_signal   Destination signal name. */
-void mapper_monitor_disconnect(mapper_monitor mon,
-                               const char* source_signal,
-                               const char* dest_signal);
+/*! A callback function prototype for when a device record is added or updated.
+ *  Such a function is passed in to mapper_database_add_device_callback().
+ *  \param db           The database that registered this callback.
+ *  \param dev          The device record.
+ *  \param action       A value of mapper_record_action indicating what is
+ *                      happening to the device record.
+ *  \param user         The user context pointer registered with this callback. */
+typedef void mapper_database_device_handler(mapper_database db,
+                                            mapper_device dev,
+                                            mapper_record_action action,
+                                            const void *user);
+
+/*! Register a callback for when a device record is added or updated in the
+ *  database.
+ *  \param db           The database to query.
+ *  \param h            Callback function.
+ *  \param user         A user-defined pointer to be passed to the callback
+ *                      for context . */
+void mapper_database_add_device_callback(mapper_database db,
+                                         mapper_database_device_handler *h,
+                                         const void *user);
+
+/*! Remove a device record callback from the database service.
+ *  \param db           The database to query.
+ *  \param h            Callback function.
+ *  \param user         The user context pointer that was originally specified
+ *                      when adding the callback. */
+void mapper_database_remove_device_callback(mapper_database db,
+                                            mapper_database_device_handler *h,
+                                            const void *user);
+
+/*! Return the number of devices stored in the database.
+ *  \param db           The database to query.
+ *  \return             The number of devices. */
+int mapper_database_num_devices(mapper_database db);
+
+/*! Return the whole list of devices.
+ *  \param db           The database to query.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results.  Use mapper_device_query_next() to iterate. */
+mapper_device *mapper_database_devices(mapper_database db);
+
+/*! Find information for a registered device.
+ *  \param db           The database to query.
+ *  \param name         Name of the device to find in the database.
+ *  \return             Information about the device, or zero if not found. */
+mapper_device mapper_database_device_by_name(mapper_database db,
+                                             const char *name);
+
+/*! Look up information for a registered device using its unique id.
+ *  \param db           The database to query.
+ *  \param id           Unique id identifying the device to find in the database.
+ *  \return             Information about the device, or zero if not found. */
+mapper_device mapper_database_device_by_id(mapper_database db, mapper_id id);
+
+/*! Return the list of devices matching a name or pattern.
+ *  \param db           The database to query.
+ *  \param name         The name or pattern to search for. Use '*' for wildcard.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_device_query_next() to iterate. */
+mapper_device *mapper_database_devices_by_name(mapper_database db,
+                                               const char *name);
+
+/*! Return the list of devices matching the given property.
+ *  \param db           The database to query.
+ *  \param name         The name of the property to search for.
+ *  \param length       The value length.
+ *  \param type         The value type.
+ *  \param value        The value.
+ *  \param op           The comparison operator.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_device_query_next() to iterate. */
+mapper_device *mapper_database_devices_by_property(mapper_database db,
+                                                   const char *name, int length,
+                                                   char type, const void *value,
+                                                   mapper_op op);
+
+/*! A callback function prototype for when a signal record is added or updated.
+ *  Such a function is passed in to mapper_database_add_signal_callback().
+ *  \param db           The database that registered this callback.
+ *  \param sig          The signal record.
+ *  \param action       A value of mapper_record_action indicating what is
+ *                      happening to the signal record.
+ *  \param user         The user context pointer registered with this callback. */
+typedef void mapper_database_signal_handler(mapper_database db,
+                                            mapper_signal sig,
+                                            mapper_record_action action,
+                                            const void *user);
+
+/*! Register a callback for when a signal record is added or updated in the
+ *  database.
+ *  \param db           The database to query.
+ *  \param h            Callback function.
+ *  \param user         A user-defined pointer to be passed to the callback for
+ *                      context . */
+void mapper_database_add_signal_callback(mapper_database db,
+                                         mapper_database_signal_handler *h,
+                                         const void *user);
+
+/*! Remove a signal record callback from the database service.
+ *  \param db           The database to query.
+ *  \param h            Callback function.
+ *  \param user         The user context pointer that was originally specified
+ *                      when adding the callback. */
+void mapper_database_remove_signal_callback(mapper_database db,
+                                            mapper_database_signal_handler *h,
+                                            const void *user);
+
+/*! Find information for a registered signal.
+ *  \param db           The database to query.
+ *  \param id           Unique id of the signal to find in the database.
+ *  \return             Information about the signal, or zero if not found. */
+mapper_signal mapper_database_signal_by_id(mapper_database db, mapper_id id);
+
+/*! Return the number of signals stored in the database.
+ *  \param db           The database to query.
+ *  \param dir          The direction of the signals to count.
+ *  \return             The number of signals. */
+int mapper_database_num_signals(mapper_database db, mapper_direction dir);
+
+/*! Return the list of all known signals across all devices.
+ *  \param db           The database to query.
+ *  \param dir          The direction of the signals to return.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results.  Use mapper_signal_query_next() to iterate. */
+mapper_signal *mapper_database_signals(mapper_database db, mapper_direction dir);
+
+/*! Return a list of signals matching a name.
+ *  \param db           The database to query.
+ *  \param name         Name of the signal to find in the database.  Use '*' for
+ *                      wildcards.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results.  Use mapper_signal_query_next() to iterate. */
+mapper_signal *mapper_database_signals_by_name(mapper_database db,
+                                               const char *name);
+
+/*! Return the list of signals matching the given property.
+ *  \param db           The database to query.
+ *  \param name         The name of the property to search for.
+ *  \param length       The value length.
+ *  \param type         The value type.
+ *  \param value        The value.
+ *  \param op           The comparison operator.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_signal_query_next() to iterate. */
+mapper_signal *mapper_database_signals_by_property(mapper_database db,
+                                                   const char *name, int length,
+                                                   char type, const void *value,
+                                                   mapper_op op);
+
+/*! A callback function prototype for when a link record is added or updated in
+ *  the database. Such a function is passed in to
+ *  mapper_database_add_link_callback().
+ *  \param db           The database that registered this callback.
+ *  \param link         The link record.
+ *  \param action       A value of mapper_record_action indicating what is
+ *                      happening to the link record.
+ *  \param user         The user context pointer registered with this callback. */
+typedef void mapper_database_link_handler(mapper_database db, mapper_link link,
+                                          mapper_record_action action,
+                                          const void *user);
+
+/*! Register a callback for when a link record is added or updated.
+ *  \param db           The database to which the callback should be added.
+ *  \param h            Callback function.
+ *  \param user         A user-defined pointer to be passed to the callback for
+ *                      context . */
+void mapper_database_add_link_callback(mapper_database db,
+                                       mapper_database_link_handler *h,
+                                       const void *user);
+
+/*! Remove a link record callback from the database service.
+ *  \param db           The database from which the callback should be removed.
+ *  \param h            Callback function.
+ *  \param user     	The user context pointer that was originally specified
+ *                      when adding the callback. */
+void mapper_database_remove_link_callback(mapper_database db,
+                                          mapper_database_link_handler *h,
+                                          const void *user);
+
+/*! Return the number of links stored in the database.
+ *  \param db           The database to query.
+ *  \return             The number of links. */
+int mapper_database_num_links(mapper_database db);
+
+/*! Return a list of all registered links.
+ *  \param db           The database to query.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results, or zero if none.  Use mapper_link_query_next()
+ *                      to iterate. */
+mapper_link *mapper_database_links(mapper_database db);
+
+/*! Return the link that matches the given id.
+ *  \param db           The database to query.
+ *  \param id           Unique id identifying the link.
+ *  \return             A pointer to a structure containing information on the
+ *                      found link, or 0 if not found. */
+mapper_link mapper_database_link_by_id(mapper_database db, mapper_id id);
+
+/*! Return the list of links matching the given property.
+ *  \param db           The database to query.
+ *  \param name         The name of the property to search for.
+ *  \param length       The value length.
+ *  \param type         The value type.
+ *  \param value        The value.
+ *  \param op           The comparison operator.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_map_query_next() to iterate. */
+mapper_link *mapper_database_links_by_property(mapper_database db,
+                                               const char *name, int length,
+                                               char type, const void *value,
+                                               mapper_op op);
+
+/*! A callback function prototype for when a map record is added or updated in
+ *  the database. Such a function is passed in to
+ *  mapper_database_add_map_callback().
+ *  \param db           The database that registered this callback.
+ *  \param map          The map record.
+ *  \param action       A value of mapper_record_action indicating what is
+ *                      happening to the map record.
+ *  \param user         The user context pointer registered with this callback. */
+typedef void mapper_database_map_handler(mapper_database db, mapper_map map,
+                                         mapper_record_action action,
+                                         const void *user);
+
+/*! Register a callback for when a map record is added or updated.
+ *  \param db           The database to which the callback should be added.
+ *  \param h            Callback function.
+ *  \param user         A user-defined pointer to be passed to the callback for
+ *                      context . */
+void mapper_database_add_map_callback(mapper_database db,
+                                      mapper_database_map_handler *h,
+                                      const void *user);
+
+/*! Remove a map record callback from the database service.
+ *  \param db           The database from which the callback should be removed.
+ *  \param h            Callback function.
+ *  \param user     	The user context pointer that was originally specified
+ *                      when adding the callback. */
+void mapper_database_remove_map_callback(mapper_database db,
+                                         mapper_database_map_handler *h,
+                                         const void *user);
+
+/*! Return the number of maps stored in the database.
+ *  \param db           The database to query.
+ *  \return             The number of maps. */
+int mapper_database_num_maps(mapper_database db);
+
+/*! Return a list of all registered maps.
+ *  \param db           The database to query.
+ *  \return             A double-pointer to the first item in the list of
+ *                      results, or zero if none.  Use mapper_map_query_next()
+ *                      to iterate. */
+mapper_map *mapper_database_maps(mapper_database db);
+
+/*! Return the map that matches the given id.
+ *  \param db           The database to query.
+ *  \param id           Unique id identifying the map.
+ *  \return             A pointer to a structure containing information on the
+ *                      found map, or 0 if not found. */
+mapper_map mapper_database_map_by_id(mapper_database db, mapper_id id);
+
+/*! Return the list of maps that use the given scope.
+ *  \param db           The database to query.
+ *  \param dev          The device owning the scope to query.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_database_maps_by_scope(mapper_database db, mapper_device dev);
+
+/*! Return the list of maps matching the given property.
+ *  \param db           The database to query.
+ *  \param name         The name of the property to search for.
+ *  \param length       The value length.
+ *  \param type         The value type.
+ *  \param value        The value.
+ *  \param op           The comparison operator.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_database_maps_by_property(mapper_database db,
+                                             const char *name, int length,
+                                             char type, const void *value,
+                                             mapper_op op);
+
+/*! Return the list of maps matching the given slot property.
+ *  \param db           The database to query.
+ *  \param name         The name of the property to search for.
+ *  \param length       The value length.
+ *  \param type         The value type.
+ *  \param value        The value.
+ *  \param op           The comparison operator.
+ *  \return             A double-pointer to the first item in a list of results.
+ *                      Use mapper_map_query_next() to iterate. */
+mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
+                                                  const char *name, int length,
+                                                  char type, const void *value,
+                                                  mapper_op op);
 
 /* @} */
 
 /***** Time *****/
 
 /*! @defgroup time Time
- 
+
  @{ libmapper primarily uses NTP timetags for communication and
     synchronization. */
 
 /*! Initialize a timetag to the current mapping network time.
- *  \param dev  The device whose time we are asking for.
- *  \param tt   A previously allocated timetag to initialize. */
-void mdev_now(mapper_device dev,
-              mapper_timetag_t *tt);
+ *  \param dev          The device whose time we are asking for.
+ *  \param tt           A previously allocated timetag to initialize. */
+void mapper_device_now(mapper_device dev, mapper_timetag_t *tt);
 
 /*! Initialize a timetag to the current mapping network time.
- *  \param mon  The monitor whose time we are asking for.
- *  \param tt   A previously allocated timetag to initialize. */
-void mapper_monitor_now(mapper_monitor mon,
-                        mapper_timetag_t *tt);
+ *  \param net          The network whose time we are asking for.
+ *  \param tt           A previously allocated timetag to initialize. */
+void mapper_network_now(mapper_network net, mapper_timetag_t *tt);
 
 /*! Return the difference in seconds between two mapper_timetags.
- *  \param a    The minuend.
- *  \param b    The subtrahend.
- *  \return     The difference a-b in seconds. */
-double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b);
+ *  \param minuend      The minuend.
+ *  \param subtrahend   The subtrahend.
+ *  \return             The difference a-b in seconds. */
+double mapper_timetag_difference(mapper_timetag_t minuend,
+                                 mapper_timetag_t subtrahend);
 
-/*! Add seconds to a given timetag.
- *  \param tt       A previously allocated timetag to augment.
- *  \param addend   An amount in seconds to add. */
-void mapper_timetag_add_double(mapper_timetag_t *tt, double addend);
+/*! Add a timetag to another given timetag.
+ *  \param augend       A previously allocated timetag to augment.
+ *  \param addend       A timetag to add to add. */
+void mapper_timetag_add(mapper_timetag_t *augend, mapper_timetag_t addend);
 
-/*! Multiply a given timetag by a double.
- *  \param tt       A previously allocated timetag to augment.
- *  \param multiplier   An amount in seconds to multiply. */
-void mapper_timetag_multiply(mapper_timetag_t *tt, double multiplier);
+/*! Subtract a timetag from another given timetag.
+ *  \param minuend      A previously allocated timetag to augment.
+ *  \param subtrahend   A timetag to add to subtract. */
+void mapper_timetag_subtract(mapper_timetag_t *minuend,
+                             mapper_timetag_t subtrahend);
 
 /*! Return value of mapper_timetag as a double-precision floating point value.
- *  \param tt   The timetag to read.
- *  \return     The timetag value in seconds. */
-double mapper_timetag_get_double(mapper_timetag_t tt);
-
-/*! Set value of a mapper_timetag from an integer value.
- *  \param tt       The timetag to set.
- *  \param value    Time value in seconds. */
-void mapper_timetag_set_int(mapper_timetag_t *tt, int value);
-
-/*! Set value of a mapper_timetag from a floating point value.
- *  \param tt       The timetag to set.
- *  \param value    Time value in seconds. */
-void mapper_timetag_set_float(mapper_timetag_t *tt, float value);
+ *  \param tt           The timetag to read.
+ *  \return             Value of the timetag as a double-precision float. */
+double mapper_timetag_double(mapper_timetag_t tt);
 
 /*! Set value of a mapper_timetag from a double-precision floating point value.
- *  \param tt       The timetag to set.
- *  \param value    Time value in seconds. */
+ *  \param tt           A previously-allocated timetag to set.
+ *  \param value        The value in seconds to set. */
 void mapper_timetag_set_double(mapper_timetag_t *tt, double value);
 
-/*! Copy value of a mapper_timetag. */
-void mapper_timetag_cpy(mapper_timetag_t *ttl, mapper_timetag_t ttr);
+/*! Copy value of a mapper_timetag.
+ *  \param ttl          The target timetag for copying.
+ *  \param ttr          The source timetag. */
+void mapper_timetag_copy(mapper_timetag_t *ttl, mapper_timetag_t ttr);
 
 /* @} */
+
+/*! Get the version of libmapper.
+ *  \return             A string specifying the version of libmapper. */
+const char *mapper_version();
 
 #ifdef __cplusplus
 }

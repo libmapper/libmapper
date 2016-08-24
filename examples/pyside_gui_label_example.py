@@ -1,23 +1,30 @@
 #!/usr/bin/env python
 
-import sys
+import sys, os
 from PySide.QtCore import *
 from PySide.QtGui import *
-import mapper
+try:
+    import mapper
+except:
+    try:
+        # Try the "swig" directory, relative to the location of this
+        # program, which is where it should be if the module has been
+        # compiled but not installed.
+        sys.path.append(
+                        os.path.join(os.path.join(os.getcwd(),
+                                                  os.path.dirname(sys.argv[0])),
+                                     '../swig'))
+        import mapper
+    except:
+        print 'Error importing libmapper module.'
+        sys.exit(1)
 
-def h(dev, link, sig, con, action):
-    id = con['src_name']
-    id = int(id[7])
-    if action == mapper.MDEV_LOCAL_ESTABLISHED:
-        gui.labels[id].setText(link['dest_name']+con['dest_name'])
-    else:
-        gui.labels[id].setText('slider%i' %id)
-
+numsliders = 3
 dev = mapper.device("pysideGUI")
-dev.set_connection_callback(h)
+#dev.set_map_callback(h)
 sigs = []
-for i in range(3):
-    sigs.append(dev.add_output('/slider%i' %i, 1, 'f', None, 0, 1))
+for i in range(numsliders):
+    sigs.append(dev.add_output_signal('/slider%i' %i, 1, 'f', None, 0, 1))
 
 class gui(QMainWindow):
     
@@ -32,7 +39,7 @@ class gui(QMainWindow):
 
         self.labels = []
         self.sliders = []
-        for i in range(3):
+        for i in range(numsliders):
             self.sliders.append(QSlider(Qt.Orientation.Horizontal, self))
             self.sliders[i].setRange(0, 100)
             self.sliders[i].setGeometry(5, 100+i*75, 290, 20)
@@ -44,7 +51,12 @@ class gui(QMainWindow):
         self.sliders[2].valueChanged.connect(lambda x: sigs[2].update(x*0.01))
 
         self.timer = QBasicTimer()
-        self.timer.start(500, self)
+        self.timer.start(10, self)
+
+    def setLabel(self, index, label):
+        if index < 0 or index > numsliders:
+            return;
+        self.labels[index].setText(label)
 
     def timerEvent(self, event):
         if event.timerId() == self.timer.timerId():
@@ -52,6 +64,18 @@ class gui(QMainWindow):
 
         else:
             QtGui.QFrame.timerEvent(self, event)
+
+def h(map, action):
+    print 'GOT DEVICE MAP HANDLER'
+    id = map.source().signal().name
+    id = int(id[7])
+    if action == mapper.ADDED:
+        sig = map.destination().signal()
+        gui.setLabel(id, 'foo')
+    else:
+        gui.setLabel(id, 'slider%i' %id)
+    print 'DONE DEVICE MAP HANDLER'
+dev.set_map_callback(h)
 
 app = QApplication(sys.argv)
 gui = gui()

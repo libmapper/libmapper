@@ -29,31 +29,25 @@ mapper_signal recvsig;
 int sent = 0;
 int received = 0;
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     int i;
+    eprintf("--> %s got ", sig->name);
     if (value) {
-        if (props->type == 'f') {
-            eprintf("--> %s got ", props->is_output ?
-                    "source" : "destination");
-            for (i = 0; i < props->length * count; i++)
+        if (sig->type == 'f') {
+            for (i = 0; i < sig->length * count; i++)
                 eprintf("%f ", ((float*)value)[i]);
             eprintf("\n");
         }
-        else if (props->type == 'i') {
-            eprintf("--> %s got ", props->is_output ?
-                    "source" : "destination");
-            for (i = 0; i < props->length * count; i++)
+        else if (sig->type == 'i') {
+            for (i = 0; i < sig->length * count; i++)
                 eprintf("%i ", ((int*)value)[i]);
             eprintf("\n");
         }
     }
     else {
-        eprintf("--> %s got ", props->is_output ?
-                "source" : "destination");
-        for (i = 0; i < props->length * count; i++)
+        for (i = 0; i < sig->length * count; i++)
             eprintf("NIL ");
         eprintf("\n");
     }
@@ -63,18 +57,20 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testreverse-send", 0, 0);
+    source = mapper_device_new("testreverse-send", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
     float mn[]={0.f,0.f}, mx[]={10.f,10.f};
 
-    sendsig = mdev_add_output(source, "/outsig", 2, 'f', 0, mn, mx);
-    msig_set_callback(sendsig, insig_handler, 0);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 2, 'f', 0,
+                                              mn, mx);
+    mapper_signal_set_callback(sendsig, insig_handler);
 
     eprintf("Output signals registered.\n");
-    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
 
     return 0;
 
@@ -87,7 +83,7 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
@@ -95,18 +91,19 @@ void cleanup_source()
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testreverse-recv", 0, 0);
+    destination = mapper_device_new("testreverse-recv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mdev_add_input(destination, "/insig", 1,
-                             'f', 0, &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0,
+                                             &mn, &mx, insig_handler, 0);
 
-    eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Input signal insig registered.\n");
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
 
     return 0;
 
@@ -119,55 +116,38 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
 
         usleep(50 * 1000);
     }
 }
 
-int setup_connections()
+int setup_maps()
 {
     int i = 0;
 
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
-
-    char src_name[1024], dest_name[1024];
-    mapper_monitor_link(mon, mdev_name(source),
-                        mdev_name(destination), 0, 0);
-
-    while (!done && !destination->receivers) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
-        if (i++ > 100)
-            return 1;
-    }
-
-    msig_full_name(sendsig, src_name, 1024);
-    msig_full_name(recvsig, dest_name, 1024);
-    mapper_db_connection_t props;
-    props.mode = MO_REVERSE;
-    mapper_monitor_connect(mon, src_name, dest_name, &props,
-                           CONNECTION_MODE);
+    mapper_map map = mapper_map_new(1, &recvsig, sendsig);
+    mapper_map_push(map);
 
     i = 0;
-    // wait until connection has been established
-    while (!done && !destination->receivers->num_connections) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
+    // wait until mapping has been established
+    while (!done && !mapper_map_ready(map)) {
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
         if (i++ > 100)
             return 1;
     }
 
-    mapper_monitor_free(mon);
     return 0;
 }
 
@@ -176,14 +156,14 @@ void loop()
     eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
     float val[] = {0, 0};
-    msig_update(sendsig, val, 1, MAPPER_NOW);
+    mapper_signal_update(sendsig, val, 1, MAPPER_NOW);
 
     while ((!terminate || i < 50) && !done) {
-        msig_update_float(recvsig, ((i % 10) * 1.0f));
+        mapper_signal_update_float(recvsig, ((i % 10) * 1.0f));
         sent++;
         eprintf("\ndestination value updated to %f -->\n", (i % 10) * 1.0f);
-        mdev_poll(destination, 0);
-        mdev_poll(source, 100);
+        mapper_device_poll(destination, 0);
+        mapper_device_poll(source, 100);
         i++;
 
         if (!verbose) {
@@ -244,7 +224,7 @@ int main(int argc, char **argv)
 
     wait_local_devices();
 
-    if (autoconnect && setup_connections()) {
+    if (autoconnect && setup_maps()) {
         eprintf("Error connecting signals.\n");
         result = 1;
         goto done;

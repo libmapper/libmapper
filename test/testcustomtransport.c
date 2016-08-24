@@ -52,38 +52,20 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_mdev_link(mapper_device dev,
-                  mapper_db_link link,
-                  mapper_device_local_action_t action,
-                  void *user)
+void on_map(mapper_device dev, mapper_map map, mapper_record_action action)
 {
-    eprintf("%s link for %s (%s -> %s), ",
-            action == MDEV_LOCAL_ESTABLISHED ? "New"
-            : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
-            mdev_name(dev), link->src_name, link->dest_name);
+    if (verbose) {
+        printf("Map: ");
+        mapper_map_print(map);
+    }
 
-    eprintf("destination host is %s, port is %i\n",
-            link->dest_host, link->dest_port);
-}
+    // we are looking for a map with one source (sendsig) and one dest (recvsig)
+    if (mapper_map_num_sources(map) > 1)
+        return;
+    if (mapper_slot_signal(mapper_map_slot(map, MAPPER_LOC_SOURCE, 0)) != sendsig)
+        return;
 
-void on_mdev_connection(mapper_device dev,
-                        mapper_db_link link,
-                        mapper_signal sig,
-                        mapper_db_connection connection,
-                        mapper_device_local_action_t action,
-                        void *user)
-{
-    eprintf("%s connection for %s (%s:%s -> %s:%s), ",
-            action == MDEV_LOCAL_ESTABLISHED ? "New"
-            : action == MDEV_LOCAL_DESTROYED ? "Destroyed" : "????",
-            mdev_name(dev),
-            link->src_name, connection->src_name,
-            link->dest_name, connection->dest_name);
-
-    eprintf("destination host is %s, port is %i\n",
-            link->dest_host, link->dest_port);
-
-    if (action == MDEV_LOCAL_DESTROYED) {
+    if (action == MAPPER_REMOVED) {
         if (send_socket != -1) {
             close(send_socket);
             send_socket = -1;
@@ -97,30 +79,24 @@ void on_mdev_connection(mapper_device dev,
     const char *a_transport;
     char t;
     int length;
-    if (mapper_db_connection_property_lookup(connection, "transport", &t,
-                                             (const void **)&a_transport,
-                                             &length)
-        || t != 's' || length != 1)
-    {
+    if (mapper_map_property(map, "transport", &length, &t,
+                            (const void **)&a_transport)
+        || t != 's' || length != 1) {
         eprintf("Couldn't find `transport' property.\n");
         return;
     }
 
-    
     if (strncmp(a_transport, "tcp", 3) != 0) {
         eprintf("Unknown transport property `%s', "
                 "was expecting `tcp'.\n", a_transport);
         return;
     }
 
-    // Find the TCP port in the connection properties
+    // Find the TCP port in the mapping properties
     const int *a_port;
-    if (mapper_db_connection_property_lookup(connection, "tcpPort", &t,
-                                             (const void **)&a_port, &length)
-        || t != 'i' || length != 1)
-    {
-        eprintf("Couldn't make TCP connection, "
-                "tcpPort property not found.\n");
+    if (mapper_map_property(map, "tcpPort", &length, &t, (const void **)&a_port)
+        || t != 'i' || length != 1) {
+        eprintf("Couldn't make TCP connection, tcpPort property not found.\n");
         return;
     }
 
@@ -136,7 +112,7 @@ void on_mdev_connection(mapper_device dev,
         exit(1);
     }
 
-    const char *host = link->dest_host;
+    const char *host = mapper_device_host(map->destination.signal->device);
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
@@ -163,24 +139,19 @@ void on_mdev_connection(mapper_device dev,
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mdev_new("testsend", 0, 0);
+    source = mapper_device_new("testsend", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    mdev_set_link_callback(source, on_mdev_link, 0);
-    mdev_set_connection_callback(source, on_mdev_connection, 0);
+    mapper_device_set_map_callback(source, on_map);
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', "Hz", &mn, &mx);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'f', "Hz",
+                                              &mn, &mx);
 
-    // Add custom meta-data specifying that this signal supports a
-    // special TCP transport.
-    char *str = "tcp";
-    msig_set_property(sendsig, "transport", 's', &str, 1);
-
-    eprintf("Output signal /outsig registered.\n");
+    eprintf("Output signal 'outsig' registered.\n");
 
     return 0;
 
@@ -193,19 +164,19 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
-        eprintf("--> destination got %s", props->name);
-        float *v = value;
-        for (int i = 0; i < props->length; i++) {
+        eprintf("--> destination got %s", mapper_signal_name(sig));
+        float *v = (float*)value;
+        int len = mapper_signal_length(sig);
+        for (int i = 0; i < len; i++) {
             eprintf(" %f", v[i]);
         }
         eprintf("\n");
@@ -216,26 +187,17 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mdev_new("testrecv", 0, 0);
+    destination = mapper_device_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mdev_add_input(destination, "/insig", 1, 'f',
-                             0, &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0,
+                                             &mn, &mx, insig_handler, 0);
 
-    // Add custom meta-data specifying a special transport for this
-    // signal.
-    char *str = "tcp";
-    msig_set_property(recvsig, "transport", 's', &str, 1);
-
-    // Add custom meta-data specifying a port to use for this signal's
-    // custom transport.
-    msig_set_property(recvsig, "tcpPort", 'i', &tcp_port, 1);
-
-    eprintf("Input signal /insig registered.\n");
+    eprintf("Input signal 'insig' registered.\n");
 
     return 0;
 
@@ -248,16 +210,17 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
 
         usleep(50 * 1000);
     }
@@ -269,22 +232,16 @@ void loop()
     int i = 0;
 
     if (autoconnect) {
-        mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+        mapper_map map = mapper_map_new(1, &sendsig, recvsig);
 
-        char src_name[1024], dest_name[1024];
-        mapper_monitor_link(mon, mdev_name(source),
-                            mdev_name(destination), 0, 0);
+        // Add custom meta-data specifying a special transport for this map.
+        char *str = "tcp";
+        mapper_map_set_property(map, "transport", 1, 's', str);
 
-        while (i++ < 10) {
-            mdev_poll(source, 0);
-            mdev_poll(destination, 0);
-        }
-
-        msig_full_name(sendsig, src_name, 1024);
-        msig_full_name(recvsig, dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
-
-        mapper_monitor_free(mon);
+        // Add custom meta-data specifying a port to use for this map's
+        // custom transport.
+        mapper_map_set_property(map, "tcpPort", 1, 'i', &tcp_port);
+        mapper_map_push(map);
     }
 
     // Set up a mini TCP server for our custom stream
@@ -307,10 +264,10 @@ void loop()
     listen(listen_socket, 1);
 
     while ((!terminate || received < iterations) && !done) {
-        mdev_poll(source, 0);
+        mapper_device_poll(source, 0);
 
         // Instead of
-        // msig_update_float(sendsig, ((i % 10) * 1.0f));
+        // mapper_signal_update_float(sendsig, ((i % 10) * 1.0f));
 
         // We will instead send our data on the custom TCP socket if
         // it is valid
@@ -379,7 +336,7 @@ void loop()
             fflush(stdout);
         }
 
-        mdev_poll(destination, 100);
+        mapper_device_poll(destination, 100);
         i++;
     }
     if (send_socket != -1)

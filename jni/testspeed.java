@@ -1,6 +1,6 @@
 
-import Mapper.*;
-import Mapper.Device.*;
+import mapper.*;
+import mapper.signal.*;
 import java.util.Arrays;
 
 class testspeed {
@@ -8,7 +8,6 @@ class testspeed {
 
     public static void main(String [] args) {
         final Device dev = new Device("javatest");
-        final Monitor mon = new Monitor(Mapper.Monitor.SUB_DEVICE_ALL);
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -18,23 +17,18 @@ class testspeed {
                 public void run()
                     {
                         dev.free();
-                        mon.free();
                     }
             });
 
-        InputListener h = new InputListener() {
-            public void onInput(Mapper.Device.Signal sig,
-                                int instanceId,
-                                float[] v,
-                                TimeTag tt) {
+        UpdateListener l = new UpdateListener() {
+            public void onUpdate(Signal sig, float[] v, TimeTag tt) {
                 testspeed.updated = true;
             }
         };
 
-        Mapper.Device.Signal in = dev.addInput("insig", 1, 'f', "Hz", null,
-                                               null, h);
+        Signal in = dev.addInputSignal("insig", 1, 'f', "Hz", null, null, l);
 
-        Signal out = dev.addOutput("outsig", 1, 'i', "Hz", null, null);
+        Signal out = dev.addOutputSignal("outsig", 1, 'i', "Hz", null, null);
 
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
@@ -42,14 +36,10 @@ class testspeed {
         }
         System.out.println("Device is ready.");
 
-        mon.link(dev.name(), dev.name(), null);
-        while (dev.numLinksIn() <= 0) { dev.poll(100); }
-
-        Mapper.Db.Connection c = new Mapper.Db.Connection();
-        mon.connect(dev.name()+out.name(), dev.name()+in.name(), null);
-        while ((dev.numConnectionsIn()) <= 0) { dev.poll(100); }
-
-        mon.free();
+        Map map = new Map(out, in).push();
+        while (!map.ready()) {
+            dev.poll(100);
+        }
 
         double then = dev.now().getDouble();
         int i = 0;
@@ -58,6 +48,8 @@ class testspeed {
                 out.update(i);
                 i++;
                 testspeed.updated = false;
+                if ((i % 1000) == 0)
+                    System.out.print(".");
             }
             dev.poll(1);
         }

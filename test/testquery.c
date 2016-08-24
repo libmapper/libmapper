@@ -29,19 +29,20 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
-void query_response_handler(mapper_signal sig, mapper_db_signal props,
-                            int instance_id, void *value, int count,
+void query_response_handler(mapper_signal sig, mapper_id instance,
+                            const void *value, int count,
                             mapper_timetag_t *timetag)
 {
     int i;
     if (value) {
-        eprintf("--> source got query response: %s ", props->name);
-        for (i = 0; i < props->length * count; i++)
+        eprintf("--> source got query response: %s ", mapper_signal_name(sig));
+        for (i = 0; i < mapper_signal_length(sig) * count; i++)
             eprintf("%i ", ((int*)value)[i]);
         eprintf("\n");
     }
     else {
-        eprintf("--> source got empty query response: %s\n", props->name);
+        eprintf("--> source got empty query response: %s\n",
+                mapper_signal_name(sig));
     }
 
     received++;
@@ -51,7 +52,7 @@ void query_response_handler(mapper_signal sig, mapper_db_signal props,
 int setup_source()
 {
     char sig_name[20];
-    source = mdev_new("testquery-send", 0, 0);
+    source = mapper_device_new("testquery-send", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
@@ -59,14 +60,16 @@ int setup_source()
     int mn[]={0,0,0,0}, mx[]={10,10,10,10};
 
     for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 20, "%s%i", "/outsig_", i);
-        sendsig[i] = mdev_add_output(source, sig_name, i+1, 'i', 0, mn, mx);
-        msig_set_callback(sendsig[i], query_response_handler, 0);
-        msig_update(sendsig[i], mn, 0, MAPPER_NOW);
+        snprintf(sig_name, 20, "%s%i", "outsig_", i);
+        sendsig[i] = mapper_device_add_output_signal(source, sig_name, i+1, 'i',
+                                                     0, mn, mx);
+        mapper_signal_set_callback(sendsig[i], query_response_handler);
+        mapper_signal_update(sendsig[i], mn, 0, MAPPER_NOW);
     }
 
     eprintf("Output signals registered.\n");
-    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
 
     return 0;
 
@@ -77,25 +80,19 @@ error:
 void cleanup_source()
 {
     if (source) {
-        if (source->routers) {
-            eprintf("Removing router.. ");
-            fflush(stdout);
-            mdev_remove_router(source, source->routers);
-            eprintf("ok\n");
-        }
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig,mapper_db_signal props,
-                   int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
-        eprintf("--> destination got %s %f\n", props->name, (*(float*)value));
+        eprintf("--> destination got %s %f\n", mapper_signal_name(sig),
+                (*(float*)value));
     }
     received++;
 }
@@ -104,7 +101,7 @@ void insig_handler(mapper_signal sig,mapper_db_signal props,
 int setup_destination()
 {
     char sig_name[10];
-    destination = mdev_new("testquery-recv", 0, 0);
+    destination = mapper_device_new("testquery-recv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
@@ -112,13 +109,15 @@ int setup_destination()
     float mn[]={0,0,0,0}, mx[]={1,1,1,1};
 
     for (int i = 0; i < 4; i++) {
-        snprintf(sig_name, 10, "%s%i", "/insig_", i);
-        recvsig[i] = mdev_add_input(destination, sig_name, i+1,
-                                    'f', 0, mn, mx, insig_handler, 0);
+        snprintf(sig_name, 10, "%s%i", "insig_", i);
+        recvsig[i] = mapper_device_add_input_signal(destination, sig_name, i+1,
+                                                    'f', 0, mn, mx,
+                                                    insig_handler, 0);
     }
 
-    eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Input signal 'insig' registered.\n");
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
 
     return 0;
 
@@ -131,62 +130,54 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
 
         usleep(50 * 1000);
     }
 }
 
-int setup_connections()
+int setup_maps()
 {
     int i;
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
-
-    char src_name[1024], dest_name[1024];
-    mapper_monitor_link(mon, mdev_name(source),
-                        mdev_name(destination), 0, 0);
-
-    i = 0;
-    while (!done && !source->routers) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
-        if (i++ > 100)
-            return 1;
-    }
-
-    for (int i = 0; i < 4; i++) {
-        msig_full_name(sendsig[i], src_name, 1024);
-        msig_full_name(recvsig[i], dest_name, 1024);
-        mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+    mapper_map maps[4] = {0, 0, 0, 0};
+    for (i = 0; i < 2; i++) {
+        maps[i] = mapper_map_new(1, &sendsig[i], recvsig[i]);
+        mapper_map_push(maps[i]);
     }
 
     // swap the last two signals to mix up signal vector lengths
-    msig_full_name(sendsig[2], src_name, 1024);
-    msig_full_name(recvsig[3], dest_name, 1024);
-    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
-    msig_full_name(sendsig[3], src_name, 1024);
-    msig_full_name(recvsig[2], dest_name, 1024);
-    mapper_monitor_connect(mon, src_name, dest_name, 0, 0);
+    maps[2] = mapper_map_new(1, &sendsig[2], recvsig[3]);
+    mapper_map_push(maps[2]);
+    maps[3] = mapper_map_new(1, &sendsig[3], recvsig[2]);
+    mapper_map_push(maps[3]);
 
     i = 0;
-    // wait until connection has been established
-    while (!done && !source->routers->num_connections) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
+    int ready = 0;
+    // wait until mapping has been established
+    while (!done && !ready) {
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
         if (i++ > 100)
             return 1;
+        ready = 1;
+        for (i = 0; i < 4; i++) {
+            if (!mapper_map_ready(maps[i])) {
+                ready = 0;
+                break;
+            }
+        }
     }
 
-    mapper_monitor_free(mon);
     return 0;
 }
 
@@ -200,15 +191,15 @@ void loop()
         for (j = 0; j < 4; j++)
             value[j] = (i % 10) * 1.0f;
         for (j = 0; j < 4; j++) {
-            msig_update(recvsig[j], value, 0, MAPPER_NOW);
+            mapper_signal_update(recvsig[j], value, 0, MAPPER_NOW);
         }
         eprintf("\ndestination values updated to %f -->\n", (i % 10) * 1.0f);
         for (j = 0; j < 4; j++) {
-            sent += count = msig_query_remotes(sendsig[j], MAPPER_NOW);
+            sent += count = mapper_signal_query_remotes(sendsig[j], MAPPER_NOW);
             eprintf("Sent %i queries for sendsig[%i]\n", count, j);
         }
-        mdev_poll(destination, 50);
-        mdev_poll(source, 50);
+        mapper_device_poll(destination, 50);
+        mapper_device_poll(source, 50);
         i++;
 
         if (!verbose) {
@@ -269,7 +260,7 @@ int main(int argc, char **argv)
 
     wait_local_devices();
 
-    if (autoconnect && setup_connections()) {
+    if (autoconnect && setup_maps()) {
         eprintf("Error connecting signals.\n");
         result = 1;
         goto done;

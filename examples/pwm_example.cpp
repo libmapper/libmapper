@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <signal.h>
 
-#include <mapper/mapper.h>
+#include <mapper/mapper_cpp.h>
 
 #include "pwm_synth/pwm.h"
 
@@ -14,12 +14,8 @@ void ctrlc(int)
     done = 1;
 }
 
-void handler_freq(mapper_signal msig,
-                  mapper_db_signal props,
-                  int instance_id,
-                  void *value,
-                  int count,
-                  mapper_timetag_t *timetag)
+void handler_freq(mapper_signal sig, mapper_id instance, const void *value,
+                  int count, mapper_timetag_t *timetag)
 {
     if (value) {
         float *pfreq = (float*)value;
@@ -27,12 +23,8 @@ void handler_freq(mapper_signal msig,
     }
 }
 
-void handler_gain(mapper_signal msig,
-                  mapper_db_signal props,
-                  int instance_id,
-                  void *value,
-                  int count,
-                  mapper_timetag_t *timetag)
+void handler_gain(mapper_signal sig, mapper_id instance, const void *value,
+                  int count, mapper_timetag_t *timetag)
 {
     if (value) {
         float *pgain = (float*)value;
@@ -42,12 +34,8 @@ void handler_gain(mapper_signal msig,
         set_gain(0);
 }
 
-void handler_duty(mapper_signal msig,
-                  mapper_db_signal props,
-                  int instance_id,
-                  void *value,
-                  int count,
-                  mapper_timetag_t *timetag)
+void handler_duty(mapper_signal sig, mapper_id instance, const void *value,
+                  int count, mapper_timetag_t *timetag)
 {
     if (value) {
         float *pduty = (float*)value;
@@ -59,18 +47,18 @@ int main()
 {
     signal(SIGINT, ctrlc);
 
-    mapper_device dev = mdev_new("pwm", 9000, 0);
+    mapper::Device dev("pwm");
 
     float min0 = 0;
     float max1 = 1;
     float max1000 = 1000;
 
-    mdev_add_input(dev, "/freq", 1, 'f', "Hz", &min0, &max1000,
-                   handler_freq, 0);
-    mdev_add_input(dev, "/gain", 1, 'f', "Hz", &min0, &max1,
-                   handler_gain, 0);
-    mdev_add_input(dev, "/duty", 1, 'f', "Hz", &min0, &max1,
-                   handler_duty, 0);
+    dev.add_input_signal("/freq", 1, 'f', "Hz", &min0, &max1000,
+                         handler_freq, 0);
+    dev.add_input_signal("/gain", 1, 'f', "Hz", &min0, &max1,
+                         handler_gain, 0);
+    dev.add_input_signal("/duty", 1, 'f', "Hz", &min0, &max1,
+                         handler_duty, 0);
 
     run_synth();
 
@@ -81,9 +69,7 @@ int main()
     printf("Press Ctrl-C to quit.\n");
 
     while (!done)
-        mdev_poll(dev, 10);
-
-    mdev_free(dev);
+        dev.poll(10);
 
     set_freq(0);
     sleep(1);

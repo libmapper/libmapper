@@ -29,19 +29,20 @@ mapper_signal recvsig = 0;
 int sent = 0;
 int received = 0;
 
-int setup_source()
+int setup_source(char *iface)
 {
-    source = mdev_new("testsend", 0, 0);
+    source = mapper_device_new("testsend", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
-    float mn=0, mx=1;
+    int mn=0, mx=1;
+    sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'i', 0,
+                                              &mn, &mx);
 
-    sendsig = mdev_add_output(source, "/outsig", 1, 'f', 0, &mn, &mx);
-
-    eprintf("Output signal /outsig registered.\n");
-    eprintf("Number of outputs: %d\n", mdev_num_outputs(source));
+    eprintf("Output signal 'outsig' registered.\n");
+    eprintf("Number of outputs: %d\n",
+            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
     return 0;
 
   error:
@@ -53,14 +54,13 @@ void cleanup_source()
     if (source) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mdev_free(source);
+        mapper_device_free(source);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_db_signal props,
-                   int instance_id, void *value, int count,
-                   mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
+                   int count, mapper_timetag_t *timetag)
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
@@ -68,20 +68,20 @@ void insig_handler(mapper_signal sig, mapper_db_signal props,
     received++;
 }
 
-int setup_destination()
+int setup_destination(char *iface)
 {
-    destination = mdev_new("testrecv", 0, 0);
+    destination = mapper_device_new("testrecv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0,
+                                             &mn, &mx, insig_handler, 0);
 
-    recvsig = mdev_add_input(destination, "/insig", 1, 'f', 0,
-                             &mn, &mx, insig_handler, 0);
-
-    eprintf("Input signal /insig registered.\n");
-    eprintf("Number of inputs: %d\n", mdev_num_inputs(destination));
+    eprintf("Input signal 'insig' registered.\n");
+    eprintf("Number of inputs: %d\n",
+            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
     return 0;
 
   error:
@@ -93,63 +93,44 @@ void cleanup_destination()
     if (destination) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mdev_free(destination);
+        mapper_device_free(destination);
         eprintf("ok\n");
     }
 }
 
-int setup_connection()
+int setup_maps()
 {
-    float src_min = 0., src_max = 1., dest_min = -10., dest_max = 10.;
+    float src_min = 0.f, src_max = 100.f, dest_min = -10.f, dest_max = 10.f;
 
-    mapper_monitor mon = mapper_monitor_new(source->admin, 0);
+    mapper_map map = mapper_map_new(1, &sendsig, recvsig);
+    mapper_map_set_mode(map, MAPPER_MODE_LINEAR);
 
-    char src_name[1024], dest_name[1024];
-    mapper_monitor_link(mon, mdev_name(source),
-                        mdev_name(destination), 0, 0);
+    mapper_slot slot = mapper_map_slot(map, MAPPER_LOC_SOURCE, 0);
+    mapper_slot_set_minimum(slot, 1, 'f', &src_min);
+    mapper_slot_set_maximum(slot, 1, 'f', &src_max);
 
-    // Wait until link has been established
-    while (!done && !source->routers) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
+    slot = mapper_map_slot(map, MAPPER_LOC_DESTINATION, 0);
+    mapper_slot_set_minimum(slot, 1, 'f', &dest_min);
+    mapper_slot_set_maximum(slot, 1, 'f', &dest_max);
+    mapper_slot_set_bound_min(slot, MAPPER_BOUND_FOLD);
+
+    mapper_map_push(map);
+
+    // Wait until mapping has been established
+    while (!done && !mapper_map_ready(map)) {
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
     }
-
-    msig_full_name(sendsig, src_name, 1024);
-    msig_full_name(recvsig, dest_name, 1024);
-
-    mapper_db_connection_t props;
-    props.src_min = &src_min;
-    props.src_max = &src_max;
-    props.dest_min = &dest_min;
-    props.dest_max = &dest_max;
-    props.range_known = CONNECTION_RANGE_KNOWN;
-    props.src_length = 1;
-    props.dest_length = 1;
-    props.src_type = 'f';
-    props.dest_type = 'f';
-    props.mode = MO_LINEAR;
-
-    mapper_monitor_connect(mon, src_name, dest_name, &props,
-                           CONNECTION_RANGE_KNOWN | CONNECTION_MODE |
-                           CONNECTION_SRC_TYPE | CONNECTION_SRC_LENGTH |
-                           CONNECTION_DEST_TYPE | CONNECTION_DEST_LENGTH);
-
-    // Wait until connection has been established
-    while (!done && !source->routers->num_connections) {
-        mdev_poll(source, 10);
-        mdev_poll(destination, 10);
-    }
-
-    mapper_monitor_free(mon);
 
     return 0;
 }
 
 void wait_ready()
 {
-    while (!done && !(mdev_ready(source) && mdev_ready(destination))) {
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
+    while (!done && !(mapper_device_ready(source)
+                      && mapper_device_ready(destination))) {
+        mapper_device_poll(source, 0);
+        mapper_device_poll(destination, 0);
         usleep(500 * 1000);
     }
 }
@@ -159,12 +140,11 @@ void loop()
     eprintf("Polling device..\n");
     int i = 0;
     while ((!terminate || i < 50) && !done) {
-        mdev_poll(source, 0);
-        eprintf("Updating signal %s to %f\n",
-               sendsig->props.name, (i * 1.0f));
-        msig_update_float(sendsig, (i * 1.0f));
+        mapper_device_poll(source, 0);
+        eprintf("Updating signal %s to %d\n", mapper_signal_name(sendsig), i);
+        mapper_signal_update_int(sendsig, i);
         sent++;
-        mdev_poll(destination, 100);
+        mapper_device_poll(destination, 100);
         i++;
 
         if (!verbose) {
@@ -182,6 +162,7 @@ void ctrlc(int signal)
 int main(int argc, char **argv)
 {
     int i, j, result = 0;
+    char *iface = 0;
 
     // process flags for -v verbose, -t terminate, -h help
     for (i = 1; i < argc; i++) {
@@ -202,6 +183,13 @@ int main(int argc, char **argv)
                     case 't':
                         terminate = 1;
                         break;
+                    case '-':
+                        if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
+                            i++;
+                            iface = argv[i];
+                            j = 1;
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -211,13 +199,13 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_destination()) {
+    if (setup_destination(iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source()) {
+    if (setup_source(iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
@@ -225,8 +213,8 @@ int main(int argc, char **argv)
 
     wait_ready();
 
-    if (autoconnect && setup_connection()) {
-        eprintf("Error initializing router.\n");
+    if (autoconnect && setup_maps()) {
+        eprintf("Error initializing maps.\n");
         result = 1;
         goto done;
     }

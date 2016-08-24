@@ -54,14 +54,27 @@ Signals
 
 Now that we have created a device, we only need to know how to
 add signals in order to give our program some input/output functionality.
+  While libmapper enables arbitrary connections
+between _any_ declared signals, we still find it helpful to distinguish
+between two type of signals: `inputs` and `outputs`. 
 
-We'll start with creating a "sender", so we will first talk about how
-to update output signals.
+- `outputs` signals are _sources_ of data, updated locally by their parent device
+- `inputs` signals are _consumers_ of data and are **not** generally
+updated locally by their parent device.
+
+This can become a bit confusing, since the "reverb" parameter of a sound
+synthesizer might be updated locally through user interaction with a GUI,
+however the normal use of this signal is as a _destination_ for control data
+streams so it should be defined as an `input` signal.  Note that this distinction
+is to help with GUI organization and user-understanding – _libmapper_
+enables connections from output signals to input signals if desired.
 
 Creating a signal
 -----------------
 
-Creating a signal requires two pieces of information: 
+
+We'll start with creating a "sender", so we will first talk about how
+to update output signals.  Creating a signal requires two pieces of information: 
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's data type expressed as a character 'i' for `integer`, 'f'
@@ -252,8 +265,23 @@ To specify a string property of a signal:
 
 ![Adding extra properties to a signal](./images/puredata9.png)
 
-In general you can use any property name not already in use by the
-device or signal data structure.  Reserved words for signals are: 
-`device_name` `direction` `length` `max` `min` `name` `type` `unit`
+## Reserved keys
 
-for devices, they are: `host` `port` `name`
+In general you can use any property name not already in use by the
+device or signal data structure.
+
+### Reserved keys for devices
+
+`description`, `host`, `id`, `libversion`, `name`, `num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `version`, `user_data`
+
+### Reserved keys for signals
+
+`description`, `direction`, `id`, `length`, `max`, `maximum`, `min`, `minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`, `type`, `unit`, `user_data`
+
+### Reserved keys for maps
+
+`expression`, `id`, `mode`, `muted`, `num_sources`, `process_location`, `status`
+
+### Reserved keys for slots
+
+`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`, `maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`

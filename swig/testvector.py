@@ -2,32 +2,29 @@
 
 import sys, mapper, random
 
-def h(sig, id, f, timetag):
-    print '  handler got', sig.name, '=', f, 'at time', timetag
+def h(sig, id, val, timetag):
+    print '  handler got', sig.name, '=', val, 'at time', timetag
 
 mins = [0,0,0,0,0,0,0,0,0,0]
 maxs = [1,1,1,1,1,1,1,1,1,1]
 
 src = mapper.device("src")
-outsig = src.add_output("/outsig1", 10, 'i', None, mins, maxs)
+outsig = src.add_output_signal("outsig1", 10, 'i', None, mins, maxs)
 
 dest = mapper.device("dest")
-insig = dest.add_input("/insig1", 10, 'f', None, mins, maxs, h)
+insig = dest.add_input_signal("insig1", 10, 'f', None, mins, maxs, h)
 
 while not src.ready() or not dest.ready():
-    src.poll()
+    src.poll(10)
     dest.poll(10)
 
-monitor = mapper.monitor()
+map = mapper.map(outsig, insig)
+map.mode = mapper.MODE_EXPRESSION
+map.push()
 
-monitor.link('%s' %src.name, '%s' %dest.name)
-while not src.num_links_out:
-    src.poll()
+while not map.ready():
+    src.poll(10)
     dest.poll(10)
-monitor.connect('%s%s' %(src.name, outsig.name),
-                '%s%s' %(dest.name, insig.name),
-                {'mode': mapper.MO_LINEAR})
-monitor.poll()
 
 for i in range(100):
     outsig.update([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
