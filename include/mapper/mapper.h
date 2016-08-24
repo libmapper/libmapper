@@ -1517,7 +1517,12 @@ double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b);
 /*! Add seconds to a given timetag.
  *  \param tt       A previously allocated timetag to augment.
  *  \param addend   An amount in seconds to add. */
-void mapper_timetag_add_seconds(mapper_timetag_t *tt, double addend);
+void mapper_timetag_add_double(mapper_timetag_t *tt, double addend);
+
+/*! Multiply a given timetag by a double.
+ *  \param tt       A previously allocated timetag to augment.
+ *  \param multiplier   An amount in seconds to multiply. */
+void mapper_timetag_multiply(mapper_timetag_t *tt, double multiplier);
 
 /*! Return value of mapper_timetag as a double-precision floating point value.
  *  \param tt   The timetag to read.

@@ -227,12 +227,10 @@ void select_on_both_devices(int block_ms)
         timersub(&then, &now, &timeout);
     }
 
-    if (!updated) {
-        /* If nothing happened in 100 ms, we should poll the devices
-         * anyways in case action needs to be taken. */
-        mdev_poll(source, 0);
-        mdev_poll(destination, 0);
-    }
+    /* If nothing happened in 100 ms, we should poll the devices
+     * anyways in case action needs to be taken. */
+    mdev_poll(source, 0);
+    mdev_poll(destination, 0);
 }
 
 void loop()

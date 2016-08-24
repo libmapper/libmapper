@@ -896,7 +896,7 @@ static void mapper_admin_maybe_send_ping(mapper_admin admin, int force)
 /*! This is the main function to be called once in a while from a
  *  program so that the admin bus can be automatically managed.
  */
-int mapper_admin_poll(mapper_admin admin)
+int mapper_admin_poll(mapper_admin admin, int read_socket)
 {
     int count = 0, status;
     mapper_device md = admin->device;
@@ -904,14 +904,16 @@ int mapper_admin_poll(mapper_admin admin)
     // send out any cached messages
     mapper_admin_send_bundle(admin);
 
-    if (md)
-        md->flags &= ~FLAGS_SENT_ALL_DEVICE_MESSAGES;
+    if (read_socket) {
+        if (md)
+            md->flags &= ~FLAGS_SENT_ALL_DEVICE_MESSAGES;
 
-    while (count < 10 && (lo_server_recv_noblock(admin->bus_server, 0)
-           + lo_server_recv_noblock(admin->mesh_server, 0))) {
-        count++;
+        while (count < 10 && (lo_server_recv_noblock(admin->bus_server, 0)
+               + lo_server_recv_noblock(admin->mesh_server, 0))) {
+            count++;
+        }
+        admin->msgs_recvd += count;
     }
-    admin->msgs_recvd += count;
 
     if (!md) {
         mapper_admin_maybe_send_ping(admin, 0);

@@ -45,7 +45,7 @@ int test_admin()
 
     while (!my_device->registered) {
         usleep(10000);
-        mapper_admin_poll(my_admin);
+        mapper_admin_poll(my_admin, 1);
     }
 
     eprintf("Using port %d.\n", my_device->props.port);
@@ -55,7 +55,7 @@ int test_admin()
     wait = 50;
     while (wait-- > 0) {
         usleep(50000);
-        mapper_admin_poll(my_admin);
+        mapper_admin_poll(my_admin, 1);
         if (!verbose) {
             printf(".");
             fflush(stdout);

@@ -31,7 +31,7 @@ double mapper_timetag_difference(mapper_timetag_t a, mapper_timetag_t b)
         ((double)a.frac - (double)b.frac) * multiplier;
 }
 
-void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
+void mapper_timetag_add_double(mapper_timetag_t *a, double b)
 {
     if (!b)
         return;
@@ -40,10 +40,18 @@ void mapper_timetag_add_seconds(mapper_timetag_t *a, double b)
     a->sec += floor(b);
     b -= floor(b);
     if (b < 0.0) {
-        a->sec--;
+        --a->sec;
         b = 1.0 - b;
     }
     a->frac = (uint32_t) (((double)b) * (double)(1LL<<32));
+}
+
+void mapper_timetag_multiply(mapper_timetag_t *tt, double d)
+{
+    d *= mapper_timetag_get_double(*tt);
+    tt->sec = floor(d);
+    d -= tt->sec;
+    tt->frac = (uint32_t) (d * (double)(1LL<<32));
 }
 
 double mapper_timetag_get_double(mapper_timetag_t timetag)

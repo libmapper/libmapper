@@ -159,7 +159,7 @@ void mapper_admin_add_monitor(mapper_admin admin, mapper_monitor mon);
 
 void mapper_admin_remove_monitor(mapper_admin admin, mapper_monitor mon);
 
-int mapper_admin_poll(mapper_admin admin);
+int mapper_admin_poll(mapper_admin admin, int read_socket);
 
 void mapper_admin_set_bundle_dest_bus(mapper_admin admin);
 
