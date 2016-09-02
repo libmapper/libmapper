@@ -42,7 +42,7 @@ int setup_source()
     float mn=0, mx=10;
 
     sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUTGOING, 10,
-                                       "/outsig", 1, 'f', 0, &mn, &mx, 0, 0);
+                                       "outsig", 1, 'f', 0, &mn, &mx, 0, 0);
     if (!sendsig)
         goto error;
 
@@ -104,7 +104,7 @@ int setup_destination()
 
     // Specify 0 instances since we wish to use specific ids
     recvsig = mapper_device_add_signal(destination, MAPPER_DIR_INCOMING, 0,
-                                       "/insig", 1, 'f', 0, &mn, 0,
+                                       "insig", 1, 'f', 0, &mn, 0,
                                        insig_handler, 0);
     if (!recvsig)
         goto error;
