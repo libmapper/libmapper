@@ -271,6 +271,11 @@ int mapper_link_set_from_message(mapper_link link, mapper_message msg,
     return updated;
 }
 
+void mapper_link_clear_staged_properties(mapper_link link) {
+    if (link)
+        mapper_table_clear(link->staged_props);
+}
+
 void mapper_link_push(mapper_link link)
 {
     if (!link || !link->devices[0])

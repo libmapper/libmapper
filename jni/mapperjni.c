@@ -1688,6 +1688,24 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_removeProperty
     return obj;
 }
 
+JNIEXPORT jobject JNICALL Java_mapper_Device_clearStagedProperties
+  (JNIEnv *env, jobject obj)
+{
+    mapper_device dev = get_device_from_jobject(env, obj);
+    if (dev)
+        mapper_device_clear_staged_properties(dev);
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Device_push
+  (JNIEnv *env, jobject obj)
+{
+    mapper_device dev = get_device_from_jobject(env, obj);
+    if (dev)
+        mapper_device_push(dev);
+    return obj;
+}
+
 JNIEXPORT jstring JNICALL Java_mapper_Device_host
   (JNIEnv *env, jobject obj)
 {
@@ -2060,15 +2078,6 @@ JNIEXPORT void JNICALL Java_mapper_link_Query_mapperLinkQueryDone
 
 /**** mapper_Link.h ****/
 
-JNIEXPORT jobject JNICALL Java_mapper_Link_push
-  (JNIEnv *env, jobject obj)
-{
-    mapper_link link = get_link_from_jobject(env, obj);
-    if (link)
-        mapper_link_push(link);
-    return obj;
-}
-
 JNIEXPORT jint JNICALL Java_mapper_Link_numProperties
   (JNIEnv *env, jobject obj)
 {
@@ -2136,6 +2145,24 @@ JNIEXPORT jobject JNICALL Java_mapper_Link_removeProperty
         mapper_link_remove_property(link, ckey);
         (*env)->ReleaseStringUTFChars(env, key, ckey);
     }
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Link_clearStagedProperties
+  (JNIEnv *env, jobject obj)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    if (link)
+        mapper_link_clear_staged_properties(link);
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Link_push
+(JNIEnv *env, jobject obj)
+{
+    mapper_link link = get_link_from_jobject(env, obj);
+    if (link)
+        mapper_link_push(link);
     return obj;
 }
 
@@ -2476,15 +2503,6 @@ JNIEXPORT jlong JNICALL Java_mapper_Map_mapperMapNew
     return map ? jlong_ptr(map) : 0;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_Map_push
-  (JNIEnv *env, jobject obj)
-{
-    mapper_map map = get_map_from_jobject(env, obj);
-    if (map)
-        mapper_map_push(map);
-    return obj;
-}
-
 JNIEXPORT jobject JNICALL Java_mapper_Map_refresh
   (JNIEnv *env, jobject obj)
 {
@@ -2561,6 +2579,24 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_removeProperty
         mapper_map_remove_property(map, ckey);
         (*env)->ReleaseStringUTFChars(env, key, ckey);
     }
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Map_clearStagedProperties
+  (JNIEnv *env, jobject obj)
+{
+    mapper_map map = get_map_from_jobject(env, obj);
+    if (map)
+        mapper_map_clear_staged_properties(map);
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Map_push
+(JNIEnv *env, jobject obj)
+{
+    mapper_map map = get_map_from_jobject(env, obj);
+    if (map)
+        mapper_map_push(map);
     return obj;
 }
 
@@ -3483,6 +3519,24 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_removeProperty
         mapper_signal_remove_property(sig, ckey);
         (*env)->ReleaseStringUTFChars(env, key, ckey);
     }
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Signal_clearStagedProperties
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (sig)
+        mapper_signal_clear_staged_properties(sig);
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Signal_push
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (sig)
+        mapper_signal_push(sig);
     return obj;
 }
 

@@ -535,6 +535,8 @@ namespace mapper {
             { return _map; }
         operator mapper_id() const
             { return mapper_map_id(_map); }
+        const Map& clear_staged_properties() const
+            { mapper_map_clear_staged_properties(_map); return (*this); }
         const Map& push() const
             { mapper_map_push(_map); return (*this); }
         const Map& refresh() const
@@ -966,6 +968,8 @@ namespace mapper {
             { return _link; }
         operator mapper_id() const
             { return mapper_link_id(_link); }
+        const Link& clear_staged_properties() const
+            { mapper_link_clear_staged_properties(_link); return (*this); }
         const Link& push() const
             { mapper_link_push(_link); return (*this); }
         inline Device device(int idx) const;
@@ -1241,6 +1245,10 @@ namespace mapper {
                 mapper_signal_remove_property(_sig, key);
             return (*this);
         }
+        const Signal& clear_staged_properties() const
+            { mapper_signal_clear_staged_properties(_sig); return (*this); }
+        const Signal& push() const
+            { mapper_signal_push(_sig); return (*this); }
         int num_properties() const
             { return mapper_signal_num_properties(_sig); }
         Property property(const string_type &name) const
@@ -1746,6 +1754,10 @@ namespace mapper {
                 set_property(&p);
             return (*this);
         }
+        const Device& clear_staged_properties() const
+            { mapper_device_clear_staged_properties(_dev); return (*this); }
+        const Device& push() const
+            { mapper_device_push(_dev); return (*this); }
 
         Network network() const
             { return Network(mapper_device_network(_dev)); }

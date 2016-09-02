@@ -109,9 +109,6 @@ public class Map
         destination = new Slot(mapperMapDstSlotPtr(_map));
     }
 
-    /* push */
-    public native Map push();
-
     /* refresh */
     public native Map refresh();
 
@@ -127,6 +124,12 @@ public class Map
     public Map removeProperty(Property prop) {
         return removeProperty(prop.name);
     }
+
+    /* clear staged properties */
+    public native Map clearStagedProperties();
+
+    /* push */
+    public native Map push();
 
     /* property: expression */
     public native String expression();

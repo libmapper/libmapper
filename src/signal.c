@@ -198,6 +198,11 @@ void mapper_signal_free(mapper_signal sig)
         free(sig->unit);
 }
 
+void mapper_signal_clear_staged_properties(mapper_signal sig) {
+    if (sig)
+        mapper_table_clear(sig->staged_props);
+}
+
 void mapper_signal_push(mapper_signal sig)
 {
     if (!sig)

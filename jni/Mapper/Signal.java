@@ -251,6 +251,12 @@ public class Signal
         return removeProperty(prop.name);
     }
 
+    /* clear staged properties */
+    public native Signal clearStagedProperties();
+
+    /* push */
+    public native Signal push();
+
     /* property: direction */
     private native int direction(long sig);
     public Direction direction() {

@@ -12,9 +12,6 @@ public class Link
         _link = link;
     }
 
-    /* push */
-    public native Link push();
-
     /* properties */
     public native int numProperties();
     public native Value property(String property);
@@ -27,6 +24,12 @@ public class Link
     public Link removeProperty(Property prop) {
         return removeProperty(prop.name);
     }
+
+    /* clear staged properties */
+    public native Link clearStagedProperties();
+
+    /* push */
+    public native Link push();
 
     /* property: id */
     public native long id();

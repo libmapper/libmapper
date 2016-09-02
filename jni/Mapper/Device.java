@@ -82,6 +82,12 @@ public class Device
         return removeProperty(prop.name);
     }
 
+    /* clear staged properties */
+    public native Device clearStagedProperties();
+
+    /* push */
+    public native Device push();
+
     /* property: host */
     public native String host();
 

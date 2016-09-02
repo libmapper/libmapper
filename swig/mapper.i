@@ -1155,6 +1155,10 @@ typedef struct _device_query {
         PyEval_RestoreThread(_save);
         return rc;
     }
+    device *clear_staged_properties() {
+        mapper_device_clear_staged_properties((mapper_device)$self);
+        return $self;
+    }
     device *push() {
         mapper_device_push((mapper_device)$self);
         return $self;
@@ -1468,6 +1472,10 @@ typedef struct _link_query {
     /* Note, these functions return memory which is _not_ owned by Python.
      * Correspondingly, the SWIG default is to set thisown to False, which is
      * correct for this case. */
+    link *clear_staged_properties() {
+        mapper_link_clear_staged_properties((mapper_link)$self);
+        return $self;
+    }
     link *push() {
         mapper_link_push((mapper_link)$self);
         return $self;
@@ -1655,6 +1663,10 @@ typedef struct _signal_query {
     }
     int instance_id(int index) {
         return mapper_signal_instance_id((mapper_signal)$self, index);
+    }
+    signal *clear_staged_properties() {
+        mapper_signal_clear_staged_properties((mapper_signal)$self);
+        return $self;
     }
     signal *push() {
         mapper_signal_push((mapper_signal)$self);
@@ -2099,6 +2111,10 @@ typedef struct _map_query {
     }
     ~_map() {
         ;
+    }
+    map *clear_staged_properties() {
+        mapper_map_clear_staged_properties((mapper_map)$self);
+        return $self;
     }
     map *push() {
         mapper_map_push((mapper_map)$self);

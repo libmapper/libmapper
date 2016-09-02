@@ -189,6 +189,11 @@ void *mapper_map_user_data(mapper_map map)
     return map ? map->user_data : 0;
 }
 
+void mapper_map_clear_staged_properties(mapper_map map) {
+    if (map)
+        mapper_table_clear(map->staged_props);
+}
+
 void mapper_map_push(mapper_map map)
 {
     if (!map)

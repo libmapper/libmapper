@@ -433,6 +433,10 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit);
 int mapper_signal_set_property(mapper_signal sig, const char *name,
                                int length, char type, const void *value);
 
+/*! Clear any staged property changes.
+ *  \param sig          The signal to operate on. */
+void mapper_signal_clear_staged_properties(mapper_signal sig);
+
 /*! Push any property changes out to the network.
  *  \param sig          The signal to operate on. */
 void mapper_signal_push(mapper_signal sig);
@@ -766,6 +770,10 @@ void mapper_device_set_description(mapper_device dev, const char *description);
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_device_set_property(mapper_device dev, const char *name,
                                int length, char type, const void *value);
+
+/*! Clear any staged property changes.
+ *  \param dev          The device to operate on. */
+void mapper_device_clear_staged_properties(mapper_device dev);
 
 /*! Push any property changes out to the network.
  *  \param dev      	The device to operate on. */
@@ -1104,6 +1112,10 @@ int mapper_link_set_property(mapper_link link, const char *name, int length,
  *  \return             1 if property has been removed, 0 otherwise. */
 int mapper_link_remove_property(mapper_link link, const char *name);
 
+/*! Clear any staged property changes.
+ *  \param link         The link to operate on. */
+void mapper_link_clear_staged_properties(mapper_link link);
+
 /*! Push any property changes out to the network.
  *  \param link         The link to operate on. */
 void mapper_link_push(mapper_link link);
@@ -1308,6 +1320,10 @@ void mapper_map_set_process_location(mapper_map map, mapper_location location);
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_map_set_property(mapper_map map, const char *name, int length,
                             char type, const void *value);
+
+/*! Clear any staged property changes.
+ *  \param map          The map to operate on. */
+void mapper_map_clear_staged_properties(mapper_map map);
 
 /*! Push any property changes out to the network.
  *  \param map          The map to operate on. */

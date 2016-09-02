@@ -220,6 +220,11 @@ void mapper_device_free(mapper_device dev)
     }
 }
 
+void mapper_device_clear_staged_properties(mapper_device dev) {
+    if (dev)
+        mapper_table_clear(dev->staged_props);
+}
+
 void mapper_device_push(mapper_device dev)
 {
     if (!dev)
