@@ -2469,9 +2469,14 @@ typedef struct _map_query {
         PyEval_RestoreThread(_save);
         return rc;
     }
-    database *subscribe(device *dev, int subscribe_flags=0, int timeout=0) {
+    database *subscribe(device *dev, int subscribe_flags=0, int timeout=-1) {
         mapper_database_subscribe((mapper_database)$self, (mapper_device)dev,
                                   subscribe_flags, timeout);
+        return $self;
+    }
+    database *subscribe(int subscribe_flags=0, int timeout=-1) {
+        mapper_database_subscribe((mapper_database)$self, 0, subscribe_flags,
+                                  timeout);
         return $self;
     }
     database *unsubscribe(device *dev) {
