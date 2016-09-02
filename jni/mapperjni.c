@@ -1524,8 +1524,8 @@ JNIEXPORT jint JNICALL Java_mapper_Device_mapperDevicePoll
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
-  (JNIEnv *env, jobject obj, jint dir, jstring name, jint length, jchar type,
-   jstring unit, jobject minimum, jobject maximum, jobject listener)
+  (JNIEnv *env, jobject obj, jint dir, jint numInst, jstring name, jint length,
+   jchar type, jstring unit, jobject minimum, jobject maximum, jobject listener)
 {
     if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
         return 0;
@@ -1543,9 +1543,9 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
         return 0;
     }
 
-    mapper_signal sig = mapper_device_add_signal(dev, dir, 1, cname, length,
-                                                 type, cunit, 0, 0, listener
-                                                 ? java_signal_update_cb : 0,
+    mapper_signal sig = mapper_device_add_signal(dev, dir, numInst, cname,
+                                                 length, type, cunit, 0, 0,
+                                                 listener ? java_signal_update_cb : 0,
                                                  ctx);
 
     (*env)->ReleaseStringUTFChars(env, name, cname);

@@ -888,8 +888,8 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
 
     sig->device = dev;
     sig->id = get_unused_signal_id(dev);
-    mapper_signal_init(sig, name, length, type, dir, unit, minimum, maximum,
-                       handler, user_data);
+    mapper_signal_init(sig, dir, num_instances, name, length, type, unit,
+                       minimum, maximum, handler, user_data);
 
     if (dir == MAPPER_DIR_INCOMING)
         dev->num_inputs++;

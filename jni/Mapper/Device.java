@@ -32,27 +32,28 @@ public class Device
     public int poll() { return mapperDevicePoll(_dev, 0); }
 
     /* add signals */
-    private native Signal mapperAddSignal(int direction, String name,
+    private native Signal mapperAddSignal(int dir, int numInstances, String name,
                                           int length, char type, String unit,
                                           Value minimum, Value maximum,
                                           mapper.signal.UpdateListener l);
-    public Signal addSignal(Direction dir, String name, int length, char type,
-                            String unit, Value minimum, Value maximum,
+    public Signal addSignal(Direction dir, int numInstances, String name,
+                            int length, char type, String unit,
+                            Value minimum, Value maximum,
                             mapper.signal.UpdateListener l) {
-        return mapperAddSignal(dir.value(), name, length, type, unit, minimum,
-                               maximum, l);
+        return mapperAddSignal(dir.value(), numInstances, name, length, type,
+                               unit, minimum, maximum, l);
     }
     public Signal addInputSignal(String name, int length, char type,
                                  String unit, Value minimum, Value maximum,
                                  mapper.signal.UpdateListener l) {
-        return mapperAddSignal(Direction.INCOMING.value(), name, length, type,
-                               unit, minimum, maximum, l);
+        return mapperAddSignal(Direction.INCOMING.value(), 1, name, length,
+                               type, unit, minimum, maximum, l);
     }
 
     public Signal addOutputSignal(String name, int length, char type,
                                   String unit, Value minimum, Value maximum) {
-        return mapperAddSignal(Direction.OUTGOING.value(), name, length, type,
-                               unit, minimum, maximum, null);
+        return mapperAddSignal(Direction.OUTGOING.value(), 1, name, length,
+                               type, unit, minimum, maximum, null);
     }
 
     /* remove signals */

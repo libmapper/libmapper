@@ -1707,8 +1707,9 @@ namespace mapper {
 
         Signal add_signal(mapper_direction dir, int num_instances,
                           const string_type &name, int length, char type,
-                          const string_type &unit=0, void *minimum=0,
-                          void *maximum=0, mapper_signal_update_handler handler=0,
+                          const string_type &unit=0,
+                          void *minimum=0, void *maximum=0,
+                          mapper_signal_update_handler handler=0,
                           void *user_data=0)
         {
             return Signal(mapper_device_add_signal(_dev, dir, num_instances,

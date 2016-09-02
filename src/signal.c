@@ -56,8 +56,9 @@ static mapper_signal_instance find_instance_by_id(mapper_signal sig,
     return 0;
 }
 
-void mapper_signal_init(mapper_signal sig, const char *name, int length,
-                        char type, mapper_direction direction, const char *unit,
+void mapper_signal_init(mapper_signal sig, mapper_direction direction,
+                        int num_instances, const char *name, int length,
+                        char type, const char *unit,
                         const void *minimum, const void *maximum,
                         mapper_signal_update_handler *handler,
                         const void *user_data)
@@ -89,8 +90,8 @@ void mapper_signal_init(mapper_signal sig, const char *name, int length,
             sig->local->has_complete_value[i/8] |= 1 << (i % 8);
         }
 
-        // Reserve one instance to start
-        mapper_signal_reserve_instances(sig, 1, 0, 0);
+        if (num_instances)
+            mapper_signal_reserve_instances(sig, num_instances, 0, 0);
 
         // Reserve one instance id map
         sig->local->id_map_length = 1;

@@ -512,7 +512,7 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
         sig->device = dev;
 
         // Defaults (int, length=1)
-        mapper_signal_init(sig, name, 0, 0, 0, 0, 0, 0, 0, 0);
+        mapper_signal_init(sig, 0, 0, name, 0, 0, 0, 0, 0, 0, 0);
 
         rc = 1;
     }

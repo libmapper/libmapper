@@ -338,8 +338,9 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
                                                    mapper_message_t *props);
 
 /*! Initialize an already-allocated mapper_signal structure. */
-void mapper_signal_init(mapper_signal sig, const char *name, int length,
-                        char type, mapper_direction direction, const char *unit,
+void mapper_signal_init(mapper_signal sig, mapper_direction dir,
+                        int num_instances, const char *name, int length,
+                        char type, const char *unit,
                         const void *minimum, const void *maximum,
                         mapper_signal_update_handler *handler,
                         const void *user_data);

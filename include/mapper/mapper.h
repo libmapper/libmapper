@@ -590,6 +590,7 @@ void *mapper_device_user_data(mapper_device dev);
  *  must correspond to 'type' (if type='i', then int*, etc).
  *  \param dev          The device to add a signal to.
  *  \param dir          The signal direction.
+ *  \param num_instances The number of signal instances.
  *  \param name         The name of the signal.
  *  \param length   	The length of the signal vector, or 1 for a scalar.
  *  \param type         The type fo the signal value.
