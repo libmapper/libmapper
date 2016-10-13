@@ -536,10 +536,7 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
     alloc_and_init_local_slot(rtr, &map->destination, 0, &max_num_instances);
 
     // Set num_instances property
-    if (map->destination.signal->local)
-        map->destination.num_instances = map->destination.signal->num_instances;
-    else
-        map->destination.num_instances = max_num_instances;
+    map->destination.num_instances = max_num_instances;
     map->destination.use_instances = map->destination.num_instances > 1;
     for (i = 0; i < map->num_sources; i++) {
         if (map->sources[i]->signal->local)
