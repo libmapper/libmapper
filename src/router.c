@@ -128,7 +128,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
     if (!rs)
         return;
 
-    int i, j, k, id = sig->local->id_maps[instance].instance->index;
+    int i, j, k, idx = sig->local->id_maps[instance].instance->index;
     mapper_map map;
     mapper_map_internal imap;
 
@@ -149,25 +149,25 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
             // need to reset user variable memory for this instance
             for (j = 0; j < imap->num_expr_vars; j++) {
-                memset(imap->expr_vars[id][j].value, 0, sizeof(double)
-                       * imap->expr_vars[id][j].length
-                       * imap->expr_vars[id][j].size);
-                memset(imap->expr_vars[id][j].timetag, 0,
+                memset(imap->expr_vars[idx][j].value, 0, sizeof(double)
+                       * imap->expr_vars[idx][j].length
+                       * imap->expr_vars[idx][j].size);
+                memset(imap->expr_vars[idx][j].timetag, 0,
                        sizeof(mapper_timetag_t)
-                       * imap->expr_vars[id][j].size);
-                imap->expr_vars[id][j].position = -1;
+                       * imap->expr_vars[idx][j].size);
+                imap->expr_vars[idx][j].position = -1;
             }
 
             mapper_slot dst_slot = &map->destination;
             mapper_slot_internal dst_islot = dst_slot->local;
 
             // also need to reset associated output memory
-            dst_islot->history[id].position= -1;
-            memset(dst_islot->history[id].value, 0, dst_islot->history_size
+            dst_islot->history[idx].position= -1;
+            memset(dst_islot->history[idx].value, 0, dst_islot->history_size
                    * dst_slot->signal->length * mapper_type_size(dst_slot->signal->type));
-            memset(dst_islot->history[id].timetag, 0, dst_islot->history_size
+            memset(dst_islot->history[idx].timetag, 0, dst_islot->history_size
                    * sizeof(mapper_timetag_t));
-            dst_islot->history[id].position = -1;
+            dst_islot->history[idx].position = -1;
 
             if (slot->direction == MAPPER_DIR_OUTGOING
                 && !(sig->local->id_maps[instance].status & RELEASED_REMOTELY)) {
@@ -186,11 +186,11 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 islot = slot->local;
 
                 // also need to reset associated input memory
-                memset(islot->history[id].value, 0, islot->history_size
+                memset(islot->history[idx].value, 0, islot->history_size
                        * slot->signal->length * mapper_type_size(slot->signal->type));
-                memset(islot->history[id].timetag, 0, islot->history_size
+                memset(islot->history[idx].timetag, 0, islot->history_size
                        * sizeof(mapper_timetag_t));
-                islot->history[id].position = -1;
+                islot->history[idx].position = -1;
 
                 if (!map->sources[j]->use_instances)
                     continue;
@@ -246,19 +246,19 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
         for (j = 0; j < count; j++) {
             // copy input history
             size_t n = mapper_signal_vector_bytes(sig);
-            islot->history[id].position = ((islot->history[id].position + 1)
-                                           % islot->history[id].size);
-            memcpy(mapper_history_value_ptr(islot->history[id]), value + n * j, n);
-            memcpy(mapper_history_tt_ptr(islot->history[id]),
+            islot->history[idx].position = ((islot->history[idx].position + 1)
+                                            % islot->history[idx].size);
+            memcpy(mapper_history_value_ptr(islot->history[idx]), value + n * j, n);
+            memcpy(mapper_history_tt_ptr(islot->history[idx]),
                    &tt, sizeof(mapper_timetag_t));
 
             // process source boundary behaviour
-            if ((mapper_boundary_perform(&islot->history[id], slot,
+            if ((mapper_boundary_perform(&islot->history[idx], slot,
                                          src_types + slot->signal->length * k))) {
                 // back up position index
-                --islot->history[id].position;
-                if (islot->history[id].position < 0)
-                    islot->history[id].position = islot->history[id].size - 1;
+                --islot->history[idx].position;
+                if (islot->history[idx].position < 0)
+                    islot->history[idx].position = islot->history[idx].size - 1;
                 continue;
             }
 
@@ -269,24 +269,24 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             if (map->process_location == MAPPER_LOC_SOURCE && !slot->causes_update)
                 continue;
 
-            if (!(mapper_map_perform(map, slot, id,
+            if (!(mapper_map_perform(map, slot, idx,
                                      dst_types + to->signal->length * k)))
                 continue;
 
             if (map->process_location == MAPPER_LOC_SOURCE) {
                 // also process destination boundary behaviour
-                if ((mapper_boundary_perform(&map->destination.local->history[id],
+                if ((mapper_boundary_perform(&map->destination.local->history[idx],
                                              dst_slot,
                                              dst_types + to->signal->length * k))) {
                     // back up position index
-                    --map->destination.local->history[id].position;
-                    if (map->destination.local->history[id].position < 0)
-                        map->destination.local->history[id].position = map->destination.local->history[id].size - 1;
+                    --map->destination.local->history[idx].position;
+                    if (map->destination.local->history[idx].position < 0)
+                        map->destination.local->history[idx].position = map->destination.local->history[idx].size - 1;
                     continue;
                 }
             }
 
-            void *result = mapper_history_value_ptr(map->destination.local->history[id]);
+            void *result = mapper_history_value_ptr(map->destination.local->history[idx]);
 
             if (count > 1) {
                 memcpy((char*)out_value_p + to_size * j, result, to_size);
