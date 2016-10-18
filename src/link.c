@@ -53,7 +53,7 @@ void mapper_link_init(mapper_link link, int is_local)
     link->local->clock.sent.message_id = 0;
     link->local->clock.response.message_id = -1;
     mapper_clock clock = &link->local_device->database->network->clock;
-    mapper_clock_now(clock, &clock->now);
+    mapper_now(&clock->now);
     link->local->clock.response.timetag.sec = clock->now.sec + 10;
 
     // request missing metadata

@@ -102,6 +102,10 @@ namespace mapper {
             { return &_tt; }
         operator double() const
             { return mapper_timetag_double(_tt); }
+        Timetag& operator=(Timetag& tt)
+            { mapper_timetag_copy(&_tt, tt._tt); return (*this); }
+        Timetag& operator=(double d)
+            { mapper_timetag_set_double(&_tt, d); return (*this); }
         Timetag operator+(Timetag& addend)
         {
             mapper_timetag_t temp;
@@ -121,9 +125,24 @@ namespace mapper {
             mapper_timetag_add(&_tt, *(mapper_timetag_t*)addend);
             return (*this);
         }
+        Timetag& operator+=(double addend)
+        {
+            mapper_timetag_add_double(&_tt, addend);
+            return (*this);
+        }
         Timetag& operator-=(Timetag& subtrahend)
         {
             mapper_timetag_subtract(&_tt, *(mapper_timetag_t*)subtrahend);
+            return (*this);
+        }
+        Timetag& operator-=(double subtrahend)
+        {
+            mapper_timetag_add_double(&_tt, -subtrahend);
+            return (*this);
+        }
+        Timetag& operator*=(double multiplicand)
+        {
+            mapper_timetag_multiply(&_tt, multiplicand);
             return (*this);
         }
         bool operator<(Timetag& rhs)
@@ -567,6 +586,13 @@ namespace mapper {
         Map& set_muted(bool value)
         {
             mapper_map_set_muted(_map, (int)value);
+            return (*this);
+        }
+        mapper_location process_location() const
+            { return mapper_map_process_location(_map); }
+        Map& set_process_location(mapper_location loc)
+        {
+            mapper_map_set_process_location(_map, loc);
             return (*this);
         }
         int num_properties() const
@@ -1371,19 +1397,19 @@ namespace mapper {
                 mapper_signal_instance_update(_sig, _id, value, count, *tt);
                 return (*this);
             }
-            Instance& instance(int *value, int count, Timetag tt)
+            Instance& update(int *value, int count, Timetag tt)
             {
                 if (mapper_signal_type(_sig) == 'i')
                     mapper_signal_instance_update(_sig, _id, value, count, *tt);
                 return (*this);
             }
-            Instance& instance(float *value, int count, Timetag tt)
+            Instance& update(float *value, int count, Timetag tt)
             {
                 if (mapper_signal_type(_sig) == 'f')
                     mapper_signal_instance_update(_sig, _id, value, count, *tt);
                 return (*this);
             }
-            Instance& instance(double *value, int count, Timetag tt)
+            Instance& update(double *value, int count, Timetag tt)
             {
                 if (mapper_signal_type(_sig) == 'd')
                     mapper_signal_instance_update(_sig, _id, value, count, *tt);
@@ -1440,10 +1466,15 @@ namespace mapper {
             mapper_id _id;
             mapper_signal _sig;
         };
-        Instance instance(mapper_id id = 0)
+        Instance instance()
         {
-            if (!id)
-                id = mapper_device_generate_unique_id(mapper_signal_device(_sig));
+            mapper_id id = mapper_device_generate_unique_id(mapper_signal_device(_sig));
+            // TODO: wait before activating instance?
+            mapper_signal_instance_set_user_data(_sig, id, 0);
+            return Instance(_sig, id);
+        }
+        Instance instance(mapper_id id)
+        {
             // TODO: wait before activating instance?
             mapper_signal_instance_set_user_data(_sig, id, 0);
             return Instance(_sig, id);
@@ -1464,16 +1495,18 @@ namespace mapper {
         }
         Signal& remove_instance(Instance instance)
             { mapper_signal_remove_instance(_sig, instance._id); return (*this); }
-        Instance oldest_active_instance(mapper_id instance_id)
+        Instance oldest_active_instance()
         {
             return Instance(_sig,
                             mapper_signal_oldest_active_instance(_sig));
         }
-        Instance newest_active_instance(mapper_id instance_id)
+        Instance newest_active_instance()
         {
             return Instance(_sig,
                             mapper_signal_newest_active_instance(_sig));
         }
+        int num_instances() const
+            { return mapper_signal_num_instances(_sig); }
         int num_active_instances() const
             { return mapper_signal_num_active_instances(_sig); }
         int num_reserved_instances() const
@@ -1849,12 +1882,6 @@ namespace mapper {
             { mapper_device_send_queue(_dev, *tt); return (*this); }
 //        lo::Server lo_server()
 //            { return lo::Server(mapper_device_lo_server(_dev)); }
-        Timetag now()
-        {
-            mapper_timetag_t tt;
-            mapper_device_now(_dev, &tt);
-            return Timetag(tt);
-        }
 
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
@@ -2229,6 +2256,13 @@ namespace mapper {
 
     inline std::string version()
         { return std::string(mapper_version()); }
+
+    Timetag now()
+    {
+        mapper_timetag_t tt;
+        mapper_now(&tt);
+        return Timetag(tt);
+    }
 };
 
 #endif // _MAPPER_CPP_H_

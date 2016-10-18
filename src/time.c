@@ -27,12 +27,11 @@ double mapper_get_current_time()
 
 void mapper_clock_init(mapper_clock clock)
 {
-    mapper_clock_now(clock, &clock->now);
+    mapper_now(&clock->now);
     clock->next_ping = clock->now.sec;
 }
 
-void mapper_clock_now(mapper_clock clock,
-                      mapper_timetag_t *timetag)
+void mapper_now(mapper_timetag_t *timetag)
 {
     lo_timetag_now((lo_timetag*)timetag);
 }
@@ -50,21 +49,33 @@ void mapper_timetag_add_double(mapper_timetag_t *a, double b)
         return;
 
     b += (double)a->frac * multiplier;
-    a->sec += floor(b);
-    b -= floor(b);
-    if (b < 0.0) {
-        --a->sec;
-        b = 1.0 - b;
+    if (b < 0 && floor(b) > a->sec) {
+        a->sec = 0;
+        a->frac = 0;
     }
-    a->frac = (uint32_t) (((double)b) * (double)(1LL<<32));
+    else {
+        a->sec += floor(b);
+        b -= floor(b);
+        if (b < 0.0) {
+            --a->sec;
+            b = 1.0 - b;
+        }
+        a->frac = (uint32_t) (((double)b) * (double)(1LL<<32));
+    }
 }
 
 void mapper_timetag_multiply(mapper_timetag_t *tt, double d)
 {
-    d *= mapper_timetag_double(*tt);
-    tt->sec = floor(d);
-    d -= tt->sec;
-    tt->frac = (uint32_t) (d * (double)(1LL<<32));
+    if (d > 0.) {
+        d *= mapper_timetag_double(*tt);
+        tt->sec = floor(d);
+        d -= tt->sec;
+        tt->frac = (uint32_t) (d * (double)(1LL<<32));
+    }
+    else {
+        tt->sec = 0;
+        tt->frac = 0;
+    }
 }
 
 void mapper_timetag_add(mapper_timetag_t *tt, mapper_timetag_t addend)
@@ -77,10 +88,16 @@ void mapper_timetag_add(mapper_timetag_t *tt, mapper_timetag_t addend)
 
 void mapper_timetag_subtract(mapper_timetag_t *tt, mapper_timetag_t subtrahend)
 {
-    tt->sec -= subtrahend.sec;
-    tt->frac -= subtrahend.frac;
-    if (tt->frac > subtrahend.frac) // overflow
-        tt->sec--;
+    if (tt->sec > subtrahend.sec) {
+        tt->sec -= subtrahend.sec;
+        tt->frac -= subtrahend.frac;
+        if (tt->frac > subtrahend.frac) // overflow
+            tt->sec--;
+    }
+    else {
+        tt->sec = 0;
+        tt->frac = 0;
+    }
 }
 
 double mapper_timetag_double(mapper_timetag_t timetag)
@@ -90,9 +107,15 @@ double mapper_timetag_double(mapper_timetag_t timetag)
 
 void mapper_timetag_set_double(mapper_timetag_t *tt, double value)
 {
-    tt->sec = floor(value);
-    value -= tt->sec;
-    tt->frac = (uint32_t) (((double)value) * (double)(1LL<<32));
+    if (value > 0.) {
+        tt->sec = floor(value);
+        value -= tt->sec;
+        tt->frac = (uint32_t) (((double)value) * (double)(1LL<<32));
+    }
+    else {
+        tt->sec = 0;
+        tt->frac = 0;
+    }
 }
 
 void mapper_timetag_copy(mapper_timetag_t *ttl, mapper_timetag_t ttr)

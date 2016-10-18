@@ -1599,14 +1599,14 @@ int mapper_device_ready(mapper_device dev)
     return dev->status >= STATUS_READY;
 }
 
-void mapper_device_synced(mapper_device dev, mapper_timetag_t *timetag)
+void mapper_device_synced(mapper_device dev, mapper_timetag_t *tt)
 {
-    if (!dev || !timetag)
+    if (!dev || !tt)
         return;
     if (dev->local)
-        mapper_clock_now(&dev->database->network->clock, timetag);
+        mapper_now(tt);
     else
-        mapper_timetag_copy(timetag, dev->synced);
+        mapper_timetag_copy(tt, dev->synced);
 }
 
 int mapper_device_version(mapper_device dev)
@@ -1682,13 +1682,6 @@ int mapper_device_property_index(mapper_device dev, unsigned int index,
 lo_server mapper_device_lo_server(mapper_device dev)
 {
     return dev->local->server;
-}
-
-void mapper_device_now(mapper_device dev, mapper_timetag_t *timetag)
-{
-    if (!dev || !timetag)
-        return;
-    mapper_clock_now(&dev->database->network->clock, timetag);
 }
 
 mapper_id mapper_device_generate_unique_id(mapper_device dev) {
@@ -1889,8 +1882,8 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     if (!ip || !port)
         return;
 
-    mapper_clock_t *clock = &dev->database->network->clock;
-    mapper_clock_now(clock, &clock->now);
+    mapper_timetag_t tt;
+    mapper_now(&tt);
 
     while (*s) {
         if (strcmp(ip, lo_address_get_hostname((*s)->address))==0 &&
@@ -1909,7 +1902,7 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
             }
             else {
                 // reset timeout
-                (*s)->lease_expiration_sec = clock->now.sec + timeout_seconds;
+                (*s)->lease_expiration_sec = tt.sec + timeout_seconds;
                 if ((*s)->flags == flags) {
                     if (revision)
                         return;
@@ -1932,7 +1925,7 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
         // add new subscriber
         mapper_subscriber sub = malloc(sizeof(struct _mapper_subscriber));
         sub->address = lo_address_new(ip, port);
-        sub->lease_expiration_sec = clock->now.sec + timeout_seconds;
+        sub->lease_expiration_sec = tt.sec + timeout_seconds;
         sub->flags = flags;
         sub->next = dev->local->subscribers;
         dev->local->subscribers = sub;
@@ -1985,7 +1978,7 @@ void mapper_device_print(mapper_device dev)
                    (unsigned long)tt->frac);
             if (tt->sec) {
                 mapper_timetag_t now;
-                mapper_device_now(dev, &now);
+                mapper_now(&now);
                 printf(" (%f seconds ago)", mapper_timetag_difference(now, *tt));
             }
         }

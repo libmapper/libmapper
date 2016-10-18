@@ -1824,9 +1824,8 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_sendQueue
 JNIEXPORT jobject JNICALL Java_mapper_Device_now
   (JNIEnv *env, jobject obj)
 {
-    mapper_device dev = get_device_from_jobject(env, obj);
     mapper_timetag_t tt;
-    mapper_device_now(dev, &tt);
+    mapper_now(&tt);
     jobject o = get_jobject_from_timetag(env, &tt);
     return o;
 }
@@ -2760,11 +2759,8 @@ JNIEXPORT void JNICALL Java_mapper_Network_mapperNetworkFree
 JNIEXPORT jobject JNICALL Java_mapper_Network_now
   (JNIEnv *env, jobject obj)
 {
-    mapper_network net = get_network_from_jobject(env, obj);
-    if (!net)
-        return 0;
     mapper_timetag_t tt;
-    mapper_network_now(net, &tt);
+    mapper_now(&tt);
     jobject o = get_jobject_from_timetag(env, &tt);
     return o;
 }

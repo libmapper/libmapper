@@ -204,12 +204,12 @@
  }
 %typemap(in) booltype {
     $1 = PyObject_IsTrue($input);
- }
+}
 %typemap(out) booltype {
     PyObject *o = $1 ? Py_True : Py_False;
     Py_INCREF(o);
     return o;
- }
+}
 
 %{
 #include <assert.h>
@@ -229,6 +229,7 @@ typedef struct _map {} map;
 typedef struct _slot {} slot;
 typedef struct _database {} database;
 typedef struct _network {} network;
+typedef struct _timetag {} timetag;
 
 typedef struct _device_query {
     mapper_device *query;
@@ -507,12 +508,17 @@ static PyObject *prop_to_py(property_value prop, const char *name)
         {
             mapper_timetag_t *vect = (mapper_timetag_t*)prop->value;
             if (prop->length > 1) {
-                for (i=0; i<prop->length; i++)
-                    PyList_SetItem(v, i, Py_BuildValue("d",
-                        mapper_timetag_double(vect[i])));
+                for (i=0; i<prop->length; i++) {
+                    PyObject *py_tt = SWIG_NewPointerObj(SWIG_as_voidptr(&vect[i]),
+                                                         SWIGTYPE_p__timetag, 0);
+                    PyList_SetItem(v, i, Py_BuildValue("O", py_tt));
+                }
             }
-            else
-                v = Py_BuildValue("d", mapper_timetag_double(*vect));
+            else {
+                PyObject *py_tt = SWIG_NewPointerObj(SWIG_as_voidptr(vect),
+                                                     SWIGTYPE_p__timetag, 0);
+                v = Py_BuildValue("O", py_tt);
+            }
             break;
         }
         default:
@@ -549,8 +555,8 @@ static void signal_handler_py(mapper_signal sig, mapper_id id,
 
     PyObject *py_sig = SWIG_NewPointerObj(SWIG_as_voidptr(sig),
                                           SWIGTYPE_p__signal, 0);
-
-    double timetag = mapper_timetag_double(*tt);
+    PyObject *py_tt = SWIG_NewPointerObj(SWIG_as_voidptr(tt),
+                                         SWIGTYPE_p__timetag, 0);
     char type = mapper_signal_type(sig);
     int length = mapper_signal_length(sig);
 
@@ -563,12 +569,11 @@ static void signal_handler_py(mapper_signal sig, mapper_id id,
                     PyObject *o = Py_BuildValue("i", vint[i]);
                     PyList_SET_ITEM(valuelist, i, o);
                 }
-                arglist = Py_BuildValue("(OLOd)", py_sig, id, valuelist,
-                                        timetag);
+                arglist = Py_BuildValue("(OLOO)", py_sig, id, valuelist, py_tt);
             }
             else
-                arglist = Py_BuildValue("(OLid)", py_sig, id,
-                                        *(int*)value, timetag);
+                arglist = Py_BuildValue("(OLiO)", py_sig, id, *(int*)value,
+                                        py_tt);
         }
         else if (type == 'f') {
             if (length > 1 || count > 1) {
@@ -578,16 +583,15 @@ static void signal_handler_py(mapper_signal sig, mapper_id id,
                     PyObject *o = Py_BuildValue("f", vfloat[i]);
                     PyList_SET_ITEM(valuelist, i, o);
                 }
-                arglist = Py_BuildValue("(OLOd)", py_sig, id, valuelist,
-                                        timetag);
+                arglist = Py_BuildValue("(OLOO)", py_sig, id, valuelist, py_tt);
             }
             else
-                arglist = Py_BuildValue("(OLfd)", py_sig, id, *(float*)value,
-                                        timetag);
+                arglist = Py_BuildValue("(OLfO)", py_sig, id, *(float*)value,
+                                        py_tt);
         }
     }
     else {
-        arglist = Py_BuildValue("(OiOd)", py_sig, id, Py_None, timetag);
+        arglist = Py_BuildValue("(OiOO)", py_sig, id, Py_None, py_tt);
     }
     if (!arglist) {
         printf("[mapper] Could not build arglist (signal_handler_py).\n");
@@ -613,14 +617,10 @@ static void instance_event_handler_py(mapper_signal sig, mapper_id id,
 
     PyObject *py_sig = SWIG_NewPointerObj(SWIG_as_voidptr(sig),
                                           SWIGTYPE_p__signal, 0);
+    PyObject *py_tt = SWIG_NewPointerObj(SWIG_as_voidptr(tt),
+                                         SWIGTYPE_p__timetag, 0);
 
-    unsigned long long int timetag = 0;
-    if (tt) {
-        timetag = tt->sec;
-        timetag = (timetag << 32) + tt->frac;
-    }
-
-    arglist = Py_BuildValue("(OLiL)", py_sig, id, event, timetag);
+    arglist = Py_BuildValue("(OLiO)", py_sig, id, event, py_tt);
     if (!arglist) {
         printf("[mapper] Could not build arglist (instance_event_handler_py).\n");
         return;
@@ -1022,6 +1022,7 @@ typedef struct _map {} map;
 typedef struct _slot {} slot;
 typedef struct _database {} database;
 typedef struct _network {} network;
+typedef struct _timetag {} timetag;
 
 typedef struct _device_query {
     mapper_device *query;
@@ -1144,11 +1145,6 @@ typedef struct _device_query {
                                             type, unit, minimum, maximum,
                                             PyFunc);
     }
-    double now() {
-        mapper_timetag_t tt;
-        mapper_device_now((mapper_device)$self, &tt);
-        return mapper_timetag_double(tt);
-    }
     int poll(int timeout=0) {
         _save = PyEval_SaveThread();
         int rc = mapper_device_poll((mapper_device)$self, timeout);
@@ -1177,10 +1173,9 @@ typedef struct _device_query {
         mapper_device_remove_signal((mapper_device)$self, msig);
         return $self;
     }
-    device *send_queue(double timetag) {
-        mapper_timetag_t tt;
-        mapper_timetag_set_double(&tt, timetag);
-        mapper_device_send_queue((mapper_device)$self, tt);
+    device *send_queue(timetag *py_tt) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)py_tt;
+        mapper_device_send_queue((mapper_device)$self, *tt);
         return $self;
     }
     device *set_link_callback(PyObject *PyFunc=0) {
@@ -1229,17 +1224,23 @@ typedef struct _device_query {
         mapper_device_set_map_callback((mapper_device)$self, h);
         return $self;
     }
-    double start_queue(double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        mapper_device_start_queue((mapper_device)$self, tt);
-        return mapper_timetag_double(tt);
+    void start_queue(timetag *py_tt=0) {
+        if (py_tt) {
+            mapper_timetag_t *tt = (mapper_timetag_t*)py_tt;
+            mapper_device_start_queue((mapper_device)$self, *tt);
+//            return py_tt;
+        }
+        else {
+            mapper_timetag_t tt;
+            mapper_now(&tt);
+            mapper_device_start_queue((mapper_device)$self, tt);
+//            return timetag(tt);
+        }
     }
-    double synced() {
+    timetag *synced() {
         mapper_timetag_t tt;
         mapper_device_synced((mapper_device)$self, &tt);
-        return mapper_timetag_double(tt);
+        return (timetag*)&tt;
     }
     mapper_id generate_unique_id() {
         return mapper_device_generate_unique_id((mapper_device)$self);
@@ -1672,17 +1673,13 @@ typedef struct _signal_query {
         mapper_signal_push((mapper_signal)$self);
         return $self;
     }
-    int query_remotes(double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        return mapper_signal_query_remotes((mapper_signal)$self, tt);
+    int query_remotes(timetag *tt=0) {
+        return mapper_signal_query_remotes((mapper_signal)$self,
+                                           tt ? *(mapper_timetag_t*)tt : MAPPER_NOW);
     }
-    signal *release_instance(int id, double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
-        mapper_signal_instance_release((mapper_signal)$self, id, tt);
+    signal *release_instance(int id, timetag *tt=0) {
+        mapper_signal_instance_release((mapper_signal)$self, id,
+                                       tt ? *(mapper_timetag_t*)tt : MAPPER_NOW);
         return $self;
     }
     signal *remove_instance(int id) {
@@ -1756,13 +1753,11 @@ typedef struct _signal_query {
         mapper_signal_set_callback((mapper_signal)$self, h);
         return $self;
     }
-    signal *update(property_value val=0, double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
+    signal *update(property_value val=0, timetag *tt=0) {
         mapper_signal sig = (mapper_signal)$self;
         if (!val) {
-            mapper_signal_update(sig, 0, 1, tt);
+            mapper_signal_update(sig, 0, 1,
+                                 tt ? *(mapper_timetag_t*)tt : MAPPER_NOW);
             return $self;;
         }
         else if ( val->length < sig->length ||
@@ -1776,16 +1771,15 @@ typedef struct _signal_query {
             printf("update: type mismatch\n");
             return self;
         }
-        mapper_signal_update(sig, val->value, count, tt);
+        mapper_signal_update(sig, val->value, count,
+                             tt ? *(mapper_timetag_t*)tt : MAPPER_NOW);
         return $self;
     }
-    signal *update_instance(int id, property_value val=0, double timetag=0) {
-        mapper_timetag_t tt = MAPPER_NOW;
-        if (timetag)
-            mapper_timetag_set_double(&tt, timetag);
+    signal *update_instance(int id, property_value val=0, timetag *tt=0) {
         mapper_signal sig = (mapper_signal)$self;
         if (!val) {
-            mapper_signal_update(sig, 0, 1, tt);
+            mapper_signal_update(sig, 0, 1,
+                                 tt ? *(mapper_timetag_t*)tt : MAPPER_NOW);
             return $self;;
         }
         else if (val->length < sig->length ||
@@ -1799,7 +1793,8 @@ typedef struct _signal_query {
             printf("update: type mismatch\n");
             return self;
         }
-        mapper_signal_instance_update(sig, id, val->value, count, tt);
+        mapper_signal_instance_update(sig, id, val->value, count,
+                                      tt ? *(mapper_timetag_t*)tt : MAPPER_NOW);
         return $self;
     }
 
@@ -2725,11 +2720,6 @@ typedef struct _map_query {
         const struct in_addr *a = mapper_network_ip4((mapper_network)$self);
         return a ? inet_ntoa(*a) : 0;
     }
-    double now() {
-        mapper_timetag_t tt;
-        mapper_network_now((mapper_network)$self, &tt);
-        return mapper_timetag_double(tt);
-    }
     int get_port() {
         return mapper_network_port((mapper_network)$self);
     }
@@ -2761,5 +2751,155 @@ typedef struct _map_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+    }
+}
+
+%extend _timetag {
+    _timetag() {
+        mapper_timetag_t *tt = (mapper_timetag_t*)malloc(sizeof(mapper_timetag_t));
+        mapper_now(tt);
+        return (timetag*)tt;
+    }
+    _timetag(double val = 0) {
+        mapper_timetag_t *tt = malloc(sizeof(mapper_timetag_t));
+        mapper_timetag_set_double(tt, val);
+        return (timetag*)tt;
+    }
+    ~_timetag() {
+        free((mapper_timetag_t*)$self);
+    }
+    double get_double() {
+        return mapper_timetag_double(*(mapper_timetag_t*)$self);
+    }
+    timetag *__add__(timetag *addend) {
+        mapper_timetag_t *tt = malloc(sizeof(mapper_timetag_t));
+        mapper_timetag_copy(tt, *(mapper_timetag_t*)$self);
+        mapper_timetag_add(tt, *(mapper_timetag_t*)addend);
+        return (timetag*)tt;
+    }
+    timetag *__add__(double addend) {
+        mapper_timetag_t *tt = malloc(sizeof(mapper_timetag_t));
+        mapper_timetag_copy(tt, *(mapper_timetag_t*)$self);
+        mapper_timetag_add_double(tt, addend);
+        return (timetag*)tt;
+    }
+    timetag *__iadd__(timetag *addend) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_add(tt, *(mapper_timetag_t*)addend);
+        return $self;
+    }
+    timetag *__iadd__(double addend) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_add_double(tt, addend);
+        return $self;
+    }
+    double __radd__(double val) {
+        return val + mapper_timetag_double(*(mapper_timetag_t*)$self);
+    }
+    timetag *__sub__(timetag *subtrahend) {
+        mapper_timetag_t *tt = malloc(sizeof(mapper_timetag_t));
+        mapper_timetag_copy(tt, *(mapper_timetag_t*)$self);
+        mapper_timetag_subtract(tt, *(mapper_timetag_t*)subtrahend);
+        return (timetag*)tt;
+    }
+    timetag *__sub__(double subtrahend) {
+        mapper_timetag_t *tt = malloc(sizeof(mapper_timetag_t));
+        mapper_timetag_copy(tt, *(mapper_timetag_t*)$self);
+        mapper_timetag_add_double(tt, -subtrahend);
+        return (timetag*)tt;
+    }
+    timetag *__isub__(timetag *subtrahend) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_subtract(tt, *(mapper_timetag_t*)subtrahend);
+        return $self;
+    }
+    timetag *__isub__(double subtrahend) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_add_double(tt, -subtrahend);
+        return $self;
+    }
+    double __rsub__(double val) {
+        return val - mapper_timetag_double(*(mapper_timetag_t*)$self);
+    }
+    timetag *__mul__(double multiplicand) {
+        mapper_timetag_t *tt = malloc(sizeof(mapper_timetag_t));
+        mapper_timetag_copy(tt, *(mapper_timetag_t*)$self);
+        mapper_timetag_multiply(tt, multiplicand);
+        return (timetag*)tt;
+    }
+    timetag *__imul__(double multiplicand) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_multiply(tt, multiplicand);
+        return $self;
+    }
+    double __rmul__(double val) {
+        return val + mapper_timetag_double(*(mapper_timetag_t*)$self);
+    }
+    timetag *__div__(double divisor) {
+        mapper_timetag_t *tt = malloc(sizeof(mapper_timetag_t));
+        mapper_timetag_copy(tt, *(mapper_timetag_t*)$self);
+        mapper_timetag_multiply(tt, 1/divisor);
+        return (timetag*)tt;
+    }
+    timetag *__idiv__(double divisor) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_multiply(tt, 1/divisor);
+        return $self;
+    }
+    double __rdiv__(double val) {
+        return val / mapper_timetag_double(*(mapper_timetag_t*)$self);
+    }
+
+    booltype __lt__(timetag *rhs) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_t *rhs_tt = (mapper_timetag_t*)rhs;
+        return (tt->sec < rhs_tt->sec
+                || (tt->sec == rhs_tt->sec && tt->frac < rhs_tt->frac));
+    }
+    booltype __lt__(double val) {
+        return mapper_timetag_double(*(mapper_timetag_t*)$self) < val;
+    }
+    booltype __le__(timetag *rhs)
+    {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_t *rhs_tt = (mapper_timetag_t*)rhs;
+        return (tt->sec < rhs_tt->sec
+                || (tt->sec == rhs_tt->sec && tt->frac <= rhs_tt->frac));
+    }
+    booltype __le__(double val)
+    {
+        return mapper_timetag_double(*(mapper_timetag_t*)$self) <= val;
+    }
+    booltype __eq__(timetag *rhs)
+    {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_t *rhs_tt = (mapper_timetag_t*)rhs;
+        return (tt->sec == rhs_tt->sec && tt->frac == rhs_tt->frac);
+    }
+    booltype __eq__(double val)
+    {
+        return mapper_timetag_double(*(mapper_timetag_t*)$self) == val;
+    }
+    booltype __ge__(timetag *rhs)
+    {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_t *rhs_tt = (mapper_timetag_t*)rhs;
+        return (tt->sec > rhs_tt->sec
+                || (tt->sec == rhs_tt->sec && tt->frac >= rhs_tt->frac));
+    }
+    booltype __ge__(double val)
+    {
+        return mapper_timetag_double(*(mapper_timetag_t*)$self) >= val;
+    }
+    booltype __gt__(timetag *rhs)
+    {
+        mapper_timetag_t *tt = (mapper_timetag_t*)$self;
+        mapper_timetag_t *rhs_tt = (mapper_timetag_t*)rhs;
+        return (tt->sec > rhs_tt->sec
+                || (tt->sec == rhs_tt->sec && tt->frac > rhs_tt->frac));
+    }
+    booltype __gt__(double val)
+    {
+        return mapper_timetag_double(*(mapper_timetag_t*)$self) > val;
     }
 }

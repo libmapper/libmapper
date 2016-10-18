@@ -144,7 +144,7 @@ void loop()
 	while ((!terminate || i < 50) && !done) {
         j=i;
         mapper_timetag_t now;
-        mapper_device_now(source, &now);
+        mapper_now(&now);
         mapper_device_start_queue(source, now);
 		mapper_device_poll(source, 0);
         eprintf("Updating signal %s to %f\n", mapper_signal_name(sendsig), j);

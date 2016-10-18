@@ -2,8 +2,8 @@
 
 import sys, mapper, random
 
-def h(sig, id, f, timetag):
-    print '     handler got', sig.name, '=', f, 'at time', timetag
+def h(sig, id, f, tt):
+    print '     handler got', sig.name, '=', f, 'at time', tt.get_double()
 
 src = mapper.device("src")
 outsig1 = src.add_output_signal("outsig1", 1, 'i', None, 0, 1000)
@@ -29,9 +29,9 @@ while not map1.ready() or not map2.ready():
     src.poll()
     dest.poll(10)
 
-for i in range(10):
-    now = src.now()
-    print 'Updating output signals to', i, 'at time', now
+for i in range(50):
+    now = mapper.timetag()
+    print 'Updating output signals to', i, 'at time', now.get_double()
     src.start_queue(now)
     outsig1.update(i)
     outsig2.update(i)

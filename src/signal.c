@@ -236,10 +236,10 @@ void mapper_signal_update(mapper_signal sig, const void *value, int count,
     if (!sig || !sig->local)
         return;
 
-    mapper_timetag_t *ttp;
+    mapper_timetag_t tt2, *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->device->database->network->clock.now;
-        mapper_device_now(sig->device, ttp);
+        ttp = &tt2;
+        mapper_now(ttp);
     }
     else
         ttp = &tt;
@@ -272,13 +272,13 @@ void mapper_signal_update_int(mapper_signal sig, int value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->device->database->network->clock.now;
-    mapper_device_now(sig->device, tt);
+    mapper_timetag_t tt;
+    mapper_now(&tt);
 
     int index = 0;
     if (!sig->local->id_maps[0].instance)
-        index = mapper_signal_instance_with_local_id(sig, 0, 0, tt);
-    mapper_signal_update_internal(sig, index, &value, 1, *tt);
+        index = mapper_signal_instance_with_local_id(sig, 0, 0, &tt);
+    mapper_signal_update_internal(sig, index, &value, 1, tt);
 }
 
 void mapper_signal_update_float(mapper_signal sig, float value)
@@ -303,13 +303,13 @@ void mapper_signal_update_float(mapper_signal sig, float value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->device->database->network->clock.now;
-    mapper_device_now(sig->device, tt);
+    mapper_timetag_t tt;
+    mapper_now(&tt);
 
     int index = 0;
     if (!sig->local->id_maps[0].instance)
-        index = mapper_signal_instance_with_local_id(sig, 0, 0, tt);
-    mapper_signal_update_internal(sig, index, &value, 1, *tt);
+        index = mapper_signal_instance_with_local_id(sig, 0, 0, &tt);
+    mapper_signal_update_internal(sig, index, &value, 1, tt);
 }
 
 void mapper_signal_update_double(mapper_signal sig, double value)
@@ -334,13 +334,13 @@ void mapper_signal_update_double(mapper_signal sig, double value)
     }
 #endif
 
-    mapper_timetag_t *tt = &sig->device->database->network->clock.now;
-    mapper_device_now(sig->device, tt);
+    mapper_timetag_t tt;
+    mapper_now(&tt);
 
     int index = 0;
     if (!sig->local->id_maps[0].instance)
-        index = mapper_signal_instance_with_local_id(sig, 0, 0, tt);
-    mapper_signal_update_internal(sig, index, &value, 1, *tt);
+        index = mapper_signal_instance_with_local_id(sig, 0, 0, &tt);
+    mapper_signal_update_internal(sig, index, &value, 1, tt);
 }
 
 const void *mapper_signal_value(mapper_signal sig, mapper_timetag_t *timetag)
@@ -360,7 +360,7 @@ const void *mapper_signal_value(mapper_signal sig, mapper_timetag_t *timetag)
 static void mapper_signal_init_instance(mapper_signal_instance si)
 {
     si->has_value = 0;
-    lo_timetag_now(&si->created);
+    mapper_now(&si->created);
 }
 
 static int mapper_signal_find_instance_with_local_id(mapper_signal sig,
@@ -862,7 +862,7 @@ static void mapper_signal_update_internal(mapper_signal sig, int instance_index,
     }
 
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0)
-        mapper_device_now(sig->device, &si->timetag);
+        mapper_now(&si->timetag);
     else
         memcpy(&si->timetag, &tt, sizeof(mapper_timetag_t));
 
@@ -890,10 +890,10 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
     if (!smap->instance)
         return;
 
-    mapper_timetag_t *ttp;
+    mapper_timetag_t tt2, *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->device->database->network->clock.now;
-        mapper_device_now(sig->device, ttp);
+        ttp = &tt2;
+        mapper_now(ttp);
     }
     else
         ttp = &tt;
@@ -931,7 +931,7 @@ void mapper_signal_remove_instance(mapper_signal sig, mapper_id id)
             if (sig->local->instances[i]->is_active) {
                 // First release instance
                 mapper_timetag_t tt = sig->device->database->network->clock.now;
-                mapper_device_now(sig->device, &tt);
+                mapper_now(&tt);
                 mapper_signal_instance_release_internal(sig, i, tt);
             }
             break;
@@ -1153,10 +1153,10 @@ int mapper_signal_query_remotes(mapper_signal sig, mapper_timetag_t tt)
         return -1;
     }
 
-    mapper_timetag_t *ttp;
+    mapper_timetag_t tt2, *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
-        ttp = &sig->device->database->network->clock.now;
-        mapper_device_now(sig->device, ttp);
+        ttp = &tt2;
+        mapper_now(ttp);
     }
     else
         ttp = &tt;

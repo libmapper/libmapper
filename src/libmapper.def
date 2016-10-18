@@ -57,7 +57,6 @@ EXPORTS
     mapper_device_name                                  @56
     mapper_device_network                               @57
     mapper_device_new                                   @58
-    mapper_device_now                                   @59
     mapper_device_num_fds                               @60
     mapper_device_num_links                             @61
     mapper_device_num_maps                              @62
@@ -157,9 +156,9 @@ EXPORTS
     mapper_network_interface                            @156
     mapper_network_ip4                                  @157
     mapper_network_new                                  @158
-    mapper_network_now                                  @159
-    mapper_network_port                                 @160
-    mapper_network_send_message                         @161
+    mapper_network_port                                 @159
+    mapper_network_send_message                         @160
+    mapper_now                                          @161
     mapper_signal_active_instance_id                    @162
     mapper_signal_description                           @163
     mapper_signal_device                                @164

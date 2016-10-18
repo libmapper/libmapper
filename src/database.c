@@ -104,11 +104,12 @@ int mapper_database_timeout(mapper_database db)
 
 void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
 {
-    mapper_clock_now(&db->network->clock, &db->network->clock.now);
+    mapper_timetag_t tt;
+    mapper_now(&tt);
 
     // flush expired device records
     mapper_device dev;
-    uint32_t last_ping = db->network->clock.now.sec - timeout_sec;
+    uint32_t last_ping = tt.sec - timeout_sec;
     while ((dev = mapper_database_expired_device(db, last_ping))) {
         // also need to remove subscriptions
         mapper_subscription *s = &db->subscriptions;
@@ -180,8 +181,7 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
 
     if (dev) {
         updated = mapper_device_set_from_message(dev, msg);
-        mapper_clock_now(&db->network->clock, &db->network->clock.now);
-        mapper_timetag_copy(&dev->synced, db->network->clock.now);
+        mapper_now(&dev->synced);
 
         if (rc || updated) {
             fptr_list cb = db->device_callbacks;
@@ -1307,12 +1307,13 @@ int mapper_database_poll(mapper_database db, int block_ms)
     mapper_network net = db->network;
     struct timeval timeout = { block_ms * 0.001, (block_ms * 1000) % 1000000 };
     int count = 0, ping_time = net->clock.next_ping;
-    mapper_clock_now(&net->clock, &net->clock.now);
+    mapper_timetag_t tt;
+    mapper_now(&tt);
 
     // check if any subscriptions need to be renewed
     mapper_subscription s = db->subscriptions;
     while (s) {
-        if (s->lease_expiration_sec < net->clock.now.sec) {
+        if (s->lease_expiration_sec < tt.sec) {
             subscribe_internal(db, s->device, s->flags, AUTOSUBSCRIBE_INTERVAL);
             // leave 10-second buffer for subscription renewal
             s->lease_expiration_sec = (net->clock.now.sec
@@ -1430,10 +1431,10 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         }
         s->flags = flags;
 
-        mapper_clock_now(&db->network->clock, &db->network->clock.now);
+        mapper_timetag_t tt;
+        mapper_now(&tt);
         // leave 10-second buffer for subscription lease
-        s->lease_expiration_sec = (db->network->clock.now.sec
-                                   + AUTOSUBSCRIBE_INTERVAL - 10);
+        s->lease_expiration_sec = (tt.sec + AUTOSUBSCRIBE_INTERVAL - 10);
 
         timeout = AUTOSUBSCRIBE_INTERVAL;
     }

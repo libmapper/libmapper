@@ -601,9 +601,6 @@ double mapper_get_current_time();
 /*! Initialize a mapper_clock. */
 void mapper_clock_init(mapper_clock clock);
 
-/*! Get the current time from a mapper_clock. */
-void mapper_clock_now(mapper_clock clock, mapper_timetag_t *timetag);
-
 /**** Debug macros ****/
 
 /*! Debug tracer */

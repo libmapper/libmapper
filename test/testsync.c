@@ -57,12 +57,12 @@ void loop()
     while (i <= 100 && !done) {
         for (i=0; i<5; i++)
             mapper_device_poll(devices[i], 20);
-        lo_timetag_now(&system_time);
+        mapper_now(&system_time);
         if (system_time.sec != last_update) {
             last_update = system_time.sec;
             if (ready) {
                 for (i=0; i<5; i++) {
-                    mapper_device_now(devices[i], &device_times[i]);
+                    mapper_now(&device_times[i]);
                 }
                 // calculate standard deviation
                 double mean = 0;

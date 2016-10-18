@@ -500,11 +500,12 @@ void mapper_network_send(mapper_network net)
 #else
     if (net->bundle_dest == BUNDLE_DEST_SUBSCRIBERS) {
         mapper_subscriber *s = &net->device->local->subscribers;
+        mapper_timetag_t tt;
         if (*s) {
-            mapper_clock_now(&net->clock, &net->clock.now);
+            mapper_now(&tt);
         }
         while (*s) {
-            if ((*s)->lease_expiration_sec < net->clock.now.sec || !(*s)->flags) {
+            if ((*s)->lease_expiration_sec < tt.sec || !(*s)->flags) {
                 // subscription expired, remove from subscriber list
                 mapper_subscriber temp = *s;
                 *s = temp->next;
@@ -535,8 +536,9 @@ int mapper_network_init(mapper_network net)
     if (net->bundle)
         mapper_network_send(net);
 
-    mapper_clock_now(&net->clock, &net->clock.now);
-    net->bundle = lo_bundle_new(net->clock.now);
+    mapper_timetag_t tt;
+    mapper_now(&tt);
+    net->bundle = lo_bundle_new(tt);
     if (!net->bundle) {
         trace("couldn't allocate lo_bundle\n");
         return 1;
@@ -686,7 +688,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
     int go = 0;
 
     mapper_clock_t *clock = &net->clock;
-    mapper_clock_now(clock, &clock->now);
+    mapper_now(&clock->now);
     if (force || (clock->now.sec >= clock->next_ping)) {
         go = 1;
         clock->next_ping = clock->now.sec + 5 + (rand() % 4);
@@ -2434,14 +2436,13 @@ static int handler_ping(const char *path, const char *types, lo_arg **argv,
 {
     mapper_network net = (mapper_network) user_data;
     mapper_device dev = net->device, remote;
-    mapper_clock_t *clock = &net->clock;
     mapper_link link;
 
     if (!dev)
         return 0;
 
     mapper_timetag_t now;
-    mapper_clock_now(clock, &now);
+    mapper_now(&now);
     lo_timetag then = lo_message_get_timestamp(msg);
 
     remote = mapper_database_device_by_id(dev->database, argv[0]->h);
@@ -2576,11 +2577,4 @@ void mapper_network_send_message(mapper_network net, const char *path,
     /* We cannot depend on path string sticking around for liblo to serialize
      * later: trigger immediate dispatch. */
     mapper_network_send(net);
-}
-
-void mapper_network_now(mapper_network net, mapper_timetag_t *timetag)
-{
-    if (!net || !timetag)
-        return;
-    mapper_clock_now(&net->clock, timetag);
 }

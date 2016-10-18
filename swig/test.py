@@ -1,12 +1,11 @@
 
 import sys, mapper
 
-def h(sig, id, f, timetag):
+def h(sig, id, f, tt):
     try:
-        print sig.name, f
+        print sig.name, f, '@', tt.get_double()
     except:
         print 'exception'
-        print sig, f
 
 def setup(d):
     sig = d.add_input_signal("freq", 1, 'i', "Hz", None, None, h)
@@ -126,3 +125,10 @@ q1 = db.signals("out*")
 q1.join(db.signals("*req"))
 for i in q1:
     print "    ", i.name
+
+tt1 = mapper.timetag(0.5)
+tt2 = mapper.timetag(2.5)
+tt3 = tt1 + 0.5
+print 'got tt: ', tt3.get_double()
+print 1.6 + tt1
+print mapper.timetag().get_double()

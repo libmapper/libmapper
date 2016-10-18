@@ -2023,14 +2023,8 @@ mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
     synchronization. */
 
 /*! Initialize a timetag to the current mapping network time.
- *  \param dev          The device whose time we are asking for.
  *  \param tt           A previously allocated timetag to initialize. */
-void mapper_device_now(mapper_device dev, mapper_timetag_t *tt);
-
-/*! Initialize a timetag to the current mapping network time.
- *  \param net          The network whose time we are asking for.
- *  \param tt           A previously allocated timetag to initialize. */
-void mapper_network_now(mapper_network net, mapper_timetag_t *tt);
+void mapper_now(mapper_timetag_t *tt);
 
 /*! Return the difference in seconds between two mapper_timetags.
  *  \param minuend      The minuend.
@@ -2041,14 +2035,24 @@ double mapper_timetag_difference(mapper_timetag_t minuend,
 
 /*! Add a timetag to another given timetag.
  *  \param augend       A previously allocated timetag to augment.
- *  \param addend       A timetag to add to add. */
+ *  \param addend       A timetag to add. */
 void mapper_timetag_add(mapper_timetag_t *augend, mapper_timetag_t addend);
+
+/*! Add a double-precision floating point value to another given timetag.
+ *  \param augend       A previously allocated timetag to augment.
+ *  \param addend       A value in seconds to add. */
+void mapper_timetag_add_double(mapper_timetag_t *augend, double addend);
 
 /*! Subtract a timetag from another given timetag.
  *  \param minuend      A previously allocated timetag to augment.
  *  \param subtrahend   A timetag to add to subtract. */
 void mapper_timetag_subtract(mapper_timetag_t *minuend,
                              mapper_timetag_t subtrahend);
+
+/*! Add a double-precision floating point value to another given timetag.
+ *  \param tt           A previously allocated timetag to multiply.
+ *  \param multiplicand A value in seconds. */
+void mapper_timetag_multiply(mapper_timetag_t *tt, double multiplicand);
 
 /*! Return value of mapper_timetag as a double-precision floating point value.
  *  \param tt           The timetag to read.
