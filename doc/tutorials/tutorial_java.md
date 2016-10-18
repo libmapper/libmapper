@@ -23,10 +23,10 @@ The libmapper API is is divided into the following sections:
 * Databases
 
 For this tutorial, the only sections to pay attention to are `Devices`
-and `Signals`.  **Networks** are reserved for providing custom networking
+and `Signals`.  `Networks` are reserved for providing custom networking
 configurations, and in general you don't need to worry about it.
 
-The database module is used to keep track of what devices, signals
+The `Database` module is used to keep track of what devices, signals
 and maps are on the network.  It is used mainly for creating user
 interfaces for mapping design and will also not be covered here.
 

@@ -118,12 +118,12 @@ for input signals there is an additional argument:
 
 examples:
 
-    mapper::Signal sig_in = dev.add_input_signal( "/my_input", 1, 'f',
+    mapper::Signal sig_in = dev.add_input_signal( "my_input", 1, 'f',
                                                   "m/s", 0, 0, h )
 
     int min[4] = {1,2,3,4};
     int max[4] = {10,11,12,13};
-    mapper::Signal sig_out = dev.add_output_signal( "/my_output", 4, 'i',
+    mapper::Signal sig_out = dev.add_output_signal( "my_output", 4, 'i',
                                                     0, min, max )
 
 The only _required_ parameters here are the signal "length", its name, and data
@@ -155,20 +155,20 @@ information to be passed to that function during callback in `user_data`.
 An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
-    mapper::Signal outputA = dev.add_output_signal( "/outA", 1, 'i', 0, 0, 0 );
+    mapper::Signal outputA = dev.add_output_signal( "outA", 1, 'i', 0, 0, 0 );
 
 An example of a `float` signal where some more information is provided:
 
     float minimum = 0.0f;
     float maximum = 5.0f;
-    mapper::Signal sensor1 = dev.add_output_signal( "/sensor1", 1, 'f', "V",
+    mapper::Signal sensor1 = dev.add_output_signal( "sensor1", 1, 'f', "V",
                                                     &minimum, &maximum );
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
  
     mapper::Device dev( "test_sender");
-    mapper::Signal sensor1 = dev.add_output_signal( "/sensor1", 1, 'f', "V",
+    mapper::Signal sensor1 = dev.add_output_signal( "sensor1", 1, 'f', "V",
                                                     &minimum, &maximum );
     
     while ( !done ) {
@@ -186,9 +186,9 @@ device:
 
     std::cout << "Signals belonging to " << dev.name() << std::endl;
 
-    mapper::Signal::Query q = dev.inputs().begin();
+    mapper::Signal::Query q = dev.signals(MAPPER_DIR_INCOMING).begin();
     for (; q != q.end(); ++q) {
-        std::cout << "input: " << (*q).full_name() << std::endl;
+        std::cout << "input: " << (const char*)(*q) << std::endl;
     }
 
 Updating signals
@@ -314,7 +314,7 @@ Then `main()` will look like,
         mapper::Device my_receiver( "test_receiver" );
         
         mapper::Signal synth_pulsewidth =
-            dev.add_input_signal( "/synth/pulsewidth", 1, 'f', 0, &min_pw,
+            dev.add_input_signal( "pulsewidth", 1, 'f', 0, &min_pw,
                                   &max_pw, pulsewidth_handler, &synth );
         
         while ( !done )

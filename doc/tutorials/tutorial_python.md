@@ -26,12 +26,9 @@ The libmapper API is is divided into the following sections:
 
 For this tutorial, the only sections to pay attention to are **Devices**
 and **Signals**.  **Networks** are reserved for providing custom networking
-configurations, but in general you don't need to worry about it.
-
-Monitor and the various database modules are used to keep track of
-what devices, signals and connections are on the network.  Devices do
-not need to worry about this.  It is used mainly for creating user
-interfaces for mapping design and will also not be covered here.
+configurations, but in general you don't need to worry about it. **Databases**,
+**Maps** and **Slots** are mostly used when building user interfaces for
+designing mapping configurations.
 
 Devices
 =======
@@ -359,14 +356,14 @@ Working with timetags
 =====================
 _libmapper_ uses the `mapper_timetag_t` data structure internally to store
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps),
-but this value is represented using the `double` type in the python bindings.
+but this value is represented using the `timetag` type in the python bindings.
 For example, the handler function called when a signal update is received
 contains a `timetag` argument.  This argument indicates the time at
 which the source signal was _sampled_ (in the case of sensor signals)
 or _generated_ (in the case of sequenced or algorithimically-generated
 signals).
 
-The `update` function for output signals is overloaded; calling the function
+The `update()` function for output signals is overloaded; calling the function
 without a timetag argument will automatically label the outgoing signal
 update with the current time. In cases where the update should more
 properly be labeled with another time, this can be accomplished by simply
@@ -376,10 +373,10 @@ of the real time associated with the signal update, for example if
 you are writing a driver for an outboard sensor system that provides
 the sampling time.
 
-_libmapper_ also provides helper functions for getting the current
-device-time:
+Creating a new `timetag` without arguments causes it to be initialized with the
+current system time:
 
-    now = <device>.now()
+    now = mapper.timetag()
 
 Working with signal instances
 =============================
@@ -417,7 +414,7 @@ or
 
     <sig>.instance_update( int instance_id,
                            <value>,
-                           double timetag )
+                           timetag tt )
 
 All of the arguments except one should be familiar from the
 documentation of `msig_update()` presented earlier.
