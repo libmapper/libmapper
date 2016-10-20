@@ -30,9 +30,8 @@ while not map1.ready() or not map2.ready():
     dest.poll(10)
 
 for i in range(50):
-    now = mapper.timetag()
+    now = src.start_queue()
     print 'Updating output signals to', i, 'at time', now.get_double()
-    src.start_queue(now)
     outsig1.update(i)
     outsig2.update(i)
     src.send_queue(now)
