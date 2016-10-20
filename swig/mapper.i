@@ -949,7 +949,7 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %}
 
 /*! Possible object types for subscriptions. */
-%constant int OBJ_NONE                  = MAPPER_OBJ_ALL;
+%constant int OBJ_NONE                  = MAPPER_OBJ_NONE;
 %constant int OBJ_DEVICES               = MAPPER_OBJ_DEVICES;
 %constant int OBJ_INPUT_SIGNALS         = MAPPER_OBJ_INPUT_SIGNALS;
 %constant int OBJ_OUTPUT_SIGNALS        = MAPPER_OBJ_OUTPUT_SIGNALS;

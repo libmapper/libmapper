@@ -105,19 +105,20 @@ for i in range(1000):
         map.release()
 
 print db.num_devices, 'devices and', db.num_signals, 'signals:'
-for i in db.devices():
-    print "  ", i.name
-    for j in i.signals():
-        print "    ", j.name
+for d in db.devices():
+    print "  ", d.name, '(synced', mapper.timetag().get_double() - d.synced().get_double(), 'seconds ago)'
+    for s in d.signals():
+        print "    ", s.name
 
 print db.num_links, 'links:'
-for i in db.links():
-    print "    ", i.device(0).name, '<->', i.device(1).name
+for l in db.links():
+    print "    ", l.device(0).name, '<->', l.device(1).name
 
 print db.num_maps, 'maps:'
-for i in db.maps():
-    print "    ", i.source().signal().device().name, ':', i.source().signal().name,\
-        '->', i.destination().signal().device().name, ':', i.destination().signal().name
+for m in db.maps():
+    print "    ", m.source().signal().device().name, ':', \
+        m.source().signal().name,\
+        '->', m.destination().signal().device().name, ':', m.destination().signal().name
 
 # combining queries
 print 'signals matching \'out*\' or \'*req\':'
@@ -131,4 +132,4 @@ tt2 = mapper.timetag(2.5)
 tt3 = tt1 + 0.5
 print 'got tt: ', tt3.get_double()
 print 1.6 + tt1
-print mapper.timetag().get_double()
+print 'current time:', mapper.timetag().get_double()
