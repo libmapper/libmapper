@@ -1224,23 +1224,23 @@ typedef struct _device_query {
         mapper_device_set_map_callback((mapper_device)$self, h);
         return $self;
     }
-    void start_queue(timetag *py_tt=0) {
+    timetag *start_queue(timetag *py_tt=0) {
         if (py_tt) {
             mapper_timetag_t *tt = (mapper_timetag_t*)py_tt;
             mapper_device_start_queue((mapper_device)$self, *tt);
-//            return py_tt;
+            return py_tt;
         }
         else {
-            mapper_timetag_t tt;
-            mapper_now(&tt);
-            mapper_device_start_queue((mapper_device)$self, tt);
-//            return timetag(tt);
+            mapper_timetag_t *tt = (mapper_timetag_t*)malloc(sizeof(mapper_timetag_t));
+            mapper_now(tt);
+            mapper_device_start_queue((mapper_device)$self, *tt);
+            return (timetag*)tt;
         }
     }
     timetag *synced() {
-        mapper_timetag_t tt;
-        mapper_device_synced((mapper_device)$self, &tt);
-        return (timetag*)&tt;
+        mapper_timetag_t *tt = (mapper_timetag_t*)malloc(sizeof(mapper_timetag_t));
+        mapper_device_synced((mapper_device)$self, tt);
+        return (timetag*)tt;
     }
     mapper_id generate_unique_id() {
         return mapper_device_generate_unique_id((mapper_device)$self);
