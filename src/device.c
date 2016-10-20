@@ -1310,8 +1310,8 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         }
     }
 
-    /* Need to call mapper_admin_poll periodically for sync output and metadata
-     * reporting. */
+    /* Need to call mapper_network_poll() periodically for sync output and
+     * metadata reporting. */
     net->msgs_recvd += admin_count;
     admin_count += mapper_network_poll(net, block_ms ? 0 : 1);
 
@@ -1829,34 +1829,23 @@ void mapper_device_send_outputs(mapper_device dev, int min, int max)
     }
 }
 
-static void mapper_device_send_incoming_maps(mapper_device dev, int min, int max)
+static void mapper_device_send_links(mapper_device dev, mapper_direction dir)
 {
-    int i, count = 0;
-    mapper_router_signal rs = dev->local->router->signals;
-    while (rs) {
-        for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_DIR_OUTGOING)
-                continue;
-            if (max > 0 && count > max)
-                return;
-            if (count >= min) {
-                mapper_map map = rs->slots[i]->map;
-                mapper_network_init(dev->database->network);
-                mapper_map_send_state(map, -1, MSG_MAPPED);
-            }
-            count++;
-        }
-        rs = rs->next;
+    mapper_link *links = mapper_device_links(dev, dir);
+    while (links) {
+        mapper_link_send_state(*links, MSG_LINKED, 0);
+        links = mapper_link_query_next(links);
     }
 }
 
-static void mapper_device_send_outgoing_maps(mapper_device dev, int min, int max)
+static void mapper_device_send_maps(mapper_device dev, mapper_direction dir,
+                                    int min, int max)
 {
     int i, count = 0;
     mapper_router_signal rs = dev->local->router->signals;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_DIR_INCOMING)
+            if (!rs->slots[i] || rs->slots[i]->direction == dir)
                 continue;
             if (max > 0 && count > max)
                 return;
@@ -1879,8 +1868,10 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     mapper_subscriber *s = &dev->local->subscribers;
     const char *ip = lo_address_get_hostname(address);
     const char *port = lo_address_get_port(address);
-    if (!ip || !port)
+    if (!ip || !port) {
+        trace("Error managing subscription: %s not found\n", ip ? "port" : "ip");
         return;
+    }
 
     mapper_timetag_t tt;
     mapper_now(&tt);
@@ -1942,10 +1933,14 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
         mapper_device_send_inputs(dev, -1, -1);
     if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
         mapper_device_send_outputs(dev, -1, -1);
+    if (flags & MAPPER_OBJ_INCOMING_LINKS)
+        mapper_device_send_links(dev, MAPPER_DIR_INCOMING);
+    if (flags & MAPPER_OBJ_OUTGOING_LINKS)
+        mapper_device_send_links(dev, MAPPER_DIR_OUTGOING);
     if (flags & MAPPER_OBJ_INCOMING_MAPS)
-        mapper_device_send_incoming_maps(dev, -1, -1);
+        mapper_device_send_maps(dev, MAPPER_DIR_INCOMING, -1, -1);
     if (flags & MAPPER_OBJ_OUTGOING_MAPS)
-        mapper_device_send_outgoing_maps(dev, -1, -1);
+        mapper_device_send_maps(dev, MAPPER_DIR_OUTGOING, -1, -1);
 
     // address is not cached if timeout is 0 so we need to send immediately
     if (!timeout_seconds)
