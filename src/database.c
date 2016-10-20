@@ -1366,6 +1366,7 @@ int mapper_database_poll(mapper_database db, int block_ms)
             timersub(&then, &now, &timeout);
         }
     }
+    count += mapper_network_poll(net, block_ms ? 0 : 1);
 
     if (ping_time != net->clock.next_ping) {
         // some housekeeping: check if any devices have timed out
