@@ -1253,21 +1253,31 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         return 0;
 
     int admin_count = 0, device_count = 0;
-    struct timeval timeout = { block_ms * 0.001, (block_ms * 1000) % 1000000 };
     mapper_network net = dev->database->network;
 
-    if (block_ms) {
-        struct timeval now, then;
-        gettimeofday(&now, NULL);
-        then.tv_sec = now.tv_sec + block_ms * 0.001;
-        then.tv_usec = now.tv_usec + block_ms * 1000;
-        if (then.tv_usec > 1000000) {
-            ++then.tv_sec;
-            then.tv_usec %= 1000000;
-        }
-        fd_set fdr;
+    if (!block_ms) {
+        device_count = lo_server_recv_noblock(dev->local->server, 0);
+        admin_count = mapper_network_poll(net, 1);
+        net->msgs_recvd += admin_count;
+        return admin_count + device_count;
+    }
+
+    struct timeval start, now, end, wait, elapsed;
+    gettimeofday(&start, NULL);
+    memcpy(&now, &start, sizeof(struct timeval));
+    end.tv_sec = block_ms * 0.001;
+    block_ms -= end.tv_sec * 1000;
+    end.tv_sec += start.tv_sec;
+    end.tv_usec = block_ms * 1000;
+    end.tv_usec += start.tv_usec;
+
+    mapper_network_poll(net, 0);
+
+    fd_set fdr;
+    int nfds, bus_fd, mesh_fd, dev_fd;
+
+    while (timercmp(&now, &end, <)) {
         FD_ZERO(&fdr);
-        int nfds, bus_fd, mesh_fd, dev_fd;
 
         bus_fd = lo_server_get_socket_fd(net->bus_server);
         FD_SET(bus_fd, &fdr);
@@ -1283,37 +1293,36 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         if (dev_fd >= nfds)
             nfds = dev_fd + 1;
 
-        while (timercmp(&now, &then, <)) {
-            if (select(nfds, &fdr, 0, 0, &timeout) > 0) {
-                int call_network_poll = 0;
-                if (FD_ISSET(dev_fd, &fdr)) {
-                    lo_server_recv_noblock(dev->local->server, 0);
-                    ++device_count;
-                }
-                if (FD_ISSET(bus_fd, &fdr)) {
-                    lo_server_recv_noblock(net->bus_server, 0);
-                    ++admin_count;
-                    call_network_poll = 1;
-                }
-                if (FD_ISSET(mesh_fd, &fdr)) {
-                    lo_server_recv_noblock(net->mesh_server, 0);
-                    ++admin_count;
-                    call_network_poll = 1;
-                }
-                if (call_network_poll)
-                    mapper_network_poll(net, 0);
-            }
-            gettimeofday(&now, NULL);
-
-            // not needed in Linus since timeout is updated by select()
-            timersub(&then, &now, &timeout);
+        timersub(&end, &now, &wait);
+        // set timeout to a maximum of 100ms
+        if (wait.tv_sec || wait.tv_usec > 100000) {
+            wait.tv_sec = 0;
+            wait.tv_usec = 100000;
         }
-    }
 
-    /* Need to call mapper_network_poll() periodically for sync output and
-     * metadata reporting. */
-    net->msgs_recvd += admin_count;
-    admin_count += mapper_network_poll(net, block_ms ? 0 : 1);
+        timersub(&now, &start, &elapsed);
+        if (elapsed.tv_sec || elapsed.tv_usec >= 100000) {
+            mapper_network_poll(net, 0);
+            start.tv_sec = now.tv_sec;
+            start.tv_usec = now.tv_usec;
+        }
+
+        if (select(nfds, &fdr, 0, 0, &wait) > 0) {
+            if (FD_ISSET(dev_fd, &fdr)) {
+                lo_server_recv_noblock(dev->local->server, 0);
+                ++device_count;
+            }
+            if (FD_ISSET(bus_fd, &fdr)) {
+                lo_server_recv_noblock(net->bus_server, 0);
+                ++admin_count;
+            }
+            if (FD_ISSET(mesh_fd, &fdr)) {
+                lo_server_recv_noblock(net->mesh_server, 0);
+                ++admin_count;
+            }
+        }
+        gettimeofday(&now, NULL);
+    }
 
     /* When done, or if non-blocking, check for remaining messages up to a
      * proportion of the number of input signals. Arbitrarily choosing 1 for
@@ -1324,6 +1333,7 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         ++device_count;
     }
 
+    net->msgs_recvd += admin_count;
     return admin_count + device_count;
 }
 

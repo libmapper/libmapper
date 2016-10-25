@@ -1305,35 +1305,31 @@ static void unsubscribe_internal(mapper_database db, mapper_device dev,
 int mapper_database_poll(mapper_database db, int block_ms)
 {
     mapper_network net = db->network;
-    struct timeval timeout = { block_ms * 0.001, (block_ms * 1000) % 1000000 };
     int count = 0, ping_time = net->clock.next_ping;
     mapper_timetag_t tt;
-    mapper_now(&tt);
 
-    // check if any subscriptions need to be renewed
-    mapper_subscription s = db->subscriptions;
-    while (s) {
-        if (s->lease_expiration_sec < tt.sec) {
-            subscribe_internal(db, s->device, s->flags, AUTOSUBSCRIBE_INTERVAL);
-            // leave 10-second buffer for subscription renewal
-            s->lease_expiration_sec = (net->clock.now.sec
-                                       + AUTOSUBSCRIBE_INTERVAL - 10);
-        }
-        s = s->next;
+    if (!block_ms) {
+        count = mapper_network_poll(net, 1);
+        net->msgs_recvd += count;
+        return count;
     }
 
-    if (block_ms) {
-        struct timeval now, then;
-        gettimeofday(&now, NULL);
-        then.tv_sec = now.tv_sec + block_ms * 0.001;
-        then.tv_usec = now.tv_usec + block_ms * 1000;
-        if (then.tv_usec > 1000000) {
-            ++then.tv_sec;
-            then.tv_usec %= 1000000;
-        }
-        fd_set fdr;
+    struct timeval start, now, end, wait, elapsed;
+    gettimeofday(&start, NULL);
+    memcpy(&now, &start, sizeof(struct timeval));
+    end.tv_sec = block_ms * 0.001;
+    block_ms -= end.tv_sec * 1000;
+    end.tv_sec += start.tv_sec;
+    end.tv_usec = block_ms * 1000;
+    end.tv_usec += start.tv_usec;
+
+    mapper_network_poll(net, 0);
+
+    fd_set fdr;
+    int nfds, bus_fd, mesh_fd;
+
+    while (timercmp(&now, &end, <)) {
         FD_ZERO(&fdr);
-        int nfds, bus_fd, mesh_fd;
 
         bus_fd = lo_server_get_socket_fd(net->bus_server);
         FD_SET(bus_fd, &fdr);
@@ -1344,35 +1340,54 @@ int mapper_database_poll(mapper_database db, int block_ms)
         if (mesh_fd >= nfds)
             nfds = mesh_fd + 1;
 
-        while (timercmp(&now, &then, <)) {
-            if (select(nfds, &fdr, 0, 0, &timeout) > 0) {
-                int call_network_poll = 0;
-                if (FD_ISSET(bus_fd, &fdr)) {
-                    lo_server_recv_noblock(net->bus_server, 0);
-                    ++count;
-                    call_network_poll = 1;
-                }
-                if (FD_ISSET(mesh_fd, &fdr)) {
-                    lo_server_recv_noblock(net->mesh_server, 0);
-                    ++count;
-                    call_network_poll = 1;
-                }
-                if (call_network_poll)
-                    mapper_network_poll(net, 0);
-            }
-            gettimeofday(&now, NULL);
-
-            // not needed in Linus since timeout is updated by select()
-            timersub(&then, &now, &timeout);
+        timersub(&end, &now, &wait);
+        // set timeout to a maximum of 100ms
+        if (wait.tv_sec || wait.tv_usec > 100000) {
+            wait.tv_sec = 0;
+            wait.tv_usec = 100000;
         }
-    }
-    count += mapper_network_poll(net, block_ms ? 0 : 1);
 
-    if (ping_time != net->clock.next_ping) {
-        // some housekeeping: check if any devices have timed out
-        mapper_database_check_device_status(db, net->clock.now.sec);
+        timersub(&now, &start, &elapsed);
+        if (elapsed.tv_sec || elapsed.tv_usec >= 100000) {
+
+            // check if any subscriptions need to be renewed
+            mapper_now(&tt);
+            mapper_subscription s = db->subscriptions;
+            while (s) {
+                if (s->lease_expiration_sec < tt.sec) {
+                    subscribe_internal(db, s->device, s->flags, AUTOSUBSCRIBE_INTERVAL);
+                        // leave 10-second buffer for subscription renewal
+                    s->lease_expiration_sec = (net->clock.now.sec
+                                               + AUTOSUBSCRIBE_INTERVAL - 10);
+                }
+                s = s->next;
+            }
+
+            mapper_network_poll(net, 0);
+
+            if (ping_time != net->clock.next_ping) {
+                // some housekeeping: check if any devices have timed out
+                mapper_database_check_device_status(db, net->clock.now.sec);
+                ping_time = net->clock.next_ping;
+            }
+            start.tv_sec = now.tv_sec;
+            start.tv_usec = now.tv_usec;
+        }
+
+        if (select(nfds, &fdr, 0, 0, &wait) > 0) {
+            if (FD_ISSET(bus_fd, &fdr)) {
+                lo_server_recv_noblock(net->bus_server, 0);
+                ++count;
+            }
+            if (FD_ISSET(mesh_fd, &fdr)) {
+                lo_server_recv_noblock(net->mesh_server, 0);
+                ++count;
+            }
+        }
+        gettimeofday(&now, NULL);
     }
 
+    net->msgs_recvd += count;
     return count;
 }
 
