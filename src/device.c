@@ -1720,7 +1720,14 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd)
     mapper_table_add_to_message(dev->local ? dev->props : 0, dev->staged_props,
                                 msg);
 
-    mapper_network_add_message(dev->database->network, 0, cmd, msg);
+    if (cmd == MSG_DEVICE_MODIFY) {
+        char str[1024];
+        snprintf(str, 1024, "/%s/modify", dev->name);
+        mapper_network_add_message(dev->database->network, str, 0, msg);
+        mapper_network_send(dev->database->network);
+    }
+    else
+        mapper_network_add_message(dev->database->network, 0, cmd, msg);
 }
 
 void mapper_device_set_link_callback(mapper_device dev,

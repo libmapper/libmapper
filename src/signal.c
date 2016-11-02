@@ -1486,16 +1486,29 @@ void mapper_signal_send_state(mapper_signal sig, network_message_t cmd)
         return;
     }
 
-    /* signal name */
-    char sig_name[1024];
-    mapper_signal_full_name(sig, sig_name, 1024);
-    lo_message_add_string(msg, sig_name);
+    char str[1024];
+    if (cmd == MSG_SIGNAL_MODIFY) {
+        lo_message_add_string(msg, sig->name);
 
-    /* properties */
-    mapper_table_add_to_message(sig->local ? sig->props : 0, sig->staged_props,
-                                msg);
+        /* properties */
+        mapper_table_add_to_message(sig->local ? sig->props : 0,
+                                    sig->staged_props, msg);
 
-    mapper_network_add_message(sig->device->database->network, 0, cmd, msg);
+        snprintf(str, 1024, "/%s/signal/modify", sig->device->name);
+        mapper_network_add_message(sig->device->database->network, str, 0, msg);
+        // send immediately since path string is not cached
+        mapper_network_send(sig->device->database->network);
+    }
+    else {
+        mapper_signal_full_name(sig, str, 1024);
+        lo_message_add_string(msg, str);
+
+        /* properties */
+        mapper_table_add_to_message(sig->local ? sig->props : 0,
+                                    sig->staged_props, msg);
+
+        mapper_network_add_message(sig->device->database->network, 0, cmd, msg);
+    }
 }
 
 void mapper_signal_send_removed(mapper_signal sig)
