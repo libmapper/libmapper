@@ -1655,8 +1655,7 @@ int mapper_device_remove_property(mapper_device dev, const char *name)
         }
     }
     else if (dev->local)
-        return mapper_table_remove_record(dev->props, prop, name, 1,
-                                          LOCAL_MODIFY);
+        return mapper_table_remove_record(dev->props, prop, name, LOCAL_MODIFY);
     else if (prop == AT_EXTRA)
         return mapper_table_set_record(dev->staged_props, prop | PROPERTY_REMOVE,
                                        name, 0, 0, 0, REMOTE_MODIFY);

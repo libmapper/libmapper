@@ -1380,8 +1380,7 @@ int mapper_signal_remove_property(mapper_signal sig, const char *name)
         }
     }
     else if (sig->local)
-        return mapper_table_remove_record(sig->props, prop, name, 1,
-                                          LOCAL_MODIFY);
+        return mapper_table_remove_record(sig->props, prop, name, LOCAL_MODIFY);
     else if (prop == AT_EXTRA)
         return mapper_table_set_record(sig->staged_props, prop | PROPERTY_REMOVE,
                                        name, 0, 0, 0, REMOTE_MODIFY);

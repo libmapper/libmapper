@@ -324,7 +324,7 @@ int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
             case AT_MIN:
                 if (atom->types[0] == 'N') {
                     mapper_table_remove_record(slot->props, atom->index & ~mask,
-                                               NULL, REMOTE_MODIFY, 1);
+                                               NULL, REMOTE_MODIFY);
                     break;
                 }
                 if (check_signal_type(atom->types[0]))

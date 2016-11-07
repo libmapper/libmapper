@@ -520,7 +520,7 @@ int mapper_table_property_index(mapper_table tab, unsigned int index,
 
 /*! Remove a key-value pair from a table (by index or key). */
 int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
-                               const char *key, int free_value, int flags);
+                               const char *key, int flags);
 
 /*! Update a value in a table if the key already exists, or add it otherwise.
  *  Returns 0 if no add took place.  Sorts the table before exiting.
@@ -563,6 +563,11 @@ void mapper_table_print(mapper_table tab);
 /*! Add arguments contained in a string table to a lo_message */
 void mapper_table_add_to_message(mapper_table tab, mapper_table updates,
                                  lo_message msg);
+
+/*! Clears and frees memory for removed records. This is not performed
+ *  automatically by mapper_table_remove_record() in order to allow record
+ *  removal to propagate to subscribed databases and peer devices. */
+void mapper_table_clear_empty_records(mapper_table tab);
 
 /**** Lists ****/
 

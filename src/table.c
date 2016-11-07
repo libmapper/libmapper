@@ -182,7 +182,7 @@ int mapper_table_property_index(mapper_table tab, unsigned int index,
 }
 
 int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
-                               const char *key, int flags, int free_value)
+                               const char *key, int flags)
 {
     mapper_table_record_t *rec = mapper_table_record(tab, index, key);
     if (!rec || !(rec->flags & MODIFIABLE) || !rec->value)
@@ -195,6 +195,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
                 free(*rec->value);
                 *rec->value = 0;
             }
+            rec->index |= PROPERTY_REMOVE;
             return 1;
         }
         else {
@@ -206,8 +207,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
 
     /* Calculate its index in the records. */
     int i;
-    free((char*)rec->key);
-    if (free_value && rec->value) {
+    if (rec->value) {
         if ((rec->type == 's' || rec->type == 'S') && rec->length > 1) {
             char **vals = (char**)rec->value;
             for (i = 0; i < rec->length; i++) {
@@ -216,13 +216,29 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
             }
         }
         free(rec->value);
+        rec->value = 0;
     }
 
-    for (i = rec - tab->records + 1; i < tab->num_records; i++)
-        tab->records[i-1] = tab->records[i];
-    --tab->num_records;
-
+    rec->index |= PROPERTY_REMOVE;
     return 1;
+}
+
+void mapper_table_clear_empty_records(mapper_table tab)
+{
+    int i, j;
+    mapper_table_record_t *rec;
+    for (i = 0; i < tab->num_records; i++) {
+        rec = &tab->records[i];
+        if (rec->value || !(rec->index & PROPERTY_REMOVE))
+            continue;
+        rec->index &= ~PROPERTY_REMOVE;
+        if (MASK_PROP_BITFLAGS(rec->index) != AT_EXTRA)
+            continue;
+        free((char*)rec->key);
+        for (j = rec - tab->records + 1; j < tab->num_records; j++)
+            tab->records[j-1] = tab->records[j];
+        --tab->num_records;
+    }
 }
 
 static int is_value_different(mapper_table_record_t *rec, int length, char type,
@@ -441,7 +457,7 @@ int set_record_internal(mapper_table tab, mapper_property_t index,
     mapper_table_record_t *rec = mapper_table_record(tab, index, key);
 
     if (flags & PROPERTY_REMOVE)
-        return mapper_table_remove_record(tab, index, key, flags, 1);
+        return mapper_table_remove_record(tab, index, key, flags);
 
     if (rec) {
         if (!is_value_different(rec, length, type, value))
@@ -466,7 +482,7 @@ int mapper_table_set_record(mapper_table tab, mapper_property_t index,
                             const void *args, int flags)
 {
     if (!args && !(flags & REMOTE_MODIFY))
-        return mapper_table_remove_record(tab, index, key, flags, 1);
+        return mapper_table_remove_record(tab, index, key, flags);
     return set_record_internal(tab, index, key, length, type, args, flags);
 }
 
@@ -679,7 +695,7 @@ int mapper_table_set_record_from_atom(mapper_table tab,
                                                      atom->key);
 
     if (atom->index & PROPERTY_REMOVE) {
-        return mapper_table_remove_record(tab, atom->index, atom->key, flags, 1);
+        return mapper_table_remove_record(tab, atom->index, atom->key, flags);
     }
 
     if (rec) {

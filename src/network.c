@@ -1076,6 +1076,7 @@ static int handler_device_modify(const char *path, const char *types,
         mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
         // TODO: only send props that were updated?
         mapper_device_send_state(dev, MSG_DEVICE);
+        mapper_table_clear_empty_records(dev->props);
     }
     return 0;
 }
@@ -1331,6 +1332,7 @@ static int handler_signal_modify(const char *path, const char *types,
             mapper_network_set_dest_subscribers(net, MAPPER_OBJ_INPUT_SIGNALS);
         // TODO: only send props that were updated?
         mapper_signal_send_state(sig, MSG_SIGNAL);
+        mapper_table_clear_empty_records(sig->props);
     }
     return 0;
 }
@@ -1594,8 +1596,27 @@ static int handler_linked(const char *path, const char *types, lo_arg **argv,
     if (link)
         mapper_link_set_from_message(link, props, link->devices[0] != dev1);
     else
-        mapper_database_add_or_update_link(&net->database, dev1, dev2, props);
+        link = mapper_database_add_or_update_link(&net->database, dev1, dev2,
+                                                  props);
     mapper_message_free(props);
+    if (!link)
+        return 0;
+
+    mapper_device ldev = dev1->local ? dev1 : dev2->local ? dev2 : 0;
+    if (!ldev)
+        return 0;
+
+    if (ldev->local->subscribers) {
+        // Inform subscribers
+        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+        mapper_link_send_state(link, -1, MSG_LINKED);
+    }
+
+    // Call local link handler if it exists
+    mapper_device_link_handler *h = ldev->local->link_handler;
+    if (h)
+        h(ldev, link, MAPPER_ADDED);
+
     return 0;
 }
 
@@ -2122,6 +2143,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             h(dev, map, MAPPER_ADDED);
     }
     mapper_message_free(props);
+    mapper_table_clear_empty_records(map->props);
     return 0;
 }
 
@@ -2284,6 +2306,7 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
             h(dev, map, MAPPER_MODIFIED);
     }
     mapper_message_free(props);
+    mapper_table_clear_empty_records(map->props);
     return 0;
 }
 
