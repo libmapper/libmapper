@@ -1609,7 +1609,7 @@ static int handler_linked(const char *path, const char *types, lo_arg **argv,
     if (ldev->local->subscribers) {
         // Inform subscribers
         mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
-        mapper_link_send_state(link, -1, MSG_LINKED);
+        mapper_link_send_state(link, MSG_LINKED, 0);
     }
 
     // Call local link handler if it exists
