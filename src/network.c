@@ -1304,7 +1304,7 @@ static int handler_signal_modify(const char *path, const char *types,
     if (!dev || !mapper_device_ready(dev))
         return 0;
 
-    if (argc < 3)
+    if (argc < 2)
         return 0;
 
     if (types[0] != 's' && types[0] != 'S')
@@ -1577,46 +1577,71 @@ static int handler_linked(const char *path, const char *types, lo_arg **argv,
                           int argc, lo_message msg, void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
+    int updated = 0;
+
     if (argc < 3 || strncmp(types, "sss", 3))
         return 0;
+
     mapper_device dev1 = mapper_database_device_by_name(&net->database,
                                                         &argv[0]->s);
-    if (!dev1)
+    if (!dev1) {
+        trace("<%s> ignoring /linked; device '%s' not found.\n",
+              net->device ? mapper_device_name(net->device) : "network",
+              &argv[0]->s);
         return 0;
+    }
     mapper_device dev2 = mapper_database_device_by_name(&net->database,
                                                         &argv[2]->s);
-    if (!dev2)
+    if (!dev2) {
+        trace("<%s> ignoring /linked; device '%s' not found.\n",
+              net->device ? mapper_device_name(net->device) : "network",
+              &argv[2]->s);
         return 0;
+    }
+
     mapper_link link = mapper_device_link_by_remote_device(dev1, dev2);
     // do not allow /linked message to create local link
-    if (!link && (dev1->local || dev2->local))
+    if (!link && (dev1->local || dev2->local)) {
+        trace("<%s> ignoring /linked: no staged link found.\n",
+              mapper_device_name(dev1->local ? dev1 : dev2));
         return 0;
+    }
+
     mapper_message props = mapper_message_parse_properties(argc-3, &types[3],
                                                            &argv[3]);
     if (link)
-        mapper_link_set_from_message(link, props, link->devices[0] != dev1);
-    else
+        updated = mapper_link_set_from_message(link, props,
+                                               link->devices[0] != dev1);
+    else {
         link = mapper_database_add_or_update_link(&net->database, dev1, dev2,
                                                   props);
+    }
     mapper_message_free(props);
     if (!link)
-        return 0;
+        goto done;
 
     mapper_device ldev = dev1->local ? dev1 : dev2->local ? dev2 : 0;
-    if (!ldev)
-        return 0;
+    if (!ldev) {
+        trace("<network> got /linked\n");
+        goto done;
+    }
+    else
+        trace("<%s> got /linked\n", mapper_device_name(ldev));
 
-    if (ldev->local->subscribers) {
-        // Inform subscribers
-        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
-        mapper_link_send_state(link, MSG_LINKED, 0);
+    if (updated) {
+        if (ldev->local->subscribers) {
+            // Inform subscribers
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+            mapper_link_send_state(link, MSG_LINKED, 0);
+        }
+        // Call local link handler if it exists
+        mapper_device_link_handler *h = ldev->local->link_handler;
+        if (h)
+            h(ldev, link, updated ? MAPPER_MODIFIED : MAPPER_ADDED);
     }
 
-    // Call local link handler if it exists
-    mapper_device_link_handler *h = ldev->local->link_handler;
-    if (h)
-        h(ldev, link, MAPPER_ADDED);
-
+done:
+    mapper_table_clear_empty_records(link->props);
     return 0;
 }
 
@@ -1625,24 +1650,56 @@ static int handler_link_modify(const char *path, const char *types,
                                void *user_data)
 {
     mapper_network net = (mapper_network) user_data;
-    if (argc < 5 || strncmp(types, "ssss", 4))
+    int updated = 0;
+
+    if (argc < 4 || strncmp(types, "ssss", 4))
         return 0;
+
     mapper_device dev1 = mapper_database_device_by_name(&net->database,
                                                         &argv[0]->s);
-    if (!dev1)
-        return 0;
     mapper_device dev2 = mapper_database_device_by_name(&net->database,
                                                         &argv[2]->s);
-    if (!dev2)
+    if (!dev1 || !dev2) {
+        trace("ignoring /link/modify %s <-> %s\n", &argv[0]->s, &argv[2]->s);
         return 0;
-    if (!dev1->local && !dev2->local)
+    }
+
+    mapper_device ldev = dev1->local ? dev1 : dev2->local ? dev2 : 0;
+    if (!ldev) {
+        trace("ignoring /link/modify %s <-> %s\n", &argv[0]->s, &argv[2]->s);
         return 0;
+    }
     mapper_link link = mapper_device_link_by_remote_device(dev1, dev2);
-    if (!link)
+    if (!link || !link->local) {
+        trace("ignoring /link/modify %s <-> %s; link not found\n",
+              &argv[0]->s, &argv[2]->s);
         return 0;
+    }
+
+    trace("<%s> got /link/modify %s <-> %s\n", mapper_device_name(ldev),
+          &argv[0]->s, &argv[2]->s);
+
     mapper_message props = mapper_message_parse_properties(argc-3, &types[3],
                                                            &argv[3]);
-    mapper_link_set_from_message(link, props, link->devices[0] != dev1);
+    updated = mapper_link_set_from_message(link, props,
+                                           link->devices[0] != dev1);
+    if (updated) {
+        if (link->local->admin_addr) {
+            // inform peer device
+            mapper_network_set_dest_mesh(net, link->local->admin_addr);
+            mapper_link_send_state(link, MSG_LINKED, 0);
+        }
+        if (ldev->local->subscribers) {
+            // inform subscribers
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+            mapper_link_send_state(link, MSG_LINKED, 0);
+        }
+        // Call local link handler if it exists
+        mapper_device_link_handler *h = ldev->local->link_handler;
+        if (h)
+            h(ldev, link, updated ? MAPPER_MODIFIED : MAPPER_ADDED);
+        mapper_table_clear_empty_records(link->props);
+    }
     mapper_message_free(props);
     return 0;
 }
@@ -1659,6 +1716,9 @@ static int handler_unlinked(const char *path, const char *types, lo_arg **argv,
                                                         &argv[2]->s);
     if (!dev2 || dev2->local)
         return 0;
+    trace("<%s> got /unlinked %s <-> %s\n",
+          mapper_device_name(dev1->local ? dev1 : dev2), &argv[0]->s,
+          &argv[2]->s);
     mapper_link link = mapper_device_link_by_remote_device(dev1, dev2);
     if (link)
         mapper_database_remove_link(&net->database, link, MAPPER_REMOVED);

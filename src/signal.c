@@ -1576,7 +1576,7 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
 
     for (i = 0; i < msg->num_atoms; i++) {
         atom = &msg->atoms[i];
-        if (sig->local && atom->index != AT_EXTRA)
+        if (sig->local && (MASK_PROP_BITFLAGS(atom->index) != AT_EXTRA))
             continue;
         switch (atom->index) {
             case AT_DIRECTION: {

@@ -160,6 +160,28 @@ void on_device(mapper_database db, mapper_device dev, mapper_record_action a,
     update = 1;
 }
 
+void on_link(mapper_database db, mapper_link lnk, mapper_record_action a,
+             const void *user)
+{
+    printf("Link %s <-> %s ", lnk->devices[0]->name, lnk->devices[1]->name);
+    switch (a) {
+        case MAPPER_ADDED:
+            printf("added.\n");
+            break;
+        case MAPPER_MODIFIED:
+            printf("modified.\n");
+            break;
+        case MAPPER_REMOVED:
+            printf("removed.\n");
+            break;
+        case MAPPER_EXPIRED:
+            printf("unresponsive.\n");
+            break;
+    }
+    monitor_pause();
+    update = 1;
+}
+
 void on_signal(mapper_database db, mapper_signal sig, mapper_record_action a,
                const void *user)
 {
@@ -255,6 +277,7 @@ int main(int argc, char **argv)
 
     mapper_database_add_device_callback(db, on_device, 0);
     mapper_database_add_signal_callback(db, on_signal, 0);
+    mapper_database_add_link_callback(db, on_link, 0);
     mapper_database_add_map_callback(db, on_map, 0);
 
     loop();
@@ -262,6 +285,7 @@ int main(int argc, char **argv)
   done:
     mapper_database_remove_device_callback(db, on_device, 0);
     mapper_database_remove_signal_callback(db, on_signal, 0);
+    mapper_database_remove_link_callback(db, on_link, 0);
     mapper_database_remove_map_callback(db, on_map, 0);
     cleanup_database();
     return result;

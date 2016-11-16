@@ -226,8 +226,6 @@ int mapper_link_set_property(mapper_link link, const char *name, int length,
                                    value, REMOTE_MODIFY);
 }
 
-
-
 int mapper_link_remove_property(mapper_link link, const char *name)
 {
     if (!link)
@@ -252,20 +250,23 @@ int mapper_link_set_from_message(mapper_link link, mapper_message msg,
                 mapper_id id = msg->atoms[i].values[0]->h;
                 mapper_table_set_record(link->props, AT_ID, NULL, 1, 'h', &id,
                                         LOCAL_MODIFY);
+                ++updated;
             }
         }
-        else if (link->local && msg->atoms[i].index != AT_EXTRA)
+        else if (link->local
+                 && (MASK_PROP_BITFLAGS(msg->atoms[i].index) != AT_EXTRA))
             continue;
-        if (msg->atoms[i].index == AT_NUM_MAPS) {
+        else if (msg->atoms[i].index == AT_NUM_MAPS) {
             if (msg->atoms[i].length != 2 || msg->atoms[i].types[0] != 'i')
                 continue;
             link->num_maps[0] = msg->atoms[i].values[0+reversed]->i32;
             link->num_maps[1] = msg->atoms[i].values[1-reversed]->i32;
+            ++updated;
         }
         else {
-            updated = mapper_table_set_record_from_atom(link->props,
-                                                        &msg->atoms[i],
-                                                        REMOTE_MODIFY);
+            updated += mapper_table_set_record_from_atom(link->props,
+                                                         &msg->atoms[i],
+                                                         REMOTE_MODIFY);
         }
     }
     return updated;

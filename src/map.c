@@ -1549,12 +1549,6 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
             default:
                 break;
         }
-        if (map->local && map->destination.direction == MAPPER_DIR_INCOMING
-            && atom->types[0] == 'N') {
-            // need to ensure that removed props are propagated to peer
-            mapper_table_set_record_from_atom(map->staged_props, atom,
-                                              REMOTE_MODIFY);
-        }
     }
 
     if (map->local) {
@@ -1564,15 +1558,6 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
         }
         else if (updated)
             apply_mode(map);
-        if (map->destination.direction == MAPPER_DIR_INCOMING
-            && map->staged_props->num_records) {
-            for (i = 0; i < map->num_sources; i++) {
-                mapper_network_set_dest_mesh(map->database->network,
-                                             map->sources[i]->link->local->admin_addr);
-                i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
-                                          MSG_MAP_MODIFY);
-            }
-        }
     }
     return updated;
 }
