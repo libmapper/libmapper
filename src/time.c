@@ -25,12 +25,6 @@ double mapper_get_current_time()
 #endif
 }
 
-void mapper_clock_init(mapper_clock clock)
-{
-    mapper_now(&clock->now);
-    clock->next_ping = clock->now.sec;
-}
-
 void mapper_now(mapper_timetag_t *timetag)
 {
     lo_timetag_now((lo_timetag*)timetag);

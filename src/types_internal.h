@@ -83,14 +83,6 @@ typedef enum {
 
 /**** String tables ****/
 
-/*! An arbitrary property value and its type.  If type is a string, the
- *  allocated size may be longer than sizeof(mapper_property_value_t). */
-typedef struct _mapper_property_value {
-    void **value;
-    int length;
-    char type;
-} mapper_property_value_t;
-
 // bit flags for tracking permissions for modifying properties
 #define NON_MODIFIABLE      0x00
 #define LOCAL_MODIFY        0x01
@@ -108,8 +100,8 @@ typedef struct {
     const char *key;
     void **value;
     int length;
-    char type;
     mapper_property_t index;
+    char type;
     char flags;
 } mapper_table_record_t;
 
@@ -131,10 +123,10 @@ typedef struct _fptr_list {
 } *fptr_list;
 
 typedef struct _mapper_subscription {
+    struct _mapper_subscription *next;
     mapper_device device;
     int flags;
     uint32_t lease_expiration_sec;
-    struct _mapper_subscription *next;
 } *mapper_subscription;
 
 typedef struct _mapper_database {
@@ -200,13 +192,8 @@ typedef void mapper_resource_on_collision(struct _mapper_allocated_t *resource);
 
 /*! Allocated resources */
 typedef struct _mapper_allocated_t {
-    unsigned int value;           //!< The resource to be allocated.
-    int collision_count;          /*!< The number of collisions
-                                   *   detected for this resource. */
     double count_time;            /*!< The last time at which the
                                    * collision count was updated. */
-    int locked;                   /*!< Whether or not the value has
-                                   *   been locked in (allocated). */
     double suggestion[8];         /*!< Availability of a range
                                        of resource values. */
 
@@ -215,18 +202,19 @@ typedef struct _mapper_allocated_t {
 
    //! Function to call when resource collision occurs.
     mapper_resource_on_collision *on_collision;
+
+    unsigned int value;           //!< The resource to be allocated.
+    int collision_count;          /*!< The number of collisions
+                                   *   detected for this resource. */
+    int locked;                   /*!< Whether or not the value has
+                                   *   been locked in (allocated). */
 } mapper_allocated_t, *mapper_allocated;
 
 /*! Clock and timing information. */
 typedef struct _mapper_sync_timetag_t {
-    int message_id;
     lo_timetag timetag;
+    int message_id;
 } mapper_sync_timetag_t;
-
-typedef struct _mapper_clock_t {
-    mapper_timetag_t now;
-    uint32_t next_ping;
-} mapper_clock_t, *mapper_clock;
 
 typedef struct _mapper_sync_clock_t {
     double rate;
@@ -239,18 +227,15 @@ typedef struct _mapper_sync_clock_t {
 } mapper_sync_clock_t, *mapper_sync_clock;
 
 typedef struct _mapper_subscriber {
+    struct _mapper_subscriber *next;
     lo_address                      address;
     uint32_t                        lease_expiration_sec;
     int                             flags;
-    struct _mapper_subscriber *next;
 } *mapper_subscriber;
 
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_network {
-    int random_id;                  /*!< Random ID for allocation speedup. */
     lo_server_thread bus_server;    /*!< LibLo server thread for the
-                                     *   multicast bus. */
-    int msgs_recvd;                 /*!< Number of messages received on the
                                      *   multicast bus. */
     lo_address bus_addr;            /*!< LibLo address for the multicast bus. */
     lo_server_thread mesh_server;   /*!< LibLo server thread for mesh comms. */
@@ -261,18 +246,22 @@ typedef struct _mapper_network {
                                      *   in charge of. */
     mapper_database_t database;     /*<! Database of local and remote libmapper
                                      *   objects. */
-    mapper_clock_t clock;           /*!< Clock for processing timed events. */
     lo_bundle bundle;               /*!< Bundle pointer for sending
                                      *   messages on the multicast bus. */
     lo_address bundle_dest;
+
+    int random_id;                  /*!< Random ID for allocation speedup. */
+    int msgs_recvd;                 /*!< Number of messages received on the
+                                     *   multicast bus. */
     int message_type;
-    int own_network;                /*! Zero if this network was created
+    uint8_t own_network;            /*! Zero if this network was created
                                      *  automatically by mapper_device_new()
                                      *  or mapper_database_new(), non-zero if
                                      *  it was created by mapper_network_new()
                                      *  and should be freed by
                                      *  mapper_network_free(). */
-    int database_methods_added;
+    uint8_t database_methods_added;
+    uint32_t next_ping;
 } mapper_network_t;
 
 /*! The handle to this device is a pointer. */
@@ -289,14 +278,14 @@ typedef mapper_network_t *mapper_network;
 
 typedef struct _mapper_history
 {
-    char type;                  /*!< The type of this signal, specified as an
-                                 *   OSC type character. */
-    int position;               //!< Current position in the circular buffer.
-    int size;                   //!< History size of the buffer.
-    int length;                 //!< Vector length.
     void *value;                /*!< Value of the signal for each sample of
                                  *   stored history. */
     mapper_timetag_t *timetag;  //!< Timetag for each sample of stored history.
+    int length;                 //!< Vector length.
+    int position;               //!< Current position in the circular buffer.
+    char size;                  //!< History size of the buffer.
+    char type;                  /*!< The type of this signal, specified as an
+                                 *   OSC type character. */
 } mapper_history_t, *mapper_history;
 
 /*! Bit flags for indicating signal instance status. */
@@ -307,15 +296,16 @@ typedef struct _mapper_history
 typedef struct _mapper_signal_instance
 {
     mapper_id id;               //!< User-assignable instance id.
-    int index;                  //!< Index for accessing value history.
-    int is_active;              //!< Status of this instance.
     void *user_data;            //!< User data of this instance.
     mapper_timetag_t created;   //!< The instance's creation timestamp.
-    int has_value;              //!< Indicates whether this instance has a value.
     char *has_value_flags;      //!< Indicates which vector elements have a value.
 
     void *value;                //!< The current value of this signal instance.
     mapper_timetag_t timetag;   //!< The timetag for the current value.
+
+    int index;                  //!< Index for accessing value history.
+    uint8_t has_value;          //!< Indicates whether this instance has a value.
+    uint8_t is_active;          //!< Status of this instance.
 } mapper_signal_instance_t, *mapper_signal_instance;
 
 typedef struct _mapper_signal_id_map
@@ -454,13 +444,14 @@ typedef struct _mapper_slot {
     void *maximum;                      //!< Array of maxima, or NULL for N/A
     int id;                             //!< Slot ID
     int num_instances;
-    int direction;                      //!< DI_INCOMING or DI_OUTGOING
-    int causes_update;                  //!< 1 if causes update, 0 otherwise.
-    int use_instances;                  //!< 1 if using instances, 0 otherwise.
 
     mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
     mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.
-    int calibrating;                    //!< >1 if calibrating, 0 otherwise
+
+    uint8_t direction;                  //!< DI_INCOMING or DI_OUTGOING
+    uint8_t causes_update;              //!< 1 if causes update, 0 otherwise.
+    uint8_t use_instances;              //!< 1 if using instances, 0 otherwise.
+    uint8_t calibrating;                //!< >1 if calibrating, 0 otherwise
 } mapper_slot_t, *mapper_slot;
 
 /*! The mapper_local_map structure is a linked list of mappings for a given
@@ -469,14 +460,14 @@ typedef struct _mapper_slot {
  *  properties are publically defined in mapper_constants.h. */
 typedef struct _mapper_local_map {
     struct _mapper_router *router;
-    int is_local_only;
 
     mapper_expr expr;                   //!< The mapping expression.
     mapper_history *expr_vars;          //!< User variables values.
     int num_expr_vars;                  //!< Number of user variables.
     int num_var_instances;
 
-    int one_source;
+    uint8_t is_local_only;
+    uint8_t one_source;
 } mapper_local_map_t, *mapper_local_map;
 
 /*! A record that describes the properties of a mapping.
@@ -511,6 +502,8 @@ typedef struct _mapper_map {
  *  mappings.  TODO: This should be replaced with a more efficient approach
  *  such as a hash table or search tree. */
 typedef struct _mapper_router_signal {
+    struct _mapper_router_signal *next; //!< The next router_signal in the list.
+
     struct _mapper_router *link;        //!< The parent link.
     struct _mapper_signal *signal;      //!< The associated signal.
 
@@ -518,7 +511,6 @@ typedef struct _mapper_router_signal {
     int num_slots;
     int id_counter;
 
-    struct _mapper_router_signal *next; //!< The next router_signal in the list.
 } *mapper_router_signal;
 
 /*! The router structure. */
@@ -530,11 +522,12 @@ typedef struct _mapper_router {
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
  *  remote and local instances. */
 typedef struct _mapper_id_map {
+    struct _mapper_id_map *next;    //!< The next id map in the list.
+
     mapper_id global;               //!< Hash for originating device.
     mapper_id local;                //!< Local instance id to map.
     int refcount_local;
     int refcount_global;
-    struct _mapper_id_map *next;    //!< The next id map in the list.
 } mapper_id_map_t, *mapper_id_map;
 
 typedef int mapper_signal_group;
@@ -564,12 +557,12 @@ typedef struct _mapper_local_device {
     /*! The list of reserve instance id maps. */
     struct _mapper_id_map *reserve_id_map;
 
+    /*! Server used to handle incoming messages. */
+    lo_server server;
+
     // TODO: move to network
     int link_timeout_sec;   /* Number of seconds after which unresponsive
                              * links will be removed, or 0 for never. */
-
-    /*! Server used to handle incoming messages. */
-    lo_server server;
 
     int own_network;
     int num_signal_groups;
@@ -603,7 +596,7 @@ struct _mapper_device {
     int version;                //!< Reported device state version.
     int status;
 
-    int subscribed;
+    uint8_t subscribed;
 };
 
 /**** Messages ****/
@@ -639,7 +632,7 @@ typedef struct _mapper_message_atom
     lo_arg **values;
     const char *types;
     int length;
-    int index;
+    mapper_property_t index;
 } mapper_message_atom_t, *mapper_message_atom;
 
 typedef struct _mapper_message

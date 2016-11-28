@@ -648,7 +648,6 @@ void mapper_network_add_device(mapper_network net, mapper_device dev)
     /* Initialize data structures */
     if (dev) {
         net->device = dev;
-        mapper_clock_init(&net->clock);
 
         /* Seed the random number generator. */
         seed_srand();
@@ -687,11 +686,11 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
     mapper_device dev = net->device;
     int go = 0;
 
-    mapper_clock_t *clock = &net->clock;
-    mapper_now(&clock->now);
-    if (force || (clock->now.sec >= clock->next_ping)) {
+    mapper_timetag_t now;
+    mapper_now(&now);
+    if (force || (now.sec >= net->next_ping)) {
         go = 1;
-        clock->next_ping = clock->now.sec + 5 + (rand() % 4);
+        net->next_ping = now.sec + 5 + (rand() % 4);
     }
 
     if (!dev || !go)
@@ -718,7 +717,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
         num_maps = link->num_maps[0] + link->num_maps[1];
         mapper_sync_clock sync = &link->local->clock;
         elapsed = (sync->response.timetag.sec
-                   ? clock->now.sec - sync->response.timetag.sec : 0);
+                   ? now.sec - sync->response.timetag.sec : 0);
         if ((dev->local->link_timeout_sec
              && elapsed > dev->local->link_timeout_sec)) {
             if (sync->response.message_id > 0) {
@@ -729,7 +728,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
                 }
                 // tentatively mark link as expired
                 sync->response.message_id = -1;
-                sync->response.timetag.sec = clock->now.sec;
+                sync->response.timetag.sec = now.sec;
             }
             else {
                 if (num_maps) {
@@ -761,7 +760,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
         else if (mapper_device_host(link->remote_device) && num_maps) {
             /* Only send pings if this link has associated maps, ensuring empty
              * links are removed after the ping timeout. */
-            lo_bundle b = lo_bundle_new(clock->now);
+            lo_bundle b = lo_bundle_new(now);
             lo_message m = lo_message_new();
             lo_message_add_int64(m, mapper_device_id(dev));
             ++sync->sent.message_id;
@@ -770,7 +769,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
             lo_message_add_int32(m, sync->sent.message_id);
             lo_message_add_int32(m, sync->response.message_id);
             if (sync->response.timetag.sec)
-                lo_message_add_double(m, mapper_timetag_difference(clock->now,
+                lo_message_add_double(m, mapper_timetag_difference(now,
                                                                    sync->response.timetag));
             else
                 lo_message_add_double(m, 0.);

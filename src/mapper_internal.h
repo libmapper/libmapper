@@ -603,9 +603,6 @@ void mapper_list_query_done(void **query);
 /*! Get the current time. */
 double mapper_get_current_time();
 
-/*! Initialize a mapper_clock. */
-void mapper_clock_init(mapper_clock clock);
-
 /**** Debug macros ****/
 
 /*! Debug tracer */

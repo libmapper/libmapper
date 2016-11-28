@@ -930,7 +930,7 @@ void mapper_signal_remove_instance(mapper_signal sig, mapper_id id)
         if (sig->local->instances[i]->id == id) {
             if (sig->local->instances[i]->is_active) {
                 // First release instance
-                mapper_timetag_t tt = sig->device->database->network->clock.now;
+                mapper_timetag_t tt;
                 mapper_now(&tt);
                 mapper_signal_instance_release_internal(sig, i, tt);
             }

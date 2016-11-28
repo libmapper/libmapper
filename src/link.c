@@ -52,9 +52,9 @@ void mapper_link_init(mapper_link link, int is_local)
     link->local->clock.new = 1;
     link->local->clock.sent.message_id = 0;
     link->local->clock.response.message_id = -1;
-    mapper_clock clock = &link->local_device->database->network->clock;
-    mapper_now(&clock->now);
-    link->local->clock.response.timetag.sec = clock->now.sec + 10;
+    mapper_timetag_t tt;
+    mapper_now(&tt);
+    link->local->clock.response.timetag.sec = tt.sec + 10;
 
     // request missing metadata
     char cmd[256];

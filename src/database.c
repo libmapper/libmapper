@@ -1305,7 +1305,7 @@ static void unsubscribe_internal(mapper_database db, mapper_device dev,
 int mapper_database_poll(mapper_database db, int block_ms)
 {
     mapper_network net = db->network;
-    int count = 0, ping_time = net->clock.next_ping;
+    int count = 0, ping_time = net->next_ping;
     mapper_timetag_t tt;
 
     if (!block_ms) {
@@ -1356,8 +1356,8 @@ int mapper_database_poll(mapper_database db, int block_ms)
             while (s) {
                 if (s->lease_expiration_sec < tt.sec) {
                     subscribe_internal(db, s->device, s->flags, AUTOSUBSCRIBE_INTERVAL);
-                        // leave 10-second buffer for subscription renewal
-                    s->lease_expiration_sec = (net->clock.now.sec
+                    // leave 10-second buffer for subscription renewal
+                    s->lease_expiration_sec = (tt.sec
                                                + AUTOSUBSCRIBE_INTERVAL - 10);
                 }
                 s = s->next;
@@ -1365,10 +1365,10 @@ int mapper_database_poll(mapper_database db, int block_ms)
 
             mapper_network_poll(net, 0);
 
-            if (ping_time != net->clock.next_ping) {
+            if (ping_time != net->next_ping) {
                 // some housekeeping: check if any devices have timed out
-                mapper_database_check_device_status(db, net->clock.now.sec);
-                ping_time = net->clock.next_ping;
+                mapper_database_check_device_status(db, tt.sec);
+                ping_time = net->next_ping;
             }
             start.tv_sec = now.tv_sec;
             start.tv_usec = now.tv_usec;
