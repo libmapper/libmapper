@@ -2608,7 +2608,7 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
                 temp.name = &argv[0]->s;
                 temp.version = -1;
                 mapper_database_subscribe(&net->database, &temp,
-                                          net->database.autosubscribe, 0);
+                                          MAPPER_OBJ_DEVICES, 0);
             }
         }
     }
