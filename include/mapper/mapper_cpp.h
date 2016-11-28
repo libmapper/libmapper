@@ -94,10 +94,14 @@ namespace mapper {
             { _tt.sec = sec; _tt.frac = frac; }
         Timetag(double seconds)
             { mapper_timetag_set_double(&_tt, seconds); }
+        Timetag()
+            { mapper_now(&_tt); }
         uint32_t sec()
             { return _tt.sec; }
         uint32_t frac()
             { return _tt.frac; }
+        Timetag& now()
+            { mapper_now(&_tt); return (*this); }
         operator mapper_timetag_t*()
             { return &_tt; }
         operator double() const
@@ -2256,13 +2260,6 @@ namespace mapper {
 
     inline std::string version()
         { return std::string(mapper_version()); }
-
-    Timetag now()
-    {
-        mapper_timetag_t tt;
-        mapper_now(&tt);
-        return Timetag(tt);
-    }
 };
 
 #endif // _MAPPER_CPP_H_
