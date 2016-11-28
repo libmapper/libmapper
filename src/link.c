@@ -31,8 +31,8 @@ void mapper_link_init(mapper_link link, int is_local)
     if (!is_local)
         return;
 
-    link->local = ((mapper_link_internal)
-                   calloc(1, sizeof(struct _mapper_link_internal)));
+    link->local = ((mapper_local_link)
+                   calloc(1, sizeof(struct _mapper_local_link)));
 
     if (!link->id && link->local_device->local)
         link->id = mapper_device_generate_unique_id(link->local_device);

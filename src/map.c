@@ -233,8 +233,8 @@ void mapper_map_free(mapper_map map)
         free(map->sources);
     }
     mapper_slot_free(&map->destination);
-    if (map->scope.size && map->scope.devices) {
-        free(map->scope.devices);
+    if (map->num_scopes && map->scopes) {
+        free(map->scopes);
     }
     if (map->props)
         mapper_table_free(map->props);
@@ -316,9 +316,10 @@ mapper_location mapper_map_process_location(mapper_map map)
 
 static int cmp_query_map_scopes(const void *context_data, mapper_device dev)
 {
-    mapper_map_scope scope = (mapper_map_scope)context_data;
-    for (int i = 0; i < scope->size; i++) {
-        if (!scope->devices[i] || scope->devices[i]->id == dev->id)
+    int num_scopes = *(int*)context_data;
+    mapper_device *scopes = (mapper_device*)(context_data + sizeof(int));
+    for (int i = 0; i < num_scopes; i++) {
+        if (!scopes[i] || scopes[i]->id == dev->id)
             return 1;
     }
     return 0;
@@ -326,11 +327,11 @@ static int cmp_query_map_scopes(const void *context_data, mapper_device dev)
 
 mapper_device *mapper_map_scopes(mapper_map map)
 {
-    if (!map || !map->scope.size)
+    if (!map || !map->num_scopes)
         return 0;
     return ((mapper_device *)
             mapper_list_new_query(map->database->devices, cmp_query_map_scopes,
-                                  "v", &map->scope));
+                                  "iv", map->num_scopes, &map->scopes));
 }
 
 int mapper_map_num_properties(mapper_map map) {
@@ -501,23 +502,23 @@ static int add_scope_internal(mapper_map map, const char *name)
     mapper_device dev = 0;
 
     if (strcmp(name, "all")==0) {
-        for (i = 0; i < map->scope.size; i++) {
-            if (!map->scope.devices[i])
+        for (i = 0; i < map->num_scopes; i++) {
+            if (!map->scopes[i])
                 return 0;
         }
     }
     else {
         dev = mapper_database_add_or_update_device(map->database, name, 0);
-        for (i = 0; i < map->scope.size; i++) {
-            if (map->scope.devices[i] && map->scope.devices[i]->id == dev->id)
+        for (i = 0; i < map->num_scopes; i++) {
+            if (map->scopes[i] && map->scopes[i]->id == dev->id)
                 return 0;
         }
     }
 
     // not found - add a new scope
-    i = ++map->scope.size;
-    map->scope.devices = realloc(map->scope.devices, i * sizeof(mapper_device));
-    map->scope.devices[i-1] = dev;
+    i = ++map->num_scopes;
+    map->scopes = realloc(map->scopes, i * sizeof(mapper_device));
+    map->scopes[i-1] = dev;
     return 1;
 }
 
@@ -528,24 +529,23 @@ static int remove_scope_internal(mapper_map map, const char *name)
         return 0;
     if (strcmp(name, "all")==0)
         name = 0;
-    for (i = 0; i < map->scope.size; i++) {
-        if (!map->scope.devices[i]) {
+    for (i = 0; i < map->num_scopes; i++) {
+        if (!map->scopes[i]) {
             if (!name)
                 break;
         }
-        else if (name && strcmp(map->scope.devices[i]->name, name) == 0)
+        else if (name && strcmp(map->scopes[i]->name, name) == 0)
             break;
     }
-    if (i == map->scope.size)
+    if (i == map->num_scopes)
         return 0;
 
     // found - remove scope at index i
-    for (; i < map->scope.size; i++) {
-        map->scope.devices[i-1] = map->scope.devices[i];
+    for (; i < map->num_scopes; i++) {
+        map->scopes[i-1] = map->scopes[i];
     }
-    map->scope.size--;
-    map->scope.devices = realloc(map->scope.devices,
-                                 map->scope.size * sizeof(mapper_device));
+    --map->num_scopes;
+    map->scopes = realloc(map->scopes, map->num_scopes * sizeof(mapper_device));
     return 1;
 }
 
@@ -559,11 +559,11 @@ static int mapper_map_update_scope(mapper_map map, mapper_message_atom atom)
         const char *name, *no_slash;
 
         // First remove old scopes that are missing
-        for (i = 0; i < map->scope.size; i++) {
+        for (i = 0; i < map->num_scopes; i++) {
             int found = 0;
             for (j = 0; j < num; j++) {
                 name = &scope_list[j]->s;
-                if (!map->scope.devices[i]) {
+                if (!map->scopes[i]) {
                     if (strcmp(name, "all") == 0) {
                         found = 1;
                         break;
@@ -571,7 +571,7 @@ static int mapper_map_update_scope(mapper_map map, mapper_message_atom atom)
                     break;
                 }
                 no_slash = name[0] == '/' ? name + 1 : name;
-                if (strcmp(no_slash, map->scope.devices[i]->name) == 0) {
+                if (strcmp(no_slash, map->scopes[i]->name) == 0) {
                     found = 1;
                     break;
                 }
@@ -1568,7 +1568,7 @@ void reallocate_map_histories(mapper_map map)
 {
     int i, j;
     mapper_slot slot;
-    mapper_slot_internal islot;
+    mapper_local_slot slot_loc;
     int history_size;
 
     // If there is no expression, then no memory needs to be reallocated.
@@ -1578,34 +1578,34 @@ void reallocate_map_histories(mapper_map map)
     // Reallocate source histories
     for (i = 0; i < map->num_sources; i++) {
         slot = map->sources[i];
-        islot = slot->local;
+        slot_loc = slot->local;
 
         history_size = mapper_expr_input_history_size(map->local->expr, i);
-        if (history_size > islot->history_size) {
+        if (history_size > slot_loc->history_size) {
             size_t sample_size = mapper_type_size(slot->signal->type) * slot->signal->length;;
             for (j = 0; j < slot->num_instances; j++) {
-                mhist_realloc(&islot->history[j], history_size, sample_size, 1);
+                mhist_realloc(&slot_loc->history[j], history_size, sample_size, 1);
             }
-            islot->history_size = history_size;
+            slot_loc->history_size = history_size;
         }
-        else if (history_size < islot->history_size) {
+        else if (history_size < slot_loc->history_size) {
             // Do nothing for now...
         }
     }
 
     history_size = mapper_expr_output_history_size(map->local->expr);
     slot = &map->destination;
-    islot = slot->local;
+    slot_loc = slot->local;
 
     // reallocate output histories
-    if (history_size > islot->history_size) {
+    if (history_size > slot_loc->history_size) {
         int sample_size = mapper_type_size(slot->signal->type) * slot->signal->length;
         for (i = 0; i < slot->num_instances; i++) {
-            mhist_realloc(&islot->history[i], history_size, sample_size, 0);
+            mhist_realloc(&slot_loc->history[i], history_size, sample_size, 0);
         }
-        islot->history_size = history_size;
+        slot_loc->history_size = history_size;
     }
-    else if (history_size < islot->history_size) {
+    else if (history_size < slot_loc->history_size) {
         // Do nothing for now...
     }
 
@@ -1790,11 +1790,11 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
 
     if (!staged) {
         // add scopes
-        if (map->scope.size) {
+        if (map->num_scopes) {
             lo_message_add_string(msg, mapper_protocol_string(AT_SCOPE));
-            for (i = 0; i < map->scope.size; i++) {
-                if (map->scope.devices[i])
-                    lo_message_add_string(msg, map->scope.devices[i]->name);
+            for (i = 0; i < map->num_scopes; i++) {
+                if (map->scopes[i])
+                    lo_message_add_string(msg, map->scopes[i]->name);
                 else
                     lo_message_add_string(msg, "all");
             }

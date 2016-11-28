@@ -335,8 +335,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     mapper_id global_id;
     mapper_id_map id_map;
     mapper_map map = 0;
-    mapper_slot src_slot = 0;
-    mapper_slot_internal src_islot;
+    mapper_slot slot = 0;
+    mapper_local_slot slot_loc;
 
     if (!sig || !(dev = sig->device)) {
 #ifdef DEBUG
@@ -413,15 +413,15 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 
     if (slot_index >= 0) {
         // retrieve mapping associated with this slot
-        src_slot = mapper_router_slot(dev->local->router, sig, slot_index);
-        if (!src_slot) {
+        slot = mapper_router_slot(dev->local->router, sig, slot_index);
+        if (!slot) {
 #ifdef DEBUG
             printf("error in handler_signal: slot %d not found.\n", slot_index);
 #endif
             return 0;
         }
-        src_islot = src_slot->local;
-        map = src_slot->map;
+        slot_loc = slot->local;
+        map = slot->map;
         if (map->status < STATUS_READY) {
 #ifdef DEBUG
             printf("error in handler_signal: mapping not yet ready.\n");
@@ -435,8 +435,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             return 0;
         }
         if (map->process_location == MAPPER_LOC_DESTINATION) {
-            count = check_types(types, value_len, src_slot->signal->type,
-                                src_slot->signal->length);
+            count = check_types(types, value_len, slot->signal->type,
+                                slot->signal->length);
         }
         else {
             // value has already been processed at source device
@@ -516,7 +516,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     int id = si->index;
     id_map = sig->local->id_maps[id_map_index].map;
 
-    int size = (src_slot ? mapper_type_size(src_slot->signal->type)
+    int size = (slot ? mapper_type_size(slot->signal->type)
                 : mapper_type_size(sig->type));
     void *out_buffer = alloca(count * value_len * size);
     int vals, out_count = 0, active = 1;
@@ -524,7 +524,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     if (map) {
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
-            for (j = 0; j < src_slot->signal->length; j++, k++) {
+            for (j = 0; j < slot->signal->length; j++, k++) {
                 vals += (types[k] != 'N');
             }
             /* partial vector updates not allowed in convergent mappings
@@ -558,14 +558,14 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 if (map->process_location != MAPPER_LOC_DESTINATION)
                     continue;
                 /* Reset memory for corresponding source slot. */
-                memset(src_islot->history[id].value, 0, src_islot->history_size
-                       * src_slot->signal->length * size);
-                memset(src_islot->history[id].timetag, 0,
-                       src_islot->history_size * sizeof(mapper_timetag_t));
-                src_islot->history[id].position = -1;
+                memset(slot_loc->history[id].value, 0, slot_loc->history_size
+                       * slot->signal->length * size);
+                memset(slot_loc->history[id].timetag, 0,
+                       slot_loc->history_size * sizeof(mapper_timetag_t));
+                slot_loc->history[id].position = -1;
                 continue;
             }
-            else if (vals != src_slot->signal->length) {
+            else if (vals != slot->signal->length) {
 #ifdef DEBUG
                 printf("error in handler_signal: partial vector update applied "
                        "to convergent mapping slot.");
@@ -596,13 +596,13 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     }
                 }
             }
-            src_islot->history[id].position = ((src_islot->history[id].position + 1)
-                                               % src_islot->history[id].size);
-            memcpy(mapper_history_value_ptr(src_islot->history[id]),
-                   argv[i*count], size * src_slot->signal->length);
-            memcpy(mapper_history_tt_ptr(src_islot->history[id]), &tt,
+            slot_loc->history[id].position = ((slot_loc->history[id].position + 1)
+                                              % slot_loc->history[id].size);
+            memcpy(mapper_history_value_ptr(slot_loc->history[id]),
+                   argv[i*count], size * slot->signal->length);
+            memcpy(mapper_history_tt_ptr(slot_loc->history[id]), &tt,
                    sizeof(mapper_timetag_t));
-            if (src_slot->causes_update) {
+            if (slot->causes_update) {
                 char typestring[map->destination.signal->length];
                 mapper_history sources[map->num_sources];
                 for (j = 0; j < map->num_sources; j++)

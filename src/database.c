@@ -162,7 +162,7 @@ static void remove_callback(fptr_list *head, const void *f, const void *user)
 
 mapper_device mapper_database_add_or_update_device(mapper_database db,
                                                    const char *name,
-                                                   mapper_message_t *msg)
+                                                   mapper_message_t *props)
 {
     const char *no_slash = skip_slash(name);
     mapper_device dev = mapper_database_device_by_name(db, no_slash);
@@ -180,7 +180,7 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
     }
 
     if (dev) {
-        updated = mapper_device_set_from_message(dev, msg);
+        updated = mapper_device_set_from_message(dev, props);
         mapper_now(&dev->synced);
 
         if (rc || updated) {
@@ -1049,9 +1049,9 @@ mapper_map mapper_database_map_by_id(mapper_database db, mapper_id id)
 static int cmp_query_maps_by_scope(const void *context_data, mapper_map map)
 {
     mapper_id id = *(mapper_id*)context_data;
-    for (int i = 0; i < map->scope.size; i++) {
-        if (map->scope.devices[i]) {
-            if (map->scope.devices[i]->id == id)
+    for (int i = 0; i < map->num_scopes; i++) {
+        if (map->scopes[i]) {
+            if (map->scopes[i]->id == id)
                 return 1;
         }
         else if (id == 0)

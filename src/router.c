@@ -16,8 +16,8 @@ static int map_in_scope(mapper_map map, mapper_id id)
 {
     int i;
     id &= 0xFFFFFFFF00000000; // interested in device hash part only
-    for (i = 0; i < map->scope.size; i++) {
-        if (map->scope.devices[i] == 0 || map->scope.devices[i]->id == id)
+    for (i = 0; i < map->num_scopes; i++) {
+        if (map->scopes[i] == 0 || map->scopes[i]->id == id)
             return 1;
     }
     return 0;
@@ -63,25 +63,25 @@ static void reallocate_map_instances(mapper_map map, int size)
     reallocate_slot_instances(&map->destination, size);
 
     // check if expression variable histories need to be reallocated
-    mapper_map_internal imap = map->local;
-    if (size > imap->num_var_instances) {
-        imap->expr_vars = realloc(imap->expr_vars, sizeof(mapper_history*) * size);
-        for (i = imap->num_var_instances; i < size; i++) {
-            imap->expr_vars[i] = malloc(sizeof(struct _mapper_history)
-                                        * imap->num_expr_vars);
-            for (j = 0; j < imap->num_expr_vars; j++) {
-                imap->expr_vars[i][j].type = imap->expr_vars[0][j].type;
-                imap->expr_vars[i][j].length = imap->expr_vars[0][j].length;
-                imap->expr_vars[i][j].size = imap->expr_vars[0][j].size;
-                imap->expr_vars[i][j].position = -1;
-                imap->expr_vars[i][j].value = calloc(1, sizeof(double)
-                                                     * imap->expr_vars[i][j].length
-                                                     * imap->expr_vars[i][j].size);
-                imap->expr_vars[i][j].timetag = calloc(1, sizeof(mapper_timetag_t)
-                                                       * imap->expr_vars[i][j].size);
+    mapper_local_map lmap = map->local;
+    if (size > lmap->num_var_instances) {
+        lmap->expr_vars = realloc(lmap->expr_vars, sizeof(mapper_history*) * size);
+        for (i = lmap->num_var_instances; i < size; i++) {
+            lmap->expr_vars[i] = malloc(sizeof(struct _mapper_history)
+                                        * lmap->num_expr_vars);
+            for (j = 0; j < lmap->num_expr_vars; j++) {
+                lmap->expr_vars[i][j].type = lmap->expr_vars[0][j].type;
+                lmap->expr_vars[i][j].length = lmap->expr_vars[0][j].length;
+                lmap->expr_vars[i][j].size = lmap->expr_vars[0][j].size;
+                lmap->expr_vars[i][j].position = -1;
+                lmap->expr_vars[i][j].value = calloc(1, sizeof(double)
+                                                     * lmap->expr_vars[i][j].length
+                                                     * lmap->expr_vars[i][j].size);
+                lmap->expr_vars[i][j].timetag = calloc(1, sizeof(mapper_timetag_t)
+                                                       * lmap->expr_vars[i][j].size);
             }
         }
-        imap->num_var_instances = size;
+        lmap->num_var_instances = size;
     }
 }
 
@@ -130,10 +130,10 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
     int i, j, k, idx = sig->local->id_maps[instance].instance->index;
     mapper_map map;
-    mapper_map_internal imap;
+    mapper_local_map lmap;
 
     if (!value) {
-        mapper_slot_internal islot;
+        mapper_local_slot lslot;
         mapper_slot slot;
 
         for (i = 0; i < rs->num_slots; i++) {
@@ -142,32 +142,32 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
             slot = rs->slots[i];
             map = slot->map;
-            imap = map->local;
+            lmap = map->local;
 
             if (map->status < STATUS_ACTIVE)
                 continue;
 
             // need to reset user variable memory for this instance
-            for (j = 0; j < imap->num_expr_vars; j++) {
-                memset(imap->expr_vars[idx][j].value, 0, sizeof(double)
-                       * imap->expr_vars[idx][j].length
-                       * imap->expr_vars[idx][j].size);
-                memset(imap->expr_vars[idx][j].timetag, 0,
+            for (j = 0; j < lmap->num_expr_vars; j++) {
+                memset(lmap->expr_vars[idx][j].value, 0, sizeof(double)
+                       * lmap->expr_vars[idx][j].length
+                       * lmap->expr_vars[idx][j].size);
+                memset(lmap->expr_vars[idx][j].timetag, 0,
                        sizeof(mapper_timetag_t)
-                       * imap->expr_vars[idx][j].size);
-                imap->expr_vars[idx][j].position = -1;
+                       * lmap->expr_vars[idx][j].size);
+                lmap->expr_vars[idx][j].position = -1;
             }
 
             mapper_slot dst_slot = &map->destination;
-            mapper_slot_internal dst_islot = dst_slot->local;
+            mapper_local_slot dst_lslot = dst_slot->local;
 
             // also need to reset associated output memory
-            dst_islot->history[idx].position= -1;
-            memset(dst_islot->history[idx].value, 0, dst_islot->history_size
+            dst_lslot->history[idx].position= -1;
+            memset(dst_lslot->history[idx].value, 0, dst_lslot->history_size
                    * dst_slot->signal->length * mapper_type_size(dst_slot->signal->type));
-            memset(dst_islot->history[idx].timetag, 0, dst_islot->history_size
+            memset(dst_lslot->history[idx].timetag, 0, dst_lslot->history_size
                    * sizeof(mapper_timetag_t));
-            dst_islot->history[idx].position = -1;
+            dst_lslot->history[idx].position = -1;
 
             if (slot->direction == MAPPER_DIR_OUTGOING
                 && !(sig->local->id_maps[instance].status & RELEASED_REMOTELY)) {
@@ -183,14 +183,14 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
             for (j = 0; j < map->num_sources; j++) {
                 slot = map->sources[j];
-                islot = slot->local;
+                lslot = slot->local;
 
                 // also need to reset associated input memory
-                memset(islot->history[idx].value, 0, islot->history_size
+                memset(lslot->history[idx].value, 0, lslot->history_size
                        * slot->signal->length * mapper_type_size(slot->signal->type));
-                memset(islot->history[idx].timetag, 0, islot->history_size
+                memset(lslot->history[idx].timetag, 0, lslot->history_size
                        * sizeof(mapper_timetag_t));
-                islot->history[idx].position = -1;
+                lslot->history[idx].position = -1;
 
                 if (!map->sources[j]->use_instances)
                     continue;
@@ -234,7 +234,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             continue;
         }
 
-        mapper_slot_internal islot = slot->local;
+        mapper_local_slot lslot = slot->local;
         mapper_slot dst_slot = &map->destination;
         mapper_slot to = (map->process_location == MAPPER_LOC_SOURCE ? dst_slot : slot);
         int to_size = mapper_type_size(to->signal->type) * to->signal->length;
@@ -246,19 +246,19 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
         for (j = 0; j < count; j++) {
             // copy input history
             size_t n = mapper_signal_vector_bytes(sig);
-            islot->history[idx].position = ((islot->history[idx].position + 1)
-                                            % islot->history[idx].size);
-            memcpy(mapper_history_value_ptr(islot->history[idx]), value + n * j, n);
-            memcpy(mapper_history_tt_ptr(islot->history[idx]),
+            lslot->history[idx].position = ((lslot->history[idx].position + 1)
+                                            % lslot->history[idx].size);
+            memcpy(mapper_history_value_ptr(lslot->history[idx]), value + n * j, n);
+            memcpy(mapper_history_tt_ptr(lslot->history[idx]),
                    &tt, sizeof(mapper_timetag_t));
 
             // process source boundary behaviour
-            if ((mapper_boundary_perform(&islot->history[idx], slot,
+            if ((mapper_boundary_perform(&lslot->history[idx], slot,
                                          src_types + slot->signal->length * k))) {
                 // back up position index
-                --islot->history[idx].position;
-                if (islot->history[idx].position < 0)
-                    islot->history[idx].position = islot->history[idx].size - 1;
+                --lslot->history[idx].position;
+                if (lslot->history[idx].position < 0)
+                    lslot->history[idx].position = lslot->history[idx].size - 1;
                 continue;
             }
 
@@ -366,9 +366,9 @@ int mapper_router_send_query(mapper_router rtr, mapper_signal sig,
 void send_or_bundle_message(mapper_link link, const char *path, lo_message msg,
                             mapper_timetag_t tt)
 {
-    mapper_link_internal ilink = link->local;
+    mapper_local_link llink = link->local;
     // Check if a matching bundle exists
-    mapper_queue q = ilink->queues;
+    mapper_queue q = llink->queues;
     while (q) {
         if (memcmp(&q->tt, &tt,
                    sizeof(mapper_timetag_t))==0)
@@ -383,7 +383,7 @@ void send_or_bundle_message(mapper_link link, const char *path, lo_message msg,
         // Send message immediately
         lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, msg);
-        lo_send_bundle_from(ilink->data_addr, link->local_device->local->server, b);
+        lo_send_bundle_from(llink->data_addr, link->local_device->local->server, b);
         lo_bundle_free_messages(b);
     }
 }
@@ -402,7 +402,7 @@ static mapper_router_signal find_or_add_router_signal(mapper_router rtr,
               calloc(1, sizeof(struct _mapper_router_signal)));
         rs->signal = sig;
         rs->num_slots = 1;
-        rs->slots = malloc(sizeof(mapper_slot_internal *));
+        rs->slots = malloc(sizeof(mapper_local_slot *));
         rs->slots[0] = 0;
         rs->next = rtr->signals;
         rtr->signals = rs;
@@ -461,8 +461,8 @@ static void alloc_and_init_local_slot(mapper_router rtr, mapper_slot slot,
     slot->direction = ((is_src ^ (slot->signal->local ? 1 : 0))
                        ? MAPPER_DIR_INCOMING : MAPPER_DIR_OUTGOING);
 
-    slot->local = ((mapper_slot_internal)
-                   calloc(1, sizeof(struct _mapper_slot_internal)));
+    slot->local = ((mapper_local_slot)
+                   calloc(1, sizeof(struct _mapper_local_slot)));
     if (slot->signal->local) {
         slot->local->router_sig = find_or_add_router_signal(rtr, slot->signal);
         router_signal_store_slot(slot->local->router_sig, slot);
@@ -521,13 +521,13 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
         return;
     }
 
-    mapper_map_internal imap = ((mapper_map_internal)
-                                calloc(1, sizeof(struct _mapper_map_internal)));
-    map->local = imap;
-    imap->router = rtr;
+    mapper_local_map lmap = ((mapper_local_map)
+                             calloc(1, sizeof(struct _mapper_local_map)));
+    map->local = lmap;
+    lmap->router = rtr;
 
     // TODO: configure number of instances available for each slot
-    imap->num_var_instances = 0;
+    lmap->num_var_instances = 0;
 
     // Allocate local slot structures
     int max_num_instances = 0;
@@ -545,7 +545,7 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
             map->sources[i]->num_instances = map->destination.num_instances;
         map->sources[i]->use_instances = map->sources[i]->num_instances > 1;
     }
-    imap->num_var_instances = max_num_instances;
+    lmap->num_var_instances = max_num_instances;
 
     // assign a unique id to this map if we are the destination
     if (local_dst)
@@ -560,49 +560,47 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
 
     // add scopes
     int scope_count = 0;
-    map->scope.size = map->num_sources;
-    map->scope.devices = (mapper_device *) malloc(sizeof(mapper_device)
-                                                  * map->scope.size);
+    map->num_scopes = map->num_sources;
+    map->scopes = (mapper_device *) malloc(sizeof(mapper_device) * map->num_scopes);
 
     for (i = 0; i < map->num_sources; i++) {
         // check that scope has not already been added
         int j, found = 0;
         for (j = 0; j < scope_count; j++) {
-            if (map->scope.devices[j] == map->sources[i]->signal->device) {
+            if (map->scopes[j] == map->sources[i]->signal->device) {
                 found = 1;
                 break;
             }
         }
         if (!found) {
-            map->scope.devices[scope_count] = map->sources[i]->signal->device;
+            map->scopes[scope_count] = map->sources[i]->signal->device;
             ++scope_count;
         }
     }
 
     if (scope_count != map->num_sources) {
-        map->scope.size = scope_count;
-        map->scope.devices = realloc(map->scope.devices,
-                                     sizeof(mapper_device) * scope_count);
+        map->num_scopes = scope_count;
+        map->scopes = realloc(map->scopes, sizeof(mapper_device) * scope_count);
     }
 
     // check if all sources belong to same remote device
-    imap->one_source = 1;
+    lmap->one_source = 1;
     for (i = 1; i < map->num_sources; i++) {
         if (map->sources[i]->link != map->sources[0]->link) {
-            imap->one_source = 0;
+            lmap->one_source = 0;
             break;
         }
     }
 
     // default to processing at source device unless heterogeneous sources
-    if (imap->one_source)
+    if (lmap->one_source)
         map->process_location = MAPPER_LOC_SOURCE;
     else
         map->process_location = MAPPER_LOC_DESTINATION;
 
     if (local_dst && (local_src == map->num_sources)) {
         // all reference signals are local
-        imap->is_local_only = 1;
+        lmap->is_local_only = 1;
         map->destination.link = map->sources[0]->link;
     }
 }

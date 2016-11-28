@@ -396,16 +396,16 @@ typedef struct _mapper_queue {
 
 /*! The link structure is a linked list of links each associated
  *  with a destination address that belong to a controller device. */
-typedef struct _mapper_link_internal {
+typedef struct _mapper_local_link {
     lo_address admin_addr;              //!< Network address of remote endpoint
     lo_address data_addr;               //!< Network address of remote endpoint
     mapper_queue queues;                /*!< Linked-list of message queues
                                          *   waiting to be sent. */
     mapper_sync_clock_t clock;
-} *mapper_link_internal;
+} *mapper_local_link;
 
 typedef struct _mapper_link {
-    mapper_link_internal local;
+    mapper_local_link local;
     mapper_id id;
     struct _mapper_table *props;
     struct _mapper_table *staged_props;
@@ -431,17 +431,17 @@ typedef struct _mapper_link {
 #define STATUS_READY        0x0F
 #define STATUS_ACTIVE       0x1F
 
-typedef struct _mapper_slot_internal {
+typedef struct _mapper_local_slot {
     // each slot can point to local signal or a remote link structure
     struct _mapper_router_signal *router_sig;    //!< Parent signal if local
     mapper_history history;                 /*!< Array of value histories for
                                              *   each signal instance. */
     int history_size;                       //!< History size.
     char status;
-} mapper_slot_internal_t, *mapper_slot_internal;
+} mapper_local_slot_t, *mapper_local_slot;
 
 typedef struct _mapper_slot {
-    mapper_slot_internal local;         //!< Pointer to local resources if any
+    mapper_local_slot local;            //!< Pointer to local resources if any
     struct _mapper_map *map;            //!< Pointer to parent map
     mapper_signal signal;               //!< Pointer to parent signal
     mapper_link link;
@@ -463,11 +463,11 @@ typedef struct _mapper_slot {
     int calibrating;                    //!< >1 if calibrating, 0 otherwise
 } mapper_slot_t, *mapper_slot;
 
-/*! The mapper_map_internal structure is a linked list of mappings for a given
+/*! The mapper_local_map structure is a linked list of mappings for a given
  *  signal.  Each signal can be associated with multiple inputs or outputs. This
  *  structure only contains state information used for performing mapping, the
  *  properties are publically defined in mapper_constants.h. */
-typedef struct _mapper_map_internal {
+typedef struct _mapper_local_map {
     struct _mapper_router *router;
     int is_local_only;
 
@@ -477,23 +477,18 @@ typedef struct _mapper_map_internal {
     int num_var_instances;
 
     int one_source;
-} mapper_map_internal_t, *mapper_map_internal;
-
-typedef struct _mapper_map_scope {
-    mapper_device *devices; //!< Array of map scope devices.
-    int size;               //!< The number of map scopes.
-} mapper_map_scope_t, *mapper_map_scope;
+} mapper_local_map_t, *mapper_local_map;
 
 /*! A record that describes the properties of a mapping.
  *  @ingroup map */
 typedef struct _mapper_map {
     mapper_database database;           //!< Pointer back to the database.
-    mapper_map_internal local;
+    mapper_local_map local;
     mapper_slot *sources;
     mapper_slot_t destination;
     mapper_id id;                       //!< Unique id identifying this map
 
-    struct _mapper_map_scope scope;
+    mapper_device *scopes;
 
     /*! Properties associated with this map. */
     struct _mapper_table *props;
@@ -505,6 +500,7 @@ typedef struct _mapper_map {
 
     mapper_mode mode;                   //!< MO_LINEAR or MO_EXPRESSION
     int muted;                          //!< 1 to mute mapping, 0 to unmute
+    int num_scopes;
     int num_sources;
     mapper_location process_location;
     int status;
