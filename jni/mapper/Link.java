@@ -16,11 +16,14 @@ public class Link
     public native int numProperties();
     public native Value property(String property);
     public native Property property(int index);
-    public native Link setProperty(String property, Value p);
-    public Link setProperty(Property prop) {
-        return setProperty(prop.name, prop.value);
+    public native Link setProperty(String name, Value value, boolean publish);
+    public Link setProperty(String name, Value value) {
+        return setProperty(name, value, true);
     }
-    public native Link removeProperty(String property);
+    public Link setProperty(Property prop) {
+        return setProperty(prop.name, prop.value, prop.publish);
+    }
+    public native Link removeProperty(String name);
     public Link removeProperty(Property prop) {
         return removeProperty(prop.name);
     }

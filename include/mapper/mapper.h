@@ -429,9 +429,11 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit);
  *  \param length       The length of value array.
  *  \param type         The property  datatype.
  *  \param value        An array of property values.
+ *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_signal_set_property(mapper_signal sig, const char *name,
-                               int length, char type, const void *value);
+                               int length, char type, const void *value,
+                               int publish);
 
 /*! Clear any staged property changes.
  *  \param sig          The signal to operate on. */
@@ -767,9 +769,11 @@ void mapper_device_set_description(mapper_device dev, const char *description);
  *  \param length   	The length of value array.
  *  \param type     	The property  datatype.
  *  \param value    	An array of property values.
+ *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_device_set_property(mapper_device dev, const char *name,
-                               int length, char type, const void *value);
+                               int length, char type, const void *value,
+                               int publish);
 
 /*! Clear any staged property changes.
  *  \param dev          The device to operate on. */
@@ -1102,9 +1106,10 @@ int mapper_link_property_index(mapper_link link, unsigned int index,
  *  \param length       The length of value array.
  *  \param type     	The property  datatype.
  *  \param value        An array of property values.
+ *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_link_set_property(mapper_link link, const char *name, int length,
-                             char type, const void *value);
+                             char type, const void *value, int publish);
 
 /*! Remove a property of a link.
  *  \param link         The link to operate on.
@@ -1317,9 +1322,10 @@ void mapper_map_set_process_location(mapper_map map, mapper_location location);
  *  \param length       The length of value array.
  *  \param type     	The property  datatype.
  *  \param value        An array of property values.
+ *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_map_set_property(mapper_map map, const char *name, int length,
-                            char type, const void *value);
+                            char type, const void *value, int publish);
 
 /*! Clear any staged property changes.
  *  \param map          The map to operate on. */
@@ -1618,9 +1624,10 @@ void mapper_slot_set_use_instances(mapper_slot slot, int use_instances);
  *  \param type     	The property  datatype.
  *  \param value        An array of property values.
  *  \param length       The length of value array.
+ *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
-                             char type, const void *value);
+                             char type, const void *value, int publish);
 
 /*! Remove a property of a map slot.
  *  \param slot         The slot to operate on.

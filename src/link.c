@@ -219,11 +219,14 @@ int mapper_link_property_index(mapper_link link, unsigned int index,
 }
 
 int mapper_link_set_property(mapper_link link, const char *name, int length,
-                             char type, const void *value)
+                             char type, const void *value, int publish)
 {
     mapper_property_t prop = mapper_property_from_string(name);
+    int flags = REMOTE_MODIFY;
+    if (!publish)
+        flags |= LOCAL_ACCESS_ONLY;
     return mapper_table_set_record(link->staged_props, prop, name, length, type,
-                                   value, REMOTE_MODIFY);
+                                   value, flags);
 }
 
 int mapper_link_remove_property(mapper_link link, const char *name)

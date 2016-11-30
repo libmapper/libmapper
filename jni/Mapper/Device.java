@@ -73,9 +73,12 @@ public class Device
     public native int numProperties();
     public native Value property(String name);
     public native Property property(int index);
-    public native Device setProperty(String name, Value value);
+    public native Device setProperty(String name, Value value, boolean publish);
+    public Device setProperty(String name, Value value) {
+        return setProperty(name, value, true);
+    }
     public Device setProperty(Property prop) {
-        return setProperty(prop.name, prop.value);
+        return setProperty(prop.name, prop.value, prop.publish);
     }
     public native Device removeProperty(String name);
     public Device removeProperty(Property prop) {

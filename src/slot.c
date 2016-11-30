@@ -209,7 +209,7 @@ void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
 }
 
 int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
-                             char type, const void *value)
+                             char type, const void *value, int publish)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_BOUND_MAX || prop == AT_BOUND_MIN) {
@@ -220,8 +220,9 @@ int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
             return 0;
     }
     prop = slot_prop_index(slot, prop);
+    int flags = REMOTE_MODIFY | (publish ? 0 : LOCAL_ACCESS_ONLY);
     return mapper_table_set_record(slot->staged_props, prop, name, length, type,
-                                   value, REMOTE_MODIFY);
+                                   value, flags);
 }
 
 int mapper_slot_remove_property(mapper_slot slot, const char *name)

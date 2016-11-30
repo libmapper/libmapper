@@ -1350,7 +1350,7 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit)
 }
 
 int mapper_signal_set_property(mapper_signal sig, const char *name, int length,
-                               char type, const void *value)
+                               char type, const void *value, int publish)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
@@ -1361,10 +1361,13 @@ int mapper_signal_set_property(mapper_signal sig, const char *name, int length,
     }
     else if ((prop != AT_EXTRA) && !sig->local)
         return 0;
-    else
+    else {
+        int flags = sig->local ? LOCAL_MODIFY : REMOTE_MODIFY;
+        if (!publish)
+            flags |= LOCAL_ACCESS_ONLY;
         return mapper_table_set_record(sig->local ? sig->props : sig->staged_props,
-                                       prop, name, length, type, value,
-                                       sig->local ? LOCAL_MODIFY : REMOTE_MODIFY);
+                                       prop, name, length, type, value, flags);
+    }
     return 0;
 }
 

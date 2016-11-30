@@ -1625,7 +1625,7 @@ int mapper_device_version(mapper_device dev)
 }
 
 int mapper_device_set_property(mapper_device dev, const char *name, int length,
-                               char type, const void *value)
+                               char type, const void *value, int publish)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
@@ -1636,10 +1636,13 @@ int mapper_device_set_property(mapper_device dev, const char *name, int length,
     }
     else if ((prop != AT_EXTRA) && !dev->local)
         return 0;
-    else
+    else {
+        int flags = dev->local ? LOCAL_MODIFY : REMOTE_MODIFY;
+        if (!publish)
+            flags |= LOCAL_ACCESS_ONLY;
         return mapper_table_set_record(dev->local ? dev->props : dev->staged_props,
-                                       prop, name, length, type, value,
-                                       dev->local ? LOCAL_MODIFY : REMOTE_MODIFY);
+                                       prop, name, length, type, value, flags);
+    }
     return 0;
 }
 

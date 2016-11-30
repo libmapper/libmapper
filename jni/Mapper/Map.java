@@ -17,11 +17,14 @@ public class Map
         public native int numProperties();
         public native Value property(String property);
         public native Property property(int index);
-        public native Slot setProperty(String property, Value p);
-        public Slot setProperty(Property prop) {
-            return setProperty(prop.name, prop.value);
+        public native Slot setProperty(String name, Value value, boolean publish);
+        public Slot setProperty(String name, Value value) {
+            return setProperty(name, value, true);
         }
-        public native Slot removeProperty(String property);
+        public Slot setProperty(Property prop) {
+            return setProperty(prop.name, prop.value, prop.publish);
+        }
+        public native Slot removeProperty(String name);
         public Slot removeProperty(Property prop) {
             return removeProperty(prop.name);
         }
@@ -116,11 +119,14 @@ public class Map
     public native int numProperties();
     public native Value property(String property);
     public native Property property(int index);
-    public native Map setProperty(String property, Value p);
-    public Map setProperty(Property prop) {
-        return setProperty(prop.name, prop.value);
+    public native Map setProperty(String name, Value value, boolean publish);
+    public Map setProperty(String name, Value value) {
+        return setProperty(name, value, true);
     }
-    public native Map removeProperty(String property);
+    public Map setProperty(Property prop) {
+        return setProperty(prop.name, prop.value, prop.publish);
+    }
+    public native Map removeProperty(String name);
     public Map removeProperty(Property prop) {
         return removeProperty(prop.name);
     }

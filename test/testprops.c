@@ -127,7 +127,7 @@ int main(int argc, char **argv)
     /* Test that adding an extra parameter causes the extra parameter
      * to be listed. */
     char *str = "test_value";
-    mapper_signal_set_property(sig, "test", 1, 's', str);
+    mapper_signal_set_property(sig, "test", 1, 's', str, 1);
     eprintf("Test 3:  adding extra string property 'test'... ");
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -193,9 +193,9 @@ int main(int argc, char **argv)
 
     /* Test that adding two more properties works as expected. */
     int x = 123;
-    mapper_signal_set_property(sig, "x", 1, 'i', &x);
+    mapper_signal_set_property(sig, "x", 1, 'i', &x, 1);
     int y = 234;
-    mapper_signal_set_property(sig, "y", 1, 'i', &y);
+    mapper_signal_set_property(sig, "y", 1, 'i', &y, 1);
     eprintf("Test 6:  adding extra integer properties 'x' and 'y'... ");
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -393,7 +393,7 @@ int main(int argc, char **argv)
     /* Test adding and retrieving an integer vector property. */
     eprintf("Test 14: adding an extra integer vector property 'test'... ");
     int set_int[] = {1, 2, 3, 4, 5};
-    mapper_signal_set_property(sig, "test", 5, 'i', &set_int);
+    mapper_signal_set_property(sig, "test", 5, 'i', &set_int, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -452,7 +452,7 @@ int main(int argc, char **argv)
     /* Test rewriting 'test' as float vector property. */
     eprintf("Test 16: rewriting 'test' as vector float property... ");
     float set_float[] = {10., 20., 30., 40., 50.};
-    mapper_signal_set_property(sig, "test", 5, 'f', &set_float);
+    mapper_signal_set_property(sig, "test", 5, 'f', &set_float, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -511,7 +511,7 @@ int main(int argc, char **argv)
     /* Test rewriting property 'test' as string vector property. */
     eprintf("Test 18: rewriting 'test' as vector string property... ");
     char *set_string[] = {"foo", "bar"};
-    mapper_signal_set_property(sig, "test", 2, 's', &set_string);
+    mapper_signal_set_property(sig, "test", 2, 's', &set_string, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))

@@ -236,11 +236,11 @@ void loop()
 
         // Add custom meta-data specifying a special transport for this map.
         char *str = "tcp";
-        mapper_map_set_property(map, "transport", 1, 's', str);
+        mapper_map_set_property(map, "transport", 1, 's', str, 1);
 
         // Add custom meta-data specifying a port to use for this map's
         // custom transport.
-        mapper_map_set_property(map, "tcpPort", 1, 'i', &tcp_port);
+        mapper_map_set_property(map, "tcpPort", 1, 'i', &tcp_port, 1);
         mapper_map_push(map);
     }
 

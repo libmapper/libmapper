@@ -242,11 +242,14 @@ public class Signal
     public native int numProperties();
     public native Value property(String property);
     public native Property property(int index);
-    public native Signal setProperty(String property, Value p);
-    public Signal setProperty(Property prop) {
-        return setProperty(prop.name, prop.value);
+    public native Signal setProperty(String name, Value value, boolean publish);
+    public Signal setProperty(String name, Value value) {
+        return setProperty(name, value, true);
     }
-    public native Signal removeProperty(String property);
+    public Signal setProperty(Property prop) {
+        return setProperty(prop.name, prop.value, prop.publish);
+    }
+    public native Signal removeProperty(String name);
     public Signal removeProperty(Property prop) {
         return removeProperty(prop.name);
     }

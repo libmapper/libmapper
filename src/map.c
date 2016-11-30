@@ -454,7 +454,7 @@ void mapper_map_remove_scope(mapper_map map, mapper_device device)
 }
 
 int mapper_map_set_property(mapper_map map, const char *name, int length,
-                            char type, const void *value)
+                            char type, const void *value, int publish)
 {
     if (!map)
         return 0;
@@ -466,13 +466,14 @@ int mapper_map_set_property(mapper_map map, const char *name, int length,
         }
     }
     else {
+        int flags = REMOTE_MODIFY | publish ? 0 : LOCAL_ACCESS_ONLY;
         if (map->local && (prop == AT_EXTRA || prop == AT_DESCRIPTION
                            || prop == AT_MUTED)) {
             mapper_table_set_record(map->props, prop, name, length,
-                                    type, value, REMOTE_MODIFY);
+                                    type, value, flags);
         }
         return mapper_table_set_record(map->staged_props, prop, name, length,
-                                       type, value, REMOTE_MODIFY);
+                                       type, value, flags);
     }
     return 0;
 }

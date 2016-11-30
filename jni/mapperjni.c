@@ -1525,7 +1525,7 @@ JNIEXPORT jint JNICALL Java_mapper_Device_mapperDevicePoll
 
 JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
   (JNIEnv *env, jobject obj, jint dir, jint numInst, jstring name, jint length,
-   jchar type, jstring unit, jobject minimum, jobject maximum, jobject listener)
+   jchar type, jstring unit, jobject min, jobject max, jobject listener)
 {
     if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
         return 0;
@@ -1555,13 +1555,13 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
     jobject sigobj = create_signal_object(env, obj, ctx, listener, sig);
 
     if (sigobj) {
-        if (minimum) {
-            jstring minstring = (*env)->NewStringUTF(env, "min");
-            Java_mapper_Signal_setProperty(env, sigobj, minstring, minimum);
+        if (min) {
+            jstring str = (*env)->NewStringUTF(env, "min");
+            Java_mapper_Signal_setProperty(env, sigobj, str, min, 1);
         }
-        if (maximum) {
-            jstring maxstring = (*env)->NewStringUTF(env, "max");
-            Java_mapper_Signal_setProperty(env, sigobj, maxstring, maximum);
+        if (max) {
+            jstring str = (*env)->NewStringUTF(env, "max");
+            Java_mapper_Signal_setProperty(env, sigobj, str, max, 1);
         }
     }
     return sigobj;
@@ -1662,7 +1662,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_property__I
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Device_setProperty
-  (JNIEnv *env, jobject obj, jstring key, jobject jprop)
+  (JNIEnv *env, jobject obj, jstring key, jobject jprop, jboolean publish)
 {
     mapper_device dev = get_device_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
@@ -1670,7 +1670,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_setProperty
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
-        mapper_device_set_property(dev, ckey, length, type, value);
+        mapper_device_set_property(dev, ckey, length, type, value, publish);
         release_Value_elements(env, jprop, value);
     }
     return obj;
@@ -2121,7 +2121,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Link_property__I
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Link_setProperty
-  (JNIEnv *env, jobject obj, jstring key, jobject jprop)
+  (JNIEnv *env, jobject obj, jstring key, jobject jprop, jboolean publish)
 {
     mapper_link link = get_link_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
@@ -2129,7 +2129,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Link_setProperty
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
-        mapper_link_set_property(link, ckey, length, type, value);
+        mapper_link_set_property(link, ckey, length, type, value, publish);
         release_Value_elements(env, jprop, value);
     }
     return obj;
@@ -2316,7 +2316,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_property__I
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setProperty
-  (JNIEnv *env, jobject obj, jstring key, jobject jprop)
+  (JNIEnv *env, jobject obj, jstring key, jobject jprop, jboolean publish)
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
@@ -2324,7 +2324,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setProperty
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
-        mapper_slot_set_property(slot, ckey, length, type, value);
+        mapper_slot_set_property(slot, ckey, length, type, value, publish);
         release_Value_elements(env, jprop, value);
     }
     return obj;
@@ -2413,10 +2413,10 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_maximum
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setMaximum
-  (JNIEnv *env, jobject obj, jobject maximum)
+  (JNIEnv *env, jobject obj, jobject max)
 {
-    jstring maxstring = (*env)->NewStringUTF(env, "max");
-    return Java_mapper_Map_00024Slot_setProperty(env, obj, maxstring, maximum);
+    jstring str = (*env)->NewStringUTF(env, "max");
+    return Java_mapper_Map_00024Slot_setProperty(env, obj, str, max, 1);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_minimum
@@ -2432,10 +2432,10 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_minimum
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setMinimum
-  (JNIEnv *env, jobject obj, jobject minimum)
+  (JNIEnv *env, jobject obj, jobject min)
 {
-    jstring minstring = (*env)->NewStringUTF(env, "min");
-    return Java_mapper_Map_00024Slot_setProperty(env, obj, minstring, minimum);
+    jstring str = (*env)->NewStringUTF(env, "min");
+    return Java_mapper_Map_00024Slot_setProperty(env, obj, str, min, 1);
 }
 
 JNIEXPORT jboolean JNICALL Java_mapper_Map_00024Slot_useInstances
@@ -2555,7 +2555,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_property__I
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Map_setProperty
-  (JNIEnv *env, jobject obj, jstring key, jobject jprop)
+  (JNIEnv *env, jobject obj, jstring key, jobject jprop, jboolean publish)
 {
     mapper_map map = get_map_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
@@ -2563,7 +2563,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_setProperty
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
-        mapper_map_set_property(map, ckey, length, type, value);
+        mapper_map_set_property(map, ckey, length, type, value, publish);
         release_Value_elements(env, jprop, value);
     }
     return obj;
@@ -3492,7 +3492,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_property__I
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Signal_setProperty
-  (JNIEnv *env, jobject obj, jstring key, jobject jprop)
+  (JNIEnv *env, jobject obj, jstring key, jobject jprop, jboolean publish)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
@@ -3500,7 +3500,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_setProperty
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
-        mapper_signal_set_property(sig, ckey, length, type, value);
+        mapper_signal_set_property(sig, ckey, length, type, value, publish);
         release_Value_elements(env, jprop, value);
     }
     return obj;
@@ -3580,10 +3580,10 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_maximum
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Signal_setMaximum
-  (JNIEnv *env, jobject obj, jobject maximum)
+  (JNIEnv *env, jobject obj, jobject max)
 {
-    jstring maxstring = (*env)->NewStringUTF(env, "max");
-    return Java_mapper_Signal_setProperty(env, obj, maxstring, maximum);
+    jstring str = (*env)->NewStringUTF(env, "max");
+    return Java_mapper_Signal_setProperty(env, obj, str, max, 1);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Signal_minimum
@@ -3602,10 +3602,10 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_minimum
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Signal_setMinimum
-  (JNIEnv *env, jobject obj, jobject minimum)
+  (JNIEnv *env, jobject obj, jobject min)
 {
-    jstring minstring = (*env)->NewStringUTF(env, "min");
-    return Java_mapper_Signal_setProperty(env, obj, minstring, minimum);
+    jstring str = (*env)->NewStringUTF(env, "min");
+    return Java_mapper_Signal_setProperty(env, obj, str, min, 1);
 }
 
 JNIEXPORT jstring JNICALL Java_mapper_Signal_name

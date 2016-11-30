@@ -192,19 +192,19 @@ namespace mapper {
     {
     public:
         template <typename T>
-        Property(const string_type &_name, T _value)
-            { name = _name; owned = false; _set(_value); parent = NULL; }
+        Property(const string_type &_name, T _value, bool _publish=true)
+            { name = _name; owned = false; _set(_value); publish = _publish; parent = NULL; }
         template <typename T>
-        Property(const string_type &_name, int _length, T& _value)
+        Property(const string_type &_name, int _length, T& _value, bool _publish=true)
             { name = _name; owned = false; _set(_length, _value); parent = NULL; }
         template <typename T, size_t N>
-        Property(const string_type &_name, std::array<T, N> _value)
+        Property(const string_type &_name, std::array<T, N> _value, bool _publish=true)
             { name = _name; owned = false; _set(_value); parent = NULL; }
         template <typename T>
-        Property(const string_type &_name, std::vector<T> _value)
+        Property(const string_type &_name, std::vector<T> _value, bool _publish=true)
             { name = _name; owned = false; _set(_value); parent = NULL; }
         template <typename T>
-        Property(const string_type &_name, int _length, char _type, T& _value)
+        Property(const string_type &_name, int _length, char _type, T& _value, bool _publish=true)
             { name = _name; owned = false; _set(_length, _type, _value); parent = NULL; }
 
         ~Property()
@@ -324,6 +324,7 @@ namespace mapper {
         char type;
         int length;
         const void *value;
+        bool publish;
     protected:
         friend class Database;
         friend class Object;
@@ -808,7 +809,7 @@ namespace mapper {
                 mapper_map *cpy = mapper_map_query_copy(_maps);
                 while (cpy) {
                     mapper_map_set_property(*cpy, p.name, p.length, p.type,
-                                            p.value);
+                                            p.value, p.publish);
                     cpy = mapper_map_query_next(cpy);
                 }
                 return (*this);
@@ -948,7 +949,7 @@ namespace mapper {
             {
                 if (_slot)
                     mapper_slot_set_property(_slot, p->name, p->length, p->type,
-                                             p->value);
+                                             p->value, p->publish);
                 return (*this);
             }
         private:
@@ -978,7 +979,7 @@ namespace mapper {
         {
             if (_map)
                 mapper_map_set_property(_map, p->name, p->length, p->type,
-                                        p->value);
+                                        p->value, p->publish);
             return (*this);
         }
     private:
@@ -1200,7 +1201,7 @@ namespace mapper {
                 mapper_link *cpy = mapper_link_query_copy(_links);
                 while (cpy) {
                     mapper_link_set_property(*cpy, p.name, p.length, p.type,
-                                             p.value);
+                                             p.value, p.publish);
                     cpy = mapper_link_query_next(cpy);
                 }
                 return (*this);
@@ -1224,7 +1225,7 @@ namespace mapper {
         {
             if (_link)
                 mapper_link_set_property(_link, p->name, p->length, p->type,
-                                         p->value);
+                                         p->value, p->publish);
             return (*this);
         }
     private:
@@ -1240,7 +1241,7 @@ namespace mapper {
         {
             if (_sig)
                 mapper_signal_set_property(_sig, p->name, p->length, p->type,
-                                           p->value);
+                                           p->value, p->publish);
             return (*this);
         }
 
@@ -1665,7 +1666,7 @@ namespace mapper {
                 mapper_signal *cpy = mapper_signal_query_copy(_sigs);
                 while (cpy) {
                     mapper_signal_set_property(*cpy, p.name, p.length, p.type,
-                                               p.value);
+                                               p.value, p.publish);
                     cpy = mapper_signal_query_next(cpy);
                 }
                 return (*this);
@@ -1692,7 +1693,7 @@ namespace mapper {
         {
             if (_dev)
                 mapper_device_set_property(_dev, p->name, p->length, p->type,
-                                           p->value);
+                                           p->value, p->publish);
             return (*this);
         }
     public:
@@ -2023,7 +2024,7 @@ namespace mapper {
                 mapper_device *cpy = mapper_device_query_copy(_devs);
                 while (cpy) {
                     mapper_device_set_property(*cpy, p.name, p.length, p.type,
-                                               p.value);
+                                               p.value, p.publish);
                     cpy = mapper_device_query_next(cpy);
                 }
                 return (*this);

@@ -1335,12 +1335,13 @@ typedef struct _device_query {
         mapper_device_set_description((mapper_device)$self, description);
         return $self;
     }
-    device *set_property(const char *key, property_value val=0) {
+    device *set_property(const char *key, property_value val=0,
+                         booltype publish=1) {
         if (!key || strcmp(key, "user_data")==0)
             return $self;;
         if (val)
             mapper_device_set_property((mapper_device)$self, key, val->length,
-                                       val->type, val->value);
+                                       val->type, val->value, publish);
         else
             mapper_device_remove_property((mapper_device)$self, key);
         return $self;
@@ -1535,12 +1536,13 @@ typedef struct _link_query {
     }
 
     // property setters
-    link *set_property(const char *key, property_value val=0) {
+    link *set_property(const char *key, property_value val=0,
+                       booltype publish=1) {
         if (!key || strcmp(key, "user_data")==0)
             return $self;;
         if (val)
             mapper_link_set_property((mapper_link)$self, key, val->length,
-                                     val->type, val->value);
+                                     val->type, val->value, publish);
         else
             mapper_link_remove_property((mapper_link)$self, key);
         return $self;
@@ -1974,12 +1976,13 @@ typedef struct _signal_query {
         mapper_signal_set_unit((mapper_signal)$self, unit);
         return $self;
     }
-    signal *set_property(const char *key, property_value val=0) {
+    signal *set_property(const char *key, property_value val=0,
+                         booltype publish=1) {
         if (!key || strcmp(key, "user_data")==0)
             return $self;
         if (val)
             mapper_signal_set_property((mapper_signal)$self, key, val->length,
-                                       val->type, val->value);
+                                       val->type, val->value, publish);
         else
             mapper_signal_remove_property((mapper_signal)$self, key);
         return $self;
@@ -2242,12 +2245,13 @@ typedef struct _map_query {
         mapper_map_set_process_location((mapper_map)$self, loc);
         return $self;
     }
-    map *set_property(const char *key, property_value val=0) {
+    map *set_property(const char *key, property_value val=0,
+                      booltype publish=1) {
         if (!key || strcmp(key, "user_data")==0)
             return $self;
         if (val)
             mapper_map_set_property((mapper_map)$self, key, val->length,
-                                    val->type, val->value);
+                                    val->type, val->value, publish);
         else
             mapper_map_remove_property((mapper_map)$self, key);
         return $self;
@@ -2415,12 +2419,13 @@ typedef struct _map_query {
                                     val->value);
         return $self;
     }
-    slot *set_property(const char *key, property_value val=0) {
+    slot *set_property(const char *key, property_value val=0,
+                       booltype publish=1) {
         if (!key || strcmp(key, "user_data")==0)
             return $self;
         if (val)
             mapper_slot_set_property((mapper_slot)$self, key, val->length,
-                                     val->type, val->value);
+                                     val->type, val->value, publish);
         else
             mapper_slot_remove_property((mapper_slot)$self, key);
         return $self;
