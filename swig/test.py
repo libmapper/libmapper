@@ -1,9 +1,11 @@
 
 import sys, mapper
 
+start = mapper.timetag()
+
 def h(sig, id, f, tt):
     try:
-        print sig.name, f, '@', tt.get_double()
+        print sig.name, f, 'at T+', (tt-start).get_double()
     except:
         print 'exception'
 
@@ -72,6 +74,8 @@ db.add_map_callback(lambda x,y:database_cb('map',x,y))
 while not dev.ready():
     dev.poll(10)
     db.poll()
+
+start.now()
 
 outsig = dev.signal("outsig")
 for i in range(1000):

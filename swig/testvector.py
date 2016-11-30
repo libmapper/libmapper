@@ -3,7 +3,7 @@
 import sys, mapper, random
 
 def h(sig, id, val, timetag):
-    print '  handler got', sig.name, '=', val, 'at time', timetag
+    print '  handler got', sig.name, '=', val, 'at time', timetag.get_double()
 
 mins = [0,0,0,0,0,0,0,0,0,0]
 maxs = [1,1,1,1,1,1,1,1,1,1]

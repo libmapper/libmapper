@@ -11,7 +11,8 @@ JHEADERS = mapper_Database.h                                                \
            mapper_link_Query.h mapper_Link.h                                \
            mapper_map_Query.h mapper_Map.h mapper_Map_Slot.h                \
            mapper_Network.h                                                 \
-           mapper_signal_Query.h mapper_Signal.h mapper_Signal_Instance.h
+           mapper_signal_Query.h mapper_Signal.h mapper_Signal_Instance.h   \
+           mapper_TimeTag.h
 
 JFLAGS = -source 1.5 -target 1.5
 JCLASSES = mapper/NativeLib.class mapper/Database.class                     \

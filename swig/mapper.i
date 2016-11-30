@@ -2773,6 +2773,10 @@ typedef struct _map_query {
     ~_timetag() {
         free((mapper_timetag_t*)$self);
     }
+    timetag *now() {
+        mapper_now((mapper_timetag_t*)$self);
+        return $self;
+    }
     double get_double() {
         return mapper_timetag_double(*(mapper_timetag_t*)$self);
     }

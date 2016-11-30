@@ -3670,3 +3670,21 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_maps
     jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
     return (*env)->NewObject(env, cls, mid, jlong_ptr(maps));
 }
+
+/**** mapper_TimeTag.h ****/
+
+JNIEXPORT void JNICALL Java_mapper_TimeTag_mapperNow
+  (JNIEnv *env, jobject obj)
+{
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (cls) {
+        jfieldID sec = (*env)->GetFieldID(env, cls, "sec", "J");
+        jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "J");
+        if (sec && frac) {
+            mapper_timetag_t tt;
+            mapper_now(&tt);
+            (*env)->SetLongField(env, obj, sec, tt.sec);
+            (*env)->SetLongField(env, obj, frac, tt.frac);
+        }
+    }
+}

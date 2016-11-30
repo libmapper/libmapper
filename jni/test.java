@@ -11,6 +11,8 @@ class test {
         final Device dev1 = new Device("javatest");
         final Device dev2 = new Device("javatest");
         final Database db = new Database(ObjectType.ALL);
+        TimeTag start = new TimeTag();
+        System.out.println("Current time: "+start.now());
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -75,7 +77,7 @@ class test {
                                           new UpdateListener() {
             public void onUpdate(Signal sig, float[] v, TimeTag tt) {
                 System.out.println(" >> in onUpdate() for "+sig.name()+": "
-                                   +Arrays.toString(v));
+                                   +Arrays.toString(v)+" at t="+tt);
             }});
 
         System.out.println("Input signal name: "+inp1.name());
