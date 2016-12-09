@@ -257,8 +257,12 @@ namespace mapper {
             { mapper_now(&_tt); }
         uint32_t sec()
             { return _tt.sec; }
+        Timetag& set_sec(uint32_t sec)
+            { _tt.sec = sec; return (*this); }
         uint32_t frac()
             { return _tt.frac; }
+        Timetag& set_frac (uint32_t frac)
+            { _tt.frac = frac; return (*this); }
         Timetag& now()
             { mapper_now(&_tt); return (*this); }
         operator mapper_timetag_t*()
@@ -810,7 +814,11 @@ namespace mapper {
         class Slot : public Object
         {
         public:
-            ~Slot() {}
+            Slot(mapper_slot slot)
+                { _slot = slot; }
+            Slot(const Slot &other)
+                { _slot = other._slot; }
+            ~Slot() { printf("destroying slot %p\n", _slot); }
             operator mapper_slot() const
                 { return _slot; }
             inline Signal signal() const;
@@ -917,8 +925,6 @@ namespace mapper {
             }
         protected:
             friend class Map;
-            Slot(mapper_slot slot)
-                { _slot = slot; }
             Slot& set_property(Property *p)
             {
                 if (_slot)
@@ -1190,10 +1196,30 @@ namespace mapper {
             { mapper_signal_set_callback(_sig, h); return (*this); }
         int num_maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_signal_num_maps(_sig, dir); }
+        Property minimum() const
+        {
+            void *value = mapper_signal_minimum(_sig);
+            if (value)
+                return Property("minimum", mapper_signal_length(_sig),
+                                mapper_signal_type(_sig), value);
+            else
+                return Property("minimum", 0, 0, 0, 0);
+        }
         Signal& set_minimum(void *value)
             { mapper_signal_set_minimum(_sig, value); return (*this); }
+        Property maximum() const
+        {
+            void *value = mapper_signal_maximum(_sig);
+            if (value)
+                return Property("maximum", mapper_signal_length(_sig),
+                                mapper_signal_type(_sig), value);
+            else
+                return Property("maximum", 0, 0, 0, 0);
+        }
         Signal& set_maximum(void *value)
             { mapper_signal_set_maximum(_sig, value); return (*this); }
+        float rate()
+            { return mapper_signal_rate(_sig); }
         Signal& set_rate(int rate)
             { mapper_signal_set_rate(_sig, rate); return (*this); }
 
@@ -1439,7 +1465,7 @@ namespace mapper {
                                                           type, unit,
                                                           minimum, maximum));
         }
-        Device& remove_signal(Signal sig)
+        Device& remove_signal(Signal& sig)
             { mapper_device_remove_signal(_dev, sig); return (*this); }
 
         template <typename... Values>
@@ -1568,12 +1594,13 @@ namespace mapper {
 
     class Database
     {
-    protected:
+    public:
         Database(mapper_database db)
             { _db = db; }
-    public:
         Database(int flags = MAPPER_OBJ_ALL)
             { _db = mapper_database_new(0, flags); }
+        Database(Network& net, int flags = MAPPER_OBJ_ALL)
+            { _db = mapper_database_new(net, flags); }
         ~Database()
             { if (_db) mapper_database_free(_db); }
         int poll(int block_ms=0) const
