@@ -964,13 +964,13 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 
 /*! Possible operations for composing database queries. */
 %constant int OP_DOES_NOT_EXIST         = MAPPER_OP_DOES_NOT_EXIST;
-%constant int OP_EQUAL                  = MAPPER_OP_DOES_NOT_EXIST;
-%constant int OP_EXISTS                 = MAPPER_OP_DOES_NOT_EXIST;
-%constant int OP_GREATER_THAN           = MAPPER_OP_DOES_NOT_EXIST;
-%constant int OP_GREATER_THAN_OR_EQUAL  = MAPPER_OP_DOES_NOT_EXIST;
-%constant int OP_LESS_THAN              = MAPPER_OP_DOES_NOT_EXIST;
-%constant int OP_LESS_THAN_OR_EQUAL     = MAPPER_OP_DOES_NOT_EXIST;
-%constant int OP_NOT_EQUAL              = MAPPER_OP_DOES_NOT_EXIST;
+%constant int OP_EQUAL                  = MAPPER_OP_EQUAL;
+%constant int OP_EXISTS                 = MAPPER_OP_EXISTS;
+%constant int OP_GREATER_THAN           = MAPPER_OP_GREATER_THAN;
+%constant int OP_GREATER_THAN_OR_EQUAL  = MAPPER_OP_GREATER_THAN_OR_EQUAL;
+%constant int OP_LESS_THAN              = MAPPER_OP_LESS_THAN;
+%constant int OP_LESS_THAN_OR_EQUAL     = MAPPER_OP_LESS_THAN_OR_EQUAL;
+%constant int OP_NOT_EQUAL              = MAPPER_OP_NOT_EQUAL;
 
 /*! Describes what happens when the range boundaries are exceeded. */
 %constant int BOUND_UNDEFINED           = MAPPER_BOUND_UNDEFINED;
