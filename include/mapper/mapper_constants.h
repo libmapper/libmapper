@@ -113,7 +113,7 @@ typedef enum {
     MAPPER_STEAL_NEWEST,    //!< Steal the newest instance.
 } mapper_instance_stealing_type;
 
-/*! The set of possible actions on a database record, used to inform callbacks
+/*! The set of possible events for a database record, used to inform callbacks
  *  of what is happening to a record.
  *  @ingroup database */
 typedef enum {
@@ -122,7 +122,7 @@ typedef enum {
     MAPPER_REMOVED,         //!< The existing record has been removed.
     MAPPER_EXPIRED,         /*!< The database has lost contact with the remote
                              *   entity. */
-} mapper_record_action;
+} mapper_record_event;
 
 #ifdef __cplusplus
 }

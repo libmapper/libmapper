@@ -360,33 +360,33 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_srcs,
 
 /*! Remove a device from the database. */
 void mapper_database_remove_device(mapper_database db, mapper_device dev,
-                                   mapper_record_action action, int quiet);
+                                   mapper_record_event event, int quiet);
 
 void mapper_database_remove_signal(mapper_database db, mapper_signal sig,
-                                   mapper_record_action action);
+                                   mapper_record_event event);
 
 /*! Remove signals in the provided query. */
 void mapper_database_remove_signals_by_query(mapper_database db,
                                              mapper_signal *sigs,
-                                             mapper_record_action action);
+                                             mapper_record_event event);
 
 /*! Remove links in the provided query. */
 void mapper_database_remove_links_by_query(mapper_database db,
                                            mapper_link *links,
-                                           mapper_record_action action);
+                                           mapper_record_event event);
 
 /*! Remove a specific link from the database. */
 void mapper_database_remove_link(mapper_database db, mapper_link link,
-                                 mapper_record_action action);
+                                 mapper_record_event event);
 
 /*! Remove maps in the provided query. */
 void mapper_database_remove_maps_by_query(mapper_database db,
                                           mapper_map *maps,
-                                          mapper_record_action action);
+                                          mapper_record_event event);
 
 /*! Remove a specific map from the database. */
 void mapper_database_remove_map(mapper_database db, mapper_map map,
-                                mapper_record_action action);
+                                mapper_record_event event);
 
 /*! Print device information database to the screen.  Useful for debugging, only
  *  works when compiled in debug mode. */

@@ -1,7 +1,7 @@
 
 package mapper.database;
 
-/*! The set of possible actions on a database entity. */
+/*! The set of possible events for a database entity. */
 public enum Event
 {
     ADDED(0), MODIFIED(1), REMOVED(2), EXPIRED(3);

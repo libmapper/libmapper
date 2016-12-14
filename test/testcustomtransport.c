@@ -52,7 +52,7 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_map(mapper_device dev, mapper_map map, mapper_record_action action)
+void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
 {
     if (verbose) {
         printf("Map: ");
@@ -65,7 +65,7 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_action action)
     if (mapper_slot_signal(mapper_map_slot(map, MAPPER_LOC_SOURCE, 0)) != sendsig)
         return;
 
-    if (action == MAPPER_REMOVED) {
+    if (event == MAPPER_REMOVED) {
         if (send_socket != -1) {
             close(send_socket);
             send_socket = -1;

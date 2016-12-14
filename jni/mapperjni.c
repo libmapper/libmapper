@@ -258,8 +258,8 @@ static jobject get_jobject_from_timetag(JNIEnv *env, mapper_timetag_t *tt)
     return ttobj;
 }
 
-static jobject get_jobject_from_database_record_action(JNIEnv *env,
-                                                       mapper_record_action event)
+static jobject get_jobject_from_database_record_event(JNIEnv *env,
+                                                      mapper_record_event event)
 {
     jobject obj = 0;
     jclass cls = (*env)->FindClass(env, "mapper/database/Event");
@@ -867,7 +867,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_requestDevices
 }
 
 static void java_database_device_cb(mapper_database db, mapper_device dev,
-                                    mapper_record_action action,
+                                    mapper_record_event event,
                                     const void *user_data)
 {
     if (bailing || !user_data)
@@ -885,7 +885,7 @@ static void java_database_device_cb(mapper_database db, mapper_device dev,
         printf("Error looking up Device init method\n");
         return;
     }
-    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    jobject eventobj = get_jobject_from_database_record_event(genv, event);
     if (!eventobj) {
         printf("Error looking up database event\n");
         return;
@@ -930,7 +930,7 @@ JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseRemoveDeviceCB
 }
 
 static void java_database_link_cb(mapper_database db, mapper_link link,
-                                  mapper_record_action action,
+                                  mapper_record_event event,
                                   const void *user_data)
 {
     if (bailing || !user_data)
@@ -948,7 +948,7 @@ static void java_database_link_cb(mapper_database db, mapper_link link,
         printf("Error looking up Link init method\n");
         return;
     }
-    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    jobject eventobj = get_jobject_from_database_record_event(genv, event);
     if (!eventobj) {
         printf("Error looking up database event\n");
         return;
@@ -992,7 +992,7 @@ JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseRemoveLinkCB
 }
 
 static void java_database_signal_cb(mapper_database db, mapper_signal sig,
-                                    mapper_record_action action,
+                                    mapper_record_event event,
                                     const void *user_data)
 {
     if (bailing || !user_data)
@@ -1004,7 +1004,7 @@ static void java_database_signal_cb(mapper_database db, mapper_signal sig,
     return;
     jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
     jobject sigobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(sig));
-    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    jobject eventobj = get_jobject_from_database_record_event(genv, event);
 
     jobject obj = (jobject)user_data;
     cls = (*genv)->GetObjectClass(genv, obj);
@@ -1045,7 +1045,7 @@ JNIEXPORT void JNICALL Java_mapper_Database_mapperDatabaseRemoveSignalCB
 }
 
 static void java_database_map_cb(mapper_database db, mapper_map map,
-                                 mapper_record_action action,
+                                 mapper_record_event event,
                                  const void *user_data)
 {
     if (bailing || !user_data)
@@ -1057,7 +1057,7 @@ static void java_database_map_cb(mapper_database db, mapper_map map,
         return;
     jmethodID mid = (*genv)->GetMethodID(genv, cls, "<init>", "(J)V");
     jobject mapobj = (*genv)->NewObject(genv, cls, mid, jlong_ptr(map));
-    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    jobject eventobj = get_jobject_from_database_record_event(genv, event);
 
     jobject obj = (jobject)user_data;
     cls = (*genv)->GetObjectClass(genv, obj);
@@ -1831,7 +1831,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_now
 }
 
 static void java_device_link_cb(mapper_device dev, mapper_link link,
-                                mapper_record_action action)
+                                mapper_record_event event)
 {
     if (bailing)
         return;
@@ -1848,7 +1848,7 @@ static void java_device_link_cb(mapper_device dev, mapper_link link,
         printf("Error looking up Link init method\n");
         return;
     }
-    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    jobject eventobj = get_jobject_from_database_record_event(genv, event);
     if (!eventobj) {
         printf("Error looking up database event\n");
         return;
@@ -1889,7 +1889,7 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceSetLinkCB
 }
 
 static void java_device_map_cb(mapper_device dev, mapper_map map,
-                               mapper_record_action action)
+                               mapper_record_event event)
 {
     if (bailing)
         return;
@@ -1906,7 +1906,7 @@ static void java_device_map_cb(mapper_device dev, mapper_map map,
         printf("Error looking up Map init method\n");
         return;
     }
-    jobject eventobj = get_jobject_from_database_record_action(genv, action);
+    jobject eventobj = get_jobject_from_database_record_event(genv, event);
     if (!eventobj) {
         printf("Error looking up database event\n");
         return;

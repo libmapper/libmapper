@@ -634,14 +634,14 @@ static void instance_event_handler_py(mapper_signal sig, mapper_id id,
 
 /* Wrapper for callback back to python when a device map handler is called. */
 static void device_link_handler_py(mapper_device dev, mapper_link link,
-                                   mapper_record_action action)
+                                   mapper_record_event event)
 {
     PyEval_RestoreThread(_save);
 
     PyObject *py_link = SWIG_NewPointerObj(SWIG_as_voidptr(link),
                                            SWIGTYPE_p__link, 0);
 
-    PyObject *arglist = Py_BuildValue("Oi", py_link, action);
+    PyObject *arglist = Py_BuildValue("Oi", py_link, event);
     if (!arglist) {
         printf("[mapper] Could not build arglist (device_link_handler_py).\n");
         return;
@@ -659,14 +659,14 @@ static void device_link_handler_py(mapper_device dev, mapper_link link,
 
 /* Wrapper for callback back to python when a device map handler is called. */
 static void device_map_handler_py(mapper_device dev, mapper_map map,
-                                  mapper_record_action action)
+                                  mapper_record_event event)
 {
     PyEval_RestoreThread(_save);
 
     PyObject *py_map = SWIG_NewPointerObj(SWIG_as_voidptr(map),
                                           SWIGTYPE_p__map, 0);
 
-    PyObject *arglist = Py_BuildValue("Oi", py_map, action);
+    PyObject *arglist = Py_BuildValue("Oi", py_map, event);
     if (!arglist) {
         printf("[mapper] Could not build arglist (device_map_handler_py).\n");
         return;
@@ -773,7 +773,7 @@ typedef int booltype;
 /* Wrapper for callback back to python when a mapper_database_device handler
  * is called. */
 static void database_device_handler_py(mapper_database db, mapper_device dev,
-                                       mapper_record_action action,
+                                       mapper_record_event event,
                                        const void *user)
 {
     PyEval_RestoreThread(_save);
@@ -781,7 +781,7 @@ static void database_device_handler_py(mapper_database db, mapper_device dev,
     PyObject *py_dev = SWIG_NewPointerObj(SWIG_as_voidptr(dev),
                                           SWIGTYPE_p__device, 0);
 
-    PyObject *arglist = Py_BuildValue("(Oi)", py_dev, action);
+    PyObject *arglist = Py_BuildValue("(Oi)", py_dev, event);
     if (!arglist) {
         printf("[mapper] Could not build arglist (database_device_handler_py).\n");
         return;
@@ -795,7 +795,7 @@ static void database_device_handler_py(mapper_database db, mapper_device dev,
 /* Wrapper for callback back to python when a mapper_database_device handler
  * is called. */
 static void database_link_handler_py(mapper_database db, mapper_link link,
-                                     mapper_record_action action,
+                                     mapper_record_event event,
                                      const void *user)
 {
     PyEval_RestoreThread(_save);
@@ -803,7 +803,7 @@ static void database_link_handler_py(mapper_database db, mapper_link link,
     PyObject *py_link = SWIG_NewPointerObj(SWIG_as_voidptr(link),
                                            SWIGTYPE_p__link, 0);
 
-    PyObject *arglist = Py_BuildValue("(Oi)", py_link, action);
+    PyObject *arglist = Py_BuildValue("(Oi)", py_link, event);
     if (!arglist) {
         printf("[mapper] Could not build arglist (database_link_handler_py).\n");
         return;
@@ -817,7 +817,7 @@ static void database_link_handler_py(mapper_database db, mapper_link link,
 /* Wrapper for callback back to python when a mapper_database_signal handler
  * is called. */
 static void database_signal_handler_py(mapper_database db, mapper_signal sig,
-                                       mapper_record_action action,
+                                       mapper_record_event event,
                                        const void *user)
 {
     PyEval_RestoreThread(_save);
@@ -825,7 +825,7 @@ static void database_signal_handler_py(mapper_database db, mapper_signal sig,
     PyObject *py_sig = SWIG_NewPointerObj(SWIG_as_voidptr(sig),
                                           SWIGTYPE_p__signal, 0);
 
-    PyObject *arglist = Py_BuildValue("(Oi)", py_sig, action);
+    PyObject *arglist = Py_BuildValue("(Oi)", py_sig, event);
     if (!arglist) {
         printf("[mapper] Could not build arglist (database_signal_handler_py).\n");
         return;
@@ -839,7 +839,7 @@ static void database_signal_handler_py(mapper_database db, mapper_signal sig,
 /* Wrapper for callback back to python when a mapper_database_map handler
  * is called. */
 static void database_map_handler_py(mapper_database db, mapper_map map,
-                                    mapper_record_action action,
+                                    mapper_record_event event,
                                     const void *user)
 {
     PyEval_RestoreThread(_save);
@@ -847,7 +847,7 @@ static void database_map_handler_py(mapper_database db, mapper_map map,
     PyObject *py_map = SWIG_NewPointerObj(SWIG_as_voidptr(map),
                                           SWIGTYPE_p__map, 0);
 
-    PyObject *arglist = Py_BuildValue("(Oi)", py_map, action);
+    PyObject *arglist = Py_BuildValue("(Oi)", py_map, event);
     if (!arglist) {
         printf("[mapper] Could not build arglist (database_map_handler_py).\n");
         return;
@@ -1006,7 +1006,7 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %constant int STEAL_OLDEST              = MAPPER_STEAL_OLDEST;
 %constant int STEAL_NEWEST              = MAPPER_STEAL_NEWEST;
 
-/*! The set of possible actions on a database record, used to inform callbacks
+/*! The set of possible events for a database record, used to inform callbacks
  *  of what is happening to a record. */
 %constant int ADDED                     = MAPPER_ADDED;
 %constant int MODIFIED                  = MAPPER_MODIFIED;

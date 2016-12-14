@@ -137,11 +137,11 @@ void loop()
     }
 }
 
-void on_device(mapper_database db, mapper_device dev, mapper_record_action a,
+void on_device(mapper_database db, mapper_device dev, mapper_record_event e,
                const void *user)
 {
     printf("Device %s ", dev->name);
-    switch (a) {
+    switch (e) {
     case MAPPER_ADDED:
         printf("added.\n");
         break;
@@ -160,11 +160,11 @@ void on_device(mapper_database db, mapper_device dev, mapper_record_action a,
     update = 1;
 }
 
-void on_link(mapper_database db, mapper_link lnk, mapper_record_action a,
+void on_link(mapper_database db, mapper_link lnk, mapper_record_event e,
              const void *user)
 {
     printf("Link %s <-> %s ", lnk->devices[0]->name, lnk->devices[1]->name);
-    switch (a) {
+    switch (e) {
         case MAPPER_ADDED:
             printf("added.\n");
             break;
@@ -182,11 +182,11 @@ void on_link(mapper_database db, mapper_link lnk, mapper_record_action a,
     update = 1;
 }
 
-void on_signal(mapper_database db, mapper_signal sig, mapper_record_action a,
+void on_signal(mapper_database db, mapper_signal sig, mapper_record_event e,
                const void *user)
 {
     printf("Signal %s/%s ", sig->device->name, sig->name);
-    switch (a) {
+    switch (e) {
     case MAPPER_ADDED:
         printf("added.\n");
         break;
@@ -204,7 +204,7 @@ void on_signal(mapper_database db, mapper_signal sig, mapper_record_action a,
     update = 1;
 }
 
-void on_map(mapper_database db, mapper_map map, mapper_record_action a,
+void on_map(mapper_database db, mapper_map map, mapper_record_event e,
             const void *user)
 {
     int i;
@@ -214,7 +214,7 @@ void on_map(mapper_database db, mapper_map map, mapper_record_action a,
                map->sources[i]->signal->name);
     printf("-> %s/%s ", map->destination.signal->device->name,
            map->destination.signal->name);
-    switch (a) {
+    switch (e) {
     case MAPPER_ADDED:
         printf("added.\n");
         break;

@@ -524,13 +524,13 @@ void mapper_signal_print(mapper_signal sig, int device_name);
  *  mapper_device_set_link_callback().
  *  \param dev          The device that registered this callback.
  *  \param link         The link record.
- *  \param action       A value of mapper_record_action indicating what is
+ *  \param event        A value of mapper_record_event indicating what is
  *                      happening to the link record.*/
 typedef void mapper_device_link_handler(mapper_device dev, mapper_link link,
-                                        mapper_record_action action);
+                                        mapper_record_event event);
 
 /*! Set a function to be called when a link involving a device's local signals
- *  is established, modified or destroyed, indicated by the action parameter to
+ *  is established, modified or destroyed, indicated by the event parameter to
  *  the provided function.
  *  \param dev          The device to use.
  *  \param handler      Function to be called when the local maps change. */
@@ -542,13 +542,13 @@ void mapper_device_set_link_callback(mapper_device dev,
  *  mapper_device_set_map_callback().
  *  \param dev          The device that registered this callback.
  *  \param map          The map record.
- *  \param action       A value of mapper_record_action indicating what is
+ *  \param event        A value of mapper_record_event indicating what is
  *                      happening to the map record.*/
 typedef void mapper_device_map_handler(mapper_device dev, mapper_map map,
-                                       mapper_record_action action);
+                                       mapper_record_event event);
 
 /*! Set a function to be called when a map involving a device's local signals is
- *  established, modified or destroyed, indicated by the action parameter to the
+ *  established, modified or destroyed, indicated by the event parameter to the
  *  provided function.
  *  \param dev          The device to use.
  *  \param handler      Function to be called when the local maps change. */
@@ -1727,12 +1727,12 @@ void mapper_database_request_devices(mapper_database db);
  *  Such a function is passed in to mapper_database_add_device_callback().
  *  \param db           The database that registered this callback.
  *  \param dev          The device record.
- *  \param action       A value of mapper_record_action indicating what is
+ *  \param event        A value of mapper_record_event indicating what is
  *                      happening to the device record.
  *  \param user         The user context pointer registered with this callback. */
 typedef void mapper_database_device_handler(mapper_database db,
                                             mapper_device dev,
-                                            mapper_record_action action,
+                                            mapper_record_event event,
                                             const void *user);
 
 /*! Register a callback for when a device record is added or updated in the
@@ -1804,12 +1804,12 @@ mapper_device *mapper_database_devices_by_property(mapper_database db,
  *  Such a function is passed in to mapper_database_add_signal_callback().
  *  \param db           The database that registered this callback.
  *  \param sig          The signal record.
- *  \param action       A value of mapper_record_action indicating what is
+ *  \param event        A value of mapper_record_event indicating what is
  *                      happening to the signal record.
  *  \param user         The user context pointer registered with this callback. */
 typedef void mapper_database_signal_handler(mapper_database db,
                                             mapper_signal sig,
-                                            mapper_record_action action,
+                                            mapper_record_event event,
                                             const void *user);
 
 /*! Register a callback for when a signal record is added or updated in the
@@ -1878,11 +1878,11 @@ mapper_signal *mapper_database_signals_by_property(mapper_database db,
  *  mapper_database_add_link_callback().
  *  \param db           The database that registered this callback.
  *  \param link         The link record.
- *  \param action       A value of mapper_record_action indicating what is
+ *  \param event        A value of mapper_record_event indicating what is
  *                      happening to the link record.
  *  \param user         The user context pointer registered with this callback. */
 typedef void mapper_database_link_handler(mapper_database db, mapper_link link,
-                                          mapper_record_action action,
+                                          mapper_record_event event,
                                           const void *user);
 
 /*! Register a callback for when a link record is added or updated.
@@ -1941,11 +1941,11 @@ mapper_link *mapper_database_links_by_property(mapper_database db,
  *  mapper_database_add_map_callback().
  *  \param db           The database that registered this callback.
  *  \param map          The map record.
- *  \param action       A value of mapper_record_action indicating what is
+ *  \param event        A value of mapper_record_event indicating what is
  *                      happening to the map record.
  *  \param user         The user context pointer registered with this callback. */
 typedef void mapper_database_map_handler(mapper_database db, mapper_map map,
-                                         mapper_record_action action,
+                                         mapper_record_event event,
                                          const void *user);
 
 /*! Register a callback for when a map record is added or updated.
