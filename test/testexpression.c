@@ -100,7 +100,7 @@ void cleanup_destination()
 
 int setup_maps()
 {
-    mapper_map map = mapper_map_new(1, &sendsig, recvsig);
+    mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
     mapper_map_set_expression(map, "y=x*10");
     mapper_map_push(map);

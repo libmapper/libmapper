@@ -136,7 +136,7 @@ int setup_maps()
 {
     int i = 0;
 
-    mapper_map map = mapper_map_new(1, &recvsig, sendsig);
+    mapper_map map = mapper_map_new(1, &recvsig, 1, &sendsig);
     mapper_map_push(map);
 
     i = 0;

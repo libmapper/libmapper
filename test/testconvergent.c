@@ -115,7 +115,7 @@ int setup_maps()
 {
     mapper_signal all_sources[2] = {sendsig[0][0], sendsig[1][1]};
 
-    mapper_map map = mapper_map_new(2, all_sources, recvsig);
+    mapper_map map = mapper_map_new(2, all_sources, 1, &recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
 
     // build expression string

@@ -146,7 +146,7 @@ void wait_local_devices()
 
 void map_signals()
 {
-    mapper_map map = mapper_map_new(1, &sendsig, recvsig);
+    mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
     mapper_map_set_expression(map, "y=y{-1}+1");
     mapper_map_push(map);

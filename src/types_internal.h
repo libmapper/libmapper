@@ -412,7 +412,8 @@ typedef struct _mapper_link {
 
 /**** Maps and Slots ****/
 
-#define MAX_NUM_MAP_SOURCES 8    // arbitrary
+#define MAX_NUM_MAP_SOURCES         8    // arbitrary
+#define MAX_NUM_MAP_DESTINATIONS    8    // arbitrary
 
 #define STATUS_STAGED       0x00
 #define STATUS_TYPE_KNOWN   0x01

@@ -1189,13 +1189,15 @@ void mapper_link_print(mapper_link link);
 /*! Create a map between a set of signals.
  *  \param num_sources  The number of source signals in this map.
  *  \param sources      Array of source signal data structures.
- *  \param destination  Destination signal data structure.
+ *  \param num_destinations  The number of destination signals in this map.
+ *                      Currently restricted to 1.
+ *  \param destinations Array of destination signal data structures.
  *  \return             A map data structure – either loaded from the database
  *                      (if the map already existed) or newly created. In the
  *                      latter case the map will not take effect until it has
  *                      been added to the network using mapper_map_push(). */
 mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
-                          mapper_signal destination);
+                          int num_destinations, mapper_signal *destinations);
 
 /*! Associate a map with an arbitrary pointer.
  *  \param map          The map to operate on.
@@ -1216,10 +1218,15 @@ void mapper_map_release(mapper_map map);
  *  \return             The map description. */
 const char *mapper_map_description(mapper_map map);
 
-/*! Get the number of sources for to a specific map.
+/*! Get the number of source signals for to a specific map.
  *  \param map          The map to check.
  *  \return             The number of sources. */
 int mapper_map_num_sources(mapper_map map);
+
+/*! Get the number of destination signals for to a specific map.
+ *  \param map          The map to check.
+ *  \return             The number of destination signals. */
+int mapper_map_num_destinations(mapper_map map);
 
 /*! Retrieve a slot for a specific map.
  *  \param map          The map to check.

@@ -102,7 +102,7 @@ int setup_maps()
 {
     float src_min = 0.f, src_max = 100.f, dest_min = -10.f, dest_max = 10.f;
 
-    mapper_map map = mapper_map_new(1, &sendsig, recvsig);
+    mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_LINEAR);
 
     mapper_slot slot = mapper_map_slot(map, MAPPER_LOC_SOURCE, 0);

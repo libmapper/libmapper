@@ -2498,7 +2498,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Map_mapperMapNew
     }
     destination = get_signal_from_jobject(env, jdestination);
 
-    mapper_map map = mapper_map_new(num_sources, sources, destination);
+    mapper_map map = mapper_map_new(num_sources, sources, 1, &destination);
     return map ? jlong_ptr(map) : 0;
 }
 

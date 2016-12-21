@@ -92,13 +92,18 @@ void mapper_map_init(mapper_map map)
 }
 
 mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
-                          mapper_signal destination)
+                          int num_destinations, mapper_signal *destinations)
 {
     int i;
-    if (!sources || !*sources || !destination)
+    if (!sources || !*sources || !destinations || !*destinations)
         return 0;
     if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES)
         return 0;
+
+    // Only 1 destination supported for now
+    if (num_destinations != 1)
+        return 0;
+    mapper_signal destination = destinations[0];
 
     mapper_database db = destination->device->database;
 
@@ -255,6 +260,12 @@ const char *mapper_map_description(mapper_map map)
 int mapper_map_num_sources(mapper_map map)
 {
     return map->num_sources;
+}
+
+int mapper_map_num_destinations(mapper_map map)
+{
+    // only 1 destination supported for now
+    return 1;
 }
 
 mapper_slot mapper_map_slot(mapper_map map, mapper_location loc, int index)

@@ -87,8 +87,8 @@ public class Map
 
     private native long mapperMapNew(mapper.Signal[] _sources,
                                      mapper.Signal _destination);
-    public Map(mapper.Signal[] _sources, mapper.Signal _destination) {
-        _map = mapperMapNew(_sources, _destination);
+    public Map(mapper.Signal[] _sources, mapper.Signal[] _destinations) {
+        _map = mapperMapNew(_sources, _destinations[0]);
         if (_map == 0)
             return;
 
@@ -180,6 +180,9 @@ public class Map
 
     /* property: numSources */
     public native int numSources();
+
+    /* property: numDestinations */
+    public int numDestinations() { return 1; }
 
     /* property: ready */
     public native boolean ready();

@@ -151,14 +151,14 @@ int setup_maps()
     int i;
     mapper_map maps[4] = {0, 0, 0, 0};
     for (i = 0; i < 2; i++) {
-        maps[i] = mapper_map_new(1, &sendsig[i], recvsig[i]);
+        maps[i] = mapper_map_new(1, &sendsig[i], 1, &recvsig[i]);
         mapper_map_push(maps[i]);
     }
 
     // swap the last two signals to mix up signal vector lengths
-    maps[2] = mapper_map_new(1, &sendsig[2], recvsig[3]);
+    maps[2] = mapper_map_new(1, &sendsig[2], 1, &recvsig[3]);
     mapper_map_push(maps[2]);
-    maps[3] = mapper_map_new(1, &sendsig[3], recvsig[2]);
+    maps[3] = mapper_map_new(1, &sendsig[3], 1, &recvsig[2]);
     mapper_map_push(maps[3]);
 
     i = 0;

@@ -232,7 +232,7 @@ void loop()
     int i = 0;
 
     if (autoconnect) {
-        mapper_map map = mapper_map_new(1, &sendsig, recvsig);
+        mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
 
         // Add custom meta-data specifying a special transport for this map.
         char *str = "tcp";

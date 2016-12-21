@@ -2104,8 +2104,9 @@ typedef struct _map_query {
 
 %extend _map {
     _map(signal *src, signal *dst) {
-        mapper_signal msig = (mapper_signal)src;
-        return (map*)mapper_map_new(1, &msig, (mapper_signal)dst);
+        mapper_signal msig_src = (mapper_signal)src;
+        mapper_signal msig_dst = (mapper_signal)dst;
+        return (map*)mapper_map_new(1, &msig_src, 1, &msig_dst);
     }
     ~_map() {
         ;
@@ -2178,6 +2179,9 @@ typedef struct _map_query {
     }
     int get_num_sources() {
         return mapper_map_num_sources((mapper_map)$self);
+    }
+    int get_num_destinations() {
+        return mapper_map_num_destinations((mapper_map)$self);
     }
     mapper_location get_process_location() {
         return mapper_map_process_location((mapper_map)$self);
@@ -2269,6 +2273,7 @@ typedef struct _map_query {
         muted = property(get_muted, set_muted)
         num_properties = property(get_num_properties)
         num_sources = property(get_num_sources)
+        num_destinations = property(get_num_destinations)
         process_location = property(get_process_location, set_process_location)
         def get_properties(self):
             props = {}

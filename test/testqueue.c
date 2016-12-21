@@ -112,9 +112,9 @@ void cleanup_destination()
 int create_maps()
 {
     mapper_map maps[2];
-    maps[0] = mapper_map_new(1, &sendsig, recvsig);
+    maps[0] = mapper_map_new(1, &sendsig, 1, &recvsig);
     mapper_map_push(maps[0]);
-    maps[1] = mapper_map_new(1, &sendsig1, recvsig);
+    maps[1] = mapper_map_new(1, &sendsig1, 1, &recvsig);
     mapper_map_push(maps[1]);
 
     // wait until mapping has been established

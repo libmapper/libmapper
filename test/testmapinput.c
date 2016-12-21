@@ -116,11 +116,11 @@ void loop()
     if (autoconnect) {
         mapper_map maps[2];
         // map input to another input on same device
-        maps[0] = mapper_map_new(1, &inputs[0], inputs[1]);
+        maps[0] = mapper_map_new(1, &inputs[0], 1, &inputs[1]);
         mapper_map_push(maps[0]);
 
         // map input to an input on another device
-        maps[1] = mapper_map_new(1, &inputs[1], inputs[2]);
+        maps[1] = mapper_map_new(1, &inputs[1], 1, &inputs[2]);
         mapper_map_push(maps[1]);
 
         // wait until mapping has been established

@@ -178,10 +178,10 @@ void loop()
 
     if (!done && autoconnect) {
         mapper_map maps[4];
-        maps[0] = mapper_map_new(1, &sendsig_1, recvsig_1);
-        maps[1] = mapper_map_new(1, &sendsig_2, recvsig_2);
-        maps[2] = mapper_map_new(1, &sendsig_3, recvsig_3);
-        maps[3] = mapper_map_new(1, &sendsig_3, recvsig_4);
+        maps[0] = mapper_map_new(1, &sendsig_1, 1, &recvsig_1);
+        maps[1] = mapper_map_new(1, &sendsig_2, 1, &recvsig_2);
+        maps[2] = mapper_map_new(1, &sendsig_3, 1, &recvsig_3);
+        maps[3] = mapper_map_new(1, &sendsig_3, 1, &recvsig_4);
 
         for (i = 0; i < 4; i++) {
             mapper_map_push(maps[i]);

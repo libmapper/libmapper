@@ -165,7 +165,7 @@ void wait_local_devices()
 int setup_maps()
 {
     int i = 0;
-    mapper_map map = mapper_map_new(1, &sendsig, recvsig);
+    mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
     mapper_map_push(map);
 
     i = 0;
