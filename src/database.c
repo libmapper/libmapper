@@ -894,14 +894,13 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         mapper_signal dst_sig = add_sig_from_whole_name(db, dst_name);
         if (!dst_sig)
             return 0;
-        mapper_link link;
         mapper_signal src_sigs[num_sources];
         for (i = 0; i < num_sources; i++) {
             src_sigs[i] = add_sig_from_whole_name(db, src_names[i]);
             if (!src_sigs[i])
                 return 0;
-            link = mapper_database_add_or_update_link(db, dst_sig->device,
-                                                      src_sigs[i]->device, 0);
+            mapper_database_add_or_update_link(db, dst_sig->device,
+                                               src_sigs[i]->device, 0);
         }
 
         map = (mapper_map)mapper_list_add_item((void**)&db->maps,
