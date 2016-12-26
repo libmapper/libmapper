@@ -2,14 +2,11 @@ SUBDIRS = src include test examples @SWIGDIR@ @JNI@ @DOXYGEN@ extra
 
 EXTRA_DIST = libtool ltmain.sh autogen.sh libmapper.pc.in
 
-libmapper-@MAJOR_VERSION@.pc: libmapper.pc
-	@if ! [ -e $@ ]; then cp -v $< $@; fi
-
 clean-local:
-	-rm -rf libmapper-@MAJOR_VERSION@.pc
+	-rm -rf libmapper.pc
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libmapper-@MAJOR_VERSION@.pc
+pkgconfig_DATA = libmapper.pc
 
 dist_doc_DATA = README COPYING ChangeLog NEWS
 

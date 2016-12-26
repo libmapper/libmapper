@@ -19,7 +19,7 @@ mapper_module = Extension('_mapper',
                                         '@top_builddir@/src',
                                         '@top_srcdir@/include']+LO_INCDIRS,
                           library_dirs=['@top_builddir@/src/.libs']+LO_LDDIRS,
-                          libraries=['mapper-0']+LO_LDLIBS,
+                          libraries=['mapper']+LO_LDLIBS,
                           )
 
 setup (name = 'mapper',

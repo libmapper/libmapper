@@ -1,10 +1,10 @@
 
-lib_LTLIBRARIES = libmapperjni-@MAJOR_VERSION@.la
-libmapperjni_@MAJOR_VERSION@_la_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS) @JNIFLAGS@
-libmapperjni_@MAJOR_VERSION@_la_SOURCES = mapperjni.c
-libmapperjni_@MAJOR_VERSION@_la_LDFLAGS = -export-dynamic -version-info @SO_VERSION@
-libmapperjni_@MAJOR_VERSION@_la_LIBADD = \
-    $(top_builddir)/src/libmapper-@MAJOR_VERSION@.la $(liblo_LIBS)
+lib_LTLIBRARIES = libmapperjni.la
+libmapperjni_la_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS) @JNIFLAGS@
+libmapperjni_la_SOURCES = mapperjni.c
+libmapperjni_la_LDFLAGS = -export-dynamic -version-info @SO_VERSION@
+libmapperjni_la_LIBADD = \
+    $(top_builddir)/src/libmapper.la $(liblo_LIBS)
 
 JHEADERS = mapper_Database.h                                                \
            mapper_device_Query.h mapper_Device.h                            \
@@ -48,7 +48,7 @@ JCLASSESINTERNAL = mapper/device/Query$$1.class mapper/link/Query$$1.class  \
 JJAVA = $(JCLASSES:%.class=%.java)
 
 BUILT_SOURCES = $(JHEADERS) test.class testquery.class testreverse.class \
-    testspeed.class libmapper-@MAJOR_VERSION@.jar
+    testspeed.class libmapper.jar
 MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
     $(subst $$,\$$,test$$1.class test$$2.class test$$3.class testquery$$1.class \
     testquery$$2.class testquery$$3.class testreverse$$1.class testreverse$$2.class \
@@ -93,7 +93,7 @@ testreverse.class: testreverse.java $(JCLASSES)
 testspeed.class: testspeed.java $(JCLASSES)
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
-libmapper-@MAJOR_VERSION@.jar: $(JCLASSES) $(JCLASSESINTERNAL)
+libmapper.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 	if mkdir -v TestInstances/code; then \
 	  cd TestInstances/code/; \

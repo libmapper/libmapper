@@ -2,5 +2,5 @@
 package mapper;
 
 public class NativeLib {
-    public static final String name = "mapperjni-@MAJOR_VERSION@";
+    public static final String name = "mapperjni";
 }
