@@ -166,17 +166,13 @@ fi
 # Check for JNI
 if test x$jni_enabled = xyes; then
    AC_MSG_CHECKING([JDK path])
-   JDKPATH=
-   if test -d /usr/lib/jvm/java-7-openjdk-i386; then
-      JDKPATH=/usr/lib/jvm/java-7-openjdk-i386
-   elif test -d /usr/lib/jvm/java-7-openjdk-amd64; then
-      JDKPATH=/usr/lib/jvm/java-7-openjdk-amd64
-   elif test -d /usr/lib/jvm/java-7-openjdk-x86_64; then
-      JDKPATH=/usr/lib/jvm/java-7-openjdk-x86_64
-   elif test -d /usr/lib/jvm/java-6-openjdk; then
-      JDKPATH=/usr/lib/jvm/java-6-openjdk
-   elif test -x /usr/libexec/java_home; then
-      JDKPATH="$(/usr/libexec/java_home)"
+   if test x"$JAVA_HOME" == "x"; then
+      JAVA_HOME="$(dirname $(dirname $(readlink /etc/alternatives/javac 2>/dev/null)))"
+   fi
+   if test x"$JAVA_HOME" != "x" && test -d "$JAVA_HOME/include"; then
+      JDKPATH="$JAVA_HOME"
+   elif test -d /usr/lib/jvm/default-java/include; then
+      JDKPATH=/usr/lib/jvm/default-java
    elif test -d /System/Library/Frameworks/JavaVM.framework/Headers; then
       JDKPATH=/System/Library/Frameworks/JavaVM.framework
    fi
@@ -194,9 +190,16 @@ if test x$jni_enabled = xyes; then
        JNIPATH="$JDKPATH"/include
      fi
      JNIFLAGS="-I$JNIPATH"
-     if test -d "$JNIPATH"/darwin; then
-       JNIFLAGS="$JNIFLAGS -I$JNIPATH/darwin"
-     fi
+     case $host_os in
+       linux*)
+         if test -d "$JNIPATH"/linux; then
+           JNIFLAGS="$JNIFLAGS -I$JNIPATH/linux"
+         fi;;
+       darwin*)
+         if test -d "$JNIPATH"/linux; then
+           JNIFLAGS="$JNIFLAGS -I$JNIPATH/darwin"
+         fi;;
+     esac
    fi
    if test x"$JDKBINPATH" = x; then
      if test -f "$JDKPATH"/Commands/javac; then
