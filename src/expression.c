@@ -663,7 +663,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
     tok->vector_length = 1;
     tok->vector_index = 0;
     tok->vector_length_locked = 0;
-    int n, i;
+    int n=index, i=index;
     char c = str[index];
     int integer_found = 0;
 
