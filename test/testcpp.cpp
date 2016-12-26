@@ -57,7 +57,8 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 
 int main(int argc, char ** argv)
 {
-    int i = 0, result = 0;
+    unsigned int i = 0;
+    int result = 0;
 
     mapper::Device dev("mydevice");
 
