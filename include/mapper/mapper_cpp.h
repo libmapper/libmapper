@@ -14,6 +14,7 @@
 #include <array>
 #include <vector>
 #include <iterator>
+#include <cstring>
 
 /* TODO:
  *      signal update handlers
