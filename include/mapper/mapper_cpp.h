@@ -411,7 +411,7 @@ namespace mapper {
         operator const std::array<T, N>() const
         {
             std::array<T, N> temp_a;
-            for (int i = 0; i < N && i < length; i++)
+            for (size_t i = 0; i < N && i < length; i++)
                 temp_a[i] = ((T*)value)[i];
             return temp_a;
         }
@@ -423,7 +423,7 @@ namespace mapper {
                 temp_a[0] = (const char*)value;
             else {
                 const char **tempp = (const char**)value;
-                for (int i = 0; i < N && i < length; i++) {
+                for (size_t i = 0; i < N && i < length; i++) {
                     temp_a[i] = tempp[i];
                 }
             }
@@ -437,7 +437,7 @@ namespace mapper {
                 temp_a[0] = std::string((const char*)value);
             else {
                 const char **tempp = (const char**)value;
-                for (int i = 0; i < N && i < length; i++) {
+                for (size_t i = 0; i < N && i < length; i++) {
                     temp_a[i] = std::string(tempp[i]);
                 }
             }
@@ -458,7 +458,7 @@ namespace mapper {
                 temp_v.push_back((const char*)value);
             else {
                 const char **tempp = (const char**)value;
-                for (int i = 0; i < length; i++)
+                for (unsigned int i = 0; i < length; i++)
                     temp_v.push_back(tempp[i]);
             }
             return temp_v;
@@ -470,14 +470,14 @@ namespace mapper {
                 temp_v.push_back(std::string((const char*)value));
             else {
                 const char **tempp = (const char**)value;
-                for (int i = 0; i < length; i++)
+                for (unsigned int i = 0; i < length; i++)
                     temp_v.push_back(std::string(tempp[i]));
             }
             return temp_v;
         }
         const char *name;
         char type;
-        int length;
+        unsigned int length;
         const void *value;
         bool publish;
     protected:
@@ -508,7 +508,7 @@ namespace mapper {
         {
             if (owned && value) {
                 if (type == 's' && length > 1) {
-                    for (int i = 0; i < length; i++) {
+                    for (unsigned int i = 0; i < length; i++) {
                         free(((char**)value)[i]);
                     }
                 }
@@ -570,7 +570,7 @@ namespace mapper {
             else if (length > 1) {
                 // need to copy string array
                 value = (char**)malloc(sizeof(char*) * length);
-                for (int i = 0; i < length; i++) {
+                for (unsigned int i = 0; i < length; i++) {
                     ((char**)value)[i] = strdup((char*)_values[i]);
                 }
                 owned = true;
@@ -587,7 +587,7 @@ namespace mapper {
             else if (length > 1) {
                 // need to copy string array
                 value = (char**)malloc(sizeof(char*) * length);
-                for (int i = 0; i < length; i++) {
+                for (unsigned int i = 0; i < length; i++) {
                     ((char**)value)[i] = strdup((char*)_values[i].c_str());
                 }
                 owned = true;
@@ -603,7 +603,7 @@ namespace mapper {
             else if (length > 1) {
                 // need to copy string array
                 value = malloc(sizeof(char*) * length);
-                for (int i = 0; i < length; i++) {
+                for (unsigned int i = 0; i < length; i++) {
                     ((char**)value)[i] = strdup((char*)_values[i].c_str());
                 }
                 owned = true;
@@ -621,7 +621,7 @@ namespace mapper {
             else {
                 // need to copy string array since std::vector may free it
                 value = malloc(sizeof(char*) * length);
-                for (int i = 0; i < length; i++) {
+                for (unsigned int i = 0; i < length; i++) {
                     ((char**)value)[i] = strdup((char*)_value[i]);
                 }
                 owned = true;
@@ -637,7 +637,7 @@ namespace mapper {
             else if (length > 1) {
                 // need to copy string array
                 value = malloc(sizeof(char*) * length);
-                for (int i = 0; i < length; i++) {
+                for (unsigned int i = 0; i < length; i++) {
                     ((char**)value)[i] = strdup((char*)_value[i].c_str());
                 }
                 owned = true;
