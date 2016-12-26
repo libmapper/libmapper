@@ -327,7 +327,7 @@ AC_CONFIG_FILES([
     swig/Makefile
     swig/setup.py
     jni/Makefile
-    jni/Mapper/NativeLib.java
+    jni/mapper/NativeLib.java
     examples/Makefile
     examples/pwm_synth/Makefile
     examples/py_tk_gui/Makefile
