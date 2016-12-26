@@ -153,7 +153,7 @@ int mapper_table_property_index(mapper_table tab, unsigned int index,
                                 const char **name, int *length, char *type,
                                 const void **value)
 {
-    if (index >= tab->num_records)
+    if (index >= tab->num_records || tab->num_records <= 0)
         return -1;
 
     int i, j = 0;

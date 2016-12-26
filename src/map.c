@@ -1049,7 +1049,7 @@ static int mapper_map_set_mode_linear(mapper_map map)
 
     int min_length = map->sources[0]->signal->length < map->destination.signal->length ?
                      map->sources[0]->signal->length : map->destination.signal->length;
-    double src_min, src_max, dest_min, dest_max;
+    double src_min=0, src_max=0, dest_min=0, dest_max=0;
 
     if (map->destination.signal->length == map->sources[0]->signal->length)
         snprintf(expr, 256, "y=x*");

@@ -2357,7 +2357,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
 {
     mapper_network net = (mapper_network) user_data;
     mapper_device dev = net->device;
-    mapper_signal local_signal;
+    mapper_signal local_signal=0;
     mapper_map map = 0;
     int i, num_sources, src_index, dest_index;
     const char *local_signal_name;
