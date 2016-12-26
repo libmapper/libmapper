@@ -2292,24 +2292,6 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
         return 0;
     }
 
-    mapper_location loc = map->process_location;
-    mapper_message_atom atom = mapper_message_property(props, AT_PROCESS_LOCATION);
-    if (atom) {
-        loc = mapper_location_from_string(&(atom->values[0])->s);
-        if (!map->local->one_source) {
-            /* if map has sources from different remote devices, processing must
-             * occur at the destination. */
-            loc = MAPPER_LOC_DESTINATION;
-        }
-        else if ((atom = mapper_message_property(props, AT_EXPRESSION))) {
-            if (strstr(&atom->values[0]->s, "y={-")) {
-                loc = MAPPER_LOC_DESTINATION;
-            }
-        }
-        else if (map->expression && strstr(map->expression, "y{-")) {
-            loc = MAPPER_LOC_DESTINATION;
-        }
-    }
     // do not continue if we are not in charge of processing
     if (map->process_location == MAPPER_LOC_DESTINATION) {
         if (!map->destination.signal->local) {
