@@ -331,12 +331,11 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     mapper_signal sig = (mapper_signal)user_data;
     mapper_device dev;
     int i = 0, j, k, count = 1, nulls = 0;
-    int is_instance_update = 0, id_map_index, slot_index = -1;
-    mapper_id global_id;
+    int id_map_index, slot_index = -1;
+    mapper_id global_id = 0;
     mapper_id_map id_map;
     mapper_map map = 0;
     mapper_slot slot = 0;
-    mapper_local_slot slot_loc;
 
     if (!sig || !(dev = sig->device)) {
 #ifdef DEBUG
@@ -386,7 +385,6 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 #endif
                 return 0;
             }
-            is_instance_update = 1;
             global_id = argv[argnum+1]->i64;
             argnum += 2;
         }
@@ -420,7 +418,6 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 #endif
             return 0;
         }
-        slot_loc = slot->local;
         map = slot->map;
         if (map->status < STATUS_READY) {
 #ifdef DEBUG
@@ -457,9 +454,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     //        return 0;
     lo_timetag tt = lo_message_get_timestamp(msg);
 
-    if (is_instance_update) {
-        id_map_index = mapper_signal_find_instance_with_global_id(sig,
-                                                                  global_id,
+    if (global_id) {
+        id_map_index = mapper_signal_find_instance_with_global_id(sig, global_id,
                                                                   RELEASED_LOCALLY);
         if (id_map_index < 0) {
             // no instance found with this map
@@ -522,6 +518,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     int vals, out_count = 0, active = 1;
 
     if (map) {
+        mapper_local_slot slot_loc = slot->local;
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
             for (j = 0; j < slot->signal->length; j++, k++) {
@@ -538,7 +535,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 #endif
                     return 0;
                 }
-                if (is_instance_update) {
+                if (global_id) {
                     // TODO: mark SLOT status as remotely released rather than map
                     sig->local->id_maps[id_map_index].status |= RELEASED_REMOTELY;
                     id_map->refcount_global--;
@@ -572,7 +569,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 #endif
                 return 0;
             }
-            else if (is_instance_update && !active) {
+            else if (global_id && !active) {
                 // may need to activate instance
                 id_map_index = mapper_signal_find_instance_with_global_id(sig,
                                                                           global_id,
@@ -639,7 +636,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                         out_count = 0;
                     }
                     // next call handler with release
-                    if (is_instance_update) {
+                    if (global_id) {
                         sig->local->id_maps[id_map_index].status |= RELEASED_REMOTELY;
                         id_map->refcount_global--;
                         if (event_h && (sig->local->instance_event_flags
@@ -706,7 +703,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 #endif
                     return 0;
                 }
-                if (is_instance_update) {
+                if (global_id) {
                     sig->local->id_maps[id_map_index].status |= RELEASED_REMOTELY;
                     id_map->refcount_global--;
                     if (event_h && (sig->local->instance_event_flags
