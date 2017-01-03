@@ -14,15 +14,15 @@ _%.$(PYEXT): $(builddir)/%_wrap.c
 
 clean-local:
 	-@rm -vf mapper.py mapper_wrap.c
-	python setup.py clean --all
+	$(PYTHON) setup.py clean --all
 
 MOSTLYCLEANFILES = _mapper.$(PYEXT) mapper.py mapper_wrap.c installed_files.log
 
 install-exec-hook: $(builddir)/mapper_wrap.c
 	if test -n "$(DESTDIR)"; then\
-		python setup.py install --root=$(DESTDIR) --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
+		$(PYTHON) setup.py install --root=$(DESTDIR) --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
 	else \
-		python setup.py install --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
+		$(PYTHON) setup.py install --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
 	fi
 
 uninstall-hook:
