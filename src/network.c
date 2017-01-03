@@ -2292,6 +2292,24 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
         return 0;
     }
 
+    mapper_message_atom atom = mapper_message_property(props, AT_PROCESS_LOCATION);
+    if (atom) {
+        map->process_location = mapper_location_from_string(&(atom->values[0])->s);
+        if (!map->local->one_source) {
+            /* if map has sources from different remote devices, processing must
+             * occur at the destination. */
+            map->process_location = MAPPER_LOC_DESTINATION;
+        }
+        else if ((atom = mapper_message_property(props, AT_EXPRESSION))) {
+            if (strstr(&atom->values[0]->s, "y={-")) {
+                map->process_location = MAPPER_LOC_DESTINATION;
+            }
+        }
+        else if (map->expression && strstr(map->expression, "y{-")) {
+            map->process_location = MAPPER_LOC_DESTINATION;
+        }
+    }
+
     // do not continue if we are not in charge of processing
     if (map->process_location == MAPPER_LOC_DESTINATION) {
         if (!map->destination.signal->local) {
@@ -2300,12 +2318,10 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
             return 0;
         }
     }
-    else {
-        if (!map->sources[0]->signal->local) {
-            trace("<%s> ignoring /map/modify, slaved to remote device.\n",
-                  mapper_device_name(dev));
-            return 0;
-        }
+    else if (!map->sources[0]->signal->local) {
+        trace("<%s> ignoring /map/modify, slaved to remote device.\n",
+              mapper_device_name(dev));
+        return 0;
     }
 
     int updated = mapper_map_set_from_message(map, props, 1);
