@@ -196,7 +196,7 @@ if test x$jni_enabled = xyes; then
            JNIFLAGS="$JNIFLAGS -I$JNIPATH/linux"
          fi;;
        darwin*)
-         if test -d "$JNIPATH"/linux; then
+         if test -d "$JNIPATH"/darwin; then
            JNIFLAGS="$JNIFLAGS -I$JNIPATH/darwin"
          fi;;
      esac
