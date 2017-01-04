@@ -2798,7 +2798,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
         mapper_device dev = mapper_signal_device(sig);
         id = mapper_device_generate_unique_id(dev);
         if (!mapper_signal_instance_activate(sig, id)) {
-            printf("Could not activate instance with id %llu\n", id);
+            printf("Could not activate instance with id %lu\n", id);
             return 0;
         }
     }
@@ -2806,7 +2806,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
     instance_jni_context ctx = ((instance_jni_context)
                                 mapper_signal_instance_user_data(sig, id));
     if (!ctx) {
-        printf("No context found for instance %llu\n", id);
+        printf("No context found for instance %lu\n", id);
         return 0;
     }
 
