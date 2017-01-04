@@ -272,21 +272,34 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
     switch (prop->type) {
         case 's':
         {
-            // only strings are valid
+            // only strings (bytes in py3) are valid
             if (prop->length > 1) {
                 char **str_to = (char**)prop->value;
                 for (i = 0; i < prop->length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
+#if PY_MAJOR_VERSION >= 3
+                    if (!PyBytes_Check(element))
+                        return 1;
+                    str_to[i] = strdup(PyBytes_AsString(element));
+#else
                     if (!PyString_Check(element))
                         return 1;
                     str_to[i] = strdup(PyString_AsString(element));
+#endif
                 }
             }
             else {
+#if PY_MAJOR_VERSION >= 3
+                if (!PyBytes_Check(from))
+                    return 1;
+                char **str_to = (char**)&prop->value;
+                *str_to = strdup(PyBytes_AsString(from));
+#else
                 if (!PyString_Check(from))
                     return 1;
                 char **str_to = (char**)&prop->value;
                 *str_to = strdup(PyString_AsString(from));
+#endif
             }
             break;
         }
@@ -297,17 +310,31 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
             if (prop->length > 1) {
                 for (i = 0; i < prop->length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
+#if PY_MAJOR_VERSION >= 3
+                    if (!PyBytes_Check(element))
+                        return 1;
+                    char *temp = PyBytes_AsString(element);
+                    char_to[i] = temp[0];
+#else
                     if (!PyString_Check(element))
                         return 1;
                     char *temp = PyString_AsString(element);
                     char_to[i] = temp[0];
+#endif
                 }
             }
             else {
+#if PY_MAJOR_VERSION >= 3
                 if (!PyString_Check(from))
                     return 1;
                 char *temp = PyString_AsString(from);
                 *char_to = temp[0];
+#else
+                if (!PyBytes_Check(from))
+                    return 1;
+                char *temp = PyBytes_AsString(from);
+                *char_to = temp[0];
+#endif
             }
             break;
         }
@@ -392,18 +419,7 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
 
 static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
 {
-    if (PySequence_Check(v) && !PyString_Check(v)) {
-        if (allow_sequence) {
-            int i;
-            for (i=0; i<PySequence_Size(v); i++) {
-                if (check_type(PySequence_GetItem(v, i), c, can_promote, 0))
-                    return 1;
-            }
-        }
-        else
-            return 1;
-    }
-    else if (PyInt_Check(v) || PyBool_Check(v)) {
+  if (PyInt_Check(v) || PyLong_Check(v) || PyBool_Check(v)) {
         if (*c == 0)
             *c = 'i';
         else if (*c == 's')
@@ -417,10 +433,26 @@ static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
         else if (*c == 'i' && can_promote)
             *c = 'f';
     }
-    else if (PyString_Check(v)) {
+    else if (PyString_Check(v)
+             || PyUnicode_Check(v)
+#if PY_MAJOR_VERSION >= 3
+             || PyBytes_Check(v)
+#endif
+             ) {
         if (*c == 0)
             *c = 's';
         else if (*c != 's' && *c != 'c')
+            return 1;
+    }
+    else if (PySequence_Check(v)) {
+        if (allow_sequence) {
+            int i;
+            for (i=0; i<PySequence_Size(v); i++) {
+                if (check_type(PySequence_GetItem(v, i), c, can_promote, 0))
+                    return 1;
+            }
+        }
+        else
             return 1;
     }
     return 0;
@@ -443,10 +475,18 @@ static PyObject *prop_to_py(property_value prop, const char *name)
             if (prop->length > 1) {
                 char **vect = (char**)prop->value;
                 for (i=0; i<prop->length; i++)
+#if PY_MAJOR_VERSION >= 3
+                    PyList_SetItem(v, i, PyBytes_FromString(vect[i]));
+#else
                     PyList_SetItem(v, i, PyString_FromString(vect[i]));
+#endif
             }
             else
+#if PY_MAJOR_VERSION >= 3
+                v = PyBytes_FromString((char*)prop->value);
+#else
                 v = PyString_FromString((char*)prop->value);
+#endif
             break;
         }
         case 'c':

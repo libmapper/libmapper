@@ -1,7 +1,8 @@
 #!/bin/sh
 
-PYMACHINE="$(python -c 'import platform; print platform.machine()')"
-ARCHES="$(ls -d build/lib.*/$1)"
+PY=$1
+PYMACHINE="$($PY -c 'import platform; print(platform.machine())')"
+ARCHES="$(ls -d build/lib.*/$2*.so)"
 
 # If the Python platform architecture is found, copy that one
 for A in $ARCHES

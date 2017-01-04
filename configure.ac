@@ -156,6 +156,10 @@ if test x$swig_enabled = xyes; then
        AC_SUBST(SWIGDIR)
        PYEXT=$($PYTHON -c "import sys; print({'win32':'pyd','darwin':'so','linux':'so','linux2':'so'}[[sys.platform]])")
        AC_SUBST(PYEXT)
+       case "$PYTHON_VERSION" in
+       3*) PY3SWIG=" -py3"; AC_SUBST(PY3SWIG)
+       esac
+       swig_explain="($(basename $PYTHON)$PY3SWIG)"
      else
        swig_enabled=no
        swig_explain="(python not found)"
