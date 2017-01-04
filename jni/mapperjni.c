@@ -461,10 +461,8 @@ static int get_Value_elements(JNIEnv *env, jobject jprop, void **value,
             valf = (*env)->GetFieldID(env, cls, "_b", "[Z");
             o = (*env)->GetObjectField(env, jprop, valf);
             int *ints = malloc(sizeof(int) * length);
-            jboolean jbool;
             for (int i = 0; i < length; i++) {
-                jbool = (jboolean) (*env)->GetObjectArrayElement(env, o, i);
-                ints[i] = jbool ? 1 : 0;
+                ints[i] = (*env)->GetObjectArrayElement(env, o, i) ? 1 : 0;
             }
             *value = ints;
             break;
