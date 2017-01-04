@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import pwm
 import time
-import Tkinter
+try:
+    import Tkinter as tkinter
+except:
+    import tkinter
 import sys, os
 
 try:
@@ -18,35 +23,35 @@ except:
                          '../../swig'))
         import mapper
     except:
-        print 'Error importing libmapper module.'
+        print('Error importing libmapper module.')
         sys.exit(1)
 
 def main():
     if pwm.run_synth()==0:
-        print "Error running synth."
+        print("Error running synth.")
         return
 
     try:
-        window = Tkinter.Tk()
+        window = tkinter.Tk()
         window.title("libmapper PWM synth demo")
 
-        name = [False, Tkinter.StringVar()]
+        name = [False, tkinter.StringVar()]
         name[1].set("Waiting for device name...")
-        label = Tkinter.Label(window, textvariable=name[1])
+        label = tkinter.Label(window, textvariable=name[1])
         label.pack()
 
-        gain = Tkinter.Scale(window, from_=0, to=100, label='gain',
-                             orient=Tkinter.HORIZONTAL, length=300,
+        gain = tkinter.Scale(window, from_=0, to=100, label='gain',
+                             orient=tkinter.HORIZONTAL, length=300,
                              command=lambda n: pwm.set_gain(float(n)/100.0))
         gain.pack()
 
-        freq = Tkinter.Scale(window, from_=0, to=1000, label='freq',
-                             orient=Tkinter.HORIZONTAL, length=300,
+        freq = tkinter.Scale(window, from_=0, to=1000, label='freq',
+                             orient=tkinter.HORIZONTAL, length=300,
                              command=lambda n: pwm.set_freq(float(n)))
         freq.pack()
 
-        duty = Tkinter.Scale(window, from_=0, to=100, label='duty',
-                             orient=Tkinter.HORIZONTAL, length=300,
+        duty = tkinter.Scale(window, from_=0, to=100, label='duty',
+                             orient=tkinter.HORIZONTAL, length=300,
                              command=lambda n: pwm.set_duty(float(n)/100.0))
         duty.pack()
 

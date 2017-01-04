@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import sys, mapper
 
 def h(sig, id, f, timetag):
     try:
-        print '--> source received', f
+        print('--> source received', f)
     except:
-        print 'exception'
-        print sig, f
+        print('exception')
+        print(sig, f)
 
 src = mapper.device("src")
 outsig = src.add_output_signal("outsig", 1, 'f', None, 0, 1000)
@@ -27,7 +28,7 @@ while not map.ready():
     dest.poll(10)
 
 for i in range(100):
-    print 'updating destination to', i, '-->'
+    print('updating destination to', i, '-->')
     insig.update(i)
     src.poll(10)
     dest.poll(10)

@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import sys, mapper
 
 def sig_h(sig, id, f, timetag):
     try:
-        print sig.name, f
+        print(sig.name, f)
     except:
-        print 'exception'
-        print sig, f
+        print('exception')
+        print(sig, f)
 
 def action_name(action):
     if action is mapper.ADDED:
@@ -21,19 +22,19 @@ def action_name(action):
 
 def link_h(link, action):
     try:
-        print 'link', link.device(0).name, '<->', link.device(1).name, action_name(action)
+        print('link', link.device(0).name, '<->', link.device(1).name, action_name(action))
     except:
-        print 'exception'
-        print link
-        print action
+        print('exception')
+        print(link)
+        print(action)
 
 def map_h(map, action):
     try:
-        print 'map', map.source().signal().name, '->', map.destination().signal().name, action_name(action)
+        print('map', map.source().signal().name, '->', map.destination().signal().name, action_name(action))
     except:
-        print 'exception'
-        print map
-        print action
+        print('exception')
+        print(map)
+        print(action)
 
 src = mapper.device("src")
 src.set_link_callback(link_h)

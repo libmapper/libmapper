@@ -1,4 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+
+# Pyo is a sound synthesis system for Python.
+# It is currently only available for Python 2
+
+# Here we use it to demonstrate connecting a simple Pyo synthesizer to libmapper.
 
 from pyo import *
 import math
