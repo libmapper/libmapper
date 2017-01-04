@@ -1,13 +1,13 @@
 
 # libmapper NEWS
 
-Changes from 0.4 to 0.5
+Changes from 0.4 to 1.0
 -----------------------
 
-Released _________
+Released Jan 4, 2016.
 
-This is still a development release, and includes many API changes,
-improvements, and new features since 0.4. They are summarized very briefly here:
+This is release includes many API changes, improvements, and new
+features since 0.4. They are summarized very briefly here:
 
 ### Structural changes
 
