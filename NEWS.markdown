@@ -33,7 +33,7 @@ creating, modifying, and destroying mapping connections. Changes to a map (and
 to other structures that represent non-local resources) must be explicitly
 synchronized with the network using the `_push()` function, e.g.:
 
-    mapper_map map = mapper_map_new(num_srcs, outsigs, insig);
+    mapper_map map = mapper_map_new(num_srcs, outsigs, num_dsts, insig);
     mapper_map_set_expression(map, "y=x+2");
     mapper_map_push(map);
 
@@ -75,7 +75,7 @@ to `mapper_device_poll()`.
 
 Previous versions of libmapper contained many duplicate functions for accessing
 e.g. signals belonging to a device: one for retrieving them from a `mapper_device`
-and another for retrieving them from the database. In version 0.5 all object
+and another for retrieving them from the database. In version 1.0 all object
 queries have been unified, and children of objects (e.g. signals, maps) are
 retrieved by querying their parent. For example, all devices can be retrieved
 from the database like this:
@@ -124,10 +124,10 @@ queries:
 ### Convergent mapping
 
 *Convergent* (or *many-to-one*) mapping refers to scenarios in which multiple
-source signals are connected to the same destination signal. Prior to 0.5,
+source signals are connected to the same destination signal. Prior to 1.0,
 libmapper would allow a naïve implementation of convergent mapping: multiple
 sources could be connected to a given destination, but their values would
-overwrite each other at each source update. Starting with version 0.5, three
+overwrite each other at each source update. Starting with version 1.0, three
 other methods for convergent mapping are also available:
 
 * _Updating specific vector elements or element ranges_. By using the vector
