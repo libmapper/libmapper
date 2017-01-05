@@ -43,6 +43,7 @@ AC_CHECK_HEADERS([sys/time.h unistd.h termios.h fcntl.h errno.h])
 AC_CHECK_HEADERS([arpa/inet.h])
 AC_CHECK_HEADERS([zlib.h])
 AC_CHECK_HEADERS([winsock2.h])
+AC_CHECK_HEADERS([inttypes.h])
 AC_CHECK_FUNC([inet_ptoa],[AC_DEFINE([HAVE_INET_PTOA],[],[Define if inet_ptoa() is available.])],[])
 AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs() is available.])],[
   AC_CHECK_LIB([iphlpapi],[exit],[

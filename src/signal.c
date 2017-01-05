@@ -553,8 +553,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
         if (!si) {
             /* TODO: Once signal groups are explicit, allow re-mapping to
              * another instance if possible. */
-            trace("Signal %s has no instance %llu available.\n", sig->name,
-                  (unsigned long long)map->local);
+            trace("Signal %s has no instance %"PR_MAPPER_ID" available.\n",
+                  sig->name, map->local);
             return -1;
         }
         else if (!si->is_active) {
@@ -614,8 +614,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
     else {
         si = find_instance_by_id(sig, map->local);
         if (!si) {
-            trace("Signal %s has no instance %llu available.", sig->name,
-                  (unsigned long long)map->local);
+            trace("Signal %s has no instance %"PR_MAPPER_ID" available.",
+                  sig->name, map->local);
             return -1;
         }
         if (si) {

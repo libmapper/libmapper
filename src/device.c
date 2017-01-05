@@ -469,7 +469,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             if (id_map_index < 0) {
 #ifdef DEBUG
                 printf("no local instances available for global instance id"
-                       " %llu\n", (unsigned long long)global_id);
+                       " %"PR_MAPPER_ID"\n", global_id);
 #endif
                 return 0;
             }
@@ -587,7 +587,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     if (id_map_index < 0) {
 #ifdef DEBUG
                         printf("no local instances available for global"
-                               " instance id %llu\n", (unsigned long long)global_id);
+                               " instance id %"PR_MAPPER_ID"\n", global_id);
 #endif
                         return 0;
                     }

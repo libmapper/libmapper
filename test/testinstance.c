@@ -196,7 +196,7 @@ void loop()
         switch (rand() % 5) {
             case 0:
                 // try to destroy an instance
-                eprintf("--> Retiring sender instance %i\n", (int)instance);
+                eprintf("--> Retiring sender instance %"PR_MAPPER_ID"\n", instance);
                 mapper_signal_instance_release(sendsig, (long)instance, MAPPER_NOW);
                 break;
             default:
@@ -204,8 +204,8 @@ void loop()
                 value = (rand() % 10) * 1.0f;
                 mapper_signal_instance_update(sendsig, instance, &value, 0,
                                               MAPPER_NOW);
-                eprintf("--> sender instance %llu updated to %f\n",
-                        (unsigned long long)instance, value);
+                eprintf("--> sender instance %"PR_MAPPER_ID" updated to %f\n",
+                        instance, value);
                 sent++;
                 break;
         }

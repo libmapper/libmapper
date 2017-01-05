@@ -16,6 +16,15 @@
 #include "mapper_signal_Query.h"
 #include "mapper_Signal.h"
 
+#include "config.h"
+
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#define PR_MAPPER_ID PRIu64
+#else
+#define PR_MAPPER_ID "llu"
+#endif
+
 #define jlong_ptr(a) ((jlong)(uintptr_t)(a))
 #define ptr_jlong(a) ((void *)(uintptr_t)(a))
 
@@ -2798,7 +2807,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
         mapper_device dev = mapper_signal_device(sig);
         id = mapper_device_generate_unique_id(dev);
         if (!mapper_signal_instance_activate(sig, id)) {
-            printf("Could not activate instance with id %lu\n", id);
+            printf("Could not activate instance with id %"PR_MAPPER_ID"\n", id);
             return 0;
         }
     }
@@ -2806,7 +2815,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
     instance_jni_context ctx = ((instance_jni_context)
                                 mapper_signal_instance_user_data(sig, id));
     if (!ctx) {
-        printf("No context found for instance %lu\n", id);
+        printf("No context found for instance %"PR_MAPPER_ID"\n", id);
         return 0;
     }
 

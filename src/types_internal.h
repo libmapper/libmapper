@@ -16,6 +16,13 @@
 
 #include <mapper/mapper_constants.h>
 
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#define PR_MAPPER_ID PRIu64
+#else
+#define PR_MAPPER_ID "llu"
+#endif
+
 /**** Defined in mapper.h ****/
 
 /* Types defined here replace opaque prototypes in mapper.h, thus we
