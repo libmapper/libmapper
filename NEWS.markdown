@@ -107,7 +107,7 @@ destination device without requiring a dedicated function to do so:
     combo = mapper_map_query_intersection(src, dst);
     
     while (combo) {
-        mapper_map_pp(*combo);
+        mapper_map_print(*combo);
         maps = mapper_map_query_next(combo);
     }
 
