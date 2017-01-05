@@ -732,27 +732,6 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
     return 0;
 }
 
-static int match_slot(mapper_device dev, mapper_slot slot, const char *full_name)
-{
-    if (!full_name)
-        return 1;
-    full_name += (full_name[0]=='/');
-    const char *sig_name = strchr(full_name+1, '/');
-    if (!sig_name)
-        return 1;
-    int len = sig_name - full_name;
-    const char *slot_devname = (slot->local->router_sig ? mapper_device_name(dev)
-                                : slot->link->remote_device->name);
-
-    // first compare device name
-    if (strlen(slot_devname) != len || strncmp(full_name, slot_devname, len))
-        return 1;
-
-    if (strcmp(sig_name+1, slot->signal->name) == 0)
-        return 0;
-    return 1;
-}
-
 mapper_map mapper_router_outgoing_map(mapper_router rtr,
                                       mapper_signal local_src,
                                       int num_sources,
@@ -775,7 +754,7 @@ mapper_map mapper_router_outgoing_map(mapper_router rtr,
         mapper_map map = slot->map;
 
         // check destination
-        if (match_slot(rtr->device, &map->destination, dest_name))
+        if (mapper_slot_match_full_name(&map->destination, dest_name))
             continue;
 
         // check sources
@@ -784,7 +763,7 @@ mapper_map mapper_router_outgoing_map(mapper_router rtr,
             if (map->sources[j]->local->router_sig == rs)
                 continue;
 
-            if (match_slot(rtr->device, map->sources[j], src_names[j])) {
+            if (mapper_slot_match_full_name(map->sources[j], src_names[j])) {
                 found = 0;
                 break;
             }
@@ -817,7 +796,7 @@ mapper_map mapper_router_incoming_map(mapper_router rtr,
         // check sources
         int found = 1;
         for (j = 0; j < num_sources; j++) {
-            if (match_slot(rtr->device, map->sources[j], src_names[j])) {
+            if (mapper_slot_match_full_name(map->sources[j], src_names[j])) {
                 found = 0;
                 break;
             }

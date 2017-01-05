@@ -887,6 +887,28 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         }
         id = atom->values[0]->i64;
         map = mapper_database_map_by_id(db, id);
+        if (!map && mapper_database_map_by_id(db, 0)) {
+            // may have staged map stored locally
+            map = db->maps;
+            while (map) {
+                int i, found = 1;
+                if (map->num_sources != num_sources)
+                    found = 0;
+                else if (mapper_slot_match_full_name(&map->destination,
+                                                     dst_name))
+                    found = 0;
+                for (i = 0; i < num_sources; i++) {
+                    if (mapper_slot_match_full_name(map->sources[i],
+                                                    src_names[i])) {
+                        found = 0;
+                        break;
+                    }
+                }
+                if (found)
+                    break;
+                map = mapper_list_next(map);
+            }
+        }
     }
 
     if (!map) {

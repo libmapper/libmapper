@@ -309,6 +309,8 @@ void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
 
 void mapper_slot_upgrade_extrema_memory(mapper_slot slot);
 
+int mapper_slot_match_full_name(mapper_slot slot, const char *full_name);
+
 /**** Database ****/
 
 /**** Local device database ****/

@@ -425,3 +425,22 @@ void mapper_slot_print(mapper_slot slot)
         }
     }
 }
+
+int mapper_slot_match_full_name(mapper_slot slot, const char *full_name)
+{
+    if (!full_name)
+        return 1;
+    full_name += (full_name[0]=='/');
+    const char *sig_name = strchr(full_name+1, '/');
+    if (!sig_name)
+        return 1;
+    int len = sig_name - full_name;
+
+    const char *slot_devname = slot->signal->device->name;
+
+    // first compare device name
+    if (strlen(slot_devname) != len || strncmp(full_name, slot_devname, len))
+        return 1;
+
+    return strcmp(sig_name+1, slot->signal->name) ? 1 : 0;
+}
