@@ -2349,6 +2349,15 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_removeProperty
     return obj;
 }
 
+JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_clearStagedProperties
+    (JNIEnv *env, jobject obj)
+{
+    mapper_slot slot = get_slot_from_jobject(env, obj);
+    if (slot)
+        mapper_slot_clear_staged_properties(slot);
+    return obj;
+}
+
 JNIEXPORT jint JNICALL Java_mapper_Map_00024Slot_mapperSlotBoundMax
   (JNIEnv *env, jobject obj, jlong jslot)
 {

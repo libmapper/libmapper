@@ -235,6 +235,11 @@ int mapper_slot_remove_property(mapper_slot slot, const char *name)
                                    REMOTE_MODIFY);
 }
 
+void mapper_slot_clear_staged_properties(mapper_slot slot) {
+    if (slot)
+        mapper_table_clear(slot->staged_props);
+}
+
 void mapper_slot_upgrade_extrema_memory(mapper_slot slot)
 {
     int len;

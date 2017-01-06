@@ -2484,6 +2484,10 @@ typedef struct _map_query {
             mapper_slot_remove_property((mapper_slot)$self, key);
         return $self;
     }
+    slot *clear_staged_properties() {
+        mapper_slot_clear_staged_properties((mapper_slot)$self);
+        return $self;
+    }
     %pythoncode {
         bound_max = property(get_bound_max, set_bound_max)
         bound_min = property(get_bound_min, set_bound_min)

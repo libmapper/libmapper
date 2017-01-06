@@ -1642,6 +1642,10 @@ int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
  *  \return             1 if property has been removed, 0 otherwise. */
 int mapper_slot_remove_property(mapper_slot slot, const char *name);
 
+/*! Clear any staged property changes.
+ *  \param slot         The slot to operate on. */
+void mapper_slot_clear_staged_properties(mapper_slot slot);
+
 /*! Helper to print the properties of a specific slot.
  *  \param slot         The slot to print. */
 void mapper_slot_print(mapper_slot slot);

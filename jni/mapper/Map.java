@@ -28,6 +28,8 @@ public class Map
         public Slot removeProperty(Property prop) {
             return removeProperty(prop.name);
         }
+        /* clear staged properties */
+        public native Slot clearStagedProperties();
 
         private native int mapperSlotBoundMax(long slot);
         public BoundaryAction boundMax() {

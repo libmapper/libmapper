@@ -37,6 +37,64 @@
 //(Signal sig, int instance_id, void *value, int count, TimeTag tt)
 
 #define MAPPER_TYPE(NAME) mapper_ ## NAME
+#define MAPPER_FUNC(OBJ, FUNC) mapper_ ## OBJ ## _ ## FUNC
+
+#define PROPERTY_METHODS(CLASS_NAME, NAME, PTR)                             \
+protected:                                                                  \
+    CLASS_NAME& set_property(Property *p)                                   \
+    {                                                                       \
+        if (PTR)                                                            \
+            MAPPER_FUNC(NAME, set_property)(PTR, p->name, p->length,        \
+                                            p->type, p->value, p->publish); \
+        return (*this);                                                     \
+    }                                                                       \
+public:                                                                     \
+    template <typename... Values>                                           \
+    CLASS_NAME& set_property(Values... values)                              \
+    {                                                                       \
+        Property p(values...);                                              \
+        if (p)                                                              \
+            set_property(&p);                                               \
+        return (*this);                                                     \
+    }                                                                       \
+    CLASS_NAME& remove_property(const string_type &key)                     \
+    {                                                                       \
+        if (PTR && key)                                                     \
+            MAPPER_FUNC(NAME, remove_property)(PTR, key);                   \
+        return (*this);                                                     \
+    }                                                                       \
+    int num_properties() const                                              \
+    {                                                                       \
+        return MAPPER_FUNC(NAME, num_properties)(PTR);                      \
+    }                                                                       \
+    Property property(const string_type &key) const                         \
+    {                                                                       \
+        char type;                                                          \
+        const void *value;                                                  \
+        int length;                                                         \
+        if (!MAPPER_FUNC(NAME, property)(PTR, key, &length, &type, &value)) \
+            return Property(key, length, type, value);                      \
+        else                                                                \
+            return Property(key, 0, 0, 0, 0);                               \
+    }                                                                       \
+    Property property(int index) const                                      \
+    {                                                                       \
+        const char *key;                                                    \
+        char type;                                                          \
+        const void *value;                                                  \
+        int length;                                                         \
+        if (!MAPPER_FUNC(NAME, property_index)(PTR, index, &key, &length,   \
+                                               &type, &value))              \
+            return Property(key, length, type, value);                      \
+        else                                                                \
+            return Property(0, 0, 0, 0, 0);                                 \
+    }                                                                       \
+    const CLASS_NAME& clear_staged_properties() const                       \
+    {                                                                       \
+        MAPPER_FUNC(NAME, clear_staged_properties)(PTR);                    \
+        return (*this);                                                     \
+    }                                                                       \
+
 #define QUERY_FUNC(OBJ, FUNC) mapper_ ## OBJ ## _query_ ## FUNC
 
 #define QUERY_METHODS(CLASS_NAME, NAME)                                     \
@@ -718,8 +776,6 @@ namespace mapper {
             { return _map; }
         operator mapper_id() const
             { return mapper_map_id(_map); }
-        const Map& clear_staged_properties() const
-            { mapper_map_clear_staged_properties(_map); return (*this); }
         const Map& push() const
             { mapper_map_push(_map); return (*this); }
         const Map& refresh() const
@@ -749,30 +805,6 @@ namespace mapper {
             { return mapper_map_process_location(_map); }
         Map& set_process_location(mapper_location loc)
             { mapper_map_set_process_location(_map, loc); return (*this); }
-        int num_properties() const
-            { return mapper_map_num_properties(_map); }
-        Property property(const string_type& name) const
-        {
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_map_property(_map, name, &length, &type, &value))
-                return Property(name, length, type, value);
-            else
-                return Property(name, 0, 0, 0, 0);
-        }
-        Property property(int index) const
-        {
-            const char *name;
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_map_property_index(_map, index, &name, &length, &type,
-                                           &value))
-                return Property(name, length, type, value);
-            else
-                return Property(0, 0, 0, 0, 0);
-        }
         mapper_id id() const
             { return mapper_map_id(_map); }
         Map& set_user_data(void *user_data)
@@ -892,53 +924,9 @@ namespace mapper {
                 mapper_slot_set_use_instances(_slot, (int)value);
                 return (*this);
             }
-            int num_properties() const
-                { return mapper_slot_num_properties(_slot); }
-            Property property(const string_type &name) const
-            {
-                char type;
-                const void *value;
-                int length;
-                if (!mapper_slot_property(_slot, name, &length, &type, &value))
-                    return Property(name, length, type, value);
-                else
-                    return Property(name, 0, 0, 0, 0);
-            }
-            Property property(int index) const
-            {
-                const char *name;
-                char type;
-                const void *value;
-                int length;
-                if (!mapper_slot_property_index(_slot, index, &name, &length,
-                                                &type, &value))
-                    return Property(name, length, type, value);
-                else
-                    return Property(name, 0, 0, 0, 0);
-            }
-            template <typename... Values>
-            Slot& set_property(Values... values)
-            {
-                Property p(values...);
-                if (p)
-                    set_property(&p);
-                return (*this);
-            }
-            Slot& remove_property(const string_type &key)
-            {
-                if (_slot && key)
-                    mapper_slot_remove_property(_slot, key);
-                return (*this);
-            }
+            PROPERTY_METHODS(Slot, slot, _slot);
         protected:
             friend class Map;
-            Slot& set_property(Property *p)
-            {
-                if (_slot)
-                    mapper_slot_set_property(_slot, p->name, p->length, p->type,
-                                             p->value, p->publish);
-                return (*this);
-            }
         private:
             mapper_slot _slot;
         };
@@ -946,29 +934,9 @@ namespace mapper {
             { return Slot(mapper_map_slot(_map, MAPPER_LOC_DESTINATION, 0)); }
         Slot source(int index=0) const
             { return Slot(mapper_map_slot(_map, MAPPER_LOC_SOURCE, index)); }
-        template <typename... Values>
-        Map& set_property(Values... values)
-        {
-            Property p(values...);
-            if (p)
-                set_property(&p);
-            return (*this);
-        }
-        Map& remove_property(const string_type &key)
-        {
-            if (_map && key)
-                mapper_map_remove_property(_map, key);
-            return (*this);
-        }
+        PROPERTY_METHODS(Map, map, _map);
     protected:
         friend class Database;
-        Map& set_property(Property *p)
-        {
-            if (_map)
-                mapper_map_set_property(_map, p->name, p->length, p->type,
-                                        p->value, p->publish);
-            return (*this);
-        }
     private:
         mapper_map _map;
     };
@@ -986,8 +954,6 @@ namespace mapper {
             { return _link; }
         operator mapper_id() const
             { return mapper_link_id(_link); }
-        const Link& clear_staged_properties() const
-            { mapper_link_clear_staged_properties(_link); return (*this); }
         const Link& push() const
             { mapper_link_push(_link); return (*this); }
         inline Device device(int idx) const;
@@ -1001,44 +967,7 @@ namespace mapper {
             { mapper_link_set_user_data(_link, user_data); return (*this); }
         void *user_data() const
             { return mapper_link_user_data(_link); }
-        int num_properties() const
-            { return mapper_link_num_properties(_link); }
-        Property property(const string_type& name) const
-        {
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_link_property(_link, name, &length, &type, &value))
-                return Property(name, length, type, value);
-            else
-                return Property(name, 0, 0, 0, 0);
-        }
-        Property property(int index) const
-        {
-            const char *name;
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_link_property_index(_link, index, &name, &length, &type,
-                                            &value))
-                return Property(name, length, type, value);
-            else
-                return Property(0, 0, 0, 0, 0);
-        }
-        template <typename... Values>
-        Link& set_property(Values... values)
-        {
-            Property p(values...);
-            if (p)
-                set_property(&p);
-            return (*this);
-        }
-        Link& remove_property(const string_type &key)
-        {
-            if (_link && key)
-                mapper_link_remove_property(_link, key);
-            return (*this);
-        }
+        PROPERTY_METHODS(Link, link, _link);
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -1048,13 +977,6 @@ namespace mapper {
         };
     protected:
         friend class Database;
-        Link& set_property(Property *p)
-        {
-            if (_link)
-                mapper_link_set_property(_link, p->name, p->length, p->type,
-                                         p->value, p->publish);
-            return (*this);
-        }
     private:
         mapper_link _link;
     };
@@ -1063,14 +985,6 @@ namespace mapper {
     {
     protected:
         friend class Property;
-
-        Signal& set_property(Property *p)
-        {
-            if (_sig)
-                mapper_signal_set_property(_sig, p->name, p->length, p->type,
-                                           p->value, p->publish);
-            return (*this);
-        }
 
     private:
         mapper_signal _sig;
@@ -1089,48 +1003,9 @@ namespace mapper {
         inline Device device() const;
         Map::Query maps(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Map::Query(mapper_signal_maps(_sig, dir)); }
-        template <typename... Values>
-        Signal& set_property(Values... values)
-        {
-            Property p(values...);
-            if (p)
-                set_property(&p);
-            return (*this);
-        }
-        Signal& remove_property(const string_type &key)
-        {
-            if (_sig && key)
-                mapper_signal_remove_property(_sig, key);
-            return (*this);
-        }
-        const Signal& clear_staged_properties() const
-            { mapper_signal_clear_staged_properties(_sig); return (*this); }
+        PROPERTY_METHODS(Signal, signal, _sig);
         const Signal& push() const
             { mapper_signal_push(_sig); return (*this); }
-        int num_properties() const
-            { return mapper_signal_num_properties(_sig); }
-        Property property(const string_type &name) const
-        {
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_signal_property(_sig, name, &length, &type, &value))
-                return Property(name, length, type, value, this);
-            else
-                return Property(name, 0, 0, 0, this);
-        }
-        Property property(int index) const
-        {
-            const char *name;
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_signal_property_index(_sig, index, &name, &length,
-                                              &type, &value))
-                return Property(name, length, type, value, this);
-            else
-                return Property(0, 0, 0, 0, this);
-        }
         mapper_id id() const
             { return mapper_signal_id(_sig); }
         std::string name() const
@@ -1382,14 +1257,6 @@ namespace mapper {
 
     class Device : public Object
     {
-    protected:
-        Device& set_property(Property *p)
-        {
-            if (_dev)
-                mapper_device_set_property(_dev, p->name, p->length, p->type,
-                                           p->value, p->publish);
-            return (*this);
-        }
     public:
         Device(const string_type &name_prefix, int port, const Network& net)
         {
@@ -1475,16 +1342,7 @@ namespace mapper {
         Device& remove_signal(Signal& sig)
             { mapper_device_remove_signal(_dev, sig); return (*this); }
 
-        template <typename... Values>
-        Device& set_property(Values... values)
-        {
-            Property p(values...);
-            if (p)
-                set_property(&p);
-            return (*this);
-        }
-        const Device& clear_staged_properties() const
-            { mapper_device_clear_staged_properties(_dev); return (*this); }
+        PROPERTY_METHODS(Device, device, _dev);
         const Device& push() const
             { mapper_device_push(_dev); return (*this); }
 
@@ -1536,36 +1394,6 @@ namespace mapper {
             { return mapper_device_port(_dev); }
         int ordinal() const
             { return mapper_device_ordinal(_dev); }
-        Device& remove_property(const string_type &key)
-        {
-            if (_dev && key)
-                mapper_device_remove_property(_dev, key);
-            return (*this);
-        }
-        int num_properties() const
-            { return mapper_device_num_properties(_dev); }
-        Property property(const string_type &name) const
-        {
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_device_property(_dev, name, &length, &type, &value))
-                return Property(name, length, type, value, this);
-            else
-                return Property(name, 0, 0, 0, this);
-        }
-        Property property(int index) const
-        {
-            const char *name;
-            char type;
-            const void *value;
-            int length;
-            if (!mapper_device_property_index(_dev, index, &name, &length,
-                                              &type, &value))
-                return Property(name, length, type, value, this);
-            else
-                return Property(0, 0, 0, 0, this);
-        }
         Device& start_queue(Timetag tt)
             { mapper_device_start_queue(_dev, *tt); return (*this); }
         Device& send_queue(Timetag tt)
