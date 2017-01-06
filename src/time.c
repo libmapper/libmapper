@@ -25,7 +25,7 @@ double mapper_get_current_time()
 #endif
 }
 
-void mapper_now(mapper_timetag_t *timetag)
+void mapper_timetag_now(mapper_timetag_t *timetag)
 {
     lo_timetag_now((lo_timetag*)timetag);
 }

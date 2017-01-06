@@ -1832,7 +1832,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_now
   (JNIEnv *env, jobject obj)
 {
     mapper_timetag_t tt;
-    mapper_now(&tt);
+    mapper_timetag_now(&tt);
     jobject o = get_jobject_from_timetag(env, &tt);
     return o;
 }
@@ -2776,7 +2776,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Network_now
   (JNIEnv *env, jobject obj)
 {
     mapper_timetag_t tt;
-    mapper_now(&tt);
+    mapper_timetag_now(&tt);
     jobject o = get_jobject_from_timetag(env, &tt);
     return o;
 }
@@ -3698,7 +3698,7 @@ JNIEXPORT void JNICALL Java_mapper_TimeTag_mapperNow
         jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "J");
         if (sec && frac) {
             mapper_timetag_t tt;
-            mapper_now(&tt);
+            mapper_timetag_now(&tt);
             (*env)->SetLongField(env, obj, sec, tt.sec);
             (*env)->SetLongField(env, obj, frac, tt.frac);
         }

@@ -1209,7 +1209,7 @@ static void mapper_map_set_mode_expression(mapper_map map, const char *expr)
     use_instances += map->destination.use_instances;
     if (mapper_expr_constant_output(map->local->expr) && !use_instances) {
         mapper_timetag_t now;
-        mapper_now(&now);
+        mapper_timetag_now(&now);
 
         // evaluate expression
         mapper_expr_evaluate(map->local->expr, 0, 0,

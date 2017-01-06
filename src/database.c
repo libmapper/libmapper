@@ -105,7 +105,7 @@ int mapper_database_timeout(mapper_database db)
 void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
 {
     mapper_timetag_t tt;
-    mapper_now(&tt);
+    mapper_timetag_now(&tt);
 
     // flush expired device records
     mapper_device dev;
@@ -181,7 +181,7 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
 
     if (dev) {
         updated = mapper_device_set_from_message(dev, props);
-        mapper_now(&dev->synced);
+        mapper_timetag_now(&dev->synced);
 
         if (rc || updated) {
             fptr_list cb = db->device_callbacks;
@@ -1372,7 +1372,7 @@ int mapper_database_poll(mapper_database db, int block_ms)
         if (elapsed.tv_sec || elapsed.tv_usec >= 100000) {
 
             // check if any subscriptions need to be renewed
-            mapper_now(&tt);
+            mapper_timetag_now(&tt);
             mapper_subscription s = db->subscriptions;
             while (s) {
                 if (s->lease_expiration_sec < tt.sec) {
@@ -1469,7 +1469,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         s->flags = flags;
 
         mapper_timetag_t tt;
-        mapper_now(&tt);
+        mapper_timetag_now(&tt);
         // leave 10-second buffer for subscription lease
         s->lease_expiration_sec = (tt.sec + AUTOSUBSCRIBE_INTERVAL - 10);
 

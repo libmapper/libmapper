@@ -313,7 +313,7 @@ namespace mapper {
         Timetag(double seconds)
             { mapper_timetag_set_double(&_tt, seconds); }
         Timetag()
-            { mapper_now(&_tt); }
+            { mapper_timetag_now(&_tt); }
         uint32_t sec()
             { return _tt.sec; }
         Timetag& set_sec(uint32_t sec)
@@ -323,7 +323,7 @@ namespace mapper {
         Timetag& set_frac (uint32_t frac)
             { _tt.frac = frac; return (*this); }
         Timetag& now()
-            { mapper_now(&_tt); return (*this); }
+            { mapper_timetag_now(&_tt); return (*this); }
         operator mapper_timetag_t*()
             { return &_tt; }
         operator double() const

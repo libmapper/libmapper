@@ -1611,7 +1611,7 @@ void mapper_device_synced(mapper_device dev, mapper_timetag_t *tt)
     if (!dev || !tt)
         return;
     if (dev->local)
-        mapper_now(tt);
+        mapper_timetag_now(tt);
     else
         mapper_timetag_copy(tt, dev->synced);
 }
@@ -1890,7 +1890,7 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     }
 
     mapper_timetag_t tt;
-    mapper_now(&tt);
+    mapper_timetag_now(&tt);
 
     while (*s) {
         if (strcmp(ip, lo_address_get_hostname((*s)->address))==0 &&
@@ -1989,7 +1989,7 @@ void mapper_device_print(mapper_device dev)
                    (unsigned long)tt->frac);
             if (tt->sec) {
                 mapper_timetag_t now;
-                mapper_now(&now);
+                mapper_timetag_now(&now);
                 printf(" (%f seconds ago)", mapper_timetag_difference(now, *tt));
             }
         }

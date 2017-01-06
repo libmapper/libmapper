@@ -2042,7 +2042,7 @@ mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
 
 /*! Initialize a timetag to the current mapping network time.
  *  \param tt           A previously allocated timetag to initialize. */
-void mapper_now(mapper_timetag_t *tt);
+void mapper_timetag_now(mapper_timetag_t *tt);
 
 /*! Return the difference in seconds between two mapper_timetags.
  *  \param minuend      The minuend.

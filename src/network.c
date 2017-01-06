@@ -502,7 +502,7 @@ void mapper_network_send(mapper_network net)
         mapper_subscriber *s = &net->device->local->subscribers;
         mapper_timetag_t tt;
         if (*s) {
-            mapper_now(&tt);
+            mapper_timetag_now(&tt);
         }
         while (*s) {
             if ((*s)->lease_expiration_sec < tt.sec || !(*s)->flags) {
@@ -537,7 +537,7 @@ int mapper_network_init(mapper_network net)
         mapper_network_send(net);
 
     mapper_timetag_t tt;
-    mapper_now(&tt);
+    mapper_timetag_now(&tt);
     net->bundle = lo_bundle_new(tt);
     if (!net->bundle) {
         trace("couldn't allocate lo_bundle\n");
@@ -687,7 +687,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
     int go = 0;
 
     mapper_timetag_t now;
-    mapper_now(&now);
+    mapper_timetag_now(&now);
     if (force || (now.sec >= net->next_ping)) {
         go = 1;
         net->next_ping = now.sec + 5 + (rand() % 4);
@@ -2523,7 +2523,7 @@ static int handler_ping(const char *path, const char *types, lo_arg **argv,
         return 0;
 
     mapper_timetag_t now;
-    mapper_now(&now);
+    mapper_timetag_now(&now);
     lo_timetag then = lo_message_get_timestamp(msg);
 
     remote = mapper_database_device_by_id(dev->database, argv[0]->h);

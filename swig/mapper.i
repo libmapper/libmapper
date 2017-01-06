@@ -1272,7 +1272,7 @@ typedef struct _device_query {
         }
         else {
             mapper_timetag_t *tt = (mapper_timetag_t*)malloc(sizeof(mapper_timetag_t));
-            mapper_now(tt);
+            mapper_timetag_now(tt);
             mapper_device_start_queue((mapper_device)$self, *tt);
             return (timetag*)tt;
         }
@@ -2811,7 +2811,7 @@ typedef struct _map_query {
 %extend _timetag {
     _timetag() {
         mapper_timetag_t *tt = (mapper_timetag_t*)malloc(sizeof(mapper_timetag_t));
-        mapper_now(tt);
+        mapper_timetag_now(tt);
         return (timetag*)tt;
     }
     _timetag(double val = 0) {
@@ -2823,7 +2823,7 @@ typedef struct _map_query {
         free((mapper_timetag_t*)$self);
     }
     timetag *now() {
-        mapper_now((mapper_timetag_t*)$self);
+        mapper_timetag_now((mapper_timetag_t*)$self);
         return $self;
     }
     double get_double() {

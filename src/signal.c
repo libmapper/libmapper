@@ -239,7 +239,7 @@ void mapper_signal_update(mapper_signal sig, const void *value, int count,
     mapper_timetag_t tt2, *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
         ttp = &tt2;
-        mapper_now(ttp);
+        mapper_timetag_now(ttp);
     }
     else
         ttp = &tt;
@@ -273,7 +273,7 @@ void mapper_signal_update_int(mapper_signal sig, int value)
 #endif
 
     mapper_timetag_t tt;
-    mapper_now(&tt);
+    mapper_timetag_now(&tt);
 
     int index = 0;
     if (!sig->local->id_maps[0].instance)
@@ -304,7 +304,7 @@ void mapper_signal_update_float(mapper_signal sig, float value)
 #endif
 
     mapper_timetag_t tt;
-    mapper_now(&tt);
+    mapper_timetag_now(&tt);
 
     int index = 0;
     if (!sig->local->id_maps[0].instance)
@@ -335,7 +335,7 @@ void mapper_signal_update_double(mapper_signal sig, double value)
 #endif
 
     mapper_timetag_t tt;
-    mapper_now(&tt);
+    mapper_timetag_now(&tt);
 
     int index = 0;
     if (!sig->local->id_maps[0].instance)
@@ -360,7 +360,7 @@ const void *mapper_signal_value(mapper_signal sig, mapper_timetag_t *timetag)
 static void mapper_signal_init_instance(mapper_signal_instance si)
 {
     si->has_value = 0;
-    mapper_now(&si->created);
+    mapper_timetag_now(&si->created);
 }
 
 static int mapper_signal_find_instance_with_local_id(mapper_signal sig,
@@ -862,7 +862,7 @@ static void mapper_signal_update_internal(mapper_signal sig, int instance_index,
     }
 
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0)
-        mapper_now(&si->timetag);
+        mapper_timetag_now(&si->timetag);
     else
         memcpy(&si->timetag, &tt, sizeof(mapper_timetag_t));
 
@@ -893,7 +893,7 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
     mapper_timetag_t tt2, *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
         ttp = &tt2;
-        mapper_now(ttp);
+        mapper_timetag_now(ttp);
     }
     else
         ttp = &tt;
@@ -931,7 +931,7 @@ void mapper_signal_remove_instance(mapper_signal sig, mapper_id id)
             if (sig->local->instances[i]->is_active) {
                 // First release instance
                 mapper_timetag_t tt;
-                mapper_now(&tt);
+                mapper_timetag_now(&tt);
                 mapper_signal_instance_release_internal(sig, i, tt);
             }
             break;
@@ -1156,7 +1156,7 @@ int mapper_signal_query_remotes(mapper_signal sig, mapper_timetag_t tt)
     mapper_timetag_t tt2, *ttp;
     if (memcmp(&tt, &MAPPER_NOW, sizeof(mapper_timetag_t))==0) {
         ttp = &tt2;
-        mapper_now(ttp);
+        mapper_timetag_now(ttp);
     }
     else
         ttp = &tt;
