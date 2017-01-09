@@ -75,7 +75,7 @@ public:                                                                     \
         if (!MAPPER_FUNC(NAME, property)(PTR, key, &length, &type, &value)) \
             return Property(key, length, type, value);                      \
         else                                                                \
-            return Property(key, 0, 0, 0, 0);                               \
+            return Property(key, 0, 0, 0);                                  \
     }                                                                       \
     Property property(int index) const                                      \
     {                                                                       \
@@ -87,7 +87,7 @@ public:                                                                     \
                                                &type, &value))              \
             return Property(key, length, type, value);                      \
         else                                                                \
-            return Property(0, 0, 0, 0, 0);                                 \
+            return Property(0, 0, 0, 0);                                    \
     }                                                                       \
     const CLASS_NAME& clear_staged_properties() const                       \
     {                                                                       \
@@ -406,39 +406,23 @@ namespace mapper {
     public:
         template <typename T>
         Property(const string_type &_name, T _value, bool _publish=true)
-            { name = _name; owned = false; _set(_value); publish = _publish; parent = NULL; }
+            { name = _name; owned = false; _set(_value); publish = _publish; }
         template <typename T>
         Property(const string_type &_name, int _length, T& _value, bool _publish=true)
-            { name = _name; owned = false; _set(_length, _value); parent = NULL; }
+            { name = _name; owned = false; _set(_length, _value); }
         template <typename T, size_t N>
         Property(const string_type &_name, std::array<T, N> _value, bool _publish=true)
-            { name = _name; owned = false; _set(_value); parent = NULL; }
+            { name = _name; owned = false; _set(_value); }
         template <typename T>
         Property(const string_type &_name, std::vector<T> _value, bool _publish=true)
-            { name = _name; owned = false; _set(_value); parent = NULL; }
+            { name = _name; owned = false; _set(_value); }
         template <typename T>
         Property(const string_type &_name, int _length, char _type, T& _value, bool _publish=true)
-            { name = _name; owned = false; _set(_length, _type, _value); parent = NULL; }
+            { name = _name; owned = false; _set(_length, _type, _value); }
 
         ~Property()
             { maybe_free(); }
 
-        template <typename T>
-        Property& set(T _value)
-        {
-            maybe_free();
-            _set(_value);
-            if (parent) parent->set_property(this);
-            return (*this);
-        }
-        template <typename T>
-        Property& set(int _length, T& _value)
-        {
-            maybe_free();
-            _set(_length, _value);
-            if (parent) parent->set_property(this);
-            return (*this);
-        }
         template <typename T>
         operator const T() const
             { return *(const T*)value; }
@@ -546,11 +530,10 @@ namespace mapper {
         friend class Link;
         friend class Map;
         Property(const string_type &_name, int _length, char _type,
-                 const void *_value, const Object *_parent)
+                 const void *_value)
         {
             name = _name;
             _set(_length, _type, _value);
-            parent = (Object *)_parent;
             owned = false;
         }
     private:
@@ -707,7 +690,6 @@ namespace mapper {
             value = _value;
             length = _length;
         }
-        Object *parent;
     };
 
     class signal_type {
@@ -878,7 +860,7 @@ namespace mapper {
                 if (value)
                     return Property("minimum", length, type, value);
                 else
-                    return Property("minimum", 0, 0, 0, 0);
+                    return Property("minimum", 0, 0, 0);
             }
             Slot& set_minimum(const Property &value)
             {
@@ -895,7 +877,7 @@ namespace mapper {
                 if (value)
                     return Property("maximum", length, type, value);
                 else
-                    return Property("maximum", 0, 0, 0, 0);
+                    return Property("maximum", 0, 0, 0);
             }
             Slot& set_maximum(const Property &value)
             {
@@ -1085,7 +1067,7 @@ namespace mapper {
                 return Property("minimum", mapper_signal_length(_sig),
                                 mapper_signal_type(_sig), value);
             else
-                return Property("minimum", 0, 0, 0, 0);
+                return Property("minimum", 0, 0, 0);
         }
         Signal& set_minimum(void *value)
             { mapper_signal_set_minimum(_sig, value); return (*this); }
@@ -1096,7 +1078,7 @@ namespace mapper {
                 return Property("maximum", mapper_signal_length(_sig),
                                 mapper_signal_type(_sig), value);
             else
-                return Property("maximum", 0, 0, 0, 0);
+                return Property("maximum", 0, 0, 0);
         }
         Signal& set_maximum(void *value)
             { mapper_signal_set_maximum(_sig, value); return (*this); }
