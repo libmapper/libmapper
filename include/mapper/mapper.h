@@ -2035,7 +2035,7 @@ mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
 
 /***** Time *****/
 
-/*! @defgroup time Time
+/*! @defgroup timetags Timetags
 
  @{ libmapper primarily uses NTP timetags for communication and
     synchronization. */
