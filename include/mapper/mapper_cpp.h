@@ -912,8 +912,8 @@ namespace mapper {
         private:
             mapper_slot _slot;
         };
-        Slot destination() const
-            { return Slot(mapper_map_slot(_map, MAPPER_LOC_DESTINATION, 0)); }
+        Slot destination(int index = 0) const
+            { return Slot(mapper_map_slot(_map, MAPPER_LOC_DESTINATION, index)); }
         Slot source(int index=0) const
             { return Slot(mapper_map_slot(_map, MAPPER_LOC_SOURCE, index)); }
         PROPERTY_METHODS(Map, map, _map);
