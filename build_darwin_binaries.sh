@@ -111,7 +111,7 @@ function rebuild_python_extentions()
 
     gcc -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../src -I../include -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.6/include/python2.6 -c mapper_wrap.c -o mapper_wrap.o
 
-    gcc -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD mapper_wrap.o $PREFIX/lib/liblo.a $PREFIX/lib/libmapper-0.a -lpthread -o _mapper.so
+    gcc -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD mapper_wrap.o $PREFIX/lib/liblo.a $PREFIX/lib/libmapper.a -lpthread -o _mapper.so
 
     cd ../examples/py_tk_gui
     make pwm_wrap.cxx
