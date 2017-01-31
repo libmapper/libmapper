@@ -1421,14 +1421,40 @@ namespace mapper {
     class Database
     {
     public:
-        Database(mapper_database db)
-            { _db = db; }
-        Database(int flags = MAPPER_OBJ_ALL)
-            { _db = mapper_database_new(0, flags); }
         Database(Network& net, int flags = MAPPER_OBJ_ALL)
-            { _db = mapper_database_new(net, flags); }
+        {
+            _db = mapper_database_new(net, flags);
+            _owned = true;
+            _refcount_ptr = (int*)malloc(sizeof(int));
+            *_refcount_ptr = 1;
+        }
+        Database(int flags = MAPPER_OBJ_ALL)
+        {
+            _db = mapper_database_new(0, flags);
+            _owned = true;
+            _refcount_ptr = (int*)malloc(sizeof(int));
+            *_refcount_ptr = 1;
+        }
+        Database(const Database& orig)
+        {
+            _db = orig._db;
+            _owned = orig._owned;
+            _refcount_ptr = orig._refcount_ptr;
+            if (_owned)
+                incr_refcount();
+        }
+        Database(mapper_database db)
+        {
+            _db = db;
+            _owned = false;
+            _refcount_ptr = (int*)malloc(sizeof(int));
+            *_refcount_ptr = 1;
+        }
         ~Database()
-            { if (_db) mapper_database_free(_db); }
+        {
+            if (_owned && _db && decr_refcount() <= 0)
+                mapper_database_free(_db);
+        }
         int poll(int block_ms=0) const
             { return mapper_database_poll(_db, block_ms); }
         const Database& flush() const
@@ -1587,6 +1613,12 @@ namespace mapper {
             { return maps(p, MAPPER_OP_EXISTS); }
     private:
         mapper_database _db;
+        bool _owned;
+        int* _refcount_ptr;
+        int incr_refcount()
+            { return _refcount_ptr ? ++(*_refcount_ptr) : 0; }
+        int decr_refcount()
+            { return _refcount_ptr ? --(*_refcount_ptr) : 0; }
     };
 
     Device Link::device(int idx) const
