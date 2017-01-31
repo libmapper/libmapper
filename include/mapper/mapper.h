@@ -98,6 +98,13 @@ mapper_map *mapper_signal_maps(mapper_signal sig, mapper_direction dir);
  *  \param user_data    A pointer to user data to be associated. */
 void mapper_signal_set_user_data(mapper_signal sig, const void *user_data);
 
+/*! Retrieve the signal group from a given signal.
+ *  Signals in the same group will have instance ids automatically coordinated.
+ *  By default all signals are in the same (default) group.
+ *  \param sig          The signal to add.
+ *  \return             The signal group used by this signal. */
+mapper_signal_group mapper_signal_signal_group(mapper_signal sig);
+
 /*! Add a signal to a predefined signal group created using
  *  mapper_device_add_signal_group.
  *  Signals in the same group will have instance ids automatically coordinated.
@@ -684,6 +691,13 @@ mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id);
 mapper_signal mapper_device_signal_by_name(mapper_device dev,
                                            const char *sig_name);
 
+//! Define a signal group
+mapper_signal_group mapper_device_add_signal_group(mapper_device dev);
+
+//! Remove a previously-defined multi-signal group.
+void mapper_device_remove_signal_group(mapper_device dev,
+                                       mapper_signal_group group);
+
 /*! Get the description for a specific device.
  *  \param dev          The device to check.
  *  \return             The device description if it is defined, or NULL. */
@@ -892,7 +906,7 @@ void mapper_device_send_queue(mapper_device dev, mapper_timetag_t tt);
 
 /*! Get access to the device's underlying lo_server.
  *  \param dev          The device to use.
- *  \return             The liblo server sued by this device. */
+ *  \return             The liblo server used by this device. */
 lo_server mapper_device_lo_server(mapper_device dev);
 
 /*! Return the internal mapper_database structure used by a device.

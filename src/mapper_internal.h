@@ -86,15 +86,19 @@ void mapper_device_on_id_and_ordinal(mapper_device dev,
                                      mapper_allocated_t *resource);
 
 mapper_id_map mapper_device_add_instance_id_map(mapper_device dev,
+                                                int group_index,
                                                 mapper_id local_id,
                                                 mapper_id global_id);
 
-void mapper_device_remove_instance_id_map(mapper_device dev, mapper_id_map map);
+void mapper_device_remove_instance_id_map(mapper_device dev, int group_index,
+                                          mapper_id_map map);
 
 mapper_id_map mapper_device_find_instance_id_map_by_local(mapper_device dev,
+                                                          int group_index,
                                                           mapper_id local_id);
 
 mapper_id_map mapper_device_find_instance_id_map_by_global(mapper_device dev,
+                                                           int group_index,
                                                            mapper_id global_id);
 
 const char *mapper_device_name(mapper_device dev);

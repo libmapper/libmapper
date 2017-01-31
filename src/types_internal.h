@@ -44,6 +44,7 @@ typedef struct _mapper_signal *mapper_signal;
 struct _mapper_allocated_t;
 struct _mapper_map;
 struct _mapper_id_map;
+typedef int mapper_signal_group;
 
 /*! Symbolic representation of recognized properties. */
 typedef enum {
@@ -351,7 +352,8 @@ typedef struct _mapper_local_signal
 
     /*! Flags for deciding when to call the instance event handler. */
     int instance_event_flags;
-    int group_map_index;
+
+    mapper_signal_group group;
 } mapper_local_signal_t, *mapper_local_signal;
 
 /*! A record that describes properties of a signal. */
@@ -538,8 +540,6 @@ typedef struct _mapper_id_map {
     int refcount_global;
 } mapper_id_map_t, *mapper_id_map;
 
-typedef int mapper_signal_group;
-
 /**** Device ****/
 
 typedef struct _mapper_local_device {
@@ -560,10 +560,10 @@ typedef struct _mapper_local_device {
     mapper_subscriber subscribers;  /*!< Linked-list of subscribed peers. */
 
     /*! The list of active instance id maps. */
-    struct _mapper_id_map *active_id_map;
+    struct _mapper_id_map **active_id_maps;
 
     /*! The list of reserve instance id maps. */
-    struct _mapper_id_map *reserve_id_map;
+    struct _mapper_id_map *reserve_id_maps;
 
     /*! Server used to handle incoming messages. */
     lo_server server;

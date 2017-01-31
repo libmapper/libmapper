@@ -96,7 +96,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     }
 
     if (name_prefix[0] == '/')
-        name_prefix++;
+        ++name_prefix;
     if (strchr(name_prefix, '/')) {
         trace("error: character '/' is not permitted in device name.\n");
         mapper_device_free(dev);
@@ -110,6 +110,10 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     dev->local->router->device = dev;
 
     dev->local->link_timeout_sec = TIMEOUT_SEC;
+
+    dev->local->active_id_maps = (mapper_id_map *) malloc(sizeof(mapper_id_map *));
+    dev->local->active_id_maps[0] = 0;
+    dev->local->num_signal_groups = 1;
 
     mapper_network_add_device(net, dev);
 
@@ -183,14 +187,16 @@ void mapper_device_free(mapper_device dev)
 
     // Release device id maps
     mapper_id_map map;
-    while (dev->local->active_id_map) {
-        map = dev->local->active_id_map;
-        dev->local->active_id_map = map->next;
-        free(map);
+    for (i = 0; i < dev->local->num_signal_groups; i++) {
+        while (dev->local->active_id_maps[i]) {
+            map = dev->local->active_id_maps[i];
+            dev->local->active_id_maps[i] = map->next;
+            free(map);
+        }
     }
-    while (dev->local->reserve_id_map) {
-        map = dev->local->reserve_id_map;
-        dev->local->reserve_id_map = map->next;
+    while (dev->local->reserve_id_maps) {
+        map = dev->local->reserve_id_maps;
+        dev->local->reserve_id_maps = map->next;
         free(map);
     }
 
@@ -287,7 +293,7 @@ void mapper_device_registered(mapper_device dev)
 
 static void mapper_device_increment_version(mapper_device dev)
 {
-    dev->version ++;
+    ++dev->version;
 }
 
 static int check_types(const char *types, int len, char type, int vector_len)
@@ -363,8 +369,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     while (value_len < argc && types[value_len] != 's' && types[value_len] != 'S') {
         // count nulls here also to save time
         if (types[i] == 'N')
-            nulls++;
-        value_len++;
+            ++nulls;
+        ++value_len;
     }
 
     int argnum = value_len;
@@ -482,10 +488,12 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     // we can clear signal's reference to map
                     id_map = sig->local->id_maps[id_map_index].map;
                     sig->local->id_maps[id_map_index].map = 0;
-                    id_map->refcount_global--;
+                    --id_map->refcount_global;
                     if (id_map->refcount_global <= 0
                         && id_map->refcount_local <= 0) {
-                        mapper_device_remove_instance_id_map(dev, id_map);
+                        mapper_device_remove_instance_id_map(dev,
+                                                             sig->local->group,
+                                                             id_map);
                     }
                 }
                 return 0;
@@ -538,9 +546,11 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 if (global_id) {
                     // TODO: mark SLOT status as remotely released rather than map
                     sig->local->id_maps[id_map_index].status |= RELEASED_REMOTELY;
-                    id_map->refcount_global--;
+                    --id_map->refcount_global;
                     if (id_map->refcount_global <= 0 && id_map->refcount_local <= 0) {
-                        mapper_device_remove_instance_id_map(dev, id_map);
+                        mapper_device_remove_instance_id_map(dev,
+                                                             sig->local->group,
+                                                             id_map);
                     }
                     if (event_h && (sig->local->instance_event_flags
                                     & MAPPER_UPSTREAM_RELEASE)) {
@@ -622,7 +632,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                         continue;
                     memcpy(si->value + j * size, result + j * size, size);
                     si->has_value_flags[j / 8] |= 1 << (j % 8);
-                    vals++;
+                    ++vals;
                 }
                 if (vals == 0) {
                     // try to release instance
@@ -638,7 +648,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     // next call handler with release
                     if (global_id) {
                         sig->local->id_maps[id_map_index].status |= RELEASED_REMOTELY;
-                        id_map->refcount_global--;
+                        --id_map->refcount_global;
                         if (event_h && (sig->local->instance_event_flags
                                         & MAPPER_UPSTREAM_RELEASE)) {
                             event_h(sig, id_map->local, MAPPER_UPSTREAM_RELEASE, &tt);
@@ -662,7 +672,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     if (count > 1) {
                         memcpy(out_buffer + out_count * sig->length * size,
                                si->value, size);
-                        out_count++;
+                        ++out_count;
                     }
                     else {
                         if (!(sig->direction & MAPPER_DIR_OUTGOING))
@@ -693,7 +703,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     continue;
                 memcpy(si->value + j * size, argv[k], size);
                 si->has_value_flags[j / 8] |= 1 << (j % 8);
-                vals++;
+                ++vals;
             }
             if (vals == 0) {
                 if (count > 1) {
@@ -705,7 +715,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 }
                 if (global_id) {
                     sig->local->id_maps[id_map_index].status |= RELEASED_REMOTELY;
-                    id_map->refcount_global--;
+                    --id_map->refcount_global;
                     if (event_h && (sig->local->instance_event_flags
                                     & MAPPER_UPSTREAM_RELEASE)) {
                         event_h(sig, id_map->local, MAPPER_UPSTREAM_RELEASE, &tt);
@@ -726,7 +736,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 if (count > 1) {
                     memcpy(out_buffer + out_count * sig->length * size,
                            si->value, size);
-                    out_count++;
+                    ++out_count;
                 }
                 else {
                     if (!(sig->direction & MAPPER_DIR_OUTGOING))
@@ -828,7 +838,7 @@ static int handler_query(const char *path, const char *types, lo_arg **argv,
             lo_message_add_int64(m, sig->local->id_maps[i].map->global);
         }
         lo_bundle_add_message(b, response_path, m);
-        sent++;
+        ++sent;
     }
     if (!sent) {
         // If there are no active instances, send a single null response
@@ -894,9 +904,9 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
                        minimum, maximum, handler, user_data);
 
     if (dir == MAPPER_DIR_INCOMING)
-        dev->num_inputs++;
+        ++dev->num_inputs;
     if (dir == MAPPER_DIR_OUTGOING) {
-        dev->num_outputs++;
+        ++dev->num_outputs;
     }
 
     mapper_device_increment_version(dev);
@@ -1430,36 +1440,38 @@ void mapper_device_reserve_instance_id_map(mapper_device dev)
 {
     mapper_id_map map;
     map = (mapper_id_map)calloc(1, sizeof(mapper_id_map_t));
-    map->next = dev->local->reserve_id_map;
-    dev->local->reserve_id_map = map;
+    map->next = dev->local->reserve_id_maps;
+    dev->local->reserve_id_maps = map;
 }
 
 mapper_id_map mapper_device_add_instance_id_map(mapper_device dev,
+                                                int group_index,
                                                 mapper_id local_id,
                                                 mapper_id global_id)
 {
-    if (!dev->local->reserve_id_map)
+    if (!dev->local->reserve_id_maps)
         mapper_device_reserve_instance_id_map(dev);
 
-    mapper_id_map map = dev->local->reserve_id_map;
+    mapper_id_map map = dev->local->reserve_id_maps;
     map->local = local_id;
     map->global = global_id;
     map->refcount_local = 1;
     map->refcount_global = 0;
-    dev->local->reserve_id_map = map->next;
-    map->next = dev->local->active_id_map;
-    dev->local->active_id_map = map;
+    dev->local->reserve_id_maps = map->next;
+    map->next = dev->local->active_id_maps[group_index];
+    dev->local->active_id_maps[group_index] = map;
     return map;
 }
 
-void mapper_device_remove_instance_id_map(mapper_device dev, mapper_id_map map)
+void mapper_device_remove_instance_id_map(mapper_device dev, int group_index,
+                                          mapper_id_map map)
 {
-    mapper_id_map *id_map = &dev->local->active_id_map;
+    mapper_id_map *id_map = &dev->local->active_id_maps[group_index];
     while (*id_map) {
         if ((*id_map) == map) {
             *id_map = (*id_map)->next;
-            map->next = dev->local->reserve_id_map;
-            dev->local->reserve_id_map = map;
+            map->next = dev->local->reserve_id_maps;
+            dev->local->reserve_id_maps = map;
             break;
         }
         id_map = &(*id_map)->next;
@@ -1467,9 +1479,10 @@ void mapper_device_remove_instance_id_map(mapper_device dev, mapper_id_map map)
 }
 
 mapper_id_map mapper_device_find_instance_id_map_by_local(mapper_device dev,
+                                                          int group_index,
                                                           mapper_id local_id)
 {
-    mapper_id_map map = dev->local->active_id_map;
+    mapper_id_map map = dev->local->active_id_maps[group_index];
     while (map) {
         if (map->local == local_id)
             return map;
@@ -1479,9 +1492,10 @@ mapper_id_map mapper_device_find_instance_id_map_by_local(mapper_device dev,
 }
 
 mapper_id_map mapper_device_find_instance_id_map_by_global(mapper_device dev,
+                                                           int group_index,
                                                            mapper_id global_id)
 {
-    mapper_id_map map = dev->local->active_id_map;
+    mapper_id_map map = dev->local->active_id_maps[group_index];
     while (map) {
         if (map->global == global_id)
             return map;
@@ -1817,7 +1831,7 @@ void mapper_device_send_inputs(mapper_device dev, int min, int max)
         }
         if (i >= min)
             mapper_signal_send_state(*sig, MSG_SIGNAL);
-        i++;
+        ++i;
         sig = mapper_signal_query_next(sig);
     }
 }
@@ -1840,7 +1854,7 @@ void mapper_device_send_outputs(mapper_device dev, int min, int max)
         }
         if (i >= min)
             mapper_signal_send_state(*sig, MSG_SIGNAL);
-        i++;
+        ++i;
         sig = mapper_signal_query_next(sig);
     }
 }
@@ -1870,7 +1884,7 @@ static void mapper_device_send_maps(mapper_device dev, mapper_direction dir,
                 mapper_network_init(dev->database->network);
                 mapper_map_send_state(map, -1, MSG_MAPPED);
             }
-            count++;
+            ++count;
         }
         rs = rs->next;
     }
@@ -1961,6 +1975,35 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     // address is not cached if timeout is 0 so we need to send immediately
     if (!timeout_seconds)
         mapper_network_send(dev->database->network);
+}
+
+mapper_signal_group mapper_device_add_signal_group(mapper_device dev)
+{
+    if (!dev->local)
+        return 0;
+    ++dev->local->num_signal_groups;
+    dev->local->active_id_maps = realloc(dev->local->active_id_maps,
+                                         dev->local->num_signal_groups
+                                         * sizeof(mapper_id_map*));
+    dev->local->active_id_maps[dev->local->num_signal_groups-1] = 0;
+
+    return dev->local->num_signal_groups-1;
+}
+
+void mapper_device_remove_signal_group(mapper_device dev,
+                                       mapper_signal_group group)
+{
+    if (!dev->local || group >= dev->local->num_signal_groups)
+        return;
+
+    int i = (int)group + 1;
+    for (; i < dev->local->num_signal_groups; i++) {
+        dev->local->active_id_maps[i-1] = dev->local->active_id_maps[i];
+    }
+    --dev->local->num_signal_groups;
+    dev->local->active_id_maps = realloc(dev->local->active_id_maps,
+                                         dev->local->num_signal_groups
+                                         * sizeof(mapper_id_map *));
 }
 
 void mapper_device_print(mapper_device dev)

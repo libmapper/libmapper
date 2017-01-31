@@ -277,7 +277,7 @@ namespace mapper {
     {
     public:
         Network(const string_type &iface=0, const string_type &group=0, int port=0)
-            { _net = mapper_network_new(iface, group, port); _owned = 1; }
+            { _net = mapper_network_new(iface, group, port); _owned = true; }
         ~Network()
             { if (_owned && _net) mapper_network_free(_net); }
         operator mapper_network() const
@@ -297,10 +297,10 @@ namespace mapper {
         friend class Device;
         friend class Database;
         Network(mapper_network net)
-            { _net = net; _owned = 0; }
+            { _net = net; _owned = false; }
     private:
         mapper_network _net;
-        int _owned;
+        bool _owned;
     };
 
     class Timetag
@@ -999,6 +999,11 @@ namespace mapper {
         int length() const
             { return mapper_signal_length(_sig); }
 
+        mapper_signal_group group()
+            { return mapper_signal_signal_group(_sig); }
+        void set_group(mapper_signal_group group)
+            { mapper_signal_set_group(_sig, group); }
+
         /* Value update functions*/
         Signal& update(void *value, int count, Timetag tt)
         {
@@ -1244,7 +1249,7 @@ namespace mapper {
         {
             _dev = mapper_device_new(name_prefix, port, net);
             _db = mapper_device_database(_dev);
-            _owned = 1;
+            _owned = true;
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
@@ -1252,7 +1257,7 @@ namespace mapper {
         {
             _dev = mapper_device_new(name_prefix, 0, 0);
             _db = mapper_device_database(_dev);
-            _owned = 1;
+            _owned = true;
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
@@ -1270,7 +1275,7 @@ namespace mapper {
         {
             _dev = dev;
             _db = mapper_device_database(_dev);
-            _owned = 0;
+            _owned = false;
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
@@ -1323,6 +1328,10 @@ namespace mapper {
         }
         Device& remove_signal(Signal& sig)
             { mapper_device_remove_signal(_dev, sig); return (*this); }
+        mapper_signal_group add_signal_group()
+            { return mapper_device_add_signal_group(_dev); }
+        void remove_signal_group(mapper_signal_group group)
+            { mapper_device_remove_signal_group(_dev, group); }
 
         PROPERTY_METHODS(Device, device, _dev);
         const Device& push() const
@@ -1393,7 +1402,7 @@ namespace mapper {
     private:
         mapper_device _dev;
         mapper_database _db;
-        int _owned;
+        bool _owned;
         int* _refcount_ptr;
         int incr_refcount()
             { return _refcount_ptr ? ++(*_refcount_ptr) : 0; }

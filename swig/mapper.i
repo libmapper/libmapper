@@ -1185,23 +1185,6 @@ typedef struct _device_query {
                                             type, unit, minimum, maximum,
                                             PyFunc);
     }
-    int poll(int timeout=0) {
-        _save = PyEval_SaveThread();
-        int rc = mapper_device_poll((mapper_device)$self, timeout);
-        PyEval_RestoreThread(_save);
-        return rc;
-    }
-    device *clear_staged_properties() {
-        mapper_device_clear_staged_properties((mapper_device)$self);
-        return $self;
-    }
-    device *push() {
-        mapper_device_push((mapper_device)$self);
-        return $self;
-    }
-    int ready() {
-        return mapper_device_ready((mapper_device)$self);
-    }
     device *remove_signal(signal *sig) {
         mapper_signal msig = (mapper_signal)sig;
         if (msig->user_data) {
@@ -1213,11 +1196,15 @@ typedef struct _device_query {
         mapper_device_remove_signal((mapper_device)$self, msig);
         return $self;
     }
-    device *send_queue(timetag *py_tt) {
-        mapper_timetag_t *tt = (mapper_timetag_t*)py_tt;
-        mapper_device_send_queue((mapper_device)$self, *tt);
-        return $self;
+
+    int poll(int timeout=0) {
+        _save = PyEval_SaveThread();
+        int rc = mapper_device_poll((mapper_device)$self, timeout);
+        PyEval_RestoreThread(_save);
+        return rc;
     }
+
+    // link and map callbacks
     device *set_link_callback(PyObject *PyFunc=0) {
         void *h = 0;
         PyObject **callbacks = mapper_device_user_data((mapper_device)$self);
@@ -1264,6 +1251,8 @@ typedef struct _device_query {
         mapper_device_set_map_callback((mapper_device)$self, h);
         return $self;
     }
+
+    // queue management
     timetag *start_queue(timetag *py_tt=0) {
         if (py_tt) {
             mapper_timetag_t *tt = (mapper_timetag_t*)py_tt;
@@ -1277,10 +1266,17 @@ typedef struct _device_query {
             return (timetag*)tt;
         }
     }
-    timetag *synced() {
-        mapper_timetag_t *tt = (mapper_timetag_t*)malloc(sizeof(mapper_timetag_t));
-        mapper_device_synced((mapper_device)$self, tt);
-        return (timetag*)tt;
+    device *send_queue(timetag *py_tt) {
+        mapper_timetag_t *tt = (mapper_timetag_t*)py_tt;
+        mapper_device_send_queue((mapper_device)$self, *tt);
+        return $self;
+    }
+
+    mapper_signal_group_add_signal_group() {
+        return mapper_device_add_signal_group((mapper_device)$self);
+    }
+    mapper_signal_group_remove_signal_group(mapper_signal_group group) {
+        return mapper_device_remove_signal_group((mapper_device)$self, group);
     }
     mapper_id generate_unique_id() {
         return mapper_device_generate_unique_id((mapper_device)$self);
@@ -1301,6 +1297,9 @@ typedef struct _device_query {
     }
     booltype get_is_local() {
         return mapper_device_is_local((mapper_device)$self);
+    }
+    booltype get_is_ready() {
+        return mapper_device_ready((mapper_device)$self);
     }
     const char *get_name() {
         return mapper_device_name((mapper_device)$self);
@@ -1324,6 +1323,11 @@ typedef struct _device_query {
             *pi = port;
         }
         return pi;
+    }
+    timetag *get_synced() {
+        mapper_timetag_t *tt = (mapper_timetag_t*)malloc(sizeof(mapper_timetag_t));
+        mapper_device_synced((mapper_device)$self, tt);
+        return (timetag*)tt;
     }
     int get_version() {
         return mapper_device_version((mapper_device)$self);
@@ -1392,6 +1396,15 @@ typedef struct _device_query {
         return $self;
     }
 
+    device *clear_staged_properties() {
+        mapper_device_clear_staged_properties((mapper_device)$self);
+        return $self;
+    }
+    device *push() {
+        mapper_device_push((mapper_device)$self);
+        return $self;
+    }
+
     // signal getters
     signal *signal(mapper_id id) {
         return (signal*)mapper_device_signal_by_id((mapper_device)$self, id);
@@ -1405,12 +1418,20 @@ typedef struct _device_query {
         return ret;
     }
 
+    // link getters
+    link_query *links(mapper_direction dir=MAPPER_DIR_ANY) {
+        link_query *ret = malloc(sizeof(struct _link_query));
+        ret->query = mapper_device_links((mapper_device)$self, dir);
+        return ret;
+    }
+
     // map getters
     map_query *maps(mapper_direction dir=MAPPER_DIR_ANY) {
         map_query *ret = malloc(sizeof(struct _map_query));
         ret->query = mapper_device_maps((mapper_device)$self, dir);
         return ret;
     }
+
     %pythoncode {
         description = property(get_description, set_description)
         id = property(get_id)
@@ -1422,6 +1443,8 @@ typedef struct _device_query {
         num_properties = property(get_num_properties)
         ordinal = property(get_ordinal)
         port = property(get_port)
+        ready = property(get_is_ready)
+        synced = property(get_synced)
         version = property(get_version)
         def get_properties(self):
             props = {}
@@ -1707,14 +1730,6 @@ typedef struct _signal_query {
     int instance_id(int index) {
         return mapper_signal_instance_id((mapper_signal)$self, index);
     }
-    signal *clear_staged_properties() {
-        mapper_signal_clear_staged_properties((mapper_signal)$self);
-        return $self;
-    }
-    signal *push() {
-        mapper_signal_push((mapper_signal)$self);
-        return $self;
-    }
     int query_remotes(timetag *tt=0) {
         return mapper_signal_query_remotes((mapper_signal)$self,
                                            tt ? *(mapper_timetag_t*)tt : MAPPER_NOW);
@@ -1850,6 +1865,9 @@ typedef struct _signal_query {
     int get_direction() {
         return ((mapper_signal)$self)->direction;
     }
+    mapper_signal_group get_group() {
+        return mapper_signal_signal_group((mapper_signal)$self);
+    }
     mapper_id get_id() {
         return mapper_signal_id((mapper_signal)$self);
     }
@@ -1970,6 +1988,10 @@ typedef struct _signal_query {
         mapper_signal_set_description((mapper_signal)$self, description);
         return $self;
     }
+    signal *set_group(mapper_signal_group group) {
+        mapper_signal_set_group((mapper_signal)$self, group);
+        return $self;
+    }
     signal *set_instance_stealing_mode(int mode) {
         mapper_signal_set_instance_stealing_mode((mapper_signal)$self, mode);
         return $self;
@@ -2032,14 +2054,26 @@ typedef struct _signal_query {
             mapper_signal_remove_property((mapper_signal)$self, key);
         return $self;
     }
+
+    signal *clear_staged_properties() {
+        mapper_signal_clear_staged_properties((mapper_signal)$self);
+        return $self;
+    }
+    signal *push() {
+        mapper_signal_push((mapper_signal)$self);
+        return $self;
+    }
+
     map_query *maps(mapper_direction dir=MAPPER_DIR_ANY) {
         map_query *ret = malloc(sizeof(struct _map_query));
         ret->query = mapper_signal_maps((mapper_signal)$self, dir);
         return ret;
     }
+
     %pythoncode {
         description = property(get_description, set_description)
         direction = property(get_direction)
+        group = property(get_group, set_group)
         id = property(get_id)
         instance_stealing_mode = property(get_instance_stealing_mode,
                                           set_instance_stealing_mode)
@@ -2151,23 +2185,13 @@ typedef struct _map_query {
     ~_map() {
         ;
     }
-    map *clear_staged_properties() {
-        mapper_map_clear_staged_properties((mapper_map)$self);
-        return $self;
-    }
-    map *push() {
-        mapper_map_push((mapper_map)$self);
-        return $self;
-    }
+
     map *refresh() {
         mapper_map_refresh((mapper_map)$self);
         return $self;
     }
     void release() {
         mapper_map_release((mapper_map)$self);
-    }
-    booltype ready() {
-        return mapper_map_ready((mapper_map)$self);
     }
 
     // slot getters
@@ -2216,6 +2240,9 @@ typedef struct _map_query {
     }
     booltype get_muted() {
         return mapper_map_muted((mapper_map)$self);
+    }
+    booltype get_ready() {
+        return mapper_map_ready((mapper_map)$self);
     }
     int get_num_sources() {
         return mapper_map_num_sources((mapper_map)$self);
@@ -2305,6 +2332,17 @@ typedef struct _map_query {
             mapper_map_remove_property((mapper_map)$self, key);
         return $self;
     }
+
+    // property management
+    map *clear_staged_properties() {
+        mapper_map_clear_staged_properties((mapper_map)$self);
+        return $self;
+    }
+    map *push() {
+        mapper_map_push((mapper_map)$self);
+        return $self;
+    }
+
     %pythoncode {
         description = property(get_description, set_description)
         expression = property(get_expression, set_expression)
@@ -2315,6 +2353,7 @@ typedef struct _map_query {
         num_sources = property(get_num_sources)
         num_destinations = property(get_num_destinations)
         process_location = property(get_process_location, set_process_location)
+        ready = property(get_ready)
         def get_properties(self):
             props = {}
             for i in range(self.num_properties):

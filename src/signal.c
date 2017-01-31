@@ -432,6 +432,7 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
 
     // check if device has record of id map
     mapper_id_map map = mapper_device_find_instance_id_map_by_local(sig->device,
+                                                                    sig->local->group,
                                                                     id);
 
     /* No instance with that id exists - need to try to activate instance and
@@ -440,7 +441,8 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
             mapper_id global = mapper_device_generate_unique_id(sig->device);
-            map = mapper_device_add_instance_id_map(sig->device, id, global);
+            map = mapper_device_add_instance_id_map(sig->device, sig->local->group,
+                                                    id, global);
         }
         else {
             ++map->refcount_local;
@@ -484,7 +486,8 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
         if (!map) {
             // Claim id map locally add id map to device and link from signal
             mapper_id global = mapper_device_generate_unique_id(sig->device);
-            map = mapper_device_add_instance_id_map(sig->device, id, global);
+            map = mapper_device_add_instance_id_map(sig->device, sig->local->group,
+                                                    id, global);
         }
         else {
             ++map->refcount_local;
@@ -524,6 +527,7 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
 
     // check if the device already has a map for this global id
     mapper_id_map map = mapper_device_find_instance_id_map_by_global(sig->device,
+                                                                     sig->local->group,
                                                                      global_id);
     if (!map) {
         /* Here we still risk creating conflicting maps if two signals are
@@ -535,8 +539,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
         // TODO: add object groups for explictly sharing id maps
 
         if ((si = reserved_instance(sig))) {
-            map = mapper_device_add_instance_id_map(sig->device, si->id,
-                                                    global_id);
+            map = mapper_device_add_instance_id_map(sig->device, sig->local->group,
+                                                    si->id, global_id);
             map->refcount_global = 1;
 
             si->is_active = 1;
@@ -598,8 +602,8 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
     // try again
     if (!map) {
         if ((si = reserved_instance(sig))) {
-            map = mapper_device_add_instance_id_map(sig->device, si->id,
-                                                    global_id);
+            map = mapper_device_add_instance_id_map(sig->device, sig->local->group,
+                                                    si->id, global_id);
             map->refcount_global = 1;
 
             si->is_active = 1;
@@ -902,7 +906,8 @@ void mapper_signal_instance_release_internal(mapper_signal sig,
 
     --smap->map->refcount_local;
     if (smap->map->refcount_local <= 0 && smap->map->refcount_global <= 0) {
-        mapper_device_remove_instance_id_map(sig->device, smap->map);
+        mapper_device_remove_instance_id_map(sig->device, sig->local->group,
+                                             smap->map);
         smap->map = 0;
     }
     else if ((sig->direction & MAPPER_DIR_OUTGOING)
@@ -1163,13 +1168,18 @@ int mapper_signal_query_remotes(mapper_signal sig, mapper_timetag_t tt)
     return mapper_device_route_query(sig->device, sig, *ttp);
 }
 
-void msig_set_group(mapper_signal sig, mapper_signal_group group)
+mapper_signal_group mapper_signal_signal_group(mapper_signal sig)
+{
+    return (sig && sig->local) ? sig->local->group : 0;
+}
+
+void mapper_signal_set_group(mapper_signal sig, mapper_signal_group group)
 {
     // first check if group exists
     if (!sig || !sig->local || group >= sig->device->local->num_signal_groups)
         return;
 
-    sig->local->group_map_index = group;
+    sig->local->group = group;
 }
 
 /**** Signal Properties ****/

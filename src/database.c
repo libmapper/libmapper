@@ -14,8 +14,10 @@ mapper_database mapper_database_new(mapper_network net, int subscribe_flags)
 {
     if (!net)
         net = mapper_network_new(0, 0, 0);
-    if (!net)
+    if (!net) {
+        trace("Cannot create database: no network.\n");
         return 0;
+    }
 
     net->own_network = 0;
     mapper_database db = mapper_network_add_database(net);
