@@ -63,6 +63,10 @@ public class Device
         return this;
     }
 
+    /* signal groups */
+    public native long addSignalGroup();
+    public native Device removeSignalGroup(long group);
+
     /* retrieve Network object */
     private native long mapperDeviceNetwork(long dev);
     public mapper.Network network() {

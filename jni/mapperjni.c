@@ -1617,6 +1617,22 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceRemoveSignal
     }
 }
 
+JNIEXPORT jlong JNICALL Java_mapper_Device_addSignalGroup
+  (JNIEnv *env, jobject obj)
+{
+    mapper_device dev = get_device_from_jobject(env, obj);
+    return dev ? mapper_device_add_signal_group(dev) : 0;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Device_removeSignalGroup
+  (JNIEnv *env, jobject obj, jlong grp)
+{
+    mapper_device dev = get_device_from_jobject(env, obj);
+    if (dev)
+        mapper_device_remove_signal_group(dev, grp);
+    return obj;
+}
+
 JNIEXPORT jlong JNICALL Java_mapper_Device_mapperDeviceNetwork
   (JNIEnv *env, jobject obj, jlong jdev)
 {
@@ -3083,6 +3099,22 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_instanceUpdateListener
         return ctx ? ctx->listener : 0;
     }
     return 0;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Signal_setGroup
+  (JNIEnv *env, jobject obj, jlong grp)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    if (sig)
+        mapper_signal_set_group(sig, grp);
+    return obj;
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_Signal_group
+  (JNIEnv *env, jobject obj)
+{
+    mapper_signal sig = get_signal_from_jobject(env, obj);
+    return sig ? mapper_signal_signal_group(sig) : 0;
 }
 
 JNIEXPORT void JNICALL Java_mapper_Signal_mapperSignalReserveInstances

@@ -40,6 +40,9 @@ public class Signal
     public native Signal setInstanceUpdateListener(InstanceUpdateListener l);
     public native InstanceUpdateListener instanceUpdateListener();
 
+    public native Signal setGroup(long grp);
+    public native long group();
+
     private native void mapperSignalReserveInstances(long sig, int num, long[] ids);
     public Signal reserveInstances(int num) {
         mapperSignalReserveInstances(_sig, num, null);
