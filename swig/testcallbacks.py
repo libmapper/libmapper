@@ -46,7 +46,7 @@ dest.set_link_callback(link_h)
 dest.set_map_callback(map_h)
 insig = dest.add_input_signal("insig", 1, 'f', None, 0, 1, sig_h)
 
-while not src.ready() or not dest.ready():
+while not src.ready or not dest.ready:
     src.poll()
     dest.poll(10)
 
@@ -54,7 +54,7 @@ map = mapper.map(outsig, insig)
 map.source().calibrate = 1
 map.push()
 
-while not map.ready():
+while not map.ready:
     src.poll(100)
     dest.poll(100)
 

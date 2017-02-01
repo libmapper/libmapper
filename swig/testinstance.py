@@ -45,13 +45,13 @@ insig.remove_instance(0)
 insig.reserve_instances([100, 200, 300])
 insig.set_instance_stealing_mode(mapper.STEAL_OLDEST)
 
-while not src.ready() or not dest.ready():
+while not src.ready or not dest.ready:
     src.poll()
     dest.poll(10)
 
 map = mapper.map(outsig, insig).push()
 
-while not map.ready():
+while not map.ready:
     src.poll(10)
     dest.poll(10)
 

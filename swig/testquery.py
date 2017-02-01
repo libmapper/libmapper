@@ -17,7 +17,7 @@ outsig.set_callback(h)
 dest = mapper.device("dest")
 insig = dest.add_input_signal("insig", 1, 'f', None, 0, 1, h)
 
-while not src.ready() or not dest.ready():
+while not src.ready or not dest.ready:
     src.poll()
     dest.poll(10)
 
@@ -25,7 +25,7 @@ map = mapper.map(outsig, insig)
 map.mode = mapper.MODE_LINEAR
 map.push()
 
-while not map.ready():
+while not map.ready:
     src.poll(10)
     dest.poll(10)
 

@@ -15,7 +15,7 @@ outsig = src.add_output_signal("outsig1", 10, 'i', None, mins, maxs)
 dest = mapper.device("dest")
 insig = dest.add_input_signal("insig1", 10, 'f', None, mins, maxs, h)
 
-while not src.ready() or not dest.ready():
+while not src.ready or not dest.ready:
     src.poll(10)
     dest.poll(10)
 
@@ -23,7 +23,7 @@ map = mapper.map(outsig, insig)
 map.mode = mapper.MODE_EXPRESSION
 map.push()
 
-while not map.ready():
+while not map.ready:
     src.poll(10)
     dest.poll(10)
 

@@ -14,7 +14,7 @@ def h(sig, id, f, tt):
 def setup(d):
     sig = d.add_input_signal("freq", 1, 'i', "Hz", None, None, h)
 
-    while not d.ready():
+    while not d.ready:
         d.poll(10)
 
     print('device name', d.name)
@@ -73,7 +73,7 @@ db.add_device_callback(lambda x,y:database_cb('device',x,y))
 db.add_signal_callback(lambda x,y:database_cb('signal',x,y))
 db.add_map_callback(lambda x,y:database_cb('map',x,y))
 
-while not dev.ready():
+while not dev.ready:
     dev.poll(10)
     db.poll()
 
@@ -112,7 +112,7 @@ for i in range(1000):
 
 print(db.num_devices, 'devices and', db.num_signals, 'signals:')
 for d in db.devices():
-    print("  ", d.name, '(synced', mapper.timetag().get_double() - d.synced().get_double(), 'seconds ago)')
+    print("  ", d.name, '(synced', mapper.timetag().get_double() - d.synced.get_double(), 'seconds ago)')
     for s in d.signals():
         print("    ", s.name)
 

@@ -1272,11 +1272,12 @@ typedef struct _device_query {
         return $self;
     }
 
-    mapper_signal_group_add_signal_group() {
+    mapper_signal_group add_signal_group() {
         return mapper_device_add_signal_group((mapper_device)$self);
     }
-    mapper_signal_group_remove_signal_group(mapper_signal_group group) {
-        return mapper_device_remove_signal_group((mapper_device)$self, group);
+    device *remove_signal_group(mapper_signal_group group) {
+        mapper_device_remove_signal_group((mapper_device)$self, group);
+        return $self;
     }
     mapper_id generate_unique_id() {
         return mapper_device_generate_unique_id((mapper_device)$self);
