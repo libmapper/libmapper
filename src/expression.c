@@ -2285,12 +2285,6 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
         case TOK_VAR: {
             int idx;
             if (tok->var == VAR_Y) {
-#if TRACING
-                printf("loading variable y{%d}[%d] ", tok->history_index,
-                       tok->vector_index);
-                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
-                printf(" \n");
-#endif
                 ++top;
                 dims[top] = tok->vector_length;
                 idx = ((tok->history_index + output->position
@@ -2320,14 +2314,14 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 default:
                     goto error;
                 }
-            }
-            else if (tok->var >= VAR_X) {
 #if TRACING
-                printf("loading variable x%d{%d}[%d] ", tok->var-VAR_X,
-                       tok->history_index, tok->vector_index);
+                printf("loading variable y{%d}[%d] ", tok->history_index,
+                       tok->vector_index);
                 print_stack_vector(stack[top], tok->datatype, tok->vector_length);
                 printf(" \n");
 #endif
+            }
+            else if (tok->var >= VAR_X) {
                 ++top;
                 dims[top] = tok->vector_length;
                 mapper_history h = input[tok->var-VAR_X];
@@ -2357,15 +2351,14 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 default:
                     goto error;
                 }
-            }
-            else if (expr_vars) {
 #if TRACING
-                printf("loading variable %s{%d}[%d] ",
-                       expr->variables[tok->var].name, tok->history_index,
-                       tok->vector_index);
+                printf("loading variable x%d{%d}[%d] ", tok->var-VAR_X,
+                       tok->history_index, tok->vector_index);
                 print_stack_vector(stack[top], tok->datatype, tok->vector_length);
                 printf(" \n");
 #endif
+            }
+            else if (expr_vars) {
                 // TODO: allow other data types?
                 ++top;
                 dims[top] = tok->vector_length;
@@ -2376,6 +2369,13 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 double *v = h->value + idx * var->vector_length * mapper_type_size(var->datatype);
                 for (i = 0; i < tok->vector_length; i++)
                     stack[top][i].d = v[i+tok->vector_index];
+#if TRACING
+                printf("loading variable %s{%d}[%d] ",
+                       expr->variables[tok->var].name, tok->history_index,
+                       tok->vector_index);
+                print_stack_vector(stack[top], tok->datatype, tok->vector_length);
+                printf(" \n");
+#endif
             }
             else
                 goto error;
