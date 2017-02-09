@@ -521,8 +521,8 @@ int run_tests()
     eprintf("Expected: FAILURE\n");
 
     /* 39) Variable declaration */
-    snprintf(str, 256, "var=3.5; y=x+var");
-    setup_test('i', 1, src_int, 'f', 1, dest_float);
+    snprintf(str, 256, "y=x+var; var=[3.5,0]");
+    setup_test('i', 2, src_int, 'f', 2, dest_float);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %g\n", (float)src_int[0] + 3.5);

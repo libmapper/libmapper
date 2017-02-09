@@ -1179,7 +1179,8 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
     return length-1;
 }
 
-static int check_types_and_lengths(mapper_token_t *stack, int top)
+static int check_types_and_lengths(mapper_token_t *stack, int top,
+                                   mapper_variable_t *vars)
 {
     // TODO: allow precomputation of const-only vectors
     int i, arity, can_precompute = 1, optimize = NONE;
@@ -1362,6 +1363,18 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
                             return -1;
                         }
                     }
+                    else if (stack[i].toktype == TOK_VAR
+                             && stack[i].var < VAR_Y) {
+                        int *vec_len = &vars[stack[i].var].vector_length;
+                        if (*vec_len && *vec_len != vector_length) {
+                            parse_error("Vector length mismatch (%d != %d).\n",
+                                        *vec_len, vector_length);
+                            return -1;
+                        }
+                        *vec_len = vector_length;
+                        stack[i].vector_length = vector_length;
+                        stack[i].vector_length_locked = 1;
+                    }
                     else
                         stack[i].vector_length = vector_length;
                 }
@@ -1428,7 +1441,8 @@ static int check_types_and_lengths(mapper_token_t *stack, int top)
         return top;
 }
 
-static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
+static int check_assignment_types_and_lengths(mapper_token_t *stack, int top,
+                                              mapper_variable_t * vars)
 {
     int i = top, vector_length = 0;
     expr_var_t var = stack[top].var;
@@ -1451,7 +1465,7 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top)
         return -1;
     }
     promote_token_datatype(&stack[i], stack[top].datatype);
-    if (check_types_and_lengths(stack, i) == -1)
+    if (check_types_and_lengths(stack, i, vars) == -1)
         return -1;
     promote_token_datatype(&stack[i], stack[top].datatype);
 
@@ -1514,7 +1528,8 @@ static int find_variable_by_name(mapper_variable_t *variables, int num_variables
 {                                                                   \
     PUSH_TO_OUTPUT(opstack[opstack_index]);                         \
     outstack_index = check_types_and_lengths(outstack,              \
-                                             outstack_index);       \
+                                             outstack_index,        \
+                                             variables);            \
     if (outstack_index < 0)                                         \
          {FAIL("Malformed expression (2).");}                       \
     POP_OPERATOR();                                                 \
@@ -1623,6 +1638,8 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                         tok.var = i;
                         tok.datatype = variables[i].datatype;
                         tok.vector_length = variables[i].vector_length;
+                        if (tok.vector_length)
+                            tok.vector_length_locked = 1;
                     }
                     else {
                         if (num_variables >= N_USER_VARS)
@@ -1632,7 +1649,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                         snprintf(variables[num_variables].name, lex_index-index,
                                  "%s", str+index+1);
                         variables[num_variables].datatype = 'd';
-                        variables[num_variables].vector_length = 1;
+                        variables[num_variables].vector_length = 0;
                         variables[num_variables].history_size = 1;
                         variables[num_variables].assigned = 0;
 #if TRACING
@@ -1641,6 +1658,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
 #endif
                         tok.var = num_variables;
                         tok.datatype = 'd';
+                        tok.vector_length = 0;
                         num_variables++;
                     }
                 }
@@ -1796,8 +1814,17 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 // check if last expression was assigned correctly
                 if (outstack[outstack_index].toktype < TOK_ASSIGNMENT)
                     {FAIL("Malformed expression (5).");}
-                if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
+                if (check_assignment_types_and_lengths(outstack, outstack_index,
+                                                       variables) == -1)
                     {FAIL("Malformed expression (6).");}
+                int var_idx = outstack[outstack_index].var;
+                if (var_idx < VAR_Y) {
+                    if (!variables[var_idx].vector_length)
+                        variables[var_idx].vector_length
+                            = outstack[outstack_index].vector_length;
+                    // lock vector length of assigned variable
+                    outstack[outstack_index].vector_length_locked = 1;
+                }
                 // start another sub-expression
                 assigning = 1;
                 allow_toktype = TOK_VAR;
@@ -1947,7 +1974,6 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 break;
             case TOK_ASSIGNMENT:
                 // assignment to variable
-                // for now we assume variable is output (VAR_Y)
                 if (!assigning)
                     {FAIL("Misplaced assignment operator.");}
                 if (opstack_index >= 0 || outstack_index < 0)
@@ -2022,7 +2048,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
 #endif
     }
 
-    if (allow_toktype & TOK_CONST || assigning || !output_assigned)
+    if (allow_toktype & TOK_CONST || !output_assigned)
         {FAIL("Expression has no output assignment.");}
 
     // check that all used-defined variables were assigned
@@ -2044,7 +2070,8 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
             {FAIL("Malformed expression (7).");}
         PUSH_TO_OUTPUT(opstack[opstack_index]);
         if (outstack[outstack_index].toktype == TOK_ASSIGN_USE
-            && check_assignment_types_and_lengths(outstack, outstack_index) == -1) {
+            && check_assignment_types_and_lengths(outstack, outstack_index,
+                                                  variables) == -1) {
             // check vector length and type
             {FAIL("Malformed expression (8).");}
         }
@@ -2052,7 +2079,8 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
     }
 
     // check vector length and type
-    if (check_assignment_types_and_lengths(outstack, outstack_index) == -1)
+    if (check_assignment_types_and_lengths(outstack, outstack_index,
+                                           variables) == -1)
         {FAIL("Malformed expression (9).");}
 
 #if (TRACING && DEBUG)
