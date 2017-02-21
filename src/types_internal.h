@@ -41,6 +41,12 @@ typedef struct _mapper_device *mapper_device;
 struct _mapper_signal;
 typedef struct _mapper_signal mapper_signal_t;
 typedef struct _mapper_signal *mapper_signal;
+struct _mapper_link;
+typedef struct _mapper_link mapper_link_t;
+typedef struct _mapper_link *mapper_link;
+struct _mapper_map;
+typedef struct _mapper_map mapper_map_t;
+typedef struct _mapper_map *mapper_map;
 struct _mapper_allocated_t;
 struct _mapper_map;
 struct _mapper_id_map;
@@ -141,9 +147,8 @@ typedef struct _mapper_database {
     struct _mapper_network *network;
     mapper_device devices;              //<! List of devices.
     mapper_signal signals;              //<! List of signals.
-    struct _mapper_map *maps;           //<! List of mappings.
-    struct _mapper_link *links;         //<! List of network links.
-    struct _mapper_map *staged_maps;    //<! List of staged mappings.
+    mapper_map maps;                    //<! List of mappings.
+    mapper_link links;                  //<! List of network links.
     fptr_list device_callbacks;         //<! List of device record callbacks.
     fptr_list signal_callbacks;         //<! List of signal record callbacks.
     fptr_list link_callbacks;           //<! List of link record callbacks.

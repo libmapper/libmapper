@@ -552,8 +552,8 @@ void mapper_database_remove_signal_callback(mapper_database db,
 
 static int cmp_query_signals(const void *context_data, mapper_signal sig)
 {
-    int direction = *(int*)context_data;
-    return !direction || (sig->direction & direction);
+    int dir = *(int*)context_data;
+    return (dir == MAPPER_DIR_ANY) || (dir == sig->direction);
 }
 
 int mapper_database_num_signals(mapper_database db, mapper_direction dir)
@@ -561,7 +561,7 @@ int mapper_database_num_signals(mapper_database db, mapper_direction dir)
     int count = 0;
     mapper_signal sig = db->signals;
     while (sig) {
-        if (!dir || dir == sig->direction)
+        if ((dir == MAPPER_DIR_ANY) || (dir == sig->direction))
             ++count;
         sig = mapper_list_next(sig);
     }
@@ -570,7 +570,7 @@ int mapper_database_num_signals(mapper_database db, mapper_direction dir)
 
 mapper_signal *mapper_database_signals(mapper_database db, mapper_direction dir)
 {
-    if (!dir)
+    if (dir == MAPPER_DIR_ANY)
         return mapper_list_from_data(db->signals);
     return ((mapper_signal *)
             mapper_list_new_query(db->signals, cmp_query_signals, "i", dir));
@@ -593,9 +593,9 @@ mapper_signal mapper_database_signal_by_id(mapper_database db, mapper_id id)
 static int cmp_query_signals_by_name(const void *context_data,
                                      mapper_signal sig)
 {
-    int direction = *(int*)context_data;
+    int dir = *(int*)context_data;
     const char *name = (const char*)(context_data + sizeof(int));
-    return ((!direction || (sig->direction & direction))
+    return (((dir == MAPPER_DIR_ANY) || (dir == sig->direction))
             && (match_pattern(sig->name, name)));
 }
 

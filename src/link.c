@@ -328,24 +328,24 @@ mapper_link *mapper_link_query_difference(mapper_link *query1,
                                                       (void**)query2);
 }
 
-mapper_link mapper_link_query_index(mapper_link *maps, int index)
+mapper_link mapper_link_query_index(mapper_link *query, int index)
 {
-    return (mapper_link)mapper_list_query_index((void**)maps, index);
+    return (mapper_link)mapper_list_query_index((void**)query, index);
 }
 
-mapper_link *mapper_link_query_next(mapper_link *maps)
+mapper_link *mapper_link_query_next(mapper_link *query)
 {
-    return (mapper_link*)mapper_list_query_next((void**)maps);
+    return (mapper_link*)mapper_list_query_next((void**)query);
 }
 
-mapper_link *mapper_link_query_copy(mapper_link *maps)
+mapper_link *mapper_link_query_copy(mapper_link *query)
 {
-    return (mapper_link*)mapper_list_query_copy((void**)maps);
+    return (mapper_link*)mapper_list_query_copy((void**)query);
 }
 
-void mapper_link_query_done(mapper_link *map)
+void mapper_link_query_done(mapper_link *query)
 {
-    mapper_list_query_done((void**)map);
+    mapper_list_query_done((void**)query);
 }
 
 void mapper_link_print(mapper_link link)

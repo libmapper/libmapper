@@ -1558,24 +1558,24 @@ mapper_signal *mapper_signal_query_difference(mapper_signal *query1,
                                                         (void**)query2);
 }
 
-mapper_signal mapper_signal_query_index(mapper_signal *sig, int index)
+mapper_signal mapper_signal_query_index(mapper_signal *query, int index)
 {
-    return (mapper_signal)mapper_list_query_index((void**)sig, index);
+    return (mapper_signal)mapper_list_query_index((void**)query, index);
 }
 
-mapper_signal *mapper_signal_query_next(mapper_signal *sig)
+mapper_signal *mapper_signal_query_next(mapper_signal *query)
 {
-    return (mapper_signal*)mapper_list_query_next((void**)sig);
+    return (mapper_signal*)mapper_list_query_next((void**)query);
 }
 
-mapper_signal *mapper_signal_query_copy(mapper_signal *sig)
+mapper_signal *mapper_signal_query_copy(mapper_signal *query)
 {
-    return (mapper_signal*)mapper_list_query_copy((void**)sig);
+    return (mapper_signal*)mapper_list_query_copy((void**)query);
 }
 
-void mapper_signal_query_done(mapper_signal *sig)
+void mapper_signal_query_done(mapper_signal *query)
 {
-    mapper_list_query_done((void**)sig);
+    mapper_list_query_done((void**)query);
 }
 
 /*! Update information about a signal record based on message properties. */

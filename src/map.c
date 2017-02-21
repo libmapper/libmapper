@@ -1860,24 +1860,24 @@ mapper_map *mapper_map_query_difference(mapper_map *query1, mapper_map *query2)
                                                      (void**)query2);
 }
 
-mapper_map mapper_map_query_index(mapper_map *maps, int index)
+mapper_map mapper_map_query_index(mapper_map *query, int index)
 {
-    return (mapper_map)mapper_list_query_index((void**)maps, index);
+    return (mapper_map)mapper_list_query_index((void**)query, index);
 }
 
-mapper_map *mapper_map_query_next(mapper_map *maps)
+mapper_map *mapper_map_query_next(mapper_map *query)
 {
-    return (mapper_map*)mapper_list_query_next((void**)maps);
+    return (mapper_map*)mapper_list_query_next((void**)query);
 }
 
-mapper_map *mapper_map_query_copy(mapper_map *maps)
+mapper_map *mapper_map_query_copy(mapper_map *query)
 {
-    return (mapper_map*)mapper_list_query_copy((void**)maps);
+    return (mapper_map*)mapper_list_query_copy((void**)query);
 }
 
-void mapper_map_query_done(mapper_map *map)
+void mapper_map_query_done(mapper_map *query)
 {
-    mapper_list_query_done((void**)map);
+    mapper_list_query_done((void**)query);
 }
 
 void mapper_map_print(mapper_map map)

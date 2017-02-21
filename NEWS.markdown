@@ -33,7 +33,7 @@ creating, modifying, and destroying mapping connections. Changes to a map (and
 to other structures that represent non-local resources) must be explicitly
 synchronized with the network using the `_push()` function, e.g.:
 
-    mapper_map map = mapper_map_new(num_srcs, outsigs, num_dsts, insig);
+    mapper_map map = mapper_map_new(num_srcs, outsigs, num_dsts, insigs);
     mapper_map_set_expression(map, "y=x+2");
     mapper_map_push(map);
 
