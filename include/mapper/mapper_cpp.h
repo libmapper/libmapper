@@ -717,8 +717,7 @@ namespace mapper {
         Map(int num_sources, signal_type sources[],
             int num_destinations, signal_type destinations[])
         {
-            mapper_signal cast_dst = destinations[0];
-            mapper_signal cast_src[num_sources];
+            mapper_signal cast_src[num_sources], cast_dst = destinations[0];
             for (int i = 0; i < num_sources; i++) {
                 cast_src[i] = sources[i];
             }
@@ -732,11 +731,11 @@ namespace mapper {
                 _map = 0;
                 return;
             }
-            mapper_signal cast[N];
+            mapper_signal cast_src[N], cast_dst = destinations.data()[0];
             for (int i = 0; i < N; i++) {
-                cast[i] = sources.data()[i];
+                cast_src[i] = sources.data()[i];
             }
-            _map = mapper_map_new(N, cast, 1, destinations.data()[0]);
+            _map = mapper_map_new(N, cast_src, 1, &cast_dst);
         }
         template <typename T>
         Map(std::vector<T>& sources, std::vector<T>& destinations)
@@ -746,11 +745,11 @@ namespace mapper {
                 return;
             }
             int num_sources = sources.size();
-            mapper_signal cast[num_sources];
+            mapper_signal cast_src[num_sources], cast_dst = destinations.data()[0];
             for (int i = 0; i < num_sources; i++) {
-                cast[i] = sources.data()[i];
+                cast_src[i] = sources.data()[i];
             }
-            _map = mapper_map_new(num_sources, cast, 1, destinations.data()[0]);
+            _map = mapper_map_new(num_sources, cast_src, 1, &cast_dst);
         }
         operator mapper_map() const
             { return _map; }
