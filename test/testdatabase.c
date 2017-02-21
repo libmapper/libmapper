@@ -23,6 +23,12 @@ void printsignal(mapper_signal sig)
         mapper_signal_print(sig, 1);
 }
 
+void printlink(mapper_link link)
+{
+    if (verbose)
+        mapper_link_print(link);
+}
+
 void printmap(mapper_map map)
 {
     if (verbose)
@@ -63,6 +69,7 @@ int main(int argc, char **argv)
 
     mapper_device dev, *pdev, *pdev2;
     mapper_signal sig, *psig, *psig2;
+    mapper_link *plink;
     mapper_map *pmap, *pmap2;
 
     /* Test the database functions */
@@ -846,6 +853,39 @@ int main(int argc, char **argv)
 
     if (count != 1) {
         eprintf("Expected 1 record, but counted %d.\n", count);
+        result = 1;
+        goto done;
+    }
+
+    /*********/
+
+    eprintf("\n--- links ---\n");
+
+    eprintf("\nFind all links':\n");
+
+    plink = mapper_database_links(db);
+
+    count=0;
+    if (!plink) {
+        eprintf("mapper_device_links() returned 0.\n");
+        result = 1;
+        goto done;
+    }
+    if (!*plink) {
+        eprintf("mapper_device_links() returned something "
+                "which pointed to 0.\n");
+        result = 1;
+        goto done;
+    }
+
+    while (plink) {
+        count ++;
+        printlink(*plink);
+        plink = mapper_link_query_next(plink);
+    }
+
+    if (count != 1) {
+        eprintf("Expected 1 records, but counted %d.\n", count);
         result = 1;
         goto done;
     }
