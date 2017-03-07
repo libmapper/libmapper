@@ -1600,8 +1600,9 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
                     dir = MAPPER_DIR_INCOMING;
                 else
                     break;
-                mapper_table_set_record(sig->props, AT_DIRECTION, NULL, 1, 'i',
-                                        &dir, REMOTE_MODIFY);
+                updated += mapper_table_set_record(sig->props, AT_DIRECTION,
+                                                   NULL, 1, 'i', &dir,
+                                                   REMOTE_MODIFY);
                 break;
             }
             case AT_LENGTH:

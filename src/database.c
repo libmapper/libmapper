@@ -495,7 +495,7 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
                                                    mapper_message_t *props)
 {
     mapper_signal sig = 0;
-    int rc = 0, updated = 0;
+    int sig_rc = 0, dev_rc = 0, updated = 0;
 
     mapper_device dev = mapper_database_device_by_name(db, device_name);
     if (dev) {
@@ -503,8 +503,10 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
         if (sig && sig->local)
             return sig;
     }
-    else
+    else {
         dev = mapper_database_add_or_update_device(db, device_name, 0);
+        dev_rc = 1;
+    }
 
     if (!sig) {
         sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
@@ -516,19 +518,26 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
         // Defaults (int, length=1)
         mapper_signal_init(sig, 0, 0, name, 0, 0, 0, 0, 0, 0, 0);
 
-        rc = 1;
+        sig_rc = 1;
     }
 
     if (sig) {
         updated = mapper_signal_set_from_message(sig, props);
+        if (sig_rc) {
+            // update device num_signals
+            if (sig->direction == MAPPER_DIR_INCOMING)
+                ++dev->num_inputs;
+            else if (sig->direction == MAPPER_DIR_OUTGOING)
+                ++dev->num_outputs;
+        }
 
-        if (rc || updated) {
+        if (sig_rc || updated) {
             // TODO: Should we really allow callbacks to free themselves?
             fptr_list cb = db->signal_callbacks, temp;
             while (cb) {
                 temp = cb->next;
                 mapper_database_signal_handler *h = cb->f;
-                h(db, sig, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
+                h(db, sig, sig_rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
                 cb = temp;
             }
         }
