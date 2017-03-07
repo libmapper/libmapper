@@ -1455,8 +1455,12 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
 
     for (i = 0; i < msg->num_atoms; i++) {
         atom = &msg->atoms[i];
+
         switch (MASK_PROP_BITFLAGS(atom->index)) {
             case AT_NUM_INPUTS:
+            case AT_NUM_OUTPUTS:
+                // these properties will be set by signal args
+                break;
             case AT_STATUS:
                 if (map->local)
                     break;
@@ -1888,10 +1892,13 @@ void mapper_map_print(mapper_map map)
         return;
     }
 
+    if (map->num_sources > 1)
+        printf("[");
     for (i = 0; i < map->num_sources; i++) {
-        printf("%s/%s ", map->sources[i]->signal->device->name,
+        printf("%s/%s, ", map->sources[i]->signal->device->name,
                map->sources[i]->signal->name);
     }
+    printf("\b\b%s", map->num_sources > 1 ? "] " : " ");
     printf("-> %s/%s\n", map->destination.signal->device->name,
            map->destination.signal->name);
     for (i = 0; i < map->num_sources; i++) {

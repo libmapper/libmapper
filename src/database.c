@@ -964,7 +964,6 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                 return 0;
             for (j = 0; j < map->num_sources; j++) {
                 if (map->sources[j]->signal == src_sig) {
-                    map->sources[j]->id = i;
                     break;
                 }
             }
@@ -983,7 +982,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                     map->sources[j]->use_instances = map->sources[j]->num_instances > 1;
                 }
                 mapper_slot_init(map->sources[j]);
-                rc = 1;
+                ++updated;
             }
         }
         if (changed) {
@@ -1011,7 +1010,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     }
 
     if (map) {
-        updated = mapper_map_set_from_message(map, props, 0);
+        updated += mapper_map_set_from_message(map, props, 0);
 
         if (map->status < STATUS_ACTIVE)
             return map;

@@ -1055,7 +1055,7 @@ int mapper_device_num_signals(mapper_device dev, mapper_direction dir)
 {
     if (!dev)
         return 0;
-    if (!dir)
+    if (dir == MAPPER_DIR_ANY)
         return dev->num_inputs + dev->num_outputs;
     return (  (dir == MAPPER_DIR_INCOMING) * dev->num_inputs
             + (dir == MAPPER_DIR_OUTGOING) * dev->num_outputs);
@@ -1064,8 +1064,8 @@ int mapper_device_num_signals(mapper_device dev, mapper_direction dir)
 static int cmp_query_device_signals(const void *context_data, mapper_signal sig)
 {
     mapper_id dev_id = *(mapper_id*)context_data;
-    int direction = *(int*)(context_data + sizeof(mapper_id));
-    return ((!direction || (sig->direction & direction))
+    int dir = *(int*)(context_data + sizeof(mapper_id));
+    return (((dir == MAPPER_DIR_ANY) || (dir & sig->direction))
             && (dev_id == sig->device->id));
 }
 
@@ -1141,14 +1141,14 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
         }
         return 1;
     }
-    if (!dir || (dir & MAPPER_DIR_OUTGOING)) {
+    if ((dir == MAPPER_DIR_ANY) || (dir & MAPPER_DIR_OUTGOING)) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
             if (map->sources[i]->signal->device->id == dev_id)
             return 1;
         }
     }
-    if (!dir || (dir & MAPPER_DIR_INCOMING)) {
+    if ((dir == MAPPER_DIR_ANY) || (dir & MAPPER_DIR_INCOMING)) {
         if (map->destination.signal->device->id == dev_id)
         return 1;
     }
