@@ -2200,7 +2200,7 @@ typedef struct _map_query {
     slot *source(int index=0) {
         return (slot*)mapper_map_slot((mapper_map)$self, MAPPER_LOC_SOURCE, index);
     }
-    slot *destination() {
+    slot *destination(int index=0) {
         return (slot*)mapper_map_slot((mapper_map)$self, MAPPER_LOC_DESTINATION, 0);
     }
     slot *slot(signal *sig) {
