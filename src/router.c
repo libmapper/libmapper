@@ -10,7 +10,8 @@
 #include <mapper/mapper.h>
 
 static void send_or_bundle_message(mapper_link link, const char *path,
-                                   lo_message msg, mapper_timetag_t tt);
+                                   lo_message msg, mapper_timetag_t tt,
+                                   mapper_protocol proto);
 
 static int map_in_scope(mapper_map map, mapper_id id)
 {
@@ -177,8 +178,8 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 else if (map_in_scope(map, id_map->global))
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, id_map);
                 if (msg)
-                    send_or_bundle_message(dst_slot->link,
-                                           dst_slot->signal->path, msg, tt);
+                    send_or_bundle_message(dst_slot->link, dst_slot->signal->path,
+                                           msg, tt, map->protocol);
             }
 
             for (j = 0; j < map->num_sources; j++) {
@@ -206,7 +207,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                     msg = mapper_map_build_message(map, slot, 0, 1, 0, id_map);
                     if (msg)
                         send_or_bundle_message(slot->link, slot->signal->path,
-                                               msg, tt);
+                                               msg, tt, map->protocol);
                 }
             }
         }
@@ -296,7 +297,8 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                                                slot->use_instances ? id_map : 0);
                 if (msg)
                     send_or_bundle_message(map->destination.link,
-                                           dst_slot->signal->path, msg, tt);
+                                           dst_slot->signal->path, msg, tt,
+                                           map->protocol);
             }
             ++k;
         }
@@ -306,7 +308,8 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                                            slot->use_instances ? id_map : 0);
             if (msg)
                 send_or_bundle_message(map->destination.link,
-                                       dst_slot->signal->path, msg, tt);
+                                       dst_slot->signal->path, msg, tt,
+                                       map->protocol);
         }
     }
 }
@@ -342,17 +345,18 @@ int mapper_router_send_query(mapper_router rtr, mapper_signal sig,
         lo_message_add_string(msg, sig->path);
         lo_message_add_int32(msg, sig->length);
         lo_message_add_char(msg, sig->type);
-        // TODO: include response address as argument to allow TCP queries?
-        // TODO: always use TCP for queries?
 
+        // always use TCP for queries?
         if (rs->slots[i]->direction == MAPPER_DIR_OUTGOING) {
             snprintf(query_string, 256, "%s/get", map->destination.signal->path);
-            send_or_bundle_message(map->destination.link, query_string, msg, tt);
+            send_or_bundle_message(map->destination.link, query_string, msg, tt,
+                                   MAPPER_PROTO_TCP);
         }
         else {
             for (j = 0; j < map->num_sources; j++) {
                 snprintf(query_string, 256, "%s/get", map->sources[j]->signal->path);
-                send_or_bundle_message(map->sources[j]->link, query_string, msg, tt);
+                send_or_bundle_message(map->sources[j]->link, query_string, msg,
+                                       tt, MAPPER_PROTO_TCP);
             }
         }
         ++count;
@@ -364,7 +368,7 @@ int mapper_router_send_query(mapper_router rtr, mapper_signal sig,
 // path: not owned, will not be freed (assumed is signal name, owned by signal)
 // message: will be owned, will be freed when done
 void send_or_bundle_message(mapper_link link, const char *path, lo_message msg,
-                            mapper_timetag_t tt)
+                            mapper_timetag_t tt, mapper_protocol proto)
 {
     mapper_local_link llink = link->local;
     // Check if a matching bundle exists
@@ -377,13 +381,24 @@ void send_or_bundle_message(mapper_link link, const char *path, lo_message msg,
     }
     if (q) {
         // Add message to existing bundle
-        lo_bundle_add_message(q->bundle, path, msg);
+        lo_bundle b = (proto == MAPPER_PROTO_TCP) ? q->tcp_bundle : q->udp_bundle;
+        lo_bundle_add_message(b, path, msg);
     }
     else {
         // Send message immediately
         lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, msg);
-        lo_send_bundle_from(llink->data_addr, link->local_device->local->server, b);
+        lo_address a;
+        lo_server s;
+        if (proto == MAPPER_PROTO_TCP) {
+            a = llink->tcp_data_addr;
+            s = link->local_device->local->tcp_server;
+        }
+        else {
+            a = llink->udp_data_addr;
+            s = link->local_device->local->udp_server;
+        }
+        lo_send_bundle_from(a, s, b);
         lo_bundle_free_messages(b);
     }
 }

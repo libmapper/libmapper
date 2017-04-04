@@ -81,18 +81,19 @@ typedef enum {
     AT_NUM_OUTPUTS,         /* 0x18 */
     AT_PORT,                /* 0x19 */
     AT_PROCESS_LOCATION,    /* 0x1A */
-    AT_RATE,                /* 0x1B */
-    AT_SCOPE,               /* 0x1C */
-    AT_SLOT,                /* 0x1D */
-    AT_STATUS,              /* 0x1E */
-    AT_SYNCED,              /* 0x1F */
-    AT_TYPE,                /* 0x20 */
-    AT_UNIT,                /* 0x21 */
-    AT_USE_INSTANCES,       /* 0x22 */
-    AT_USER_DATA,           /* 0x23 */
-    AT_VERSION,             /* 0x24 */
-    AT_EXTRA,               /* 0x25 */
-    NUM_AT_PROPERTIES       /* 0x26 */
+    AT_PROTOCOL,            /* 0x1B */
+    AT_RATE,                /* 0x1C */
+    AT_SCOPE,               /* 0x1D */
+    AT_SLOT,                /* 0x1E */
+    AT_STATUS,              /* 0x1F */
+    AT_SYNCED,              /* 0x20 */
+    AT_TYPE,                /* 0x21 */
+    AT_UNIT,                /* 0x22 */
+    AT_USE_INSTANCES,       /* 0x23 */
+    AT_USER_DATA,           /* 0x24 */
+    AT_VERSION,             /* 0x25 */
+    AT_EXTRA,               /* 0x26 */
+    NUM_AT_PROPERTIES       /* 0x27 */
 } mapper_property_t;
 
 /**** String tables ****/
@@ -394,7 +395,8 @@ struct _mapper_signal {
 
 typedef struct _mapper_queue {
     mapper_timetag_t tt;
-    lo_bundle bundle;
+    lo_bundle udp_bundle;
+    lo_bundle tcp_bundle;
     struct _mapper_queue *next;
 } *mapper_queue;
 
@@ -402,7 +404,8 @@ typedef struct _mapper_queue {
  *  with a destination address that belong to a controller device. */
 typedef struct _mapper_local_link {
     lo_address admin_addr;              //!< Network address of remote endpoint
-    lo_address data_addr;               //!< Network address of remote endpoint
+    lo_address udp_data_addr;           //!< Network address of remote endpoint
+    lo_address tcp_data_addr;           //!< Network address of remote endpoint
     mapper_queue queues;                /*!< Linked-list of message queues
                                          *   waiting to be sent. */
     mapper_sync_clock_t clock;
@@ -511,6 +514,7 @@ typedef struct _mapper_map {
     mapper_location process_location;
     int status;
     int version;
+    int protocol;                       //!< Data transport protocol.
 } mapper_map_t, *mapper_map;
 
 /*! The router_signal is a linked list containing a signal and a list of
@@ -571,7 +575,8 @@ typedef struct _mapper_local_device {
     struct _mapper_id_map *reserve_id_maps;
 
     /*! Server used to handle incoming messages. */
-    lo_server server;
+    lo_server udp_server;
+    lo_server tcp_server;
 
     // TODO: move to network
     int link_timeout_sec;   /* Number of seconds after which unresponsive

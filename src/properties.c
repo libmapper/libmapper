@@ -49,6 +49,7 @@ const static_property_t static_properties[] = {
     { "@num_outputs",       1, 'i', 'i' },  /* AT_NUM_OUTPUTS */
     { "@port",              1, 'i', 'i' },  /* AT_PORT */
     { "@process_location",  1, 'i', 's' },  /* AT_PROCESS */
+    { "@protocol",          1, 'i', 's' },  /* AT_PROTOCOL */
     { "@rate",              1, 'f', 'f' },  /* AT_RATE */
     { "@scope",             0, 'D', 's' },  /* AT_SCOPE */
     { "@slot",              0, 'i', 'i' },  /* AT_SLOT */
@@ -66,12 +67,12 @@ const static_property_t static_properties[] = {
 
 const char* mapper_boundary_action_strings[] =
 {
-    NULL,          /* MAPPER_BOUND_UNDEFINED */
-    "none",        /* MAPPER_BOUND_NONE */
-    "mute",        /* MAPPER_BOUND_MUTE */
-    "clamp",       /* MAPPER_BOUND_CLAMP */
-    "fold",        /* MAPPER_BOUND_FOLD */
-    "wrap",        /* MAPPER_BOUND_WRAP */
+    NULL,           /* MAPPER_BOUND_UNDEFINED */
+    "none",         /* MAPPER_BOUND_NONE */
+    "mute",         /* MAPPER_BOUND_MUTE */
+    "clamp",        /* MAPPER_BOUND_CLAMP */
+    "fold",         /* MAPPER_BOUND_FOLD */
+    "wrap",         /* MAPPER_BOUND_WRAP */
 };
 
 const char* mapper_location_strings[] =
@@ -83,10 +84,17 @@ const char* mapper_location_strings[] =
 
 const char* mapper_mode_strings[] =
 {
-    NULL,          /* MAPPER_MODE_UNDEFINED */
-    "raw",         /* MAPPER_MODE_RAW */
-    "linear",      /* MAPPER_MODE_LINEAR */
-    "expression",  /* MAPPER_MODE_EXPRESSION */
+    NULL,           /* MAPPER_MODE_UNDEFINED */
+    "raw",          /* MAPPER_MODE_RAW */
+    "linear",       /* MAPPER_MODE_LINEAR */
+    "expression",   /* MAPPER_MODE_EXPRESSION */
+};
+
+const char* mapper_protocol_strings[] =
+{
+    NULL,           /* MAPPER_PROTO_UNDEFINED */
+    "osc.udp",      /* MAPPER_PROTO_UDP */
+    "osc.tcp",      /* MAPPER_PROTO_TCP */
 };
 
 int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
@@ -414,11 +422,11 @@ void mapper_message_add_typed_value(lo_message msg, int length, char type,
     }
 }
 
-const char *mapper_protocol_string(mapper_property_t prop)
+const char *mapper_property_protocol_string(mapper_property_t prop)
 {
     prop = MASK_PROP_BITFLAGS(prop);
     die_unless(prop < NUM_AT_PROPERTIES,
-               "called mapper_protocol_string() with bad property index %d.\n",
+               "called mapper_property_protocol_string() with bad property index %d.\n",
                prop);
     return static_properties[prop].name;
 }
@@ -505,6 +513,25 @@ mapper_mode mapper_mode_from_string(const char *str)
             return i;
     }
     return MAPPER_MODE_UNDEFINED;
+}
+
+const char *mapper_protocol_string(mapper_protocol pro)
+{
+    if (pro <= 0 || pro > NUM_MAPPER_PROTOCOLS)
+        return "unknown";
+    return mapper_protocol_strings[pro];
+}
+
+mapper_protocol mapper_protocol_from_string(const char *str)
+{
+    if (!str)
+        return MAPPER_PROTO_UNDEFINED;
+    int i;
+    for (i = MAPPER_PROTO_UNDEFINED+1; i < NUM_MAPPER_PROTOCOLS; i++) {
+        if (strcmp(str, mapper_protocol_strings[i])==0)
+            return i;
+    }
+    return MAPPER_PROTO_UNDEFINED;
 }
 
 // Helper for setting property value from different lo_arg types

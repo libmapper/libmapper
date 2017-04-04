@@ -382,12 +382,14 @@ void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
 
     if (!staged && slot->signal->local) {
         // include length from associated signal
-        snprintf(temp+len, 16-len, "%s", mapper_protocol_string(AT_LENGTH));
+        snprintf(temp+len, 16-len, "%s",
+                 mapper_property_protocol_string(AT_LENGTH));
         lo_message_add_string(msg, temp);
         lo_message_add_int32(msg, slot->signal->length);
 
         // include type from associated signal
-        snprintf(temp+len, 16-len, "%s", mapper_protocol_string(AT_TYPE));
+        snprintf(temp+len, 16-len, "%s",
+                 mapper_property_protocol_string(AT_TYPE));
         lo_message_add_string(msg, temp);
         lo_message_add_char(msg, slot->signal->type);
     }

@@ -46,7 +46,9 @@ void mapper_link_init(mapper_link link, int is_local)
          * mapper_device_poll(). */
         char str[16];
         snprintf(str, 16, "%d", mapper_device_port(link->local_device));
-        link->local->data_addr = lo_address_new("localhost", str);
+        link->local->udp_data_addr = lo_address_new("localhost", str);
+        link->local->tcp_data_addr = lo_address_new_with_proto(LO_TCP,
+                                                               "localhost", str);
     }
 
     link->local->clock.new = 1;
@@ -78,7 +80,8 @@ void mapper_link_connect(mapper_link link, const char *host, int admin_port,
     mapper_table_set_record(link->remote_device->props, AT_PORT, NULL, 1, 'i',
                             &data_port, REMOTE_MODIFY);
     sprintf(str, "%d", data_port);
-    link->local->data_addr = lo_address_new(host, str);
+    link->local->udp_data_addr = lo_address_new(host, str);
+    link->local->tcp_data_addr = lo_address_new_with_proto(LO_TCP, host, str);
     sprintf(str, "%d", admin_port);
     link->local->admin_addr = lo_address_new(host, str);
 }
@@ -94,11 +97,14 @@ void mapper_link_free(mapper_link link)
     if (link->local) {
         if (link->local->admin_addr)
             lo_address_free(link->local->admin_addr);
-        if (link->local->data_addr)
-            lo_address_free(link->local->data_addr);
+        if (link->local->udp_data_addr)
+            lo_address_free(link->local->udp_data_addr);
+        if (link->local->tcp_data_addr)
+            lo_address_free(link->local->tcp_data_addr);
         while (link->local->queues) {
             mapper_queue queue = link->local->queues;
-            lo_bundle_free_messages(queue->bundle);
+            lo_bundle_free_messages(queue->udp_bundle);
+            lo_bundle_free_messages(queue->tcp_bundle);
             link->local->queues = queue->next;
             free(queue);
         }
@@ -120,7 +126,8 @@ void mapper_link_start_queue(mapper_link link, mapper_timetag_t tt)
     // need to create a new queue
     queue = malloc(sizeof(struct _mapper_queue));
     memcpy(&queue->tt, &tt, sizeof(mapper_timetag_t));
-    queue->bundle = lo_bundle_new(tt);
+    queue->udp_bundle = lo_bundle_new(tt);
+    queue->tcp_bundle = lo_bundle_new(tt);
     queue->next = link->local->queues;
     link->local->queues = queue;
 }
@@ -137,12 +144,19 @@ void mapper_link_send_queue(mapper_link link, mapper_timetag_t tt)
     }
     if (*queue) {
 #ifdef HAVE_LIBLO_BUNDLE_COUNT
-        if (lo_bundle_count((*queue)->bundle))
+        if (lo_bundle_count((*queue)->udp_bundle))
 #endif
-            lo_send_bundle_from(link->local->data_addr,
-                                link->local_device->local->server,
-                                (*queue)->bundle);
-        lo_bundle_free_messages((*queue)->bundle);
+            lo_send_bundle_from(link->local->udp_data_addr,
+                                link->local_device->local->udp_server,
+                                (*queue)->udp_bundle);
+        lo_bundle_free_messages((*queue)->udp_bundle);
+#ifdef HAVE_LIBLO_BUNDLE_COUNT
+        if (lo_bundle_count((*queue)->tcp_bundle))
+#endif
+            lo_send_bundle_from(link->local->tcp_data_addr,
+                                link->local_device->local->tcp_server,
+                                (*queue)->tcp_bundle);
+        lo_bundle_free_messages((*queue)->tcp_bundle);
         mapper_queue temp = *queue;
         *queue = (*queue)->next;
         free(temp);
@@ -355,12 +369,12 @@ void mapper_link_print(mapper_link link)
     const char *key;
     char type;
     const void *val;
-    int length;
-    while (!mapper_link_property_index(link, i++, &key, &length, &type, &val)) {
+    int len;
+    while (!mapper_link_property_index(link, i++, &key, &len, &type, &val)) {
         die_unless(val!=0, "returned zero value\n");
-        if (length) {
+        if (len) {
             printf(", %s=", key);
-            mapper_property_print(length, type, val);
+            mapper_property_print(len, type, val);
         }
     }
     if (link->local) {
@@ -368,10 +382,14 @@ void mapper_link_print(mapper_link link)
             printf(", admin_addr=%s:%s",
                    lo_address_get_hostname(link->local->admin_addr),
                    lo_address_get_port(link->local->admin_addr));
-        if (link->local->data_addr)
-            printf(", data_addr=%s:%s",
-                   lo_address_get_hostname(link->local->data_addr),
-                   lo_address_get_port(link->local->data_addr));
+        if (link->local->udp_data_addr)
+            printf(", udp_data_addr=%s:%s",
+                   lo_address_get_hostname(link->local->udp_data_addr),
+                   lo_address_get_port(link->local->udp_data_addr));
+        if (link->local->tcp_data_addr)
+            printf(", tcp_data_addr=%s:%s",
+                   lo_address_get_hostname(link->local->tcp_data_addr),
+                   lo_address_get_port(link->local->tcp_data_addr));
     }
     printf("\n");
 }

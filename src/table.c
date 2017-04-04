@@ -777,14 +777,14 @@ static void mapper_record_add_to_message(mapper_table_record_t *rec,
     }
     else {
         snprintf(temp + len, 256 - len, "%s",
-                 mapper_protocol_string(masked));
+                 mapper_property_protocol_string(masked));
     }
     if (len) {
         lo_message_add_string(msg, temp);
     }
     else {
         // can use static string
-        lo_message_add_string(msg, mapper_protocol_string(masked));
+        lo_message_add_string(msg, mapper_property_protocol_string(masked));
     }
     if (rec->index & PROPERTY_REMOVE)
         return;
@@ -811,6 +811,11 @@ static void mapper_record_add_to_message(mapper_table_record_t *rec,
         case AT_PROCESS_LOCATION: {
             int loc = *(int*)rec->value;
             lo_message_add_string(msg, mapper_location_string(loc));
+            break;
+        }
+        case AT_PROTOCOL: {
+            int pro = *(int*)rec->value;
+            lo_message_add_string(msg, mapper_protocol_string(pro));
             break;
         }
         default:

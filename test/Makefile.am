@@ -10,15 +10,15 @@ endif
 
 noinst_PROGRAMS = test testconvergent testcpp testcustomtransport testdatabase \
                   testexpression testinstance testlinear testmany testmapinput \
-                  testmonitor testnetwork testparams testparser testprops      \
-                  testqueue testquery testrate testreverse testselect          \
+                  testmapprotocol testmonitor testnetwork testparams testparser\
+                  testprops testqueue testquery testrate testreverse testselect\
                   testsignals testspeed testvector
 
 test_all_ordered = testparams testprops testdatabase testparser testnetwork    \
                    testmany test testlinear testexpression testqueue testquery \
                    testrate testinstance testreverse testselect testvector     \
-                   testcustomtransport testspeed testcpp testmapinput \
-                   testconvergent
+                   testcustomtransport testspeed testcpp testmapinput          \
+                   testconvergent testmapprotocol
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -59,6 +59,10 @@ testmany_LDADD = $(TEST_LDADD)
 testmapinput_CFLAGS = $(TEST_CFLAGS)
 testmapinput_SOURCES = testmapinput.c
 testmapinput_LDADD = $(TEST_LDADD)
+
+testmapprotocol_CFLAGS = $(TEST_CFLAGS)
+testmapprotocol_SOURCES = testmapprotocol.c
+testmapprotocol_LDADD = $(TEST_LDADD)
 
 testmonitor_CFLAGS = $(TEST_CFLAGS)
 testmonitor_SOURCES = testmonitor.c

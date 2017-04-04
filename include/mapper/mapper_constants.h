@@ -31,6 +31,7 @@ typedef enum {
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
 typedef lo_timetag mapper_timetag_t;
+typedef mapper_timetag_t *mapper_timetag;
 
 /*! This data structure must be large enough to hold a system pointer or a
  *  uin64_t */
@@ -81,6 +82,15 @@ typedef enum {
     MAPPER_LOC_DESTINATION, //!< Processing is performed by the destination device.
     NUM_MAPPER_LOCATIONS
 } mapper_location;
+
+/*! Describes the possible network protocol for map communication
+ *  @ingroup map */
+typedef enum {
+    MAPPER_PROTO_UNDEFINED,             //!< Not yet defined
+    MAPPER_PROTO_UDP,                   //!< Map updates are sent using UDP.
+    MAPPER_PROTO_TCP,                   //!< Map updates are sent using TCP.
+    NUM_MAPPER_PROTOCOLS
+} mapper_protocol;
 
 /*! The set of possible directions for a signal or mapping slot.
  *  @ingroup map */

@@ -72,6 +72,9 @@ void mapper_map_init(mapper_map map)
     mapper_table_link_value(map->props, AT_VERSION, 1, 'i', &map->version,
                             REMOTE_MODIFY);
 
+    mapper_table_link_value(map->props, AT_PROTOCOL, 1, 'i', &map->protocol,
+                            REMOTE_MODIFY);
+
     int i, is_local = 0;
     if (map->destination.signal->local)
         is_local = 1;
@@ -173,6 +176,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
     mapper_map_init(map);
 
     map->status = STATUS_STAGED;
+    map->protocol = MAPPER_PROTO_UDP;
 
     return map;
 }
@@ -325,6 +329,11 @@ mapper_location mapper_map_process_location(mapper_map map)
     return map->process_location;
 }
 
+mapper_protocol mapper_map_protocol(mapper_map map)
+{
+    return map->protocol;
+}
+
 static int cmp_query_map_scopes(const void *context_data, mapper_device dev)
 {
     int num_scopes = *(int*)context_data;
@@ -412,6 +421,14 @@ void mapper_map_set_process_location(mapper_map map, mapper_location location)
         return;
     mapper_table_set_record(map->staged_props, AT_PROCESS_LOCATION, NULL, 1,
                             'i', &location, REMOTE_MODIFY);
+}
+
+void mapper_map_set_protocol(mapper_map map, mapper_protocol proto)
+{
+    if (!map)
+        return;
+    mapper_table_set_record(map->staged_props, AT_PROTOCOL, NULL, 1,
+                            'i', &proto, REMOTE_MODIFY);
 }
 
 void mapper_map_add_scope(mapper_map map, mapper_device device)
@@ -1357,7 +1374,7 @@ static int mapper_map_check_status(mapper_map map)
         map->destination.local->status |= STATUS_TYPE_KNOWN;
     if (map->destination.local->router_sig
         || (map->destination.link && map->destination.link->local
-            && map->destination.link->local->data_addr))
+            && map->destination.link->local->udp_data_addr))
         map->destination.local->status |= STATUS_LINK_KNOWN;
     map->status &= (map->destination.local->status | mask);
 
@@ -1369,7 +1386,7 @@ static int mapper_map_check_status(mapper_map map)
             map->sources[i]->local->status |= STATUS_TYPE_KNOWN;
         if (map->sources[i]->local->router_sig
             || (map->sources[i]->link && map->sources[i]->link->local
-                && map->sources[i]->link->local->data_addr))
+                && map->sources[i]->link->local->udp_data_addr))
             map->sources[i]->local->status |= STATUS_LINK_KNOWN;
         map->status &= (map->sources[i]->local->status | mask);
     }
@@ -1468,7 +1485,8 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                                                              REMOTE_MODIFY);
                 break;
             case AT_PROCESS_LOCATION: {
-                mapper_location loc = mapper_location_from_string(&(atom->values[0])->s);
+                mapper_location loc;
+                loc = mapper_location_from_string(&(atom->values[0])->s);
                 if (map->local) {
                     if (loc == MAPPER_LOC_UNDEFINED) {
                         trace("map process location is undefined!\n");
@@ -1550,6 +1568,14 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                     break;
                 updated += mapper_table_set_record(map->props, AT_MODE, NULL,
                                                    1, 'i', &mode, REMOTE_MODIFY);
+                break;
+            }
+            case AT_PROTOCOL: {
+                mapper_protocol pro;
+                pro = mapper_protocol_from_string(&(atom->values[0])->s);
+                updated += mapper_table_set_record(map->props,
+                                                   AT_PROTOCOL, NULL, 1,
+                                                   'i', &pro, REMOTE_MODIFY);
                 break;
             }
             case AT_EXTRA:
@@ -1791,7 +1817,7 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
 
     // Add unique id
     if (map->id) {
-        lo_message_add_string(msg, mapper_protocol_string(AT_ID));
+        lo_message_add_string(msg, mapper_property_protocol_string(AT_ID));
         lo_message_add_int64(msg, *((int64_t*)&map->id));
     }
 
@@ -1807,7 +1833,7 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
     if (!staged) {
         // add scopes
         if (map->num_scopes) {
-            lo_message_add_string(msg, mapper_protocol_string(AT_SCOPE));
+            lo_message_add_string(msg, mapper_property_protocol_string(AT_SCOPE));
             for (i = 0; i < map->num_scopes; i++) {
                 if (map->scopes[i])
                     lo_message_add_string(msg, map->scopes[i]->name);
@@ -1820,7 +1846,7 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
     // add slot id
     if (map->destination.direction == MAPPER_DIR_INCOMING
         && map->status < STATUS_READY && !staged) {
-        lo_message_add_string(msg, mapper_protocol_string(AT_SLOT));
+        lo_message_add_string(msg, mapper_property_protocol_string(AT_SLOT));
         i = (slot >= 0) ? slot : 0;
         link = map->sources[i]->local ? map->sources[i]->link : 0;
         for (; i < map->num_sources; i++) {
@@ -1920,10 +1946,12 @@ void mapper_map_print(mapper_map map)
 
         if (length) {
             printf("%s=", key);
-            if (strcmp(key, "mode")==0)
+            if (strcmp(key, mapper_property_string(AT_MODE))==0)
                 printf("%s", mapper_mode_strings[*((int*)val)] ?: "undefined");
             else if (strcmp(key, mapper_property_string(AT_PROCESS_LOCATION))==0)
                 printf("%s", mapper_location_string(*(int*)val) ?: "undefined");
+            else if (strcmp(key, mapper_property_string(AT_PROTOCOL))==0)
+                printf("%s", mapper_protocol_string(*(int*)val) ?: "undefined");
             else
                 mapper_property_print(length, type, val);
             printf(", ");

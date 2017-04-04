@@ -904,10 +904,15 @@ void mapper_device_start_queue(mapper_device dev, mapper_timetag_t tt);
  *                      mapper_device_start_queue(). */
 void mapper_device_send_queue(mapper_device dev, mapper_timetag_t tt);
 
-/*! Get access to the device's underlying lo_server.
+/*! Get access to the device's underlying UDP lo_server.
  *  \param dev          The device to use.
  *  \return             The liblo server used by this device. */
-lo_server mapper_device_lo_server(mapper_device dev);
+lo_server mapper_device_lo_server_udp(mapper_device dev);
+
+/*! Get access to the device's underlying TCP lo_server.
+ *  \param dev          The device to use.
+ *  \return             The liblo server used by this device. */
+lo_server mapper_device_lo_server_tcp(mapper_device dev);
 
 /*! Return the internal mapper_database structure used by a device.
  *  \param dev          The device structure to query.
@@ -1287,6 +1292,11 @@ int mapper_map_muted(mapper_map map);
  *                      source device, MAPPER_LOC_DESTINATION otherwise. */
 mapper_location mapper_map_process_location(mapper_map map);
 
+/*! Get the network protocol for a specific map.
+ *  \param map          The map to check.
+ *  \return             MAPPER_PROTO_UDP or MAPPER_PROTO_TCP. */
+mapper_protocol mapper_map_protocol(mapper_map map);
+
 /*! Get the scopes property for a specific map.
  *  \param map          The map to check.
  *  \return             A double-pointer to the first item in the list of
@@ -1330,11 +1340,18 @@ void mapper_map_set_muted(mapper_map map, int muted);
  *  topology and expression specified it may not be possible to set the process
  *  location to MAPPER_LOC_SOURCE for all maps. Changes to remote maps will not
  *  take effect until synchronized with the network using mapper_map_push().
- *  \param map      The map to modify.
+ *  \param map          The map to modify.
  *  \param location     MAPPER_LOC_SOURCE to indicate processing should be
  *                      handled by the source device, MAPPER_LOC_DESTINATION for
  *                      the destination. */
 void mapper_map_set_process_location(mapper_map map, mapper_location location);
+
+/*! Set the network protocol property for a specific map. Changes to remote maps
+ *  will not take effect until synchronized with the network using
+ *  mapper_map_push().
+ *  \param map          The map to modify.
+ *  \param proto        MAPPER_PROTO_UDP or MAPPER_PROTO_TCP. */
+void mapper_map_set_protocol(mapper_map map, mapper_protocol proto);
 
 /*! Set an arbitrary property for a specific map.  Changes to remote maps will
  *  not take effect until synchronized with the network using mapper_map_push().

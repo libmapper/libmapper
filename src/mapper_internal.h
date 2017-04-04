@@ -80,7 +80,7 @@ int mapper_device_route_query(mapper_device dev, mapper_signal sig,
 
 void mapper_device_release_scope(mapper_device dev, const char *scope);
 
-void mapper_device_start_server(mapper_device dev, int port);
+void mapper_device_start_servers(mapper_device dev, int port);
 
 void mapper_device_on_id_and_ordinal(mapper_device dev,
                                      mapper_allocated_t *resource);
@@ -279,7 +279,7 @@ void mapper_property_print(int length, char type, const void *value);
 mapper_property_t mapper_property_from_string(const char *str);
 const char *mapper_property_string(mapper_property_t prop);
 
-const char *mapper_protocol_string(mapper_property_t prop);
+const char *mapper_property_protocol_string(mapper_property_t prop);
 
 const char *mapper_boundary_action_string(mapper_boundary_action bound);
 
@@ -292,6 +292,10 @@ mapper_location mapper_location_from_string(const char *string);
 const char *mapper_mode_string(mapper_mode mode);
 
 mapper_mode mapper_mode_from_string(const char *string);
+
+const char *mapper_protocol_string(mapper_protocol pro);
+
+mapper_protocol mapper_protocol_from_string(const char *string);
 
 int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd);
 
