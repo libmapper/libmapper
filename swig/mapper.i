@@ -2584,7 +2584,7 @@ typedef struct _map_query {
                                   timeout);
         return $self;
     }
-    database *unsubscribe(device *dev) {
+    database *unsubscribe(device *dev=0) {
         mapper_database_unsubscribe((mapper_database)$self, (mapper_device)dev);
         return $self;
     }
