@@ -2660,12 +2660,12 @@ typedef struct _map_query {
     int get_num_devices() {
         return mapper_database_num_devices((mapper_database)$self);
     }
-    mapper_device device(const char *device_name) {
-        return mapper_database_device_by_name((mapper_database)$self,
-                                              device_name);
+    device *device(const char *device_name) {
+        return (device*)mapper_database_device_by_name((mapper_database)$self,
+                                                       device_name);
     }
-    mapper_device device(mapper_id id) {
-        return mapper_database_device_by_id((mapper_database)$self, id);
+    device *device(mapper_id id) {
+        return (device*)mapper_database_device_by_id((mapper_database)$self, id);
     }
     device_query *devices() {
         device_query *ret = malloc(sizeof(struct _device_query));
@@ -2693,8 +2693,8 @@ typedef struct _map_query {
     int get_num_links() {
         return mapper_database_num_links((mapper_database)$self);
     }
-    mapper_link link(mapper_id id) {
-        return mapper_database_link_by_id((mapper_database)$self, id);
+    link *link(mapper_id id) {
+        return (link*)mapper_database_link_by_id((mapper_database)$self, id);
     }
     link_query *links() {
         mapper_link *links;
@@ -2717,8 +2717,8 @@ typedef struct _map_query {
     int get_num_signals(mapper_direction dir=MAPPER_DIR_ANY) {
         return mapper_database_num_signals((mapper_database)$self, dir);
     }
-    mapper_signal signal(mapper_id id) {
-        return mapper_database_signal_by_id((mapper_database)$self, id);
+    signal *signal(mapper_id id) {
+        return (signal*)mapper_database_signal_by_id((mapper_database)$self, id);
     }
     signal_query *signals(mapper_direction dir=MAPPER_DIR_ANY) {
         mapper_signal *sigs;
@@ -2748,8 +2748,8 @@ typedef struct _map_query {
     int get_num_maps() {
         return mapper_database_num_maps((mapper_database)$self);
     }
-    mapper_map map(mapper_id id) {
-        return mapper_database_map_by_id((mapper_database)$self, id);
+    map *map(mapper_id id) {
+        return (map*)mapper_database_map_by_id((mapper_database)$self, id);
     }
     map_query *maps() {
         mapper_map *maps = mapper_database_maps((mapper_database)$self);
