@@ -240,12 +240,16 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
                 if (atom->index & (PROPERTY_ADD | PROPERTY_REMOVE)) {
                     trace("Cannot add or remove values from static property '%s'.\n",
                           static_properties[MASK_PROP_BITFLAGS(atom->index)].name);
+                    atom->length = 0;
+                    atom->types = 0;
                     continue;
                 }
             }
             if (!prop.protocol_type) {
                 trace("Static property '%s' cannot be set by message.\n",
                       static_properties[MASK_PROP_BITFLAGS(atom->index)].name);
+                atom->length = 0;
+                atom->types = 0;
                 continue;
             }
             if (prop.protocol_type == 'n') {
@@ -253,6 +257,8 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
                     trace("Static property '%s' cannot have type '%c' (2).\n",
                           static_properties[MASK_PROP_BITFLAGS(atom->index)].name,
                           atom->types[0]);
+                    atom->length = 0;
+                    atom->types = 0;
                     continue;
                 }
             }
@@ -261,6 +267,8 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
                     trace("Static property '%s' cannot have type '%c' (2).\n",
                           static_properties[MASK_PROP_BITFLAGS(atom->index)].name,
                           atom->types[0]);
+                    atom->length = 0;
+                    atom->types = 0;
                     continue;
                 }
             }
@@ -268,6 +276,8 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
                 trace("Static property '%s' cannot have type '%c' (1).\n",
                       static_properties[MASK_PROP_BITFLAGS(atom->index)].name,
                       atom->types[0]);
+                atom->length = 0;
+                atom->types = 0;
                 continue;
             }
         }
