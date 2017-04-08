@@ -410,6 +410,42 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
             }
             break;
         }
+        case 'b':
+        {
+            int *int_to = (int*)prop->value;
+            if (prop->length > 1) {
+                for (i = 0; i < prop->length; i++) {
+                    PyObject *element = PySequence_GetItem(from, i);
+                    if (PyInt_Check(element))
+                        int_to[i] = PyInt_AsLong(element);
+                    else if (PyFloat_Check(element))
+                        int_to[i] = (int)PyFloat_AsDouble(element);
+                    else if (PyBool_Check(element)) {
+                        if (PyObject_IsTrue(element))
+                            int_to[i] = 1;
+                        else
+                            int_to[i] = 0;
+                    }
+                    else
+                        return 1;
+                }
+            }
+            else {
+                if (PyInt_Check(from))
+                    *int_to = PyInt_AsLong(from);
+                else if (PyFloat_Check(from))
+                    *int_to = (int)PyFloat_AsDouble(from);
+                else if (PyBool_Check(from)) {
+                    if (PyObject_IsTrue(from))
+                        *int_to = 1;
+                    else
+                        *int_to = 0;
+                }
+                else
+                    return 1;
+            }
+            break;
+        }
         default:
             return 1;
             break;
@@ -419,7 +455,13 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
 
 static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
 {
-  if (PyInt_Check(v) || PyLong_Check(v) || PyBool_Check(v)) {
+    if (PyBool_Check(v)) {
+        if (*c == 0)
+            *c = 'b';
+        else if (*c == 's')
+            return 1;
+    }
+    else if (PyInt_Check(v) || PyLong_Check(v)) {
         if (*c == 0)
             *c = 'i';
         else if (*c == 's')
@@ -561,6 +603,15 @@ static PyObject *prop_to_py(property_value prop, const char *name)
             }
             break;
         }
+        case 'b':
+            if (prop->length > 1) {
+                int *vect = (int*)prop->value;
+                for (i=0; i<prop->length; i++)
+                    PyList_SetItem(v, i, PyBool_FromLong(vect[i]));
+            }
+            else
+                v = PyBool_FromLong(*(int*)prop->value);
+            break;
         default:
             return 0;
             break;
