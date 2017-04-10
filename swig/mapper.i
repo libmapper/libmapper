@@ -2225,6 +2225,15 @@ typedef struct _map_query {
         $self->query = mapper_map_query_difference($self->query, copy);
         return $self;
     }
+    map_query *release() {
+        // need to use a copy of query
+        mapper_map *copy = mapper_map_query_copy($self->query);
+        while (copy) {
+            mapper_map_release(*copy);
+            copy = mapper_map_query_next(copy);
+        }
+        return $self;
+    }
 }
 
 %extend _map {
