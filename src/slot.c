@@ -329,24 +329,27 @@ int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
             case AT_MAX:
             case AT_MIN:
                 if (atom->types[0] == 'N') {
-                    mapper_table_remove_record(slot->props, atom->index & ~mask,
-                                               NULL, REMOTE_MODIFY);
+                    updated += mapper_table_remove_record(slot->props,
+                                                          atom->index & ~mask,
+                                                          NULL, REMOTE_MODIFY);
                     break;
                 }
                 if (check_signal_type(atom->types[0]))
                     break;
-                mapper_table_set_record_from_atom(slot->props, atom,
-                                                  REMOTE_MODIFY);
+                updated += mapper_table_set_record_from_atom(slot->props, atom,
+                                                             REMOTE_MODIFY);
                 if (!slot->local || !slot->local->router_sig) {
                     if (!slot->signal->length) {
-                        mapper_table_set_record(slot->signal->props, AT_LENGTH,
-                                                NULL, 1, 'i', &atom->length,
-                                                REMOTE_MODIFY);
+                        updated += mapper_table_set_record(slot->signal->props,
+                                                           AT_LENGTH, NULL, 1,
+                                                           'i', &atom->length,
+                                                           REMOTE_MODIFY);
                     }
                     if (!slot->signal->type) {
-                        mapper_table_set_record(slot->signal->props, AT_TYPE,
-                                                NULL, 1, 'c', &atom->types[0],
-                                                REMOTE_MODIFY);
+                        updated += mapper_table_set_record(slot->signal->props,
+                                                           AT_TYPE, NULL, 1,
+                                                           'c', &atom->types[0],
+                                                           REMOTE_MODIFY);
                     }
                 }
                 else if (!slot->signal->length || !slot->signal->type)
@@ -360,8 +363,8 @@ int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
                 if (slot->map->local)
                     break;
             default:
-                updated = mapper_table_set_record_from_atom(slot->props, atom,
-                                                            REMOTE_MODIFY);
+                updated += mapper_table_set_record_from_atom(slot->props, atom,
+                                                             REMOTE_MODIFY);
                 break;
         }
     }
