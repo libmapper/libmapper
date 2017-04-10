@@ -2001,7 +2001,6 @@ typedef struct _signal_query {
         return 0;
     }
     named_property get_property(int index) {
-        fflush(stdout);
         mapper_signal sig = (mapper_signal)$self;
         const char *name;
         int length;
@@ -2513,6 +2512,7 @@ typedef struct _map_query {
                 return 0;
             }
             named_property prop = malloc(sizeof(named_property_t));
+            prop->name = name;
             prop->value.length = length;
             prop->value.type = type;
             prop->value.value = (void*)value;
