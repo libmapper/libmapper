@@ -23,6 +23,7 @@ void mapper_slot_init(mapper_slot slot)
     int index, local = slot->local && slot->local->router_sig;
     slot->props = mapper_table_new();
     slot->staged_props = mapper_table_new();
+    slot->bound_min = slot->bound_max = MAPPER_BOUND_NONE;
 
     // these properties need to be added in alphabetical order
     index = slot_prop_index(slot, AT_BOUND_MAX);
