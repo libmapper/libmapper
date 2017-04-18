@@ -1072,10 +1072,13 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %constant int BOUND_WRAP                = MAPPER_BOUND_WRAP;
 
 /*! Describes the map modes. */
+%constant int MODE_UNDEFINED            = MAPPER_MODE_UNDEFINED;
+%constant int MODE_RAW                  = MAPPER_MODE_RAW;
 %constant int MODE_LINEAR               = MAPPER_MODE_LINEAR;
 %constant int MODE_EXPRESSION           = MAPPER_MODE_EXPRESSION;
 
 /*! Describes the possible locations for map stream processing. */
+%constant int LOC_UNDEFINED             = MAPPER_LOC_UNDEFINED;
 %constant int LOC_SOURCE                = MAPPER_LOC_SOURCE;
 %constant int LOC_DESTINATION           = MAPPER_LOC_DESTINATION;
 
@@ -2310,7 +2313,7 @@ typedef struct _map_query {
     int get_num_destinations() {
         return mapper_map_num_destinations((mapper_map)$self);
     }
-    mapper_location get_process_location() {
+    int get_process_location() {
         return mapper_map_process_location((mapper_map)$self);
     }
     property_value get_property(const char *key) {
@@ -2372,7 +2375,7 @@ typedef struct _map_query {
         mapper_map_set_muted((mapper_map)$self, muted);
         return $self;
     }
-    map *set_process_location(mapper_location loc) {
+    map *set_process_location(int loc) {
         mapper_map_set_process_location((mapper_map)$self, loc);
         return $self;
     }
