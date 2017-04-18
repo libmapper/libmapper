@@ -257,17 +257,13 @@ void mapper_signal_update_int(mapper_signal sig, int value)
 
 #ifdef DEBUG
     if (sig->type != 'i') {
-        trace("called mapper_signal_update_int() on non-int signal!\n");
+        trace("called update_int() on non-int signal '%s' (%c)\n",
+              sig->name, sig->type);
         return;
     }
-
     if (sig->length != 1) {
-        trace("called mapper_signal_update_int() on non-scalar signal!\n");
-        return;
-    }
-
-    if (!sig->device) {
-        trace("signal does not have a device in mapper_signal_update_int().\n");
+        trace("called update_int() on non-scalar signal '%s' (%d)\n",
+              sig->name, sig->length);
         return;
     }
 #endif
@@ -288,17 +284,13 @@ void mapper_signal_update_float(mapper_signal sig, float value)
 
 #ifdef DEBUG
     if (sig->type != 'f') {
-        trace("called mapper_signal_update_float() on non-float signal!\n");
+        trace("called update_float() on non-float signal '%s' (%c)\n",
+              sig->name, sig->type);
         return;
     }
-
     if (sig->length != 1) {
-        trace("called mapper_signal_update_float() on non-scalar signal!\n");
-        return;
-    }
-
-    if (!sig->device) {
-        trace("signal does not have a device in mapper_signal_update_float().\n");
+        trace("called update_float() on non-scalar signal '%s' (%d)\n",
+              sig->name, sig->length);
         return;
     }
 #endif
@@ -319,17 +311,13 @@ void mapper_signal_update_double(mapper_signal sig, double value)
 
 #ifdef DEBUG
     if (sig->type != 'd') {
-        trace("called mapper_signal_update_double() on non-double signal!\n");
+        trace("called update_double() on non-double signal '%s' (%c)\n",
+              sig->name, sig->type);
         return;
     }
-
     if (sig->length != 1) {
-        trace("called mapper_signal_update_double() on non-scalar signal!\n");
-        return;
-    }
-
-    if (!sig->device) {
-        trace("signal does not have a device in mapper_signal_update_double().\n");
+        trace("called update_double() on non-scalar signal '%s' (%d)\n",
+              sig->name, sig->length);
         return;
     }
 #endif
