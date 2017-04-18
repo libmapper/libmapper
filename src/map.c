@@ -381,7 +381,7 @@ void mapper_map_set_description(mapper_map map, const char *description)
 
 void mapper_map_set_mode(mapper_map map, mapper_mode mode)
 {
-    if (map && mode > MAPPER_MODE_UNDEFINED && mode < NUM_MAPPER_MODES) {
+    if (map && mode > MAPPER_MODE_RAW && mode < NUM_MAPPER_MODES) {
         mapper_table_set_record(map->staged_props, AT_MODE, NULL, 1, 'i', &mode,
                                 REMOTE_MODIFY);
     }
