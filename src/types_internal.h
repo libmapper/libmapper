@@ -652,6 +652,6 @@ typedef struct _mapper_message
 {
     mapper_message_atom_t *atoms;
     int num_atoms;
-} mapper_message_t, *mapper_message;
+} *mapper_message;
 
 #endif // __MAPPER_TYPES_H__

@@ -164,7 +164,7 @@ static void remove_callback(fptr_list *head, const void *f, const void *user)
 
 mapper_device mapper_database_add_or_update_device(mapper_database db,
                                                    const char *name,
-                                                   mapper_message_t *props)
+                                                   mapper_message msg)
 {
     const char *no_slash = skip_slash(name);
     mapper_device dev = mapper_database_device_by_name(db, no_slash);
@@ -182,7 +182,7 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
     }
 
     if (dev) {
-        updated = mapper_device_set_from_message(dev, props);
+        updated = mapper_device_set_from_message(dev, msg);
         mapper_timetag_now(&dev->synced);
 
         if (rc || updated) {
@@ -492,7 +492,7 @@ mapper_device mapper_database_expired_device(mapper_database db,
 mapper_signal mapper_database_add_or_update_signal(mapper_database db,
                                                    const char *name,
                                                    const char *device_name,
-                                                   mapper_message_t *props)
+                                                   mapper_message msg)
 {
     mapper_signal sig = 0;
     int sig_rc = 0, dev_rc = 0, updated = 0;
@@ -522,7 +522,7 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
     }
 
     if (sig) {
-        updated = mapper_signal_set_from_message(sig, props);
+        updated = mapper_signal_set_from_message(sig, msg);
         if (sig_rc) {
             // update device num_signals
             if (sig->direction == MAPPER_DIR_INCOMING)
@@ -693,48 +693,62 @@ void mapper_database_remove_signals_by_query(mapper_database db,
 
 /**** Link records ****/
 
-mapper_link mapper_database_add_or_update_link(mapper_database db,
-                                               mapper_device dev1,
-                                               mapper_device dev2,
-                                               mapper_message_t *props)
+static void mapper_database_call_link_handlers(mapper_database db,
+                                               mapper_link link,
+                                               mapper_record_event event)
 {
-    mapper_link link = 0;
-    int rc = 0, updated = 0;
+    if (!db || !link)
+        return;
+
+    fptr_list cb = db->link_callbacks, temp;
+    while (cb) {
+        temp = cb->next;
+        mapper_database_link_handler *h = cb->f;
+        h(db, link, event, cb->context);
+        cb = temp;
+    }
+}
+
+mapper_link mapper_database_add_link(mapper_database db,
+                                     mapper_device dev1, mapper_device dev2,
+                                     mapper_message msg)
+{
     if (!dev1 || !dev2)
         return 0;
-    link = mapper_device_link_by_remote_device(dev1, dev2);
 
-    if (!link) {
-        link = (mapper_link)mapper_list_add_item((void**)&db->links,
-                                                  sizeof(mapper_link_t));
-        if (dev2->local) {
-            link->local_device = dev2;
-            link->remote_device = dev1;
-        }
-        else {
-            link->local_device = dev1;
-            link->remote_device = dev2;
-        }
-        mapper_link_init(link, 0);
-        rc = 1;
+    mapper_link link = mapper_device_link_by_remote_device(dev1, dev2);
+    if (link)
+        return link;
+
+    link = (mapper_link)mapper_list_add_item((void**)&db->links,
+                                             sizeof(mapper_link_t));
+    if (dev2->local) {
+        link->local_device = dev2;
+        link->remote_device = dev1;
     }
-
-    if (link) {
-        updated = mapper_link_set_from_message(link, props,
-                                               link->devices[0] != dev1);
-
-        if (rc || updated) {
-            // TODO: Should we really allow callbacks to free themselves?
-            fptr_list cb = db->link_callbacks, temp;
-            while (cb) {
-                temp = cb->next;
-                mapper_database_link_handler *h = cb->f;
-                h(db, link, rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
-                cb = temp;
-            }
-        }
+    else {
+        link->local_device = dev1;
+        link->remote_device = dev2;
     }
+    mapper_link_init(link, 0);
+
+    mapper_link_set_from_message(link, msg, link->devices[0] != dev1);
+    mapper_database_call_link_handlers(db, link, MAPPER_ADDED);
     return link;
+}
+
+int mapper_database_update_link(mapper_database db, mapper_link link,
+                                mapper_device reporting_dev,
+                                mapper_message msg)
+{
+    if (!link)
+        return 0;
+
+    int updated = mapper_link_set_from_message(link, msg,
+                                               link->devices[0] != reporting_dev);
+    if (updated)
+        mapper_database_call_link_handlers(db, link, MAPPER_MODIFIED);
+    return updated;
 }
 
 void mapper_database_add_link_callback(mapper_database db,
@@ -877,7 +891,7 @@ static mapper_signal add_sig_from_whole_name(mapper_database db,
 mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources,
                                              const char **src_names,
                                              const char *dst_name,
-                                             mapper_message_t *props)
+                                             mapper_message msg)
 {
     if (num_sources >= MAX_NUM_MAP_SOURCES) {
         trace("error: maximum mapping sources exceeded.\n");
@@ -890,8 +904,8 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
     uint64_t id = 0;
-    if (props) {
-        mapper_message_atom atom = mapper_message_property(props, AT_ID);
+    if (msg) {
+        mapper_message_atom atom = mapper_message_property(msg, AT_ID);
         if (!atom || atom->types[0] != 'h') {
             trace("No 'id' property found in map metadata, aborting.\n");
             return 0;
@@ -932,8 +946,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             src_sigs[i] = add_sig_from_whole_name(db, src_names[i]);
             if (!src_sigs[i])
                 return 0;
-            mapper_database_add_or_update_link(db, dst_sig->device,
-                                               src_sigs[i]->device, 0);
+            mapper_database_add_link(db, dst_sig->device, src_sigs[i]->device, 0);
         }
 
         map = (mapper_map)mapper_list_add_item((void**)&db->maps,
@@ -1019,7 +1032,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     }
 
     if (map) {
-        updated += mapper_map_set_from_message(map, props, 0);
+        updated += mapper_map_set_from_message(map, msg, 0);
 
         if (map->status < STATUS_ACTIVE)
             return map;
@@ -1196,6 +1209,19 @@ void mapper_database_remove_map(mapper_database db, mapper_map map,
         mapper_database_map_handler *h = cb->f;
         h(db, map, event, cb->context);
         cb = cb->next;
+    }
+
+    // decrement num_maps property of relevant links
+    mapper_device src = 0, dst = map->destination.signal->device;
+    int i;
+    for (i = 0; i < map->num_sources; i++) {
+        src = map->sources[i]->signal->device;
+        mapper_link link = mapper_device_link_by_remote_device(dst, src);
+        if (link && !link->local) {
+            --link->num_maps[src == link->devices[0] ? 0 : 1];
+            link->props->dirty = 1;
+            mapper_database_call_link_handlers(db, link, MAPPER_MODIFIED);
+        }
     }
 
     mapper_map_free(map);

@@ -1567,7 +1567,7 @@ void mapper_signal_query_done(mapper_signal *query)
 }
 
 /*! Update information about a signal record based on message properties. */
-int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
+int mapper_signal_set_from_message(mapper_signal sig, mapper_message msg)
 {
     mapper_message_atom atom;
     int i, updated = 0, len_type_diff = 0;

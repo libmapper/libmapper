@@ -1608,12 +1608,11 @@ static int handler_linked(const char *path, const char *types, lo_arg **argv,
 
     mapper_message props = mapper_message_parse_properties(argc-3, &types[3],
                                                            &argv[3]);
-    if (link)
-        updated = mapper_link_set_from_message(link, props,
-                                               link->devices[0] != dev1);
+    if (link) {
+        updated = mapper_database_update_link(&net->database, link, dev1, props);
+    }
     else {
-        link = mapper_database_add_or_update_link(&net->database, dev1, dev2,
-                                                  props);
+        link = mapper_database_add_link(&net->database, dev1, dev2, props);
     }
     mapper_message_free(props);
     if (!link)
@@ -1680,8 +1679,7 @@ static int handler_link_modify(const char *path, const char *types,
 
     mapper_message props = mapper_message_parse_properties(argc-3, &types[3],
                                                            &argv[3]);
-    updated = mapper_link_set_from_message(link, props,
-                                           link->devices[0] != dev1);
+    updated = mapper_database_update_link(&net->database, link, dev1, props);
     if (updated) {
         if (link->local->admin_addr) {
             // inform peer device
@@ -1696,7 +1694,7 @@ static int handler_link_modify(const char *path, const char *types,
         // Call local link handler if it exists
         mapper_device_link_handler *h = ldev->local->link_handler;
         if (h)
-            h(ldev, link, updated ? MAPPER_MODIFIED : MAPPER_ADDED);
+            h(ldev, link, MAPPER_MODIFIED);
         mapper_table_clear_empty_records(link->props);
     }
     mapper_message_free(props);
@@ -1828,11 +1826,24 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         ++dev->num_outgoing_maps;
         ++dev->num_incoming_maps;
 
+        mapper_link link = mapper_database_add_link(&net->database, dev, dev, 0);
+
         // Inform subscribers
         if (dev->local->subscribers) {
-            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_INCOMING_MAPS);
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+            mapper_link_send_state(link, MSG_LINKED, 0);
+
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_MAPS);
             mapper_map_send_state(map, -1, MSG_MAPPED);
         }
+
+        // Call local handlers if they exist
+        mapper_device_link_handler *lh = dev->local->link_handler;
+        if (lh)
+            lh(dev, link, MAPPER_ADDED);
+        mapper_device_map_handler *mh = dev->local->map_handler;
+        if (mh)
+            mh(dev, map, MAPPER_ADDED);
         return 0;
     }
 

@@ -2563,7 +2563,7 @@ typedef struct _map_query {
         if (!val)
             mapper_slot_set_minimum((mapper_slot)$self, 0, 0, 0);
         else
-            mapper_slot_set_minimum((mapper_slot)$self,val->length, val->type,
+            mapper_slot_set_minimum((mapper_slot)$self, val->length, val->type,
                                     val->value);
         return $self;
     }

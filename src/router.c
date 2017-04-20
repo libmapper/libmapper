@@ -488,14 +488,9 @@ static void alloc_and_init_local_slot(mapper_router rtr, mapper_slot slot,
         }
     }
     if (!slot->signal->local || (is_src && slot->map->destination.signal->local)) {
-        mapper_link link;
-        link = mapper_device_link_by_remote_device(rtr->device,
-                                                   slot->signal->device);
-        if (!link) {
-            link = mapper_database_add_or_update_link(rtr->device->database,
-                                                      rtr->device, slot->signal->device,
-                                                      0);
-        }
+        mapper_link link = mapper_database_add_link(rtr->device->database,
+                                                    rtr->device, slot->signal->device,
+                                                    0);
         if (!link->local)
             mapper_link_init(link, 1);
         slot->link = link;
@@ -710,6 +705,14 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
             check_link(rtr, map->sources[i]->link);
         }
         free_slot_memory(map->sources[i]);
+    }
+
+    // one more case: if map is local only need to decrement num_maps in local map
+    if (map->local->is_local_only) {
+        mapper_link link = mapper_device_link_by_remote_device(rtr->device,
+                                                               rtr->device);
+        if (link)
+            --link->num_maps[0];
     }
 
     // free buffers associated with user-defined expression variables

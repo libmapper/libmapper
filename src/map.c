@@ -1386,17 +1386,23 @@ static int mapper_map_check_status(mapper_map map)
         }
         map->status = STATUS_READY;
         // update in/out counts for link
-        if (map->destination.link) {
-            ++map->destination.link->num_maps[0];
-            map->destination.link->props->dirty = 1;
+        if (map->local->is_local_only) {
+            if (map->destination.link)
+                ++map->destination.link->num_maps[0];
         }
-        mapper_link last = 0, link;
-        for (i = 0; i < map->num_sources; i++) {
-            link = map->sources[i]->link;
-            if (link && link != last) {
-                ++map->sources[i]->link->num_maps[1];
-                map->sources[i]->link->props->dirty = 1;
-                last = link;
+        else {
+            if (map->destination.link) {
+                ++map->destination.link->num_maps[0];
+                map->destination.link->props->dirty = 1;
+            }
+            mapper_link last = 0, link;
+            for (i = 0; i < map->num_sources; i++) {
+                link = map->sources[i]->link;
+                if (link && link != last) {
+                    ++map->sources[i]->link->num_maps[1];
+                    map->sources[i]->link->props->dirty = 1;
+                    last = link;
+                }
             }
         }
         apply_mode(map);
