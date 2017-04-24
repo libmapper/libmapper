@@ -1449,14 +1449,11 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
 
     // set destination slot properties
     int status = 0xFF;
-    updated += mapper_slot_set_from_message(&map->destination, msg,
-                                            DST_SLOT_PROPERTY, &status);
+    updated += mapper_slot_set_from_message(&map->destination, msg, &status);
 
     // set source slot properties
     for (i = 0; i < map->num_sources; i++) {
-        updated += mapper_slot_set_from_message(map->sources[i], msg,
-                                                SRC_SLOT_PROPERTY(map->sources[i]->id),
-                                                &status);
+        updated += mapper_slot_set_from_message(map->sources[i], msg, &status);
     }
 
     for (i = 0; i < msg->num_atoms; i++) {

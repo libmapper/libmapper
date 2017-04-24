@@ -306,7 +306,7 @@ void mapper_slot_init(mapper_slot slot);
 
 void mapper_slot_free(mapper_slot slot);
 
-int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
+int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg,
                                  int *status);
 
 void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,

@@ -10,55 +10,49 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-static int slot_prop_index(mapper_slot slot, mapper_property_t prop)
+static int slot_mask(mapper_slot slot)
 {
     if (slot == &slot->map->destination)
-        return prop | DST_SLOT_PROPERTY;
+        return DST_SLOT_PROPERTY;
     else
-        return prop | SRC_SLOT_PROPERTY(slot->id);
+        return SRC_SLOT_PROPERTY(slot->id);
 }
 
 void mapper_slot_init(mapper_slot slot)
 {
-    int index, local = slot->local && slot->local->router_sig;
+    int local = slot->local && slot->local->router_sig;
     slot->props = mapper_table_new();
     slot->staged_props = mapper_table_new();
     slot->bound_min = slot->bound_max = MAPPER_BOUND_NONE;
+    int mask = slot_mask(slot);
 
     // these properties need to be added in alphabetical order
-    index = slot_prop_index(slot, AT_BOUND_MAX);
-    mapper_table_link_value(slot->props, index, 1, 'i', &slot->bound_max,
-                            MODIFIABLE);
+    mapper_table_link_value(slot->props, AT_BOUND_MAX | mask, 1, 'i',
+                            &slot->bound_max, MODIFIABLE);
 
-    index = slot_prop_index(slot, AT_BOUND_MIN);
-    mapper_table_link_value(slot->props, index, 1, 'i', &slot->bound_min,
-                            MODIFIABLE);
+    mapper_table_link_value(slot->props, AT_BOUND_MIN | mask, 1, 'i',
+                            &slot->bound_min, MODIFIABLE);
 
-    index = slot_prop_index(slot, AT_CALIBRATING);
-    mapper_table_link_value(slot->props, index, 1, 'b', &slot->calibrating,
-                            MODIFIABLE);
+    mapper_table_link_value(slot->props, AT_CALIBRATING | mask, 1, 'b',
+                            &slot->calibrating, MODIFIABLE);
 
-    index = slot_prop_index(slot, AT_CAUSES_UPDATE);
-    mapper_table_link_value(slot->props, index, 1, 'b', &slot->causes_update,
-                            MODIFIABLE);
+    mapper_table_link_value(slot->props, AT_CAUSES_UPDATE | mask, 1, 'b',
+                            &slot->causes_update, MODIFIABLE);
 
-    index = slot_prop_index(slot, AT_MAX);
-    mapper_table_link_value(slot->props, index, slot->signal->length,
+    mapper_table_link_value(slot->props, AT_MAX | mask, slot->signal->length,
                             slot->signal->type, &slot->maximum,
                             MODIFIABLE | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE);
 
-    index = slot_prop_index(slot, AT_MIN);
-    mapper_table_link_value(slot->props, index, slot->signal->length,
+    mapper_table_link_value(slot->props, AT_MIN | mask, slot->signal->length,
                             slot->signal->type, &slot->minimum,
                             MODIFIABLE | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE);
 
-    index = slot_prop_index(slot, AT_NUM_INSTANCES);
-    mapper_table_link_value(slot->props, index, 1, 'i', &slot->num_instances,
+    mapper_table_link_value(slot->props, AT_NUM_INSTANCES | mask, 1, 'i',
+                            &slot->num_instances,
                             local ? NON_MODIFIABLE : MODIFIABLE);
 
-    index = slot_prop_index(slot, AT_USE_INSTANCES);
-    mapper_table_link_value(slot->props, index, 1, 'b', &slot->use_instances,
-                            MODIFIABLE);
+    mapper_table_link_value(slot->props, AT_USE_INSTANCES | mask, 1, 'b',
+                            &slot->use_instances, MODIFIABLE);
 }
 
 void mapper_slot_free(mapper_slot slot)
@@ -160,35 +154,35 @@ int mapper_slot_property_index(mapper_slot slot, unsigned int index,
 
 void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action a)
 {
-    int index = slot_prop_index(slot, AT_BOUND_MAX);
+    int index = AT_BOUND_MAX | slot_mask(slot);
     mapper_table_set_record(slot->staged_props, index, NULL, 1, 'i', &a,
                             REMOTE_MODIFY);
 }
 
 void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action a)
 {
-    int index = slot_prop_index(slot, AT_BOUND_MIN);
+    int index = AT_BOUND_MIN | slot_mask(slot);
     mapper_table_set_record(slot->staged_props, index, NULL, 1, 'i', &a,
                             REMOTE_MODIFY);
 }
 
 void mapper_slot_set_calibrating(mapper_slot slot, int calibrating)
 {
-    int index = slot_prop_index(slot, AT_CALIBRATING);
+    int index = AT_CALIBRATING | slot_mask(slot);
     mapper_table_set_record(slot->staged_props, index, NULL, 1, 'b',
                             &calibrating, REMOTE_MODIFY);
 }
 
 void mapper_slot_set_causes_update(mapper_slot slot, int causes_update)
 {
-    int index = slot_prop_index(slot, AT_CAUSES_UPDATE);
+    int index = AT_CAUSES_UPDATE | slot_mask(slot);
     mapper_table_set_record(slot->staged_props, index, NULL, 1, 'b',
                             &causes_update, REMOTE_MODIFY);
 }
 
 void mapper_slot_set_use_instances(mapper_slot slot, int use_instances)
 {
-    int index = slot_prop_index(slot, AT_USE_INSTANCES);
+    int index = AT_USE_INSTANCES | slot_mask(slot);
     mapper_table_set_record(slot->staged_props, index, NULL, 1, 'b',
                             &use_instances, REMOTE_MODIFY);
 }
@@ -196,7 +190,7 @@ void mapper_slot_set_use_instances(mapper_slot slot, int use_instances)
 void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
                              const void *value)
 {
-    int index = slot_prop_index(slot, AT_MAX);
+    int index = AT_MAX| slot_mask(slot);
     mapper_table_set_record(slot->staged_props, index, NULL, length, type,
                             value, REMOTE_MODIFY);
 }
@@ -204,7 +198,7 @@ void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
 void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
                              const void *value)
 {
-    int index = slot_prop_index(slot, AT_MIN);
+    int index = AT_MIN | slot_mask(slot);
     mapper_table_set_record(slot->staged_props, index, NULL, length, type,
                             value, REMOTE_MODIFY);
 }
@@ -220,7 +214,7 @@ int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
         if (bound < MAPPER_BOUND_UNDEFINED || bound >= NUM_MAPPER_BOUNDARY_ACTIONS)
             return 0;
     }
-    prop = slot_prop_index(slot, prop);
+    prop = prop | slot_mask(slot);
     int flags = REMOTE_MODIFY | (publish ? 0 : LOCAL_ACCESS_ONLY);
     return mapper_table_set_record(slot->staged_props, prop, name, length, type,
                                    value, flags);
@@ -231,7 +225,7 @@ int mapper_slot_remove_property(mapper_slot slot, const char *name)
     if (!slot)
         return 0;
     mapper_property_t prop = mapper_property_from_string(name);
-    prop = slot_prop_index(slot, prop) | PROPERTY_REMOVE;
+    prop = prop | slot_mask(slot) | PROPERTY_REMOVE;
     return mapper_table_set_record(slot->staged_props, prop, name, 0, 0, 0,
                                    REMOTE_MODIFY);
 }
@@ -273,10 +267,10 @@ void mapper_slot_upgrade_extrema_memory(mapper_slot slot)
     }
 }
 
-int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
+int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg,
                                  int *status)
 {
-    int i, updated = 0;
+    int i, updated = 0, mask = slot_mask(slot);
     mapper_message_atom atom;
 
     if (!slot || !msg)
