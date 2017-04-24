@@ -267,6 +267,7 @@ typedef struct _mapper_network {
     int msgs_recvd;                 /*!< Number of messages received on the
                                      *   multicast bus. */
     int message_type;
+    uint32_t next_ping;
     uint8_t own_network;            /*! Zero if this network was created
                                      *  automatically by mapper_device_new()
                                      *  or mapper_database_new(), non-zero if
@@ -274,7 +275,6 @@ typedef struct _mapper_network {
                                      *  and should be freed by
                                      *  mapper_network_free(). */
     uint8_t database_methods_added;
-    uint32_t next_ping;
 } mapper_network_t;
 
 /*! The handle to this device is a pointer. */
@@ -463,10 +463,10 @@ typedef struct _mapper_slot {
     mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
     mapper_boundary_action bound_min;   //!< Operation for exceeded lower bound.
 
-    uint8_t direction;                  //!< DI_INCOMING or DI_OUTGOING
-    uint8_t causes_update;              //!< 1 if causes update, 0 otherwise.
-    uint8_t use_instances;              //!< 1 if using instances, 0 otherwise.
-    uint8_t calibrating;                //!< >1 if calibrating, 0 otherwise
+    int direction;                      //!< DI_INCOMING or DI_OUTGOING
+    int causes_update;                  //!< 1 if causes update, 0 otherwise.
+    int use_instances;                  //!< 1 if using instances, 0 otherwise.
+    int calibrating;                    //!< >1 if calibrating, 0 otherwise
 } mapper_slot_t, *mapper_slot;
 
 /*! The mapper_local_map structure is a linked list of mappings for a given
