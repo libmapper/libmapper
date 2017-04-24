@@ -609,7 +609,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
     mapper_history from = slot->local->history;
     mapper_history to = map->destination.local->history;
 
-    if (slot->calibrating == 1) {
+    if (slot->calibrating) {
         if (!slot->minimum) {
             slot->minimum = malloc(slot->signal->length
                                    * mapper_type_size(slot->signal->type));
@@ -626,12 +626,12 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 float *v = mapper_history_value_ptr(from[instance]);
                 float *src_min = (float*)slot->minimum;
                 float *src_max = (float*)slot->maximum;
-                if (!slot->calibrating) {
+                if (slot->calibrating == 1) {
                     for (i = 0; i < from->length; i++) {
                         src_min[i] = v[i];
                         src_max[i] = v[i];
                     }
-                    slot->calibrating = 1;
+                    slot->calibrating = 2;
                     changed = 1;
                 }
                 else {
@@ -652,12 +652,12 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 int *v = mapper_history_value_ptr(from[instance]);
                 int *src_min = (int*)slot->minimum;
                 int *src_max = (int*)slot->maximum;
-                if (!slot->calibrating) {
+                if (slot->calibrating == 1) {
                     for (i = 0; i < from->length; i++) {
                         src_min[i] = v[i];
                         src_max[i] = v[i];
                     }
-                    slot->calibrating = 1;
+                    slot->calibrating = 2;
                     changed = 1;
                 }
                 else {
@@ -678,12 +678,12 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 double *v = mapper_history_value_ptr(from[instance]);
                 double *src_min = (double*)slot->minimum;
                 double *src_max = (double*)slot->maximum;
-                if (!slot->calibrating) {
+                if (slot->calibrating == 1) {
                     for (i = 0; i < from->length; i++) {
                         src_min[i] = v[i];
                         src_max[i] = v[i];
                     }
-                    slot->calibrating = 1;
+                    slot->calibrating = 2;
                     changed = 1;
                 }
                 else {

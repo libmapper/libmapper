@@ -266,12 +266,20 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
                 }
             }
             break;
-        case 'i':
-        case 'b': {
+        case 'i': {
             int32_t *l = (int32_t*)recval;
             int32_t *r = (int32_t*)value;
             for (i = 0; i < length; i++) {
                 if (l[i] != r[i])
+                    return 1;
+            }
+            break;
+        }
+        case 'b': {
+            int32_t *l = (int32_t*)recval;
+            int32_t *r = (int32_t*)value;
+            for (i = 0; i < length; i++) {
+                if (!l[i] ^ !r[i])
                     return 1;
             }
             break;
