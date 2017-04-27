@@ -1520,6 +1520,8 @@ typedef struct _device_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __nonzero__(self):
+            return False if self.this is None else True
     }
 }
 
@@ -1706,6 +1708,8 @@ typedef struct _link_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __nonzero__(self):
+            return False if self.this is None else True
     }
 }
 
@@ -2163,6 +2167,8 @@ typedef struct _signal_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __nonzero__(self):
+            return False if self.this is None else True
     }
 }
 
@@ -2436,6 +2442,8 @@ typedef struct _map_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __nonzero__(self):
+            return False if self.this is None else True
     }
 }
 
@@ -2620,6 +2628,8 @@ typedef struct _map_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __nonzero__(self):
+            return False if self.this is None else True
     }
 }
 
@@ -2908,6 +2918,8 @@ typedef struct _map_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __nonzero__(self):
+            return False if self.this is None else True
     }
 }
 
