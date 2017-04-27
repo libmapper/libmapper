@@ -1558,11 +1558,16 @@ static int parse_signal_names(const char *types, lo_arg **argv, int argc,
             *prop_index = *dest_index+1;
     }
 
-    // check that all signal names are well formed
+    /* Check that all signal names are well formed, and that no signal names
+     * appear in both source and destination lists. */
     for (i = 0; i < num_sources; i++) {
         if (!strchr((&argv[*src_index+i]->s)+1, '/')) {
             trace("malformed source signal name '%s'.\n", &argv[*src_index+i]->s);
             return 0;
+        }
+        if (strcmp(&argv[*src_index+i]->s, &argv[*dest_index]->s)==0) {
+            trace("prevented attempt to connect signal '%s' to itself.\n",
+                  argv[*dest_index]->s);
         }
     }
     if (!strchr((&argv[*dest_index]->s)+1, '/')) {

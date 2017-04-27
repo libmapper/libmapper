@@ -94,11 +94,21 @@ void mapper_map_init(mapper_map map)
 mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
                           int num_destinations, mapper_signal *destinations)
 {
-    int i;
+    int i, j;
     if (!sources || !*sources || !destinations || !*destinations)
         return 0;
     if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES)
         return 0;
+
+    for (i = 0; i < num_sources; i++) {
+        for (j = 0; j < num_destinations; j++) {
+            if (sources[i]->id == destinations[j]->id) {
+                trace("Cannot connect signal '%s:%s' to itself.\n",
+                      mdev_name(sources[i]->device), sources[i]->name);
+                return 0;
+            }
+        }
+    }
 
     // Only 1 destination supported for now
     if (num_destinations != 1)
