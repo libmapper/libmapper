@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-/*! \file This file defines structs used to return information from
- *  the network database. */
+/*! This file defines structs used to return information from the network
+ *  database. */
 
 #include <lo/lo.h>
 

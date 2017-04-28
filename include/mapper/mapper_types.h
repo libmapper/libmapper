@@ -5,10 +5,9 @@
 extern "C" {
 #endif
 
-/*! \file This file defines opaque types that are used internally in
- *        libmapper. */
+/*! This file defines opaque types that are used internally in libmapper. */
 
-//! An internal structure defining a mapper device.
+/*! An internal structure defining a mapper device. */
 typedef void *mapper_device;
 
 //! An internal structure defining a mapper signal.

@@ -612,7 +612,8 @@ void *mapper_device_user_data(mapper_device dev);
  *  \param maximum      Pointer to a maximum value, or 0 for none.
  *  \param handler      Function to be called when the value of the signal is
  *                      updated.
- *  \param user_data    User context pointer to be passed to handler. */
+ *  \param user_data    User context pointer to be passed to handler.
+ *  \return             The new signal. */
 mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
                                        int num_instances, const char *name,
                                        int length, char type, const char *unit,
@@ -632,7 +633,8 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
  *  \param maximum      Pointer to a maximum value, or 0 for none.
  *  \param handler      Function to be called when the value of the
  *                      signal is updated.
- *  \param user_data    User context pointer to be passed to handler. */
+ *  \param user_data    User context pointer to be passed to handler.
+ *  \return             The new signal. */
 mapper_signal mapper_device_add_input_signal(mapper_device dev,
                                              const char *name,
                                              int length,
@@ -652,7 +654,8 @@ mapper_signal mapper_device_add_input_signal(mapper_device dev,
  *  \param type         The type fo the signal value.
  *  \param unit         The unit of the signal, or 0 for none.
  *  \param minimum      Pointer to a minimum value, or 0 for none.
- *  \param maximum      Pointer to a maximum value, or 0 for none. */
+ *  \param maximum      Pointer to a maximum value, or 0 for none.
+ *  \return             The new signal. */
 mapper_signal mapper_device_add_output_signal(mapper_device dev,
                                               const char *name,
                                               int length,
@@ -662,39 +665,47 @@ mapper_signal mapper_device_add_output_signal(mapper_device dev,
                                               const void *maximum);
 
 /* Remove a device's signal.
- * \param dev           The device to remove a signal from.
+ * \param dev           The device owning the signal to be removed.
  * \param sig           The signal to remove. */
 void mapper_device_remove_signal(mapper_device dev, mapper_signal sig);
 
 /*! Return the number of signals.
- *  \param dev          The device to use.
- *  \param dir          The direction of the signals to count. */
+ *  \param dev          The device to query.
+ *  \param dir          The direction of the signals to count.
+ *  \return             The number of signals. */
 int mapper_device_num_signals(mapper_device dev, mapper_direction dir);
 
 /*! Return the list of signals for a given device.
- *  \param dev          Device record to query.
+ *  \param dev          The device to query.
  *  \param dir          The direction of the signals to return.
  *  \return             A double-pointer to the first item in the list of
  *                      results. Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir);
 
 /*! Find information for a registered signal.
- *  \param dev          Device record to query.
+ *  \param dev          The device to query.
  *  \param id           Id of the signal to find in the database.
  *  \return             Information about the signal, or zero if not found. */
 mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id);
 
 /*! Find information for a registered signal.
- *  \param dev          Device record to query.
+ *  \param dev          The device to query.
  *  \param sig_name 	Name of the signal to find in the database.
  *  \return             Information about the signal, or zero if not found. */
 mapper_signal mapper_device_signal_by_name(mapper_device dev,
                                            const char *sig_name);
 
-//! Define a signal group
+/*! Create a new signal group, used for coordinating signal instances across
+ *  related signals.
+ *  \param dev          The device.
+ *  \return             A new signal group identifier. Use the function
+ *                      mapper_signal_set_group() to add or remove signals from
+ *                      a group. */
 mapper_signal_group mapper_device_add_signal_group(mapper_device dev);
 
-//! Remove a previously-defined multi-signal group.
+/*! Remove a previously-defined multi-signal group.
+ *  \param dev          The device containing the signal group to be removed.
+ *  \param group        The signal group identifier to be removed. */
 void mapper_device_remove_signal_group(mapper_device dev,
                                        mapper_signal_group group);
 
@@ -976,16 +987,16 @@ void mapper_device_print(mapper_device dev);
 
 /*! @defgroup networks Networks
 
-    @{ Networks handle the traffic on the multicast bus.  In general, you do not
-       need to worry about this interface, as a network structure will be
-       created automatically when allocating a device.  A network structure only
-       needs to be explicitly created if you plan to override default settings
-       for the multicast bus.  */
+    @{ Networks handle multicast and peer-to-peer networking between libmapper
+       devices and databases.  In general, you do not need to worry about this
+       interface, as a network structure will be created automatically when
+       allocating a device.  A network structure only needs to be explicitly
+       created if you plan to override the default settings.  */
 
 /*! Create a network with custom parameters.  Creating a network object manually
  *  is only required if you wish to specify custom network parameters.  Creating
- *  a device or admin without specifying an network will give you an object
- *  working on the "standard" configuration.
+ *  a device without specifying an network will give you an object working on
+ *  the "standard" configuration.
  * \param interface     If non-zero, a string identifying a preferred network
  *                      interface.  This string can be enumerated e.g. using
  *                      if_nameindex(). If zero, an interface will be selected
@@ -1014,7 +1025,7 @@ mapper_database mapper_network_database(mapper_network net);
  *  \return             A string containing the name of the network interface. */
 const char *mapper_network_interface(mapper_network net);
 
-/*! Return the IPv4 address used by a device to receive signals, if available.
+/*! Return the IPv4 address used by a network.
  *  \param net          The network structure to query.
  *  \return             A pointer to an in_addr struct indicating the network's
  *                      IP address, or zero if it is not available.  In general
@@ -1023,11 +1034,14 @@ const char *mapper_network_interface(mapper_network net);
 const struct in_addr *mapper_network_ip4(mapper_network net);
 
 /*! Retrieve the name of the multicast group currently in use.
- *  \param net          The network structure to query. */
+ *  \param net          The network structure to query.
+ *  \return             A string specifying the multicast group used by this
+ *                      network for bus communication. */
 const char *mapper_network_group(mapper_network net);
 
 /*! Retrieve the name of the multicast port currently in use.
- *  \param net          The network structure to query. */
+ *  \param net          The network structure to query.
+ *  \return             The port number used by this network. */
 int mapper_network_port(mapper_network net);
 
 /*! Interface to send an arbitrary OSC message to the administrative bus.
@@ -1227,7 +1241,7 @@ void *mapper_map_user_data(mapper_map map);
  *  \param map          The map to destroy. */
 void mapper_map_release(mapper_map map);
 
-/*! Get the description for a specific signal.
+/*! Get the description for a specific map.
  *  \param map          The map to check.
  *  \return             The map description. */
 const char *mapper_map_description(mapper_map map);
@@ -1268,12 +1282,12 @@ int mapper_map_is_local(mapper_map map);
 
 /*! Get the mode property for a specific map.
  *  \param map          The map to check.
- *  \return             The mode parameter for this map. */
+ *  \return             The mode property for this map. */
 mapper_mode mapper_map_mode(mapper_map map);
 
 /*! Get the expression property for a specific map.
  *  \param map          The map to check.
- *  \return             The expression evaulated by this map. */
+ *  \return             The expression property for this map. */
 const char *mapper_map_expression(mapper_map map);
 
 /*! Get the muted property for a specific map.
@@ -1310,7 +1324,7 @@ void mapper_map_set_description(mapper_map map, const char *description);
  *  take effect until synchronized with the network using mapper_map_push().
  *  \param map          The map to modify.
  *  \param mode         The mode value to set, can be MAPPER_MODE_EXPRESSION,
- *                      MAPPER_MODE_LINEAR, or MAPPER_MODE_RAW. */
+ *                      MAPPER_MODE_LINEAR. */
 void mapper_map_set_mode(mapper_map map, mapper_mode mode);
 
 /*! Set the expression property for a specific map. Changes to remote maps will not
@@ -1326,10 +1340,14 @@ void mapper_map_set_expression(mapper_map map, const char *expression);
  *  \param muted        1 to mute this map, or 0 unmute. */
 void mapper_map_set_muted(mapper_map map, int muted);
 
-/*! Set the process location property for a specific map. Depending on the map
- *  topology and expression specified it may not be possible to set the process
- *  location to MAPPER_LOC_SOURCE for all maps. Changes to remote maps will not
- *  take effect until synchronized with the network using mapper_map_push().
+/*! Set the process location property for this Map. Depending on the Map
+ *  topology and expression specified it may not be possible to set the
+ *  process location to MAPPER_LOC_SOURCE for all maps.  E.g. for
+ *  "convergent" topologies or for processing expressions that use
+ *  historical values of the destination signal, libmapper will force
+ *  processing to take place at the destination device.  Changes to
+ *  remote maps will not take effect until synchronized with the network
+ *  using mapper_map_push().
  *  \param map      The map to modify.
  *  \param location     MAPPER_LOC_SOURCE to indicate processing should be
  *                      handled by the source device, MAPPER_LOC_DESTINATION for
@@ -1561,10 +1579,10 @@ int mapper_slot_property_index(mapper_slot slot, unsigned int index,
                                const char **name, int *length, char *type,
                                const void **value);
 
-/*! Get the "send as instance" property for a specific map slot. If enabled,
+/*! Get the "use instances" property for a specific map slot. If enabled,
  *  updates to this slot will be treated as updates to a specific instance.
  *  \param slot         The slot to check.
- *  \return         	One to send as instance, 0 otherwise. */
+ *  \return         	One to use instances, 0 otherwise. */
 int mapper_slot_use_instances(mapper_slot slot);
 
 /*! Get the index for a specific map slot.
@@ -1629,12 +1647,12 @@ void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
 void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
                              const void *value);
 
-/*! Set the "use as instance" property for a specific map slot.  If enabled,
+/*! Set the "use instances" property for a specific map slot.  If enabled,
  *  updates to this slot will be treated as updates to a specific instance.
  *  Changes to remote maps will not take effect until synchronized with the
  *  network using mapper_map_push().
  *  \param slot             The slot to modify.
- *  \param use_instances    One to send as instance update, 0 otherwise. */
+ *  \param use_instances    One to use instance updates, 0 otherwise. */
 void mapper_slot_set_use_instances(mapper_slot slot, int use_instances);
 
 /*! Set an arbitrary property for a specific map slot.  Changes to remote maps
@@ -1672,15 +1690,15 @@ void mapper_slot_print(mapper_slot slot);
 
     @{ Databases are the primary interface through which a program may observe
        the network and store information about devices and signals that are
-       present.  Each Database has a database of devices, signals, and maps,
-       which can be queried. */
+       present.  Each Database stores records of devices, signals, links, and
+       maps, which can be queried. */
 
 /*! Create a peer in the libmapper distributed database.
  *  \param net                  A previously allocated network structure to use.
  *                              If 0, one will be allocated for use with this
  *                              database.
  *  \param autosubscribe_flags  Sets whether the database should automatically
- *                              subscribe to information about signals
+ *                              subscribe to information about links, signals
  *                              and maps when it encounters a previously-unseen
  *                              device.
  *  \return                     The new database. */
@@ -1699,7 +1717,7 @@ void mapper_database_free(mapper_database db);
 
 /*! Subscribe to information about a specific device.
  *  \param db           The database to use.
- *  \param dev          The device of interest. If NULL the admin will
+ *  \param dev          The device of interest. If NULL the database will
  *                      automatically subscribe to all discovered devices.
  *  \param flags        Bitflags setting the type of information of interest.
  *                      Can be a combination of MAPPER_OBJ_DEVICE,
@@ -1716,7 +1734,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
 
 /*! Unsubscribe from information about a specific device.
  *  \param db           The database to use.
- *  \param dev          The device of interest. If NULL the admin will
+ *  \param dev          The device of interest. If NULL the database will
  *                      unsubscribe from all devices. */
 void mapper_database_unsubscribe(mapper_database db, mapper_device dev);
 
@@ -1765,7 +1783,7 @@ typedef void mapper_database_device_handler(mapper_database db,
  *  \param db           The database to query.
  *  \param h            Callback function.
  *  \param user         A user-defined pointer to be passed to the callback
- *                      for context . */
+ *                      for context. */
 void mapper_database_add_device_callback(mapper_database db,
                                          mapper_database_device_handler *h,
                                          const void *user);
