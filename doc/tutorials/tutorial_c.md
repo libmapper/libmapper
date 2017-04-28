@@ -8,20 +8,17 @@ On Mac OS X, we provide a precompiled Framework bundle for 32- and 64-bit Intel
 platforms, so using it with XCode should be a matter of including it in your
 project.
 
-// TODO: macports/fink/homebrew/etc
-
-Overview of the API organization
-================================
+## Overview of the API organization
 
 If you take a look at the API documentation, there is a section called
 "modules".  This is divided into the following sections:
 
-* Networks
-* Devices
-* Signals
-* Maps
-* Slots
-* Databases
+* [Networks](../html/group__networks.html)
+* [Devices](../html/group__devices.html)
+* [Signals](../html/group__signals.html)
+* [Maps](../html/group__maps.html)
+* [Slots](../html/group__slots.html)
+* [Databases](../html/group__databases.html)
 
 For this tutorial, the only sections to pay attention to are **Devices** and
 **Signals**.  **Networks** are reserved for providing custom networking

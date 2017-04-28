@@ -15,12 +15,12 @@ Overview of the API organization
 
 The libmapper API is is divided into the following sections:
 
-* Networks
-* Devices
-* Signals
-* Maps
-* Slots
-* Databases
+* [Networks](../html/group__networks.html)
+* [Devices](../html/group__devices.html)
+* [Signals](../html/group__signals.html)
+* [Maps](../html/group__maps.html)
+* [Slots](../html/group__slots.html)
+* [Databases](../html/group__databases.html)
 
 For this tutorial, the only sections to pay attention to are `Devices`
 and `Signals`.  `Networks` are reserved for providing custom networking
