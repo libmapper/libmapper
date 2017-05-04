@@ -1567,7 +1567,7 @@ static int parse_signal_names(const char *types, lo_arg **argv, int argc,
         }
         if (strcmp(&argv[*src_index+i]->s, &argv[*dest_index]->s)==0) {
             trace("prevented attempt to connect signal '%s' to itself.\n",
-                  argv[*dest_index]->s);
+                  &argv[*dest_index]->s);
         }
     }
     if (!strchr((&argv[*dest_index]->s)+1, '/')) {

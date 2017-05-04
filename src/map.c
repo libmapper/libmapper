@@ -104,7 +104,7 @@ mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
         for (j = 0; j < num_destinations; j++) {
             if (sources[i]->id == destinations[j]->id) {
                 trace("Cannot connect signal '%s:%s' to itself.\n",
-                      mdev_name(sources[i]->device), sources[i]->name);
+                      mapper_device_name(sources[i]->device), sources[i]->name);
                 return 0;
             }
         }
