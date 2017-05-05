@@ -602,8 +602,7 @@ struct _mapper_device {
     int ordinal;
     int num_inputs;             //!< Number of associated input signals.
     int num_outputs;            //!< Number of associated output signals.
-    int num_incoming_links;     //!< Number of incoming network connections.
-    int num_outgoing_links;     //!< Number of outgoing network connections.
+    int num_links;              //!< Number of network connections.
     int num_incoming_maps;      //!< Number of associated incoming maps.
     int num_outgoing_maps;      //!< Number of associated outgoing maps.
     int version;                //!< Reported device state version.

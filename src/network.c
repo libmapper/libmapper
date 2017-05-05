@@ -1226,6 +1226,8 @@ static int handler_unsubscribe(const char *path, const char *types,
 {
     mapper_network net = (mapper_network) user_data;
 
+    trace("<%s> got /unsubscribe.\n", mapper_device_name(net->device));
+
     lo_address a  = lo_message_get_source(msg);
     if (!a) return 0;
 

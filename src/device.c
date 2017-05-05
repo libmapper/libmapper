@@ -39,6 +39,9 @@ void init_device_prop_table(mapper_device dev)
     mapper_table_link_value(dev->props, AT_NUM_INPUTS, 1, 'i',
                             &dev->num_inputs, flags);
 
+    mapper_table_link_value(dev->props, AT_NUM_LINKS, 1, 'i',
+                            &dev->num_links, flags);
+
     mapper_table_link_value(dev->props, AT_NUM_OUTGOING_MAPS, 1, 'i',
                             &dev->num_outgoing_maps, flags);
 
@@ -1164,22 +1167,6 @@ mapper_map *mapper_device_maps(mapper_device dev, mapper_direction dir)
                                   "hi", dev->id, dir));
 }
 
-int mapper_device_num_links(mapper_device dev, mapper_direction dir)
-{
-    if (!dev)
-        return 0;
-    switch (dir) {
-        case MAPPER_DIR_ANY:
-            return dev->num_incoming_links + dev->num_outgoing_links;
-        case MAPPER_DIR_INCOMING:
-            return dev->num_incoming_links;
-        case MAPPER_DIR_OUTGOING:
-            return dev->num_outgoing_links;
-        default:
-            return 0;
-    }
-}
-
 static int cmp_query_device_links(const void *context_data, mapper_link link)
 {
     mapper_id dev_id = *(mapper_id*)context_data;
@@ -1209,6 +1196,22 @@ static int cmp_query_device_links(const void *context_data, mapper_link link)
         }
     }
     return 0;
+}
+
+int mapper_device_num_links(mapper_device dev, mapper_direction dir)
+{
+    if (!dev || !dev->database->links)
+        return 0;
+    mapper_link *links = ((mapper_link *)
+                          mapper_list_new_query(dev->database->links,
+                                                cmp_query_device_links,
+                                                "hi", dev->id, dir));
+    int count = 0;
+    while (links && *links) {
+        ++count;
+        links = mapper_link_query_next(links);
+    }
+    return count;
 }
 
 mapper_link *mapper_device_links(mapper_device dev, mapper_direction dir)

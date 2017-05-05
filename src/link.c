@@ -67,6 +67,8 @@ void mapper_link_init(mapper_link link, int is_local)
                                    0, m);
         mapper_network_send(link->local_device->database->network);
     }
+    // increment device link count
+    ++link->local_device->num_links;
 }
 
 void mapper_link_connect(mapper_link link, const char *host, int admin_port,
@@ -102,6 +104,7 @@ void mapper_link_free(mapper_link link)
             link->local->queues = queue->next;
             free(queue);
         }
+        --link->local_device->num_links;
         free(link->local);
     }
 }
