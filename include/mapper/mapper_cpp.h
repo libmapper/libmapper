@@ -259,7 +259,7 @@ public:                                                                     \
         return vec;                                                         \
     }                                                                       \
                                                                             \
-    /*! Set arbitrary properties for all objects in the Query result.    */ \
+    /*! Set arbitrary properties for each CLASS_NAME in the Query.*/        \
     /*!  \param values  The Properties to add or modify.                 */ \
     /*!  \return        Self.                                            */ \
     template <typename... Values>                                           \
@@ -277,7 +277,7 @@ public:                                                                     \
         }                                                                   \
         return (*this);                                                     \
     }                                                                       \
-    /*! Remove a named Property from all objects in the Query result.    */ \
+    /*! Remove a named Property from each CLASS_NAME in the Query.       */ \
     /*!  \param key     The Property to remove.                          */ \
     /*!  \return        Self.                                            */ \
     Query& remove_property(const string_type &key)                          \
@@ -292,7 +292,7 @@ public:                                                                     \
         }                                                                   \
         return (*this);                                                     \
     }                                                                       \
-    /*! Associate all CLASS_NAME ## s in the Query with an arbitrary     */ \
+    /*! Associate each CLASS_NAME ## s in the Query with an arbitrary    */ \
     /*! pointer.                                                         */ \
     /*! \param user_data    A pointer to user data to be associated.     */ \
     /*! \return             Self.                                        */ \
@@ -306,9 +306,9 @@ public:                                                                     \
         }                                                                   \
         return (*this);                                                     \
     }                                                                       \
-    /*! Push "staged" property changes for the entire Query result out */   \
-    /*! to the network. */                                                  \
-    /*! \return     Self. */                                                \
+    /*! Push "staged" property changes for each CLASS_NAME in the Query  */ \
+    /*! out to the network.                                              */ \
+    /*! \return     Self.                                                */ \
     Query& push()                                                           \
     {                                                                       \
         /* use a copy */                                                    \
@@ -1898,7 +1898,7 @@ namespace mapper {
 //            { return lo::Server(mapper_device_lo_server(_dev)); }
 
         /*! Query objects provide a lazily-computed iterable list of results
-         *  from running queries against Databases. */
+         *  from running queries against a mapper::Database. */
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
