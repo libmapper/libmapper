@@ -1521,6 +1521,8 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                         }
                         if (should_compile) {
                             if (!replace_expression_string(map, expr_str)) {
+                                // TODO: don't increment updated counter twice
+                                ++updated;
                                 reallocate_map_histories(map);
                             }
                             else {

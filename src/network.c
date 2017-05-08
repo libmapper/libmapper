@@ -2380,6 +2380,9 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
         if (h)
             h(dev, map, MAPPER_MODIFIED);
     }
+    trace("<%s> /map/modify resulted in %d property changes.\n",
+              mapper_device_name(dev), updated);
+
     mapper_message_free(props);
     mapper_table_clear_empty_records(map->props);
     return 0;
