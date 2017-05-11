@@ -1412,6 +1412,8 @@ int mapper_database_poll(mapper_database db, int block_ms)
             mapper_subscription s = db->subscriptions;
             while (s) {
                 if (s->lease_expiration_sec < tt.sec) {
+                    trace("automatically renewing subscription to %s for %d seconds.\n",
+                          mapper_device_name(s->device), AUTOSUBSCRIBE_INTERVAL);
                     subscribe_internal(db, s->device, s->flags, AUTOSUBSCRIBE_INTERVAL);
                     // leave 10-second buffer for subscription renewal
                     s->lease_expiration_sec = (tt.sec

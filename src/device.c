@@ -1910,10 +1910,13 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     mapper_timetag_now(&tt);
 
     while (*s) {
-        if (strcmp(ip, lo_address_get_hostname((*s)->address))==0 &&
-            strcmp(port, lo_address_get_port((*s)->address))==0) {
+        const char *s_ip = lo_address_get_hostname((*s)->address);
+        const char *s_port = lo_address_get_port((*s)->address);
+        if (strcmp(ip, s_ip)==0 && strcmp(port, s_port)==0) {
             // subscriber already exists
             if (!flags || !timeout_seconds) {
+                trace("Removing timed-out subscription from %s:%s\n",
+                      s_ip, s_port);
                 // remove subscription
                 mapper_subscriber temp = *s;
                 int prev_flags = temp->flags;
@@ -1926,6 +1929,8 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
             }
             else {
                 // reset timeout
+                trace("Renewing subscription from %s:%s for %d seconds\n",
+                      s_ip, s_port, timeout_seconds);
                 (*s)->lease_expiration_sec = tt.sec + timeout_seconds;
                 if ((*s)->flags == flags) {
                     if (revision)
@@ -1947,6 +1952,7 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
 
     if (!(*s) && timeout_seconds) {
         // add new subscriber
+        trace("Adding new subscription from %s:%s\n", ip, port);
         mapper_subscriber sub = malloc(sizeof(struct _mapper_subscriber));
         sub->address = lo_address_new(ip, port);
         sub->lease_expiration_sec = tt.sec + timeout_seconds;
