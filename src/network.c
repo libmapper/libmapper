@@ -722,7 +722,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
              && elapsed > dev->local->link_timeout_sec)) {
             if (sync->response.message_id > 0) {
                 if (num_maps) {
-                    trace("<%s> Lost contact with linked device %s "
+                    trace("<%s> Lost contact with linked device '%s' "
                           "(%d seconds since sync).\n", mapper_device_name(dev),
                           link->remote_device->name, elapsed);
                 }
@@ -732,14 +732,14 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
             }
             else {
                 if (num_maps) {
-                    trace("<%s> Removing link to unresponsive device %s "
+                    trace("<%s> Removing link to unresponsive device '%s' "
                           "(%d seconds since warning).\n", mapper_device_name(dev),
                           link->remote_device->name, elapsed);
                     /* TODO: release related maps, call local handlers
                      * and inform subscribers. */
                 }
                 else {
-                    trace("<%s> Removing link to device %s.\n",
+                    trace("<%s> Removing link to device '%s'.\n",
                           mapper_device_name(dev), link->remote_device->name);
                 }
                 // Inform subscribers
@@ -998,7 +998,7 @@ static int handler_device(const char *path, const char *types,
     int data_port = (atom->values[0])->i;
 
     mapper_link_connect(link, host, atoi(admin_port), data_port);
-    trace("<%s> activated router to device %s at %s:%d\n",
+    trace("<%s> activated router to device '%s' at %s:%d\n",
           mapper_device_name(dev), name, host, data_port);
 
     // send /linked to peer
@@ -1109,7 +1109,7 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
         link = remote ? mapper_device_link_by_remote_device(dev, remote) : 0;
         if (link) {
             // TODO: release maps, call local handlers and inform subscribers
-            trace("<%s> Removing link to expired device %s.\n",
+            trace("<%s> Removing link to expired device '%s'.\n",
                   mapper_device_name(dev), name);
 
             // Inform subscribers
@@ -2605,18 +2605,19 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
 #ifdef DEBUG
     printf("sync received: ");
     lo_message_pp(msg);
-    printf("\n");
 #endif
 
     mapper_device dev = 0;
     if (types[0] == 's' || types[0] == 'S') {
         dev = mapper_database_device_by_name(&net->database, &argv[0]->s);
         if (dev) {
+            trace("Updating ping record for device '%s'\n", dev->name);
             if (dev->local)
                 return 0;
             mapper_timetag_copy(&dev->synced, lo_message_get_timestamp(msg));
         }
         if (net->database.autosubscribe && (!dev || !dev->subscribed)) {
+            trace("Creating new subscription for device '%s'.\n", &argv[0]->s);
             // only create device record after requesting more information
             if (dev) {
                 mapper_database_subscribe(&net->database, dev,

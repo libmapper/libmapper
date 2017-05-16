@@ -1006,7 +1006,8 @@ static void send_unmap(mapper_network net, mapper_map map)
                           map->sources[i]->signal->device->name,
                           map->sources[i]->signal->path);
         if (result < 0 || (len + result + 1) >= 1024) {
-            trace("Error encoding sources for /unmap msg");
+            trace("<%s> Error encoding sources for /unmap msg.\n",
+                  mapper_device_name(net->device));
             lo_message_free(m);
             return;
         }
@@ -1861,7 +1862,8 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     const char *ip = lo_address_get_hostname(address);
     const char *port = lo_address_get_port(address);
     if (!ip || !port) {
-        trace("Error managing subscription: %s not found\n", ip ? "port" : "ip");
+        trace("<%s> Error managing subscription: %s not found\n",
+              mapper_device_name(dev), ip ? "port" : "ip");
         return;
     }
 
@@ -1874,8 +1876,8 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
         if (strcmp(ip, s_ip)==0 && strcmp(port, s_port)==0) {
             // subscriber already exists
             if (!flags || !timeout_seconds) {
-                trace("Removing timed-out subscription from %s:%s\n",
-                      s_ip, s_port);
+                trace("<%s> Removing subscription from %s:%s\n",
+                      mapper_device_name(dev), s_ip, s_port);
                 // remove subscription
                 mapper_subscriber temp = *s;
                 int prev_flags = temp->flags;
@@ -1911,7 +1913,8 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
 
     if (!(*s) && timeout_seconds) {
         // add new subscriber
-        trace("Adding new subscription from %s:%s\n", ip, port);
+        trace("<%s> Adding new subscription from %s:%s with flags %d\n",
+              mapper_device_name(dev), ip, port, flags);
         mapper_subscriber sub = malloc(sizeof(struct _mapper_subscriber));
         sub->address = lo_address_new(ip, port);
         sub->lease_expiration_sec = tt.sec + timeout_seconds;
