@@ -695,9 +695,10 @@ static void mapper_database_call_link_handlers(mapper_database db,
     }
 }
 
-mapper_link mapper_database_add_link(mapper_database db,
-                                     mapper_device dev1, mapper_device dev2,
-                                     mapper_message msg)
+mapper_link mapper_database_add_or_update_link(mapper_database db,
+                                               mapper_device dev1,
+                                               mapper_device dev2,
+                                               mapper_message msg)
 {
     if (!dev1 || !dev2)
         return 0;
@@ -942,7 +943,8 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             src_sigs[i] = add_sig_from_whole_name(db, src_names[i]);
             if (!src_sigs[i])
                 return 0;
-            mapper_database_add_link(db, dst_sig->device, src_sigs[i]->device, 0);
+            mapper_database_add_or_update_link(db, dst_sig->device,
+                                               src_sigs[i]->device, 0);
         }
 
         map = (mapper_map)mapper_list_add_item((void**)&db->maps,

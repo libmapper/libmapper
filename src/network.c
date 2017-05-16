@@ -1619,7 +1619,8 @@ static int handler_linked(const char *path, const char *types, lo_arg **argv,
         updated = mapper_database_update_link(&net->database, link, dev1, props);
     }
     else {
-        link = mapper_database_add_link(&net->database, dev1, dev2, props);
+        link = mapper_database_add_or_update_link(&net->database, dev1, dev2,
+                                                  props);
     }
     mapper_message_free(props);
     if (!link)
@@ -1833,7 +1834,8 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         ++dev->num_outgoing_maps;
         ++dev->num_incoming_maps;
 
-        mapper_link link = mapper_database_add_link(&net->database, dev, dev, 0);
+        mapper_link link = mapper_database_add_or_update_link(&net->database,
+                                                              dev, dev, 0);
 
         // Inform subscribers
         if (dev->local->subscribers) {

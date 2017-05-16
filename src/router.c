@@ -488,9 +488,10 @@ static void alloc_and_init_local_slot(mapper_router rtr, mapper_slot slot,
         }
     }
     if (!slot->signal->local || (is_src && slot->map->destination.signal->local)) {
-        mapper_link link = mapper_database_add_link(rtr->device->database,
-                                                    rtr->device, slot->signal->device,
-                                                    0);
+        mapper_link link;
+        link = mapper_database_add_or_update_link(rtr->device->database,
+                                                  rtr->device,
+                                                  slot->signal->device, 0);
         if (!link->local)
             mapper_link_init(link, 1);
         slot->link = link;

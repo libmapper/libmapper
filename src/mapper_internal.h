@@ -239,8 +239,10 @@ void mapper_link_send_state(mapper_link link, network_message_t cmd, int staged)
 void mapper_link_start_queue(mapper_link link, mapper_timetag_t tt);
 void mapper_link_send_queue(mapper_link link, mapper_timetag_t tt);
 
-mapper_link mapper_database_add_link(mapper_database db, mapper_device dev1,
-                                     mapper_device dev2, mapper_message msg);
+mapper_link mapper_database_add_or_update_link(mapper_database db,
+                                               mapper_device dev1,
+                                               mapper_device dev2,
+                                               mapper_message msg);
 
 int mapper_database_update_link(mapper_database db, mapper_link link,
                                 mapper_device reporting_dev, mapper_message msg);
