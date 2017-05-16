@@ -10,6 +10,9 @@
 #define AUTOSUBSCRIBE_INTERVAL 60
 extern const char* network_message_strings[NUM_MSG_STRINGS];
 
+static void unsubscribe_internal(mapper_database db, mapper_device dev,
+                                 int send_message);
+
 mapper_database mapper_database_new(mapper_network net, int subscribe_flags)
 {
     if (!net)
@@ -113,19 +116,8 @@ void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
     mapper_device dev;
     uint32_t last_ping = tt.sec - timeout_sec;
     while ((dev = mapper_database_expired_device(db, last_ping))) {
-        // also need to remove subscriptions
-        mapper_subscription *s = &db->subscriptions;
-        while (*s) {
-            if ((*s)->device == dev) {
-                // don't bother sending '/unsubscribe' since device is unresponsive
-                // remove from subscriber list
-                mapper_subscription temp = *s;
-                *s = temp->next;
-                free(temp);
-            }
-            else
-                s = &(*s)->next;
-        }
+        // remove subscription
+        unsubscribe_internal(db, dev, 1);
         mapper_database_remove_device(db, dev, MAPPER_EXPIRED, quiet);
     }
 }
