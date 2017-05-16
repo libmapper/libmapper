@@ -85,14 +85,15 @@ typedef enum {
 /*! The set of possible directions for a signal or mapping slot.
  *  @ingroup map */
 typedef enum {
-    MAPPER_DIR_ANY      = 0x00,         //!< Either incoming or outgoing
-    MAPPER_DIR_INCOMING = 0x01,         //!< Incoming: signal or slot is an input
-    MAPPER_DIR_OUTGOING = 0x02,         //!< Outgoing: signal or slot is an output
-    MAPPER_DIR_BOTH     = 0x03,         /*!< Both directions apply.  Currently
-                                         *   signals and slots cannot be both
-                                         *   inputs and outputs, so this value
-                                         *   is only used for querying device
-                                         *   maps that touch only local signals. */
+    MAPPER_DIR_UNDEFINED = 0x00,    //!< Not yet defined.
+    MAPPER_DIR_INCOMING  = 0x01,    //!< Incoming: signal or slot is an input
+    MAPPER_DIR_OUTGOING  = 0x02,    //!< Outgoing: signal or slot is an output
+    MAPPER_DIR_ANY       = 0x03,    //!< Either incoming or outgoing
+    MAPPER_DIR_BOTH      = 0x04,    /*!< Both directions apply.  Currently
+                                     *   signals and slots cannot be both inputs
+                                     *   and outputs, so this value is only used
+                                     *   for querying device maps that touch
+                                     *   only local signals. */
 } mapper_direction;
 
 /*! The set of possible actions on an instance, used to register callbacks

@@ -1083,9 +1083,10 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %constant int LOC_DESTINATION           = MAPPER_LOC_DESTINATION;
 
 /*! The set of possible directions for a signal or mapping slot. */
-%constant int DIR_ANY                   = MAPPER_DIR_ANY;
+%constant int DIR_UNDEFINED             = MAPPER_DIR_UNDEFINED;
 %constant int DIR_INCOMING              = MAPPER_DIR_INCOMING;
 %constant int DIR_OUTGOING              = MAPPER_DIR_OUTGOING;
+%constant int DIR_ANY                   = MAPPER_DIR_ANY;
 
 /*! The set of possible actions on an instance, used to register callbacks to
  *  inform them of what is happening. */

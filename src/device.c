@@ -891,6 +891,10 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
         return 0;
     if (!name || check_signal_length(length) || check_signal_type(type))
         return 0;
+    if (dir != MAPPER_DIR_INCOMING && dir != MAPPER_DIR_OUTGOING) {
+        trace("signal direction must be either input or output.\n");
+        return 0;
+    }
 
     mapper_database db = dev->database;
     mapper_signal sig;
@@ -908,9 +912,8 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
 
     if (dir == MAPPER_DIR_INCOMING)
         ++dev->num_inputs;
-    if (dir == MAPPER_DIR_OUTGOING) {
+    else
         ++dev->num_outputs;
-    }
 
     mapper_device_increment_version(dev);
 
@@ -1058,18 +1061,15 @@ int mapper_device_num_signals(mapper_device dev, mapper_direction dir)
 {
     if (!dev)
         return 0;
-    if (dir == MAPPER_DIR_ANY)
-        return dev->num_inputs + dev->num_outputs;
-    return (  (dir == MAPPER_DIR_INCOMING) * dev->num_inputs
-            + (dir == MAPPER_DIR_OUTGOING) * dev->num_outputs);
+    return (  (dir & MAPPER_DIR_INCOMING ? dev->num_inputs : 0)
+            + (dir & MAPPER_DIR_OUTGOING ? dev->num_outputs : 0));
 }
 
 static int cmp_query_device_signals(const void *context_data, mapper_signal sig)
 {
     mapper_id dev_id = *(mapper_id*)context_data;
     int dir = *(int*)(context_data + sizeof(mapper_id));
-    return (((dir == MAPPER_DIR_ANY) || (dir & sig->direction))
-            && (dev_id == sig->device->id));
+    return ((dir & sig->direction) && (dev_id == sig->device->id));
 }
 
 mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir)
@@ -1118,16 +1118,8 @@ int mapper_device_num_maps(mapper_device dev, mapper_direction dir)
 {
     if (!dev)
         return 0;
-    switch (dir) {
-        case MAPPER_DIR_ANY:
-            return dev->num_incoming_maps + dev->num_outgoing_maps;
-        case MAPPER_DIR_INCOMING:
-            return dev->num_incoming_maps;
-        case MAPPER_DIR_OUTGOING:
-            return dev->num_outgoing_maps;
-        default:
-            return 0;
-    }
+    return (  (dir & MAPPER_DIR_INCOMING ? dev->num_incoming_maps : 0)
+            + (dir & MAPPER_DIR_OUTGOING ? dev->num_outgoing_maps : 0));
 }
 
 static int cmp_query_device_maps(const void *context_data, mapper_map map)
@@ -1144,16 +1136,16 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
         }
         return 1;
     }
-    if ((dir == MAPPER_DIR_ANY) || (dir & MAPPER_DIR_OUTGOING)) {
+    if (dir & MAPPER_DIR_OUTGOING) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
             if (map->sources[i]->signal->device->id == dev_id)
-            return 1;
+                return 1;
         }
     }
-    if ((dir == MAPPER_DIR_ANY) || (dir & MAPPER_DIR_INCOMING)) {
+    if (dir & MAPPER_DIR_INCOMING) {
         if (map->destination.signal->device->id == dev_id)
-        return 1;
+            return 1;
     }
     return 0;
 }
@@ -1816,42 +1808,13 @@ int mapper_device_set_from_message(mapper_device dev, mapper_message msg)
     return mapper_table_set_from_message(dev->props, msg, REMOTE_MODIFY);
 }
 
-void mapper_device_send_inputs(mapper_device dev, int min, int max)
+void mapper_device_send_signals(mapper_device dev, mapper_direction dir,
+                                int min, int max)
 {
-    if (min < 0)
-        min = 0;
-    else if (min > dev->num_inputs)
-        return;
-    if (max < 0 || max > dev->num_inputs)
-        max = dev->num_inputs-1;
-
     int i = 0;
-    mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_INCOMING);
+    mapper_signal *sig = mapper_device_signals(dev, dir);
     while (sig) {
-        if (i > max) {
-            mapper_signal_query_done(sig);
-            return;
-        }
-        if (i >= min)
-            mapper_signal_send_state(*sig, MSG_SIGNAL);
-        ++i;
-        sig = mapper_signal_query_next(sig);
-    }
-}
-
-void mapper_device_send_outputs(mapper_device dev, int min, int max)
-{
-    if (min < 0)
-        min = 0;
-    else if (min > dev->num_outputs)
-        return;
-    if (max < 0 || max > dev->num_outputs)
-        max = dev->num_outputs-1;
-
-    int i = 0;
-    mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_OUTGOING);
-    while (sig) {
-        if (i > max) {
+        if (i > max && max > 0) {
             mapper_signal_query_done(sig);
             return;
         }
@@ -1874,22 +1837,18 @@ static void mapper_device_send_links(mapper_device dev, mapper_direction dir)
 static void mapper_device_send_maps(mapper_device dev, mapper_direction dir,
                                     int min, int max)
 {
-    int i, count = 0;
-    mapper_router_signal rs = dev->local->router->signals;
-    while (rs) {
-        for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i] || rs->slots[i]->direction == dir)
-                continue;
-            if (max > 0 && count > max)
-                return;
-            if (count >= min) {
-                mapper_map map = rs->slots[i]->map;
-                mapper_network_init(dev->database->network);
-                mapper_map_send_state(map, -1, MSG_MAPPED);
-            }
-            ++count;
+    int i = 0;
+    mapper_map *maps = mapper_device_maps(dev, dir);
+    while (maps) {
+        if (i > max && max > 0) {
+            mapper_map_query_done(maps);
+            return;
         }
-        rs = rs->next;
+        if (i >= min) {
+            mapper_map_send_state(*maps, -1, MSG_MAPPED);
+        }
+        ++i;
+        maps = mapper_map_query_next(maps);
     }
 }
 

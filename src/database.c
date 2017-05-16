@@ -523,13 +523,6 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
 
     if (sig) {
         updated = mapper_signal_set_from_message(sig, msg);
-        if (sig_rc) {
-            // update device num_signals
-            if (sig->direction == MAPPER_DIR_INCOMING)
-                ++dev->num_inputs;
-            else if (sig->direction == MAPPER_DIR_OUTGOING)
-                ++dev->num_outputs;
-        }
 
         if (sig_rc || updated) {
             // TODO: Should we really allow callbacks to free themselves?
@@ -562,7 +555,7 @@ void mapper_database_remove_signal_callback(mapper_database db,
 static int cmp_query_signals(const void *context_data, mapper_signal sig)
 {
     int dir = *(int*)context_data;
-    return (dir == MAPPER_DIR_ANY) || (dir == sig->direction);
+    return dir & sig->direction;
 }
 
 int mapper_database_num_signals(mapper_database db, mapper_direction dir)
@@ -570,7 +563,7 @@ int mapper_database_num_signals(mapper_database db, mapper_direction dir)
     int count = 0;
     mapper_signal sig = db->signals;
     while (sig) {
-        if ((dir == MAPPER_DIR_ANY) || (dir == sig->direction))
+        if (dir & sig->direction)
             ++count;
         sig = mapper_list_next(sig);
     }
@@ -604,8 +597,7 @@ static int cmp_query_signals_by_name(const void *context_data,
 {
     int dir = *(int*)context_data;
     const char *name = (const char*)(context_data + sizeof(int));
-    return (((dir == MAPPER_DIR_ANY) || (dir == sig->direction))
-            && (match_pattern(sig->name, name)));
+    return ((dir & sig->direction) && (match_pattern(sig->name, name)));
 }
 
 mapper_signal *mapper_database_signals_by_name(mapper_database db,
