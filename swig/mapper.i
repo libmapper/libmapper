@@ -2635,9 +2635,12 @@ typedef struct _map_query {
 }
 
 %extend _database {
-    _database(network *DISOWN=0, int subscribe_flags=0x00) {
+    _database(network *DISOWN, int subscribe_flags=0x00) {
         return (database*)mapper_database_new((mapper_network)DISOWN,
                                               subscribe_flags);
+    }
+    _database(int subscribe_flags=0x00) {
+        return (database*)mapper_database_new(0, subscribe_flags);
     }
     ~_database() {
         mapper_database_free((mapper_database)$self);
@@ -2666,7 +2669,7 @@ typedef struct _map_query {
         mapper_database_request_devices((mapper_database)$self);
         return $self;
     }
-    database *flush(int timeout=-1, int quiet=1) {
+    database *flush(int timeout=-1, booltype quiet=1) {
         mapper_database_flush((mapper_database)$self, timeout, quiet);
         return $self;
     }

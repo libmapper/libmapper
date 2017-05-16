@@ -422,6 +422,7 @@ typedef struct _mapper_link {
         };
     };
     int *num_maps;
+    int version;
 } mapper_link_t, *mapper_link;
 
 /**** Maps and Slots ****/
