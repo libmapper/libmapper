@@ -83,6 +83,9 @@ void loop()
             continue;
         update = -10;
 
+        if (!verbose)
+            continue;
+
         // clear screen & cursor to home
         printf("\e[2J\e[0;0H");
         fflush(stdout);
