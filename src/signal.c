@@ -56,7 +56,7 @@ static mapper_signal_instance find_instance_by_id(mapper_signal sig,
     return 0;
 }
 
-void mapper_signal_init(mapper_signal sig, mapper_direction direction,
+void mapper_signal_init(mapper_signal sig, mapper_direction dir,
                         int num_instances, const char *name, int length,
                         char type, const char *unit,
                         const void *minimum, const void *maximum,
@@ -75,7 +75,7 @@ void mapper_signal_init(mapper_signal sig, mapper_direction direction,
 
     sig->length = length;
     sig->type = type;
-    sig->direction = direction;
+    sig->direction = dir ?: MAPPER_DIR_OUTGOING;
     sig->unit = unit ? strdup(unit) : strdup("unknown");
     sig->minimum = sig->maximum = 0;
 
