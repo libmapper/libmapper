@@ -1538,7 +1538,13 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
     int portnum = lo_server_get_port(dev->local->server);
     mapper_table_set_record(dev->props, AT_PORT, NULL, 1, 'i', &portnum,
                             NON_MODIFIABLE);
-    trace("bound to port %i\n", portnum);
+    char *url = lo_server_get_url(dev->local->server);
+    char *host = lo_url_get_hostname(url);
+    mapper_table_set_record(dev->props, AT_HOST, NULL, 1, 's', host,
+                            NON_MODIFIABLE);
+    free(host);
+    free(url);
+    trace("<%s.?> bound to port %i\n", dev->identifier, portnum);
 
     // add signal methods
     mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
