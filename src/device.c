@@ -91,6 +91,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
 
     init_device_prop_table(dev);
 
+    dev->identifier = strdup(name_prefix);
     mapper_device_start_server(dev, port);
 
     if (!dev->local->server) {
@@ -101,13 +102,13 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     if (name_prefix[0] == '/')
         ++name_prefix;
     if (strchr(name_prefix, '/')) {
-        trace("error: character '/' is not permitted in device name.\n");
+        trace("<%s.?> error: character '/' is not permitted in device name.\n",
+              dev->identifier);
         mapper_device_free(dev);
         return NULL;
     }
 
     dev->local->ordinal.value = 1;
-    dev->identifier = strdup(name_prefix);
 
     dev->local->router = (mapper_router)calloc(1, sizeof(mapper_router_t));
     dev->local->router->device = dev;
