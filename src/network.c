@@ -2183,11 +2183,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             mapper_map_send_state(map, -1, MSG_MAPPED);
             dev = map->sources[0]->signal->device;
             ++dev->num_outgoing_maps;
-            if (dev->local->subscribers) {
-                // inform device subscribers of change to num_maps
-                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
-                mapper_device_send_state(dev, MSG_DEVICE);
-            }
         }
         else {
             for (i = 0; i < map->num_sources; i++) {
@@ -2198,11 +2193,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             }
             dev = map->destination.signal->device;
             ++dev->num_incoming_maps;
-            if (dev->local->subscribers) {
-                // inform device subscribers of change to num_maps
-                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
-                mapper_device_send_state(dev, MSG_DEVICE);
-            }
         }
         updated++;
     }

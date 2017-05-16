@@ -298,6 +298,7 @@ void mapper_device_registered(mapper_device dev)
 static void mapper_device_increment_version(mapper_device dev)
 {
     ++dev->version;
+    dev->props->dirty = 1;
 }
 
 static int check_types(const char *types, int len, char type, int vector_len)
@@ -1338,6 +1339,14 @@ int mapper_device_poll(mapper_device dev, int block_ms)
     }
 
     net->msgs_recvd += admin_count;
+
+    if (dev->props->dirty && mapper_device_ready(dev)
+        && dev->local->subscribers) {
+        // inform device subscribers of change props
+        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+        mapper_device_send_state(dev, MSG_DEVICE);
+    }
+
     return admin_count + device_count;
 }
 
@@ -1744,6 +1753,8 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd)
     }
     else
         mapper_network_add_message(dev->database->network, 0, cmd, msg);
+
+    dev->props->dirty = 0;
 }
 
 void mapper_device_set_link_callback(mapper_device dev,
