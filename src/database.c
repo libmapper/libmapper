@@ -1293,37 +1293,45 @@ static void subscribe_internal(mapper_database db, mapper_device dev, int flags,
     snprintf(cmd, 1024, "/%s/subscribe", dev->name);
 
     set_network_dest(db, dev);
-    lo_message m = lo_message_new();
-    if (m) {
-        if (flags & MAPPER_OBJ_ALL)
-            lo_message_add_string(m, "all");
+    lo_message msg = lo_message_new();
+    if (msg) {
+        if (flags == MAPPER_OBJ_ALL)
+            lo_message_add_string(msg, "all");
         else {
             if (flags & MAPPER_OBJ_DEVICES)
-                lo_message_add_string(m, "device");
-            if (flags & MAPPER_OBJ_SIGNALS)
-                lo_message_add_string(m, "signals");
+                lo_message_add_string(msg, "device");
+            if ((flags & MAPPER_OBJ_SIGNALS) == MAPPER_OBJ_SIGNALS)
+                lo_message_add_string(msg, "signals");
             else {
                 if (flags & MAPPER_OBJ_INPUT_SIGNALS)
-                    lo_message_add_string(m, "inputs");
+                    lo_message_add_string(msg, "inputs");
                 else if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
-                    lo_message_add_string(m, "outputs");
+                    lo_message_add_string(msg, "outputs");
             }
-            if (flags & MAPPER_OBJ_MAPS)
-                lo_message_add_string(m, "maps");
+            if ((flags & MAPPER_OBJ_LINKS) == MAPPER_OBJ_LINKS)
+                lo_message_add_string(msg, "links");
+            else {
+                if (flags & MAPPER_OBJ_INCOMING_LINKS)
+                    lo_message_add_string(msg, "incoming_links");
+                else if (flags & MAPPER_OBJ_OUTGOING_LINKS)
+                    lo_message_add_string(msg, "outgoing_links");
+            }
+            if ((flags & MAPPER_OBJ_MAPS) == MAPPER_OBJ_MAPS)
+                lo_message_add_string(msg, "maps");
             else {
                 if (flags & MAPPER_OBJ_INCOMING_MAPS)
-                    lo_message_add_string(m, "incoming_maps");
+                    lo_message_add_string(msg, "incoming_maps");
                 else if (flags & MAPPER_OBJ_OUTGOING_MAPS)
-                    lo_message_add_string(m, "outgoing_maps");
+                    lo_message_add_string(msg, "outgoing_maps");
             }
         }
-        lo_message_add_string(m, "@lease");
-        lo_message_add_int32(m, timeout);
+        lo_message_add_string(msg, "@lease");
+        lo_message_add_int32(msg, timeout);
 
-        lo_message_add_string(m, "@version");
-        lo_message_add_int32(m, dev->version);
+        lo_message_add_string(msg, "@version");
+        lo_message_add_int32(msg, dev->version);
 
-        mapper_network_add_message(db->network, cmd, 0, m);
+        mapper_network_add_message(db->network, cmd, 0, msg);
         mapper_network_send(db->network);
     }
 }
@@ -1348,6 +1356,7 @@ static void unsubscribe_internal(mapper_database db, mapper_device dev,
                 mapper_network_send(db->network);
             }
             // remove from subscriber list
+            (*s)->device->subscribed = 0;
             mapper_subscription temp = *s;
             *s = temp->next;
             free(temp);
@@ -1461,6 +1470,21 @@ static void mapper_database_autosubscribe(mapper_database db, int flags)
 {
     if (!db->autosubscribe && flags) {
         mapper_database_add_device_callback(db, on_device_autosubscribe, db);
+        // update flags for existing subscriptions
+        mapper_timetag_t tt;
+        mapper_timetag_now(&tt);
+        mapper_subscription s = db->subscriptions;
+        while (s) {
+            trace("adjusting flags for existing autorenewing subscription to %s.\n",
+                  mapper_device_name(s->device));
+            if (flags & ~s->flags) {
+                subscribe_internal(db, s->device, flags, AUTOSUBSCRIBE_INTERVAL);
+                // leave 10-second buffer for subscription renewal
+                s->lease_expiration_sec = (tt.sec + AUTOSUBSCRIBE_INTERVAL - 10);
+            }
+            s->flags = flags;
+            s = s->next;
+        }
         mapper_database_request_devices(db);
     }
     else if (db->autosubscribe && !flags) {
@@ -1506,9 +1530,13 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
             // store subscription record
             s = malloc(sizeof(struct _mapper_subscription));
             s->device = dev;
+            s->device->version = -1;
             s->next = db->subscriptions;
             db->subscriptions = s;
         }
+        else if (s->flags != flags)
+            s->device->version = -1;
+
         s->flags = flags;
 
         mapper_timetag_t tt;

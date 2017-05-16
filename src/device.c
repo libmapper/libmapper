@@ -1908,15 +1908,9 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
             }
             else {
                 // reset timeout
-                trace("Renewing subscription from %s:%s for %d seconds\n",
-                      s_ip, s_port, timeout_seconds);
+                trace("<%s> Renewing subscription from %s:%s for %d seconds\n",
+                      mapper_device_name(dev), s_ip, s_port, timeout_seconds);
                 (*s)->lease_expiration_sec = tt.sec + timeout_seconds;
-                if ((*s)->flags == flags) {
-                    if (revision)
-                        return;
-                    else
-                        break;
-                }
                 int temp = flags;
                 flags &= ~(*s)->flags;
                 (*s)->flags = temp;
