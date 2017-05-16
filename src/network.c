@@ -2630,6 +2630,7 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
                 mapper_device_t temp;
                 temp.name = &argv[0]->s;
                 temp.version = -1;
+                temp.local = 0;
                 mapper_database_subscribe(&net->database, &temp,
                                           MAPPER_OBJ_DEVICES, 0);
             }
