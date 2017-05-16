@@ -384,7 +384,7 @@ void send_or_bundle_message(mapper_link link, const char *path, lo_message msg,
         lo_bundle b = lo_bundle_new(tt);
         lo_bundle_add_message(b, path, msg);
         lo_send_bundle_from(llink->data_addr, link->local_device->local->server, b);
-        lo_bundle_free_messages(b);
+        lo_bundle_free_recursive(b);
     }
 }
 

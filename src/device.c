@@ -854,7 +854,7 @@ static int handler_query(const char *path, const char *types, lo_arg **argv,
     }
 
     lo_send_bundle(lo_message_get_source(msg), b);
-    lo_bundle_free_messages(b);
+    lo_bundle_free_recursive(b);
     return 0;
 }
 

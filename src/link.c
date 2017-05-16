@@ -100,7 +100,7 @@ void mapper_link_free(mapper_link link)
             lo_address_free(link->local->data_addr);
         while (link->local->queues) {
             mapper_queue queue = link->local->queues;
-            lo_bundle_free_messages(queue->bundle);
+            lo_bundle_free_recursive(queue->bundle);
             link->local->queues = queue->next;
             free(queue);
         }
@@ -145,7 +145,7 @@ void mapper_link_send_queue(mapper_link link, mapper_timetag_t tt)
             lo_send_bundle_from(link->local->data_addr,
                                 link->local_device->local->server,
                                 (*queue)->bundle);
-        lo_bundle_free_messages((*queue)->bundle);
+        lo_bundle_free_recursive((*queue)->bundle);
         mapper_queue temp = *queue;
         *queue = (*queue)->next;
         free(temp);

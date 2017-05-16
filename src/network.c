@@ -527,7 +527,7 @@ void mapper_network_send(mapper_network net)
         lo_send_bundle_from(net->bundle_dest, net->mesh_server, net->bundle);
     }
 #endif
-    lo_bundle_free_messages(net->bundle);
+    lo_bundle_free_recursive(net->bundle);
     net->bundle = 0;
 }
 
@@ -587,7 +587,7 @@ void mapper_network_add_message(mapper_network net, const char *str,
 void mapper_network_free_messages(mapper_network net)
 {
     if (net->bundle)
-        lo_bundle_free_messages(net->bundle);
+        lo_bundle_free_recursive(net->bundle);
     net->bundle = 0;
 }
 
@@ -781,7 +781,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
             lo_send_bundle_from(link->local->admin_addr, net->mesh_server, b);
 #endif
             mapper_timetag_copy(&sync->sent.timetag, lo_bundle_get_timestamp(b));
-            lo_bundle_free_messages(b);
+            lo_bundle_free_recursive(b);
         }
         link = mapper_list_next(link);
     }
