@@ -1931,28 +1931,39 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
         s = &sub;
     }
 
-    if (revision == dev->version)
-        return;
-
     // bring new subscriber up to date
     mapper_network_set_dest_mesh(dev->database->network, address);
     mapper_device_send_state(dev, MSG_DEVICE);
-    if (flags & MAPPER_OBJ_INPUT_SIGNALS)
-        mapper_device_send_inputs(dev, -1, -1);
-    if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
-        mapper_device_send_outputs(dev, -1, -1);
-    if (flags & MAPPER_OBJ_INCOMING_LINKS)
-        mapper_device_send_links(dev, MAPPER_DIR_INCOMING);
-    if (flags & MAPPER_OBJ_OUTGOING_LINKS)
-        mapper_device_send_links(dev, MAPPER_DIR_OUTGOING);
-    if (flags & MAPPER_OBJ_INCOMING_MAPS)
-        mapper_device_send_maps(dev, MAPPER_DIR_INCOMING, -1, -1);
-    if (flags & MAPPER_OBJ_OUTGOING_MAPS)
-        mapper_device_send_maps(dev, MAPPER_DIR_OUTGOING, -1, -1);
+
+    if (flags & MAPPER_OBJ_SIGNALS) {
+        mapper_direction dir = 0;
+        if (flags & MAPPER_OBJ_INPUT_SIGNALS)
+            dir |= MAPPER_DIR_INCOMING;
+        if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
+            dir |= MAPPER_DIR_OUTGOING;
+        mapper_device_send_signals(dev, dir, -1, -1);
+    }
+
+    if (flags & MAPPER_OBJ_LINKS) {
+        mapper_direction dir = 0;
+        if (flags & MAPPER_OBJ_INCOMING_LINKS)
+            dir |= MAPPER_DIR_INCOMING;
+        if (flags & MAPPER_OBJ_OUTGOING_LINKS)
+            dir |= MAPPER_DIR_OUTGOING;
+        mapper_device_send_links(dev, dir);
+    }
+
+    if (flags & MAPPER_OBJ_MAPS) {
+        mapper_direction dir = 0;
+        if (flags & MAPPER_OBJ_INCOMING_MAPS)
+            dir |= MAPPER_DIR_INCOMING;
+        if (flags & MAPPER_OBJ_OUTGOING_MAPS)
+            dir |= MAPPER_DIR_OUTGOING;
+        mapper_device_send_maps(dev, dir, -1, -1);
+    }
 
     // address is not cached if timeout is 0 so we need to send immediately
-    if (!timeout_seconds)
-        mapper_network_send(dev->database->network);
+    mapper_network_send(dev->database->network);
 }
 
 mapper_signal_group mapper_device_add_signal_group(mapper_device dev)
