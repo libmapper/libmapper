@@ -1907,14 +1907,12 @@ void mapper_map_print(mapper_map map)
         return;
     }
 
-    if (map->num_sources > 1)
-        printf("[");
+    printf("[");
     for (i = 0; i < map->num_sources; i++) {
-        printf("%s/%s, ", map->sources[i]->signal->device->name,
+        printf("%s:%s, ", map->sources[i]->signal->device->name,
                map->sources[i]->signal->name);
     }
-    printf("\b\b%s", map->num_sources > 1 ? "] " : " ");
-    printf("-> %s/%s\n", map->destination.signal->device->name,
+    printf("\b\b] -> [%s:%s]\n", map->destination.signal->device->name,
            map->destination.signal->name);
     for (i = 0; i < map->num_sources; i++) {
         printf("    source[%d]: ", i);

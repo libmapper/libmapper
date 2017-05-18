@@ -18,7 +18,7 @@ mapper_database mapper_database_new(mapper_network net, int subscribe_flags)
     if (!net)
         net = mapper_network_new(0, 0, 0);
     if (!net) {
-        trace("Cannot create database: no network.\n");
+        trace_db("error: no network.\n");
         return 0;
     }
 
@@ -163,7 +163,7 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
     int rc = 0, updated = 0;
 
     if (!dev) {
-        trace("Database: adding device '%s'.\n", name);
+        trace_db("adding device '%s'.\n", name);
         dev = (mapper_device)mapper_list_add_item((void**)&db->devices,
                                                   sizeof(*dev));
         dev->name = strdup(no_slash);
@@ -176,6 +176,9 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
 
     if (dev) {
         updated = mapper_device_set_from_message(dev, msg);
+        if (!rc)
+            trace_db("updated %d properties for device '%s'.\n", updated,
+                  name);
         mapper_timetag_now(&dev->synced);
 
         if (rc || updated) {
@@ -502,7 +505,7 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
     }
 
     if (!sig) {
-        trace("Database: adding signal '%s:%s'.\n", device_name, name);
+        trace_db("adding signal '%s:%s'.\n", device_name, name);
         sig = (mapper_signal)mapper_list_add_item((void**)&db->signals,
                                                   sizeof(mapper_signal_t));
 
@@ -517,6 +520,9 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
 
     if (sig) {
         updated = mapper_signal_set_from_message(sig, msg);
+        if (!sig_rc)
+            trace_db("updated %d properties for signal '%s:%s'.\n", updated,
+                     device_name, name);
 
         if (sig_rc || updated) {
             // TODO: Should we really allow callbacks to free themselves?
@@ -703,26 +709,35 @@ mapper_link mapper_database_add_or_update_link(mapper_database db,
     if (!dev1 || !dev2)
         return 0;
 
+    int updated, rc = 0;
+
     mapper_link link = mapper_device_link_by_remote_device(dev1, dev2);
-    if (link)
-        return link;
+    if (!link) {
+        trace_db("adding link '%s' <-> '%s'.\n", dev1->name, dev2->name);
 
-    trace("Database: adding link '%s' <-> '%s'.\n", dev1->name, dev2->name);
-
-    link = (mapper_link)mapper_list_add_item((void**)&db->links,
-                                             sizeof(mapper_link_t));
-    if (dev2->local) {
-        link->local_device = dev2;
-        link->remote_device = dev1;
+        link = (mapper_link)mapper_list_add_item((void**)&db->links,
+                                                 sizeof(mapper_link_t));
+        if (dev2->local) {
+            link->local_device = dev2;
+            link->remote_device = dev1;
+        }
+        else {
+            link->local_device = dev1;
+            link->remote_device = dev2;
+        }
+        mapper_link_init(link, 0);
+        rc = 1;
     }
-    else {
-        link->local_device = dev1;
-        link->remote_device = dev2;
+    if (link) {
+        updated = mapper_link_set_from_message(link, msg,
+                                               link->devices[0] != dev1);
+        if (!rc)
+            trace_db("updated %d properties for link '%s' <-> '%s'.\n", updated,
+                     dev1->name, dev2->name);
+        if (rc || updated)
+            mapper_database_call_link_handlers(db, link,
+                                               rc ? MAPPER_ADDED : MAPPER_MODIFIED);
     }
-    mapper_link_init(link, 0);
-
-    mapper_link_set_from_message(link, msg, link->devices[0] != dev1);
-    mapper_database_call_link_handlers(db, link, MAPPER_ADDED);
     return link;
 }
 
@@ -735,8 +750,11 @@ int mapper_database_update_link(mapper_database db, mapper_link link,
 
     int updated = mapper_link_set_from_message(link, msg,
                                                link->devices[0] != reporting_dev);
-    if (updated)
+    if (updated) {
+        trace_db("updated %d properties for link '%s' <-> '%s'.\n", updated,
+                 link->devices[0]->name, link->devices[1]->name);
         mapper_database_call_link_handlers(db, link, MAPPER_MODIFIED);
+    }
     return updated;
 }
 
@@ -869,7 +887,7 @@ static mapper_signal add_sig_from_whole_name(mapper_database db,
     char *devnamep, *signame, devname[256];
     int devnamelen = mapper_parse_names(name, &devnamep, &signame);
     if (!devnamelen || devnamelen >= 256) {
-        trace("error extracting device name\n");
+        trace_db("error extracting device name\n");
         return 0;
     }
     strncpy(devname, devnamep, devnamelen);
@@ -883,7 +901,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                                              mapper_message msg)
 {
     if (num_sources >= MAX_NUM_MAP_SOURCES) {
-        trace("error: maximum mapping sources exceeded.\n");
+        trace_db("error: maximum mapping sources exceeded.\n");
         return 0;
     }
 
@@ -896,7 +914,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     if (msg) {
         mapper_message_atom atom = mapper_message_property(msg, AT_ID);
         if (!atom || atom->types[0] != 'h') {
-            trace("No 'id' property found in map metadata, aborting.\n");
+            trace_db("no 'id' property found in map metadata, aborting.\n");
             return 0;
         }
         id = atom->values[0]->i64;
@@ -927,7 +945,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
 
     if (!map) {
 #ifdef DEBUG
-        printf("Database: adding map [");
+        trace_db("adding map [");
         for (i = 0; i < num_sources; i++)
             printf("%s, ", src_names[i]);
         if (num_sources > 1)
@@ -1031,6 +1049,17 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
 
     if (map) {
         updated += mapper_map_set_from_message(map, msg, 0);
+#ifdef DEBUG
+        if (!rc) {
+            trace_db("updated %d properties for map [", updated);
+            for (i = 0; i < map->num_sources; i++) {
+                printf("%s:%s, ", map->sources[i]->signal->device->name,
+                       map->sources[i]->signal->name);
+            }
+            printf("\b\b] -> [%s:%s]\n", map->destination.signal->device->name,
+                   map->destination.signal->name);
+        }
+#endif
 
         if (map->status < STATUS_ACTIVE)
             return map;
@@ -1218,7 +1247,7 @@ void mapper_database_remove_map(mapper_database db, mapper_map map,
         if (link && !link->local) {
             --link->num_maps[src == link->devices[0] ? 0 : 1];
             link->props->dirty = 1;
-            mapper_database_call_link_handlers(db, link, MAPPER_MODIFIED);
+            mapper_database_call_link_handlers(db, link, MAPPER_REMOVED);
         }
     }
 
@@ -1349,7 +1378,7 @@ static void unsubscribe_internal(mapper_database db, mapper_device dev,
                 set_network_dest(db, dev);
                 lo_message m = lo_message_new();
                 if (!m) {
-                    trace("couldn't allocate lo_message\n");
+                    trace_db("couldn't allocate lo_message\n");
                     break;
                 }
                 mapper_network_add_message(db->network, cmd, 0, m);
@@ -1419,8 +1448,9 @@ int mapper_database_poll(mapper_database db, int block_ms)
             mapper_subscription s = db->subscriptions;
             while (s) {
                 if (s->lease_expiration_sec < tt.sec) {
-                    trace("automatically renewing subscription to %s for %d seconds.\n",
-                          mapper_device_name(s->device), AUTOSUBSCRIBE_INTERVAL);
+                    trace_db("automatically renewing subscription to %s for %d "
+                             "seconds.\n", mapper_device_name(s->device),
+                             AUTOSUBSCRIBE_INTERVAL);
                     subscribe_internal(db, s->device, s->flags, AUTOSUBSCRIBE_INTERVAL);
                     // leave 10-second buffer for subscription renewal
                     s->lease_expiration_sec = (tt.sec
@@ -1475,8 +1505,8 @@ static void mapper_database_autosubscribe(mapper_database db, int flags)
         mapper_timetag_now(&tt);
         mapper_subscription s = db->subscriptions;
         while (s) {
-            trace("adjusting flags for existing autorenewing subscription to %s.\n",
-                  mapper_device_name(s->device));
+            trace_db("adjusting flags for existing autorenewing subscription "
+                     "to %s.\n", mapper_device_name(s->device));
             if (flags & ~s->flags) {
                 subscribe_internal(db, s->device, flags, AUTOSUBSCRIBE_INTERVAL);
                 // leave 10-second buffer for subscription renewal
@@ -1493,6 +1523,7 @@ static void mapper_database_autosubscribe(mapper_database db, int flags)
             unsubscribe_internal(db, db->subscriptions->device, 1);
         }
     }
+    trace_db("setting autosubscribe flags to %d\n", flags);
     db->autosubscribe = flags;
 }
 
@@ -1516,12 +1547,12 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
     }
     else if (dev->local) {
         // don't bother subscribing to local device
-        trace("Aborting subscription, device is local.\n");
+        trace_db("aborting subscription, device is local.\n");
         return;
     }
     if (timeout == -1) {
-        trace("Adding autorenewing database subscription to device '%s' with "
-              "flags %d.\n", mapper_device_name(dev), flags);
+        trace_db("adding autorenewing subscription to device '%s' with flags "
+                 "%d.\n", mapper_device_name(dev), flags);
         // special case: autorenew subscription lease
         // first check if subscription already exists
         mapper_subscription s = subscription(db, dev);
@@ -1547,8 +1578,8 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         timeout = AUTOSUBSCRIBE_INTERVAL;
     }
     else {
-        trace("Adding temporary (%d-second) database subscription tp device '%s' "
-              "with flags %d.\n", timeout, mapper_device_name(dev), flags);
+        trace_db("adding temporary (%d-second) subscription to device '%s' "
+                 "with flags %d.\n", timeout, mapper_device_name(dev), flags);
     }
 
     subscribe_internal(db, dev, flags, timeout);
@@ -1579,7 +1610,7 @@ int mapper_database_subscribed_by_signal_name(mapper_database db,
     char *devnamep, *signame, devname[256];
     int devnamelen = mapper_parse_names(name, &devnamep, &signame);
     if (!devnamelen || devnamelen >= 256) {
-        trace("error extracting device name\n");
+        trace_db("error extracting device name\n");
         return 0;
     }
     strncpy(devname, devnamep, devnamelen);
@@ -1596,10 +1627,10 @@ void mapper_database_request_devices(mapper_database db)
 {
     lo_message msg = lo_message_new();
     if (!msg) {
-        trace("couldn't allocate lo_message\n");
+        trace_db("couldn't allocate lo_message\n");
         return;
     }
-    trace("requesting device responses from network.\n")
+    trace_db("pinging all devices.\n")
     mapper_network_set_dest_bus(db->network);
     mapper_network_add_message(db->network, 0, MSG_WHO, msg);
 }

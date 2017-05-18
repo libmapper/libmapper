@@ -620,6 +620,16 @@ double mapper_get_current_time();
 #include <stdio.h>
 #include <assert.h>
 #define trace(...) { printf("-- " __VA_ARGS__); }
+#define trace_db(...)  { printf("\x1B[31m-- <database>\x1B[0m " __VA_ARGS__);}
+#define trace_dev(DEV, ...)                                             \
+{                                                                       \
+    if (DEV->local && DEV->local->registered)                           \
+        printf("\x1B[32m-- <%s>\x1B[0m ", mapper_device_name(DEV));     \
+    else                                                                \
+        printf("\x1B[32m-- <%s.?::%p>\x1B[0m ", DEV->identifier, DEV);  \
+    printf(__VA_ARGS__);                                                \
+}
+#define trace_net(...)  { printf("\x1B[33m-- <network>\x1B[0m  " __VA_ARGS__);}
 #define die_unless(a, ...) { if (!(a)) { printf("-- " __VA_ARGS__); assert(a); } }
 #else
 static void trace(...)
@@ -630,6 +640,9 @@ static void die_unless(...) {};
 #else
 #ifdef __GNUC__
 #define trace(...) {}
+#define trace_db(...) {}
+#define trace_dev(...) {}
+#define trace_net(...) {}
 #define die_unless(...) {}
 #else
 static void trace(...)

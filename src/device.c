@@ -102,8 +102,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     if (name_prefix[0] == '/')
         ++name_prefix;
     if (strchr(name_prefix, '/')) {
-        trace("<%s.?> error: character '/' is not permitted in device name.\n",
-              dev->identifier);
+        trace_dev(dev, "error: character '/' is not permitted in device name.\n");
         mapper_device_free(dev);
         return NULL;
     }
@@ -177,7 +176,7 @@ void mapper_device_free(mapper_device dev)
             mapper_network_send(net);
         }
         else {
-            trace("couldn't allocate lo_message for /logout\n");
+            trace_dev(dev, "couldn't allocate lo_message for /logout\n");
         }
     }
 
@@ -894,7 +893,7 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
     if (!name || check_signal_length(length) || check_signal_type(type))
         return 0;
     if (dir != MAPPER_DIR_INCOMING && dir != MAPPER_DIR_OUTGOING) {
-        trace("signal direction must be either input or output.\n");
+        trace_dev(dev, "signal direction must be either input or output.\n");
         return 0;
     }
 
@@ -1008,8 +1007,7 @@ static void send_unmap(mapper_network net, mapper_map map)
                           map->sources[i]->signal->device->name,
                           map->sources[i]->signal->path);
         if (result < 0 || (len + result + 1) >= 1024) {
-            trace("<%s> Error encoding sources for /unmap msg.\n",
-                  mapper_device_name(net->device));
+            trace_dev(net->device, "error encoding sources for /unmap msg.\n");
             lo_message_free(m);
             return;
         }
@@ -1554,7 +1552,7 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
                             NON_MODIFIABLE);
     free(host);
     free(url);
-    trace("<%s.?> bound to port %i\n", dev->identifier, portnum);
+    trace_dev(dev, "bound to port %i\n", portnum);
 
     // add signal methods
     mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
@@ -1734,7 +1732,7 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd)
         return;
     lo_message msg = lo_message_new();
     if (!msg) {
-        trace("couldn't allocate lo_message\n");
+        trace_dev(dev, "couldn't allocate lo_message\n");
         return;
     }
 
@@ -1880,8 +1878,8 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
     const char *ip = lo_address_get_hostname(address);
     const char *port = lo_address_get_port(address);
     if (!ip || !port) {
-        trace("<%s> Error managing subscription: %s not found\n",
-              mapper_device_name(dev), ip ? "port" : "ip");
+        trace_dev(dev, "error managing subscription: %s not found\n",
+                  ip ? "port" : "ip");
         return;
     }
 
@@ -1894,8 +1892,7 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
         if (strcmp(ip, s_ip)==0 && strcmp(port, s_port)==0) {
             // subscriber already exists
             if (!flags || !timeout_seconds) {
-                trace("<%s> Removing subscription from %s:%s\n",
-                      mapper_device_name(dev), s_ip, s_port);
+                trace_dev(dev, "removing subscription from %s:%s\n", s_ip, s_port);
                 // remove subscription
                 mapper_subscriber temp = *s;
                 int prev_flags = temp->flags;
@@ -1908,8 +1905,8 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
             }
             else {
                 // reset timeout
-                trace("<%s> Renewing subscription from %s:%s for %d seconds\n",
-                      mapper_device_name(dev), s_ip, s_port, timeout_seconds);
+                trace_dev(dev, "renewing subscription from %s:%s for %d seconds\n",
+                          s_ip, s_port, timeout_seconds);
                 (*s)->lease_expiration_sec = tt.sec + timeout_seconds;
                 int temp = flags;
                 flags &= ~(*s)->flags;
@@ -1925,8 +1922,8 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
 
     if (!(*s) && timeout_seconds) {
         // add new subscriber
-        trace("<%s> Adding new subscription from %s:%s with flags %d\n",
-              mapper_device_name(dev), ip, port, flags);
+        trace_dev(dev, "adding new subscription from %s:%s with flags %d\n",
+              ip, port, flags);
         mapper_subscriber sub = malloc(sizeof(struct _mapper_subscriber));
         sub->address = lo_address_new(ip, port);
         sub->lease_expiration_sec = tt.sec + timeout_seconds;
