@@ -38,6 +38,8 @@ extern const char* prop_message_strings[NUM_AT_PROPERTIES];
 #define BUNDLE_DEST_SUBSCRIBERS (void*)-1
 #define BUNDLE_DEST_BUS         0
 
+#define MAX_BUNDLE_COUNT 10
+
 /* Note: any call to liblo where get_liblo_error will be called afterwards must
  * lock this mutex, otherwise there is a race condition on receiving this
  * information.  Could be fixed by the liblo error handler having a user context
@@ -549,7 +551,8 @@ int mapper_network_init(mapper_network net)
 
 void mapper_network_set_dest_bus(mapper_network net)
 {
-    if (net->bundle && net->bundle_dest != BUNDLE_DEST_BUS)
+    if (net->bundle && (   net->bundle_dest != BUNDLE_DEST_BUS
+                        || lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT))
         mapper_network_send(net);
     net->bundle_dest = BUNDLE_DEST_BUS;
     if (!net->bundle)
@@ -558,7 +561,8 @@ void mapper_network_set_dest_bus(mapper_network net)
 
 void mapper_network_set_dest_mesh(mapper_network net, lo_address address)
 {
-    if (net->bundle && net->bundle_dest != address)
+    if (net->bundle && (   net->bundle_dest != address
+                        || lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT))
         mapper_network_send(net);
     net->bundle_dest = address;
     if (!net->bundle)
@@ -567,11 +571,10 @@ void mapper_network_set_dest_mesh(mapper_network net, lo_address address)
 
 void mapper_network_set_dest_subscribers(mapper_network net, int type)
 {
-    if (net->bundle) {
-        if ((net->bundle_dest != BUNDLE_DEST_SUBSCRIBERS) ||
-            (net->message_type != type))
-            mapper_network_send(net);
-    }
+    if (net->bundle && (   net->bundle_dest != BUNDLE_DEST_SUBSCRIBERS
+                        || net->message_type != type
+                        || lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT))
+        mapper_network_send(net);
     net->bundle_dest = BUNDLE_DEST_SUBSCRIBERS;
     net->message_type = type;
     if (!net->bundle)
