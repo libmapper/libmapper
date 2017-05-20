@@ -1247,7 +1247,7 @@ void mapper_database_remove_map(mapper_database db, mapper_map map,
         if (link && !link->local) {
             --link->num_maps[src == link->devices[0] ? 0 : 1];
             link->props->dirty = 1;
-            mapper_database_call_link_handlers(db, link, MAPPER_REMOVED);
+            mapper_database_call_link_handlers(db, link, MAPPER_MODIFIED);
         }
     }
 
