@@ -509,6 +509,9 @@ void mapper_network_send(mapper_network net)
         while (*s) {
             if ((*s)->lease_expiration_sec < tt.sec || !(*s)->flags) {
                 // subscription expired, remove from subscriber list
+                trace_dev(net->device, "removing expired subscription from "
+                          "%s:%s\n", lo_address_get_hostname((*s)->address),
+                          lo_address_get_port((*s)->address));
                 mapper_subscriber temp = *s;
                 *s = temp->next;
                 if (temp->address)
@@ -747,6 +750,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
                 }
                 // Inform subscribers
                 if (dev->local->subscribers) {
+                    trace_dev(dev, "informing subscribers (UNLINKED)\n")
                     mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
                     mapper_link_send_state(link, MSG_UNLINKED, 0);
                 }
@@ -1005,8 +1009,11 @@ static int handler_device(const char *path, const char *types,
     mapper_link_send_state(link, MSG_LINKED, 0);
 
     // send /linked to interested subscribers
-    mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
-    mapper_link_send_state(link, MSG_LINKED, 0);
+    if (dev->local->subscribers) {
+        trace_dev(dev, "informing subscribers (LINKED)\n")
+        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+        mapper_link_send_state(link, MSG_LINKED, 0);
+    }
 
     // Call local link handler if it exists
     mapper_device_link_handler *h = dev->local->link_handler;
@@ -1070,8 +1077,11 @@ static int handler_device_modify(const char *path, const char *types,
     trace_dev(dev, "got /%s/modify + %d properties.\n", path, props->num_atoms);
 
     if (mapper_device_set_from_message(dev, props)) {
-        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
-        mapper_device_send_state(dev, MSG_DEVICE);
+        if (dev->local->subscribers) {
+            trace_dev(dev, "informing subscribers (DEVICE)\n")
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+            mapper_device_send_state(dev, MSG_DEVICE);
+        }
         mapper_table_clear_empty_records(dev->props);
     }
     return 0;
@@ -1110,6 +1120,7 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
 
             // Inform subscribers
             if (dev->local->subscribers) {
+                trace_dev(dev, "informing subscribers (UNLINKED)\n")
                 mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
                 mapper_link_send_state(link, MSG_UNLINKED, 0);
             }
@@ -1321,11 +1332,14 @@ static int handler_signal_modify(const char *path, const char *types,
               props->num_atoms);
 
     if (mapper_signal_set_from_message(sig, props)) {
-        if (sig->direction == MAPPER_DIR_OUTGOING)
-            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_OUTPUT_SIGNALS);
-        else
-            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_INPUT_SIGNALS);
-        mapper_signal_send_state(sig, MSG_SIGNAL);
+        if (dev->local->subscribers) {
+            trace_dev(dev, "informing subscribers (SIGNAL)\n")
+            if (sig->direction == MAPPER_DIR_OUTGOING)
+                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_OUTPUT_SIGNALS);
+            else
+                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_INPUT_SIGNALS);
+            mapper_signal_send_state(sig, MSG_SIGNAL);
+        }
         mapper_table_clear_empty_records(sig->props);
     }
     return 0;
@@ -1638,6 +1652,7 @@ static int handler_linked(const char *path, const char *types, lo_arg **argv,
     if (updated) {
         if (ldev->local->subscribers) {
             // Inform subscribers
+            trace_dev(ldev, "informing subscribers (LINKED)\n")
             mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
             mapper_link_send_state(link, MSG_LINKED, 0);
         }
@@ -1696,6 +1711,7 @@ static int handler_link_modify(const char *path, const char *types,
         }
         if (ldev->local->subscribers) {
             // inform subscribers
+            trace_dev(ldev, "informing subscribers (LINKED)\n")
             mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
             mapper_link_send_state(link, MSG_LINKED, 0);
         }
@@ -1837,9 +1853,11 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
 
         // Inform subscribers
         if (dev->local->subscribers) {
+            trace_dev(dev, "informing subscribers (LINKED)\n")
             mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
             mapper_link_send_state(link, MSG_LINKED, 0);
 
+            trace_dev(dev, "informing subscribers (MAPPED)\n")
             mapper_network_set_dest_subscribers(net, MAPPER_OBJ_MAPS);
             mapper_map_send_state(map, -1, MSG_MAPPED);
         }
@@ -2133,8 +2151,11 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     // link props may have been updated
     if (map->destination.direction == MAPPER_DIR_OUTGOING) {
         if (map->destination.link && map->destination.link->props->dirty) {
-            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
-            mapper_link_send_state(map->destination.link, MSG_LINKED, 0);
+            if (dev->local->subscribers) {
+                trace_dev(dev, "informing subscribers (LINKED)\n")
+                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+                mapper_link_send_state(map->destination.link, MSG_LINKED, 0);
+            }
             map->destination.link->props->dirty = 0;
 
             // Call local link handler if it exists
@@ -2151,8 +2172,11 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
             link = map->sources[i]->link;
             if (!link->props->dirty)
                 continue;
-            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
-            mapper_link_send_state(link, MSG_LINKED, 0);
+            if (dev->local->subscribers) {
+                trace_dev(dev, "informing subscribers (LINKED)\n")
+                mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
+                mapper_link_send_state(link, MSG_LINKED, 0);
+            }
             link->props->dirty = 0;
 
             // Call local link handler if it exists
@@ -2192,6 +2216,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     }
     if (updated) {
         if (dev->local->subscribers) {
+            trace_dev(dev, "informing subscribers (MAPPED)\n")
             // Inform subscribers
             if (map->destination.direction == MAPPER_DIR_OUTGOING)
                 mapper_network_set_dest_subscribers(net, MAPPER_OBJ_OUTGOING_MAPS);
@@ -2347,6 +2372,7 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
         }
 
         if (dev->local->subscribers) {
+            trace_dev(dev, "informing subscribers (MAPPED)\n")
             // Inform subscribers
             if (map->destination.local->router_sig)
                 mapper_network_set_dest_subscribers(net,
@@ -2457,6 +2483,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     }
 
     if (dev->local->subscribers) {
+        trace_dev(dev, "informing subscribers (UNMAPPED)\n")
         // Inform subscribers
         if (map->destination.local->router_sig)
             mapper_network_set_dest_subscribers(net, MAPPER_OBJ_INCOMING_MAPS);

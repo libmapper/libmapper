@@ -1395,10 +1395,27 @@ static void unsubscribe_internal(mapper_database db, mapper_device dev,
     }
 }
 
+static void renew_subscriptions(mapper_database db, uint32_t time_sec)
+{
+    // check if any subscriptions need to be renewed
+    mapper_subscription s = db->subscriptions;
+    while (s) {
+        if (s->lease_expiration_sec <= time_sec) {
+            trace_db("automatically renewing subscription to %s for %d "
+                     "seconds.\n", mapper_device_name(s->device),
+                     AUTOSUBSCRIBE_INTERVAL);
+            subscribe_internal(db, s->device, s->flags, AUTOSUBSCRIBE_INTERVAL);
+            // leave 10-second buffer for subscription renewal
+            s->lease_expiration_sec = (time_sec + AUTOSUBSCRIBE_INTERVAL - 10);
+        }
+        s = s->next;
+    }
+}
+
 int mapper_database_poll(mapper_database db, int block_ms)
 {
     mapper_network net = db->network;
-    int count = 0, ping_time = net->next_ping;
+    int count = 0;
     mapper_timetag_t tt;
 
     if (!block_ms) {
@@ -1416,7 +1433,10 @@ int mapper_database_poll(mapper_database db, int block_ms)
     end.tv_usec = block_ms * 1000;
     end.tv_usec += start.tv_usec;
 
+    mapper_timetag_now(&tt);
+    renew_subscriptions(db, tt.sec);
     mapper_network_poll(net, 0);
+    mapper_database_check_device_status(db, tt.sec);
 
     fd_set fdr;
     int nfds, bus_fd, mesh_fd;
@@ -1442,30 +1462,11 @@ int mapper_database_poll(mapper_database db, int block_ms)
 
         timersub(&now, &start, &elapsed);
         if (elapsed.tv_sec || elapsed.tv_usec >= 100000) {
-
-            // check if any subscriptions need to be renewed
             mapper_timetag_now(&tt);
-            mapper_subscription s = db->subscriptions;
-            while (s) {
-                if (s->lease_expiration_sec < tt.sec) {
-                    trace_db("automatically renewing subscription to %s for %d "
-                             "seconds.\n", mapper_device_name(s->device),
-                             AUTOSUBSCRIBE_INTERVAL);
-                    subscribe_internal(db, s->device, s->flags, AUTOSUBSCRIBE_INTERVAL);
-                    // leave 10-second buffer for subscription renewal
-                    s->lease_expiration_sec = (tt.sec
-                                               + AUTOSUBSCRIBE_INTERVAL - 10);
-                }
-                s = s->next;
-            }
-
+            renew_subscriptions(db, tt.sec);
             mapper_network_poll(net, 0);
+            mapper_database_check_device_status(db, tt.sec);
 
-            if (ping_time != net->next_ping) {
-                // some housekeeping: check if any devices have timed out
-                mapper_database_check_device_status(db, tt.sec);
-                ping_time = net->next_ping;
-            }
             start.tv_sec = now.tv_sec;
             start.tv_usec = now.tv_usec;
         }
@@ -1551,8 +1552,9 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         return;
     }
     if (timeout == -1) {
-        trace_db("adding autorenewing subscription to device '%s' with flags "
-                 "%d.\n", mapper_device_name(dev), flags);
+        trace_db("adding %d-second autorenewing subscription to device '%s' "
+                 "with flags %d.\n", AUTOSUBSCRIBE_INTERVAL,
+                 mapper_device_name(dev), flags);
         // special case: autorenew subscription lease
         // first check if subscription already exists
         mapper_subscription s = subscription(db, dev);
@@ -1578,7 +1580,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         timeout = AUTOSUBSCRIBE_INTERVAL;
     }
     else {
-        trace_db("adding temporary (%d-second) subscription to device '%s' "
+        trace_db("adding temporary %d-second subscription to device '%s' "
                  "with flags %d.\n", timeout, mapper_device_name(dev), flags);
     }
 
