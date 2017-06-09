@@ -147,6 +147,9 @@ mapper_map mapper_router_map_by_id(mapper_router router, mapper_signal local_sig
 mapper_slot mapper_router_slot(mapper_router router, mapper_signal signal,
                                int slot_number);
 
+int mapper_router_loop_check(mapper_router router, mapper_signal local_sig,
+                             int num_remotes, const char **remotes);
+
 /**** Signals ****/
 
 /*! Create a signal structure and fill it with provided arguments.  Values and

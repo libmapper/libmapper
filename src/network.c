@@ -1820,9 +1820,17 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
 
         /* If a mapping already exists between these signals, forward the
          * message to handler_map_modify() and stop. */
-        if (map && map->status >= STATUS_ACTIVE) {
-            handler_map_modify(path, types, argv, argc, msg, user_data);
+        if (map) {
+            if (map->status >= STATUS_ACTIVE)
+                handler_map_modify(path, types, argv, argc, msg, user_data);
             mapper_message_free(props);
+            return 0;
+        }
+
+        // safety check: make sure we don't have an outgoing map to src (loop)
+        if (mapper_router_loop_check(dev->local->router, local_signal,
+                                     num_sources, src_names)) {
+            trace_dev(dev, "error in /map: potential loop detected.")
             return 0;
         }
 

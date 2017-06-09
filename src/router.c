@@ -736,6 +736,32 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
     return 0;
 }
 
+int mapper_router_loop_check(mapper_router rtr,
+                             mapper_signal local_sig,
+                             int num_remotes,
+                             const char **remotes)
+{
+    mapper_router_signal rs = rtr->signals;
+    while (rs && rs->signal != local_sig)
+        rs = rs->next;
+    if (!rs)
+        return 0;
+    int i, j;
+    for (i = 0; i < rs->num_slots; i++) {
+        if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_DIR_INCOMING)
+            continue;
+        mapper_slot slot = rs->slots[i];
+        mapper_map map = slot->map;
+
+        // check destination
+        for (j = 0; j < num_remotes; j++) {
+            if (!mapper_slot_match_full_name(&map->destination, remotes[j]))
+                return 1;
+        }
+    }
+    return 0;
+}
+
 mapper_map mapper_router_outgoing_map(mapper_router rtr,
                                       mapper_signal local_src,
                                       int num_sources,
