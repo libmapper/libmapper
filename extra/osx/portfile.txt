@@ -1,12 +1,13 @@
-# $Id$
+# -*- coding: utf-8; mode: tcl; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4
+
 
 PortSystem          1.0
 
 name                libmapper
-version             0.3
+version             1.0
 categories          net audio
 platforms           darwin
-license             LGPL
+license             LGPL-2.1
 maintainers         gmail.com:joseph.malloch
 description         Distributed system for media control mapping
 long_description    libmapper is a library for discovering and \
@@ -24,6 +25,14 @@ configure.args      --disable-swig \
                     --disable-jni \
                     --disable-audio \
                     --disable-docs
+
+default_variants    +universal
+
+variant universal {
+    configure.args_append  CFLAGS="-arch i386 -arch x86_64" \
+                           CXXFLAGS="-arch i386 -arch x86_64" \
+                           --disable-dependency-tracking
+}
 
 variant python requires python {
     configure.args_append  --enable-swig

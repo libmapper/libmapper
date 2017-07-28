@@ -69,6 +69,8 @@ void mapper_link_init(mapper_link link, int is_local)
                                    0, m);
         mapper_network_send(link->local_device->database->network);
     }
+    // increment device link count
+    ++link->local_device->num_links;
 }
 
 void mapper_link_connect(mapper_link link, const char *host, int admin_port,
@@ -103,11 +105,12 @@ void mapper_link_free(mapper_link link)
             lo_address_free(link->local->tcp_data_addr);
         while (link->local->queues) {
             mapper_queue queue = link->local->queues;
-            lo_bundle_free_messages(queue->udp_bundle);
-            lo_bundle_free_messages(queue->tcp_bundle);
+            lo_bundle_free_recursive(queue->udp_bundle);
+            lo_bundle_free_recursive(queue->tcp_bundle);
             link->local->queues = queue->next;
             free(queue);
         }
+        --link->local_device->num_links;
         free(link->local);
     }
 }
@@ -149,14 +152,14 @@ void mapper_link_send_queue(mapper_link link, mapper_timetag_t tt)
             lo_send_bundle_from(link->local->udp_data_addr,
                                 link->local_device->local->udp_server,
                                 (*queue)->udp_bundle);
-        lo_bundle_free_messages((*queue)->udp_bundle);
+        lo_bundle_free_recursive((*queue)->udp_bundle);
 #ifdef HAVE_LIBLO_BUNDLE_COUNT
         if (lo_bundle_count((*queue)->tcp_bundle))
 #endif
             lo_send_bundle_from(link->local->tcp_data_addr,
                                 link->local_device->local->tcp_server,
                                 (*queue)->tcp_bundle);
-        lo_bundle_free_messages((*queue)->tcp_bundle);
+        lo_bundle_free_recursive((*queue)->tcp_bundle);
         mapper_queue temp = *queue;
         *queue = (*queue)->next;
         free(temp);

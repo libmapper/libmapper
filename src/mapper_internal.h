@@ -21,7 +21,7 @@
  *              cases the name may not be available. */
 int mapper_signal_full_name(mapper_signal sig, char *name, int len);
 
-int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg);
+int mapper_signal_set_from_message(mapper_signal sig, mapper_message msg);
 
 /**** Devices ****/
 
@@ -147,6 +147,9 @@ mapper_map mapper_router_map_by_id(mapper_router router, mapper_signal local_sig
 mapper_slot mapper_router_slot(mapper_router router, mapper_signal signal,
                                int slot_number);
 
+int mapper_router_loop_check(mapper_router router, mapper_signal local_sig,
+                             int num_remotes, const char **remotes);
+
 /**** Signals ****/
 
 /*! Create a signal structure and fill it with provided arguments.  Values and
@@ -242,7 +245,10 @@ void mapper_link_send_queue(mapper_link link, mapper_timetag_t tt);
 mapper_link mapper_database_add_or_update_link(mapper_database db,
                                                mapper_device dev1,
                                                mapper_device dev2,
-                                               mapper_message_t *props);
+                                               mapper_message msg);
+
+int mapper_database_update_link(mapper_database db, mapper_link link,
+                                mapper_device reporting_dev, mapper_message msg);
 
 /**** Maps ****/
 
@@ -267,7 +273,7 @@ lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
                                     char *typestring, mapper_id_map id_map);
 
 /*! Set a mapping's properties based on message parameters. */
-int mapper_map_set_from_message(mapper_map map, mapper_message_t *msg,
+int mapper_map_set_from_message(mapper_map map, mapper_message msg,
                                 int override);
 
 /*! Helper for printing typed values.
@@ -309,7 +315,7 @@ void mapper_slot_init(mapper_slot slot);
 
 void mapper_slot_free(mapper_slot slot);
 
-int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg, int mask,
+int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg,
                                  int *status);
 
 void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
@@ -327,25 +333,25 @@ int mapper_slot_match_full_name(mapper_slot slot, const char *full_name);
  *  parameters.
  *  \param db           The database to operate on.
  *  \param device_name  The name of the device.
- *  \param props        The parsed message parameters containing new device
+ *  \param msg          The parsed message parameters containing new device
  *                      information.
  *  \return             Pointer to the device database entry. */
 mapper_device mapper_database_add_or_update_device(mapper_database db,
                                                    const char *device_name,
-                                                   mapper_message_t *props);
+                                                   mapper_message msg);
 
 /*! Add or update an entry in the signal database using parsed message
  *  parameters.
  *  \param db          The database to operate on.
  *  \param signal_name The name of the signal.
  *  \param device_name The name of the device associated with this signal.
- *  \param props       The parsed message parameters containing new signal
+ *  \param msg         The parsed message parameters containing new signal
  *                     information.
  *  \return            Pointer to the signal database entry. */
 mapper_signal mapper_database_add_or_update_signal(mapper_database db,
                                                    const char *signal_name,
                                                    const char *device_name,
-                                                   mapper_message_t *props);
+                                                   mapper_message msg);
 
 /*! Initialize an already-allocated mapper_signal structure. */
 void mapper_signal_init(mapper_signal sig, mapper_direction dir,
@@ -360,13 +366,13 @@ void mapper_signal_init(mapper_signal sig, mapper_direction dir,
  *  \param num_srcs     The number of source slots for this map
  *  \param src_names    The full name of the source signal.
  *  \param dest_name    The full name of the destination signal.
- *  \param props        The parsed message parameters containing new
+ *  \param msg          The parsed message parameters containing new
  *                      map information.
  *  \return             Pointer to the map database entry. */
 mapper_map mapper_database_add_or_update_map(mapper_database db, int num_srcs,
                                              const char **src_names,
                                              const char *dest_name,
-                                             mapper_message_t *props);
+                                             mapper_message msg);
 
 /*! Remove a device from the database. */
 void mapper_database_remove_device(mapper_database db, mapper_device dev,
@@ -440,14 +446,14 @@ void mapper_message_free(mapper_message msg);
  *  \param msg      Structure containing parameter info.
  *  \param prop     Symbolic identifier of the property to look for.
  *  \return         Pointer to mapper_message_atom, or zero if not found. */
-mapper_message_atom mapper_message_property(mapper_message_t *msg,
+mapper_message_atom mapper_message_property(mapper_message msg,
                                             mapper_property_t prop);
 
 /*! Helper to return the boundary action from a message property.
  *  \param msg      Structure containing parameter info.
  *  \param prop     Either MAPPER_BOUND_MIN or MAPPER_BOUND_MAX.
  *  \return         The boundary action, or -1 if not found. */
-mapper_boundary_action mapper_message_boundary_action(mapper_message_t *msg,
+mapper_boundary_action mapper_message_boundary_action(mapper_message msg,
                                                       mapper_property_t prop);
 
 void mapper_message_add_typed_value(lo_message msg, int length, char type,
@@ -621,6 +627,16 @@ double mapper_get_current_time();
 #include <stdio.h>
 #include <assert.h>
 #define trace(...) { printf("-- " __VA_ARGS__); }
+#define trace_db(...)  { printf("\x1B[31m-- <database>\x1B[0m " __VA_ARGS__);}
+#define trace_dev(DEV, ...)                                             \
+{                                                                       \
+    if (DEV->local && DEV->local->registered)                           \
+        printf("\x1B[32m-- <%s>\x1B[0m ", mapper_device_name(DEV));     \
+    else                                                                \
+        printf("\x1B[32m-- <%s.?::%p>\x1B[0m ", DEV->identifier, DEV);  \
+    printf(__VA_ARGS__);                                                \
+}
+#define trace_net(...)  { printf("\x1B[33m-- <network>\x1B[0m  " __VA_ARGS__);}
 #define die_unless(a, ...) { if (!(a)) { printf("-- " __VA_ARGS__); assert(a); } }
 #else
 static void trace(...)
@@ -631,6 +647,9 @@ static void die_unless(...) {};
 #else
 #ifdef __GNUC__
 #define trace(...) {}
+#define trace_db(...) {}
+#define trace_dev(...) {}
+#define trace_net(...) {}
 #define die_unless(...) {}
 #else
 static void trace(...)

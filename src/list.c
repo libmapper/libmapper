@@ -85,7 +85,6 @@ static mapper_list_header_t* mapper_list_new_item(size_t size)
     if (!lh)
         return 0;
 
-    memset(lh, 0, size);
     lh->self = &lh->data;
     lh->query_type = QUERY_STATIC;
 

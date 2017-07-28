@@ -266,12 +266,20 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
                 }
             }
             break;
-        case 'i':
-        case 'b': {
+        case 'i': {
             int32_t *l = (int32_t*)recval;
             int32_t *r = (int32_t*)value;
             for (i = 0; i < length; i++) {
                 if (l[i] != r[i])
+                    return 1;
+            }
+            break;
+        }
+        case 'b': {
+            int32_t *l = (int32_t*)recval;
+            int32_t *r = (int32_t*)value;
+            for (i = 0; i < length; i++) {
+                if (!l[i] ^ !r[i])
                     return 1;
             }
             break;
@@ -463,6 +471,7 @@ int set_record_internal(mapper_table tab, mapper_property_t index,
         if (!is_value_different(rec, length, type, value))
             return 0;
         update_value_elements(rec, length, type, value);
+        tab->dirty = 1;
         return 1;
     }
     else {
@@ -470,6 +479,7 @@ int set_record_internal(mapper_table tab, mapper_property_t index,
         rec = mapper_table_add(tab, index, key, 0, type, 0, flags | PROP_OWNED);
         update_value_elements(rec, length, type, value);
         table_sort(tab);
+        tab->dirty = 1;
         return 1;
     }
     return 0;
@@ -703,6 +713,7 @@ int mapper_table_set_record_from_atom(mapper_table tab,
             return 0;
         update_value_elements_osc(rec, atom->length, atom->types, atom->values,
                                   rec->flags & INDIRECT);
+        tab->dirty = 1;
         return 1;
     }
     else {
@@ -713,6 +724,7 @@ int mapper_table_set_record_from_atom(mapper_table tab,
         update_value_elements_osc(rec, atom->length, atom->types,
                                   atom->values, 0);
         table_sort(tab);
+        tab->dirty = 1;
         return 1;
     }
     return 0;

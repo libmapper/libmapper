@@ -49,6 +49,9 @@ protected:                                                                  \
         return (*this);                                                     \
     }                                                                       \
 public:                                                                     \
+    /*! Set arbitrary properties for a CLASS_NAME.                       */ \
+    /*!  \param values  The Properties to add or modify.                 */ \
+    /*!  \return        Self.                                            */ \
     template <typename... Values>                                           \
     CLASS_NAME& set_property(Values... values)                              \
     {                                                                       \
@@ -57,16 +60,24 @@ public:                                                                     \
             set_property(&p);                                               \
         return (*this);                                                     \
     }                                                                       \
+    /*! Remove a named Property from a CLASS_NAME.                       */ \
+    /*!  \param key     The Property to remove.                          */ \
+    /*!  \return        Self.                                            */ \
     CLASS_NAME& remove_property(const string_type &key)                     \
     {                                                                       \
         if (PTR && key)                                                     \
             MAPPER_FUNC(NAME, remove_property)(PTR, key);                   \
         return (*this);                                                     \
     }                                                                       \
+    /*! Retrieve the number of properties for a specific CLASS_NAME.     */ \
+    /*!  \return        The number of properties.                        */ \
     int num_properties() const                                              \
     {                                                                       \
         return MAPPER_FUNC(NAME, num_properties)(PTR);                      \
     }                                                                       \
+    /*! Retrieve a Property by name from a specific CLASS_NAME.          */ \
+    /*!  \param key     The name of the Property to retrieve.            */ \
+    /*!  \return        The retrieved Property.                          */ \
     Property property(const string_type &key) const                         \
     {                                                                       \
         char type;                                                          \
@@ -77,6 +88,9 @@ public:                                                                     \
         else                                                                \
             return Property(key, 0, 0, 0);                                  \
     }                                                                       \
+    /*! Retrieve a Property by index from a specific CLASS_NAME.         */ \
+    /*!  \param index   The index of the Property to retrieve.           */ \
+    /*!  \return        The retrieved Property.                          */ \
     Property property(int index) const                                      \
     {                                                                       \
         const char *key;                                                    \
@@ -89,6 +103,10 @@ public:                                                                     \
         else                                                                \
             return Property(0, 0, 0, 0);                                    \
     }                                                                       \
+    /*! Clear all "staged" Properties from a specific CLASS_NAME.        */ \
+    /*! Staged Properties are those that have not yet been synchronized  */ \
+    /*! with the network by calling push().                              */ \
+    /*!  \return        Self.                                            */ \
     const CLASS_NAME& clear_staged_properties() const                       \
     {                                                                       \
         MAPPER_FUNC(NAME, clear_staged_properties)(PTR);                    \
@@ -127,6 +145,10 @@ public:                                                                     \
         { return Query(0); }                                                \
                                                                             \
     /* Combination functions */                                             \
+    /*! Add items found in CLASS_NAME Query rhs from this Query (without */ \
+    /*! duplication).                                                    */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             Self.                                        */ \
     Query& join(const Query& rhs)                                           \
     {                                                                       \
         /* need to use copy of rhs query */                                 \
@@ -134,6 +156,9 @@ public:                                                                     \
         _query = QUERY_FUNC(NAME, union)(_query, rhs_cpy);                  \
         return (*this);                                                     \
     }                                                                       \
+    /*! Remove items NOT found in CLASS_NAME Query rhs from this Query   */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             Self.                                        */ \
     Query& intersect(const Query& rhs)                                      \
     {                                                                       \
         /* need to use copy of rhs query */                                 \
@@ -141,6 +166,9 @@ public:                                                                     \
         _query = QUERY_FUNC(NAME, intersection)(_query, rhs_cpy);           \
         return (*this);                                                     \
     }                                                                       \
+    /*! Remove items found in CLASS_NAME Query rhs from this Query       */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             Self.                                        */ \
     Query& subtract(const Query& rhs)                                       \
     {                                                                       \
         /* need to use copy of rhs query */                                 \
@@ -148,6 +176,10 @@ public:                                                                     \
         _query = QUERY_FUNC(NAME, difference)(_query, rhs_cpy);             \
         return (*this);                                                     \
     }                                                                       \
+    /*! Add items found in CLASS_NAME Query rhs from this Query (without */ \
+    /*! duplication).                                                    */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             A new Query containing the results.          */ \
     Query operator+(const Query& rhs) const                                 \
     {                                                                       \
         /* need to use copies of both queries */                            \
@@ -155,6 +187,9 @@ public:                                                                     \
         MAPPER_TYPE(NAME) *rhs_cpy = QUERY_FUNC(NAME, copy)(rhs._query);    \
         return Query(QUERY_FUNC(NAME, union)(lhs_cpy, rhs_cpy));            \
     }                                                                       \
+    /*! Remove items NOT found in CLASS_NAME Query rhs from this Query   */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             A new Query containing the results.          */ \
     Query operator*(const Query& rhs) const                                 \
     {                                                                       \
         /* need to use copies of both queries */                            \
@@ -162,6 +197,9 @@ public:                                                                     \
         MAPPER_TYPE(NAME) *rhs_cpy = QUERY_FUNC(NAME, copy)(rhs._query);    \
         return Query(QUERY_FUNC(NAME, intersection)(lhs_cpy, rhs_cpy));     \
     }                                                                       \
+    /*! Remove items found in CLASS_NAME Query rhs from this Query       */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             A new Query containing the results.          */ \
     Query operator-(const Query& rhs) const                                 \
     {                                                                       \
         /* need to use copies of both queries */                            \
@@ -169,6 +207,10 @@ public:                                                                     \
         MAPPER_TYPE(NAME) *rhs_cpy = QUERY_FUNC(NAME, copy)(rhs._query);    \
         return Query(QUERY_FUNC(NAME, difference)(lhs_cpy, rhs_cpy));       \
     }                                                                       \
+    /*! Add items found in CLASS_NAME Query rhs from this Query (without */ \
+    /*! duplication).                                                    */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             Self.                                        */ \
     Query& operator+=(const Query& rhs)                                     \
     {                                                                       \
         /* need to use copy of rhs query */                                 \
@@ -176,6 +218,9 @@ public:                                                                     \
         _query = QUERY_FUNC(NAME, union)(_query, rhs_cpy);                  \
         return (*this);                                                     \
     }                                                                       \
+    /*! Remove items NOT found in CLASS_NAME Query rhs from this Query   */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             Self.                                        */ \
     Query& operator*=(const Query& rhs)                                     \
     {                                                                       \
         /* need to use copy of rhs query */                                 \
@@ -183,6 +228,9 @@ public:                                                                     \
         _query = QUERY_FUNC(NAME, intersection)(_query, rhs_cpy);           \
         return (*this);                                                     \
     }                                                                       \
+    /*! Remove items found in CLASS_NAME Query rhs from this Query       */ \
+    /*! \param rhs          A second CLASS_NAME query.                   */ \
+    /*! \return             Self.                                        */ \
     Query& operator-=(const Query& rhs)                                     \
     {                                                                       \
         /* need to use copy of rhs query */                                 \
@@ -191,9 +239,14 @@ public:                                                                     \
         return (*this);                                                     \
     }                                                                       \
                                                                             \
+    /*! Retrieve an indexed CLASS_NAME item in the query.                */ \
+    /*! \param idx           The index of the list element to retrieve.  */ \
+    /*! \return              The retrieved CLASS_NAME.                   */ \
     CLASS_NAME operator [] (int idx)                                        \
         { return CLASS_NAME(QUERY_FUNC(NAME, index)(_query, idx)); }        \
                                                                             \
+    /*! Convert this Query to a std::vector.                             */ \
+    /*! \return              The converted Query results.                */ \
     operator std::vector<CLASS_NAME>() const                                \
     {                                                                       \
         std::vector<CLASS_NAME> vec;                                        \
@@ -206,6 +259,9 @@ public:                                                                     \
         return vec;                                                         \
     }                                                                       \
                                                                             \
+    /*! Set arbitrary properties for each CLASS_NAME in the Query.*/        \
+    /*!  \param values  The Properties to add or modify.                 */ \
+    /*!  \return        Self.                                            */ \
     template <typename... Values>                                           \
     Query& set_property(Values... values)                                   \
     {                                                                       \
@@ -221,6 +277,9 @@ public:                                                                     \
         }                                                                   \
         return (*this);                                                     \
     }                                                                       \
+    /*! Remove a named Property from each CLASS_NAME in the Query.       */ \
+    /*!  \param key     The Property to remove.                          */ \
+    /*!  \return        Self.                                            */ \
     Query& remove_property(const string_type &key)                          \
     {                                                                       \
         if (!key)                                                           \
@@ -233,6 +292,10 @@ public:                                                                     \
         }                                                                   \
         return (*this);                                                     \
     }                                                                       \
+    /*! Associate each CLASS_NAME ## s in the Query with an arbitrary    */ \
+    /*! pointer.                                                         */ \
+    /*! \param user_data    A pointer to user data to be associated.     */ \
+    /*! \return             Self.                                        */ \
     Query& set_user_data(void *user_data)                                   \
     {                                                                       \
         /* use a copy */                                                    \
@@ -243,6 +306,9 @@ public:                                                                     \
         }                                                                   \
         return (*this);                                                     \
     }                                                                       \
+    /*! Push "staged" property changes for each CLASS_NAME in the Query  */ \
+    /*! out to the network.                                              */ \
+    /*! \return     Self.                                                */ \
     Query& push()                                                           \
     {                                                                       \
         /* use a copy */                                                    \
@@ -252,6 +318,75 @@ public:                                                                     \
             cpy = QUERY_FUNC(NAME, next)(cpy);                              \
         }                                                                   \
         return (*this);                                                     \
+    }                                                                       \
+
+#define DATABASE_METHODS(CLASS_NAME, NAME, QNAME)                           \
+    /*! Register a callback for when a CLASS_NAME record is added or     */ \
+    /*! updated in the Database.                                         */ \
+    /*! \param h        Callback function.                               */ \
+    /*! \param user     A user-defined pointer to be passed to the       */ \
+    /*!                 callback for context.                            */ \
+    /*! \return         Self.                                            */ \
+    const Database&                                                         \
+    add_ ## NAME ## _callback(mapper_database_ ## NAME ## _handler *h,      \
+                              void *user) const                             \
+    {                                                                       \
+        mapper_database_add_ ## NAME ## _callback(_db, h, user);            \
+        return (*this);                                                     \
+    }                                                                       \
+    /*! Remove a CLASS_NAME record callback from the Database service.   */ \
+    /*! \param h        Callback function.                               */ \
+    /*! \param user     The user context pointer that was originally     */ \
+    /*!                 specified when adding the callback.              */ \
+    /*! \return         Self.                                            */ \
+    const Database&                                                         \
+    remove_ ## NAME ## _callback(mapper_database_ ## NAME ## _handler *h,   \
+                                 void *user) const                          \
+    {                                                                       \
+        mapper_database_remove_ ## NAME ## _callback(_db, h, user);         \
+        return (*this);                                                     \
+    }                                                                       \
+    /*! Return the number of CLASS_NAME ## s stored in the database.     */ \
+    /*! \return         The number of CLASS_NAME ## s.                   */ \
+    int num_ ## NAME ## s() const                                           \
+    {                                                                       \
+        return mapper_database_num_ ## NAME ## s(_db);                      \
+    }                                                                       \
+    /*! Retrieve a record for a registered CLASS_NAME using its unique   */ \
+    /*! id.                                                              */ \
+    /*! \param id       Unique id identifying the CLASS_NAME to find in  */ \
+    /*!                 the database.                                    */ \
+    /*! \return         The CLASS_NAME record.                           */ \
+    CLASS_NAME NAME(mapper_id id) const                                     \
+    {                                                                       \
+        return CLASS_NAME(mapper_database_ ## NAME ## _by_id(_db, id));     \
+    }                                                                       \
+    /*! Construct a Query from all CLASS_NAME ## s.                      */ \
+    /*! \return         A CLASS_NAME ## ::Query containing records of    */ \
+    /*!                 all known CLASS_NAME ## s.                       */ \
+    QNAME NAME ## s() const                                                 \
+    {                                                                       \
+        return QNAME(mapper_database_ ## NAME ## s(_db));                   \
+    }                                                                       \
+    /*! Construct a Query from all CLASS_NAME ## s matching a Property.  */ \
+    /*! \param p        Property to match.                               */ \
+    /*! \param op       The comparison operator.                         */ \
+    /*! \return         A CLASS_NAME ## ::Query containing records of    */ \
+    /*!                 CLASS_NAME ## s matching the criteria.           */ \
+    QNAME NAME ## s(const Property& p, mapper_op op) const                  \
+    {                                                                       \
+        return QNAME(                                                       \
+            mapper_database_ ## NAME ## s_by_property(_db, p.name, p.length,\
+                                                      p.type, p.value, op));\
+    }                                                                       \
+    /*! Construct a Query from all CLASS_NAME ## s possessing a certain  */ \
+    /*! Property.                                                        */ \
+    /*! \param p        Property to match.                               */ \
+    /*! \return         A CLASS_NAME ## ::Query containing records of    */ \
+    /*!                 CLASS_NAME ## s matching the criteria.           */ \
+    inline QNAME NAME ## s(const Property& p) const                         \
+    {                                                                       \
+        return NAME ## s(p, MAPPER_OP_EXISTS);                              \
     }                                                                       \
 
 namespace mapper {
@@ -273,26 +408,65 @@ namespace mapper {
         const char *_s;
     };
 
+    /*! Networks handle multicast and peer-to-peer networking between libmapper
+     Devices and Databases.  In general, you do not need to worry about this
+     interface, as a Network structure will be created automatically when
+     allocating a Device.  A Network structure only needs to be explicitly
+     created if you plan to override the default settings. */
     class Network
     {
     public:
-        Network(const string_type &iface=0, const string_type &group=0, int port=0)
-            { _net = mapper_network_new(iface, group, port); _owned = true; }
+        /*! Create a Network with custom parameters.  Creating a Network object manually is only required if you wish to specify custom network
+         *  parameters.  Creating a Device without specifying a Network will
+         *  give you an object working on the "standard" configuration.
+         * \param interface If non-zero, a string identifying a preferred network
+         *                  interface.  This string can be enumerated e.g. using
+         *                  if_nameindex(). If zero, an interface will be selected
+         *                  automatically.
+         * \param group     If non-zero, specify a multicast group address to use.
+         *                  Zero indicates that the standard group 224.0.1.3 should
+         *                  be used.
+         * \param port      If non-zero, specify a multicast port to use.  Zero
+         *                  indicates that the standard port 7570 should be used.
+         * \return          A newly allocated Network object. */
+        Network(const string_type &interface=0, const string_type &group=0,
+                int port=0)
+            { _net = mapper_network_new(interface, group, port); _owned = true; }
+
+        /*! Destructor. */
         ~Network()
             { if (_owned && _net) mapper_network_free(_net); }
+
         operator mapper_network() const
             { return _net; }
+
+        /*! Return a string indicating the name of the network interface in use.
+         *  \return     A string containing the name of the network interface. */
         std::string interface() const
         {
             const char *iface = mapper_network_interface(_net);
             return iface ? std::string(iface) : 0;
         }
+
+        /*! Return the IPv4 address used by a Network.
+         *  \return     A pointer to an in_addr struct indicating the network's
+         *              IP address, or zero if it is not available.  In general
+         *              this will be the IPv4 address associated with the
+         *              selected local network interface. */
         const struct in_addr *ip4() const
             { return mapper_network_ip4(_net); }
+
+        /*! Retrieve the name of the multicast group currently in use.
+         *  \return     A string specifying the multicast group used by this
+         *              Network for bus communication. */
         std::string group() const
             { return std::string(mapper_network_group(_net)); }
+
+        /*! Retrieve the name of the multicast port currently in use.
+         *  \return     The port number used by this Network. */
         int port() const
             { return mapper_network_port(_net); }
+
     protected:
         friend class Device;
         friend class Database;
@@ -303,6 +477,8 @@ namespace mapper {
         bool _owned;
     };
 
+    /*! libmapper primarily uses NTP timetags for communication and
+     *  synchronization. */
     class Timetag
     {
     public:
@@ -702,6 +878,10 @@ namespace mapper {
         mapper_signal _sig;
     };
 
+    /*! Maps define dataflow connections between sets of Signals. A Map consists
+     *  of one or more source Slots, one or more destination Slot (currently),
+     *  restricted to one) and properties which determine how the source data is
+     *  processed.*/
     class Map : public Object
     {
     public:
@@ -709,11 +889,32 @@ namespace mapper {
             { _map = orig._map; }
         Map(mapper_map map)
             { _map = map; }
+
+        /*! Create a map between a pair of Signals.
+         *  \param source       Source Signal.
+         *  \param destination  Destination Signal object.
+         *  \return             A new Map object – either loaded from the
+         *                      Database (if the Map already existed) or newly
+         *                      created. In the latter case the Map will not
+         *                      take effect until it has been added to the
+         *                      network using push(). */
         Map(signal_type source, signal_type destination)
         {
             mapper_signal cast_src = source, cast_dst = destination;
             _map = mapper_map_new(1, &cast_src, 1, &cast_dst);
         }
+
+        /*! Create a map between a set of Signals.
+         *  \param num_sources  The number of source signals in this map.
+         *  \param sources      Array of source Signal objects.
+         *  \param num_destinations  The number of destination signals in this map.
+         *                      Currently restricted to 1.
+         *  \param destinations Array of destination Signal objects.
+         *  \return             A new Map object – either loaded from the
+         *                      Database (if the Map already existed) or newly
+         *                      created. In the latter case the Map will not
+         *                      take effect until it has been added to the
+         *                      network using push(). */
         Map(int num_sources, signal_type sources[],
             int num_destinations, signal_type destinations[])
         {
@@ -723,6 +924,15 @@ namespace mapper {
             }
             _map = mapper_map_new(num_sources, cast_src, 1, &cast_dst);
         }
+
+        /*! Create a map between a set of Signals.
+         *  \param sources      std::array of source Signal objects.
+         *  \param destinations std::array of destination Signal objects.
+         *  \return             A new Map object – either loaded from the
+         *                      Database (if the Map already existed) or newly
+         *                      created. In the latter case the Map will not
+         *                      take effect until it has been added to the
+         *                      network using push(). */
         template <size_t N, size_t M>
         Map(std::array<signal_type, N>& sources,
             std::array<signal_type, M>& destinations)
@@ -737,6 +947,15 @@ namespace mapper {
             }
             _map = mapper_map_new(N, cast_src, 1, &cast_dst);
         }
+
+        /*! Create a map between a set of Signals.
+         *  \param sources      std::vector of source Signal objects.
+         *  \param destinations std::vector of destination Signal objects.
+         *  \return             A new Map object – either loaded from the
+         *                      Database (if the Map already existed) or newly
+         *                      created. In the latter case the Map will not
+         *                      take effect until it has been added to the
+         *                      network using push(). */
         template <typename T>
         Map(std::vector<T>& sources, std::vector<T>& destinations)
         {
@@ -751,53 +970,184 @@ namespace mapper {
             }
             _map = mapper_map_new(num_sources, cast_src, 1, &cast_dst);
         }
+
+        /*! Return C data structure mapper_map corresponding to this object.
+         *  \return     C mapper_map data structure. */
         operator mapper_map() const
             { return _map; }
+
+        /*! Cast to a boolean value based on whether the underlying C map
+         *  exists.
+         *  \return     True if mapper_map exists, otherwise false. */
         operator bool() const
             { return _map; }
+
+        /*! Return the unique id assigned to this Map.
+         *  \return     The unique id assigned to this Map. */
         operator mapper_id() const
             { return mapper_map_id(_map); }
+
+        /*! Push "staged" property changes out to the network.
+         *  \return     Self. */
         const Map& push() const
             { mapper_map_push(_map); return (*this); }
+
+        /*! Re-create stale map if necessary.
+         *  \return     Self. */
         const Map& refresh() const
             { mapper_map_refresh(_map); return (*this); }
+
+        /*! Release the Map between a set of Signals. */
         // this function can be const since it only sends the unmap msg
         void release() const
             { mapper_map_release(_map); }
+
+        /*! Get the description property for this Map.
+         *  \return     The map description property. */
+        std::string description()
+            { return std::string(mapper_map_description(_map)); }
+
+        /*! Set the description property for this Map. Changes to remote Maps
+         *  will not take effect until synchronized with the network using
+         *  push().
+         *  \param description  The description value to set.
+         *  \return             Self. */
+        Map& set_description(string_type &description)
+            { mapper_map_set_description(_map, description); return (*this); }
+
+        /*! Get the number of source Signals for this Map.
+         *  \return     The number of source Signals. */
         int num_sources() const
             { return mapper_map_num_sources(_map); }
+
+        /*! Get the number of destination Signals/Slots for this Map.
+         *  \return     The number of destination Signals/Slots. */
         int num_destinations() const
             { return mapper_map_num_destinations(_map); }
+
+        /*! Detect whether a Map is completely initialized.
+         *  \return     True if map is completely initialized, false otherwise. */
         bool ready() const
             { return mapper_map_ready(_map); }
+
+        /*! Get the mode property for this Map.
+         *  \return     The mode property for this Map. */
         mapper_mode mode() const
             { return mapper_map_mode(_map); }
+
+        /*! Set the mode property for this Map. Changes to remote maps will not
+         *  take effect until synchronized with the network using push().
+         *  \param mode The mode value to set, can be MAPPER_MODE_EXPRESSION,
+         *              or MAPPER_MODE_LINEAR.
+         *  \return     Self. */
         Map& set_mode(mapper_mode mode)
             { mapper_map_set_mode(_map, mode); return (*this); }
+
+        /*! Get the expression property for a this Map.
+         *  \return     The expression property for this Map. */
         const char* expression() const
             { return mapper_map_expression(_map); }
+
+        /*! Set the expression property for this Map. Changes to remote maps
+         *  will not take effect until synchronized with the network using
+         *  push().
+         *  \param expression   A string specifying an expression to be
+         *                      evaluated by this Map.
+         *  \return             Self. */
         Map& set_expression(const string_type &expression)
             { mapper_map_set_expression(_map, expression); return (*this); }
+
+        /*! Get the muted property for this Map.
+         *  \return     True if this Map is muted, false otherwise. */
         bool muted() const
             { return mapper_map_muted(_map); }
-        Map& set_muted(bool value)
-            { mapper_map_set_muted(_map, (int)value); return (*this); }
+
+        /*! Set the muted property for this Map. Changes to remote maps will not
+         *  take effect until synchronized with the network using push().
+         *  \param muted    True to mute this map, or false unmute.
+         *  \return         Self. */
+        Map& set_muted(bool muted)
+            { mapper_map_set_muted(_map, (int)muted); return (*this); }
+
+        /*! Get the process location for a this Map.
+         *  \return     MAPPER_LOC_SOURCE if processing is evaluated at the
+         *              source device, MAPPER_LOC_DESTINATION otherwise. */
         mapper_location process_location() const
             { return mapper_map_process_location(_map); }
-        Map& set_process_location(mapper_location loc)
-            { mapper_map_set_process_location(_map, loc); return (*this); }
+
+        /*! Set the process location property for this Map. Depending on the Map
+         *  topology and expression specified it may not be possible to set the
+         *  process location to MAPPER_LOC_SOURCE for all maps.  E.g. for
+         *  "convergent" topologies or for processing expressions that use
+         *  historical values of the destination signal, libmapper will force
+         *  processing to take place at the destination device.  Changes to
+         *  remote maps will not take effect until synchronized with the network
+         *  using push().
+         *  \param location MAPPER_LOC_SOURCE to indicate processing should be
+         *                  handled by the source Device, or
+         *                  MAPPER_LOC_DESTINATION for the destination.
+         *  \return         Self. */
+        Map& set_process_location(mapper_location location)
+            { mapper_map_set_process_location(_map, location); return (*this); }
+
+        /*! Return the unique id assigned to this Map.
+         *  \return     The unique id assigned to this Map. */
         mapper_id id() const
             { return mapper_map_id(_map); }
-        Map& set_user_data(void *user_data)
-            { mapper_map_set_user_data(_map, user_data); return (*this); }
+
+        /*! Indicate whether this is a local Map.
+         *  \return     True if the Map is local, false otherwise. */
+        bool is_local()
+            { return mapper_map_is_local(_map); }
+
+        /*! Get the scopes property for a this map.
+         *  \return     A Device::Query containing the list of results.  Use
+         *              Device::Query::next() to iterate. */
+//        Device::Query scopes() const
+//            { return Device::Query(mapper_map_scopes(_map)); }
+
+        /*! Add a scope to this map. Map scopes configure the propagation of
+         *  Signal instance updates across the Map. Changes to remote Maps will
+         *  not take effect until synchronized with the network using push().
+         *  \param dev      Device to add as a scope for this Map. After taking
+         *                  effect, this setting will cause instance updates
+         *                  originating from the specified Device to be
+         *                  propagated across the Map. */
+//        Map& add_scope(Device dev)
+//            { mapper_map_add_scope(_map, dev._dev); return (*this); }
+
+        /*! Remove a scope from this Map. Map scopes configure the propagation
+         *  of Signal instance updates across the Map. Changes to remote Maps
+         *  will not take effect until synchronized with the network using
+         *  push().
+         *  \param dev      Device to remove as a scope for this Map. After
+         *                  taking effect, this setting will cause instance
+         *                  updates originating from the specified Device to be
+         *                  blocked from propagating across the Map. */
+//        Map& remove_scope(Device dev)
+//            { mapper_map_remove_scope(_map, dev._dev); return (*this); }
+
+        /*! Retrieve the arbitrary pointer associated with this Map.
+         *  \return             A pointer associated with this Map. */
         void *user_data() const
             { return mapper_map_user_data(_map); }
+
+        /*! Associate this Map with an arbitrary pointer.
+         *  \param user_data    A pointer to user data to be associated.
+         *  \return             Self. */
+        Map& set_user_data(void *user_data)
+            { mapper_map_set_user_data(_map, user_data); return (*this); }
+
+        /*! Query objects provide a lazily-computed iterable list of results
+         *  from running queries against Databases, Devices, or Signals. */
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
             QUERY_METHODS(Map, map);
 
             // also enable some Map methods
+            /*! Release each Map in the Query.
+             *  \return             Self. */
             Query& release()
             {
                 // use a copy
@@ -808,6 +1158,12 @@ namespace mapper {
                 }
                 return (*this);
             }
+            /*! Set the expression property for each Map in the Query. Changes
+             *  to remote maps will not take effect until synchronized with the
+             *  network using push().
+             *  \param expression   A string specifying an expression to be
+             *                      evaluated by this Map.
+             *  \return             Self. */
             Query& set_expression(const string_type &expression)
             {
                 // use a copy
@@ -818,6 +1174,12 @@ namespace mapper {
                 }
                 return (*this);
             }
+            /*! Set the mode property for each Map in the Query. Changes to
+             *  remote maps will not take effect until synchronized with the
+             *  network using push().
+             *  \param mode The mode value to set, can be MAPPER_MODE_EXPRESSION,
+             *              or MAPPER_MODE_LINEAR.
+             *  \return     Self. */
             Query& set_mode(mapper_mode mode)
             {
                 // use a copy
@@ -831,6 +1193,9 @@ namespace mapper {
         private:
             mapper_map *_query;
         };
+        /*! Slots define the endpoints of a Map.  Each Slot links to a Signal
+         *  object and handles properties of the Map that are specific to an
+         *  endpoint such as range extrema. */
         class Slot : public Object
         {
         public:
@@ -841,32 +1206,88 @@ namespace mapper {
             ~Slot() { printf("destroying slot %p\n", _slot); }
             operator mapper_slot() const
                 { return _slot; }
+
+            /*! Retrieve the parent signal for this Slot.
+             *  \return     This Slot's parent signal. */
             inline Signal signal() const;
-            mapper_boundary_action bound_min() const
-                { return mapper_slot_bound_min(_slot); }
-            Slot& set_bound_min(mapper_boundary_action bound_min)
-                { mapper_slot_set_bound_min(_slot, bound_min); return (*this); }
+
+            /*! Get the boundary maximum property for this Slot. This property
+             *  controls behaviour when a value exceeds the specified maximum
+             *  value.
+             *  \return     The boundary maximum setting. */
             mapper_boundary_action bound_max() const
                 { return mapper_slot_bound_max(_slot); }
-            Slot& set_bound_max(mapper_boundary_action bound_max)
-                { mapper_slot_set_bound_max(_slot, bound_max); return (*this); }
-            Property minimum() const
+
+            /*! Set the boundary maximum property for this Slot. This property
+             *  controls behaviour when a value exceeds the specified maximum
+             *  value.  Changes to remote maps will not take effect until
+             *  synchronized with the network using push().
+             *  \param action   The boundary maximum setting.
+             *  \return         Self. */
+            Slot& set_bound_max(mapper_boundary_action action)
+                { mapper_slot_set_bound_max(_slot, action); return (*this); }
+
+            /*! Get the boundary minimum property for this Slot. This property
+             *  controls behaviour when a value is less than the specified
+             *  minimum value.
+             *  \return     The boundary minimum setting. */
+            mapper_boundary_action bound_min() const
+                { return mapper_slot_bound_min(_slot); }
+
+            /*! Set the boundary minimum property for this Slot. This property
+             *  controls behaviour when a value is less than the specified
+             *  minimum value.  Changes to remote maps will not take effect
+             *  until synchronized with the network using push().
+             *  \param action   The boundary minimum setting.
+             *  \return         Self. */
+            Slot& set_bound_min(mapper_boundary_action action)
+                { mapper_slot_set_bound_min(_slot, action); return (*this); }
+
+            /*! Retrieve the calibrating property for this Slot. When enabled,
+             *  the Slot minimum and maximum values will be updated based on
+             *  incoming data.
+             *  \return     True if calibration is enabled, false otherwise. */
+            bool calibrating() const
+                { return mapper_slot_calibrating(_slot); }
+
+            /*! Set the calibrating property for this Slot. When enabled, the
+             *  Slot minimum and maximum values will be updated based on
+             *  incoming data.  Changes to remote Maps will not take effect
+             *  until synchronized with the network using push().
+             *  \param calibrating  True to enable calibration, false otherwise.
+             *  \return             Self. */
+            Slot& set_calibrating(bool calibrating)
             {
-                char type;
-                int length;
-                void *value;
-                mapper_slot_minimum(_slot, &length, &type, &value);
-                if (value)
-                    return Property("minimum", length, type, value);
-                else
-                    return Property("minimum", 0, 0, 0);
-            }
-            Slot& set_minimum(const Property &value)
-            {
-                mapper_slot_set_minimum(_slot, value.length, value.type,
-                                        (void*)(const void*)value);
+                mapper_slot_set_calibrating(_slot, (int)calibrating);
                 return (*this);
             }
+
+            /*! Get the "causes update" property for this Slot. When enabled,
+             *  updates will cause computation of a new Map output.
+             *  \return     True if causes map update, false otherwise. */
+            bool causes_update() const
+                { return mapper_slot_causes_update(_slot); }
+
+            /*! Set the "causes update" property for this Slot. When enabled,
+             *  updates will cause computation of a new Map output.
+             *  Changes to remote Maps will not take effect until synchronized
+             *  with the network using push().
+             *  \param causes_update    True to enable "causes update", false
+             *                          otherwise.
+             *  \return                 Self. */
+            Slot& set_causes_update(bool causes_update)
+            {
+                mapper_slot_set_causes_update(_slot, (int)causes_update);
+                return (*this);
+            }
+
+            /*! Retrieve the index for this Slot.
+             *  \return     The index of this Slot in its parent Map. */
+            int index() const
+                { return mapper_slot_index(_slot); }
+
+            /*! Retrieve the value of the "maximum" property for this Slot.
+             *  \return     A Property object specifying the maximum. */
             Property maximum() const
             {
                 char type;
@@ -878,31 +1299,62 @@ namespace mapper {
                 else
                     return Property("maximum", 0, 0, 0);
             }
+
+            /*! Set the "maximum" property for this Slot.  Changes to remote
+             *  Maps will not take effect until synchronized with the network
+             *  using push().
+             *  \param value        A Property object specifying the maximum.
+             *  \return             Self. */
             Slot& set_maximum(const Property &value)
             {
                 mapper_slot_set_maximum(_slot, value.length, value.type,
                                         (void*)(const void*)value);
                 return (*this);
             }
-            bool calibrating() const
-                { return mapper_slot_calibrating(_slot); }
-            Slot& set_calibrating(bool value)
+
+            /*! retrieve the value of the "minimum" property for this Slot.
+             *  \return     A Property object specifying the minimum. */
+            Property minimum() const
             {
-                mapper_slot_set_calibrating(_slot, (int)value);
+                char type;
+                int length;
+                void *value;
+                mapper_slot_minimum(_slot, &length, &type, &value);
+                if (value)
+                return Property("minimum", length, type, value);
+                else
+                return Property("minimum", 0, 0, 0);
+            }
+
+            /*! Set the "minimum" property for this Slot.  Changes to remote
+             *  Maps will not take effect until synchronized with the network
+             *  using push().
+             *  \param value        A Property object specifying the minimum.
+             *  \return             Self. */
+            Slot& set_minimum(const Property &value)
+            {
+                mapper_slot_set_minimum(_slot, value.length, value.type,
+                                        (void*)(const void*)value);
                 return (*this);
             }
-            bool causes_update() const
-                { return mapper_slot_causes_update(_slot); }
-            Slot& set_causes_update(bool value)
-            {
-                mapper_slot_set_causes_update(_slot, (int)value);
-                return (*this);
-            }
+
+            /*! Retrieve the value of the "use instances" property for this
+             *  Slot. If enabled, updates to this Slot will be treated as
+             *  updates to a specific instance.
+             *  \return     True if using instance, false otherwise. */
             bool use_instances() const
                 { return mapper_slot_use_instances(_slot); }
-            Slot& set_use_instances(bool value)
+
+            /*! Set the "use instances" property for this Slot.  If enabled,
+             *  updates to this slot will be treated as updates to a specific
+             *  instance.  Changes to remote Maps will not take effect until
+             *  synchronized with the network using push().
+             *  \param use_instances    True to use instance updates, false
+             *                          otherwise.
+             *  \return                 Self. */
+            Slot& set_use_instances(bool use_instances)
             {
-                mapper_slot_set_use_instances(_slot, (int)value);
+                mapper_slot_set_use_instances(_slot, (int)use_instances);
                 return (*this);
             }
             PROPERTY_METHODS(Slot, slot, _slot);
@@ -911,10 +1363,25 @@ namespace mapper {
         private:
             mapper_slot _slot;
         };
+
+        /*! Get the Map Slot matching a specific Signal.
+         *  \param sig          The Signal corresponding to the desired slot.
+         *  \return         	The Slot. */
+        Slot slot(signal_type sig)
+            { return Slot(mapper_map_slot_by_signal(_map, (mapper_signal)sig)); }
+
+        /*! Retrieve a destination Slot from this Map.
+         *  \param index        The slot index.
+         *  \return             The Slot object. */
         Slot destination(int index = 0) const
             { return Slot(mapper_map_slot(_map, MAPPER_LOC_DESTINATION, index)); }
+
+        /*! Retrieve a source Slot from this Map.
+         *  \param index        The slot index.
+         *  \return             The Slot object. */
         Slot source(int index=0) const
             { return Slot(mapper_map_slot(_map, MAPPER_LOC_SOURCE, index)); }
+
         PROPERTY_METHODS(Map, map, _map);
     protected:
         friend class Database;
@@ -922,6 +1389,7 @@ namespace mapper {
         mapper_map _map;
     };
 
+    /*! Links define network connections between pairs of devices. */
     class Link : public Object
     {
     public:
@@ -949,6 +1417,8 @@ namespace mapper {
         void *user_data() const
             { return mapper_link_user_data(_link); }
         PROPERTY_METHODS(Link, link, _link);
+        /*! Query objects provide a lazily-computed iterable list of results
+         *  from running queries against Databases or Devices. */
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -962,6 +1432,12 @@ namespace mapper {
         mapper_link _link;
     };
 
+    /*! Signals define inputs or outputs for Devices.  A Signal consists of a
+     *  scalar or vector value of some integer or floating-point type.  A
+     *  Signal is created by adding an input or output to a Device.  It
+     *  can optionally be provided with some metadata such as a range, unit, or
+     *  other properties.  Signals can be mapped by creating Maps using remote
+     *  requests on the network, usually generated by a standalone GUI. */
     class Signal : public Object
     {
     protected:
@@ -989,6 +1465,12 @@ namespace mapper {
             { mapper_signal_push(_sig); return (*this); }
         mapper_id id() const
             { return mapper_signal_id(_sig); }
+
+        /*! Indicate whether this is a local Signal.
+         *  \return     True if the Signal is local, false otherwise. */
+        bool is_local()
+            { return mapper_signal_is_local(_sig); }
+
         std::string name() const
             { return std::string(mapper_signal_name(_sig)); }
         mapper_direction direction() const
@@ -1232,6 +1714,8 @@ namespace mapper {
             return (*this);
         }
 
+        /*! Query objects provide a lazily-computed iterable list of results
+         *  from running queries against Databases or Devices. */
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -1241,9 +1725,22 @@ namespace mapper {
         };
     };
 
+    /*! A Device is an entity on the network which has input and/or output
+     *  Signals.  The Device is the primary interface through which a
+     *  program uses libmapper.  A Device must have a name, to which a unique
+     *  ordinal is subsequently appended.  It can also be given other
+     *  user-specified metadata.  Device Signals can be connected, which is
+     *  usually effected by requests from an external GUI. */
     class Device : public Object
     {
     public:
+        /*! Allocate and initialize a Device.
+         *  \param name_prefix  A short descriptive string to identify the Device.
+         *                      Must not contain spaces or the slash character '/'.
+         *  \param port         An optional port for starting the port allocation
+         *                      scheme.
+         *  \param net          A previously allocated Network object to use.
+         *  \return             A newly allocated Device. */
         Device(const string_type &name_prefix, int port, const Network& net)
         {
             _dev = mapper_device_new(name_prefix, port, net);
@@ -1252,6 +1749,11 @@ namespace mapper {
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
+
+        /*! Allocate and initialize a Device.
+         *  \param name_prefix  A short descriptive string to identify the Device.
+         *                      Must not contain spaces or the slash character '/'.
+         *  \return             A newly allocated Device. */
         Device(const string_type &name_prefix)
         {
             _dev = mapper_device_new(name_prefix, 0, 0);
@@ -1380,6 +1882,10 @@ namespace mapper {
             { return std::string(mapper_device_name(_dev)); }
         mapper_id id() const
             { return mapper_device_id(_dev); }
+        /*! Indicate whether this is a local Device.
+         *  \return     True if the Device is local, false otherwise. */
+        bool is_local()
+            { return mapper_device_is_local(_dev); }
         int port() const
             { return mapper_device_port(_dev); }
         int ordinal() const
@@ -1391,6 +1897,8 @@ namespace mapper {
 //        lo::Server lo_server()
 //            { return lo::Server(mapper_device_lo_server(_dev)); }
 
+        /*! Query objects provide a lazily-computed iterable list of results
+         *  from running queries against a mapper::Database. */
         class Query : public std::iterator<std::input_iterator_tag, int>
         {
         public:
@@ -1417,9 +1925,20 @@ namespace mapper {
         mapper_device _dev;
     };
 
+    /*! Databases are the primary interface through which a program may observe
+     *  the network and store information about Devices and Signals that are
+     *  present.  Each Database stores records of Devices, Signals, Links, and
+     *  Maps, which can be queried. */
     class Database
     {
     public:
+        /*! Create a peer in the libmapper distributed database.
+         *  \param net      A previously allocated Network object to use.
+         *  \param flags    Sets whether the database should automatically
+         *                  subscribe to information about Links, Signals
+         *                  and Maps when it encounters a previously-unseen
+         *                  Device.
+         *  \return         The new Database. */
         Database(Network& net, int flags = MAPPER_OBJ_ALL)
         {
             _db = mapper_database_new(net, flags);
@@ -1427,6 +1946,12 @@ namespace mapper {
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
+        /*! Create a peer in the libmapper distributed database.
+         *  \param flags    Sets whether the database should automatically
+         *                  subscribe to information about Links, Signals
+         *                  and Maps when it encounters a previously-unseen
+         *                  Device.
+         *  \return         The new Database. */
         Database(int flags = MAPPER_OBJ_ALL)
         {
             _db = mapper_database_new(0, flags);
@@ -1454,162 +1979,198 @@ namespace mapper {
             if (_owned && _db && decr_refcount() <= 0)
                 mapper_database_free(_db);
         }
+
+        /*! Retrieve the Network object from a Database.
+         *  \return         	The database Network object. */
+        Network network() const
+            { return Network(mapper_database_network(_db)); }
+
+        /*! Update a Database.
+         *  \param block_ms     The number of milliseconds to block, or 0 for
+         *                      non-blocking behaviour.
+         *  \return             The number of handled messages. */
         int poll(int block_ms=0) const
             { return mapper_database_poll(_db, block_ms); }
+
+        /*! Remove unresponsive Devices from the Database.
+         *  \return         Self. */
         const Database& flush() const
         {
             mapper_database_flush(_db, mapper_database_timeout(_db), 0);
             return (*this);
         }
-        const Database& flush(int timeout_sec, int quiet=0) const
+        /*! Remove unresponsive Devices from the Database.
+         *  \param timeout_sec  The number of second a Device must have been
+         *                      unresponsive before removal.
+         *  \param quiet        True to disable callbacks during flush(),
+         *                      false otherwise.
+         *  \return             Self. */
+        const Database& flush(int timeout_sec, bool quiet=false) const
         {
             mapper_database_flush(_db, timeout_sec, quiet);
             return (*this);
         }
 
         // subscriptions
+        /*! Send a request to the network for all active Devices to report in.
+         *  \return         Self. */
         const Database& request_devices() const
             { mapper_database_request_devices(_db); return (*this); }
+
+        /*! Subscribe to information about a specific Device.
+         *  \param dev      The Device of interest.
+         *  \param flags    Bitflags setting the type of information of interest.
+         *                  Can be a combination of MAPPER_OBJ_DEVICE,
+         *                  MAPPER_OBJ_INPUT_SIGNALS, MAPPER_OBJ_OUTPUT_SIGNALS,
+         *                  MAPPER_OBJ_SIGNALS, MAPPER_OBJ_INCOMING_MAPS,
+         *                  MAPPER_OBJ_OUTGOING_MAPS, MAPPER_OBJ_MAPS, or simply
+         *                  MAPPER_OBJ_ALL for all information.
+         *  \param timeout  The desired duration in seconds for this 
+         *                  subscription. If set to -1, the database will
+         *                  automatically renew the subscription until it is
+         *                  freed or this function is called again.
+         *  \return         Self. */
         const Database& subscribe(const device_type& dev, int flags, int timeout)
         {
             mapper_database_subscribe(_db, dev, flags, timeout);
             return (*this);
         }
+
+        /*! Subscribe to information about all discovered Devices.
+         *  \param flags    Bitflags setting the type of information of interest.
+         *                  Can be a combination of MAPPER_OBJ_DEVICE,
+         *                  MAPPER_OBJ_INPUT_SIGNALS, MAPPER_OBJ_OUTPUT_SIGNALS,
+         *                  MAPPER_OBJ_SIGNALS, MAPPER_OBJ_INCOMING_MAPS,
+         *                  MAPPER_OBJ_OUTGOING_MAPS, MAPPER_OBJ_MAPS, or simply
+         *                  MAPPER_OBJ_ALL for all information.
+         *  \return         Self. */
         const Database& subscribe(int flags)
             { mapper_database_subscribe(_db, 0, flags, -1); return (*this); }
+
+        /*! Unsubscribe from information about a specific Device.
+         *  \param dev      The Device of interest.
+         *  \return         Self. */
         const Database& unsubscribe(const device_type& dev)
         {
             mapper_database_unsubscribe(_db, dev);
             return (*this);
         }
+
+        /*! Cancel all subscriptions.
+         *  \return         Self. */
         const Database& unsubscribe()
             { mapper_database_unsubscribe(_db, 0); return (*this); }
 
-        // database_devices
-        const Database& add_device_callback(mapper_database_device_handler *h,
-                                            void *user_data) const
-        {
-            mapper_database_add_device_callback(_db, h, user_data);
-            return (*this);
-        }
-        const Database& remove_device_callback(mapper_database_device_handler *h,
-                                         void *user_data) const
-        {
-            mapper_database_remove_device_callback(_db, h, user_data);
-            return (*this);
-        }
+        /*! Retrieve the timeout in seconds after which a Database will declare
+         *  a Device "unresponsive". Defaults to MAPPER_TIMEOUT_SEC.
+         *  \return         The current timeout in seconds. */
+        int timeout()
+            { return mapper_database_timeout(_db); }
 
-        int num_devices() const
-            { return mapper_database_num_devices(_db); }
-        Device device(mapper_id id) const
-            { return Device(mapper_database_device_by_id(_db, id)); }
+        /*! Set the timeout in seconds after which a Database will declare a
+         *  Device "unresponsive".  Defaults to MAPPER_TIMEOUT_SEC.
+         *  \param timeout  The timeout in seconds.
+         *  \return         Self. */
+        Database& set_timeout(int timeout)
+            { mapper_database_set_timeout(_db, timeout); return (*this); }
+
+        // database_devices
+        DATABASE_METHODS(Device, device, Device::Query);
+
+        /*! Retrieve a record for a registered Device with a specific name.
+         *  \param name         Name of the Device to find in the database.
+         *  \return             The Device record. */
         Device device(const string_type &name) const
             { return Device(mapper_database_device_by_name(_db, name)); }
-        Device::Query devices() const
-            { return Device::Query(mapper_database_devices(_db)); }
+
+        /*! Construct a Query from all Devices matching a string pattern.
+         *  \param name         Pattern to match against Device names.
+         *  \return             A Device::Query containing records of Devices
+         *                      matching the criteria. */
         Device::Query devices(const string_type &name) const
-        {
-            return Device::Query(mapper_database_devices_by_name(_db, name));
-        }
-        Device::Query devices(const Property& p, mapper_op op) const
-        {
-            return Device::Query(
-                mapper_database_devices_by_property(_db, p.name, p.length,
-                                                    p.type, p.value, op));
-        }
-        inline Device::Query devices(const Property& p) const
-            { return devices(p, MAPPER_OP_EXISTS); }
+            { return Device::Query(mapper_database_devices_by_name(_db, name)); }
 
         // database_signals
+        /*! Register a callback for when a Signal record is added or
+         *  updated in the Database.
+         *  \param h        Callback function.
+         *  \param user     A user-defined pointer to be passed to the
+         *                  callback for context.
+         *  \return         Self. */
         const Database& add_signal_callback(mapper_database_signal_handler *h,
-                                            void *user_data) const
+                                            void *user) const
         {
-            mapper_database_add_signal_callback(_db, h, user_data);
-            return (*this);
-        }
-        const Database& remove_signal_callback(mapper_database_signal_handler *h,
-                                               void *user_data) const
-        {
-            mapper_database_remove_signal_callback(_db, h, user_data);
+            mapper_database_add_signal_callback(_db, h, user);
             return (*this);
         }
 
+        /*! Remove a Signal record callback from the Database service.
+         *  \param h        Callback function.
+         *  \param user     The user context pointer that was originally
+         *                  specified when adding the callback
+         *  \return         Self. */
+        const Database& remove_signal_callback(mapper_database_signal_handler *h,
+                                               void *user) const
+        {
+            mapper_database_remove_signal_callback(_db, h, user);
+            return (*this);
+        }
+
+        /*! Return the number of Signals stored in the database.
+         *  \param dir      Signal direction.
+         *  \return         The number of Signals. */
         int num_signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return mapper_database_num_signals(_db, dir); }
+
+        /*! Retrieve a record for a registered Signal using its unique id.
+         *  \param id       Unique id identifying the CLASS_NAME to find in
+         *                  the database.
+         *  \return         The CLASS_NAME record. */
         Signal signal(mapper_id id) const
             { return Signal(mapper_database_signal_by_id(_db, id)); }
+
+        /*! Construct a Query from Signal record matching a direction.
+         *  \param dir      Signal direction.
+         *  \return         A Signal::Query containing the results.*/
         Signal::Query signals(mapper_direction dir=MAPPER_DIR_ANY) const
             { return Signal::Query(mapper_database_signals(_db, dir)); }
+
+        /*! Construct a Query from all Signals with names matching a string
+         *  pattern.
+         *  \param name         Pattern to match against Signal names.
+         *  \return             A Signal::Query containing records of Signals
+         *                      matching the criteria. */
         Signal::Query signals(const string_type &name) const
         {
             return Signal::Query(mapper_database_signals_by_name(_db, name));
         }
+
+        /*! Construct a Query from all Signals matching a Property.
+         *  \param p        Property to match.
+         *  \param op       The comparison operator.
+         *  \return         A CLASS_NAME ## ::Query containing records of
+         *                  Signals matching the criteria. */
         Signal::Query signals(const Property& p, mapper_op op) const
         {
             return Signal::Query(
                 mapper_database_signals_by_property(_db, p.name, p.length,
                                                     p.type, p.value, op));
         }
+
+        /*! Construct a Query from all CLASS_NAME ## s possessing a certain
+         *  Property.
+         *  \param p        Property to match.
+         *  \return         A CLASS_NAME ## ::Query containing records of
+         *                  Signals matching the criteria. */
         inline Signal::Query signals(const Property& p) const
             { return signals(p, MAPPER_OP_EXISTS); }
 
         // database links
-        const Database& add_link_callback(mapper_database_link_handler *h,
-                                          void *user_data) const
-        {
-            mapper_database_add_link_callback(_db, h, user_data);
-            return (*this);
-        }
-        const Database& remove_link_callback(mapper_database_link_handler *h,
-                                             void *user_data) const
-        {
-            mapper_database_remove_link_callback(_db, h, user_data);
-            return (*this);
-        }
-
-        int num_links() const
-            { return mapper_database_num_links(_db); }
-        Link link(mapper_id id) const
-            { return Link(mapper_database_link_by_id(_db, id)); }
-        Link::Query links() const
-            { return Link::Query(mapper_database_links(_db)); }
-        Link::Query links(const Property& p, mapper_op op) const
-        {
-            return Link::Query(
-                mapper_database_links_by_property(_db, p.name, p.length, p.type,
-                                                  p.value, op));
-        }
-        inline Link::Query links(const Property& p) const
-            { return links(p, MAPPER_OP_EXISTS); }
+        DATABASE_METHODS(Link, link, Link::Query);
 
         // database maps
-        const Database& add_map_callback(mapper_database_map_handler *h,
-                                         void *user_data) const
-        {
-            mapper_database_add_map_callback(_db, h, user_data);
-            return (*this);
-        }
-        const Database& remove_map_callback(mapper_database_map_handler *h,
-                                      void *user_data) const
-        {
-            mapper_database_remove_map_callback(_db, h, user_data);
-            return (*this);
-        }
+        DATABASE_METHODS(Map, map, Map::Query);
 
-        int num_maps() const
-            { return mapper_database_num_maps(_db); }
-        Map map(mapper_id id) const
-            { return Map(mapper_database_map_by_id(_db, id)); }
-        Map::Query maps() const
-            { return Map::Query(mapper_database_maps(_db)); }
-        Map::Query maps(const Property& p, mapper_op op) const
-        {
-            return Map::Query(
-                mapper_database_maps_by_property(_db, p.name, p.length, p.type,
-                                                 p.value, op));
-        }
-        inline Map::Query maps(const Property& p) const
-            { return maps(p, MAPPER_OP_EXISTS); }
     private:
         mapper_database _db;
         bool _owned;

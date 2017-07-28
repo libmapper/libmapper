@@ -132,7 +132,7 @@ void loop()
 {
     int i;
     for (i = 0; i < 10; i++) {
-        mapper_device_poll(source, 100);
+        mapper_device_poll(source, 0);
         printf("Updating signal %s to %f\n", mapper_signal_name(sendsig),
                (i * 1.0f));
         mapper_signal_update_float(sendsig, (i * 1.0f));
@@ -165,8 +165,8 @@ int main()
         goto done;
     }
 
-//    printf("SENDING UDP\n");
-//    loop();
+    printf("SENDING UDP\n");
+    loop();
 
     set_map_protocol(MAPPER_PROTO_TCP);
     printf("SENDING TCP\n");

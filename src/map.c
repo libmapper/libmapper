@@ -97,11 +97,21 @@ void mapper_map_init(mapper_map map)
 mapper_map mapper_map_new(int num_sources, mapper_signal *sources,
                           int num_destinations, mapper_signal *destinations)
 {
-    int i;
+    int i, j;
     if (!sources || !*sources || !destinations || !*destinations)
         return 0;
     if (num_sources <= 0 || num_sources > MAX_NUM_MAP_SOURCES)
         return 0;
+
+    for (i = 0; i < num_sources; i++) {
+        for (j = 0; j < num_destinations; j++) {
+            if (sources[i]->id == destinations[j]->id) {
+                trace("Cannot connect signal '%s:%s' to itself.\n",
+                      mapper_device_name(sources[i]->device), sources[i]->name);
+                return 0;
+            }
+        }
+    }
 
     // Only 1 destination supported for now
     if (num_destinations != 1)
@@ -390,7 +400,7 @@ void mapper_map_set_description(mapper_map map, const char *description)
 
 void mapper_map_set_mode(mapper_map map, mapper_mode mode)
 {
-    if (map && mode > MAPPER_MODE_UNDEFINED && mode < NUM_MAPPER_MODES) {
+    if (map && mode > MAPPER_MODE_RAW && mode < NUM_MAPPER_MODES) {
         mapper_table_set_record(map->staged_props, AT_MODE, NULL, 1, 'i', &mode,
                                 REMOTE_MODIFY);
     }
@@ -626,7 +636,7 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
     mapper_history from = slot->local->history;
     mapper_history to = map->destination.local->history;
 
-    if (slot->calibrating == 1) {
+    if (slot->calibrating) {
         if (!slot->minimum) {
             slot->minimum = malloc(slot->signal->length
                                    * mapper_type_size(slot->signal->type));
@@ -643,12 +653,12 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 float *v = mapper_history_value_ptr(from[instance]);
                 float *src_min = (float*)slot->minimum;
                 float *src_max = (float*)slot->maximum;
-                if (!slot->calibrating) {
+                if (slot->calibrating == 1) {
                     for (i = 0; i < from->length; i++) {
                         src_min[i] = v[i];
                         src_max[i] = v[i];
                     }
-                    slot->calibrating = 1;
+                    slot->calibrating = 2;
                     changed = 1;
                 }
                 else {
@@ -669,12 +679,12 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 int *v = mapper_history_value_ptr(from[instance]);
                 int *src_min = (int*)slot->minimum;
                 int *src_max = (int*)slot->maximum;
-                if (!slot->calibrating) {
+                if (slot->calibrating == 1) {
                     for (i = 0; i < from->length; i++) {
                         src_min[i] = v[i];
                         src_max[i] = v[i];
                     }
-                    slot->calibrating = 1;
+                    slot->calibrating = 2;
                     changed = 1;
                 }
                 else {
@@ -695,12 +705,12 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
                 double *v = mapper_history_value_ptr(from[instance]);
                 double *src_min = (double*)slot->minimum;
                 double *src_max = (double*)slot->maximum;
-                if (!slot->calibrating) {
+                if (slot->calibrating == 1) {
                     for (i = 0; i < from->length; i++) {
                         src_min[i] = v[i];
                         src_max[i] = v[i];
                     }
-                    slot->calibrating = 1;
+                    slot->calibrating = 2;
                     changed = 1;
                 }
                 else {
@@ -1403,17 +1413,23 @@ static int mapper_map_check_status(mapper_map map)
         }
         map->status = STATUS_READY;
         // update in/out counts for link
-        if (map->destination.link) {
-            ++map->destination.link->num_maps[0];
-            map->destination.link->props->dirty = 1;
+        if (map->local->is_local_only) {
+            if (map->destination.link)
+                ++map->destination.link->num_maps[0];
         }
-        mapper_link last = 0, link;
-        for (i = 0; i < map->num_sources; i++) {
-            link = map->sources[i]->link;
-            if (link && link != last) {
-                ++map->sources[i]->link->num_maps[1];
-                map->sources[i]->link->props->dirty = 1;
-                last = link;
+        else {
+            if (map->destination.link) {
+                ++map->destination.link->num_maps[0];
+                map->destination.link->props->dirty = 1;
+            }
+            mapper_link last = 0, link;
+            for (i = 0; i < map->num_sources; i++) {
+                link = map->sources[i]->link;
+                if (link && link != last) {
+                    ++map->sources[i]->link->num_maps[1];
+                    map->sources[i]->link->props->dirty = 1;
+                    last = link;
+                }
             }
         }
         apply_mode(map);
@@ -1460,14 +1476,11 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
 
     // set destination slot properties
     int status = 0xFF;
-    updated += mapper_slot_set_from_message(&map->destination, msg,
-                                            DST_SLOT_PROPERTY, &status);
+    updated += mapper_slot_set_from_message(&map->destination, msg, &status);
 
     // set source slot properties
     for (i = 0; i < map->num_sources; i++) {
-        updated += mapper_slot_set_from_message(map->sources[i], msg,
-                                                SRC_SLOT_PROPERTY(map->sources[i]->id),
-                                                &status);
+        updated += mapper_slot_set_from_message(map->sources[i], msg, &status);
     }
 
     for (i = 0; i < msg->num_atoms; i++) {
@@ -1526,6 +1539,8 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg, int override
                         }
                         if (should_compile) {
                             if (!replace_expression_string(map, expr_str)) {
+                                // TODO: don't increment updated counter twice
+                                ++updated;
                                 reallocate_map_histories(map);
                             }
                             else {
@@ -1918,14 +1933,12 @@ void mapper_map_print(mapper_map map)
         return;
     }
 
-    if (map->num_sources > 1)
-        printf("[");
+    printf("[");
     for (i = 0; i < map->num_sources; i++) {
-        printf("%s/%s, ", map->sources[i]->signal->device->name,
+        printf("%s:%s, ", map->sources[i]->signal->device->name,
                map->sources[i]->signal->name);
     }
-    printf("\b\b%s", map->num_sources > 1 ? "] " : " ");
-    printf("-> %s/%s\n", map->destination.signal->device->name,
+    printf("\b\b] -> [%s:%s]\n", map->destination.signal->device->name,
            map->destination.signal->name);
     for (i = 0; i < map->num_sources; i++) {
         printf("    source[%d]: ", i);

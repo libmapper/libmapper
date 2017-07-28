@@ -56,7 +56,7 @@ static mapper_signal_instance find_instance_by_id(mapper_signal sig,
     return 0;
 }
 
-void mapper_signal_init(mapper_signal sig, mapper_direction direction,
+void mapper_signal_init(mapper_signal sig, mapper_direction dir,
                         int num_instances, const char *name, int length,
                         char type, const char *unit,
                         const void *minimum, const void *maximum,
@@ -75,7 +75,7 @@ void mapper_signal_init(mapper_signal sig, mapper_direction direction,
 
     sig->length = length;
     sig->type = type;
-    sig->direction = direction;
+    sig->direction = dir ?: MAPPER_DIR_OUTGOING;
     sig->unit = unit ? strdup(unit) : strdup("unknown");
     sig->minimum = sig->maximum = 0;
 
@@ -257,17 +257,13 @@ void mapper_signal_update_int(mapper_signal sig, int value)
 
 #ifdef DEBUG
     if (sig->type != 'i') {
-        trace("called mapper_signal_update_int() on non-int signal!\n");
+        trace("called update_int() on non-int signal '%s' (%c)\n",
+              sig->name, sig->type);
         return;
     }
-
     if (sig->length != 1) {
-        trace("called mapper_signal_update_int() on non-scalar signal!\n");
-        return;
-    }
-
-    if (!sig->device) {
-        trace("signal does not have a device in mapper_signal_update_int().\n");
+        trace("called update_int() on non-scalar signal '%s' (%d)\n",
+              sig->name, sig->length);
         return;
     }
 #endif
@@ -288,17 +284,13 @@ void mapper_signal_update_float(mapper_signal sig, float value)
 
 #ifdef DEBUG
     if (sig->type != 'f') {
-        trace("called mapper_signal_update_float() on non-float signal!\n");
+        trace("called update_float() on non-float signal '%s' (%c)\n",
+              sig->name, sig->type);
         return;
     }
-
     if (sig->length != 1) {
-        trace("called mapper_signal_update_float() on non-scalar signal!\n");
-        return;
-    }
-
-    if (!sig->device) {
-        trace("signal does not have a device in mapper_signal_update_float().\n");
+        trace("called update_float() on non-scalar signal '%s' (%d)\n",
+              sig->name, sig->length);
         return;
     }
 #endif
@@ -319,17 +311,13 @@ void mapper_signal_update_double(mapper_signal sig, double value)
 
 #ifdef DEBUG
     if (sig->type != 'd') {
-        trace("called mapper_signal_update_double() on non-double signal!\n");
+        trace("called update_double() on non-double signal '%s' (%c)\n",
+              sig->name, sig->type);
         return;
     }
-
     if (sig->length != 1) {
-        trace("called mapper_signal_update_double() on non-scalar signal!\n");
-        return;
-    }
-
-    if (!sig->device) {
-        trace("signal does not have a device in mapper_signal_update_double().\n");
+        trace("called update_double() on non-scalar signal '%s' (%d)\n",
+              sig->name, sig->length);
         return;
     }
 #endif
@@ -1579,7 +1567,7 @@ void mapper_signal_query_done(mapper_signal *query)
 }
 
 /*! Update information about a signal record based on message properties. */
-int mapper_signal_set_from_message(mapper_signal sig, mapper_message_t *msg)
+int mapper_signal_set_from_message(mapper_signal sig, mapper_message msg)
 {
     mapper_message_atom atom;
     int i, updated = 0, len_type_diff = 0;

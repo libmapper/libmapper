@@ -399,7 +399,7 @@ void send_or_bundle_message(mapper_link link, const char *path, lo_message msg,
             s = link->local_device->local->udp_server;
         }
         lo_send_bundle_from(a, s, b);
-        lo_bundle_free_messages(b);
+        lo_bundle_free_recursive(b);
     }
 }
 
@@ -504,13 +504,9 @@ static void alloc_and_init_local_slot(mapper_router rtr, mapper_slot slot,
     }
     if (!slot->signal->local || (is_src && slot->map->destination.signal->local)) {
         mapper_link link;
-        link = mapper_device_link_by_remote_device(rtr->device,
-                                                   slot->signal->device);
-        if (!link) {
-            link = mapper_database_add_or_update_link(rtr->device->database,
-                                                      rtr->device, slot->signal->device,
-                                                      0);
-        }
+        link = mapper_database_add_or_update_link(rtr->device->database,
+                                                  rtr->device,
+                                                  slot->signal->device, 0);
         if (!link->local)
             mapper_link_init(link, 1);
         slot->link = link;
@@ -727,6 +723,14 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
         free_slot_memory(map->sources[i]);
     }
 
+    // one more case: if map is local only need to decrement num_maps in local map
+    if (map->local->is_local_only) {
+        mapper_link link = mapper_device_link_by_remote_device(rtr->device,
+                                                               rtr->device);
+        if (link)
+            --link->num_maps[0];
+    }
+
     // free buffers associated with user-defined expression variables
     if (map->local->expr_vars) {
         for (i = 0; i < map->local->num_var_instances; i++) {
@@ -744,6 +748,32 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
         mapper_expr_free(map->local->expr);
 
     free(map->local);
+    return 0;
+}
+
+int mapper_router_loop_check(mapper_router rtr,
+                             mapper_signal local_sig,
+                             int num_remotes,
+                             const char **remotes)
+{
+    mapper_router_signal rs = rtr->signals;
+    while (rs && rs->signal != local_sig)
+        rs = rs->next;
+    if (!rs)
+        return 0;
+    int i, j;
+    for (i = 0; i < rs->num_slots; i++) {
+        if (!rs->slots[i] || rs->slots[i]->direction == MAPPER_DIR_INCOMING)
+            continue;
+        mapper_slot slot = rs->slots[i];
+        mapper_map map = slot->map;
+
+        // check destination
+        for (j = 0; j < num_remotes; j++) {
+            if (!mapper_slot_match_full_name(&map->destination, remotes[j]))
+                return 1;
+        }
+    }
     return 0;
 }
 
