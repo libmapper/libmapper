@@ -1415,76 +1415,46 @@ static void renew_subscriptions(mapper_database db, uint32_t time_sec)
 int mapper_database_poll(mapper_database db, int block_ms)
 {
     mapper_network net = db->network;
-    int count = 0;
+    int count = 0, status[2];
     mapper_timetag_t tt;
 
+    lo_server servers[2] = { net->bus_server, net->mesh_server };
+
+    mapper_network_poll(net);
+    mapper_timetag_now(&tt);
+    renew_subscriptions(db, tt.sec);
+    mapper_database_check_device_status(db, tt.sec);
+
     if (!block_ms) {
-        count = mapper_network_poll(net, 1);
-        net->msgs_recvd += count;
+        if (lo_servers_recv_noblock(servers, status, 2, 0)) {
+            count = status[0] + status[1];
+            net->msgs_recvd |= count;
+        }
         return count;
     }
 
-    struct timeval start, now, end, wait, elapsed;
-    gettimeofday(&start, NULL);
-    memcpy(&now, &start, sizeof(struct timeval));
-    end.tv_sec = block_ms * 0.001;
-    block_ms -= end.tv_sec * 1000;
-    end.tv_sec += start.tv_sec;
-    end.tv_usec = block_ms * 1000;
-    end.tv_usec += start.tv_usec;
+    double then = mapper_get_current_time();
+    int left_ms = block_ms, elapsed, checked_admin = 0;
+    while (left_ms > 0) {
+        if (left_ms > 100)
+            left_ms = 100;
 
-    mapper_timetag_now(&tt);
-    renew_subscriptions(db, tt.sec);
-    mapper_network_poll(net, 0);
-    mapper_database_check_device_status(db, tt.sec);
+        if (lo_servers_recv_noblock(servers, status, 2, left_ms))
+            count += status[0] + status[1];
 
-    fd_set fdr;
-    int nfds, bus_fd, mesh_fd;
-
-    while (timercmp(&now, &end, <)) {
-        FD_ZERO(&fdr);
-
-        bus_fd = lo_server_get_socket_fd(net->bus_server);
-        FD_SET(bus_fd, &fdr);
-        nfds = bus_fd + 1;
-
-        mesh_fd = lo_server_get_socket_fd(net->mesh_server);
-        FD_SET(mesh_fd, &fdr);
-        if (mesh_fd >= nfds)
-            nfds = mesh_fd + 1;
-
-        timersub(&end, &now, &wait);
-        // set timeout to a maximum of 100ms
-        if (wait.tv_sec || wait.tv_usec > 100000) {
-            wait.tv_sec = 0;
-            wait.tv_usec = 100000;
-        }
-
-        timersub(&now, &start, &elapsed);
-        if (elapsed.tv_sec || elapsed.tv_usec >= 100000) {
+        elapsed = (mapper_get_current_time() - then) * 1000;
+        if ((elapsed - checked_admin) > 100) {
             mapper_timetag_now(&tt);
             renew_subscriptions(db, tt.sec);
-            mapper_network_poll(net, 0);
+            mapper_network_poll(net);
             mapper_database_check_device_status(db, tt.sec);
-
-            start.tv_sec = now.tv_sec;
-            start.tv_usec = now.tv_usec;
+            checked_admin = elapsed;
         }
 
-        if (select(nfds, &fdr, 0, 0, &wait) > 0) {
-            if (FD_ISSET(bus_fd, &fdr)) {
-                lo_server_recv_noblock(net->bus_server, 0);
-                ++count;
-            }
-            if (FD_ISSET(mesh_fd, &fdr)) {
-                lo_server_recv_noblock(net->mesh_server, 0);
-                ++count;
-            }
-        }
-        gettimeofday(&now, NULL);
+        left_ms = block_ms - elapsed;
     }
 
-    net->msgs_recvd += count;
+    net->msgs_recvd |= count;
     return count;
 }
 

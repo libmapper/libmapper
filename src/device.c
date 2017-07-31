@@ -18,18 +18,6 @@
 #include <pthread.h>
 #endif
 
-/*! Internal function to get the current time. */
-static double get_current_time()
-{
-#ifdef HAVE_GETTIMEOFDAY
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
-#else
-#error No timing method known on this platform.
-#endif
-}
-
 extern const char* network_message_strings[NUM_MSG_STRINGS];
 
 void init_device_prop_table(mapper_device dev)
@@ -1277,65 +1265,61 @@ int mapper_device_poll(mapper_device dev, int block_ms)
     if (!dev || !dev->local)
         return 0;
 
-    int admin_count = 0, device_count = 0;
+    int admin_count = 0, device_count = 0, status[4];
     mapper_network net = dev->database->network;
 
+    lo_server servers[4] = { net->bus_server,
+                             net->mesh_server,
+                             dev->local->udp_server,
+                             dev->local->tcp_server };
+
+    mapper_network_poll(net);
+
     if (!dev->local->registered) {
-        admin_count = mapper_network_poll(net, 1);
-        net->msgs_recvd += admin_count;
+        if (lo_servers_recv_noblock(servers, status, 2, 0)) {
+            admin_count = status[0] + status[1];
+            net->msgs_recvd |= admin_count;
+        }
         return admin_count;
     }
     else if (!block_ms) {
-        device_count = (  lo_server_recv_noblock(dev->local->udp_server, 0)
-                        + lo_server_recv_noblock(dev->local->tcp_server, 0));
-        admin_count = mapper_network_poll(net, 1);
-        net->msgs_recvd += admin_count;
+        if (lo_servers_recv_noblock(servers, status, 4, 0)) {
+            admin_count = status[0] + status[1];
+            device_count = status[2] + status[3];
+            net->msgs_recvd |= admin_count;
+        }
         return admin_count + device_count;
     }
 
-    lo_server servers[4] = { dev->local->udp_server,
-                             dev->local->tcp_server,
-                             net->bus_server,
-                             net->mesh_server };
-
-    double then = get_current_time();
-    int left_ms = block_ms, elapsed, checked_network = 0;
-    int recv = 0;
+    double then = mapper_get_current_time();
+    int left_ms = block_ms, elapsed, checked_admin = 0;
     while (left_ms > 0) {
         // set timeout to a maximum of 100ms
         if (left_ms > 100)
             left_ms = 100;
-        recv = lo_servers_wait(servers, 4, left_ms);
-        if (recv >= 0) {
-            lo_server_recv_noblock(servers[recv], 0);
-            if (recv > 1)
-                ++admin_count;
-            else
-                ++device_count;
+
+        if (lo_servers_recv_noblock(servers, status, 4, left_ms)) {
+            admin_count += status[0] + status[1];
+            device_count += status[2] + status[3];
         }
 
-        elapsed = (get_current_time() - then) * 1000;
-        if ((elapsed - checked_network) > 100) {
-            mapper_network_poll(net, 0);
-            checked_network = elapsed;
+        elapsed = (mapper_get_current_time() - then) * 1000;
+        if ((elapsed - checked_admin) > 100) {
+            mapper_network_poll(net);
+            checked_admin = elapsed;
         }
 
         left_ms = block_ms - elapsed;
     }
-
-    mapper_network_poll(net, 0);
 
     /* When done, or if non-blocking, check for remaining messages up to a
      * proportion of the number of input signals. Arbitrarily choosing 1 for
      * now, but perhaps could be a heuristic based on a recent number of
      * messages per channel per poll. */
     while (device_count < (dev->num_inputs + dev->local->n_output_callbacks)*1
-           && (recv = lo_servers_wait(servers, 2, 0)) >= 0) {
-        lo_server_recv_noblock(servers[recv], 0);
-        ++device_count;
+           && (lo_servers_recv_noblock(&servers[2], &status[2], 2, 0))) {
+        device_count += status[2] + status[3];
     }
-
-    net->msgs_recvd += admin_count;
 
     if (dev->props->dirty && mapper_device_ready(dev)
         && dev->local->subscribers) {
@@ -1344,6 +1328,7 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         mapper_device_send_state(dev, MSG_DEVICE);
     }
 
+    net->msgs_recvd |= admin_count;
     return admin_count + device_count;
 }
 
@@ -1383,11 +1368,11 @@ void mapper_device_service_fd(mapper_device dev, int fd)
     mapper_network net = dev->database->network;
     if (fd == lo_server_get_socket_fd(net->bus_server)) {
         lo_server_recv_noblock(net->bus_server, 0);
-        mapper_network_poll(dev->database->network, 0);
+        mapper_network_poll(dev->database->network);
     }
     else if (fd == lo_server_get_socket_fd(net->mesh_server)) {
         lo_server_recv_noblock(net->mesh_server, 0);
-        mapper_network_poll(dev->database->network, 0);
+        mapper_network_poll(dev->database->network);
     }
     else if (dev->local->udp_server
              && fd == lo_server_get_socket_fd(dev->local->udp_server))

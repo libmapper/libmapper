@@ -6,10 +6,6 @@
 
 #include <unistd.h>
 
-#ifdef WIN32
-#define usleep(x) Sleep(x/1000)
-#endif
-
 mapper_device source = 0;
 mapper_device destination = 0;
 mapper_signal sendsig = 0;
@@ -22,7 +18,7 @@ int received = 0;
 
 int setup_source()
 {
-    source = mapper_device_new("testsend", 0, 0);
+    source = mapper_device_new("testmapprotocol-send", 0, 0);
     if (!source)
         goto error;
     printf("source created.\n");
@@ -62,7 +58,7 @@ void insig_handler(mapper_signal sig, mapper_id instance_id, const void *value,
 
 int setup_destination()
 {
-    destination = mapper_device_new("testrecv", 0, 0);
+    destination = mapper_device_new("testmapprotocol-recv", 0, 0);
     if (!destination)
         goto error;
     printf("destination created.\n");
@@ -101,8 +97,8 @@ void set_map_protocol(mapper_protocol proto)
 
     // wait until change has taken effect
     while (mapper_map_protocol(map) != proto) {
-        mapper_device_poll(source, 1);
-        mapper_device_poll(destination, 1);
+        mapper_device_poll(source, 10);
+        mapper_device_poll(destination, 10);
     }
 }
 
@@ -113,8 +109,8 @@ int setup_map()
 
     // wait until map is established
     while (!mapper_map_ready(map)) {
-        mapper_device_poll(destination, 1);
-        mapper_device_poll(source, 1);
+        mapper_device_poll(destination, 10);
+        mapper_device_poll(source, 10);
     }
 
     return 0;

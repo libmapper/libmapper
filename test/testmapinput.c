@@ -9,10 +9,6 @@
 #include <signal.h>
 #include <string.h>
 
-#ifdef WIN32
-#define usleep(x) Sleep(x/1000)
-#endif
-
 #define eprintf(format, ...) do {               \
     if (verbose)                                \
         fprintf(stdout, format, ##__VA_ARGS__); \
@@ -55,8 +51,8 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 
 int setup_devices()
 {
-    devices[0] = mapper_device_new("test", 0, 0);
-    devices[1] = mapper_device_new("test", 0, 0);
+    devices[0] = mapper_device_new("testmapinput1", 0, 0);
+    devices[1] = mapper_device_new("testmapinput2", 0, 0);
     if (!devices[0] || !devices[1])
         goto error;
     eprintf("devices created.\n");
@@ -101,10 +97,8 @@ void wait_local_devices()
 {
     while (!done && !(mapper_device_ready(devices[0])
                       && mapper_device_ready(devices[1]))) {
-        mapper_device_poll(devices[0], 0);
-        mapper_device_poll(devices[1], 0);
-
-        usleep(50 * 1000);
+        mapper_device_poll(devices[0], 25);
+        mapper_device_poll(devices[1], 25);
     }
 }
 

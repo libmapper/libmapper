@@ -52,7 +52,7 @@ static double current_time()
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mapper_device_new("testSpeedSend", 0, 0);
+    source = mapper_device_new("testspeed-send", 0, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
@@ -75,7 +75,7 @@ int setup_source()
 void cleanup_source()
 {
     if (source) {
-        eprintf("Freeing source.. ");
+        eprintf("Freeing source... ");
         fflush(stdout);
         mapper_device_free(source);
         eprintf("ok\n");
@@ -104,7 +104,7 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mapper_device_new("testSpeedRecv", 0, 0);
+    destination = mapper_device_new("testspeed-recv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
@@ -128,7 +128,7 @@ int setup_destination()
 void cleanup_destination()
 {
     if (destination) {
-        eprintf("Freeing destination.. ");
+        eprintf("Freeing destination... ");
         fflush(stdout);
         mapper_device_free(destination);
         eprintf("ok\n");
@@ -142,10 +142,12 @@ void wait_local_devices()
         mapper_device_poll(source, 25);
         mapper_device_poll(destination, 25);
     }
+    eprintf("Devices are ready.\n");
 }
 
 void map_signals()
 {
+    eprintf("Creating maps... ");
     mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
     mapper_map_set_expression(map, "y=y{-1}+1");

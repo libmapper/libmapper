@@ -41,7 +41,7 @@ void mapper_network_add_device(mapper_network net, mapper_device dev);
 
 void mapper_network_remove_device(mapper_network net, mapper_device dev);
 
-int mapper_network_poll(mapper_network net, int read_socket);
+void mapper_network_poll(mapper_network net);
 
 int mapper_network_init(mapper_network net);
 

@@ -7,10 +7,6 @@
 #include <unistd.h>
 #include <signal.h>
 
-#ifdef WIN32
-#define usleep(x) Sleep(x/1000)
-#endif
-
 #define eprintf(format, ...) do {               \
     if (verbose)                                \
         fprintf(stdout, format, ##__VA_ARGS__); \
@@ -38,7 +34,7 @@ int setup_sources()
     for (i = 0; i < NUM_SOURCES; i++)
         sources[i] = 0;
     for (i = 0; i < NUM_SOURCES; i++) {
-        sources[i] = mapper_device_new("testsend", 0, 0);
+        sources[i] = mapper_device_new("testconvergent-send", 0, 0);
         if (!sources[i])
             goto error;
         eprintf("source %d created.\n", i);
@@ -83,7 +79,7 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 
 int setup_destination()
 {
-    destination = mapper_device_new("testrecv", 0, 0);
+    destination = mapper_device_new("testconvergent-recv", 0, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
@@ -146,13 +142,13 @@ void wait_ready()
     while (!done && !ready) {
         ready = 1;
         for (i = 0; i < NUM_SOURCES; i++) {
-            mapper_device_poll(sources[i], 10);
+            mapper_device_poll(sources[i], 25);
             if (!mapper_device_ready(sources[i])) {
                 ready = 0;
                 break;
             }
         }
-        mapper_device_poll(destination, 10);
+        mapper_device_poll(destination, 25);
         if (!mapper_device_ready(destination))
             ready = 0;
     }

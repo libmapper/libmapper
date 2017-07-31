@@ -265,8 +265,8 @@ typedef struct _mapper_network {
     lo_address bundle_dest;
 
     int random_id;                  /*!< Random ID for allocation speedup. */
-    int msgs_recvd;                 /*!< Number of messages received on the
-                                     *   multicast bus. */
+    int msgs_recvd;                 /*!< 1 if messages have been received on the
+                                     *   multicast bus/mesh. */
     int message_type;
     uint32_t next_ping;
     uint8_t own_network;            /*! Zero if this network was created
