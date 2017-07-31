@@ -873,6 +873,7 @@ static int check_collisions(mapper_network net, mapper_allocated resource)
     if (!net->msgs_recvd) {
         if (timediff >= 5.0) {
             // reprobe with the same value
+            resource->count_time = mapper_get_current_time();
             return 1;
         }
         return 0;
