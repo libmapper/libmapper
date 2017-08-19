@@ -18,22 +18,22 @@ static int mapper_map_set_mode_linear(mapper_map map);
 
 static int alphabetise_signals(int num, mapper_signal *sigs, int *order)
 {
-    int i, j, result = 1;
+    int i, j, result1 = 1, result2 = 1;
     for (i = 0; i < num; i++)
         order[i] = i;
     for (i = 1; i < num; i++) {
         j = i-1;
         while (j >= 0
-               && (((result = strcmp(sigs[order[j]]->device->name,
-                                     sigs[order[j+1]]->device->name)) > 0)
-                   || ((result = strcmp(sigs[order[j]]->name,
-                                        sigs[order[j+1]]->name)) > 0))) {
+               && (((result1 = strcmp(sigs[order[j]]->device->name,
+                                      sigs[order[j+1]]->device->name)) > 0)
+                   || ((result2 = strcmp(sigs[order[j]]->name,
+                                         sigs[order[j+1]]->name)) > 0))) {
                    int temp = order[j];
                    order[j] = order[j+1];
                    order[j+1] = temp;
                    j--;
-               }
-        if (result == 0)
+        }
+        if (result1 == 0 && result2 == 0)
             return 1;
     }
     return 0;
