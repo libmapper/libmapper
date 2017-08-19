@@ -28,6 +28,6 @@ while not map.ready:
     dest.poll(10)
 
 for i in range(100):
-    outsig.update([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    outsig.update([i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8, i+9])
     dest.poll(100)
     src.poll(0)

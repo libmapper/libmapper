@@ -67,7 +67,7 @@ def database_cb(rectype, record, action):
     if rectype is 'device':
         print('  ', record.name)
 
-db = mapper.database(subscribe_flags=mapper.OBJ_ALL)
+db = mapper.database(mapper.OBJ_ALL)
 
 db.add_device_callback(lambda x,y:database_cb('device',x,y))
 db.add_signal_callback(lambda x,y:database_cb('signal',x,y))

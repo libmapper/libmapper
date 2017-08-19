@@ -54,35 +54,56 @@
 %typemap(freearg) (int num_ids, mapper_id *argv) {
     if ($2) free($2);
 }
-%typemap(in) (int num_sources, const char **sources) {
+%typemap(in) (signal_list) {
     int i;
+    signal *s;
+    signal_list_t *sl = alloca(sizeof(*sl));
     if (PyList_Check($input)) {
-        $1 = PyList_Size($input);
-        $2 = (char **) malloc($1*sizeof(char*));
-        for (i = 0; i < $1; i++) {
-            PyObject *s = PyList_GetItem($input,i);
-            if (PyString_Check(s)) {
-                $2[i] = PyString_AsString(s);
+        sl->len = PyList_Size($input);
+        sl->sigs = (mapper_signal*) malloc(sl->len * sizeof(mapper_signal));
+        for (i = 0; i < sl->len; i++) {
+            PyObject *o = PyList_GetItem($input, i);
+            if (o && strcmp(o->ob_type->tp_name, "signal")==0) {
+                if (!SWIG_IsOK(SWIG_ConvertPtr(o, (void**)&s, SWIGTYPE_p__signal, 0))) {
+                    SWIG_exception_fail(SWIG_TypeError,
+                                        "in method '$symname', expecting type signal");
+                    free(sl->sigs);
+                    return NULL;
+                }
+                sl->sigs[i] = (mapper_signal)s;
             }
             else {
-                free($2);
+                free(sl->sigs);
                 PyErr_SetString(PyExc_ValueError,
-                                "List items must be string.");
+                                "List items must be signals.");
                 return NULL;
             }
         }
     }
-    else if (PyString_Check($input)) {
-        $1 = 1;
-        $2 = (char**) malloc(sizeof(char*));
-        $2[0] = PyString_AsString($input);
+    else if ($input && strcmp(($input)->ob_type->tp_name, "signal")==0) {
+        sl->len = 1;
+        if (!SWIG_IsOK(SWIG_ConvertPtr($input, (void**)&s, SWIGTYPE_p__signal, 0))) {
+            SWIG_exception_fail(SWIG_TypeError,
+                                "in method '$symname', expecting type signal");
+            return NULL;
+        }
+        sl->sigs = (mapper_signal*) malloc(sizeof(mapper_signal));
+        sl->sigs[0] = (mapper_signal)s;
     }
     else {
+        SWIG_exception_fail(SWIG_TypeError,
+                            "in method '$symname', expecting type signal");
         return NULL;
     }
+    $1 = sl;
 }
-%typemap(freearg) (int num_sources, const char **sources) {
-    if ($2) free($2);
+%typemap(freearg) (signal_list) {
+    if ($1) {
+        signal_list sl = (signal_list)$1;
+        if (sl->sigs)
+            free (sl->sigs);
+//        free(sl);
+    }
 }
 %typemap(in) property_value %{
     property_value_t *prop = alloca(sizeof(*prop));
@@ -860,6 +881,11 @@ static int coerce_prop(property_value prop, char type)
 
 typedef int* maybeInt;
 typedef int booltype;
+
+typedef struct _signal_list {
+    mapper_signal *sigs;
+    int len;
+} signal_list_t, *signal_list;
 
 /* Wrapper for callback back to python when a mapper_database_device handler
  * is called. */
@@ -2247,10 +2273,10 @@ typedef struct _map_query {
 }
 
 %extend _map {
-    _map(signal *src, signal *dst) {
-        mapper_signal msig_src = (mapper_signal)src;
-        mapper_signal msig_dst = (mapper_signal)dst;
-        return (map*)mapper_map_new(1, &msig_src, 1, &msig_dst);
+    _map(signal_list srcs=0, signal_list dsts=0) {
+        if (!srcs || !dsts)
+            return (map*)0;
+        return (map*)mapper_map_new(srcs->len, srcs->sigs, dsts->len, dsts->sigs);
     }
     ~_map() {
         ;
@@ -2635,7 +2661,7 @@ typedef struct _map_query {
 }
 
 %extend _database {
-    _database(network *DISOWN, int subscribe_flags=0x00) {
+    _database(network *DISOWN=0, int subscribe_flags=0x00) {
         return (database*)mapper_database_new((mapper_network)DISOWN,
                                               subscribe_flags);
     }
