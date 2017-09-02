@@ -111,7 +111,6 @@ testspeed_LDADD = $(TEST_LDADD)
 testvector_CFLAGS = $(TEST_CFLAGS)
 testvector_SOURCES = testvector.c
 testvector_LDADD = $(TEST_LDADD)
-endif
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! ./$$i -qt; then exit 1; fi; done
@@ -119,3 +118,5 @@ tests: all
 
 memtest: all
 	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmapper.dylib valgrind --leak-check=full ./.libs/$$i -qt; then exit 1; fi; done
+
+endif
