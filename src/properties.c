@@ -457,6 +457,10 @@ mapper_property_t mapper_property_from_string(const char *string)
             end = mid - 1;
         mid = (beg + end) * 0.5;
     }
+    if (strcmp(string, "maximum")==0)
+        return AT_MAX;
+    if (strcmp(string, "minimum")==0)
+        return AT_MIN;
     return AT_EXTRA;
 }
 
