@@ -1686,7 +1686,7 @@ void mapper_slot_print(mapper_slot slot);
 
 /***** Database *****/
 
-/*! @defgroup database Databases
+/*! @defgroup databases Databases
 
     @{ Databases are the primary interface through which a program may observe
        the network and store information about devices and signals that are

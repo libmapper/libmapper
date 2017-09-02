@@ -1,5 +1,4 @@
-Getting started
-===============
+# Getting started with libmapper and Max
 
 Note: this tutorial will introduce the original bindings for MaxMSP (before July 2013). You can access the tutorial for the revised multi-object bindings [here](./maxmsp_multiobj.html).
 
@@ -12,11 +11,9 @@ Alternatively, you can build the object from
 * Download a [graphical user interface](../downloads.html#GUIs) for
   creating and editing mapping connections.
 
-Devices
-=======
+## Devices
 
-Creating a device
------------------
+### Creating a device
 
 To create a _libmapper_ device, it is necessary to provide a device
 name to the `[mapper]` object using the property `@alias`.
@@ -51,14 +48,13 @@ between multiple active devices with the same name.
 * The number of input and output signals associated with the object.
 * The network interface in use by the object.
 
-Signals
-=======
+## Signals
 
 Now that we have created a device, we only need to know how to
 add signals in order to give our program some input/output functionality.
-  While libmapper enables arbitrary connections
-between _any_ declared signals, we still find it helpful to distinguish
-between two type of signals: `inputs` and `outputs`. 
+While libmapper enables arbitrary connections between _any_ declared signals,
+we still find it helpful to distinguish between two type of signals: `inputs`
+and `outputs`. 
 
 - `outputs` signals are _sources_ of data, updated locally by their parent device
 - `inputs` signals are _consumers_ of data and are **not** generally
@@ -69,10 +65,9 @@ synthesizer might be updated locally through user interaction with a GUI,
 however the normal use of this signal is as a _destination_ for control data
 streams so it should be defined as an `input` signal.  Note that this distinction
 is to help with GUI organization and user-understanding – _libmapper_
-enables connections from output signals to input signals if desired.
+enables connections from input signals and to output signals if desired.
 
-Creating a signal
------------------
+### Creating a signal
 
 We'll start with creating a "sender", so we will first talk about how
 to update output signals.  Creating a signal requires two pieces of information: 
@@ -94,9 +89,7 @@ examples:
 
 The only _required_ parameters here are the signal name,
 and data type.  If no `length` property is provided, the signal is
-assumed to have length 1.  A signal name should start with "/",
-as this is how it is represented in the OSC address.
-(One will be added if you forget to do this.)
+assumed to have length 1.  
 Finally, supported types are currently 'i' or 'f' for `int` or
 `float` values, respectively.
 
@@ -105,8 +98,8 @@ information you provide, the more the mapper can do some things
 automatically.  For example, if `minimum` and `maximum` are provided,
 it will be possible to create linear-scaled connections very quickly.
 If `unit` is provided, the mapper will be able to similarly figure out
-a linear scaling based on unit conversion. (Centimeters to inches for
-example.) Currently automatic unit-based scaling is not a supported
+a linear scaling based on unit conversion (centimeters to inches for
+example).  Currently automatic unit-based scaling is not a supported
 feature, but will be added in the future.  You can take advantage of
 this future development by simply providing unit information whenever
 it is available.  It is also helpful documentation for users.
@@ -124,8 +117,7 @@ So far we know how to create a device and to specify an output signal
 for it.
 
 
-Updating signals
-----------------
+### Updating signals
 
 We can imagine the above program getting sensor information in a loop.
 It could be running on a computer and reading data from an Arduino
@@ -152,8 +144,7 @@ to create a mapping between this value and a receiver, where it could
 control a synthesizer parameter or change the brightness of an LED,
 or whatever else you want to do.
 
-Signal conditioning
--------------------
+### Signal conditioning
 
 Most synthesizers of course will not know what to do with
 "voltage"--it is an electrical property that has nothing to do with
@@ -186,8 +177,7 @@ if desired, in order to expose both processed and raw data.  Keep in
 mind that these will not take up significant processing time, and
 _zero_ network bandwidth, if they are not mapped.
 
-Receiving signals
------------------
+### Receiving signals
 
 Receiving signals is even easier: after adding an input using the `add input`
 message, updates for this signal will be routed to the left output
@@ -196,9 +186,8 @@ for testing.
 
 ![Sending and receiving signal updates](./images/maxmsp_central6.png)
 
-If you use your mapping GUI to create a link between the two devices
-_sender_ and _receiver_ and a connection between your two signals
-_/sendsig_ and _/recvsig_, any change made to the float value on the left
+If you use your mapping GUI to create a map between your two signals
+_sendsig_ and _recvsig_, any change made to the float value on the left
 will cause a corresponding output on the right.
 
 Congratulations - you have created your first mapping connection! This
@@ -215,8 +204,7 @@ between the two float objects and accomplished the same thing, but your
  expression - even FIR and IIR filters.
  
 
-Learn mode
-----------
+### Learn mode
 
 For patches with only outputs, lazy users can also declare the signals
 automatically using `learn` mode. You can either send the message
@@ -231,42 +219,40 @@ and add any unknown signals automatically. Signals added this way will not
 have associated minimum or maximum values, however, so it is usually
 recommended to add the signals explicitly using messages.
 
-Device definitions
-------------------
+### Device definitions
 
 If you wish, you can declare your libmapper signals using a device definition
 file instead of sending messages to the `[mapper]` object. This file should be
 correctly-formatted JSON with the following structure:
 
-	{
-	     "device" : {
-	        "fileversion" : "dot-1",
-	        "name" : "tester",
-	        "inputs" : [
-	            {
-	                "name" : "/in1",
-	                "type" : "f"
-	            }
-	        ],
-	        "outputs" : [
-	            {
-	                "name" : "/out1",
-	                "type" : "f",
-	                "units" : "cm",
-	                "minimum" : 4.0,
-	                "maximum" : 5.1
-	            }
-	        ]
-	    }
-	}
+    {
+         "device" : {
+         "fileversion" : "dot-1",
+            "name" : "tester",
+            "inputs" : [
+                {
+                    "name" : "/in1",
+                    "type" : "f"
+                }
+            ],
+            "outputs" : [
+                {
+                    "name" : "/out1",
+                    "type" : "f",
+                    "units" : "cm",
+                    "minimum" : 4.0,
+                    "maximum" : 5.1
+                }
+            ]
+        }
+    }
 
 To load your device definition, simply instantiate your `[mapper]` object with
 the file name as a property:
 
 ![Loading a device definition file](./images/maxmsp_central8.png)
 
-Publishing metadata
-===================
+## Publishing metadata
 
 Things like device names, signal units, and ranges, are examples of
 metadata--information about the data you are exposing on the network.
@@ -278,8 +264,8 @@ This can be used for instance to label a device with its location, or
 to perhaps give a signal some property like "reliability", or some
 category like "light", "motor", "shaker", etc.
 
-Some GUI implementing a Monitor could then use this information to
-display information about the network in an intelligent manner.
+Some GUI could then use this information to display information about the
+network in an intelligent manner.
 
 Any time there may be extra knowledge about a signal or device, it is
 a good idea to represent it by adding such properties, which can be of
@@ -299,23 +285,32 @@ To specify a string property of a signal:
 
 ![Adding extra properties to a signal](./images/maxmsp_central10.png)
 
-## Reserved keys
+### Reserved keys
 
-In general you can use any property name not already in use by the
-device or signal data structure.
+You can use any property name not already reserved by libmapper.
 
-### Reserved keys for devices
+#### Reserved keys for devices
 
-`description`, `host`, `id`, `libversion`, `name`, `num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `version`, `user_data`
+`description`, `host`, `id`, `is_local`, `libversion`, `name`, `num_incoming_maps`,
+`num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `value`, `version`,
+`user_data`
 
-### Reserved keys for signals
+#### Reserved keys for signals
 
-`description`, `direction`, `id`, `length`, `max`, `maximum`, `min`, `minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`, `type`, `unit`, `user_data`
+`description`, `direction`, `id`, `is_local`, `length`, `max`, `maximum`, `min`,
+`minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`,
+`type`, `unit`, `user_data`
 
-### Reserved keys for maps
+#### Reserved keys for links
 
-`expression`, `id`, `mode`, `muted`, `num_sources`, `process_location`, `status`
+`description`, `id`, `is_local`, `num_maps`
 
-### Reserved keys for slots
+#### Reserved keys for maps
 
-`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`, `maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`
+`description`, `expression`, `id`, `is_local`, `mode`, `muted`, `num_destinations`,
+`num_sources`, `process_location`, `ready`, `status`
+
+#### Reserved keys for map slots
+
+`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`,
+`maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`
