@@ -947,10 +947,10 @@ static int handler_device(const char *path, const char *types,
         trace_net("got /device %s + %i arguments\n", name, argc-1);
         mapper_device remote;
         remote = mapper_database_add_or_update_device(&net->database, name, props);
-        if (!remote->subscribed && net->database.autosubscribe)
+        if (!remote->subscribed && net->database.autosubscribe) {
             mapper_database_subscribe(&net->database, remote,
                                       net->database.autosubscribe, -1);
-        remote->subscribed = 1;
+        }
     }
     if (dev) {
         if (strcmp(&argv[0]->s, mapper_device_name(dev))) {
@@ -2630,7 +2630,6 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
                 trace_db("autosubscribing to device '%s'.\n", &argv[0]->s);
                 mapper_database_subscribe(&net->database, dev,
                                           net->database.autosubscribe, -1);
-                dev->subscribed = 1;
             }
         }
         else if (net->database.autosubscribe) {

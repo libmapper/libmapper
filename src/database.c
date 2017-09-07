@@ -1614,6 +1614,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
             s->device->version = -1;
             s->next = db->subscriptions;
             db->subscriptions = s;
+            dev->subscribed = 1;
         }
         else if (s->flags != flags)
             s->device->version = -1;
