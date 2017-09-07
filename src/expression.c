@@ -2118,15 +2118,15 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
 
 int mapper_expr_input_history_size(mapper_expr expr, int index)
 {
-    int i, size = -1, var = index + VAR_X;
+    int i, size = 0, var = index + VAR_X;
     mapper_token_t *tok = expr->tokens;
     for (i = 0; i < expr->length; i++) {
         if (tok[i].toktype == TOK_VAR && tok[i].var == var) {
-            if (tok[i].history_index > size)
+            if (tok[i].history_index < size)
                 size = tok[i].history_index;
         }
     }
-    return size + 1;
+    return -size + 1;
 }
 
 int mapper_expr_output_history_size(mapper_expr expr)
