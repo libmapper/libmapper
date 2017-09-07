@@ -13,6 +13,49 @@ extern const char* network_message_strings[NUM_MSG_STRINGS];
 static void unsubscribe_internal(mapper_database db, mapper_device dev,
                                  int send_message);
 
+#ifdef DEBUG
+static void print_subscription_flags(int flags)
+{
+    printf("[");
+    if (flags == MAPPER_OBJ_NONE) {
+        printf("none\n");
+        return;
+    }
+
+    if (flags & MAPPER_OBJ_DEVICES)
+        printf("devices, ");
+
+    if (flags & MAPPER_OBJ_INPUT_SIGNALS) {
+        if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
+            printf("signals, ");
+        else
+            printf("input signals, ");
+    }
+    else if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
+        printf("output signals, ");
+
+    if (flags & MAPPER_OBJ_INCOMING_LINKS) {
+        if (flags & MAPPER_OBJ_OUTGOING_LINKS)
+            printf("links, ");
+        else
+            printf("incoming links, ");
+    }
+    else if (flags & MAPPER_OBJ_OUTGOING_LINKS)
+        printf("outgoing links, ");
+
+    if (flags & MAPPER_OBJ_INCOMING_MAPS) {
+        if (flags & MAPPER_OBJ_OUTGOING_MAPS)
+            printf("maps, ");
+        else
+            printf("incoming maps, ");
+    }
+    else if (flags & MAPPER_OBJ_OUTGOING_MAPS)
+        printf("outgoing maps, ");
+
+    printf("\b\b]\n");
+}
+#endif
+
 mapper_database mapper_database_new(mapper_network net, int subscribe_flags)
 {
     if (!net)
@@ -1524,7 +1567,10 @@ static void mapper_database_autosubscribe(mapper_database db, int flags)
             unsubscribe_internal(db, db->subscriptions->device, 1);
         }
     }
-    trace_db("setting autosubscribe flags to %d\n", flags);
+#ifdef DEBUG
+    trace_db("setting autosubscribe flags to ");
+    print_subscription_flags(flags);
+#endif
     db->autosubscribe = flags;
 }
 
@@ -1552,9 +1598,11 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         return;
     }
     if (timeout == -1) {
+#ifdef DEBUG
         trace_db("adding %d-second autorenewing subscription to device '%s' "
-                 "with flags %d.\n", AUTOSUBSCRIBE_INTERVAL,
-                 mapper_device_name(dev), flags);
+                 "with flags ", AUTOSUBSCRIBE_INTERVAL, mapper_device_name(dev));
+        print_subscription_flags(flags);
+#endif
         // special case: autorenew subscription lease
         // first check if subscription already exists
         mapper_subscription s = subscription(db, dev);
@@ -1579,10 +1627,13 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
 
         timeout = AUTOSUBSCRIBE_INTERVAL;
     }
+#ifdef DEBUG
     else {
         trace_db("adding temporary %d-second subscription to device '%s' "
-                 "with flags %d.\n", timeout, mapper_device_name(dev), flags);
+                 "with flags ", timeout, mapper_device_name(dev));
+        print_subscription_flags(flags);
     }
+#endif
 
     subscribe_internal(db, dev, flags, timeout);
 }
