@@ -37,9 +37,8 @@ examples/py_tk_gui/setup.py
 jni/Mapper/NativeLib.java
 jni/*.h
 jni/*.log
-jni/libmapper-0.jar
-libmapper-0.2.tar.gz
-libmapper-0.pc
+jni/libmapper.jar
+libmapper.tar.gz
 libmapper.pc
 m4/libtool.m4
 m4/ltoptions.m4

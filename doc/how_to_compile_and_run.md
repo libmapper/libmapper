@@ -109,7 +109,7 @@ The software may be installed with,
 
     make install
 
-This should place headers in `<prefix>/include/mapper-0`, the library
+This should place headers in `<prefix>/include/mapper`, the library
 in `<prefix>/lib`, Python bindings in
 `<prefix>/lib/pythonXX/site-packages` (where XX is your Python
 version), and a `pkg-config` information file in
@@ -118,7 +118,7 @@ version), and a `pkg-config` information file in
 Once installation is successful, you can check that the library is
 found by `pkg-config`:
 
-    pkg-config --libs --cflags libmapper-0
+    pkg-config --libs --cflags libmapper
 
 Note that the Java bindings are not installed, as there is no standard
 location in which to put them.  However, they can be copied to
@@ -181,7 +181,7 @@ Similarly, the Java bindings may be tested by `cd`'ing to the `jni`
 folder and running `test` with the correct class and library paths:
 
     cd jni
-    java -cp libmapper-0.jar -Djava.libraries.path=.libs test
+    java -cp libmapper.jar -Djava.libraries.path=.libs test
 
 Cross-compiling for Windows under Linux
 ---------------------------------------
@@ -243,44 +243,29 @@ applications, even if you are running a 64-bit version of OS X.
 Therefore after building libmapper, it _will not work_ with these
 programs.
 
-We recommend that on OS X you build a universal binary.  Although it
-is a pain to perform this extra step, we have found it saves a lot of
-trouble later on.  Note that you must build universal binaries of
-liblo as well as libmapper.
+We recommend that on OS X you build a universal binary, since we have
+found it saves a lot of trouble later on.  Note that you must build
+universal binaries of liblo as well as libmapper.
 
 To do so, for both liblo and libmapper, you must perform the
-`configure` and `make` steps twice, with the following flags, copying
-the results to a temporary location, and then use the `lipo` utility
-to put them together into a universal binary:
+`configure` and `make` steps with the following flags:
 
-    mkdir tmp
-    ./configure CFLAGS='-arch i386'
+    ./configure CFLAGS="-arch i386 -arch x86_64" \
+                CXXFLAGS="-arch i386 -arch x86_64" \
+                --disable-dependency-tracking
     make
-    cp src/.libs/libmapper-0.2.dylib tmp/libmapper-0.2-i386.dylib
-
-    ./configure CFLAGS='-arch x86_64'
-    make
-    cp src/.libs/libmapper-0.2.dylib tmp/libmapper-0.2-x86_64.dylib
-
-    lipo -create -output libmapper-0.2.dylib \
-        -arch i386   tmp/libmapper-0.2-i386.dylib \
-        -arch x86_64 tmp/libmapper-0.2-x86_64.dylib
-
-    file libmapper-0.2.dylib
 
 The `file` command should list both 32- and 64-bit architectures.
-Then copy this dylib file to the install location:
 
-    cp libmapper-0.2.dylib <prefix>/lib/libmapper-0.2.dylib
+    file src/.libs/libmapper.6.dylib
+
+(Of course, replace ".6" with the current libmapper version.)
 
 Although we do not explicitly list them here, similar steps should be
-performed for liblo, as well as for the native portions of the Java
-and Python bindings:
+performed for liblo, as well as for the native portions of the Python
+bindings:
 
-    file jni/.libs/libmapperjni-0.so.2.0.0
     file swig/.libs/_mapper.so
-
-(Of course, replace "0.2" with the current libmapper version.)
 
 ### Processing.org
 
@@ -296,8 +281,8 @@ From the libmapper directory, create a directory called
 Now copy the JNI bindings to this directory, renaming the jar file to
 match the name of the directory:
 
-    cp jni/.libs/libmapperjni-0.so.2.0.0 <sketchbook>/libraries/libmapper/library/libmapperjni-0.so
-    cp jni/libmapper-0.jar <sketchbook>/libraries/libmapper/library/libmapper.jar
+    cp jni/.libs/libmapperjni.6.dylib <sketchbook>/libraries/libmapper/library/libmapperjni.dylib
+    cp jni/libmapper.jar <sketchbook>/libraries/libmapper/library/libmapper.jar
 
 Create a file `export.txt`:
 
@@ -314,7 +299,7 @@ Choosing this will insert two lines at the top of your sketch:
 You can test it by creating a device and a signal:
 
     Device dev = new Device("testdevice", 9000);
-    Device.Signal out_x = dev.add_output("x", 1, 'f', null,
+    Signal out_x = dev.add_output_signal("x", 1, 'f', null,
                                          new Double(0), new Double(1));
 
 and make sure to poll the device during `draw()`:
