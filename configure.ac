@@ -1,6 +1,6 @@
 AC_PREREQ(2.61)
 
-m4_define([LIBMAPPER_VERSION],[1.0])
+m4_define([LIBMAPPER_VERSION],[1.1])
 AC_INIT([libmapper],
   [m4_esyscmd_s([test -d .git && git describe --always || echo LIBMAPPER_VERSION])],
   [dot_mapper@googlegroups.com],[],[http://libmapper.org])
@@ -18,7 +18,7 @@ AC_INIT([libmapper],
 #
 # If any interfaces have been removed since the last public release, then set
 # age to 0.
-SO_VERSION=5:0:0
+SO_VERSION=6:0:0
 
 AC_CONFIG_SRCDIR([src/device.c])
 AC_CONFIG_HEADERS([src/config.h])
