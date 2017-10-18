@@ -91,7 +91,7 @@ int main(int argc, char **argv)
         }
     }
 
-    mapper_device dev = mapper_device_new("test", 0, 0);
+    mapper_device dev = mapper_device_new("testprops", 0, 0);
     mapper_signal sig = mapper_device_add_input_signal(dev, "test", 1, 'f', "Hz",
                                                        0, 0, 0, 0);
 

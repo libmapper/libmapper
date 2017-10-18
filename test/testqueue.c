@@ -8,10 +8,6 @@
 #include <string.h>
 #include <signal.h>
 
-#ifdef WIN32
-#define usleep(x) Sleep(x/1000)
-#endif
-
 #define eprintf(format, ...) do {               \
     if (verbose)                                \
         fprintf(stdout, format, ##__VA_ARGS__); \
@@ -36,7 +32,7 @@ int received = 0;
 
 int setup_source()
 {
-    source = mapper_device_new("testsend", port, 0);
+    source = mapper_device_new("testqueue-send", port, 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
@@ -78,7 +74,7 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 
 int setup_destination()
 {
-    destination = mapper_device_new("testrecv", port, 0);
+    destination = mapper_device_new("testqueue-recv", port, 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
@@ -130,9 +126,8 @@ void wait_ready()
 {
     while (!done && !(mapper_device_ready(source)
                       && mapper_device_ready(destination))) {
-        mapper_device_poll(source, 0);
-        mapper_device_poll(destination, 0);
-        usleep(500 * 1000);
+        mapper_device_poll(source, 25);
+        mapper_device_poll(destination, 25);
     }
 }
 

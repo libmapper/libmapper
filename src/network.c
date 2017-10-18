@@ -796,25 +796,17 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
 
 /*! This is the main function to be called once in a while from a program so
  *  that the libmapper bus can be automatically managed. */
-int mapper_network_poll(mapper_network net, int read_socket)
+void mapper_network_poll(mapper_network net)
 {
-    int count = 0, status;
+    int status;
     mapper_device dev = net->device;
 
     // send out any cached messages
     mapper_network_send(net);
 
-    if (read_socket) {
-        while (count < 10 && (lo_server_recv_noblock(net->bus_server, 0)
-               + lo_server_recv_noblock(net->mesh_server, 0))) {
-            ++count;
-        }
-        net->msgs_recvd += count;
-    }
-
     if (!dev) {
         mapper_network_maybe_send_ping(net, 0);
-        return count;
+        return;
     }
 
     /* If the ordinal is not yet locked, process collision timing.
@@ -845,7 +837,7 @@ int mapper_network_poll(mapper_network net, int read_socket)
         // Send out clock sync messages occasionally
         mapper_network_maybe_send_ping(net, 0);
     }
-    return count;
+    return;
 }
 
 const char *mapper_network_interface(mapper_network net)
@@ -881,6 +873,7 @@ static int check_collisions(mapper_network net, mapper_allocated resource)
     if (!net->msgs_recvd) {
         if (timediff >= 5.0) {
             // reprobe with the same value
+            resource->count_time = mapper_get_current_time();
             return 1;
         }
         return 0;

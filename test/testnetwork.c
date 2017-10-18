@@ -6,10 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef WIN32
-#define usleep(x) Sleep(x/1000)
-#endif
-
 #define eprintf(format, ...) do {               \
     if (verbose)                                \
         fprintf(stdout, format, ##__VA_ARGS__); \
@@ -32,7 +28,7 @@ int test_network()
 
     eprintf("Network structure initialized.\n");
 
-    dev = mapper_device_new("tester", 0, net);
+    dev = mapper_device_new("testnetwork", 0, net);
     if (!dev) {
         eprintf("Error creating device structure.\n");
         return 1;
@@ -44,8 +40,7 @@ int test_network()
            inet_ntoa(net->interface_ip));
 
     while (!dev->local->registered) {
-        usleep(10000);
-        mapper_network_poll(net, 1);
+        mapper_device_poll(dev, 100);
     }
 
     eprintf("Using port %d.\n", mapper_device_port(dev));
@@ -54,8 +49,7 @@ int test_network()
     eprintf("Delaying for 5 seconds..\n");
     wait = 50;
     while (wait-- > 0) {
-        usleep(50000);
-        mapper_network_poll(net, 1);
+        mapper_device_poll(dev, 100);
         if (!verbose) {
             printf(".");
             fflush(stdout);

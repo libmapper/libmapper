@@ -11,10 +11,6 @@
 #include <unistd.h>
 #include <signal.h>
 
-#ifdef WIN32
-#define usleep(x) Sleep(x/1000)
-#endif
-
 #define eprintf(format, ...) do {               \
     if (verbose)                                \
         fprintf(stdout, format, ##__VA_ARGS__); \
@@ -51,7 +47,7 @@ int setup_devices() {
 	float mn=0, mx=1;
 
 	for (int i = 0; i < num_devices; i++) {
-		device_list[i] = mapper_device_new("device", 0, 0);
+		device_list[i] = mapper_device_new("testmany", 0, 0);
         if (!device_list[i])
 			goto error;
 
@@ -116,10 +112,8 @@ void loop() {
 
     while (i >= 0 && !done) {
 		for (int i = 0; i < num_devices; i++) {
-			mapper_device_poll(device_list[i], 0);
+			mapper_device_poll(device_list[i], 10);
 		}
-
-        usleep(50 * 1000);
         i++;
     }
 }

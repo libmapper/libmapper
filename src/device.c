@@ -92,9 +92,9 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     init_device_prop_table(dev);
 
     dev->identifier = strdup(name_prefix);
-    mapper_device_start_server(dev, port);
+    mapper_device_start_servers(dev, port);
 
-    if (!dev->local->server) {
+    if (!dev->local->udp_server || !dev->local->tcp_server) {
         mapper_device_free(dev);
         return NULL;
     }
@@ -214,8 +214,10 @@ void mapper_device_free(mapper_device dev)
 
     int own_network = dev->local->own_network;
 
-    if (dev->local->server)
-        lo_server_free(dev->local->server);
+    if (dev->local->udp_server)
+        lo_server_free(dev->local->udp_server);
+    if (dev->local->tcp_server)
+        lo_server_free(dev->local->tcp_server);
     free(dev->local);
 
     if (dev->identifier)
@@ -386,7 +388,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 #endif
             return 0;
         }
-        if (strcmp(&argv[argnum]->s, mapper_protocol_string(AT_INSTANCE)) == 0
+        if (strcmp(&argv[argnum]->s,
+                   mapper_property_protocol_string(AT_INSTANCE)) == 0
             && argc >= argnum + 2) {
             if (types[argnum+1] != 'h') {
 #ifdef DEBUG
@@ -398,7 +401,8 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             global_id = argv[argnum+1]->i64;
             argnum += 2;
         }
-        else if (strcmp(&argv[argnum]->s, mapper_protocol_string(AT_SLOT)) == 0
+        else if (strcmp(&argv[argnum]->s,
+                        mapper_property_protocol_string(AT_SLOT)) == 0
                  && argc >= argnum + 2) {
             if (types[argnum+1] != 'i') {
 #ifdef DEBUG
@@ -960,11 +964,15 @@ void mapper_device_add_signal_methods(mapper_device dev, mapper_signal sig)
     int len = strlen(sig->path) + 5;
     path = (char*)realloc(path, len);
     snprintf(path, len, "%s%s", sig->path, "/get");
-    lo_server_add_method(dev->local->server, path, NULL, handler_query,
+    lo_server_add_method(dev->local->udp_server, path, NULL, handler_query,
+                         (void*)(sig));
+    lo_server_add_method(dev->local->tcp_server, path, NULL, handler_query,
                          (void*)(sig));
     free(path);
 
-    lo_server_add_method(dev->local->server, sig->path, NULL,
+    lo_server_add_method(dev->local->udp_server, sig->path, NULL,
+                         handler_signal, (void*)(sig));
+    lo_server_add_method(dev->local->tcp_server, sig->path, NULL,
                          handler_signal, (void*)(sig));
 
     ++dev->local->n_output_callbacks;
@@ -979,10 +987,12 @@ void mapper_device_remove_signal_methods(mapper_device dev, mapper_signal sig)
     int len = (int)strlen(sig->path) + 5;
     path = (char*)realloc(path, len);
     snprintf(path, len, "%s%s", sig->path, "/get");
-    lo_server_del_method(dev->local->server, path, NULL);
+    lo_server_del_method(dev->local->udp_server, path, NULL);
+    lo_server_del_method(dev->local->tcp_server, path, NULL);
     free(path);
 
-    lo_server_del_method(dev->local->server, sig->path, NULL);
+    lo_server_del_method(dev->local->udp_server, sig->path, NULL);
+    lo_server_del_method(dev->local->tcp_server, sig->path, NULL);
 
     --dev->local->n_output_callbacks;
 }
@@ -1255,76 +1265,51 @@ int mapper_device_poll(mapper_device dev, int block_ms)
     if (!dev || !dev->local)
         return 0;
 
-    int admin_count = 0, device_count = 0;
+    int admin_count = 0, device_count = 0, status[4];
     mapper_network net = dev->database->network;
 
-    if (!block_ms) {
-        device_count = lo_server_recv_noblock(dev->local->server, 0);
-        admin_count = mapper_network_poll(net, 1);
-        net->msgs_recvd += admin_count;
+    lo_server servers[4] = { net->bus_server,
+                             net->mesh_server,
+                             dev->local->udp_server,
+                             dev->local->tcp_server };
+
+    mapper_network_poll(net);
+
+    if (!dev->local->registered) {
+        if (lo_servers_recv_noblock(servers, status, 2, 0)) {
+            admin_count = status[0] + status[1];
+            net->msgs_recvd |= admin_count;
+        }
+        return admin_count;
+    }
+    else if (!block_ms) {
+        if (lo_servers_recv_noblock(servers, status, 4, 0)) {
+            admin_count = status[0] + status[1];
+            device_count = status[2] + status[3];
+            net->msgs_recvd |= admin_count;
+        }
         return admin_count + device_count;
     }
 
-    struct timeval start, now, end, wait, elapsed;
-    gettimeofday(&start, NULL);
-    memcpy(&now, &start, sizeof(struct timeval));
-    end.tv_sec = block_ms * 0.001;
-    block_ms -= end.tv_sec * 1000;
-    end.tv_sec += start.tv_sec;
-    end.tv_usec = block_ms * 1000;
-    end.tv_usec += start.tv_usec;
-
-    mapper_network_poll(net, 0);
-
-    fd_set fdr;
-    int nfds, bus_fd, mesh_fd, dev_fd;
-
-    while (timercmp(&now, &end, <)) {
-        FD_ZERO(&fdr);
-
-        bus_fd = lo_server_get_socket_fd(net->bus_server);
-        FD_SET(bus_fd, &fdr);
-        nfds = bus_fd + 1;
-
-        mesh_fd = lo_server_get_socket_fd(net->mesh_server);
-        FD_SET(mesh_fd, &fdr);
-        if (mesh_fd >= nfds)
-            nfds = mesh_fd + 1;
-
-        dev_fd = lo_server_get_socket_fd(dev->local->server);
-        FD_SET(dev_fd, &fdr);
-        if (dev_fd >= nfds)
-            nfds = dev_fd + 1;
-
-        timersub(&end, &now, &wait);
+    double then = mapper_get_current_time();
+    int left_ms = block_ms, elapsed, checked_admin = 0;
+    while (left_ms > 0) {
         // set timeout to a maximum of 100ms
-        if (wait.tv_sec || wait.tv_usec > 100000) {
-            wait.tv_sec = 0;
-            wait.tv_usec = 100000;
+        if (left_ms > 100)
+            left_ms = 100;
+
+        if (lo_servers_recv_noblock(servers, status, 4, left_ms)) {
+            admin_count += status[0] + status[1];
+            device_count += status[2] + status[3];
         }
 
-        timersub(&now, &start, &elapsed);
-        if (elapsed.tv_sec || elapsed.tv_usec >= 100000) {
-            mapper_network_poll(net, 0);
-            start.tv_sec = now.tv_sec;
-            start.tv_usec = now.tv_usec;
+        elapsed = (mapper_get_current_time() - then) * 1000;
+        if ((elapsed - checked_admin) > 100) {
+            mapper_network_poll(net);
+            checked_admin = elapsed;
         }
 
-        if (select(nfds, &fdr, 0, 0, &wait) > 0) {
-            if (FD_ISSET(dev_fd, &fdr)) {
-                lo_server_recv_noblock(dev->local->server, 0);
-                ++device_count;
-            }
-            if (FD_ISSET(bus_fd, &fdr)) {
-                lo_server_recv_noblock(net->bus_server, 0);
-                ++admin_count;
-            }
-            if (FD_ISSET(mesh_fd, &fdr)) {
-                lo_server_recv_noblock(net->mesh_server, 0);
-                ++admin_count;
-            }
-        }
-        gettimeofday(&now, NULL);
+        left_ms = block_ms - elapsed;
     }
 
     /* When done, or if non-blocking, check for remaining messages up to a
@@ -1332,11 +1317,9 @@ int mapper_device_poll(mapper_device dev, int block_ms)
      * now, but perhaps could be a heuristic based on a recent number of
      * messages per channel per poll. */
     while (device_count < (dev->num_inputs + dev->local->n_output_callbacks)*1
-           && lo_server_recv_noblock(dev->local->server, 0)) {
-        ++device_count;
+           && (lo_servers_recv_noblock(&servers[2], &status[2], 2, 0))) {
+        device_count += status[2] + status[3];
     }
-
-    net->msgs_recvd += admin_count;
 
     if (dev->props->dirty && mapper_device_ready(dev)
         && dev->local->subscribers) {
@@ -1345,13 +1328,14 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         mapper_device_send_state(dev, MSG_DEVICE);
     }
 
+    net->msgs_recvd |= admin_count;
     return admin_count + device_count;
 }
 
 int mapper_device_num_fds(mapper_device dev)
 {
-    // Two for the admin inputs (bus and mesh), and one for the signal input.
-    return 3;
+    // Two for the admin inputs (bus and mesh), and two for the signal input.
+    return 4;
 }
 
 int mapper_device_fds(mapper_device dev, int *fds, int num)
@@ -1362,14 +1346,19 @@ int mapper_device_fds(mapper_device dev, int *fds, int num)
         fds[0] = lo_server_get_socket_fd(dev->database->network->bus_server);
     if (num > 1) {
         fds[1] = lo_server_get_socket_fd(dev->database->network->mesh_server);
-        if (num > 2)
-            fds[2] = lo_server_get_socket_fd(dev->local->server);
+        if (num > 2) {
+            fds[2] = lo_server_get_socket_fd(dev->local->udp_server);
+            if (num > 3)
+                fds[3] = lo_server_get_socket_fd(dev->local->tcp_server);
+            else
+                return 3;
+        }
         else
             return 2;
     }
     else
         return 1;
-    return 3;
+    return 4;
 }
 
 void mapper_device_service_fd(mapper_device dev, int fd)
@@ -1379,15 +1368,18 @@ void mapper_device_service_fd(mapper_device dev, int fd)
     mapper_network net = dev->database->network;
     if (fd == lo_server_get_socket_fd(net->bus_server)) {
         lo_server_recv_noblock(net->bus_server, 0);
-        mapper_network_poll(dev->database->network, 0);
+        mapper_network_poll(dev->database->network);
     }
     else if (fd == lo_server_get_socket_fd(net->mesh_server)) {
         lo_server_recv_noblock(net->mesh_server, 0);
-        mapper_network_poll(dev->database->network, 0);
+        mapper_network_poll(dev->database->network);
     }
-    else if (dev->local->server
-             && fd == lo_server_get_socket_fd(dev->local->server))
-        lo_server_recv_noblock(dev->local->server, 0);
+    else if (dev->local->udp_server
+             && fd == lo_server_get_socket_fd(dev->local->udp_server))
+        lo_server_recv_noblock(dev->local->udp_server, 0);
+    else if (dev->local->tcp_server
+             && fd == lo_server_get_socket_fd(dev->local->tcp_server))
+        lo_server_recv_noblock(dev->local->tcp_server, 0);
 }
 
 void mapper_device_num_instances_changed(mapper_device dev, mapper_signal sig,
@@ -1523,9 +1515,9 @@ static void liblo_error_handler(int num, const char *msg, const char *path)
                num, path, msg);
 }
 
-void mapper_device_start_server(mapper_device dev, int starting_port)
+void mapper_device_start_servers(mapper_device dev, int starting_port)
 {
-    if (dev->local->server)
+    if (dev->local->udp_server || dev->local->tcp_server)
         return;
 
     int len;
@@ -1536,17 +1528,30 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
     else
         pport = 0;
 
-    while (!(dev->local->server = lo_server_new(pport, liblo_error_handler))) {
+    while (!(dev->local->udp_server = lo_server_new(pport, liblo_error_handler))) {
+        pport = 0;
+    }
+
+    snprintf(port, 16, "%d", lo_server_get_port(dev->local->udp_server));
+    pport = port;
+
+    while (!(dev->local->tcp_server = lo_server_new_with_proto(pport, LO_TCP,
+                                                               liblo_error_handler))) {
         pport = 0;
     }
 
     // Disable liblo message queueing
-    lo_server_enable_queue(dev->local->server, 0, 1);
+    lo_server_enable_queue(dev->local->udp_server, 0, 1);
+    lo_server_enable_queue(dev->local->tcp_server, 0, 1);
 
-    int portnum = lo_server_get_port(dev->local->server);
+    int portnum = lo_server_get_port(dev->local->udp_server);
     mapper_table_set_record(dev->props, AT_PORT, NULL, 1, 'i', &portnum,
                             NON_MODIFIABLE);
-    char *url = lo_server_get_url(dev->local->server);
+
+    trace("bound to UDP port %i\n", portnum);
+    trace("bound to TCP port %i\n", lo_server_get_port(dev->local->tcp_server));
+
+    char *url = lo_server_get_url(dev->local->udp_server);
     char *host = lo_url_get_hostname(url);
     mapper_table_set_record(dev->props, AT_HOST, NULL, 1, 's', host,
                             NON_MODIFIABLE);
@@ -1557,14 +1562,19 @@ void mapper_device_start_server(mapper_device dev, int starting_port)
     // add signal methods
     mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
     while (sig) {
-        if ((*sig)->local->update_handler)
-            lo_server_add_method(dev->local->server, (*sig)->path, NULL,
+        if ((*sig)->local->update_handler) {
+            lo_server_add_method(dev->local->udp_server, (*sig)->path, NULL,
                                  handler_signal, (void*)(*sig));
+            lo_server_add_method(dev->local->tcp_server, (*sig)->path, NULL,
+                                 handler_signal, (void*)(*sig));
+        }
 
         len = (int)strlen((*sig)->path) + 5;
         path = (char*)realloc(path, len);
         snprintf(path, len, "%s%s", (*sig)->path, "/get");
-        lo_server_add_method(dev->local->server, path, NULL, handler_query,
+        lo_server_add_method(dev->local->udp_server, path, NULL, handler_query,
+                             (void*)(*sig));
+        lo_server_add_method(dev->local->tcp_server, path, NULL, handler_query,
                              (void*)(*sig));
         sig = mapper_signal_query_next(sig);
     }
@@ -1712,9 +1722,14 @@ int mapper_device_property_index(mapper_device dev, unsigned int index,
                                        value);
 }
 
-lo_server mapper_device_lo_server(mapper_device dev)
+lo_server mapper_device_lo_server_udp(mapper_device dev)
 {
-    return dev->local->server;
+    return dev->local->udp_server;
+}
+
+lo_server mapper_device_lo_server_tcp(mapper_device dev)
+{
+    return dev->local->tcp_server;
 }
 
 mapper_id mapper_device_generate_unique_id(mapper_device dev) {

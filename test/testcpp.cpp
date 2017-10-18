@@ -13,12 +13,6 @@
  #include <arpa/inet.h>
 #endif
 
-#ifdef WIN32
-#define usleep(x) Sleep(x/1000)
-#else
-#include <unistd.h>
-#endif
-
 int received = 0;
 
 void insig_handler(mapper_signal sig, mapper_id instance, const void *value,

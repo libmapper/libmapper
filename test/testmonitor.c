@@ -9,10 +9,6 @@
 #include <unistd.h>
 #include <signal.h>
 
-#ifdef WIN32
-#define usleep(x) Sleep(x/1000)
-#endif
-
 mapper_database db = 0;
 
 int verbose = 1;
