@@ -6,7 +6,6 @@ object [here](./maxmsp_central.html).
 
 To start using the _libmapper_ with MaxMSP you will need to:
 
-* Install _libmapper_ for your platform (Linux, OSX, Windows)
 * Download the external objects from our [downloads page](../downloads.html).
 Alternatively, you can build the object from
 [source](http://github.com/malloch/mapper-max-pd) instead.

@@ -4,7 +4,6 @@ Note: this tutorial will introduce the original bindings for MaxMSP (before July
 
 To start using the _libmapper_ with MaxMSP you will need to:
 
-* Install _libmapper_ for your platform (Linux, OSX, Windows)
 * Download the `[mapper]` external object from our [downloads page](../downloads.html).
 Alternatively, you can build the object from
 [source](http://github.com/malloch/mapper-max-pd) instead.

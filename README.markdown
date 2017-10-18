@@ -1,6 +1,5 @@
 <img style="float:right;padding:10px" src="http://libmapper.github.io/images/libmapper_logo_black_512px.png" width="100">
-libmapper
-=========
+#libmapper
 
 This library is a system for representing input and output signals on a network
 and allowing arbitrary "mappings" to be dynamically created between them.
@@ -66,7 +65,7 @@ worth making available to the general public.
 
 It can also be seen as an open source alternative to some commercial products
 such as Camille Troillard's [Osculator](http://www.osculator.net/) and STEIM's
-[Junxion](http://www.steim.org/steim/junxion_v4.html), albeit certainly more
+[junXion](http://www.steim.org/steim/junxion_v4.html), albeit certainly more
 "barebones" for the moment.
 
 In addition to passing signal data through mapping connections, libmapper
