@@ -73,13 +73,13 @@ typedef enum {
     NUM_MAPPER_MODES
 } mapper_mode;
 
-/*! Describes the possible locations for map stream processing.
+/*! Describes the possible endpoints of a map.
  *  @ingroup map */
 typedef enum {
-    MAPPER_LOC_UNDEFINED,   //!< Not yet defined
-    MAPPER_LOC_SOURCE,      //!< Processing is performed by the source device.
-    MAPPER_LOC_DESTINATION, //!< Processing is performed by the destination device.
-    NUM_MAPPER_LOCATIONS
+    MAPPER_LOC_UNDEFINED    = 0x00, //!< Not yet defined
+    MAPPER_LOC_SOURCE       = 0x01, //!< Source signal(s) for this map.
+    MAPPER_LOC_DESTINATION  = 0x02, //!< Destination signal(s) for this map.
+    MAPPER_LOC_ANY          = 0x03  //!< Either source or destination signals.
 } mapper_location;
 
 /*! The set of possible directions for a signal or mapping slot.

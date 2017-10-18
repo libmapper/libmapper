@@ -1015,15 +1015,10 @@ namespace mapper {
         Map& set_description(string_type &description)
             { mapper_map_set_description(_map, description); return (*this); }
 
-        /*! Get the number of source Signals for this Map.
-         *  \return     The number of source Signals. */
-        int num_sources() const
-            { return mapper_map_num_sources(_map); }
-
-        /*! Get the number of destination Signals/Slots for this Map.
-         *  \return     The number of destination Signals/Slots. */
-        int num_destinations() const
-            { return mapper_map_num_destinations(_map); }
+        /*! Get the number of Signals/Slots for this Map.
+         *  \return     The number of slots. */
+        int num_slots(mapper_location loc=MAPPER_LOC_ANY) const
+            { return mapper_map_num_slots(_map, loc); }
 
         /*! Detect whether a Map is completely initialized.
          *  \return     True if map is completely initialized, false otherwise. */

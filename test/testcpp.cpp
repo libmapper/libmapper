@@ -221,14 +221,14 @@ int main(int argc, char ** argv)
     }
     for (auto const &m : db.maps()) {
         std::cout << "  map: ";
-        if (m.num_sources() > 1)
+        if (m.num_slots(MAPPER_LOC_SOURCE) > 1)
             std::cout << "[";
-        for (int i = 0; i < m.num_sources(); i++) {
+        for (int i = 0; i < m.num_slots(MAPPER_LOC_SOURCE); i++) {
             std::cout << m.source(i).signal().device().name()
                       << "/" << m.source(i).signal().name() << ", ";
         }
         std::cout << "\b\b";
-        if (m.num_sources() > 1)
+        if (m.num_slots(MAPPER_LOC_SOURCE) > 1)
             std::cout << "]";
         std::cout << " -> " << m.destination().signal().device().name()
                   << "/" << m.destination().signal().name() << std::endl;

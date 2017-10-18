@@ -58,7 +58,7 @@ class test {
         db.addMapListener(new MapListener() {
             public void onEvent(Map map, mapper.database.Event event) {
                 System.out.print("db record "+event+" for map ");
-                for (int i = 0; i < map.numSources(); i++) {
+                for (int i = 0; i < map.numSlots(Location.SOURCE); i++) {
                     Map.Slot slot = map.sources[i];
                     System.out.print(slot.signal().device().name()
                                      +":"+slot.signal().name()+" ");
@@ -248,7 +248,7 @@ class test {
         mapper.map.Query maps = db.maps();
         for (Map m : maps) {
             System.out.print("  map: ");
-            for (i = 0; i < m.numSources(); i++)
+            for (i = 0; i < m.numSlots(Location.SOURCE); i++)
                 System.out.print(m.sources[i].signal().device().name()+":"
                                  +m.sources[i].signal().name()+" ");
             System.out.println("-> "+m.destination.signal().device().name()+":"

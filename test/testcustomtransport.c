@@ -60,7 +60,7 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
     }
 
     // we are looking for a map with one source (sendsig) and one dest (recvsig)
-    if (mapper_map_num_sources(map) > 1)
+    if (mapper_map_num_slots(map, MAPPER_LOC_SOURCE) > 1)
         return;
     if (mapper_slot_signal(mapper_map_slot(map, MAPPER_LOC_SOURCE, 0)) != sendsig)
         return;

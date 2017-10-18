@@ -2748,11 +2748,11 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_removeScope
     return obj;
 }
 
-JNIEXPORT jint JNICALL Java_mapper_Map_numSources
-  (JNIEnv *env, jobject obj)
+JNIEXPORT jint JNICALL Java_mapper_Map_mapperMapNumSlots
+  (JNIEnv *env, jobject obj, jlong jmap, jint loc)
 {
-    mapper_map map = get_map_from_jobject(env, obj);
-    return map ? mapper_map_num_sources(map) : 0;
+    mapper_map map = (mapper_map) ptr_jlong(jmap);
+    return map ? mapper_map_num_slots(map, loc) : 0;
 }
 
 JNIEXPORT jboolean JNICALL Java_mapper_Map_ready

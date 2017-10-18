@@ -1248,8 +1248,9 @@ const char *mapper_map_description(mapper_map map);
 
 /*! Get the number of source signals for to a specific map.
  *  \param map          The map to check.
- *  \return             The number of sources. */
-int mapper_map_num_sources(mapper_map map);
+ *  \param loc          MAPPER_LOC_SOURCE, MAPPER_LOC_DESTINATION,
+ *  \return             The number of slots. */
+int mapper_map_num_slots(mapper_map map, mapper_location loc);
 
 /*! Get the number of destination signals for to a specific map.
  *  \param map          The map to check.

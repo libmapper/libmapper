@@ -80,7 +80,7 @@ public class Map
         if (_map == 0)
             return;
 
-        _num_sources = this.numSources();
+        _num_sources = this.numSlots(Location.SOURCE);
         sources = new Slot[_num_sources];
         for (int i = 0; i < _num_sources; i++)
             sources[i] = new Slot(mapperMapSrcSlotPtr(_map, i));
@@ -94,7 +94,7 @@ public class Map
         if (_map == 0)
             return;
 
-        _num_sources = this.numSources();
+        _num_sources = this.numSlots(Location.SOURCE);
         sources = new Slot[_num_sources];
         for (int i = 0; i < _num_sources; i++)
             sources[i] = new Slot(mapperMapSrcSlotPtr(_map, i));
@@ -107,7 +107,7 @@ public class Map
         if (_map == 0)
             return;
 
-        _num_sources = this.numSources();
+        _num_sources = this.numSlots(Location.SOURCE);
         sources = new Slot[_num_sources];
         for (int i = 0; i < _num_sources; i++)
             sources[i] = new Slot(mapperMapSrcSlotPtr(_map, i));
@@ -180,11 +180,14 @@ public class Map
     public native Map addScope(mapper.Device dev);
     public native Map removeScope(mapper.Device dev);
 
-    /* property: numSources */
-    public native int numSources();
-
-    /* property: numDestinations */
-    public int numDestinations() { return 1; }
+    /* property: numSlots */
+    private native int mapperMapNumSlots(long map, int loc);
+    public int numSlots(Location loc) {
+        return mapperMapNumSlots(_map, loc.value());
+    }
+    public int numSlots() {
+        return numSlots(Location.ANY);
+    }
 
     /* property: ready */
     public native boolean ready();

@@ -1107,6 +1107,7 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %constant int LOC_UNDEFINED             = MAPPER_LOC_UNDEFINED;
 %constant int LOC_SOURCE                = MAPPER_LOC_SOURCE;
 %constant int LOC_DESTINATION           = MAPPER_LOC_DESTINATION;
+%constant int LOC_ANY                   = MAPPER_LOC_ANY;
 
 /*! The set of possible directions for a signal or mapping slot. */
 %constant int DIR_UNDEFINED             = MAPPER_DIR_UNDEFINED;
@@ -2298,6 +2299,9 @@ typedef struct _map_query {
     slot *destination(int index=0) {
         return (slot*)mapper_map_slot((mapper_map)$self, MAPPER_LOC_DESTINATION, 0);
     }
+    slot *slot(mapper_location loc, int index=0) {
+        return (slot*)mapper_map_slot((mapper_map)$self, loc, index);
+    }
     slot *slot(signal *sig) {
         return (slot*)mapper_map_slot_by_signal((mapper_map)$self,
                                                 (mapper_signal)sig);
@@ -2340,11 +2344,8 @@ typedef struct _map_query {
     booltype get_ready() {
         return mapper_map_ready((mapper_map)$self);
     }
-    int get_num_sources() {
-        return mapper_map_num_sources((mapper_map)$self);
-    }
-    int get_num_destinations() {
-        return mapper_map_num_destinations((mapper_map)$self);
+    int get_num_slots(mapper_location loc=MAPPER_DIR_ANY) {
+        return mapper_map_num_slots((mapper_map)$self, loc);
     }
     int get_process_location() {
         return mapper_map_process_location((mapper_map)$self);
@@ -2446,8 +2447,7 @@ typedef struct _map_query {
         mode = property(get_mode, set_mode)
         muted = property(get_muted, set_muted)
         num_properties = property(get_num_properties)
-        num_sources = property(get_num_sources)
-        num_destinations = property(get_num_destinations)
+        num_slots = property(get_num_slots)
         process_location = property(get_process_location, set_process_location)
         ready = property(get_ready)
         def get_properties(self):
