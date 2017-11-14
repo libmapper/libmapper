@@ -7,7 +7,9 @@ compile the Java bindings.
 
 Once you have libmapper installed, it can be imported into your program:
 
-    import mapper.*;
+~~~java
+import mapper.*;
+~~~
 
 ## Overview of the API
 
@@ -48,7 +50,9 @@ parameters, such as specifying the name of the network interface to use.
 
 An example of creating a device:
 
-    final Device dev = new Device("my_device");
+~~~java
+final Device dev = new Device("my_device");
+~~~
 
 ### Polling the device
 
@@ -73,11 +77,15 @@ your application to behave.  It takes a number of milliseconds during which it
 should do some work, or 0 if it should check for any immediate actions and then
 return without waiting:
 
-    dev.poll(int block_ms);
+~~~java
+dev.poll(int block_ms);
+~~~
 
 An example of calling it with non-blocking behaviour:
 
-    dev.poll(0);
+~~~java
+dev.poll(0);
+~~~
 
 If your polling is in the middle of a processing function or in response to a
 GUI event for example, non-blocking behaviour is desired.  On the other hand if
@@ -100,7 +108,6 @@ should be aware of this effect.
 Since there is a delay before the device is completely initialized, it is
 sometimes useful to be able to determine this using `ready()`.  Only when
 `ready()` returns non-zero is it valid to use the device's name.
-
 
 ## Signals
 
@@ -142,14 +149,16 @@ for input signals there is an additional argument:
 
 examples:
 
-    Signal in = dev.addInputSignal("my_input", 1, 'f', "m/s",
-                                   new Value(-10.f), null,
-                                   new UpdateListener() {
-            public void onUpdate(Signal sig, float[] value, TimeTag tt) {
-                System.out.println("got input for signal "+sig.name);
-            }});
+~~~java
+Signal in = dev.addInputSignal("my_input", 1, 'f', "m/s",
+                               new Value(-10.f), null,
+                               new UpdateListener() {
+    public void onUpdate(Signal sig, float[] value, TimeTag tt) {
+        System.out.println("got input for signal "+sig.name);
+    }});
 
-    Signal out = dev.addOutputSignal("my_output", 4, 'i', null, 0, 1000);
+Signal out = dev.addOutputSignal("my_output", 4, 'i', null, 0, 1000);
+~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
 type.  Signals are assumed to be vectors of values, so for usual single-valued
@@ -173,31 +182,37 @@ by an incoming message.  It is passed in the `UpdateListener` parameter.
 An example of creating a "barebones" integer scalar output signal with no unit,
 minimum, or maximum information:
 
-    Signal outA = dev.addOutputSignal("outA", 1, 'i', null, null, null);
+~~~java
+Signal outA = dev.addOutputSignal("outA", 1, 'i', null, null, null);
+~~~
 
 An example of a `float` signal where some more information is provided:
 
-    Signal sensor1 = dev.addOutputSignal("sensor1", 1, 'f', "V", 0.0, 5.0)
+~~~java
+Signal sensor1 = dev.addOutputSignal("sensor1", 1, 'f', "V", 0.0, 5.0)
+~~~
 
 So far we know how to create a device and to specify an output signal for it.
 To recap, let's review the code so far:
 
-    import mapper.*;
-    import mapper.signal.*;
+~~~java
+import mapper.*;
+import mapper.signal.*;
 
-    class test {
-        public static void main() {
-            final Device dev = new Device("testDevice");
-            Signal sensor1 = dev.addOutputSignal("sensor1", 1, 'f', "V",
-                                                 new Value('f', 0.0),
-                                                 new Value('f', 5.0));
-            while (1) {
-                dev.poll(50);
-                ... do stuff ...
-                ... update signals ...
-            }
+class test {
+    public static void main() {
+        final Device dev = new Device("testDevice");
+        Signal sensor1 = dev.addOutputSignal("sensor1", 1, 'f', "V",
+                                             new Value('f', 0.0),
+                                             new Value('f', 5.0));
+        while (1) {
+            dev.poll(50);
+            ... do stuff ...
+            ... update signals ...
         }
     }
+}
+~~~
 
 It is possible to retrieve a device's inputs or outputs at a later time using
 the functions `inputs()` and `outputs()`.
@@ -213,18 +228,22 @@ be sent to other devices if that signal is mapped.
 
 This is accomplished by the `update()` function:
 
-    <sig>.update(<value>)
+~~~java
+<sig>.update(<value>)
+~~~
 
 So in the "sensor 1" example, assuming we have some code which reads sensor 1's
 value into a float variable called `v1`, the loop becomes:
 
-    while (1) {
-        dev.poll(50);
-        
-        // call a hypothetical function that reads a sensor
-        v1 = read_sensor_1();
-        sensor1.update(v1);
-    }
+~~~java
+while (1) {
+    dev.poll(50);
+    
+    // call a hypothetical function that reads a sensor
+    v1 = read_sensor_1();
+    sensor1.update(v1);
+}
+~~~
 
 This is about all that is needed to expose sensor 1's value to the network as a
 mappable parameter.  The _libmapper_ GUI can now be used to create a mapping
@@ -279,47 +298,52 @@ audio thread.
 
 We need to create a handler function for libmapper to update the synth:
 
-    UpdateListener freqHandler = new UpdateListener() {
-        public void onUpdate(Signal sig, float[] value, TimeTag tt) {
-            setPulseWidth(value);
-        }};
+~~~java
+UpdateListener freqHandler = new UpdateListener() {
+    public void onUpdate(Signal sig, float[] value, TimeTag tt) {
+        setPulseWidth(value);
+    }};
+~~~
 
 Then our program will look like this:
 
-    import mapper.*;
-    import mapper.signal.*;
+~~~java
+import mapper.*;
+import mapper.signal.*;
 
-    # Some synth stuff
-    startAudioInBackground();
+# Some synth stuff
+startAudioInBackground();
 
-    UpdateListener freqHandler = new UpdateListener() {
-        public void onUpdate(Signal sig, float[] value, TimeTag tt) {
-            setPulseWidth(value);
-        }};
+UpdateListener freqHandler = new UpdateListener() {
+    public void onUpdate(Signal sig, float[] value, TimeTag tt) {
+        setPulseWidth(value);
+    }};
 
-    final Device dev = new Device("mySynth");
-    Signal pw = dev.addInputSignal("pulseWidth", 1, 'f', "Hz",
-                                   new Value('f', 0.0), new Value('f', 1.0),
-                                   freqHandler);
+final Device dev = new Device("mySynth");
+Signal pw = dev.addInputSignal("pulseWidth", 1, 'f', "Hz",
+                               new Value('f', 0.0), new Value('f', 1.0),
+                               freqHandler);
 
-    while (1) {
-        dev.poll(100);
-    }
+while (1) {
+    dev.poll(100);
+}
 
-    synth.stop()
+synth.stop()
+~~~
 
 Alternately, we can declare the `UpdateListener` as part of the
 `addInputSignal()` function:
 
-    Signal pulseWidth = dev.addInputSignal("pulseWidth", 1, 'f', "Hz",
-                                           new Value('f', 0.0),
-                                           new Value('f', 1.0),
-                                           new UpdateListener() {
-        public void onUpdate(Signal sig, float[] value, TimeTag tt) {
-            setPulseWidth(value);
-        }
-    });
-
+~~~java
+Signal pulseWidth = dev.addInputSignal("pulseWidth", 1, 'f', "Hz",
+                                       new Value('f', 0.0),
+                                       new Value('f', 1.0),
+                                       new UpdateListener() {
+    public void onUpdate(Signal sig, float[] value, TimeTag tt) {
+        setPulseWidth(value);
+    }
+});
+~~~
 
 ## Working with timetags
 
@@ -342,8 +366,10 @@ system that provides the sampling time.
 
 _libmapper_ also provides helper functions for getting the current time:
 
-    TimeTag tt = new TimeTag();
-    tt.now();
+~~~java
+TimeTag tt = new TimeTag();
+tt.now();
+~~~
 
 ## Working with signal instances
 
@@ -368,27 +394,33 @@ understanding of the relatonships between instances when they are mapped.
 All signals possess one instance by default. If you would like to reserve more
 instances you can use:
 
-    <sig>.reserveInstances(int num);
+~~~java
+<sig>.reserveInstances(int num);
+~~~
 
 After reserving instances you can update a specific instance:
 
-    Signal.Instance inst = <sig>.instance();
-    inst.update(<value>);
-
-or
-
-    inst.update(<value>, TimeTag tt);
+~~~java
+Signal.Instance inst = <sig>.instance();
+inst.update(<value>);
+// or
+inst.update(<value>, TimeTag tt);
+~~~
 
 ### Associating signal instances with Java objects
 
 Signal instances can be associated with an arbitrary object, for example:
 
-    int[] my_obj = new int[]{1,2,3,4};
-    Signal.Instance inst = <sig>.instance(my_obj);
+~~~java
+int[] my_obj = new int[]{1,2,3,4};
+Signal.Instance inst = <sig>.instance(my_obj);
+~~~
 
 The object can be retrieved:
 
-    Object o = inst.userReference();
+~~~java
+Object o = inst.userReference();
+~~~
 
 ### Receiving instances
 
@@ -396,18 +428,22 @@ To receive updates to multiple instances of an input signal you will need to
 declare an `InstanceUpdateListener` for the signal in question. Here is the
 listener prototype:
 
-    new InstanceUpdateListener(Signal.Instance inst, float[] value, TimeTag tt);
+~~~java
+new InstanceUpdateListener(Signal.Instance inst, float[] value, TimeTag tt);
+~~~
 
 The listener can be added using the function `setInstanceUpdateListener()`:
 
-    <sig>.setInstanceUpdateListener(new InstanceUpdateListener() {
-        public void onUpdate(Signal.Instance inst, float[] v, TimeTag tt) {
-            System.out.println("in onInstanceUpdate() for "
-                               +inst.signal().name()+" instance "
-                               +inst.id()+": "+inst.userReference()+", val= "
-                               +Arrays.toString(v));
-        }
-    });
+~~~java
+<sig>.setInstanceUpdateListener(new InstanceUpdateListener() {
+    public void onUpdate(Signal.Instance inst, float[] v, TimeTag tt) {
+        System.out.println("in onInstanceUpdate() for "
+                           +inst.signal().name()+" instance "
+                           +inst.id()+": "+inst.userReference()+", val= "
+                           +Arrays.toString(v));
+    }
+});
+~~~
 
 Remember that you will need to reserve instances for your input signal using
 `<sig>.reserveInstances()` if you want to receive instance updates.
@@ -419,7 +455,9 @@ receiver signal, the _instance allocation mode_ can be set for an input signal
 to set an action to take in case all allocated instances are in use and a
 previously unseen instance id is received. Use the function:
 
-    <sig>.setInstanceStealingMode(mode);
+~~~java
+<sig>.setInstanceStealingMode(mode);
+~~~
 
 The argument `mode` can have one of the following values:
 
@@ -434,24 +472,27 @@ If you want to use another method for determining which active instance to
 release (e.g. the sound with the lowest volume), you can create an
 `InstanceEventListener` for the signal and write the method yourself:
 
-    InstanceEventListener myHandler = new InstanceEventListener() {    
-        public void onEvent(Signal.Instance inst, InstanceEvent event,
-                            TimeTag tt) {
-            System.out.println("onInstanceEvent() for "
-                               + inst.signal().name() + " instance "
-                               + inst.id() + ": " + event.value());
-            // call user function that chooses an instance to release
-            Signal.Instance release_me = choose_instance(inst.signal());
-            release_me.release();
-        }
+~~~java
+InstanceEventListener myHandler = new InstanceEventListener() {    
+    public void onEvent(Signal.Instance inst, InstanceEvent event,
+                        TimeTag tt) {
+        System.out.println("onInstanceEvent() for "
+                           + inst.signal().name() + " instance "
+                           + inst.id() + ": " + event.value());
+        // call user function that chooses an instance to release
+        Signal.Instance release_me = choose_instance(inst.signal());
+        release_me.release();
     }
+}
+~~~
 
 For this function to be called when instance stealing is necessary, we
 need to register it for `mapper.signal.InstanceEvent.OVERFLOW` events:
 
-    <sig>.setInstanceEventListener(myHandler,
-                                   mapper.signal.InstanceEvent.OVERFLOW);
-
+~~~java
+<sig>.setInstanceEventListener(myHandler,
+                               mapper.signal.InstanceEvent.OVERFLOW);
+~~~
 
 ## Publishing metadata
 
@@ -473,7 +514,9 @@ OSC-compatible type.  (So, numbers and strings, etc.)
 
 The property interface is through the functions,
 
-    <object>.setProperty(String key, Value value);
+~~~java
+<object>.setProperty(String key, Value value);
+~~~
 
 where the value can any OSC-compatible type. This function can be called for
 devices or signals.
@@ -481,11 +524,15 @@ devices or signals.
 For example, to store a `float vector` indicating the 2D position of a device
 `dev`, you can call it like this:
 
-    dev.setProperty("position", new Value(new float[] {12.5f, 40.f}));
+~~~java
+dev.setProperty("position", new Value(new float[] {12.5f, 40.f}));
+~~~
 
 To specify a string property of a signal `sig`:
 
-    sig.setProperty("sensingMethod", new Value("resistive"));
+~~~java
+sig.setProperty("sensingMethod", new Value("resistive"));
+~~~
 
 ### Reserved keys
 

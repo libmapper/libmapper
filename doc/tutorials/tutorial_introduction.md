@@ -3,7 +3,7 @@ Introduction
 
 These tutorials introduce new users to _libmapper_, providing steps to construct software programs that are compatible with the _libmapper_ network.  A program typically implements a libmapper **device**, and declares **signals**, which can be inputs or outputs. After this, run-time **maps** can be easily created and configured between declared signals. libmapper takes care of announcing and discovering available resources on the network, creating and maintaining connections between entities, and various other functions.
 
-<img style="display:block;margin:auto;padding:0px;width:50%" src="./images/network_diagram.png">
+<img style="display:block;margin:auto;padding:0px;width:75%" src="./images/network_diagram.png">
 
 The diagram above shows a simplified network of libmapper-enabled devices. In real use, devices and signals are expected to be given short descriptive names rather than the identifiers used in this example.
 
@@ -24,10 +24,10 @@ It is also possible to create devices which have inputs and outputs, and these c
 
 Essentially, each device only needs to do a few things:
 
-  - **start a libmapper "device"**
-  - **add some signals**
-  - **update any outputs periodically**
-  - **poll the device to process incoming messages**
+1. **start a libmapper "device"**
+2. **add some signals**
+3. **update any outputs periodically**
+4. **poll the device to process incoming messages**
 
 Detailed tutorials are provided for using libmapper in the following programming languages and environments:
 

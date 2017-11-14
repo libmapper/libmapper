@@ -9,7 +9,9 @@ project.
 
 Once you have libmapper installed, it can be imported into your program:
 
-    import mapper
+~~~python
+import mapper
+~~~
 
 ## Overview of the API organization
 
@@ -48,7 +50,9 @@ parameters, such as specifying the name of the network interface to use.
 
 An example of creating a device:
 
-    dev = mapper.device("my_device")
+~~~python
+dev = mapper.device("my_device")
+~~~
 
 ## Polling the device
 
@@ -73,11 +77,15 @@ your application to behave.  It takes a number of milliseconds during which it
 should do some work, or 0 if it should check for any immediate actions and then
 return without waiting:
 
-    dev.poll(block_ms)
+~~~python
+dev.poll(block_ms)
+~~~
 
 An example of calling it with non-blocking behaviour:
 
-    dev.poll(0)
+~~~python
+dev.poll(0)
+~~~
 
 If your polling is in the middle of a processing function or in response to a
 GUI event for example, non-blocking behaviour is desired.  On the other hand if
@@ -140,9 +148,11 @@ for input signals there is an additional argument:
 
 examples:
 
-    sig_in = dev.add_input_signal("my_input", 1, 'f', "m/s", -10, 10, h)
+~~~python
+sig_in = dev.add_input_signal("my_input", 1, 'f', "m/s", -10, 10, h)
 
-    sig_out = dev.add_output_signal("my_output", 4, 'i', None, 0, 1000)
+sig_out = dev.add_output_signal("my_output", 4, 'i', None, 0, 1000)
+~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
 type.  Signals are assumed to be vectors of values, so for usual single-valued
@@ -166,28 +176,36 @@ by an incoming message.  It is passed in the `handler` parameter.
 An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
-    outA = dev.add_output_signal("outA", 1, 'i', None, None, None)
+~~~python
+outA = dev.add_output_signal("outA", 1, 'i', None, None, None)
+~~~
 
 or omitting some arguments:
 
-    outA = dev.add_output_signal("outA", 1, 'i')
+~~~python
+outA = dev.add_output_signal("outA", 1, 'i')
+~~~
 
 An example of a `float` signal where some more information is provided:
 
-    sensor1 = dev.add_output_signal("sensor1", 1, 'f', "V", 0.0, 5.0)
+~~~python
+sensor1 = dev.add_output_signal("sensor1", 1, 'f', "V", 0.0, 5.0)
+~~~
 
 So far we know how to create a device and to specify an output signal for it.
 To recap, let's review the code so far:
 
-    import mapper
+~~~python
+import mapper
 
-    dev = mapper.device("test_sender")
-    sensor1 = dev.add_output_signal("sensor1", 1, 'f', "V", 0.0, 5.0)
+dev = mapper.device("test_sender")
+sensor1 = dev.add_output_signal("sensor1", 1, 'f', "V", 0.0, 5.0)
     
-    while 1:
-        dev.poll(50)
-        ... do stuff ...
-        ... update signals ...
+while 1:
+    dev.poll(50)
+    ... do stuff ...
+    ... update signals ...
+~~~
 
 It is possible to retrieve a device's inputs or outputs by name or by index at a
 later time using the functions `get_signal_by_<name/index>`.
@@ -203,16 +221,20 @@ be sent to other devices if that signal is mapped.
 
 This is accomplished by the `update` function:
 
-    <sig>.update(value)
+~~~python
+<sig>.update(value)
+~~~
 
 So in the "sensor 1 voltage" example, assuming in `do_stuff()` we have some code
 which reads sensor 1's value into a float variable called `v1`, the loop
 becomes:
 
-    while 1:
-        dev.poll(50)
-        v1 = do_stuff()
-        sensor1.update(v1)
+~~~python
+while 1:
+    dev.poll(50)
+    v1 = do_stuff()
+    sensor1.update(v1)
+~~~
 
 This is about all that is needed to expose sensor 1's voltage to the network as
 a mappable parameter.  The _libmapper_ GUI can now be used to create a mapping
@@ -272,55 +294,61 @@ one parameter: the frequency of the sine.
 
 We need to create a handler function for libmapper to update the pyo synth:
 
-    def frequency_handler(sig, id, val, timetag):
-        try:
-            sine.setFreq(val)
-        except:
-            print 'exception'
-            print sig, val
+~~~python
+def frequency_handler(sig, id, val, timetag):
+    try:
+        sine.setFreq(val)
+    except:
+        print 'exception'
+        print sig, val
+~~~
 
 Then our program will look like this:
 
-    from pyo import *
-    import mapper
+~~~python
+from pyo import *
+import mapper
 
-    # Some pyo stuff
-    synth = Server().boot().start()
-    sine = Sine(freq=200, mul=0.5).out()
+# Some pyo stuff
+synth = Server().boot().start()
+sine = Sine(freq=200, mul=0.5).out()
 
-    def freq_handler(sig, id, val, timetag):
-        try:
-            sine.setFreq(val)
-        except:
-            print 'exception'
-            print sig, val
+def freq_handler(sig, id, val, timetag):
+    try:
+        sine.setFreq(val)
+    except:
+        print 'exception'
+        print sig, val
 
-    dev = mapper.device('pyo_example')
-    dev.add_input_signal('frequency', 1, 'f', 'Hz', 20, 2000, freq_handler)
+dev = mapper.device('pyo_example')
+dev.add_input_signal('frequency', 1, 'f', 'Hz', 20, 2000, freq_handler)
 
-    while True:
-        dev.poll( 100 )
+while True:
+    dev.poll( 100 )
 
-    synth.stop()
+synth.stop()
+~~~
 
-Alternately, we can simplify our code by using a `lambda function` instead of a
+Alternately, we can simplify our code by using a [lambda expression](https://docs.python.org/3/tutorial/controlflow.html#lambda-expressions) instead of a
 separate handler:
 
-    from pyo import *
-    import mapper
+~~~python
+from pyo import *
+import mapper
 
-    # Some pyo stuff
-    synth = Server().boot().start()
-    sine = Sine(freq=200, mul=0.5).out()
+# Some pyo stuff
+synth = Server().boot().start()
+sine = Sine(freq=200, mul=0.5).out()
 
-    dev = mapper.device('pyo_example')
-    dev.add_input_signal('frequency', 1, 'f', "Hz", 20, 2000,
-                         lambda s, i, f, t: sine.setFreq(f))
+dev = mapper.device('pyo_example')
+dev.add_input_signal('frequency', 1, 'f', "Hz", 20, 2000,
+                     lambda s, i, f, t: sine.setFreq(f))
 
-    while True:
-        dev.poll(100)
+while True:
+    dev.poll(100)
 
-    synth.stop()
+synth.stop()
+~~~
 
 ## Working with timetags
 
@@ -344,7 +372,9 @@ system that provides the sampling time.
 Creating a new `timetag` without arguments causes it to be initialized with the
 current system time:
 
-    now = mapper.timetag()
+~~~python
+now = mapper.timetag()
+~~~
 
 ## Working with signal instances
 
@@ -369,15 +399,17 @@ understanding of the relatonships between instances when they are mapped.
 All signals possess one instance by default. If you would like to reserve more
 instances you can use:
 
-    <sig>.reserve_instances(num)
+~~~python
+<sig>.reserve_instances(num)
+~~~
 
 After reserving instances you can update a specific instance:
 
-    <sig>.update_instance(id, value)
-
-or
-
-    <sig>.instance_update(id, value, timetag)
+~~~python
+<sig>.update_instance(id, value)
+#or
+<sig>.instance_update(id, value, timetag)
+~~~
 
 All of the arguments except one should be familiar from the documentation of
 `update()` presented earlier.  The `instance_id` argument does not have to be
@@ -391,7 +423,9 @@ You might have noticed earlier that the handler function called when a signal
 update is received has a argument called `id`. Here is the function prototype
 again:
 
-    def frequency_handler(signal, id, value, timetag):
+~~~python
+def frequency_handler(signal, id, value, timetag):
+~~~
 
 Under normal usage, the `id` argument will have a value (0 <= n <=
 num_instances) and can be used as an array index. Remember that you will need to
@@ -405,7 +439,9 @@ receiver signal, the _instance allocation mode_ can be set for an input signal
 to set an action to take in case all allocated instances are in use and a
 previously unseen instance id is received. Use the function:
 
-    <sig>.set_instance_stealing_mode(mode);
+~~~python
+<sig>.set_instance_stealing_mode(mode);
+~~~
 
 The argument `mode` can have one of the following values:
 
@@ -420,17 +456,20 @@ If you want to use another method for determining which active instance to
 release (e.g. the sound with the lowest volume), you can create an
 `instance_event_handler` for the signal and write the method yourself:
 
-    def my_handler(sig, id, event, timetag):
-        # user code chooses which instance to release
-        id = choose_instance_to_release(sig)
+~~~python
+def my_handler(sig, id, event, timetag):
+    # user code chooses which instance to release
+    id = choose_instance_to_release(sig)
 
-        sig.instance_release(id, timetag)
+    sig.instance_release(id, timetag)
+~~~
 
 For this function to be called when instance stealing is necessary, we need to
 register it for `mapper.IN_OVERFLOW` events:
 
-    <sig>.set_instance_event_callback(my_handler, mapper.IN_OVERFLOW)
-
+~~~python
+<sig>.set_instance_event_callback(my_handler, mapper.IN_OVERFLOW)
+~~~
 
 ## Publishing metadata
 
@@ -452,7 +491,9 @@ OSC-compatible type.  (So, numbers and strings, etc.)
 
 The property interface is through the functions,
 
-    set_property(key, value)
+~~~python
+<object>.set_property(key, value)
+~~~
 
 where the value can any OSC-compatible type. This function can be called for
 devices or signals.
@@ -460,11 +501,15 @@ devices or signals.
 For example, to store a `float` indicating the X position of a device `dev`, you
 can call it like this:
 
-    dev.set_property("x", 12.5)
+~~~python
+dev.set_property("x", 12.5)
+~~~
 
 To specify a string property of a signal:
 
-    sig.set_property("sensingMethod", "resistive")
+~~~python
+sig.set_property("sensingMethod", "resistive")
+~~~
 
 ### Reserved keys
 
