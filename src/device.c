@@ -960,20 +960,18 @@ void mapper_device_add_signal_methods(mapper_device dev, mapper_signal sig)
     if (!sig || !sig->local)
         return;
 
-    char *path = 0;
+    lo_server udp = dev->local->udp_server,
+              tcp = dev->local->tcp_server;
+
     int len = strlen(sig->path) + 5;
-    path = (char*)realloc(path, len);
+    char *path = (char*)malloc(sizeof(char) * len);
     snprintf(path, len, "%s%s", sig->path, "/get");
-    lo_server_add_method(dev->local->udp_server, path, NULL, handler_query,
-                         (void*)(sig));
-    lo_server_add_method(dev->local->tcp_server, path, NULL, handler_query,
-                         (void*)(sig));
+    lo_server_add_method(udp, path, NULL, handler_query, (void*)(sig));
+    lo_server_add_method(tcp, path, NULL, handler_query, (void*)(sig));
     free(path);
 
-    lo_server_add_method(dev->local->udp_server, sig->path, NULL,
-                         handler_signal, (void*)(sig));
-    lo_server_add_method(dev->local->tcp_server, sig->path, NULL,
-                         handler_signal, (void*)(sig));
+    lo_server_add_method(udp, sig->path, NULL, handler_signal, (void*)(sig));
+    lo_server_add_method(tcp, sig->path, NULL, handler_signal, (void*)(sig));
 
     ++dev->local->n_output_callbacks;
 }
