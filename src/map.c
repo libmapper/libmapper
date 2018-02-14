@@ -507,6 +507,9 @@ int mapper_map_set_property(mapper_map map, const char *name, int length,
             return 1;
         }
     }
+    else if (prop == AT_ID) {
+        return 1;
+    }
     else {
         int flags = REMOTE_MODIFY | publish ? 0 : LOCAL_ACCESS_ONLY;
         if (map->local && (prop == AT_EXTRA || prop == AT_DESCRIPTION
