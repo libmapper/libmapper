@@ -293,6 +293,7 @@ void mapper_device_registered(mapper_device dev)
         sig = mapper_signal_query_next(sig);
     }
     dev->local->registered = 1;
+    dev->ordinal = dev->local->ordinal.value;
     dev->status = STATUS_READY;
 }
 
