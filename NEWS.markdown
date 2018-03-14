@@ -173,7 +173,7 @@ mode called `MAPPER_MODE_RAW` that is used internally only when setting up
 convergent maps.
 * `MO_REVERSE` has been removed and replaced with directed maps; if a map from
 a sink signal to a source signal is desired it is simply set up that way, e.g.
-`mapper_map_new(sink_sig, source_sig)`.
+`mapper_map_new(1, &sink_sig, 1, &source_sig)`.
 * `MO_CALIBRATE` has been removed and replaced with the `mapper_slot` property
 `calibrating`.
 * `MO_EXPRESSION` has been renamed `MAPPER_MODE_EXPRESSION`
@@ -182,7 +182,7 @@ a sink signal to a source signal is desired it is simply set up that way, e.g.
 ### Changes under the hood
 
 There have also been a number of internal improvements that have minimal effect
-on the API but improve memory-management and add functionality
+on the API but improve memory-management and add functionality:
 
 * *Memory management:* Memory is now recovered from dropped connections, e.g.
 when a peer device crashes or doesn't disconnect properly.
