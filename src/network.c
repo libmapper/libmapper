@@ -67,6 +67,17 @@ static int is_alphabetical(int num, lo_arg **names)
     return 1;
 }
 
+/* Extract the ordinal from a device name in the format: <name>.<n> */
+static int extract_ordinal(char *name) {
+    char *s = name;
+    s = strrchr(s, '.');
+    if (!s)
+        return -1;
+    int ordinal = atoi(s+1);
+    *s = 0;
+    return ordinal;
+}
+
 const char* network_message_strings[] =
 {
     "/device",                  /* MSG_DEVICE */
@@ -631,17 +642,23 @@ void mapper_network_free(mapper_network net)
 static void mapper_network_probe_device_name(mapper_network net,
                                              mapper_device dev)
 {
-    dev->local->ordinal.collision_count = -1;
+    int i;
+
+    // reset collisions and hints
+    dev->local->ordinal.collision_count = 0;
     dev->local->ordinal.count_time = mapper_get_current_time();
+    for (i = 0; i < 8; i++) {
+        dev->local->ordinal.hints[i] = 0;
+    }
 
     /* Note: mapper_device_name() would refuse here since the ordinal is not yet
      * locked, so we have to build it manually at this point. */
     char name[256];
-    trace_dev(dev, "probing name\n");
     snprintf(name, 256, "%s.%d", dev->identifier, dev->local->ordinal.value);
+    trace_dev(dev, "probing name '%s'\n", name);
 
     /* Calculate an id from the name and store it in id.value */
-    dev->id = (mapper_id)crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+    dev->id = (mapper_id) crc32(0L, (const Bytef *)name, strlen(name)) << 32;
 
     /* For the same reason, we can't use mapper_network_send() here. */
     lo_send(net->bus_addr, network_message_strings[MSG_NAME_PROBE], "si",
@@ -666,7 +683,7 @@ void mapper_network_add_device(mapper_network net, mapper_device dev)
          * registered. */
         lo_server_add_method(net->bus_server,
                              network_message_strings[MSG_NAME_PROBE],
-                             NULL, handler_probe, net);
+                             "si", handler_probe, net);
         lo_server_add_method(net->bus_server,
                              network_message_strings[MSG_NAME_REG],
                              NULL, handler_registered, net);
@@ -678,12 +695,12 @@ void mapper_network_add_device(mapper_network net, mapper_device dev)
 
 void mapper_network_remove_device(mapper_network net, mapper_device dev)
 {
-    if (dev) {
-        mapper_network_remove_device_methods(net, dev);
-        // TODO: should release of local device trigger local device handler?
-        mapper_database_remove_device(&net->database, dev, MAPPER_REMOVED, 0);
-        net->device = 0;
-    }
+    if (!dev)
+        return;
+    mapper_network_remove_device_methods(net, dev);
+    // TODO: should release of local device trigger local device handler?
+    mapper_database_remove_device(&net->database, dev, MAPPER_REMOVED, 0);
+    net->device = 0;
 }
 
 // TODO: rename to mapper_device...?
@@ -863,35 +880,42 @@ int mapper_network_port(mapper_network net)
 /*! Algorithm for checking collisions and allocating resources. */
 static int check_collisions(mapper_network net, mapper_allocated resource)
 {
-    double timediff;
+    double timediff, current_time = mapper_get_current_time();
+    int i;
 
     if (resource->locked)
         return 0;
 
-    timediff = mapper_get_current_time() - resource->count_time;
+    timediff = current_time - resource->count_time;
 
-    if (!net->msgs_recvd) {
+    if (!resource->online) {
         if (timediff >= 5.0) {
             // reprobe with the same value
-            resource->count_time = mapper_get_current_time();
+            resource->count_time = current_time;
             return 1;
         }
         return 0;
     }
-    else if (timediff >= 2.0 && resource->collision_count <= 1) {
+    else if (timediff >= 2.0 && resource->collision_count < 1) {
         resource->locked = 1;
         if (resource->on_lock)
             resource->on_lock(resource);
         return 2;
     }
     else if (timediff >= 0.5 && resource->collision_count > 0) {
-        /* If resource collisions were found within 500 milliseconds of the
-         * last probe, add a random number based on the number of collisions. */
-        resource->value += rand() % (resource->collision_count + 1);
+        for (i = 0; i < 8; i++) {
+            if (!resource->hints[i]) {
+                break;
+            }
+        }
+        resource->value += i + 1;
 
         /* Prepare for causing new resource collisions. */
-        resource->collision_count = -1;
-        resource->count_time = mapper_get_current_time();
+        resource->collision_count = 0;
+        resource->count_time = current_time;
+        for (i = 0; i < 8; i++) {
+            resource->hints[i] = 0;
+        }
 
         /* Indicate that we need to re-probe the new value. */
         return 1;
@@ -1134,9 +1158,9 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
         name++;
         if (strcmp(name, dev->identifier) == 0) {
             // if registered ordinal is within my block, free it
-            diff = ordinal - dev->local->ordinal.value;
-            if (diff > 0 && diff < 9) {
-                dev->local->ordinal.suggestion[diff-1] = 0;
+            diff = ordinal - dev->local->ordinal.value - 1;
+            if (diff >= 0 && diff < 8) {
+                dev->local->ordinal.hints[diff] = 0;
             }
         }
     }
@@ -1379,57 +1403,64 @@ static int handler_registered(const char *path, const char *types, lo_arg **argv
 {
     mapper_network net = (mapper_network) user_data;
     mapper_device dev = net->device;
-    char *name, *s;
+    char *name;
     mapper_id id;
-    int ordinal, diff, temp_id = -1, suggestion = -1;
+    int ordinal, diff, temp_id = -1, hint = 0;
 
     if (argc < 1)
         return 0;
-
     if (types[0] != 's' && types[0] != 'S')
         return 0;
-
     name = &argv[0]->s;
+    if (argc > 1) {
+        if (types[1] == 'i')
+            temp_id = argv[1]->i;
+        if (types[2] == 'i')
+            hint = argv[2]->i;
+    }
 
-    trace_dev(dev, "got /name/registered %s %i \n", name, temp_id);
+#ifdef DEBUG
+    if (hint) {
+        trace_dev(dev, "got /name/registered %s %i %i\n", name, temp_id, hint);
+    }
+    else {
+        trace_dev(dev, "got /name/registered %s\n", name);
+    }
+#endif
 
     if (dev->local->ordinal.locked) {
-        /* Parse the ordinal from the complete name which is in the
-         * format: <name>.<n> */
-        s = name;
-        s = strrchr(s, '.');
-        if (!s)
+        ordinal = extract_ordinal(name);
+        if (ordinal == -1)
             return 0;
-        ordinal = atoi(s+1);
-        *s = 0;
 
         // If device name matches
-        if (strcmp(name+1, dev->identifier) == 0) {
+        if (strcmp(name, dev->identifier) == 0) {
             // if id is locked and registered id is within my block, store it
-            diff = ordinal - dev->local->ordinal.value;
-            if (diff > 0 && diff < 9) {
-                dev->local->ordinal.suggestion[diff-1] = -1;
+            diff = ordinal - dev->local->ordinal.value - 1;
+            if (diff >= 0 && diff < 8) {
+                dev->local->ordinal.hints[diff] = -1;
+            }
+            if (hint) {
+                // if suggested id is within my block, store timestamp
+                diff = hint - dev->local->ordinal.value - 1;
+                if (diff >= 0 && diff < 8) {
+                    dev->local->ordinal.hints[diff] = mapper_get_current_time();
+                }
             }
         }
     }
     else {
-        id = (mapper_id)crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+        id = (mapper_id) crc32(0L, (const Bytef *)name, strlen(name)) << 32;
         if (id == dev->id) {
-            if (argc > 1) {
-                if (types[1] == 'i')
-                    temp_id = argv[1]->i;
-                if (types[2] == 'i')
-                    suggestion = argv[2]->i;
-            }
-            if (temp_id == net->random_id &&
-                suggestion != dev->local->ordinal.value && suggestion > 0) {
-                dev->local->ordinal.value = suggestion;
-                mapper_network_probe_device_name(net, dev);
-            }
-            else {
+            if (temp_id < net->random_id) {
                 /* Count ordinal collisions. */
-                dev->local->ordinal.collision_count++;
+                ++dev->local->ordinal.collision_count;
                 dev->local->ordinal.count_time = mapper_get_current_time();
+            }
+            else if (temp_id == net->random_id && hint > 0
+                     && hint != dev->local->ordinal.value) {
+                dev->local->ordinal.value = hint;
+                mapper_network_probe_device_name(net, dev);
             }
         }
     }
@@ -1442,46 +1473,37 @@ static int handler_probe(const char *path, const char *types, lo_arg **argv,
 {
     mapper_network net = (mapper_network) user_data;
     mapper_device dev = net->device;
-    char *name;
+    char *name = &argv[0]->s;
+    int i, temp_id = argv[1]->i;
     double current_time;
     mapper_id id;
-    int temp_id = -1, i;
-
-    if (types[0] == 's' || types[0] == 'S')
-        name = &argv[0]->s;
-    else
-        return 0;
-
-    if (argc > 0) {
-        if (types[1] == 'i')
-            temp_id = argv[1]->i;
-        else if (types[1] == 'f')
-            temp_id = (int) argv[1]->f;
-    }
 
     trace_dev(dev, "got /name/probe %s %i \n", name, temp_id);
 
-    id = (mapper_id)crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+    id = (mapper_id) crc32(0L, (const Bytef *)name, strlen(name)) << 32;
     if (id == dev->id) {
-        if (dev->local->ordinal.locked) {
-            current_time = mapper_get_current_time();
-            for (i=0; i<8; i++) {
-                if (dev->local->ordinal.suggestion[i] >= 0
-                    && (current_time - dev->local->ordinal.suggestion[i]) > 2.0) {
+        current_time = mapper_get_current_time();
+        if (dev->local->ordinal.locked || temp_id > net->random_id) {
+            for (i = 0; i < 8; i++) {
+                if (dev->local->ordinal.hints[i] >= 0
+                    && (current_time - dev->local->ordinal.hints[i]) > 2.0) {
                     // reserve suggested ordinal
-                    dev->local->ordinal.suggestion[i] = mapper_get_current_time();
+                    dev->local->ordinal.hints[i] = current_time;
                     break;
                 }
             }
             /* Name may not yet be registered, so we can't use
              * mapper_network_send() here. */
             lo_send(net->bus_addr, network_message_strings[MSG_NAME_REG],
-                    "sii", name, temp_id,
-                    (dev->local->ordinal.value+i+1));
+                    "sii", name, temp_id, dev->local->ordinal.value + i + 1);
         }
         else {
-            dev->local->ordinal.collision_count++;
-            dev->local->ordinal.count_time = mapper_get_current_time();
+            if (temp_id == net->random_id)
+                dev->local->ordinal.online = 1;
+            else {
+                ++dev->local->ordinal.collision_count;
+                dev->local->ordinal.count_time = current_time;
+            }
         }
     }
     return 0;
@@ -2518,7 +2540,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
             return 0;
         if (strcmp(&argv[i]->s, "@id")==0 && (types[i+1] == 'h')) {
             id_index = i+1;
-            id = (mapper_id*)&argv[id_index]->i64;
+            id = (mapper_id*) &argv[id_index]->i64;
             break;
         }
     }

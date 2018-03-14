@@ -206,10 +206,9 @@ typedef void mapper_resource_on_collision(struct _mapper_allocated_t *resource);
 
 /*! Allocated resources */
 typedef struct _mapper_allocated_t {
-    double count_time;            /*!< The last time at which the
-                                   * collision count was updated. */
-    double suggestion[8];         /*!< Availability of a range
-                                       of resource values. */
+    double count_time;          /*!< The last time at which the collision count
+                                 *   was updated. */
+    double hints[8];            //!< Availability of a range of resource values.
 
     //!< Function to call when resource becomes locked.
     mapper_resource_on_lock *on_lock;
@@ -217,11 +216,13 @@ typedef struct _mapper_allocated_t {
    //! Function to call when resource collision occurs.
     mapper_resource_on_collision *on_collision;
 
-    unsigned int value;           //!< The resource to be allocated.
-    int collision_count;          /*!< The number of collisions
-                                   *   detected for this resource. */
-    int locked;                   /*!< Whether or not the value has
-                                   *   been locked in (allocated). */
+    unsigned int value;         //!< The resource to be allocated.
+    int collision_count;        /*!< The number of collisions detected for this
+                                 *   resource. */
+    uint8_t locked;             /*!< Whether or not the value has been locked
+                                 *   in (allocated). */
+    uint8_t online;             /*!< Whether or not we are connected to the
+                                 *   distributed allocation network. */
 } mapper_allocated_t, *mapper_allocated;
 
 /*! Clock and timing information. */
