@@ -835,8 +835,7 @@ void mapper_network_poll(mapper_network net)
             mapper_network_probe_device_name(net, dev);
         }
 
-        /* If we are ready to register the device, add the needed message
-         * handlers. */
+        /* If we are ready to register the device, add the message handlers. */
         if (dev->local->ordinal.locked) {
             mapper_device_registered(dev);
 

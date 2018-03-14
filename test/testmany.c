@@ -93,17 +93,34 @@ void wait_local_devices(int *cancel) {
 			if (!mapper_device_ready(device_list[i])) {
 				keep_waiting = 1;
 			}
+		}
+        if (j++ >= 1000) {
             printf(".");
             fflush(stdout);
-            if (j++ >= 50) {
-                while (--j)
-                    printf("\b \b");
-            }
-		}
+            j = 0;
+        }
 	}
     eprintf("\nRegistered devices:\n");
-    for ( i=0; i<num_devices; i++)
-        eprintf("  %s\n", mapper_device_name(device_list[i]));
+    int highest = 0;
+    for (i = 0; i < num_devices; i++) {
+        int ordinal = mapper_device_ordinal(device_list[i]);
+        if (ordinal > highest)
+            highest = ordinal;
+    }
+    for (i = 1; i <= highest; i++) {
+        int count = 0;
+        const char *name = 0;
+        for (j = 0; j < num_devices; j++) {
+            if (mapper_device_ordinal(device_list[j]) == i) {
+                name = mapper_device_name(device_list[j]);
+                ++count;
+            }
+        }
+        if (count && name) {
+            eprintf("%s  %s\t\tx %i\n\x1B[0m",
+                    count > 1 ? "\x1B[31m" : "\x1B[32m", name, count);
+        }
+    }
 }
 
 void loop() {
