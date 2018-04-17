@@ -55,15 +55,15 @@ def main():
                              command=lambda n: pwm.set_duty(float(n)/100.0))
         duty.pack()
 
-        dev = mapper.device("tk_pwm", 9000)
+        dev = mapper.device("tk_pwm")
 
-        dev.add_input_signal("/gain", 1, 'f', None, 0, 100, lambda s,i,n,t: gain.set(n))
-        dev.add_input_signal("/freq", 1, 'f', "Hz", 0, 1000, lambda s,i,n,t: freq.set(n))
-        dev.add_input_signal("/duty", 1, 'f', None, 0, 100, lambda s,i,n,t: duty.set(n))
+        dev.add_input_signal("gain", 1, 'f', None, 0, 100, lambda s,i,n,t: gain.set(n))
+        dev.add_input_signal("freq", 1, 'f', "Hz", 0, 1000, lambda s,i,n,t: freq.set(n))
+        dev.add_input_signal("duty", 1, 'f', None, 0, 100, lambda s,i,n,t: duty.set(n))
 
         def do_poll():
             dev.poll(0)
-            if not name[0] and dev.ready():
+            if not name[0] and dev.ready:
                 name[0] = True
                 name[1].set('Device name: %s, listening on port %d'
                             %(dev.name, dev.port))
