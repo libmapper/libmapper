@@ -4,19 +4,20 @@
 PortSystem          1.0
 
 name                libmapper
-version             1.0
+version             1.1
 categories          net audio
 platforms           darwin
 license             LGPL-2.1
-maintainers         gmail.com:joseph.malloch
+maintainers         @malloch
 description         Distributed system for media control mapping
 long_description    libmapper is a library for discovering and \
                     connecting real-time control signals
 homepage            http://www.libmapper.org
-master_sites        http://idmil.org/pubfiles/software/libmapper/
+master_sites        https://github.com/malloch/libmapper/archive/
+distfiles           libmapper-1.1.tar.gz
 
-checksums           rmd160  \
-                    sha256 
+checksums           rmd160  a4beff52bebb820f8457c39b5a9bcfa5ab385e6f \
+                    sha256  6d2554de8105580810f25b6bb3392960f09e7587317ab44c7b9d7f7e6c0e9302
 
 depends_lib         port:liblo \
                     port:zlib
@@ -26,7 +27,7 @@ configure.args      --disable-swig \
                     --disable-audio \
                     --disable-docs
 
-default_variants    +universal
+default_variants    +universal +docs
 
 variant universal {
     configure.args_append  CFLAGS="-arch i386 -arch x86_64" \

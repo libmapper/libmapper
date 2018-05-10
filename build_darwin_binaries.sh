@@ -195,73 +195,92 @@ function make_bundles()
 
     FRAMEWORK=bundles/mapper.framework
     mkdir -v $FRAMEWORK
-    mkdir -v $FRAMEWORK/Contents
     mkdir -v $FRAMEWORK/Versions
     mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR
-    mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
-    cp -v install/lib/libmapper.dylib \
-        $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
-    chmod 664 $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/mapper
+    mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Libraries
+    cp -rv install/lib/libmapper.*.dylib \
+        $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Libraries/
+    find $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Libraries -type f \
+        -exec chmod 755 {} \;
+    ln -sv $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Libraries/libmapper.*.dylib \
+        $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Libraries/libmapper.dylib
     mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers
     cp -rv install/include/mapper/* \
         $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers/
     find $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Headers -type f \
-        -exec chmod 664 {} \;
-    ln -s Versions/$LIBMAPPER_MAJOR/mapper $FRAMEWORK/mapper
-    ln -s Versions/$LIBMAPPER_MAJOR/Headers $FRAMEWORK/Headers
-    ln -s $LIBMAPPER_MAJOR $FRAMEWORK/Versions/Current
+        -exec chmod 644 {} \;
+    ln -sv $LIBMAPPER_MAJOR $FRAMEWORK/Versions/Current
+    ln -sv Versions/Current/Headers $FRAMEWORK/Headers
+    mkdir -v $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Resources
+    ln -sv Versions/Current/Resources $FRAMEWORK/Resources
 
-    cat >$FRAMEWORK/Contents/Info.plist <<EOF
+    cat >$FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Resources/Info.plist <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
-	<key>CFBundlePackageType</key>
-	<string>FMWK</string>
-        <key>CFBundleShortVersionString</key>
-        <string>4.7</string>
-        <key>CFBundleGetInfoString</key>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleExecutable</key>
-	<string>mapper</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+    <key>CFBundleExecutable</key>
+    <string>mapper</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.idmil.mapper</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>mapper</string>
+    <key>CFBundlePackageType</key>
+    <string>FMWK</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>1.1</string>
 </dict>
 </plist>
 EOF
 
     # Subframework for liblo
     mkdir $FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Frameworks
-    ln -s Versions/$LIBMAPPER_MAJOR/Frameworks $FRAMEWORK/Frameworks
+    ln -sv Versions/$LIBMAPPER_MAJOR/Frameworks $FRAMEWORK/Frameworks
     FRAMEWORK=$FRAMEWORK/Versions/$LIBMAPPER_MAJOR/Frameworks/lo.framework
     mkdir -v $FRAMEWORK
-    mkdir -v $FRAMEWORK/Contents
     mkdir -v $FRAMEWORK/Versions
     mkdir -v $FRAMEWORK/Versions/$LIBLO_MAJOR
-    mkdir -v $FRAMEWORK/Versions/$LIBLO_MAJOR/lo
-    cp -v install/lib/liblo.dylib $FRAMEWORK/Versions/$LIBLO_MAJOR/lo
-    chmod 664 $FRAMEWORK/Versions/$LIBLO_MAJOR/lo
+    mkdir -v $FRAMEWORK/Versions/$LIBLO_MAJOR/Libraries
+    cp -rv install/lib/liblo.*.dylib $FRAMEWORK/Versions/$LIBLO_MAJOR/Libraries/
+    ln -sv $FRAMEWORK/Versions/$LIBLO_MAJOR/Libraries/liblo.*.dylib \
+        $FRAMEWORK/Versions/$LIBLO_MAJOR/Libraries/liblo.dylib
+    find $FRAMEWORK/Versions/$LIBLO_MAJOR/Libraries -type f -exec chmod 755 {} \;
     mkdir -v $FRAMEWORK/Versions/$LIBLO_MAJOR/Headers
     cp -rv install/include/lo/* \
         $FRAMEWORK/Versions/$LIBLO_MAJOR/Headers/
-    find $FRAMEWORK/Versions/$LIBLO_MAJOR/Headers -type f -exec chmod 664 {} \;
-    ln -s Versions/$LIBLO_MAJOR/lo $FRAMEWORK/lo
-    ln -s Versions/$LIBLO_MAJOR/Headers $FRAMEWORK/Headers
-    ln -s $LIBLO_MAJOR $FRAMEWORK/Versions/Current
+    find $FRAMEWORK/Versions/$LIBLO_MAJOR/Headers -type f -exec chmod 644 {} \;
+    ln -sv $LIBLO_MAJOR $FRAMEWORK/Versions/Current
+    ln -sv Versions/Current/Headers $FRAMEWORK/Headers
+    mkdir -v $FRAMEWORK/Versions/$LIBLO_MAJOR/Resources
+    ln -sv Versions/Current/Resources $FRAMEWORK/Resources
 
-    cat >$FRAMEWORK/Contents/Info.plist <<EOF
+    cat >$FRAMEWORK/Resources/Info.plist <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
-	<key>CFBundlePackageType</key>
-	<string>FMWK</string>
-        <key>CFBundleShortVersionString</key>
-        <string>4.7</string>
-        <key>CFBundleGetInfoString</key>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleExecutable</key>
-	<string>lo</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+    <key>CFBundleExecutable</key>
+    <string>lo</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.idmil.lo</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>lo</string>
+    <key>CFBundlePackageType</key>
+    <string>FMWK</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>0.29</string>
 </dict>
 </plist>
 EOF
