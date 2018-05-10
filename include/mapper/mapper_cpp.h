@@ -391,6 +391,7 @@ public:                                                                     \
 
 namespace mapper {
 
+    class Query;
     class Device;
     class Signal;
     class Map;
@@ -564,6 +565,18 @@ namespace mapper {
         }
     private:
         mapper_timetag_t _tt;
+    };
+
+    class Query
+    {
+    public:
+        Query(mapper_object_type type, void** query)
+            { _type = type; _query = query; }
+        mapper_object_type type() const
+            { return _type; }
+    private:
+        mapper_object_type _type;
+        void** _query;
     };
 
     class Object
@@ -1016,6 +1029,9 @@ namespace mapper {
             { mapper_map_set_description(_map, description); return (*this); }
 
         /*! Get the number of Signals/Slots for this Map.
+         *  \param loc      MAPPER_LOC_SOURCE for source slots,
+         *                  MAPPER_LOC_DESTINATION for destination slots, or
+         *                  MAPPER_LOC_ANY (default) for all slots.
          *  \return     The number of slots. */
         int num_slots(mapper_location loc=MAPPER_LOC_ANY) const
             { return mapper_map_num_slots(_map, loc); }
@@ -1098,8 +1114,8 @@ namespace mapper {
         /*! Get the scopes property for a this map.
          *  \return     A Device::Query containing the list of results.  Use
          *              Device::Query::next() to iterate. */
-//        Device::Query scopes() const
-//            { return Device::Query(mapper_map_scopes(_map)); }
+        mapper::Query scopes() const
+            { return mapper::Query(MAPPER_OBJ_DEVICES, (void**)mapper_map_scopes(_map)); }
 
         /*! Add a scope to this map. Map scopes configure the propagation of
          *  Signal instance updates across the Map. Changes to remote Maps will
@@ -1107,9 +1123,9 @@ namespace mapper {
          *  \param dev      Device to add as a scope for this Map. After taking
          *                  effect, this setting will cause instance updates
          *                  originating from the specified Device to be
-         *                  propagated across the Map. */
-//        Map& add_scope(Device dev)
-//            { mapper_map_add_scope(_map, dev._dev); return (*this); }
+         *                  propagated across the Map.
+         *  \return         Self. */
+        inline Map& add_scope(Device dev);
 
         /*! Remove a scope from this Map. Map scopes configure the propagation
          *  of Signal instance updates across the Map. Changes to remote Maps
@@ -1118,9 +1134,9 @@ namespace mapper {
          *  \param dev      Device to remove as a scope for this Map. After
          *                  taking effect, this setting will cause instance
          *                  updates originating from the specified Device to be
-         *                  blocked from propagating across the Map. */
-//        Map& remove_scope(Device dev)
-//            { mapper_map_remove_scope(_map, dev._dev); return (*this); }
+         *                  blocked from propagating across the Map.
+         *  \return         Self. */
+        inline Map& remove_scope(Device dev);
 
         /*! Retrieve the arbitrary pointer associated with this Map.
          *  \return             A pointer associated with this Map. */
@@ -2069,7 +2085,7 @@ namespace mapper {
         Database& set_timeout(int timeout)
             { mapper_database_set_timeout(_db, timeout); return (*this); }
 
-        // database_devices
+        // database devices
         DATABASE_METHODS(Device, device, Device::Query);
 
         /*! Retrieve a record for a registered Device with a specific name.
@@ -2085,7 +2101,7 @@ namespace mapper {
         Device::Query devices(const string_type &name) const
             { return Device::Query(mapper_database_devices_by_name(_db, name)); }
 
-        // database_signals
+        // database signals
         /*! Register a callback for when a Signal record is added or
          *  updated in the Database.
          *  \param h        Callback function.
@@ -2143,7 +2159,7 @@ namespace mapper {
         /*! Construct a Query from all Signals matching a Property.
          *  \param p        Property to match.
          *  \param op       The comparison operator.
-         *  \return         A CLASS_NAME ## ::Query containing records of
+         *  \return         A Signal::Query containing records of
          *                  Signals matching the criteria. */
         Signal::Query signals(const Property& p, mapper_op op) const
         {
@@ -2152,10 +2168,10 @@ namespace mapper {
                                                     p.type, p.value, op));
         }
 
-        /*! Construct a Query from all CLASS_NAME ## s possessing a certain
+        /*! Construct a Query from all Signals possessing a certain
          *  Property.
          *  \param p        Property to match.
-         *  \return         A CLASS_NAME ## ::Query containing records of
+         *  \return         A Signal::Query containing records of
          *                  Signals matching the criteria. */
         inline Signal::Query signals(const Property& p) const
             { return signals(p, MAPPER_OP_EXISTS); }
@@ -2181,6 +2197,12 @@ namespace mapper {
 
     signal_type::signal_type(const Signal& sig)
         { _sig = (mapper_signal)sig; }
+
+    Map& Map::add_scope(Device dev)
+        { mapper_map_add_scope(_map, mapper_device(dev)); return (*this); }
+
+    Map& Map::remove_scope(Device dev)
+        { mapper_map_remove_scope(_map, mapper_device(dev)); return (*this); }
 
     Signal Map::Slot::signal() const
         { return Signal(mapper_slot_signal(_slot)); }
