@@ -1109,6 +1109,11 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 %constant int LOC_DESTINATION           = MAPPER_LOC_DESTINATION;
 %constant int LOC_ANY                   = MAPPER_LOC_ANY;
 
+/*! Describes the possible network protocol for map communication. */
+%constant int PROTO_UNDEFINED           = MAPPER_PROTO_UNDEFINED;
+%constant int PROTO_UDP                 = MAPPER_PROTO_UDP;
+%constant int PROTO_TCP                 = MAPPER_PROTO_TCP;
+
 /*! The set of possible directions for a signal or mapping slot. */
 %constant int DIR_UNDEFINED             = MAPPER_DIR_UNDEFINED;
 %constant int DIR_INCOMING              = MAPPER_DIR_INCOMING;
