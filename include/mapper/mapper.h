@@ -2141,7 +2141,7 @@ void mapper_timetag_copy(mapper_timetag_t *ttl, mapper_timetag_t ttr);
 
 /*! Get the version of libmapper.
  *  \return             A string specifying the version of libmapper. */
-const char *mapper_version();
+const char *mapper_version(void);
 
 #ifdef __cplusplus
 }

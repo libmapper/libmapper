@@ -508,7 +508,7 @@ void mapper_expr_free(mapper_expr expr);
 /**** String tables ****/
 
 /*! Create a new string table. */
-mapper_table mapper_table_new();
+mapper_table mapper_table_new(void);
 
 /*! Clear the contents of a string table.
  * \param tab Table to free. */
@@ -617,7 +617,7 @@ void mapper_list_query_done(void **query);
 /**** Time ****/
 
 /*! Get the current time. */
-double mapper_get_current_time();
+double mapper_get_current_time(void);
 
 /**** Debug macros ****/
 
