@@ -41,7 +41,8 @@ class testspeed {
             dev.poll(100);
         }
 
-        double then = dev.now().getDouble();
+        TimeTag tt = new TimeTag();
+        double then = tt.getDouble();
         int i = 0;
         while (i < 10000) {
             if (testspeed.updated) {
@@ -53,7 +54,7 @@ class testspeed {
             }
             dev.poll(1);
         }
-        double elapsed = dev.now().getDouble() - then;
+        double elapsed = tt.now().getDouble() - then;
         System.out.println("Sent "+i+" messages in "+elapsed+" seconds.");
         dev.free();
     }

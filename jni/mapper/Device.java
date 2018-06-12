@@ -141,11 +141,11 @@ public class Device
     public native int version();
 
     /* manage update queues */
-    public native Device startQueue(TimeTag tt);
+    public native TimeTag startQueue(TimeTag tt);
+    public TimeTag startQueue() {
+        return startQueue(null);
+    }
     public native Device sendQueue(TimeTag tt);
-
-    /* get current time */
-    public native TimeTag now();
 
     // listeners
     private native void mapperDeviceSetLinkCB(long dev,

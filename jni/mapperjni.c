@@ -1826,9 +1826,12 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_startQueue
         return 0;
     mapper_timetag_t tt, *ptt = 0;
     ptt = get_timetag_from_jobject(env, ttobj, &tt);
-    if (dev && ptt)
-        mapper_device_start_queue(dev, *ptt);
-    return obj;
+    if (!ptt) {
+        mapper_timetag_now(&tt);
+        ttobj = get_jobject_from_timetag(env, &tt);
+    }
+    mapper_device_start_queue(dev, tt);
+    return ttobj;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Device_sendQueue
@@ -1839,18 +1842,9 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_sendQueue
         return 0;
     mapper_timetag_t tt, *ptt = 0;
     ptt = get_timetag_from_jobject(env, ttobj, &tt);
-    if (dev && ptt)
-        mapper_device_send_queue(dev, *ptt);
+    if (ptt)
+        mapper_device_send_queue(dev, tt);
     return obj;
-}
-
-JNIEXPORT jobject JNICALL Java_mapper_Device_now
-  (JNIEnv *env, jobject obj)
-{
-    mapper_timetag_t tt;
-    mapper_timetag_now(&tt);
-    jobject o = get_jobject_from_timetag(env, &tt);
-    return o;
 }
 
 static void java_device_link_cb(mapper_device dev, mapper_link link,

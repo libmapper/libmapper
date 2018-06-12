@@ -1901,8 +1901,15 @@ namespace mapper {
             { return mapper_device_port(_dev); }
         int ordinal() const
             { return mapper_device_ordinal(_dev); }
-        Device& start_queue(Timetag tt)
-            { mapper_device_start_queue(_dev, *tt); return (*this); }
+        Timetag start_queue(Timetag tt)
+            { mapper_device_start_queue(_dev, *tt); return tt; }
+        Timetag start_queue()
+        {
+            mapper_timetag_t tt;
+            mapper_timetag_now(&tt);
+            mapper_device_start_queue(_dev, tt);
+            return tt;
+        }
         Device& send_queue(Timetag tt)
             { mapper_device_send_queue(_dev, *tt); return (*this); }
 //        lo::Server lo_server()
