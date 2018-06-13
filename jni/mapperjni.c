@@ -317,7 +317,7 @@ static jobject build_Property(JNIEnv *env, const char *name, jobject value)
     return 0;
 }
 
-static jobject build_Value(JNIEnv *env, const int length, const char type,
+static jobject build_Value(JNIEnv *env, const int length, mapper_type type,
                            const void *value, mapper_timetag_t *tt)
 {
     jmethodID mid;
@@ -334,71 +334,68 @@ static jobject build_Value(JNIEnv *env, const int length, const char type,
     }
     else {
         switch (type) {
-            case 'b':
-            case 'i': {
+            case MAPPER_BOOL:
+            case MAPPER_INT32: {
                 if (length == 1) {
-                    mid = (*env)->GetMethodID(env, cls, "<init>", "(CI)V");
+                    mid = (*env)->GetMethodID(env, cls, "<init>", "(I)V");
                     if (mid)
-                        ret = (*env)->NewObject(env, cls, mid, type,
-                                                *((int *)value));
+                        ret = (*env)->NewObject(env, cls, mid, *((int *)value));
                 }
                 else {
-                    mid = (*env)->GetMethodID(env, cls, "<init>", "(C[I)V");
+                    mid = (*env)->GetMethodID(env, cls, "<init>", "([I)V");
                     if (mid) {
                         jintArray arr = (*env)->NewIntArray(env, length);
                         (*env)->SetIntArrayRegion(env, arr, 0, length, value);
-                        ret = (*env)->NewObject(env, cls, mid, type, arr);
+                        ret = (*env)->NewObject(env, cls, mid, arr);
                     }
                 }
                 break;
             }
-            case 'f': {
+            case MAPPER_FLOAT: {
                 if (length == 1) {
-                    mid = (*env)->GetMethodID(env, cls, "<init>", "(CF)V");
+                    mid = (*env)->GetMethodID(env, cls, "<init>", "(F)V");
                     if (mid)
-                        ret = (*env)->NewObject(env, cls, mid, type,
-                                                *((float *)value));
+                        ret = (*env)->NewObject(env, cls, mid, *((float *)value));
                 }
                 else {
-                    mid = (*env)->GetMethodID(env, cls, "<init>", "(C[F)V");
+                    mid = (*env)->GetMethodID(env, cls, "<init>", "([F)V");
                     if (mid) {
                         jfloatArray arr = (*env)->NewFloatArray(env, length);
                         (*env)->SetFloatArrayRegion(env, arr, 0, length, value);
-                        ret = (*env)->NewObject(env, cls, mid, type, arr);
+                        ret = (*env)->NewObject(env, cls, mid, arr);
                     }
                 }
                 break;
             }
-            case 'd': {
+            case MAPPER_DOUBLE: {
                 if (length == 1) {
-                    mid = (*env)->GetMethodID(env, cls, "<init>", "(CD)V");
+                    mid = (*env)->GetMethodID(env, cls, "<init>", "(D)V");
                     if (mid)
-                        ret = (*env)->NewObject(env, cls, mid, type,
-                                                *((double *)value));
+                        ret = (*env)->NewObject(env, cls, mid, *((double *)value));
                 }
                 else {
-                    mid = (*env)->GetMethodID(env, cls, "<init>", "(C[D)V");
+                    mid = (*env)->GetMethodID(env, cls, "<init>", "([D)V");
                     if (mid) {
                         jdoubleArray arr = (*env)->NewDoubleArray(env, length);
                         (*env)->SetDoubleArrayRegion(env, arr, 0, length, value);
-                        ret = (*env)->NewObject(env, cls, mid, type, arr);
+                        ret = (*env)->NewObject(env, cls, mid, arr);
                     }
                 }
                 break;
             }
-            case 's': {
+            case MAPPER_STRING: {
                 if (length == 1) {
                     mid = (*env)->GetMethodID(env, cls, "<init>",
-                                              "(CLjava/lang/String;)V");
+                                              "(Ljava/lang/String;)V");
                     if (mid) {
                         jobject s = (*env)->NewStringUTF(env, (char *)value);
                         if (s)
-                            ret = (*env)->NewObject(env, cls, mid, type, s);
+                            ret = (*env)->NewObject(env, cls, mid, s);
                     }
                 }
                 else {
                     mid = (*env)->GetMethodID(env, cls, "<init>",
-                                              "(C[Ljava/lang/String;)V");
+                                              "([Ljava/lang/String;)V");
                     if (mid) {
                         jobjectArray arr = (*env)->NewObjectArray(env, length,
                             (*env)->FindClass(env, "java/lang/String"),
@@ -409,14 +406,14 @@ static jobject build_Value(JNIEnv *env, const int length, const char type,
                             (*env)->SetObjectArrayElement(env, arr, i,
                                 (*env)->NewStringUTF(env, strings[i]));
                         }
-                        ret = (*env)->NewObject(env, cls, mid, type, arr);
+                        ret = (*env)->NewObject(env, cls, mid, arr);
                     }
                 }
                 break;
             }
             default:
                 break;
-    }
+        }
     }
     if (ret && tt) {
         jfieldID fid = (*env)->GetFieldID(env, cls, "timetag",
@@ -446,13 +443,13 @@ static jobject build_Value(JNIEnv *env, const int length, const char type,
 }
 
 static int get_Value_elements(JNIEnv *env, jobject jprop, void **value,
-                              char *type)
+                              mapper_type *type)
 {
     jclass cls = (*env)->GetObjectClass(env, jprop);
     if (!cls)
         return 0;
 
-    jfieldID typeid = (*env)->GetFieldID(env, cls, "type", "C");
+    jfieldID typeid = (*env)->GetFieldID(env, cls, "_type", "C");
     jfieldID lengthid = (*env)->GetFieldID(env, cls, "length", "I");
     if (!typeid || !lengthid)
         return 0;
@@ -466,7 +463,7 @@ static int get_Value_elements(JNIEnv *env, jobject jprop, void **value,
     jobject o = 0;
 
     switch (*type) {
-        case 'b': {
+        case MAPPER_BOOL: {
             valf = (*env)->GetFieldID(env, cls, "_b", "[Z");
             o = (*env)->GetObjectField(env, jprop, valf);
             int *ints = malloc(sizeof(int) * length);
@@ -476,23 +473,22 @@ static int get_Value_elements(JNIEnv *env, jobject jprop, void **value,
             *value = ints;
             break;
         }
-        case 'i':
+        case MAPPER_INT32:
             valf = (*env)->GetFieldID(env, cls, "_i", "[I");
             o = (*env)->GetObjectField(env, jprop, valf);
             *value = (*env)->GetIntArrayElements(env, o, NULL);
             break;
-        case 'f':
+        case MAPPER_FLOAT:
             valf = (*env)->GetFieldID(env, cls, "_f", "[F");
             o = (*env)->GetObjectField(env, jprop, valf);
             *value = (*env)->GetFloatArrayElements(env, o, NULL);
             break;
-        case 'd':
+        case MAPPER_DOUBLE:
             valf = (*env)->GetFieldID(env, cls, "_d", "[D");
             o = (*env)->GetObjectField(env, jprop, valf);
             *value = (*env)->GetDoubleArrayElements(env, o, NULL);
             break;
-        case 's':
-        case 'S': {
+        case MAPPER_STRING: {
             valf = (*env)->GetFieldID(env, cls, "_s", "[Ljava/lang/String;");
             o = (*env)->GetObjectField(env, jprop, valf);
             // need to unpack string array and rebuild
@@ -524,12 +520,12 @@ static void release_Value_elements(JNIEnv *env, jobject jprop, void *value)
     if (!cls)
         return;
 
-    jfieldID typeid = (*env)->GetFieldID(env, cls, "type", "C");
+    jfieldID typeid = (*env)->GetFieldID(env, cls, "_type", "C");
     jfieldID lengthid = (*env)->GetFieldID(env, cls, "length", "I");
     if (!typeid || !lengthid)
         return;
 
-    char type = (*env)->GetCharField(env, jprop, typeid);
+    mapper_type type = (*env)->GetCharField(env, jprop, typeid);
     int length = (*env)->GetIntField(env, jprop, lengthid);
     if (!length)
         return;
@@ -538,29 +534,28 @@ static void release_Value_elements(JNIEnv *env, jobject jprop, void *value)
     jobject o = 0;
 
     switch (type) {
-        case 'b': {
+        case MAPPER_BOOL: {
             int *ints = (int*)value;
             if (ints)
                 free(ints);
             break;
         }
-        case 'i':
+        case MAPPER_INT32:
             valf = (*env)->GetFieldID(env, cls, "_i", "[I");
             o = (*env)->GetObjectField(env, jprop, valf);
             (*env)->ReleaseIntArrayElements(env, o, value, JNI_ABORT);
             break;
-        case 'f':
+        case MAPPER_FLOAT:
             valf = (*env)->GetFieldID(env, cls, "_f", "[F");
             o = (*env)->GetObjectField(env, jprop, valf);
             (*env)->ReleaseFloatArrayElements(env, o, value, JNI_ABORT);
             break;
-        case 'd':
+        case MAPPER_DOUBLE:
             valf = (*env)->GetFieldID(env, cls, "_d", "[D");
             o = (*env)->GetObjectField(env, jprop, valf);
             (*env)->ReleaseDoubleArrayElements(env, o, value, JNI_ABORT);
             break;
-        case 's':
-        case 'S': {
+        case MAPPER_STRING: {
             valf = (*env)->GetFieldID(env, cls, "_s", "[Ljava/lang/String;");
             o = (*env)->GetObjectField(env, jprop, valf);
 
@@ -589,23 +584,23 @@ static void java_signal_update_cb(mapper_signal sig, mapper_id instance,
 {
     if (bailing)
         return;
-    char type = mapper_signal_type(sig);
+    mapper_type type = mapper_signal_type(sig);
     int length = mapper_signal_length(sig);
 
     jobject vobj = 0;
-    if (type == 'f' && v) {
+    if (type == MAPPER_FLOAT && v) {
         jfloatArray varr = (*genv)->NewFloatArray(genv, length);
         if (varr)
             (*genv)->SetFloatArrayRegion(genv, varr, 0, length, v);
         vobj = (jobject) varr;
     }
-    else if (type == 'i' && v) {
+    else if (type == MAPPER_INT32 && v) {
         jintArray varr = (*genv)->NewIntArray(genv, length);
         if (varr)
             (*genv)->SetIntArrayRegion(genv, varr, 0, length, v);
         vobj = (jobject) varr;
     }
-    else if (type == 'd' && v) {
+    else if (type == MAPPER_DOUBLE && v) {
         jdoubleArray varr = (*genv)->NewDoubleArray(genv, length);
         if (varr)
             (*genv)->SetDoubleArrayRegion(genv, varr, 0, length, v);
@@ -643,19 +638,19 @@ static void java_signal_update_cb(mapper_signal sig, mapper_id instance,
             jclass cls = (*genv)->GetObjectClass(genv, update_cb);
             if (cls) {
                 jmethodID mid=0;
-                if (type=='i') {
+                if (type == MAPPER_INT32) {
                     mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
                                                "(Lmapper/Signal$Instance;"
                                                "[I"
                                                "Lmapper/TimeTag;)V");
                 }
-                else if (type=='f') {
+                else if (type == MAPPER_FLOAT) {
                     mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
                                                "(Lmapper/Signal$Instance;"
                                                "[F"
                                                "Lmapper/TimeTag;)V");
                 }
-                else if (type=='d') {
+                else if (type == MAPPER_DOUBLE) {
                     mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
                                                "(Lmapper/Signal$Instance;"
                                                "[D"
@@ -686,19 +681,19 @@ static void java_signal_update_cb(mapper_signal sig, mapper_id instance,
         jclass cls = (*genv)->GetObjectClass(genv, update_cb);
         if (cls) {
             jmethodID mid=0;
-            if (type=='i') {
+            if (type == MAPPER_INT32) {
                 mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
                                            "(Lmapper/Signal;"
                                            "[I"
                                            "Lmapper/TimeTag;)V");
             }
-            else if (type=='f') {
+            else if (type == MAPPER_FLOAT) {
                 mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
                                            "(Lmapper/Signal;"
                                            "[F"
                                            "Lmapper/TimeTag;)V");
             }
-            else if (type=='d') {
+            else if (type == MAPPER_DOUBLE) {
                 mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
                                            "(Lmapper/Signal;"
                                            "[D"
@@ -1189,7 +1184,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseDevicesByProp
     mapper_database db = (mapper_database) ptr_jlong(jdb);
 
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
 
@@ -1245,7 +1240,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseLinksByProp
     mapper_database db = (mapper_database) ptr_jlong(jdb);
 
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
 
@@ -1304,7 +1299,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseSignalsByProp
     mapper_database db = (mapper_database) ptr_jlong(jdb);
 
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
 
@@ -1360,7 +1355,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseMapsByProp
     mapper_database db = (mapper_database) ptr_jlong(jdb);
 
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
 
@@ -1377,7 +1372,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Database_mapperDatabaseMapsBySlotProp
     mapper_database db = (mapper_database) ptr_jlong(jdb);
 
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
 
@@ -1534,7 +1529,9 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
   (JNIEnv *env, jobject obj, jint dir, jint numInst, jstring name, jint length,
    jchar type, jstring unit, jobject min, jobject max, jobject listener)
 {
-    if (!name || (length<=0) || (type!='f' && type!='i' && type!='d'))
+    if (!name || (length<=0) || (   type != MAPPER_FLOAT
+                                 && type != MAPPER_INT32
+                                 && type != MAPPER_DOUBLE))
         return 0;
 
     mapper_device dev = get_device_from_jobject(env, obj);
@@ -1551,7 +1548,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_mapperAddSignal
     }
 
     mapper_signal sig = mapper_device_add_signal(dev, dir, numInst, cname,
-                                                 length, type, cunit, 0, 0,
+                                                 length, (char)type, cunit, 0, 0,
                                                  listener ? java_signal_update_cb : 0,
                                                  ctx);
 
@@ -1653,7 +1650,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_property__Ljava_lang_String_2
 {
     mapper_device dev = get_device_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject o = 0;
@@ -1670,7 +1667,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_property__I
 {
     mapper_device dev = get_device_from_jobject(env, obj);
     const char *key = 0;
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject val = 0, prop = 0;
@@ -1689,7 +1686,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_setProperty
 {
     mapper_device dev = get_device_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
@@ -2106,7 +2103,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Link_property__Ljava_lang_String_2
 {
     mapper_link link = get_link_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject o = 0;
@@ -2123,7 +2120,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Link_property__I
 {
     mapper_link link = get_link_from_jobject(env, obj);
     const char *key = 0;
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject val = 0, prop = 0;
@@ -2142,7 +2139,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Link_setProperty
 {
     mapper_link link = get_link_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
@@ -2301,7 +2298,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_property__Ljava_lang_String_
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject o = 0;
@@ -2318,7 +2315,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_property__I
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
     const char *key = 0;
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject val = 0, prop = 0;
@@ -2337,7 +2334,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_setProperty
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
@@ -2431,7 +2428,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_maximum
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
     int length = 0;
-    char type = 0;
+    mapper_type type = 0;
     void *value = 0;
     if (slot)
         mapper_slot_maximum(slot, &length, &type, &value);
@@ -2450,7 +2447,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_00024Slot_minimum
 {
     mapper_slot slot = get_slot_from_jobject(env, obj);
     int length = 0;
-    char type = 0;
+    mapper_type type = 0;
     void *value = 0;
     if (slot)
         mapper_slot_minimum(slot, &length, &type, &value);
@@ -2549,7 +2546,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_property__Ljava_lang_String_2
 {
     mapper_map map = get_map_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject o = 0;
@@ -2566,7 +2563,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_property__I
 {
     mapper_map map = get_map_from_jobject(env, obj);
     const char *key = 0;
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject val = 0, prop = 0;
@@ -2585,7 +2582,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Map_setProperty
 {
     mapper_map map = get_map_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
@@ -3218,19 +3215,19 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__JILmapper_TimeTag_2
     mapper_timetag_t tt, *ptt = 0;
     ptt = get_timetag_from_jobject(env, ttobj, &tt);
 
-    char type = mapper_signal_type(sig);
+    mapper_type type = mapper_signal_type(sig);
     switch (type) {
-        case 'i':
+        case MAPPER_INT32:
             mapper_signal_instance_update(sig, instance, &value, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
-        case 'f': {
+        case MAPPER_FLOAT: {
             float fvalue = (float)value;
             mapper_signal_instance_update(sig, instance, &fvalue, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
         }
-        case 'd': {
+        case MAPPER_DOUBLE: {
             double dvalue = (double)value;
             mapper_signal_instance_update(sig, instance, &dvalue, 1,
                                           ptt ? *ptt : MAPPER_NOW);
@@ -3252,19 +3249,19 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__JFLmapper_TimeTag_2
     mapper_timetag_t tt, *ptt = 0;
     ptt = get_timetag_from_jobject(env, ttobj, &tt);
 
-    char type = mapper_signal_type(sig);
+    mapper_type type = mapper_signal_type(sig);
     switch (type) {
-        case 'i': {
+        case MAPPER_INT32: {
             int ivalue = (int)value;
             mapper_signal_instance_update(sig, instance, &ivalue, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
         }
-        case 'f':
+        case MAPPER_FLOAT:
             mapper_signal_instance_update(sig, instance, &value, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
-        case 'd': {
+        case MAPPER_DOUBLE: {
             double dvalue = (double)value;
             mapper_signal_instance_update(sig, instance, &dvalue, 1,
                                           ptt ? *ptt : MAPPER_NOW);
@@ -3286,21 +3283,21 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__JDLmapper_TimeTag_2
     mapper_timetag_t tt, *ptt = 0;
     ptt = get_timetag_from_jobject(env, ttobj, &tt);
 
-    char type = mapper_signal_type(sig);
+    mapper_type type = mapper_signal_type(sig);
     switch (type) {
-        case 'i': {
+        case MAPPER_INT32: {
             int ivalue = (int)value;
             mapper_signal_instance_update(sig, instance, &ivalue, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
         }
-        case 'f': {
+        case MAPPER_FLOAT: {
             float fvalue = (float)value;
             mapper_signal_instance_update(sig, instance, &fvalue, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
         }
-        case 'd':
+        case MAPPER_DOUBLE:
             mapper_signal_instance_update(sig, instance, &value, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
@@ -3330,13 +3327,13 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__J_3ILmapper_TimeTag
     if (!ivalues)
         return obj;
 
-    char type = mapper_signal_type(sig);
+    mapper_type type = mapper_signal_type(sig);
     switch (type) {
-        case 'i':
+        case MAPPER_INT32:
             mapper_signal_instance_update(sig, instance, ivalues, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
-        case 'f': {
+        case MAPPER_FLOAT: {
             float *fvalues = malloc(sizeof(float)*length);
             for (i = 0; i < length; i++)
                 fvalues[i] = (float)ivalues[i];
@@ -3345,7 +3342,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__J_3ILmapper_TimeTag
             free(fvalues);
             break;
         }
-        case 'd': {
+        case MAPPER_DOUBLE: {
             double *dvalues = malloc(sizeof(double)*length);
             for (i = 0; i < length; i++)
                 dvalues[i] = (double)ivalues[i];
@@ -3381,9 +3378,9 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__J_3FLmapper_TimeTag
     if (!fvalues)
         return obj;
 
-    char type = mapper_signal_type(sig);
+    mapper_type type = mapper_signal_type(sig);
     switch (type) {
-        case 'i': {
+        case MAPPER_INT32: {
             int *ivalues = malloc(sizeof(int)*length);
             for (i = 0; i < length; i++)
                 ivalues[i] = (float)fvalues[i];
@@ -3392,11 +3389,11 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__J_3FLmapper_TimeTag
             free(ivalues);
             break;
         }
-        case 'f':
+        case MAPPER_FLOAT:
             mapper_signal_instance_update(sig, instance, fvalues, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
-        case 'd': {
+        case MAPPER_DOUBLE: {
             double *dvalues = malloc(sizeof(double)*length);
             for (i = 0; i < length; i++)
                 dvalues[i] = (double)fvalues[i];
@@ -3432,9 +3429,9 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__J_3DLmapper_TimeTag
     if (!dvalues)
         return obj;
 
-    char type = mapper_signal_type(sig);
+    mapper_type type = mapper_signal_type(sig);
     switch (type) {
-        case 'i': {
+        case MAPPER_INT32: {
             int *ivalues = malloc(sizeof(int)*length);
             for (i = 0; i < length; i++)
                 ivalues[i] = (int)dvalues[i];
@@ -3443,7 +3440,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__J_3DLmapper_TimeTag
             free(ivalues);
             break;
         }
-        case 'f': {
+        case MAPPER_FLOAT: {
             float *fvalues = malloc(sizeof(float)*length);
             for (i = 0; i < length; i++)
                 fvalues[i] = (float)dvalues[i];
@@ -3452,7 +3449,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_updateInstance__J_3DLmapper_TimeTag
             free(fvalues);
             break;
         }
-        case 'd':
+        case MAPPER_DOUBLE:
             mapper_signal_instance_update(sig, instance, dvalues, 1,
                                           ptt ? *ptt : MAPPER_NOW);
             break;
@@ -3465,7 +3462,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_instanceValue
   (JNIEnv *env, jobject obj, jlong jinstance)
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
-    char type = 'i';
+    mapper_type type = MAPPER_INT32;
     int length = 0;
     const void *value = 0;
     mapper_timetag_t tt = {0,1};
@@ -3502,7 +3499,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_property__Ljava_lang_String_2
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject o = 0;
@@ -3519,7 +3516,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_property__I
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     const char *key = 0;
-    char type;
+    mapper_type type;
     int length;
     const void *value;
     jobject val = 0, prop = 0;
@@ -3538,7 +3535,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_setProperty
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     const char *ckey = (*env)->GetStringUTFChars(env, key, 0);
-    char type;
+    mapper_type type;
     void *value;
     int length = get_Value_elements(env, jprop, &value, &type);
     if (length) {
@@ -3611,7 +3608,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_maximum
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     int length = 0;
-    char type = 0;
+    mapper_type type = 0;
     void *value = 0;
     if (sig) {
         length = mapper_signal_length(sig);
@@ -3633,7 +3630,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_minimum
 {
     mapper_signal sig = get_signal_from_jobject(env, obj);
     int length = 0;
-    char type = 0;
+    mapper_type type = 0;
     void *value = 0;
     if (sig) {
         length = mapper_signal_length(sig);

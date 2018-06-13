@@ -31,12 +31,12 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
     int i;
     eprintf("--> %s got ", sig->name);
     if (value) {
-        if (sig->type == 'f') {
+        if (sig->type == MAPPER_FLOAT) {
             for (i = 0; i < sig->length * count; i++)
                 eprintf("%f ", ((float*)value)[i]);
             eprintf("\n");
         }
-        else if (sig->type == 'i') {
+        else if (sig->type == MAPPER_INT32) {
             for (i = 0; i < sig->length * count; i++)
                 eprintf("%i ", ((int*)value)[i]);
             eprintf("\n");
@@ -60,8 +60,8 @@ int setup_source()
 
     float mn[]={0.f,0.f}, mx[]={10.f,10.f};
 
-    sendsig = mapper_device_add_output_signal(source, "outsig", 2, 'f', 0,
-                                              mn, mx);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 2, MAPPER_FLOAT,
+                                              0, mn, mx);
     mapper_signal_set_callback(sendsig, insig_handler);
 
     eprintf("Output signals registered.\n");
@@ -94,8 +94,9 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0,
-                                             &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1,
+                                             MAPPER_FLOAT, 0, &mn, &mx,
+                                             insig_handler, 0);
 
     eprintf("Input signal insig registered.\n");
     eprintf("Number of inputs: %d\n",

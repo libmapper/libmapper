@@ -17,49 +17,49 @@
 typedef struct {
     const char *name;
     int length;
-    char store_type;
-    char protocol_type;
+    mapper_type store_type;
+    mapper_type protocol_type;
 } static_property_t;
 
 const static_property_t static_properties[] = {
-    { "@bound_max",         1, 'i', 's' },  /* AT_BOUND_MAX */
-    { "@bound_min",         1, 'i', 's' },  /* AT_BOUND_MIN */
-    { "@calibrating",       1, 'b', 'b' },  /* AT_CALIBRATING */
-    { "@causes_update",     1, 'b', 'b' },  /* AT_CAUSES_UPDATE */
-    { "@description",       1, 's', 's' },  /* AT_DESCRIPTION */
-    { "@direction",         1, 'i', 's' },  /* AT_DIRECTION */
-    { "@expression",        1, 's', 's' },  /* AT_EXPRESSION */
-    { "@host",              1, 's', 's' },  /* AT_HOST */
-    { "@id",                1, 'h', 'h' },  /* AT_ID */
-    { "@instance",          1, 'i', 'i' },  /* AT_INSTANCE */
-    { "@is_local",          1, 'b', 'b' },  /* AT_IS_LOCAL */
-    { "@length",            1, 'i', 'i' },  /* AT_LENGTH */
-    { "@lib_version",       1, 's', 's' },  /* AT_LIB_VERSION */
+    { "@bound_max",         1, MAPPER_INT32,   MAPPER_STRING },  /* AT_BOUND_MAX */
+    { "@bound_min",         1, MAPPER_INT32,   MAPPER_STRING },  /* AT_BOUND_MIN */
+    { "@calibrating",       1, MAPPER_BOOL,    MAPPER_BOOL },    /* AT_CALIBRATING */
+    { "@causes_update",     1, MAPPER_BOOL,    MAPPER_BOOL },    /* AT_CAUSES_UPDATE */
+    { "@description",       1, MAPPER_STRING,  MAPPER_STRING },  /* AT_DESCRIPTION */
+    { "@direction",         1, MAPPER_INT32,   MAPPER_STRING },  /* AT_DIRECTION */
+    { "@expression",        1, MAPPER_STRING,  MAPPER_STRING },  /* AT_EXPRESSION */
+    { "@host",              1, MAPPER_STRING,  MAPPER_STRING },  /* AT_HOST */
+    { "@id",                1, MAPPER_INT64,   MAPPER_INT64 },   /* AT_ID */
+    { "@instance",          1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_INSTANCE */
+    { "@is_local",          1, MAPPER_BOOL,    MAPPER_BOOL },    /* AT_IS_LOCAL */
+    { "@length",            1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_LENGTH */
+    { "@lib_version",       1, MAPPER_STRING,  MAPPER_STRING },  /* AT_LIB_VERSION */
     { "@max",               0, 'n', 'n' },  /* AT_MAX */
     { "@min",               0, 'n', 'n' },  /* AT_MIN */
-    { "@mode",              1, 'i', 's' },  /* AT_MODE */
-    { "@muted",             1, 'b', 'b' },  /* AT_MUTED */
-    { "@name",              1, 's', 's' },  /* AT_NAME */
-    { "@num_incoming_maps", 1, 'i', 'i' },  /* AT_NUM_INCOMING_MAPS */
-    { "@num_inputs",        1, 'i', 'i' },  /* AT_NUM_INPUTS */
-    { "@num_instances",     1, 'i', 'i' },  /* AT_NUM_INSTANCES */
-    { "@num_links",         1, 'i', 'i' },  /* AT_NUM_LINKS */
-    { "@num_maps",          2, 'i', 'i' },  /* AT_NUM_MAPS */
-    { "@num_outgoing_maps", 1, 'i', 'i' },  /* AT_NUM_OUTGOING_MAPS */
-    { "@num_outputs",       1, 'i', 'i' },  /* AT_NUM_OUTPUTS */
-    { "@port",              1, 'i', 'i' },  /* AT_PORT */
-    { "@process_location",  1, 'i', 's' },  /* AT_PROCESS */
-    { "@protocol",          1, 'i', 's' },  /* AT_PROTOCOL */
-    { "@rate",              1, 'f', 'f' },  /* AT_RATE */
-    { "@scope",             0, 'D', 's' },  /* AT_SCOPE */
-    { "@slot",              0, 'i', 'i' },  /* AT_SLOT */
-    { "@status",            1, 'i', 'i' },  /* AT_STATUS */
-    { "@synced",            1, 't', 't' },  /* AT_SYNCED */
-    { "@type",              1, 'c', 'c' },  /* AT_TYPE */
-    { "@unit",              1, 's', 's' },  /* AT_UNIT */
-    { "@use_instances",     1, 'b', 'b' },  /* AT_USE_INSTANCES */
-    { "@user_data",         1, 'v',  0  },  /* AT_USER_DATA */
-    { "@version",           1, 'i', 'i' },  /* AT_VERSION */
+    { "@mode",              1, MAPPER_INT32,   MAPPER_STRING },  /* AT_MODE */
+    { "@muted",             1, MAPPER_BOOL,    MAPPER_BOOL },    /* AT_MUTED */
+    { "@name",              1, MAPPER_STRING,  MAPPER_STRING },  /* AT_NAME */
+    { "@num_incoming_maps", 1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_NUM_INCOMING_MAPS */
+    { "@num_inputs",        1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_NUM_INPUTS */
+    { "@num_instances",     1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_NUM_INSTANCES */
+    { "@num_links",         1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_NUM_LINKS */
+    { "@num_maps",          2, MAPPER_INT32,   MAPPER_INT32 },   /* AT_NUM_MAPS */
+    { "@num_outgoing_maps", 1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_NUM_OUTGOING_MAPS */
+    { "@num_outputs",       1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_NUM_OUTPUTS */
+    { "@port",              1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_PORT */
+    { "@process_location",  1, MAPPER_INT32,   MAPPER_STRING },  /* AT_PROCESS */
+    { "@protocol",          1, MAPPER_INT32,   MAPPER_STRING },  /* AT_PROTOCOL */
+    { "@rate",              1, MAPPER_FLOAT,   MAPPER_FLOAT },   /* AT_RATE */
+    { "@scope",             0, MAPPER_DEVICE,  MAPPER_STRING },  /* AT_SCOPE */
+    { "@slot",              0, MAPPER_INT32,   MAPPER_INT32 },   /* AT_SLOT */
+    { "@status",            1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_STATUS */
+    { "@synced",            1, MAPPER_TIMETAG, MAPPER_TIMETAG }, /* AT_SYNCED */
+    { "@type",              1, MAPPER_CHAR,    MAPPER_CHAR },    /* AT_TYPE */
+    { "@unit",              1, MAPPER_STRING,  MAPPER_STRING },  /* AT_UNIT */
+    { "@use_instances",     1, MAPPER_BOOL,    MAPPER_BOOL },    /* AT_USE_INSTANCES */
+    { "@user_data",         1, MAPPER_PTR,     0  },             /* AT_USER_DATA */
+    { "@version",           1, MAPPER_INT32,   MAPPER_INT32 },   /* AT_VERSION */
     { "@extra",             0, 'a', 'a' },  /* AT_EXTRA (special case, does not
                                              * represent a specific property
                                              * name) */
@@ -123,13 +123,13 @@ int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
     return (signame - devname - 1);
 }
 
-mapper_message mapper_message_parse_properties(int argc, const char *types,
+mapper_message mapper_message_parse_properties(int argc, const mapper_type *types,
                                                lo_arg **argv)
 {
     int i, slot_index, num_props=0;
     // get the number of props
     for (i = 0; i < argc; i++) {
-        if (types[i] != 's' && types[i] != 'S')
+        if (types[i] != MAPPER_STRING)
             continue;
         if  (argv[i]->s == '@' || (strncmp(&argv[i]->s, "-@", 2)==0)
              || (strncmp(&argv[i]->s, "+@", 2)==0))
@@ -210,7 +210,7 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
         atom->types = &types[i+1];
         atom->values = &argv[i+1];
         while (++i < argc) {
-            if ((types[i] == 's' || types[i] == 'S')
+            if ((types[i] == MAPPER_STRING)
                 && strspn(&argv[i]->s, "+-@")) {
                 /* Arrived at next property index. */
                 i--;
@@ -271,7 +271,7 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
                     continue;
                 }
             }
-            else if (prop.protocol_type == 'b') {
+            else if (prop.protocol_type == MAPPER_BOOL) {
                 if (!is_boolean_type(atom->types[0])) {
                     trace("Static property '%s' cannot have type '%c' (2).\n",
                           static_properties[MASK_PROP_BITFLAGS(atom->index)].name,
@@ -352,7 +352,7 @@ mapper_message_atom mapper_message_property(mapper_message msg,
 }
 
 /* helper for mapper_message_varargs() */
-void mapper_message_add_typed_value(lo_message msg, int length, char type,
+void mapper_message_add_typed_value(lo_message msg, int length, mapper_type type,
                                     const void *value)
 {
     int i;
@@ -360,8 +360,7 @@ void mapper_message_add_typed_value(lo_message msg, int length, char type,
         return;
 
     switch (type) {
-        case 's':
-        case 'S':
+        case MAPPER_STRING:
         {
             if (length == 1)
                 lo_message_add_string(msg, (char*)value);
@@ -372,49 +371,49 @@ void mapper_message_add_typed_value(lo_message msg, int length, char type,
             }
             break;
         }
-        case 'f':
+        case MAPPER_FLOAT:
         {
             float *vals = (float*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_float(msg, vals[i]);
             break;
         }
-        case 'd':
+        case MAPPER_DOUBLE:
         {
             double *vals = (double*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_double(msg, vals[i]);
             break;
         }
-        case 'i':
+        case MAPPER_INT32:
         {
             int *vals = (int*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_int32(msg, vals[i]);
             break;
         }
-        case 'h':
+        case MAPPER_INT64:
         {
             int64_t *vals = (int64_t*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_int64(msg, vals[i]);
             break;
         }
-        case 't':
+        case MAPPER_TIMETAG:
         {
             mapper_timetag_t *vals = (mapper_timetag_t*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_timetag(msg, vals[i]);
             break;
         }
-        case 'c':
+        case MAPPER_CHAR:
         {
             char *vals = (char*)value;
             for (i = 0; i < length; i++)
                 lo_message_add_char(msg, vals[i]);
             break;
         }
-        case 'b': {
+        case MAPPER_BOOL: {
             int *vals = (int*)value;
             for (i = 0; i < length; i++) {
                 if (vals[i])
@@ -550,25 +549,25 @@ mapper_protocol mapper_protocol_from_string(const char *str)
 }
 
 // Helper for setting property value from different lo_arg types
-int set_coerced_value(void *dst, const void *src, int length, char dst_type,
-                      char src_type)
+int set_coerced_value(void *dst, const void *src, int length,
+                      mapper_type dst_type, mapper_type src_type)
 {
     int i;
     switch (dst_type) {
-        case 'f':{
+        case MAPPER_FLOAT:{
             float *dstf = (float*)dst;
             switch (src_type) {
-                case 'f':
+                case MAPPER_FLOAT:
                     memcpy(dst, src, sizeof(float) * length);
                     break;
-                case 'i': {
+                case MAPPER_INT32: {
                     int *srci = (int*)src;
                     for (i = 0; i < length; i++) {
                         dstf[i] = (float)srci[i];
                     }
                     break;
                 }
-                case 'd': {
+                case MAPPER_DOUBLE: {
                     double *srcd = (double*)src;
                     for (i = 0; i < length; i++) {
                         dstf[i] = (float)srcd[i];
@@ -580,20 +579,20 @@ int set_coerced_value(void *dst, const void *src, int length, char dst_type,
             }
             break;
         }
-        case 'i':{
+        case MAPPER_INT32:{
             int *dsti = (int*)dst;
             switch (src_type) {
-                case 'i':
+                case MAPPER_INT32:
                     memcpy(dst, src, sizeof(int) * length);
                     break;
-                case 'f': {
+                case MAPPER_FLOAT: {
                     float *srcf = (float*)src;
                     for (i = 0; i < length; i++) {
                         dsti[i] = (int)srcf[i];
                     }
                     break;
                 }
-                case 'd': {
+                case MAPPER_DOUBLE: {
                     double *srcd = (double*)src;
                     for (i = 0; i < length; i++) {
                         dsti[i] = (int)srcd[i];
@@ -605,20 +604,20 @@ int set_coerced_value(void *dst, const void *src, int length, char dst_type,
             }
             break;
         }
-        case 'd':{
+        case MAPPER_DOUBLE:{
             double *dstd = (double*)dst;
             switch (src_type) {
-                case 'd':
+                case MAPPER_DOUBLE:
                     memcpy(dst, src, sizeof(double) * length);
                     break;
-                case 'i': {
+                case MAPPER_INT32: {
                     int *srci = (int*)src;
                     for (i = 0; i < length; i++) {
                         dstd[i] = (float)srci[i];
                     }
                     break;
                 }
-                case 'f': {
+                case MAPPER_FLOAT: {
                     float *srcf = (float*)src;
                     for (i = 0; i < length; i++) {
                         dstd[i] = (double)srcf[i];
@@ -636,22 +635,22 @@ int set_coerced_value(void *dst, const void *src, int length, char dst_type,
     return 0;
 }
 
-double propval_double(const void *value, const char type, int index)
+double propval_double(const void *value, const mapper_type type, int index)
 {
     switch (type) {
-        case 'f':
+        case MAPPER_FLOAT:
         {
             float *temp = (float*)value;
             return (double)temp[index];
             break;
         }
-        case 'i':
+        case MAPPER_INT32:
         {
             int *temp = (int*)value;
             return (double)temp[index];
             break;
         }
-        case 'd':
+        case MAPPER_DOUBLE:
         {
             double *temp = (double*)value;
             return temp[index];
@@ -663,22 +662,22 @@ double propval_double(const void *value, const char type, int index)
     }
 }
 
-void propval_set_double(void *to, const char type, int index, double from)
+void propval_set_double(void *to, const mapper_type type, int index, double from)
 {
     switch (type) {
-        case 'f':
+        case MAPPER_FLOAT:
         {
             float *temp = (float*)to;
             temp[index] = (float)from;
             break;
         }
-        case 'i':
+        case MAPPER_INT32:
         {
             int *temp = (int*)to;
             temp[index] = (int)from;
             break;
         }
-        case 'd':
+        case MAPPER_DOUBLE:
         {
             double *temp = (double*)to;
             temp[index] = from;
@@ -690,7 +689,7 @@ void propval_set_double(void *to, const char type, int index, double from)
     }
 }
 
-void mapper_property_print(int length, char type, const void *value)
+void mapper_property_print(int length, mapper_type type, const void *value)
 {
     int i;
     if (!value || length < 1) {
@@ -702,8 +701,7 @@ void mapper_property_print(int length, char type, const void *value)
         printf("[");
 
     switch (type) {
-        case 's':
-        case 'S':
+        case MAPPER_STRING:
         {
             if (length == 1)
                 printf("'%s', ", (char*)value);
@@ -714,56 +712,56 @@ void mapper_property_print(int length, char type, const void *value)
             }
             break;
         }
-        case 'f':
+        case MAPPER_FLOAT:
         {
             float *pf = (float*)value;
             for (i = 0; i < length; i++)
                 printf("%f, ", pf[i]);
             break;
         }
-        case 'i':
+        case MAPPER_INT32:
         {
             int *pi = (int*)value;
             for (i = 0; i < length; i++)
                 printf("%d, ", pi[i]);
             break;
         }
-        case 'b':
+        case MAPPER_BOOL:
         {
             int *pi = (int*)value;
             for (i = 0; i < length; i++)
                 printf("%c, ", pi[i] ? 'T' : 'F');
             break;
         }
-        case 'd':
+        case MAPPER_DOUBLE:
         {
             double *pd = (double*)value;
             for (i = 0; i < length; i++)
                 printf("%f, ", pd[i]);
             break;
         }
-        case 'h':
+        case MAPPER_INT64:
         {
             int64_t *pi = (int64_t*)value;
             for (i = 0; i < length; i++)
                 printf("%lli, ", (long long)pi[i]);
             break;
         }
-        case 't':
+        case MAPPER_TIMETAG:
         {
             mapper_timetag_t *pt = (mapper_timetag_t*)value;
             for (i = 0; i < length; i++)
                 printf("%f, ", mapper_timetag_double(pt[i]));
             break;
         }
-        case 'c':
+        case MAPPER_CHAR:
         {
             char *pi = (char*)value;
             for (i = 0; i < length; i++)
                 printf("%c, ", pi[i]);
             break;
         }
-        case 'v':
+        case MAPPER_PTR:
         {
             void **v = (void**)value;
             for (i = 0; i < length; i++)

@@ -49,7 +49,7 @@ void mapper_table_clear(mapper_table tab)
         if (free_values && rec->value) {
             void *value = (rec->flags & INDIRECT) ? *rec->value : rec->value;
             if (value) {
-                if ((rec->type == 's' || rec->type == 'S') && rec->length > 1) {
+                if ((rec->type == MAPPER_STRING) && rec->length > 1) {
                     char **vals = (char**)value;
                     for (j = 0; j < rec->length; j++) {
                         if (vals[j])
@@ -77,7 +77,7 @@ void mapper_table_free(mapper_table tab)
 static mapper_table_record_t *mapper_table_add(mapper_table tab,
                                                mapper_property_t index,
                                                const char *key, int length,
-                                               char type, void *value,
+                                               mapper_type type, void *value,
                                                int flags)
 {
     tab->num_records += 1;
@@ -132,7 +132,7 @@ mapper_table_record_t *mapper_table_record(mapper_table tab,
 }
 
 int mapper_table_property(mapper_table tab, const char *name, int *length,
-                          char *type, const void **value)
+                          mapper_type *type, const void **value)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     mapper_table_record_t *rec = mapper_table_record(tab, prop, name);
@@ -150,8 +150,8 @@ int mapper_table_property(mapper_table tab, const char *name, int *length,
 }
 
 int mapper_table_property_index(mapper_table tab, unsigned int index,
-                                const char **name, int *length, char *type,
-                                const void **value)
+                                const char **name, int *length,
+                                mapper_type *type, const void **value)
 {
     if (index >= tab->num_records || tab->num_records <= 0)
         return -1;
@@ -208,7 +208,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
     /* Calculate its index in the records. */
     int i;
     if (rec->value) {
-        if ((rec->type == 's' || rec->type == 'S') && rec->length > 1) {
+        if ((rec->type == MAPPER_STRING) && rec->length > 1) {
             char **vals = (char**)rec->value;
             for (i = 0; i < rec->length; i++) {
                 if (vals[i])
@@ -241,8 +241,8 @@ void mapper_table_clear_empty_records(mapper_table tab)
     }
 }
 
-static int is_value_different(mapper_table_record_t *rec, int length, char type,
-                              const void *value)
+static int is_value_different(mapper_table_record_t *rec, int length,
+                              mapper_type type, const void *value)
 {
     int i;
     void *recval;
@@ -254,7 +254,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
         return 1;
 
     switch (type) {
-        case 's':
+        case MAPPER_STRING:
             if (length == 1)
                 return strcmp((char*)recval, (char*)value);
             else {
@@ -266,7 +266,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
                 }
             }
             break;
-        case 'i': {
+        case MAPPER_INT32: {
             int32_t *l = (int32_t*)recval;
             int32_t *r = (int32_t*)value;
             for (i = 0; i < length; i++) {
@@ -275,7 +275,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
             }
             break;
         }
-        case 'b': {
+        case MAPPER_BOOL: {
             int32_t *l = (int32_t*)recval;
             int32_t *r = (int32_t*)value;
             for (i = 0; i < length; i++) {
@@ -284,7 +284,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
             }
             break;
         }
-        case 'f': {
+        case MAPPER_FLOAT: {
             float *l = (float*)recval;
             float *r = (float*)value;
             for (i = 0; i < length; i++) {
@@ -293,7 +293,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
             }
             break;
         }
-        case 'd': {
+        case MAPPER_DOUBLE: {
             double *l = (double*)recval;
             double *r = (double*)value;
             for (i = 0; i < length; i++) {
@@ -302,8 +302,8 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
             }
             break;
         }
-        case 'h':
-        case 't': {
+        case MAPPER_INT64:
+        case MAPPER_TIMETAG: {
             int64_t *l = (int64_t*)recval;
             int64_t *r = (int64_t*)value;
             for (i = 0; i < length; i++) {
@@ -312,7 +312,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
             }
             break;
         }
-        case 'c': {
+        case MAPPER_CHAR: {
             char *l = (char*)recval;
             char *r = (char*)value;
             for (i = 0; i < length; i++) {
@@ -321,7 +321,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
             }
             break;
         }
-        case 'v':
+        case MAPPER_PTR:
             if (length == 1)
                 return recval != value;
             else {
@@ -338,7 +338,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
 }
 
 static void update_value_elements(mapper_table_record_t *rec, int length,
-                                  char type, const void *args)
+                                  mapper_type type, const void *args)
 {
     /* For unknown reasons, strcpy crashes here with -O2, so
      * we'll use memcpy instead, which does not crash. */
@@ -361,7 +361,7 @@ static void update_value_elements(mapper_table_record_t *rec, int length,
 
     /* If destination is a string, reallocate and copy the new
      * string, otherwise just copy over the old value. */
-    if (type == 's' || type == 'S') {
+    if (type == MAPPER_STRING) {
         if (length == 1) {
             if (value)
                 free(value);
@@ -378,50 +378,50 @@ static void update_value_elements(mapper_table_record_t *rec, int length,
         }
     } else {
         switch (type) {
-            case 'f': {
+            case MAPPER_FLOAT: {
                 float *from = (float*)args;
                 float *to = (float*)value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
             }
-            case 'i':
-            case 'b': {
+            case MAPPER_INT32:
+            case MAPPER_BOOL: {
                 int32_t *from = (int32_t*)args;
                 int32_t *to = (int32_t*)value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
             }
-            case 'd': {
+            case MAPPER_DOUBLE: {
                 double *from = (double*)args;
                 double *to = (double*)value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
             }
-            case 'h': {
+            case MAPPER_INT64: {
                 int64_t *from = (int64_t*)args;
                 int64_t *to = (int64_t*)value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
             }
-            case 't': {
+            case MAPPER_TIMETAG: {
                 mapper_timetag_t *from = (mapper_timetag_t*)args;
                 mapper_timetag_t *to = (mapper_timetag_t*)value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
             }
-            case 'c': {
+            case MAPPER_CHAR: {
                 char *from = (char*)args;
                 char *to = (char*)value;
                 for (i = 0; i < length; i++)
                     to[i] = from[i];
                 break;
             }
-            case 'v': {
+            case MAPPER_PTR: {
                 if (length == 1)
                     value = (void*)args;
                 else {
@@ -444,7 +444,7 @@ static void update_value_elements(mapper_table_record_t *rec, int length,
         else
             rec->value = value;
         if (old_val) {
-            if (rec->type == 's' && rec->length > 1) {
+            if (rec->type == MAPPER_STRING && rec->length > 1) {
                 // free elements
                 for (i = 0; i < rec->length; i++) {
                     if (((char**)old_val)[i])
@@ -459,7 +459,7 @@ static void update_value_elements(mapper_table_record_t *rec, int length,
 }
 
 int set_record_internal(mapper_table tab, mapper_property_t index,
-                        const char *key, int length, char type,
+                        const char *key, int length, mapper_type type,
                         const void *value, int flags)
 {
     mapper_table_record_t *rec = mapper_table_record(tab, index, key);
@@ -488,7 +488,7 @@ int set_record_internal(mapper_table tab, mapper_property_t index,
 /* Higher-level interface, where table stores arbitrary arguments along
  * with their type. */
 int mapper_table_set_record(mapper_table tab, mapper_property_t index,
-                            const char *key, int length, char type,
+                            const char *key, int length, mapper_type type,
                             const void *args, int flags)
 {
     if (!args && !(flags & REMOTE_MODIFY))
@@ -497,13 +497,13 @@ int mapper_table_set_record(mapper_table tab, mapper_property_t index,
 }
 
 void mapper_table_link_value(mapper_table tab, mapper_property_t index,
-                             int length, char type, void *value, int flags)
+                             int length, mapper_type type, void *value, int flags)
 {
     mapper_table_add(tab, index, NULL, length, type, value, flags);
 }
 
 static int is_value_different_osc(mapper_table_record_t *rec, int length,
-                                  const char *types, lo_arg **args)
+                                  const mapper_type *types, lo_arg **args)
 {
     int i;
     void *recval;
@@ -515,7 +515,7 @@ static int is_value_different_osc(mapper_table_record_t *rec, int length,
         return 1;
     
     switch (types[0]) {
-        case 's':
+        case MAPPER_STRING:
             if (length == 1)
                 return strcmp((char*)recval, &args[0]->s);
             else {
@@ -527,7 +527,7 @@ static int is_value_different_osc(mapper_table_record_t *rec, int length,
                 }
             }
             break;
-        case 'i': {
+        case MAPPER_INT32: {
             int32_t *vals = (int32_t*)recval;
             for (i = 0; i < length; i++) {
                 if (vals[i] != args[i]->i32)
@@ -544,7 +544,7 @@ static int is_value_different_osc(mapper_table_record_t *rec, int length,
             }
             break;
         }
-        case 'f': {
+        case MAPPER_FLOAT: {
             float *vals = (float*)recval;
             for (i = 0; i < length; i++) {
                 if (vals[i] != args[i]->f)
@@ -552,7 +552,7 @@ static int is_value_different_osc(mapper_table_record_t *rec, int length,
             }
             break;
         }
-        case 'd': {
+        case MAPPER_DOUBLE: {
             double *vals = (double*)recval;
             for (i = 0; i < length; i++) {
                 if (vals[i] != args[i]->d)
@@ -560,8 +560,8 @@ static int is_value_different_osc(mapper_table_record_t *rec, int length,
             }
             break;
         }
-        case 'h':
-        case 't': {
+        case MAPPER_INT64:
+        case MAPPER_TIMETAG: {
             int64_t *vals = (int64_t*)recval;
             for (i = 0; i < length; i++) {
                 if (vals[i] != args[i]->h)
@@ -569,7 +569,7 @@ static int is_value_different_osc(mapper_table_record_t *rec, int length,
             }
             break;
         }
-        case 'c': {
+        case MAPPER_CHAR: {
             char *vals = (char*)recval;
             for (i = 0; i < length; i++) {
                 if (vals[i] != args[i]->c)
@@ -582,7 +582,7 @@ static int is_value_different_osc(mapper_table_record_t *rec, int length,
 }
 
 static void update_value_elements_osc(mapper_table_record_t *rec, int length,
-                                      const char *types, lo_arg **args,
+                                      const mapper_type *types, lo_arg **args,
                                       int indirect)
 {
     /* For unknown reasons, strcpy crashes here with -O2, so
@@ -605,7 +605,7 @@ static void update_value_elements_osc(mapper_table_record_t *rec, int length,
 
     /* If destination is a string, reallocate and copy the new
      * string, otherwise just copy over the old value. */
-    if (types[0] == 's' || types[0] == 'S') {
+    if (types[0] == MAPPER_STRING) {
         if (length == 1) {
             if (value)
                 free(value);
@@ -622,37 +622,37 @@ static void update_value_elements_osc(mapper_table_record_t *rec, int length,
         }
     } else {
         switch (types[0]) {
-            case 'f': {
+            case MAPPER_FLOAT: {
                 float *vals = (float*)value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->f;
                 break;
             }
-            case 'i': {
+            case MAPPER_INT32: {
                 int32_t *vals = (int32_t*)value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->i32;
                 break;
             }
-            case 'd': {
+            case MAPPER_DOUBLE: {
                 double *vals = (double*)value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->d;
                 break;
             }
-            case 'h': {
+            case MAPPER_INT64: {
                 int64_t *vals = (int64_t*)value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->h;
                 break;
             }
-            case 't': {
+            case MAPPER_TIMETAG: {
                 mapper_timetag_t *vals = (mapper_timetag_t*)value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->t;
                 break;
             }
-            case 'c': {
+            case MAPPER_CHAR: {
                 char *vals = (char*)value;
                 for (i = 0; i < length; i++)
                     vals[i] = args[i]->c;
@@ -678,7 +678,7 @@ static void update_value_elements_osc(mapper_table_record_t *rec, int length,
         else
             rec->value = value;
         if (old_val) {
-            if (rec->type == 's' && rec->length > 1) {
+            if (rec->type == MAPPER_STRING && rec->length > 1) {
                 // free elements
                 for (i = 0; i < rec->length; i++) {
                     if (((char**)old_val)[i])
@@ -691,7 +691,7 @@ static void update_value_elements_osc(mapper_table_record_t *rec, int length,
 
     rec->length = length;
     if (types[0] == 'T' || types[0] == 'F')
-        rec->type = 'b';
+        rec->type = MAPPER_BOOL;
     else
         rec->type = types[0];
 }

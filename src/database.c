@@ -210,8 +210,8 @@ mapper_device mapper_database_add_or_update_device(mapper_database db,
         dev = (mapper_device)mapper_list_add_item((void**)&db->devices,
                                                   sizeof(*dev));
         dev->name = strdup(no_slash);
-        dev->id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash));
-        dev->id <<= 32;
+        dev->object.id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash));
+        dev->object.id <<= 32;
         dev->database = db;
         init_device_prop_table(dev);
         rc = 1;
@@ -273,10 +273,10 @@ void mapper_database_remove_device(mapper_database db, mapper_device dev,
         }
     }
 
-    if (dev->props)
-        mapper_table_free(dev->props);
-    if (dev->staged_props)
-        mapper_table_free(dev->staged_props);
+    if (dev->object.props)
+        mapper_table_free(dev->object.props);
+    if (dev->object.staged_props)
+        mapper_table_free(dev->object.staged_props);
     if (dev->name)
         free(dev->name);
     mapper_list_free_item(dev);
@@ -315,7 +315,7 @@ mapper_device mapper_database_device_by_id(mapper_database db, mapper_id id)
 {
     mapper_device dev = db->devices;
     while (dev) {
-        if (id == dev->id)
+        if (id == dev->object.id)
             return dev;
         dev = mapper_list_next(dev);
     }
@@ -365,17 +365,17 @@ mapper_device *mapper_database_devices_by_name(mapper_database db,
                                   "s", name));
 }
 
-static inline int check_type(char type)
+static inline int check_type(mapper_type type)
 {
     return strchr("ifdscth", type) != 0;
 }
 
-static int compare_value(mapper_op op, int length, char type, const void *val1,
-                         const void *val2)
+static int compare_value(mapper_op op, int length, mapper_type type,
+                         const void *val1, const void *val2)
 {
     int i, compare = 0, difference = 0;
     switch (type) {
-        case 's':
+        case MAPPER_STRING:
             if (length == 1)
                 compare = strcmp((const char*)val1, (const char*)val2);
             else {
@@ -386,36 +386,36 @@ static int compare_value(mapper_op op, int length, char type, const void *val1,
                 }
             }
             break;
-        case 'i':
+        case MAPPER_INT32:
             for (i = 0; i < length; i++) {
                 compare += ((int*)val1)[i] > ((int*)val2)[i];
                 compare -= ((int*)val1)[i] < ((int*)val2)[i];
                 difference += abs(compare);
             }
             break;
-        case 'f':
+        case MAPPER_FLOAT:
             for (i = 0; i < length; i++) {
                 compare += ((float*)val1)[i] > ((float*)val2)[i];
                 compare -= ((float*)val1)[i] < ((float*)val2)[i];
                 difference += abs(compare);
             }
             break;
-        case 'd':
+        case MAPPER_DOUBLE:
             for (i = 0; i < length; i++) {
                 compare += ((double*)val1)[i] > ((double*)val2)[i];
                 compare -= ((double*)val1)[i] < ((double*)val2)[i];
                 difference += abs(compare);
             }
             break;
-        case 'c':
+        case MAPPER_CHAR:
             for (i = 0; i < length; i++) {
                 compare += ((char*)val1)[i] > ((char*)val2)[i];
                 compare -= ((char*)val1)[i] < ((char*)val2)[i];
                 difference += abs(compare);
             }
             break;
-        case 'h':
-        case 't':
+        case MAPPER_INT64:
+        case MAPPER_TIMETAG:
             for (i = 0; i < length; i++) {
                 compare += ((uint64_t*)val1)[i] > ((uint64_t*)val2)[i];
                 compare -= ((uint64_t*)val1)[i] < ((uint64_t*)val2)[i];
@@ -448,12 +448,12 @@ static int cmp_query_devices_by_property(const void *context_data,
 {
     int op = *(int*)context_data;
     int length = *(int*)(context_data + sizeof(int));
-    char type = *(char*)(context_data + sizeof(int) * 2);
+    mapper_type type = *(mapper_type*)(context_data + sizeof(int) * 2);
     void *value = *(void**)(context_data + sizeof(int) * 3);
     const char *name = (const char*)(context_data + sizeof(int) * 3
                                      + sizeof(void*));
     int _length;
-    char _type;
+    mapper_type _type;
     const void *_value;
     if (mapper_device_property(dev, name, &_length, &_type, &_value))
         return (op == MAPPER_OP_DOES_NOT_EXIST);
@@ -468,7 +468,8 @@ static int cmp_query_devices_by_property(const void *context_data,
 
 mapper_device *mapper_database_devices_by_property(mapper_database db,
                                                    const char *name, int length,
-                                                   char type, const void *value,
+                                                   mapper_type type,
+                                                   const void *value,
                                                    mapper_op op)
 {
     if (!name || !check_type(type) || length < 1)
@@ -628,7 +629,7 @@ mapper_signal mapper_database_signal_by_id(mapper_database db, mapper_id id)
         return 0;
 
     while (sig) {
-        if (sig->id == id)
+        if (sig->object.id == id)
             return sig;
         sig = mapper_list_next(sig);
     }
@@ -656,12 +657,12 @@ static int cmp_query_signals_by_property(const void *context_data,
 {
     int op = *(int*)context_data;
     int length = *(int*)(context_data + sizeof(int));
-    char type = *(char*)(context_data + sizeof(int) * 2);
+    mapper_type type = *(char*)(context_data + sizeof(int) * 2);
     void *value = *(void**)(context_data + sizeof(int) * 3);
     const char *name = (const char*)(context_data + sizeof(int) * 3
                                      + sizeof(void*));
     int _length;
-    char _type;
+    mapper_type _type;
     const void *_value;
     if (mapper_signal_property(sig, name, &_length, &_type, &_value))
         return (op == MAPPER_OP_DOES_NOT_EXIST);
@@ -676,7 +677,8 @@ static int cmp_query_signals_by_property(const void *context_data,
 
 mapper_signal *mapper_database_signals_by_property(mapper_database db,
                                                    const char *name, int length,
-                                                   char type, const void *value,
+                                                   mapper_type type,
+                                                   const void *value,
                                                    mapper_op op)
 {
     if (!name || !check_type(type) || length < 1)
@@ -835,7 +837,7 @@ mapper_link mapper_database_link_by_id(mapper_database db, mapper_id id)
 {
     mapper_link link = db->links;
     while (link) {
-        if (link->id == id)
+        if (link->object.id == id)
             return link;
         link = mapper_list_next(link);
     }
@@ -846,12 +848,12 @@ static int cmp_query_links_by_property(const void *context_data, mapper_link lin
 {
     int op = *(int*)context_data;
     int length = *(int*)(context_data + sizeof(int));
-    char type = *(char*)(context_data + sizeof(int) * 2);
+    mapper_type type = *(char*)(context_data + sizeof(int) * 2);
     void *value = *(void**)(context_data + sizeof(int) * 3);
     const char *name = (const char*)(context_data + sizeof(int) * 3
                                      + sizeof(void*));
     int _length;
-    char _type;
+    mapper_type _type;
     const void *_value;
     if (mapper_link_property(link, name, &_length, &_type, &_value))
         return (op == MAPPER_OP_DOES_NOT_EXIST);
@@ -866,7 +868,8 @@ static int cmp_query_links_by_property(const void *context_data, mapper_link lin
 
 mapper_link *mapper_database_links_by_property(mapper_database db,
                                                const char *name, int length,
-                                               char type, const void *value,
+                                               mapper_type type,
+                                               const void *value,
                                                mapper_op op)
 {
     if (!name || !check_type(type) || length < 1)
@@ -956,7 +959,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     uint64_t id = 0;
     if (msg) {
         mapper_message_atom atom = mapper_message_property(msg, AT_ID);
-        if (!atom || atom->types[0] != 'h') {
+        if (!atom || atom->types[0] != MAPPER_INT64) {
             trace_db("no 'id' property found in map metadata, aborting.\n");
             return 0;
         }
@@ -1011,13 +1014,13 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
         map = (mapper_map)mapper_list_add_item((void**)&db->maps,
                                                sizeof(mapper_map_t));
         map->database = db;
-        map->id = id;
+        map->object.id = id;
         map->num_sources = num_sources;
         map->sources = (mapper_slot*) malloc(sizeof(mapper_slot) * num_sources);
         for (i = 0; i < num_sources; i++) {
             map->sources[i] = (mapper_slot) calloc(1, sizeof(struct _mapper_slot));
             map->sources[i]->signal = src_sigs[i];
-            map->sources[i]->id = i;
+            map->sources[i]->object.id = i;
             map->sources[i]->causes_update = 1;
             map->sources[i]->map = map;
             if (map->sources[i]->signal->local) {
@@ -1074,14 +1077,14 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             mapper_table tab;
             mapper_table_record_t *rec;
             for (i = 0; i < num_sources; i++) {
-                map->sources[i]->id = i;
+                map->sources[i]->object.id = i;
                 // also need to correct slot table indices
-                tab = map->sources[i]->props;
+                tab = map->sources[i]->object.props;
                 for (j = 0; j < tab->num_records; j++) {
                     rec = &tab->records[j];
                     rec->index = MASK_PROP_BITFLAGS(rec->index) | SRC_SLOT_PROPERTY(i);
                 }
-                tab = map->sources[i]->staged_props;
+                tab = map->sources[i]->object.staged_props;
                 for (j = 0; j < tab->num_records; j++) {
                     rec = &tab->records[j];
                     rec->index = MASK_PROP_BITFLAGS(rec->index) | SRC_SLOT_PROPERTY(i);
@@ -1153,7 +1156,7 @@ mapper_map mapper_database_map_by_id(mapper_database db, mapper_id id)
 {
     mapper_map map = db->maps;
     while (map) {
-        if (map->id == id)
+        if (map->object.id == id)
             return map;
         map = mapper_list_next(map);
     }
@@ -1165,7 +1168,7 @@ static int cmp_query_maps_by_scope(const void *context_data, mapper_map map)
     mapper_id id = *(mapper_id*)context_data;
     for (int i = 0; i < map->num_scopes; i++) {
         if (map->scopes[i]) {
-            if (map->scopes[i]->id == id)
+            if (map->scopes[i]->object.id == id)
                 return 1;
         }
         else if (id == 0)
@@ -1178,19 +1181,19 @@ mapper_map *mapper_database_maps_by_scope(mapper_database db, mapper_device dev)
 {
     return ((mapper_map *)
             mapper_list_new_query(db->maps, cmp_query_maps_by_scope,
-                                  "h", dev ? dev->id : 0));
+                                  "h", dev ? dev->object.id : 0));
 }
 
 static int cmp_query_maps_by_property(const void *context_data, mapper_map map)
 {
     int op = *(int*)context_data;
     int length = *(int*)(context_data + sizeof(int));
-    char type = *(char*)(context_data + sizeof(int) * 2);
+    mapper_type type = *(char*)(context_data + sizeof(int) * 2);
     void *value = *(void**)(context_data + sizeof(int) * 3);
     const char *name = (const char*)(context_data + sizeof(int) * 3
                                      + sizeof(void*));
     int _length;
-    char _type;
+    mapper_type _type;
     const void *_value;
     if (mapper_map_property(map, name, &_length, &_type, &_value))
         return (op == MAPPER_OP_DOES_NOT_EXIST);
@@ -1205,7 +1208,7 @@ static int cmp_query_maps_by_property(const void *context_data, mapper_map map)
 
 mapper_map *mapper_database_maps_by_property(mapper_database db,
                                              const char *name, int length,
-                                             char type, const void *value,
+                                             mapper_type type, const void *value,
                                              mapper_op op)
 {
     if (!name || !check_type(type) || length < 1)
@@ -1222,7 +1225,7 @@ static int cmp_query_maps_by_slot_property(const void *context_data,
 {
     int i, op = *(int*)(context_data);
     int length2, length1 = *(int*)(context_data + sizeof(int));
-    char type2, type1 = *(char*)(context_data + sizeof(int) * 2);
+    mapper_type type2, type1 = *(char*)(context_data + sizeof(int) * 2);
     const void *value2, *value1 = *(void**)(context_data + sizeof(int) * 3);
     const char *name = (const char*)(context_data + sizeof(int) * 3
                                      + sizeof(void*));
@@ -1244,7 +1247,8 @@ static int cmp_query_maps_by_slot_property(const void *context_data,
 
 mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
                                                   const char *name, int length,
-                                                  char type, const void *value,
+                                                  mapper_type type,
+                                                  const void *value,
                                                   mapper_op op)
 {
     if (!name || !check_type(type) || length < 1)
@@ -1289,7 +1293,7 @@ void mapper_database_remove_map(mapper_database db, mapper_map map,
         mapper_link link = mapper_device_link_by_remote_device(dst, src);
         if (link && !link->local) {
             --link->num_maps[src == link->devices[0] ? 0 : 1];
-            link->props->dirty = 1;
+            link->object.props->dirty = 1;
             mapper_database_call_link_handlers(db, link, MAPPER_MODIFIED);
         }
     }
@@ -1401,7 +1405,7 @@ static void subscribe_internal(mapper_database db, mapper_device dev, int flags,
         lo_message_add_int32(msg, timeout);
 
         lo_message_add_string(msg, "@version");
-        lo_message_add_int32(msg, dev->version);
+        lo_message_add_int32(msg, dev->object.version);
 
         mapper_network_add_message(db->network, cmd, 0, msg);
         mapper_network_send(db->network);
@@ -1581,7 +1585,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
             // store subscription record
             s = malloc(sizeof(struct _mapper_subscription));
             s->device = dev;
-            s->device->version = -1;
+            s->device->object.version = -1;
             s->next = db->subscriptions;
             db->subscriptions = s;
         }
@@ -1589,7 +1593,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         if (s->flags == flags)
             return;
 
-        s->device->version = -1;
+        s->device->object.version = -1;
         s->flags = flags;
 
         mapper_timetag_t tt;

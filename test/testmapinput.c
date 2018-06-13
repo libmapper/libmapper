@@ -30,15 +30,15 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 {
     if (value) {
         eprintf("--> received %s", mapper_signal_name(sig));
-        char type = mapper_signal_type(sig);
+        mapper_type type = mapper_signal_type(sig);
         int length = mapper_signal_length(sig);
-        if (type == 'f') {
+        if (type == MAPPER_FLOAT) {
             float *v = (float*)value;
             for (int i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
             }
         }
-        else if (type == 'd') {
+        else if (type == MAPPER_DOUBLE) {
             double *v = (double*)value;
             for (int i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
@@ -61,14 +61,18 @@ int setup_devices()
     float mnf2[]={3.2,2,0}, mxf2[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    inputs[0] = mapper_device_add_input_signal(devices[0], "insig_1", 1, 'f', 0,
-                                               mnf1, mxf1, insig_handler, 0);
-    inputs[1] = mapper_device_add_input_signal(devices[0], "insig_2", 1, 'd', 0,
-                                               &mnd, &mxd, insig_handler, 0);
-    inputs[2] = mapper_device_add_input_signal(devices[1], "insig_3", 3, 'f', 0,
-                                               mnf1, mxf1, insig_handler, 0);
-    inputs[3] = mapper_device_add_input_signal(devices[1], "insig_4", 1, 'f', 0,
-                                               mnf2, mxf2, insig_handler, 0);
+    inputs[0] = mapper_device_add_input_signal(devices[0], "insig_1", 1,
+                                               MAPPER_FLOAT, 0, mnf1, mxf1,
+                                               insig_handler, 0);
+    inputs[1] = mapper_device_add_input_signal(devices[0], "insig_2", 1,
+                                               MAPPER_DOUBLE, 0, &mnd, &mxd,
+                                               insig_handler, 0);
+    inputs[2] = mapper_device_add_input_signal(devices[1], "insig_3", 3,
+                                               MAPPER_FLOAT, 0, mnf1, mxf1,
+                                               insig_handler, 0);
+    inputs[3] = mapper_device_add_input_signal(devices[1], "insig_4", 1,
+                                               MAPPER_FLOAT, 0, mnf2, mxf2,
+                                               insig_handler, 0);
 
     /* In this test inputs[2] will never get its full vector value from
      * external updates – for the handler to be called we will need to

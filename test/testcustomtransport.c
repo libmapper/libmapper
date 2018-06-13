@@ -76,11 +76,11 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
     }
 
     const char *a_transport;
-    char t;
+    mapper_type type;
     int length;
-    if (mapper_map_property(map, "transport", &length, &t,
+    if (mapper_map_property(map, "transport", &length, &type,
                             (const void **)&a_transport)
-        || t != 's' || length != 1) {
+        || type != MAPPER_STRING || length != 1) {
         eprintf("Couldn't find `transport' property.\n");
         return;
     }
@@ -93,8 +93,8 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
 
     // Find the TCP port in the mapping properties
     const int *a_port;
-    if (mapper_map_property(map, "tcpPort", &length, &t, (const void **)&a_port)
-        || t != 'i' || length != 1) {
+    if (mapper_map_property(map, "tcpPort", &length, &type, (const void **)&a_port)
+        || type != MAPPER_INT32 || length != 1) {
         eprintf("Couldn't make TCP connection, tcpPort property not found.\n");
         return;
     }
@@ -147,8 +147,8 @@ int setup_source()
 
     mapper_device_set_map_callback(source, on_map);
 
-    sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'f', "Hz",
-                                              &mn, &mx);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 1, MAPPER_FLOAT,
+                                              "Hz", &mn, &mx);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -193,8 +193,9 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0,
-                                             &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1,
+                                             MAPPER_FLOAT, 0, &mn, &mx,
+                                             insig_handler, 0);
 
     eprintf("Input signal 'insig' registered.\n");
 
@@ -233,11 +234,11 @@ void loop()
 
         // Add custom meta-data specifying a special transport for this map.
         char *str = "tcp";
-        mapper_map_set_property(map, "transport", 1, 's', str, 1);
+        mapper_map_set_property(map, "transport", 1, MAPPER_STRING, str, 1);
 
         // Add custom meta-data specifying a port to use for this map's
         // custom transport.
-        mapper_map_set_property(map, "tcpPort", 1, 'i', &tcp_port, 1);
+        mapper_map_set_property(map, "tcpPort", 1, MAPPER_INT32, &tcp_port, 1);
         mapper_map_push(map);
     }
 

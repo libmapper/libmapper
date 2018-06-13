@@ -18,7 +18,7 @@ static int map_in_scope(mapper_map map, mapper_id id)
     int i;
     id &= 0xFFFFFFFF00000000; // interested in device hash part only
     for (i = 0; i < map->num_scopes; i++) {
-        if (map->scopes[i] == 0 || map->scopes[i]->id == id)
+        if (map->scopes[i] == 0 || map->scopes[i]->object.id == id)
             return 1;
     }
     return 0;
@@ -459,7 +459,7 @@ static mapper_id unused_map_id(mapper_device dev, mapper_router rtr)
             for (i = 0; i < rs->num_slots; i++) {
                 if (!rs->slots[i])
                     continue;
-                if (rs->slots[i]->map->id == id) {
+                if (rs->slots[i]->map->object.id == id) {
                     done = 0;
                     break;
                 }
@@ -560,14 +560,14 @@ void mapper_router_add_map(mapper_router rtr, mapper_map map)
 
     // assign a unique id to this map if we are the destination
     if (local_dst)
-        map->id = unused_map_id(rtr->device, rtr);
+        map->object.id = unused_map_id(rtr->device, rtr);
 
     /* assign indices to source slots - may be overwritten later by message */
     for (i = 0; i < map->num_sources; i++) {
-        map->sources[i]->id = i;
+        map->sources[i]->object.id = i;
     }
-    map->destination.id = (local_dst
-                           ? map->destination.local->router_sig->id_counter++ : -1);
+    map->destination.object.id = (local_dst
+                                  ? map->destination.local->router_sig->id_counter++ : -1);
 
     // add scopes
     int scope_count = 0;
@@ -865,7 +865,7 @@ mapper_map mapper_router_map_by_id(mapper_router router, mapper_signal local_sig
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || (dir && rs->slots[i]->direction != dir))
             continue;
-        if (rs->slots[i]->map->id == id)
+        if (rs->slots[i]->map->object.id == id)
             return rs->slots[i]->map;
     }
     return 0;
@@ -889,7 +889,7 @@ mapper_slot mapper_router_slot(mapper_router router, mapper_signal signal,
         map = rs->slots[i]->map;
         // check incoming slots for this map
         for (j = 0; j < map->num_sources; j++) {
-            if (map->sources[j]->id == slot_id)
+            if (map->sources[j]->object.id == slot_id)
                 return map->sources[j];
         }
     }

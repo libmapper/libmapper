@@ -155,8 +155,9 @@ int mapper_router_loop_check(mapper_router router, mapper_signal local_sig,
 /*! Create a signal structure and fill it with provided arguments.  Values and
  *  strings pointed to by this call (except user_data) will be copied. Signals
  *  should be freed by mapper_signal_free() only if they are not registered with
- *  a device.  For minimum, maximum, and value, if type='f', should be float*,
- *  if type='i', then should be int*, or if type='d', should be double*.
+ *  a device.  For minimum, maximum, and value, if type=MAPPER_FLOAT, should be
+ *  float*, if type=MAPPER_INT32, then should be int*, or if type=MAPPER_DOULBE,
+ *  should be double*.
  *  \param name         The name of the signal, starting with '/'.
  *  \param length       The length of the signal vector, or 1 for a scalar.
  *  \param type         The type fo the signal value.
@@ -166,7 +167,7 @@ int mapper_router_loop_check(mapper_router router, mapper_signal local_sig,
  *  \param maximum      Pointer to a maximum value, or 0 for none.
  *  \param handler      Function to be called when the signal value is updated.
  *  \param user_data    User context pointer to be passed to handler. */
-mapper_signal mapper_signal_new(const char *name, int length, char type,
+mapper_signal mapper_signal_new(const char *name, int length, mapper_type type,
                                 int is_output, const char *unit,
                                 const void *minimum, const void *maximum,
                                 mapper_signal_update_handler *handler,
@@ -182,7 +183,7 @@ void mapper_signal_free(mapper_signal sig);
  *  add it to a lo_message. */
 void message_add_coerced_signal_instance_value(lo_message m, mapper_signal sig,
                                                mapper_signal_instance si,
-                                               int length, char type);
+                                               int length, mapper_type type);
 
 void mapper_signal_send_state(mapper_signal sig, network_message_t cmd);
 
@@ -190,19 +191,19 @@ void mapper_signal_send_removed(mapper_signal sig);
 
 /**** Instances ****/
 
-/*! Find an active instance with the given instance ID.
+/*! Find an active instance with the given instance id.
  *  \param sig       The signal owning the desired instance.
  *  \param global_id Globally unique id of this instance.
  *  \param flags     Bitflags indicating if search should include released instances.
  *  \return          The index of the retrieved signal instance, or -1 if no active
- *                   instances match the specified instance ID map. */
+ *                   instances match the specified instance id map. */
 int mapper_signal_find_instance_with_global_id(mapper_signal sig,
                                                mapper_id global_id, int flags);
 
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
  *  \param sig      The signal owning the desired instance.
- *  \param local_id The requested signal instance ID.
+ *  \param local_id The requested signal instance id.
  *  \param flags    Bitflags indicating if search should include released
  *                  instances.
  *  \param tt       Timetag associated with this action.
@@ -263,14 +264,14 @@ void mhist_realloc(mapper_history history, int history_size,
  *  \param typestring   Pointer to a string to receive types.
  *  \return             Zero if the operation was muted, one if performed. */
 int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
-                       char *typestring);
+                       mapper_type *typestring);
 
 int mapper_boundary_perform(mapper_history history, mapper_slot slot,
-                            char *typestring);
+                            mapper_type *typestring);
 
 lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
                                     const void *value, int length,
-                                    char *typestring, mapper_id_map id_map);
+                                    mapper_type *typestring, mapper_id_map id_map);
 
 /*! Set a mapping's properties based on message parameters. */
 int mapper_map_set_from_message(mapper_map map, mapper_message msg,
@@ -280,7 +281,7 @@ int mapper_map_set_from_message(mapper_map map, mapper_message msg,
  *  \param length       The vector length of the value.
  *  \param type         The value type.
  *  \param value        A pointer to the property value to print. */
-void mapper_property_print(int length, char type, const void *value);
+void mapper_property_print(int length, mapper_type type, const void *value);
 
 mapper_property_t mapper_property_from_string(const char *str);
 const char *mapper_property_string(mapper_property_t prop);
@@ -356,7 +357,7 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
 /*! Initialize an already-allocated mapper_signal structure. */
 void mapper_signal_init(mapper_signal sig, mapper_direction dir,
                         int num_instances, const char *name, int length,
-                        char type, const char *unit,
+                        mapper_type type, const char *unit,
                         const void *minimum, const void *maximum,
                         mapper_signal_update_handler *handler,
                         const void *user_data);
@@ -433,16 +434,13 @@ int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
  *  \param argv     Vector of lo_arg structures.
  *  \return         A mapper_message structure. Should be freed when done using
  *                  mapper_message_free. */
-mapper_message mapper_message_parse_properties(int argc, const char *types,
+mapper_message mapper_message_parse_properties(int argc,
+                                               const mapper_type *types,
                                                lo_arg **argv);
 
 void mapper_message_free(mapper_message msg);
 
 /*! Look up the value of a message parameter by symbolic identifier.
- *  Note that it's possible the 'types' string will be longer
- *  than the actual contents pointed to; it is up to the usage of this
- *  function to ensure it only processes the number of parameters indicated
- *  by the 'length' property.
  *  \param msg      Structure containing parameter info.
  *  \param prop     Symbolic identifier of the property to look for.
  *  \return         Pointer to mapper_message_atom, or zero if not found. */
@@ -456,29 +454,29 @@ mapper_message_atom mapper_message_property(mapper_message msg,
 mapper_boundary_action mapper_message_boundary_action(mapper_message msg,
                                                       mapper_property_t prop);
 
-void mapper_message_add_typed_value(lo_message msg, int length, char type,
-                                    const void *value);
+void mapper_message_add_typed_value(lo_message msg, int length,
+                                    mapper_type type, const void *value);
 
 /*! Prepare a lo_message for sending based on a map struct. */
 const char *mapper_map_prepare_message(mapper_map map, lo_message msg,
                                        int slot_index);
 
 /*! Helper for setting property value from different lo_arg types. */
-int set_coerced_value(void *dst, const void *src, int length, char dest_type,
-                      char src_type);
+int set_coerced_value(void *dst, const void *src, int length,
+                      mapper_type dest_type, mapper_type src_type);
 
 /*! Helper for setting property value from different double type. */
-void propval_set_double(void *to, char type, int index, double from);
+void propval_set_double(void *to, mapper_type type, int index, double from);
 
 /*! Helper for getting a double from different property value types. */
-double propval_double(const void *value, char type, int index);
+double propval_double(const void *value, mapper_type type, int index);
 
 /**** Expression parser/evaluator ****/
 
 mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
-                                        const char *input_types,
+                                        const mapper_type *input_types,
                                         const int *input_vector_lengths,
-                                        char output_type,
+                                        mapper_type output_type,
                                         int output_vector_length);
 
 int mapper_expr_input_history_size(mapper_expr expr, int index);
@@ -497,7 +495,7 @@ void printexpr(const char*, mapper_expr);
 
 int mapper_expr_evaluate(mapper_expr expr, mapper_history *sources,
                          mapper_history *expr_vars, mapper_history result,
-                         mapper_timetag_t *tt, char *typestring);
+                         mapper_timetag_t *tt, mapper_type *typestring);
 
 int mapper_expr_constant_output(mapper_expr expr);
 
@@ -528,11 +526,11 @@ mapper_table_record_t *mapper_table_record(mapper_table tab,
                                            const char *key);
 
 int mapper_table_property(mapper_table tab, const char *name, int *length,
-                          char *type, const void **value);
+                          mapper_type *type, const void **value);
 
 int mapper_table_property_index(mapper_table tab, unsigned int index,
-                                const char **name, int *length, char *type,
-                                const void **value);
+                                const char **name, int *length,
+                                mapper_type *type, const void **value);
 
 /*! Remove a key-value pair from a table (by index or key). */
 int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
@@ -550,7 +548,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property_t index,
  *                      or MAPPER_NON_MODIFABLE.
  *  \return             The number of table values added or modified. */
 int mapper_table_set_record(mapper_table tab, mapper_property_t index,
-                            const char *key, int length, char type,
+                            const char *key, int length, mapper_type type,
                             const void *args, int flags);
 
 /*! Sync an existing value with a table. Records added using this method must
@@ -558,7 +556,8 @@ int mapper_table_set_record(mapper_table tab, mapper_property_t index,
  *  Key and value will not be copied by the table, and will not be freed when
  *  the table is cleared or deleted. */
 void mapper_table_link_value(mapper_table tab, mapper_property_t index,
-                             int length, char type, void *value, int flags);
+                             int length, mapper_type type, void *value,
+                             int flags);
 
 /*! Add a typed OSC argument from a mapper_message to a string table.
  *  \param tab      Table to update.
@@ -596,7 +595,7 @@ void mapper_list_remove_item(void **list, void *item);
 void mapper_list_free_item(void *item);
 
 void **mapper_list_new_query(const void *list, const void *f,
-                             const char *types, ...);
+                             const mapper_type *types, ...);
 
 void **mapper_list_query_union(void **query1, void **query2);
 
@@ -660,20 +659,19 @@ static void die_unless(...) {};
 #endif
 
 /*! Helper to find size of signal value types. */
-inline static int mapper_type_size(char type)
+inline static int mapper_type_size(mapper_type type)
 {
     switch (type) {
-        case 'i': return sizeof(int);
-        case 'b':
+        case MAPPER_INT32: return sizeof(int);
+        case MAPPER_BOOL:
         case 'T':
         case 'F': return sizeof(int);
-        case 'f': return sizeof(float);
-        case 'd': return sizeof(double);
-        case 's':
-        case 'S': return sizeof(char*);
-        case 'h': return sizeof(int64_t);
-        case 't': return sizeof(mapper_timetag_t);
-        case 'c': return sizeof(char);
+        case MAPPER_FLOAT: return sizeof(float);
+        case MAPPER_DOUBLE: return sizeof(double);
+        case MAPPER_STRING: return sizeof(char*);
+        case MAPPER_INT64: return sizeof(int64_t);
+        case MAPPER_TIMETAG: return sizeof(mapper_timetag_t);
+        case MAPPER_CHAR: return sizeof(char);
         default:
             die_unless(0, "Unknown type '%c' in mapper_type_size().\n", type);
             return 0;
@@ -699,9 +697,9 @@ inline static void* mapper_history_tt_ptr(mapper_history_t h)
 }
 
 /*! Helper to check if a type character is valid. */
-inline static int check_signal_type(char type)
+inline static int check_signal_type(mapper_type type)
 {
-    return (type != 'i' && type != 'f' && type != 'd');
+    return (type != MAPPER_INT32 && type != MAPPER_FLOAT && type != MAPPER_DOUBLE);
 }
 
 /*! Helper to check if a type character is valid. */
@@ -717,18 +715,19 @@ inline static int bitmatch(unsigned int a, unsigned int b)
 }
 
 /*! Helper to check if type is a number. */
-inline static int is_number_type(char type)
+inline static int is_number_type(mapper_type type)
 {
     switch (type) {
-        case 'i':
-        case 'f':
-        case 'd':   return 1;
+        case MAPPER_INT32:
+        case MAPPER_FLOAT:
+        case MAPPER_DOUBLE:
+            return 1;
         default:    return 0;
     }
 }
 
 /*! Helper to check if type is a boolean. */
-inline static int is_boolean_type(char type)
+inline static int is_boolean_type(mapper_type type)
 {
     switch (type) {
         case 'T':
@@ -738,28 +737,24 @@ inline static int is_boolean_type(char type)
 }
 
 /*! Helper to check if type is a string. */
-inline static int is_string_type(char type)
+inline static int is_string_type(mapper_type type)
 {
-    switch (type) {
-        case 's':
-        case 'S':   return 1;
-        default:    return 0;
-    }
+    return type == MAPPER_STRING;
 }
 
 /*! Helper to check if type is a string or void* */
-inline static int is_ptr_type(char type)
+inline static int is_ptr_type(mapper_type type)
 {
     switch (type) {
-        case 's':
-        case 'S':
-        case 'v':   return 1;
+        case MAPPER_STRING:
+        case MAPPER_PTR:
+            return 1;
         default:    return 0;
     }
 }
 
 /*! Helper to check if data type matches, but allowing 'T' and 'F' for bool. */
-inline static int type_match(const char l, const char r)
+inline static int type_match(const mapper_type l, const mapper_type r)
 {
     return (l == r) || (strchr("bTF", l) && strchr("bTF", r));
 }

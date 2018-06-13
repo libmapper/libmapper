@@ -31,9 +31,10 @@ sure to consult the tutorial to get started with libmapper concepts.
  *  external requests.
  *  \param sig          The signal to update.
  *  \param value        A pointer to a new value for this signal.  If the signal
- *                      type is 'i', this should be int*; if the signal type is
- *                      'f', this should be float*.  It should be an array at
- *                      least as long as the signal's length property.
+ *                      type is MAPPER_INT32, this should be int*; if the signal
+ *                      type is MAPPER_FLOAT, this should be float*.  It should
+ *                      be an array at least as long as the signal's length
+ *                      property.
  *  \param count        The number of instances of the value that are being
  *                      updated.  For non-periodic signals, this should be 0 or
  *                      1.  For periodic signals, this may indicate that a block
@@ -150,9 +151,10 @@ int mapper_signal_reserve_instances(mapper_signal sig, int num, mapper_id *ids,
  *  \param sig          The signal to operate on.
  *  \param instance     The identifier of the instance to update.
  *  \param value        A pointer to a new value for this signal.  If the signal
- *                      type is 'i', this should be int*; if the signal type is
- *                      'f', this should be float* (etc).  It should be an array
- *                      at least as long as the signal's length property.
+ *                      type is MAPPER_INT32, this should be int*; if the signal
+ *                      type is MAPPER_DOUBLE, this should be float* (etc).  It
+ *                      should be an array at least as long as the signal's
+ *                      length property.
  *  \param count        The number of values being updated, or 0 for
  *                      non-periodic signals.
  *  \param tt           The time at which the value update was aquired. If NULL,
@@ -358,8 +360,8 @@ float mapper_signal_rate(mapper_signal sig);
 
 /*! Get the data type for a specific signal.
  *  \param sig          The signal to check.
- *  \return             The signal date type. */
-char mapper_signal_type(mapper_signal sig);
+ *  \return             The signal data type. */
+mapper_type mapper_signal_type(mapper_signal sig);
 
 /*! Get the unit for a specific signal.
  *  \param sig          The signal to check.
@@ -382,7 +384,7 @@ int mapper_signal_num_properties(mapper_signal sig);
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_signal_property(mapper_signal sig, const char *name, int *length,
-                           char *type, const void **value);
+                           mapper_type *type, const void **value);
 
 /*! Look up a signal property by index. To iterate all properties, call this
  *  function from index=0, increasing until it returns zero.
@@ -398,8 +400,8 @@ int mapper_signal_property(mapper_signal sig, const char *name, int *length,
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_signal_property_index(mapper_signal sig, unsigned int index,
-                                 const char **name, int *length, char *type,
-                                 const void **value);
+                                 const char **name, int *length,
+                                 mapper_type *type, const void **value);
 
 /*! Set the description property for a specific signal.
  *  \param sig          The signal to modify.
@@ -439,7 +441,7 @@ void mapper_signal_set_unit(mapper_signal sig, const char *unit);
  *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_signal_set_property(mapper_signal sig, const char *name,
-                               int length, char type, const void *value,
+                               int length, mapper_type type, const void *value,
                                int publish);
 
 /*! Clear any staged property changes.
@@ -600,7 +602,7 @@ void *mapper_device_user_data(mapper_device dev);
 
 /*! Add a signal to a mapper device.  Values and strings pointed to by this call
  *  (except user_data) will be copied.  For minimum and maximum, actual type
- *  must correspond to 'type' (if type='i', then int*, etc).
+ *  must correspond to 'type' (if type=MAPPER_INT32, then int*, etc).
  *  \param dev          The device to add a signal to.
  *  \param dir          The signal direction.
  *  \param num_instances The number of signal instances.
@@ -616,18 +618,19 @@ void *mapper_device_user_data(mapper_device dev);
  *  \return             The new signal. */
 mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
                                        int num_instances, const char *name,
-                                       int length, char type, const char *unit,
+                                       int length, mapper_type type,
+                                       const char *unit,
                                        const void *minimum, const void *maximum,
                                        mapper_signal_update_handler *handler,
                                        const void *user_data);
 
 /*! Add an input signal to a mapper device.  Values and strings pointed to by
  *  this call (except user_data) will be copied.  For minimum and maximum,
- *  actual type must correspond to 'type' (if type='i', then int*, etc).
+ *  actual type must correspond to 'type' (if type=MAPPER_INT32, then int*, etc).
  *  \param dev          The device to add a signal to.
  *  \param name         The name of the signal.
  *  \param length   	The length of the signal vector, or 1 for a scalar.
- *  \param type         The type fo the signal value.
+ *  \param type         The type of the signal value.
  *  \param unit         The unit of the signal, or 0 for none.
  *  \param minimum      Pointer to a minimum value, or 0 for none.
  *  \param maximum      Pointer to a maximum value, or 0 for none.
@@ -638,7 +641,7 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
 mapper_signal mapper_device_add_input_signal(mapper_device dev,
                                              const char *name,
                                              int length,
-                                             char type,
+                                             mapper_type type,
                                              const char *unit,
                                              const void *minimum,
                                              const void *maximum,
@@ -647,7 +650,7 @@ mapper_signal mapper_device_add_input_signal(mapper_device dev,
 
 /*! Add an output signal to a mapper device.  Values and strings pointed to by
  *  this call (except user_data) will be copied.  For minimum and maximum,
- *  actual type must correspond to 'type' (if type='i', then int*, etc).
+ *  actual type must correspond to 'type' (if type=MAPPER_INT32, then int*, etc).
  *  \param dev          The device to add a signal to.
  *  \param name         The name of the signal.
  *  \param length   	The length of the signal vector, or 1 for a scalar.
@@ -659,7 +662,7 @@ mapper_signal mapper_device_add_input_signal(mapper_device dev,
 mapper_signal mapper_device_add_output_signal(mapper_device dev,
                                               const char *name,
                                               int length,
-                                              char type,
+                                              mapper_type type,
                                               const char *unit,
                                               const void *minimum,
                                               const void *maximum);
@@ -763,7 +766,7 @@ int mapper_device_num_properties(mapper_device dev);
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_device_property(mapper_device dev, const char *name, int *length,
-                           char *type, const void **value);
+                           mapper_type *type, const void **value);
 
 /*! Look up a device property by index. To iterate all properties, call this
  *  function from index=0, increasing until it returns zero.
@@ -779,8 +782,8 @@ int mapper_device_property(mapper_device dev, const char *name, int *length,
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_device_property_index(mapper_device dev, unsigned int index,
-                                 const char **name, int *length, char *type,
-                                 const void **value);
+                                 const char **name, int *length,
+                                 mapper_type *type, const void **value);
 
 /*! Set the description property for a specific local device.
  *  \param dev          The device to modify.
@@ -797,7 +800,7 @@ void mapper_device_set_description(mapper_device dev, const char *description);
  *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_device_set_property(mapper_device dev, const char *name,
-                               int length, char type, const void *value,
+                               int length, mapper_type type, const void *value,
                                int publish);
 
 /*! Clear any staged property changes.
@@ -1055,7 +1058,7 @@ int mapper_network_port(mapper_network net);
  *  \param types        A string specifying the types of subsequent arguments.
  *  \param ...          A list of arguments. */
 void mapper_network_send_message(mapper_network net, const char *path,
-                                 const char *types, ...);
+                                 mapper_type *types, ...);
 
 /* @} */
 
@@ -1113,7 +1116,7 @@ int mapper_link_num_properties(mapper_link link);
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_link_property(mapper_link link, const char *name, int *length,
-                         char *type, const void **value);
+                         mapper_type *type, const void **value);
 
 /*! Look up a link property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -1129,7 +1132,7 @@ int mapper_link_property(mapper_link link, const char *name, int *length,
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_link_property_index(mapper_link link, unsigned int index,
-                               const char **name, int *length, char *type,
+                               const char **name, int *length, mapper_type *type,
                                const void **value);
 
 /*! Set an arbitrary property for a specific link.  Changes to remote links will
@@ -1142,7 +1145,7 @@ int mapper_link_property_index(mapper_link link, unsigned int index,
  *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_link_set_property(mapper_link link, const char *name, int length,
-                             char type, const void *value, int publish);
+                             mapper_type type, const void *value, int publish);
 
 /*! Remove a property of a link.
  *  \param link         The link to operate on.
@@ -1382,7 +1385,7 @@ void mapper_map_set_protocol(mapper_map map, mapper_protocol proto);
  *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_map_set_property(mapper_map map, const char *name, int length,
-                            char type, const void *value, int publish);
+                            mapper_type type, const void *value, int publish);
 
 /*! Clear any staged property changes.
  *  \param map          The map to operate on. */
@@ -1438,7 +1441,7 @@ int mapper_map_num_properties(mapper_map map);
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_map_property(mapper_map map, const char *name, int *length,
-                        char *type, const void **value);
+                        mapper_type *type, const void **value);
 
 /*! Look up a map property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -1454,7 +1457,7 @@ int mapper_map_property(mapper_map map, const char *name, int *length,
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_map_property_index(mapper_map map, unsigned int index,
-                              const char **name, int *length, char *type,
+                              const char **name, int *length, mapper_type *type,
                               const void **value);
 
 /*! Get the union of two map queries (maps matching query1 OR query2).
@@ -1550,7 +1553,7 @@ int mapper_slot_causes_update(mapper_slot slot);
  *                  	property's value. (Required.)
  *  \param length       A pointer to a location to receive the vector length of
  *                  	the property value. (Required.). */
-void mapper_slot_maximum(mapper_slot slot, int *length, char *type, void **value);
+void mapper_slot_maximum(mapper_slot slot, int *length, mapper_type *type, void **value);
 
 /*! Get the "minimum" property for a specific map slot.
  *  \param slot         The slot to check.
@@ -1560,7 +1563,8 @@ void mapper_slot_maximum(mapper_slot slot, int *length, char *type, void **value
  *                  	property's value. (Required.)
  *  \param length       A pointer to a location to receive the vector length of
  *                  	the property value. (Required.). */
-void mapper_slot_minimum(mapper_slot slot, int *length, char *type, void **value);
+void mapper_slot_minimum(mapper_slot slot, int *length, mapper_type *type,
+                         void **value);
 
 /*! Get the total number of properties for a specific slot.
  *  \param slot         The slot to check.
@@ -1578,7 +1582,7 @@ int mapper_slot_num_properties(mapper_slot slot);
  *                      property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_slot_property(mapper_slot slot, const char *name, int *length,
-                         char *type, const void **value);
+                         mapper_type *type, const void **value);
 
 /*! Look up a map slot property by index. To iterate all properties,
  *  call this function from index=0, increasing until it returns zero.
@@ -1594,7 +1598,7 @@ int mapper_slot_property(mapper_slot slot, const char *name, int *length,
  *                  	property's value. (Required.)
  *  \return             Zero if found, otherwise non-zero. */
 int mapper_slot_property_index(mapper_slot slot, unsigned int index,
-                               const char **name, int *length, char *type,
+                               const char **name, int *length, mapper_type *type,
                                const void **value);
 
 /*! Get the "use instances" property for a specific map slot. If enabled,
@@ -1652,7 +1656,7 @@ void mapper_slot_set_causes_update(mapper_slot slot, int causes_update);
  *  \param type         The data type of the update.
  *  \param value        An array of values.
  *  \param length       Length of the update array. */
-void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
+void mapper_slot_set_maximum(mapper_slot slot, int length, mapper_type type,
                              const void *value);
 
 /*! Set the "minimum" property for a specific map slot.  Changes to remote maps
@@ -1662,7 +1666,7 @@ void mapper_slot_set_maximum(mapper_slot slot, int length, char type,
  *  \param type         The data type of the update.
  *  \param value        An array of values.
  *  \param length   	Length of the update array. */
-void mapper_slot_set_minimum(mapper_slot slot, int length, char type,
+void mapper_slot_set_minimum(mapper_slot slot, int length, mapper_type type,
                              const void *value);
 
 /*! Set the "use instances" property for a specific map slot.  If enabled,
@@ -1684,7 +1688,7 @@ void mapper_slot_set_use_instances(mapper_slot slot, int use_instances);
  *  \param publish      1 to publish property to network, 0 for local-only.
  *  \return             1 if property has been changed, 0 otherwise. */
 int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
-                             char type, const void *value, int publish);
+                             mapper_type type, const void *value, int publish);
 
 /*! Remove a property of a map slot.
  *  \param slot         The slot to operate on.
@@ -1858,7 +1862,7 @@ mapper_device *mapper_database_devices_by_name(mapper_database db,
  *                      Use mapper_device_query_next() to iterate. */
 mapper_device *mapper_database_devices_by_property(mapper_database db,
                                                    const char *name, int length,
-                                                   char type, const void *value,
+                                                   mapper_type type, const void *value,
                                                    mapper_op op);
 
 /*! A callback function prototype for when a signal record is added or updated.
@@ -1931,7 +1935,7 @@ mapper_signal *mapper_database_signals_by_name(mapper_database db,
  *                      Use mapper_signal_query_next() to iterate. */
 mapper_signal *mapper_database_signals_by_property(mapper_database db,
                                                    const char *name, int length,
-                                                   char type, const void *value,
+                                                   mapper_type type, const void *value,
                                                    mapper_op op);
 
 /*! A callback function prototype for when a link record is added or updated in
@@ -1994,7 +1998,7 @@ mapper_link mapper_database_link_by_id(mapper_database db, mapper_id id);
  *                      Use mapper_map_query_next() to iterate. */
 mapper_link *mapper_database_links_by_property(mapper_database db,
                                                const char *name, int length,
-                                               char type, const void *value,
+                                               mapper_type type, const void *value,
                                                mapper_op op);
 
 /*! A callback function prototype for when a map record is added or updated in
@@ -2064,7 +2068,7 @@ mapper_map *mapper_database_maps_by_scope(mapper_database db, mapper_device dev)
  *                      Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_database_maps_by_property(mapper_database db,
                                              const char *name, int length,
-                                             char type, const void *value,
+                                             mapper_type type, const void *value,
                                              mapper_op op);
 
 /*! Return the list of maps matching the given slot property.
@@ -2078,7 +2082,7 @@ mapper_map *mapper_database_maps_by_property(mapper_database db,
  *                      Use mapper_map_query_next() to iterate. */
 mapper_map *mapper_database_maps_by_slot_property(mapper_database db,
                                                   const char *name, int length,
-                                                  char type, const void *value,
+                                                  mapper_type type, const void *value,
                                                   mapper_op op);
 
 /* @} */

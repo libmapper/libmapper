@@ -25,8 +25,8 @@ int setup_source()
 
     float mn=0, mx=1;
 
-    sendsig = mapper_device_add_output_signal(source, "/outsig", 1, 'f', 0,
-                                              &mn, &mx);
+    sendsig = mapper_device_add_output_signal(source, "/outsig", 1,
+                                              MAPPER_FLOAT, 0, &mn, &mx);
 
     printf("Output signal /outsig registered.\n");
     printf("Number of outputs: %d\n",
@@ -65,8 +65,9 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input_signal(destination, "/insig", 1, 'f', 0,
-                                             &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "/insig", 1,
+                                             MAPPER_FLOAT, 0, &mn, &mx,
+                                             insig_handler, 0);
 
     printf("Input signal /insig registered.\n");
     printf("Number of inputs: %d\n",

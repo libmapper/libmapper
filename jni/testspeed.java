@@ -26,9 +26,9 @@ class testspeed {
             }
         };
 
-        Signal in = dev.addInputSignal("insig", 1, 'f', "Hz", null, null, l);
+        Signal in = dev.addInputSignal("insig", 1, Type.FLOAT, "Hz", null, null, l);
 
-        Signal out = dev.addOutputSignal("outsig", 1, 'i', "Hz", null, null);
+        Signal out = dev.addOutputSignal("outsig", 1, Type.INT, "Hz", null, null);
 
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {

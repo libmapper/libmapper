@@ -12,7 +12,7 @@ def h(sig, id, f, tt):
         print('exception')
 
 def setup(d):
-    sig = d.add_input_signal("freq", 1, 'i', "Hz", None, None, h)
+    sig = d.add_input_signal("freq", 1, mapper.INT32, "Hz", None, None, h)
 
     while not d.ready:
         d.poll(10)
@@ -53,8 +53,8 @@ def setup(d):
 
     print('signal properties:', sig.properties)
 
-    d.add_input_signal("insig", 4, 'f', None, None, None, h)
-    d.add_output_signal("outsig", 4, 'f')
+    d.add_input_signal("insig", 4, mapper.FLOAT, None, None, None, h)
+    d.add_output_signal("outsig", 4, mapper.FLOAT)
     print('setup done!')
 
 #check libmapper version
@@ -69,9 +69,9 @@ def database_cb(rectype, record, action):
 
 db = mapper.database(mapper.OBJ_ALL)
 
-db.add_device_callback(lambda x,y:database_cb('device',x,y))
-db.add_signal_callback(lambda x,y:database_cb('signal',x,y))
-db.add_map_callback(lambda x,y:database_cb('map',x,y))
+db.add_device_callback(lambda x, y: database_cb('device', x, y))
+db.add_signal_callback(lambda x, y: database_cb('signal', x, y))
+db.add_map_callback(lambda x, y: database_cb('map', x, y))
 
 while not dev.ready:
     dev.poll(10)

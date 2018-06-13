@@ -7,6 +7,9 @@ extern "C" {
 
 /*! This file defines opaque types that are used internally in libmapper. */
 
+/*! Abstraction for accessing any mapper object type. */
+typedef void *mapper_object;
+
 /*! An internal structure defining a mapper device. */
 typedef void *mapper_device;
 

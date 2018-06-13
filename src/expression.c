@@ -530,7 +530,7 @@ typedef struct _token {
         expr_vfunc_t vfunc;
     };
     union {
-        char casttype;
+        mapper_type casttype;
         int assignment_offset;
     };
     int vector_length;
@@ -540,14 +540,14 @@ typedef struct _token {
     };
     char history_index;
     char vector_length_locked;
-    char datatype;
+    mapper_type datatype;
 } mapper_token_t, *mapper_token;
 
 typedef struct _variable {
     char *name;
     int vector_length;
-    char datatype;
-    char casttype;
+    mapper_type datatype;
+    mapper_type casttype;
     char history_size;
     char vector_length_locked;
     char assigned;
@@ -616,11 +616,11 @@ static expr_var_t variable_lookup(const char *s, int len)
 static int const_tok_is_zero(mapper_token_t tok)
 {
     switch (tok.datatype) {
-        case 'i':
+        case MAPPER_INT32:
             return tok.i == 0;
-        case 'f':
+        case MAPPER_FLOAT:
             return tok.f == 0.f;
-        case 'd':
+        case MAPPER_DOUBLE:
             return tok.d == 0.0;
     }
     return 0;
@@ -629,11 +629,11 @@ static int const_tok_is_zero(mapper_token_t tok)
 static int const_tok_is_one(mapper_token_t tok)
 {
     switch (tok.datatype) {
-        case 'i':
+        case MAPPER_INT32:
             return tok.i == 1;
-        case 'f':
+        case MAPPER_FLOAT:
             return tok.f == 1.f;
-        case 'd':
+        case MAPPER_DOUBLE:
             return tok.d == 1.0;
     }
     return 0;
@@ -658,7 +658,7 @@ static int tok_arity(mapper_token_t tok)
 
 static int expr_lex(const char *str, int index, mapper_token_t *tok)
 {
-    tok->datatype = 'i';
+    tok->datatype = MAPPER_INT32;
     tok->casttype = 0;
     tok->vector_length = 1;
     tok->vector_index = 0;
@@ -684,7 +684,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         if (c!='.' && c!='e') {
             tok->i = n;
             tok->toktype = TOK_CONST;
-            tok->datatype = 'i';
+            tok->datatype = MAPPER_INT32;
             return index;
         }
     }
@@ -695,7 +695,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         if (!isdigit(c) && c!='e' && integer_found) {
             tok->toktype = TOK_CONST;
             tok->f = (float)n;
-            tok->datatype = 'f';
+            tok->datatype = MAPPER_FLOAT;
             return index;
         }
         if (!isdigit(c) && c!='e')
@@ -706,7 +706,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         if (c!='e') {
             tok->f = atof(str+i);
             tok->toktype = TOK_CONST;
-            tok->datatype = 'f';
+            tok->datatype = MAPPER_FLOAT;
             return index;
         }
     case 'e':
@@ -737,7 +737,7 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         while (c && isdigit(c))
             c = str[++index];
         tok->toktype = TOK_CONST;
-        tok->datatype = 'f';
+        tok->datatype = MAPPER_FLOAT;
         tok->f = atof(str+i);
         return index;
     case '+':
@@ -949,9 +949,9 @@ void printtoken(mapper_token_t tok)
     switch (tok.toktype) {
         case TOK_CONST:
             switch (tok.datatype) {
-                case 'f':   snprintf(tokstr, 32, "%f", tok.f);  break;
-                case 'd':   snprintf(tokstr, 32, "%f", tok.d);  break;
-                case 'i':   snprintf(tokstr, 32, "%d", tok.i);  break;
+                case MAPPER_FLOAT:   snprintf(tokstr, 32, "%f", tok.f);  break;
+                case MAPPER_DOUBLE:  snprintf(tokstr, 32, "%f", tok.d);  break;
+                case MAPPER_INT32:   snprintf(tokstr, 32, "%d", tok.i);  break;
             }                                                   break;
         case TOK_OP:
             snprintf(tokstr, 32, "%s", op_table[tok.op].name);  break;
@@ -1039,18 +1039,18 @@ void printexpr(const char *s, mapper_expr e)
 
 #endif
 
-static char compare_token_datatype(mapper_token_t tok, char type)
+static char compare_token_datatype(mapper_token_t tok, mapper_type type)
 {
     // return the higher datatype
-    if (tok.datatype == 'd' || type == 'd')
-        return 'd';
-    else if (tok.datatype == 'f' || type == 'f')
-        return 'f';
+    if (tok.datatype == MAPPER_DOUBLE || type == MAPPER_DOUBLE)
+        return MAPPER_DOUBLE;
+    else if (tok.datatype == MAPPER_FLOAT || type == MAPPER_FLOAT)
+        return MAPPER_FLOAT;
     else
-        return 'i';
+        return MAPPER_INT32;
 }
 
-static char promote_token_datatype(mapper_token_t *tok, char type)
+static mapper_type promote_token_datatype(mapper_token_t *tok, mapper_type type)
 {
     tok->casttype = 0;
 
@@ -1071,22 +1071,22 @@ static char promote_token_datatype(mapper_token_t *tok, char type)
 
     if (tok->toktype == TOK_CONST) {
         // constants can be cast immediately
-        if (tok->datatype == 'i') {
-            if (type == 'f') {
+        if (tok->datatype == MAPPER_INT32) {
+            if (type == MAPPER_FLOAT) {
                 tok->f = (float)tok->i;
                 tok->datatype = type;
             }
-            else if (type == 'd') {
+            else if (type == MAPPER_DOUBLE) {
                 tok->d = (double)tok->i;
                 tok->datatype = type;
             }
         }
-        else if (tok->datatype == 'f') {
-            if (type == 'd') {
+        else if (tok->datatype == MAPPER_FLOAT) {
+            if (type == MAPPER_DOUBLE) {
                 tok->d = (double)tok->f;
                 tok->datatype = type;
             }
-            else if (type == 'i') {
+            else if (type == MAPPER_INT32) {
                 tok->casttype = type;
             }
         }
@@ -1101,7 +1101,7 @@ static char promote_token_datatype(mapper_token_t *tok, char type)
         return type;
     }
     else {
-        if (tok->datatype == 'i' || type == 'd') {
+        if (tok->datatype == MAPPER_INT32 || type == MAPPER_DOUBLE) {
             tok->datatype = type;
             return type;
         }
@@ -1154,15 +1154,15 @@ static int precompute(mapper_token_t *stack, int length, int vector_length)
 
     int i;
     switch (h.type) {
-        case 'f':
+        case MAPPER_FLOAT:
             for (i = 0; i < vector_length; i++)
                 stack[i].f = ((float*)v)[i];
             break;
-        case 'd':
+        case MAPPER_DOUBLE:
             for (i = 0; i < vector_length; i++)
                 stack[i].d = ((double*)v)[i];
             break;
-        case 'i':
+        case MAPPER_INT32:
             for (i = 0; i < vector_length; i++)
                 stack[i].i = ((int*)v)[i];
             break;
@@ -1184,7 +1184,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
 {
     // TODO: allow precomputation of const-only vectors
     int i, arity, can_precompute = 1, optimize = NONE;
-    char type = stack[top].datatype;
+    mapper_type type = stack[top].datatype;
     int vector_length = stack[top].vector_length;
 
     switch (stack[top].toktype) {
@@ -1310,7 +1310,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                         i--;
                     }
                     stack[i].toktype = TOK_CONST;
-                    stack[i].datatype = 'i';
+                    stack[i].datatype = MAPPER_INT32;
                     stack[i].i = optimize == GET_ZERO ? 0 : 1;
                     stack[i].vector_length = vector_length;
                     stack[i].vector_length_locked = 0;
@@ -1431,7 +1431,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
         }
     }
     else {
-        stack[top].datatype = 'f';
+        stack[top].datatype = MAPPER_FLOAT;
     }
 
     // if stack within bounds of arity was only constants, we're ok to compute
@@ -1543,9 +1543,9 @@ static int find_variable_by_name(mapper_variable_t *variables, int num_variables
 
 /*! Use Dijkstra's shunting-yard algorithm to parse expression into RPN stack. */
 mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
-                                        const char *input_types,
+                                        const mapper_type *input_types,
                                         const int *input_vector_lengths,
-                                        char output_type,
+                                        mapper_type output_type,
                                         int output_vector_length)
 {
     if (!str || !num_inputs || !input_types || !input_vector_lengths)
@@ -1648,7 +1648,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                         variables[num_variables].name = malloc(lex_index-index);
                         snprintf(variables[num_variables].name, lex_index-index,
                                  "%s", str+index+1);
-                        variables[num_variables].datatype = 'd';
+                        variables[num_variables].datatype = MAPPER_DOUBLE;
                         variables[num_variables].vector_length = 0;
                         variables[num_variables].history_size = 1;
                         variables[num_variables].assigned = 0;
@@ -1657,7 +1657,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                                variables[num_variables].name, num_variables);
 #endif
                         tok.var = num_variables;
-                        tok.datatype = 'd';
+                        tok.datatype = MAPPER_DOUBLE;
                         tok.vector_length = 0;
                         num_variables++;
                     }
@@ -1673,9 +1673,9 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 break;
             case TOK_FUNC:
                 if (function_table[tok.func].func_int32)
-                    tok.datatype = 'i';
+                    tok.datatype = MAPPER_INT32;
                 else
-                    tok.datatype = 'f';
+                    tok.datatype = MAPPER_FLOAT;
                 mapper_token_t newtok;
                 if (function_table[tok.func].memory) {
                     // add assignment token
@@ -1689,7 +1689,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                                                    varname, 6) >= 0);
                     // need to store new variable
                     variables[num_variables].name = strdup(varname);
-                    variables[num_variables].datatype = 'd';
+                    variables[num_variables].datatype = MAPPER_DOUBLE;
                     variables[num_variables].vector_length = 1;
                     variables[num_variables].history_size = 1;
                     variables[num_variables].assigned = 1;
@@ -1697,7 +1697,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                     newtok.toktype = TOK_ASSIGN_USE;
                     newtok.var = num_variables;
                     num_variables++;
-                    newtok.datatype = 'd';
+                    newtok.datatype = MAPPER_DOUBLE;
                     newtok.vector_length = 1;
                     newtok.vector_length_locked = 0;
                     newtok.history_index = 0;
@@ -1724,9 +1724,9 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 break;
             case TOK_VFUNC:
                 if (vfunction_table[tok.func].func_int32)
-                    tok.datatype = 'i';
+                    tok.datatype = MAPPER_INT32;
                 else
-                    tok.datatype = 'f';
+                    tok.datatype = MAPPER_FLOAT;
                 PUSH_TO_OPERATOR(tok);
                 allow_toktype = TOK_OPEN_PAREN;
                 break;
@@ -1842,7 +1842,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
             case TOK_OPEN_SQUARE:
                 if (variable & TOK_OPEN_SQUARE) { // vector index not set
                     GET_NEXT_TOKEN(tok);
-                    if (tok.toktype != TOK_CONST || tok.datatype != 'i')
+                    if (tok.toktype != TOK_CONST || tok.datatype != MAPPER_INT32)
                         {FAIL("Non-integer vector index.");}
                     if (outstack[outstack_index].var == VAR_Y) {
                         if (tok.i >= output_vector_length)
@@ -1857,7 +1857,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                     if (tok.toktype == TOK_COLON) {
                         // index is range A:B
                         GET_NEXT_TOKEN(tok);
-                        if (tok.toktype != TOK_CONST || tok.datatype != 'i')
+                        if (tok.toktype != TOK_CONST || tok.datatype != MAPPER_INT32)
                             {FAIL("Malformed vector index.");}
                         if (outstack[outstack_index].var == VAR_Y) {
                             if (tok.i >= output_vector_length)
@@ -1923,7 +1923,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                     outstack[outstack_index].history_index = -1;
                     GET_NEXT_TOKEN(tok);
                 }
-                if (tok.toktype != TOK_CONST || tok.datatype != 'i')
+                if (tok.toktype != TOK_CONST || tok.datatype != MAPPER_INT32)
                     {FAIL("Non-integer history index.");}
                 outstack[outstack_index].history_index *= tok.i;
                 if (outstack[outstack_index].var == VAR_Y) {
@@ -1964,7 +1964,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
             case TOK_NEGATE:
                 // push '-1' to output stack, and '*' to operator stack
                 tok.toktype = TOK_CONST;
-                tok.datatype = 'i';
+                tok.datatype = MAPPER_INT32;
                 tok.i = -1;
                 PUSH_TO_OUTPUT(tok);
                 tok.toktype = TOK_OP;
@@ -2176,22 +2176,22 @@ int mapper_expr_num_input_slots(mapper_expr expr)
 }
 
 #if TRACING
-static void print_stack_vector(mapper_value_t *stack, char type,
+static void print_stack_vector(mapper_value_t *stack, mapper_type type,
                                int vector_length)
 {
     int i;
     if (vector_length > 1)
         printf("[");
     switch (type) {
-        case 'i':
+        case MAPPER_INT32:
             for (i = 0; i < vector_length; i++)
                 printf("%d, ", stack[i].i32);
             break;
-        case 'f':
+        case MAPPER_FLOAT:
             for (i = 0; i < vector_length; i++)
                 printf("%f, ", stack[i].f);
             break;
-        case 'd':
+        case MAPPER_DOUBLE:
             for (i = 0; i < vector_length; i++)
                 printf("%f, ", stack[i].d);
             break;
@@ -2206,14 +2206,14 @@ static void print_stack_vector(mapper_value_t *stack, char type,
 #endif
 
 #if TRACING
-static const char *type_name(const char type)
+static const char *type_name(const mapper_type type)
 {
     switch (type) {
-        case 'd':
+        case MAPPER_DOUBLE:
             return "double";
-        case 'f':
+        case MAPPER_FLOAT:
             return "float";
-        case 'i':
+        case MAPPER_INT32:
             return "int";
         default:
             return 0;
@@ -2223,7 +2223,7 @@ static const char *type_name(const char type)
 
 int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                          mapper_history *expr_vars, mapper_history output,
-                         mapper_timetag_t *tt, char *typestring)
+                         mapper_timetag_t *tt, mapper_type *typestring)
 {
     if (!expr) {
 #if TRACING
@@ -2244,7 +2244,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
 
     // init typestring
     if (typestring)
-        memset(typestring, 'N', output->length);
+        memset(typestring, MAPPER_NULL, output->length);
 
     /* Increment index position of output data structure. */
     output->position = (output->position + 1) % output->size;
@@ -2258,23 +2258,23 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             ++top;
             dims[top] = tok->vector_length;
 #if TRACING
-            if (tok->datatype == 'f')
+            if (tok->datatype == MAPPER_FLOAT)
                 printf("storing const %f\n", tok->f);
-            else if (tok->datatype == 'i')
+            else if (tok->datatype == MAPPER_INT32)
                 printf("storing const %i\n", tok->i);
-            else if (tok->datatype == 'd')
+            else if (tok->datatype == MAPPER_DOUBLE)
                 printf("storing const %f\n", tok->d);
 #endif
             switch (tok->datatype) {
-            case 'i':
+            case MAPPER_INT32:
                 for (i = 0; i < tok->vector_length; i++)
                     stack[top][i].i32 = tok->i;
                 break;
-            case 'f':
+            case MAPPER_FLOAT:
                 for (i = 0; i < tok->vector_length; i++)
                     stack[top][i].f = tok->f;
                 break;
-            case 'd':
+            case MAPPER_DOUBLE:
                 for (i = 0; i < tok->vector_length; i++)
                     stack[top][i].d = tok->d;
                 break;
@@ -2290,21 +2290,21 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 idx = ((tok->history_index + output->position
                         + output->size) % output->size);
                 switch (output->type) {
-                case 'f': {
+                case MAPPER_FLOAT: {
                     float *v = (output->value + idx * output->length
                                 * mapper_type_size(output->type));
                     for (i = 0; i < tok->vector_length; i++)
                         stack[top][i].f = v[i+tok->vector_index];
                     break;
                 }
-                case 'i': {
+                case MAPPER_INT32: {
                     int *v = (output->value + idx * output->length
                               * mapper_type_size(output->type));
                     for (i = 0; i < tok->vector_length; i++)
                         stack[top][i].i32 = v[i+tok->vector_index];
                     break;
                 }
-                case 'd': {
+                case MAPPER_DOUBLE: {
                     double *v = (output->value + idx * output->length
                                  * mapper_type_size(output->type));
                     for (i = 0; i < tok->vector_length; i++)
@@ -2327,21 +2327,21 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 mapper_history h = input[tok->var-VAR_X];
                 idx = ((tok->history_index + h->position + h->size) % h->size);
                 switch (h->type) {
-                case 'f': {
+                case MAPPER_FLOAT: {
                     float *v = (h->value + idx * h->length
                                 * mapper_type_size(h->type));
                     for (i = 0; i < tok->vector_length; i++)
                         stack[top][i].f = v[i+tok->vector_index];
                     break;
                 }
-                case 'i': {
+                case MAPPER_INT32: {
                     int *v = (h->value + idx * h->length
                               * mapper_type_size(h->type));
                     for (i = 0; i < tok->vector_length; i++)
                         stack[top][i].i32 = v[i+tok->vector_index];
                     break;
                 }
-                case 'd': {
+                case MAPPER_DOUBLE: {
                     double *v = (h->value + idx * h->length
                                  * mapper_type_size(h->type));
                     for (i = 0; i < tok->vector_length; i++)
@@ -2410,7 +2410,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             }
 #endif
             switch (tok->datatype) {
-            case 'f': {
+            case MAPPER_FLOAT: {
                 switch (tok->op) {
                 case OP_ADD:
                     for (i = 0; i < tok->vector_length; i++)
@@ -2510,7 +2510,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 }
                 break;
             }
-            case 'i': {
+            case MAPPER_INT32: {
             switch (tok->op) {
                 case OP_ADD:
                     for (i = 0; i < tok->vector_length; i++)
@@ -2629,7 +2629,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 }
                 break;
             }
-            case 'd': {
+            case MAPPER_DOUBLE: {
             switch (tok->op) {
                 case OP_ADD:
                     for (i = 0; i < tok->vector_length; i++)
@@ -2749,7 +2749,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             printf("%s)", function_table[tok->func].arity ? "\b\b" : "");
 #endif
             switch (tok->datatype) {
-            case 'f':
+            case MAPPER_FLOAT:
                 switch (function_table[tok->func].arity) {
                 case 0:
                     for (i = 0; i < tok->vector_length; i++)
@@ -2785,7 +2785,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 default: goto error;
                 }
                 break;
-            case 'i':
+            case MAPPER_INT32:
                 switch (function_table[tok->func].arity) {
                 case 0:
                     for (i = 0; i < tok->vector_length; i++)
@@ -2807,7 +2807,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                 default: goto error;
                 }
                 break;
-            case 'd':
+            case MAPPER_DOUBLE:
                 switch (function_table[tok->func].arity) {
                 case 0:
                     for (i = 0; i < tok->vector_length; i++)
@@ -2863,7 +2863,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             printf("\b\b)");
 #endif
             switch (tok->datatype) {
-            case 'f':
+            case MAPPER_FLOAT:
                 switch (vfunction_table[tok->func].arity) {
                     case 1:
                         stack[top][0].f = ((vfunc_float_arity1*)vfunction_table[tok->func].func_float)(stack[top], dims[top]);
@@ -2873,7 +2873,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                     default: goto error;
                 }
                 break;
-            case 'i':
+            case MAPPER_INT32:
                 switch (vfunction_table[tok->func].arity) {
                     case 1:
                         stack[top][0].i32 = ((vfunc_int32_arity1*)vfunction_table[tok->func].func_int32)(stack[top], dims[top]);
@@ -2883,7 +2883,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                     default: goto error;
                 }
                 break;
-            case 'd':
+            case MAPPER_DOUBLE:
                 switch (vfunction_table[tok->func].arity) {
                     case 1:
                         stack[top][0].d = ((vfunc_double_arity1*)vfunction_table[tok->func].func_double)(stack[top], dims[top]);
@@ -2908,19 +2908,19 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
             top -= tok->arity-1;
             k = dims[top];
             switch (tok->datatype) {
-            case 'f':
+            case MAPPER_FLOAT:
                 for (i = 1; i < tok->arity; i++) {
                     for (j = 0; j < dims[top+1]; j++)
                         stack[top][k++].f = stack[top+i][j].f;
                 }
                 break;
-            case 'i':
+            case MAPPER_INT32:
                 for (i = 1; i < tok->arity; i++) {
                     for (j = 0; j < dims[top+1]; j++)
                         stack[top][k++].i32 = stack[top+i][j].i32;
                 }
                 break;
-            case 'd':
+            case MAPPER_DOUBLE:
                 for (i = 1; i < tok->arity; i++) {
                     for (j = 0; j < dims[top+1]; j++)
                         stack[top][k++].d = stack[top+i][j].d;
@@ -2958,21 +2958,21 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                     idx %= output->size;
 
                 switch (output->type) {
-                case 'f': {
+                case MAPPER_FLOAT: {
                     float *v = (output->value + idx * output->length
                                 * mapper_type_size(output->type));
                     for (i = 0; i < tok->vector_length; i++)
                         v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].f;
                     break;
                 }
-                case 'i': {
+                case MAPPER_INT32: {
                     int *v = (output->value + idx * output->length
                               * mapper_type_size(output->type));
                     for (i = 0; i < tok->vector_length; i++)
                         v[i + tok->vector_index] = stack[top][i + tok->assignment_offset].i32;
                     break;
                 }
-                case 'd': {
+                case MAPPER_DOUBLE: {
                     double *v = (output->value + idx * output->length
                                  * mapper_type_size(output->type));
                     for (i = 0; i < tok->vector_length; i++)
@@ -3031,14 +3031,14 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
 #endif
             // need to cast to a different type
             switch (tok->datatype) {
-            case 'f':
+            case MAPPER_FLOAT:
                 switch (tok->casttype) {
-                case 'i':
+                case MAPPER_INT32:
                     for (i = 0; i < tok->vector_length; i++) {
                         stack[top][i].i32 = (int)stack[top][i].f;
                     }
                     break;
-                case 'd':
+                case MAPPER_DOUBLE:
                     for (i = 0; i < tok->vector_length; i++) {
                         stack[top][i].d = (double)stack[top][i].f;
                     }
@@ -3047,14 +3047,14 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                     goto error;
                 }
                 break;
-            case 'i':
+            case MAPPER_INT32:
                 switch (tok->casttype) {
-                case 'f':
+                case MAPPER_FLOAT:
                     for (i = 0; i < tok->vector_length; i++) {
                         stack[top][i].f = (float)stack[top][i].i32;
                     }
                     break;
-                case 'd':
+                case MAPPER_DOUBLE:
                     for (i = 0; i < tok->vector_length; i++) {
                         stack[top][i].d = (double)stack[top][i].i32;
                     }
@@ -3063,14 +3063,14 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
                     goto error;
                 }
                 break;
-            case 'd':
+            case MAPPER_DOUBLE:
                 switch (tok->casttype) {
-                case 'f':
+                case MAPPER_FLOAT:
                     for (i = 0; i < tok->vector_length; i++) {
                         stack[top][i].f = (float)stack[top][i].d;
                     }
                     break;
-                case 'i':
+                case MAPPER_INT32:
                     for (i = 0; i < tok->vector_length; i++) {
                         stack[top][i].i32 = (int)stack[top][i].d;
                     }
@@ -3095,19 +3095,19 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
         output->position = (output->position + 1) % output->size;
 
         switch (output->type) {
-        case 'f': {
+        case MAPPER_FLOAT: {
             float *v = mapper_history_value_ptr(*output);
             for (i = 0; i < output->length; i++)
                 v[i] = stack[top][i].f;
             break;
         }
-        case 'i': {
+        case MAPPER_INT32: {
             int *v = mapper_history_value_ptr(*output);
             for (i = 0; i < output->length; i++)
                 v[i] = stack[top][i].i32;
             break;
         }
-        case 'd': {
+        case MAPPER_DOUBLE: {
             double *v = mapper_history_value_ptr(*output);
             for (i = 0; i < output->length; i++)
                 v[i] = stack[top][i].d;

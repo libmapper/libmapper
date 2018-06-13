@@ -58,7 +58,7 @@ static mapper_signal_instance find_instance_by_id(mapper_signal sig,
 
 void mapper_signal_init(mapper_signal sig, mapper_direction dir,
                         int num_instances, const char *name, int length,
-                        char type, const char *unit,
+                        mapper_type type, const char *unit,
                         const void *minimum, const void *maximum,
                         mapper_signal_update_handler *handler,
                         const void *user_data)
@@ -81,7 +81,7 @@ void mapper_signal_init(mapper_signal sig, mapper_direction dir,
 
     sig->num_instances = 0;
 
-    sig->user_data = (void*)user_data;
+    sig->object.user_data = (void*)user_data;
 
     if (sig->local) {
         sig->local->update_handler = handler;
@@ -98,64 +98,69 @@ void mapper_signal_init(mapper_signal sig, mapper_direction dir,
         sig->local->id_maps = calloc(1, sizeof(struct _mapper_signal_id_map));
     }
     else {
-        sig->staged_props = mapper_table_new();
+        sig->object.staged_props = mapper_table_new();
     }
 
-    sig->props = mapper_table_new();
+    sig->object.props = mapper_table_new();
     int flags = sig->local ? NON_MODIFIABLE : MODIFIABLE;
 
     // these properties need to be added in alphabetical order
-    mapper_table_link_value(sig->props, AT_DIRECTION, 1, 'i', &sig->direction,
-                            flags);
+    mapper_table_link_value(sig->object.props, AT_DIRECTION, 1, MAPPER_INT32,
+                            &sig->direction, flags);
 
-    mapper_table_link_value(sig->props, AT_ID, 1, 'h', &sig->id, flags);
+    mapper_table_link_value(sig->object.props, AT_ID, 1, MAPPER_INT64,
+                            &sig->object.id, flags);
 
-    mapper_table_link_value(sig->props, AT_LENGTH, 1, 'i', &sig->length, flags);
+    mapper_table_link_value(sig->object.props, AT_LENGTH, 1, MAPPER_INT32,
+                            &sig->length, flags);
 
-    mapper_table_link_value(sig->props, AT_MAX, sig->length, sig->type,
+    mapper_table_link_value(sig->object.props, AT_MAX, sig->length, sig->type,
                             &sig->maximum,
                             ((sig->local ? LOCAL_MODIFY : MODIFIABLE)
                              | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE));
 
-    mapper_table_link_value(sig->props, AT_MIN, sig->length, sig->type,
+    mapper_table_link_value(sig->object.props, AT_MIN, sig->length, sig->type,
                             &sig->minimum,
                             ((sig->local ? LOCAL_MODIFY : MODIFIABLE)
                              | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE));
 
-    mapper_table_link_value(sig->props, AT_NAME, 1, 's', &sig->name,
-                            flags | INDIRECT | LOCAL_ACCESS_ONLY);
+    mapper_table_link_value(sig->object.props, AT_NAME, 1, MAPPER_STRING,
+                            &sig->name, flags | INDIRECT | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(sig->props, AT_NUM_INCOMING_MAPS, 1, 'i',
-                            &sig->num_incoming_maps, flags);
+    mapper_table_link_value(sig->object.props, AT_NUM_INCOMING_MAPS, 1,
+                            MAPPER_INT32, &sig->num_incoming_maps, flags);
 
-    mapper_table_link_value(sig->props, AT_NUM_INSTANCES, 1, 'i',
-                            &sig->num_instances, flags);
+    mapper_table_link_value(sig->object.props, AT_NUM_INSTANCES, 1,
+                            MAPPER_INT32, &sig->num_instances, flags);
 
-    mapper_table_link_value(sig->props, AT_NUM_OUTGOING_MAPS, 1, 'i',
-                            &sig->num_outgoing_maps, flags);
+    mapper_table_link_value(sig->object.props, AT_NUM_OUTGOING_MAPS, 1,
+                            MAPPER_INT32, &sig->num_outgoing_maps, flags);
 
     // TODO: should rate be settable or only derived from calls to update()?
-    mapper_table_link_value(sig->props, AT_RATE, 1, 'f', &sig->rate,
-                            sig->local ? LOCAL_MODIFY : MODIFIABLE);
+    mapper_table_link_value(sig->object.props, AT_RATE, 1, MAPPER_FLOAT,
+                            &sig->rate, sig->local ? LOCAL_MODIFY : MODIFIABLE);
 
-    mapper_table_link_value(sig->props, AT_TYPE, 1, 'c', &sig->type, flags);
+    mapper_table_link_value(sig->object.props, AT_TYPE, 1, MAPPER_CHAR,
+                            &sig->type, flags);
 
-    mapper_table_link_value(sig->props, AT_UNIT, 1, 's', &sig->unit,
-                            (sig->local ? LOCAL_MODIFY : MODIFIABLE) | INDIRECT);
+    mapper_table_link_value(sig->object.props, AT_UNIT, 1, MAPPER_STRING,
+                            &sig->unit, (sig->local ? LOCAL_MODIFY : MODIFIABLE)
+                            | INDIRECT);
 
-    mapper_table_link_value(sig->props, AT_USER_DATA, 1, 'v', &sig->user_data,
+    mapper_table_link_value(sig->object.props, AT_USER_DATA, 1, MAPPER_PTR,
+                            &sig->object.user_data,
                             LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(sig->props, AT_VERSION, 1, 'i', &sig->version,
-                            flags);
+    mapper_table_link_value(sig->object.props, AT_VERSION, 1, MAPPER_INT32,
+                            &sig->object.version, flags);
 
     if (minimum)
         mapper_signal_set_minimum(sig, minimum);
     if (maximum)
         mapper_signal_set_maximum(sig, maximum);
 
-    mapper_table_set_record(sig->props, AT_IS_LOCAL, NULL, 1, 'b', &sig->local,
-                            LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+    mapper_table_set_record(sig->object.props, AT_IS_LOCAL, NULL, 1, MAPPER_BOOL,
+                            &sig->local, LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
 }
 
 void mapper_signal_free(mapper_signal sig)
@@ -184,10 +189,10 @@ void mapper_signal_free(mapper_signal sig)
         free(sig->local);
     }
 
-    if (sig->props)
-        mapper_table_free(sig->props);
-    if (sig->staged_props)
-        mapper_table_free(sig->staged_props);
+    if (sig->object.props)
+        mapper_table_free(sig->object.props);
+    if (sig->object.staged_props)
+        mapper_table_free(sig->object.staged_props);
     if (sig->maximum)
         free(sig->maximum);
     if (sig->minimum)
@@ -200,7 +205,7 @@ void mapper_signal_free(mapper_signal sig)
 
 void mapper_signal_clear_staged_properties(mapper_signal sig) {
     if (sig)
-        mapper_table_clear(sig->staged_props);
+        mapper_table_clear(sig->object.staged_props);
 }
 
 void mapper_signal_push(mapper_signal sig)
@@ -210,7 +215,7 @@ void mapper_signal_push(mapper_signal sig)
     mapper_network net = sig->device->database->network;
 
     if (sig->local) {
-//        if (!sig->props->dirty)
+//        if (!sig->object.props->dirty)
 //            return;
         // TODO: make direction flags compatible with MAPPER_OBJ flags
         mapper_object_type obj = ((sig->direction == MAPPER_DIR_OUTGOING)
@@ -220,13 +225,13 @@ void mapper_signal_push(mapper_signal sig)
         mapper_signal_send_state(sig, MSG_SIGNAL);
     }
     else {
-//        if (!sig->staged_props->dirty)
+//        if (!sig->object.staged_props->dirty)
 //            return;
         mapper_network_set_dest_bus(net);
         mapper_signal_send_state(sig, MSG_SIGNAL_MODIFY);
 
         // clear the staged properties
-        mapper_table_clear(sig->staged_props);
+        mapper_table_clear(sig->object.staged_props);
     }
 }
 
@@ -256,7 +261,7 @@ void mapper_signal_update_int(mapper_signal sig, int value)
         return;
 
 #ifdef DEBUG
-    if (sig->type != 'i') {
+    if (sig->type != MAPPER_INT32) {
         trace("called update_int() on non-int signal '%s' (%c)\n",
               sig->name, sig->type);
         return;
@@ -283,7 +288,7 @@ void mapper_signal_update_float(mapper_signal sig, float value)
         return;
 
 #ifdef DEBUG
-    if (sig->type != 'f') {
+    if (sig->type != MAPPER_FLOAT) {
         trace("called update_float() on non-float signal '%s' (%c)\n",
               sig->name, sig->type);
         return;
@@ -310,7 +315,7 @@ void mapper_signal_update_double(mapper_signal sig, double value)
         return;
 
 #ifdef DEBUG
-    if (sig->type != 'd') {
+    if (sig->type != MAPPER_DOUBLE) {
         trace("called update_double() on non-double signal '%s' (%c)\n",
               sig->name, sig->type);
         return;
@@ -1082,12 +1087,12 @@ void mapper_signal_set_instance_event_callback(mapper_signal sig,
 void mapper_signal_set_user_data(mapper_signal sig, const void *user_data)
 {
     if (sig)
-        sig->user_data = (void*)user_data;
+        sig->object.user_data = (void*)user_data;
 }
 
 void *mapper_signal_user_data(mapper_signal sig)
 {
-    return sig ? sig->user_data : 0;
+    return sig ? sig->object.user_data : 0;
 }
 
 int mapper_signal_instance_activate(mapper_signal sig, mapper_id id)
@@ -1196,8 +1201,9 @@ mapper_device mapper_signal_device(mapper_signal sig)
 
 const char *mapper_signal_description(mapper_signal sig)
 {
-    mapper_table_record_t *rec = mapper_table_record(sig->props, AT_DESCRIPTION, 0);
-    if (rec && rec->type == 's')
+    mapper_table_record_t *rec = mapper_table_record(sig->object.props,
+                                                     AT_DESCRIPTION, 0);
+    if (rec && rec->type == MAPPER_STRING)
         return (const char*)rec->value;
     return 0;
 }
@@ -1209,7 +1215,7 @@ mapper_direction mapper_signal_direction(mapper_signal sig)
 
 mapper_id mapper_signal_id(mapper_signal sig)
 {
-    return sig->id;
+    return sig->object.id;
 }
 
 int mapper_signal_is_local(mapper_signal sig)
@@ -1290,70 +1296,70 @@ const char *mapper_signal_unit(mapper_signal sig)
 }
 
 int mapper_signal_num_properties(mapper_signal sig) {
-    return mapper_table_num_records(sig->props);
+    return mapper_table_num_records(sig->object.props);
 }
 
 int mapper_signal_property(mapper_signal sig, const char *name, int *length,
                            char *type, const void **value)
 {
-    return mapper_table_property(sig->props, name, length, type, value);
+    return mapper_table_property(sig->object.props, name, length, type, value);
 }
 
 int mapper_signal_property_index(mapper_signal sig, unsigned int index,
                                  const char **name, int *length, char *type,
                                  const void **value)
 {
-    return mapper_table_property_index(sig->props, index, name, length, type,
-                                       value);
+    return mapper_table_property_index(sig->object.props, index, name, length,
+                                       type, value);
 }
 
 void mapper_signal_set_description(mapper_signal sig, const char *description)
 {
     if (!sig || !sig->local)
         return;
-    mapper_table_set_record(sig->props, AT_DESCRIPTION, NULL, 1, 's',
-                            description, LOCAL_MODIFY);
+    mapper_table_set_record(sig->object.props, AT_DESCRIPTION, NULL, 1,
+                            MAPPER_STRING, description, LOCAL_MODIFY);
 }
 
 void mapper_signal_set_maximum(mapper_signal sig, const void *maximum)
 {
     if (!sig || !sig->local)
         return;
-    mapper_table_set_record(sig->props, AT_MAX, NULL, sig->length, sig->type,
-                            maximum, LOCAL_MODIFY);
+    mapper_table_set_record(sig->object.props, AT_MAX, NULL, sig->length,
+                            sig->type, maximum, LOCAL_MODIFY);
 }
 
 void mapper_signal_set_minimum(mapper_signal sig, const void *minimum)
 {
     if (!sig || !sig->local)
         return;
-    mapper_table_set_record(sig->props, AT_MIN, NULL, sig->length, sig->type,
-                            minimum, LOCAL_MODIFY);
+    mapper_table_set_record(sig->object.props, AT_MIN, NULL, sig->length,
+                            sig->type, minimum, LOCAL_MODIFY);
 }
 
 void mapper_signal_set_rate(mapper_signal sig, float rate)
 {
     if (!sig || !sig->local)
         return;
-    mapper_table_set_record(sig->props, AT_RATE, NULL, 1, 'f', &rate,
-                            LOCAL_MODIFY);
+    mapper_table_set_record(sig->object.props, AT_RATE, NULL, 1, MAPPER_FLOAT,
+                            &rate, LOCAL_MODIFY);
 }
 
 void mapper_signal_set_unit(mapper_signal sig, const char *unit)
 {
     if (!sig || !sig->local)
         return;
-    mapper_table_set_record(sig->props, AT_UNIT, NULL, 1, 's', unit,
-                            LOCAL_MODIFY);
+    mapper_table_set_record(sig->object.props, AT_UNIT, NULL, 1, MAPPER_STRING,
+                            unit, LOCAL_MODIFY);
 }
 
 int mapper_signal_set_property(mapper_signal sig, const char *name, int length,
-                               char type, const void *value, int publish)
+                               mapper_type type, const void *value, int publish)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
-        if (sig->user_data != (void*)value) {
-            sig->user_data = (void*)value;
+        if (sig->object.user_data != (void*)value) {
+            sig->object.user_data = (void*)value;
             return 1;
         }
     }
@@ -1363,7 +1369,8 @@ int mapper_signal_set_property(mapper_signal sig, const char *name, int length,
         int flags = sig->local ? LOCAL_MODIFY : REMOTE_MODIFY;
         if (!publish)
             flags |= LOCAL_ACCESS_ONLY;
-        return mapper_table_set_record(sig->local ? sig->props : sig->staged_props,
+        return mapper_table_set_record(sig->local ? sig->object.props
+                                       : sig->object.staged_props,
                                        prop, name, length, type, value, flags);
     }
     return 0;
@@ -1375,15 +1382,17 @@ int mapper_signal_remove_property(mapper_signal sig, const char *name)
         return 0;
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
-        if (sig->user_data) {
-            sig->user_data = 0;
+        if (sig->object.user_data) {
+            sig->object.user_data = 0;
             return 1;
         }
     }
     else if (sig->local)
-        return mapper_table_remove_record(sig->props, prop, name, LOCAL_MODIFY);
+        return mapper_table_remove_record(sig->object.props, prop, name,
+                                          LOCAL_MODIFY);
     else if (prop == AT_EXTRA)
-        return mapper_table_set_record(sig->staged_props, prop | PROPERTY_REMOVE,
+        return mapper_table_set_record(sig->object.staged_props,
+                                       prop | PROPERTY_REMOVE,
                                        name, 0, 0, 0, REMOTE_MODIFY);
     return 0;
 }
@@ -1423,50 +1432,50 @@ void message_add_coerced_signal_instance_value(lo_message m,
                                                mapper_signal sig,
                                                mapper_signal_instance si,
                                                int length,
-                                               const char type)
+                                               const mapper_type type)
 {
     int i;
     int min_length = length < sig->length ? length : sig->length;
 
     switch (sig->type) {
-        case 'i': {
+        case MAPPER_INT32: {
             int *v = (int*)si->value;
             for (i = 0; i < min_length; i++) {
                 if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
                     lo_message_add_nil(m);
-                else if (type == 'i')
+                else if (type == MAPPER_INT32)
                     lo_message_add_int32(m, v[i]);
-                else if (type == 'f')
+                else if (type == MAPPER_FLOAT)
                     lo_message_add_float(m, (float)v[i]);
-                else if (type == 'd')
+                else if (type == MAPPER_DOUBLE)
                     lo_message_add_double(m, (double)v[i]);
             }
             break;
         }
-        case 'f': {
+        case MAPPER_FLOAT: {
             float *v = (float*)si->value;
             for (i = 0; i < min_length; i++) {
                 if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
                     lo_message_add_nil(m);
-                else if (type == 'f')
+                else if (type == MAPPER_FLOAT)
                     lo_message_add_float(m, v[i]);
-                else if (type == 'i')
+                else if (type == MAPPER_INT32)
                     lo_message_add_int32(m, (int)v[i]);
-                else if (type == 'd')
+                else if (type == MAPPER_DOUBLE)
                     lo_message_add_double(m, (double)v[i]);
             }
             break;
         }
-        case 'd': {
+        case MAPPER_DOUBLE: {
             double *v = (double*)si->value;
             for (i = 0; i < min_length; i++) {
                 if (!si->has_value && !(si->has_value_flags[i/8] & 1 << (i % 8)))
                     lo_message_add_nil(m);
-                else if (type == 'd')
+                else if (type == MAPPER_DOUBLE)
                     lo_message_add_double(m, (int)v[i]);
-                else if (type == 'i')
+                else if (type == MAPPER_INT32)
                     lo_message_add_int32(m, (int)v[i]);
-                else if (type == 'f')
+                else if (type == MAPPER_FLOAT)
                     lo_message_add_float(m, (float)v[i]);
             }
             break;
@@ -1491,8 +1500,8 @@ void mapper_signal_send_state(mapper_signal sig, network_message_t cmd)
         lo_message_add_string(msg, sig->name);
 
         /* properties */
-        mapper_table_add_to_message(sig->local ? sig->props : 0,
-                                    sig->staged_props, msg);
+        mapper_table_add_to_message(sig->local ? sig->object.props : 0,
+                                    sig->object.staged_props, msg);
 
         snprintf(str, 1024, "/%s/signal/modify", sig->device->name);
         mapper_network_add_message(sig->device->database->network, str, 0, msg);
@@ -1504,8 +1513,8 @@ void mapper_signal_send_state(mapper_signal sig, network_message_t cmd)
         lo_message_add_string(msg, str);
 
         /* properties */
-        mapper_table_add_to_message(sig->local ? sig->props : 0,
-                                    sig->staged_props, msg);
+        mapper_table_add_to_message(sig->local ? sig->object.props : 0,
+                                    sig->object.staged_props, msg);
 
         mapper_network_add_message(sig->device->database->network, 0, cmd, msg);
     }
@@ -1588,20 +1597,19 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message msg)
                     dir = MAPPER_DIR_INCOMING;
                 else
                     break;
-                updated += mapper_table_set_record(sig->props, AT_DIRECTION,
-                                                   NULL, 1, 'i', &dir,
+                updated += mapper_table_set_record(sig->object.props, AT_DIRECTION,
+                                                   NULL, 1, MAPPER_INT32, &dir,
                                                    REMOTE_MODIFY);
                 break;
             }
             case AT_LENGTH:
             case AT_TYPE:
-                len_type_diff += mapper_table_set_record_from_atom(sig->props,
-                                                                   atom,
-                                                                   REMOTE_MODIFY);
+                len_type_diff += mapper_table_set_record_from_atom(sig->object.props,
+                                                                   atom, REMOTE_MODIFY);
                 break;
             default:
-                updated += mapper_table_set_record_from_atom(sig->props, atom,
-                                                             REMOTE_MODIFY);
+                updated += mapper_table_set_record_from_atom(sig->object.props,
+                                                             atom, REMOTE_MODIFY);
                 break;
         }
     }
@@ -1638,7 +1646,7 @@ void mapper_signal_print(mapper_signal sig, int include_device_name)
 
     int i=0;
     const char *key;
-    char type;
+    mapper_type type;
     const void *val;
     int length;
     while(!mapper_signal_property_index(sig, i++, &key, &length, &type, &val)) {

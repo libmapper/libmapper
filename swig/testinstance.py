@@ -36,11 +36,11 @@ def print_instance_ids():
     print(phrase)
 
 src = mapper.device("src")
-outsig = src.add_output_signal("outsig", 1, 'f', None, 0, 100)
+outsig = src.add_output_signal("outsig", 1, mapper.FLOAT, None, 0, 100)
 outsig.reserve_instances(5)
 
 dest = mapper.device("dest")
-insig = dest.add_input_signal("insig", 1, 'f', None, 0, 1, h)
+insig = dest.add_input_signal("insig", 1, mapper.FLOAT, None, 0, 1, h)
 insig.remove_instance(0)
 insig.reserve_instances([100, 200, 300])
 insig.set_instance_stealing_mode(mapper.STEAL_OLDEST)

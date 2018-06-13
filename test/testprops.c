@@ -57,7 +57,7 @@ int check_keys(mapper_signal sig)
 {
     const char *key;
     const void *val;
-    char type;
+    mapper_type type;
     int i=0, seen=0, length;
     while (!mapper_signal_property_index(sig, i++, &key, &length, &type, &val)) {
         seen |= seen_code(key);
@@ -92,7 +92,8 @@ int main(int argc, char **argv)
     }
 
     mapper_device dev = mapper_device_new("testprops", 0, 0);
-    mapper_signal sig = mapper_device_add_input_signal(dev, "test", 1, 'f', "Hz",
+    mapper_signal sig = mapper_device_add_input_signal(dev, "test", 1,
+                                                       MAPPER_FLOAT, "Hz",
                                                        0, 0, 0, 0);
 
     while (!mapper_device_ready(dev)) {
@@ -127,7 +128,7 @@ int main(int argc, char **argv)
     /* Test that adding an extra parameter causes the extra parameter
      * to be listed. */
     char *str = "test_value";
-    mapper_signal_set_property(sig, "test", 1, 's', str, 1);
+    mapper_signal_set_property(sig, "test", 1, MAPPER_STRING, str, 1);
     eprintf("Test 3:  adding extra string property 'test'... ");
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -140,7 +141,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 4:  retrieving property 'test'... ");
-    char type;
+    mapper_type type;
     const void *val;
     int length;
     if (mapper_signal_property(sig, "test", &length, &type, &val)) {
@@ -151,8 +152,8 @@ int main(int argc, char **argv)
     eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != 's') {
-        eprintf("ERROR (expected %c)\n", 's');
+    if (type != MAPPER_STRING) {
+        eprintf("ERROR (expected %c)\n", MAPPER_STRING);
         result = 1;
         goto cleanup;
     }
@@ -193,9 +194,9 @@ int main(int argc, char **argv)
 
     /* Test that adding two more properties works as expected. */
     int x = 123;
-    mapper_signal_set_property(sig, "x", 1, 'i', &x, 1);
+    mapper_signal_set_property(sig, "x", 1, MAPPER_INT32, &x, 1);
     int y = 234;
-    mapper_signal_set_property(sig, "y", 1, 'i', &y, 1);
+    mapper_signal_set_property(sig, "y", 1, MAPPER_INT32, &y, 1);
     eprintf("Test 6:  adding extra integer properties 'x' and 'y'... ");
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
@@ -217,8 +218,8 @@ int main(int argc, char **argv)
     eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != 'i') {
-        eprintf("ERROR (expected %c)\n", 'i');
+    if (type != MAPPER_INT32) {
+        eprintf("ERROR (expected %c)\n", MAPPER_INT32);
         result = 1;
         goto cleanup;
     }
@@ -266,8 +267,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != 'i') {
-        eprintf("ERROR (expected %c)\n", 'i');
+    if (type != MAPPER_INT32) {
+        eprintf("ERROR (expected %c)\n", MAPPER_INT32);
         result = 1;
         goto cleanup;
     }
@@ -304,8 +305,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != 's') {
-        eprintf("ERROR (expected %c)\n", 's');
+    if (type != MAPPER_STRING) {
+        eprintf("ERROR (expected %c)\n", MAPPER_STRING);
         result = 1;
         goto cleanup;
     }
@@ -342,8 +343,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != 'f') {
-        eprintf("ERROR (expected %c)\n", 'f');
+    if (type != MAPPER_FLOAT) {
+        eprintf("ERROR (expected %c)\n", MAPPER_FLOAT);
         result = 1;
         goto cleanup;
     }
@@ -393,7 +394,7 @@ int main(int argc, char **argv)
     /* Test adding and retrieving an integer vector property. */
     eprintf("Test 14: adding an extra integer vector property 'test'... ");
     int set_int[] = {1, 2, 3, 4, 5};
-    mapper_signal_set_property(sig, "test", 5, 'i', &set_int, 1);
+    mapper_signal_set_property(sig, "test", 5, MAPPER_INT32, &set_int, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -415,8 +416,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != 'i') {
-        eprintf("ERROR (expected %c)\n", 'i');
+    if (type != MAPPER_INT32) {
+        eprintf("ERROR (expected %c)\n", MAPPER_INT32);
         result = 1;
         goto cleanup;
     }
@@ -452,7 +453,7 @@ int main(int argc, char **argv)
     /* Test rewriting 'test' as float vector property. */
     eprintf("Test 16: rewriting 'test' as vector float property... ");
     float set_float[] = {10., 20., 30., 40., 50.};
-    mapper_signal_set_property(sig, "test", 5, 'f', &set_float, 1);
+    mapper_signal_set_property(sig, "test", 5, MAPPER_FLOAT, &set_float, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -474,8 +475,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != 'f') {
-        eprintf("ERROR (expected '%c')\n", 'f');
+    if (type != MAPPER_FLOAT) {
+        eprintf("ERROR (expected '%c')\n", MAPPER_FLOAT);
         result = 1;
         goto cleanup;
     }
@@ -511,7 +512,7 @@ int main(int argc, char **argv)
     /* Test rewriting property 'test' as string vector property. */
     eprintf("Test 18: rewriting 'test' as vector string property... ");
     char *set_string[] = {"foo", "bar"};
-    mapper_signal_set_property(sig, "test", 2, 's', &set_string, 1);
+    mapper_signal_set_property(sig, "test", 2, MAPPER_STRING, &set_string, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -533,8 +534,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != 's') {
-        eprintf("ERROR (expected '%c')\n", 's');
+    if (type != MAPPER_STRING) {
+        eprintf("ERROR (expected '%c')\n", MAPPER_STRING);
         result = 1;
         goto cleanup;
     }

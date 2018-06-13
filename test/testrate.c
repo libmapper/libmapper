@@ -39,8 +39,8 @@ int setup_source()
 
     float mn=0, mx=10;
 
-    sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'f', "Hz",
-                                              &mn, &mx);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 1, MAPPER_FLOAT,
+                                              "Hz", &mn, &mx);
 
     // This signal will be updated at 100 Hz
     mapper_signal_set_rate(sendsig, 100);
@@ -48,10 +48,10 @@ int setup_source()
     // Check by both methods that the property was set
     eprintf("Rate for 'outsig' is set to: %f\n", sendsig->rate);
 
-    const float *a;
-    char t;
-    int l;
-    if (mapper_signal_property(sendsig, "rate", &l, &t, (const void**)&a))
+    const float *val;
+    mapper_type type;
+    int len;
+    if (mapper_signal_property(sendsig, "rate", &len, &type, (const void**)&val))
     {
         eprintf("Couldn't find `rate' property.\n");
         mapper_device_free(source);
@@ -59,20 +59,20 @@ int setup_source()
         exit(1);
     }
 
-    if (l!=1) {
-        eprintf("Rate property was unexpected length %d\n", l);
+    if (len != 1) {
+        eprintf("Rate property was unexpected length %d\n", len);
         exit(1);
     }
-    if (t=='f')
-        eprintf("Rate for 'outsig' is set to: %f\n", a[0]);
+    if (type == MAPPER_FLOAT)
+        eprintf("Rate for 'outsig' is set to: %f\n", val[0]);
     else {
-        eprintf("Rate property was unexpected type `%c'\n", t);
+        eprintf("Rate property was unexpected type `%c'\n", type);
         mapper_device_free(source);
         mapper_device_free(destination);
         exit(1);
     }
 
-    if (sendsig->rate != a[0]) {
+    if (sendsig->rate != val[0]) {
         eprintf("Rate properties don't agree.\n");
         mapper_device_free(source);
         mapper_device_free(destination);
@@ -123,8 +123,9 @@ int setup_destination()
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0,
-                                             &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1,
+                                             MAPPER_FLOAT, 0, &mn, &mx,
+                                             insig_handler, 0);
 
     // This signal is expected to be updated at 100 Hz
     mapper_signal_set_rate(recvsig, 100);

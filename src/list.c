@@ -225,8 +225,8 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
     int i = 0, j, size = 0, num_args;
     while (types[i]) {
         switch (types[i]) {
-            case 'i':
-            case 'c': // store char as int to avoid alignment problems
+            case MAPPER_INT32:
+            case MAPPER_CHAR: // store char as int to avoid alignment problems
                 if (types[i+1] && isdigit(types[i+1])) {
                     num_args = atoi(types+i+1);
                     va_arg(aq, int*);
@@ -238,7 +238,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 }
                 size += num_args * sizeof(int);
                 break;
-            case 'h':
+            case MAPPER_INT64:
                 if (types[i+1] && isdigit(types[i+1])) {
                     num_args = atoi(types+i+1);
                     va_arg(aq, int64_t*);
@@ -250,7 +250,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 }
                 size += num_args * sizeof(int64_t);
                 break;
-            case 's':
+            case MAPPER_STRING:
                 if (types[i+1] && isdigit(types[i+1])) {
                     num_args = atoi(types+i+1);
                     const char **val = va_arg(aq, const char**);
@@ -263,7 +263,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                     size += strlen(val) + 1;
                 }
                 break;
-            case 'v':
+            case MAPPER_PTR:
                 // void ptr
                 if (types[i+1] && isdigit(types[i+1])) {
                     num_args = atoi(types+i+1);
@@ -293,8 +293,8 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
     i = 0;
     while (types[i]) {
         switch (types[i]) {
-            case 'i':
-            case 'c': // store char as int to avoid alignment problems
+            case MAPPER_INT32:
+            case MAPPER_CHAR: // store char as int to avoid alignment problems
                 if (types[i+1] && isdigit(types[i+1])) {
                     // is array
                     num_args = atoi(types+i+1);
@@ -309,7 +309,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 }
                 offset += sizeof(int) * num_args;
                 break;
-            case 'h': {
+            case MAPPER_INT64: {
                 if (types[i+1] && isdigit(types[i+1])) {
                     // is array
                     num_args = atoi(types+i+1);
@@ -325,7 +325,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 offset += sizeof(int64_t) * num_args;
                 break;
             }
-            case 's':
+            case MAPPER_STRING:
                 if (types[i+1] && isdigit(types[i+1])) {
                     // is array
                     num_args = atoi(types+i+1);
@@ -342,7 +342,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                     offset += strlen(val) + 1;
                 }
                 break;
-            case 'v': {
+            case MAPPER_PTR: {
                 if (types[i+1] && isdigit(types[i+1])) {
                     // is array
                     num_args = atoi(types+i+1);

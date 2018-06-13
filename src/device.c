@@ -22,50 +22,52 @@ extern const char* network_message_strings[NUM_MSG_STRINGS];
 
 void init_device_prop_table(mapper_device dev)
 {
-    dev->props = mapper_table_new();
+    dev->object.props = mapper_table_new();
     if (!dev->local)
-        dev->staged_props = mapper_table_new();
+        dev->object.staged_props = mapper_table_new();
     int flags = dev->local ? NON_MODIFIABLE : MODIFIABLE;
 
     // these properties need to be added in alphabetical order
-    mapper_table_link_value(dev->props, AT_ID, 1, 'h', &dev->id, flags);
+    mapper_table_link_value(dev->object.props, AT_ID, 1, MAPPER_INT64,
+                            &dev->object.id, flags);
 
-    mapper_table_link_value(dev->props, AT_NAME, 1, 's', &dev->name,
-                            flags | INDIRECT | LOCAL_ACCESS_ONLY);
+    mapper_table_link_value(dev->object.props, AT_NAME, 1, MAPPER_STRING,
+                            &dev->name, flags | INDIRECT | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(dev->props, AT_NUM_INCOMING_MAPS, 1, 'i',
-                            &dev->num_incoming_maps, flags);
+    mapper_table_link_value(dev->object.props, AT_NUM_INCOMING_MAPS, 1,
+                            MAPPER_INT32, &dev->num_incoming_maps, flags);
 
-    mapper_table_link_value(dev->props, AT_NUM_INPUTS, 1, 'i',
+    mapper_table_link_value(dev->object.props, AT_NUM_INPUTS, 1, MAPPER_INT32,
                             &dev->num_inputs, flags);
 
-    mapper_table_link_value(dev->props, AT_NUM_LINKS, 1, 'i',
+    mapper_table_link_value(dev->object.props, AT_NUM_LINKS, 1, MAPPER_INT32,
                             &dev->num_links, flags);
 
-    mapper_table_link_value(dev->props, AT_NUM_OUTGOING_MAPS, 1, 'i',
-                            &dev->num_outgoing_maps, flags);
+    mapper_table_link_value(dev->object.props, AT_NUM_OUTGOING_MAPS, 1,
+                            MAPPER_INT32, &dev->num_outgoing_maps, flags);
 
-    mapper_table_link_value(dev->props, AT_NUM_OUTPUTS, 1, 'i',
+    mapper_table_link_value(dev->object.props, AT_NUM_OUTPUTS, 1, MAPPER_INT32,
                             &dev->num_outputs, flags);
 
-    mapper_table_link_value(dev->props, AT_STATUS, 1, 'i', &dev->status,
-                            flags | LOCAL_ACCESS_ONLY);
+    mapper_table_link_value(dev->object.props, AT_STATUS, 1, MAPPER_INT32,
+                            &dev->status, flags | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(dev->props, AT_SYNCED, 1, 't', &dev->synced,
-                            flags | LOCAL_ACCESS_ONLY);
+    mapper_table_link_value(dev->object.props, AT_SYNCED, 1, MAPPER_TIMETAG,
+                            &dev->synced, flags | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(dev->props, AT_USER_DATA, 1, 'v', &dev->user_data,
+    mapper_table_link_value(dev->object.props, AT_USER_DATA, 1, MAPPER_PTR,
+                            &dev->object.user_data,
                             LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(dev->props, AT_VERSION, 1, 'i', &dev->version,
-                            flags);
+    mapper_table_link_value(dev->object.props, AT_VERSION, 1, MAPPER_INT32,
+                            &dev->object.version, flags);
 
     if (dev->local) {
-        mapper_table_set_record(dev->props, AT_LIB_VERSION, NULL, 1, 's',
-                                PACKAGE_VERSION, NON_MODIFIABLE);
+        mapper_table_set_record(dev->object.props, AT_LIB_VERSION, NULL, 1,
+                                MAPPER_STRING, PACKAGE_VERSION, NON_MODIFIABLE);
     }
-    mapper_table_set_record(dev->props, AT_IS_LOCAL, NULL, 1, 'b', &dev->local,
-                            LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+    mapper_table_set_record(dev->object.props, AT_IS_LOCAL, NULL, 1, MAPPER_BOOL,
+                            &dev->local, LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
 }
 
 /*! Allocate and initialize a mapper device. This function is called to create
@@ -233,7 +235,7 @@ void mapper_device_free(mapper_device dev)
 
 void mapper_device_clear_staged_properties(mapper_device dev) {
     if (dev)
-        mapper_table_clear(dev->staged_props);
+        mapper_table_clear(dev->object.staged_props);
 }
 
 void mapper_device_push(mapper_device dev)
@@ -243,31 +245,31 @@ void mapper_device_push(mapper_device dev)
     mapper_network net = dev->database->network;
 
     if (dev->local) {
-//        if (!dev->props->dirty)
+//        if (!dev->object.props->dirty)
 //            return;
         mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
         mapper_device_send_state(dev, MSG_DEVICE);
     }
     else {
-//        if (!dev->staged_props->dirty)
+//        if (!dev->object.staged_props->dirty)
 //            return;
         mapper_network_set_dest_bus(net);
         mapper_device_send_state(dev, MSG_DEVICE_MODIFY);
 
         // clear the staged properties
-        mapper_table_clear(dev->staged_props);
+        mapper_table_clear(dev->object.staged_props);
     }
 }
 
 void mapper_device_set_user_data(mapper_device dev, const void *user_data)
 {
     if (dev)
-        dev->user_data = (void*)user_data;
+        dev->object.user_data = (void*)user_data;
 }
 
 void *mapper_device_user_data(mapper_device dev)
 {
-    return dev ? dev->user_data : 0;
+    return dev ? dev->object.user_data : 0;
 }
 
 mapper_network mapper_device_network(mapper_device dev)
@@ -285,10 +287,10 @@ void mapper_device_registered(mapper_device dev)
             for (i = 0; i < (*sig)->local->id_map_length; i++) {
                 if ((*sig)->local->id_maps[i].map &&
                     !((*sig)->local->id_maps[i].map->global >> 32)) {
-                    (*sig)->local->id_maps[i].map->global |= dev->id;
+                    (*sig)->local->id_maps[i].map->global |= dev->object.id;
                 }
             }
-            (*sig)->id |= dev->id;
+            (*sig)->object.id |= dev->object.id;
         }
         sig = mapper_signal_query_next(sig);
     }
@@ -299,11 +301,12 @@ void mapper_device_registered(mapper_device dev)
 
 static void mapper_device_increment_version(mapper_device dev)
 {
-    ++dev->version;
-    dev->props->dirty = 1;
+    ++dev->object.version;
+    dev->object.props->dirty = 1;
 }
 
-static int check_types(const char *types, int len, char type, int vector_len)
+static int check_types(const mapper_type *types, int len, mapper_type type,
+                       int vector_len)
 {
     int i;
     if (len < vector_len || len % vector_len != 0) {
@@ -313,7 +316,7 @@ static int check_types(const char *types, int len, char type, int vector_len)
         return 0;
     }
     for (i = 0; i < len; i++) {
-        if (types[i] != type && types[i] != 'N') {
+        if (types[i] != type && types[i] != MAPPER_NULL) {
 #ifdef DEBUG
             printf("error: unexpected typestring (expected %c%i).\n", type, len);
 #endif
@@ -326,8 +329,9 @@ static int check_types(const char *types, int len, char type, int vector_len)
 /* Notes:
  * - Incoming signal values may be scalars or vectors, but much match the
  *   length of the target signal or mapping slot.
- * - Vectors are of homogeneous type ('i', 'f' or 'd') however individual
- *   elements may have no value (type 'N')
+ * - Vectors are of homogeneous type (MAPPER_INT32, MAPPER_FLOAT or
+ *   MAPPER_DOUBLE) however individual elements may have no value (type
+ *   MAPPER_NULL)
  * - A vector consisting completely of nulls indicates a signal instance release
  *   TODO: use more specific message for release?
  * - Updates to a specific signal instance are indicated using the label
@@ -373,9 +377,9 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     // We need to consider that there may be properties appended to the msg
     // check length and find properties if any
     int value_len = 0;
-    while (value_len < argc && types[value_len] != 's' && types[value_len] != 'S') {
+    while (value_len < argc && types[value_len] != MAPPER_STRING) {
         // count nulls here also to save time
-        if (types[i] == 'N')
+        if (types[i] == MAPPER_NULL)
             ++nulls;
         ++value_len;
     }
@@ -383,7 +387,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     int argnum = value_len;
     while (argnum < argc) {
         // Parse any attached properties (instance ids, slot number)
-        if (types[argnum] != 's' && types[argnum] != 'S') {
+        if (types[argnum] != MAPPER_STRING) {
 #ifdef DEBUG
             printf("error in handler_signal: unexpected argument type.\n");
 #endif
@@ -392,7 +396,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
         if (strcmp(&argv[argnum]->s,
                    mapper_property_protocol_string(AT_INSTANCE)) == 0
             && argc >= argnum + 2) {
-            if (types[argnum+1] != 'h') {
+            if (types[argnum+1] != MAPPER_INT64) {
 #ifdef DEBUG
                 printf("error in handler_signal: bad arguments "
                        "for 'instance' property.\n");
@@ -405,7 +409,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
         else if (strcmp(&argv[argnum]->s,
                         mapper_property_protocol_string(AT_SLOT)) == 0
                  && argc >= argnum + 2) {
-            if (types[argnum+1] != 'i') {
+            if (types[argnum+1] != MAPPER_INT32) {
 #ifdef DEBUG
                 printf("error in handler_signal: bad arguments "
                        "for 'slot' property.\n");
@@ -539,7 +543,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
             for (j = 0; j < slot->signal->length; j++, k++) {
-                vals += (types[k] != 'N');
+                vals += (types[k] != MAPPER_NULL);
             }
             /* partial vector updates not allowed in convergent mappings
              * since slot value mirrors remote signal value. */
@@ -619,7 +623,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
             memcpy(mapper_history_tt_ptr(slot_loc->history[id]), &tt,
                    sizeof(mapper_timetag_t));
             if (slot->causes_update) {
-                char typestring[map->destination.signal->length];
+                mapper_type typestring[map->destination.signal->length];
                 mapper_history sources[map->num_sources];
                 for (j = 0; j < map->num_sources; j++)
                     sources[j] = &map->sources[j]->local->history[id];
@@ -637,7 +641,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                 void *result = mapper_history_value_ptr(map->destination.local->history[id]);
                 vals = 0;
                 for (j = 0; j < map->destination.signal->length; j++) {
-                    if (typestring[j] == 'N')
+                    if (typestring[j] == MAPPER_NULL)
                         continue;
                     memcpy(si->value + j * size, result + j * size, size);
                     si->has_value_flags[j / 8] |= 1 << (j % 8);
@@ -708,7 +712,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
             for (j = 0; j < sig->length; j++, k++) {
-                if (types[k] == 'N')
+                if (types[k] == MAPPER_NULL)
                     continue;
                 memcpy(si->value + j * size, argv[k], size);
                 si->has_value_flags[j / 8] |= 1 << (j % 8);
@@ -802,7 +806,7 @@ static int handler_query(const char *path, const char *types, lo_arg **argv,
     mapper_signal sig = (mapper_signal)user_data;
     mapper_device dev = sig->device;
     int length = sig->length;
-    char type = sig->type;
+    mapper_type type = sig->type;
 
     if (!dev) {
 #ifdef DEBUG
@@ -813,7 +817,7 @@ static int handler_query(const char *path, const char *types, lo_arg **argv,
 
     if (!argc)
         return 0;
-    else if (types[0] != 's' && types[0] != 'S')
+    else if (types[0] != MAPPER_STRING)
         return 0;
 
     int i, j, sent = 0;
@@ -828,9 +832,9 @@ static int handler_query(const char *path, const char *types, lo_arg **argv,
 
     // vector length and data type may also be provided
     if (argc >= 3) {
-        if (types[1] == 'i')
+        if (types[1] == MAPPER_INT32)
             length = argv[1]->i32;
-        if (types[2] == 'c')
+        if (types[2] == MAPPER_CHAR)
             type = argv[2]->c;
     }
 
@@ -874,7 +878,7 @@ static mapper_id get_unused_signal_id(mapper_device dev)
         // check if input signal exists with this id
         mapper_signal *sig = mapper_device_signals(dev, MAPPER_DIR_ANY);
         while (sig) {
-            if ((*sig)->id == id) {
+            if ((*sig)->object.id == id) {
                 done = 0;
                 mapper_signal_query_done(sig);
                 break;
@@ -888,7 +892,7 @@ static mapper_id get_unused_signal_id(mapper_device dev)
 // Add a signal to a mapper device.
 mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
                                        int num_instances, const char *name,
-                                       int length, char type, const char *unit,
+                                       int length, mapper_type type, const char *unit,
                                        const void *minimum, const void *maximum,
                                        mapper_signal_update_handler *handler,
                                        const void *user_data)
@@ -912,7 +916,7 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
     sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
 
     sig->device = dev;
-    sig->id = get_unused_signal_id(dev);
+    sig->object.id = get_unused_signal_id(dev);
     mapper_signal_init(sig, dir, num_instances, name, length, type, unit,
                        minimum, maximum, handler, user_data);
 
@@ -938,7 +942,7 @@ mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
 }
 
 mapper_signal mapper_device_add_input_signal(mapper_device dev, const char *name,
-                                             int length, char type, const char *unit,
+                                             int length, mapper_type type, const char *unit,
                                              const void *minimum, const void *maximum,
                                              mapper_signal_update_handler *handler,
                                              const void *user_data)
@@ -949,7 +953,7 @@ mapper_signal mapper_device_add_input_signal(mapper_device dev, const char *name
 }
 
 mapper_signal mapper_device_add_output_signal(mapper_device dev, const char *name,
-                                              int length, char type, const char *unit,
+                                              int length, mapper_type type, const char *unit,
                                               const void *minimum, const void *maximum)
 {
     return mapper_device_add_signal(dev, MAPPER_DIR_OUTGOING, 1, name, length,
@@ -1079,7 +1083,7 @@ static int cmp_query_device_signals(const void *context_data, mapper_signal sig)
 {
     mapper_id dev_id = *(mapper_id*)context_data;
     int dir = *(int*)(context_data + sizeof(mapper_id));
-    return ((dir & sig->direction) && (dev_id == sig->device->id));
+    return ((dir & sig->direction) && (dev_id == sig->device->object.id));
 }
 
 mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir)
@@ -1088,7 +1092,8 @@ mapper_signal *mapper_device_signals(mapper_device dev, mapper_direction dir)
         return 0;
     return ((mapper_signal *)
             mapper_list_new_query(dev->database->signals,
-                                  cmp_query_device_signals, "hi", dev->id, dir));
+                                  cmp_query_device_signals, "hi",
+                                  dev->object.id, dir));
 }
 
 mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id)
@@ -1100,7 +1105,7 @@ mapper_signal mapper_device_signal_by_id(mapper_device dev, mapper_id id)
         return 0;
 
     while (sig) {
-        if ((sig->device == dev) && (sig->id == id))
+        if ((sig->device == dev) && (sig->object.id == id))
             return sig;
         sig = mapper_list_next(sig);
     }
@@ -1137,11 +1142,11 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
     mapper_id dev_id = *(mapper_id*)context_data;
     mapper_direction dir = *(int*)(context_data + sizeof(mapper_id));
     if (dir == MAPPER_DIR_BOTH) {
-        if (map->destination.signal->device->id != dev_id)
+        if (map->destination.signal->device->object.id != dev_id)
             return 0;
         int i;
         for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i]->signal->device->id != dev_id)
+            if (map->sources[i]->signal->device->object.id != dev_id)
                 return 0;
         }
         return 1;
@@ -1149,12 +1154,12 @@ static int cmp_query_device_maps(const void *context_data, mapper_map map)
     if (dir & MAPPER_DIR_OUTGOING) {
         int i;
         for (i = 0; i < map->num_sources; i++) {
-            if (map->sources[i]->signal->device->id == dev_id)
+            if (map->sources[i]->signal->device->object.id == dev_id)
                 return 1;
         }
     }
     if (dir & MAPPER_DIR_INCOMING) {
-        if (map->destination.signal->device->id == dev_id)
+        if (map->destination.signal->device->object.id == dev_id)
             return 1;
     }
     return 0;
@@ -1166,14 +1171,14 @@ mapper_map *mapper_device_maps(mapper_device dev, mapper_direction dir)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(dev->database->maps, cmp_query_device_maps,
-                                  "hi", dev->id, dir));
+                                  "hi", dev->object.id, dir));
 }
 
 static int cmp_query_device_links(const void *context_data, mapper_link link)
 {
     mapper_id dev_id = *(mapper_id*)context_data;
     mapper_direction dir = *(int*)(context_data + sizeof(mapper_id));
-    if (link->devices[0]->id == dev_id) {
+    if (link->devices[0]->object.id == dev_id) {
         switch (dir) {
             case MAPPER_DIR_BOTH:
                 return link->num_maps[0] && link->num_maps[1];
@@ -1185,7 +1190,7 @@ static int cmp_query_device_links(const void *context_data, mapper_link link)
                 return 1;
         }
     }
-    else if (link->devices[1]->id == dev_id) {
+    else if (link->devices[1]->object.id == dev_id) {
         switch (dir) {
             case MAPPER_DIR_BOTH:
                 return link->num_maps[0] && link->num_maps[1];
@@ -1207,7 +1212,7 @@ int mapper_device_num_links(mapper_device dev, mapper_direction dir)
     mapper_link *links = ((mapper_link *)
                           mapper_list_new_query(dev->database->links,
                                                 cmp_query_device_links,
-                                                "hi", dev->id, dir));
+                                                "hi", dev->object.id, dir));
     int count = 0;
     while (links && *links) {
         ++count;
@@ -1222,7 +1227,7 @@ mapper_link *mapper_device_links(mapper_device dev, mapper_direction dir)
         return 0;
     return ((mapper_link *)
             mapper_list_new_query(dev->database->links, cmp_query_device_links,
-                                  "hi", dev->id, dir));
+                                  "hi", dev->object.id, dir));
 }
 
 mapper_link mapper_device_link_by_id(mapper_device dev, mapper_id id)
@@ -1232,7 +1237,7 @@ mapper_link mapper_device_link_by_id(mapper_device dev, mapper_id id)
     mapper_link link = dev->database->links;
     while (link) {
         if (((link->devices[0] == dev) || (link->devices[1] == dev))
-             && (link->id == id))
+             && (link->object.id == id))
             return link;
         link = mapper_list_next(link);
     }
@@ -1320,7 +1325,7 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         device_count += status[2] + status[3];
     }
 
-    if (dev->props->dirty && mapper_device_ready(dev)
+    if (dev->object.props->dirty && mapper_device_ready(dev)
         && dev->local->subscribers) {
         // inform device subscribers of change props
         mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
@@ -1544,16 +1549,16 @@ void mapper_device_start_servers(mapper_device dev, int starting_port)
     lo_server_enable_queue(dev->local->tcp_server, 0, 1);
 
     int portnum = lo_server_get_port(dev->local->udp_server);
-    mapper_table_set_record(dev->props, AT_PORT, NULL, 1, 'i', &portnum,
-                            NON_MODIFIABLE);
+    mapper_table_set_record(dev->object.props, AT_PORT, NULL, 1, MAPPER_INT32,
+                            &portnum, NON_MODIFIABLE);
 
     trace("bound to UDP port %i\n", portnum);
     trace("bound to TCP port %i\n", lo_server_get_port(dev->local->tcp_server));
 
     char *url = lo_server_get_url(dev->local->udp_server);
     char *host = lo_url_get_hostname(url);
-    mapper_table_set_record(dev->props, AT_HOST, NULL, 1, 's', host,
-                            NON_MODIFIABLE);
+    mapper_table_set_record(dev->object.props, AT_HOST, NULL, 1, MAPPER_STRING,
+                            host, NON_MODIFIABLE);
     free(host);
     free(url);
     trace_dev(dev, "bound to port %i\n", portnum);
@@ -1597,23 +1602,24 @@ const char *mapper_device_name(mapper_device dev)
 
 const char *mapper_device_description(mapper_device dev)
 {
-    mapper_table_record_t *rec = mapper_table_record(dev->props, AT_DESCRIPTION, 0);
-    if (rec && rec->type == 's' && rec->length == 1)
+    mapper_table_record_t *rec = mapper_table_record(dev->object.props,
+                                                     AT_DESCRIPTION, 0);
+    if (rec && rec->type == MAPPER_STRING && rec->length == 1)
         return (const char*)rec->value;
     return 0;
 }
 
 const char *mapper_device_host(mapper_device dev)
 {
-    mapper_table_record_t *rec = mapper_table_record(dev->props, AT_HOST, 0);
-    if (rec && rec->type == 's' && rec->length == 1)
+    mapper_table_record_t *rec = mapper_table_record(dev->object.props, AT_HOST, 0);
+    if (rec && rec->type == MAPPER_STRING && rec->length == 1)
         return (const char*)rec->value;
     return 0;
 }
 
 mapper_id mapper_device_id(mapper_device dev)
 {
-    return dev->id;
+    return dev->object.id;
 }
 
 int mapper_device_is_local(mapper_device dev)
@@ -1623,8 +1629,8 @@ int mapper_device_is_local(mapper_device dev)
 
 unsigned int mapper_device_port(mapper_device dev)
 {
-    mapper_table_record_t *rec = mapper_table_record(dev->props, AT_PORT, 0);
-    if (rec && rec->type == 'i' && rec->length == 1)
+    mapper_table_record_t *rec = mapper_table_record(dev->object.props, AT_PORT, 0);
+    if (rec && rec->type == MAPPER_INT32 && rec->length == 1)
         return *(int*)rec->value;
     return 0;
 }
@@ -1651,16 +1657,16 @@ void mapper_device_synced(mapper_device dev, mapper_timetag_t *tt)
 
 int mapper_device_version(mapper_device dev)
 {
-    return dev ? dev->version : 0;
+    return dev ? dev->object.version : 0;
 }
 
 int mapper_device_set_property(mapper_device dev, const char *name, int length,
-                               char type, const void *value, int publish)
+                               mapper_type type, const void *value, int publish)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
-        if (dev->user_data != (void*)value) {
-            dev->user_data = (void*)value;
+        if (dev->object.user_data != (void*)value) {
+            dev->object.user_data = (void*)value;
             return 1;
         }
     }
@@ -1670,7 +1676,9 @@ int mapper_device_set_property(mapper_device dev, const char *name, int length,
         int flags = dev->local ? LOCAL_MODIFY : REMOTE_MODIFY;
         if (!publish)
             flags |= LOCAL_ACCESS_ONLY;
-        return mapper_table_set_record(dev->local ? dev->props : dev->staged_props,
+        return mapper_table_set_record(dev->local
+                                       ? dev->object.props
+                                       : dev->object.staged_props,
                                        prop, name, length, type, value, flags);
     }
     return 0;
@@ -1682,15 +1690,16 @@ int mapper_device_remove_property(mapper_device dev, const char *name)
         return 0;
     mapper_property_t prop = mapper_property_from_string(name);
     if (prop == AT_USER_DATA) {
-        if (dev->user_data) {
-            dev->user_data = 0;
+        if (dev->object.user_data) {
+            dev->object.user_data = 0;
             return 1;
         }
     }
     else if (dev->local)
-        return mapper_table_remove_record(dev->props, prop, name, LOCAL_MODIFY);
+        return mapper_table_remove_record(dev->object.props, prop, name,
+                                          LOCAL_MODIFY);
     else if (prop == AT_EXTRA)
-        return mapper_table_set_record(dev->staged_props, prop | PROPERTY_REMOVE,
+        return mapper_table_set_record(dev->object.staged_props, prop | PROPERTY_REMOVE,
                                        name, 0, 0, 0, REMOTE_MODIFY);
     return 0;
 }
@@ -1699,26 +1708,26 @@ void mapper_device_set_description(mapper_device dev, const char *description)
 {
     if (!dev || ! dev->local)
         return;
-    mapper_table_set_record(dev->props, AT_DESCRIPTION, NULL, 1, 's',
-                            description, LOCAL_MODIFY);
+    mapper_table_set_record(dev->object.props, AT_DESCRIPTION, NULL, 1,
+                            MAPPER_STRING, description, LOCAL_MODIFY);
 }
 
 int mapper_device_num_properties(mapper_device dev) {
-    return mapper_table_num_records(dev->props);
+    return mapper_table_num_records(dev->object.props);
 }
 
 int mapper_device_property(mapper_device dev, const char *name,
                            int *length, char *type, const void **value)
 {
-    return mapper_table_property(dev->props, name, length, type, value);
+    return mapper_table_property(dev->object.props, name, length, type, value);
 }
 
 int mapper_device_property_index(mapper_device dev, unsigned int index,
                                  const char **name, int *length, char *type,
                                  const void **value)
 {
-    return mapper_table_property_index(dev->props, index, name, length, type,
-                                       value);
+    return mapper_table_property_index(dev->object.props, index, name, length,
+                                       type, value);
 }
 
 lo_server mapper_device_lo_server_udp(mapper_device dev)
@@ -1736,7 +1745,7 @@ mapper_id mapper_device_generate_unique_id(mapper_device dev) {
         return 0;
     mapper_id id = ++dev->database->resource_counter;
     if (dev->local && dev->local->registered)
-        id |= dev->id;
+        id |= dev->object.id;
     return id;
 }
 
@@ -1754,7 +1763,9 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd)
     lo_message_add_string(msg, mapper_device_name(dev));
 
     /* properties */
-    mapper_table_add_to_message(dev->local ? dev->props : 0, dev->staged_props,
+    mapper_table_add_to_message(dev->local
+                                ? dev->object.props
+                                : 0, dev->object.staged_props,
                                 msg);
 
     if (cmd == MSG_DEVICE_MODIFY) {
@@ -1766,7 +1777,7 @@ void mapper_device_send_state(mapper_device dev, network_message_t cmd)
     else
         mapper_network_add_message(dev->database->network, 0, cmd, msg);
 
-    dev->props->dirty = 0;
+    dev->object.props->dirty = 0;
 }
 
 void mapper_device_set_link_callback(mapper_device dev,
@@ -1836,7 +1847,7 @@ int mapper_device_set_from_message(mapper_device dev, mapper_message msg)
 {
     if (!msg)
         return 0;
-    return mapper_table_set_from_message(dev->props, msg, REMOTE_MODIFY);
+    return mapper_table_set_from_message(dev->object.props, msg, REMOTE_MODIFY);
 }
 
 static int mapper_device_send_signals(mapper_device dev, mapper_direction dir,

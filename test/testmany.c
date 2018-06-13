@@ -54,11 +54,11 @@ int setup_devices() {
         // give each device 10 inputs and 10 outputs
 		for (int j = 0; j < 10; j++) {
 			sprintf(str, "in%d", j);
-			mapper_device_add_input_signal(device_list[i], str, 1, 'f', 0,
-                                           &mn, &mx, 0, 0);
+			mapper_device_add_input_signal(device_list[i], str, 1, MAPPER_FLOAT,
+                                           0, &mn, &mx, 0, 0);
             sprintf(str, "out%d", j);
-            mapper_device_add_output_signal(device_list[i], str, 1, 'f', 0,
-                                            &mn, &mx);
+            mapper_device_add_output_signal(device_list[i], str, 1, MAPPER_FLOAT,
+                                            0, &mn, &mx);
 		}
 	}
     return 0;

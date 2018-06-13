@@ -12,6 +12,26 @@ extern "C" {
 
 #define MAPPER_NOW ((mapper_timetag_t){0L,1L})
 
+typedef enum {
+    MAPPER_INT32    = 'i',
+    MAPPER_INT64    = 'h',
+    MAPPER_FLOAT    = 'f',
+    MAPPER_DOUBLE   = 'd',
+    MAPPER_STRING   = 's',
+    MAPPER_BOOL     = 'b',
+    MAPPER_TIMETAG  = 't',
+    MAPPER_CHAR     = 'c',
+    MAPPER_PTR      = 'v',
+    MAPPER_DEVICE   = 'D',
+    MAPPER_SIGNAL   = 'Z',
+    MAPPER_LINK     = 'L',
+    MAPPER_MAP      = 'M',
+    MAPPER_SLOT     = 'm',
+    MAPPER_NULL     = 'N'
+} mapper_data_type;
+
+typedef char mapper_type;
+
 /*! Bit flags for coordinating metadata subscriptions. */
 typedef enum {
     MAPPER_OBJ_NONE           = 0x00, //!< No objects.

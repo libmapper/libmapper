@@ -6,6 +6,7 @@ import mapper.device.*;
 import mapper.Property;
 import mapper.signal.UpdateListener;
 import mapper.signal.InstanceUpdateListener;
+import mapper.Type;
 import mapper.Value;
 import mapper.TimeTag;
 import java.util.Iterator;
@@ -37,23 +38,23 @@ public class Device
                                           Value minimum, Value maximum,
                                           mapper.signal.UpdateListener l);
     public Signal addSignal(Direction dir, int numInstances, String name,
-                            int length, char type, String unit,
+                            int length, Type type, String unit,
                             Value minimum, Value maximum,
                             mapper.signal.UpdateListener l) {
-        return mapperAddSignal(dir.value(), numInstances, name, length, type,
-                               unit, minimum, maximum, l);
+        return mapperAddSignal(dir.value(), numInstances, name, length,
+                               (char)type.value(), unit, minimum, maximum, l);
     }
-    public Signal addInputSignal(String name, int length, char type,
+    public Signal addInputSignal(String name, int length, Type type,
                                  String unit, Value minimum, Value maximum,
                                  mapper.signal.UpdateListener l) {
         return mapperAddSignal(Direction.INCOMING.value(), 1, name, length,
-                               type, unit, minimum, maximum, l);
+                               (char)type.value(), unit, minimum, maximum, l);
     }
 
-    public Signal addOutputSignal(String name, int length, char type,
+    public Signal addOutputSignal(String name, int length, Type type,
                                   String unit, Value minimum, Value maximum) {
         return mapperAddSignal(Direction.OUTGOING.value(), 1, name, length,
-                               type, unit, minimum, maximum, null);
+                               (char)type.value(), unit, minimum, maximum, null);
     }
 
     /* remove signals */
@@ -108,7 +109,8 @@ public class Device
     public native String name();
 
     /* property: num_signals */
-    public native int numSignals(int direction);
+    private native int numSignals(int dir);
+    public int numSignals(Direction dir) { return numSignals(dir.value()); }
     public int numSignals() { return numSignals(0); }
     public int numInputs() {
         return numSignals(Direction.INCOMING.value());
@@ -118,11 +120,13 @@ public class Device
     }
 
     /* property: num_maps */
-    public native int numMaps(int direction);
+    private native int numMaps(int dir);
+    public int numMaps(Direction dir) { return numMaps(dir.value()); }
     public int numMaps() { return numMaps(0); }
 
     /* property: num_links */
-    public native int numLinks(int direction);
+    private native int numLinks(int dire);
+    public int numLinks(Direction dir) { return numLinks(dir.value()); }
     public int numLinks() { return numLinks(0); }
 
     /* property: ordinal */
@@ -165,7 +169,10 @@ public class Device
     public native Signal signal(long id);
     public native Signal signal(String name);
 
-    public native mapper.signal.Query signals(int direction);
+    private native mapper.signal.Query signals(int dir);
+    public mapper.signal.Query signals(Direction dir) {
+        return signals(dir.value());
+    }
     public mapper.signal.Query signals() { return signals(0); }
     public mapper.signal.Query inputs() {
         return signals(Direction.INCOMING.value());
@@ -175,18 +182,12 @@ public class Device
     }
 
     /* retrieve associated maps */
-    private native long mapperDeviceMaps(long dev, int direction);
-    public mapper.map.Query maps(Direction direction) {
-        return new mapper.map.Query(mapperDeviceMaps(_dev, direction.value()));
+    private native long mapperDeviceMaps(long dev, int dir);
+    public mapper.map.Query maps(Direction dir) {
+        return new mapper.map.Query(mapperDeviceMaps(_dev, dir.value()));
     }
     public mapper.map.Query maps() {
         return maps(Direction.ANY);
-    }
-    public mapper.map.Query incomingMaps() {
-        return maps(Direction.INCOMING);
-    }
-    public mapper.map.Query outgoingMaps() {
-        return maps(Direction.OUTGOING);
     }
 
     // Note: this is _not_ guaranteed to run, the user should still

@@ -22,20 +22,20 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
         printf("--> destination got %s", mapper_signal_name(sig));
         int len = mapper_signal_length(sig);
         switch (mapper_signal_type(sig)) {
-            case 'i': {
+            case MAPPER_INT32: {
                 int *v = (int*)value;
                 for (int i = 0; i < len; i++) {
                     printf(" %d", v[i]);
                 }
                 break;
             }
-            case 'f': {
+            case MAPPER_FLOAT: {
                 float *v = (float*)value;
                 for (int i = 0; i < len; i++) {
                     printf(" %f", v[i]);
                 }
             }
-            case 'd': {
+            case MAPPER_DOUBLE: {
                 double *v = (double*)value;
                 for (int i = 0; i < len; i++) {
                     printf(" %f", v[i]);
@@ -59,16 +59,16 @@ int main(int argc, char ** argv)
     // make a copy of the device to check reference counting
     mapper::Device devcopy(dev);
 
-    mapper::Signal sig = dev.add_input_signal("in1", 1, 'f', "meters", 0, 0,
-                                              insig_handler);
+    mapper::Signal sig = dev.add_input_signal("in1", 1, MAPPER_FLOAT, "meters",
+                                              0, 0, insig_handler);
     dev.remove_signal(sig);
-    dev.add_input_signal("in2", 2, 'i', 0, 0, 0, insig_handler);
-    dev.add_input_signal("in3", 2, 'i', 0, 0, 0, insig_handler);
-    dev.add_input_signal("in4", 2, 'i', 0, 0, 0, insig_handler);
+    dev.add_input_signal("in2", 2, MAPPER_INT32, 0, 0, 0, insig_handler);
+    dev.add_input_signal("in3", 2, MAPPER_INT32, 0, 0, 0, insig_handler);
+    dev.add_input_signal("in4", 2, MAPPER_INT32, 0, 0, 0, insig_handler);
 
-    sig = dev.add_output_signal("out1", 1, 'f', "na");
+    sig = dev.add_output_signal("out1", 1, MAPPER_FLOAT, "na");
     dev.remove_signal(sig);
-    sig = dev.add_output_signal("out2", 3, 'd', "meters");
+    sig = dev.add_output_signal("out2", 3, MAPPER_DOUBLE, "meters");
 
     while (!dev.ready()) {
         dev.poll(100);

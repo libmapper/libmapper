@@ -7,12 +7,12 @@ def h(sig, id, f, tt):
     print('     handler got', sig.name, '=', f, 'at time', tt.get_double())
 
 src = mapper.device("src")
-outsig1 = src.add_output_signal("outsig1", 1, 'i', None, 0, 1000)
-outsig2 = src.add_output_signal("outsig2", 1, 'i', None, 0, 1000)
+outsig1 = src.add_output_signal("outsig1", 1, mapper.INT32, None, 0, 1000)
+outsig2 = src.add_output_signal("outsig2", 1, mapper.INT32, None, 0, 1000)
 
 dest = mapper.device("dest")
-insig1 = dest.add_input_signal("insig1", 1, 'f', None, 0, 1, h)
-insig2 = dest.add_input_signal("insig2", 1, 'f', None, 0, 1, h)
+insig1 = dest.add_input_signal("insig1", 1, mapper.FLOAT, None, 0, 1, h)
+insig2 = dest.add_input_signal("insig2", 1, mapper.FLOAT, None, 0, 1, h)
 
 while not src.ready or not dest.ready:
     src.poll()

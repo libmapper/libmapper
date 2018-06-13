@@ -272,7 +272,7 @@ typedef struct {
     void *value;
     int length;
     char free_value;
-    char type;
+    mapper_type type;
 } property_value_t, *property_value;
 
 typedef struct {
@@ -291,7 +291,7 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
     int i;
 
     switch (prop->type) {
-        case 's':
+        case MAPPER_STRING:
         {
             // only strings (bytes in py3) are valid
             if (prop->length > 1) {
@@ -324,7 +324,7 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
             }
             break;
         }
-        case 'c':
+        case MAPPER_CHAR:
         {
             // only strings are valid
             char *char_to = (char*)prop->value;
@@ -359,7 +359,7 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
             }
             break;
         }
-        case 'i':
+        case MAPPER_INT32:
         {
             int *int_to = (int*)prop->value;
             if (prop->length > 1) {
@@ -395,7 +395,7 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
             }
             break;
         }
-        case 'f':
+        case MAPPER_FLOAT:
         {
             float *float_to = (float*)prop->value;
             if (prop->length > 1) {
@@ -431,7 +431,7 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
             }
             break;
         }
-        case 'b':
+        case MAPPER_BOOL:
         {
             int *int_to = (int*)prop->value;
             if (prop->length > 1) {
@@ -474,27 +474,27 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
     return 0;
 }
 
-static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
+static int check_type(PyObject *v, mapper_type *c, int can_promote, int allow_sequence)
 {
     if (PyBool_Check(v)) {
         if (*c == 0)
-            *c = 'b';
-        else if (*c == 's')
+            *c = MAPPER_BOOL;
+        else if (*c == MAPPER_STRING)
             return 1;
     }
     else if (PyInt_Check(v) || PyLong_Check(v)) {
         if (*c == 0)
-            *c = 'i';
-        else if (*c == 's')
+            *c = MAPPER_INT32;
+        else if (*c == MAPPER_STRING)
             return 1;
     }
     else if (PyFloat_Check(v)) {
         if (*c == 0)
-            *c = 'f';
-        else if (*c == 's')
+            *c = MAPPER_FLOAT;
+        else if (*c == MAPPER_STRING)
             return 1;
-        else if (*c == 'i' && can_promote)
-            *c = 'f';
+        else if (*c == MAPPER_INT32 && can_promote)
+            *c = MAPPER_FLOAT;
     }
     else if (PyString_Check(v)
              || PyUnicode_Check(v)
@@ -503,8 +503,8 @@ static int check_type(PyObject *v, char *c, int can_promote, int allow_sequence)
 #endif
              ) {
         if (*c == 0)
-            *c = 's';
-        else if (*c != 's' && *c != 'c')
+            *c = MAPPER_STRING;
+        else if (*c != MAPPER_STRING && *c != MAPPER_CHAR)
             return 1;
     }
     else if (PySequence_Check(v)) {
@@ -532,8 +532,7 @@ static PyObject *prop_to_py(property_value prop, const char *name)
         v = PyList_New(prop->length);
 
     switch (prop->type) {
-        case 's':
-        case 'S':
+        case MAPPER_STRING:
         {
             if (prop->length > 1) {
                 char **vect = (char**)prop->value;
@@ -552,7 +551,7 @@ static PyObject *prop_to_py(property_value prop, const char *name)
 #endif
             break;
         }
-        case 'c':
+        case MAPPER_CHAR:
         {
             if (prop->length > 1) {
                 char *vect = (char*)prop->value;
@@ -563,7 +562,7 @@ static PyObject *prop_to_py(property_value prop, const char *name)
                 v = Py_BuildValue("c", *(char*)prop->value);
             break;
         }
-        case 'i':
+        case MAPPER_INT32:
         {
             if (prop->length > 1) {
                 int *vect = (int*)prop->value;
@@ -574,7 +573,7 @@ static PyObject *prop_to_py(property_value prop, const char *name)
                 v = Py_BuildValue("i", *(int*)prop->value);
             break;
         }
-        case 'h':
+        case MAPPER_INT64:
         {
             if (prop->length > 1) {
                 int64_t *vect = (int64_t*)prop->value;
@@ -585,7 +584,7 @@ static PyObject *prop_to_py(property_value prop, const char *name)
                 v = Py_BuildValue("l", *(int64_t*)prop->value);
             break;
         }
-        case 'f':
+        case MAPPER_FLOAT:
         {
             if (prop->length > 1) {
                 float *vect = (float*)prop->value;
@@ -596,7 +595,7 @@ static PyObject *prop_to_py(property_value prop, const char *name)
                 v = Py_BuildValue("f", *(float*)prop->value);
             break;
         }
-        case 'd':
+        case MAPPER_DOUBLE:
         {
             if (prop->length > 1) {
                 double *vect = (double*)prop->value;
@@ -607,7 +606,7 @@ static PyObject *prop_to_py(property_value prop, const char *name)
                 v = Py_BuildValue("d", *(double*)prop->value);
             break;
         }
-        case 't':
+        case MAPPER_TIMETAG:
         {
             mapper_timetag_t *vect = (mapper_timetag_t*)prop->value;
             if (prop->length > 1) {
@@ -624,7 +623,7 @@ static PyObject *prop_to_py(property_value prop, const char *name)
             }
             break;
         }
-        case 'b':
+        case MAPPER_BOOL:
             if (prop->length > 1) {
                 int *vect = (int*)prop->value;
                 for (i=0; i<prop->length; i++)
@@ -669,11 +668,11 @@ static void signal_handler_py(mapper_signal sig, mapper_id id,
                                           SWIGTYPE_p__signal, 0);
     PyObject *py_tt = SWIG_NewPointerObj(SWIG_as_voidptr(tt),
                                          SWIGTYPE_p__timetag, 0);
-    char type = mapper_signal_type(sig);
+    mapper_type type = mapper_signal_type(sig);
     int length = mapper_signal_length(sig);
 
     if (value) {
-        if (type == 'i') {
+        if (type == MAPPER_INT32) {
             int *vint = (int*)value;
             if (length > 1 || count > 1) {
                 valuelist = PyList_New(length * count);
@@ -687,7 +686,7 @@ static void signal_handler_py(mapper_signal sig, mapper_id id,
                 arglist = Py_BuildValue("(OLiO)", py_sig, id, *(int*)value,
                                         py_tt);
         }
-        else if (type == 'f') {
+        else if (type == MAPPER_FLOAT) {
             if (length > 1 || count > 1) {
                 float *vfloat = (float*)value;
                 valuelist = PyList_New(length * count);
@@ -794,7 +793,7 @@ static void device_map_handler_py(mapper_device dev, mapper_map map,
     _save = PyEval_SaveThread();
 }
 
-static int coerce_prop(property_value prop, char type)
+static int coerce_prop(property_value prop, mapper_type type)
 {
     int i;
     if (!prop)
@@ -803,15 +802,15 @@ static int coerce_prop(property_value prop, char type)
         return 0;
 
     switch (type) {
-        case 'i':
+        case MAPPER_INT32:
         {
             int *to = malloc(prop->length * sizeof(int));
-            if (prop->type == 'f') {
+            if (prop->type == MAPPER_FLOAT) {
                 float *from = (float*)prop->value;
                 for (i = 0; i < prop->length; i++)
                     to[i] = (int)from[i];
             }
-            else if (prop->type == 'd') {
+            else if (prop->type == MAPPER_DOUBLE) {
                 double *from = (double*)prop->value;
                 for (i = 0; i < prop->length; i++)
                     to[i] = (int)from[i];
@@ -826,15 +825,15 @@ static int coerce_prop(property_value prop, char type)
             prop->free_value = 1;
             break;
         }
-        case 'f':
+        case MAPPER_FLOAT:
         {
             float *to = malloc(prop->length * sizeof(float));
-            if (prop->type == 'i') {
+            if (prop->type == MAPPER_INT32) {
                 int *from = (int*)prop->value;
                 for (i = 0; i < prop->length; i++)
                     to[i] = (float)from[i];
             }
-            else if (prop->type == 'd') {
+            else if (prop->type == MAPPER_DOUBLE) {
                 double *from = (double*)prop->value;
                 for (i = 0; i < prop->length; i++)
                     to[i] = (float)from[i];
@@ -849,15 +848,15 @@ static int coerce_prop(property_value prop, char type)
             prop->free_value = 1;
             break;
         }
-        case 'd':
+        case MAPPER_DOUBLE:
         {
             double *to = malloc(prop->length * sizeof(double));
-            if (prop->type == 'i') {
+            if (prop->type == MAPPER_INT32) {
                 int *from = (int*)prop->value;
                 for (i = 0; i < prop->length; i++)
                     to[i] = (double)from[i];
             }
-            else if (prop->type == 'f') {
+            else if (prop->type == MAPPER_FLOAT) {
                 float *from = (float*)prop->value;
                 for (i = 0; i < prop->length; i++)
                     to[i] = (double)from[i];
@@ -977,8 +976,7 @@ static void database_map_handler_py(mapper_database db, mapper_map map,
 
 static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir,
                                          int num_instances, const char *name,
-                                         int length, const char type,
-                                         const char *unit,
+                                         int length, char type, const char *unit,
                                          property_value minimum,
                                          property_value maximum,
                                          PyObject *PyFunc)
@@ -995,12 +993,12 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
     }
     void *pmn=0, *pmx=0;
     int pmn_coerced=0, pmx_coerced=0;
-    if (type == 'f')
+    if (type == MAPPER_FLOAT)
     {
         if (minimum && minimum->length == length) {
-            if (minimum->type == 'f')
+            if (minimum->type == MAPPER_FLOAT)
                 pmn = minimum->value;
-            else if (minimum->type == 'i') {
+            else if (minimum->type == MAPPER_INT32) {
                 float *to = (float*)malloc(length * sizeof(float));
                 int *from = (int*)minimum->value;
                 for (i=0; i<length; i++) {
@@ -1011,9 +1009,9 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
             }
         }
         if (maximum && maximum->length == length) {
-            if (maximum->type == 'f')
+            if (maximum->type == MAPPER_FLOAT)
                 pmx = maximum->value;
-            else if (maximum->type == 'i') {
+            else if (maximum->type == MAPPER_INT32) {
                 float *to = (float*)malloc(length * sizeof(float));
                 int *from = (int*)maximum->value;
                 for (i=0; i<length; i++) {
@@ -1024,12 +1022,12 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
             }
         }
     }
-    else if (type == 'i')
+    else if (type == MAPPER_INT32)
     {
         if (minimum && minimum->length == length) {
-            if (minimum->type == 'i')
+            if (minimum->type == MAPPER_INT32)
                 pmn = minimum->value;
-            else if (minimum->type == 'f') {
+            else if (minimum->type == MAPPER_FLOAT) {
                 int *to = (int*)malloc(length * sizeof(int));
                 float *from = (float*)minimum->value;
                 for (i=0; i<length; i++) {
@@ -1040,9 +1038,9 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
             }
         }
         if (maximum && maximum->length == length) {
-            if (maximum->type == 'i')
+            if (maximum->type == MAPPER_INT32)
                 pmx = maximum->value;
-            else if (maximum->type == 'f') {
+            else if (maximum->type == MAPPER_FLOAT) {
                 int *to = (int*)malloc(length * sizeof(int));
                 float *from = (float*)maximum->value;
                 for (i=0; i<length; i++) {
@@ -1064,6 +1062,23 @@ static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir
 }
 
 %}
+
+/*! Possible data types. */
+%constant char INT32                    = MAPPER_INT32;
+%constant char INT64                    = MAPPER_INT64;
+%constant char FLOAT                    = MAPPER_FLOAT;
+%constant char DOUBLE                   = MAPPER_DOUBLE;
+%constant char STRING                   = MAPPER_STRING;
+%constant char BOOL                     = MAPPER_BOOL;
+%constant char TIMETAG                  = MAPPER_TIMETAG;
+%constant char CHAR                     = MAPPER_CHAR;
+%constant char PTR                      = MAPPER_PTR;
+%constant char DEVICE                   = MAPPER_DEVICE;
+%constant char SIGNAL                   = MAPPER_SIGNAL;
+%constant char LINK                     = MAPPER_LINK;
+%constant char MAP                      = MAPPER_MAP;
+%constant char SLOT                     = MAPPER_SLOT;
+%constant char NULL                     = MAPPER_NULL;
 
 /*! Possible object types for subscriptions. */
 %constant int OBJ_NONE                  = MAPPER_OBJ_NONE;
@@ -1242,9 +1257,8 @@ typedef struct _device_query {
     /* Note, these functions return memory which is _not_ owned by Python.
      * Correspondingly, the SWIG default is to set thisown to False, which is
      * correct for this case. */
-    signal *add_signal(mapper_direction dir, int num_instances,
-                       const char *name, int length=1,
-                       const char type='f', const char *unit=0,
+    signal *add_signal(mapper_direction dir, int num_instances, const char *name,
+                       int length=1, char type=MAPPER_FLOAT, const char *unit=0,
                        property_value minimum=0, property_value maximum=0,
                        PyObject *PyFunc=0)
     {
@@ -1254,7 +1268,7 @@ typedef struct _device_query {
                                             maximum, PyFunc);
     }
     signal *add_input_signal(const char *name, int length=1,
-                             const char type='f', const char *unit=0,
+                             char type=MAPPER_FLOAT, const char *unit=0,
                              property_value minimum=0, property_value maximum=0,
                              PyObject *PyFunc=0)
     {
@@ -1263,7 +1277,8 @@ typedef struct _device_query {
                                             type, unit, minimum, maximum,
                                             PyFunc);
     }
-    signal *add_output_signal(const char *name, int length=1, const char type='f',
+    signal *add_output_signal(const char *name, int length=1,
+                              char type=MAPPER_FLOAT,
                               const char *unit=0, property_value minimum=0,
                               property_value maximum=0, PyObject *PyFunc=0)
     {
@@ -1274,8 +1289,8 @@ typedef struct _device_query {
     }
     device *remove_signal(signal *sig) {
         mapper_signal msig = (mapper_signal)sig;
-        if (msig->user_data) {
-            PyObject **callbacks = msig->user_data;
+        if (msig->object.user_data) {
+            PyObject **callbacks = msig->object.user_data;
             Py_XDECREF(callbacks[0]);
             Py_XDECREF(callbacks[1]);
             free(callbacks);
@@ -1423,10 +1438,10 @@ typedef struct _device_query {
     property_value get_property(const char *key) {
         mapper_device dev = (mapper_device)$self;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_device_property(dev, key, &length, &type, &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -1443,11 +1458,11 @@ typedef struct _device_query {
         mapper_device dev = (mapper_device)$self;
         const char *name;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_device_property_index(dev, index, &name, &length, &type,
                                           &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -1649,10 +1664,10 @@ typedef struct _link_query {
     property_value get_property(const char *key) {
         mapper_link link = (mapper_link)$self;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_link_property(link, key, &length, &type, &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -1669,11 +1684,11 @@ typedef struct _link_query {
         mapper_link link = (mapper_link)$self;
         const char *name;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_link_property_index(link, index, &name, &length, &type,
                                         &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -1846,7 +1861,7 @@ typedef struct _signal_query {
     signal *set_instance_event_callback(PyObject *PyFunc=0, int flags=0) {
         mapper_instance_event_handler *h = 0;
         mapper_signal sig = (mapper_signal)$self;
-        PyObject **callbacks = (PyObject**)sig->user_data;
+        PyObject **callbacks = (PyObject**)sig->object.user_data;
         if (PyFunc) {
             h = instance_event_handler_py;
             if (callbacks) {
@@ -1875,7 +1890,7 @@ typedef struct _signal_query {
     signal *set_callback(PyObject *PyFunc=0) {
         mapper_signal_update_handler *h = 0;
         mapper_signal sig = (mapper_signal)$self;
-        PyObject **callbacks = (PyObject**)sig->user_data;
+        PyObject **callbacks = (PyObject**)sig->object.user_data;
         if (PyFunc) {
             h = signal_handler_py;
             if (callbacks) {
@@ -2024,10 +2039,10 @@ typedef struct _signal_query {
     property_value get_property(const char *key) {
         mapper_signal sig = (mapper_signal)$self;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_signal_property(sig, key, &length, &type, &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -2044,11 +2059,11 @@ typedef struct _signal_query {
         mapper_signal sig = (mapper_signal)$self;
         const char *name;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_signal_property_index(sig, index, &name, &length, &type,
                                           &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -2358,10 +2373,10 @@ typedef struct _map_query {
     property_value get_property(const char *key) {
         mapper_map map = (mapper_map)$self;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_map_property(map, key, &length, &type, &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -2378,11 +2393,11 @@ typedef struct _map_query {
         mapper_map map = (mapper_map)$self;
         const char *name;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_map_property_index(map, index, &name, &length, &type,
                                        &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -2535,10 +2550,10 @@ typedef struct _map_query {
     property_value get_property(const char *key) {
         mapper_slot slot = (mapper_slot)$self;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_slot_property(slot, key, &length, &type, &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }
@@ -2555,11 +2570,11 @@ typedef struct _map_query {
         mapper_slot slot = (mapper_slot)$self;
         const char *name;
         int length;
-        char type;
+        mapper_type type;
         const void *value;
         if (!mapper_slot_property_index(slot, index, &name, &length, &type,
                                         &value)) {
-            if (type == 'v') {
+            if (type == MAPPER_PTR) {
                 // don't include user_data
                 return 0;
             }

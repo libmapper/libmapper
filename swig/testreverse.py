@@ -11,11 +11,11 @@ def h(sig, id, f, timetag):
         print(sig, f)
 
 src = mapper.device("src")
-outsig = src.add_output_signal("outsig", 1, 'f', None, 0, 1000)
+outsig = src.add_output_signal("outsig", 1, mapper.FLOAT, None, 0, 1000)
 outsig.set_callback(h)
 
 dest = mapper.device("dest")
-insig = dest.add_input_signal("insig", 1, 'f', None, 0, 1)
+insig = dest.add_input_signal("insig", 1, mapper.FLOAT, None, 0, 1)
 
 while not src.ready or not dest.ready:
     src.poll(10)

@@ -7,11 +7,11 @@ def h(sig, id, val, timetag):
     print('  handler got', sig.name, '=', val, 'at time', timetag.get_double())
 
 srcs = [mapper.device("src"), mapper.device("src")]
-outsigs = [srcs[0].add_output_signal("outsig", 1, 'i'),
-           srcs[1].add_output_signal("outsig", 1, 'i')]
+outsigs = [srcs[0].add_output_signal("outsig", 1, mapper.INT32),
+           srcs[1].add_output_signal("outsig", 1, mapper.INT32)]
 
 dest = mapper.device("dest")
-insig = dest.add_input_signal("insig", 1, 'f', None, None, None, h)
+insig = dest.add_input_signal("insig", 1, mapper.FLOAT, None, None, None, h)
 
 while not srcs[0].ready or not srcs[1].ready or not dest.ready:
     srcs[0].poll(10)

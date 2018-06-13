@@ -33,8 +33,8 @@ int setup_source(char *iface)
     eprintf("source created.\n");
 
     int mn=0, mx=1;
-    sendsig = mapper_device_add_output_signal(source, "outsig", 1, 'i', 0,
-                                              &mn, &mx);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 1, MAPPER_INT32,
+                                              0, &mn, &mx);
 
     eprintf("Output signal 'outsig' registered.\n");
     eprintf("Number of outputs: %d\n",
@@ -72,8 +72,9 @@ int setup_destination(char *iface)
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = mapper_device_add_input_signal(destination, "insig", 1, 'f', 0,
-                                             &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 1,
+                                             MAPPER_FLOAT, 0, &mn, &mx,
+                                             insig_handler, 0);
 
     eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",
@@ -102,12 +103,12 @@ int setup_maps()
     mapper_map_set_mode(map, MAPPER_MODE_LINEAR);
 
     mapper_slot slot = mapper_map_slot(map, MAPPER_LOC_SOURCE, 0);
-    mapper_slot_set_minimum(slot, 1, 'f', &src_min);
-    mapper_slot_set_maximum(slot, 1, 'f', &src_max);
+    mapper_slot_set_minimum(slot, 1, MAPPER_FLOAT, &src_min);
+    mapper_slot_set_maximum(slot, 1, MAPPER_FLOAT, &src_max);
 
     slot = mapper_map_slot(map, MAPPER_LOC_DESTINATION, 0);
-    mapper_slot_set_minimum(slot, 1, 'f', &dest_min);
-    mapper_slot_set_maximum(slot, 1, 'f', &dest_max);
+    mapper_slot_set_minimum(slot, 1, MAPPER_FLOAT, &dest_min);
+    mapper_slot_set_maximum(slot, 1, MAPPER_FLOAT, &dest_max);
     mapper_slot_set_bound_min(slot, MAPPER_BOUND_FOLD);
 
     mapper_map_push(map);

@@ -39,12 +39,12 @@ def map_h(map, action):
 src = mapper.device("src")
 src.set_link_callback(link_h)
 src.set_map_callback(map_h)
-outsig = src.add_output_signal("outsig", 1, 'f', None, 0, 1000)
+outsig = src.add_output_signal("outsig", 1, mapper.FLOAT, None, 0, 1000)
 
 dest = mapper.device("dest")
 dest.set_link_callback(link_h)
 dest.set_map_callback(map_h)
-insig = dest.add_input_signal("insig", 1, 'f', None, 0, 1, sig_h)
+insig = dest.add_input_signal("insig", 1, mapper.FLOAT, None, 0, 1, sig_h)
 
 while not src.ready or not dest.ready:
     src.poll()

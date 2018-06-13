@@ -72,8 +72,8 @@ class test {
                 }
             }});
 
-        Signal inp1 = dev1.addInputSignal("insig1", 1, 'f', "Hz",
-                                          new Value('f', 2.0), null,
+        Signal inp1 = dev1.addInputSignal("insig1", 1, Type.INT, "Hz",
+                                          new Value(Type.FLOAT, 2.0), null,
                                           new UpdateListener() {
             public void onUpdate(Signal sig, float[] v, TimeTag tt) {
                 System.out.println(" >> in onUpdate() for "+sig.name()+": "
@@ -82,10 +82,10 @@ class test {
 
         System.out.println("Input signal name: "+inp1.name());
 
-        Signal out1 = dev2.addOutputSignal("outsig1", 1, 'i', "Hz",
-                                           new Value('i', 0.0),
-                                           new Value('i', 1.0));
-        Signal out2 = dev2.addOutputSignal("outsig2", 1, 'f', "Hz",
+        Signal out1 = dev2.addOutputSignal("outsig1", 1, Type.INT, "Hz",
+                                           new Value(Type.INT, 0.0),
+                                           new Value(Type.INT, 1.0));
+        Signal out2 = dev2.addOutputSignal("outsig2", 1, Type.FLOAT, "Hz",
                                            new Value(0.0f), new Value(1.0f));
 
         dev1.setProperty("width", new Value(256));

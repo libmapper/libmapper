@@ -14,28 +14,29 @@ void mapper_link_init(mapper_link link, int is_local)
 {
     if (!link->num_maps)
         link->num_maps = (int*)calloc(1, sizeof(int) * 2);
-    if (!link->props) {
-        link->props = mapper_table_new();
-        mapper_table_link_value(link->props, AT_ID, 1, 'h', &link->id,
-                                NON_MODIFIABLE);
-        mapper_table_link_value(link->props, AT_NUM_MAPS, 2, 'i',
+    if (!link->object.props) {
+        link->object.props = mapper_table_new();
+        mapper_table_link_value(link->object.props, AT_ID, 1, MAPPER_INT64,
+                                &link->object.id, NON_MODIFIABLE);
+        mapper_table_link_value(link->object.props, AT_NUM_MAPS, 2, MAPPER_INT32,
                                 &link->num_maps, NON_MODIFIABLE | INDIRECT);
-        mapper_table_link_value(link->props, AT_USER_DATA, 1, 'v',
-                                &link->user_data,
+        mapper_table_link_value(link->object.props, AT_USER_DATA, 1, MAPPER_PTR,
+                                &link->object.user_data,
                                 MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
-        mapper_table_set_record(link->props, AT_IS_LOCAL, NULL, 1, 'b',
-                                &is_local, LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+        mapper_table_set_record(link->object.props, AT_IS_LOCAL, NULL, 1,
+                                MAPPER_BOOL, &is_local,
+                                LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
     }
-    if (!link->staged_props)
-        link->staged_props = mapper_table_new();
+    if (!link->object.staged_props)
+        link->object.staged_props = mapper_table_new();
     if (!is_local)
         return;
 
     link->local = ((mapper_local_link)
                    calloc(1, sizeof(struct _mapper_local_link)));
 
-    if (!link->id && link->local_device->local)
-        link->id = mapper_device_generate_unique_id(link->local_device);
+    if (!link->object.id && link->local_device->local)
+        link->object.id = mapper_device_generate_unique_id(link->local_device);
 
     if (link->local_device == link->remote_device) {
         /* Add data_addr for use by self-connections. In the future we may
@@ -77,10 +78,10 @@ void mapper_link_connect(mapper_link link, const char *host, int admin_port,
                          int data_port)
 {
     char str[16];
-    mapper_table_set_record(link->remote_device->props, AT_HOST, NULL, 1, 's',
-                            host, REMOTE_MODIFY);
-    mapper_table_set_record(link->remote_device->props, AT_PORT, NULL, 1, 'i',
-                            &data_port, REMOTE_MODIFY);
+    mapper_table_set_record(link->remote_device->object.props, AT_HOST, NULL, 1,
+                            MAPPER_STRING, host, REMOTE_MODIFY);
+    mapper_table_set_record(link->remote_device->object.props, AT_PORT, NULL, 1,
+                            MAPPER_INT32, &data_port, REMOTE_MODIFY);
     sprintf(str, "%d", data_port);
     link->local->udp_data_addr = lo_address_new(host, str);
     link->local->tcp_data_addr = lo_address_new_with_proto(LO_TCP, host, str);
@@ -90,10 +91,10 @@ void mapper_link_connect(mapper_link link, const char *host, int admin_port,
 
 void mapper_link_free(mapper_link link)
 {
-    if (link->props)
-        mapper_table_free(link->props);
-    if (link->staged_props)
-        mapper_table_free(link->staged_props);
+    if (link->object.props)
+        mapper_table_free(link->object.props);
+    if (link->object.staged_props)
+        mapper_table_free(link->object.staged_props);
     if (link->num_maps)
         free(link->num_maps);
     if (link->local) {
@@ -183,10 +184,10 @@ static int cmp_query_link_maps(const void *context_data, mapper_map map)
     mapper_id link_id = *(mapper_id*)context_data;
     int i;
     for (i = 0; i < map->num_sources; i++) {
-        if (map->sources[i]->link && map->sources[i]->link->id == link_id)
+        if (map->sources[i]->link && map->sources[i]->link->object.id == link_id)
             return 1;
     }
-    if (map->destination.link && map->destination.link->id == link_id)
+    if (map->destination.link && map->destination.link->object.id == link_id)
         return 1;
     return 0;
 }
@@ -197,52 +198,52 @@ mapper_map *mapper_link_maps(mapper_link link)
         return 0;
     return ((mapper_map *)
             mapper_list_new_query(link->devices[0]->database->maps,
-                                  cmp_query_link_maps, "h", link->id));
+                                  cmp_query_link_maps, "h", link->object.id));
 }
 
 mapper_id mapper_link_id(mapper_link link)
 {
-    return link->id;
+    return link->object.id;
 }
 
 void mapper_link_set_user_data(mapper_link link, const void *user_data)
 {
     if (link)
-        link->user_data = (void*)user_data;
+        link->object.user_data = (void*)user_data;
 }
 
 void *mapper_link_user_data(mapper_link link)
 {
-    return link ? link->user_data : 0;
+    return link ? link->object.user_data : 0;
 }
 
 int mapper_link_num_properties(mapper_link link)
 {
-    return mapper_table_num_records(link->props);
+    return mapper_table_num_records(link->object.props);
 }
 
 int mapper_link_property(mapper_link link, const char *name, int *length,
-                         char *type, const void **value)
+                         mapper_type *type, const void **value)
 {
-    return mapper_table_property(link->props, name, length, type, value);
+    return mapper_table_property(link->object.props, name, length, type, value);
 }
 
 int mapper_link_property_index(mapper_link link, unsigned int index,
-                               const char **name, int *length, char *type,
+                               const char **name, int *length, mapper_type *type,
                                const void **value)
 {
-    return mapper_table_property_index(link->props, index, name, length, type,
-                                       value);
+    return mapper_table_property_index(link->object.props, index, name, length,
+                                       type, value);
 }
 
 int mapper_link_set_property(mapper_link link, const char *name, int length,
-                             char type, const void *value, int publish)
+                             mapper_type type, const void *value, int publish)
 {
     mapper_property_t prop = mapper_property_from_string(name);
     int flags = REMOTE_MODIFY;
     if (!publish)
         flags |= LOCAL_ACCESS_ONLY;
-    return mapper_table_set_record(link->staged_props, prop, name, length, type,
+    return mapper_table_set_record(link->object.staged_props, prop, name, length, type,
                                    value, flags);
 }
 
@@ -251,7 +252,7 @@ int mapper_link_remove_property(mapper_link link, const char *name)
     if (!link)
         return 0;
     mapper_property_t prop = mapper_property_from_string(name);
-    return mapper_table_set_record(link->staged_props, prop | PROPERTY_REMOVE,
+    return mapper_table_set_record(link->object.staged_props, prop | PROPERTY_REMOVE,
                                    name, 0, 0, 0, REMOTE_MODIFY);
 }
 
@@ -266,10 +267,10 @@ int mapper_link_set_from_message(mapper_link link, mapper_message msg,
     for (i = 0; i < msg->num_atoms; i++) {
         if (msg->atoms[i].index == AT_ID) {
             // choose lowest id
-            if (!link->id || link->id > (*msg->atoms[i].values)->h) {
+            if (!link->object.id || link->object.id > (*msg->atoms[i].values)->h) {
                 mapper_id id = msg->atoms[i].values[0]->h;
-                mapper_table_set_record(link->props, AT_ID, NULL, 1, 'h', &id,
-                                        LOCAL_MODIFY);
+                mapper_table_set_record(link->object.props, AT_ID, NULL, 1,
+                                        MAPPER_INT64, &id, LOCAL_MODIFY);
                 ++updated;
             }
         }
@@ -277,14 +278,14 @@ int mapper_link_set_from_message(mapper_link link, mapper_message msg,
                  && (MASK_PROP_BITFLAGS(msg->atoms[i].index) != AT_EXTRA))
             continue;
         else if (msg->atoms[i].index == AT_NUM_MAPS) {
-            if (msg->atoms[i].length != 2 || msg->atoms[i].types[0] != 'i')
+            if (msg->atoms[i].length != 2 || msg->atoms[i].types[0] != MAPPER_INT32)
                 continue;
             link->num_maps[0] = msg->atoms[i].values[0+reversed]->i32;
             link->num_maps[1] = msg->atoms[i].values[1-reversed]->i32;
             ++updated;
         }
         else {
-            updated += mapper_table_set_record_from_atom(link->props,
+            updated += mapper_table_set_record_from_atom(link->object.props,
                                                          &msg->atoms[i],
                                                          REMOTE_MODIFY);
         }
@@ -294,7 +295,7 @@ int mapper_link_set_from_message(mapper_link link, mapper_message msg,
 
 void mapper_link_clear_staged_properties(mapper_link link) {
     if (link)
-        mapper_table_clear(link->staged_props);
+        mapper_table_clear(link->object.staged_props);
 }
 
 void mapper_link_push(mapper_link link)
@@ -306,7 +307,7 @@ void mapper_link_push(mapper_link link)
     mapper_link_send_state(link, MSG_LINK_MODIFY, 1);
 
     // clear the staged properties
-    mapper_table_clear(link->staged_props);
+    mapper_table_clear(link->object.staged_props);
 }
 
 void mapper_link_send_state(mapper_link link, network_message_t cmd, int staged)
@@ -320,8 +321,9 @@ void mapper_link_send_state(mapper_link link, network_message_t cmd, int staged)
     lo_message_add_string(msg, link->devices[1]->name);
 
     if (cmd != MSG_UNLINKED) {
-        mapper_table_add_to_message(0, staged ? link->staged_props : link->props,
-                                    msg);
+        mapper_table_add_to_message(0, (staged
+                                        ? link->object.staged_props
+                                        : link->object.props), msg);
     }
     mapper_network_add_message(link->devices[0]->database->network, 0, cmd, msg);
 }
@@ -370,7 +372,7 @@ void mapper_link_print(mapper_link link)
     printf("%s <-> %s", link->devices[0]->name, link->devices[1]->name);
     int i = 0;
     const char *key;
-    char type;
+    mapper_type type;
     const void *val;
     int len;
     while (!mapper_link_property_index(link, i++, &key, &len, &type, &val)) {

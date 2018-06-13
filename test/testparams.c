@@ -95,7 +95,7 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    if (atom->types[0] != 'i') {
+    if (atom->types[0] != MAPPER_INT32) {
         eprintf("1: Type error retrieving @port property.");
         result = 1;
         goto done;
@@ -118,7 +118,7 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    if (atom->types[0] != 'f') {
+    if (atom->types[0] != MAPPER_FLOAT) {
         eprintf("1: Type error retrieving @src@min property.");
         result = 1;
         goto done;
@@ -159,7 +159,7 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    if (atom->types[0] != 'i') {
+    if (atom->types[0] != MAPPER_INT32) {
         eprintf("2: Type error retrieving @port property.");
         result = 1;
         goto done;
@@ -218,7 +218,7 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    if (atom->types[0] != 'i') {
+    if (atom->types[0] != MAPPER_INT32) {
         eprintf("3: Type error retrieving @port property.");
         result = 1;
         goto done;

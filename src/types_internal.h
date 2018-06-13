@@ -116,7 +116,7 @@ typedef struct {
     void **value;
     int length;
     mapper_property_t index;
-    char type;
+    mapper_type type;
     char flags;
 } mapper_table_record_t;
 
@@ -265,7 +265,7 @@ typedef struct _mapper_network {
                                      *   messages on the multicast bus. */
     lo_address bundle_dest;
 
-    int random_id;                  /*!< Random ID for allocation speedup. */
+    int random_id;                  /*!< Random id for allocation speedup. */
     int msgs_recvd;                 /*!< 1 if messages have been received on the
                                      *   multicast bus/mesh. */
     int message_type;
@@ -284,6 +284,19 @@ typedef mapper_network_t *mapper_network;
 
 #define TIMEOUT_SEC 10       // timeout after 10 seconds without ping
 
+/**** Object ****/
+
+typedef struct _mapper_object
+{
+    mapper_id id;       //!< Unique id identifying this object.
+    void *user_data;    //!< A pointer available for associating user context.
+
+    /*! Properties associated with this signal. */
+    struct _mapper_table *props;
+    struct _mapper_table *staged_props;
+    int version;
+} mapper_object_t, *mapper_object;
+
 /**** Signal ****/
 
 /*! A structure that stores the current and historical values and timetags
@@ -299,7 +312,7 @@ typedef struct _mapper_history
     int length;                 //!< Vector length.
     int position;               //!< Current position in the circular buffer.
     char size;                  //!< History size of the buffer.
-    char type;                  /*!< The type of this signal, specified as an
+    mapper_type type;           /*!< The type of this signal, specified as an
                                  *   OSC type character. */
 } mapper_history_t, *mapper_history;
 
@@ -365,21 +378,15 @@ typedef struct _mapper_local_signal
 
 /*! A record that describes properties of a signal. */
 struct _mapper_signal {
+    mapper_object_t object;     // always first
     mapper_local_signal local;
     mapper_device device;
     char *path;         //! OSC path.  Must start with '/'.
     char *name;         //! The name of this signal (path+1).
-    mapper_id id;       //!< Unique id identifying this signal.
 
     char *unit;         //!< The unit of this signal, or NULL for N/A.
     void *minimum;      //!< The minimum of this signal, or NULL for N/A.
     void *maximum;      //!< The maximum of this signal, or NULL for N/A.
-
-    /*! Properties associated with this signal. */
-    struct _mapper_table *props;
-    struct _mapper_table *staged_props;
-
-    void *user_data;    //!< A pointer available for associating user context.
 
     float rate;         //!< The update rate, or 0 for non-periodic signals.
     int direction;      //!< DI_OUTGOING / DI_INCOMING / DI_BOTH
@@ -387,8 +394,8 @@ struct _mapper_signal {
     int num_instances;  //!< Number of instances.
     int num_incoming_maps;
     int num_outgoing_maps;
-    int version;
-    char type;          /*! The type of this signal, specified as an OSC type
+
+    mapper_type type;   /*! The type of this signal, specified as an OSC type
                          *  character. */
 };
 
@@ -413,11 +420,8 @@ typedef struct _mapper_local_link {
 } *mapper_local_link;
 
 typedef struct _mapper_link {
+    mapper_object_t object;             // always first
     mapper_local_link local;
-    mapper_id id;
-    struct _mapper_table *props;
-    struct _mapper_table *staged_props;
-    void *user_data;
     union {
         mapper_device devices[2];
         struct {
@@ -426,7 +430,6 @@ typedef struct _mapper_link {
         };
     };
     int *num_maps;
-    int version;
 } mapper_link_t, *mapper_link;
 
 /**** Maps and Slots ****/
@@ -451,18 +454,14 @@ typedef struct _mapper_local_slot {
 } mapper_local_slot_t, *mapper_local_slot;
 
 typedef struct _mapper_slot {
+    mapper_object_t object;             // always first
     mapper_local_slot local;            //!< Pointer to local resources if any
     struct _mapper_map *map;            //!< Pointer to parent map
     mapper_signal signal;               //!< Pointer to parent signal
     mapper_link link;
 
-    /*! Properties associated with this slot. */
-    struct _mapper_table *props;
-    struct _mapper_table *staged_props;
-
     void *minimum;                      //!< Array of minima, or NULL for N/A
     void *maximum;                      //!< Array of maxima, or NULL for N/A
-    int id;                             //!< Slot ID
     int num_instances;
 
     mapper_boundary_action bound_max;   //!< Operation for exceeded upper bound.
@@ -493,19 +492,13 @@ typedef struct _mapper_local_map {
 /*! A record that describes the properties of a mapping.
  *  @ingroup map */
 typedef struct _mapper_map {
+    mapper_object_t object;             // always first
     mapper_database database;           //!< Pointer back to the database.
     mapper_local_map local;
     mapper_slot *sources;
     mapper_slot_t destination;
-    mapper_id id;                       //!< Unique id identifying this map
 
     mapper_device *scopes;
-
-    /*! Properties associated with this map. */
-    struct _mapper_table *props;
-    struct _mapper_table *staged_props;
-
-    void *user_data;
 
     char *expression;
 
@@ -515,7 +508,6 @@ typedef struct _mapper_map {
     int num_sources;
     mapper_location process_location;
     int status;
-    int version;
     int protocol;                       //!< Data transport protocol.
 } mapper_map_t, *mapper_map;
 
@@ -591,18 +583,12 @@ typedef struct _mapper_local_device {
 
 /*! A record that keeps information about a device on the network. */
 struct _mapper_device {
+    mapper_object_t object;     // always first
     mapper_database database;   //!< Pointer back to the database.
     mapper_local_device local;
-    void *user_data;            //!< User modifiable data.
 
     char *identifier;           //!< The identifier (prefix) for this device.
     char *name;                 //!< The full name for this device, or zero.
-
-    /*! Properties associated with this device. */
-    struct _mapper_table *props;
-    struct _mapper_table *staged_props;
-
-    mapper_id id;               //!< Unique id identifying this device.
 
     mapper_timetag_t synced;    //!< Timestamp of last sync.
 
@@ -612,7 +598,6 @@ struct _mapper_device {
     int num_links;              //!< Number of network connections.
     int num_incoming_maps;      //!< Number of associated incoming maps.
     int num_outgoing_maps;      //!< Number of associated outgoing maps.
-    int version;                //!< Reported device state version.
     int status;
 
     uint8_t subscribed;

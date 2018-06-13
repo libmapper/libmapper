@@ -33,7 +33,8 @@ int setup_source()
     eprintf("source created.\n");
 
     float mn[]={0,0,0}, mx[]={1,2,3};
-    sendsig = mapper_device_add_output_signal(source, "outsig", 3, 'f', 0, &mn, &mx);
+    sendsig = mapper_device_add_output_signal(source, "outsig", 3, MAPPER_FLOAT,
+                                              0, &mn, &mx);
 
     eprintf("Output signal 'outsig' registered.\n");
     eprintf("Number of outputs: %d\n",
@@ -72,8 +73,9 @@ int setup_destination()
     eprintf("destination created.\n");
 
     float mn[]={0,0,0}, mx[]={1,1,1};
-    recvsig = mapper_device_add_input_signal(destination, "insig", 3, 'f', 0,
-                                             &mn, &mx, insig_handler, 0);
+    recvsig = mapper_device_add_input_signal(destination, "insig", 3,
+                                             MAPPER_FLOAT, 0, &mn, &mx,
+                                             insig_handler, 0);
 
     eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",

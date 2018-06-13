@@ -620,13 +620,13 @@ namespace mapper {
             if (!length || !type)
                 return false;
             switch (type) {
-                case 'i':
+                case MAPPER_INT32:
                     return *(int*)value != 0;
                     break;
-                case 'f':
+                case MAPPER_FLOAT:
                     return *(float*)value != 0.f;
                     break;
-                case 'd':
+                case MAPPER_DOUBLE:
                     return *(double*)value != 0.;
                     break;
                 default:
@@ -737,7 +737,7 @@ namespace mapper {
         void maybe_free()
         {
             if (owned && value) {
-                if (type == 's' && length > 1) {
+                if (type == MAPPER_STRING && length > 1) {
                     for (unsigned int i = 0; i < length; i++) {
                         free(((char**)value)[i]);
                     }
@@ -755,21 +755,21 @@ namespace mapper {
                 ivalue[i] = (int)_value[i];
             value = ivalue;
             length = _length;
-            type = 'i';
+            type = MAPPER_INT32;
             owned = true;
         }
         void _set(int _length, int _value[])
-            { value = _value; length = _length; type = 'i'; }
+            { value = _value; length = _length; type = MAPPER_INT32; }
         void _set(int _length, float _value[])
-            { value = _value; length = _length; type = 'f'; }
+            { value = _value; length = _length; type = MAPPER_FLOAT; }
         void _set(int _length, double _value[])
-            { value = _value; length = _length; type = 'd'; }
+            { value = _value; length = _length; type = MAPPER_DOUBLE; }
         void _set(int _length, char _value[])
-            { value = _value; length = _length; type = 'c'; }
+            { value = _value; length = _length; type = MAPPER_CHAR; }
         void _set(int _length, const char *_value[])
         {
             length = _length;
-            type = 's';
+            type = MAPPER_STRING;
             if (_length == 1)
                 value = _value[0];
             else
@@ -793,7 +793,7 @@ namespace mapper {
         void _set(std::array<const char*, N>& _values)
         {
             length = N;
-            type = 's';
+            type = MAPPER_STRING;
             if (length == 1) {
                 value = strdup(_values[0]);
             }
@@ -810,7 +810,7 @@ namespace mapper {
         void _set(std::array<std::string, N>& _values)
         {
             length = N;
-            type = 's';
+            type = MAPPER_STRING;
             if (length == 1) {
                 value = strdup(_values[0].c_str());
             }
@@ -826,7 +826,7 @@ namespace mapper {
         void _set(int _length, std::string _values[])
         {
             length = _length;
-            type = 's';
+            type = MAPPER_STRING;
             if (length == 1) {
                 value = strdup(_values[0].c_str());
             }
@@ -845,7 +845,7 @@ namespace mapper {
         void _set(std::vector<const char*>& _value)
         {
             length = (int)_value.size();
-            type = 's';
+            type = MAPPER_STRING;
             if (length == 1)
                 value = strdup(_value[0]);
             else {
@@ -860,7 +860,7 @@ namespace mapper {
         void _set(std::vector<std::string>& _value)
         {
             length = (int)_value.size();
-            type = 's';
+            type = MAPPER_STRING;
             if (length == 1) {
                 value = strdup(_value[0].c_str());
             }
@@ -1014,19 +1014,6 @@ namespace mapper {
         // this function can be const since it only sends the unmap msg
         void release() const
             { mapper_map_release(_map); }
-
-        /*! Get the description property for this Map.
-         *  \return     The map description property. */
-        std::string description()
-            { return std::string(mapper_map_description(_map)); }
-
-        /*! Set the description property for this Map. Changes to remote Maps
-         *  will not take effect until synchronized with the network using
-         *  push().
-         *  \param description  The description value to set.
-         *  \return             Self. */
-        Map& set_description(string_type &description)
-            { mapper_map_set_description(_map, description); return (*this); }
 
         /*! Get the number of Signals/Slots for this Map.
          *  \param loc      MAPPER_LOC_SOURCE for source slots,
@@ -1504,19 +1491,19 @@ namespace mapper {
         }
         Signal& update(int *value, int count, Timetag tt)
         {
-            if (mapper_signal_type(_sig) == 'i')
+            if (mapper_signal_type(_sig) == MAPPER_INT32)
                 mapper_signal_update(_sig, value, count, *tt);
             return (*this);
         }
         Signal& update(float *value, int count, Timetag tt)
         {
-            if (mapper_signal_type(_sig) == 'f')
+            if (mapper_signal_type(_sig) == MAPPER_FLOAT)
                 mapper_signal_update(_sig, value, count, *tt);
             return (*this);
         }
         Signal& update(double *value, int count, Timetag tt)
         {
-            if (mapper_signal_type(_sig) == 'd')
+            if (mapper_signal_type(_sig) == MAPPER_DOUBLE)
                 mapper_signal_update(_sig, value, count, *tt);
             return (*this);
         }
@@ -1599,19 +1586,19 @@ namespace mapper {
             }
             Instance& update(int *value, int count, Timetag tt)
             {
-                if (mapper_signal_type(_sig) == 'i')
+                if (mapper_signal_type(_sig) == MAPPER_INT32)
                     mapper_signal_instance_update(_sig, _id, value, count, *tt);
                 return (*this);
             }
             Instance& update(float *value, int count, Timetag tt)
             {
-                if (mapper_signal_type(_sig) == 'f')
+                if (mapper_signal_type(_sig) == MAPPER_FLOAT)
                     mapper_signal_instance_update(_sig, _id, value, count, *tt);
                 return (*this);
             }
             Instance& update(double *value, int count, Timetag tt)
             {
-                if (mapper_signal_type(_sig) == 'd')
+                if (mapper_signal_type(_sig) == MAPPER_DOUBLE)
                     mapper_signal_instance_update(_sig, _id, value, count, *tt);
                 return (*this);
             }
