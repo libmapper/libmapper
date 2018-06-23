@@ -13,16 +13,15 @@
 /*
  *   Note on the trick used here: Presuming that we can have lists as the result
  * of a search query, we need to be able to return a linked list composed of
- * pointers to arbitrary database items.  However a very common operation will
- * be to walk through all the entries.  We prepend a header containing a pointer
- * to the next item and a pointer to the current item, and return the address of
- * the current pointer.
+ * pointers to arbitrary items.  However a very common operation will be to walk
+ * through all the entries.  We prepend a header containing a pointer to the
+ * next item and a pointer to the current item, and return the address of the
+ * current pointer.
  *   In the normal case, the address of the self-pointer can therefore be used
- * to locate the actual database entry, and we can walk along the actual list
- * without needing to allocate any memory for a list header.  However, in the
- * case where we want to walk along the result of a query, we can allocate a
- * dynamic set of list headers, and still have 'self' point to the actual
- * database item.
+ * to locate the actual entry, and we can walk along the actual list without
+ * needing to allocate any memory for a list header.  However, in the case where
+ * we want to walk along the result of a query, we can allocate a dynamic set of
+ * list headers, and still have 'self' point to the actual item.
  *   Both types of queries can use the returned double-pointer as context for
  * the search as well as for returning the desired value. This allows us to
  * avoid requiring the user to manage a separate iterator object.
@@ -54,8 +53,8 @@ typedef int query_compare_func_t(const void *context_data, const void *item);
 /*! Function for freeing query context */
 typedef void query_free_func_t(mapper_list_header_t *lh);
 
-/*! Function for handling compound queries. */
-static int cmp_compound_query(const void *context_data, const void *dev);
+/*! Function for handling parallel queries. */
+static int cmp_parallel_query(const void *context_data, const void *dev);
 
 /*! Contains some function pointers and data for handling query context. */
 typedef struct _query_info {
@@ -85,7 +84,7 @@ static mapper_list_header_t* mapper_list_new_item(size_t size)
     if (!lh)
         return 0;
 
-    lh->self = &lh->data;
+    lh->self = lh->start = &lh->data;
     lh->query_type = QUERY_STATIC;
 
     return (mapper_list_header_t*)&lh->data;
@@ -120,7 +119,7 @@ static void mapper_list_set_next(void *mem, void *next)
 }
 
 /*! Get the next pointer in memory returned from mapper_list_new_item(). */
-void* mapper_list_next(void *mem)
+static void* mapper_list_next_internal(void *mem)
 {
     return mapper_list_header_by_data(mem)->next;
 }
@@ -148,16 +147,16 @@ void mapper_list_remove_item(void **head, void *item)
         if (node == item)
             break;
         prev_node = node;
-        node = mapper_list_next(node);
+        node = mapper_list_next_internal(node);
     }
 
     if (!node)
         return;
 
     if (prev_node)
-        mapper_list_set_next(prev_node, mapper_list_next(node));
+        mapper_list_set_next(prev_node, mapper_list_next_internal(node));
     else
-        *head = mapper_list_next(node);
+        *head = mapper_list_next_internal(node);
 }
 
 /*! Free the memory used by a list item */
@@ -179,7 +178,7 @@ void **mapper_list_query_continuation(mapper_list_header_t *lh)
     while (item) {
         if (lh->query_context->query_compare(&lh->query_context->data, item))
             break;
-        item = mapper_list_next(item);
+        item = mapper_list_next_internal(item);
     }
 
     if (item) {
@@ -195,8 +194,8 @@ void **mapper_list_query_continuation(mapper_list_header_t *lh)
 
 static void free_query_single_context(mapper_list_header_t *lh)
 {
-    if (lh->query_context->query_compare == cmp_compound_query) {
-        // this is a compound query – we need to free components also
+    if (lh->query_context->query_compare == cmp_parallel_query) {
+        // this is a parallel query – we need to free components also
         void *data = &lh->query_context->data;
         mapper_list_header_t *lh1 = *(mapper_list_header_t**)data;
         mapper_list_header_t *lh2 = *(mapper_list_header_t**)(data+sizeof(void*));
@@ -207,20 +206,10 @@ static void free_query_single_context(mapper_list_header_t *lh)
     free(lh);
 }
 
-/* We need to be careful of memory alignment here - for now we will just ensure
- * that string arguments are always passed last. */
-void **mapper_list_new_query(const void *list, const void *compare_func,
-                             const char *types, ...)
+static int get_query_size(const char *types, va_list aq)
 {
-    if (!list || !compare_func || !types)
+    if (!types)
         return 0;
-
-    mapper_list_header_t *lh = (mapper_list_header_t*)malloc(LIST_HEADER_SIZE);
-    lh->next = mapper_list_query_continuation;
-    lh->query_type = QUERY_DYNAMIC;
-
-    va_list aq;
-    va_start(aq, types);
 
     int i = 0, j, size = 0, num_args;
     while (types[i]) {
@@ -230,7 +219,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 if (types[i+1] && isdigit(types[i+1])) {
                     num_args = atoi(types+i+1);
                     va_arg(aq, int*);
-                    i++;
+                    ++i;
                 }
                 else {
                     num_args = 1;
@@ -242,7 +231,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 if (types[i+1] && isdigit(types[i+1])) {
                     num_args = atoi(types+i+1);
                     va_arg(aq, int64_t*);
-                    i++;
+                    ++i;
                 }
                 else {
                     num_args = 1;
@@ -256,11 +245,11 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                     const char **val = va_arg(aq, const char**);
                     for (j = 0; j < num_args; j++)
                         size += strlen(val[j]) + 1;
-                    i++;
+                    ++i;
                 }
                 else {
                     const char *val = va_arg(aq, const char*);
-                    size += strlen(val) + 1;
+                    size += (val ? strlen(val) : 0) + 1;
                 }
                 break;
             case MAPPER_PTR:
@@ -268,7 +257,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 if (types[i+1] && isdigit(types[i+1])) {
                     num_args = atoi(types+i+1);
                     va_arg(aq, void**);
-                    i++;
+                    ++i;
                 }
                 else {
                     num_args = 1;
@@ -278,18 +267,33 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 break;
             default:
                 va_end(aq);
-                free(lh);
                 return 0;
         }
-        i++;
+        ++i;
     };
     va_end(aq);
+    return size;
+}
+
+/* We need to be careful of memory alignment here - for now we will just ensure
+ * that string arguments are always passed last. */
+static void **new_query_internal(const void *list, int size,
+                                 const void *compare_func, const char *types,
+                                 va_list aq)
+{
+    if (!list || !size || !compare_func || !types)
+        return 0;
+
+    mapper_list_header_t *lh = (mapper_list_header_t*)malloc(LIST_HEADER_SIZE);
+    lh->next = mapper_list_query_continuation;
+    lh->query_type = QUERY_DYNAMIC;
+
+    int i = 0, j, num_args;
 
     lh->query_context = (query_info_t*)malloc(sizeof(query_info_t)+size);
 
     char *d = (char*)&lh->query_context->data;
     int offset = 0;
-    va_start(aq, types);
     i = 0;
     while (types[i]) {
         switch (types[i]) {
@@ -300,7 +304,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                     num_args = atoi(types+i+1);
                     int *val = (int*)va_arg(aq, int*);
                     memcpy(d+offset, val, sizeof(int) * num_args);
-                    i++;
+                    ++i;
                 }
                 else {
                     num_args = 1;
@@ -315,7 +319,7 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                     num_args = atoi(types+i+1);
                     int64_t *val = (int64_t*)va_arg(aq, int64_t*);
                     memcpy(d+offset, val, sizeof(int64_t) * num_args);
-                    i++;
+                    ++i;
                 }
                 else {
                     num_args = 1;
@@ -334,19 +338,19 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                         snprintf(d+offset, size-offset, "%s", val[j]);
                     }
                     offset += strlen(val[j]) + 1;
-                    i++;
+                    ++i;
                 }
                 else {
                     const char *val = (const char*)va_arg(aq, const char*);
                     snprintf(d+offset, size-offset, "%s", val);
-                    offset += strlen(val) + 1;
+                    offset += (val ? strlen(val) : 0) + 1;
                 }
                 break;
             case MAPPER_PTR: {
                 if (types[i+1] && isdigit(types[i+1])) {
                     // is array
                     num_args = atoi(types+i+1);
-                    i++;
+                    ++i;
                 }
                 else {
                     num_args = 1;
@@ -362,8 +366,9 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
                 free(lh);
                 return 0;
         }
-        i++;
+        ++i;
     }
+
     va_end(aq);
 
     lh->query_context->size = sizeof(query_info_t)+size;
@@ -379,19 +384,29 @@ void **mapper_list_new_query(const void *list, const void *compare_func,
     return mapper_list_query_continuation(lh);
 }
 
-void **mapper_list_query_next(void **query)
+void **mapper_list_new_query(const void *list, const void *compare_func,
+                             const char *types, ...)
 {
-    if (!query) {
-        trace("bad pointer in mapper_list_query_next()\n");
+    va_list aq;
+    va_start(aq, types);
+    int size = get_query_size(types, aq);
+    va_start(aq, types);
+    return new_query_internal(list, size, compare_func, types, aq);
+}
+
+void **mapper_list_next(void **list)
+{
+    if (!list) {
+        trace("bad pointer in mapper_list_next()\n");
         return 0;
     }
 
-    if (!*query) {
-        trace("pointer in mapper_list_query_next() points nowhere\n");
+    if (!*list) {
+        trace("pointer in mapper_list_next() points nowhere\n");
         return 0;
     }
 
-    mapper_list_header_t *lh = mapper_list_header_by_self(query);
+    mapper_list_header_t *lh = mapper_list_header_by_self(list);
 
     if (!lh->next)
         return 0;
@@ -401,7 +416,7 @@ void **mapper_list_query_next(void **query)
     }
     else if (lh->query_type == QUERY_DYNAMIC) {
         /* Here we treat next as a pointer to a continuation function, so we can
-         * return items from the database computed lazily.  The context is
+         * return items from the graph computed lazily.  The context is
          * simply the string(s) to match.  In the future, it might point to the
          * results of a SQL query for example. */
         void **(*f) (mapper_list_header_t*) = lh->next;
@@ -410,21 +425,21 @@ void **mapper_list_query_next(void **query)
     return 0;
 }
 
-void mapper_list_query_done(void **query)
+void mapper_list_free(void **list)
 {
-    if (!query || !*query)
+    if (!list || !*list)
         return;
-    mapper_list_header_t *lh = mapper_list_header_by_self(query);
+    mapper_list_header_t *lh = mapper_list_header_by_self(list);
     if (lh->query_type == QUERY_DYNAMIC && lh->query_context->query_free)
         lh->query_context->query_free(lh);
 }
 
-void *mapper_list_query_index(void **query, int index)
+void *mapper_list_get_index(void **list, int index)
 {
-    if (!query || index < 0)
+    if (!list || index < 0)
         return 0;
 
-    mapper_list_header_t *lh = mapper_list_header_by_self(query);
+    mapper_list_header_t *lh = mapper_list_header_by_self(list);
 
     if (index == 0)
         return lh->start;
@@ -433,16 +448,16 @@ void *mapper_list_query_index(void **query, int index)
     lh->self = lh->start;
 
     int i = 1;
-    while ((query = mapper_list_query_next(query))) {
+    while ((list = mapper_list_next(list))) {
         if (i == index)
-            return *query;
+            return *list;
         ++i;
     }
     return 0;
 }
 
-/* Functions for handling compound queries: unions, intersections, etc. */
-static int cmp_compound_query(const void *context_data, const void *dev)
+/* Functions for handling parallel queries: unions, intersections, etc. */
+static int cmp_parallel_query(const void *context_data, const void *list)
 {
     mapper_list_header_t *lh1 = *(mapper_list_header_t**)context_data;
     mapper_list_header_t *lh2 = *(mapper_list_header_t**)(context_data+sizeof(void*));
@@ -452,14 +467,14 @@ static int cmp_compound_query(const void *context_data, const void *dev)
 
     switch (op) {
         case OP_UNION:
-            return (    c1->query_compare(&c1->data, dev)
-                    ||  c2->query_compare(&c2->data, dev));
+            return (    c1->query_compare(&c1->data, list)
+                    ||  c2->query_compare(&c2->data, list));
         case OP_INTERSECTION:
-            return (    c1->query_compare(&c1->data, dev)
-                    &&  c2->query_compare(&c2->data, dev));
+            return (    c1->query_compare(&c1->data, list)
+                    &&  c2->query_compare(&c2->data, list));
         case OP_DIFFERENCE:
-            return (    c1->query_compare(&c1->data, dev)
-                    && !c2->query_compare(&c2->data, dev));
+            return (    c1->query_compare(&c1->data, list)
+                    && !c2->query_compare(&c2->data, list));
         default:
             return 0;
     }
@@ -476,8 +491,8 @@ static mapper_list_header_t *mapper_list_header_copy(mapper_list_header_t *lh)
     copy->query_context = (query_info_t*)malloc(lh->query_context->size);
     memcpy(copy->query_context, lh->query_context, lh->query_context->size);
 
-    if (copy->query_context->query_compare == cmp_compound_query) {
-        // this is a compound query – we need to copy components
+    if (copy->query_context->query_compare == cmp_parallel_query) {
+        // this is a parallel query – we need to copy components
         void *data = &copy->query_context->data;
         mapper_list_header_t *lh1 = *(mapper_list_header_t**)data;
         mapper_list_header_t *lh2 = *(mapper_list_header_t**)(data+sizeof(void*));
@@ -491,49 +506,83 @@ static mapper_list_header_t *mapper_list_header_copy(mapper_list_header_t *lh)
     return copy;
 }
 
-void **mapper_list_query_copy(void **query)
+void **mapper_list_copy(void **list)
 {
-    if (!query)
+    if (!list)
         return 0;
 
-    mapper_list_header_t *lh = mapper_list_header_by_self(query);
+    mapper_list_header_t *lh = mapper_list_header_by_self(list);
     mapper_list_header_t *copy = mapper_list_header_copy(lh);
     return &copy->self;
 }
 
-void **mapper_list_query_union(void **query1, void **query2)
+void **mapper_list_union(void **list1, void **list2)
 {
-    if (!query1)
-        return query2;
-    if (!query2)
-        return query1;
+    if (!list1)
+        return list2;
+    if (!list2)
+        return list1;
 
-    mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
-    mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
-    return mapper_list_new_query(lh1->start, cmp_compound_query, "vvi", &lh1,
+    mapper_list_header_t *lh1 = mapper_list_header_by_self(list1);
+    mapper_list_header_t *lh2 = mapper_list_header_by_self(list2);
+    return mapper_list_new_query(lh1->start, cmp_parallel_query, "vvi", &lh1,
                                  &lh2, OP_UNION);
 }
 
-void **mapper_list_query_intersection(void **query1, void **query2)
+void **mapper_list_intersection(void **list1, void **list2)
 {
-    if (!query1 || !query2)
+    if (!list1 || !list2)
         return 0;
 
-    mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
-    mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
-    return mapper_list_new_query(lh1->start, cmp_compound_query, "vvi", &lh1,
+    mapper_list_header_t *lh1 = mapper_list_header_by_self(list1);
+    mapper_list_header_t *lh2 = mapper_list_header_by_self(list2);
+    return mapper_list_new_query(lh1->start, cmp_parallel_query, "vvi", &lh1,
                                  &lh2, OP_INTERSECTION);
 }
 
-void **mapper_list_query_difference(void **query1, void **query2)
+void **mapper_list_filter(void **list, const void *compare_func,
+                          const char *types, ...)
 {
-    if (!query1)
+    if (!list)
         return 0;
-    if (!query2)
-        return query1;
 
-    mapper_list_header_t *lh1 = mapper_list_header_by_self(query1);
-    mapper_list_header_t *lh2 = mapper_list_header_by_self(query2);
-    return mapper_list_new_query(lh1->start, cmp_compound_query, "vvi", &lh1,
+    va_list aq;
+
+    va_start(aq, types);
+    int size = get_query_size(types, aq);
+
+    mapper_list_header_t *lh1 = mapper_list_header_by_self(list);
+
+    va_start(aq, types);
+    void **filter = new_query_internal(lh1->start, size, compare_func, types, aq);
+
+    if (lh1->query_type == QUERY_STATIC)
+        return filter;
+
+    // return intersection
+    mapper_list_header_t *lh2 = mapper_list_header_by_self(filter);
+    return mapper_list_new_query(lh1->start, cmp_parallel_query, "vvi", &lh1,
+                                 &lh2, OP_INTERSECTION);
+}
+
+void **mapper_list_difference(void **list1, void **list2)
+{
+    if (!list1)
+        return 0;
+    if (!list2)
+        return list1;
+
+    mapper_list_header_t *lh1 = mapper_list_header_by_self(list1);
+    mapper_list_header_t *lh2 = mapper_list_header_by_self(list2);
+    return mapper_list_new_query(lh1->start, cmp_parallel_query, "vvi", &lh1,
                                  &lh2, OP_DIFFERENCE);
+}
+
+int mapper_list_length(void **list)
+{
+    int length = 0;
+    // use a copy
+    for (list = mapper_list_copy(list); list; list = mapper_list_next(list))
+        ++length;
+    return length;
 }

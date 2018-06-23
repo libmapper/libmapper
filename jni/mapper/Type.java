@@ -1,7 +1,7 @@
 
 package mapper;
 
-/*! Describes the directionality of map slots. */
+/*! Describes possible datatypes. */
 public enum Type {
     INT         ('i'),
     LONG        ('h'),
@@ -9,7 +9,7 @@ public enum Type {
     DOUBLE      ('d'),
     STRING      ('s'),
     BOOL        ('b'),
-    TIMETAG     ('t'),
+    TIME        ('t'),
     CHAR        ('c'),
     DEVICE      ('D'),
     NULL        ('N');

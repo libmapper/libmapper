@@ -2,17 +2,20 @@
 package mapper;
 
 import mapper.Map;
-import mapper.map.*;
 import mapper.signal.*;
 import mapper.Device;
-import mapper.Value;
-import java.util.Iterator;
 import java.util.Set;
 
-public class Signal
+public class Signal extends AbstractObject
 {
     public Signal(long sig) {
-        _sig = sig;
+        super(sig);
+    }
+
+    /* self */
+    @Override
+    public Signal self() {
+        return this;
     }
 
     /* device */
@@ -41,15 +44,15 @@ public class Signal
     public native InstanceUpdateListener instanceUpdateListener();
 
     public native Signal setGroup(long grp);
-    public native long group();
+    public native long getGroup();
 
     private native void mapperSignalReserveInstances(long sig, int num, long[] ids);
     public Signal reserveInstances(int num) {
-        mapperSignalReserveInstances(_sig, num, null);
+        mapperSignalReserveInstances(_obj, num, null);
         return this;
     }
     public Signal reserveInstances(long[] ids) {
-        mapperSignalReserveInstances(_sig, 0, ids);
+        mapperSignalReserveInstances(_obj, 0, ids);
         return this;
     }
 
@@ -59,7 +62,7 @@ public class Signal
     public Instance instance() {
         return new Instance(this);
     }
-    public Instance instance(Object obj) {
+    public Instance instance(java.lang.Object obj) {
         return new Instance(this, obj);
     }
 
@@ -70,98 +73,109 @@ public class Signal
     public native int numActiveInstances();
     public native int numReservedInstances();
 
-    private native void mapperSetInstanceStealingMode(int mode);
-    public Signal setInstanceStealingMode(StealingMode mode) {
-        mapperSetInstanceStealingMode(mode.value());
+    private native void mapperSetStealingMode(int mode);
+    public Signal setStealingMode(StealingMode mode) {
+        mapperSetStealingMode(mode.value());
         return this;
     }
-    private native int mapperInstanceStealingMode(long sig);
-    public StealingMode instanceStealingMode() {
-        return StealingMode.values()[mapperInstanceStealingMode(_sig)];
+    private native int mapperStealingMode(long sig);
+    public StealingMode getStealingMode() {
+        return StealingMode.values()[mapperStealingMode(_obj)];
     }
 
     /* update signal or instance */
-    private native Signal updateInstance(long id, int value, TimeTag tt);
-    private native Signal updateInstance(long id, float value, TimeTag tt);
-    private native Signal updateInstance(long id, double value, TimeTag tt);
-    private native Signal updateInstance(long id, int[] value, TimeTag tt);
-    private native Signal updateInstance(long id, float[] value, TimeTag tt);
-    private native Signal updateInstance(long id, double[] value, TimeTag tt);
+    private native Signal updateInstance(long id, int i, Time t);
+    private native Signal updateInstance(long id, float f, Time t);
+    private native Signal updateInstance(long id, double d, Time t);
+    private native Signal updateInstance(long id, int[] i, Time t);
+    private native Signal updateInstance(long id, float[] f, Time t);
+    private native Signal updateInstance(long id, double[] d, Time t);
 
-    public Signal update(int value) {
-        return updateInstance(0, value, null);
+    public Signal update(int i) {
+        return updateInstance(0, i, null);
     }
-    public Signal update(float value) {
-        return updateInstance(0, value, null);
+    public Signal update(float f) {
+        return updateInstance(0, f, null);
     }
-    public Signal update(double value) {
-        return updateInstance(0, value, null);
+    public Signal update(double d) {
+        return updateInstance(0, d, null);
     }
-    public Signal update(int[] value) {
-        return updateInstance(0, value, null);
+    public Signal update(int[] i) {
+        return updateInstance(0, i, null);
     }
-    public Signal update(float[] value) {
-        return updateInstance(0, value, null);
+    public Signal update(float[] d) {
+        return updateInstance(0, d, null);
     }
-    public Signal update(double[] value) {
-        return updateInstance(0, value, null);
+    public Signal update(double[] d) {
+        return updateInstance(0, d, null);
     }
 
-    public Signal update(int value, TimeTag tt) {
-        return updateInstance(0, value, tt);
+    public Signal update(int i, Time t) {
+        return updateInstance(0, i, t);
     }
-    public Signal update(float value, TimeTag tt) {
-        return updateInstance(0, value, tt);
+    public Signal update(float f, Time t) {
+        return updateInstance(0, f, t);
     }
-    public Signal update(double value, TimeTag tt) {
-        return updateInstance(0, value, tt);
+    public Signal update(double d, Time t) {
+        return updateInstance(0, d, t);
     }
-    public Signal update(int[] value, TimeTag tt) {
-        return updateInstance(0, value, tt);
+    public Signal update(int[] i, Time t) {
+        return updateInstance(0, i, t);
     }
-    public Signal update(float[] value, TimeTag tt) {
-        return updateInstance(0, value, tt);
+    public Signal update(float[] f, Time t) {
+        return updateInstance(0, f, t);
     }
-    public Signal update(double[] value, TimeTag tt) {
-        return updateInstance(0, value, tt);
+    public Signal update(double[] d, Time t) {
+        return updateInstance(0, d, t);
     }
 
     /* signal or instance value */
-    private native Value instanceValue(long id);
+    public native boolean hasValue();
 
-    public Value value() {
-        return instanceValue(0);
-    }
+    public native int intValue(long id);
+    public int intValue() { return intValue(0); }
+    public native float floatValue(long id);
+    public float floatValue() { return floatValue(0); }
+    public native double doubleValue(long id);
+    public double doubleValue() { return doubleValue(0); }
+
+    public native int[] intValues(long id);
+    public int[] intValues() { return intValues(0); }
+    public native float[] floatValues(long id);
+    public float[] floatValues() { return floatValues(0); }
+    public native double[] doubleValues(long id);
+    public double[] doubleValues() { return doubleValues(0); }
 
     public class Instance
     {
-        private native long mapperInstance(boolean hasId, long id, Object obj);
+        private native long mapperInstance(boolean hasId, long id,
+                                           java.lang.Object obj);
         private Instance(Signal sig, long id) {
             _sigobj = sig;
-            _sigptr = sig._sig;
+            _sigptr = sig._obj;
             _id = mapperInstance(true, id, null);
         }
-        private Instance(Signal sig, Object obj) {
+        private Instance(Signal sig, java.lang.Object obj) {
             _sigobj = sig;
-            _sigptr = sig._sig;
+            _sigptr = sig._obj;
             _id = mapperInstance(false, 0, obj);
         }
         private Instance(Signal sig) {
             _sigobj = sig;
-            _sigptr = sig._sig;
+            _sigptr = sig._obj;
             _id = mapperInstance(false, 0, null);
         }
 
         /* release */
-        public native void release(TimeTag tt);
+        public native void release(Time t);
         public void release() {
             release(null);
         }
 
         /* remove instances */
-        private native void mapperFreeInstance(long sig, long id, TimeTag tt);
-        public void free(TimeTag tt) {
-            mapperFreeInstance(_sigptr, _id, tt);
+        private native void mapperFreeInstance(long sig, long id, Time t);
+        public void free(Time t) {
+            mapperFreeInstance(_sigptr, _id, t);
         }
         public void free() {
             mapperFreeInstance(_sigptr, _id, null);
@@ -173,161 +187,77 @@ public class Signal
         public long id() { return _id; }
 
         /* update */
-        public Instance update(int value, TimeTag tt) {
-            updateInstance(_id, value, tt);
+        public Instance update(int i, Time t) {
+            updateInstance(_id, i, t);
             return this;
         }
-        public Instance update(float value, TimeTag tt) {
-            updateInstance(_id, value, tt);
+        public Instance update(float f, Time t) {
+            updateInstance(_id, f, t);
             return this;
         }
-        public Instance update(double value, TimeTag tt) {
-            updateInstance(_id, value, tt);
+        public Instance update(double d, Time t) {
+            updateInstance(_id, d, t);
             return this;
         }
-        public Instance update(int[] value, TimeTag tt) {
-            updateInstance(_id, value, tt);
+        public Instance update(int[] i, Time t) {
+            updateInstance(_id, i, t);
             return this;
         }
-        public Instance update(float[] value, TimeTag tt) {
-            updateInstance(_id, value, tt);
+        public Instance update(float[] f, Time t) {
+            updateInstance(_id, f, t);
             return this;
         }
-        public Instance update(double[] value, TimeTag tt) {
-            updateInstance(_id, value, tt);
+        public Instance update(double[] d, Time t) {
+            updateInstance(_id, d, t);
             return this;
         }
 
-        public Instance update(int value) {
-            updateInstance(_id, value, null);
+        public Instance update(int i) {
+            updateInstance(_id, i, null);
             return this;
         }
-        public Instance update(float value) {
-            updateInstance(_id, value, null);
+        public Instance update(float f) {
+            updateInstance(_id, f, null);
             return this;
         }
-        public Instance update(double value) {
-            updateInstance(_id, value, null);
+        public Instance update(double d) {
+            updateInstance(_id, d, null);
             return this;
         }
-        public Instance update(int[] value) {
-            updateInstance(_id, value, null);
+        public Instance update(int[] i) {
+            updateInstance(_id, i, null);
             return this;
         }
-        public Instance update(float[] value) {
-            updateInstance(_id, value, null);
+        public Instance update(float[] f) {
+            updateInstance(_id, f, null);
             return this;
         }
-        public Instance update(double[] value) {
-            updateInstance(_id, value, null);
+        public Instance update(double[] d) {
+            updateInstance(_id, d, null);
             return this;
         }
 
         /* value */
-        public Value value() {
-            return instanceValue(_id);
-        }
+        public int intValue() { return _sigobj.intValue(_id); }
+        public float floatValue() { return _sigobj.floatValue(_id); }
+        public double doubleValue() { return _sigobj.doubleValue(_id); }
+        public int[] intValues() { return _sigobj.intValues(_id); }
+        public float[] floatValues() { return _sigobj.floatValues(_id); }
+        public double[] doubleValues() { return _sigobj.doubleValues(_id); }
 
         /* userObject */
-        public native Object userReference();
-        public native Instance setUserReference(Object obj);
+        public native java.lang.Object userReference();
+        public native Instance setUserReference(java.lang.Object obj);
 
         private Signal _sigobj;
         private long _sigptr;
         private long _id;
     }
 
-    /* query remotes */
-    public native int queryRemotes(TimeTag tt);
-    public int queryRemotes() { return queryRemotes(null); };
-
-    /* property */
-    public native int numProperties();
-    public native Value property(String property);
-    public native Property property(int index);
-    public native Signal setProperty(String name, Value value, boolean publish);
-    public Signal setProperty(String name, Value value) {
-        return setProperty(name, value, true);
-    }
-    public Signal setProperty(Property prop) {
-        return setProperty(prop.name, prop.value, prop.publish);
-    }
-    public native Signal removeProperty(String name);
-    public Signal removeProperty(Property prop) {
-        return removeProperty(prop.name);
-    }
-
-    /* clear staged properties */
-    public native Signal clearStagedProperties();
-
-    /* push */
-    public native Signal push();
-
-    /* property: direction */
-    private native int direction(long sig);
-    public Direction direction() {
-        return Direction.values()[direction(_sig)];
-    }
-
-    /* property: id */
-    public native long id();
-
-    /* property: is_local */
-    public native boolean isLocal();
-
-    /* property: length */
-    public native int length();
-
-    /* property: maximum */
-    public native Value maximum();
-    public native Signal setMaximum(Value p);
-
-    /* property: minimum */
-    public native Value minimum();
-    public native Signal setMinimum(Value p);
-
-    /* property: name */
-    public native String name();
-
-    /* property: rate */
-    public native float rate();
-    public native Signal setRate(float rate);
-
-    /* property: type */
-    public native char type();
-
-    /* property: unit */
-    public native String unit();
-
     /* retrieve associated maps */
-    public native int numMaps(int direction);
-    public int numMaps() {
-        return numMaps(Direction.ANY.value());
-    }
-    public int numIncomingMaps() {
-        return numMaps(Direction.INCOMING.value());
-    }
-    public int numOutgoingMaps() {
-        return numMaps(Direction.OUTGOING.value());
-    }
-
-    public native mapper.map.Query maps(int direction);
-    public mapper.map.Query maps() {
-        return maps(Direction.ANY.value());
-    }
-    public mapper.map.Query incomingMaps() {
-        return maps(Direction.INCOMING.value());
-    }
-    public mapper.map.Query outgoingMaps() {
-        return maps(Direction.OUTGOING.value());
-    }
-
-    private long _sig;
-    public boolean valid() {
-        return _sig != 0;
-    }
-
-    static {
-        System.loadLibrary(NativeLib.name);
-    }
+    private native long maps(long sig, int dir);
+    public mapper.List<mapper.Map> maps(Direction dir)
+        { return new mapper.List<mapper.Map>(maps(_obj, dir.value())); }
+    public mapper.List<mapper.Map> maps()
+        { return maps(Direction.ANY); }
 }

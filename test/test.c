@@ -1,5 +1,3 @@
-
-#include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
@@ -14,8 +12,8 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
-mapper_device source = 0;
-mapper_device destination = 0;
+mapper_device src = 0;
+mapper_device dst = 0;
 mapper_signal sendsig_1 = 0;
 mapper_signal recvsig_1 = 0;
 mapper_signal sendsig_2 = 0;
@@ -33,35 +31,38 @@ int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
 
+int period = 100;
+
 /*! Creation of a local source. */
-int setup_source()
+int setup_src()
 {
-    source = mapper_device_new("test-send", 0, 0);
-    if (!source)
+    src = mapper_device_new("test-send", 0);
+    if (!src)
         goto error;
     eprintf("source created.\n");
 
     float mnf[]={3.2,2,0}, mxf[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    sendsig_1 = mapper_device_add_output_signal(source, "outsig_1", 1,
-                                                MAPPER_DOUBLE, "Hz", &mnd, &mxd);
-    sendsig_2 = mapper_device_add_output_signal(source, "outsig_2", 1,
-                                                MAPPER_FLOAT, "mm", mnf, mxf);
-    sendsig_3 = mapper_device_add_output_signal(source, "outsig_3", 3,
-                                                MAPPER_FLOAT, 0, mnf, mxf);
-    sendsig_4 = mapper_device_add_output_signal(source, "outsig_4", 1,
-                                                MAPPER_FLOAT, 0, mnf, mxf);
+    sendsig_1 = mapper_device_add_signal(src, MAPPER_DIR_OUT, 1, "outsig_1",
+                                         1, MAPPER_DOUBLE, "Hz", &mnd, &mxd, NULL);
+    sendsig_2 = mapper_device_add_signal(src, MAPPER_DIR_OUT, 1, "outsig_2",
+                                         1, MAPPER_FLOAT, "mm", mnf, mxf, NULL);
+    sendsig_3 = mapper_device_add_signal(src, MAPPER_DIR_OUT, 1, "outsig_3",
+                                         3, MAPPER_FLOAT, NULL, mnf, mxf, NULL);
+    sendsig_4 = mapper_device_add_signal(src, MAPPER_DIR_OUT, 1, "outsig_4",
+                                         1, MAPPER_FLOAT, NULL, mnf, mxf, NULL);
 
     eprintf("Output signal 'outsig' registered.\n");
 
     // Make sure we can add and remove outputs without crashing.
-    mapper_device_remove_signal(source,
-                                mapper_device_add_output_signal(source, "outsig_5", 1,
-                                                                MAPPER_FLOAT, 0, &mnf, &mxf));
+    mapper_device_remove_signal(src,
+                                mapper_device_add_signal(src, MAPPER_DIR_OUT, 1,
+                                                         "outsig_5", 1, MAPPER_FLOAT,
+                                                         NULL, &mnf, &mxf, NULL));
 
     eprintf("Number of outputs: %d\n",
-            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
+            mapper_device_get_num_signals(src, MAPPER_DIR_OUT));
 
     return 0;
 
@@ -69,32 +70,36 @@ int setup_source()
     return 1;
 }
 
-void cleanup_source()
+void cleanup_src()
 {
-    if (source) {
+    if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(source);
+        mapper_device_free(src);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
-                   int count, mapper_timetag_t *timetag)
+void handler(mapper_signal sig, mapper_id instance, int length,
+             mapper_type type, const void *value, mapper_time t)
 {
     if (value) {
-        eprintf("--> destination got %s", mapper_signal_name(sig));
-        switch (mapper_signal_type(sig)) {
+        const char *name;
+        mapper_object_get_prop_by_index(sig, MAPPER_PROP_NAME, NULL, NULL, NULL,
+                                        (const void**)&name);
+        eprintf("--> destination got %s", name);
+
+        switch (type) {
             case MAPPER_FLOAT: {
                 float *v = (float*)value;
-                for (int i = 0; i < mapper_signal_length(sig); i++) {
+                for (int i = 0; i < length; i++) {
                     eprintf(" %f", v[i]);
                 }
                 break;
             }
             case MAPPER_DOUBLE: {
                 double *v = (double*)value;
-                for (int i = 0; i < mapper_signal_length(sig); i++) {
+                for (int i = 0; i < length; i++) {
                     eprintf(" %f", v[i]);
                 }
                 break;
@@ -108,40 +113,35 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 }
 
 /*! Creation of a local destination. */
-int setup_destination()
+int setup_dst()
 {
-    destination = mapper_device_new("test-recv", 0, 0);
-    if (!destination)
+    dst = mapper_device_new("test-recv", 0);
+    if (!dst)
         goto error;
     eprintf("destination created.\n");
 
     float mnf[]={0,0,0}, mxf[]={1,1,1};
     double mnd=0, mxd=1;
 
-    recvsig_1 = mapper_device_add_input_signal(destination, "insig_1", 1,
-                                               MAPPER_FLOAT, 0, mnf, mxf,
-                                               insig_handler, 0);
-    recvsig_2 = mapper_device_add_input_signal(destination, "insig_2", 1,
-                                               MAPPER_DOUBLE, 0, &mnd, &mxd,
-                                               insig_handler, 0);
-    recvsig_3 = mapper_device_add_input_signal(destination, "insig_3", 3,
-                                               MAPPER_FLOAT, 0, mnf, mxf,
-                                               insig_handler, 0);
-    recvsig_4 = mapper_device_add_input_signal(destination, "insig_4", 1,
-                                               MAPPER_FLOAT, 0, mnf, mxf,
-                                               insig_handler, 0);
+    recvsig_1 = mapper_device_add_signal(dst, MAPPER_DIR_IN, 1, "insig_1", 1,
+                                         MAPPER_FLOAT, NULL, mnf, mxf, handler);
+    recvsig_2 = mapper_device_add_signal(dst, MAPPER_DIR_IN, 1, "insig_2", 1,
+                                         MAPPER_DOUBLE, NULL, &mnd, &mxd, handler);
+    recvsig_3 = mapper_device_add_signal(dst, MAPPER_DIR_IN, 1, "insig_3", 3,
+                                         MAPPER_FLOAT, NULL, mnf, mxf, handler);
+    recvsig_4 = mapper_device_add_signal(dst, MAPPER_DIR_IN, 1, "insig_4", 1,
+                                         MAPPER_FLOAT, NULL, mnf, mxf, handler);
 
     eprintf("Input signal 'insig' registered.\n");
 
     // Make sure we can add and remove inputs and inputs within crashing.
-    mapper_device_remove_signal(destination,
-                                mapper_device_add_input_signal(destination,
-                                                               "insig_5", 1,
-                                                               MAPPER_FLOAT, 0,
-                                                               &mnf, &mxf, 0, 0));
+    mapper_device_remove_signal(dst,
+                                mapper_device_add_signal(dst, MAPPER_DIR_IN, 1,
+                                                         "insig_5", 1, MAPPER_FLOAT,
+                                                         NULL, &mnf, &mxf, NULL));
 
     eprintf("Number of inputs: %d\n",
-            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
+            mapper_device_get_num_signals(dst, MAPPER_DIR_IN));
 
     return 0;
 
@@ -149,12 +149,12 @@ int setup_destination()
     return 1;
 }
 
-void cleanup_destination()
+void cleanup_dst()
 {
-    if (destination) {
+    if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(destination);
+        mapper_device_free(dst);
         eprintf("ok\n");
     }
 }
@@ -163,10 +163,9 @@ void cleanup_destination()
 
 void wait_local_devices()
 {
-    while (!done && !(mapper_device_ready(source)
-                      && mapper_device_ready(destination))) {
-        mapper_device_poll(source, 25);
-        mapper_device_poll(destination, 25);
+    while (!done && !(mapper_device_ready(src) && mapper_device_ready(dst))) {
+        mapper_device_poll(src, 25);
+        mapper_device_poll(dst, 25);
     }
 }
 
@@ -183,14 +182,14 @@ void loop()
         maps[3] = mapper_map_new(1, &sendsig_3, 1, &recvsig_4);
 
         for (i = 0; i < 4; i++) {
-            mapper_map_push(maps[i]);
+            mapper_object_push(maps[i]);
         }
 
         // wait until all maps has been established
         int num_maps = 0;
         while (!done && num_maps < 4) {
-            mapper_device_poll(source, 10);
-            mapper_device_poll(destination, 10);
+            mapper_device_poll(src, 10);
+            mapper_device_poll(dst, 10);
             num_maps = 0;
             for (i = 0; i < 4; i++) {
                 num_maps += (mapper_map_ready(maps[i]));
@@ -202,24 +201,25 @@ void loop()
     float val[3];
 
     while ((!terminate || i < 50) && !done) {
-        mapper_device_poll(source, 100);
-        mapper_signal_update_double(sendsig_1, ((i % 10) * 1.0f));
-        eprintf("outsig_1 value updated to %d -->\n", i % 10);
-
-        mapper_signal_update_float(sendsig_2, ((i % 10) * 1.0f));
-        eprintf("outsig_2 value updated to %d -->\n", i % 10);
+        mapper_device_poll(src, 0);
 
         val[0] = val[1] = val[2] = (i % 10) * 1.0f;
-        mapper_signal_update(sendsig_3, val, 1, MAPPER_NOW);
+        mapper_signal_set_value(sendsig_1, 0, 1, MAPPER_FLOAT, val, MAPPER_NOW);
+        eprintf("outsig_1 value updated to %d -->\n", i % 10);
+
+        mapper_signal_set_value(sendsig_2, 0, 1, MAPPER_FLOAT, val, MAPPER_NOW);
+        eprintf("outsig_2 value updated to %d -->\n", i % 10);
+
+        mapper_signal_set_value(sendsig_3, 0, 3, MAPPER_FLOAT, val, MAPPER_NOW);
         eprintf("outsig_3 value updated to [%f,%f,%f] -->\n",
                val[0], val[1], val[2]);
 
-        mapper_signal_update_float(sendsig_4, ((i % 10) * 1.0f));
+        mapper_signal_set_value(sendsig_4, 0, 1, MAPPER_FLOAT, val, MAPPER_NOW);
         eprintf("outsig_4 value updated to %d -->\n", i % 10);
 
         eprintf("Sent %i messages.\n", 4);
         sent += 4;
-        recvd = mapper_device_poll(destination, 100);
+        recvd = mapper_device_poll(dst, period);
         eprintf("Received %i messages.\n\n", recvd);
         i++;
 
@@ -249,11 +249,15 @@ int main(int argc, char ** argv)
                         printf("test.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-f fast (execute quickly), "
                                "-h help\n");
                         return 1;
                         break;
                     case 'q':
                         verbose = 0;
+                        break;
+                    case 'f':
+                        period = 1;
                         break;
                     case 't':
                         terminate = 1;
@@ -267,13 +271,13 @@ int main(int argc, char ** argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_destination()) {
+    if (setup_dst()) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source()) {
+    if (setup_src()) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
@@ -289,8 +293,9 @@ int main(int argc, char ** argv)
     }
 
   done:
-    cleanup_destination();
-    cleanup_source();
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    cleanup_dst();
+    cleanup_src();
+    printf("...................Test %s\x1B[0m.\n",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

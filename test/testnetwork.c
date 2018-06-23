@@ -11,7 +11,7 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
-mapper_network net = NULL;
+mapper_graph graph = NULL;
 mapper_device dev = NULL;
 
 int verbose = 1;
@@ -20,15 +20,18 @@ int test_network()
 {
     int error = 0, wait;
 
-    net = mapper_network_new(0, 0, 0);
-    if (!net) {
-        eprintf("Error creating network structure.\n");
+    graph = mapper_graph_new(0);
+    if (!graph) {
+        eprintf("Error creating graph structure.\n");
         return 1;
     }
 
-    eprintf("Network structure initialized.\n");
+    mapper_graph_set_interface(graph, "lo0");
+    mapper_graph_set_multicast_addr(graph, "224.0.1.4", 7777);
 
-    dev = mapper_device_new("testnetwork", 0, net);
+    eprintf("Graph structure initialized.\n");
+
+    dev = mapper_device_new("testnetwork", graph);
     if (!dev) {
         eprintf("Error creating device structure.\n");
         return 1;
@@ -36,15 +39,24 @@ int test_network()
 
     eprintf("Device structure initialized.\n");
 
-    eprintf("Found interface %s has IP %s\n", net->interface_name,
-           inet_ntoa(net->interface_ip));
+    eprintf("Found interface %s has IP %s\n", graph->net.iface.name,
+           inet_ntoa(graph->net.iface.addr));
 
     while (!dev->local->registered) {
         mapper_device_poll(dev, 100);
     }
 
-    eprintf("Using port %d.\n", mapper_device_port(dev));
-    eprintf("Allocated ordinal %d.\n", dev->local->ordinal.value);
+    int len;
+    mapper_type type;
+    const void *val;
+    mapper_object_get_prop_by_index((mapper_object)dev, MAPPER_PROP_PORT, NULL,
+                                    &len, &type, &val);
+    if (1 != len || MAPPER_INT32 != type) {
+        eprintf("Error retrieving port.\n");
+        return 1;
+    }
+    eprintf("Using port %d.\n", *(int*)val);
+    eprintf("Allocated ordinal %d.\n", dev->local->ordinal.val);
 
     eprintf("Delaying for 5 seconds..\n");
     wait = 50;
@@ -58,8 +70,8 @@ int test_network()
 
     mapper_device_free(dev);
     eprintf("Device structure freed.\n");
-    mapper_network_free(net);
-    eprintf("Network structure freed.\n");
+    mapper_graph_free(graph);
+    eprintf("Graph structure freed.\n");
 
     return error;
 }
@@ -75,7 +87,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testnetwork.c: possible arguments "
+                        printf("testgraph.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-h help\n");
                         return 1;
@@ -91,12 +103,7 @@ int main(int argc, char **argv)
     }
 
     result = test_network();
-
-    if (result) {
-        printf("Test FAILED.\n");
-        return 1;
-    }
-
-    printf("Test PASSED.\n");
-    return 0;
+    printf("\r..................................................Test %s\x1B[0m.\n",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
+    return result;
 }

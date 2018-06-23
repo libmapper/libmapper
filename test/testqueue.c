@@ -1,5 +1,3 @@
-
-#include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
@@ -17,6 +15,7 @@ int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
 int done = 0;
+int period = 100;
 
 mapper_device source = 0;
 mapper_device destination = 0;
@@ -25,28 +24,26 @@ mapper_signal recvsig = 0;
 mapper_signal sendsig1 = 0;
 mapper_signal recvsig1 = 0;
 
-int port = 9000;
-
 int sent = 0;
 int received = 0;
 
 int setup_source()
 {
-    source = mapper_device_new("testqueue-send", port, 0);
+    source = mapper_device_new("testqueue-send", 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=1;
 
-    sendsig = mapper_device_add_output_signal(source, "outsig", 1, MAPPER_FLOAT,
-                                              0, &mn, &mx);
-    sendsig1= mapper_device_add_output_signal(source, "outsig1", 1, MAPPER_FLOAT,
-                                              0, &mn, &mx);
+    sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUT, 1, "outsig",
+                                       1, MAPPER_FLOAT, NULL, &mn, &mx, NULL);
+    sendsig1= mapper_device_add_signal(source, MAPPER_DIR_OUT, 1, "outsig1",
+                                       1, MAPPER_FLOAT, NULL, &mn, &mx, NULL);
 
     eprintf("Output signal 'outsig' registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
+            mapper_device_get_num_signals(source, MAPPER_DIR_OUT));
     return 0;
 
   error:
@@ -63,8 +60,8 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
-                   int count, mapper_timetag_t *timetag)
+void handler(mapper_signal sig, mapper_id instance, int len, mapper_type type,
+             const void *value, mapper_time t)
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
@@ -74,23 +71,21 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 
 int setup_destination()
 {
-    destination = mapper_device_new("testqueue-recv", port, 0);
+    destination = mapper_device_new("testqueue-recv", 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input_signal(destination, "insig", 1,
-                                             MAPPER_FLOAT, 0, &mn, &mx,
-                                             insig_handler, 0);
-	recvsig1= mapper_device_add_input_signal(destination, "insig1", 1,
-                                             MAPPER_FLOAT, 0, &mn, &mx,
-                                             insig_handler, 0);
+    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 1, "insig",
+                                       1, MAPPER_FLOAT, NULL, &mn, &mx, handler);
+	recvsig1= mapper_device_add_signal(destination, MAPPER_DIR_IN, 1, "insig1",
+                                       1, MAPPER_FLOAT, NULL, &mn, &mx, handler);
 
     eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
+            mapper_device_get_num_signals(destination, MAPPER_DIR_IN));
     return 0;
 
   error:
@@ -111,9 +106,9 @@ int create_maps()
 {
     mapper_map maps[2];
     maps[0] = mapper_map_new(1, &sendsig, 1, &recvsig);
-    mapper_map_push(maps[0]);
+    mapper_object_push(maps[0]);
     maps[1] = mapper_map_new(1, &sendsig1, 1, &recvsig);
-    mapper_map_push(maps[1]);
+    mapper_object_push(maps[1]);
 
     // wait until mapping has been established
     while (!done && !mapper_map_ready(maps[0]) && !mapper_map_ready(maps[1])) {
@@ -138,18 +133,21 @@ void loop()
     eprintf("Polling device..\n");
 	int i = 0;
 	float j=1;
+    const char *name;
+    mapper_object_get_prop_by_index(sendsig, MAPPER_PROP_NAME, NULL, NULL, NULL,
+                                    (const void**)&name);
 	while ((!terminate || i < 50) && !done) {
         j=i;
-        mapper_timetag_t now;
-        mapper_timetag_now(&now);
+        mapper_time_t now;
+        mapper_time_now(&now);
         mapper_device_start_queue(source, now);
 		mapper_device_poll(source, 0);
-        eprintf("Updating signal %s to %f\n", mapper_signal_name(sendsig), j);
-        mapper_signal_update(sendsig, &j, 0, now);
-		mapper_signal_update(sendsig1, &j, 0, now);
-		mapper_device_send_queue(sendsig->device, now);
+        eprintf("Updating signal %s to %f\n", name, j);
+        mapper_signal_set_value(sendsig, 0, 1, MAPPER_FLOAT, &j, now);
+		mapper_signal_set_value(sendsig1, 0, 1, MAPPER_FLOAT, &j, now);
+		mapper_device_send_queue(mapper_signal_get_device(sendsig), now);
 		sent = sent+2;
-        mapper_device_poll(destination, 100);
+        mapper_device_poll(destination, period);
         i++;
 
         if (!verbose) {
@@ -176,10 +174,14 @@ int main(int argc, char **argv)
                 switch (argv[i][j]) {
                     case 'h':
                         eprintf("testqueue.c: possible arguments "
+                                "-f fast (execute quickly), "
                                 "-q quiet (suppress output), "
                                 "-t terminate automatically, "
                                 "-h help\n");
                         return 1;
+                        break;
+                    case 'f':
+                        period = 1;
                         break;
                     case 'q':
                         verbose = 0;
@@ -228,6 +230,7 @@ int main(int argc, char **argv)
   done:
     cleanup_destination();
     cleanup_source();
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    printf("...................Test %s\x1B[0m.\n",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

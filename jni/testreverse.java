@@ -18,16 +18,17 @@ class testreverse {
                     }
             });
 
-        Signal inp1 = dev.addInputSignal("insig1", 1, Type.FLOAT, "Hz", null, null,
-                                         new UpdateListener() {
-                public void onUpdate(Signal sig, float[] v, TimeTag tt) {
+        Signal inp1 = dev.addSignal(Direction.INCOMING, 1, "insig1", 1, Type.FLOAT,
+                                    "Hz", null, null, new UpdateListener() {
+                public void onUpdate(Signal sig, float[] v, Time time) {
                     System.out.println("in onUpdate(): "+Arrays.toString(v));
                 }});
 
-        Signal out1 = dev.addOutputSignal("outsig1", 1, Type.INT, "Hz", null, null);
+        Signal out1 = dev.addSignal(Direction.OUTGOING, 1, "outsig1", 1, Type.INT,
+                                    "Hz", null, null, null);
         out1.setUpdateListener(
             new UpdateListener() {
-                public void onUpdate(Signal sig, int[] v, TimeTag tt) {
+                public void onUpdate(Signal sig, int[] v, Time time) {
                     System.out.println("  >> in onUpdate(): "+Arrays.toString(v));
                 }});
 
@@ -37,12 +38,13 @@ class testreverse {
         }
         System.out.println("Device is ready.");
 
-        System.out.println("Device name: "+dev.name());
-        System.out.println("Device port: "+dev.port());
-        System.out.println("Device ordinal: "+dev.ordinal());
-        System.out.println("Device interface: "+dev.network().iface());
+        System.out.println("Device name: "+dev.getProperty(Property.NAME));
+        System.out.println("Device port: "+dev.getProperty(Property.PORT));
+        System.out.println("Device ordinal: "+dev.getProperty(Property.ORDINAL));
+        System.out.println("Network interface: "+dev.graph().getInterface());
 
-        Map map = new Map(inp1, out1).push();
+        Map map = new Map(inp1, out1);
+        map.push();
         while (!map.ready()) {
             System.out.println("waiting for map");
             dev.poll(100);

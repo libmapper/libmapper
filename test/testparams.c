@@ -15,9 +15,9 @@ int verbose = 1;
 int main(int argc, char **argv)
 {
     lo_arg *args[20];
-    mapper_message msg;
-    mapper_message_atom atom;
-    int port=1234, src_length=4;
+    mapper_msg msg;
+    mapper_msg_atom atom;
+    int port=1234, src_len=4;
     float r[4] = {1.0, 2.0, -15.0, 25.0};
     int i, j, result = 0;
 
@@ -54,42 +54,42 @@ int main(int argc, char **argv)
     args[6]  = (lo_arg*)&r[3];
     args[7]  = (lo_arg*)"@port";
     args[8]  = (lo_arg*)&port;
-    args[9]  = (lo_arg*)"@srcType";
+    args[9]  = (lo_arg*)"@src@type";
     args[10] = (lo_arg*)"f";
-    args[11] = (lo_arg*)"@srcLength";
-    args[12] = (lo_arg*)&src_length;
+    args[11] = (lo_arg*)"@src@length";
+    args[12] = (lo_arg*)&src_len;
 
-    msg = mapper_message_parse_properties(13, "sssffffsiscsi", args);
+    msg = mapper_msg_parse_props(13, "sssffffsiscsi", args);
     if (!msg) {
         eprintf("1: Error parsing.\n");
         result = 1;
         goto done;
     }
 
-    atom = mapper_message_property(msg, AT_HOST);
+    atom = mapper_msg_prop(msg, MAPPER_PROP_HOST);
     if (!atom) {
         eprintf("1: Could not get @host property.\n");
         result = 1;
         goto done;
     }
-    if (!is_string_type(atom->types[0])) {
+    if (!type_is_str(atom->types[0])) {
         eprintf("1: Type error retrieving @host property.");
         result = 1;
         goto done;
     }
-    if (atom->length != 1) {
+    if (atom->len != 1) {
         eprintf("1: Length error retrieving @host property.");
         result = 1;
         goto done;
     }
-    if (strcmp(&(*atom->values)->s, "127.0.0.1")!=0)
+    if (strcmp(&(*atom->vals)->s, "127.0.0.1")!=0)
         result |= 1;
-    eprintf("1: @host = \"%s\" %s\n", &(*atom->values)->s,
+    eprintf("1: @host = \"%s\" %s\n", &(*atom->vals)->s,
             result ? "WRONG" : "(correct)");
     if (result)
         goto done;
 
-    atom = mapper_message_property(msg, AT_PORT);
+    atom = mapper_msg_prop(msg, MAPPER_PROP_PORT);
     if (!atom) {
         eprintf("1: Could not get @port property.\n");
         result = 1;
@@ -100,19 +100,19 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    if (atom->length != 1) {
+    if (atom->len != 1) {
         eprintf("1: Length error retrieving @port property.");
         result = 1;
         goto done;
     }
-    if ((*atom->values)->i!=1234)
+    if ((*atom->vals)->i!=1234)
         result |= 1;
-    eprintf("1: @port = %d %s\n", (*atom->values)->i,
+    eprintf("1: @port = %d %s\n", (*atom->vals)->i,
             result ? "WRONG" : "(correct)");
     if (result)
         goto done;
 
-    atom = mapper_message_property(msg, SRC_SLOT_PROPERTY(0) | AT_MIN);
+    atom = mapper_msg_prop(msg, SRC_SLOT_PROP(0) | MAPPER_PROP_MIN);
     if (!atom) {
         eprintf("1: Could not get @src@min property.\n");
         result = 1;
@@ -123,15 +123,15 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    if (atom->length != 4) {
+    if (atom->len != 4) {
         eprintf("1: Length error retrieving @src@min property.");
         result = 1;
         goto done;
     }
-    for (i = 0; i < atom->length; i++) {
-        if (atom->values[i]->f != r[i])
+    for (i = 0; i < atom->len; i++) {
+        if (atom->vals[i]->f != r[i])
             result = 1;
-        eprintf("1: @src@min[%d] = %f %s\n", i, atom->values[i]->f,
+        eprintf("1: @src@min[%d] = %f %s\n", i, atom->vals[i]->f,
                 result ? "WRONG" : "(correct)");
         if (result)
             goto done;
@@ -145,15 +145,15 @@ int main(int argc, char **argv)
     args[1] = (lo_arg*)&port;
     args[2] = (lo_arg*)"@host";
 
-    mapper_message_free(msg);
-    msg = mapper_message_parse_properties(3, "sis", args);
+    mapper_msg_free(msg);
+    msg = mapper_msg_parse_props(3, "sis", args);
     if (!msg) {
         eprintf("2: Error parsing.\n");
         result = 1;
         goto done;
     }
 
-    atom = mapper_message_property(msg, AT_PORT);
+    atom = mapper_msg_prop(msg, MAPPER_PROP_PORT);
     if (!atom) {
         eprintf("2: Could not get @port property.\n");
         result = 1;
@@ -164,13 +164,13 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    if (atom->length != 1) {
+    if (atom->len != 1) {
         eprintf("2: Length error retrieving @port property.");
         result = 1;
         goto done;
     }
 
-    atom = mapper_message_property(msg, AT_HOST);
+    atom = mapper_msg_prop(msg, MAPPER_PROP_HOST);
     if (atom) {
         eprintf("2: Error, should not have been able to retrieve @host property.\n");
         result = 1;
@@ -186,8 +186,8 @@ int main(int argc, char **argv)
     args[2] = (lo_arg*)&port;
     args[3] = (lo_arg*)"-@bar";
 
-    mapper_message_free(msg);
-    msg = mapper_message_parse_properties(4, "ssis", args);
+    mapper_msg_free(msg);
+    msg = mapper_msg_parse_props(4, "ssis", args);
     if (!msg) {
         eprintf("3: Error parsing.\n");
         result = 1;
@@ -201,18 +201,18 @@ int main(int argc, char **argv)
     }
 
     atom = &msg->atoms[0];
-    if (strcmp(atom->key, "foo")) {
+    if (strcmp(atom->name, "foo")) {
         eprintf("3: Could not get -@foo property.\n");
         result = 1;
         goto done;
     }
-    if (!(atom->index & PROPERTY_REMOVE)) {
-        eprintf("3: Missing PROPERTY_REMOVE flag.\n");
+    if (!(atom->prop & PROP_REMOVE)) {
+        eprintf("3: Missing PROP_REMOVE flag.\n");
         result = 1;
         goto done;
     }
 
-    atom = mapper_message_property(msg, AT_PORT);
+    atom = mapper_msg_prop(msg, MAPPER_PROP_PORT);
     if (!atom) {
         eprintf("3: Could not get @port property.\n");
         result = 1;
@@ -223,29 +223,29 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    if (atom->length != 1) {
+    if (atom->len != 1) {
         eprintf("3: Length error retrieving @port property.");
         result = 1;
         goto done;
     }
 
     atom = &msg->atoms[2];
-    if (strcmp(atom->key, "bar")) {
+    if (strcmp(atom->name, "bar")) {
         eprintf("3: Could not get -@bar property.\n");
         result = 1;
         goto done;
     }
-    if (!(atom->index & PROPERTY_REMOVE)) {
-        eprintf("3: Missing PROPERTY_REMOVE flag.\n");
+    if (!(atom->prop & PROP_REMOVE)) {
+        eprintf("3: Missing PROP_REMOVE flag.\n");
         result = 1;
         goto done;
     }
 
     /*****/
 done:
-    mapper_message_free(msg);
+    mapper_msg_free(msg);
     if (!verbose)
         printf("..................................................");
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    printf("Test %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

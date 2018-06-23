@@ -1,5 +1,3 @@
-
-#include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
@@ -9,7 +7,12 @@
 #include <unistd.h>
 #include <signal.h>
 
-mapper_database db = 0;
+#define eprintf(format, ...) do {               \
+    if (verbose)                                \
+        fprintf(stdout, format, ##__VA_ARGS__); \
+} while(0)
+
+mapper_graph graph = 0;
 
 int verbose = 1;
 int terminate = 0;
@@ -26,31 +29,13 @@ void monitor_pause()
     // sleep(1);
 }
 
-void printdevice(mapper_device dev)
-{
-    printf(" └─ ");
-    mapper_device_print(dev);
-}
-
-void printlink(mapper_link link)
-{
-    printf(" └─ ");
-    mapper_link_print(link);
-}
-
-void printmap(mapper_map map)
-{
-    printf(" └─ ");
-    mapper_map_print(map);
-}
-
 /*! Creation of a local dummy device. */
-int setup_database()
+int setup_graph()
 {
-    db = mapper_database_new(0, MAPPER_OBJ_ALL);
-    if (!db)
+    graph = mapper_graph_new(MAPPER_OBJ_ALL);
+    if (!graph)
         goto error;
-    printf("Database created.\n");
+    eprintf("Graph created.\n");
 
     return 0;
 
@@ -58,13 +43,13 @@ int setup_database()
     return 1;
 }
 
-void cleanup_database()
+void cleanup_graph()
 {
-    if (db) {
-        printf("\rFreeing database.. ");
+    if (graph) {
+        eprintf("\rFreeing graph.. ");
         fflush(stdout);
-        mapper_database_free(db);
-        printf("ok\n");
+        mapper_graph_free(graph);
+        eprintf("ok\n");
     }
 }
 
@@ -73,158 +58,48 @@ void loop()
     int i = 0;
     while ((!terminate || i++ < 200) && !done)
     {
-        mapper_database_poll(db, polltime_ms);
+        mapper_graph_poll(graph, polltime_ms);
 
         if (update++ < 0)
             continue;
-        update = -10;
+        update = -100;
 
-        if (!verbose)
-            continue;
+        if (verbose) {
+            // clear screen & cursor to home
+            printf("\e[2J\e[0;0H");
+            fflush(stdout);
 
-        // clear screen & cursor to home
-        printf("\e[2J\e[0;0H");
-        fflush(stdout);
-
-        printf("-------------------------------\n");
-
-        printf("Registered devices (%d) and signals (%d):\n",
-               mapper_database_num_devices(db),
-               mapper_database_num_signals(db, MAPPER_DIR_ANY));
-        mapper_device *pdev = mapper_database_devices(db), tempdev;
-        mapper_signal *psig, tempsig;
-        while (pdev) {
-            tempdev = *pdev;
-            pdev = mapper_device_query_next(pdev);
-            printdevice(tempdev);
-
-            psig = mapper_device_signals(tempdev, MAPPER_DIR_OUTGOING);
-            while (psig) {
-                tempsig = *psig;
-                psig = mapper_signal_query_next(psig);
-                printf("    %s ", psig ? "├─" : "└─");
-                mapper_signal_print(tempsig, 0);
-            }
-            psig = mapper_device_signals(tempdev, MAPPER_DIR_INCOMING);
-            while (psig) {
-                tempsig = *psig;
-                psig = mapper_signal_query_next(psig);
-                printf("    %s ", psig ? "├─" : "└─");
-                mapper_signal_print(tempsig, 0);
-            }
+            // print current state of graph
+            mapper_graph_print(graph);
         }
-
-        printf("-------------------------------\n");
-
-        printf("Registered links (%d):\n", mapper_database_num_links(db));
-        mapper_link *plink = mapper_database_links(db);
-        while (plink) {
-            printlink(*plink);
-            plink = mapper_link_query_next(plink);
+        else {
+            printf("\r  Devices: %4i, Signals: %4i, Maps: %4i",
+                   mapper_graph_get_num_objects(graph, MAPPER_OBJ_DEVICE),
+                   mapper_graph_get_num_objects(graph, MAPPER_OBJ_SIGNAL),
+                   mapper_graph_get_num_objects(graph, MAPPER_OBJ_MAP));
+            fflush(stdout);
         }
-
-        printf("-------------------------------\n");
-
-        printf("Registered maps (%d):\n", mapper_database_num_maps(db));
-        mapper_map *pmap = mapper_database_maps(db);
-        while (pmap) {
-            printmap(*pmap);
-            pmap = mapper_map_query_next(pmap);
-        }
-
-        printf("-------------------------------\n");
     }
 }
 
-void on_device(mapper_database db, mapper_device dev, mapper_record_event e,
+void on_object(mapper_graph graph, mapper_object obj, mapper_record_event e,
                const void *user)
 {
-    printf("Device %s ", dev->name);
+    if (verbose)
+        mapper_object_print(obj, 0);
+
     switch (e) {
     case MAPPER_ADDED:
-        printf("added.\n");
+        eprintf("added.\n");
         break;
     case MAPPER_MODIFIED:
-        printf("modified.\n");
+        eprintf("modified.\n");
         break;
     case MAPPER_REMOVED:
-        printf("removed.\n");
+        eprintf("removed.\n");
         break;
     case MAPPER_EXPIRED:
-        printf("unresponsive.\n");
-        mapper_database_flush(db, 10, 0);
-        break;
-    }
-    monitor_pause();
-    update = 1;
-}
-
-void on_link(mapper_database db, mapper_link lnk, mapper_record_event e,
-             const void *user)
-{
-    printf("Link %s <-> %s ", lnk->devices[0]->name, lnk->devices[1]->name);
-    switch (e) {
-        case MAPPER_ADDED:
-            printf("added.\n");
-            break;
-        case MAPPER_MODIFIED:
-            printf("modified.\n");
-            break;
-        case MAPPER_REMOVED:
-            printf("removed.\n");
-            break;
-        case MAPPER_EXPIRED:
-            printf("unresponsive.\n");
-            break;
-    }
-    monitor_pause();
-    update = 1;
-}
-
-void on_signal(mapper_database db, mapper_signal sig, mapper_record_event e,
-               const void *user)
-{
-    printf("Signal %s/%s ", sig->device->name, sig->name);
-    switch (e) {
-    case MAPPER_ADDED:
-        printf("added.\n");
-        break;
-    case MAPPER_MODIFIED:
-        printf("modified.\n");
-        break;
-    case MAPPER_REMOVED:
-        printf("removed.\n");
-        break;
-    case MAPPER_EXPIRED:
-        printf("unresponsive.\n");
-        break;
-    }
-    monitor_pause();
-    update = 1;
-}
-
-void on_map(mapper_database db, mapper_map map, mapper_record_event e,
-            const void *user)
-{
-    int i;
-    printf("Map ");
-    for (i = 0; i < map->num_sources; i++)
-        printf("%s/%s ", map->sources[i]->signal->device->name,
-               map->sources[i]->signal->name);
-    printf("-> %s/%s ", map->destination.signal->device->name,
-           map->destination.signal->name);
-    switch (e) {
-    case MAPPER_ADDED:
-        printf("added.\n");
-        break;
-    case MAPPER_MODIFIED:
-        printf("modified.\n");
-        break;
-    case MAPPER_REMOVED:
-        printf("removed.\n");
-        break;
-    case MAPPER_EXPIRED:
-        printf("unresponsive.\n");
+        eprintf("unresponsive.\n");
         break;
     }
     monitor_pause();
@@ -268,24 +143,18 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_database()) {
-        printf("Error initializing database.\n");
+    if (setup_graph()) {
+        eprintf("Error initializing graph.\n");
         result = 1;
         goto done;
     }
 
-    mapper_database_add_device_callback(db, on_device, 0);
-    mapper_database_add_signal_callback(db, on_signal, 0);
-    mapper_database_add_link_callback(db, on_link, 0);
-    mapper_database_add_map_callback(db, on_map, 0);
+    mapper_graph_add_callback(graph, on_object, MAPPER_OBJ_ALL, 0);
 
     loop();
 
   done:
-    mapper_database_remove_device_callback(db, on_device, 0);
-    mapper_database_remove_signal_callback(db, on_signal, 0);
-    mapper_database_remove_link_callback(db, on_link, 0);
-    mapper_database_remove_map_callback(db, on_map, 0);
-    cleanup_database();
+    mapper_graph_remove_callback(graph, on_object, 0);
+    cleanup_graph();
     return result;
 }

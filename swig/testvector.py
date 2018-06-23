@@ -4,23 +4,22 @@ from __future__ import print_function
 import sys, mapper, random
 
 def h(sig, id, val, timetag):
-    print('  handler got', sig.name, '=', val, 'at time', timetag.get_double())
+    print('  handler got', sig['name'], '=', val, 'at time', timetag.get_double())
 
 mins = [0,0,0,0,0,0,0,0,0,0]
 maxs = [1,1,1,1,1,1,1,1,1,1]
 
 src = mapper.device("src")
-outsig = src.add_output_signal("outsig", 10, mapper.INT32, None, mins, maxs)
+outsig = src.add_signal(mapper.DIR_OUT, 1, "outsig", 10, mapper.INT32, None, mins, maxs)
 
 dest = mapper.device("dest")
-insig = dest.add_input_signal("insig", 10, mapper.FLOAT, None, mins, maxs, h)
+insig = dest.add_signal(mapper.DIR_IN, 1, "insig", 10, mapper.FLOAT, None, mins, maxs, h)
 
 while not src.ready or not dest.ready:
     src.poll(10)
     dest.poll(10)
 
 map = mapper.map(outsig, insig)
-map.mode = mapper.MODE_EXPRESSION
 map.push()
 
 while not map.ready:

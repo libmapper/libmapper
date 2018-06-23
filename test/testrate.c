@@ -1,4 +1,3 @@
-
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
@@ -18,66 +17,30 @@ int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
 int done = 0;
+int polltime = 100;
 
-mapper_device source = 0;
-mapper_device destination = 0;
+mapper_device src = 0;
+mapper_device dst = 0;
 mapper_signal sendsig = 0;
 mapper_signal recvsig = 0;
-
-int port = 9000;
 
 int sent = 0;
 int received = 0;
 
+float period;
+
 /*! Creation of a local source. */
-int setup_source()
+int setup_src()
 {
-    source = mapper_device_new("testrate-send", port, 0);
-    if (!source)
+    src = mapper_device_new("testrate-send", 0);
+    if (!src)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    sendsig = mapper_device_add_output_signal(source, "outsig", 1, MAPPER_FLOAT,
-                                              "Hz", &mn, &mx);
-
-    // This signal will be updated at 100 Hz
-    mapper_signal_set_rate(sendsig, 100);
-
-    // Check by both methods that the property was set
-    eprintf("Rate for 'outsig' is set to: %f\n", sendsig->rate);
-
-    const float *val;
-    mapper_type type;
-    int len;
-    if (mapper_signal_property(sendsig, "rate", &len, &type, (const void**)&val))
-    {
-        eprintf("Couldn't find `rate' property.\n");
-        mapper_device_free(source);
-        mapper_device_free(destination);
-        exit(1);
-    }
-
-    if (len != 1) {
-        eprintf("Rate property was unexpected length %d\n", len);
-        exit(1);
-    }
-    if (type == MAPPER_FLOAT)
-        eprintf("Rate for 'outsig' is set to: %f\n", val[0]);
-    else {
-        eprintf("Rate property was unexpected type `%c'\n", type);
-        mapper_device_free(source);
-        mapper_device_free(destination);
-        exit(1);
-    }
-
-    if (sendsig->rate != val[0]) {
-        eprintf("Rate properties don't agree.\n");
-        mapper_device_free(source);
-        mapper_device_free(destination);
-        exit(1);
-    }
+    sendsig = mapper_device_add_signal(src, MAPPER_DIR_OUT, 1, "outsig", 1,
+                                       MAPPER_FLOAT, "Hz", &mn, &mx, NULL);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -87,48 +50,47 @@ int setup_source()
     return 1;
 }
 
-void cleanup_source()
+void cleanup_src()
 {
-    if (source) {
+    if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(source);
+        mapper_device_free(src);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
-                   int count, mapper_timetag_t *timetag)
+void handler(mapper_signal sig, mapper_id instance, int len, mapper_type type,
+             const void *val, mapper_time t)
 {
-    if (value) {
-        eprintf("--> destination %s got %i message vector\n[", sig->name, count);
-        float *v = (float*)value;
-        for (int i = 0; i < count; i++) {
-            for (int j = 0; j < sig->length; j++) {
-                eprintf(" %.1f ", v[i*sig->length+j]);
-            }
-        }
-        eprintf("]\n");
-    }
-    received++;
+    ++received;
+    if (!val)
+        return;
+
+    const char *name;
+    mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
+                                    NULL, NULL, (const void**)&name);
+    eprintf("Rec'ved (period: %f, jitter: %f, diff:%f)\n", sig->period,
+            sig->jitter, period - sig->period);
 }
 
 /*! Creation of a local destination. */
-int setup_destination()
+int setup_dst()
 {
-    destination = mapper_device_new("testrate-recv", port, 0);
-    if (!destination)
+    dst = mapper_device_new("testrate-recv", 0);
+    if (!dst)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input_signal(destination, "insig", 1,
-                                             MAPPER_FLOAT, 0, &mn, &mx,
-                                             insig_handler, 0);
+    recvsig = mapper_device_add_signal(dst, MAPPER_DIR_IN, 1, "insig", 1,
+                                       MAPPER_FLOAT, NULL, &mn, &mx, handler);
 
     // This signal is expected to be updated at 100 Hz
-    mapper_signal_set_rate(recvsig, 100);
+    float rate = 100.f;
+    mapper_object_set_prop((mapper_object)recvsig, MAPPER_PROP_RATE, NULL, 1,
+                           MAPPER_FLOAT, &rate, 1);
 
     eprintf("Input signal 'insig' registered.\n");
 
@@ -138,22 +100,21 @@ int setup_destination()
     return 1;
 }
 
-void cleanup_destination()
+void cleanup_dst()
 {
-    if (destination) {
+    if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(destination);
+        mapper_device_free(dst);
         eprintf("ok\n");
     }
 }
 
 void wait_local_devices()
 {
-    while (!done && !(mapper_device_ready(source)
-                      && mapper_device_ready(destination))) {
-        mapper_device_poll(source, 25);
-        mapper_device_poll(destination, 25);
+    while (!done && !(mapper_device_ready(src) && mapper_device_ready(dst))) {
+        mapper_device_poll(src, 25);
+        mapper_device_poll(dst, 25);
     }
 }
 
@@ -161,13 +122,13 @@ int setup_maps()
 {
     int i = 0;
     mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
-    mapper_map_push(map);
+    mapper_object_push((mapper_object)map);
 
     i = 0;
     // wait until mapping has been established
     while (!done && !mapper_map_ready(map)) {
-        mapper_device_poll(source, 10);
-        mapper_device_poll(destination, 10);
+        mapper_device_poll(src, 10);
+        mapper_device_poll(dst, 10);
         if (i++ > 100)
             return 1;
     }
@@ -177,7 +138,7 @@ int setup_maps()
 
 void loop()
 {
-    int i = 0;
+    int i = 0, thresh = 0;
 
     float phasor[10];
     for (i=0; i<10; i++)
@@ -185,21 +146,29 @@ void loop()
 
     i = 0;
     while ((!terminate || i < 50) && !done) {
-        mapper_device_poll(source, 0);
+        mapper_device_poll(src, 0);
 
         // 10 times a second, we provide 10 samples, making a
         // periodically-sampled signal of 100 Hz.
-        eprintf("Sending [%g..%g]...\n", phasor[0], phasor[9]);
-        sent++;
-        mapper_signal_update(sendsig, phasor, 10, MAPPER_NOW);
-        int r = mapper_device_poll(destination, 100);
-        eprintf("Destination got %d message%s.\n", r, r==1?"":"s");
-        i++;
+        if (rand() % 200 > thresh) {
+            mapper_signal_set_value(sendsig, 0, 10, MAPPER_FLOAT, phasor, MAPPER_NOW);
+            eprintf("Sending (period: %f; jitter: %f)\n", sendsig->period,
+                    sendsig->jitter);
+            period = sendsig->period;
+            ++sent;
+        }
+
+        mapper_device_poll(dst, polltime);
+        ++i;
 
         if (!verbose) {
             printf("\r  Sent: %4i, Received: %4i   ", sent, received);
             fflush(stdout);
         }
+
+        ++thresh;
+        if (thresh > 100)
+            thresh = -100;
     }
 }
 
@@ -220,10 +189,14 @@ int main(int argc, char **argv)
                 switch (argv[i][j]) {
                     case 'h':
                         eprintf("testrate.c: possible arguments "
+                                "-f fast (execute quickly), "
                                 "-q quiet (suppress output), "
                                 "-t terminate automatically, "
                                 "-h help\n");
                         return 1;
+                        break;
+                    case 'f':
+                        polltime = 1;
                         break;
                     case 'q':
                         verbose = 0;
@@ -240,13 +213,13 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_destination()) {
+    if (setup_dst()) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source()) {
+    if (setup_src()) {
         eprintf("Error initializing source.\n");
         result = 1;
         goto done;
@@ -270,8 +243,9 @@ int main(int argc, char **argv)
     }
 
   done:
-    cleanup_destination();
-    cleanup_source();
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    cleanup_dst();
+    cleanup_src();
+    printf("\r..................................................Test %s\x1B[0m.\n",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

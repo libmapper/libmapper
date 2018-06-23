@@ -1,211 +1,73 @@
 
 package mapper;
 
-import mapper.NativeLib;
-import mapper.device.*;
-import mapper.Property;
+//import mapper.NativeLib;
 import mapper.signal.UpdateListener;
 import mapper.signal.InstanceUpdateListener;
 import mapper.Type;
-import mapper.Value;
-import mapper.TimeTag;
-import java.util.Iterator;
+import mapper.Time;
 
-public class Device
+public class Device extends mapper.AbstractObject
 {
     /* constructor */
-    private native long mapperDeviceNew(String name, int port);
-    public Device(String name) { _dev = mapperDeviceNew(name, 0); }
-    public Device(String name, int port) { _dev = mapperDeviceNew(name, port); }
-    public Device(long dev) { _dev = dev; }
+    private native long mapperDeviceNew(String name, Graph g);
+    public Device(String name) {
+        super(0);
+        _obj = mapperDeviceNew(name, null);
+    }
+    public Device(String name, Graph g) {
+        super(0);
+        _obj = mapperDeviceNew(name, g);
+    }
+    public Device(long dev) {
+        super(dev);
+    }
 
-    /* free */
-    private native void mapperDeviceFree(long _d);
-    public void free() {
-        if (_dev != 0)
-            mapperDeviceFree(_dev);
-        _dev = 0;
+    /* self */
+    @Override
+    public Device self() {
+        return this;
     }
 
     /* poll */
-    private native int mapperDevicePoll(long _d, int timeout);
-    public int poll(int timeout) { return mapperDevicePoll(_dev, timeout); }
-    public int poll() { return mapperDevicePoll(_dev, 0); }
+    public native int poll(int timeout);
+    public int poll() { return poll(0); }
 
-    /* add signals */
-    private native Signal mapperAddSignal(int dir, int numInstances, String name,
-                                          int length, char type, String unit,
-                                          Value minimum, Value maximum,
-                                          mapper.signal.UpdateListener l);
-    public Signal addSignal(Direction dir, int numInstances, String name,
-                            int length, Type type, String unit,
-                            Value minimum, Value maximum,
-                            mapper.signal.UpdateListener l) {
-        return mapperAddSignal(dir.value(), numInstances, name, length,
-                               (char)type.value(), unit, minimum, maximum, l);
+    /* signals */
+    public native Signal addSignal(Direction dir, int numInstances, String name,
+                                   int length, Type type, String unit,
+                                   Number minimum, Number maximum,
+                                   mapper.signal.UpdateListener l);
+    public Signal addSignal(Direction dir, String name, int length, Type type) {
+        return addSignal(dir, 1, name, length, type, null, null, null, null);
     }
-    public Signal addInputSignal(String name, int length, Type type,
-                                 String unit, Value minimum, Value maximum,
-                                 mapper.signal.UpdateListener l) {
-        return mapperAddSignal(Direction.INCOMING.value(), 1, name, length,
-                               (char)type.value(), unit, minimum, maximum, l);
-    }
-
-    public Signal addOutputSignal(String name, int length, Type type,
-                                  String unit, Value minimum, Value maximum) {
-        return mapperAddSignal(Direction.OUTGOING.value(), 1, name, length,
-                               (char)type.value(), unit, minimum, maximum, null);
-    }
-
-    /* remove signals */
-    private native void mapperDeviceRemoveSignal(long _d, Signal sig);
-    public Device removeSignal(Signal sig) {
-        mapperDeviceRemoveSignal(_dev, sig);
-        return this;
-    }
+    public native Device removeSignal(Signal sig);
 
     /* signal groups */
     public native long addSignalGroup();
     public native Device removeSignalGroup(long group);
 
-    /* retrieve Network object */
-    private native long mapperDeviceNetwork(long dev);
-    public mapper.Network network() {
-        return new Network(mapperDeviceNetwork(_dev));
-    }
-
-    /* properties */
-    public native int numProperties();
-    public native Value property(String name);
-    public native Property property(int index);
-    public native Device setProperty(String name, Value value, boolean publish);
-    public Device setProperty(String name, Value value) {
-        return setProperty(name, value, true);
-    }
-    public Device setProperty(Property prop) {
-        return setProperty(prop.name, prop.value, prop.publish);
-    }
-    public native Device removeProperty(String name);
-    public Device removeProperty(Property prop) {
-        return removeProperty(prop.name);
-    }
-
-    /* clear staged properties */
-    public native Device clearStagedProperties();
-
-    /* push */
-    public native Device push();
-
-    /* property: host */
-    public native String host();
-
-    /* property: id */
-    public native long id();
-
-    /* property: is_local */
-    public native boolean isLocal();
-
-    /* property: name */
-    public native String name();
-
-    /* property: num_signals */
-    private native int numSignals(int dir);
-    public int numSignals(Direction dir) { return numSignals(dir.value()); }
-    public int numSignals() { return numSignals(0); }
-    public int numInputs() {
-        return numSignals(Direction.INCOMING.value());
-    }
-    public int numOutputs() {
-        return numSignals(Direction.OUTGOING.value());
-    }
-
-    /* property: num_maps */
-    private native int numMaps(int dir);
-    public int numMaps(Direction dir) { return numMaps(dir.value()); }
-    public int numMaps() { return numMaps(0); }
-
-    /* property: num_links */
-    private native int numLinks(int dire);
-    public int numLinks(Direction dir) { return numLinks(dir.value()); }
-    public int numLinks() { return numLinks(0); }
-
-    /* property: ordinal */
-    public native int ordinal();
-
-    /* property: port */
-    public native int port();
-
     /* property: ready */
     public native boolean ready();
 
-    /* property: synced */
-    public native TimeTag synced();
-
-    /* property: version */
-    public native int version();
-
     /* manage update queues */
-    public native TimeTag startQueue(TimeTag tt);
-    public TimeTag startQueue() {
+    public native Time startQueue(Time t);
+    public Time startQueue() {
         return startQueue(null);
     }
-    public native Device sendQueue(TimeTag tt);
-
-    // listeners
-    private native void mapperDeviceSetLinkCB(long dev,
-                                              mapper.device.LinkListener l);
-    public Device setLinkListener(mapper.device.LinkListener l) {
-        mapperDeviceSetLinkCB(_dev, l);
-        return this;
-    }
-    private native void mapperDeviceSetMapCB(long dev,
-                                             mapper.device.MapListener l);
-    public Device setMapListener(mapper.device.MapListener l) {
-        mapperDeviceSetMapCB(_dev, l);
-        return this;
-    }
+    public native Device sendQueue(Time t);
 
     /* retrieve associated signals */
-    public native Signal signal(long id);
-    public native Signal signal(String name);
-
-    private native mapper.signal.Query signals(int dir);
-    public mapper.signal.Query signals(Direction dir) {
-        return signals(dir.value());
-    }
-    public mapper.signal.Query signals() { return signals(0); }
-    public mapper.signal.Query inputs() {
-        return signals(Direction.INCOMING.value());
-    }
-    public mapper.signal.Query outputs() {
-        return signals(Direction.OUTGOING.value());
-    }
+    private native long signals(long dev, int dir);
+    public mapper.List<mapper.Signal> signals(Direction dir)
+        { return new mapper.List<mapper.Signal>(signals(_obj, dir.value())); }
+    public mapper.List<mapper.Signal> signals()
+        { return new mapper.List<mapper.Signal>(signals(_obj, Direction.ANY.value())); }
 
     /* retrieve associated maps */
-    private native long mapperDeviceMaps(long dev, int dir);
-    public mapper.map.Query maps(Direction dir) {
-        return new mapper.map.Query(mapperDeviceMaps(_dev, dir.value()));
-    }
-    public mapper.map.Query maps() {
-        return maps(Direction.ANY);
-    }
-
-    // Note: this is _not_ guaranteed to run, the user should still
-    // call free() explicitly when the device is no longer needed.
-    protected void finalize() throws Throwable {
-        try {
-            free();
-        } finally {
-            super.finalize();
-        }
-    }
-
-    private long _dev;
-    public boolean valid() {
-        return _dev != 0;
-    }
-
-    static {
-        System.loadLibrary(NativeLib.name);
-    }
+    private native long maps(long dev, int dir);
+    public mapper.List<mapper.Map> maps(Direction dir)
+        { return new mapper.List<mapper.Map>(maps(_obj, dir.value())); }
+    public mapper.List<mapper.Map> maps()
+        { return maps(Direction.ANY); }
 }

@@ -10,11 +10,21 @@
 #include <signal.h>
 #include <string.h>
 
+int count = 0;
+
 #define eprintf(format, ...) do {               \
     if (verbose)                                \
         fprintf(stdout, format, ##__VA_ARGS__); \
-    else                                        \
-        fprintf(stdout, ".");                   \
+    else {                                      \
+        if (count >= 20) {                      \
+            count = 0;                          \
+            fprintf(stdout, "\33[2K\r");        \
+        }                                       \
+        else {                                  \
+            fprintf(stdout, ".");               \
+            ++count;                            \
+        }                                       \
+    }                                           \
     fflush(stdout);                             \
 } while(0)
 
@@ -52,20 +62,20 @@ static double current_time()
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mapper_device_new("testspeed-send", 0, 0);
+    source = mapper_device_new("testspeed-send", 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
-    sendsig = mapper_device_add_output_signal(source, "outsig", 1, MAPPER_FLOAT,
-                                              0, 0, 0);
+    sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUT, 1, "outsig",
+                                       1, MAPPER_FLOAT, NULL, NULL, NULL, NULL);
     if (!sendsig)
         goto error;
     mapper_signal_reserve_instances(sendsig, 10, 0, 0);
 
     eprintf("Output signal registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_num_signals(source, MAPPER_DIR_OUTGOING));
+            mapper_device_get_num_signals(source, MAPPER_DIR_OUT));
 
     return 0;
 
@@ -83,43 +93,47 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
-                   int count, mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, mapper_id instance, int length,
+                   mapper_type type, const void *value, mapper_time t)
 {
     if (value) {
         counter = (counter+1)%10;
         if (++received >= iterations)
             switch_modes();
         if (use_instance) {
-            mapper_signal_instance_update(sendsig, counter, value, 1,
-                                          MAPPER_NOW);
+            mapper_signal_set_value(sendsig, counter, length, type, value,
+                                    MAPPER_NOW);
         }
         else
-            mapper_signal_update(sendsig, value, 1, MAPPER_NOW);
+            mapper_signal_set_value(sendsig, 0, length, type, value, MAPPER_NOW);
     }
-    else
-        eprintf("--> destination %s instance %ld got NULL\n",
-                sig->name, (long)instance);
+    else {
+        const char *name;
+        mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
+                                        NULL, NULL, (const void**)&name);
+        eprintf("--> destination %s instance %ld got NULL\n", name,
+                (long)instance);
+    }
 }
 
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mapper_device_new("testspeed-recv", 0, 0);
+    destination = mapper_device_new("testspeed-recv", 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
-    recvsig = mapper_device_add_input_signal(destination, "insig", 1,
-                                             MAPPER_FLOAT, 0, 0, 0,
-                                             insig_handler, 0);
+    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 1, "insig",
+                                       1, MAPPER_FLOAT, NULL, NULL, NULL,
+                                       insig_handler);
     if (!recvsig)
         goto error;
     mapper_signal_reserve_instances(recvsig, 10, 0, 0);
 
     eprintf("Input signal registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
+            mapper_device_get_num_signals(destination, MAPPER_DIR_IN));
 
     return 0;
 
@@ -151,9 +165,11 @@ void map_signals()
 {
     eprintf("Creating maps... ");
     mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
-    mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
-    mapper_map_set_expression(map, "y=y{-1}+1");
-    mapper_map_push(map);
+    const char *expr = "y=y{-1}+1";
+    mapper_object_set_prop((mapper_object)map, MAPPER_PROP_EXPR, NULL, 1,
+                           MAPPER_STRING, expr, 1);
+
+    mapper_object_push((mapper_object)map);
 
     // wait until mapping has been established
     while (!done && !mapper_map_ready(map)) {
@@ -170,7 +186,6 @@ void ctrlc(int sig)
 void switch_modes()
 {
     int i;
-    // possible modes: bypass/expression/calibrate, boundary actions, instances, instance-stealing
     eprintf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
     times[mode*numTrials+trial] = current_time() - times[mode*numTrials+trial];
@@ -192,7 +207,7 @@ void switch_modes()
         case 1:
             use_instance = 0;
             for (i=1; i<10; i++) {
-                mapper_signal_instance_release(sendsig, i, MAPPER_NOW);
+                mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
             }
             break;
     }
@@ -267,7 +282,8 @@ int main(int argc, char **argv)
     // start things off
     eprintf("STARTING TEST...\n");
     times[0] = current_time();
-    mapper_signal_instance_update(sendsig, counter++, &value, 0, MAPPER_NOW);
+    mapper_signal_set_value(sendsig, counter++, 1, MAPPER_FLOAT, &value,
+                            MAPPER_NOW);
     while (!done) {
         mapper_device_poll(destination, 0);
         mapper_device_poll(source, 0);
@@ -279,6 +295,7 @@ int main(int argc, char **argv)
     cleanup_source();
     if (verbose)
         print_results();
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    printf("\r..................................................Test %s\x1B[0m.\n",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

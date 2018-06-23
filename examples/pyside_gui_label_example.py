@@ -23,7 +23,7 @@ numsliders = 3
 dev = mapper.device("pysideGUI")
 sigs = []
 for i in range(numsliders):
-    sigs.append(dev.add_output_signal('slider%i' %i, 1, 'f', None, 0, 1))
+    sigs.append(dev.add_signal(mapper.DIR_OUTGOING, 1, 'slider%i' %i, 1, 'f', None, 0, 1))
 
 class gui(QMainWindow):
     
@@ -66,7 +66,7 @@ class gui(QMainWindow):
 
 def h(map, action):
     print 'GOT DEVICE MAP HANDLER'
-    id = map.source().signal().name
+    id = map.source().signal()['name']
     id = int(id[6])
     if action == mapper.ADDED:
         sig = map.destination().signal()

@@ -21,14 +21,16 @@ class testspeed {
             });
 
         UpdateListener l = new UpdateListener() {
-            public void onUpdate(Signal sig, float[] v, TimeTag tt) {
+            public void onUpdate(Signal sig, float[] v, Time time) {
                 testspeed.updated = true;
             }
         };
 
-        Signal in = dev.addInputSignal("insig", 1, Type.FLOAT, "Hz", null, null, l);
+        Signal in = dev.addSignal(Direction.INCOMING, 1, "insig", 1, Type.FLOAT,
+                                  "Hz", null, null, l);
 
-        Signal out = dev.addOutputSignal("outsig", 1, Type.INT, "Hz", null, null);
+        Signal out = dev.addSignal(Direction.OUTGOING, 1, "outsig", 1, Type.INT,
+                                   "Hz", null, null, null);
 
         System.out.println("Waiting for ready...");
         while (!dev.ready()) {
@@ -36,13 +38,14 @@ class testspeed {
         }
         System.out.println("Device is ready.");
 
-        Map map = new Map(out, in).push();
+        Map map = new Map(out, in);
+        map.push();
         while (!map.ready()) {
             dev.poll(100);
         }
 
-        TimeTag tt = new TimeTag();
-        double then = tt.getDouble();
+        Time time = new Time();
+        double then = time.getDouble();
         int i = 0;
         while (i < 10000) {
             if (testspeed.updated) {
@@ -54,7 +57,7 @@ class testspeed {
             }
             dev.poll(1);
         }
-        double elapsed = tt.now().getDouble() - then;
+        double elapsed = time.now().getDouble() - then;
         System.out.println("Sent "+i+" messages in "+elapsed+" seconds.");
         dev.free();
     }

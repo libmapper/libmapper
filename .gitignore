@@ -58,12 +58,13 @@ test/test
 test/testconvergent
 test/testcpp
 test/testcustomtransport
-test/testdatabase
 test/testexpression
+test/testgraph
 test/testinstance
 test/testlinear
 test/testmany
 test/testmapinput
+test/testmapprotocol
 test/testmonitor
 test/testnetwork
 test/testparams
@@ -76,6 +77,5 @@ test/testreverse
 test/testselect
 test/testsignals
 test/testspeed
-test/testsync
 test/testvector
 

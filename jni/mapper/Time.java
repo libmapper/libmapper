@@ -1,34 +1,34 @@
 
 package mapper;
 
-public class TimeTag
+public class Time
 {
     public long sec;
     public long frac;
 
-    public static final TimeTag NOW = new TimeTag(0, 1);
+    public static final Time NOW = new Time(0, 1);
     private static double multiplier = (double)1.0/((double)((long)1<<32));
 
     private native void mapperNow();
 
-    public TimeTag(long _sec, long _frac)
+    public Time(long _sec, long _frac)
     {
         sec = _sec;
         frac = _frac;
     }
-    public TimeTag()
+    public Time()
     {
         mapperNow();
     }
 
-    public TimeTag(Double secondsSinceEpoch)
+    public Time(Double secondsSinceEpoch)
     {
         sec = (long)Math.floor(secondsSinceEpoch);
         secondsSinceEpoch -= sec;
         frac = (long)(secondsSinceEpoch*(double)((long)1<<32));
     }
 
-    public TimeTag now()
+    public Time now()
     {
         mapperNow();
         return this;
@@ -39,12 +39,12 @@ public class TimeTag
         return (double)sec + (double)frac * multiplier;
     }
 
-    public boolean isAfter(TimeTag rhs)
+    public boolean isAfter(Time rhs)
     {
         return (sec > rhs.sec || (sec == rhs.sec && frac > rhs.frac));
     }
 
-    public boolean isBefore(TimeTag rhs)
+    public boolean isBefore(Time rhs)
     {
         return (sec < rhs.sec || (sec == rhs.sec && frac < rhs.frac));
     }

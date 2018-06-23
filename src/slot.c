@@ -12,293 +12,128 @@
 
 static int slot_mask(mapper_slot slot)
 {
-    if (slot == &slot->map->destination)
-        return DST_SLOT_PROPERTY;
+    if (slot == slot->map->dst)
+        return DST_SLOT_PROP;
     else
-        return SRC_SLOT_PROPERTY(slot->object.id);
+        return SRC_SLOT_PROP(slot->obj.id);
 }
 
 void mapper_slot_init(mapper_slot slot)
 {
-    int local = slot->local && slot->local->router_sig;
-    slot->object.props = mapper_table_new();
-    slot->object.staged_props = mapper_table_new();
-    slot->bound_min = slot->bound_max = MAPPER_BOUND_NONE;
+//    slot->obj.type = MAPPER_OBJ_SLOT;
+    int local = slot->local && slot->local->rsig;
+    mapper_table tab = slot->obj.props.synced = mapper_table_new();
+    slot->obj.props.staged = mapper_table_new();
     int mask = slot_mask(slot);
 
     // these properties need to be added in alphabetical order
-    mapper_table_link_value(slot->object.props, AT_BOUND_MAX | mask, 1,
-                            MAPPER_INT32, &slot->bound_max, MODIFIABLE);
+    mapper_table_link(tab, MAPPER_PROP_CALIB | mask, 1, MAPPER_BOOL,
+                      &slot->calib, MODIFIABLE);
 
-    mapper_table_link_value(slot->object.props, AT_BOUND_MIN | mask, 1,
-                            MAPPER_INT32, &slot->bound_min, MODIFIABLE);
+    mapper_table_link(tab, MAPPER_PROP_MAX | mask, slot->sig->len,
+                      slot->sig->type, &slot->max, MODIFIABLE | INDIRECT);
 
-    mapper_table_link_value(slot->object.props, AT_CALIBRATING | mask, 1,
-                            MAPPER_BOOL, &slot->calibrating, MODIFIABLE);
+    mapper_table_link(tab, MAPPER_PROP_MIN | mask, slot->sig->len,
+                      slot->sig->type, &slot->min, MODIFIABLE | INDIRECT);
 
-    mapper_table_link_value(slot->object.props, AT_CAUSES_UPDATE | mask, 1,
-                            MAPPER_BOOL, &slot->causes_update, MODIFIABLE);
+    mapper_table_link(tab, MAPPER_PROP_NUM_INSTANCES | mask, 1, MAPPER_INT32,
+                      &slot->num_inst, local ? NON_MODIFIABLE : MODIFIABLE);
 
-    mapper_table_link_value(slot->object.props, AT_MAX | mask, slot->signal->length,
-                            slot->signal->type, &slot->maximum,
-                            MODIFIABLE | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE);
+    mapper_table_link(tab, MAPPER_PROP_SIGNAL | mask, 1, MAPPER_SIGNAL, &slot->sig,
+                      NON_MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
 
-    mapper_table_link_value(slot->object.props, AT_MIN | mask, slot->signal->length,
-                            slot->signal->type, &slot->minimum,
-                            MODIFIABLE | INDIRECT | MUTABLE_LENGTH | MUTABLE_TYPE);
+    mapper_table_link(tab, MAPPER_PROP_USE_INSTANCES | mask, 1, MAPPER_BOOL,
+                      &slot->use_inst, MODIFIABLE);
 
-    mapper_table_link_value(slot->object.props, AT_NUM_INSTANCES | mask, 1,
-                            MAPPER_INT32, &slot->num_instances,
-                            local ? NON_MODIFIABLE : MODIFIABLE);
-
-    mapper_table_link_value(slot->object.props, AT_USE_INSTANCES | mask, 1,
-                            MAPPER_BOOL, &slot->use_instances, MODIFIABLE);
+    slot->obj.props.mask = mask;
 }
 
 void mapper_slot_free(mapper_slot slot)
 {
-    if (slot->object.props)
-        mapper_table_free(slot->object.props);
-    if (slot->object.staged_props)
-        mapper_table_free(slot->object.staged_props);
-    if (slot->minimum)
-        free(slot->minimum);
-    if (slot->maximum)
-        free(slot->maximum);
+    if (slot->obj.props.synced)
+        mapper_table_free(slot->obj.props.synced);
+    if (slot->obj.props.staged)
+        mapper_table_free(slot->obj.props.staged);
+    if (slot->min)
+        free(slot->min);
+    if (slot->max)
+        free(slot->max);
 }
 
-int mapper_slot_index(mapper_slot slot)
+int mapper_slot_get_index(mapper_slot slot)
 {
-    if (slot == &slot->map->destination)
+    if (slot == slot->map->dst)
         return 0;
     int i;
-    for (i = 0; i < slot->map->num_sources; i++) {
-        if (slot == slot->map->sources[i])
+    for (i = 0; i < slot->map->num_src; i++) {
+        if (slot == slot->map->src[i])
             return i;
     }
     return -1;
 }
 
-mapper_signal mapper_slot_signal(mapper_slot slot)
+mapper_signal mapper_slot_get_signal(mapper_slot slot)
 {
-    return slot->signal;
-}
-
-mapper_boundary_action mapper_slot_bound_max(mapper_slot slot)
-{
-    return slot->bound_max;
-}
-
-mapper_boundary_action mapper_slot_bound_min(mapper_slot slot)
-{
-    return slot->bound_min;
-}
-
-int mapper_slot_calibrating(mapper_slot slot)
-{
-    return (slot->calibrating != 0);
-}
-
-int mapper_slot_causes_update(mapper_slot slot)
-{
-    return slot->causes_update;
-}
-
-int mapper_slot_num_instances(mapper_slot slot)
-{
-    return slot->num_instances;
-}
-
-int mapper_slot_use_instances(mapper_slot slot)
-{
-    return slot->use_instances;
-}
-
-void mapper_slot_maximum(mapper_slot slot, int *length, mapper_type *type,
-                         void **value)
-{
-    if (length)
-        *length = slot->signal->length;
-    if (type)
-        *type = slot->signal->type;
-    if (value)
-        *value = slot->maximum;
-}
-
-void mapper_slot_minimum(mapper_slot slot, int *length, mapper_type *type,
-                         void **value)
-{
-    if (length)
-        *length = slot->signal->length;
-    if (type)
-        *type = slot->signal->type;
-    if (value)
-        *value = slot->minimum;
-}
-
-int mapper_slot_num_properties(mapper_slot slot) {
-    return mapper_table_num_records(slot->object.props);
-}
-
-int mapper_slot_property(mapper_slot slot, const char *name, int *length,
-                         mapper_type *type, const void **value)
-{
-    return mapper_table_property(slot->object.props, name, length, type, value);
-}
-
-int mapper_slot_property_index(mapper_slot slot, unsigned int index,
-                               const char **name, int *length, mapper_type*type,
-                               const void **value)
-{
-    return mapper_table_property_index(slot->object.props, index, name, length,
-                                       type, value);
-}
-
-void mapper_slot_set_bound_max(mapper_slot slot, mapper_boundary_action a)
-{
-    int index = AT_BOUND_MAX | slot_mask(slot);
-    mapper_table_set_record(slot->object.staged_props, index, NULL, 1,
-                            MAPPER_INT32, &a, REMOTE_MODIFY);
-}
-
-void mapper_slot_set_bound_min(mapper_slot slot, mapper_boundary_action a)
-{
-    int index = AT_BOUND_MIN | slot_mask(slot);
-    mapper_table_set_record(slot->object.staged_props, index, NULL, 1,
-                            MAPPER_INT32, &a, REMOTE_MODIFY);
-}
-
-void mapper_slot_set_calibrating(mapper_slot slot, int calibrating)
-{
-    int index = AT_CALIBRATING | slot_mask(slot);
-    mapper_table_set_record(slot->object.staged_props, index, NULL, 1,
-                            MAPPER_BOOL, &calibrating, REMOTE_MODIFY);
-}
-
-void mapper_slot_set_causes_update(mapper_slot slot, int causes_update)
-{
-    int index = AT_CAUSES_UPDATE | slot_mask(slot);
-    mapper_table_set_record(slot->object.staged_props, index, NULL, 1,
-                            MAPPER_BOOL, &causes_update, REMOTE_MODIFY);
-}
-
-void mapper_slot_set_use_instances(mapper_slot slot, int use_instances)
-{
-    int index = AT_USE_INSTANCES | slot_mask(slot);
-    mapper_table_set_record(slot->object.staged_props, index, NULL, 1,
-                            MAPPER_BOOL, &use_instances, REMOTE_MODIFY);
-}
-
-void mapper_slot_set_maximum(mapper_slot slot, int length, mapper_type type,
-                             const void *value)
-{
-    int index = AT_MAX| slot_mask(slot);
-    mapper_table_set_record(slot->object.staged_props, index, NULL, length,
-                            type, value, REMOTE_MODIFY);
-}
-
-void mapper_slot_set_minimum(mapper_slot slot, int length, mapper_type type,
-                             const void *value)
-{
-    int index = AT_MIN | slot_mask(slot);
-    mapper_table_set_record(slot->object.staged_props, index, NULL, length,
-                            type, value, REMOTE_MODIFY);
-}
-
-int mapper_slot_set_property(mapper_slot slot, const char *name, int length,
-                             mapper_type type, const void *value, int publish)
-{
-    mapper_property_t prop = mapper_property_from_string(name);
-    if (prop == AT_BOUND_MAX || prop == AT_BOUND_MIN) {
-        if (type != MAPPER_INT32 || length != 1 || !value)
-            return 0;
-        int bound = *(int*)value;
-        if (bound < MAPPER_BOUND_UNDEFINED || bound >= NUM_MAPPER_BOUNDARY_ACTIONS)
-            return 0;
-    }
-    prop = prop | slot_mask(slot);
-    int flags = REMOTE_MODIFY | (publish ? 0 : LOCAL_ACCESS_ONLY);
-    return mapper_table_set_record(slot->object.staged_props, prop, name, length,
-                                   type, value, flags);
-}
-
-int mapper_slot_remove_property(mapper_slot slot, const char *name)
-{
-    if (!slot)
-        return 0;
-    mapper_property_t prop = mapper_property_from_string(name);
-    prop = prop | slot_mask(slot) | PROPERTY_REMOVE;
-    return mapper_table_set_record(slot->object.staged_props, prop, name, 0, 0,
-                                   0, REMOTE_MODIFY);
-}
-
-void mapper_slot_clear_staged_properties(mapper_slot slot) {
-    if (slot)
-        mapper_table_clear(slot->object.staged_props);
+    return slot->sig;
 }
 
 void mapper_slot_upgrade_extrema_memory(mapper_slot slot)
 {
     int len;
     mapper_table_record_t *rec;
-    rec = mapper_table_record(slot->object.props, AT_MIN, NULL);
-    if (rec && rec->value && *rec->value) {
-        void *old_mem = *rec->value;
-        void *new_mem = calloc(1, slot->signal->length
-                               * mapper_type_size(slot->signal->type));
-        len = (rec->length < slot->signal->length
-               ? rec->length : slot->signal->length);
-        set_coerced_value(new_mem, old_mem, len, slot->signal->type, rec->type);
-        mapper_table_set_record(slot->object.props, AT_MIN, NULL,
-                                slot->signal->length, slot->signal->type,
+    rec = mapper_table_record(slot->obj.props.synced, MAPPER_PROP_MIN, NULL);
+    if (rec && rec->val && *rec->val) {
+        void *new_mem = calloc(1, (mapper_type_size(slot->sig->type)
+                                   * slot->sig->len));
+        len = (rec->len < slot->sig->len ? rec->len : slot->sig->len);
+        set_coerced_val(len, rec->type, rec->val, len, slot->sig->type, new_mem);
+        mapper_table_set_record(slot->obj.props.synced, MAPPER_PROP_MIN, NULL,
+                                slot->sig->len, slot->sig->type,
                                 new_mem, REMOTE_MODIFY);
         if (new_mem)
             free(new_mem);
     }
-    rec = mapper_table_record(slot->object.props, AT_MAX, NULL);
-    if (rec && rec->value && *rec->value) {
-        void *old_mem = *rec->value;
-        void *new_mem = calloc(1, slot->signal->length
-                               * mapper_type_size(slot->signal->type));
-        len = (rec->length < slot->signal->length
-               ? rec->length : slot->signal->length);
-        set_coerced_value(new_mem, old_mem, len, slot->signal->type, rec->type);
-        mapper_table_set_record(slot->object.props, AT_MAX, NULL,
-                                slot->signal->length, slot->signal->type,
+    rec = mapper_table_record(slot->obj.props.synced, MAPPER_PROP_MAX, NULL);
+    if (rec && rec->val && *rec->val) {
+        void *new_mem = calloc(1, (mapper_type_size(slot->sig->type)
+                                   * slot->sig->len));
+        len = (rec->len < slot->sig->len ? rec->len : slot->sig->len);
+        set_coerced_val(len, rec->type, rec->val, len, slot->sig->type, new_mem);
+        mapper_table_set_record(slot->obj.props.synced, MAPPER_PROP_MAX, NULL,
+                                slot->sig->len, slot->sig->type,
                                 new_mem, REMOTE_MODIFY);
         if (new_mem)
             free(new_mem);
     }
 }
 
-int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg,
-                                 int *status)
+int mapper_slot_set_from_msg(mapper_slot slot, mapper_msg msg, int *status)
 {
     int i, updated = 0, mask = slot_mask(slot);
-    mapper_message_atom atom;
+    mapper_msg_atom atom;
 
     if (!slot || !msg)
         return 0;
 
     /* type and length belong to parent signal */
-    if (!slot->local || !slot->local->router_sig) {
-        atom = mapper_message_property(msg, AT_LENGTH | mask);
+    if (!slot->local || !slot->local->rsig) {
+        atom = mapper_msg_prop(msg, MAPPER_PROP_LENGTH | mask);
         if (atom) {
-            int index = atom->index;
-            atom->index &= ~mask;
-            if (mapper_table_set_record_from_atom(slot->signal->object.props,
+            mapper_property prop = atom->prop;
+            atom->prop &= ~mask;
+            if (mapper_table_set_record_from_atom(slot->sig->obj.props.synced,
                                                   atom, REMOTE_MODIFY))
                 ++updated;
-            atom->index = index;
+            atom->prop = prop;
         }
-        atom = mapper_message_property(msg, AT_TYPE | mask);
+        atom = mapper_msg_prop(msg, MAPPER_PROP_TYPE | mask);
         if (atom) {
-            int index = atom->index;
-            atom->index &= ~mask;
-            if (mapper_table_set_record_from_atom(slot->signal->object.props,
+            mapper_property prop = atom->prop;
+            atom->prop &= ~mask;
+            if (mapper_table_set_record_from_atom(slot->sig->obj.props.synced,
                                                   atom, REMOTE_MODIFY))
                 ++updated;
-            atom->index = index;
+            atom->prop = prop;
         }
         if (updated)
             mapper_slot_upgrade_extrema_memory(slot);
@@ -306,65 +141,49 @@ int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg,
     
     for (i = 0; i < msg->num_atoms; i++) {
         atom = &msg->atoms[i];
-        if (!(atom->index & mask))
+        if (!(atom->prop & mask))
             continue;
-        switch (atom->index & ~mask) {
-            case AT_BOUND_MAX: {
-                mapper_boundary_action bound;
-                bound = mapper_boundary_action_from_string(&(atom->values[0])->s);
-                updated += mapper_table_set_record(slot->object.props, atom->index,
-                                                   NULL, 1, MAPPER_INT32,
-                                                   &bound, REMOTE_MODIFY);
-                break;
-            }
-            case AT_BOUND_MIN: {
-                mapper_boundary_action bound;
-                bound = mapper_boundary_action_from_string(&(atom->values[0])->s);
-                updated += mapper_table_set_record(slot->object.props, atom->index,
-                                                   NULL, 1, MAPPER_INT32,
-                                                   &bound, REMOTE_MODIFY);
-                break;
-            }
-            case AT_MAX:
-            case AT_MIN:
+        switch (atom->prop & ~mask) {
+            case MAPPER_PROP_MAX:
+            case MAPPER_PROP_MIN:
                 if (atom->types[0] == MAPPER_NULL) {
-                    updated += mapper_table_remove_record(slot->object.props,
-                                                          atom->index & ~mask,
+                    updated += mapper_table_remove_record(slot->obj.props.synced,
+                                                          atom->prop & ~mask,
                                                           NULL, REMOTE_MODIFY);
                     break;
                 }
                 if (check_signal_type(atom->types[0]))
                     break;
-                updated += mapper_table_set_record_from_atom(slot->object.props,
+                updated += mapper_table_set_record_from_atom(slot->obj.props.synced,
                                                              atom, REMOTE_MODIFY);
-                if (!slot->local || !slot->local->router_sig) {
-                    if (!slot->signal->length) {
-                        updated += mapper_table_set_record(slot->signal->object.props,
-                                                           AT_LENGTH, NULL, 1,
-                                                           MAPPER_INT32,
-                                                           &atom->length,
+                if (!slot->local || !slot->local->rsig) {
+                    if (!slot->sig->len) {
+                        updated += mapper_table_set_record(slot->sig->obj.props.synced,
+                                                           MAPPER_PROP_LENGTH,
+                                                           NULL, 1, MAPPER_INT32,
+                                                           &atom->len,
                                                            REMOTE_MODIFY);
                     }
-                    if (!slot->signal->type) {
-                        updated += mapper_table_set_record(slot->signal->object.props,
-                                                           AT_TYPE, NULL, 1,
-                                                           MAPPER_CHAR,
+                    if (!slot->sig->type) {
+                        updated += mapper_table_set_record(slot->sig->obj.props.synced,
+                                                           MAPPER_PROP_TYPE,
+                                                           NULL, 1, MAPPER_CHAR,
                                                            &atom->types[0],
                                                            REMOTE_MODIFY);
                     }
                 }
-                else if (!slot->signal->length || !slot->signal->type)
+                else if (!slot->sig->len || !slot->sig->type)
                     break;
-                if ((atom->length != slot->signal->length)
-                    || atom->types[0] != slot->signal->type)
+                if ((atom->len != slot->sig->len)
+                    || atom->types[0] != slot->sig->type)
                     mapper_slot_upgrade_extrema_memory(slot);
                 break;
-            case AT_NUM_INSTANCES:
+            case MAPPER_PROP_NUM_INSTANCES:
                 // static prop is slot is associated with a local signal
                 if (slot->map->local)
                     break;
             default:
-                updated += mapper_table_set_record_from_atom(slot->object.props,
+                updated += mapper_table_set_record_from_atom(slot->obj.props.synced,
                                                              atom, REMOTE_MODIFY);
                 break;
         }
@@ -372,68 +191,38 @@ int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg,
     return updated;
 }
 
-void mapper_slot_add_props_to_message(lo_message msg, mapper_slot slot,
-                                      int is_dest, int staged)
+void mapper_slot_add_props_to_msg(lo_message msg, mapper_slot slot, int is_dst,
+                                  int staged)
 {
     char temp[16];
-    if (is_dest)
+    if (is_dst)
         snprintf(temp, 16, "@dst");
-    else if (slot->object.id == 0)
+    else if (slot->obj.id == 0)
         snprintf(temp, 16, "@src");
     else
-        snprintf(temp, 16, "@src.%d", (int)slot->object.id);
+        snprintf(temp, 16, "@src.%d", (int)slot->obj.id);
     int len = strlen(temp);
 
-    if (!staged && slot->signal->local) {
+    if (!staged && slot->sig->local) {
         // include length from associated signal
         snprintf(temp+len, 16-len, "%s",
-                 mapper_property_protocol_string(AT_LENGTH));
+                 mapper_prop_protocol_string(MAPPER_PROP_LENGTH));
         lo_message_add_string(msg, temp);
-        lo_message_add_int32(msg, slot->signal->length);
+        lo_message_add_int32(msg, slot->sig->len);
 
         // include type from associated signal
         snprintf(temp+len, 16-len, "%s",
-                 mapper_property_protocol_string(AT_TYPE));
+                 mapper_prop_protocol_string(MAPPER_PROP_TYPE));
         lo_message_add_string(msg, temp);
-        lo_message_add_char(msg, slot->signal->type);
+        lo_message_add_char(msg, slot->sig->type);
     }
 
-    mapper_table_add_to_message(0, staged ? slot->object.staged_props : slot->object.props,
-                                msg);
+    mapper_table_add_to_msg(0, (staged ? slot->obj.props.staged
+                                : slot->obj.props.synced), msg);
 
     if (staged) {
         // clear the staged properties
-        mapper_table_clear(slot->object.staged_props);
-    }
-}
-
-void mapper_slot_print(mapper_slot slot)
-{
-    printf("%s/%s", slot->signal->device->name, slot->signal->name);
-    int i = 0;
-    const char *key;
-    mapper_type type;
-    const void *val;
-    int length;
-    while (!mapper_slot_property_index(slot, i++, &key, &length, &type, &val)) {
-        die_unless(val!=0, "returned zero value\n");
-
-        // already printed these
-        if (strcmp(key, "device_name")==0 || strcmp(key, "signal_name")==0)
-            continue;
-
-        if (length) {
-            printf(", %s=", key);
-            if (strncmp(key, "bound", 5)==0) {
-                int bound = *(int*)val;
-                if (bound > 0 && bound < NUM_MAPPER_BOUNDARY_ACTIONS)
-                    printf("%s", mapper_boundary_action_strings[bound]);
-                else
-                    printf("undefined");
-            }
-            else
-                mapper_property_print(length, type, val);
-        }
+        mapper_table_clear(slot->obj.props.staged);
     }
 }
 
@@ -447,11 +236,11 @@ int mapper_slot_match_full_name(mapper_slot slot, const char *full_name)
         return 1;
     int len = sig_name - full_name;
 
-    const char *slot_devname = slot->signal->device->name;
+    const char *slot_devname = slot->sig->dev->name;
 
     // first compare device name
     if (strlen(slot_devname) != len || strncmp(full_name, slot_devname, len))
         return 1;
 
-    return strcmp(sig_name+1, slot->signal->name) ? 1 : 0;
+    return strcmp(sig_name+1, slot->sig->name) ? 1 : 0;
 }

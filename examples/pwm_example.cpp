@@ -14,8 +14,8 @@ void ctrlc(int)
     done = 1;
 }
 
-void handler_freq(mapper_signal sig, mapper_id instance, const void *value,
-                  int count, mapper_timetag_t *timetag)
+void handler_freq(mapper_signal sig, mapper_id instance, int length,
+                  mapper_type type, const void *value, mapper_time time)
 {
     if (value) {
         float *pfreq = (float*)value;
@@ -23,8 +23,8 @@ void handler_freq(mapper_signal sig, mapper_id instance, const void *value,
     }
 }
 
-void handler_gain(mapper_signal sig, mapper_id instance, const void *value,
-                  int count, mapper_timetag_t *timetag)
+void handler_gain(mapper_signal sig, mapper_id instance, int length,
+                  mapper_type type, const void *value, mapper_time time)
 {
     if (value) {
         float *pgain = (float*)value;
@@ -34,8 +34,8 @@ void handler_gain(mapper_signal sig, mapper_id instance, const void *value,
         set_gain(0);
 }
 
-void handler_duty(mapper_signal sig, mapper_id instance, const void *value,
-                  int count, mapper_timetag_t *timetag)
+void handler_duty(mapper_signal sig, mapper_id instance, int length,
+                  mapper_type type, const void *value, mapper_time time)
 {
     if (value) {
         float *pduty = (float*)value;
@@ -53,12 +53,12 @@ int main()
     float max1 = 1;
     float max1000 = 1000;
 
-    dev.add_input_signal("/freq", 1, 'f', "Hz", &min0, &max1000,
-                         handler_freq, 0);
-    dev.add_input_signal("/gain", 1, 'f', "Hz", &min0, &max1,
-                         handler_gain, 0);
-    dev.add_input_signal("/duty", 1, 'f', "Hz", &min0, &max1,
-                         handler_duty, 0);
+    dev.add_signal(MAPPER_DIR_IN, 1, "/freq", 1, 'f', "Hz", &min0, &max1000,
+                   handler_freq);
+    dev.add_signal(MAPPER_DIR_IN, 1, "/gain", 1, 'f', "Hz", &min0, &max1,
+                   handler_gain);
+    dev.add_signal(MAPPER_DIR_IN, 1, "/duty", 1, 'f', "Hz", &min0, &max1,
+                   handler_duty);
 
     run_synth();
 

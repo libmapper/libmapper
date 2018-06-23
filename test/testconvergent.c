@@ -1,5 +1,3 @@
-
-#include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <math.h>
@@ -18,6 +16,7 @@ int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
 int done = 0;
+int period = 100;
 
 mapper_device sources[NUM_SOURCES];
 mapper_device destination = 0;
@@ -34,14 +33,16 @@ int setup_sources()
     for (i = 0; i < NUM_SOURCES; i++)
         sources[i] = 0;
     for (i = 0; i < NUM_SOURCES; i++) {
-        sources[i] = mapper_device_new("testconvergent-send", 0, 0);
+        sources[i] = mapper_device_new("testconvergent-send", 0);
         if (!sources[i])
             goto error;
         eprintf("source %d created.\n", i);
-        sendsig[i][0] = mapper_device_add_output_signal(sources[i], "sendsig1", 1,
-                                                        MAPPER_INT32, 0, &mni, &mxi);
-        sendsig[i][1] = mapper_device_add_output_signal(sources[i], "sendsig2", 1,
-                                                        MAPPER_FLOAT, 0, &mnf, &mxf);
+        sendsig[i][0] = mapper_device_add_signal(sources[i], MAPPER_DIR_OUT,
+                                                 1, "sendsig1", 1, MAPPER_INT32,
+                                                 NULL, &mni, &mxi, NULL);
+        sendsig[i][1] = mapper_device_add_signal(sources[i], MAPPER_DIR_OUT,
+                                                 1, "sendsig2", 1, MAPPER_FLOAT,
+                                                 NULL, &mnf, &mxf, NULL);
     }
     return 0;
 
@@ -65,8 +66,8 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
-                   int count, mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, mapper_id instance, int length,
+                   mapper_type type, const void *value, mapper_time t)
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
@@ -79,19 +80,19 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 
 int setup_destination()
 {
-    destination = mapper_device_new("testconvergent-recv", 0, 0);
+    destination = mapper_device_new("testconvergent-recv", 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = mapper_device_add_input_signal(destination, "recvsig", 1,
-                                             MAPPER_FLOAT, 0, &mn, &mx,
-                                             insig_handler, 0);
+    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 1,
+                                       "recvsig", 1, MAPPER_FLOAT, NULL,
+                                       &mn, &mx, insig_handler);
 
     eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_num_signals(destination, MAPPER_DIR_INCOMING));
+            mapper_device_get_num_signals(destination, MAPPER_DIR_IN));
     return 0;
 
   error:
@@ -113,18 +114,15 @@ int setup_maps()
     mapper_signal all_sources[2] = {sendsig[0][0], sendsig[1][1]};
 
     mapper_map map = mapper_map_new(2, all_sources, 1, &recvsig);
-    mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
 
     // build expression string
-    mapper_slot slot1 = mapper_map_slot_by_signal(map, sendsig[0][0]);
-    mapper_slot slot2 = mapper_map_slot_by_signal(map, sendsig[1][1]);
     char expr[64];
-    snprintf(expr, 64, "y=x%d-x%d", mapper_slot_index(slot1), mapper_slot_index(slot2));
-    mapper_map_set_expression(map, expr);
+    snprintf(expr, 64, "y=x%d-_x%d", mapper_map_get_signal_index(map, sendsig[0][0]),
+             mapper_map_get_signal_index(map, sendsig[1][1]));
+    mapper_object_set_prop(map, MAPPER_PROP_EXPR, NULL, 1, MAPPER_STRING,
+                           expr, 1);
 
-    mapper_slot_set_causes_update(slot1, 0);
-
-    mapper_map_push(map);
+    mapper_object_push(map);
 
     // wait until mappings have been established
     int i;
@@ -160,22 +158,28 @@ void loop()
     eprintf("Polling device..\n");
     int i = 0, j;
     float f = 0.;
+
+    const char *sig0name, *sig1name;
+    mapper_object_get_prop_by_index(sendsig[0][0], MAPPER_PROP_NAME, NULL, NULL,
+                                    NULL, (const void**)&sig0name);
+    mapper_object_get_prop_by_index(sendsig[0][1], MAPPER_PROP_NAME, NULL, NULL,
+                                    NULL, (const void**)&sig1name);
+
     while ((!terminate || i < 50) && !done) {
         for (j = 0; j < NUM_SOURCES; j++) {
             mapper_device_poll(sources[j], 0);
         }
 
-        eprintf("Updating signals: %s = %i, %s = %f\n",
-                sendsig[0][0]->name, i,
-                sendsig[0][1]->name, i * 2.f);
-        mapper_signal_update_int(sendsig[0][0], i);
-        mapper_signal_update_int(sendsig[1][0], i);
+        eprintf("Updating signals: %s = %i, %s = %f\n", sig0name, i, sig1name,
+                i * 2.f);
+        mapper_signal_set_value(sendsig[0][0], 0, 1, MAPPER_INT32, &i, MAPPER_NOW);
+        mapper_signal_set_value(sendsig[1][0], 0, 1, MAPPER_INT32, &i, MAPPER_NOW);
         f = i * 2;
-        mapper_signal_update_float(sendsig[0][1], f);
-        mapper_signal_update_float(sendsig[1][1], f);
+        mapper_signal_set_value(sendsig[0][1], 0, 1, MAPPER_FLOAT, &f, MAPPER_NOW);
+        mapper_signal_set_value(sendsig[1][1], 0, 1, MAPPER_FLOAT, &f, MAPPER_NOW);
 
         sent++;
-        mapper_device_poll(destination, 100);
+        mapper_device_poll(destination, period);
         i++;
 
         if (!verbose) {
@@ -204,8 +208,12 @@ int main(int argc, char **argv)
                         printf("testcombiner.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-f fast (execute quickly), "
                                "-h help\n");
                         return 1;
+                        break;
+                    case 'f':
+                        period = 1;
                         break;
                     case 'q':
                         verbose = 0;
@@ -254,6 +262,7 @@ int main(int argc, char **argv)
   done:
     cleanup_destination();
     cleanup_source();
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    printf("...................Test %s\x1B[0m.\n",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

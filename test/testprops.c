@@ -1,8 +1,6 @@
-
+#include <mapper/mapper.h>
 #include <string.h>
 #include <stdio.h>
-
-#include "../src/mapper_internal.h"
 
 /* Test to ensure that setting and getting properties of signals and
  * devices is consistent. */
@@ -53,14 +51,14 @@ int seen_code(const char *key)
     return 0;
 }
 
-int check_keys(mapper_signal sig)
+int check_keys(mapper_object obj)
 {
-    const char *key;
+    const char *name;
     const void *val;
     mapper_type type;
     int i=0, seen=0, length;
-    while (!mapper_signal_property_index(sig, i++, &key, &length, &type, &val)) {
-        seen |= seen_code(key);
+    while (mapper_object_get_prop_by_index(obj, i++, &name, &length, &type, &val)) {
+        seen |= seen_code(name);
     }
     return seen;
 }
@@ -91,10 +89,10 @@ int main(int argc, char **argv)
         }
     }
 
-    mapper_device dev = mapper_device_new("testprops", 0, 0);
-    mapper_signal sig = mapper_device_add_input_signal(dev, "test", 1,
-                                                       MAPPER_FLOAT, "Hz",
-                                                       0, 0, 0, 0);
+    mapper_device dev = mapper_device_new("testprops", 0);
+    mapper_signal sig = mapper_device_add_signal(dev, MAPPER_DIR_IN, 1, "test",
+                                                 1, MAPPER_FLOAT, "Hz", NULL,
+                                                 NULL, NULL);
 
     while (!mapper_device_ready(dev)) {
         mapper_device_poll(dev, 100);
@@ -112,9 +110,9 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test that adding maximum causes it to be listed. */
-    float mx = 35.0;
-    mapper_signal_set_maximum(sig, &mx);
     eprintf("Test 2:  adding static property 'maximum'... ");
+    float fval = 35.0;
+    mapper_object_set_prop(sig, MAPPER_PROP_MAX, NULL, 1, MAPPER_FLOAT, &fval, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX)) {
@@ -127,9 +125,9 @@ int main(int argc, char **argv)
 
     /* Test that adding an extra parameter causes the extra parameter
      * to be listed. */
-    char *str = "test_value";
-    mapper_signal_set_property(sig, "test", 1, MAPPER_STRING, str, 1);
     eprintf("Test 3:  adding extra string property 'test'... ");
+    const char *str = "test_value";
+    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "test", 1, MAPPER_STRING, str, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX | SEEN_TEST)) {
@@ -144,7 +142,7 @@ int main(int argc, char **argv)
     mapper_type type;
     const void *val;
     int length;
-    if (mapper_signal_property(sig, "test", &length, &type, &val)) {
+    if (!mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -180,8 +178,8 @@ int main(int argc, char **argv)
 
     /* Test that removing an extra parameter causes the extra
      * parameter to _not_ be listed. */
-    mapper_signal_remove_property(sig, "test");
     eprintf("Test 5:  removing extra property 'test'... ");
+    mapper_object_remove_prop(sig, MAPPER_PROP_EXTRA, "test");
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX)) {
@@ -193,11 +191,11 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test that adding two more properties works as expected. */
-    int x = 123;
-    mapper_signal_set_property(sig, "x", 1, MAPPER_INT32, &x, 1);
-    int y = 234;
-    mapper_signal_set_property(sig, "y", 1, MAPPER_INT32, &y, 1);
     eprintf("Test 6:  adding extra integer properties 'x' and 'y'... ");
+    int x = 123;
+    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "x", 1, MAPPER_INT32, &x, 1);
+    int y = 234;
+    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "y", 1, MAPPER_INT32, &y, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX | SEEN_X | SEEN_Y)) {
@@ -210,7 +208,7 @@ int main(int argc, char **argv)
 
     /* Test the type and value associated with "x". */
     eprintf("Test 7:  retrieving property 'x'...");
-    if (mapper_signal_property(sig, "x", &length, &type, &val)) {
+    if (!mapper_object_get_prop_by_name(sig, "x", &length, &type, &val)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -247,7 +245,7 @@ int main(int argc, char **argv)
     /* Check that there is no value associated with previously-removed
      * "test". */
     eprintf("Test 8:  retrieving removed property 'test': ");
-    if (!mapper_signal_property(sig, "test", &length, &type, &val)) {
+    if (mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
         eprintf("found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -258,7 +256,7 @@ int main(int argc, char **argv)
     /* Check that there is an integer value associated with static,
      * required property "length". */
     eprintf("Test 9:  retrieving static, required property 'length'... ");
-    if (mapper_signal_property(sig, "length", &length, &type, &val)) {
+    if (!mapper_object_get_prop_by_name(sig, "length", &length, &type, &val)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -296,7 +294,8 @@ int main(int argc, char **argv)
     /* Check that there is a string value associated with static,
      * required property "name". */
     eprintf("Test 10: retrieving static, required property 'name'... ");
-    if (mapper_signal_property(sig, "name", &length, &type, &val)) {
+    if (!mapper_object_get_prop_by_index(sig, MAPPER_PROP_NAME, NULL, &length,
+                                         &type, &val)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -334,7 +333,8 @@ int main(int argc, char **argv)
     /* Check that there is a float value associated with static,
      * optional property "max". */
     eprintf("Test 11: retrieving static, optional property 'max'... ");
-    if (mapper_signal_property(sig, "max", &length, &type, &val)) {
+    if (!mapper_object_get_prop_by_index(sig, MAPPER_PROP_MAX, NULL, &length,
+                                         &type, &val)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -362,7 +362,7 @@ int main(int argc, char **argv)
 
     eprintf("\t checking value: '%f' ... ", *(float*)val);
     if (*(float*)val != 35.0f) {
-        eprintf("ERROR (expected %f)\n", *(float*)val);
+        eprintf("ERROR (expected %f)\n", 35.0f);
         result = 1;
         goto cleanup;
     }
@@ -370,8 +370,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     /* Test that removing maximum causes it to _not_ be listed. */
-    mapper_signal_set_maximum(sig, 0);
     eprintf("Test 12: removing optional property 'max'... ");
+    mapper_object_remove_prop(sig, MAPPER_PROP_MAX, NULL);
     seen = check_keys(sig);
     if (seen & SEEN_MAX)
     {
@@ -383,7 +383,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 13: retrieving optional property 'max': ");
-    if (!mapper_signal_property(sig, "max", &length, &type, &val)) {
+    if (mapper_object_get_prop_by_name(sig, "max", &length, &type, &val)) {
         eprintf("found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -394,7 +394,8 @@ int main(int argc, char **argv)
     /* Test adding and retrieving an integer vector property. */
     eprintf("Test 14: adding an extra integer vector property 'test'... ");
     int set_int[] = {1, 2, 3, 4, 5};
-    mapper_signal_set_property(sig, "test", 5, MAPPER_INT32, &set_int, 1);
+    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "test", 5, MAPPER_INT32,
+                           &set_int, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -407,7 +408,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 15: retrieving vector property 'test': ");
-    if (mapper_signal_property(sig, "test", &length, &type, &val)) {
+    if (!mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -453,7 +454,8 @@ int main(int argc, char **argv)
     /* Test rewriting 'test' as float vector property. */
     eprintf("Test 16: rewriting 'test' as vector float property... ");
     float set_float[] = {10., 20., 30., 40., 50.};
-    mapper_signal_set_property(sig, "test", 5, MAPPER_FLOAT, &set_float, 1);
+    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "test", 5, MAPPER_FLOAT,
+                           &set_float, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -466,7 +468,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 17: retrieving property 'test'... ");
-    if (mapper_signal_property(sig, "test", &length, &type, &val)) {
+    if (!mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -512,7 +514,8 @@ int main(int argc, char **argv)
     /* Test rewriting property 'test' as string vector property. */
     eprintf("Test 18: rewriting 'test' as vector string property... ");
     char *set_string[] = {"foo", "bar"};
-    mapper_signal_set_property(sig, "test", 2, MAPPER_STRING, &set_string, 1);
+    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "test", 2, MAPPER_STRING,
+                           &set_string, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -525,7 +528,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 19: retrieving property 'test'... ");
-    if (mapper_signal_property(sig, "test", &length, &type, &val)) {
+    if (!mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -571,6 +574,6 @@ int main(int argc, char **argv)
     if (dev) mapper_device_free(dev);
     if (!verbose)
         printf("..................................................");
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    printf("Test %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

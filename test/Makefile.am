@@ -8,17 +8,16 @@ else
 TEST_LDADD = $(top_builddir)/src/libmapper.la $(liblo_LIBS)
 endif
 
-noinst_PROGRAMS = test testconvergent testcpp testcustomtransport testdatabase \
-                  testexpression testinstance testlinear testmany testmapinput \
-                  testmapprotocol testmonitor testnetwork testparams testparser\
-                  testprops testqueue testquery testrate testreverse testselect\
-                  testsignals testspeed testvector
+noinst_PROGRAMS = test testconvergent testcpp testcustomtransport              \
+                  testexpression testgraph testinstance testlinear testmany    \
+                  testmapinput testmapprotocol testmonitor testnetwork         \
+                  testparams testparser testprops testqueue testrate           \
+                  testreverse testsignals testspeed testvector
 
-test_all_ordered = testparams testprops testdatabase testparser testnetwork    \
-                   testmany test testlinear testexpression testqueue testquery \
-                   testrate testinstance testreverse testselect testvector     \
-                   testcustomtransport testspeed testcpp testmapinput          \
-                   testconvergent testmapprotocol
+test_all_ordered = testparams testprops testgraph testparser testnetwork       \
+                   testmany test testlinear testexpression testqueue testrate  \
+                   testinstance testreverse testvector testcustomtransport     \
+                   testspeed testcpp testmapinput testconvergent testmapprotocol
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -36,13 +35,13 @@ testcustomtransport_CFLAGS = $(TEST_CFLAGS)
 testcustomtransport_SOURCES = testcustomtransport.c
 testcustomtransport_LDADD = $(TEST_LDADD)
 
-testdatabase_CFLAGS = $(TEST_CFLAGS)
-testdatabase_SOURCES = testdatabase.c
-testdatabase_LDADD = $(TEST_LDADD)
-
 testexpression_CFLAGS = $(TEST_CFLAGS)
 testexpression_SOURCES = testexpression.c
 testexpression_LDADD = $(TEST_LDADD)
+
+testgraph_CFLAGS = $(TEST_CFLAGS)
+testgraph_SOURCES = testgraph.c
+testgraph_LDADD = $(TEST_LDADD)
 
 testinstance_CFLAGS = $(TEST_CFLAGS)
 testinstance_SOURCES = testinstance.c
@@ -88,10 +87,6 @@ testqueue_CFLAGS = $(TEST_CFLAGS)
 testqueue_SOURCES = testqueue.c
 testqueue_LDADD = $(TEST_LDADD)
 
-testquery_CFLAGS = $(TEST_CFLAGS)
-testquery_SOURCES = testquery.c
-testquery_LDADD = $(TEST_LDADD)
-
 testrate_CFLAGS = $(TEST_CFLAGS)
 testrate_SOURCES = testrate.c
 testrate_LDADD = $(TEST_LDADD)
@@ -99,10 +94,6 @@ testrate_LDADD = $(TEST_LDADD)
 testreverse_CFLAGS = $(TEST_CFLAGS)
 testreverse_SOURCES = testreverse.c
 testreverse_LDADD = $(TEST_LDADD)
-
-testselect_CFLAGS = $(TEST_CFLAGS)
-testselect_SOURCES = testselect.c
-testselect_LDADD = $(TEST_LDADD)
 
 testsignals_CFLAGS = $(TEST_CFLAGS)
 testsignals_SOURCES = testsignals.c
@@ -117,8 +108,8 @@ testvector_SOURCES = testvector.c
 testvector_LDADD = $(TEST_LDADD)
 
 tests: all
-	for i in $(test_all_ordered); do echo Running $$i; if ! ./$$i -qt; then exit 1; fi; done
-	echo Running testmonitor and testsignals; ./testmonitor -t & ./testsignals
+	for i in $(test_all_ordered); do echo Running $$i; ./$$i -qtf; done
+	echo Running testmonitor and testsignals; ./testmonitor -qtf & ./testsignals -qtf
 
 memtest: all
 	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmapper.dylib valgrind --leak-check=full ./.libs/$$i -qt; then exit 1; fi; done

@@ -4,26 +4,24 @@ from __future__ import print_function
 import sys, mapper, random
 
 def h(sig, id, f, tt):
-    print('     handler got', sig.name, '=', f, 'at time', tt.get_double())
+    print('     handler got', sig['name'], '=', f, 'at time', tt.get_double())
 
 src = mapper.device("src")
-outsig1 = src.add_output_signal("outsig1", 1, mapper.INT32, None, 0, 1000)
-outsig2 = src.add_output_signal("outsig2", 1, mapper.INT32, None, 0, 1000)
+outsig1 = src.add_signal(mapper.DIR_OUT, 1, "outsig1", 1, mapper.INT32, None, 0, 1000)
+outsig2 = src.add_signal(mapper.DIR_OUT, 1, "outsig2", 1, mapper.INT32, None, 0, 1000)
 
 dest = mapper.device("dest")
-insig1 = dest.add_input_signal("insig1", 1, mapper.FLOAT, None, 0, 1, h)
-insig2 = dest.add_input_signal("insig2", 1, mapper.FLOAT, None, 0, 1, h)
+insig1 = dest.add_signal(mapper.DIR_IN, 1, "insig1", 1, mapper.FLOAT, None, 0, 1, h)
+insig2 = dest.add_signal(mapper.DIR_IN, 1, "insig2", 1, mapper.FLOAT, None, 0, 1, h)
 
 while not src.ready or not dest.ready:
     src.poll()
     dest.poll(10)
 
 map1 = mapper.map(outsig1, insig1)
-map1.mode = mapper.MODE_LINEAR
 map1.push()
 
 map2 = mapper.map(outsig2, insig2)
-map2.mode = mapper.MODE_LINEAR
 map2.push()
 
 while not map1.ready or not map2.ready:

@@ -1,7 +1,7 @@
 
-package mapper.database;
+package mapper.graph;
 
-/*! Possible operations for composing database queries. */
+/*! Possible operations for composing graph queries. */
 public enum Operator {
     DOES_NOT_EXIST          (0),
     EQUAL                   (1),

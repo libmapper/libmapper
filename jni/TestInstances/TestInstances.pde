@@ -42,7 +42,7 @@ void setup()
                                   new Value(0), new Value(height));
 
   InstanceEventListener evin = new InstanceEventListener() {
-    public void onEvent(mapper.Signal sig, int instanceId, int event, TimeTag tt) {
+    public void onEvent(mapper.Signal sig, int instanceId, int event, Time time) {
       sig_x_in.setInstanceCallback(instanceId, circles[instanceId-1].lx);
       sig_y_in.setInstanceCallback(instanceId, circles[instanceId-1].ly);
     };
@@ -125,13 +125,13 @@ class Circle
 
     /* Add listeners for our instance */
     lx = new UpdateListener() {
-          void onUpdate(mapper.Signal sig, int instanceId, int[] v, TimeTag tt) {
+          void onUpdate(mapper.Signal sig, int instanceId, int[] v, Time t) {
             if (v!=null)
               bx = v[0];
           }};
 
     ly = new UpdateListener() {
-          void onUpdate(mapper.Signal sig, int instanceId, int[] v, TimeTag tt) {
+          void onUpdate(mapper.Signal sig, int instanceId, int[] v, Time t) {
             if (v!=null)
               by = v[0];
           }};

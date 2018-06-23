@@ -1,4 +1,3 @@
-
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
@@ -29,6 +28,7 @@ int autoconnect = 1;
 int terminate = 0;
 int iterations = 50; // only matters when terminate==1
 int verbose = 1;
+int period = 100;
 
 mapper_device source = 0;
 mapper_device destination = 0;
@@ -51,17 +51,24 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
+void on_map(mapper_graph g, mapper_object obj, mapper_record_event event,
+            const void *user)
 {
-    if (verbose) {
-        printf("Map: ");
-        mapper_map_print(map);
+    if (MAPPER_OBJ_MAP != mapper_object_get_type(obj)) {
+        printf("Error in map handler!\n");
+        return;
     }
 
+    if (verbose) {
+        printf("Map: ");
+        mapper_object_print(obj, 0);
+    }
+    mapper_map map = (mapper_map)obj;
+
     // we are looking for a map with one source (sendsig) and one dest (recvsig)
-    if (mapper_map_num_slots(map, MAPPER_LOC_SOURCE) > 1)
+    if (mapper_map_get_num_signals(map, MAPPER_LOC_SRC) > 1)
         return;
-    if (mapper_slot_signal(mapper_map_slot(map, MAPPER_LOC_SOURCE, 0)) != sendsig)
+    if (mapper_map_get_signal(map, MAPPER_LOC_SRC, 0) != sendsig)
         return;
 
     if (event == MAPPER_REMOVED) {
@@ -78,8 +85,8 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
     const char *a_transport;
     mapper_type type;
     int length;
-    if (mapper_map_property(map, "transport", &length, &type,
-                            (const void **)&a_transport)
+    if (!mapper_object_get_prop_by_name((mapper_object)map, "transport", &length,
+                                        &type, (const void **)&a_transport)
         || type != MAPPER_STRING || length != 1) {
         eprintf("Couldn't find `transport' property.\n");
         return;
@@ -93,7 +100,8 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
 
     // Find the TCP port in the mapping properties
     const int *a_port;
-    if (mapper_map_property(map, "tcpPort", &length, &type, (const void **)&a_port)
+    if (!mapper_object_get_prop_by_name((mapper_object)map, "tcpPort", &length,
+                                        &type, (const void **)&a_port)
         || type != MAPPER_INT32 || length != 1) {
         eprintf("Couldn't make TCP connection, tcpPort property not found.\n");
         return;
@@ -111,7 +119,11 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
         exit(1);
     }
 
-    const char *host = mapper_device_host(map->destination.signal->device);
+    mapper_signal dstsig = mapper_map_get_signal(map, MAPPER_LOC_DST, 0);
+    mapper_device dstdev = mapper_signal_get_device(dstsig);
+    const char *host;
+    mapper_object_get_prop_by_index((mapper_object)dstdev, MAPPER_PROP_HOST,
+                                    NULL, NULL, NULL, (const void**)&host);
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
@@ -138,17 +150,18 @@ void on_map(mapper_device dev, mapper_map map, mapper_record_event event)
 /*! Creation of a local source. */
 int setup_source()
 {
-    source = mapper_device_new("testcustomtransport-send", 0, 0);
+    source = mapper_device_new("testcustomtransport-send", 0);
     if (!source)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    mapper_device_set_map_callback(source, on_map);
+    mapper_graph_add_callback(mapper_object_get_graph((mapper_object)source),
+                              on_map, MAPPER_OBJ_MAP, NULL);
 
-    sendsig = mapper_device_add_output_signal(source, "outsig", 1, MAPPER_FLOAT,
-                                              "Hz", &mn, &mx);
+    sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUT, 1, "outsig",
+                                       1, MAPPER_FLOAT, "Hz", &mn, &mx, NULL);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -168,14 +181,16 @@ void cleanup_source()
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
-                   int count, mapper_timetag_t *timetag)
+void insig_handler(mapper_signal sig, mapper_id instance, int length,
+                   mapper_type type, const void *value, mapper_time t)
 {
+    const char *name;
+    mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
+                                    NULL, NULL, (const void**)&name);
     if (value) {
-        eprintf("--> destination got %s", mapper_signal_name(sig));
+        eprintf("--> destination got %s", name);
         float *v = (float*)value;
-        int len = mapper_signal_length(sig);
-        for (int i = 0; i < len; i++) {
+        for (int i = 0; i < length; i++) {
             eprintf(" %f", v[i]);
         }
         eprintf("\n");
@@ -186,16 +201,16 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 /*! Creation of a local destination. */
 int setup_destination()
 {
-    destination = mapper_device_new("testcustomtransport-recv", 0, 0);
+    destination = mapper_device_new("testcustomtransport-recv", 0);
     if (!destination)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_input_signal(destination, "insig", 1,
-                                             MAPPER_FLOAT, 0, &mn, &mx,
-                                             insig_handler, 0);
+    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 1,
+                                       "insig", 1, MAPPER_FLOAT, NULL,
+                                       &mn, &mx, insig_handler);
 
     eprintf("Input signal 'insig' registered.\n");
 
@@ -234,12 +249,14 @@ void loop()
 
         // Add custom meta-data specifying a special transport for this map.
         char *str = "tcp";
-        mapper_map_set_property(map, "transport", 1, MAPPER_STRING, str, 1);
+        mapper_object_set_prop((mapper_object)map, MAPPER_PROP_EXTRA, "transport",
+                               1, MAPPER_STRING, str, 1);
 
         // Add custom meta-data specifying a port to use for this map's
         // custom transport.
-        mapper_map_set_property(map, "tcpPort", 1, MAPPER_INT32, &tcp_port, 1);
-        mapper_map_push(map);
+        mapper_object_set_prop((mapper_object)map, MAPPER_PROP_EXTRA, "tcpPort",
+                               1, MAPPER_INT32, &tcp_port, 1);
+        mapper_object_push((mapper_object)map);
     }
 
     // Set up a mini TCP server for our custom stream
@@ -265,7 +282,7 @@ void loop()
         mapper_device_poll(source, 0);
 
         // Instead of
-        // mapper_signal_update_float(sendsig, ((i % 10) * 1.0f));
+        // mapper_signal_update(sendsig, etc.);
 
         // We will instead send our data on the custom TCP socket if
         // it is valid
@@ -334,7 +351,7 @@ void loop()
             fflush(stdout);
         }
 
-        mapper_device_poll(destination, 100);
+        mapper_device_poll(destination, period);
         i++;
     }
     if (send_socket != -1)
@@ -358,10 +375,14 @@ int main(int argc, char **argv)
                 switch (argv[i][j]) {
                     case 'h':
                         printf("testcustomtransport.c: possible arguments "
+                               "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-h help\n");
                         return 1;
+                        break;
+                    case 'f':
+                        period = 1;
                         break;
                     case 'q':
                         verbose = 0;
@@ -402,6 +423,7 @@ int main(int argc, char **argv)
   done:
     cleanup_destination();
     cleanup_source();
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    printf("...................Test %s\x1B[0m.\n",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

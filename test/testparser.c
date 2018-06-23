@@ -1,4 +1,3 @@
-
 #include <../src/mapper_internal.h>
 #include <math.h>
 #include <stdio.h>
@@ -28,15 +27,15 @@ float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[DEST_ARRAY_LEN];
 double src_double[] = {1.0, 2.0, 3.0}, dest_double[DEST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
-mapper_type typestring[3];
+mapper_type types[3];
 
-mapper_timetag_t tt_in = {0, 0}, tt_out = {0, 0};
+mapper_time_t time_in = {0, 0}, time_out = {0, 0};
 
 // signal_history structures
-mapper_history_t inh[3], outh, user_vars[MAX_VARS], *user_vars_p;
-mapper_history inh_p[3] = {&inh[0], &inh[1], &inh[2]};
+mapper_hist_t inh[3], outh, user_vars[MAX_VARS], *user_vars_p;
+mapper_hist inh_p[3] = {&inh[0], &inh[1], &inh[2]};
 mapper_type src_types[3];
-int src_lengths[3], num_sources;
+int src_lens[3], num_sources;
 
 /*! Internal function to get the current time. */
 static double current_time()
@@ -46,27 +45,27 @@ static double current_time()
     return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
-typedef struct _variable {
+typedef struct _var {
     char *name;
-    int vector_length;
+    int vector_len;
     mapper_type datatype;
     mapper_type casttype;
-    char history_size;
-    char vector_length_locked;
+    char hist_size;
+    char vector_len_locked;
     char assigned;
-} mapper_variable_t, *mapper_variable;
+} mapper_var_t, *mapper_var;
 
 struct _mapper_expr
 {
     void *tokens;
     void *start;
-    mapper_variable variables;
+    mapper_var vars;
     int start_offset;
-    int length;
+    int len;
     int vector_size;
-    int input_history_size;
-    int output_history_size;
-    int num_variables;
+    int inp_hist_size;
+    int out_hist_size;
+    int num_vars;
     int constant_output;
 };
 
@@ -76,35 +75,35 @@ struct _mapper_expr
  division by 0
  */
 
-void print_value(mapper_type *types, int length, const void *value, int position)
+void print_val(mapper_type *types, int len, const void *val, int pos)
 {
-    if (!value || !types || length < 1)
+    if (!val || !types || len < 1)
         return;
 
-    if (length > 1)
+    if (len > 1)
         printf("[");
 
-    int i, offset = position * length;
-    for (i = 0; i < length; i++) {
+    int i, offset = pos * len;
+    for (i = 0; i < len; i++) {
         switch (types[i]) {
             case MAPPER_NULL:
                 printf("NULL, ");
                 break;
             case MAPPER_FLOAT:
             {
-                float *pf = (float*)value;
+                float *pf = (float*)val;
                 printf("%f, ", pf[i + offset]);
                 break;
             }
             case MAPPER_INT32:
             {
-                int *pi = (int*)value;
+                int *pi = (int*)val;
                 printf("%d, ", pi[i + offset]);
                 break;
             }
             case MAPPER_DOUBLE:
             {
-                double *pd = (double*)value;
+                double *pd = (double*)val;
                 printf("%f, ", pd[i + offset]);
                 break;
             }
@@ -114,61 +113,61 @@ void print_value(mapper_type *types, int length, const void *value, int position
         }
     }
 
-    if (length > 1)
+    if (len > 1)
         printf("\b\b]");
     else
         printf("\b\b");
 }
 
 void setup_test_multisource(int _num_sources, mapper_type *in_types,
-                            int *in_lengths, mapper_type out_type,
-                            int out_length)
+                            int *in_lens, mapper_type out_type,
+                            int out_len)
 {
     num_sources = _num_sources;
     int i;
     for (i = 0; i < _num_sources; i++) {
         src_types[i] = in_types[i];
-        src_lengths[i] = in_lengths[i];
+        src_lens[i] = in_lens[i];
         inh[i].type = in_types[i];
         inh[i].size = 3;
-        inh[i].length = in_lengths[i];
+        inh[i].len = in_lens[i];
         switch (in_types[i]) {
             case MAPPER_INT32:
-                inh[i].value = src_int;
+                inh[i].val = src_int;
                 break;
             case MAPPER_FLOAT:
-                inh[i].value = src_float;
+                inh[i].val = src_float;
                 break;
             default:
-                inh[i].value = src_double;
+                inh[i].val = src_double;
                 break;
         }
-        inh[i].position = 0;
-        inh[i].timetag = &tt_in;
+        inh[i].pos = 0;
+        inh[i].time = &time_in;
     }
 
     outh.type = out_type;
     outh.size = 3;
-    outh.length = out_length;
+    outh.len = out_len;
     switch (out_type) {
         case MAPPER_INT32:
-            outh.value = dest_int;
+            outh.val = dest_int;
             break;
         case MAPPER_FLOAT:
-            outh.value = dest_float;
+            outh.val = dest_float;
             break;
         default:
-            outh.value = dest_double;
+            outh.val = dest_double;
             break;
     }
-    outh.position = -1;
-    outh.timetag = &tt_out;
+    outh.pos = -1;
+    outh.time = &time_out;
 }
 
-void setup_test(mapper_type in_type, int in_length, mapper_type out_type,
-                int out_length)
+void setup_test(mapper_type in_type, int in_len, mapper_type out_type,
+                int out_len)
 {
-    setup_test_multisource(1, &in_type, &in_length, out_type, out_length);
+    setup_test_multisource(1, &in_type, &in_len, out_type, out_len);
 }
 
 #define EXPECT_SUCCESS 0
@@ -187,42 +186,41 @@ int parse_and_eval(int expectation)
     eprintf("***************** Expression %d *****************\n",
             expression_count++);
     eprintf("Parsing string '%s'\n", str);
-    e = mapper_expr_new_from_string(str, num_sources, src_types, src_lengths,
-                                    outh.type, outh.length);
+    e = mapper_expr_new_from_string(str, num_sources, src_types, src_lens,
+                                    outh.type, outh.len);
     if (!e) {
         eprintf("Parser FAILED.\n");
         goto fail;
     }
     for (i = 0; i < num_sources; i++) {
-        inh[i].size = mapper_expr_input_history_size(e, i);
+        inh[i].size = mapper_expr_in_hist_size(e, i);
     }
-    outh.size = mapper_expr_output_history_size(e);
+    outh.size = mapper_expr_out_hist_size(e);
 
-    if (mapper_expr_num_variables(e) > MAX_VARS) {
+    if (mapper_expr_num_vars(e) > MAX_VARS) {
         eprintf("Maximum variables exceeded.\n");
         goto fail;
     }
 
     // reallocate variable value histories
-    for (i = 0; i < e->num_variables; i++) {
+    for (i = 0; i < e->num_vars; i++) {
         eprintf("user_var[%d]: %p\n", i, &user_vars[i]);
-        mhist_realloc(&user_vars[i], e->variables[i].history_size,
-                      sizeof(double), 0);
+        mapper_hist_realloc(&user_vars[i], e->vars[i].hist_size, sizeof(double), 0);
     }
     user_vars_p = user_vars;
 
 #ifdef DEBUG
     if (verbose) {
         char str[128];
-        snprintf(str, 128, "Parser returned %d tokens:", e->length);
+        snprintf(str, 128, "Parser returned %d tokens:", e->len);
         printexpr(str, e);
     }
 #endif
 
-    token_count += e->length;
+    token_count += e->len;
 
     eprintf("Try evaluation once... ");
-    if (!mapper_expr_evaluate(e, inh_p, &user_vars_p, &outh, &tt_in, typestring)) {
+    if (!mapper_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types)) {
         eprintf("FAILED.\n");
         goto fail;
     }
@@ -232,7 +230,7 @@ int parse_and_eval(int expectation)
     eprintf("Calculate expression %i times... ", iterations);
     i = iterations-1;
     while (i--) {
-        mapper_expr_evaluate(e, inh_p, &user_vars_p, &outh, &tt_in, typestring);
+        mapper_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types);
     }
     now = current_time();
     eprintf("%g seconds.\n", now-then);
@@ -240,7 +238,7 @@ int parse_and_eval(int expectation)
 
     if (verbose) {
         printf("Got:      ");
-        print_value(typestring, outh.length, outh.value, outh.position);
+        print_val(types, outh.len, outh.val, outh.pos);
         printf(" \n");
     }
     else
@@ -611,8 +609,8 @@ int run_tests()
     /* 48) Multiple Inputs */
     snprintf(str, 256, "y=x+x1[1:2]+x2");
     mapper_type types[] = {MAPPER_INT32, MAPPER_FLOAT, MAPPER_DOUBLE};
-    int lengths[] = {2, 3, 2};
-    setup_test_multisource(3, types, lengths, MAPPER_FLOAT, 2);
+    int lens[] = {2, 3, 2};
+    setup_test_multisource(3, types, lens, MAPPER_FLOAT, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [4, 7]\n");
@@ -673,9 +671,10 @@ int main(int argc, char **argv)
 
     result = run_tests();
     eprintf("**********************************\n");
-    printf("...............Test %s ", result ? "FAILED" : "PASSED");
+    printf("................Test %s\x1B[0m.",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     if (!result)
-        printf("(%f seconds, %d tokens).\n",
+        printf(" (%f seconds, %d tokens).\n",
                total_elapsed_time, token_count);
     else
         printf(".\n");

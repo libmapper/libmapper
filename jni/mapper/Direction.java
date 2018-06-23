@@ -1,7 +1,7 @@
 
 package mapper;
 
-/*! Describes the directionality of map slots. */
+/*! Describes the directionality of map endpoints. */
 public enum Direction {
     UNDEFINED   (0),
     INCOMING    (1),
