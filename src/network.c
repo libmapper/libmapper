@@ -1833,10 +1833,16 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
                                          num_sources, src_names);
 
         /* If a mapping already exists between these signals, forward the
-         * message to handler_map_modify() and stop. */
+         * message to /map/modify and stop. */
         if (map) {
-            if (map->status >= STATUS_ACTIVE)
-                handler_map_modify(path, types, argv, argc, msg, user_data);
+            if (map->status >= STATUS_ACTIVE) {
+                mapper_network_set_dest_mesh(net,
+                                             map->sources[0]->link->local->admin_addr);
+                lo_message_add_string(msg, mapper_property_protocol_string(AT_ID));
+                lo_message_add_int64(msg, *((int64_t*)&map->id));
+                mapper_network_add_message(net, 0, MSG_MAP_MODIFY, msg);
+                mapper_network_send(net);
+            }
             mapper_message_free(props);
             return 0;
         }
