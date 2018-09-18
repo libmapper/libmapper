@@ -1,4 +1,4 @@
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -51,14 +51,14 @@ int seen_code(const char *key)
     return 0;
 }
 
-int check_keys(mapper_object obj)
+int check_keys(mpr_obj obj)
 {
-    const char *name;
+    const char *key;
     const void *val;
-    mapper_type type;
+    mpr_type type;
     int i=0, seen=0, length;
-    while (mapper_object_get_prop_by_index(obj, i++, &name, &length, &type, &val)) {
-        seen |= seen_code(name);
+    while (mpr_obj_get_prop_by_idx(obj, i++, &key, &length, &type, &val, 0)) {
+        seen |= seen_code(key);
     }
     return seen;
 }
@@ -89,13 +89,12 @@ int main(int argc, char **argv)
         }
     }
 
-    mapper_device dev = mapper_device_new("testprops", 0);
-    mapper_signal sig = mapper_device_add_signal(dev, MAPPER_DIR_IN, 1, "test",
-                                                 1, MAPPER_FLOAT, "Hz", NULL,
-                                                 NULL, NULL);
+    mpr_dev dev = mpr_dev_new("testprops", 0);
+    mpr_sig sig = mpr_sig_new(dev, MPR_DIR_IN, 1, "test", 1, MPR_FLT, "Hz",
+                              NULL, NULL, NULL, 0);
 
-    while (!mapper_device_ready(dev)) {
-        mapper_device_poll(dev, 100);
+    while (!mpr_dev_ready(dev)) {
+        mpr_dev_poll(dev, 100);
     }
 
     /* Test that default parameters are all listed. */
@@ -112,7 +111,7 @@ int main(int argc, char **argv)
     /* Test that adding maximum causes it to be listed. */
     eprintf("Test 2:  adding static property 'maximum'... ");
     float fval = 35.0;
-    mapper_object_set_prop(sig, MAPPER_PROP_MAX, NULL, 1, MAPPER_FLOAT, &fval, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_MAX, NULL, 1, MPR_FLT, &fval, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX)) {
@@ -127,7 +126,7 @@ int main(int argc, char **argv)
      * to be listed. */
     eprintf("Test 3:  adding extra string property 'test'... ");
     const char *str = "test_value";
-    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "test", 1, MAPPER_STRING, str, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_STR, str, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX | SEEN_TEST)) {
@@ -139,10 +138,10 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 4:  retrieving property 'test'... ");
-    mapper_type type;
+    mpr_type type;
     const void *val;
     int length;
-    if (!mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
+    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -150,8 +149,8 @@ int main(int argc, char **argv)
     eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != MAPPER_STRING) {
-        eprintf("ERROR (expected %c)\n", MAPPER_STRING);
+    if (type != MPR_STR) {
+        eprintf("ERROR (expected %c)\n", MPR_STR);
         result = 1;
         goto cleanup;
     }
@@ -179,7 +178,7 @@ int main(int argc, char **argv)
     /* Test that removing an extra parameter causes the extra
      * parameter to _not_ be listed. */
     eprintf("Test 5:  removing extra property 'test'... ");
-    mapper_object_remove_prop(sig, MAPPER_PROP_EXTRA, "test");
+    mpr_obj_remove_prop(sig, MPR_PROP_EXTRA, "test");
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX)) {
@@ -193,9 +192,9 @@ int main(int argc, char **argv)
     /* Test that adding two more properties works as expected. */
     eprintf("Test 6:  adding extra integer properties 'x' and 'y'... ");
     int x = 123;
-    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "x", 1, MAPPER_INT32, &x, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "x", 1, MPR_INT32, &x, 1);
     int y = 234;
-    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "y", 1, MAPPER_INT32, &y, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "y", 1, MPR_INT32, &y, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX | SEEN_X | SEEN_Y)) {
@@ -208,7 +207,7 @@ int main(int argc, char **argv)
 
     /* Test the type and value associated with "x". */
     eprintf("Test 7:  retrieving property 'x'...");
-    if (!mapper_object_get_prop_by_name(sig, "x", &length, &type, &val)) {
+    if (!mpr_obj_get_prop_by_key(sig, "x", &length, &type, &val, 0)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -216,8 +215,8 @@ int main(int argc, char **argv)
     eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != MAPPER_INT32) {
-        eprintf("ERROR (expected %c)\n", MAPPER_INT32);
+    if (type != MPR_INT32) {
+        eprintf("ERROR (expected %c)\n", MPR_INT32);
         result = 1;
         goto cleanup;
     }
@@ -245,7 +244,7 @@ int main(int argc, char **argv)
     /* Check that there is no value associated with previously-removed
      * "test". */
     eprintf("Test 8:  retrieving removed property 'test': ");
-    if (mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
+    if (mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
         eprintf("found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -256,7 +255,7 @@ int main(int argc, char **argv)
     /* Check that there is an integer value associated with static,
      * required property "length". */
     eprintf("Test 9:  retrieving static, required property 'length'... ");
-    if (!mapper_object_get_prop_by_name(sig, "length", &length, &type, &val)) {
+    if (!mpr_obj_get_prop_by_key(sig, "length", &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -265,8 +264,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != MAPPER_INT32) {
-        eprintf("ERROR (expected %c)\n", MAPPER_INT32);
+    if (type != MPR_INT32) {
+        eprintf("ERROR (expected %c)\n", MPR_INT32);
         result = 1;
         goto cleanup;
     }
@@ -294,8 +293,7 @@ int main(int argc, char **argv)
     /* Check that there is a string value associated with static,
      * required property "name". */
     eprintf("Test 10: retrieving static, required property 'name'... ");
-    if (!mapper_object_get_prop_by_index(sig, MAPPER_PROP_NAME, NULL, &length,
-                                         &type, &val)) {
+    if (!mpr_obj_get_prop_by_idx(sig, MPR_PROP_NAME, NULL, &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -304,8 +302,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != MAPPER_STRING) {
-        eprintf("ERROR (expected %c)\n", MAPPER_STRING);
+    if (type != MPR_STR) {
+        eprintf("ERROR (expected %c)\n", MPR_STR);
         result = 1;
         goto cleanup;
     }
@@ -333,8 +331,7 @@ int main(int argc, char **argv)
     /* Check that there is a float value associated with static,
      * optional property "max". */
     eprintf("Test 11: retrieving static, optional property 'max'... ");
-    if (!mapper_object_get_prop_by_index(sig, MAPPER_PROP_MAX, NULL, &length,
-                                         &type, &val)) {
+    if (!mpr_obj_get_prop_by_idx(sig, MPR_PROP_MAX, NULL, &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -343,8 +340,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != MAPPER_FLOAT) {
-        eprintf("ERROR (expected %c)\n", MAPPER_FLOAT);
+    if (type != MPR_FLT) {
+        eprintf("ERROR (expected %c)\n", MPR_FLT);
         result = 1;
         goto cleanup;
     }
@@ -371,7 +368,7 @@ int main(int argc, char **argv)
 
     /* Test that removing maximum causes it to _not_ be listed. */
     eprintf("Test 12: removing optional property 'max'... ");
-    mapper_object_remove_prop(sig, MAPPER_PROP_MAX, NULL);
+    mpr_obj_remove_prop(sig, MPR_PROP_MAX, NULL);
     seen = check_keys(sig);
     if (seen & SEEN_MAX)
     {
@@ -383,7 +380,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 13: retrieving optional property 'max': ");
-    if (mapper_object_get_prop_by_name(sig, "max", &length, &type, &val)) {
+    if (mpr_obj_get_prop_by_key(sig, "max", &length, &type, &val, 0)) {
         eprintf("found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -394,8 +391,7 @@ int main(int argc, char **argv)
     /* Test adding and retrieving an integer vector property. */
     eprintf("Test 14: adding an extra integer vector property 'test'... ");
     int set_int[] = {1, 2, 3, 4, 5};
-    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "test", 5, MAPPER_INT32,
-                           &set_int, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 5, MPR_INT32, &set_int, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -408,7 +404,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 15: retrieving vector property 'test': ");
-    if (!mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
+    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -417,8 +413,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != MAPPER_INT32) {
-        eprintf("ERROR (expected %c)\n", MAPPER_INT32);
+    if (type != MPR_INT32) {
+        eprintf("ERROR (expected %c)\n", MPR_INT32);
         result = 1;
         goto cleanup;
     }
@@ -454,8 +450,7 @@ int main(int argc, char **argv)
     /* Test rewriting 'test' as float vector property. */
     eprintf("Test 16: rewriting 'test' as vector float property... ");
     float set_float[] = {10., 20., 30., 40., 50.};
-    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "test", 5, MAPPER_FLOAT,
-                           &set_float, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 5, MPR_FLT, &set_float, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -468,7 +463,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 17: retrieving property 'test'... ");
-    if (!mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
+    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -477,8 +472,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != MAPPER_FLOAT) {
-        eprintf("ERROR (expected '%c')\n", MAPPER_FLOAT);
+    if (type != MPR_FLT) {
+        eprintf("ERROR (expected '%c')\n", MPR_FLT);
         result = 1;
         goto cleanup;
     }
@@ -514,8 +509,7 @@ int main(int argc, char **argv)
     /* Test rewriting property 'test' as string vector property. */
     eprintf("Test 18: rewriting 'test' as vector string property... ");
     char *set_string[] = {"foo", "bar"};
-    mapper_object_set_prop(sig, MAPPER_PROP_EXTRA, "test", 2, MAPPER_STRING,
-                           &set_string, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_STR, &set_string, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -528,7 +522,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 19: retrieving property 'test'... ");
-    if (!mapper_object_get_prop_by_name(sig, "test", &length, &type, &val)) {
+    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -537,8 +531,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking type: %c ... ", type);
-    if (type != MAPPER_STRING) {
-        eprintf("ERROR (expected '%c')\n", MAPPER_STRING);
+    if (type != MPR_STR) {
+        eprintf("ERROR (expected '%c')\n", MPR_STR);
         result = 1;
         goto cleanup;
     }
@@ -571,7 +565,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
   cleanup:
-    if (dev) mapper_device_free(dev);
+    if (dev) mpr_dev_free(dev);
     if (!verbose)
         printf("..................................................");
     printf("Test %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");

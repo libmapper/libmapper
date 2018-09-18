@@ -1,4 +1,4 @@
-#include <../src/mapper_internal.h>
+#include <../src/mpr_internal.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +16,7 @@
 
 int verbose = 1;
 char str[256];
-mapper_expr e;
+mpr_expr e;
 int result = 0;
 int iterations = 1000000;
 int expression_count = 1;
@@ -27,14 +27,14 @@ float src_float[] = {1.0f, 2.0f, 3.0f}, dest_float[DEST_ARRAY_LEN];
 double src_double[] = {1.0, 2.0, 3.0}, dest_double[DEST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
-mapper_type types[3];
+mpr_type types[3];
 
-mapper_time_t time_in = {0, 0}, time_out = {0, 0};
+mpr_time_t time_in = {0, 0}, time_out = {0, 0};
 
 // signal_history structures
-mapper_hist_t inh[3], outh, user_vars[MAX_VARS], *user_vars_p;
-mapper_hist inh_p[3] = {&inh[0], &inh[1], &inh[2]};
-mapper_type src_types[3];
+mpr_hist_t inh[3], outh, user_vars[MAX_VARS], *user_vars_p;
+mpr_hist inh_p[3] = {&inh[0], &inh[1], &inh[2]};
+mpr_type src_types[3];
 int src_lens[3], num_sources;
 
 /*! Internal function to get the current time. */
@@ -48,18 +48,18 @@ static double current_time()
 typedef struct _var {
     char *name;
     int vector_len;
-    mapper_type datatype;
-    mapper_type casttype;
+    mpr_type datatype;
+    mpr_type casttype;
     char hist_size;
     char vector_len_locked;
     char assigned;
-} mapper_var_t, *mapper_var;
+} mpr_var_t, *mpr_var;
 
-struct _mapper_expr
+struct _mpr_expr
 {
     void *tokens;
     void *start;
-    mapper_var vars;
+    mpr_var vars;
     int start_offset;
     int len;
     int vector_size;
@@ -75,7 +75,7 @@ struct _mapper_expr
  division by 0
  */
 
-void print_val(mapper_type *types, int len, const void *val, int pos)
+void print_val(mpr_type *types, int len, const void *val, int pos)
 {
     if (!val || !types || len < 1)
         return;
@@ -86,22 +86,22 @@ void print_val(mapper_type *types, int len, const void *val, int pos)
     int i, offset = pos * len;
     for (i = 0; i < len; i++) {
         switch (types[i]) {
-            case MAPPER_NULL:
+            case MPR_NULL:
                 printf("NULL, ");
                 break;
-            case MAPPER_FLOAT:
+            case MPR_FLT:
             {
                 float *pf = (float*)val;
                 printf("%f, ", pf[i + offset]);
                 break;
             }
-            case MAPPER_INT32:
+            case MPR_INT32:
             {
                 int *pi = (int*)val;
                 printf("%d, ", pi[i + offset]);
                 break;
             }
-            case MAPPER_DOUBLE:
+            case MPR_DBL:
             {
                 double *pd = (double*)val;
                 printf("%f, ", pd[i + offset]);
@@ -119,9 +119,8 @@ void print_val(mapper_type *types, int len, const void *val, int pos)
         printf("\b\b");
 }
 
-void setup_test_multisource(int _num_sources, mapper_type *in_types,
-                            int *in_lens, mapper_type out_type,
-                            int out_len)
+void setup_test_multisource(int _num_sources, mpr_type *in_types, int *in_lens,
+                            mpr_type out_type, int out_len)
 {
     num_sources = _num_sources;
     int i;
@@ -132,10 +131,10 @@ void setup_test_multisource(int _num_sources, mapper_type *in_types,
         inh[i].size = 3;
         inh[i].len = in_lens[i];
         switch (in_types[i]) {
-            case MAPPER_INT32:
+            case MPR_INT32:
                 inh[i].val = src_int;
                 break;
-            case MAPPER_FLOAT:
+            case MPR_FLT:
                 inh[i].val = src_float;
                 break;
             default:
@@ -150,10 +149,10 @@ void setup_test_multisource(int _num_sources, mapper_type *in_types,
     outh.size = 3;
     outh.len = out_len;
     switch (out_type) {
-        case MAPPER_INT32:
+        case MPR_INT32:
             outh.val = dest_int;
             break;
-        case MAPPER_FLOAT:
+        case MPR_FLT:
             outh.val = dest_float;
             break;
         default:
@@ -164,8 +163,7 @@ void setup_test_multisource(int _num_sources, mapper_type *in_types,
     outh.time = &time_out;
 }
 
-void setup_test(mapper_type in_type, int in_len, mapper_type out_type,
-                int out_len)
+void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
 {
     setup_test_multisource(1, &in_type, &in_len, out_type, out_len);
 }
@@ -186,18 +184,18 @@ int parse_and_eval(int expectation)
     eprintf("***************** Expression %d *****************\n",
             expression_count++);
     eprintf("Parsing string '%s'\n", str);
-    e = mapper_expr_new_from_string(str, num_sources, src_types, src_lens,
-                                    outh.type, outh.len);
+    e = mpr_expr_new_from_str(str, num_sources, src_types, src_lens,
+                              outh.type, outh.len);
     if (!e) {
         eprintf("Parser FAILED.\n");
         goto fail;
     }
     for (i = 0; i < num_sources; i++) {
-        inh[i].size = mapper_expr_in_hist_size(e, i);
+        inh[i].size = mpr_expr_in_hist_size(e, i);
     }
-    outh.size = mapper_expr_out_hist_size(e);
+    outh.size = mpr_expr_out_hist_size(e);
 
-    if (mapper_expr_num_vars(e) > MAX_VARS) {
+    if (mpr_expr_num_vars(e) > MAX_VARS) {
         eprintf("Maximum variables exceeded.\n");
         goto fail;
     }
@@ -205,7 +203,7 @@ int parse_and_eval(int expectation)
     // reallocate variable value histories
     for (i = 0; i < e->num_vars; i++) {
         eprintf("user_var[%d]: %p\n", i, &user_vars[i]);
-        mapper_hist_realloc(&user_vars[i], e->vars[i].hist_size, sizeof(double), 0);
+        mpr_hist_realloc(&user_vars[i], e->vars[i].hist_size, sizeof(double), 0);
     }
     user_vars_p = user_vars;
 
@@ -220,7 +218,7 @@ int parse_and_eval(int expectation)
     token_count += e->len;
 
     eprintf("Try evaluation once... ");
-    if (!mapper_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types)) {
+    if (!mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types)) {
         eprintf("FAILED.\n");
         goto fail;
     }
@@ -230,7 +228,7 @@ int parse_and_eval(int expectation)
     eprintf("Calculate expression %i times... ", iterations);
     i = iterations-1;
     while (i--) {
-        mapper_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types);
+        mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types);
     }
     now = current_time();
     eprintf("%g seconds.\n", now-then);
@@ -244,7 +242,7 @@ int parse_and_eval(int expectation)
     else
         printf(".");
 
-    mapper_expr_free(e);
+    mpr_expr_free(e);
 
     return expectation != EXPECT_SUCCESS;
 
@@ -256,7 +254,7 @@ int run_tests()
 {
     /* 1) Complex string */
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
-    setup_test(MAPPER_FLOAT, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %g\n", 26*2/2+log10f(M_PI)+2.f
@@ -264,7 +262,7 @@ int run_tests()
 
     /* 2) Building vectors, conditionals */
     snprintf(str, 256, "y=(x>1)?[1,2,3]:[2,4,6]");
-    setup_test(MAPPER_FLOAT, 3, MAPPER_INT32, 3);
+    setup_test(MPR_FLT, 3, MPR_INT32, 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%i, %i, %i]\n", src_float[0]>1?1:2, src_float[1]>1?2:4,
@@ -272,21 +270,21 @@ int run_tests()
 
     /* 3) Conditionals with shortened syntax */
     snprintf(str, 256, "y=x?:123");
-    setup_test(MAPPER_FLOAT, 1, MAPPER_INT32, 1);
+    setup_test(MPR_FLT, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %i\n", (int)src_float[0]?:123);
 
     /* 4) Conditional that should be optimized */
     snprintf(str, 256, "y=1?2:123");
-    setup_test(MAPPER_FLOAT, 1, MAPPER_INT32, 1);
+    setup_test(MPR_FLT, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: 2\n");
 
     /* 5) Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[x*-2+1,0]");
-    setup_test(MAPPER_INT32, 2, MAPPER_DOUBLE, 3);
+    setup_test(MPR_INT32, 2, MPR_DBL, 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%g, %g, %g]\n", (double)src_int[0]*-2+1,
@@ -294,7 +292,7 @@ int run_tests()
 
     /* 6) Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[-99.4, -x*1.1+x]");
-    setup_test(MAPPER_INT32, 2, MAPPER_DOUBLE, 3);
+    setup_test(MPR_INT32, 2, MPR_DBL, 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%g, %g, %g]\n", -99.4,
@@ -303,7 +301,7 @@ int run_tests()
 
     /* 7) Indexing vectors by range */
     snprintf(str, 256, "y=x[1:2]+100");
-    setup_test(MAPPER_DOUBLE, 3, MAPPER_FLOAT, 2);
+    setup_test(MPR_DBL, 3, MPR_FLT, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%g, %g]\n", (float)src_double[1]+100,
@@ -311,7 +309,7 @@ int run_tests()
 
     /* 8) Typical linear scaling expression with vectors */
     snprintf(str, 256, "y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
-    setup_test(MAPPER_FLOAT, 3, MAPPER_FLOAT, 3);
+    setup_test(MPR_FLT, 3, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%g, %g, %g]\n", src_float[0]*0.1f+2.f,
@@ -319,7 +317,7 @@ int run_tests()
 
     /* 9) Check type and vector length promotion of operation sequences */
     snprintf(str, 256, "y=1+2*3-4*x");
-    setup_test(MAPPER_FLOAT, 2, MAPPER_FLOAT, 2);
+    setup_test(MPR_FLT, 2, MPR_FLT, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%g, %g]\n", 1.f+2.f*3.f-4.f*src_float[0],
@@ -327,7 +325,7 @@ int run_tests()
 
     /* 10) Swizzling, more pre-computation */
     snprintf(str, 256, "y=[x[2],x[0]]*0+1+12");
-    setup_test(MAPPER_FLOAT, 3, MAPPER_FLOAT, 2);
+    setup_test(MPR_FLT, 3, MPR_FLT, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%g, %g]\n", src_float[2]*0.f+1.f+12.f,
@@ -335,14 +333,14 @@ int run_tests()
 
     /* 11) Logical negation */
     snprintf(str, 256, "y=!(x[1]*0)");
-    setup_test(MAPPER_DOUBLE, 3, MAPPER_INT32, 1);
+    setup_test(MPR_DBL, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %i\n", (int)!(src_double[1]*0));
 
     /* 12) any() */
     snprintf(str, 256, "y=any(x-1)");
-    setup_test(MAPPER_DOUBLE, 3, MAPPER_INT32, 1);
+    setup_test(MPR_DBL, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %i\n", ((int)src_double[0]-1)?1:0
@@ -351,7 +349,7 @@ int run_tests()
 
     /* 13) all() */
     snprintf(str, 256, "y=x[2]*all(x-1)");
-    setup_test(MAPPER_DOUBLE, 3, MAPPER_INT32, 1);
+    setup_test(MPR_DBL, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     int temp = ((int)src_double[0]-1)?1:0 & ((int)src_double[1]-1)?1:0
@@ -360,77 +358,77 @@ int run_tests()
 
     /* 14) pi and e, extra spaces */
     snprintf(str, 256, "y=x + pi -     e");
-    setup_test(MAPPER_DOUBLE, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_DBL, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %g\n", (float)(src_double[0]+M_PI-M_E));
 
     /* 15) Bad vector notation */
     snprintf(str, 256, "y=(x-2)[1]");
-    setup_test(MAPPER_INT32, 1, MAPPER_INT32, 1);
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 16) Vector index outside bounds */
     snprintf(str, 256, "y=x[3]");
-    setup_test(MAPPER_INT32, 3, MAPPER_INT32, 1);
+    setup_test(MPR_INT32, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 17) Vector length mismatch */
     snprintf(str, 256, "y=x[1:2]");
-    setup_test(MAPPER_INT32, 3, MAPPER_INT32, 1);
+    setup_test(MPR_INT32, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 18) Unnecessary vector notation */
     snprintf(str, 256, "y=x+[1]");
-    setup_test(MAPPER_INT32, 1, MAPPER_INT32, 1);
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %i\n", src_int[0]+1);
 
     /* 19) Invalid history index */
     snprintf(str, 256, "y=x{-101}");
-    setup_test(MAPPER_INT32, 1, MAPPER_INT32, 1);
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 20) Invalid history index */
     snprintf(str, 256, "y=x-y{-101}");
-    setup_test(MAPPER_INT32, 1, MAPPER_INT32, 1);
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 21) Scientific notation */
     snprintf(str, 256, "y=x[1]*1.23e-20");
-    setup_test(MAPPER_INT32, 2, MAPPER_DOUBLE, 1);
+    setup_test(MPR_INT32, 2, MPR_DBL, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %g\n", (double)src_int[1] * 1.23e-20);
 
     /* 22) Vector assignment */
     snprintf(str, 256, "y[1]=x[1]");
-    setup_test(MAPPER_DOUBLE, 3, MAPPER_INT32, 3);
+    setup_test(MPR_DBL, 3, MPR_INT32, 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [NULL, %i, NULL]\n", (int)src_double[1]);
 
     /* 23) Vector assignment */
     snprintf(str, 256, "y[1:2]=[x[1],10]");
-    setup_test(MAPPER_DOUBLE, 3, MAPPER_INT32, 3);
+    setup_test(MPR_DBL, 3, MPR_INT32, 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [NULL, %i, %i]\n", (int)src_double[1], 10);
 
     /* 24) Output vector swizzling */
     snprintf(str, 256, "[y[0],y[2]]=x[1:2]");
-    setup_test(MAPPER_FLOAT, 3, MAPPER_DOUBLE, 3);
+    setup_test(MPR_FLT, 3, MPR_DBL, 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%g, NULL, %g]\n", (double)src_float[1],
@@ -438,28 +436,29 @@ int run_tests()
 
     /* 25) Multiple expressions */
     snprintf(str, 256, "y[0]=x*100-23.5; y[2]=100-x*6.7");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 3);
-    if (parse_and_eval(EXPECT_FAILURE))
+    setup_test(MPR_INT32, 1, MPR_FLT, 3);
+    if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
-    eprintf("Expected: FAILURE\n");
+    eprintf("Expected: [%f, NULL, %f]\n", (float)src_int[0]*100-23.5,
+            100-(float)src_int[0]*6.7);
 
     /* 26) Error check: separating sub-expressions with commas */
     snprintf(str, 256, "foo=1,  y=y{-1}+foo");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 27) Initialize filters */
     snprintf(str, 256, "y=x+y{-1}; y{-1}=100");
-    setup_test(MAPPER_INT32, 1, MAPPER_INT32, 1);
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %i\n", src_int[0]*iterations + 100);
 
     /* 28) Initialize filters + vector index */
     snprintf(str, 256, "y=x+y{-1}; y[1]{-1}=100");
-    setup_test(MAPPER_INT32, 2, MAPPER_INT32, 2);
+    setup_test(MPR_INT32, 2, MPR_INT32, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%i, %i]\n", src_int[0]*iterations,
@@ -467,7 +466,7 @@ int run_tests()
 
     /* 29) Initialize filters + vector index */
     snprintf(str, 256, "y=x+y{-1}; y{-1}=[100,101]");
-    setup_test(MAPPER_INT32, 2, MAPPER_INT32, 2);
+    setup_test(MPR_INT32, 2, MPR_INT32, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%i, %i]\n", src_int[0]*iterations + 100,
@@ -475,7 +474,7 @@ int run_tests()
 
     /* 30) Initialize filters */
     snprintf(str, 256, "y=x+y{-1}; y[0]{-1}=100; y[2]{-1}=200");
-    setup_test(MAPPER_INT32, 3, MAPPER_INT32, 3);
+    setup_test(MPR_INT32, 3, MPR_INT32, 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [%i, %i, %i]\n", src_int[0]*iterations + 100,
@@ -483,98 +482,98 @@ int run_tests()
 
     /* 31) Initialize filters */
     snprintf(str, 256, "y=x+y{-1}-y{-2}; y{-1}=[100,101]; y{-2}=[100,101]");
-    setup_test(MAPPER_INT32, 2, MAPPER_INT32, 2);
+    setup_test(MPR_INT32, 2, MPR_INT32, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [1, 2]\n");
 
     /* 32) Only initialize */
     snprintf(str, 256, "y{-1}=100");
-    setup_test(MAPPER_INT32, 3, MAPPER_INT32, 1);
+    setup_test(MPR_INT32, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 33) Bad syntax */
     snprintf(str, 256, " ");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 3);
+    setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 34) Bad syntax */
     snprintf(str, 256, " ");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 3);
+    setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 35) Bad syntax */
     snprintf(str, 256, "y");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 3);
+    setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 36) Bad syntax */
     snprintf(str, 256, "y=");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 3);
+    setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 37) Bad syntax */
     snprintf(str, 256, "=x");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 3);
+    setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 38) sin */
     snprintf(str, 256, "sin(x)");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 3);
+    setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 39) Variable declaration */
     snprintf(str, 256, "y=x+var; var=[3.5,0]");
-    setup_test(MAPPER_INT32, 2, MAPPER_FLOAT, 2);
+    setup_test(MPR_INT32, 2, MPR_FLT, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
-    eprintf("Expected: %g\n", (float)src_int[0] + 3.5);
+    eprintf("Expected: [%g, %g]\n", (float)src_int[0] + 3.5, (float)src_int[1]);
 
     /* 40) Variable declaration */
     snprintf(str, 256, "ema=ema{-1}*0.9+x*0.1; y=ema*2; ema{-1}=90");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: 2\n");
 
     /* 41) Multiple variable declaration */
     snprintf(str, 256, "a=1.1; b=2.2; c=3.3; y=x+a-b*c");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %g\n", (float)src_int[0] + 1.1 - 2.2 * 3.3);
 
     /* 42) Malformed variable declaration */
     snprintf(str, 256, "y=x + myvariable * 10");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 43) Vector functions mean() and sum() */
     snprintf(str, 256, "y=mean(x)==(sum(x)/3)");
-    setup_test(MAPPER_FLOAT, 3, MAPPER_INT32, 1);
+    setup_test(MPR_FLT, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %i\n", 1);
 
     /* 44) Overloaded vector functions max() and min() */
     snprintf(str, 256, "y=max(x)-min(x)*max(x[0],1)");
-    setup_test(MAPPER_FLOAT, 3, MAPPER_INT32, 1);
+    setup_test(MPR_FLT, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: %i\n",
@@ -587,44 +586,44 @@ int run_tests()
 
     /* 45) Optimization: operations by zero */
     snprintf(str, 256, "y=0*sin(x)*200+1.1");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: 1.1\n");
 
     /* 46) Optimization: operations by one */
     snprintf(str, 256, "y=x*1");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: 1\n");
 
     /* 47) Error check: division by zero */
     snprintf(str, 256, "y=x/0");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE))
         return 1;
     eprintf("Expected: FAILURE\n");
 
     /* 48) Multiple Inputs */
     snprintf(str, 256, "y=x+x1[1:2]+x2");
-    mapper_type types[] = {MAPPER_INT32, MAPPER_FLOAT, MAPPER_DOUBLE};
+    mpr_type types[] = {MPR_INT32, MPR_FLT, MPR_DBL};
     int lens[] = {2, 3, 2};
-    setup_test_multisource(3, types, lens, MAPPER_FLOAT, 2);
+    setup_test_multisource(3, types, lens, MPR_FLT, 2);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     eprintf("Expected: [4, 7]\n");
 
     /* 49) Functions with memory: ema() */
     snprintf(str, 256, "y=x-ema(x,0.1)+2");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
-    eprintf("Expected: ->2\n");
+    eprintf("Expected: 2\n");
 
     /* 50) Functions with memory: schmitt() */
     snprintf(str, 256, "y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
-    setup_test(MAPPER_INT32, 1, MAPPER_FLOAT, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     if (iterations < 80)
@@ -634,6 +633,13 @@ int run_tests()
         int remainder = (iterations-20) % 60;
         eprintf("Expected: %d\n", (cycles % 2) ? 80 - remainder : 20 + remainder);
     }
+
+    /* 51) Multiple output assignment */
+    snprintf(str, 256, "y=x-10000; y=max(min(y,1),0)");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: %f\n", 0.0);
 
     return 0;
 }
@@ -671,7 +677,7 @@ int main(int argc, char **argv)
 
     result = run_tests();
     eprintf("**********************************\n");
-    printf("................Test %s\x1B[0m.",
+    printf("..............Test %s\x1B[0m.",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     if (!result)
         printf(" (%f seconds, %d tokens).\n",

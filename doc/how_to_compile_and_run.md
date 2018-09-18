@@ -1,9 +1,9 @@
 
-Building libmapper
+Building libmpr
 ==================
 
-This file documents the build process for libmapper for various
-operating systems, and will be updated as the libmapper core project
+This file documents the build process for libmpr for various
+operating systems, and will be updated as the libmpr core project
 progresses.
 
 Linux and OS X
@@ -11,7 +11,7 @@ Linux and OS X
 
 ### Dependencies
 
-libmapper depends version 0.27 of liblo or later.
+libmpr depends version 0.27 of liblo or later.
 Please consult the [LibLo project page][liblo] for details.
 
 [liblo]: http://liblo.sourceforge.net
@@ -19,7 +19,7 @@ Please consult the [LibLo project page][liblo] for details.
 The GNU configure step detects liblo using the "pkg-config" program.
 This is usually already installed in Linux systems, but on OS X, we
 recommend installing it via [MacPorts][ports] or [HomeBrew][brew].  In
-the future libmapper packages for MacPorts and HomeBrew will be
+the future libmpr packages for MacPorts and HomeBrew will be
 directly provided, but this is not yet the case.
 
 [ports]: http://www.macports.org
@@ -33,7 +33,7 @@ detected, by running,
 If the path to liblo is not correct, please set up the
 `PKG_CONFIG_PATH` environment variable appropriately and try again.
 
-libmapper also has optional dependencies on the Java SDK as well as
+libmpr also has optional dependencies on the Java SDK as well as
 SWIG and Doxygen, for Java and Python bindings, and documentation,
 respectively.  The Java SDK may be installed according to your
 standard operating system procedure, and you can check if it is
@@ -53,12 +53,12 @@ package on other Linux distributions.
 
 ### Configuring
 
-If you have extracted libmapper from a release tarball, run,
+If you have extracted libmpr from a release tarball, run,
 
     ./configure
     
 to configure the software with default options.  If you are using
-libmapper from a repository, you will need to run,
+libmpr from a repository, you will need to run,
 
     ./autogen.sh
     
@@ -71,7 +71,7 @@ It is recommended to either use `/usr/local/` or a directory in your
 home directory such as `$HOME/.local`.  Users of HomeBrew on OS X
 should always use `/usr/local`.
 
-If you will be hacking on libmapper or which to have verbose output
+If you will be hacking on libmpr or which to have verbose output
 while it is running, we recommended enabling debug mode:
 
     ./configure --enable-debug
@@ -90,7 +90,7 @@ Once the build is configured, build it with,
 
     make
 
-Should any errors occur, please inform the libmapper mailing list.
+Should any errors occur, please inform the libmpr mailing list.
 
 To verify that the library runs without errors, you may run the main
 test program, available in the test directory:
@@ -109,7 +109,7 @@ The software may be installed with,
 
     make install
 
-This should place headers in `<prefix>/include/mapper`, the library
+This should place headers in `<prefix>/include/mpr`, the library
 in `<prefix>/lib`, Python bindings in
 `<prefix>/lib/pythonXX/site-packages` (where XX is your Python
 version), and a `pkg-config` information file in
@@ -118,7 +118,7 @@ version), and a `pkg-config` information file in
 Once installation is successful, you can check that the library is
 found by `pkg-config`:
 
-    pkg-config --libs --cflags libmapper
+    pkg-config --libs --cflags libmpr
 
 Note that the Java bindings are not installed, as there is no standard
 location in which to put them.  However, they can be copied to
@@ -128,7 +128,7 @@ dedicated section below.
 
 ### Testing
 
-As mentioned, you can test libmapper by running the test program,
+As mentioned, you can test libmpr by running the test program,
 
     test/test
 
@@ -142,7 +142,7 @@ done by watching the multicast UDP port for OSC data using liblo's
 
     oscdump 7570 224.0.1.3
 
-You can also use a libmapper GUI, such as [webmapper][webmapper], to
+You can also use a libmpr GUI, such as [webmapper][webmapper], to
 see that the devices and signals are discovered correctly.  You can
 use the GUI to modify the connection properties, and observe that the
 received values are changed.
@@ -156,10 +156,10 @@ it is recommended to do so.
 To test that the Python module is working, it is generally enough to
 run the following command,
 
-    python -m mapper
+    python -m mpr
 
-This will import the `mapper` module, which will fail if either
-`mapper.py` or the native portion of the binding are not found.  You
+This will import the `mpr` module, which will fail if either
+`mpr.py` or the native portion of the binding are not found.  You
 may need to adjust your `PYTHONPATH` variable to ensure these can be
 found.
 
@@ -175,27 +175,27 @@ or,
 
 for a GUI example which brings up a single, mappable slider.  Running
 multiple copies of `tkgui.py`, you can try mapping one to another to
-make sure libmapper is functional.
+make sure libmpr is functional.
 
 Similarly, the Java bindings may be tested by `cd`'ing to the `jni`
 folder and running `test` with the correct class and library paths:
 
     cd jni
-    java -cp libmapper.jar -Djava.libraries.path=.libs test
+    java -cp libmpr.jar -Djava.libraries.path=.libs test
 
 Cross-compiling for Windows under Linux
 ---------------------------------------
 
-Since libmapper was developed on Unix-like systems (Linux and Apple's
-OS X), building libmapper uses GNU command-line tools.  However, it is
+Since libmpr was developed on Unix-like systems (Linux and Apple's
+OS X), building libmpr uses GNU command-line tools.  However, it is
 possible to build it for the Microsoft Windows operating system using
 the MingW cross-compiler under Linux, or by using MingW from Windows.
 
 Please see the file `windows.md` for instructions on how to set up
 your MingW environment and extra dependencies before compiling
-libmapper.
+libmpr.
 
-Briefly, the secret sauce for compiling liblo and libmapper for
+Briefly, the secret sauce for compiling liblo and libmpr for
 Windows under an Ubuntu Linux environment is to install the
 `gcc-mingw32` package, and then provide the following arguments to
 `configure`:
@@ -205,7 +205,7 @@ Windows under an Ubuntu Linux environment is to install the
         LDFLAGS="-L$HOME/.win/lib" \
         LIBS="-lws2_32 -liphlpapi -lpthread"
 
-For libmapper, also add the following flags:
+For libmpr, also add the following flags:
 
     --disable-examples --disable-audio --disable-jni --disable-docs
 
@@ -224,15 +224,15 @@ should compile and install that before proceeding.
 Problems areas and topics
 -------------------------
 
-Please remember that libmapper is still in a development and research
+Please remember that libmpr is still in a development and research
 phase.  Although it is fairly robust at this point, since it is a
 distributed, asynchronous system there are many pieces involved, and
 supporting programs may have their own problems.  As always, if you
-find a problem with libmapper or libmapper-enabled programs, please
+find a problem with libmpr or libmpr-enabled programs, please
 consult the [mailing list][list].
 
 Here, we address some common issues that new users encounter with the
-core libmapper library.
+core libmpr library.
 
 ### Architecture issues
 
@@ -240,14 +240,14 @@ We have found that in some cases, especially on Mac OS X, there are
 programs that do not use the computer's native architecture.  For
 example, Processing.org and Cycling 74's Max/MSP are 32-bit
 applications, even if you are running a 64-bit version of OS X.
-Therefore after building libmapper, it _will not work_ with these
+Therefore after building libmpr, it _will not work_ with these
 programs.
 
 We recommend that on OS X you build a universal binary, since we have
 found it saves a lot of trouble later on.  Note that you must build
-universal binaries of liblo as well as libmapper.
+universal binaries of liblo as well as libmpr.
 
-To do so, for both liblo and libmapper, you must perform the
+To do so, for both liblo and libmpr, you must perform the
 `configure` and `make` steps with the following flags:
 
     ./configure CFLAGS="-arch i386 -arch x86_64" \
@@ -257,44 +257,44 @@ To do so, for both liblo and libmapper, you must perform the
 
 The `file` command should list both 32- and 64-bit architectures.
 
-    file src/.libs/libmapper.6.dylib
+    file src/.libs/libmpr.6.dylib
 
-(Of course, replace ".6" with the current libmapper version.)
+(Of course, replace ".6" with the current libmpr version.)
 
 Although we do not explicitly list them here, similar steps should be
 performed for liblo, as well as for the native portions of the Python
 bindings:
 
-    file swig/.libs/_mapper.so
+    file swig/.libs/_mpr.so
 
 ### Processing.org
 
 Processing.org is a Java-based IDE and set of libraries for developing
-visualizations and interactive art.  To use libmapper with Processing,
+visualizations and interactive art.  To use libmpr with Processing,
 you should place the JNI bindings into the appropriate locations.
 
-From the libmapper directory, create a directory called
-`libraries/libmapper/library` under your sketchbook directory:
+From the libmpr directory, create a directory called
+`libraries/libmpr/library` under your sketchbook directory:
 
-    mkdir -p <sketchbook>/libraries/libmapper/library
+    mkdir -p <sketchbook>/libraries/libmpr/library
 
 Now copy the JNI bindings to this directory, renaming the jar file to
 match the name of the directory:
 
-    cp jni/.libs/libmapperjni.6.dylib <sketchbook>/libraries/libmapper/library/libmapperjni.dylib
-    cp jni/libmapper.jar <sketchbook>/libraries/libmapper/library/libmapper.jar
+    cp jni/.libs/libmprjni.6.dylib <sketchbook>/libraries/libmpr/library/libmprjni.dylib
+    cp jni/libmpr.jar <sketchbook>/libraries/libmpr/library/libmpr.jar
 
 Create a file `export.txt`:
 
-    echo 'name = libmapper' > "<sketchbook>/libraries/libmapper/library/export.txt"
+    echo 'name = libmpr' > "<sketchbook>/libraries/libmpr/library/export.txt"
 
-Now, when you run the Processing IDE, you should see "libmapper"
+Now, when you run the Processing IDE, you should see "libmpr"
 listed under "Sketch/Import Library...".
 
 Choosing this will insert two lines at the top of your sketch:
 
-    import Mapper.*;
-    import Mapper.Db.*;
+    import mpr.*;
+    import mpr.graph.*;
 
 You can test it by creating a device and a signal:
 
@@ -311,7 +311,7 @@ and make sure to poll the device during `draw()`:
     }
 
 Running this program should make a device called "testdevice" show up
-in a libmapper GUI.  Use the steps in section "Testing", above, to
+in a libmpr GUI.  Use the steps in section "Testing", above, to
 check that the device is created correctly.
 
 We have noticed that Processing.org does not always free devices
@@ -333,11 +333,11 @@ Processing.org:
 
 ### Network interface issues
 
-Since libmapper uses multicast instead of a central server, it must be
+Since libmpr uses multicast instead of a central server, it must be
 made possible for all computers on the network to see the same
 multicast bus.  A requirement is that they are on the same subnet,
 which usually means they are connected to the same router.  It is
-possible to change the libmapper "TTL" settings, which expands the
+possible to change the libmpr "TTL" settings, which expands the
 reachability of the network to multiple subnet hops, but this is
 considered an advanced usage scenario.
 
@@ -345,27 +345,27 @@ One problem that is often encountered especially by laptop users is
 that multicast messages are sent to the wrong network interface.
 Since the multicast IP address does not uniquely identify a single
 network route, it is necessary for the software to specify the desired
-NIC to use.  Selection of the NIC is supported by libmapper, but
+NIC to use.  Selection of the NIC is supported by libmpr, but
 programs may not always provide an interface for this.^[Such programs
-are non-conforming!  All libmapper programs should display the current
+are non-conforming!  All libmpr programs should display the current
 network interface and allow selection of it from a list of the
 computer's interfaces, either by name or by assigned IP address.]
 
 Therefore one issue is especially prevalent, that computers may be
 connected to the internet via wireless (wifi), and connected to a
 router via a wired (ethernet) connection.  We recommend that laptop
-users disable all but one interface while using libmapper.  If this is
-unacceptable, the user is responsible for ensuring that libmapper
+users disable all but one interface while using libmpr.  If this is
+unacceptable, the user is responsible for ensuring that libmpr
 programs are provided the correct NIC information.
 
 In the future a better approach may be needed.  Two ideas are:
 
   * Always send multicast messages on all NICs.
-  * Provide a global configuration file for libmapper specifying which
+  * Provide a global configuration file for libmpr specifying which
     NIC to use.
 
 Both of these solutions have their own complications, so if you have
 an opinion on this topic or a better idea, please post to the
-[libmapper mailing list][list].
+[libmpr mailing list][list].
 
 [list]: http://groups.google.com/group/dot_mapper

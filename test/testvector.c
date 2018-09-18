@@ -1,6 +1,6 @@
 
-#include "../src/mapper_internal.h"
-#include <mapper/mapper.h>
+#include "../src/mpr_internal.h"
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
@@ -18,28 +18,28 @@ int autoconnect = 1;
 int done = 0;
 int period = 100;
 
-mapper_device src = 0;
-mapper_device dst = 0;
-mapper_signal sendsig = 0;
-mapper_signal recvsig = 0;
+mpr_dev src = 0;
+mpr_dev dst = 0;
+mpr_sig sendsig = 0;
+mpr_sig recvsig = 0;
 
 int sent = 0;
 int received = 0;
 
 int setup_src()
 {
-    src = mapper_device_new("testvector-send", 0);
+    src = mpr_dev_new("testvector-send", 0);
     if (!src)
         goto error;
     eprintf("source created.\n");
 
     float mn[]={0,0,0}, mx[]={1,2,3};
-    sendsig = mapper_device_add_signal(src, MAPPER_DIR_OUT, 1, "outsig", 3,
-                                       MAPPER_FLOAT, NULL, &mn, &mx, NULL);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 3, MPR_FLT, NULL,
+                          &mn, &mx, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_get_num_signals(src, MAPPER_DIR_OUT));
+            mpr_list_get_count(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
     return 0;
 
   error:
@@ -51,13 +51,13 @@ void cleanup_src()
     if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(src);
+        mpr_dev_free(src);
         eprintf("ok\n");
     }
 }
 
-void handler(mapper_signal sig, mapper_id instance, int length,
-                   mapper_type type, const void *value, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+             mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
         float *f = (float*)value;
@@ -68,18 +68,18 @@ void handler(mapper_signal sig, mapper_id instance, int length,
 
 int setup_dst()
 {
-    dst = mapper_device_new("testvector-recv", 0);
+    dst = mpr_dev_new("testvector-recv", 0);
     if (!dst)
         goto error;
     eprintf("destination created.\n");
 
     float mn[]={0,0,0}, mx[]={1,1,1};
-    recvsig = mapper_device_add_signal(dst, MAPPER_DIR_IN, 1, "insig", 3,
-                                       MAPPER_FLOAT, NULL, &mn, &mx, handler);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 3, MPR_FLT, NULL,
+                          &mn, &mx, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_get_num_signals(dst, MAPPER_DIR_IN));
+            mpr_list_get_count(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
     return 0;
 
   error:
@@ -91,7 +91,7 @@ void cleanup_dst()
     if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(dst);
+        mpr_dev_free(dst);
         eprintf("ok\n");
     }
 }
@@ -100,14 +100,14 @@ int setup_maps()
 {
     int i = 0;
 
-    mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
-    mapper_object_push((mapper_object)map);
+    mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
+    mpr_obj_push((mpr_obj)map);
 
     // wait until mapping has been established
     i = 0;
-    while (!done && !mapper_map_ready(map)) {
-        mapper_device_poll(src, 10);
-        mapper_device_poll(dst, 10);
+    while (!done && !mpr_map_ready(map)) {
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
         if (i++ > 100)
             return 1;
     }
@@ -117,9 +117,9 @@ int setup_maps()
 
 void wait_ready()
 {
-    while (!done && !(mapper_device_ready(src) && mapper_device_ready(dst))) {
-        mapper_device_poll(src, 25);
-        mapper_device_poll(dst, 25);
+    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+        mpr_dev_poll(src, 25);
+        mpr_dev_poll(dst, 25);
     }
 }
 
@@ -128,16 +128,16 @@ void loop()
     eprintf("Polling device..\n");
     int i = 0;
     while ((!terminate || i < 50) && !done) {
-        mapper_device_poll(src, 0);
+        mpr_dev_poll(src, 0);
         float v[3];
         v[0] = (float)i;
         v[1] = (float)i+1;
         v[2] = (float)i+2;
         eprintf("Updating signal %s to [%f, %f, %f]\n",
                sendsig->name, v[0], v[1], v[2]);
-        mapper_signal_set_value(sendsig, 0, 3, MAPPER_FLOAT, v, MAPPER_NOW);
+        mpr_sig_set_value(sendsig, 0, 3, MPR_FLT, v, MPR_NOW);
         sent++;
-        mapper_device_poll(dst, period);
+        mpr_dev_poll(dst, period);
         i++;
 
         if (!verbose) {

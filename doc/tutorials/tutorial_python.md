@@ -1,21 +1,21 @@
-# Getting started with libmapper and Python
+# Getting started with libmpr and Python
 
-Since _libmapper_ uses GNU autoconf, getting started with the library is the
+Since _libmpr_ uses GNU autoconf, getting started with the library is the
 same as any other library on Linux; use `./configure` and then `make` to compile
 it.  You'll need `swig` available if you want to compile the Python bindings.
 On Mac OS X, we provide a precompiled Framework bundle for 32- and 64-bit Intel
 platforms, so using it with XCode should be a matter of including it in your
 project.
 
-Once you have libmapper installed, it can be imported into your program:
+Once you have libmpr installed, it can be imported into your program:
 
 ~~~python
-import mapper
+import mpr
 ~~~
 
 ## Overview of the API organization
 
-The libmapper API is is divided into the following sections:
+The libmpr API is is divided into the following sections:
 
 * Networks
 * Devices
@@ -34,12 +34,12 @@ designing mapping configurations.
 
 ### Creating a device
 
-To create a _libmapper_ device, it is necessary to provide a device name to the
+To create a _libmpr_ device, it is necessary to provide a device name to the
 constructor.  There is an initialization period after a device is created where
 a unique ordinal is chosen to append to the device name.  This allows multiple
 devices with the same name to exist on the network.
 
-If no other arguments are given, libmapper will randomly choose a port to use
+If no other arguments are given, libmpr will randomly choose a port to use
 for exchanging signal data.  If desired, a second argument setting a specific
 "starting port" can be given, but the allocation algorithm will possibly choose
 another port number close to it if the port is in use.
@@ -51,7 +51,7 @@ parameters, such as specifying the name of the network interface to use.
 An example of creating a device:
 
 ~~~python
-dev = mapper.device("my_device")
+dev = mpr.device("my_device")
 ~~~
 
 ## Polling the device
@@ -113,7 +113,7 @@ sometimes useful to be able to determine this using `ready()`.  Only when
 
 Now that we know how to create a device and poll it, we only need to know how to
 add signals in order to give our program some input/output functionality.  While
-libmapper enables arbitrary connections between _any_ declared signals, we still
+libmpr enables arbitrary connections between _any_ declared signals, we still
 find it helpful to distinguish between two type of signals: `inputs` and
 `outputs`. 
 
@@ -126,7 +126,7 @@ This can become a bit confusing, since the "reverb" parameter of a sound
 synthesizer might be updated locally through user interaction with a GUI,
 however the normal use of this signal is as a _destination_ for control data
 streams so it should be defined as an `input` signal.  Note that this distinction
-is to help with GUI organization and user-understanding – _libmapper_ enables
+is to help with GUI organization and user-understanding – _libmpr_ enables
 connections from input signals and to output signals if desired.
 
 ### Creating a signal
@@ -160,9 +160,9 @@ signals, a length of 1 should be specified.  Finally, supported types are
 currently 'i' or 'f' for `int` or `float` values, respectively.
 
 The other parameters are not strictly required, but the more information you
-provide, the more the mapper can do some things automatically.  For example, if
+provide, the more _libmpr_ can do some things automatically.  For example, if
 `minimum` and `maximum` are provided, it will be possible to create
-linear-scaled connections very quickly.  If `unit` is provided, the mapper will
+linear-scaled connections very quickly.  If `unit` is provided, _libmpr_ will
 be able to similarly figure out a linear scaling based on unit conversion
 (centimeters to inches for example).  Currently automatic unit-based scaling is
 not a supported feature, but will be added in the future.  You can take
@@ -196,9 +196,9 @@ So far we know how to create a device and to specify an output signal for it.
 To recap, let's review the code so far:
 
 ~~~python
-import mapper
+import mpr
 
-dev = mapper.device("test_sender")
+dev = mpr.device("test_sender")
 sensor1 = dev.add_output_signal("sensor1", 1, 'f', "V", 0.0, 5.0)
     
 while 1:
@@ -216,7 +216,7 @@ We can imagine the above program getting sensor information in a loop.  It could
 be running on an network-enabled ARM device and reading the ADC register
 directly, or it could be running on a computer and reading data from an Arduino
 over a USB serial port, or it could just be a mouse-controlled GUI slider.
-However it's getting the data, it must provide it to _libmapper_ so that it will
+However it's getting the data, it must provide it to _libmpr_ so that it will
 be sent to other devices if that signal is mapped.
 
 This is accomplished by the `update` function:
@@ -237,7 +237,7 @@ while 1:
 ~~~
 
 This is about all that is needed to expose sensor 1's voltage to the network as
-a mappable parameter.  The _libmapper_ GUI can now be used to create a mapping
+a mappable parameter.  The _libmpr_ GUI can now be used to create a mapping
 between this value and a receiver, where it could control a synthesizer
 parameter or change the brightness of an LED, or whatever else you want to do.
 
@@ -245,7 +245,7 @@ parameter or change the brightness of an LED, or whatever else you want to do.
 
 Most synthesizers of course will not know what to do with "voltage"--it is an
 electrical property that has nothing to do with sound or music.  This is where
-_libmapper_ really becomes useful.
+_libmpr_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_ exposing the
 signal, or it can be performed as part of the mapping.  Since the end user can
@@ -292,7 +292,7 @@ Let's use a real-world example using the
 synth consisting of one sine wave. For now, we will only worry about controlling
 one parameter: the frequency of the sine.
 
-We need to create a handler function for libmapper to update the pyo synth:
+We need to create a handler function for libmpr to update the pyo synth:
 
 ~~~python
 def frequency_handler(sig, id, val, timetag):
@@ -307,7 +307,7 @@ Then our program will look like this:
 
 ~~~python
 from pyo import *
-import mapper
+import mpr
 
 # Some pyo stuff
 synth = Server().boot().start()
@@ -320,7 +320,7 @@ def freq_handler(sig, id, val, timetag):
         print 'exception'
         print sig, val
 
-dev = mapper.device('pyo_example')
+dev = mpr.device('pyo_example')
 dev.add_input_signal('frequency', 1, 'f', 'Hz', 20, 2000, freq_handler)
 
 while True:
@@ -334,13 +334,13 @@ separate handler:
 
 ~~~python
 from pyo import *
-import mapper
+import mpr
 
 # Some pyo stuff
 synth = Server().boot().start()
 sine = Sine(freq=200, mul=0.5).out()
 
-dev = mapper.device('pyo_example')
+dev = mpr.device('pyo_example')
 dev.add_input_signal('frequency', 1, 'f', "Hz", 20, 2000,
                      lambda s, i, f, t: sine.setFreq(f))
 
@@ -352,7 +352,7 @@ synth.stop()
 
 ## Working with timetags
 
-_libmapper_ uses the `mapper_timetag_t` data structure internally to store
+_libmpr_ uses the `mpr_timetag_t` data structure internally to store
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps),
 but this value is represented using the `timetag` type in the python bindings.
 For example, the handler function called when a signal update is received
@@ -373,12 +373,12 @@ Creating a new `timetag` without arguments causes it to be initialized with the
 current system time:
 
 ~~~python
-now = mapper.timetag()
+now = mpr.timetag()
 ~~~
 
 ## Working with signal instances
 
-_libmapper_ also provides support for signals with multiple _instances_,
+_libmpr_ also provides support for signals with multiple _instances_,
 for example:
 
 * control parameters for polyphonic synthesizers;
@@ -387,12 +387,12 @@ for example:
 * objects on a tabletop tangible user interface;
 * _temporal_ objects such as gestures or trajectories.
 
-The important qualities of signal instances in _libmapper_ are:
+The important qualities of signal instances in _libmpr_ are:
 
 * **instances are interchangeable**: if there are semantics attached to a
 specific instance it should be represented with separate signals instead.
 * **instances can be ephemeral**: signal instances can be dynamically created
-and destroyed. _libmapper_ will ensure that linked devices share a common
+and destroyed. _libmpr_ will ensure that linked devices share a common
 understanding of the relatonships between instances when they are mapped.
 * **one mapping connection serves to map all of its instances.**
 
@@ -414,7 +414,7 @@ After reserving instances you can update a specific instance:
 All of the arguments except one should be familiar from the documentation of
 `update()` presented earlier.  The `instance_id` argument does not have to be
 considered as an array index - it can be any integer that is convenient for
-labelling your instance.  _libmapper_ will internally create a map from your id
+labelling your instance.  _libmpr_ will internally create a map from your id
 label to one of the preallocated instance structures.
 
 ### Receiving instances
@@ -445,11 +445,11 @@ previously unseen instance id is received. Use the function:
 
 The argument `mode` can have one of the following values:
 
-* `mapper.NO_STEALING` Default value, in which no stealing of instances will
+* `mpr.NO_STEALING` Default value, in which no stealing of instances will
 occur;
-* `mapper.STEAL_OLDEST` Release the oldest active instance and reallocate its
+* `mpr.STEAL_OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `mapper.STEAL_NEWEST` Release the newest active instance and reallocate its
+* `mpr.STEAL_NEWEST` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
@@ -465,10 +465,10 @@ def my_handler(sig, id, event, timetag):
 ~~~
 
 For this function to be called when instance stealing is necessary, we need to
-register it for `mapper.IN_OVERFLOW` events:
+register it for `mpr.IN_OVERFLOW` events:
 
 ~~~python
-<sig>.set_instance_event_callback(my_handler, mapper.IN_OVERFLOW)
+<sig>.set_instance_event_callback(my_handler, mpr.IN_OVERFLOW)
 ~~~
 
 ## Publishing metadata
@@ -476,8 +476,8 @@ register it for `mapper.IN_OVERFLOW` events:
 Things like device names, signal units, and ranges, are examples of
 metadata--information about the data you are exposing on the network.
 
-_libmapper_ also provides the ability to specify arbitrary extra metadata in the
-form of name-value pairs.  These are not interpreted by _libmapper_ in any way,
+_libmpr_ also provides the ability to specify arbitrary extra metadata in the
+form of name-value pairs.  These are not interpreted by _libmpr_ in any way,
 but can be retrieved over the network.  This can be used for instance to label a
 device with its loation, or to perhaps give a signal some property like
 "reliability", or some category like "light", "motor", "shaker", etc.
@@ -513,7 +513,7 @@ sig.set_property("sensingMethod", "resistive")
 
 ### Reserved keys
 
-You can use any property name not already reserved by libmapper.
+You can use any property name not already reserved by libmpr.
 
 #### Reserved keys for devices
 

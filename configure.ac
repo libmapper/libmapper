@@ -1,8 +1,8 @@
 AC_PREREQ(2.61)
 
-m4_define([LIBMAPPER_VERSION],[1.1])
-AC_INIT([libmapper],
-  [m4_esyscmd_s([test -d .git && git describe --always || echo LIBMAPPER_VERSION])],
+m4_define([LIBMPR_VERSION],[1.1])
+AC_INIT([libmpr],
+  [m4_esyscmd_s([test -d .git && git describe --always || echo LIBMPR_VERSION])],
   [dot_mapper@googlegroups.com],[],[http://libmapper.org])
 
 # libtool version: current:revision:age
@@ -331,24 +331,24 @@ AC_CONFIG_FILES([
     include/Makefile
     test/Makefile
     doc/Makefile
-    doc/libmapper.doxyfile
+    doc/libmpr.doxyfile
     swig/Makefile
     swig/setup.py
     jni/Makefile
-    jni/mapper/NativeLib.java
+    jni/mpr/NativeLib.java
     examples/Makefile
     examples/pwm_synth/Makefile
     examples/py_tk_gui/Makefile
     examples/py_tk_gui/setup.py
     extra/Makefile
     extra/osx/Makefile
-    libmapper.pc
+    libmpr.pc
 ])
 AC_OUTPUT
 
 # Messages to user.
 echo
-echo libmapper configured:
+echo libmpr configured:
 echo --------------------------------------------------
 echo "building documention...    " $enable_docs $docs_explain
 echo "building tests...          " $enable_tests

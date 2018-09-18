@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <signal.h>
 
-#include <mapper/mapper_cpp.h>
+#include <mpr/mpr_cpp.h>
 
 #include "pwm_synth/pwm.h"
 
@@ -14,8 +14,8 @@ void ctrlc(int)
     done = 1;
 }
 
-void handler_freq(mapper_signal sig, mapper_id instance, int length,
-                  mapper_type type, const void *value, mapper_time time)
+void handler_freq(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+                  mpr_type type, const void *value, mpr_time time)
 {
     if (value) {
         float *pfreq = (float*)value;
@@ -23,8 +23,8 @@ void handler_freq(mapper_signal sig, mapper_id instance, int length,
     }
 }
 
-void handler_gain(mapper_signal sig, mapper_id instance, int length,
-                  mapper_type type, const void *value, mapper_time time)
+void handler_gain(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+                  mpr_type type, const void *value, mpr_time time)
 {
     if (value) {
         float *pgain = (float*)value;
@@ -34,8 +34,8 @@ void handler_gain(mapper_signal sig, mapper_id instance, int length,
         set_gain(0);
 }
 
-void handler_duty(mapper_signal sig, mapper_id instance, int length,
-                  mapper_type type, const void *value, mapper_time time)
+void handler_duty(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+                  mpr_type type, const void *value, mpr_time time)
 {
     if (value) {
         float *pduty = (float*)value;
@@ -47,18 +47,18 @@ int main()
 {
     signal(SIGINT, ctrlc);
 
-    mapper::Device dev("pwm");
+    mpr::Device dev("pwm");
 
     float min0 = 0;
     float max1 = 1;
     float max1000 = 1000;
 
-    dev.add_signal(MAPPER_DIR_IN, 1, "/freq", 1, 'f', "Hz", &min0, &max1000,
-                   handler_freq);
-    dev.add_signal(MAPPER_DIR_IN, 1, "/gain", 1, 'f', "Hz", &min0, &max1,
-                   handler_gain);
-    dev.add_signal(MAPPER_DIR_IN, 1, "/duty", 1, 'f', "Hz", &min0, &max1,
-                   handler_duty);
+    dev.add_sig(MPR_DIR_IN, 1, "/freq", 1, 'f', "Hz", &min0, &max1000,
+                handler_freq, MPR_SIG_UPDATE);
+    dev.add_sig(MPR_DIR_IN, 1, "/gain", 1, 'f', "Hz", &min0, &max1,
+                handler_gain, MPR_SIG_UPDATE);
+    dev.add_sig(MPR_DIR_IN, 1, "/duty", 1, 'f', "Hz", &min0, &max1,
+                handler_duty, MPR_SIG_UPDATE);
 
     run_synth();
 

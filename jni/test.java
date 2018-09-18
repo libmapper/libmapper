@@ -1,8 +1,8 @@
 
-import mapper.*;
-import mapper.graph.*;
-import mapper.signal.*;
-import mapper.map.*;
+import mpr.*;
+import mpr.graph.*;
+import mpr.signal.*;
+import mpr.map.*;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
@@ -27,7 +27,7 @@ class test {
             });
 
         g.addListener(new Listener<Device>() {
-            public void onEvent(Device dev, mapper.graph.Event event) {
+            public void onEvent(Device dev, mpr.graph.Event event) {
                 System.out.println("graph record "+event+" for device "+dev.getProperty("name"));
                 for (int i = 0; i < dev.numProperties(); i++) {
                     Map.Entry e = dev.getProperty(i);
@@ -36,7 +36,7 @@ class test {
             }});
 
         g.addListener(new Listener<Signal>() {
-            public void onEvent(Signal sig, mapper.graph.Event event) {
+            public void onEvent(Signal sig, mpr.graph.Event event) {
                 System.out.println("graph record "+event+" for signal "
                                    +sig.device().getProperty("name")
                                    +":"+sig.getProperty("name"));
@@ -46,15 +46,15 @@ class test {
                 }
             }});
 
-        g.addListener(new Listener<mapper.Map>() {
-            public void onEvent(mapper.Map map, mapper.graph.Event event) {
+        g.addListener(new Listener<mpr.Map>() {
+            public void onEvent(mpr.Map map, mpr.graph.Event event) {
                 System.out.print("graph record "+event+" for map ");
                 for (int i = 0; i < map.numSignals(Location.SOURCE); i++) {
-                    mapper.Signal signal = map.sources[i];
+                    mpr.Signal signal = map.sources[i];
                     System.out.print(signal.device().getProperty("name")
                                      +":"+signal.getProperty("name")+" ");
                 }
-                mapper.Signal signal = map.destination;
+                mpr.Signal signal = map.destination;
                 System.out.println("-> "+signal.device().getProperty("name")+":"
                                    +signal.getProperty("name"));
                 for (int i = 0; i < map.numProperties(); i++) {
@@ -120,7 +120,7 @@ class test {
         System.out.println("Device ordinal: "+dev1.getProperty("ordinal"));
         System.out.println("Device interface: "+dev1.graph().getInterface());
 
-        mapper.Map map = new mapper.Map(out1, inp1);
+        mpr.Map map = new mpr.Map(out1, inp1);
         map.setProperty("expression", "y=x*100");
         map.source().setProperty("minimum", 15);
         map.source().setProperty("maximum", -15);
@@ -159,7 +159,7 @@ class test {
                                            +Arrays.toString((int[])userObject));
                     }
                 }
-            }}, mapper.signal.InstanceEvent.ALL);
+            }}, mpr.signal.InstanceEvent.ALL);
 
         System.out.println(inp1.getProperty("name") + " allocation mode: "
                            + inp1.getStealingMode());
@@ -229,8 +229,8 @@ class test {
             System.out.println("  signal: " + s.getProperty("name"));
         }
 
-        List<mapper.Map> maps = g.maps();
-        for (mapper.Map m : maps) {
+        List<mpr.Map> maps = g.maps();
+        for (mpr.Map m : maps) {
             System.out.print("  map: ");
             for (i = 0; i < m.numSignals(Location.SOURCE); i++)
                 System.out.print(m.sources[i].device().getProperty("name")+":"

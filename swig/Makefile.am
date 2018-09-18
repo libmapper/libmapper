@@ -1,11 +1,11 @@
 
 _CXX =  $(filter-out ccache,$(CXX))
 
-all-local: _mapper.$(PYEXT)
+all-local: _mpr.$(PYEXT)
 
 $(builddir)/%_wrap.c %.py: %.i
-	$(SWIG) -I$(top_srcdir)/include -python @PY3SWIG@ -modern -o $(builddir)/mapper_wrap.c \
-		$(srcdir)/mapper.i
+	$(SWIG) -I$(top_srcdir)/include -python @PY3SWIG@ -modern -o $(builddir)/mpr_wrap.c \
+		$(srcdir)/mpr.i
 
 # Don't interfere with distutils CFLAGS
 _%.$(PYEXT): $(builddir)/%_wrap.c
@@ -13,12 +13,12 @@ _%.$(PYEXT): $(builddir)/%_wrap.c
 	cp -v `./copywhich.sh $(PYTHON) $(@:.so=)` .
 
 clean-local:
-	-@rm -vf mapper.py mapper_wrap.c
+	-@rm -vf mpr.py mpr_wrap.c
 	$(PYTHON) setup.py clean --all
 
-MOSTLYCLEANFILES = _mapper.$(PYEXT) mapper.py mapper_wrap.c installed_files.log
+MOSTLYCLEANFILES = _mpr.$(PYEXT) mpr.py mpr_wrap.c installed_files.log
 
-install-exec-hook: $(builddir)/mapper_wrap.c
+install-exec-hook: $(builddir)/mpr_wrap.c
 	if test -n "$(DESTDIR)"; then\
 		$(PYTHON) setup.py install --root=$(DESTDIR) --prefix=$(prefix) --record=@top_builddir@/swig/installed_files.log; \
 	else \
@@ -29,4 +29,4 @@ uninstall-hook:
 	cat @top_builddir@/swig/installed_files.log \
 	  | awk '{print "$(DESTDIR)"$$1}' | xargs rm -vf
 
-EXTRA_DIST = mapper.i tkgui.py copywhich.sh
+EXTRA_DIST = mpr.i tkgui.py copywhich.sh

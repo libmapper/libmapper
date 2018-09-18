@@ -1,72 +1,71 @@
 
-lib_LTLIBRARIES = libmapperjni.la
-libmapperjni_la_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS) @JNIFLAGS@
-libmapperjni_la_SOURCES = mapperjni.c
-libmapperjni_la_LDFLAGS = -export-dynamic -version-info @SO_VERSION@
-libmapperjni_la_LIBADD = \
-    $(top_builddir)/src/libmapper.la $(liblo_LIBS)
+lib_LTLIBRARIES = libmprjni.la
+libmprjni_la_CFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS) @JNIFLAGS@
+libmprjni_la_SOURCES = mprjni.c
+libmprjni_la_LDFLAGS = -export-dynamic -version-info @SO_VERSION@
+libmprjni_la_LIBADD = \
+    $(top_builddir)/src/libmpr.la $(liblo_LIBS)
 
-JHEADERS = mapper_AbstractObject.h                                          \
-           mapper_Graph.h                                                   \
-           mapper_Device.h                                                  \
-           mapper_List.h                                                    \
-           mapper_Map.h                                                     \
-           mapper_Signal.h mapper_Signal_Instance.h                         \
-           mapper_Time.h
+JHEADERS = mpr_AbstractObject.h                                          \
+           mpr_Graph.h                                                   \
+           mpr_Device.h                                                  \
+           mpr_List.h                                                    \
+           mpr_Map.h                                                     \
+           mpr_Signal.h mpr_Signal_Instance.h                            \
+           mpr_Time.h
 
 JFLAGS = -source 1.8 -target 1.8
-JCLASSES = mapper/NativeLib.class mapper/Graph.class                        \
-           mapper/graph/DeviceListener.class mapper/graph/Event.class       \
-           mapper/graph/MapListener.class mapper/graph/Operator.class       \
-           mapper/graph/SignalListener.class                                \
-           mapper/graph/ObjectType.class                                    \
-           mapper/Device.class                                              \
-           mapper/Direction.class                                           \
-           mapper/List.class                                                \
-           mapper/Map.class                                                 \
-           mapper/map/Location.class                                        \
-           mapper/Property.class                                            \
-           mapper/Signal.class                                              \
-           mapper/signal/InstanceEvent.class                                \
-           mapper/signal/InstanceEventListener.class                        \
-           mapper/signal/InstanceUpdateListener.class                       \
-           mapper/signal/StealingMode.class                                 \
-           mapper/signal/UpdateListener.class                               \
-           mapper/Time.class                                                \
-           mapper/Type.class
+JCLASSES = mpr/NativeLib.class mpr/Graph.class                           \
+           mpr/graph/DeviceListener.class mpr/graph/Event.class          \
+           mpr/graph/MapListener.class mpr/graph/Operator.class          \
+           mpr/graph/SignalListener.class                                \
+           mpr/graph/ObjectType.class                                    \
+           mpr/Device.class                                              \
+           mpr/Direction.class                                           \
+           mpr/List.class                                                \
+           mpr/Map.class                                                 \
+           mpr/map/Location.class                                        \
+           mpr/Property.class                                            \
+           mpr/Signal.class                                              \
+           mpr/signal/InstanceEvent.class                                \
+           mpr/signal/InstanceEventListener.class                        \
+           mpr/signal/InstanceUpdateListener.class                       \
+           mpr/signal/StealingMode.class                                 \
+           mpr/signal/UpdateListener.class                               \
+           mpr/Time.class                                                \
+           mpr/Type.class
 
-JCLASSESINTERNAL = mapper/Signal$$Instance.class
+JCLASSESINTERNAL = mpr/Signal$$Instance.class
 
 JJAVA = $(JCLASSES:%.class=%.java)
 
-BUILT_SOURCES = $(JHEADERS) test.class testreverse.class testspeed.class    \
-    libmapper.jar
+BUILT_SOURCES = $(JHEADERS) test.class testreverse.class testspeed.class libmpr.jar
 MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
     $(subst $$,\$$,test$$1.class test$$2.class test$$3.class                \
     testreverse$$1.class testreverse$$2.class testreverse$$3.class          \
     testspeed$$1.class testspeed$$2.class testspeed$$3.class)
 
-mapper_%.h: mapper/%.class
+mpr_%.h: mpr/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_device_%.h: mapper/device/%.class
+mpr_device_%.h: mpr/device/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_graph_%.h: mapper/graph/%.class
+mpr_graph_%.h: mpr/graph/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_map_%.h: mapper/map/%.class
+mpr_map_%.h: mpr/map/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_signal_%.h: mapper/signal/%.class
+mpr_signal_%.h: mpr/signal/%.class
 	$(JAVAH) $(subst /,.,$(<:%.class=%))
 	if [ -f $@ ]; then touch $@; fi
 
-mapper/%.class: mapper/%.java
+mpr/%.class: mpr/%.java
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
 test.class: test.java $(JCLASSES)
@@ -78,7 +77,7 @@ testreverse.class: testreverse.java $(JCLASSES)
 testspeed.class: testspeed.java $(JCLASSES)
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
-libmapper.jar: $(JCLASSES) $(JCLASSESINTERNAL)
+libmpr.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 	if mkdir -v TestInstances/code; then \
 	  cd TestInstances/code/; \

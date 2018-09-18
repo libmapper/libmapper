@@ -7,13 +7,13 @@
 
 #include "config.h"
 
-#include <mapper/mapper_cpp.h>
+#include <mpr/mpr_cpp.h>
 
 #ifdef HAVE_ARPA_INET_H
  #include <arpa/inet.h>
 #endif
 
-using namespace mapper;
+using namespace mpr;
 
 int received = 0;
 
@@ -38,34 +38,32 @@ private:
 };
 out_stream null_out;
 
-void handler(mapper_signal sig, mapper_id instance, int length,
-             mapper_type type, const void *value, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+             mpr_type type, const void *value, mpr_time t)
 {
     ++received;
     if (!value || !verbose)
         return;
 
-    const char *name;
-    mapper_object_get_prop_by_index(sig, MAPPER_PROP_NAME, NULL, NULL, NULL,
-                                    (const void**)&name);
+    const char *name = mpr_obj_get_prop_str(sig, MPR_PROP_NAME, NULL);
     printf("--> destination got %s", name);
 
     switch (type) {
-        case MAPPER_INT32: {
+        case MPR_INT32: {
             int *v = (int*)value;
             for (int i = 0; i < length; i++) {
                 printf(" %d", v[i]);
             }
             break;
         }
-        case MAPPER_FLOAT: {
+        case MPR_FLT: {
             float *v = (float*)value;
             for (int i = 0; i < length; i++) {
                 printf(" %f", v[i]);
             }
             break;
         }
-        case MAPPER_DOUBLE: {
+        case MPR_DBL: {
             double *v = (double*)value;
             for (int i = 0; i < length; i++) {
                 printf(" %f", v[i]);
@@ -115,16 +113,16 @@ int main(int argc, char ** argv)
     // make a copy of the device to check reference counting
 //    Device devcopy(dev);
 
-    Signal sig = dev.add_signal(MAPPER_DIR_IN, 1, "in1", 1, MAPPER_FLOAT,
-                                "meters", 0, 0, handler);
-    dev.remove_signal(sig);
-    dev.add_signal(MAPPER_DIR_IN, 1, "in2", 2, MAPPER_INT32, 0, 0, 0, handler);
-    dev.add_signal(MAPPER_DIR_IN, 1, "in3", 2, MAPPER_INT32, 0, 0, 0, handler);
-    dev.add_signal(MAPPER_DIR_IN, 1, "in4", 2, MAPPER_INT32, 0, 0, 0, handler);
+    Signal sig = dev.add_sig(MPR_DIR_IN, 1, "in1", 1, MPR_FLT, "meters",
+                             0, 0, handler);
+    dev.remove_sig(sig);
+    dev.add_sig(MPR_DIR_IN, 1, "in2", 2, MPR_INT32, 0, 0, 0, handler);
+    dev.add_sig(MPR_DIR_IN, 1, "in3", 2, MPR_INT32, 0, 0, 0, handler);
+    dev.add_sig(MPR_DIR_IN, 1, "in4", 2, MPR_INT32, 0, 0, 0, handler);
 
-    sig = dev.add_signal(MAPPER_DIR_OUT, 1, "out1", 1, MAPPER_FLOAT, "na");
-    dev.remove_signal(sig);
-    sig = dev.add_signal(MAPPER_DIR_OUT, 1, "out2", 3, MAPPER_DOUBLE, "meters");
+    sig = dev.add_sig(MPR_DIR_OUT, 1, "out1", 1, MPR_FLT, "na");
+    dev.remove_sig(sig);
+    sig = dev.add_sig(MPR_DIR_OUT, 1, "out2", 3, MPR_DBL, "meters");
 
     out << "waiting" << std::endl;
     while (!dev.ready()) {
@@ -132,16 +130,18 @@ int main(int argc, char ** argv)
     }
     out << "ready" << std::endl;
 
-    out << "device " << dev[MAPPER_PROP_NAME] << " ready..." << std::endl;
+    out << "device " << dev[MPR_PROP_NAME] << " ready..." << std::endl;
     out << "  ordinal: " << dev["ordinal"] << std::endl;
-    out << "  id: " << dev[MAPPER_PROP_ID] << std::endl;
-    out << "  interface: " << dev.graph().interface() << std::endl;
-    out << "  bus url: " << dev.graph().multicast_addr() << std::endl;
+    out << "  id: " << dev[MPR_PROP_ID] << std::endl;
+    out << "  interface: " << dev.graph().iface() << std::endl;
+    out << "  bus url: " << dev.graph().address() << std::endl;
     out << "  port: " << dev["port"] << std::endl;
-    out << "  num_inputs: " << dev.signals(MAPPER_DIR_IN).length() << std::endl;
-    out << "  num_outputs: " << dev.signals(MAPPER_DIR_OUT).length() << std::endl;
-    out << "  num_incoming_maps: " << dev.maps(MAPPER_DIR_IN).length() << std::endl;
-    out << "  num_outgoing_maps: " << dev.maps(MAPPER_DIR_OUT).length() << std::endl;
+    out << "  num_inputs: " << dev.signals(MPR_DIR_IN).length() << std::endl;
+    out << "  num_outputs: " << dev.signals(MPR_DIR_OUT).length() << std::endl;
+    out << "  num_incoming_maps: " << dev.signals().maps(MPR_DIR_IN).length()
+        << std::endl;
+    out << "  num_outgoing_maps: " << dev.signals().maps(MPR_DIR_OUT).length()
+        << std::endl;
 
     int value[] = {1,2,3,4,5,6};
     dev.set_prop("foo", 6, value);
@@ -203,23 +203,24 @@ int main(int argc, char ** argv)
 
     Property p("temp", "tempstring");
     dev.set_prop(p);
-    out << p.name << ": " << p << std::endl;
+    out << p.key << ": " << p << std::endl;
 
     dev.remove_prop("foo");
     out << "foo: " << dev["foo"] << " (should be 0x0)" << std::endl;
 
     out << "signal: " << sig << std::endl;
 
-    Object::List qsig = dev.signals(MAPPER_DIR_IN).begin();
+    Signal::List qsig = dev.signals(MPR_DIR_IN);
+    qsig.begin();
     for (; qsig != qsig.end(); ++qsig) {
-        out << "input: " << *qsig << std::endl;
+        out << "  input: " << *qsig << std::endl;
     }
 
-    Graph graph(MAPPER_OBJ_ALL);
-    Map map(dev.signals(MAPPER_DIR_OUT)[0], dev.signals(MAPPER_DIR_IN)[1]);
-    map.set_prop(MAPPER_PROP_EXPR, "y=x[0:1]+123");
+    Graph graph(MPR_OBJ);
+    Map map(dev.signals(MPR_DIR_OUT)[0], dev.signals(MPR_DIR_IN)[1]);
+    map.set_prop(MPR_PROP_EXPR, "y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
-    map.source().set_prop(Property(MAPPER_PROP_MIN, 0, 3, d));
+    map.signal(MPR_LOC_SRC).set_prop(Property(MPR_PROP_MIN, 0, 3, d));
     map.push();
 
     while (!map.ready()) {
@@ -234,27 +235,36 @@ int main(int argc, char ** argv)
         sig.set_value(v);
     }
 
+    // try retrieving linked devices
+    out << "devices linked to " << dev << ":" << std::endl;
+    Device::List foo = dev[MPR_PROP_LINKED];
+    for (; foo != foo.end(); foo++) {
+        out << "  " << *foo << std::endl;
+    }
+
     // try combining queries
+    out << "devices with name matching 'my*' AND >=0 inputs" << std::endl;
     Device::List qdev = graph.devices();
-    qdev.filter(Property("name", "my*"), MAPPER_OP_EQUAL);
-    qdev.filter(Property("num_inputs", 0), MAPPER_OP_GREATER_THAN_OR_EQUAL);
+    qdev.filter(Property("name", "my*"), MPR_OP_EQ);
+    qdev.filter(Property("num_inputs", 0), MPR_OP_GTE);
     for (; qdev != qdev.end(); qdev++) {
-        out << "  r device: " << *qdev << std::endl;
+        out << "  " << *qdev << " (" << (*qdev)[MPR_PROP_NUM_SIGS_IN]
+            << " inputs)" << std::endl;
     }
 
     // check graph records
     out << "graph records:" << std::endl;
-    for (const Device &device : graph.devices()) {
-        out << "  device: " << device << std::endl;
-        for (auto const &signal : device.signals(MAPPER_DIR_IN)) {
-            out << "    input: " << signal << std::endl;
+    for (const Device d : graph.devices()) {
+        out << "  device: " << d << std::endl;
+        for (Signal s : d.signals(MPR_DIR_IN)) {
+            out << "    input: " << s << std::endl;
         }
-        for (auto const &signal : device.signals(MAPPER_DIR_OUT)) {
-            out << "    output: " << signal << std::endl;
+        for (Signal s : d.signals(MPR_DIR_OUT)) {
+            out << "    output: " << s << std::endl;
         }
     }
-    for (auto const &map : graph.maps()) {
-        out << "  map: " << map << std::endl;
+    for (Map m : graph.maps()) {
+        out << "  map: " << m << std::endl;
     }
 
     // test some time manipulation

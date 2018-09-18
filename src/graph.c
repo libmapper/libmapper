@@ -5,257 +5,302 @@
 #include <zlib.h>
 #include <sys/time.h>
 
-#include "mapper_internal.h"
+#include "mpr_internal.h"
 
-#define AUTOSUBSCRIBE_INTERVAL 60
-extern const char* network_msg_strings[NUM_MSG_STRINGS];
+#define AUTOSUB_INTERVAL 60
+extern const char* net_msg_strings[NUM_MSG_STRINGS];
 
 #ifdef DEBUG
-static void print_subscription_flags(int flags)
+void print_subscription_flags(int flags)
 {
     printf("[");
-    if (MAPPER_OBJ_NONE == flags) {
-        printf("none\n");
+    if (!flags) {
+        printf("none]\n");
         return;
     }
-
-    if (flags & MAPPER_OBJ_DEVICE)
+    if (flags & MPR_DEV)
         printf("devices, ");
-
-    if (flags & MAPPER_OBJ_INPUT_SIGNAL) {
-        if (flags & MAPPER_OBJ_OUTPUT_SIGNAL)
+    if (flags & MPR_SIG_IN) {
+        if (flags & MPR_SIG_OUT)
             printf("signals, ");
         else
             printf("input signals, ");
     }
-    else if (flags & MAPPER_OBJ_OUTPUT_SIGNAL)
+    else if (flags & MPR_SIG_OUT)
         printf("output signals, ");
-
-    if (flags & MAPPER_OBJ_MAP_IN) {
-        if (flags & MAPPER_OBJ_MAP_OUT)
+    if (flags & MPR_MAP_IN) {
+        if (flags & MPR_MAP_OUT)
             printf("maps, ");
         else
             printf("incoming maps, ");
     }
-    else if (flags & MAPPER_OBJ_MAP_OUT)
+    else if (flags & MPR_MAP_OUT)
         printf("outgoing maps, ");
-
     printf("\b\b]\n");
 }
 #endif
 
-mapper_graph mapper_graph_new(int subscribe_flags)
+static void on_dev_autosub(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *v)
 {
-    mapper_graph g = (mapper_graph) calloc(1, sizeof(mapper_graph_t));
-    if (!g)
-        return NULL;
+    // New subscriptions are handled in network.c as response to "sync" msg
+    if (MPR_OBJ_REM == e)
+        mpr_graph_subscribe(g, (mpr_dev)o, 0, 0);
+}
+
+static void set_net_dst(mpr_graph g, mpr_dev d)
+{
+    // TODO: look up device info, maybe send directly
+    mpr_net_bus(&g->net);
+}
+
+static void send_subscribe_msg(mpr_graph g, mpr_dev d, int flags, int timeout)
+{
+    char cmd[1024];
+    snprintf(cmd, 1024, "/%s/subscribe", d->name);
+
+    set_net_dst(g, d);
+    NEW_LO_MSG(msg, return);
+    if (MPR_OBJ == flags)
+        lo_message_add_string(msg, "all");
+    else {
+        if (flags & MPR_DEV)
+            lo_message_add_string(msg, "device");
+        if (MPR_SIG == (flags & MPR_SIG))
+            lo_message_add_string(msg, "signals");
+        else {
+            if (flags & MPR_SIG_IN)
+                lo_message_add_string(msg, "inputs");
+            else if (flags & MPR_SIG_OUT)
+                lo_message_add_string(msg, "outputs");
+        }
+        if (MPR_MAP == (flags & MPR_MAP))
+            lo_message_add_string(msg, "maps");
+        else {
+            if (flags & MPR_MAP_IN)
+                lo_message_add_string(msg, "incoming_maps");
+            else if (flags & MPR_MAP_OUT)
+                lo_message_add_string(msg, "outgoing_maps");
+        }
+    }
+    lo_message_add_string(msg, "@lease");
+    lo_message_add_int32(msg, timeout);
+
+    lo_message_add_string(msg, "@version");
+    lo_message_add_int32(msg, d->obj.version);
+
+    mpr_net_add_msg(&g->net, cmd, 0, msg);
+    mpr_net_send(&g->net);
+}
+
+static void mpr_graph_autosub(mpr_graph g, int flags)
+{
+    if (!g->autosub && flags) {
+        mpr_graph_add_cb(g, on_dev_autosub, MPR_DEV, g);
+            // update flags for existing subscriptions
+        mpr_time_t t;
+        mpr_time_now(&t);
+        mpr_subscription s = g->subscriptions;
+        while (s) {
+            trace_graph("adjusting flags for existing autorenewing subscription "
+                        "to %s.\n", mpr_dev_get_name(s->dev));
+            if (flags & ~s->flags) {
+                send_subscribe_msg(g, s->dev, flags, AUTOSUB_INTERVAL);
+                // leave 10-second buffer for subscription renewal
+                s->lease_expiration_sec = (t.sec + AUTOSUB_INTERVAL - 10);
+            }
+            s->flags = flags;
+            s = s->next;
+        }
+        NEW_LO_MSG(msg, ;);
+        if (msg) {
+            trace_graph("pinging all devices.\n");
+            mpr_net_bus(&g->net);
+            mpr_net_add_msg(&g->net, 0, MSG_WHO, msg);
+        }
+    }
+    else if (g->autosub && !flags) {
+        mpr_graph_remove_cb(g, on_dev_autosub, g);
+        while (g->subscriptions)
+            mpr_graph_subscribe(g, g->subscriptions->dev, 0, 0);
+    }
+#ifdef DEBUG
+    trace_graph("setting autosubscribe flags to ");
+    print_subscription_flags(flags);
+#endif
+    g->autosub = flags;
+}
+
+mpr_graph mpr_graph_new(int subscribe_flags)
+{
+    mpr_graph g = (mpr_graph) calloc(1, sizeof(mpr_graph_t));
+    RETURN_UNLESS(g, NULL);
 
     g->net.graph = g;
     g->own = 1;
-    mapper_network_init(&g->net, 0, 0, 0);
-
-    if (subscribe_flags) {
-        mapper_graph_subscribe(g, 0, subscribe_flags, -1);
-    }
+    mpr_net_init(&g->net, 0, 0, 0);
+    if (subscribe_flags)
+        mpr_graph_autosub(g, subscribe_flags);
     return g;
 }
 
-void mapper_graph_free(mapper_graph g)
+void mpr_graph_free(mpr_graph g)
 {
-    if (!g)
-        return;
+    RETURN_UNLESS(g);
 
     // remove callbacks now so they won't be called when removing devices
-    mapper_graph_remove_all_callbacks(g);
-
-    // unsubscribe from and remove any autorenewing subscriptions
-    while (g->subscriptions) {
-        mapper_graph_subscribe(g, g->subscriptions->dev, 0, 0);
+    fptr_list cb;
+    while ((cb = g->callbacks)) {
+        g->callbacks = g->callbacks->next;
+        free(cb);
     }
 
+    // unsubscribe from and remove any autorenewing subscriptions
+    while (g->subscriptions)
+        mpr_graph_subscribe(g, g->subscriptions->dev, 0, 0);
+
     /* Remove all non-local maps */
-    mapper_object *maps = mapper_list_from_data(g->maps);
+    mpr_list maps = mpr_list_from_data(g->maps);
     while (maps) {
-        mapper_map map = (mapper_map)*maps;
-        maps = mapper_object_list_next(maps);
-        if (!map->local)
-            mapper_graph_remove_map(g, map, MAPPER_REMOVED);
+        mpr_map map = (mpr_map)*maps;
+        maps = mpr_list_next(maps);
+        if (!map->loc)
+            mpr_graph_remove_map(g, map, MPR_OBJ_REM);
     }
 
     /* Remove all non-local devices and signals from the graph except for
      * those referenced by local maps. */
-    mapper_object *devs = mapper_list_from_data(g->devs);
+    mpr_list devs = mpr_list_from_data(g->devs);
     while (devs) {
-        mapper_device dev = (mapper_device)*devs;
-        devs = mapper_object_list_next(devs);
-        if (dev->local)
+        mpr_dev dev = (mpr_dev)*devs;
+        devs = mpr_list_next(devs);
+        if (dev->loc)
             continue;
 
-        int no_local_device_maps = 1;
-        mapper_object *sigs = mapper_device_get_signals(dev, MAPPER_DIR_ANY);
+        int no_local_dev_maps = 1;
+        mpr_list sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
         while (sigs) {
-            mapper_signal sig = (mapper_signal)*sigs;
-            sigs = mapper_object_list_next(sigs);
-            int no_local_signal_maps = 1;
-            mapper_object *maps = mapper_signal_get_maps(sig, MAPPER_DIR_ANY);
+            mpr_sig sig = (mpr_sig)*sigs;
+            sigs = mpr_list_next(sigs);
+            int no_local_sig_maps = 1;
+            mpr_list maps = mpr_sig_get_maps(sig, MPR_DIR_ANY);
             while (maps) {
-                if (((mapper_map)*maps)->local) {
-                    no_local_device_maps = no_local_signal_maps = 0;
-                    mapper_object_list_free(maps);
+                if (((mpr_map)*maps)->loc) {
+                    no_local_dev_maps = no_local_sig_maps = 0;
+                    mpr_list_free(maps);
                     break;
                 }
-                maps = mapper_object_list_next(maps);
+                maps = mpr_list_next(maps);
             }
-            if (no_local_signal_maps)
-                mapper_graph_remove_signal(g, sig, MAPPER_REMOVED);
+            if (no_local_sig_maps)
+                mpr_graph_remove_sig(g, sig, MPR_OBJ_REM);
         }
-        if (no_local_device_maps)
-            mapper_graph_remove_device(g, dev, MAPPER_REMOVED, 1);
+        if (no_local_dev_maps)
+            mpr_graph_remove_dev(g, dev, MPR_OBJ_REM, 1);
     }
 
-    mapper_network_free(&g->net);
+    mpr_net_free(&g->net);
     free(g);
-}
-
-static void add_callback(fptr_list *head, const void *f, int types,
-                         const void *user)
-{
-    fptr_list cb = (fptr_list)malloc(sizeof(struct _fptr_list));
-    cb->f = (void*)f;
-    cb->types = types;
-    cb->context = (void*)user;
-    cb->next = *head;
-    *head = cb;
-}
-
-static void remove_callback(fptr_list *head, const void *f, const void *user)
-{
-    fptr_list cb = *head;
-    fptr_list prevcb = 0;
-    while (cb) {
-        if (cb->f == f && cb->context == user)
-            break;
-        prevcb = cb;
-        cb = cb->next;
-    }
-    if (!cb)
-        return;
-
-    if (prevcb)
-        prevcb->next = cb->next;
-    else
-        *head = cb->next;
-
-    free(cb);
 }
 
 /**** Generic records ****/
 
-static mapper_object _get_object_by_id(mapper_graph g, void *obj_list,
-                                       mapper_id id)
+static mpr_obj _get_obj_by_id(mpr_graph g, void *obj_list, mpr_id id)
 {
-    mapper_object *objs = mapper_list_from_data(obj_list);
+    mpr_list objs = mpr_list_from_data(obj_list);
     while (objs) {
         if (id == (*objs)->id)
             return *objs;
-        objs = mapper_object_list_next(objs);
+        objs = mpr_list_next(objs);
     }
     return NULL;
 }
 
-int mapper_graph_get_num_objects(mapper_graph g, int types)
+mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_data_type type, mpr_id id)
 {
-    int count = 0;
-    if (types & MAPPER_OBJ_DEVICE)
-        count += mapper_object_list_get_length(mapper_list_from_data(g->devs));
-    if (types & MAPPER_OBJ_SIGNAL)
-        count += mapper_object_list_get_length(mapper_list_from_data(g->sigs));
-    if (types & MAPPER_OBJ_LINK)
-        count += mapper_object_list_get_length(mapper_list_from_data(g->links));
-    if (types & MAPPER_OBJ_MAP)
-        count += mapper_object_list_get_length(mapper_list_from_data(g->maps));
-    return count;
-}
-
-mapper_object mapper_graph_get_object(mapper_graph g, mapper_object_type type,
-                                      mapper_id id)
-{
-    mapper_object obj = NULL;
-    if (type & MAPPER_OBJ_DEVICE)
-        obj = _get_object_by_id(g, g->devs, id);
-    if (!obj && (type & MAPPER_OBJ_SIGNAL))
-        obj = _get_object_by_id(g, g->sigs, id);
-    if (!obj && (type & MAPPER_OBJ_LINK))
-        obj = _get_object_by_id(g, g->links, id);
-    if (!obj && (type & MAPPER_OBJ_MAP))
-        obj = _get_object_by_id(g, g->maps, id);
-    // TODO: slots
-    return obj;
-}
-
-// TODO: support queries over multiple object types.
-mapper_object *mapper_graph_get_objects(mapper_graph g, int types)
-{
-    if (types & MAPPER_OBJ_DEVICE)
-        return mapper_list_from_data(g->devs);
-    if (types & MAPPER_OBJ_SIGNAL)
-        return mapper_list_from_data(g->sigs);
-    if (types & MAPPER_OBJ_LINK)
-        return mapper_list_from_data(g->links);
-    if (types & MAPPER_OBJ_MAP)
-        return mapper_list_from_data(g->maps);
+    if (type & MPR_DEV)
+        return _get_obj_by_id(g, g->devs, id);
+    if (type & MPR_SIG)
+        return _get_obj_by_id(g, g->sigs, id);
+    if (type & MPR_MAP)
+        return _get_obj_by_id(g, g->maps, id);
     return 0;
 }
 
-void mapper_graph_add_callback(mapper_graph g, mapper_graph_handler *h,
-                               int types, const void *user)
+// TODO: support queries over multiple object types.
+mpr_list mpr_graph_get_list(mpr_graph g, int types)
 {
-    add_callback(&g->callbacks, h, types, user);
+    if (types & MPR_DEV)
+        return mpr_list_from_data(g->devs);
+    if (types & MPR_SIG)
+        return mpr_list_from_data(g->sigs);
+    if (types & MPR_MAP)
+        return mpr_list_from_data(g->maps);
+    return 0;
 }
 
-void mapper_graph_remove_callback(mapper_graph g, mapper_graph_handler *h,
-                                  const void *user)
+void mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types,
+                      const void *user)
 {
-    remove_callback(&g->callbacks, h, user);
+    fptr_list cb = (fptr_list)malloc(sizeof(struct _fptr_list));
+    cb->f = (void*)h;
+    cb->types = types;
+    cb->ctx = (void*)user;
+    cb->next = g->callbacks;
+    g->callbacks = cb;
+}
+
+void mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
+{
+    fptr_list cb = g->callbacks;
+    fptr_list prevcb = 0;
+    while (cb) {
+        if (cb->f == h && cb->ctx == user)
+            break;
+        prevcb = cb;
+        cb = cb->next;
+    }
+    RETURN_UNLESS(cb);
+    if (prevcb)
+        prevcb->next = cb->next;
+    else
+        g->callbacks = cb->next;
+    free(cb);
 }
 
 /**** Device records ****/
 
-mapper_device mapper_graph_add_or_update_device(mapper_graph g, const char *name,
-                                                mapper_msg msg)
+mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
 {
     const char *no_slash = skip_slash(name);
-    mapper_device dev = mapper_graph_get_device_by_name(g, no_slash);
+    mpr_dev dev = mpr_graph_get_dev_by_name(g, no_slash);
     int rc = 0, updated = 0;
 
     if (!dev) {
         trace_graph("adding device '%s'.\n", name);
-        dev = (mapper_device)mapper_list_add_item((void**)&g->devs, sizeof(*dev));
+        dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, sizeof(*dev));
         dev->name = strdup(no_slash);
         dev->obj.id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash));
         dev->obj.id <<= 32;
-        dev->obj.type = MAPPER_OBJ_DEVICE;
+        dev->obj.type = MPR_DEV;
         dev->obj.graph = g;
-        init_device_prop_table(dev);
+        init_dev_prop_tbl(dev);
         rc = 1;
     }
 
     if (dev) {
-        updated = mapper_device_set_from_msg(dev, msg);
+        updated = mpr_dev_set_from_msg(dev, msg);
         if (!rc)
-            trace_graph("updated %d properties for device '%s'.\n", updated,
-                        name);
-        mapper_time_now(&dev->synced);
+            trace_graph("updated %d props for device '%s'.\n", updated, name);
+        mpr_time_now(&dev->synced);
 
         if (rc || updated) {
             fptr_list cb = g->callbacks, temp;
             while (cb) {
                 temp = cb->next;
-                if (cb->types & MAPPER_OBJ_DEVICE) {
-                    mapper_graph_handler *h = cb->f;
-                    h(g, (mapper_object)dev,
-                      rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
-                }
+                if (cb->types & MPR_DEV)
+                    ((mpr_graph_handler*)cb->f)(g, (mpr_obj)dev,
+                                                rc ? MPR_OBJ_NEW : MPR_OBJ_MOD,
+                                                cb->ctx);
                 cb = temp;
             }
         }
@@ -264,132 +309,115 @@ mapper_device mapper_graph_add_or_update_device(mapper_graph g, const char *name
 }
 
 // Internal function called by /logout protocol handler
-void mapper_graph_remove_device(mapper_graph g, mapper_device dev,
-                                mapper_record_event event, int quiet)
+void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
 {
-    if (!dev)
-        return;
-
-    mapper_graph_remove_maps_by_query(g, mapper_device_get_maps(dev, MAPPER_DIR_ANY),
-                                      event);
+    RETURN_UNLESS(d);
+    mpr_graph_remove_by_qry(g, mpr_dev_get_maps(d, MPR_DIR_ANY), e);
 
     // remove matching maps scopes
-    mapper_object *maps = mapper_graph_get_maps_by_scope(g, dev);
+    mpr_list maps = mpr_graph_get_maps_by_scope(g, d);
     while (maps) {
-        mapper_map_remove_scope((mapper_map)*maps, dev);
-        maps = mapper_object_list_next(maps);
+        mpr_map_remove_scope((mpr_map)*maps, d);
+        maps = mpr_list_next(maps);
     }
 
-    mapper_graph_remove_links_by_query(g, mapper_device_get_links(dev, MAPPER_DIR_ANY),
-                                       event);
+    mpr_graph_remove_by_qry(g, mpr_dev_get_links(d, MPR_DIR_ANY), e);
+    mpr_graph_remove_by_qry(g, mpr_dev_get_sigs(d, MPR_DIR_ANY), e);
 
-    mapper_graph_remove_signals_by_query(g, mapper_device_get_signals(dev, MAPPER_DIR_ANY),
-                                         event);
-
-    mapper_list_remove_item((void**)&g->devs, dev);
+    mpr_list_remove_item((void**)&g->devs, d);
 
     if (!quiet) {
         fptr_list cb = g->callbacks, temp;
         while (cb) {
             temp = cb->next;
-            if (cb->types & MAPPER_OBJ_DEVICE) {
-                mapper_graph_handler *h = cb->f;
-                h(g, (mapper_object)dev, event, cb->context);
-            }
+            if (cb->types & MPR_DEV)
+                ((mpr_graph_handler*)cb->f)(g, (mpr_obj)d, e, cb->ctx);
             cb = temp;
         }
     }
 
-    if (dev->obj.props.synced)
-        mapper_table_free(dev->obj.props.synced);
-    if (dev->obj.props.staged)
-        mapper_table_free(dev->obj.props.staged);
-    if (dev->name)
-        free(dev->name);
-    mapper_list_free_item(dev);
+    FUNC_IF(mpr_tbl_free, d->obj.props.synced);
+    FUNC_IF(mpr_tbl_free, d->obj.props.staged);
+    FUNC_IF(free, d->name);
+    mpr_list_free_item(d);
 }
 
-mapper_device mapper_graph_get_device_by_name(mapper_graph g, const char *name)
+mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name)
 {
     const char *no_slash = skip_slash(name);
-    mapper_object *devs = mapper_list_from_data(g->devs);
+    mpr_list devs = mpr_list_from_data(g->devs);
     while (devs) {
-        mapper_device dev = (mapper_device)*devs;
+        mpr_dev dev = (mpr_dev)*devs;
+        devs = mpr_list_next(devs);
         if (dev->name && (0 == strcmp(dev->name, no_slash)))
             return dev;
-        devs = mapper_object_list_next(devs);
     }
     return 0;
 }
 
-void mapper_graph_check_device_status(mapper_graph g, uint32_t time_sec)
+void mpr_graph_check_dev_status(mpr_graph g, uint32_t time_sec)
 {
     time_sec -= TIMEOUT_SEC;
-    mapper_object *devs = mapper_list_from_data(g->devs);
+    mpr_list devs = mpr_list_from_data(g->devs);
     while (devs) {
-        mapper_device dev = (mapper_device)*devs;
+        mpr_dev dev = (mpr_dev)*devs;
+        devs = mpr_list_next(devs);
         // check if device has "checked in" recently
         // this could be /sync ping or any sent metadata
         if (dev->synced.sec && (dev->synced.sec < time_sec)) {
             // remove subscription
-            mapper_graph_subscribe(g, dev, 0, 0);
-            mapper_graph_remove_device(g, dev, MAPPER_EXPIRED, 0);
+            mpr_graph_subscribe(g, dev, 0, 0);
+            mpr_graph_remove_dev(g, dev, MPR_OBJ_EXP, 0);
         }
-        devs = mapper_object_list_next(devs);
     }
 }
 
 /**** Signals ****/
 
-mapper_signal mapper_graph_add_or_update_signal(mapper_graph g, const char *name,
-                                                const char *device_name,
-                                                mapper_msg msg)
+mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name,
+                          mpr_msg msg)
 {
-    mapper_signal sig = 0;
+    mpr_sig sig = 0;
     int sig_rc = 0, dev_rc = 0, updated = 0;
 
-    mapper_device dev = mapper_graph_get_device_by_name(g, device_name);
+    mpr_dev dev = mpr_graph_get_dev_by_name(g, dev_name);
     if (dev) {
-        sig = mapper_device_get_signal_by_name(dev, name);
-        if (sig && sig->local)
+        sig = mpr_dev_get_sig_by_name(dev, name);
+        if (sig && sig->loc)
             return sig;
     }
     else {
-        dev = mapper_graph_add_or_update_device(g, device_name, 0);
+        dev = mpr_graph_add_dev(g, dev_name, 0);
         dev_rc = 1;
     }
 
     if (!sig) {
-        trace_graph("adding signal '%s:%s'.\n", device_name, name);
-        sig = (mapper_signal)mapper_list_add_item((void**)&g->sigs,
-                                                  sizeof(mapper_signal_t));
+        trace_graph("adding signal '%s:%s'.\n", dev_name, name);
+        sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, sizeof(mpr_sig_t));
 
         // also add device record if necessary
         sig->dev = dev;
-
         sig->obj.graph = g;
 
         // Defaults (int, length=1)
-        mapper_signal_init(sig, 0, 0, name, 0, 0, 0, 0, 0, 0);
-
+        mpr_sig_init(sig, 0, 0, name, 0, 0, 0, 0, 0);
         sig_rc = 1;
     }
 
     if (sig) {
-        updated = mapper_signal_set_from_msg(sig, msg);
+        updated = mpr_sig_set_from_msg(sig, msg);
         if (!sig_rc)
-            trace_graph("updated %d properties for signal '%s:%s'.\n", updated,
-                     device_name, name);
+            trace_graph("updated %d props for signal '%s:%s'.\n", updated,
+                        dev_name, name);
 
         if (sig_rc || updated) {
             fptr_list cb = g->callbacks, temp;
             while (cb) {
                 temp = cb->next;
-                if (cb->types & MAPPER_OBJ_SIGNAL) {
-                    mapper_graph_handler *h = cb->f;
-                    h(g, (mapper_object)sig,
-                      sig_rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
-                }
+                if (cb->types & MPR_SIG)
+                    ((mpr_graph_handler*)cb->f)(g, (mpr_obj)sig,
+                                                sig_rc ? MPR_OBJ_NEW : MPR_OBJ_MOD,
+                                                cb->ctx);
                 cb = temp;
             }
         }
@@ -397,60 +425,56 @@ mapper_signal mapper_graph_add_or_update_signal(mapper_graph g, const char *name
     return sig;
 }
 
-void mapper_graph_remove_signal(mapper_graph g, mapper_signal sig,
-                                mapper_record_event event)
+void mpr_graph_remove_sig(mpr_graph g, mpr_sig s, mpr_graph_evt e)
 {
-    // remove any stored maps using this signal
-    mapper_graph_remove_maps_by_query(g, mapper_signal_get_maps(sig, MAPPER_DIR_ANY),
-                                      event);
+    RETURN_UNLESS(s);
 
-    mapper_list_remove_item((void**)&g->sigs, sig);
+    // remove any stored maps using this signal
+    mpr_graph_remove_by_qry(g, mpr_sig_get_maps(s, MPR_DIR_ANY), e);
+
+    mpr_list_remove_item((void**)&g->sigs, s);
 
     fptr_list cb = g->callbacks, temp;
     while (cb) {
         temp = cb->next;
-        if (cb->types & MAPPER_OBJ_SIGNAL) {
-            mapper_graph_handler *h = cb->f;
-            h(g, (mapper_object)sig, event, cb->context);
-        }
+        if (cb->types & MPR_SIG)
+            ((mpr_graph_handler*)cb->f)(g, (mpr_obj)s, e, cb->ctx);
         cb = temp;
     }
 
-    if (sig->dir & MAPPER_DIR_IN)
-        --sig->dev->num_inputs;
-    if (sig->dir & MAPPER_DIR_OUT)
-        --sig->dev->num_outputs;
+    if (s->dir & MPR_DIR_IN)
+        --s->dev->num_inputs;
+    if (s->dir & MPR_DIR_OUT)
+        --s->dev->num_outputs;
 
-    mapper_signal_free(sig);
-    mapper_list_free_item(sig);
+    mpr_sig_free_internal(s);
+    mpr_list_free_item(s);
 }
 
-void mapper_graph_remove_signals_by_query(mapper_graph g, mapper_object *query,
-                                          mapper_record_event event)
+void mpr_graph_remove_by_qry(mpr_graph g, mpr_list l, mpr_graph_evt e)
 {
-    while (query) {
-        mapper_signal sig = (mapper_signal)*query;
-        query = mapper_object_list_next(query);
-        if (!sig->local)
-            mapper_graph_remove_signal(g, sig, event);
+    while (l) {
+        switch ((int)(*l)->type) {
+            case MPR_LINK:  mpr_graph_remove_link(g, (mpr_link)*l, e);  break;
+            case MPR_SIG:   mpr_graph_remove_sig(g, (mpr_sig)*l, e);    break;
+            case MPR_MAP:   mpr_graph_remove_map(g, (mpr_map)*l, e);    break;
+            default:                                                    break;
+        }
+        l = mpr_list_next(l);
     }
 }
 
 /**** Link records ****/
 
-mapper_link mapper_graph_add_link(mapper_graph g, mapper_device dev1,
-                                  mapper_device dev2)
+mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 {
-    if (!dev1 || !dev2)
-        return 0;
-
-    mapper_link link = mapper_device_get_link_by_remote_device(dev1, dev2);
+    RETURN_UNLESS(dev1 && dev2, 0);
+    mpr_link link = mpr_dev_get_link_by_remote(dev1, dev2);
     if (link)
         return link;
 
-    link = (mapper_link)mapper_list_add_item((void**)&g->links,
-                                             sizeof(mapper_link_t));
-    if (dev2->local) {
+    link = (mpr_link)mpr_list_add_item((void**)&g->links, sizeof(mpr_link_t));
+    if (dev2->loc) {
         link->local_dev = dev2;
         link->remote_dev = dev1;
     }
@@ -458,119 +482,97 @@ mapper_link mapper_graph_add_link(mapper_graph g, mapper_device dev1,
         link->local_dev = dev1;
         link->remote_dev = dev2;
     }
-    link->obj.type = MAPPER_OBJ_LINK;
+    link->obj.type = MPR_LINK;
     link->obj.graph = g;
-    mapper_link_init(link);
+    mpr_link_init(link);
     return link;
 }
 
-void mapper_graph_remove_links_by_query(mapper_graph g, mapper_object *links,
-                                        mapper_record_event event)
+void mpr_graph_remove_link(mpr_graph g, mpr_link l, mpr_graph_evt e)
 {
-    while (links) {
-        mapper_link link = (mapper_link)*links;
-        links = mapper_object_list_next(links);
-        mapper_graph_remove_link(g, link, event);
-    }
-}
-
-void mapper_graph_remove_link(mapper_graph g, mapper_link link,
-                              mapper_record_event event)
-{
-    if (!link)
-        return;
-
-    mapper_graph_remove_maps_by_query(g, mapper_link_get_maps(link), event);
-
-    mapper_list_remove_item((void**)&g->links, link);
-
-    fptr_list cb = g->callbacks, temp;
-    while (cb) {
-        temp = cb->next;
-        if (cb->types & MAPPER_OBJ_LINK) {
-            mapper_graph_handler *h = cb->f;
-            h(g, (mapper_object)link, event, cb->context);
-        }
-        cb = temp;
-    }
-
-    // TODO: also clear network info from remote devices?
-
-    mapper_link_free(link);
-    mapper_list_free_item(link);
+    RETURN_UNLESS(l);
+    mpr_graph_remove_by_qry(g, mpr_link_get_maps(l), e);
+    mpr_list_remove_item((void**)&g->links, l);
+    mpr_link_free(l);
+    mpr_list_free_item(l);
 }
 
 /**** Map records ****/
 
 static int compare_slot_names(const void *l, const void *r)
 {
-    int result = strcmp((*(mapper_slot*)l)->sig->dev->name,
-                        (*(mapper_slot*)r)->sig->dev->name);
+    int result = strcmp((*(mpr_slot*)l)->sig->dev->name,
+                        (*(mpr_slot*)r)->sig->dev->name);
     if (0 == result)
-        return strcmp((*(mapper_slot*)l)->sig->name,
-                      (*(mapper_slot*)r)->sig->name);
+        return strcmp((*(mpr_slot*)l)->sig->name, (*(mpr_slot*)r)->sig->name);
     return result;
 }
 
-static mapper_signal add_sig_from_whole_name(mapper_graph g, const char* name)
+static mpr_sig add_sig_from_whole_name(mpr_graph g, const char* name)
 {
     char *devnamep, *signame, devname[256];
-    int devnamelen = mapper_parse_names(name, &devnamep, &signame);
+    int devnamelen = mpr_parse_names(name, &devnamep, &signame);
     if (!devnamelen || devnamelen >= 256) {
         trace_graph("error extracting device name\n");
         return 0;
     }
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen] = 0;
-    return mapper_graph_add_or_update_signal(g, signame, devname, 0);
+    return mpr_graph_add_sig(g, signame, devname, 0);
 }
 
-mapper_map mapper_graph_add_or_update_map(mapper_graph g, int num_src,
-                                          const char **src_names,
-                                          const char *dst_name,
-                                          mapper_msg msg)
+mpr_map mpr_graph_find_map_by_names(mpr_graph g, int num_src, const char **srcs,
+                                    const char *dst)
+{
+    mpr_map map = 0;
+    mpr_list maps = mpr_list_from_data(g->maps);
+    while (maps) {
+        map = (mpr_map)*maps;
+        int i;
+        if (map->num_src != num_src)
+            map = 0;
+        else if (mpr_slot_match_full_name(map->dst, dst))
+            map = 0;
+        else {
+            for (i = 0; i < num_src; i++) {
+                if (mpr_slot_match_full_name(map->src[i], srcs[i])) {
+                    map = 0;
+                    break;
+                }
+            }
+        }
+        if (map)
+            break;
+        maps = mpr_list_next(maps);
+    }
+    return map;
+}
+
+mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
+                          const char *dst_name, mpr_msg msg)
 {
     if (num_src >= MAX_NUM_MAP_SRC) {
         trace_graph("error: maximum mapping sources exceeded.\n");
         return 0;
     }
 
-    mapper_map map = 0;
+    mpr_map map = 0;
     int rc = 0, updated = 0, i, j;
 
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
     uint64_t id = 0;
     if (msg) {
-        mapper_msg_atom atom = mapper_msg_prop(msg, MAPPER_PROP_ID);
-        if (!atom || atom->types[0] != MAPPER_INT64) {
-            trace_graph("no 'id' property found in map metadata, aborting.\n");
+        mpr_msg_atom atom = mpr_msg_prop(msg, MPR_PROP_ID);
+        if (!atom || atom->types[0] != MPR_INT64) {
+            trace_graph("no 'id' prop found in map metadata, aborting.\n");
             return 0;
         }
         id = atom->vals[0]->i64;
-        map = (mapper_map)_get_object_by_id(g, (mapper_object)g->maps, id);
-        if (!map && _get_object_by_id(g, (mapper_object)g->maps, 0)) {
+        map = (mpr_map)_get_obj_by_id(g, (mpr_obj)g->maps, id);
+        if (!map && _get_obj_by_id(g, (mpr_obj)g->maps, 0)) {
             // may have staged map stored locally
-            mapper_object *maps = mapper_list_from_data(g->maps);
-            while (maps) {
-                map = (mapper_map)*maps;
-                int i;
-                if (map->num_src != num_src)
-                    map = 0;
-                else if (mapper_slot_match_full_name(map->dst, dst_name))
-                    map = 0;
-                else {
-                    for (i = 0; i < num_src; i++) {
-                        if (mapper_slot_match_full_name(map->src[i], src_names[i])) {
-                            map = 0;
-                            break;
-                        }
-                    }
-                }
-                if (map)
-                    break;
-                maps = mapper_object_list_next(maps);
-            }
+            map = mpr_graph_find_map_by_names(g, num_src, src_names, dst_name);
         }
     }
 
@@ -582,56 +584,52 @@ mapper_map mapper_graph_add_or_update_map(mapper_graph g, int num_src,
         printf("\b\b] -> [%s].\n", dst_name);
 #endif
         // add signals first in case signal handlers trigger map queries
-        mapper_signal dst_sig = add_sig_from_whole_name(g, dst_name);
-        if (!dst_sig)
-            return 0;
-        mapper_signal src_sigs[num_src];
+        mpr_sig dst_sig = add_sig_from_whole_name(g, dst_name);
+        RETURN_UNLESS(dst_sig, 0);
+        mpr_sig src_sigs[num_src];
         for (i = 0; i < num_src; i++) {
             src_sigs[i] = add_sig_from_whole_name(g, src_names[i]);
-            if (!src_sigs[i])
-                return 0;
-            mapper_graph_add_link(g, dst_sig->dev, src_sigs[i]->dev);
+            RETURN_UNLESS(src_sigs[i], 0);
+            mpr_graph_add_link(g, dst_sig->dev, src_sigs[i]->dev);
         }
 
-        map = (mapper_map)mapper_list_add_item((void**)&g->maps,
-                                               sizeof(mapper_map_t));
-        map->obj.type = MAPPER_OBJ_MAP;
+        map = (mpr_map)mpr_list_add_item((void**)&g->maps, sizeof(mpr_map_t));
+        map->obj.type = MPR_MAP;
         map->obj.graph = g;
         map->obj.id = id;
         map->num_src = num_src;
-        map->src = (mapper_slot*)malloc(sizeof(mapper_slot) * num_src);
+        map->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
         for (i = 0; i < num_src; i++) {
-            map->src[i] = (mapper_slot)calloc(1, sizeof(struct _mapper_slot));
+            map->src[i] = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
             map->src[i]->sig = src_sigs[i];
             map->src[i]->obj.id = i;
             map->src[i]->obj.graph = g;
             map->src[i]->causes_update = 1;
             map->src[i]->map = map;
-            if (map->src[i]->sig->local) {
+            if (map->src[i]->sig->loc) {
                 map->src[i]->num_inst = map->src[i]->sig->num_inst;
                 map->src[i]->use_inst = map->src[i]->num_inst > 1;
             }
         }
-        map->dst = (mapper_slot)calloc(1, sizeof(struct _mapper_slot));
+        map->dst = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
         map->dst->sig = dst_sig;
         map->dst->obj.graph = g;
         map->dst->causes_update = 1;
         map->dst->map = map;
-        if (map->dst->sig->local) {
+        if (map->dst->sig->loc) {
             map->dst->num_inst = map->dst->sig->num_inst;
             map->dst->use_inst = map->dst->num_inst > 1;
         }
 
-        mapper_map_init(map);
+        mpr_map_init(map);
         rc = 1;
     }
     else {
         int changed = 0;
         // may need to add sources to existing map
         for (i = 0; i < num_src; i++) {
-            mapper_signal src_sig = add_sig_from_whole_name(g, src_names[i]);
-            if (!src_sig)
-                return 0;
+            mpr_sig src_sig = add_sig_from_whole_name(g, src_names[i]);
+            RETURN_UNLESS(src_sig, 0);
             for (j = 0; j < map->num_src; j++) {
                 if (map->src[j]->sig == src_sig) {
                     break;
@@ -640,40 +638,40 @@ mapper_map mapper_graph_add_or_update_map(mapper_graph g, int num_src,
             if (j == map->num_src) {
                 ++changed;
                 ++map->num_src;
-                map->src = realloc(map->src, sizeof(struct _mapper_slot)
+                map->src = realloc(map->src, sizeof(struct _mpr_slot)
                                    * map->num_src);
-                map->src[j] = (mapper_slot) calloc(1, sizeof(struct _mapper_slot));
-                map->src[j]->dir = MAPPER_DIR_OUT;
+                map->src[j] = (mpr_slot) calloc(1, sizeof(struct _mpr_slot));
+                map->src[j]->dir = MPR_DIR_OUT;
                 map->src[j]->sig = src_sig;
                 map->src[j]->obj.graph = g;
                 map->src[j]->causes_update = 1;
                 map->src[j]->map = map;
-                if (map->src[j]->sig->local) {
+                if (map->src[j]->sig->loc) {
                     map->src[j]->num_inst = map->src[j]->sig->num_inst;
                     map->src[j]->use_inst = map->src[j]->num_inst > 1;
                 }
-                mapper_slot_init(map->src[j]);
+                mpr_slot_init(map->src[j]);
                 ++updated;
             }
         }
         if (changed) {
             // slots should be in alphabetical order
-            qsort(map->src, map->num_src, sizeof(mapper_slot),
+            qsort(map->src, map->num_src, sizeof(mpr_slot),
                   compare_slot_names);
             // fix slot ids
-            mapper_table tab;
-            mapper_table_record_t *rec;
+            mpr_tbl tab;
+            mpr_tbl_record rec;
             for (i = 0; i < num_src; i++) {
                 map->src[i]->obj.id = i;
                 // also need to correct slot table indices
                 tab = map->src[i]->obj.props.synced;
-                for (j = 0; j < tab->num_records; j++) {
-                    rec = &tab->records[j];
+                for (j = 0; j < tab->count; j++) {
+                    rec = &tab->rec[j];
                     rec->prop = MASK_PROP_BITFLAGS(rec->prop) | SRC_SLOT_PROP(i);
                 }
                 tab = map->src[i]->obj.props.staged;
-                for (j = 0; j < tab->num_records; j++) {
-                    rec = &tab->records[j];
+                for (j = 0; j < tab->count; j++) {
+                    rec = &tab->rec[j];
                     rec->prop = MASK_PROP_BITFLAGS(rec->prop) | SRC_SLOT_PROP(i);
                 }
             }
@@ -681,10 +679,10 @@ mapper_map mapper_graph_add_or_update_map(mapper_graph g, int num_src,
     }
 
     if (map) {
-        updated += mapper_map_set_from_msg(map, msg, 0);
+        updated += mpr_map_set_from_msg(map, msg, 0);
 #ifdef DEBUG
         if (!rc) {
-            trace_graph("updated %d properties for map [", updated);
+            trace_graph("updated %d props for map [", updated);
             for (i = 0; i < map->num_src; i++) {
                 printf("%s:%s, ", map->src[i]->sig->dev->name,
                        map->src[i]->sig->name);
@@ -694,320 +692,194 @@ mapper_map mapper_graph_add_or_update_map(mapper_graph g, int num_src,
         }
 #endif
 
-        if (map->status < STATUS_ACTIVE)
-            return map;
+        RETURN_UNLESS(map->status >= MPR_STATUS_ACTIVE, map);
         if (rc || updated) {
             fptr_list cb = g->callbacks, temp;
             while (cb) {
                 temp = cb->next;
-                if (cb->types & MAPPER_OBJ_MAP) {
-                    mapper_graph_handler *h = cb->f;
-                    h(g, (mapper_object)map,
-                      rc ? MAPPER_ADDED : MAPPER_MODIFIED, cb->context);
-                }
+                if (cb->types & MPR_MAP)
+                    ((mpr_graph_handler*)cb->f)(g, (mpr_obj)map,
+                                                rc ? MPR_OBJ_NEW : MPR_OBJ_MOD,
+                                                cb->ctx);
                 cb = temp;
             }
         }
     }
-
     return map;
 }
 
-static int cmp_query_maps_by_scope(const void *context_data, mapper_map map)
+static int cmp_qry_maps_by_scope(const void *ctx, mpr_map m)
 {
-    mapper_id id = *(mapper_id*)context_data;
-    for (int i = 0; i < map->num_scopes; i++) {
-        if (map->scopes[i]) {
-            if (map->scopes[i]->obj.id == id)
-                return 1;
-        }
+    mpr_id id = *(mpr_id*)ctx;
+    for (int i = 0; i < m->num_scopes; i++) {
+        if (m->scopes[i] && m->scopes[i]->obj.id == id)
+            return 1;
         else if (0 == id)
             return 1;
     }
     return 0;
 }
 
-mapper_object *mapper_graph_get_maps_by_scope(mapper_graph g, mapper_device dev)
+mpr_list mpr_graph_get_maps_by_scope(mpr_graph g, mpr_dev d)
 {
-    return ((mapper_object *)
-            mapper_list_new_query(g->maps, cmp_query_maps_by_scope,
-                                  "h", dev ? dev->obj.id : 0));
+    mpr_list q = mpr_list_new_query(g->maps, cmp_qry_maps_by_scope, "h",
+                                    d ? d->obj.id : 0);
+    return mpr_list_start(q);
 }
 
-void mapper_graph_remove_maps_by_query(mapper_graph g, mapper_object *maps,
-                                       mapper_record_event event)
+void mpr_graph_remove_map(mpr_graph g, mpr_map m, mpr_graph_evt e)
 {
-    while (maps) {
-        mapper_map map = (mapper_map)*maps;
-        maps = mapper_object_list_next(maps);
-        mapper_graph_remove_map(g, map, event);
-    }
-}
-
-void mapper_graph_remove_map(mapper_graph g, mapper_map map,
-                             mapper_record_event event)
-{
-    if (!map)
-        return;
-
-    mapper_list_remove_item((void**)&g->maps, map);
+    RETURN_UNLESS(m);
+    mpr_list_remove_item((void**)&g->maps, m);
 
     fptr_list cb = g->callbacks, temp;
     while (cb) {
         temp = cb->next;
-        if (cb->types & MAPPER_OBJ_MAP) {
-            mapper_graph_handler *h = cb->f;
-            h(g, (mapper_object)map, event, cb->context);
-        }
+        if (cb->types & MPR_MAP)
+            ((mpr_graph_handler*)cb->f)(g, (mpr_obj)m, e, cb->ctx);
         cb = temp;
     }
 
-    mapper_map_free(map);
-    mapper_list_free_item(map);
+    mpr_map_free(m);
+    mpr_list_free_item(m);
 }
 
-void mapper_graph_remove_all_callbacks(mapper_graph g)
-{
-    fptr_list cb;
-    while ((cb = g->callbacks)) {
-        g->callbacks = g->callbacks->next;
-        free(cb);
-    }
-}
-
-void mapper_graph_print(mapper_graph g)
+void mpr_graph_print(mpr_graph g)
 {
     printf("-------------------------------\n");
+    mpr_list devs = mpr_list_from_data(g->devs);
+    mpr_list sigs = mpr_list_from_data(g->sigs);
     printf("Registered devices (%d) and signals (%d):\n",
-           mapper_graph_get_num_objects(g, MAPPER_OBJ_DEVICE),
-           mapper_graph_get_num_objects(g, MAPPER_OBJ_SIGNAL));
-    mapper_object *devs = mapper_list_from_data(g->devs);
-    mapper_object *sigs;
-    mapper_signal sig;
+           mpr_list_get_count(devs), mpr_list_get_count(sigs));
     while (devs) {
         printf(" └─ ");
-        mapper_object_print(*devs, 0);
-        sigs = mapper_device_get_signals((mapper_device)*devs, MAPPER_DIR_ANY);
+        mpr_obj_print(*devs, 0);
+        sigs = mpr_dev_get_sigs((mpr_dev)*devs, MPR_DIR_ANY);
         while (sigs) {
-            sig = (mapper_signal)*sigs;
-            sigs = mapper_object_list_next(sigs);
+            mpr_sig sig = (mpr_sig)*sigs;
+            sigs = mpr_list_next(sigs);
             printf("    %s ", sigs ? "├─" : "└─");
-            mapper_object_print((mapper_object)sig, 0);
+            mpr_obj_print((mpr_obj)sig, 0);
         }
-        devs = mapper_object_list_next(devs);
+        devs = mpr_list_next(devs);
     }
 
     printf("-------------------------------\n");
-    printf("Registered maps (%d):\n",
-           mapper_graph_get_num_objects(g, MAPPER_OBJ_MAP));
-    mapper_object *maps = mapper_list_from_data(g->maps);
+    mpr_list maps = mpr_list_from_data(g->maps);
+    printf("Registered maps (%d):\n", mpr_list_get_count(maps));
     while (maps) {
         printf(" └─ ");
-        mapper_object_print(*maps, 0);
+        mpr_obj_print(*maps, 0);
         int i;
-        mapper_map map = (mapper_map)*maps;
-        mapper_signal sig;
-        for (i = 0; i < mapper_map_get_num_signals(map, MAPPER_LOC_SRC); i++) {
-            sig = mapper_map_get_signal(map, MAPPER_LOC_SRC, i);
+        mpr_map map = (mpr_map)*maps;
+        for (i = 0; i < map->num_src; i++) {
+            mpr_sig sig = mpr_map_get_sig(map, MPR_LOC_SRC, i);
             printf("    ├─ SRC ");
-            mapper_object_print((mapper_object)sig, 0);
+            mpr_obj_print((mpr_obj)sig, 0);
         }
-        for (i = 0; i < mapper_map_get_num_signals(map, MAPPER_LOC_DST); i++) {
-            sig = mapper_map_get_signal(map, MAPPER_LOC_DST, i);
+        for (i = 0; i < 1; i++) {
+            mpr_sig sig = mpr_map_get_sig(map, MPR_LOC_DST, i);
             printf("    └─ DST ");
-            mapper_object_print((mapper_object)sig, 0);
+            mpr_obj_print((mpr_obj)sig, 0);
         }
-        maps = mapper_object_list_next(maps);
+        maps = mpr_list_next(maps);
     }
 
     printf("-------------------------------\n");
 }
 
-static void set_network_dst(mapper_graph g, mapper_device dev)
-{
-    // TODO: look up device info, maybe send directly
-    mapper_network_bus(&g->net);
-}
-
-static void send_subscribe_msg(mapper_graph g, mapper_device dev, int flags,
-                               int timeout)
-{
-    char cmd[1024];
-    snprintf(cmd, 1024, "/%s/subscribe", dev->name);
-
-    set_network_dst(g, dev);
-    lo_message msg = lo_message_new();
-    if (msg) {
-        if (MAPPER_OBJ_ALL == flags)
-            lo_message_add_string(msg, "all");
-        else {
-            if (flags & MAPPER_OBJ_DEVICE)
-                lo_message_add_string(msg, "device");
-            if (MAPPER_OBJ_SIGNAL == (flags & MAPPER_OBJ_SIGNAL))
-                lo_message_add_string(msg, "signals");
-            else {
-                if (flags & MAPPER_OBJ_INPUT_SIGNAL)
-                    lo_message_add_string(msg, "inputs");
-                else if (flags & MAPPER_OBJ_OUTPUT_SIGNAL)
-                    lo_message_add_string(msg, "outputs");
-            }
-            if (MAPPER_OBJ_MAP == (flags & MAPPER_OBJ_MAP))
-                lo_message_add_string(msg, "maps");
-            else {
-                if (flags & MAPPER_OBJ_MAP_IN)
-                    lo_message_add_string(msg, "incoming_maps");
-                else if (flags & MAPPER_OBJ_MAP_OUT)
-                    lo_message_add_string(msg, "outgoing_maps");
-            }
-        }
-        lo_message_add_string(msg, "@lease");
-        lo_message_add_int32(msg, timeout);
-
-        lo_message_add_string(msg, "@version");
-        lo_message_add_int32(msg, dev->obj.version);
-
-        mapper_network_add_msg(&g->net, cmd, 0, msg);
-        mapper_network_send(&g->net);
-    }
-}
-
-static void renew_subscriptions(mapper_graph g, uint32_t time_sec)
+static void renew_subscriptions(mpr_graph g, uint32_t time_sec)
 {
     // check if any subscriptions need to be renewed
-    mapper_subscription s = g->subscriptions;
+    mpr_subscription s = g->subscriptions;
     while (s) {
         if (s->lease_expiration_sec <= time_sec) {
-            trace_graph("automatically renewing subscription to %s for %d "
-                        "seconds.\n", mapper_device_get_name(s->dev),
-                        AUTOSUBSCRIBE_INTERVAL);
-            send_subscribe_msg(g, s->dev, s->flags, AUTOSUBSCRIBE_INTERVAL);
+            trace_graph("Automatically renewing subscription to %s for %d "
+                        "secs.\n", mpr_dev_get_name(s->dev), AUTOSUB_INTERVAL);
+            send_subscribe_msg(g, s->dev, s->flags, AUTOSUB_INTERVAL);
             // leave 10-second buffer for subscription renewal
-            s->lease_expiration_sec = (time_sec + AUTOSUBSCRIBE_INTERVAL - 10);
+            s->lease_expiration_sec = (time_sec + AUTOSUB_INTERVAL - 10);
         }
         s = s->next;
     }
 }
 
-int mapper_graph_poll(mapper_graph g, int block_ms)
+int mpr_graph_poll(mpr_graph g, int block_ms)
 {
-    mapper_network net = &g->net;
+    mpr_net n = &g->net;
     int count = 0, status[2];
-    mapper_time_t t;
+    mpr_time_t t;
 
-    mapper_network_poll(net);
-    mapper_time_now(&t);
+    mpr_net_poll(n);
+    mpr_time_now(&t);
     renew_subscriptions(g, t.sec);
-    mapper_graph_check_device_status(g, t.sec);
+    mpr_graph_check_dev_status(g, t.sec);
 
     if (!block_ms) {
-        if (lo_servers_recv_noblock(net->server.admin, status, 2, 0)) {
+        if (lo_servers_recv_noblock(n->server.admin, status, 2, 0)) {
             count = (status[0] > 0) + (status[1] > 0);
-            net->msgs_recvd |= count;
+            n->msgs_recvd |= count;
         }
         return count;
     }
 
-    double then = mapper_get_current_time();
+    double then = mpr_get_current_time();
     int left_ms = block_ms, elapsed, checked_admin = 0;
     while (left_ms > 0) {
         if (left_ms > 100)
             left_ms = 100;
 
-        if (lo_servers_recv_noblock(net->server.admin, status, 2, left_ms))
+        if (lo_servers_recv_noblock(n->server.admin, status, 2, left_ms))
             count += (status[0] > 0) + (status[1] > 0);
 
-        elapsed = (mapper_get_current_time() - then) * 1000;
+        elapsed = (mpr_get_current_time() - then) * 1000;
         if ((elapsed - checked_admin) > 100) {
-            mapper_time_now(&t);
+            mpr_time_now(&t);
             renew_subscriptions(g, t.sec);
-            mapper_network_poll(net);
-            mapper_graph_check_device_status(g, t.sec);
+            mpr_net_poll(n);
+            mpr_graph_check_dev_status(g, t.sec);
             checked_admin = elapsed;
         }
 
         left_ms = block_ms - elapsed;
     }
 
-    net->msgs_recvd |= count;
+    n->msgs_recvd |= count;
     return count;
 }
 
-static void on_device_autosubscribe(mapper_graph g, mapper_object obj,
-                                    mapper_record_event event, const void *user)
+static mpr_subscription subscription(mpr_graph g, mpr_dev d)
 {
-    // New subscriptions are handled in network.c as response to "sync" msg
-    if (MAPPER_REMOVED == event) {
-        mapper_graph_subscribe(g, (mapper_device)obj, 0, 0);
-    }
-}
-
-static void mapper_graph_autosubscribe(mapper_graph g, int flags)
-{
-    if (!g->autosubscribe && flags) {
-        mapper_graph_add_callback(g, on_device_autosubscribe, MAPPER_OBJ_DEVICE, g);
-        // update flags for existing subscriptions
-        mapper_time_t t;
-        mapper_time_now(&t);
-        mapper_subscription s = g->subscriptions;
-        while (s) {
-            trace_graph("adjusting flags for existing autorenewing subscription "
-                        "to %s.\n", mapper_device_get_name(s->dev));
-            if (flags & ~s->flags) {
-                send_subscribe_msg(g, s->dev, flags, AUTOSUBSCRIBE_INTERVAL);
-                // leave 10-second buffer for subscription renewal
-                s->lease_expiration_sec = (t.sec + AUTOSUBSCRIBE_INTERVAL - 10);
-            }
-            s->flags = flags;
-            s = s->next;
-        }
-        mapper_graph_request_devices(g);
-    }
-    else if (g->autosubscribe && !flags) {
-        mapper_graph_remove_callback(g, on_device_autosubscribe, g);
-        while (g->subscriptions) {
-            mapper_graph_subscribe(g, g->subscriptions->dev, 0, 0);
-        }
-    }
-#ifdef DEBUG
-    trace_graph("setting autosubscribe flags to ");
-    print_subscription_flags(flags);
-#endif
-    g->autosubscribe = flags;
-}
-
-static mapper_subscription subscription(mapper_graph g, mapper_device dev)
-{
-    mapper_subscription s = g->subscriptions;
+    mpr_subscription s = g->subscriptions;
     while (s) {
-        if (s->dev == dev)
+        if (s->dev == d)
             return s;
         s = s->next;
     }
     return 0;
 }
 
-void mapper_graph_subscribe(mapper_graph g, mapper_device dev, int flags,
-                            int timeout)
+void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
 {
-    if (!dev) {
-        mapper_graph_autosubscribe(g, flags);
+    if (!d) {
+        mpr_graph_autosub(g, flags);
         return;
     }
-    else if (dev->local) {
+    else if (d->loc) {
         // don't bother subscribing to local device
         trace_graph("aborting subscription, device is local.\n");
         return;
     }
     if (0 == flags || 0 == timeout) {
-        mapper_subscription *s = &g->subscriptions;
+        mpr_subscription *s = &g->subscriptions;
         while (*s) {
-            if ((*s)->dev == dev) {
+            if ((*s)->dev == d) {
                 // remove from subscriber list
                 (*s)->dev->subscribed = 0;
-                mapper_subscription temp = *s;
+                mpr_subscription temp = *s;
                 *s = temp->next;
                 free(temp);
-                send_subscribe_msg(g, dev, 0, 0);
+                send_subscribe_msg(g, d, 0, 0);
                 return;
             }
             s = &(*s)->next;
@@ -1016,111 +888,98 @@ void mapper_graph_subscribe(mapper_graph g, mapper_device dev, int flags,
     else if (-1 == timeout) {
 #ifdef DEBUG
         trace_graph("adding %d-second autorenewing subscription to device '%s' "
-                    "with flags ", AUTOSUBSCRIBE_INTERVAL,
-                    mapper_device_get_name(dev));
+                    "with flags ", AUTOSUB_INTERVAL, mpr_dev_get_name(d));
         print_subscription_flags(flags);
 #endif
         // special case: autorenew subscription lease
         // first check if subscription already exists
-        mapper_subscription s = subscription(g, dev);
+        mpr_subscription s = subscription(g, d);
 
         if (!s) {
             // store subscription record
-            s = malloc(sizeof(struct _mapper_subscription));
-            s->dev = dev;
+            s = malloc(sizeof(struct _mpr_subscription));
+            s->dev = d;
             s->dev->obj.version = -1;
             s->next = g->subscriptions;
             g->subscriptions = s;
         }
-        dev->subscribed = 1;
+        d->subscribed = 1;
         if (s->flags == flags)
             return;
 
         s->dev->obj.version = -1;
         s->flags = flags;
 
-        mapper_time_t t;
-        mapper_time_now(&t);
+        mpr_time_t t;
+        mpr_time_now(&t);
         // leave 10-second buffer for subscription lease
-        s->lease_expiration_sec = (t.sec + AUTOSUBSCRIBE_INTERVAL - 10);
+        s->lease_expiration_sec = (t.sec + AUTOSUB_INTERVAL - 10);
 
-        timeout = AUTOSUBSCRIBE_INTERVAL;
+        timeout = AUTOSUB_INTERVAL;
     }
 #ifdef DEBUG
     else {
         trace_graph("adding temporary %d-second subscription to device '%s' "
-                    "with flags ", timeout, mapper_device_get_name(dev));
+                    "with flags ", timeout, mpr_dev_get_name(d));
         print_subscription_flags(flags);
     }
 #endif
 
-    send_subscribe_msg(g, dev, flags, timeout);
+    send_subscribe_msg(g, d, flags, timeout);
 }
 
-void mapper_graph_unsubscribe(mapper_graph g, mapper_device dev)
+void mpr_graph_unsubscribe(mpr_graph g, mpr_dev d)
 {
-    if (!dev)
-        mapper_graph_autosubscribe(g, MAPPER_OBJ_NONE);
-    mapper_graph_subscribe(g, dev, 0, 0);
+    if (!d)
+        mpr_graph_autosub(g, 0);
+    mpr_graph_subscribe(g, d, 0, 0);
 }
 
-int mapper_graph_subscribed_by_dev_name(mapper_graph g, const char *name)
+int mpr_graph_subscribed_by_dev(mpr_graph g, const char *name)
 {
-    mapper_device dev = mapper_graph_get_device_by_name(g, name);
+    mpr_dev dev = mpr_graph_get_dev_by_name(g, name);
     if (dev) {
-        mapper_subscription s = subscription(g, dev);
+        mpr_subscription s = subscription(g, dev);
         return s ? s->flags : 0;
     }
     return 0;
 }
 
-int mapper_graph_subscribed_by_sig_name(mapper_graph g, const char *name)
+int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
 {
     // name needs to be split
     char *devnamep, *signame, devname[256];
-    int devnamelen = mapper_parse_names(name, &devnamep, &signame);
+    int devnamelen = mpr_parse_names(name, &devnamep, &signame);
     if (!devnamelen || devnamelen >= 256) {
         trace_graph("error extracting device name\n");
         return 0;
     }
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen] = 0;
-    mapper_device dev = mapper_graph_get_device_by_name(g, devname);
+    mpr_dev dev = mpr_graph_get_dev_by_name(g, devname);
     if (dev) {
-        mapper_subscription s = subscription(g, dev);
+        mpr_subscription s = subscription(g, dev);
         return s ? s->flags : 0;
     }
     return 0;
 }
 
-void mapper_graph_request_devices(mapper_graph g)
+void mpr_graph_set_interface(mpr_graph g, const char *iface)
 {
-    lo_message msg = lo_message_new();
-    if (!msg) {
-        trace_graph("couldn't allocate lo_message\n");
-        return;
-    }
-    trace_graph("pinging all devices.\n");
-    mapper_network_bus(&g->net);
-    mapper_network_add_msg(&g->net, 0, MSG_WHO, msg);
+    mpr_net_init(&g->net, iface, 0, 0);
 }
 
-void mapper_graph_set_interface(mapper_graph g, const char *iface)
-{
-    mapper_network_init(&g->net, iface, 0, 0);
-}
-
-const char *mapper_graph_get_interface(mapper_graph g)
+const char *mpr_graph_get_interface(mpr_graph g)
 {
     return g->net.iface.name;
 }
 
-void mapper_graph_set_multicast_addr(mapper_graph g, const char *group, int port)
+void mpr_graph_set_address(mpr_graph g, const char *group, int port)
 {
-    mapper_network_init(&g->net, g->net.iface.name, group, port);
+    mpr_net_init(&g->net, g->net.iface.name, group, port);
 }
 
-const char *mapper_graph_get_multicast_addr(mapper_graph g)
+const char *mpr_graph_get_address(mpr_graph g)
 {
     return lo_address_get_url(g->net.addr.bus);
 }

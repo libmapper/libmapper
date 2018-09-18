@@ -2,18 +2,18 @@
 
 import Tkinter
 import sys
-import mapper
+import mpr
 
 def on_gui_change(x):
     sig_out.update(int(x))
 
-def on_mapper_change(sig, id, x, timetag):
+def on_change(sig, id, x, timetag):
     w.set(int(x))
 
-dev = mapper.device("tkgui")
+dev = mpr.device("tkgui")
 
-sig_in = dev.add_input_signal("signal", 1, mapper.INT32, None, 0, 100, on_mapper_change)
-sig_out = dev.add_output_signal("signal", 1, mapper.INT32, None, 0, 100)
+sig_in = dev.add_input_signal("signal", 1, mpr.INT32, None, 0, 100, on_change)
+sig_out = dev.add_output_signal("signal", 1, mpr.INT32, None, 0, 100)
 
 master = Tkinter.Tk()
 master.title("libmapper Python GUI demo")

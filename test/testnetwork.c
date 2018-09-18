@@ -1,6 +1,6 @@
 
-#include "../src/mapper_internal.h"
-#include <mapper/mapper.h>
+#include "../src/mpr_internal.h"
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -11,8 +11,8 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
-mapper_graph graph = NULL;
-mapper_device dev = NULL;
+mpr_graph graph = NULL;
+mpr_dev dev = NULL;
 
 int verbose = 1;
 
@@ -20,18 +20,18 @@ int test_network()
 {
     int error = 0, wait;
 
-    graph = mapper_graph_new(0);
+    graph = mpr_graph_new(0);
     if (!graph) {
         eprintf("Error creating graph structure.\n");
         return 1;
     }
 
-    mapper_graph_set_interface(graph, "lo0");
-    mapper_graph_set_multicast_addr(graph, "224.0.1.4", 7777);
+    mpr_graph_set_interface(graph, "lo0");
+    mpr_graph_set_address(graph, "224.0.1.4", 7777);
 
     eprintf("Graph structure initialized.\n");
 
-    dev = mapper_device_new("testnetwork", graph);
+    dev = mpr_dev_new("testnetwork", graph);
     if (!dev) {
         eprintf("Error creating device structure.\n");
         return 1;
@@ -42,35 +42,34 @@ int test_network()
     eprintf("Found interface %s has IP %s\n", graph->net.iface.name,
            inet_ntoa(graph->net.iface.addr));
 
-    while (!dev->local->registered) {
-        mapper_device_poll(dev, 100);
+    while (!dev->loc->registered) {
+        mpr_dev_poll(dev, 100);
     }
 
     int len;
-    mapper_type type;
+    mpr_type type;
     const void *val;
-    mapper_object_get_prop_by_index((mapper_object)dev, MAPPER_PROP_PORT, NULL,
-                                    &len, &type, &val);
-    if (1 != len || MAPPER_INT32 != type) {
+    mpr_obj_get_prop_by_idx((mpr_obj)dev, MPR_PROP_PORT, NULL, &len, &type, &val, 0);
+    if (1 != len || MPR_INT32 != type) {
         eprintf("Error retrieving port.\n");
         return 1;
     }
     eprintf("Using port %d.\n", *(int*)val);
-    eprintf("Allocated ordinal %d.\n", dev->local->ordinal.val);
+    eprintf("Allocated ordinal %d.\n", dev->loc->ordinal.val);
 
     eprintf("Delaying for 5 seconds..\n");
     wait = 50;
     while (wait-- > 0) {
-        mapper_device_poll(dev, 100);
+        mpr_dev_poll(dev, 100);
         if (!verbose) {
             printf(".");
             fflush(stdout);
         }
     }
 
-    mapper_device_free(dev);
+    mpr_dev_free(dev);
     eprintf("Device structure freed.\n");
-    mapper_graph_free(graph);
+    mpr_graph_free(graph);
     eprintf("Graph structure freed.\n");
 
     return error;

@@ -1,6 +1,6 @@
 
-import mapper.*;
-import mapper.signal.*;
+import mpr.*;
+import mpr.signal.*;
 import java.util.Arrays;
 
 class testspeed {

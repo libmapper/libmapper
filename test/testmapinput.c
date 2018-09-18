@@ -1,4 +1,4 @@
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
@@ -12,8 +12,8 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
-mapper_device devices[2];
-mapper_signal inputs[4];
+mpr_dev devices[2];
+mpr_sig inputs[4];
 
 int sent = 0;
 int received = 0;
@@ -24,22 +24,22 @@ int terminate = 0;
 int autoconnect = 1;
 int period = 50;
 
-void insig_handler(mapper_signal sig, mapper_id instance, int length,
-                   mapper_type type, const void *value, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+             mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
         const char *name;
-        mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME,
-                                        NULL, NULL, NULL, (const void**)&name);
+        mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
+                                (const void**)&name, 0);
         eprintf("--> received %s", name);
 
-        if (type == MAPPER_FLOAT) {
+        if (type == MPR_FLT) {
             float *v = (float*)value;
             for (int i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
             }
         }
-        else if (type == MAPPER_DOUBLE) {
+        else if (type == MPR_DBL) {
             double *v = (double*)value;
             for (int i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
@@ -50,10 +50,10 @@ void insig_handler(mapper_signal sig, mapper_id instance, int length,
     received++;
 }
 
-int setup_devices()
+int setup_devs()
 {
-    devices[0] = mapper_device_new("testmapinput1", 0);
-    devices[1] = mapper_device_new("testmapinput2", 0);
+    devices[0] = mpr_dev_new("testmapinput1", 0);
+    devices[1] = mpr_dev_new("testmapinput2", 0);
     if (!devices[0] || !devices[1])
         goto error;
     eprintf("devices created.\n");
@@ -62,23 +62,19 @@ int setup_devices()
     float mnf2[]={3.2,2,0}, mxf2[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    inputs[0] = mapper_device_add_signal(devices[0], MAPPER_DIR_IN, 1,
-                                         "insig_1", 1, MAPPER_FLOAT, NULL,
-                                         mnf1, mxf1, insig_handler);
-    inputs[1] = mapper_device_add_signal(devices[0], MAPPER_DIR_IN, 1,
-                                         "insig_2", 1, MAPPER_DOUBLE, NULL,
-                                         &mnd, &mxd, insig_handler);
-    inputs[2] = mapper_device_add_signal(devices[1], MAPPER_DIR_IN, 1,
-                                         "insig_3", 3, MAPPER_FLOAT, NULL,
-                                         mnf1, mxf1, insig_handler);
-    inputs[3] = mapper_device_add_signal(devices[1], MAPPER_DIR_IN, 1,
-                                         "insig_4", 1, MAPPER_FLOAT, NULL,
-                                         mnf2, mxf2, insig_handler);
+    inputs[0] = mpr_sig_new(devices[0], MPR_DIR_IN, 1, "insig_1", 1, MPR_FLT,
+                            NULL, mnf1, mxf1, handler, MPR_SIG_UPDATE);
+    inputs[1] = mpr_sig_new(devices[0], MPR_DIR_IN, 1, "insig_2", 1, MPR_DBL,
+                            NULL, &mnd, &mxd, handler, MPR_SIG_UPDATE);
+    inputs[2] = mpr_sig_new(devices[1], MPR_DIR_IN, 1, "insig_3", 3, MPR_FLT,
+                            NULL, mnf1, mxf1, handler, MPR_SIG_UPDATE);
+    inputs[3] = mpr_sig_new(devices[1], MPR_DIR_IN, 1, "insig_4", 1, MPR_FLT,
+                            NULL, mnf2, mxf2, handler, MPR_SIG_UPDATE);
 
     /* In this test inputs[2] will never get its full vector value from
      * external updates – for the handler to be called we will need to
      * initialize its value. */
-    mapper_signal_set_value(inputs[2], 0, 3, MAPPER_FLOAT, mnf2, MAPPER_NOW);
+    mpr_sig_set_value(inputs[2], 0, 3, MPR_FLT, mnf2, MPR_NOW);
 
     return 0;
 
@@ -86,24 +82,23 @@ int setup_devices()
     return 1;
 }
 
-void cleanup_devices()
+void cleanup_devs()
 {
     for (int i = 0; i < 2; i++) {
         if (devices[i]) {
             eprintf("Freeing device.. ");
             fflush(stdout);
-            mapper_device_free(devices[i]);
+            mpr_dev_free(devices[i]);
             eprintf("ok\n");
         }
     }
 }
 
-void wait_local_devices()
+void wait_local_devs()
 {
-    while (!done && !(mapper_device_ready(devices[0])
-                      && mapper_device_ready(devices[1]))) {
-        mapper_device_poll(devices[0], 25);
-        mapper_device_poll(devices[1], 25);
+    while (!done && !(mpr_dev_ready(devices[0]) && mpr_dev_ready(devices[1]))) {
+        mpr_dev_poll(devices[0], 25);
+        mpr_dev_poll(devices[1], 25);
     }
 }
 
@@ -113,21 +108,21 @@ void loop()
     int i = 0, recvd;
 
     if (autoconnect) {
-        mapper_map maps[2];
+        mpr_map maps[2];
         // map input to another input on same device
-        maps[0] = mapper_map_new(1, &inputs[0], 1, &inputs[1]);
-        mapper_object_push((mapper_object)maps[0]);
+        maps[0] = mpr_map_new(1, &inputs[0], 1, &inputs[1]);
+        mpr_obj_push((mpr_obj)maps[0]);
 
         // map input to an input on another device
-        maps[1] = mapper_map_new(1, &inputs[1], 1, &inputs[2]);
-        mapper_object_push((mapper_object)maps[1]);
+        maps[1] = mpr_map_new(1, &inputs[1], 1, &inputs[2]);
+        mpr_obj_push((mpr_obj)maps[1]);
 
         // wait until mapping has been established
         int ready = 0;
         while (!done && !ready) {
-            mapper_device_poll(devices[0], 100);
-            mapper_device_poll(devices[1], 100);
-            ready = mapper_map_ready(maps[0]) & mapper_map_ready(maps[1]);
+            mpr_dev_poll(devices[0], 100);
+            mpr_dev_poll(devices[1], 100);
+            ready = mpr_map_ready(maps[0]) & mpr_map_ready(maps[1]);
         }
     }
 
@@ -135,12 +130,12 @@ void loop()
     float val;
     while ((!terminate || i < 50) && !done) {
         val = (i % 10) * 1.0f;
-        mapper_signal_set_value(inputs[0], 0, 1, MAPPER_FLOAT, &val, MAPPER_NOW);
+        mpr_sig_set_value(inputs[0], 0, 1, MPR_FLT, &val, MPR_NOW);
         eprintf("insig_1 value updated to %f -->\n", val);
         sent += 1;
 
-        recvd = mapper_device_poll(devices[0], period);
-        recvd += mapper_device_poll(devices[1], period);
+        recvd = mpr_dev_poll(devices[0], period);
+        recvd += mpr_dev_poll(devices[1], period);
         eprintf("Received %i messages.\n\n", recvd);
         i++;
 
@@ -192,13 +187,13 @@ int main(int argc, char ** argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_devices()) {
+    if (setup_devs()) {
         eprintf("Error initializing devices.\n");
         result = 1;
         goto done;
     }
 
-    wait_local_devices();
+    wait_local_devs();
 
     loop();
 
@@ -208,7 +203,7 @@ int main(int argc, char ** argv)
     }
 
   done:
-    cleanup_devices();
+    cleanup_devs();
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

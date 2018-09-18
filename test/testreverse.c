@@ -1,4 +1,4 @@
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
@@ -17,29 +17,29 @@ int autoconnect = 1;
 int done = 0;
 int period = 100;
 
-mapper_device source = 0;
-mapper_device destination = 0;
-mapper_signal sendsig;
-mapper_signal recvsig;
+mpr_dev src = 0;
+mpr_dev dst = 0;
+mpr_sig sendsig;
+mpr_sig recvsig;
 
 int sent = 0;
 int received = 0;
 
-void insig_handler(mapper_signal sig, mapper_id inst, int length,
-                   mapper_type type, const void *val, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
+             mpr_type type, const void *val, mpr_time t)
 {
     const char *name;
-    mapper_object_get_prop_by_index(sig, MAPPER_PROP_NAME, NULL, NULL, NULL,
-                                    (const void**)&name);
+    mpr_obj_get_prop_by_idx(sig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, 0);
     int i;
     eprintf("--> %s got ", name);
     if (val) {
-        if (type == MAPPER_FLOAT) {
+        if (type == MPR_FLT) {
             for (i = 0; i < length; i++)
                 eprintf("%f ", ((float*)val)[i]);
             eprintf("\n");
         }
-        else if (type == MAPPER_INT32) {
+        else if (type == MPR_INT32) {
             for (i = 0; i < length; i++)
                 eprintf("%i ", ((int*)val)[i]);
             eprintf("\n");
@@ -54,22 +54,22 @@ void insig_handler(mapper_signal sig, mapper_id inst, int length,
 }
 
 /*! Creation of a local source. */
-int setup_source()
+int setup_src()
 {
-    source = mapper_device_new("testreverse-send", 0);
-    if (!source)
+    src = mpr_dev_new("testreverse-send", 0);
+    if (!src)
         goto error;
     eprintf("source created.\n");
 
     float mn[]={0.f,0.f}, mx[]={10.f,10.f};
 
-    sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUT, 1, "outsig",
-                                       2, MAPPER_FLOAT, NULL, mn, mx, NULL);
-    mapper_signal_set_callback(sendsig, insig_handler);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 2, MPR_FLT, NULL,
+                          mn, mx, NULL, 0);
+    mpr_sig_set_cb(sendsig, handler, MPR_SIG_UPDATE);
 
     eprintf("Output signals registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_get_num_signals(source, MAPPER_DIR_OUT));
+            mpr_list_get_count(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
 
     return 0;
 
@@ -77,33 +77,32 @@ int setup_source()
     return 1;
 }
 
-void cleanup_source()
+void cleanup_src()
 {
-    if (source) {
+    if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(source);
+        mpr_dev_free(src);
         eprintf("ok\n");
     }
 }
 
 /*! Creation of a local destination. */
-int setup_destination()
+int setup_dst()
 {
-    destination = mapper_device_new("testreverse-recv", 0);
-    if (!destination)
+    dst = mpr_dev_new("testreverse-recv", 0);
+    if (!dst)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 1,
-                                       "insig", 1, MAPPER_FLOAT, NULL, &mn, &mx,
-                                       insig_handler);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
+                          &mn, &mx, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal insig registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_get_num_signals(destination, MAPPER_DIR_IN));
+            mpr_list_get_count(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
 
     return 0;
 
@@ -111,22 +110,21 @@ int setup_destination()
     return 1;
 }
 
-void cleanup_destination()
+void cleanup_dst()
 {
-    if (destination) {
+    if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(destination);
+        mpr_dev_free(dst);
         eprintf("ok\n");
     }
 }
 
-void wait_local_devices()
+void wait_local_devs()
 {
-    while (!done && !(mapper_device_ready(source)
-                      && mapper_device_ready(destination))) {
-        mapper_device_poll(source, 25);
-        mapper_device_poll(destination, 25);
+    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+        mpr_dev_poll(src, 25);
+        mpr_dev_poll(dst, 25);
     }
 }
 
@@ -134,14 +132,14 @@ int setup_maps()
 {
     int i = 0;
 
-    mapper_map map = mapper_map_new(1, &recvsig, 1, &sendsig);
-    mapper_object_push(map);
+    mpr_map map = mpr_map_new(1, &recvsig, 1, &sendsig);
+    mpr_obj_push(map);
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mapper_map_ready(map)) {
-        mapper_device_poll(source, 10);
-        mapper_device_poll(destination, 10);
+    while (!done && !mpr_map_ready(map)) {
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
         if (i++ > 100)
             return 1;
     }
@@ -154,15 +152,15 @@ void loop()
     eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
     float val[] = {0, 0};
-    mapper_signal_set_value(sendsig, 0, 2, MAPPER_FLOAT, val, MAPPER_NOW);
+    mpr_sig_set_value(sendsig, 0, 2, MPR_FLT, val, MPR_NOW);
 
     while ((!terminate || i < 50) && !done) {
         val[0] = i % 10;
-        mapper_signal_set_value(recvsig, 0, 1, MAPPER_FLOAT, val, MAPPER_NOW);
+        mpr_sig_set_value(recvsig, 0, 1, MPR_FLT, val, MPR_NOW);
         sent++;
         eprintf("\ndestination value updated to %f -->\n", (i % 10) * 1.0f);
-        mapper_device_poll(destination, 0);
-        mapper_device_poll(source, period);
+        mpr_dev_poll(dst, 0);
+        mpr_dev_poll(src, period);
         i++;
 
         if (!verbose) {
@@ -213,19 +211,19 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_destination()) {
+    if (setup_dst()) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source()) {
+    if (setup_src()) {
         eprintf("Error initializing source.\n");
         result = 1;
         goto done;
     }
 
-    wait_local_devices();
+    wait_local_devs();
 
     if (autoconnect && setup_maps()) {
         eprintf("Error connecting signals.\n");
@@ -243,8 +241,8 @@ int main(int argc, char **argv)
     }
 
   done:
-    cleanup_destination();
-    cleanup_source();
+    cleanup_dst();
+    cleanup_src();
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

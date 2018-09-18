@@ -1,5 +1,5 @@
-#include "../src/mapper_internal.h"
-#include <mapper/mapper.h>
+#include "../src/mpr_internal.h"
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -30,10 +30,10 @@ int iterations = 50; // only matters when terminate==1
 int verbose = 1;
 int period = 100;
 
-mapper_device source = 0;
-mapper_device destination = 0;
-mapper_signal sendsig = 0;
-mapper_signal recvsig = 0;
+mpr_dev src = 0;
+mpr_dev dst = 0;
+mpr_sig sendsig = 0;
+mpr_sig recvsig = 0;
 
 int sent = 0;
 int received = 0;
@@ -51,27 +51,26 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
-void on_map(mapper_graph g, mapper_object obj, mapper_record_event event,
-            const void *user)
+void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
 {
-    if (MAPPER_OBJ_MAP != mapper_object_get_type(obj)) {
+    if (MPR_MAP != mpr_obj_get_type(o)) {
         printf("Error in map handler!\n");
         return;
     }
 
     if (verbose) {
         printf("Map: ");
-        mapper_object_print(obj, 0);
+        mpr_obj_print(o, 0);
     }
-    mapper_map map = (mapper_map)obj;
+    mpr_map map = (mpr_map)o;
 
     // we are looking for a map with one source (sendsig) and one dest (recvsig)
-    if (mapper_map_get_num_signals(map, MAPPER_LOC_SRC) > 1)
+    if (mpr_map_get_num_sigs(map, MPR_LOC_SRC) > 1)
         return;
-    if (mapper_map_get_signal(map, MAPPER_LOC_SRC, 0) != sendsig)
+    if (mpr_map_get_sig(map, MPR_LOC_SRC, 0) != sendsig)
         return;
 
-    if (event == MAPPER_REMOVED) {
+    if (e == MPR_OBJ_REM) {
         if (send_socket != -1) {
             close(send_socket);
             send_socket = -1;
@@ -83,11 +82,11 @@ void on_map(mapper_graph g, mapper_object obj, mapper_record_event event,
     }
 
     const char *a_transport;
-    mapper_type type;
+    mpr_type type;
     int length;
-    if (!mapper_object_get_prop_by_name((mapper_object)map, "transport", &length,
-                                        &type, (const void **)&a_transport)
-        || type != MAPPER_STRING || length != 1) {
+    if (!mpr_obj_get_prop_by_key((mpr_obj)map, "transport", &length, &type,
+                                 (const void **)&a_transport, 0)
+        || type != MPR_STR || length != 1) {
         eprintf("Couldn't find `transport' property.\n");
         return;
     }
@@ -100,9 +99,9 @@ void on_map(mapper_graph g, mapper_object obj, mapper_record_event event,
 
     // Find the TCP port in the mapping properties
     const int *a_port;
-    if (!mapper_object_get_prop_by_name((mapper_object)map, "tcpPort", &length,
-                                        &type, (const void **)&a_port)
-        || type != MAPPER_INT32 || length != 1) {
+    if (!mpr_obj_get_prop_by_key((mpr_obj)map, "tcpPort", &length, &type,
+                                 (const void **)&a_port, 0)
+        || type != MPR_INT32 || length != 1) {
         eprintf("Couldn't make TCP connection, tcpPort property not found.\n");
         return;
     }
@@ -119,11 +118,11 @@ void on_map(mapper_graph g, mapper_object obj, mapper_record_event event,
         exit(1);
     }
 
-    mapper_signal dstsig = mapper_map_get_signal(map, MAPPER_LOC_DST, 0);
-    mapper_device dstdev = mapper_signal_get_device(dstsig);
+    mpr_sig dstsig = mpr_map_get_sig(map, MPR_LOC_DST, 0);
+    mpr_dev dstdev = mpr_sig_get_dev(dstsig);
     const char *host;
-    mapper_object_get_prop_by_index((mapper_object)dstdev, MAPPER_PROP_HOST,
-                                    NULL, NULL, NULL, (const void**)&host);
+    mpr_obj_get_prop_by_idx((mpr_obj)dstdev, MPR_PROP_HOST, NULL, NULL, NULL,
+                            (const void**)&host, 0);
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
@@ -148,20 +147,19 @@ void on_map(mapper_graph g, mapper_object obj, mapper_record_event event,
 }
 
 /*! Creation of a local source. */
-int setup_source()
+int setup_src()
 {
-    source = mapper_device_new("testcustomtransport-send", 0);
-    if (!source)
+    src = mpr_dev_new("testcustomtransport-send", 0);
+    if (!src)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    mapper_graph_add_callback(mapper_object_get_graph((mapper_object)source),
-                              on_map, MAPPER_OBJ_MAP, NULL);
+    mpr_graph_add_cb(mpr_obj_get_graph((mpr_obj)src), on_map, MPR_MAP, NULL);
 
-    sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUT, 1, "outsig",
-                                       1, MAPPER_FLOAT, "Hz", &mn, &mx, NULL);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 1, MPR_FLT, "Hz",
+                          &mn, &mx, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -171,22 +169,22 @@ int setup_source()
     return 1;
 }
 
-void cleanup_source()
+void cleanup_src()
 {
-    if (source) {
+    if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(source);
+        mpr_dev_free(src);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, int length,
-                   mapper_type type, const void *value, mapper_time t)
+void insig_handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+                   mpr_type type, const void *value, mpr_time t)
 {
     const char *name;
-    mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
-                                    NULL, NULL, (const void**)&name);
+    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, 0);
     if (value) {
         eprintf("--> destination got %s", name);
         float *v = (float*)value;
@@ -199,18 +197,17 @@ void insig_handler(mapper_signal sig, mapper_id instance, int length,
 }
 
 /*! Creation of a local destination. */
-int setup_destination()
+int setup_dst()
 {
-    destination = mapper_device_new("testcustomtransport-recv", 0);
-    if (!destination)
+    dst = mpr_dev_new("testcustomtransport-recv", 0);
+    if (!dst)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 1,
-                                       "insig", 1, MAPPER_FLOAT, NULL,
-                                       &mn, &mx, insig_handler);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
+                          &mn, &mx, insig_handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
 
@@ -220,22 +217,21 @@ int setup_destination()
     return 1;
 }
 
-void cleanup_destination()
+void cleanup_dst()
 {
-    if (destination) {
+    if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(destination);
+        mpr_dev_free(dst);
         eprintf("ok\n");
     }
 }
 
-void wait_local_devices()
+void wait_local_devs()
 {
-    while (!done && !(mapper_device_ready(source)
-                      && mapper_device_ready(destination))) {
-        mapper_device_poll(source, 25);
-        mapper_device_poll(destination, 25);
+    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+        mpr_dev_poll(src, 25);
+        mpr_dev_poll(dst, 25);
     }
 }
 
@@ -245,18 +241,18 @@ void loop()
     int i = 0;
 
     if (autoconnect) {
-        mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
+        mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
         // Add custom meta-data specifying a special transport for this map.
         char *str = "tcp";
-        mapper_object_set_prop((mapper_object)map, MAPPER_PROP_EXTRA, "transport",
-                               1, MAPPER_STRING, str, 1);
+        mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "transport", 1, MPR_STR,
+                         str, 1);
 
         // Add custom meta-data specifying a port to use for this map's
         // custom transport.
-        mapper_object_set_prop((mapper_object)map, MAPPER_PROP_EXTRA, "tcpPort",
-                               1, MAPPER_INT32, &tcp_port, 1);
-        mapper_object_push((mapper_object)map);
+        mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "tcpPort", 1, MPR_INT32,
+                         &tcp_port, 1);
+        mpr_obj_push((mpr_obj)map);
     }
 
     // Set up a mini TCP server for our custom stream
@@ -279,10 +275,10 @@ void loop()
     listen(listen_socket, 1);
 
     while ((!terminate || received < iterations) && !done) {
-        mapper_device_poll(source, 0);
+        mpr_dev_poll(src, 0);
 
         // Instead of
-        // mapper_signal_update(sendsig, etc.);
+        // mpr_sig_update(sendsig, etc.);
 
         // We will instead send our data on the custom TCP socket if
         // it is valid
@@ -351,7 +347,7 @@ void loop()
             fflush(stdout);
         }
 
-        mapper_device_poll(destination, period);
+        mpr_dev_poll(dst, period);
         i++;
     }
     if (send_socket != -1)
@@ -399,19 +395,19 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_destination()) {
+    if (setup_dst()) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source()) {
+    if (setup_src()) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
     }
 
-    wait_local_devices();
+    wait_local_devs();
 
     loop();
 
@@ -421,8 +417,8 @@ int main(int argc, char **argv)
     }
 
   done:
-    cleanup_destination();
-    cleanup_source();
+    cleanup_dst();
+    cleanup_src();
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

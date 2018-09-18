@@ -6,32 +6,28 @@
 #include <limits.h>
 #include <zlib.h>
 
-#include "mapper_internal.h"
+#include "mpr_internal.h"
 #include "types_internal.h"
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 
-void mapper_link_init(mapper_link link)
+void mpr_link_init(mpr_link link)
 {
     if (!link->num_maps)
         link->num_maps = (int*)calloc(1, sizeof(int) * 2);
     link->obj.props.mask = 0;
     if (!link->obj.props.synced) {
-        mapper_table tab = link->obj.props.synced = mapper_table_new();
-
-        mapper_table_link(tab, MAPPER_PROP_DEVICE, 2, MAPPER_DEVICE,
-                          &link->devs, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
-
-        mapper_table_link(tab, MAPPER_PROP_ID, 1, MAPPER_INT64, &link->obj.id,
-                          NON_MODIFIABLE);
-
-        mapper_table_link(tab, MAPPER_PROP_NUM_MAPS, 2, MAPPER_INT32,
-                          &link->num_maps, NON_MODIFIABLE | INDIRECT);
+        mpr_tbl t = link->obj.props.synced = mpr_tbl_new();
+        mpr_tbl_link(t, MPR_PROP_DEV, 2, MPR_DEV, &link->devs,
+                     NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
+        mpr_tbl_link(t, MPR_PROP_ID, 1, MPR_INT64, &link->obj.id, NON_MODIFIABLE);
+        mpr_tbl_link(t, MPR_PROP_NUM_MAPS, 2, MPR_INT32, &link->num_maps,
+                     NON_MODIFIABLE | INDIRECT);
     }
     if (!link->obj.props.staged)
-        link->obj.props.staged = mapper_table_new();
+        link->obj.props.staged = mpr_tbl_new();
 
-    if (!link->obj.id && link->local_dev->local)
-        link->obj.id = mapper_device_generate_unique_id(link->local_dev);
+    if (!link->obj.id && link->local_dev->loc)
+        link->obj.id = mpr_dev_generate_unique_id(link->local_dev);
 
     if (link->local_dev == link->remote_dev) {
         /* Add data_addr for use by self-connections. In the future we may
@@ -39,13 +35,13 @@ void mapper_link_init(mapper_link link)
          * unfortunate loops/stack overflow. Sending data for self-connections
          * to localhost adds the messages to liblo's stack and imposes a delay
          * since the receiving handler will not be called until
-         * mapper_device_poll(). */
+         * mpr_dev_poll(). */
         int len;
-        mapper_type type;
+        mpr_type type;
         const void *val;
-        mapper_object_get_prop_by_index(&link->local_dev->obj, MAPPER_PROP_PORT,
-                                        NULL, &len, &type, &val);
-        if (1 != len || MAPPER_INT32 != type) {
+        mpr_obj_get_prop_by_idx(&link->local_dev->obj, MPR_PROP_PORT, NULL,
+                                &len, &type, &val, 0);
+        if (1 != len || MPR_INT32 != type) {
             trace_dev(link->local_dev, "Error retrieving port for link.");
             return;
         }
@@ -57,57 +53,49 @@ void mapper_link_init(mapper_link link)
 
     link->clock.new = 1;
     link->clock.sent.msg_id = 0;
-    link->clock.response.msg_id = -1;
-    mapper_time_t t;
-    mapper_time_now(&t);
-    link->clock.response.time.sec = t.sec + 10;
+    link->clock.rcvd.msg_id = -1;
+    mpr_time_t t;
+    mpr_time_now(&t);
+    link->clock.rcvd.time.sec = t.sec + 10;
 
     // request missing metadata
     char cmd[256];
     snprintf(cmd, 256, "/%s/subscribe", link->remote_dev->name);
-    lo_message m = lo_message_new();
-    if (m) {
-        lo_message_add_string(m, "device");
-        mapper_network net = &link->obj.graph->net;
-        mapper_network_bus(net);
-        mapper_network_add_msg(net, cmd, 0, m);
-        mapper_network_send(net);
-    }
+    NEW_LO_MSG(m, return);
+    lo_message_add_string(m, "device");
+    mpr_net n = &link->obj.graph->net;
+    mpr_net_bus(n);
+    mpr_net_add_msg(n, cmd, 0, m);
+    mpr_net_send(n);
 }
 
-void mapper_link_connect(mapper_link link, const char *host, int admin_port,
-                         int data_port)
+void mpr_link_connect(mpr_link link, const char *host, int admin_port,
+                      int data_port)
 {
     char str[16];
-    mapper_table_set_record(link->remote_dev->obj.props.synced,
-                            MAPPER_PROP_HOST, NULL, 1, MAPPER_STRING, host,
-                            REMOTE_MODIFY);
-    mapper_table_set_record(link->remote_dev->obj.props.synced,
-                            MAPPER_PROP_PORT, NULL, 1, MAPPER_INT32, &data_port,
-                            REMOTE_MODIFY);
+    mpr_tbl_set(link->remote_dev->obj.props.synced, MPR_PROP_HOST, NULL, 1,
+                MPR_STR, host, REMOTE_MODIFY);
+    mpr_tbl_set(link->remote_dev->obj.props.synced, MPR_PROP_PORT, NULL, 1,
+                MPR_INT32, &data_port, REMOTE_MODIFY);
     sprintf(str, "%d", data_port);
     link->addr.udp = lo_address_new(host, str);
     link->addr.tcp = lo_address_new_with_proto(LO_TCP, host, str);
     sprintf(str, "%d", admin_port);
     link->addr.admin = lo_address_new(host, str);
+    trace_dev(link->local_dev, "activated router to device '%s' at %s:%d\n",
+              link->remote_dev->name, host, data_port);
 }
 
-void mapper_link_free(mapper_link link)
+void mpr_link_free(mpr_link link)
 {
-    if (link->obj.props.synced)
-        mapper_table_free(link->obj.props.synced);
-    if (link->obj.props.staged)
-        mapper_table_free(link->obj.props.staged);
-    if (link->num_maps)
-        free(link->num_maps);
-    if (link->addr.admin)
-        lo_address_free(link->addr.admin);
-    if (link->addr.udp)
-        lo_address_free(link->addr.udp);
-    if (link->addr.tcp)
-        lo_address_free(link->addr.tcp);
+    FUNC_IF(mpr_tbl_free, link->obj.props.synced);
+    FUNC_IF(mpr_tbl_free, link->obj.props.staged);
+    FUNC_IF(free, link->num_maps);
+    FUNC_IF(lo_address_free, link->addr.admin);
+    FUNC_IF(lo_address_free, link->addr.udp);
+    FUNC_IF(lo_address_free, link->addr.tcp);
     while (link->queues) {
-        mapper_queue queue = link->queues;
+        mpr_queue queue = link->queues;
         lo_bundle_free_recursive(queue->bundle.udp);
         lo_bundle_free_recursive(queue->bundle.tcp);
         link->queues = queue->next;
@@ -115,58 +103,57 @@ void mapper_link_free(mapper_link link)
     }
 }
 
-void mapper_link_start_queue(mapper_link link, mapper_time_t t)
+void mpr_link_start_queue(mpr_link link, mpr_time_t t)
 {
     if (!link)
         return;
     // check if queue already exists
-    mapper_queue queue = link->queues;
+    mpr_queue queue = link->queues;
     while (queue) {
-        if (memcmp(&queue->time, &t, sizeof(mapper_time_t))==0)
+        if (memcmp(&queue->time, &t, sizeof(mpr_time_t))==0)
             return;
         queue = queue->next;
     }
     // need to create a new queue
-    queue = malloc(sizeof(struct _mapper_queue));
-    memcpy(&queue->time, &t, sizeof(mapper_time_t));
+    queue = malloc(sizeof(struct _mpr_queue));
+    memcpy(&queue->time, &t, sizeof(mpr_time_t));
     queue->bundle.udp = lo_bundle_new(t);
     queue->bundle.tcp = lo_bundle_new(t);
     queue->next = link->queues;
     link->queues = queue;
 }
 
-void mapper_link_send_queue(mapper_link link, mapper_time_t t)
+void mpr_link_send_queue(mpr_link link, mpr_time_t t)
 {
     if (!link)
         return;
-    mapper_queue *queue = &link->queues;
+    mpr_queue *queue = &link->queues;
     while (*queue) {
-        if (memcmp(&(*queue)->time, &t, sizeof(mapper_time_t))==0)
+        if (memcmp(&(*queue)->time, &t, sizeof(mpr_time_t))==0)
             break;
         queue = &(*queue)->next;
     }
     if (*queue) {
+        mpr_net n = &link->obj.graph->net;
 #ifdef HAVE_LIBLO_BUNDLE_COUNT
         if (lo_bundle_count((*queue)->bundle.udp))
 #endif
-            lo_send_bundle_from(link->addr.udp, link->obj.graph->net.server.udp,
-                                (*queue)->bundle.udp);
+            lo_send_bundle_from(link->addr.udp, n->server.udp, (*queue)->bundle.udp);
         lo_bundle_free_recursive((*queue)->bundle.udp);
 #ifdef HAVE_LIBLO_BUNDLE_COUNT
         if (lo_bundle_count((*queue)->bundle.tcp))
 #endif
-            lo_send_bundle_from(link->addr.tcp, link->obj.graph->net.server.tcp,
-                                (*queue)->bundle.tcp);
+            lo_send_bundle_from(link->addr.tcp, n->server.tcp, (*queue)->bundle.tcp);
         lo_bundle_free_recursive((*queue)->bundle.tcp);
-        mapper_queue temp = *queue;
+        mpr_queue temp = *queue;
         *queue = (*queue)->next;
         free(temp);
     }
 }
 
-static int cmp_query_link_maps(const void *context_data, mapper_map map)
+static int cmp_qry_link_maps(const void *context_data, mpr_map map)
 {
-    mapper_id link_id = *(mapper_id*)context_data;
+    mpr_id link_id = *(mpr_id*)context_data;
     int i;
     for (i = 0; i < map->num_src; i++) {
         if (map->src[i]->link && map->src[i]->link->obj.id == link_id)
@@ -177,23 +164,24 @@ static int cmp_query_link_maps(const void *context_data, mapper_map map)
     return 0;
 }
 
-mapper_object *mapper_link_get_maps(mapper_link link)
+mpr_list mpr_link_get_maps(mpr_link link)
 {
-    if (!link || !link->devs[0]->obj.graph->maps)
-        return 0;
-    return ((mapper_object *)
-            mapper_list_new_query(link->devs[0]->obj.graph->maps,
-                                  cmp_query_link_maps, "h", link->obj.id));
+    RETURN_UNLESS(link && link->devs[0]->obj.graph->maps, 0);
+    mpr_list q = mpr_list_new_query(link->devs[0]->obj.graph->maps,
+                                    cmp_qry_link_maps, "h", link->obj.id);
+    return mpr_list_start(q);
 }
 
-void mapper_link_send(mapper_link link, network_msg_t cmd)
+void mpr_link_send(mpr_link link, net_msg_t cmd)
 {
-    lo_message msg = lo_message_new();
-    if (!msg)
-        return;
-
+    NEW_LO_MSG(msg, return);
     lo_message_add_string(msg, link->devs[0]->name);
     lo_message_add_string(msg, "<->");
     lo_message_add_string(msg, link->devs[1]->name);
-    mapper_network_add_msg(&link->obj.graph->net, 0, cmd, msg);
+    mpr_net_add_msg(&link->obj.graph->net, 0, cmd, msg);
+}
+
+int mpr_link_is_local(mpr_link link)
+{
+    return link->local_dev->loc || link->remote_dev->loc;
 }

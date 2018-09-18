@@ -1,19 +1,19 @@
-# Getting started with libmapper and Java
+# Getting started with libmpr and Java
 
-Since _libmapper_ uses GNU autoconf, getting started with the library is the
+Since _libmpr_ uses GNU autoconf, getting started with the library is the
 same as any other library on Linux; use `./configure` and then `make` to compile
 it.  You'll need the `Java Developer Kit (JDK)`  available if you want to
 compile the Java bindings.
 
-Once you have libmapper installed, it can be imported into your program:
+Once you have _libmpr_ installed, it can be imported into your program:
 
 ~~~java
-import mapper.*;
+import mpr.*;
 ~~~
 
 ## Overview of the API
 
-The libmapper API is is divided into the following sections:
+The _libmpr_ API is is divided into the following sections:
 
 * Networks
 * Devices
@@ -34,12 +34,12 @@ design and will also not be covered here.
 
 ### Creating a device
 
-To create a _libmapper_ device, it is necessary to provide a device name to the
+To create a _libmpr_ device, it is necessary to provide a device name to the
 constructor.  There is a brief initialization period after a device is created
 during which a unique ordinal is chosen to append to the device name.  This
 allows multiple devices with the same name to exist on the network.
 
-If no other arguments are given, libmapper will randomly choose a port to use
+If no other arguments are given, _libmpr_ will randomly choose a port to use
 for exchanging signal data.  If desired, a second argument setting a specific
 "starting port" can be given, but the allocation algorithm will possibly choose
 another port number close to it if the port is in use.
@@ -113,7 +113,7 @@ sometimes useful to be able to determine this using `ready()`.  Only when
 
 Now that we know how to create a device and poll it, we only need to know how to
 add signals in order to give our program some input/output functionality.  While
-libmapper enables arbitrary connections between _any_ declared signals, we still
+libmpr enables arbitrary connections between _any_ declared signals, we still
 find it helpful to distinguish between two type of signals: `inputs` and
 `outputs`. 
 
@@ -127,7 +127,7 @@ synthesizer might be updated locally through user interaction with a GUI,
 however the normal use of this signal is as a _destination_ for control data
 streams so it should be defined as an `input` signal.  Note that this
 distinction is to help with GUI organization and user-understanding –
-_libmapper_ enables connections from input signals and to output signals if
+_libmpr_ enables connections from input signals and to output signals if
 desired.
 
 ### Creating a signal
@@ -166,9 +166,9 @@ signals, a length of 1 should be specified.  Finally, supported types are
 currently 'i', 'f' or 'd' for `int`, `float` or `double` values, respectively.
 
 The other parameters are not strictly required, but the more information you
-provide, the more the mapper can do some things automatically.  For example, if
+provide, the more _libmpr_ can do some things automatically.  For example, if
 the `minimum` and `maximum` properties are provided, it will be possible to
-create linear-scaled connections very quickly. If `unit` is provided, the mapper
+create linear-scaled connections very quickly. If `unit` is provided, _libmpr_
 will be able to similarly figure out a linear scaling based on unit conversion
 (centimeters to inches for example).  Currently automatic unit-based scaling is
 not a supported feature, but will be added in the future.  You can take
@@ -196,8 +196,8 @@ So far we know how to create a device and to specify an output signal for it.
 To recap, let's review the code so far:
 
 ~~~java
-import mapper.*;
-import mapper.signal.*;
+import mpr.*;
+import mpr.signal.*;
 
 class test {
     public static void main() {
@@ -223,7 +223,7 @@ We can imagine the above program getting sensor information in a loop.  It could
 be running on an network-enabled ARM device and reading the ADC register
 directly, or it could be running on a computer and reading data from an Arduino
 over a USB serial port, or it could just be a mouse-controlled GUI slider.
-However it's getting the data, it must provide it to _libmapper_ so that it will
+However it's getting the data, it must provide it to _libmpr_ so that it will
 be sent to other devices if that signal is mapped.
 
 This is accomplished by the `update()` function:
@@ -246,7 +246,7 @@ while (1) {
 ~~~
 
 This is about all that is needed to expose sensor 1's value to the network as a
-mappable parameter.  The _libmapper_ GUI can now be used to create a mapping
+mappable parameter.  The _libmpr_ GUI can now be used to create a mapping
 between this value and a receiver, where it could control a synthesizer
 parameter or change the brightness of an LED, or whatever else you want to do.
 
@@ -254,7 +254,7 @@ parameter or change the brightness of an LED, or whatever else you want to do.
 
 Most synthesizers of course will not know what to do with the value of sensor1 
 -- it is an electrical property that has nothing to do with sound or music.
-This is where _libmapper_ really becomes useful.
+This is where _libmpr_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_ exposing the
 signal, or it can be performed as part of the mapping.  Since end users can
@@ -296,7 +296,7 @@ a class `Synthesizer` which has functions `setPulseWidth()` which sets the pulse
 width in a thread-safe manner, and `startAudioInBackground()` which sets up the
 audio thread.
 
-We need to create a handler function for libmapper to update the synth:
+We need to create a handler function for _libmpr_ to update the synth:
 
 ~~~java
 UpdateListener freqHandler = new UpdateListener() {
@@ -308,8 +308,8 @@ UpdateListener freqHandler = new UpdateListener() {
 Then our program will look like this:
 
 ~~~java
-import mapper.*;
-import mapper.signal.*;
+import mpr.*;
+import mpr.signal.*;
 
 # Some synth stuff
 startAudioInBackground();
@@ -347,7 +347,7 @@ Signal pulseWidth = dev.addInputSignal("pulseWidth", 1, 'f', "Hz",
 
 ## Working with timetags
 
-_libmapper_ uses the `TimeTag` class to store 
+_libmpr_ uses the `TimeTag` class to store 
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps)
 associated with signal updates.  For example, the handler function called when a
 signal update is received contains a `timetag` argument.  This argument
@@ -364,7 +364,7 @@ has access to a more accurate measurement of the real time associated with the
 signal update, for example if you are writing a driver for an outboard sensor
 system that provides the sampling time.
 
-_libmapper_ also provides helper functions for getting the current time:
+_libmpr_ also provides helper functions for getting the current time:
 
 ~~~java
 TimeTag tt = new TimeTag();
@@ -373,7 +373,7 @@ tt.now();
 
 ## Working with signal instances
 
-_libmapper_ also provides support for signals with multiple _instances_, for
+_libmpr_ also provides support for signals with multiple _instances_, for
 example:
 
 * control parameters for polyphonic synthesizers;
@@ -382,12 +382,12 @@ example:
 * objects on a tabletop tangible user interface;
 * _temporal_ objects such as gestures or trajectories.
 
-The important qualities of signal instances in _libmapper_ are:
+The important qualities of signal instances in _libmpr_ are:
 
 * **instances are interchangeable**: if there are semantics attached to a
 specific instance it should be represented with separate signals instead.
 * **instances can be ephemeral**: signal instances can be dynamically created
-and destroyed. _libmapper_ will ensure that linked devices share a common
+and destroyed. _libmpr_ will ensure that linked devices share a common
 understanding of the relatonships between instances when they are mapped.
 * **one mapping connection serves to map all of its instances.**
 
@@ -487,11 +487,11 @@ InstanceEventListener myHandler = new InstanceEventListener() {
 ~~~
 
 For this function to be called when instance stealing is necessary, we
-need to register it for `mapper.signal.InstanceEvent.OVERFLOW` events:
+need to register it for `mpr.signal.InstanceEvent.OVERFLOW` events:
 
 ~~~java
 <sig>.setInstanceEventListener(myHandler,
-                               mapper.signal.InstanceEvent.OVERFLOW);
+                               mpr.signal.InstanceEvent.OVERFLOW);
 ~~~
 
 ## Publishing metadata
@@ -499,8 +499,8 @@ need to register it for `mapper.signal.InstanceEvent.OVERFLOW` events:
 Things like device names, signal units, and ranges, are examples of metadata –
 information about the data you are exposing on the network.
 
-_libmapper_ also provides the ability to specify arbitrary extra metadata in the
-form of name-value pairs.  These are not interpreted by _libmapper_ in any way,
+_libmpr_ also provides the ability to specify arbitrary extra metadata in the
+form of name-value pairs.  These are not interpreted by _libmpr_ in any way,
 but can be retrieved over the network.  This can be used for instance to label a
 device with its location, or to perhaps give a signal some property like
 "reliability", or some category like "light", "motor", "shaker", etc.
@@ -536,7 +536,7 @@ sig.setProperty("sensingMethod", new Value("resistive"));
 
 ### Reserved keys
 
-You can use any property name not already reserved by libmapper.
+You can use any property name not already reserved by _libmpr_.
 
 #### Reserved keys for devices
 

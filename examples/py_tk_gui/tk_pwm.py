@@ -11,7 +11,7 @@ except:
 import sys, os
 
 try:
-    import mapper
+    import mpr
 except:
     try:
         # Try the "swig" directory, relative to the location of this
@@ -21,9 +21,9 @@ except:
             os.path.join(os.path.join(os.getcwd(),
                                       os.path.dirname(sys.argv[0])),
                          '../../swig'))
-        import mapper
+        import mpr
     except:
-        print('Error importing libmapper module.')
+        print('Error importing libmpr module.')
         sys.exit(1)
 
 def main():
@@ -33,7 +33,7 @@ def main():
 
     try:
         window = tkinter.Tk()
-        window.title("libmapper PWM synth demo")
+        window.title("libmpr PWM synth demo")
 
         name = [False, tkinter.StringVar()]
         name[1].set("Waiting for device name...")
@@ -55,7 +55,7 @@ def main():
                              command=lambda n: pwm.set_duty(float(n)/100.0))
         duty.pack()
 
-        dev = mapper.device("tk_pwm")
+        dev = mpr.device("tk_pwm")
 
         dev.add_input_signal("gain", 1, 'f', None, 0, 100, lambda s,i,n,t: gain.set(n))
         dev.add_input_signal("freq", 1, 'f', "Hz", 0, 1000, lambda s,i,n,t: freq.set(n))

@@ -1,4 +1,4 @@
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -20,50 +20,49 @@ int verbose = 1;
 int period = 100;
 int col = 0;
 
-mapper_device source = 0;
-mapper_device destination = 0;
-mapper_signal sendsig = 0;
-mapper_signal recvsig = 0;
+mpr_dev src = 0;
+mpr_dev dst = 0;
+mpr_sig sendsig = 0;
+mpr_sig recvsig = 0;
 
-mapper_map map = 0;
+mpr_map map = 0;
 
 int sent = 0;
 int received = 0;
 
-int setup_source()
+int setup_src()
 {
-    source = mapper_device_new("testmapprotocol-send", 0);
-    if (!source)
+    src = mpr_dev_new("testmapprotocol-send", 0);
+    if (!src)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=1;
 
-    sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUT, 1,
-                                       "/outsig", 1, MAPPER_FLOAT, NULL,
-                                       &mn, &mx, NULL);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 1, MPR_FLT, NULL,
+                          &mn, &mx, NULL, 0);
 
     eprintf("Output signal /outsig registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_get_num_signals(source, MAPPER_DIR_OUT));
+            mpr_list_get_count(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
     return 0;
 
 error:
     return 1;
 }
 
-void cleanup_source()
+void cleanup_src()
 {
-    if (source) {
+    if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(source);
+        mpr_dev_free(src);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance_id, int length,
-                   mapper_type type, const void *value, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+             mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
@@ -71,72 +70,70 @@ void insig_handler(mapper_signal sig, mapper_id instance_id, int length,
     received++;
 }
 
-int setup_destination()
+int setup_dst()
 {
-    destination = mapper_device_new("testmapprotocol-recv", 0);
-    if (!destination)
+    dst = mpr_dev_new("testmapprotocol-recv", 0);
+    if (!dst)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 1,
-                                       "/insig", 1, MAPPER_FLOAT, NULL,
-                                       &mn, &mx, insig_handler);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
+                          &mn, &mx, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal /insig registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_get_num_signals(destination, MAPPER_DIR_IN));
+            mpr_list_get_count(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
     return 0;
 
 error:
     return 1;
 }
 
-void cleanup_destination()
+void cleanup_dst()
 {
-    if (destination) {
+    if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(destination);
+        mpr_dev_free(dst);
         eprintf("ok\n");
     }
 }
 
-void set_map_protocol(mapper_protocol proto)
+void set_map_protocol(mpr_proto proto)
 {
     if (!map)
         return;
 
-    if (!mapper_object_set_prop((mapper_object)map, MAPPER_PROP_PROTOCOL, NULL,
-                                1, MAPPER_INT32, &proto, 1)) {
+    if (!mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROTOCOL, NULL, 1, MPR_INT32,
+                          &proto, 1)) {
         // protocol not changed, exit
         return;
     }
-    mapper_object_push((mapper_object)map);
+    mpr_obj_push((mpr_obj)map);
 
     // wait until change has taken effect
     int len;
-    mapper_type type;
+    mpr_type type;
     const void *val;
     do {
-        mapper_device_poll(source, 10);
-        mapper_device_poll(destination, 10);
-        mapper_object_get_prop_by_index(map, MAPPER_PROP_PROTOCOL, NULL, &len,
-                                        &type, &val);
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
+        mpr_obj_get_prop_by_idx(map, MPR_PROP_PROTOCOL, NULL, &len, &type, &val, 0);
     }
-    while (1 != len || MAPPER_INT32 != type || *(int*)val != proto);
+    while (1 != len || MPR_INT32 != type || *(int*)val != proto);
 }
 
 int setup_map()
 {
-    map = mapper_map_new(1, &sendsig, 1, &recvsig);
-    mapper_object_push(map);
+    map = mpr_map_new(1, &sendsig, 1, &recvsig);
+    mpr_obj_push(map);
 
     // wait until map is established
-    while (!mapper_map_ready(map)) {
-        mapper_device_poll(destination, 10);
-        mapper_device_poll(source, 10);
+    while (!mpr_map_ready(map)) {
+        mpr_dev_poll(dst, 10);
+        mpr_dev_poll(src, 10);
     }
 
     return 0;
@@ -144,9 +141,9 @@ int setup_map()
 
 void wait_ready()
 {
-    while (!(mapper_device_ready(source) && mapper_device_ready(destination))) {
-        mapper_device_poll(source, 10);
-        mapper_device_poll(destination, 10);
+    while (!(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
     }
 }
 
@@ -154,15 +151,15 @@ void loop()
 {
     int i;
     const char *name;
-    mapper_object_get_prop_by_index(sendsig, MAPPER_PROP_NAME, NULL, NULL, NULL,
-                                    (const void**)&name);
+    mpr_obj_get_prop_by_idx(sendsig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, 0);
     for (i = 0; i < 10; i++) {
-        mapper_device_poll(source, 0);
+        mpr_dev_poll(src, 0);
         float val = i * 1.0f;
         eprintf("Updating signal %s to %f\n", name, val);
-        mapper_signal_set_value(sendsig, 0, 1, MAPPER_FLOAT, &val, MAPPER_NOW);
+        mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &val, MPR_NOW);
         sent++;
-        mapper_device_poll(destination, period);
+        mpr_dev_poll(dst, period);
     }
 }
 
@@ -196,13 +193,13 @@ int main(int argc, char **argv)
         }
     }
 
-    if (setup_destination()) {
+    if (setup_dst()) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source()) {
+    if (setup_src()) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
@@ -219,11 +216,11 @@ int main(int argc, char **argv)
     eprintf("SENDING UDP\n");
     loop();
 
-    set_map_protocol(MAPPER_PROTO_TCP);
+    set_map_protocol(MPR_PROTO_TCP);
     eprintf("SENDING TCP\n");
     loop();
 
-    set_map_protocol(MAPPER_PROTO_UDP);
+    set_map_protocol(MPR_PROTO_UDP);
     eprintf("SENDING UDP AGAIN\n");
     loop();
 
@@ -235,8 +232,8 @@ int main(int argc, char **argv)
     }
 
 done:
-    cleanup_destination();
-    cleanup_source();
+    cleanup_dst();
+    cleanup_src();
     printf("\r..................................................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

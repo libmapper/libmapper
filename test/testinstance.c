@@ -1,5 +1,5 @@
-#include "../src/mapper_internal.h"
-#include <mapper/mapper.h>
+#include "../src/mpr_internal.h"
+#include <mpr/mpr.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -19,31 +19,31 @@ int autoconnect = 1;
 int period = 100;
 int automate = 1;
 
-mapper_device source = 0;
-mapper_device destination = 0;
-mapper_signal sendsig = 0;
-mapper_signal recvsig = 0;
+mpr_dev src = 0;
+mpr_dev dst = 0;
+mpr_sig sendsig = 0;
+mpr_sig recvsig = 0;
 
 int sent = 0;
 int received = 0;
 int done = 0;
 
 /*! Creation of a local source. */
-int setup_source()
+int setup_src()
 {
-    source = mapper_device_new("testinstance-send", 0);
-    if (!source)
+    src = mpr_dev_new("testinstance-send", 0);
+    if (!src)
         goto error;
 
     float mn=0, mx=10;
 
-    sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUT, 10, "outsig",
-                                       1, MAPPER_FLOAT, NULL, &mn, &mx, NULL);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 10, "outsig", 1, MPR_FLT, NULL,
+                          &mn, &mx, NULL, 0);
     if (!sendsig)
         goto error;
 
     eprintf("Output signal added with %i instances.\n",
-            mapper_signal_get_num_instances(sendsig));
+            mpr_sig_get_num_inst(sendsig, MPR_STATUS_ALL));
 
     return 0;
 
@@ -51,70 +51,64 @@ int setup_source()
     return 1;
 }
 
-void cleanup_source()
+void cleanup_src()
 {
-    if (source) {
+    if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(source);
+        mpr_dev_free(src);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, int length,
-                   mapper_type type, const void *value, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt e, mpr_id inst, int len, mpr_type type,
+             const void *val, mpr_time t)
 {
     const char *name;
-    mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
-                                    NULL, NULL, (const void**)&name);
-    if (value) {
-        eprintf("--> destination %s instance %i got %f\n", name, (int)instance,
-                (*(float*)value));
+    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, 0);
+
+    if (e & MPR_SIG_INST_OFLW) {
+        eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
+        mpr_sig_reserve_inst(sig, 1, 0, 0);
+    }
+    else if (e & MPR_SIG_REL_UPSTRM) {
+        eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
+        mpr_sig_release_inst(sig, inst, MPR_NOW);
+    }
+    else if (val) {
+        eprintf("--> destination %s instance %i got %f\n", name, (int)inst,
+                (*(float*)val));
         received++;
     }
     else {
-        eprintf("--> destination %s instance %i got NULL\n", name,
-                (int)instance);
-        mapper_signal_release_instance(sig, instance, MAPPER_NOW);
-    }
-}
-
-void more_handler(mapper_signal sig, mapper_id instance,
-                  mapper_instance_event event, mapper_time_t *t)
-{
-    if (event & MAPPER_INSTANCE_OVERFLOW) {
-        eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
-        mapper_signal_reserve_instances(sig, 1, 0, 0);
-    }
-    else if (event & MAPPER_UPSTREAM_RELEASE) {
-        eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
-        mapper_signal_release_instance(sig, instance, MAPPER_NOW);
+        eprintf("--> destination %s instance %i got NULL\n", name, (int)inst);
+        mpr_sig_release_inst(sig, inst, MPR_NOW);
     }
 }
 
 /*! Creation of a local destination. */
-int setup_destination()
+int setup_dst()
 {
-    destination = mapper_device_new("testinstance-recv", 0);
-    if (!destination)
+    dst = mpr_dev_new("testinstance-recv", 0);
+    if (!dst)
         goto error;
 
     float mn=0;//, mx=1;
 
     // Specify 0 instances since we wish to use specific ids
-    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 0,
-                                       "insig", 1, MAPPER_FLOAT, NULL,
-                                       &mn, NULL, insig_handler);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 0, "insig", 1, MPR_FLT, NULL,
+                          &mn, NULL, handler, MPR_SIG_UPDATE);
     if (!recvsig)
         goto error;
 
     int i;
     for (i=2; i<10; i+=2) {
-        mapper_signal_reserve_instances(recvsig, 1, (mapper_id*)&i, 0);
+        mpr_sig_reserve_inst(recvsig, 1, (mpr_id*)&i, 0);
     }
 
     eprintf("Input signal added with %i instances.\n",
-            mapper_signal_get_num_instances(recvsig));
+            mpr_sig_get_num_inst(recvsig, MPR_STATUS_ALL));
 
     return 0;
 
@@ -122,48 +116,47 @@ int setup_destination()
     return 1;
 }
 
-void cleanup_destination()
+void cleanup_dst()
 {
-    if (destination) {
+    if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(destination);
+        mpr_dev_free(dst);
         eprintf("ok\n");
     }
 }
 
-void wait_local_devices()
+void wait_local_devs()
 {
-    while (!done && !(mapper_device_ready(source)
-                      && mapper_device_ready(destination))) {
-        mapper_device_poll(source, 25);
-        mapper_device_poll(destination, 25);
+    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+        mpr_dev_poll(src, 25);
+        mpr_dev_poll(dst, 25);
     }
 }
 
-void print_instance_ids(mapper_signal sig)
+void print_instance_ids(mpr_sig sig)
 {
-    int i, n = mapper_signal_get_num_instances(sig);
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
     const char *name;
-    mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
-                                    NULL, NULL, (const void**)&name);
+    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, 0);
     eprintf("%s: [ ", name);
     for (i=0; i<n; i++) {
-        eprintf("%1i, ", (int)mapper_signal_get_instance_id(sig, i));
+        eprintf("%1i, ", (int)mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL));
     }
     eprintf("\b\b ]   ");
 }
 
-void print_instance_vals(mapper_signal sig)
+void print_instance_vals(mpr_sig sig)
 {
-    int i, id, n = mapper_signal_get_num_instances(sig);
+    int i, id, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
     const char *name;
-    mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
-                                    NULL, NULL, (const void**)&name);
+    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, 0);
     eprintf("%s: [ ", name);
     for (i=0; i<n; i++) {
-        id = mapper_signal_get_instance_id(sig, i);
-        float *val = (float*)mapper_signal_get_value(sig, id, 0);
+        id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL);
+        float *val = (float*)mpr_sig_get_value(sig, id, 0);
         if (val)
             printf("%1.0f, ", *val);
         else
@@ -172,18 +165,17 @@ void print_instance_vals(mapper_signal sig)
     eprintf("\b\b ]   ");
 }
 
-void map_signals()
+void map_sigs()
 {
-    mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
+    mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
     const char *expr = "y{-1}=-10;y=y{-1}+1";
-    mapper_object_set_prop((mapper_object)map, MAPPER_PROP_EXPR, NULL, 1,
-                           MAPPER_STRING, expr, 1);
-    mapper_object_push((mapper_object)map);
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+    mpr_obj_push((mpr_obj)map);
 
     // wait until mapping has been established
-    while (!done && !mapper_map_ready(map)) {
-        mapper_device_poll(source, 10);
-        mapper_device_poll(destination, 10);
+    while (!done && !mpr_map_ready(map)) {
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
     }
 }
 
@@ -192,30 +184,29 @@ void loop()
     eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
     float value = 0;
-    mapper_id instance;
+    mpr_id inst;
 
     while (i < iterations && !done) {
         // here we should create, update and destroy some instances
-        instance = (rand() % 10);
+        inst = (rand() % 10);
         switch (rand() % 5) {
             case 0:
                 // try to destroy an instance
-                eprintf("--> Retiring sender instance %"PR_MAPPER_ID"\n", instance);
-                mapper_signal_release_instance(sendsig, instance, MAPPER_NOW);
+                eprintf("--> Retiring sender instance %"PR_MPR_ID"\n", inst);
+                mpr_sig_release_inst(sendsig, inst, MPR_NOW);
                 break;
             default:
                 // try to update an instance
                 value = (rand() % 10) * 1.0f;
-                mapper_signal_set_value(sendsig, instance, 1, MAPPER_FLOAT,
-                                        &value, MAPPER_NOW);
-                eprintf("--> sender instance %"PR_MAPPER_ID" updated to %f\n",
-                        instance, value);
+                mpr_sig_set_value(sendsig, inst, 1, MPR_FLT, &value, MPR_NOW);
+                eprintf("--> sender instance %"PR_MPR_ID" updated to %f\n",
+                        inst, value);
                 sent++;
                 break;
         }
 
-        mapper_device_poll(destination, period);
-        mapper_device_poll(source, 0);
+        mpr_dev_poll(dst, period);
+        mpr_dev_poll(src, 0);
         i++;
 
         if (verbose) {
@@ -271,22 +262,22 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_destination()) {
+    if (setup_dst()) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source()) {
+    if (setup_src()) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
     }
 
-    wait_local_devices();
+    wait_local_devs();
 
     if (automate)
-        map_signals();
+        map_sigs();
 
     eprintf("\n**********************************************\n");
     eprintf("************ NO INSTANCE STEALING ************\n");
@@ -296,12 +287,14 @@ int main(int argc, char **argv)
     stats[1] = received;
 
     for (i=0; i<10; i++)
-        mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
+        mpr_sig_release_inst(sendsig, i, MPR_NOW);
     sent = received = 0;
 
-    mapper_signal_set_stealing_mode(recvsig, MAPPER_STEAL_OLDEST);
     eprintf("\n**********************************************\n");
     eprintf("************ STEAL OLDEST INSTANCE ***********\n");
+    int stl = MPR_STEAL_OLDEST;
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_STEAL_MODE, NULL, 1, MPR_INT32,
+                     &stl, 1);
     if (!verbose)
         printf("\n");
     loop();
@@ -311,14 +304,16 @@ int main(int argc, char **argv)
     sent = received = 0;
 
     for (i=0; i<10; i++)
-        mapper_signal_release_instance(sendsig, i, MAPPER_NOW);
+        mpr_sig_release_inst(sendsig, i, MPR_NOW);
     sent = received = 0;
 
-    mapper_signal_set_instance_event_callback(recvsig, more_handler,
-                                              MAPPER_INSTANCE_OVERFLOW
-                                              | MAPPER_UPSTREAM_RELEASE);
     eprintf("\n**********************************************\n");
     eprintf("*********** CALLBACK -> ADD INSTANCE *********\n");
+    stl = MPR_STEAL_NONE;
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_STEAL_MODE, NULL, 1, MPR_INT32,
+                     &stl, 1);
+    mpr_sig_set_cb(recvsig, handler,
+                   MPR_SIG_UPDATE | MPR_SIG_INST_OFLW | MPR_SIG_REL_UPSTRM);
     if (!verbose)
         printf("\n");
     loop();
@@ -336,8 +331,8 @@ int main(int argc, char **argv)
     result = (stats[4] != stats[5]);
 
   done:
-    cleanup_destination();
-    cleanup_source();
+    cleanup_dst();
+    cleanup_src();
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

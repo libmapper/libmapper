@@ -5,7 +5,7 @@
 #include <assert.h>
 
 #include "types_internal.h"
-#include "mapper_internal.h"
+#include "mpr_internal.h"
 
 #ifdef DEBUG
 #define TRACING 0 /* Set non-zero to see parsed properties. */
@@ -15,79 +15,86 @@
 
 /* length = 0 indicates variable length. */
 typedef struct {
-    const char *name;
+    const char *key;
     int len;
-    mapper_type store_type;
-    mapper_type protocol_type;
+    mpr_type store_type;
+    mpr_type protocol_type;
 } static_prop_t;
 
-/* Warning! This table needs to be kept synchonised with mapper_property enum
- * found in mapper_constants.h */
+/* Warning! This table needs to be kept synchonised with mpr_prop enum
+ * found in mpr_constants.h */
 const static_prop_t static_props[] = {
-    { 0,                   0, 0,             0 },             /* MAPPER_PROP_UNKNOWN */
-    { "@calibrating",      1, MAPPER_BOOL,   MAPPER_BOOL },   /* MAPPER_PROP_CALIB */
-    { "@device",           1, MAPPER_DEVICE, MAPPER_STRING }, /* MAPPER_PROP_DEVICE */
-    { "@direction",        1, MAPPER_INT32,  MAPPER_STRING }, /* MAPPER_PROP_DIR */
-    { "@expression",       1, MAPPER_STRING, MAPPER_STRING }, /* MAPPER_PROP_EXPR */
-    { "@host",             1, MAPPER_STRING, MAPPER_STRING }, /* MAPPER_PROP_HOST */
-    { "@id",               1, MAPPER_INT64,  MAPPER_INT64 },  /* MAPPER_PROP_ID */
-    { "@instance",         1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_INSTANCE */
-    { "@is_local",         1, MAPPER_BOOL,   MAPPER_BOOL },   /* MAPPER_PROP_IS_LOCAL */
-    { "@jitter",           1, MAPPER_FLOAT,  MAPPER_FLOAT },  /* MAPPER_PROP_JITTER */
-    { "@length",           1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_LENGTH */
-    { "@lib_version",      1, MAPPER_STRING, MAPPER_STRING }, /* MAPPER_PROP_LIB_VERSION */
-    { "@max",              0, 'n',           'n' },           /* MAPPER_PROP_MAX */
-    { "@min",              0, 'n',           'n' },           /* MAPPER_PROP_MIN */
-    { "@muted",            1, MAPPER_BOOL,   MAPPER_BOOL },   /* MAPPER_PROP_MUTED */
-    { "@name",             1, MAPPER_STRING, MAPPER_STRING }, /* MAPPER_PROP_NAME */
-    { "@num_inputs",       1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_NUM_INPUTS */
-    { "@num_instances",    1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_NUM_INSTANCES */
-    { "@num_maps",         2, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_NUM_MAPS */
-    { "@num_maps_in",      1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_NUM_MAPS_IN */
-    { "@num_maps_out",     1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_NUM_MAPS_OUT */
-    { "@num_outputs",      1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_NUM_OUTPUTS */
-    { "@ordinal",          1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_ORDINAL */
-    { "@period",           1, MAPPER_FLOAT,  MAPPER_FLOAT },  /* MAPPER_PROP_PERIOD */
-    { "@port",             1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_PORT */
-    { "@process_location", 1, MAPPER_INT32,  MAPPER_STRING }, /* MAPPER_PROP_PROCESS_LOC */
-    { "@protocol",         1, MAPPER_INT32,  MAPPER_STRING }, /* MAPPER_PROP_PROTOCOL */
-    { "@rate",             1, MAPPER_FLOAT,  MAPPER_FLOAT },  /* MAPPER_PROP_RATE */
-    { "@scope",            0, MAPPER_DEVICE, MAPPER_STRING }, /* MAPPER_PROP_SCOPE */
-    { "@signal",           0, MAPPER_SIGNAL, MAPPER_STRING }, /* MAPPER_PROP_SIGNAL */
-    { "@slot",             0, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_SLOT */
-    { "@status",           1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_STATUS */
-    { "@synced",           1, MAPPER_TIME,   MAPPER_TIME },   /* MAPPER_PROP_SYNCED */
-    { "@type",             1, MAPPER_CHAR,   MAPPER_CHAR },   /* MAPPER_PROP_TYPE */
-    { "@unit",             1, MAPPER_STRING, MAPPER_STRING }, /* MAPPER_PROP_UNIT */
-    { "@use_instances",    1, MAPPER_BOOL,   MAPPER_BOOL },   /* MAPPER_PROP_USE_INSTANCES */
-    { "@user_data",        1, MAPPER_PTR,    0  },            /* MAPPER_PROP_USER_DATA */
-    { "@version",          1, MAPPER_INT32,  MAPPER_INT32 },  /* MAPPER_PROP_VERSION */
-    { "@extra",            0, 'a', 'a' },  /* MAPPER_PROP_EXTRA (special case, does not
-                                             * represent a specific property name) */
+    { 0,                0, 0,         0 },         /* MPR_PROP_UNKNOWN */
+    { "@calib",         1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_CALIB */
+    { "@data",          1, MPR_PTR,   0  },        /* MPR_PROP_DATA */
+    { "@device",        1, MPR_DEV,   MPR_STR },   /* MPR_PROP_DEVICE */
+    { "@direction",     1, MPR_INT32, MPR_STR },   /* MPR_PROP_DIR */
+    { "@expr",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_EXPR */
+    { "@host",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_HOST */
+    { "@id",            1, MPR_INT64, MPR_INT64 }, /* MPR_PROP_ID */
+    { "@instance",      1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_INST */
+    { "@is_local",      1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_IS_LOCAL */
+    { "@jitter",        1, MPR_FLT,   MPR_FLT },   /* MPR_PROP_JITTER */
+    { "@length",        1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_LEN */
+    { "@lib_version",   1, MPR_STR,   MPR_STR },   /* MPR_PROP_LIBVER */
+    { "@linked",        0, MPR_DEV,   MPR_STR },   /* MPR_PROP_LINKED */
+    { "@max",           0, 'n',       'n' },       /* MPR_PROP_MAX */
+    { "@min",           0, 'n',       'n' },       /* MPR_PROP_MIN */
+    { "@muted",         1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_MUTED */
+    { "@name",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_NAME */
+    { "@num_instances", 1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_INSTANCES */
+    { "@num_maps",      2, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS */
+    { "@num_maps_in",   1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_IN */
+    { "@num_maps_out",  1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_OUT */
+    { "@num_sigs_in",   1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_SIGS_IN */
+    { "@num_sigs_out",  1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_SIGS_OUT */
+    { "@ordinal",       1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_ORDINAL */
+    { "@period",        1, MPR_FLT,   MPR_FLT },   /* MPR_PROP_PERIOD */
+    { "@port",          1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_PORT */
+    { "@process_loc",   1, MPR_INT32, MPR_STR },   /* MPR_PROP_PROCESS_LOC */
+    { "@protocol",      1, MPR_INT32, MPR_STR },   /* MPR_PROP_PROTOCOL */
+    { "@rate",          1, MPR_FLT,   MPR_FLT },   /* MPR_PROP_RATE */
+    { "@scope",         0, MPR_DEV,   MPR_STR },   /* MPR_PROP_SCOPE */
+    { "@signal",        0, MPR_SIG,   MPR_STR },   /* MPR_PROP_SIGNAL */
+    { "@slot",          0, MPR_INT32, MPR_INT32 }, /* MPR_PROP_SLOT */
+    { "@status",        1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_STATUS */
+    { "@steal",         1, MPR_INT32, MPR_STR },   /* MPR_PROP_STEAL_MODE */
+    { "@synced",        1, MPR_TIME,  MPR_TIME },  /* MPR_PROP_SYNCED */
+    { "@type",          1, MPR_TYPE,  MPR_TYPE },  /* MPR_PROP_TYPE */
+    { "@unit",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_UNIT */
+    { "@use_inst",      1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_USE_INST */
+    { "@version",       1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_VERSION */
+    { "@extra",         0, 'a', 'a' }, /* MPR_PROP_EXTRA (special case, does not
+                                           * represent a specific property name) */
 };
 
-const char* mapper_loc_strings[] =
+const char* mpr_loc_strings[] =
 {
-    NULL,           /* MAPPER_LOC_UNDEFINED */
-    "src",          /* MAPPER_LOC_SRC */
-    "dst",          /* MAPPER_LOC_DST */
-    "any",          /* MAPPER_LOC_ANY */
+    NULL,           /* MPR_LOC_UNDEFINED */
+    "src",          /* MPR_LOC_SRC */
+    "dst",          /* MPR_LOC_DST */
+    "any",          /* MPR_LOC_ANY */
 };
 
-const char* mapper_protocol_strings[] =
+const char* mpr_protocol_strings[] =
 {
-    NULL,           /* MAPPER_PROTO_UNDEFINED */
-    "osc.udp",      /* MAPPER_PROTO_UDP */
-    "osc.tcp",      /* MAPPER_PROTO_TCP */
+    NULL,           /* MPR_PROTO_UNDEFINED */
+    "osc.udp",      /* MPR_PROTO_UDP */
+    "osc.tcp",      /* MPR_PROTO_TCP */
 };
 
-int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
+const char *mpr_steal_strings[] =
 {
-    if (!string)
-        return 0;
+    "none",         /* MPR_STEAL_NONE */
+    "oldest",       /* MPR_STEAL_OLDEST */
+    "newest",       /* MPR_STEAL_NEWEST */
+};
+
+int mpr_parse_names(const char *string, char **devnameptr, char **signameptr)
+{
+    RETURN_UNLESS(string, 0);
     const char *devname = skip_slash(string);
-    if (!devname || devname[0] == '/')
-        return 0;
+    RETURN_UNLESS(devname && devname[0] != '/', 0);
     if (devnameptr)
         *devnameptr = (char*) devname;
     char *signame = strchr(devname+1, '/');
@@ -106,202 +113,198 @@ int mapper_parse_names(const char *string, char **devnameptr, char **signameptr)
     return (signame - devname - 1);
 }
 
-mapper_msg mapper_msg_parse_props(int argc, const mapper_type *types, lo_arg **argv)
+mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
 {
     int i, slot_idx, num_props=0;
     // get the number of props
     for (i = 0; i < argc; i++) {
-        if (types[i] != MAPPER_STRING)
+        if (types[i] != MPR_STR)
             continue;
         if  (argv[i]->s == '@' || (strncmp(&argv[i]->s, "-@", 2)==0)
              || (strncmp(&argv[i]->s, "+@", 2)==0))
             ++num_props;
     }
-    if (!num_props)
-        return 0;
+    RETURN_UNLESS(num_props, 0);
 
-    mapper_msg msg = (mapper_msg) calloc(1, sizeof(struct _mapper_msg));
-    msg->atoms = ((mapper_msg_atom_t*)
-                  calloc(1, sizeof(struct _mapper_msg_atom) * num_props));
-    mapper_msg_atom atom = &msg->atoms[0];
-    const char *name;
+    mpr_msg msg = (mpr_msg) calloc(1, sizeof(struct _mpr_msg));
+    msg->atoms = ((mpr_msg_atom_t*)
+                  calloc(1, sizeof(struct _mpr_msg_atom) * num_props));
+    mpr_msg_atom a = &msg->atoms[0];
+    const char *key;
 
     for (i = 0; i < argc; i++) {
         if (!type_is_str(types[i])) {
             /* property ID not a string */
-#ifdef DEBUG
-            trace("message item '");
+#if TRACING
+            printf("message item '");
             lo_arg_pp(types[i], argv[i]);
-            trace("' not a string.\n");
+            printf("' not a string.\n");
 #endif
             continue;
         }
+#if TRACING
+        printf("parsing property key '%s'\n", &argv[i]->s);
+#endif
         // new property
-        if (atom->types || (atom->prop & PROP_REMOVE))
+        if (a->types || (a->prop & PROP_REMOVE))
             ++msg->num_atoms;
-        atom = &msg->atoms[msg->num_atoms];
+        a = &msg->atoms[msg->num_atoms];
 
-        name = &argv[i]->s;
-        if (strncmp(&argv[i]->s, "+@", 2)==0) {
-            atom->prop = PROP_ADD;
-            ++name;
+        key = &argv[i]->s;
+        if (strncmp(key, "+@", 2)==0) {
+            a->prop = PROP_ADD;
+            ++key;
         }
-        else if (strncmp(&argv[i]->s, "-@", 2)==0) {
-            atom->prop = PROP_REMOVE;
-            ++name;
+        else if (strncmp(key, "-@", 2)==0) {
+            a->prop = PROP_REMOVE;
+            ++key;
         }
-        if (name[0] != '@') // not a property key
+        if (key[0] != '@') // not a property key
             continue;
-
-        atom->name = name;
+        a->key = key;
 
         // try to find matching index for static props
-        if (strncmp(atom->name, "@dst@", 5)==0) {
-            atom->prop |= DST_SLOT_PROP;
-            atom->name += 5;
+        if (strncmp(a->key, "@dst@", 5)==0) {
+            a->prop |= DST_SLOT_PROP;
+            a->key += 5;
         }
-        else if (strncmp(atom->name, "@src", 4)==0) {
-            if (atom->name[4] == '@') {
-                atom->prop |= SRC_SLOT_PROP(0);
-                atom->name += 5;
+        else if (strncmp(a->key, "@src", 4)==0) {
+            if (a->key[4] == '@') {
+                a->prop |= SRC_SLOT_PROP(0);
+                a->key += 5;
             }
-            else if (atom->name[4] == '.') {
+            else if (a->key[4] == '.') {
                 // in form 'src.<ordinal>'
-                slot_idx = atoi(atom->name + 5);
+                slot_idx = atoi(a->key + 5);
                 if (slot_idx >= MAX_NUM_MAP_SRC) {
-                    trace("Bad slot ordinal in property '%s'.\n", atom->name);
-                    atom->types = 0;
+                    trace("Bad slot ordinal in property '%s'.\n", a->key);
+                    a->types = 0;
                     continue;
                 }
-                atom->name = strchr(atom->name + 5, '@');
-                if (!atom->name || !(++atom->name)) {
-                    trace("No sub-property found in name '%s'.\n", atom->name);
-                    atom->types = 0;
+                a->key = strchr(a->key + 5, '@');
+                if (!a->key || !(++a->key)) {
+                    trace("No sub-property found in key '%s'.\n", a->key);
+                    a->types = 0;
                     continue;
                 }
-                atom->prop |= SRC_SLOT_PROP(slot_idx);
+                a->prop |= SRC_SLOT_PROP(slot_idx);
             }
         }
         else
-            ++atom->name;
+            ++a->key;
 
-        atom->prop |= mapper_prop_from_string(atom->name);
+        a->prop |= mpr_prop_from_str(a->key);
 
         if (msg->num_atoms < 0)
             continue;
-        atom->types = &types[i+1];
-        atom->vals = &argv[i+1];
+        a->types = &types[i+1];
+        a->vals = &argv[i+1];
         while (++i < argc) {
-            if ((types[i] == MAPPER_STRING)
+            if ((types[i] == MPR_STR)
                 && strspn(&argv[i]->s, "+-@")) {
                 /* Arrived at next property index. */
                 --i;
                 break;
             }
-            else if (!type_match(types[i], atom->types[0])) {
+            else if (!type_match(types[i], a->types[0])) {
                 trace("Value vector for key '%s' has heterogeneous types.\n",
-                      atom->name);
-                atom->len = 0;
-                atom->types = 0;
+                      a->key);
+                a->len = a->prop = 0;
+                a->types = 0;
                 break;
             }
             else
-                ++atom->len;
+                ++a->len;
         }
-        if (!atom->len) {
-            atom->types = 0;
-            if (!(atom->prop & PROP_REMOVE)) {
-                trace("Key '%s' has no values.\n", atom->name);
+        if (!a->len) {
+            a->types = 0;
+            if (!(a->prop & PROP_REMOVE)) {
+                trace("Key '%s' has no values.\n", a->key);
                 continue;
             }
         }
         // check type against static props
-        if (MASK_PROP_BITFLAGS(atom->prop) < MAPPER_PROP_EXTRA) {
+        if (MASK_PROP_BITFLAGS(a->prop) < MPR_PROP_EXTRA) {
             static_prop_t prop;
-            prop = static_props[PROP_TO_INDEX(atom->prop)];
+            prop = static_props[PROP_TO_INDEX(a->prop)];
             if (prop.len) {
-                if (prop.len != atom->len) {
+                if (prop.len != a->len) {
                     trace("Static property '%s' cannot have length %d.\n",
-                          static_props[PROP_TO_INDEX(atom->prop)].name,
-                          atom->len);
-                    atom->len = 0;
-                    atom->types = 0;
+                          static_props[PROP_TO_INDEX(a->prop)].key, a->len);
+                    a->len = a->prop = 0;
+                    a->types = 0;
                     continue;
                 }
-                if (atom->prop & (PROP_ADD | PROP_REMOVE)) {
+                if (a->prop & (PROP_ADD | PROP_REMOVE)) {
                     trace("Cannot add or remove values from static property '%s'.\n",
-                          static_props[PROP_TO_INDEX(atom->prop)].name);
-                    atom->len = 0;
-                    atom->types = 0;
+                          static_props[PROP_TO_INDEX(a->prop)].key);
+                    a->len = a->prop = 0;
+                    a->types = 0;
                     continue;
                 }
             }
             if (!prop.protocol_type) {
                 trace("Static property '%s' cannot be set by message.\n",
-                      static_props[PROP_TO_INDEX(atom->prop)].name);
-                atom->len = 0;
-                atom->types = 0;
+                      static_props[PROP_TO_INDEX(a->prop)].key);
+                a->len = a->prop = 0;
+                a->types = 0;
                 continue;
             }
             if (prop.protocol_type == 'n') {
-                if (!type_is_num(atom->types[0])) {
-                    trace("Static property '%s' cannot have type '%c' (2).\n",
-                          static_props[PROP_TO_INDEX(atom->prop)].name,
-                          atom->types[0]);
-                    atom->len = 0;
-                    atom->types = 0;
+                if (!type_is_num(a->types[0])) {
+                    trace("Static property '%s' cannot have type '%c' (3).\n",
+                          static_props[PROP_TO_INDEX(a->prop)].key, a->types[0]);
+                    a->len = a->prop = 0;
+                    a->types = 0;
                     continue;
                 }
             }
-            else if (prop.protocol_type == MAPPER_BOOL) {
-                if (!type_is_bool(atom->types[0])) {
+            else if (prop.protocol_type == MPR_BOOL) {
+                if (!type_is_bool(a->types[0])) {
                     trace("Static property '%s' cannot have type '%c' (2).\n",
-                          static_props[PROP_TO_INDEX(atom->prop)].name,
-                          atom->types[0]);
-                    atom->len = 0;
-                    atom->types = 0;
+                          static_props[PROP_TO_INDEX(a->prop)].key, a->types[0]);
+                    a->len = a->prop = 0;
+                    a->types = 0;
                     continue;
                 }
             }
-            else if (prop.protocol_type != atom->types[0]) {
+            else if (prop.protocol_type != a->types[0]) {
                 trace("Static property '%s' cannot have type '%c' (1).\n",
-                      static_props[PROP_TO_INDEX(atom->prop)].name,
-                      atom->types[0]);
-                atom->len = 0;
-                atom->types = 0;
+                      static_props[PROP_TO_INDEX(a->prop)].key, a->types[0]);
+                a->len = a->prop = 0;
+                a->types = 0;
                 continue;
             }
         }
     }
     // reset last atom if no types unless "remove" flag is set
-    if (atom->types || atom->prop & PROP_REMOVE)
+    if (a->types || a->prop & PROP_REMOVE)
         ++msg->num_atoms;
     else {
-        atom->name = 0;
-        atom->len = 0;
-        atom->vals = 0;
+        a->key = 0;
+        a->len = 0;
+        a->vals = 0;
     }
 #if TRACING
     // print out parsed properties
-    printf("%d parsed mapper_msgs:\n", msg->num_atoms);
+    printf("%d parsed mpr_msgs:\n", msg->num_atoms);
     for (i = 0; i < msg->num_atoms; i++) {
-        atom = &msg->atoms[i];
-        if (atom->prop & PROP_ADD)
+        a = &msg->atoms[i];
+        if (a->prop & PROP_ADD)
             printf(" +");
-        else if (atom->prop & PROP_REMOVE)
+        else if (a->prop & PROP_REMOVE)
             printf(" -");
         else
             printf("  ");
-        if (atom->prop & DST_SLOT_PROP)
-            printf("'dst/%s' [%d]: ", atom->name, atom->prop);
-        else if (atom->prop >> SRC_SLOT_PROP_BIT_OFFSET)
-            printf("'src%d/%s' [%d]: ", SRC_SLOT(atom->prop), atom->name,
-                   atom->prop);
+        if (a->prop & DST_SLOT_PROP)
+            printf("'dst/%s' [%d]: ", a->key, a->prop);
+        else if (a->prop >> SRC_SLOT_PROP_BIT_OFFSET)
+            printf("'src%d/%s' [%d]: ", SRC_SLOT(a->prop), a->key, a->prop);
         else
-            printf("'%s' [%d]: ", atom->name, atom->prop);
+            printf("'%s' [%d]: ", a->key, a->prop);
         int j;
-        for (j = 0; j < atom->len; j++) {
-            lo_arg_pp(atom->types[j], atom->vals[j]);
+        for (j = 0; j < a->len; j++) {
+            lo_arg_pp(a->types[j], a->vals[j]);
             printf(", ");
         }
         printf("\b\b \n");
@@ -310,100 +313,71 @@ mapper_msg mapper_msg_parse_props(int argc, const mapper_type *types, lo_arg **a
     return msg;
 }
 
-void mapper_msg_free(mapper_msg msg)
+void mpr_msg_free(mpr_msg msg)
 {
     if (msg) {
-        if (msg->atoms)
-            free(msg->atoms);
+        FUNC_IF(free, msg->atoms);
         free(msg);
     }
 }
 
-mapper_msg_atom mapper_msg_prop(mapper_msg msg, mapper_property prop)
+mpr_msg_atom mpr_msg_prop(mpr_msg msg, mpr_prop prop)
 {
     int i;
     for (i = 0; i < msg->num_atoms; i++) {
         if (msg->atoms[i].prop == prop) {
-            if (!msg->atoms[i].len || !msg->atoms[i].types)
-                return 0;
+            RETURN_UNLESS(msg->atoms[i].len && msg->atoms[i].types, 0);
             return &msg->atoms[i];
         }
     }
     return 0;
 }
 
-/* helper for mapper_msg_varargs() */
-void mapper_msg_add_typed_val(lo_message msg, int len, mapper_type type,
-                              const void *val)
+#define LO_MESSAGE_ADD_VEC(MSG, TYPE, CAST, VAL)    \
+for (i = 0; i < len; i++)                           \
+    lo_message_add_##TYPE(MSG, ((CAST*)VAL)[i]);    \
+
+/* helper for mpr_msg_varargs() */
+void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type,
+                           const void *val)
 {
     int i;
     if (type && len < 1)
         return;
 
     switch (type) {
-        case MAPPER_STRING:
-        {
+        case MPR_STR:
             if (len == 1)
                 lo_message_add_string(msg, (char*)val);
-            else {
-                char **vals = (char**)val;
-                for (i = 0; i < len; i++)
-                    lo_message_add_string(msg, vals[i]);
-            }
+            else
+                LO_MESSAGE_ADD_VEC(msg, string, char*, val);
             break;
-        }
-        case MAPPER_FLOAT:
-        {
-            float *vals = (float*)val;
-            for (i = 0; i < len; i++)
-                lo_message_add_float(msg, vals[i]);
+        case MPR_FLT:
+            LO_MESSAGE_ADD_VEC(msg, float, float, val);
             break;
-        }
-        case MAPPER_DOUBLE:
-        {
-            double *vals = (double*)val;
-            for (i = 0; i < len; i++)
-                lo_message_add_double(msg, vals[i]);
+        case MPR_DBL:
+            LO_MESSAGE_ADD_VEC(msg, double, double, val);
             break;
-        }
-        case MAPPER_INT32:
-        {
-            int *vals = (int*)val;
-            for (i = 0; i < len; i++)
-                lo_message_add_int32(msg, vals[i]);
+        case MPR_INT32:
+            LO_MESSAGE_ADD_VEC(msg, int32, int, val);
             break;
-        }
-        case MAPPER_INT64:
-        {
-            int64_t *vals = (int64_t*)val;
-            for (i = 0; i < len; i++)
-                lo_message_add_int64(msg, vals[i]);
+        case MPR_INT64:
+            LO_MESSAGE_ADD_VEC(msg, int64, int64_t, val);
             break;
-        }
-        case MAPPER_TIME:
-        {
-            mapper_time_t *vals = (mapper_time_t*)val;
-            for (i = 0; i < len; i++)
-                lo_message_add_timetag(msg, vals[i]);
+        case MPR_TIME:
+            LO_MESSAGE_ADD_VEC(msg, timetag, mpr_time_t, val);
             break;
-        }
-        case MAPPER_CHAR:
-        {
-            char *vals = (char*)val;
-            for (i = 0; i < len; i++)
-                lo_message_add_char(msg, vals[i]);
+        case MPR_TYPE:
+            LO_MESSAGE_ADD_VEC(msg, char, mpr_type, val);
             break;
-        }
-        case MAPPER_BOOL: {
-            int *vals = (int*)val;
+        case MPR_BOOL:
             for (i = 0; i < len; i++) {
-                if (vals[i])
+                if (((int*)val)[i])
                     lo_message_add_true(msg);
                 else
                     lo_message_add_false(msg);
             }
             break;
-        }
         case 0: {
             lo_message_add_nil(msg);
             break;
@@ -413,32 +387,23 @@ void mapper_msg_add_typed_val(lo_message msg, int len, mapper_type type,
     }
 }
 
-const char *mapper_prop_protocol_string(mapper_property prop)
+const char *mpr_prop_str(mpr_prop p, int skip_slash)
 {
-    prop = MASK_PROP_BITFLAGS(prop);
-    die_unless(prop <= MAPPER_PROP_EXTRA,
-               "called mapper_prop_protocol_string() with bad index %d.\n",
-               prop);
-    return static_props[PROP_TO_INDEX(prop)].name;
+    p = MASK_PROP_BITFLAGS(p);
+    die_unless(p > MPR_PROP_UNKNOWN && p <= MPR_PROP_EXTRA,
+               "called mpr_prop_str() with bad index %d.\n", p);
+    const char *s = static_props[PROP_TO_INDEX(p)].key;
+    return skip_slash ? s + 1 : s;
 }
 
-const char *mapper_prop_string(mapper_property prop)
+mpr_prop mpr_prop_from_str(const char *string)
 {
-    prop = MASK_PROP_BITFLAGS(prop);
-    die_unless(prop > MAPPER_PROP_UNKNOWN && prop <= MAPPER_PROP_EXTRA,
-               "called mapper_prop_string() with bad index %d.\n",
-               prop);
-    return static_props[PROP_TO_INDEX(prop)].name + 1;
-}
-
-mapper_property mapper_prop_from_string(const char *string)
-{
-    // property names are stored alphabetically so we can use a binary search
-    int beg = PROP_TO_INDEX(MAPPER_PROP_UNKNOWN) + 1;
-    int end = PROP_TO_INDEX(MAPPER_PROP_EXTRA) - 1;
+    // property keys are stored alphabetically so we can use a binary search
+    int beg = PROP_TO_INDEX(MPR_PROP_UNKNOWN) + 1;
+    int end = PROP_TO_INDEX(MPR_PROP_EXTRA) - 1;
     int mid = (beg + end) * 0.5, cmp;
     while (beg <= end) {
-        cmp = strcmp(string, static_props[mid].name + 1);
+        cmp = strcmp(string, static_props[mid].key + 1);
         if (cmp > 0)
             beg = mid + 1;
         else if (cmp == 0)
@@ -448,58 +413,63 @@ mapper_property mapper_prop_from_string(const char *string)
         mid = (beg + end) * 0.5;
     }
     if (strcmp(string, "maximum")==0)
-        return MAPPER_PROP_MAX;
+        return MPR_PROP_MAX;
     if (strcmp(string, "minimum")==0)
-        return MAPPER_PROP_MIN;
-    return MAPPER_PROP_EXTRA;
+        return MPR_PROP_MIN;
+    return MPR_PROP_EXTRA;
 }
 
-const char *mapper_loc_string(mapper_location loc)
+const char *mpr_loc_str(mpr_loc loc)
 {
-    if (loc <= 0 || loc > MAPPER_LOC_ANY)
+    if (loc <= 0 || loc > MPR_LOC_ANY)
         return "unknown";
-    return mapper_loc_strings[loc];
+    return mpr_loc_strings[loc];
 }
 
-mapper_location mapper_loc_from_string(const char *str)
+mpr_loc mpr_loc_from_str(const char *str)
 {
-    if (!str)
-        return MAPPER_LOC_UNDEFINED;
+    RETURN_UNLESS(str, MPR_LOC_UNDEFINED);
     int i;
-    for (i = MAPPER_LOC_UNDEFINED+1; i < 3; i++) {
-        if (strcmp(str, mapper_loc_strings[i])==0)
+    for (i = MPR_LOC_UNDEFINED+1; i < 3; i++) {
+        if (strcmp(str, mpr_loc_strings[i])==0)
             return i;
     }
-    return MAPPER_LOC_UNDEFINED;
+    return MPR_LOC_UNDEFINED;
 }
 
-const char *mapper_protocol_string(mapper_protocol pro)
+const char *mpr_protocol_str(mpr_proto p)
 {
-    if (pro <= 0 || pro > NUM_MAPPER_PROTOCOLS)
+    if (p <= 0 || p > MPR_NUM_PROTO)
         return "unknown";
-    return mapper_protocol_strings[pro];
+    return mpr_protocol_strings[p];
 }
 
-mapper_protocol mapper_protocol_from_string(const char *str)
+mpr_proto mpr_protocol_from_str(const char *str)
 {
-    if (!str)
-        return MAPPER_PROTO_UNDEFINED;
+    RETURN_UNLESS(str, MPR_PROTO_UNDEFINED);
     int i;
-    for (i = MAPPER_PROTO_UNDEFINED+1; i < NUM_MAPPER_PROTOCOLS; i++) {
-        if (strcmp(str, mapper_protocol_strings[i])==0)
+    for (i = MPR_PROTO_UNDEFINED+1; i < MPR_NUM_PROTO; i++) {
+        if (strcmp(str, mpr_protocol_strings[i])==0)
             return i;
     }
-    return MAPPER_PROTO_UNDEFINED;
+    return MPR_PROTO_UNDEFINED;
+}
+
+const char *mpr_steal_str(mpr_steal_type stl)
+{
+    if (stl < MPR_STEAL_NONE || stl > MPR_STEAL_NEWEST)
+        return "unknown";
+    return mpr_steal_strings[stl];
 }
 
 // Helper for setting property value from different lo_arg types
-int set_coerced_val(int src_len, mapper_type src_type, const void *src_val,
-                    int dst_len, mapper_type dst_type, void *dst_val)
+int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
+                    int dst_len, mpr_type dst_type, void *dst_val)
 {
     int i, j, min_len = src_len < dst_len ? src_len : dst_len;
 
     if (src_type == dst_type) {
-        int size = mapper_type_size(src_type);
+        int size = mpr_type_size(src_type);
         do {
             memcpy(dst_val, src_val, size * min_len);
             dst_len -= min_len;
@@ -510,10 +480,10 @@ int set_coerced_val(int src_len, mapper_type src_type, const void *src_val,
     }
 
     switch (dst_type) {
-        case MAPPER_FLOAT:{
+        case MPR_FLT:{
             float *dstf = (float*)dst_val;
             switch (src_type) {
-                case MAPPER_INT32: {
+                case MPR_INT32: {
                     int *srci = (int*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
@@ -522,7 +492,7 @@ int set_coerced_val(int src_len, mapper_type src_type, const void *src_val,
                     }
                     break;
                 }
-                case MAPPER_DOUBLE: {
+                case MPR_DBL: {
                     double *srcd = (double*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
@@ -536,10 +506,10 @@ int set_coerced_val(int src_len, mapper_type src_type, const void *src_val,
             }
             break;
         }
-        case MAPPER_INT32:{
+        case MPR_INT32:{
             int *dsti = (int*)dst_val;
             switch (src_type) {
-                case MAPPER_FLOAT: {
+                case MPR_FLT: {
                     float *srcf = (float*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
@@ -548,7 +518,7 @@ int set_coerced_val(int src_len, mapper_type src_type, const void *src_val,
                     }
                     break;
                 }
-                case MAPPER_DOUBLE: {
+                case MPR_DBL: {
                     double *srcd = (double*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
@@ -562,10 +532,10 @@ int set_coerced_val(int src_len, mapper_type src_type, const void *src_val,
             }
             break;
         }
-        case MAPPER_DOUBLE:{
+        case MPR_DBL:{
             double *dstd = (double*)dst_val;
             switch (src_type) {
-                case MAPPER_INT32: {
+                case MPR_INT32: {
                     int *srci = (int*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
@@ -574,7 +544,7 @@ int set_coerced_val(int src_len, mapper_type src_type, const void *src_val,
                     }
                     break;
                 }
-                case MAPPER_FLOAT: {
+                case MPR_FLT: {
                     float *srcf = (float*)src_val;
                     for (i = 0, j = 0; i < dst_len; i++, j++) {
                         if (j >= src_len)
@@ -594,61 +564,7 @@ int set_coerced_val(int src_len, mapper_type src_type, const void *src_val,
     return 0;
 }
 
-double propval_get_double(const void *val, const mapper_type type, int idx)
-{
-    switch (type) {
-        case MAPPER_FLOAT:
-        {
-            float *temp = (float*)val;
-            return (double)temp[idx];
-            break;
-        }
-        case MAPPER_INT32:
-        {
-            int *temp = (int*)val;
-            return (double)temp[idx];
-            break;
-        }
-        case MAPPER_DOUBLE:
-        {
-            double *temp = (double*)val;
-            return temp[idx];
-            break;
-        }
-        default:
-            return 0;
-            break;
-    }
-}
-
-void propval_set_double(void *to, const mapper_type type, int idx, double from)
-{
-    switch (type) {
-        case MAPPER_FLOAT:
-        {
-            float *temp = (float*)to;
-            temp[idx] = (float)from;
-            break;
-        }
-        case MAPPER_INT32:
-        {
-            int *temp = (int*)to;
-            temp[idx] = (int)from;
-            break;
-        }
-        case MAPPER_DOUBLE:
-        {
-            double *temp = (double*)to;
-            temp[idx] = from;
-            break;
-        }
-        default:
-            return;
-            break;
-    }
-}
-
-void mapper_prop_print(int len, mapper_type type, const void *val)
+void mpr_prop_print(int len, mpr_type type, const void *val)
 {
     int i;
     if (!val || len < 1) {
@@ -660,100 +576,85 @@ void mapper_prop_print(int len, mapper_type type, const void *val)
         printf("[");
 
     switch (type) {
-        case MAPPER_STRING:
-        {
+        case MPR_STR:
             if (len == 1)
                 printf("'%s', ", (char*)val);
             else {
-                char **ps = (char**)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s', ", ps[i]);
+                    printf("'%s', ", ((char**)val)[i]);
             }
             break;
-        }
-        case MAPPER_FLOAT:
-        {
-            float *pf = (float*)val;
+        case MPR_FLT:
             for (i = 0; i < len; i++)
-                printf("%f, ", pf[i]);
+                printf("%f, ", ((float*)val)[i]);
             break;
-        }
-        case MAPPER_INT32:
-        {
-            int *pi = (int*)val;
+        case MPR_INT32:
             for (i = 0; i < len; i++)
-                printf("%d, ", pi[i]);
+                printf("%d, ", ((int*)val)[i]);
             break;
-        }
-        case MAPPER_BOOL:
-        {
-            int *pi = (int*)val;
+        case MPR_BOOL:
             for (i = 0; i < len; i++)
-                printf("%c, ", pi[i] ? 'T' : 'F');
+                printf("%c, ", ((int*)val)[i] ? 'T' : 'F');
             break;
-        }
-        case MAPPER_DOUBLE:
-        {
-            double *pd = (double*)val;
+        case MPR_DBL:
             for (i = 0; i < len; i++)
-                printf("%f, ", pd[i]);
+                printf("%f, ", ((double*)val)[i]);
             break;
-        }
-        case MAPPER_INT64:
-        {
-            int64_t *pi = (int64_t*)val;
+        case MPR_INT64:
             for (i = 0; i < len; i++)
-                printf("%lli, ", (long long)pi[i]);
+                printf("%lli, ", (long long)((int64_t*)val)[i]);
             break;
-        }
-        case MAPPER_TIME:
-        {
-            mapper_time_t *pt = (mapper_time_t*)val;
+        case MPR_TIME:
             for (i = 0; i < len; i++)
-                printf("%f, ", mapper_time_get_double(pt[i]));
+                printf("%f, ", mpr_time_get_dbl(((mpr_time_t*)val)[i]));
             break;
-        }
-        case MAPPER_CHAR:
-        {
-            char *pi = (char*)val;
+        case MPR_TYPE:
             for (i = 0; i < len; i++)
-                printf("%c, ", pi[i]);
+                printf("%c, ", ((mpr_type*)val)[i]);
             break;
-        }
-        case MAPPER_PTR:
-        {
-            void **v = (void**)val;
+        case MPR_PTR:
             for (i = 0; i < len; i++)
-                printf("%p, ", v[i]);
+                printf("%p, ", ((void**)val)[i]);
             break;
-        }
-        case MAPPER_DEVICE:
-        {
+        case MPR_DEV:
             // just print device name
             if (1 == len)
-                printf("'%s', ", mapper_device_get_name((mapper_device)val));
+                printf("'%s', ", mpr_dev_get_name((mpr_dev)val));
             else {
-                mapper_device *devs = (mapper_device*)val;
-                for (i = 0; i < len; i++) {
-                    printf("'%s', ", mapper_device_get_name(devs[i]));
-                }
+                for (i = 0; i < len; i++)
+                    printf("'%s', ", mpr_dev_get_name(((mpr_dev*)val)[i]));
             }
             break;
-        }
-        case MAPPER_SIGNAL:
-        {
+        case MPR_SIG: {
             // just print signal name
             if (1 == len) {
-                mapper_signal sig = (mapper_signal)val;
-                printf("'%s:%s', ", mapper_device_get_name(sig->dev), sig->name);
+                mpr_sig sig = (mpr_sig)val;
+                printf("'%s:%s', ", mpr_dev_get_name(sig->dev), sig->name);
             }
             else {
-                mapper_signal *sig = (mapper_signal*)val;
+                mpr_sig *sig = (mpr_sig*)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s:%s', ", mapper_device_get_name(sig[i]->dev),
+                    printf("'%s:%s', ", mpr_dev_get_name(sig[i]->dev),
                            sig[i]->name);
             }
             break;
+        }
+        case MPR_LIST: {
+            mpr_list list = mpr_list_cpy((mpr_list)val);
+            if (!list || !*list || !(len = mpr_list_get_count(list))) {
+                printf("[], ");
+                break;
+            }
+            if (len > 1)
+                printf("[");
+            while (list) {
+                if (!*list)
+                    printf("null");
+                else
+                    mpr_prop_print(1, (*list)->type, *list);
+                printf(", ");
+                list = mpr_list_next(list);
+            }
         }
         default:
             break;

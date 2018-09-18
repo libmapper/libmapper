@@ -3,414 +3,274 @@
 #include <string.h>
 #include <assert.h>
 
-#include "mapper_internal.h"
+#include "mpr_internal.h"
 #include "types_internal.h"
 
-mapper_graph mapper_object_get_graph(mapper_object obj)
+mpr_graph mpr_obj_get_graph(mpr_obj o)
 {
-    return obj->graph;
+    return o ? o->graph : 0;
 }
 
-mapper_object_type mapper_object_get_type(mapper_object obj)
+mpr_data_type mpr_obj_get_type(mpr_obj o)
 {
-    return obj->type;
+    return o ? o->type : 0;
 }
 
-int mapper_object_get_num_props(mapper_object obj, int staged)
+void mpr_obj_increment_version(mpr_obj o)
+{
+    RETURN_UNLESS(o && o->props.staged);
+    ++o->version;
+    o->props.synced->dirty = 1;
+}
+
+int mpr_obj_get_num_props(mpr_obj o, int staged)
 {
     int len = 0;
-    if (obj) {
-        if (obj->props.synced)
-            len += mapper_table_num_records(obj->props.synced);
-        if (staged && obj->props.staged)
-            len += mapper_table_num_records(obj->props.staged);
+    if (o) {
+        if (o->props.synced)
+            len += mpr_tbl_count(o->props.synced);
+        if (staged && o->props.staged)
+            len += mpr_tbl_count(o->props.staged);
     }
     return len;
 }
 
-mapper_property mapper_object_get_prop_by_name(mapper_object obj,
-                                               const char *name, int *len,
-                                               mapper_type *type,
-                                               const void **val)
+mpr_prop mpr_obj_get_prop_by_key(mpr_obj o, const char *s, int *l, mpr_type *t,
+                                 const void **v, int *p)
 {
-    if (!name)
-        return 0;
-    return mapper_table_get_prop_by_name(obj->props.synced, name, len, type, val);
+    RETURN_UNLESS(o && s, 0);
+    return mpr_tbl_get_prop_by_key(o->props.synced, s, l, t, v, p);
 }
 
-mapper_property mapper_object_get_prop_by_index(mapper_object obj,
-                                                mapper_property prop,
-                                                const char **name, int *len,
-                                                mapper_type *type,
-                                                const void **val)
+mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, mpr_prop p, const char **k, int *l,
+                                 mpr_type *t, const void **v, int *pub)
 {
-    return mapper_table_get_prop_by_index(obj->props.synced,
-                                          prop | obj->props.mask, name,
-                                          len, type, val);
+    RETURN_UNLESS(o, 0);
+    return mpr_tbl_get_prop_by_idx(o->props.synced, p | o->props.mask, k, l, t,
+                                   v, pub);
 }
 
-mapper_property mapper_object_set_prop(mapper_object obj, mapper_property prop,
-                                       const char *name, int len, mapper_type type,
-                                       const void *val, int publish)
+int mpr_obj_get_prop_i32(mpr_obj o, mpr_prop p, const char *s)
 {
+    RETURN_UNLESS(o, 0);
+    mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
+    RETURN_UNLESS(r && r->val, 0);
+    void *v = (r->flags & INDIRECT) ? *r->val : r->val;
+    switch(r->type) {
+        case MPR_BOOL:
+        case MPR_INT32: return *(int*)v;
+        case MPR_INT64: return (int)(*(int64_t*)v);
+        case MPR_FLT:   return (int)(*(float*)v);
+        case MPR_DBL:   return (int)(*(double*)v);
+        default:        return 0;
+    }
+}
+
+float mpr_obj_get_prop_flt(mpr_obj o, mpr_prop p, const char *s)
+{
+    RETURN_UNLESS(o, 0);
+    mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
+    RETURN_UNLESS(r && r->val, 0);
+    void *v = (r->flags & INDIRECT) ? *r->val : r->val;
+    switch(r->type) {
+        case MPR_BOOL:
+        case MPR_INT32: return (float)(*(int*)v);
+        case MPR_INT64: return (float)(*(int64_t*)v);
+        case MPR_FLT:   return *(float*)v;
+        case MPR_DBL:   return (float)(*(double*)v);
+        default:        return 0;
+    }
+}
+
+const char *mpr_obj_get_prop_str(mpr_obj o, mpr_prop p, const char *s)
+{
+    RETURN_UNLESS(o, 0);
+    mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
+    RETURN_UNLESS(r && r->val && r->type == MPR_STR, 0);
+    return r->flags & INDIRECT ? *r->val : r->val;
+}
+
+void *mpr_obj_get_prop_ptr(mpr_obj o, mpr_prop p, const char *s)
+{
+    RETURN_UNLESS(o, 0);
+    mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
+    RETURN_UNLESS(r && r->val && r->type == MPR_PTR, 0);
+    return r->flags & INDIRECT ? *r->val : r->val;
+}
+
+mpr_list mpr_obj_get_prop_list(mpr_obj o, mpr_prop p, const char *s)
+{
+    RETURN_UNLESS(o, 0);
+    mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
+    RETURN_UNLESS(r && r->val && r->type == MPR_LIST, 0);
+    return r->flags & INDIRECT ? *r->val : r->val;
+}
+
+mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
+                          mpr_type type, const void *val, int publish)
+{
+    RETURN_UNLESS(o, 0);
     // TODO: ensure ID property can't be changed by user code
-    if (MAPPER_PROP_UNKNOWN == prop || !MASK_PROP_BITFLAGS(prop)) {
-        if (!name)
-            return MAPPER_PROP_UNKNOWN;
-        prop = mapper_prop_from_string(name);
+    if (MPR_PROP_UNKNOWN == p || !MASK_PROP_BITFLAGS(p)) {
+        if (!s || '@' == s[0])
+            return MPR_PROP_UNKNOWN;
+        p = mpr_prop_from_str(s);
     }
 
     // check if object represents local resource
-    int local = obj->props.staged ? 0 : 1;
+    int local = o->props.staged ? 0 : 1;
     int flags = local ? LOCAL_MODIFY : REMOTE_MODIFY;
     if (!publish)
         flags |= LOCAL_ACCESS_ONLY;
-    return mapper_table_set_record(local ? obj->props.synced : obj->props.staged,
-                                   prop | obj->props.mask, name, len, type,
-                                   val, flags);
+    return mpr_tbl_set(local ? o->props.synced : o->props.staged,
+                       p | o->props.mask, s, len, type, val, flags);
 }
 
-int mapper_object_remove_prop(mapper_object obj, mapper_property prop,
-                              const char *name)
+int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
 {
-    if (!obj)
-        return 0;
+    RETURN_UNLESS(o, 0);
     // check if object represents local resource
-    int local = obj->props.staged ? 0 : 1;
-    if (MAPPER_PROP_UNKNOWN == prop)
-        prop = mapper_prop_from_string(name);
-    if (MAPPER_PROP_USER_DATA == prop || local)
-        return mapper_table_remove_record(obj->props.synced, prop, name,
-                                          LOCAL_MODIFY);
-    else if (MAPPER_PROP_EXTRA == prop)
-        return mapper_table_set_record(obj->props.staged, prop | PROP_REMOVE,
-                                       name, 0, 0, 0, REMOTE_MODIFY);
+    int local = o->props.staged ? 0 : 1;
+    if (MPR_PROP_UNKNOWN == p)
+        p = mpr_prop_from_str(s);
+    if (MPR_PROP_DATA == p || local)
+        return mpr_tbl_remove(o->props.synced, p, s, LOCAL_MODIFY);
+    else if (MPR_PROP_EXTRA == p)
+        return mpr_tbl_set(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0,
+                           REMOTE_MODIFY);
     return 0;
 }
 
-void mapper_object_push(mapper_object obj)
+void mpr_obj_push(mpr_obj o)
 {
-    if (!obj)
-        return;
+    RETURN_UNLESS(o);
+    mpr_net n = &o->graph->net;
 
-    mapper_network net = &obj->graph->net;
-
-    if (obj->type == MAPPER_OBJ_DEVICE) {
-        mapper_device dev = (mapper_device)obj;
-        if (dev->local) {
-            mapper_network_subscribers(net, obj->type);
-            mapper_device_send_state(dev, MSG_DEVICE);
+    if (MPR_DEV == o->type) {
+        mpr_dev d = (mpr_dev)o;
+        if (d->loc) {
+            mpr_net_subscribers(n, d, o->type);
+            mpr_dev_send_state(d, MSG_DEV);
         }
         else {
-            mapper_network_bus(net);
-            mapper_device_send_state(dev, MSG_DEVICE_MODIFY);
+            mpr_net_bus(n);
+            mpr_dev_send_state(d, MSG_DEV_MOD);
         }
     }
-    else if (obj->type & MAPPER_OBJ_SIGNAL) {
-        mapper_signal sig = (mapper_signal)obj;
-        if (sig->local) {
-            mapper_object_type type = ((sig->dir == MAPPER_DIR_OUT)
-                                       ? MAPPER_OBJ_OUTPUT_SIGNAL
-                                       : MAPPER_OBJ_INPUT_SIGNAL);
-            mapper_network_subscribers(net, type);
-            mapper_signal_send_state(sig, MSG_SIGNAL);
+    else if (o->type & MPR_SIG) {
+        mpr_sig s = (mpr_sig)o;
+        if (s->loc) {
+            mpr_data_type type = ((s->dir == MPR_DIR_OUT)
+                                     ? MPR_SIG_OUT : MPR_SIG_IN);
+            mpr_net_subscribers(n, s->dev, type);
+            mpr_sig_send_state(s, MSG_SIG);
         }
         else {
-            mapper_network_bus(net);
-            mapper_signal_send_state(sig, MSG_SIGNAL_MODIFY);
+            mpr_net_bus(n);
+            mpr_sig_send_state(s, MSG_SIG_MOD);
         }
     }
-    else if (obj->type & MAPPER_OBJ_MAP) {
-        mapper_network_bus(net);
-        mapper_map map = (mapper_map)obj;
-        if (map->status >= STATUS_ACTIVE)
-            mapper_map_send_state(map, -1, MSG_MAP_MODIFY);
+    else if (o->type & MPR_MAP) {
+        mpr_net_bus(n);
+        mpr_map m = (mpr_map)o;
+        if (m->status >= MPR_STATUS_ACTIVE)
+            mpr_map_send_state(m, -1, MSG_MAP_MOD);
         else
-            mapper_map_send_state(map, -1, MSG_MAP);
+            mpr_map_send_state(m, -1, MSG_MAP);
     }
     else {
-        trace("mapper_object_push(): unknown object type %d\n", obj->type);
+        trace("mpr_obj_push(): unknown object type %d\n", o->type);
         return;
     }
 
     // clear the staged properties
-    mapper_table_clear(obj->props.staged);
+    mpr_tbl_clear(o->props.staged);
 }
 
-static int match_pattern(const char* string, const char* pattern)
+void mpr_obj_print(mpr_obj o, int staged)
 {
-    if (!string || !pattern)
-        return 1;
-
-    if (!strchr(pattern, '*'))
-        return strcmp(string, pattern);
-
-    // 1) tokenize pattern using strtok() with delimiter character '*'
-    // 2) use strstr() to check if token exists in offset string
-    char *str = (char*)string, *tok;
-    char dup[strlen(pattern)+1], *pat = dup;
-    strcpy(pat, pattern);
-    int ends_wild = ('*' == pattern[strlen(pattern)-1]);
-    while (str && *str) {
-        tok = strtok(pat, "*");
-        if (!tok)
-            return !ends_wild;
-        str = strstr(str, tok);
-        if (str && *str)
-            str += strlen(tok);
-        else
-            return 1;
-        // subsequent calls to strtok() need first argument to be NULL
-        pat = NULL;
-    }
-    return 0;
-}
-
-static int compare_val(mapper_op op, int len, mapper_type type,
-                       const void *val1, const void *val2)
-{
-    int i, compare = 0, difference = 0;
-    switch (type) {
-        case MAPPER_STRING:
-            if (1 == len)
-                compare = match_pattern((const char*)val1, (const char*)val2);
-            else {
-                for (i = 0; i < len; i++) {
-                    compare += match_pattern(((const char**)val1)[i],
-                                             ((const char**)val2)[i]);
-                    difference += abs(compare);
-                }
-            }
-            break;
-        case MAPPER_INT32:
-            for (i = 0; i < len; i++) {
-                compare += ((int*)val1)[i] > ((int*)val2)[i];
-                compare -= ((int*)val1)[i] < ((int*)val2)[i];
-                difference += abs(compare);
-            }
-            break;
-        case MAPPER_FLOAT:
-            for (i = 0; i < len; i++) {
-                compare += ((float*)val1)[i] > ((float*)val2)[i];
-                compare -= ((float*)val1)[i] < ((float*)val2)[i];
-                difference += abs(compare);
-            }
-            break;
-        case MAPPER_DOUBLE:
-            for (i = 0; i < len; i++) {
-                compare += ((double*)val1)[i] > ((double*)val2)[i];
-                compare -= ((double*)val1)[i] < ((double*)val2)[i];
-                difference += abs(compare);
-            }
-            break;
-        case MAPPER_CHAR:
-            for (i = 0; i < len; i++) {
-                compare += ((char*)val1)[i] > ((char*)val2)[i];
-                compare -= ((char*)val1)[i] < ((char*)val2)[i];
-                difference += abs(compare);
-            }
-            break;
-        case MAPPER_INT64:
-        case MAPPER_TIME:
-            for (i = 0; i < len; i++) {
-                compare += ((uint64_t*)val1)[i] > ((uint64_t*)val2)[i];
-                compare -= ((uint64_t*)val1)[i] < ((uint64_t*)val2)[i];
-                difference += abs(compare);
-            }
-            break;
-        default:
-            return 0;
-    }
-    switch (op) {
-        case MAPPER_OP_EQUAL:
-            return (0 == compare) && !difference;
-        case MAPPER_OP_GREATER_THAN:
-            return compare > 0;
-        case MAPPER_OP_GREATER_THAN_OR_EQUAL:
-            return compare >= 0;
-        case MAPPER_OP_LESS_THAN:
-            return compare < 0;
-        case MAPPER_OP_LESS_THAN_OR_EQUAL:
-            return compare <= 0;
-        case MAPPER_OP_NOT_EQUAL:
-            return compare != 0 || difference;
-        default:
-            return 0;
-    }
-}
-
-static int filter_by_prop(const void *context, mapper_object obj)
-{
-    mapper_property prop = *(int*)        (context);
-    mapper_op op =         *(int*)        (context + sizeof(int));
-    int len =              *(int*)        (context + sizeof(int)*2);
-    mapper_type type =     *(mapper_type*)(context + sizeof(int)*3);
-    void *val =            *(void**)      (context + sizeof(int)*4);
-    const char *name =      (const char*) (context + sizeof(int)*4 + sizeof(void*));
-    int _len;
-    mapper_type _type;
-    const void *_val;
-    if (name && name[0])
-        prop = mapper_object_get_prop_by_name((mapper_object)obj, name, &_len,
-                                              &_type, &_val);
-    else
-        prop = mapper_object_get_prop_by_index((mapper_object)obj, prop, NULL,
-                                               &_len, &_type, &_val);
-    if (MAPPER_PROP_UNKNOWN == prop)
-        return MAPPER_OP_DOES_NOT_EXIST == op;
-    if (MAPPER_OP_EXISTS == op)
-        return 1;
-    if (_type != type || _len != len)
-        return 0;
-    return compare_val(op, len, type, _val, val);
-}
-
-mapper_object *mapper_object_list_filter(mapper_object *list, mapper_property prop,
-                                         const char *name, int len,
-                                         mapper_type type, const void *val,
-                                         mapper_op op)
-{
-    if (!list || op <= MAPPER_OP_UNDEFINED || op >= NUM_MAPPER_OPS)
-        return list;
-    return (mapper_object*)mapper_list_filter((void**)list, filter_by_prop,
-                                              "iiicvs", prop, op, len, type,
-                                              &val, name);
-}
-
-inline mapper_object *mapper_object_list_union(mapper_object *list1,
-                                               mapper_object *list2)
-{
-    return (mapper_object*)mapper_list_union((void**)list1, (void**)list2);
-}
-
-inline mapper_object *mapper_object_list_intersection(mapper_object *list1,
-                                                      mapper_object *list2)
-{
-    return (mapper_object*)mapper_list_intersection((void**)list1, (void**)list2);
-}
-
-inline mapper_object *mapper_object_list_difference(mapper_object *list1,
-                                                    mapper_object *list2)
-{
-    return (mapper_object*)mapper_list_difference((void**)list1, (void**)list2);
-}
-
-inline mapper_object mapper_object_list_get_index(mapper_object *list, int index)
-{
-    return (mapper_object)mapper_list_get_index((void**)list, index);
-}
-
-inline mapper_object *mapper_object_list_next(mapper_object *list)
-{
-    return (mapper_object*)mapper_list_next((void**)list);
-}
-
-inline mapper_object *mapper_object_list_copy(mapper_object *list)
-{
-    return (mapper_object*)mapper_list_copy((void**)list);
-}
-
-inline int mapper_object_list_get_length(mapper_object *list)
-{
-    return mapper_list_length((void**)list);
-}
-
-inline void mapper_object_list_free(mapper_object *list)
-{
-    mapper_list_free((void**)list);
-}
-
-void mapper_object_print(mapper_object obj, int staged)
-{
-    if (!obj || !obj->props.synced)
-        return;
-    int i = 0;
-    mapper_property prop;
-    const char *name;
-    mapper_type type;
+    RETURN_UNLESS(o && o->props.synced);
+    int i = 0, len;
+    mpr_prop p;
+    const char *key;
+    mpr_type type;
     const void *val;
-    int len;
 
-    switch (obj->type) {
-        case MAPPER_OBJ_DEVICE:
+    switch (o->type) {
+        case MPR_DEV:
             printf("DEVICE: ");
-            mapper_prop_print(1, MAPPER_DEVICE, obj);
+            mpr_prop_print(1, MPR_DEV, o);
             break;
-        case MAPPER_OBJ_SIGNAL:
+        case MPR_SIG:
             printf("SIGNAL: ");
-            mapper_prop_print(1, MAPPER_SIGNAL, obj);
+            mpr_prop_print(1, MPR_SIG, o);
             break;
-        case MAPPER_OBJ_MAP: {
+        case MPR_MAP: {
             printf("MAP: ");
-            mapper_map map = (mapper_map)obj;
+            mpr_map m = (mpr_map)o;
             int i;
-            if (map->num_src > 1)
+            if (m->num_src > 1)
                 printf("[");
-            for (i = 0; i < map->num_src; i++) {
-                mapper_prop_print(1, MAPPER_SIGNAL,
-                                  mapper_map_get_signal(map, MAPPER_LOC_SRC, i));
+            for (i = 0; i < m->num_src; i++) {
+                mpr_prop_print(1, MPR_SIG, mpr_map_get_sig(m, MPR_LOC_SRC, i));
                 printf(", ");
             }
             printf("\b\b");
-            if (map->num_src > 1)
+            if (m->num_src > 1)
                 printf("]");
             printf(" -> ");
-            mapper_prop_print(1, MAPPER_SIGNAL,
-                              mapper_map_get_signal(map, MAPPER_LOC_DST, 0));
+            mpr_prop_print(1, MPR_SIG, mpr_map_get_sig(m, MPR_LOC_DST, 0));
             break;
         }
         default:
-            trace("mapper_object_print(): unknown object type %d.", obj->type);
+            trace("mpr_obj_print(): unknown object type %d.", o->type);
             return;
     }
 
-    int num_props = mapper_object_get_num_props(obj, 0);
+    int num_props = mpr_obj_get_num_props(o, 0);
     for (i = 0; i < num_props; i++) {
-        prop = mapper_object_get_prop_by_index(obj, i, &name, &len, &type, &val);
+        p = mpr_obj_get_prop_by_idx(o, i, &key, &len, &type, &val, 0);
         die_unless(val != 0, "returned zero value\n");
 
         // already printed this
-        if (MAPPER_PROP_NAME == prop)
+        if (MPR_PROP_NAME == p)
             continue;
 
-        printf(", %s=", name);
+        printf(", %s=", key);
 
         // handle pretty-printing a few enum values
-        if (1 == len && MAPPER_INT32 == type) {
-            switch(prop) {
-                case MAPPER_PROP_DIR:
-                    printf("%s", MAPPER_DIR_OUT == *(int*)val
-                           ? "output" : "input");
+        if (1 == len && MPR_INT32 == type) {
+            switch(p) {
+                case MPR_PROP_DIR:
+                    printf("%s", MPR_DIR_OUT == *(int*)val ? "output" : "input");
                     break;
-                case MAPPER_PROP_PROCESS_LOC:
-                    printf("%s", mapper_loc_string(*(int*)val));
+                case MPR_PROP_PROCESS_LOC:
+                    printf("%s", mpr_loc_str(*(int*)val));
                     break;
-                case MAPPER_PROP_PROTOCOL:
-                    printf("%s", mapper_protocol_string(*(int*)val));
+                case MPR_PROP_PROTOCOL:
+                    printf("%s", mpr_protocol_str(*(int*)val));
                     break;
                 default:
-                    mapper_prop_print(len, type, val);
+                    mpr_prop_print(len, type, val);
             }
         }
         else
-            mapper_prop_print(len, type, val);
+            mpr_prop_print(len, type, val);
 
-        if (!staged || !obj->props.staged)
+        if (!staged || !o->props.staged)
             continue;
 
         // check if staged values exist
-        if (prop == MAPPER_PROP_EXTRA)
-            prop = mapper_table_get_prop_by_name(obj->props.staged, name,
-                                                 &len, &type, &val);
+        if (MPR_PROP_EXTRA == p)
+            p = mpr_tbl_get_prop_by_key(o->props.staged, key, &len, &type, &val, 0);
         else
-            prop = mapper_table_get_prop_by_index(obj->props.staged, prop, NULL,
-                                                  &len, &type, &val);
-        if (prop != MAPPER_PROP_UNKNOWN) {
+            p = mpr_tbl_get_prop_by_idx(o->props.staged, p, NULL, &len, &type,
+                                        &val, 0);
+        if (MPR_PROP_UNKNOWN != p) {
             printf(" (staged: ");
-            mapper_prop_print(len, type, val);
+            mpr_prop_print(len, type, val);
             printf(")");
         }
     }
     printf("\n");
 }
-

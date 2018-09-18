@@ -3,92 +3,92 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mapper_internal.h"
+#include "mpr_internal.h"
 
 // we will sort so that indexed records come before keyed records
-static int compare_records(const void *l, const void *r)
+static int compare_rec(const void *l, const void *r)
 {
-    mapper_table_record_t *rec_l = (mapper_table_record_t*)l;
-    mapper_table_record_t *rec_r = (mapper_table_record_t*)r;
+    mpr_tbl_record rec_l = (mpr_tbl_record)l;
+    mpr_tbl_record rec_r = (mpr_tbl_record)r;
     int idx_l = MASK_PROP_BITFLAGS(rec_l->prop);
     int idx_r = MASK_PROP_BITFLAGS(rec_r->prop);
-    if ((idx_l == MAPPER_PROP_EXTRA) && (idx_r == MAPPER_PROP_EXTRA)) {
-        const char *str_l = rec_l->name, *str_r = rec_r->name;
+    if ((idx_l == MPR_PROP_EXTRA) && (idx_r == MPR_PROP_EXTRA)) {
+        const char *str_l = rec_l->key, *str_r = rec_r->key;
         if (str_l[0] == '@')
             ++str_l;
         if (str_r[0] == '@')
             ++str_r;
         return strcmp(str_l, str_r);
     }
-    if (idx_l == MAPPER_PROP_EXTRA)
+    if (idx_l == MPR_PROP_EXTRA)
         return 1;
-    if (idx_r == MAPPER_PROP_EXTRA)
+    if (idx_r == MPR_PROP_EXTRA)
         return -1;
     return idx_l - idx_r;
 }
 
-mapper_table mapper_table_new()
+mpr_tbl mpr_tbl_new()
 {
-    mapper_table tab = (mapper_table)calloc(1, sizeof(mapper_table_t));
-    if (!tab) return 0;
-    tab->num_records = 0;
-    tab->alloced = 1;
-    tab->records = (mapper_table_record_t*)calloc(1, sizeof(mapper_table_record_t));
-    return tab;
+    mpr_tbl t = (mpr_tbl)calloc(1, sizeof(mpr_tbl_t));
+    RETURN_UNLESS(t, 0);
+    t->count = 0;
+    t->alloced = 1;
+    t->rec = (mpr_tbl_record)calloc(1, sizeof(mpr_tbl_record_t));
+    return t;
 }
 
-void mapper_table_clear(mapper_table tab)
+void mpr_tbl_clear(mpr_tbl t)
 {
     int i, j, free_vals = 1;
-    for (i = 0; i < tab->num_records; i++) {
-        mapper_table_record_t *rec = &tab->records[i];
+    for (i = 0; i < t->count; i++) {
+        mpr_tbl_record rec = &t->rec[i];
         if (!(rec->flags & PROP_OWNED))
             continue;
-        if (rec->name)
-            free((char*)rec->name);
+        if (rec->key)
+            free((char*)rec->key);
         if (free_vals && rec->val) {
             void *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
             if (val) {
-                if ((rec->type == MAPPER_STRING) && rec->len > 1) {
-                    char **vals = (char**)val;
-                    for (j = 0; j < rec->len; j++) {
-                        if (vals[j])
-                            free(vals[j]);
+                if (MPR_LIST == rec->type)
+                    mpr_list_free(val);
+                else {
+                    if ((MPR_STR == rec->type) && rec->len > 1) {
+                        char **vals = (char**)val;
+                        for (j = 0; j < rec->len; j++)
+                            FUNC_IF(free, vals[j]);
                     }
+                    free(val);
                 }
-                free(val);
             }
             if (rec->flags & INDIRECT)
                 *rec->val = 0;
         }
     }
-    tab->num_records = 0;
-    tab->records = realloc(tab->records, sizeof(mapper_table_record_t));
-    tab->alloced = 1;
+    t->count = 0;
+    t->rec = realloc(t->rec, sizeof(mpr_tbl_record_t));
+    t->alloced = 1;
 }
 
-void mapper_table_free(mapper_table tab)
+void mpr_tbl_free(mpr_tbl t)
 {
-    mapper_table_clear(tab);
-    free(tab->records);
-    free(tab);
+    mpr_tbl_clear(t);
+    free(t->rec);
+    free(t);
 }
 
-static mapper_table_record_t *mapper_table_add(mapper_table tab,
-                                               mapper_property prop,
-                                               const char *name, int len,
-                                               mapper_type type, void *val,
-                                               int flags)
+static mpr_tbl_record mpr_tbl_add(mpr_tbl t, mpr_prop prop, const char *key,
+                                  int len, mpr_type type, void *val, int flags)
 {
-    tab->num_records += 1;
-    if (tab->num_records > tab->alloced) {
-        while (tab->num_records > tab->alloced)
-            tab->alloced *= 2;
-        tab->records = realloc(tab->records,
-                               tab->alloced * sizeof(mapper_table_record_t));
+    t->count += 1;
+    if (t->count > t->alloced) {
+        while (t->count > t->alloced)
+            t->alloced *= 2;
+        t->rec = realloc(t->rec, t->alloced * sizeof(mpr_tbl_record_t));
     }
-    mapper_table_record_t *rec = &tab->records[tab->num_records-1];
-    rec->name = name ? strdup(name) : 0;
+    mpr_tbl_record rec = &t->rec[t->count-1];
+    if (MPR_PROP_EXTRA == prop)
+        flags |= MODIFIABLE;
+    rec->key = key ? strdup(key) : 0;
     rec->prop = prop;
     rec->len = len;
     rec->type = type;
@@ -97,18 +97,12 @@ static mapper_table_record_t *mapper_table_add(mapper_table tab,
     return rec;
 }
 
-static void table_sort(mapper_table tab)
-{
-    qsort(tab->records, tab->num_records, sizeof(mapper_table_record_t),
-          compare_records);
-}
-
-int mapper_table_num_records(mapper_table tab)
+int mpr_tbl_count(mpr_tbl t)
 {
     int i, count = 0;
-    mapper_table_record_t *rec;
-    for (i = 0; i < tab->num_records; i++) {
-        rec = &tab->records[i];
+    mpr_tbl_record rec;
+    for (i = 0; i < t->count; i++) {
+        rec = &t->rec[i];
         if (!rec->val)
             continue;
         if ((rec->flags & INDIRECT) && !(*rec->val))
@@ -118,90 +112,92 @@ int mapper_table_num_records(mapper_table tab)
     return count;
 }
 
-mapper_table_record_t *mapper_table_record(mapper_table tab, mapper_property prop,
-                                           const char *name)
+mpr_tbl_record mpr_tbl_get(mpr_tbl t, mpr_prop prop, const char *key)
 {
-    mapper_table_record_t tmp;
+    RETURN_UNLESS(key || (MPR_PROP_UNKNOWN != prop && MPR_PROP_EXTRA != prop), 0);
+    mpr_tbl_record_t tmp;
     tmp.prop = prop;
-    tmp.name = name;
-    mapper_table_record_t *rec = 0;
-    rec = bsearch(&tmp, tab->records, tab->num_records,
-                  sizeof(mapper_table_record_t), compare_records);
+    tmp.key = key;
+    mpr_tbl_record rec = 0;
+    rec = bsearch(&tmp, t->rec, t->count, sizeof(mpr_tbl_record_t),
+                  compare_rec);
     return rec;
 }
 
-int mapper_table_get_prop_by_name(mapper_table tab, const char *name, int *len,
-                                  mapper_type *type, const void **val)
+int mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len,
+                            mpr_type *type, const void **val, int *pub)
 {
     int found = 1;
-    mapper_property prop = mapper_prop_from_string(name);
-    mapper_table_record_t *rec = mapper_table_record(tab, prop, name);
+    mpr_prop prop = mpr_prop_from_str(key);
+    mpr_tbl_record rec = mpr_tbl_get(t, prop, key);
 
     if (!rec || !rec->val || ((rec->flags & INDIRECT) && !(*rec->val)))
         found = 0;
-
     if (len)
         *len = found ? rec->len : 0;
     if (type)
-        *type = found ? rec->type : MAPPER_NULL;
+        *type = found ? rec->type : MPR_NULL;
     if (val)
         *val = found ? (rec->flags & INDIRECT ? *rec->val : rec->val) : NULL;
+    if (pub)
+        *pub = rec->flags ^ LOCAL_ACCESS_ONLY;
 
-    return found ? rec->prop : MAPPER_PROP_UNKNOWN;
+    return found ? rec->prop : MPR_PROP_UNKNOWN;
 }
 
-int mapper_table_get_prop_by_index(mapper_table tab, mapper_property prop,
-                                   const char **name, int *len,
-                                   mapper_type *type, const void **val)
+int mpr_tbl_get_prop_by_idx(mpr_tbl t, mpr_prop prop, const char **key, int *len,
+                            mpr_type *type, const void **val, int *pub)
 {
     int found = 1;
     int i, j = 0;
-    mapper_table_record_t *rec = 0;
+    mpr_tbl_record rec = 0;
 
     if (MASK_PROP_BITFLAGS(prop)) {
-        // use as mapper_property instead of numerical index
-        rec = mapper_table_record(tab, MASK_PROP_BITFLAGS(prop), NULL);
+        // use as mpr_prop instead of numerical index
+        rec = mpr_tbl_get(t, MASK_PROP_BITFLAGS(prop), NULL);
     }
     else {
         prop &= 0xFF;
-        if (prop < tab->num_records && tab->num_records > 0) {
-            for (i = 0; i < tab->num_records; i++) {
-                rec = &tab->records[i];
+        if (prop < t->count && t->count > 0) {
+            for (i = 0; i < t->count; i++) {
+                rec = &t->rec[i];
                 if (!rec->val || ((rec->flags & INDIRECT) && !(*rec->val)))
                     continue;
                 if (j == prop)
                     break;
                 ++j;
             }
-            if (i == tab->num_records)
+            if (i == t->count)
                 rec = 0;
         }
     }
 
     if (!rec || !rec->val || ((rec->flags & INDIRECT) && !(*rec->val)))
         found = 0;
-
-    if (name)
-        *name = found ? (rec->name ? rec->name : mapper_prop_string(rec->prop)) : NULL;
+    if (key)
+        *key = found ? (rec->key ? rec->key : mpr_prop_str(rec->prop, 1)) : NULL;
     if (len)
         *len = found ? rec->len : 0;
     if (type)
-        *type = found ? rec->type : MAPPER_NULL;
-    if (val)
+        *type = found ? rec->type : MPR_NULL;
+    if (val) {
         *val = found ? (rec->flags & INDIRECT ? *rec->val : rec->val) : NULL;
+        if (found && MPR_LIST == rec->type)
+            *val = mpr_list_cpy((mpr_list)*val);
+    }
+    if (pub)
+        *pub = rec->flags ^ LOCAL_ACCESS_ONLY;
 
-    return found ? rec->prop : MAPPER_PROP_UNKNOWN;
+    return found ? rec->prop : MPR_PROP_UNKNOWN;
 }
 
-int mapper_table_remove_record(mapper_table tab, mapper_property prop,
-                               const char *name, int flags)
+int mpr_tbl_remove(mpr_tbl t, mpr_prop prop, const char *key, int flags)
 {
-    mapper_table_record_t *rec = mapper_table_record(tab, prop, name);
-    if (!rec || !(rec->flags & MODIFIABLE) || !rec->val)
-        return 0;
-
-    if (MASK_PROP_BITFLAGS(prop) != MAPPER_PROP_EXTRA) {
-        // set value to null rather than removing name
+    mpr_tbl_record rec = mpr_tbl_get(t, prop, key);
+    RETURN_UNLESS(rec && (rec->flags & MODIFIABLE) && rec->val, 0);
+    prop = MASK_PROP_BITFLAGS(prop);
+    if (prop != MPR_PROP_EXTRA && prop != MPR_PROP_LINKED) {
+        // set value to null rather than removing
         if (rec->flags & INDIRECT) {
             if (rec->val && *rec->val) {
                 free(*rec->val);
@@ -212,7 +208,7 @@ int mapper_table_remove_record(mapper_table tab, mapper_property prop,
         }
         else {
             trace("Cannot remove static property [%d] '%s'\n", prop,
-                  name ?: mapper_prop_string(prop));
+                  key ?: mpr_prop_str(prop, 1));
         }
         return 0;
     }
@@ -220,55 +216,49 @@ int mapper_table_remove_record(mapper_table tab, mapper_property prop,
     /* Calculate its key in the records. */
     int i;
     if (rec->val) {
-        if ((rec->type == MAPPER_STRING) && rec->len > 1) {
+        if ((rec->type == MPR_STR) && rec->len > 1) {
             char **vals = (char**)rec->val;
-            for (i = 0; i < rec->len; i++) {
-                if (vals[i])
-                    free(vals[i]);
-            }
+            for (i = 0; i < rec->len; i++)
+                FUNC_IF(free, vals[i]);
         }
         free(rec->val);
         rec->val = 0;
     }
-
     rec->prop |= PROP_REMOVE;
     return 1;
 }
 
-void mapper_table_clear_empty_records(mapper_table tab)
+void mpr_tbl_clear_empty(mpr_tbl t)
 {
     int i, j;
-    mapper_table_record_t *rec;
-    for (i = 0; i < tab->num_records; i++) {
-        rec = &tab->records[i];
+    mpr_tbl_record rec;
+    for (i = 0; i < t->count; i++) {
+        rec = &t->rec[i];
         if (rec->val || !(rec->prop & PROP_REMOVE))
             continue;
         rec->prop &= ~PROP_REMOVE;
-        if (MASK_PROP_BITFLAGS(rec->prop) != MAPPER_PROP_EXTRA)
+        if (MASK_PROP_BITFLAGS(rec->prop) != MPR_PROP_EXTRA)
             continue;
-        free((char*)rec->name);
-        for (j = rec - tab->records + 1; j < tab->num_records; j++)
-            tab->records[j-1] = tab->records[j];
-        --tab->num_records;
+        free((char*)rec->key);
+        for (j = rec - t->rec + 1; j < t->count; j++)
+            t->rec[j-1] = t->rec[j];
+        --t->count;
     }
 }
 
-static int update_elements(mapper_table_record_t *rec, int len, mapper_type type,
+/* For unknown reasons, strcpy crashes here with -O2, so we'll use memcpy
+ * instead, which does not crash. */
+static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type,
                            const void *val)
 {
-    /* For unknown reasons, strcpy crashes here with -O2, so
-     * we'll use memcpy instead, which does not crash. */
-
+    RETURN_UNLESS(len, 0);
     int i, updated = 0;
-    if (len < 1)
-        return 0;
-
     void *old_val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
     void *new_val = old_val;
 
     if (old_val && (len != rec->len || type != rec->type)) {
         // free old values
-        if (MAPPER_STRING == rec->type && rec->len > 1) {
+        if (MPR_STR == rec->type && rec->len > 1) {
             for (i = 0; i < rec->len; i++)
                 free(((char**)old_val)[i]);
         }
@@ -277,12 +267,16 @@ static int update_elements(mapper_table_record_t *rec, int len, mapper_type type
         updated = 1;
     }
 
-    if (MAPPER_STRING == type) {
+    if (MPR_STR == type) {
         if (1 == len) {
-            if (old_val && strcmp((char*)old_val, (char*)val)) {
-                free((char*)old_val);
-                old_val = 0;
-                updated = 1;
+            if (old_val) {
+                if (strcmp((char*)old_val, (char*)val)) {
+                    free((char*)old_val);
+                    old_val = 0;
+                    updated = 1;
+                }
+                else
+                    return 0;
             }
             new_val = val ? (void*)strdup((char*)val) : 0;
         }
@@ -302,14 +296,12 @@ static int update_elements(mapper_table_record_t *rec, int len, mapper_type type
         }
     }
     else {
-        if (old_val) {
-            if ((updated = memcmp(old_val, val, mapper_type_size(type) * len)))
-                memcpy(new_val, val, mapper_type_size(type) * len);
+        if (!old_val) {
+            new_val = malloc(mpr_type_size(type) * len);
+            memcpy(new_val, val, mpr_type_size(type) * len);
         }
-        else {
-            new_val = malloc(mapper_type_size(type) * len);
-            memcpy(new_val, val, mapper_type_size(type) * len);
-        }
+        else if ((updated = memcmp(old_val, val, mpr_type_size(type) * len)))
+            memcpy(new_val, val, mpr_type_size(type) * len);
     }
 
     if (rec->flags & INDIRECT)
@@ -321,307 +313,159 @@ static int update_elements(mapper_table_record_t *rec, int len, mapper_type type
     return updated;
 }
 
-int set_record_internal(mapper_table tab, mapper_property prop,
-                        const char *name, int len, mapper_type type,
-                        const void *val, int flags)
+int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
+                 mpr_type type, const void *val, int flags)
 {
     int updated = 0;
-    if (!name && (MAPPER_PROP_UNKNOWN == prop || MAPPER_PROP_EXTRA == prop)) {
-        return 0;
-    }
-
-    mapper_table_record_t *rec = mapper_table_record(tab, prop, name);
-
+    mpr_tbl_record rec = mpr_tbl_get(t, prop, key);
     if (rec) {
-        if (!(rec->flags & MODIFIABLE))
-            return 0;
-        if (flags & PROP_REMOVE)
-            return mapper_table_remove_record(tab, prop, name, flags);
-        void *coerced = (void*)val;
+        RETURN_UNLESS(rec->flags & MODIFIABLE, 0);
+        if (prop & PROP_REMOVE)
+            return mpr_tbl_remove(t, prop, key, flags);
         if (type != rec->type && (rec->flags & INDIRECT)) {
-            coerced = alloca(mapper_type_size(rec->type) * rec->len);
+            void *coerced = alloca(mpr_type_size(rec->type) * rec->len);
             set_coerced_val(len, type, val, rec->len, rec->type, coerced);
+            updated = t->dirty = update_elements(rec, rec->len, rec->type, coerced);
         }
-        updated = tab->dirty = update_elements(rec, len, type, coerced);
+        else
+            updated = t->dirty = update_elements(rec, len, type, val);
     }
     else {
         /* Need to add a new entry. */
-        rec = mapper_table_add(tab, prop, name, 0, type, 0, flags | PROP_OWNED);
-        update_elements(rec, len, type, val);
-        table_sort(tab);
-        updated = tab->dirty = 1;
+        rec = mpr_tbl_add(t, prop, key, 0, type, 0, flags | PROP_OWNED);
+        if (val)
+            update_elements(rec, len, type, val);
+        else
+            rec->prop |= PROP_REMOVE;
+        qsort(t->rec, t->count, sizeof(mpr_tbl_record_t), compare_rec);
+        updated = t->dirty = 1;
     }
     return updated;
 }
 
 /* Higher-level interface, where table stores arbitrary arguments along
  * with their type. */
-int mapper_table_set_record(mapper_table tab, mapper_property prop,
-                            const char *name, int len, mapper_type type,
-                            const void *args, int flags)
+int mpr_tbl_set(mpr_tbl t, mpr_prop prop, const char *key, int len,
+                mpr_type type, const void *args, int flags)
 {
     if (!args && !(flags & REMOTE_MODIFY))
-        return mapper_table_remove_record(tab, prop, name, flags);
-    return set_record_internal(tab, prop, name, len, type, args, flags);
+        return mpr_tbl_remove(t, prop, key, flags);
+    return set_internal(t, prop, key, len, type, args, flags);
 }
 
-void mapper_table_link(mapper_table tab, mapper_property prop, int len,
-                       mapper_type type, void *val, int flags)
+void mpr_tbl_link(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val,
+                  int flags)
 {
-    mapper_table_add(tab, prop, NULL, len, type, val, flags);
+    mpr_tbl_add(t, prop, NULL, len, type, val, flags);
 }
 
-static int val_changed_osc(mapper_table_record_t *rec, int len,
-                           const mapper_type *types, lo_arg **args)
+static int update_elements_osc(mpr_tbl_record rec, unsigned int len,
+                               const mpr_type *types, lo_arg **args)
 {
-    int i;
-    void *recval;
-    if (rec->len != len || !type_match(rec->type, types[0]))
-        return 1;
-    
-    recval = (rec->flags & INDIRECT) ? *rec->val : rec->val;
-    if (!recval)
-        return 1;
-    
-    switch (types[0]) {
-        case MAPPER_STRING:
-            if (len == 1)
-                return strcmp((char*)recval, &args[0]->s);
-            else {
-                char **l = (char**)recval;
-                char **r = (char**)args;
-                for (i = 0; i < len; i++) {
-                    if (strcmp(l[i], r[i]))
-                        return 1;
-                }
-            }
+    RETURN_UNLESS(len, 0);
+    if (MPR_STR == types[0] && 1 == len)
+        return update_elements(rec, 1, MPR_STR, &args[0]->s);
+
+    mpr_type type = types[0];
+    int i, size = mpr_type_size(types[0]) * len;
+    void *val = malloc(size);
+
+    switch (type) {
+        case MPR_STR:
+            for (i = 0; i < len; i++)
+                ((char**)val)[i] = &args[i]->s;
             break;
-        case MAPPER_INT32: {
-            int32_t *vals = (int32_t*)recval;
-            for (i = 0; i < len; i++) {
-                if (vals[i] != args[i]->i32)
-                    return 1;
-            }
+        case MPR_FLT:
+            for (i = 0; i < len; i++)
+                ((float*)val)[i] = args[i]->f;
             break;
-        }
+        case MPR_INT32:
+            for (i = 0; i < len; i++)
+                ((int32_t*)val)[i] = args[i]->i32;
+            break;
+        case MPR_DBL:
+            for (i = 0; i < len; i++)
+                ((double*)val)[i] = args[i]->d;
+            break;
+        case MPR_INT64:
+            for (i = 0; i < len; i++)
+                ((int64_t*)val)[i] = args[i]->h;
+            break;
+        case MPR_TIME:
+            for (i = 0; i < len; i++)
+                ((mpr_time_t*)val)[i] = args[i]->t;
+            break;
+        case MPR_TYPE:
+            for (i = 0; i < len; i++)
+                ((mpr_type*)val)[i] = args[i]->c;
+            break;
         case 'T':
-        case 'F': {
-            int32_t *vals = (int32_t*)recval;
-            for (i = 0; i < len; i++) {
-                if (vals[i] ^ (types[i] == 'T'))
-                    return 1;
-            }
+        case 'F':
+            for (i = 0; i < len; i++)
+                ((int32_t*)val)[i] = (types[i] == 'T');
+            type = MPR_BOOL;
             break;
-        }
-        case MAPPER_FLOAT: {
-            float *vals = (float*)recval;
-            for (i = 0; i < len; i++) {
-                if (vals[i] != args[i]->f)
-                    return 1;
-            }
+        default:
             break;
-        }
-        case MAPPER_DOUBLE: {
-            double *vals = (double*)recval;
-            for (i = 0; i < len; i++) {
-                if (vals[i] != args[i]->d)
-                    return 1;
-            }
-            break;
-        }
-        case MAPPER_INT64:
-        case MAPPER_TIME: {
-            int64_t *vals = (int64_t*)recval;
-            for (i = 0; i < len; i++) {
-                if (vals[i] != args[i]->h)
-                    return 1;
-            }
-            break;
-        }
-        case MAPPER_CHAR: {
-            char *vals = (char*)recval;
-            for (i = 0; i < len; i++) {
-                if (vals[i] != args[i]->c)
-                    return 1;
-            }
-            break;
-        }
-    }
-    return 0;
-}
-
-static void update_elements_osc(mapper_table_record_t *rec, int len,
-                                const mapper_type *types, lo_arg **args,
-                                int indirect)
-{
-    /* For unknown reasons, strcpy crashes here with -O2, so
-     * we'll use memcpy instead, which does not crash. */
-
-    int i, realloced = 0;
-    if (len < 1)
-        return;
-
-    void *val;
-    if (indirect || len > 1 || type_is_ptr(types[0])) {
-        realloced = 1;
-        val = malloc(mapper_type_size(types[0]) * len);
-    }
-    else {
-        if (len != rec->len || !type_match(types[0], rec->type))
-            rec->val = realloc(rec->val, mapper_type_size(types[0]) * len);
-        val = rec->val;
     }
 
-    /* If destination is a string, reallocate and copy the new
-     * string, otherwise just copy over the old value. */
-    if (types[0] == MAPPER_STRING) {
-        if (len == 1) {
-            if (val)
-                free(val);
-            val = strdup((char*)&args[0]->s);
-        }
-        else if (len > 1) {
-            char **to = (char**)val;
-            char **from = (char**)args;
-            for (i = 0; i < len; i++) {
-                int n = strlen(from[i]);
-                to[i] = malloc(n+1);
-                memcpy(to[i], from[i], n+1);
-            }
-        }
-    } else {
-        switch (types[0]) {
-            case MAPPER_FLOAT: {
-                float *vals = (float*)val;
-                for (i = 0; i < len; i++)
-                    vals[i] = args[i]->f;
-                break;
-            }
-            case MAPPER_INT32: {
-                int32_t *vals = (int32_t*)val;
-                for (i = 0; i < len; i++)
-                    vals[i] = args[i]->i32;
-                break;
-            }
-            case MAPPER_DOUBLE: {
-                double *vals = (double*)val;
-                for (i = 0; i < len; i++)
-                    vals[i] = args[i]->d;
-                break;
-            }
-            case MAPPER_INT64: {
-                int64_t *vals = (int64_t*)val;
-                for (i = 0; i < len; i++)
-                    vals[i] = args[i]->h;
-                break;
-            }
-            case MAPPER_TIME: {
-                mapper_time_t *vals = (mapper_time_t*)val;
-                for (i = 0; i < len; i++)
-                    vals[i] = args[i]->t;
-                break;
-            }
-            case MAPPER_CHAR: {
-                char *vals = (char*)val;
-                for (i = 0; i < len; i++)
-                    vals[i] = args[i]->c;
-                break;
-            }
-            case 'T':
-            case 'F': {
-                int32_t *vals = (int32_t*)val;
-                for (i = 0; i < len; i++) {
-                    vals[i] = (types[i] == 'T');
-                }
-                break;
-            }
-            default:
-                break;
-        }
-    }
-
-    if (realloced) {
-        void *old_val = indirect ? *rec->val : rec->val;
-        if (indirect)
-            *rec->val = val;
-        else
-            rec->val = val;
-        if (old_val) {
-            if (rec->type == MAPPER_STRING && rec->len > 1) {
-                // free elements
-                for (i = 0; i < rec->len; i++) {
-                    if (((char**)old_val)[i])
-                        free(((char**)old_val)[i]);
-                }
-            }
-            free(old_val);
-        }
-    }
-
-    rec->len = len;
-    if (types[0] == 'T' || types[0] == 'F')
-        rec->type = MAPPER_BOOL;
-    else
-        rec->type = types[0];
+    int updated = update_elements(rec, len, type, val);
+    free(val);
+    return updated;
 }
 
 /* Higher-level interface, where table stores arbitrary OSC arguments
- * parsed from a mapper_msg along with their type. */
-int mapper_table_set_record_from_atom(mapper_table tab, mapper_msg_atom atom,
-                                      int flags)
+ * parsed from a mpr_msg along with their type. */
+int mpr_tbl_set_from_atom(mpr_tbl t, mpr_msg_atom atom, int flags)
 {
-    mapper_table_record_t *rec = mapper_table_record(tab, atom->prop, atom->name);
+    int updated = 0;
+    mpr_tbl_record rec = mpr_tbl_get(t, atom->prop, atom->key);
 
-    if (atom->prop & PROP_REMOVE) {
-        return mapper_table_remove_record(tab, atom->prop, atom->name, flags);
-    }
+    if (atom->prop & PROP_REMOVE)
+        return mpr_tbl_remove(t, atom->prop, atom->key, flags);
 
     if (rec) {
-        if (!val_changed_osc(rec, atom->len, atom->types, atom->vals))
-            return 0;
-        update_elements_osc(rec, atom->len, atom->types, atom->vals,
-                            rec->flags & INDIRECT);
-        tab->dirty = 1;
-        return 1;
+        if (atom->prop & PROP_REMOVE)
+            return mpr_tbl_remove(t, atom->prop, atom->key, flags);
+        updated = t->dirty = update_elements_osc(rec, atom->len, atom->types,
+                                                 atom->vals);
     }
     else {
         /* Need to add a new entry. */
-        rec = mapper_table_add(tab, atom->prop, atom->name, 0, atom->types[0],
-                               0, flags | PROP_OWNED);
+        rec = mpr_tbl_add(t, atom->prop, atom->key, 0, atom->types[0], 0,
+                          flags | PROP_OWNED);
         rec->val = 0;
-        update_elements_osc(rec, atom->len, atom->types, atom->vals, 0);
-        table_sort(tab);
-        tab->dirty = 1;
+        update_elements_osc(rec, atom->len, atom->types, atom->vals);
+        qsort(t->rec, t->count, sizeof(mpr_tbl_record_t), compare_rec);
+        updated = t->dirty = 1;
         return 1;
-    }
-    return 0;
-}
-
-int mapper_table_set_from_msg(mapper_table tab, mapper_msg msg, int flags)
-{
-    int i, updated = 0;
-    for (i = 0; i < msg->num_atoms; i++) {
-        updated += mapper_table_set_record_from_atom(tab, &msg->atoms[i], flags);
     }
     return updated;
 }
 
-static void mapper_record_add_to_msg(mapper_table_record_t *rec, lo_message msg)
+static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
 {
-    int len, indirect, masked;
+    RETURN_UNLESS(!(rec->flags & LOCAL_ACCESS_ONLY));
+    int len = 0,
+        indirect = rec->flags & INDIRECT,
+        masked = MASK_PROP_BITFLAGS(rec->prop);
     char temp[256];
+    void *val = rec->val ? (indirect ? *rec->val : rec->val) : NULL;
 
-    if (!rec->val || !rec->len || rec->flags & LOCAL_ACCESS_ONLY)
-        return;
-
-    masked = MASK_PROP_BITFLAGS(rec->prop);
-    indirect = rec->flags & INDIRECT;
-    if (masked != MAPPER_PROP_EXTRA) {
-        if (!rec->val || (indirect && !*rec->val))
+    mpr_list list = NULL;
+    if (MPR_LIST == rec->type) {
+        // use a copy of the list
+        list = mpr_list_cpy((mpr_list)val);
+        if (!list) {
+            trace("skipping empty list property '%s'\n",
+                  rec->key ?: mpr_prop_str(masked, 1));
             return;
+        }
+        list = mpr_list_start(list);
     }
 
-    len = 0;
+    RETURN_UNLESS(val || masked == MPR_PROP_EXTRA);
+
     if (rec->prop & PROP_ADD) {
         snprintf(temp, 256, "+");
         ++len;
@@ -639,90 +483,97 @@ static void mapper_record_add_to_msg(mapper_table_record_t *rec, lo_message msg)
         len = strlen(temp);
     }
 
-    if (masked < 0 || masked > MAPPER_PROP_EXTRA) {
+    if (masked < 0 || masked > MPR_PROP_EXTRA) {
         trace("skipping malformed property.\n");
         return;
     }
-    if (masked == MAPPER_PROP_EXTRA) {
-        snprintf(temp + len, 256 - len, "@%s", rec->name);
+    if (masked == MPR_PROP_EXTRA) {
+        snprintf(temp + len, 256 - len, "@%s", rec->key);
         len = strlen(temp);
     }
-    else {
-        snprintf(temp + len, 256 - len, "%s",
-                 mapper_prop_protocol_string(masked));
-    }
-    if (len) {
+    else
+        snprintf(temp + len, 256 - len, "%s", mpr_prop_str(masked, 0));
+    if (len)
         lo_message_add_string(msg, temp);
-    }
     else {
         // can use static string
-        lo_message_add_string(msg, mapper_prop_protocol_string(masked));
+        lo_message_add_string(msg, mpr_prop_str(masked, 0));
     }
-    if (rec->prop & PROP_REMOVE)
+    if (rec->prop & PROP_REMOVE || !val || !rec->len)
         return;
     // add value
     switch (masked) {
-        case MAPPER_PROP_DIR: {
+        case MPR_PROP_DIR: {
             int dir = *(int*)rec->val;
-            lo_message_add_string(msg, dir == MAPPER_DIR_OUT ? "output" : "input");
+            lo_message_add_string(msg, dir == MPR_DIR_OUT ? "output" : "input");
             break;
         }
-        case MAPPER_PROP_PROCESS_LOC: {
-            int loc = *(int*)rec->val;
-            lo_message_add_string(msg, mapper_loc_string(loc));
+        case MPR_PROP_PROCESS_LOC:
+            lo_message_add_string(msg, mpr_loc_str(*(int*)rec->val));
             break;
-        }
-        case MAPPER_PROP_PROTOCOL: {
-            int pro = *(int*)rec->val;
-            lo_message_add_string(msg, mapper_protocol_string(pro));
+        case MPR_PROP_PROTOCOL:
+            lo_message_add_string(msg, mpr_protocol_str(*(int*)rec->val));
             break;
-        }
-        case MAPPER_PROP_DEVICE:
-        case MAPPER_PROP_SIGNAL:
-        case MAPPER_PROP_SLOT:
+        case MPR_PROP_STEAL_MODE:
+            lo_message_add_string(msg, mpr_steal_str(*(int*)rec->val));
+            break;
+        case MPR_PROP_DEV:
+        case MPR_PROP_SIG:
+        case MPR_PROP_SLOT:
             // do nothing
             break;
+        case MPR_PROP_SCOPE:
+        case MPR_PROP_LINKED: {
+            if (!list) {
+                lo_message_add_string(msg, "none");
+                break;
+            }
+            while (list) {
+                const char *key = mpr_obj_get_prop_str((mpr_obj)*list,
+                                                       MPR_PROP_NAME, NULL);
+                lo_message_add_string(msg, key);
+                list = mpr_list_next(list);
+            }
+            break;
+        }
         default:
-            mapper_msg_add_typed_val(msg, rec->len, rec->type,
-                                     indirect ? *rec->val : rec->val);
+            mpr_msg_add_typed_val(msg, rec->len, rec->type,
+                                  indirect ? *rec->val : rec->val);
             break;
     }
+    if (list)
+        mpr_list_free(list);
 }
 
-void mapper_table_add_to_msg(mapper_table tab, mapper_table updates,
-                             lo_message msg)
+void mpr_tbl_add_to_msg(mpr_tbl tbl, mpr_tbl new, lo_message msg)
 {
     int i;
     // add all the updates
-    if (updates) {
-        for (i = 0; i < updates->num_records; i++) {
-            mapper_record_add_to_msg(&updates->records[i], msg);
-        }
+    if (new) {
+        for (i = 0; i < new->count; i++)
+            mpr_record_add_to_msg(&new->rec[i], msg);
     }
-    if (!tab)
-        return;
+    RETURN_UNLESS(tbl);
     // add remaining records
-    for (i = 0; i < tab->num_records; i++) {
+    for (i = 0; i < tbl->count; i++) {
         // check if updated version exists
-        if (!updates || !mapper_table_record(updates, tab->records[i].prop,
-                                             tab->records[i].name)) {
-            mapper_record_add_to_msg(&tab->records[i], msg);
-        }
+        if (!new || !mpr_tbl_get(new, tbl->rec[i].prop, tbl->rec[i].key))
+            mpr_record_add_to_msg(&tbl->rec[i], msg);
     }
 }
 
 #ifdef DEBUG
-void mapper_table_print_record(mapper_table_record_t *rec)
+void mpr_tbl_print_record(mpr_tbl_record rec)
 {
     if (!rec) {
         printf("error: no record found");
         return;
     }
     printf("%p : %d ", rec->val, rec->prop);
-    if (rec->name)
-        printf("'%s' ", rec->name);
+    if (rec->key)
+        printf("'%s' ", rec->key);
     else
-        printf("(%s) ", mapper_prop_string(rec->prop));
+        printf("(%s) ", mpr_prop_str(rec->prop, 1));
     if (rec->flags & (INDIRECT | PROP_OWNED)) {
         printf("[");
         if (rec->flags & INDIRECT)
@@ -733,15 +584,15 @@ void mapper_table_print_record(mapper_table_record_t *rec)
     }
     printf(": %c%d : ", rec->type, rec->len);
     void *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
-    mapper_prop_print(rec->len, rec->type, val);
+    mpr_prop_print(rec->len, rec->type, val);
 }
 
-void mapper_table_print(mapper_table tab)
+void mpr_tbl_print(mpr_tbl t)
 {
-    mapper_table_record_t *rec = tab->records;
+    mpr_tbl_record rec = t->rec;
     int i;
-    for (i = 0; i < tab->num_records; i++) {
-        mapper_table_print_record(rec);
+    for (i = 0; i < t->count; i++) {
+        mpr_tbl_print_record(rec);
         printf("\n");
         ++rec;
     }

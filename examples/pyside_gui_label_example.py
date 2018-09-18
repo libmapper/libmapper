@@ -4,7 +4,7 @@ import sys, os
 from PySide.QtCore import *
 from PySide.QtGui import *
 try:
-    import mapper
+    import mpr
 except:
     try:
         # Try the "swig" directory, relative to the location of this
@@ -14,16 +14,16 @@ except:
                         os.path.join(os.path.join(os.getcwd(),
                                                   os.path.dirname(sys.argv[0])),
                                      '../swig'))
-        import mapper
+        import mpr
     except:
-        print 'Error importing libmapper module.'
+        print 'Error importing libmpr module.'
         sys.exit(1)
 
 numsliders = 3
-dev = mapper.device("pysideGUI")
+dev = mpr.device("pysideGUI")
 sigs = []
 for i in range(numsliders):
-    sigs.append(dev.add_signal(mapper.DIR_OUTGOING, 1, 'slider%i' %i, 1, 'f', None, 0, 1))
+    sigs.append(dev.add_signal(mpr.DIR_OUT, 1, 'slider%i' %i, 1, 'f', None, 0, 1))
 
 class gui(QMainWindow):
     
@@ -31,7 +31,7 @@ class gui(QMainWindow):
         QMainWindow.__init__(self)
         self.setGeometry(300, 300, 300, 300)
         self.setFixedSize(300, 300)
-        self.setWindowTitle('libmapper device gui example')
+        self.setWindowTitle('libmpr device gui example')
         blurb = QLabel('These sliders will be dynamically labeled with the name of destination signals to which they are connected.', self)
         blurb.setGeometry(5, 0, 290, 50)
         blurb.setWordWrap(True)
@@ -68,7 +68,7 @@ def h(map, action):
     print 'GOT DEVICE MAP HANDLER'
     id = map.source().signal()['name']
     id = int(id[6])
-    if action == mapper.ADDED:
+    if action == mpr.ADDED:
         sig = map.destination().signal()
         gui.setLabel(id, 'foo')
     else:

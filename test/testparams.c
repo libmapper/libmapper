@@ -3,7 +3,7 @@
 #include <string.h>
 #include <lo/lo_lowlevel.h>
 #include "../src/types_internal.h"
-#include "../src/mapper_internal.h"
+#include "../src/mpr_internal.h"
 
 int verbose = 1;
 
@@ -15,8 +15,8 @@ int verbose = 1;
 int main(int argc, char **argv)
 {
     lo_arg *args[20];
-    mapper_msg msg;
-    mapper_msg_atom atom;
+    mpr_msg msg;
+    mpr_msg_atom atom;
     int port=1234, src_len=4;
     float r[4] = {1.0, 2.0, -15.0, 25.0};
     int i, j, result = 0;
@@ -59,14 +59,14 @@ int main(int argc, char **argv)
     args[11] = (lo_arg*)"@src@length";
     args[12] = (lo_arg*)&src_len;
 
-    msg = mapper_msg_parse_props(13, "sssffffsiscsi", args);
+    msg = mpr_msg_parse_props(13, "sssffffsiscsi", args);
     if (!msg) {
         eprintf("1: Error parsing.\n");
         result = 1;
         goto done;
     }
 
-    atom = mapper_msg_prop(msg, MAPPER_PROP_HOST);
+    atom = mpr_msg_prop(msg, MPR_PROP_HOST);
     if (!atom) {
         eprintf("1: Could not get @host property.\n");
         result = 1;
@@ -89,13 +89,13 @@ int main(int argc, char **argv)
     if (result)
         goto done;
 
-    atom = mapper_msg_prop(msg, MAPPER_PROP_PORT);
+    atom = mpr_msg_prop(msg, MPR_PROP_PORT);
     if (!atom) {
         eprintf("1: Could not get @port property.\n");
         result = 1;
         goto done;
     }
-    if (atom->types[0] != MAPPER_INT32) {
+    if (atom->types[0] != MPR_INT32) {
         eprintf("1: Type error retrieving @port property.");
         result = 1;
         goto done;
@@ -112,13 +112,13 @@ int main(int argc, char **argv)
     if (result)
         goto done;
 
-    atom = mapper_msg_prop(msg, SRC_SLOT_PROP(0) | MAPPER_PROP_MIN);
+    atom = mpr_msg_prop(msg, SRC_SLOT_PROP(0) | MPR_PROP_MIN);
     if (!atom) {
         eprintf("1: Could not get @src@min property.\n");
         result = 1;
         goto done;
     }
-    if (atom->types[0] != MAPPER_FLOAT) {
+    if (atom->types[0] != MPR_FLT) {
         eprintf("1: Type error retrieving @src@min property.");
         result = 1;
         goto done;
@@ -145,21 +145,21 @@ int main(int argc, char **argv)
     args[1] = (lo_arg*)&port;
     args[2] = (lo_arg*)"@host";
 
-    mapper_msg_free(msg);
-    msg = mapper_msg_parse_props(3, "sis", args);
+    mpr_msg_free(msg);
+    msg = mpr_msg_parse_props(3, "sis", args);
     if (!msg) {
         eprintf("2: Error parsing.\n");
         result = 1;
         goto done;
     }
 
-    atom = mapper_msg_prop(msg, MAPPER_PROP_PORT);
+    atom = mpr_msg_prop(msg, MPR_PROP_PORT);
     if (!atom) {
         eprintf("2: Could not get @port property.\n");
         result = 1;
         goto done;
     }
-    if (atom->types[0] != MAPPER_INT32) {
+    if (atom->types[0] != MPR_INT32) {
         eprintf("2: Type error retrieving @port property.");
         result = 1;
         goto done;
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    atom = mapper_msg_prop(msg, MAPPER_PROP_HOST);
+    atom = mpr_msg_prop(msg, MPR_PROP_HOST);
     if (atom) {
         eprintf("2: Error, should not have been able to retrieve @host property.\n");
         result = 1;
@@ -186,8 +186,8 @@ int main(int argc, char **argv)
     args[2] = (lo_arg*)&port;
     args[3] = (lo_arg*)"-@bar";
 
-    mapper_msg_free(msg);
-    msg = mapper_msg_parse_props(4, "ssis", args);
+    mpr_msg_free(msg);
+    msg = mpr_msg_parse_props(4, "ssis", args);
     if (!msg) {
         eprintf("3: Error parsing.\n");
         result = 1;
@@ -201,7 +201,7 @@ int main(int argc, char **argv)
     }
 
     atom = &msg->atoms[0];
-    if (strcmp(atom->name, "foo")) {
+    if (strcmp(atom->key, "foo")) {
         eprintf("3: Could not get -@foo property.\n");
         result = 1;
         goto done;
@@ -212,13 +212,13 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    atom = mapper_msg_prop(msg, MAPPER_PROP_PORT);
+    atom = mpr_msg_prop(msg, MPR_PROP_PORT);
     if (!atom) {
         eprintf("3: Could not get @port property.\n");
         result = 1;
         goto done;
     }
-    if (atom->types[0] != MAPPER_INT32) {
+    if (atom->types[0] != MPR_INT32) {
         eprintf("3: Type error retrieving @port property.");
         result = 1;
         goto done;
@@ -230,7 +230,7 @@ int main(int argc, char **argv)
     }
 
     atom = &msg->atoms[2];
-    if (strcmp(atom->name, "bar")) {
+    if (strcmp(atom->key, "bar")) {
         eprintf("3: Could not get -@bar property.\n");
         result = 1;
         goto done;
@@ -243,7 +243,7 @@ int main(int argc, char **argv)
 
     /*****/
 done:
-    mapper_msg_free(msg);
+    mpr_msg_free(msg);
     if (!verbose)
         printf("..................................................");
     printf("Test %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");

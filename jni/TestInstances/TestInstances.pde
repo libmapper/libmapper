@@ -1,11 +1,11 @@
 
 /**
- * libmapper instances example
+ * libmpr instances example
  * Adapted from Processing.org Mouse Functions example.
  */
 
-import mapper.*;
-import mapper.signal.*;
+import mpr.*;
+import mpr.signal.*;
 
 Circle bover = null;
 boolean locked = false;
@@ -14,12 +14,12 @@ Circle circles[] = new Circle[5];
 int bs = 15;
 int count = 0;
 
-mapper.Device dev = new mapper.Device("TestInstances");
+mpr.Device dev = new mpr.Device("TestInstances");
 
-mapper.Signal sig_x_in = null;
-mapper.Signal sig_y_in = null;
-mapper.Signal sig_x_out = null;
-mapper.Signal sig_y_out = null;
+mpr.Signal sig_x_in = null;
+mpr.Signal sig_y_in = null;
+mpr.Signal sig_x_out = null;
+mpr.Signal sig_y_out = null;
 
 void setup() 
 {
@@ -42,7 +42,7 @@ void setup()
                                   new Value(0), new Value(height));
 
   InstanceEventListener evin = new InstanceEventListener() {
-    public void onEvent(mapper.Signal sig, int instanceId, int event, Time time) {
+    public void onEvent(mpr.Signal sig, int instanceId, int event, Time time) {
       sig_x_in.setInstanceCallback(instanceId, circles[instanceId-1].lx);
       sig_y_in.setInstanceCallback(instanceId, circles[instanceId-1].ly);
     };
@@ -125,13 +125,13 @@ class Circle
 
     /* Add listeners for our instance */
     lx = new UpdateListener() {
-          void onUpdate(mapper.Signal sig, int instanceId, int[] v, Time t) {
+          void onUpdate(mpr.Signal sig, int instanceId, int[] v, Time t) {
             if (v!=null)
               bx = v[0];
           }};
 
     ly = new UpdateListener() {
-          void onUpdate(mapper.Signal sig, int instanceId, int[] v, Time t) {
+          void onUpdate(mpr.Signal sig, int instanceId, int[] v, Time t) {
             if (v!=null)
               by = v[0];
           }};

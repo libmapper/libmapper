@@ -1,5 +1,5 @@
 
-# libmapper NEWS
+# libmpr NEWS
 
 Changes from 0.4 to 1.0
 -----------------------

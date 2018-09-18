@@ -9,97 +9,90 @@
 #include <zlib.h>
 #include <stddef.h>
 
-#include "mapper_internal.h"
+#include "mpr_internal.h"
 #include "types_internal.h"
 #include "config.h"
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif
 
-extern const char* network_msg_strings[NUM_MSG_STRINGS];
+extern const char* net_msg_strings[NUM_MSG_STRINGS];
 
-// prototypes
-void mapper_device_start_servers(mapper_device dev);
-
-void init_device_prop_table(mapper_device dev)
-{
-    
-    dev->obj.props.mask = 0;
-    dev->obj.props.synced = mapper_table_new();
-    if (!dev->local)
-        dev->obj.props.staged = mapper_table_new();
-    int flags = dev->local ? NON_MODIFIABLE : MODIFIABLE;
-
-    mapper_table tab = dev->obj.props.synced;
-
-    // these properties need to be added in alphabetical order
-    mapper_table_link(tab, MAPPER_PROP_ID, 1, MAPPER_INT64, &dev->obj.id, flags);
-
-    mapper_table_link(tab, MAPPER_PROP_NAME, 1, MAPPER_STRING, &dev->name,
-                      flags | INDIRECT | LOCAL_ACCESS_ONLY);
-
-    mapper_table_link(tab, MAPPER_PROP_NUM_INPUTS, 1, MAPPER_INT32,
-                      &dev->num_inputs, flags);
-
-    mapper_table_link(tab, MAPPER_PROP_NUM_MAPS_IN, 1, MAPPER_INT32,
-                      &dev->num_maps_in, flags);
-
-    mapper_table_link(tab, MAPPER_PROP_NUM_MAPS_OUT, 1, MAPPER_INT32,
-                      &dev->num_maps_out, flags);
-
-    mapper_table_link(tab, MAPPER_PROP_NUM_OUTPUTS, 1, MAPPER_INT32,
-                      &dev->num_outputs, flags);
-
-    mapper_table_link(tab, MAPPER_PROP_ORDINAL, 1, MAPPER_INT32,
-                      &dev->ordinal, flags);
-
-    mapper_table_link(tab, MAPPER_PROP_STATUS, 1, MAPPER_INT32, &dev->status,
-                      flags | LOCAL_ACCESS_ONLY);
-
-    mapper_table_link(tab, MAPPER_PROP_SYNCED, 1, MAPPER_TIME, &dev->synced,
-                      flags | LOCAL_ACCESS_ONLY);
-
-    mapper_table_link(tab, MAPPER_PROP_USER_DATA, 1, MAPPER_PTR, &dev->obj.user,
-                      LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
-
-    mapper_table_link(tab, MAPPER_PROP_VERSION, 1, MAPPER_INT32,
-                      &dev->obj.version, flags);
-
-    if (dev->local) {
-        mapper_table_set_record(tab, MAPPER_PROP_LIB_VERSION, NULL, 1,
-                                MAPPER_STRING, PACKAGE_VERSION, NON_MODIFIABLE);
-    }
-    mapper_table_set_record(tab, MAPPER_PROP_IS_LOCAL, NULL, 1, MAPPER_BOOL,
-                            &dev->local, LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+#define DEV_SERVER_FUNC(FUNC, ...)                      \
+{                                                       \
+    lo_server_ ## FUNC(net->server.udp, __VA_ARGS__);   \
+    lo_server_ ## FUNC(net->server.tcp, __VA_ARGS__);   \
 }
 
-/*! Allocate and initialize a mapper device. This function is called to create
- *  a new mapper_device, not to create a representation of remote devices. */
-mapper_device mapper_device_new(const char *name_prefix, mapper_graph g)
+// prototypes
+void mpr_dev_start_servers(mpr_dev dev);
+
+static int cmp_qry_linked(const void *ctx, mpr_dev dev)
 {
-    if (!name_prefix)
-        return 0;
+    mpr_dev self = *(mpr_dev*)ctx;
+    for (int i = 0; i < self->num_linked; i++) {
+        if (!self->linked[i] || self->linked[i]->obj.id == dev->obj.id)
+            return 1;
+    }
+    return 0;
+}
+
+void init_dev_prop_tbl(mpr_dev dev)
+{
+    dev->obj.props.mask = 0;
+    dev->obj.props.synced = mpr_tbl_new();
+    if (!dev->loc)
+        dev->obj.props.staged = mpr_tbl_new();
+    int mod = dev->loc ? NON_MODIFIABLE : MODIFIABLE;
+    mpr_tbl tbl = dev->obj.props.synced;
+
+    // these properties need to be added in alphabetical order
+    mpr_tbl_link(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, mod);
+    mpr_list qry = mpr_list_new_query(dev->obj.graph->devs, cmp_qry_linked, "v", &dev);
+    mpr_tbl_link(tbl, PROP(LINKED), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
+    mpr_tbl_link(tbl, PROP(NAME), 1, MPR_STR, &dev->name, mod | INDIRECT | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, mod);
+    mpr_tbl_link(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, mod);
+    mpr_tbl_link(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &dev->num_maps_out, mod);
+    mpr_tbl_link(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, mod);
+    mpr_tbl_link(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, mod);
+    mpr_tbl_link(tbl, PROP(STATUS), 1, MPR_INT32, &dev->status, mod | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link(tbl, PROP(DATA), 1, MPR_PTR, &dev->obj.data,
+                 LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, mod);
+
+    if (dev->loc)
+        mpr_tbl_set(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, NON_MODIFIABLE);
+    mpr_tbl_set(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &dev->loc,
+                LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+}
+
+/*! Allocate and initialize a device. This function is called to create a new
+ *  mpr_dev, not to create a representation of remote devices. */
+mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
+{
+    RETURN_UNLESS(name_prefix, 0);
     if (!g) {
-        g = mapper_graph_new(0);
+        g = mpr_graph_new(0);
         g->own = 0;
     }
 
-    mapper_device dev;
-    dev = (mapper_device)mapper_list_add_item((void**)&g->devs,
-                                              sizeof(mapper_device_t));
-    dev->obj.type = MAPPER_OBJ_DEVICE;
+    mpr_dev dev;
+    dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, sizeof(mpr_dev_t));
+    dev->obj.type = MPR_DEV;
     dev->obj.graph = g;
-    dev->local = (mapper_local_device)calloc(1, sizeof(mapper_local_device_t));
+    dev->loc = (mpr_local_dev)calloc(1, sizeof(mpr_local_dev_t));
 
-    init_device_prop_table(dev);
+    init_dev_prop_tbl(dev);
 
-    dev->identifier = strdup(name_prefix);
-    mapper_device_start_servers(dev);
+    dev->prefix = strdup(name_prefix);
+    mpr_dev_start_servers(dev);
 
     if (!g->net.server.udp || !g->net.server.tcp) {
-        mapper_device_free(dev);
+        mpr_dev_free(dev);
         return NULL;
     }
 
@@ -107,246 +100,201 @@ mapper_device mapper_device_new(const char *name_prefix, mapper_graph g)
         ++name_prefix;
     if (strchr(name_prefix, '/')) {
         trace_dev(dev, "error: character '/' is not permitted in device name.\n");
-        mapper_device_free(dev);
+        mpr_dev_free(dev);
         return NULL;
     }
 
-    dev->local->ordinal.val = 1;
+    g->net.rtr = (mpr_rtr)calloc(1, sizeof(mpr_rtr_t));
+    g->net.rtr->dev = dev;
 
-    dev->local->rtr = (mapper_router)calloc(1, sizeof(mapper_router_t));
-    dev->local->rtr->dev = dev;
+    dev->loc->ordinal.val = 1;
+    dev->loc->idmaps.active = (mpr_id_map *) malloc(sizeof(mpr_id_map *));
+    dev->loc->idmaps.active[0] = 0;
+    dev->loc->num_sig_groups = 1;
 
-    dev->local->link_timeout_sec = TIMEOUT_SEC;
+    mpr_net_add_dev(&g->net, dev);
 
-    dev->local->idmaps.active = (mapper_idmap *) malloc(sizeof(mapper_idmap *));
-    dev->local->idmaps.active[0] = 0;
-    dev->local->num_signal_groups = 1;
-
-    mapper_network_add_device(&g->net, dev);
-
-    dev->status = STATUS_STAGED;
-
+    dev->status = MPR_STATUS_STAGED;
     return dev;
 }
 
-//! Free resources used by a mapper device.
-void mapper_device_free(mapper_device dev)
+//! Free resources used by a mpr device.
+void mpr_dev_free(mpr_dev dev)
 {
-    int i;
-    if (!dev || !dev->local)
-        return;
+    RETURN_UNLESS(dev && dev->loc);
     if (!dev->obj.graph) {
         free(dev);
         return;
     }
-    mapper_graph g = dev->obj.graph;
-    mapper_network net = &g->net;
+    mpr_graph gph = dev->obj.graph;
+    mpr_net net = &gph->net;
 
     // free any queued outgoing messages without sending
-    mapper_network_free_msgs(net);
+    mpr_net_free_msgs(net);
 
     // remove OSC handlers associated with this device
-    mapper_network_remove_device_methods(net, dev);
+    mpr_net_remove_dev_methods(net, dev);
 
     // remove subscribers
-    mapper_subscriber s;
-    while (dev->local->subscribers) {
-        s = dev->local->subscribers;
-        if (s->addr)
-            lo_address_free(s->addr);
-        dev->local->subscribers = s->next;
-        free(s);
+    mpr_subscriber sub;
+    while (dev->loc->subscribers) {
+        sub = dev->loc->subscribers;
+        FUNC_IF(lo_address_free, sub->addr);
+        dev->loc->subscribers = sub->next;
+        free(sub);
     }
 
-    mapper_object *sigs = mapper_device_get_signals(dev, MAPPER_DIR_ANY);
+    int i;
+    mpr_list sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (sigs) {
-        mapper_signal sig = (mapper_signal)*sigs;
-        sigs = mapper_object_list_next(sigs);
-        if (sig->local) {
+        mpr_sig sig = (mpr_sig)*sigs;
+        sigs = mpr_list_next(sigs);
+        if (sig->loc) {
             // release active instances
-            for (i = 0; i < sig->local->idmap_len; i++) {
-                if (sig->local->idmaps[i].inst) {
-                    mapper_signal_release_inst_internal(sig, i, MAPPER_NOW);
-                }
+            for (i = 0; i < sig->loc->idmap_len; i++) {
+                if (sig->loc->idmaps[i].inst)
+                    mpr_sig_release_inst_internal(sig, i, MPR_NOW);
             }
         }
-        mapper_device_remove_signal(dev, sig);
+        mpr_sig_free(sig);
     }
 
-    if (dev->local->registered) {
+    if (dev->loc->registered) {
         // A registered device must tell the network it is leaving.
-        lo_message msg = lo_message_new();
+        NEW_LO_MSG(msg, ;)
         if (msg) {
-            mapper_network_bus(net);
-            lo_message_add_string(msg, mapper_device_get_name(dev));
-            mapper_network_add_msg(net, 0, MSG_LOGOUT, msg);
-            mapper_network_send(net);
-        }
-        else {
-            trace_dev(dev, "couldn't allocate lo_message for /logout\n");
+            mpr_net_bus(net);
+            lo_message_add_string(msg, mpr_dev_get_name(dev));
+            mpr_net_add_msg(net, 0, MSG_LOGOUT, msg);
+            mpr_net_send(net);
         }
     }
 
     // Release links to other devices
-    mapper_object *links = mapper_device_get_links(dev, MAPPER_DIR_ANY);
+    mpr_list links = mpr_dev_get_links(dev, MPR_DIR_ANY);
     while (links) {
-        mapper_link link = (mapper_link)*links;
-        links = mapper_object_list_next(links);
-        mapper_graph_remove_link(g, link, MAPPER_REMOVED);
+        mpr_link link = (mpr_link)*links;
+        links = mpr_list_next(links);
+        mpr_graph_remove_link(gph, link, MPR_OBJ_REM);
     }
 
     // Release device id maps
-    mapper_idmap map;
-    for (i = 0; i < dev->local->num_signal_groups; i++) {
-        while (dev->local->idmaps.active[i]) {
-            map = dev->local->idmaps.active[i];
-            dev->local->idmaps.active[i] = map->next;
+    mpr_id_map map;
+    for (i = 0; i < dev->loc->num_sig_groups; i++) {
+        while (dev->loc->idmaps.active[i]) {
+            map = dev->loc->idmaps.active[i];
+            dev->loc->idmaps.active[i] = map->next;
             free(map);
         }
     }
-    while (dev->local->idmaps.reserve) {
-        map = dev->local->idmaps.reserve;
-        dev->local->idmaps.reserve = map->next;
+    free(dev->loc->idmaps.active);
+
+    while (dev->loc->idmaps.reserve) {
+        map = dev->loc->idmaps.reserve;
+        dev->loc->idmaps.reserve = map->next;
         free(map);
     }
 
-    if (dev->local->rtr) {
-        while (dev->local->rtr->sigs) {
-            mapper_router_sig rs = dev->local->rtr->sigs;
-            dev->local->rtr->sigs = dev->local->rtr->sigs->next;
+    if (net->rtr) {
+        while (net->rtr->sigs) {
+            mpr_rtr_sig rs = net->rtr->sigs;
+            net->rtr->sigs = net->rtr->sigs->next;
             free(rs);
         }
-        free(dev->local->rtr);
+        free(net->rtr);
     }
 
-    if (net->server.udp)
-        lo_server_free(net->server.udp);
-    if (net->server.tcp)
-        lo_server_free(net->server.tcp);
-    free(dev->local);
+    FUNC_IF(lo_server_free, net->server.udp);
+    FUNC_IF(lo_server_free, net->server.tcp);
+    FUNC_IF(free, dev->prefix);
+    free(dev->loc);
 
-    if (dev->identifier)
-        free(dev->identifier);
-
-    if (g->own)
-        mapper_graph_remove_device(g, dev, MAPPER_REMOVED, 1);
-    else
-        mapper_graph_free(g);
+    mpr_graph_remove_dev(gph, dev, MPR_OBJ_REM, 1);
+    if (!gph->own)
+        mpr_graph_free(gph);
 }
 
-void mapper_device_on_registered(mapper_device dev)
+void mpr_dev_on_registered(mpr_dev dev)
 {
     int i;
     /* Add unique device id to locally-activated signal instances. */
-    mapper_object *sigs = mapper_device_get_signals(dev, MAPPER_DIR_ANY);
+    mpr_list sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (sigs) {
-        mapper_signal sig = (mapper_signal)*sigs;
-        if (sig->local) {
-            for (i = 0; i < sig->local->idmap_len; i++) {
-                if (   sig->local->idmaps[i].map
-                    && !(sig->local->idmaps[i].map->global >> 32)) {
-                    sig->local->idmaps[i].map->global |= dev->obj.id;
-                }
+        mpr_sig sig = (mpr_sig)*sigs;
+        sigs = mpr_list_next(sigs);
+        if (sig->loc) {
+            for (i = 0; i < sig->loc->idmap_len; i++) {
+                mpr_id_map idmap = sig->loc->idmaps[i].map;
+                if (idmap && !(idmap->GID >> 32))
+                    idmap->GID |= dev->obj.id;
             }
             sig->obj.id |= dev->obj.id;
         }
-        sigs = mapper_object_list_next(sigs);
     }
-    dev->local->registered = 1;
-    dev->ordinal = dev->local->ordinal.val;
-    dev->status = STATUS_READY;
+    dev->loc->registered = 1;
+    dev->ordinal = dev->loc->ordinal.val;
+    dev->status = MPR_STATUS_READY;
 }
 
-static void mapper_device_increment_version(mapper_device dev)
-{
-    ++dev->obj.version;
-    dev->obj.props.synced->dirty = 1;
-}
-
-static int check_types(const mapper_type *types, int len, mapper_type type,
+static int check_types(const mpr_type *types, int len, mpr_type type,
                        int vector_len)
 {
     int i;
-    if (len < vector_len || len % vector_len != 0) {
-#ifdef DEBUG
-        printf("error: unexpected length.\n");
-#endif
-        return 0;
-    }
-    for (i = 0; i < len; i++) {
-        if (types[i] != type && types[i] != MAPPER_NULL) {
-#ifdef DEBUG
-            printf("error: unexpected typestring (expected %c%i).\n", type, len);
-#endif
-            return 0;
-        }
-    }
+    RETURN_UNLESS(len >= vector_len && len % vector_len == 0, 0);
+    for (i = 0; i < len; i++)
+        RETURN_UNLESS(types[i] == type || types[i] == MPR_NULL, 0);
     return len / vector_len;
 }
 
-static void call_handler(mapper_signal sig, mapper_id inst, int len,
-                         mapper_type type, const void *val, mapper_time_t *time,
-                         float diff)
+static void call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
+                         const void *val, mpr_time_t *time, float diff)
 {
-    mapper_signal_update_timing_stats(sig, diff);
-    mapper_signal_update_handler *h = sig->local->update_handler;
-    if (h)
-        h(sig, inst, len, type, val, time);
+    mpr_sig_update_timing_stats(sig, diff);
+    mpr_sig_handler *h = sig->loc->handler;
+    if (h && (evt & sig->loc->event_flags))
+        h(sig, evt, inst, len, sig->type, val, time);
 }
 
 /* Notes:
  * - Incoming signal values may be scalars or vectors, but much match the
  *   length of the target signal or mapping slot.
- * - Vectors are of homogeneous type (MAPPER_INT32, MAPPER_FLOAT or
- *   MAPPER_DOUBLE) however individual elements may have no value (type
- *   MAPPER_NULL)
+ * - Vectors are of homogeneous type (MPR_INT32, MPR_FLT or MPR_DBL) however
+ *   individual elements may have no value (type MPR_NULL)
  * - A vector consisting completely of nulls indicates a signal instance release
  *   TODO: use more specific message for release?
  * - Updates to a specific signal instance are indicated using the label
  *   "@instance" followed by two integers which uniquely identify this instance
- *   within the network of libmapper devices
+ *   within the network of libmpr devices
  * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
  *   are indicated using the label "@slot" followed by a single integer slot #
  * - Multiple "samples" of a signal value may be packed into a single message
  * - In future updates, instance release may be triggered by expression eval
  */
-static int handler_signal(const char *path, const char *types, lo_arg **argv,
-                          int argc, lo_message msg, void *user_data)
+static int handler_sig(const char *path, const char *types, lo_arg **argv,
+                       int argc, lo_message msg, void *data)
 {
-    mapper_signal sig = (mapper_signal)user_data;
-    mapper_device dev;
+    mpr_sig sig = (mpr_sig)data;
+    mpr_dev dev;
+    mpr_rtr rtr = sig->obj.graph->net.rtr;
     int i = 0, j, k, count = 1, nulls = 0;
     int idmap_idx, slot_idx = -1;
-    mapper_id global_id = 0;
-    mapper_idmap idmap;
-    mapper_map map = 0;
-    mapper_slot slot = 0;
+    mpr_id GID = 0;
+    mpr_id_map idmap;
+    mpr_map map = 0;
+    mpr_slot slot = 0;
 
-    if (!sig || !(dev = sig->dev)) {
-#ifdef DEBUG
-        printf("error in handler_signal, cannot retrieve user_data\n");
-#endif
-        return 0;
-    }
-
-    if (!sig->num_inst) {
-#ifdef DEBUG
-        trace_dev(dev, "signal '%s' has no instances.\n", sig->name);
-#endif
-        return 0;
-    }
-
-    if (!argc)
-        return 0;
-
-    mapper_instance_event_handler *event_h = sig->local->inst_event_handler;
+    TRACE_RETURN_UNLESS(sig && (dev = sig->dev), 0, "error in handler_sig, "
+                        "cannot retrieve user data\n");
+    TRACE_DEV_RETURN_UNLESS(sig->num_inst, 0, "signal '%s' has no instances.\n",
+                            sig->name);
+    RETURN_UNLESS(argc, 0);
 
     // We need to consider that there may be properties appended to the msg
     // check length and find properties if any
     int val_len = 0;
-    while (val_len < argc && types[val_len] != MAPPER_STRING) {
+    while (val_len < argc && types[val_len] != MPR_STR) {
         // count nulls here also to save time
-        if (types[i] == MAPPER_NULL)
+        if (types[i] == MPR_NULL)
             ++nulls;
         ++val_len;
     }
@@ -354,43 +302,26 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     int argnum = val_len;
     while (argnum < argc) {
         // Parse any attached properties (instance ids, slot number)
-        if (types[argnum] != MAPPER_STRING) {
-#ifdef DEBUG
-            trace_dev(dev, "error in handler_signal: unexpected argument "
-                      "type.\n");
-#endif
-            return 0;
-        }
-        if (strcmp(&argv[argnum]->s,
-                   mapper_prop_protocol_string(MAPPER_PROP_INSTANCE)) == 0
+        TRACE_DEV_RETURN_UNLESS(types[argnum] == MPR_STR, 0, "error in "
+                                "handler_sig: unexpected argument type.\n")
+        if (strcmp(&argv[argnum]->s, mpr_prop_str(PROP(INST), 0)) == 0
             && argc >= argnum + 2) {
-            if (types[argnum+1] != MAPPER_INT64) {
-#ifdef DEBUG
-                trace_dev(dev, "error in handler_signal: bad arguments for "
-                          "'instance' property.\n");
-#endif
-                return 0;
-            }
-            global_id = argv[argnum+1]->i64;
+            TRACE_DEV_RETURN_UNLESS(types[argnum+1] == MPR_INT64, 0, "error in "
+                                "handler_sig: bad arguments for 'instance' prop.\n")
+            GID = argv[argnum+1]->i64;
             argnum += 2;
         }
-        else if (strcmp(&argv[argnum]->s,
-                        mapper_prop_protocol_string(MAPPER_PROP_SLOT)) == 0
+        else if (strcmp(&argv[argnum]->s, mpr_prop_str(PROP(SLOT), 0)) == 0
                  && argc >= argnum + 2) {
-            if (types[argnum+1] != MAPPER_INT32) {
-#ifdef DEBUG
-                trace_dev(dev, "error in handler_signal: bad arguments for "
-                          "'slot' property.\n");
-#endif
-                return 0;
-            }
+            TRACE_DEV_RETURN_UNLESS(types[argnum+1] == MPR_INT32, 0, "error in "
+                                    "handler_sig: bad arguments for 'slot' prop.\n")
             slot_idx = argv[argnum+1]->i32;
             argnum += 2;
         }
         else {
 #ifdef DEBUG
-            trace_dev(dev, "error in handler_signal: unknown property name "
-                      "'%s'.\n", &argv[argnum]->s);
+            trace_dev(dev, "error in handler_sig: unknown property name '%s'.\n",
+                      &argv[argnum]->s);
 #endif
             return 0;
         }
@@ -398,42 +329,25 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 
     if (slot_idx >= 0) {
         // retrieve mapping associated with this slot
-        slot = mapper_router_slot(dev->local->rtr, sig, slot_idx);
-        if (!slot) {
-#ifdef DEBUG
-            trace_dev(dev, "error in handler_signal: slot %d not found.\n",
-                      slot_idx);
-#endif
-            return 0;
-        }
+        slot = mpr_rtr_slot(dev->obj.graph->net.rtr, sig, slot_idx);
+        TRACE_DEV_RETURN_UNLESS(slot, 0, "error in handler_sig: slot %d not "
+                                "found.\n", slot_idx);
         map = slot->map;
-        if (map->status < STATUS_READY) {
-#ifdef DEBUG
-            trace_dev(dev, "error in handler_signal: mapping not yet ready.\n");
-#endif
-            return 0;
-        }
-        if (!map->local->expr) {
-#ifdef DEBUG
-            trace_dev(dev, "error in handler_signal: missing expression.\n");
-#endif
-            return 0;
-        }
-        if (map->process_loc == MAPPER_LOC_DST) {
+        TRACE_DEV_RETURN_UNLESS(map->status >= MPR_STATUS_READY, 0, "error in "
+                                "handler_sig: mapping not yet ready.\n");
+        TRACE_DEV_RETURN_UNLESS(map->loc->expr, 0, "error in handler_sig: "
+                                "missing expression.\n");
+        if (map->process_loc == MPR_LOC_DST)
             count = check_types(types, val_len, slot->sig->type, slot->sig->len);
-        }
         else {
             // value has already been processed at source device
             map = 0;
             count = check_types(types, val_len, sig->type, sig->len);
         }
     }
-    else {
+    else
         count = check_types(types, val_len, sig->type, sig->len);
-    }
-
-    if (!count)
-        return 0;
+    RETURN_UNLESS(count, 0);
 
     // TODO: optionally discard out-of-order messages
     // requires timebase sync for many-to-one mappings or local updates
@@ -441,163 +355,121 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     //        return 0;
     lo_timetag t = lo_message_get_timestamp(msg);
 
-    if (global_id) {
-        idmap_idx = mapper_signal_find_inst_with_global_id(sig, global_id,
-                                                           RELEASED_LOCALLY);
+    if (GID) {
+        idmap_idx = mpr_sig_find_inst_with_GID(sig, GID, RELEASED_LOCALLY);
         if (idmap_idx < 0) {
             // no instance found with this map
-            if (nulls == val_len * count) {
-                // Don't activate instance just to release it again
-                return 0;
-            }
+            // Don't activate instance just to release it again
+            RETURN_UNLESS(nulls < val_len * count, 0);
             // otherwise try to init reserved/stolen instance with device map
-            idmap_idx = mapper_signal_inst_with_global_id(sig, global_id, 0, &t);
-            if (idmap_idx < 0) {
-#ifdef DEBUG
-                trace_dev(dev, "no local instances available for global "
-                          "instance id %"PR_MAPPER_ID"\n", global_id);
-#endif
-                return 0;
-            }
+            idmap_idx = mpr_sig_inst_with_GID(sig, GID, 0, &t);
+            TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no instances available"
+                                    " for GUID %"PR_MPR_ID" (1)\n", GID);
         }
-        else {
-            if (sig->local->idmaps[idmap_idx].status & RELEASED_LOCALLY) {
-                /* map was already released locally, we are only interested
-                 * in release messages */
-                if (count == 1 && nulls == val_len) {
-                    // we can clear signal's reference to map
-                    idmap = sig->local->idmaps[idmap_idx].map;
-                    sig->local->idmaps[idmap_idx].map = 0;
-                    --idmap->refcount_global;
-                    if (idmap->refcount_global <= 0
-                        && idmap->refcount_local <= 0) {
-                        mapper_device_remove_idmap(dev, sig->local->group, idmap);
-                    }
-                }
-                return 0;
+        else if (sig->loc->idmaps[idmap_idx].status & RELEASED_LOCALLY) {
+            /* map was already released locally, we are only interested
+             * in release messages */
+            if (count == 1 && nulls == val_len) {
+                // we can clear signal's reference to map
+                idmap = sig->loc->idmaps[idmap_idx].map;
+                sig->loc->idmaps[idmap_idx].map = 0;
+                --idmap->GID_refcount;
+                if (idmap->GID_refcount <= 0 && idmap->LID_refcount <= 0)
+                    mpr_dev_remove_idmap(dev, sig->loc->group, idmap);
             }
-            else if (!sig->local->idmaps[idmap_idx].inst) {
-#ifdef DEBUG
-                trace_dev(dev, "error in handler_signal: missing instance!\n");
-#endif
-                return 0;
-            }
+            return 0;
         }
+        TRACE_DEV_RETURN_UNLESS(sig->loc->idmaps[idmap_idx].inst, 0, "error in "
+                                "handler_sig: missing instance!\n");
     }
     else {
         // use the first available instance
         idmap_idx = 0;
-        if (!sig->local->idmaps[0].inst)
-            idmap_idx = mapper_signal_inst_with_local_id(sig,
-                                                         sig->local->inst[0]->id,
-                                                         1, &t);
-        if (idmap_idx < 0)
-            return 0;
+        if (!sig->loc->idmaps[0].inst)
+            idmap_idx = mpr_sig_inst_with_LID(sig, sig->loc->inst[0]->id, 1, &t);
+        RETURN_UNLESS(idmap_idx >= 0, 0);
     }
-    mapper_signal_inst si = sig->local->idmaps[idmap_idx].inst;
+    mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
     int id = si->idx;
-    float diff = mapper_time_difference(t, si->time);
-    idmap = sig->local->idmaps[idmap_idx].map;
+    float diff = mpr_time_diff(t, si->time);
+    idmap = sig->loc->idmaps[idmap_idx].map;
 
-    int size = (slot ? mapper_type_size(slot->sig->type)
-                : mapper_type_size(sig->type));
-    void *out_buffer = alloca(count * val_len * size);
+    int size = (slot ? mpr_type_size(slot->sig->type) : mpr_type_size(sig->type));
+    void *buffer = alloca(count * val_len * size);
     int vals, out_count = 0, active = 1;
 
     if (map) {
-        mapper_local_slot slot_loc = slot->local;
+        mpr_local_slot slot_loc = slot->loc;
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
-            for (j = 0; j < slot->sig->len; j++, k++) {
-                vals += (types[k] != MAPPER_NULL);
-            }
+            for (j = 0; j < slot->sig->len; j++, k++)
+                vals += (types[k] != MPR_NULL);
             /* partial vector updates not allowed in convergent mappings
              * since slot value mirrors remote signal value. */
-            // vals is allowed to equal 0 or s->len (for release)
+            // vals is allowed to equal 0 or sig->len (for release)
             if (vals == 0) {
-                if (count > 1) {
-#ifdef DEBUG
-                    trace_dev(dev, "error in handler_signal: instance release "
-                              "cannot be embedded in multi-count update");
-#endif
-                    return 0;
-                }
-                if (global_id) {
+                TRACE_DEV_RETURN_UNLESS(count>=0, 0, "error in handler_sig: release "
+                                        "cannot be embedded in multi-count update");
+                if (GID) {
                     // TODO: mark SLOT status as remotely released rather than map
-                    sig->local->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
-                    --idmap->refcount_global;
-                    if (idmap->refcount_global <= 0 && idmap->refcount_local <= 0) {
-                        mapper_device_remove_idmap(dev, sig->local->group, idmap);
-                    }
-                    if (event_h && (sig->local->inst_event_flags
-                                    & MAPPER_UPSTREAM_RELEASE)) {
-                        event_h(sig, idmap->local, MAPPER_UPSTREAM_RELEASE, &t);
-                    }
+                    sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
+                    --idmap->GID_refcount;
+                    if (idmap->GID_refcount <= 0 && idmap->LID_refcount <= 0)
+                        mpr_dev_remove_idmap(dev, sig->loc->group, idmap);
+                    call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
                 }
-                /* Do not call mapper_device_route_signal() here, since we don't know if
+                /* Do not call mpr_rtr_process_sig() here, since we don't know if
                  * the local signal instance will actually be released. */
-                call_handler(sig, idmap->local, 0, sig->type, 0, &t, diff);
-                if (map->process_loc != MAPPER_LOC_DST)
+                call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
+                if (map->process_loc != MPR_LOC_DST)
                     continue;
                 /* Reset memory for corresponding source slot. */
                 memset(slot_loc->hist[id].val, 0,
                        slot_loc->hist_size * slot->sig->len * size);
                 memset(slot_loc->hist[id].time, 0,
-                       slot_loc->hist_size * sizeof(mapper_time_t));
+                       slot_loc->hist_size * sizeof(mpr_time_t));
                 slot_loc->hist[id].pos = -1;
                 continue;
             }
             else if (vals != slot->sig->len) {
 #ifdef DEBUG
-                trace_dev(dev, "error in handler_signal: partial vector update "
+                trace_dev(dev, "error in handler_sig: partial vector update "
                           "applied to convergent mapping slot.");
 #endif
                 return 0;
             }
-            else if (global_id && !active) {
+            else if (GID && !active) {
                 // may need to activate instance
-                idmap_idx = mapper_signal_find_inst_with_global_id(sig, global_id,
-                                                                   RELEASED_REMOTELY);
+                idmap_idx = mpr_sig_find_inst_with_GID(sig, GID, RELEASED_REMOTELY);
                 if (idmap_idx < 0) {
                     // no instance found with this map
-                    if (nulls == val_len * count) {
-                        // Don't activate instance just to release it again
-                        return 0;
-                    }
+                    // Don't activate instance just to release it again
+                    RETURN_UNLESS(nulls < val_len * count, 0);
                     // otherwise try to init reserved/stolen instance with device map
-                    idmap_idx = mapper_signal_inst_with_global_id(sig, global_id,
-                                                                  0, &t);
-                    if (idmap_idx < 0) {
-#ifdef DEBUG
-                        trace_dev(dev, "no local instances available for global"
-                                  " instance id %"PR_MAPPER_ID"\n", global_id);
-#endif
-                        return 0;
-                    }
+                    idmap_idx = mpr_sig_inst_with_GID(sig, GID, 0, &t);
+                    TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no local instances "
+                                            "available for global instance id %"
+                                            PR_MPR_ID" (2)\n", GID)
                 }
             }
             slot_loc->hist[id].pos = ((slot_loc->hist[id].pos + 1)
                                       % slot_loc->hist[id].size);
-            memcpy(mapper_hist_val_ptr(slot_loc->hist[id]), argv[i*count],
+            memcpy(mpr_hist_val_ptr(slot_loc->hist[id]), argv[i*count],
                    size * slot->sig->len);
-            memcpy(mapper_hist_time_ptr(slot_loc->hist[id]), &t,
-                   sizeof(mapper_time_t));
+            memcpy(mpr_hist_time_ptr(slot_loc->hist[id]), &t, sizeof(mpr_time_t));
             if (slot->causes_update) {
-                mapper_type typestring[map->dst->sig->len];
-                mapper_hist src[map->num_src];
+                mpr_type typestring[map->dst->sig->len];
+                mpr_hist src[map->num_src];
                 for (j = 0; j < map->num_src; j++)
-                    src[j] = &map->src[j]->local->hist[id];
-                if (!mapper_expr_eval(map->local->expr, src,
-                                      &map->local->expr_var[id],
-                                      &map->dst->local->hist[id],
-                                      &t, (mapper_type*)types)) {
+                    src[j] = &map->src[j]->loc->hist[id];
+                if (!mpr_expr_eval(map->loc->expr, src, &map->loc->expr_var[id],
+                                   &map->dst->loc->hist[id], &t, (mpr_type*)types))
                     continue;
-                }
                 // TODO: check if expression has triggered instance-release
-                void *result = mapper_hist_val_ptr(map->dst->local->hist[id]);
+                void *result = mpr_hist_val_ptr(map->dst->loc->hist[id]);
                 vals = 0;
                 for (j = 0; j < map->dst->sig->len; j++) {
-                    if (typestring[j] == MAPPER_NULL)
+                    if (typestring[j] == MPR_NULL)
                         continue;
                     memcpy(si->val + j * size, result + j * size, size);
                     si->has_val_flags[j / 8] |= 1 << (j % 8);
@@ -607,563 +479,280 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
                     // try to release instance
                     // first call handler with value buffer
                     if (out_count) {
-                        if (!(sig->dir & MAPPER_DIR_OUT))
-                            mapper_device_route_signal(dev, sig, idmap_idx,
-                                                       out_buffer, out_count, t);
-                        call_handler(sig, idmap->local, sig->len * out_count,
-                                     sig->type, out_buffer, &t, diff);
+                        if (!(sig->dir & MPR_DIR_OUT))
+                            mpr_rtr_process_sig(rtr, sig, idmap_idx, buffer,
+                                                out_count, t);
+                        call_handler(sig, MPR_SIG_UPDATE, idmap->LID,
+                                     sig->len * out_count, buffer, &t, diff);
                         out_count = 0;
                     }
                     // next call handler with release
-                    if (global_id) {
-                        sig->local->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
-                        --idmap->refcount_global;
-                        if (event_h && (sig->local->inst_event_flags
-                                        & MAPPER_UPSTREAM_RELEASE)) {
-                            event_h(sig, idmap->local, MAPPER_UPSTREAM_RELEASE, &t);
-                        }
+                    if (GID) {
+                        sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
+                        --idmap->GID_refcount;
+                        call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
                     }
-                    /* Do not call mapper_device_route_signal() here, since we
+                    /* Do not call mpr_rtr_process_sig() here, since we
                      * don't know if the local signal instance will actually be
                      * released. */
-                    call_handler(sig, idmap->local, 0, sig->type, 0, &t, diff);
+                    call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
                     // mark instance as possibly released
                     active = 0;
                     continue;
                 }
-                if (memcmp(si->has_val_flags, sig->local->vec_known,
-                           sig->len / 8 + 1)==0) {
+                if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len / 8 + 1)==0)
                     si->has_val = 1;
-                }
                 if (si->has_val) {
-                    memcpy(&si->time, &t, sizeof(mapper_time_t));
+                    memcpy(&si->time, &t, sizeof(mpr_time_t));
                     if (count > 1) {
-                        memcpy(out_buffer + out_count * sig->len * size,
-                               si->val, size);
+                        memcpy(buffer + out_count * sig->len * size, si->val, size);
                         ++out_count;
                     }
                     else {
-                        if (!(sig->dir & MAPPER_DIR_OUT))
-                            mapper_device_route_signal(dev, sig, idmap_idx,
-                                                       si->val, 1, t);
-                        call_handler(sig, idmap->local, sig->len, sig->type,
+                        if (!(sig->dir & MPR_DIR_OUT))
+                            mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, 1, t);
+                        call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
                                      si->val, &t, diff);
                     }
                 }
             }
-            else {
+            else
                 continue;
-            }
         }
         if (out_count) {
-            if (!(sig->dir & MAPPER_DIR_OUT))
-                mapper_device_route_signal(dev, sig, idmap_idx, out_buffer,
-                                           out_count, t);
-            call_handler(sig, idmap->local, sig->len * out_count, sig->type,
-                         out_buffer, &t, diff);
+            if (!(sig->dir & MPR_DIR_OUT))
+                mpr_rtr_process_sig(rtr, sig, idmap_idx, buffer, out_count, t);
+            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len * out_count,
+                         buffer, &t, diff);
         }
     }
     else {
         for (i = 0, k = 0; i < count; i++) {
             vals = 0;
             for (j = 0; j < sig->len; j++, k++) {
-                if (types[k] == MAPPER_NULL)
+                if (types[k] == MPR_NULL)
                     continue;
                 memcpy(si->val + j * size, argv[k], size);
                 si->has_val_flags[j / 8] |= 1 << (j % 8);
                 ++vals;
             }
             if (vals == 0) {
-                if (count > 1) {
-#ifdef DEBUG
-                    trace_dev(dev, "error in handler_signal: instance release "
-                              "cannot be embedded in multi-count update");
-#endif
-                    return 0;
+                TRACE_DEV_RETURN_UNLESS(count == 1, 0, "error in handler_sig: "
+                                        "instance release cannot be embedded in "
+                                        "multi-count update");
+                if (GID) {
+                    sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
+                    --idmap->GID_refcount;
+                    call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
                 }
-                if (global_id) {
-                    sig->local->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
-                    --idmap->refcount_global;
-                    if (event_h && (sig->local->inst_event_flags
-                                    & MAPPER_UPSTREAM_RELEASE)) {
-                        event_h(sig, idmap->local, MAPPER_UPSTREAM_RELEASE, &t);
-                    }
-                }
-                /* Do not call mapper_device_route_signal() here, since we don't
+                /* Do not call mpr_rtr_process_sig() here, since we don't
                  * know if the local signal instance will actually be released. */
-                call_handler(sig, idmap->local, 0, sig->type, 0, &t, diff);
+                call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
                 return 0;
             }
-            if (memcmp(si->has_val_flags, sig->local->vec_known,
-                       sig->len / 8 + 1)==0) {
+            if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len/8+1)==0) {
                 si->has_val = 1;
             }
             if (si->has_val) {
-                memcpy(&si->time, &t, sizeof(mapper_time_t));
+                memcpy(&si->time, &t, sizeof(mpr_time_t));
                 if (count > 1) {
-                    memcpy(out_buffer + out_count * sig->len * size, si->val, size);
+                    memcpy(buffer + out_count * sig->len * size, si->val, size);
                     ++out_count;
                 }
                 else {
-                    if (!(sig->dir & MAPPER_DIR_OUT))
-                        mapper_device_route_signal(dev, sig, idmap_idx,
-                                                   si->val, 1, t);
-                    call_handler(sig, idmap->local, sig->len, sig->type,
+                    if (!(sig->dir & MPR_DIR_OUT))
+                        mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, 1, t);
+                    call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
                                  si->val, &t, diff);
                 }
             }
         }
         if (out_count) {
-            if (!(sig->dir & MAPPER_DIR_OUT))
-                mapper_device_route_signal(dev, sig, idmap_idx, out_buffer,
-                                           out_count, t);
-            call_handler(sig, idmap->local, sig->len * out_count, sig->type,
-                         out_buffer, &t, diff);
+            if (!(sig->dir & MPR_DIR_OUT))
+                mpr_rtr_process_sig(rtr, sig, idmap_idx, buffer, out_count, t);
+            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len * out_count,
+                         buffer, &t, diff);
         }
     }
-
     return 0;
 }
 
 //static int handler_inst_release_request(const char *path, const char *types,
 //                                        lo_arg **argv, int argc, lo_message msg,
-//                                        const void *user_data)
+//                                        const void *data)
 //{
-//    mapper_signal sig = (mapper_signal) user_data;
-//    mapper_device dev = sig->dev;
+//    mpr_sig sig = (mpr_sig)data;
+//    mpr_dev dev = sig->dev;
+//    RETURN_UNLESS(dev, 0);
 //
-//    if (!dev)
-//        return 0;
-//
-//    if (!sig->local->inst_event_handler ||
-//        !(sig->local->inst_event_flags & MAPPER_DOWNSTREAM_RELEASE))
+//    if (!sig->loc->handler || !(sig->loc->event_flags & MPR_SIG_REL_DNSTRM))
 //        return 0;
 //
 //    lo_timetag t = lo_message_get_timestamp(msg);
 //
-//    int idx = mapper_signal_find_inst_with_global_id(sig, argv[0]->i64, 0);
+//    int idx = mpr_sig_find_inst_with_GID(sig, argv[0]->i64, 0);
 //    if (idx < 0)
 //        return 0;
 //
-//    if (sig->local->inst_event_handler) {
-//        sig->local->inst_event_handler(sig, sig->local->idmaps[idx].map->local,
-//                                           MAPPER_DOWNSTREAM_RELEASE, &t);
-//    }
-//
+//    if (sig->loc->handler)
+//        sig->loc->handler(sig, MPR_SIG_REL_DNSTRM, sig->loc->idmaps[idx].map->loc,
+//                          0, sig->type, 0, &t);
 //    return 0;
 //}
 
-static int handler_query(const char *path, const char *types, lo_arg **argv,
-                         int argc, lo_message msg, void *user_data)
-{
-    mapper_signal sig = (mapper_signal)user_data;
-    mapper_device dev = sig->dev;
-    int len = sig->len;
-    mapper_type type = sig->type;
-
-    if (!dev) {
-#ifdef DEBUG
-        printf("error, sig->dev==0\n");
-#endif
-        return 0;
-    }
-
-    if (!argc)
-        return 0;
-    else if (types[0] != MAPPER_STRING)
-        return 0;
-
-    int i, j, sent = 0;
-
-    // respond with same timestamp as query
-    // TODO: should we also include actual timestamp for signal value?
-    lo_timetag t = lo_message_get_timestamp(msg);
-    lo_bundle b = lo_bundle_new(t);
-
-    // query response string is first argument
-    const char *response_path = &argv[0]->s;
-
-    // vector length and data type may also be provided
-    if (argc >= 3) {
-        if (types[1] == MAPPER_INT32)
-            len = argv[1]->i32;
-        if (types[2] == MAPPER_CHAR)
-            type = argv[2]->c;
-    }
-
-    mapper_signal_inst si;
-    for (i = 0; i < sig->local->idmap_len; i++) {
-        if (!(si = sig->local->idmaps[i].inst))
-            continue;
-        lo_message m = lo_message_new();
-        if (!m)
-            continue;
-        msg_add_coerced_signal_inst_val(m, sig, si, len, type);
-        if (sig->num_inst > 1) {
-            lo_message_add_string(m, "@instance");
-            lo_message_add_int64(m, sig->local->idmaps[i].map->global);
-        }
-        lo_bundle_add_message(b, response_path, m);
-        ++sent;
-    }
-    if (!sent) {
-        // If there are no active instances, send a single null response
-        lo_message m = lo_message_new();
-        if (m) {
-            for (j = 0; j < len; j++)
-                lo_message_add_nil(m);
-            lo_bundle_add_message(b, response_path, m);
-        }
-    }
-
-    lo_send_bundle(lo_message_get_source(msg), b);
-    lo_bundle_free_recursive(b);
-    return 0;
-}
-
-static mapper_id get_unused_signal_id(mapper_device dev)
+mpr_id mpr_dev_get_unused_sig_id(mpr_dev dev)
 {
     int done = 0;
-    mapper_id id;
+    mpr_id id;
     while (!done) {
         done = 1;
-        id = mapper_device_generate_unique_id(dev);
+        id = mpr_dev_generate_unique_id(dev);
         // check if input signal exists with this id
-        mapper_object *sigs = mapper_device_get_signals(dev, MAPPER_DIR_ANY);
-        while (sigs) {
-            if ((*sigs)->id == id) {
+        mpr_list l = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+        while (l) {
+            if ((*l)->id == id) {
                 done = 0;
-                mapper_object_list_free(sigs);
+                mpr_list_free(l);
                 break;
             }
-            sigs = mapper_object_list_next(sigs);
+            l = mpr_list_next(l);
         }
     }
     return id;
 }
 
-// Add a signal to a mapper device.
-mapper_signal mapper_device_add_signal(mapper_device dev, mapper_direction dir,
-                                       int num_inst, const char *name,
-                                       int len, mapper_type type, const char *unit,
-                                       const void *minimum, const void *maximum,
-                                       mapper_signal_update_handler *handler)
+void mpr_dev_add_sig_methods(mpr_dev dev, mpr_sig sig)
 {
-    if (!dev || !dev->local)
-        return 0;
-    if (!name || check_signal_length(len) || check_signal_type(type))
-        return 0;
-    if (dir != MAPPER_DIR_IN && dir != MAPPER_DIR_OUT) {
-        trace_dev(dev, "signal direction must be either input or output.\n");
-        return 0;
-    }
-
-    mapper_graph g = dev->obj.graph;
-    mapper_signal sig;
-    if ((sig = mapper_device_get_signal_by_name(dev, name)))
-        return sig;
-
-    sig = (mapper_signal)mapper_list_add_item((void**)&g->sigs,
-                                              sizeof(mapper_signal_t));
-    sig->local = (mapper_local_signal)calloc(1, sizeof(mapper_local_signal_t));
-
-    sig->dev = dev;
-    sig->obj.id = get_unused_signal_id(dev);
-    sig->obj.graph = g;
-    sig->period = -1;
-    mapper_signal_init(sig, dir, num_inst, name, len, type, unit, minimum,
-                       maximum, handler);
-
-    if (dir == MAPPER_DIR_IN)
-        ++dev->num_inputs;
-    else
-        ++dev->num_outputs;
-
-    mapper_device_increment_version(dev);
-
-    mapper_device_add_signal_methods(dev, sig);
-
-    if (dev->local->registered) {
-        // Notify subscribers
-        mapper_network_subscribers(&g->net, ((dir == MAPPER_DIR_IN)
-                                             ? MAPPER_OBJ_INPUT_SIGNAL
-                                             : MAPPER_OBJ_OUTPUT_SIGNAL));
-        mapper_signal_send_state(sig, MSG_SIGNAL);
-    }
-
-    return sig;
+    RETURN_UNLESS(sig && sig->loc);
+    mpr_net net = &dev->obj.graph->net;
+    DEV_SERVER_FUNC(add_method, sig->path, NULL, handler_sig, (void*)sig);
+    ++dev->loc->n_output_callbacks;
 }
 
-void mapper_device_add_signal_methods(mapper_device dev, mapper_signal sig)
+void mpr_dev_remove_sig_methods(mpr_dev dev, mpr_sig sig)
 {
-    if (!sig || !sig->local)
-        return;
-
-    mapper_network net = &dev->obj.graph->net;
-    void *ptr = (void*)sig;
-
-    int len = strlen(sig->path) + 5;
-    char *path = (char*)malloc(sizeof(char) * len);
-    snprintf(path, len, "%s%s", sig->path, "/get");
-    lo_server_add_method(net->server.udp, path, NULL, handler_query, ptr);
-    lo_server_add_method(net->server.tcp, path, NULL, handler_query, ptr);
-    free(path);
-
-    lo_server_add_method(net->server.udp, sig->path, NULL, handler_signal, ptr);
-    lo_server_add_method(net->server.tcp, sig->path, NULL, handler_signal, ptr);
-
-    ++dev->local->n_output_callbacks;
-}
-
-void mapper_device_remove_signal_methods(mapper_device dev, mapper_signal sig)
-{
-    if (!sig || !sig->local)
-        return;
-
-    mapper_network net = &dev->obj.graph->net;
-
+    RETURN_UNLESS(sig && sig->loc);
+    mpr_net net = &dev->obj.graph->net;
     char *path = 0;
     int len = (int)strlen(sig->path) + 5;
     path = (char*)realloc(path, len);
     snprintf(path, len, "%s%s", sig->path, "/get");
-    lo_server_del_method(net->server.udp, path, NULL);
-    lo_server_del_method(net->server.tcp, path, NULL);
+    DEV_SERVER_FUNC(del_method, path, NULL);
     free(path);
-
-    lo_server_del_method(net->server.udp, sig->path, NULL);
-    lo_server_del_method(net->server.tcp, sig->path, NULL);
-
-    --dev->local->n_output_callbacks;
+    DEV_SERVER_FUNC(del_method, sig->path, NULL);
+    --dev->loc->n_output_callbacks;
 }
 
-static void send_unmap(mapper_network net, mapper_map map)
+static int cmp_qry_dev_sigs(const void *context_data, mpr_sig sig)
 {
-    if (!map->status)
-        return;
-
-    // TODO: send appropriate messages using mesh
-    mapper_network_bus(net);
-
-    lo_message m = lo_message_new();
-    if (!m)
-        return;
-
-    char dst_name[1024], src_names[1024];
-    int i, len = 0, result;
-    for (i = 0; i < map->num_src; i++) {
-        result = snprintf(&src_names[len], 1024-len, "%s%s",
-                          map->src[i]->sig->dev->name,
-                          map->src[i]->sig->path);
-        if (result < 0 || (len + result + 1) >= 1024) {
-            trace_dev(net->dev, "error encoding sources for /unmap msg.\n");
-            lo_message_free(m);
-            return;
-        }
-        lo_message_add_string(m, &src_names[len]);
-        len += result + 1;
-    }
-    lo_message_add_string(m, "->");
-    snprintf(dst_name, 1024, "%s%s", map->dst->sig->dev->name,
-             map->dst->sig->path);
-    lo_message_add_string(m, dst_name);
-    mapper_network_add_msg(net, 0, MSG_UNMAP, m);
-}
-
-void mapper_device_remove_signal(mapper_device dev, mapper_signal sig)
-{
-    int i;
-    if (!dev || !sig || !sig->local || sig->dev != dev)
-        return;
-
-    mapper_direction dir = sig->dir;
-    mapper_device_remove_signal_methods(dev, sig);
-    mapper_network net = &dev->obj.graph->net;
-
-    mapper_router_sig rs = dev->local->rtr->sigs;
-    while (rs && rs->sig != sig)
-        rs = rs->next;
-    if (rs) {
-        // need to unmap
-        for (i = 0; i < rs->num_slots; i++) {
-            if (rs->slots[i]) {
-                mapper_map map = rs->slots[i]->map;
-                send_unmap(net, map);
-                mapper_router_remove_map(dev->local->rtr, map);
-            }
-        }
-        mapper_router_remove_sig(dev->local->rtr, rs);
-    }
-
-    if (dev->local->registered) {
-        // Notify subscribers
-        mapper_network_subscribers(net, ((dir == MAPPER_DIR_IN)
-                                         ? MAPPER_OBJ_INPUT_SIGNAL
-                                         : MAPPER_OBJ_OUTPUT_SIGNAL));
-        mapper_signal_send_removed(sig);
-    }
-
-    mapper_graph_remove_signal(dev->obj.graph, sig, MAPPER_REMOVED);
-    mapper_device_increment_version(dev);
-}
-
-int mapper_device_get_num_signals(mapper_device dev, mapper_direction dir)
-{
-    if (!dev)
-        return 0;
-    return (  (dir & MAPPER_DIR_IN ? dev->num_inputs : 0)
-            + (dir & MAPPER_DIR_OUT ? dev->num_outputs : 0));
-}
-
-static int cmp_query_dev_sigs(const void *context_data, mapper_signal sig)
-{
-    mapper_id dev_id = *(mapper_id*)context_data;
-    int dir = *(int*)(context_data + sizeof(mapper_id));
+    mpr_id dev_id = *(mpr_id*)context_data;
+    int dir = *(int*)(context_data + sizeof(mpr_id));
     return ((dir & sig->dir) && (dev_id == sig->dev->obj.id));
 }
 
-mapper_object *mapper_device_get_signals(mapper_device dev, mapper_direction dir)
+mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir)
 {
-    if (!dev || !dev->obj.graph->sigs)
-        return 0;
-    return ((mapper_object *)
-            mapper_list_new_query(dev->obj.graph->sigs, cmp_query_dev_sigs,
-                                  "hi", dev->obj.id, dir));
+    RETURN_UNLESS(dev && dev->obj.graph->sigs, 0);
+    mpr_list qry = mpr_list_new_query(dev->obj.graph->sigs, cmp_qry_dev_sigs,
+                                      "hi", dev->obj.id, dir);
+    return mpr_list_start(qry);
 }
 
-mapper_signal mapper_device_get_signal_by_name(mapper_device dev,
-                                               const char *sig_name)
+mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
 {
-    if (!dev)
-        return 0;
-    mapper_object *sigs = mapper_list_from_data(dev->obj.graph->sigs);
+    RETURN_UNLESS(dev, 0);
+    mpr_list sigs = mpr_list_from_data(dev->obj.graph->sigs);
     while (sigs) {
-        mapper_signal sig = (mapper_signal)*sigs;
+        mpr_sig sig = (mpr_sig)*sigs;
         if ((sig->dev == dev) && strcmp(sig->name, skip_slash(sig_name))==0)
             return sig;
-        sigs = mapper_object_list_next(sigs);
+        sigs = mpr_list_next(sigs);
     }
     return 0;
 }
 
-int mapper_device_get_num_maps(mapper_device dev, mapper_direction dir)
+static int cmp_qry_dev_maps(const void *context_data, mpr_map map)
 {
-    if (!dev)
-        return 0;
-    return (  (dir & MAPPER_DIR_IN ? dev->num_maps_in : 0)
-            + (dir & MAPPER_DIR_OUT ? dev->num_maps_out : 0));
-}
-
-static int cmp_query_device_maps(const void *context_data, mapper_map map)
-{
-    mapper_id dev_id = *(mapper_id*)context_data;
-    mapper_direction dir = *(int*)(context_data + sizeof(mapper_id));
-    if (dir == MAPPER_DIR_BOTH) {
-        if (map->dst->sig->dev->obj.id != dev_id)
-            return 0;
-        int i;
-        for (i = 0; i < map->num_src; i++) {
-            if (map->src[i]->sig->dev->obj.id != dev_id)
-                return 0;
-        }
+    mpr_id dev_id = *(mpr_id*)context_data;
+    mpr_dir dir = *(int*)(context_data + sizeof(mpr_id));
+    int i;
+    if (dir == MPR_DIR_BOTH) {
+        RETURN_UNLESS(map->dst->sig->dev->obj.id == dev_id, 0);
+        for (i = 0; i < map->num_src; i++)
+            RETURN_UNLESS(map->src[i]->sig->dev->obj.id == dev_id, 0);
         return 1;
     }
-    if (dir & MAPPER_DIR_OUT) {
-        int i;
-        for (i = 0; i < map->num_src; i++) {
-            if (map->src[i]->sig->dev->obj.id == dev_id)
-                return 1;
-        }
+    if (dir & MPR_DIR_OUT) {
+        for (i = 0; i < map->num_src; i++)
+            RETURN_UNLESS(map->src[i]->sig->dev->obj.id != dev_id, 1);
     }
-    if (dir & MAPPER_DIR_IN) {
-        if (map->dst->sig->dev->obj.id == dev_id)
-            return 1;
-    }
+    if (dir & MPR_DIR_IN)
+        RETURN_UNLESS(map->dst->sig->dev->obj.id != dev_id, 1);
     return 0;
 }
 
-mapper_object *mapper_device_get_maps(mapper_device dev, mapper_direction dir)
+mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir)
 {
-    if (!dev || !dev->obj.graph->maps)
-        return 0;
-    return ((mapper_object *)
-            mapper_list_new_query(dev->obj.graph->maps,
-                                  cmp_query_device_maps, "hi", dev->obj.id,
-                                  dir));
+    RETURN_UNLESS(dev && dev->obj.graph->maps, 0);
+    mpr_list qry = mpr_list_new_query(dev->obj.graph->maps, cmp_qry_dev_maps,
+                                      "hi", dev->obj.id, dir);
+    return mpr_list_start(qry);
 }
 
-static int cmp_query_device_links(const void *context_data, mapper_link link)
+static int cmp_qry_dev_links(const void *context_data, mpr_link link)
 {
-    mapper_id dev_id = *(mapper_id*)context_data;
-    mapper_direction dir = *(int*)(context_data + sizeof(mapper_id));
+    mpr_id dev_id = *(mpr_id*)context_data;
+    mpr_dir dir = *(int*)(context_data + sizeof(mpr_id));
     if (link->devs[0]->obj.id == dev_id) {
         switch (dir) {
-            case MAPPER_DIR_BOTH:
-                return link->num_maps[0] && link->num_maps[1];
-            case MAPPER_DIR_IN:
-                return link->num_maps[1];
-            case MAPPER_DIR_OUT:
-                return link->num_maps[0];
-            default:
-                return 1;
+            case MPR_DIR_BOTH:  return link->num_maps[0] && link->num_maps[1];
+            case MPR_DIR_IN:    return link->num_maps[1];
+            case MPR_DIR_OUT:   return link->num_maps[0];
+            default:            return 1;
         }
     }
     else if (link->devs[1]->obj.id == dev_id) {
         switch (dir) {
-            case MAPPER_DIR_BOTH:
-                return link->num_maps[0] && link->num_maps[1];
-            case MAPPER_DIR_IN:
-                return link->num_maps[0];
-            case MAPPER_DIR_OUT:
-                return link->num_maps[1];
-            default:
-                return 1;
+            case MPR_DIR_BOTH:  return link->num_maps[0] && link->num_maps[1];
+            case MPR_DIR_IN:    return link->num_maps[0];
+            case MPR_DIR_OUT:   return link->num_maps[1];
+            default:            return 1;
         }
     }
     return 0;
 }
 
-mapper_object *mapper_device_get_links(mapper_device dev, mapper_direction dir)
+mpr_list mpr_dev_get_links(mpr_dev dev, mpr_dir dir)
 {
-    if (!dev || !dev->obj.graph->links)
-        return 0;
-    return ((mapper_object *)
-            mapper_list_new_query(dev->obj.graph->links,
-                                  cmp_query_device_links, "hi", dev->obj.id,
-                                  dir));
+    RETURN_UNLESS(dev && dev->obj.graph->links, 0);
+    mpr_list qry = mpr_list_new_query(dev->obj.graph->links, cmp_qry_dev_links,
+                                      "hi", dev->obj.id, dir);
+    return mpr_list_start(qry);
 }
 
-mapper_link mapper_device_get_link_by_remote_device(mapper_device dev,
-                                                    mapper_device remote_dev)
+mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 {
-    if (!dev)
-        return 0;
-    mapper_object *links = mapper_list_from_data(dev->obj.graph->links);
+    RETURN_UNLESS(dev, 0);
+    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mapper_link link = (mapper_link)*links;
-        if (link->devs[0] == dev) {
-            if (link->devs[1] == remote_dev)
-                return link;
-        }
-        else if (link->devs[1] == dev) {
-            if (link->devs[0] == remote_dev)
-                return link;
-        }
-        links = mapper_object_list_next(links);
+        mpr_link link = (mpr_link)*links;
+        if (link->devs[0] == dev && link->devs[1] == remote)
+            return link;
+        if (link->devs[1] == dev && link->devs[0] == remote)
+            return link;
+        links = mpr_list_next(links);
     }
     return 0;
 }
 
-int mapper_device_poll(mapper_device dev, int block_ms)
+int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
-    if (!dev || !dev->local)
-        return 0;
-
+    RETURN_UNLESS(dev && dev->loc, 0);
     int admin_count = 0, device_count = 0, status[4];
-    mapper_network net = &dev->obj.graph->net;
+    mpr_net net = &dev->obj.graph->net;
+    mpr_net_poll(net);
 
-    mapper_network_poll(net);
-
-    if (!dev->local->registered) {
+    if (!dev->loc->registered) {
         if (lo_servers_recv_noblock(net->server.admin, status, 2, 0)) {
             admin_count = (status[0] > 0) + (status[1] > 0);
             net->msgs_recvd |= admin_count;
@@ -1179,24 +768,21 @@ int mapper_device_poll(mapper_device dev, int block_ms)
         return admin_count + device_count;
     }
 
-    double then = mapper_get_current_time();
+    double then = mpr_get_current_time();
     int left_ms = block_ms, elapsed, checked_admin = 0;
     while (left_ms > 0) {
         // set timeout to a maximum of 100ms
         if (left_ms > 100)
             left_ms = 100;
-
         if (lo_servers_recv_noblock(net->server.all, status, 4, left_ms)) {
             admin_count += (status[0] > 0) + (status[1] > 0);
             device_count += (status[2] > 0) + (status[3] > 0);
         }
-
-        elapsed = (mapper_get_current_time() - then) * 1000;
+        elapsed = (mpr_get_current_time() - then) * 1000;
         if ((elapsed - checked_admin) > 100) {
-            mapper_network_poll(net);
+            mpr_net_poll(net);
             checked_admin = elapsed;
         }
-
         left_ms = block_ms - elapsed;
     }
 
@@ -1204,330 +790,323 @@ int mapper_device_poll(mapper_device dev, int block_ms)
      * proportion of the number of input signals. Arbitrarily choosing 1 for
      * now, but perhaps could be a heuristic based on a recent number of
      * messages per channel per poll. */
-    while (device_count < (dev->num_inputs + dev->local->n_output_callbacks)*1
-           && (lo_servers_recv_noblock(net->server.device, &status[2], 2, 0))) {
+    while (device_count < (dev->num_inputs + dev->loc->n_output_callbacks)*1
+           && (lo_servers_recv_noblock(net->server.dev, &status[2], 2, 0)))
         device_count += (status[2] > 0) + (status[3] > 0);
-    }
 
-    if (dev->obj.props.synced->dirty && mapper_device_ready(dev)
-        && dev->local->subscribers) {
+    if (dev->obj.props.synced->dirty && mpr_dev_ready(dev) && dev->loc->subscribers) {
         // inform device subscribers of change props
-        mapper_network_subscribers(net, MAPPER_OBJ_DEVICE);
-        mapper_device_send_state(dev, MSG_DEVICE);
+        mpr_net_subscribers(net, dev, MPR_DEV);
+        mpr_dev_send_state(dev, MSG_DEV);
     }
 
     net->msgs_recvd |= admin_count;
     return admin_count + device_count;
 }
 
-void mapper_device_on_num_inst_changed(mapper_device dev, mapper_signal sig,
-                                       int size)
-{
-    if (!dev)
-        return;
-    mapper_router_num_inst_changed(dev->local->rtr, sig, size);
-}
-
-void mapper_device_route_signal(mapper_device dev, mapper_signal sig,
-                                int inst_idx, const void *val,
-                                int count, mapper_time_t time)
-{
-    mapper_router_process_sig(dev->local->rtr, sig, inst_idx, val, count, time);
-}
-
 // Function to start a signal update queue
-mapper_time_t mapper_device_start_queue(mapper_device dev, mapper_time_t t)
+mpr_time_t mpr_dev_start_queue(mpr_dev dev, mpr_time_t t)
 {
-    if (!dev)
-        return t;
-
+    RETURN_UNLESS(dev, t);
     if (time_is_now(&t))
-        mapper_time_now(&t);
-
-    mapper_object *links = mapper_list_from_data(dev->obj.graph->links);
+        mpr_time_now(&t);
+    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mapper_link link = (mapper_link)*links;
-        mapper_link_start_queue(link, t);
-        links = mapper_object_list_next(links);
+        mpr_link_start_queue((mpr_link)*links, t);
+        links = mpr_list_next(links);
     }
     return t;
 }
 
 // Function to send a signal update queue
-void mapper_device_send_queue(mapper_device dev, mapper_time_t t)
+void mpr_dev_send_queue(mpr_dev dev, mpr_time_t t)
 {
-    if (!dev)
-        return;
-
-    mapper_object *links = mapper_list_from_data(dev->obj.graph->links);
+    RETURN_UNLESS(dev);
+    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mapper_link link = (mapper_link)*links;
-        mapper_link_send_queue(link, t);
-        links = mapper_object_list_next(links);
+        mpr_link_send_queue((mpr_link)*links, t);
+        links = mpr_list_next(links);
     }
 }
 
-void mapper_device_reserve_idmap(mapper_device dev)
+void mpr_dev_reserve_idmap(mpr_dev dev)
 {
-    mapper_idmap map;
-    map = (mapper_idmap)calloc(1, sizeof(mapper_idmap_t));
-    map->next = dev->local->idmaps.reserve;
-    dev->local->idmaps.reserve = map;
+    mpr_id_map map;
+    map = (mpr_id_map)calloc(1, sizeof(mpr_id_map_t));
+    map->next = dev->loc->idmaps.reserve;
+    dev->loc->idmaps.reserve = map;
 }
 
-mapper_idmap mapper_device_add_idmap(mapper_device dev, int group,
-                                     mapper_id local, mapper_id global)
+mpr_id_map mpr_dev_add_idmap(mpr_dev dev, int group, mpr_id LID, mpr_id GID)
 {
-    if (!dev->local->idmaps.reserve)
-        mapper_device_reserve_idmap(dev);
+    if (!dev->loc->idmaps.reserve)
+        mpr_dev_reserve_idmap(dev);
 
-    mapper_idmap map = dev->local->idmaps.reserve;
-    map->local = local;
-    map->global = global;
-    map->refcount_local = 1;
-    map->refcount_global = 0;
-    dev->local->idmaps.reserve = map->next;
-    map->next = dev->local->idmaps.active[group];
-    dev->local->idmaps.active[group] = map;
+    mpr_id_map map = dev->loc->idmaps.reserve;
+    map->LID = LID;
+    map->GID = GID;
+    map->LID_refcount = 1;
+    map->GID_refcount = 0;
+    dev->loc->idmaps.reserve = map->next;
+    map->next = dev->loc->idmaps.active[group];
+    dev->loc->idmaps.active[group] = map;
     return map;
 }
 
-void mapper_device_remove_idmap(mapper_device dev, int group, mapper_idmap rem)
+void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map rem)
 {
-    mapper_idmap *map = &dev->local->idmaps.active[group];
+    mpr_id_map *map = &dev->loc->idmaps.active[group];
     while (*map) {
         if ((*map) == rem) {
             *map = (*map)->next;
-            rem->next = dev->local->idmaps.reserve;
-            dev->local->idmaps.reserve = rem;
+            rem->next = dev->loc->idmaps.reserve;
+            dev->loc->idmaps.reserve = rem;
             break;
         }
         map = &(*map)->next;
     }
 }
 
-mapper_idmap mapper_device_idmap_by_local(mapper_device dev, int group,
-                                          mapper_id local)
+mpr_id_map mpr_dev_idmap_by_LID(mpr_dev dev, int group, mpr_id LID)
 {
-    mapper_idmap map = dev->local->idmaps.active[group];
+    mpr_id_map map = dev->loc->idmaps.active[group];
     while (map) {
-        if (map->local == local)
+        if (map->LID == LID)
             return map;
         map = map->next;
     }
     return 0;
 }
 
-mapper_idmap mapper_device_idmap_by_global(mapper_device dev, int group,
-                                           mapper_id global)
+mpr_id_map mpr_dev_idmap_by_GID(mpr_dev dev, int group, mpr_id GID)
 {
-    mapper_idmap map = dev->local->idmaps.active[group];
+    mpr_id_map map = dev->loc->idmaps.active[group];
     while (map) {
-        if (map->global == global)
+        if (map->GID == GID)
             return map;
         map = map->next;
     }
     return 0;
 }
 
-/* Note: any call to liblo where get_liblo_error will be called
- * afterwards must lock this mutex, otherwise there is a race
- * condition on receiving this information.  Could be fixed by the
- * liblo error handler having a user context pointer. */
-static int liblo_error_num = 0;
-static void liblo_error_handler(int num, const char *msg, const char *path)
+/* Internal LibLo error handler */
+static void handler_error(int num, const char *msg, const char *where)
 {
-    liblo_error_num = num;
-    if (num == LO_NOPORT) {
-        trace("liblo could not start a server because port unavailable\n");
-    } else
-        fprintf(stderr, "[libmapper] liblo server error %d in path %s: %s\n",
-               num, path, msg);
+    trace_net("[libmpr] liblo server error %d in path %s: %s\n", num, where, msg);
 }
 
-void mapper_device_start_servers(mapper_device dev)
+void mpr_dev_start_servers(mpr_dev dev)
 {
-    mapper_network net = &dev->obj.graph->net;
-    if (net->server.udp || net->server.tcp)
-        return;
+    mpr_net net = &dev->obj.graph->net;
+    RETURN_UNLESS(!net->server.udp && !net->server.tcp);
 
-    int len;
-    char port[16], *pport = 0, *path = 0;
-
-    while (!(net->server.udp = lo_server_new(pport, liblo_error_handler))) {
+    char port[16], *pport = 0;
+    while (!(net->server.udp = lo_server_new(pport, handler_error)))
         pport = 0;
-    }
-
     snprintf(port, 16, "%d", lo_server_get_port(net->server.udp));
     pport = port;
-
-    while (!(net->server.tcp = lo_server_new_with_proto(pport, LO_TCP,
-                                                        liblo_error_handler))) {
+    while (!(net->server.tcp = lo_server_new_with_proto(pport, LO_TCP, handler_error)))
         pport = 0;
-    }
 
     // Disable liblo message queueing
-    lo_server_enable_queue(net->server.udp, 0, 1);
-    lo_server_enable_queue(net->server.tcp, 0, 1);
+    DEV_SERVER_FUNC(enable_queue, 0, 1);
 
     int portnum = lo_server_get_port(net->server.udp);
-    mapper_table_set_record(dev->obj.props.synced, MAPPER_PROP_PORT, NULL,
-                            1, MAPPER_INT32, &portnum, NON_MODIFIABLE);
+    mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum,
+                NON_MODIFIABLE);
 
     trace_dev(dev, "bound to UDP port %i\n", portnum);
-    trace_dev(dev, "bound to TCP port %i\n",
-              lo_server_get_port(net->server.tcp));
+    trace_dev(dev, "bound to TCP port %i\n", lo_server_get_port(net->server.tcp));
 
     char *url = lo_server_get_url(net->server.udp);
     char *host = lo_url_get_hostname(url);
-    mapper_table_set_record(dev->obj.props.synced, MAPPER_PROP_HOST, NULL,
-                            1, MAPPER_STRING, host, NON_MODIFIABLE);
+    mpr_tbl_set(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host,
+                NON_MODIFIABLE);
     free(host);
     free(url);
-    trace_dev(dev, "bound to port %i\n", portnum);
 
     // add signal methods
-    mapper_object *sigs = mapper_device_get_signals(dev, MAPPER_DIR_ANY);
+    mpr_list sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (sigs) {
-        mapper_signal sig = (mapper_signal)*sigs;
-        if (sig->local->update_handler) {
-            lo_server_add_method(net->server.udp, sig->path, NULL,
-                                 handler_signal, (void*)sig);
-            lo_server_add_method(net->server.tcp, sig->path, NULL,
-                                 handler_signal, (void*)sig);
-        }
-
-        len = (int)strlen(sig->path) + 5;
-        path = (char*)realloc(path, len);
-        snprintf(path, len, "%s%s", sig->path, "/get");
-        lo_server_add_method(net->server.udp, path, NULL, handler_query,
-                             (void*)sig);
-        lo_server_add_method(net->server.tcp, path, NULL, handler_query,
-                             (void*)sig);
-        sigs = mapper_object_list_next(sigs);
+        mpr_sig sig = (mpr_sig)*sigs;
+        sigs = mpr_list_next(sigs);
+        if (sig->loc->handler)
+            DEV_SERVER_FUNC(add_method, sig->path, NULL, handler_sig, (void*)sig);
     }
-    free(path);
 }
 
-const char *mapper_device_get_name(mapper_device dev)
+const char *mpr_dev_get_name(mpr_dev dev)
 {
-    if (dev->local && (!dev->local->registered || !dev->local->ordinal.locked))
-        return 0;
-
+    RETURN_UNLESS(!dev->loc || (dev->loc->registered && dev->loc->ordinal.locked), 0);
     if (dev->name)
         return dev->name;
 
-    unsigned int len = strlen(dev->identifier) + 6;
+    unsigned int len = strlen(dev->prefix) + 6;
     dev->name = (char*)malloc(len);
     dev->name[0] = 0;
-    snprintf(dev->name, len, "%s.%d", dev->identifier, dev->local->ordinal.val);
+    snprintf(dev->name, len, "%s.%d", dev->prefix, dev->loc->ordinal.val);
     return dev->name;
 }
 
-int mapper_device_ready(mapper_device dev)
+int mpr_dev_ready(mpr_dev dev)
 {
-    return dev->status >= STATUS_READY;
+    return dev->status >= MPR_STATUS_READY;
 }
 
-mapper_id mapper_device_generate_unique_id(mapper_device dev) {
-    if (!dev)
-        return 0;
-    mapper_id id = ++dev->obj.graph->resource_counter;
-    if (dev->local && dev->local->registered)
+mpr_id mpr_dev_generate_unique_id(mpr_dev dev)
+{
+    RETURN_UNLESS(dev, 0);
+    mpr_id id = ++dev->obj.graph->resource_counter;
+    if (dev->loc && dev->loc->registered)
         id |= dev->obj.id;
     return id;
 }
 
-void mapper_device_send_state(mapper_device dev, network_msg_t cmd)
+void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd)
 {
-    if (!dev)
-        return;
-    lo_message msg = lo_message_new();
-    if (!msg) {
-        trace_dev(dev, "couldn't allocate lo_message\n");
-        return;
-    }
+    RETURN_UNLESS(dev);
+    NEW_LO_MSG(msg, return);
 
     /* device name */
-    lo_message_add_string(msg, mapper_device_get_name(dev));
+    lo_message_add_string(msg, mpr_dev_get_name(dev));
 
     /* properties */
-    mapper_table_add_to_msg(dev->local ? dev->obj.props.synced : 0,
-                            dev->obj.props.staged, msg);
+    mpr_tbl_add_to_msg(dev->loc ? dev->obj.props.synced : 0, dev->obj.props.staged, msg);
 
-    mapper_network net = &dev->obj.graph->net;
-    if (cmd == MSG_DEVICE_MODIFY) {
+    mpr_net net = &dev->obj.graph->net;
+    if (cmd == MSG_DEV_MOD) {
         char str[1024];
         snprintf(str, 1024, "/%s/modify", dev->name);
-        mapper_network_add_msg(net, str, 0, msg);
-        mapper_network_send(net);
+        mpr_net_add_msg(net, str, 0, msg);
+        mpr_net_send(net);
     }
     else
-        mapper_network_add_msg(net, 0, cmd, msg);
+        mpr_net_add_msg(net, 0, cmd, msg);
 
     dev->obj.props.synced->dirty = 0;
 }
 
-/*! Update information about a device record based on message properties. */
-int mapper_device_set_from_msg(mapper_device dev, mapper_msg msg)
+static int add_link_internal(mpr_dev dev, const char *name)
 {
-    if (!msg)
-        return 0;
-    return mapper_table_set_from_msg(dev->obj.props.synced, msg, REMOTE_MODIFY);
+    RETURN_UNLESS(dev && name, 0);
+    int i;
+    mpr_dev dev2 = mpr_graph_add_dev(dev->obj.graph, name, 0);
+    for (i = 0; i < dev->num_linked; i++) {
+        if (dev->linked[i] && dev->linked[i]->obj.id == dev2->obj.id)
+            return 0;
+    }
+
+    // not found - add a new linked device
+    i = ++dev->num_linked;
+    dev->linked = realloc(dev->linked, i * sizeof(mpr_dev));
+    dev->linked[i-1] = dev2;
+    return 1;
 }
 
-static int mapper_device_send_signals(mapper_device dev, mapper_direction dir,
-                                      int min, int max)
+static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom a)
+{
+    int i, j, updated = 0, num = a->len;
+    lo_arg **link_list = a->vals;
+    if (link_list && *link_list) {
+        if (num == 1 && strcmp(&link_list[0]->s, "none")==0)
+            num = 0;
+        const char *name;
+
+        // Remove any old links that are missing
+        for (i = 0; ; i++) {
+            if (i >= dev->num_linked)
+                break;
+            int found = 0;
+            for (j = 0; j < num; j++) {
+                name = &link_list[j]->s;
+                name = name[0] == '/' ? name + 1 : name;
+                if (0 == strcmp(name, dev->linked[i]->name)) {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found) {
+                for (j = i+1; j < dev->num_linked; j++)
+                    dev->linked[j-1] = dev->linked[j];
+                --dev->num_linked;
+                ++updated;
+            }
+        }
+        if (updated)
+            dev->linked = realloc(dev->linked, dev->num_linked * sizeof(mpr_dev));
+        // Add any new links
+        for (i = 0; i < num; i++)
+            updated += add_link_internal(dev, &link_list[i]->s);
+    }
+    return updated;
+}
+
+/*! Update information about a device record based on message properties. */
+int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
+{
+    RETURN_UNLESS(m, 0);
+    int i, updated = 0;
+    mpr_msg_atom a;
+    for (i = 0; i < m->num_atoms; i++) {
+        a = &m->atoms[i];
+        switch (MASK_PROP_BITFLAGS(a->prop)) {
+            case PROP(LINKED):
+                if (dev->loc && type_is_str(a->types[0]))
+                    updated += mpr_dev_update_linked(dev, a);
+                break;
+            default:
+                updated += mpr_tbl_set_from_atom(dev->obj.props.synced, a, REMOTE_MODIFY);
+                break;
+        }
+    }
+    return updated;
+}
+
+static int mpr_dev_send_sigs(mpr_dev dev, mpr_dir dir, int min, int max)
 {
     int i = 0;
-    mapper_object *sigs = mapper_device_get_signals(dev, dir);
-    while (sigs) {
+    mpr_list l = mpr_dev_get_sigs(dev, dir);
+    while (l) {
         if (i > max && max > 0) {
-            mapper_object_list_free(sigs);
+            mpr_list_free(l);
             return 1;
         }
         if (i >= min)
-            mapper_signal_send_state((mapper_signal)*sigs, MSG_SIGNAL);
+            mpr_sig_send_state((mpr_sig)*l, MSG_SIG);
         ++i;
-        sigs = mapper_object_list_next(sigs);
+        l = mpr_list_next(l);
     }
     return 0;
 }
 
-static int mapper_device_send_maps(mapper_device dev, mapper_direction dir,
-                                    int min, int max)
+static int mpr_dev_send_maps(mpr_dev dev, mpr_dir dir, int min, int max)
 {
     int i = 0;
-    mapper_object *maps = mapper_device_get_maps(dev, dir);
-    while (maps) {
+    mpr_list l = mpr_dev_get_maps(dev, dir);
+    while (l) {
         if (i > max && max > 0) {
-            mapper_object_list_free(maps);
+            mpr_list_free(l);
             return 1;
         }
-        if (i >= min) {
-            mapper_map_send_state((mapper_map)*maps, -1, MSG_MAPPED);
-        }
+        if (i >= min)
+            mpr_map_send_state((mpr_map)*l, -1, MSG_MAPPED);
         ++i;
-        maps = mapper_object_list_next(maps);
+        l = mpr_list_next(l);
     }
     return 0;
 }
 
 // Add/renew/remove a subscription.
-void mapper_device_manage_subscriber(mapper_device dev, lo_address addr,
-                                     int flags, int timeout_sec, int revision)
+void mpr_dev_manage_subscriber(mpr_dev dev, lo_address addr, int flags,
+                               int timeout_sec, int revision)
 {
-    mapper_subscriber *s = &dev->local->subscribers;
+    mpr_subscriber *s = &dev->loc->subscribers;
     const char *ip = lo_address_get_hostname(addr);
     const char *port = lo_address_get_port(addr);
-    if (!ip || !port) {
-        trace_dev(dev, "error managing subscription: %s not found\n",
-                  ip ? "port" : "ip");
-        return;
-    }
+    RETURN_UNLESS(ip && port);
 
-    mapper_time_t t;
-    mapper_time_now(&t);
+    mpr_time_t t;
+    mpr_time_now(&t);
 
     while (*s) {
         const char *s_ip = lo_address_get_hostname((*s)->addr);
@@ -1537,19 +1116,20 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address addr,
             if (!flags || !timeout_sec) {
                 trace_dev(dev, "removing subscription from %s:%s\n", s_ip, s_port);
                 // remove subscription
-                mapper_subscriber temp = *s;
+                mpr_subscriber temp = *s;
                 int prev_flags = temp->flags;
                 *s = temp->next;
-                if (temp->addr)
-                    lo_address_free(temp->addr);
+                FUNC_IF(lo_address_free, temp->addr);
                 free(temp);
-                if (!flags || !(flags &= ~prev_flags))
-                    return;
+                RETURN_UNLESS(flags && (flags &= ~prev_flags));
             }
             else {
                 // reset timeout
-                trace_dev(dev, "renewing subscription from %s:%s for %d seconds\n",
-                          s_ip, s_port, timeout_sec);
+#ifdef DEBUG
+                trace_dev(dev, "renewing subscription from %s:%s for %d seconds"
+                          "with flags ", s_ip, s_port, timeout_sec);
+                print_subscription_flags(flags);
+#endif
                 (*s)->lease_exp = t.sec + timeout_sec;
                 int temp = flags;
                 flags &= ~(*s)->flags;
@@ -1560,86 +1140,57 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address addr,
         s = &(*s)->next;
     }
 
-    if (!flags)
-        return;
+    RETURN_UNLESS(flags);
 
     if (!(*s) && timeout_sec) {
         // add new subscriber
-        trace_dev(dev, "adding new subscription from %s:%s with flags %d\n",
-              ip, port, flags);
-        mapper_subscriber sub = malloc(sizeof(struct _mapper_subscriber));
+#ifdef DEBUG
+        trace_dev(dev, "adding new subscription from %s:%s with flags ", ip, port);
+        print_subscription_flags(flags);
+#endif
+        mpr_subscriber sub = malloc(sizeof(struct _mpr_subscriber));
         sub->addr = lo_address_new(ip, port);
         sub->lease_exp = t.sec + timeout_sec;
         sub->flags = flags;
-        sub->next = dev->local->subscribers;
-        dev->local->subscribers = sub;
+        sub->next = dev->loc->subscribers;
+        dev->loc->subscribers = sub;
         s = &sub;
     }
 
     // bring new subscriber up to date
-    mapper_network net = &dev->obj.graph->net;
-    mapper_network_mesh(net, addr);
-    mapper_device_send_state(dev, MSG_DEVICE);
-    mapper_network_send(net);
+    mpr_net net = &dev->obj.graph->net;
+    mpr_net_mesh(net, addr);
+    mpr_dev_send_state(dev, MSG_DEV);
+    mpr_net_send(net);
 
-    if (flags & MAPPER_OBJ_SIGNAL) {
-        mapper_direction dir = 0;
-        if (flags & MAPPER_OBJ_INPUT_SIGNAL)
-            dir |= MAPPER_DIR_IN;
-        if (flags & MAPPER_OBJ_OUTPUT_SIGNAL)
-            dir |= MAPPER_DIR_OUT;
+    if (flags & MPR_SIG) {
+        mpr_dir dir = 0;
+        if (flags & MPR_SIG_IN)
+            dir |= MPR_DIR_IN;
+        if (flags & MPR_SIG_OUT)
+            dir |= MPR_DIR_OUT;
         int batch = 0, done = 0;
         while (!done) {
-            mapper_network_mesh(net, addr);
-            if (!mapper_device_send_signals(dev, dir, batch, batch + 9))
+            mpr_net_mesh(net, addr);
+            if (!mpr_dev_send_sigs(dev, dir, batch, batch + 9))
                 done = 1;
-            mapper_network_send(net);
+            mpr_net_send(net);
             batch += 10;
         }
     }
-
-    if (flags & MAPPER_OBJ_MAP) {
-        mapper_direction dir = 0;
-        if (flags & MAPPER_OBJ_MAP_IN)
-            dir |= MAPPER_DIR_IN;
-        if (flags & MAPPER_OBJ_MAP_OUT)
-            dir |= MAPPER_DIR_OUT;
+    if (flags & MPR_MAP) {
+        mpr_dir dir = 0;
+        if (flags & MPR_MAP_IN)
+            dir |= MPR_DIR_IN;
+        if (flags & MPR_MAP_OUT)
+            dir |= MPR_DIR_OUT;
         int batch = 0, done = 0;
         while (!done) {
-            mapper_network_mesh(net, addr);
-            if (!mapper_device_send_maps(dev, dir, batch, batch + 9))
+            mpr_net_mesh(net, addr);
+            if (!mpr_dev_send_maps(dev, dir, batch, batch + 9))
                 done = 1;
-            mapper_network_send(net);
+            mpr_net_send(net);
             batch += 10;
         }
     }
-}
-
-mapper_signal_group mapper_device_add_signal_group(mapper_device dev)
-{
-    if (!dev->local)
-        return 0;
-    ++dev->local->num_signal_groups;
-    dev->local->idmaps.active = realloc(dev->local->idmaps.active,
-                                        dev->local->num_signal_groups
-                                        * sizeof(mapper_idmap*));
-    dev->local->idmaps.active[dev->local->num_signal_groups-1] = 0;
-
-    return dev->local->num_signal_groups-1;
-}
-
-void mapper_device_remove_signal_group(mapper_device dev,
-                                       mapper_signal_group group)
-{
-    if (!dev->local || group >= dev->local->num_signal_groups)
-        return;
-
-    int i = (int)group + 1;
-    for (; i < dev->local->num_signal_groups; i++) {
-        dev->local->idmaps.active[i-1] = dev->local->idmaps.active[i];
-    }
-    --dev->local->num_signal_groups;
-    dev->local->idmaps.active = realloc(dev->local->idmaps.active,
-                                        dev->local->num_signal_groups
-                                        * sizeof(mapper_idmap *));
 }

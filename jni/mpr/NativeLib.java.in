@@ -1,0 +1,6 @@
+
+package mpr;
+
+public class NativeLib {
+    public static final String name = "mprjni";
+}

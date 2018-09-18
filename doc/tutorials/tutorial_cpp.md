@@ -1,16 +1,16 @@
-# Getting started with libmapper and C++
+# Getting started with libmpr and C++
 
 ## Overview of the C++ API
 
 If you take a look at the API documentation, there is a section called
 "modules".  This is divided into the following sections:
 
-* [Networks](../html/classmapper_1_1Network.html)
-* [Devices](../html/classmapper_1_1Device.html)
-* [Signals](../html/classmapper_1_1Signal.html)
-* [Maps](../html/classmapper_1_1Map.html)
-* [Slots](../html/classmapper_1_1Map_1_1Slot.html)
-* [Databases](../html/classmapper_1_1Database.html)
+* [Networks](../html/classmpr_1_1Network.html)
+* [Devices](../html/classmpr_1_1Device.html)
+* [Signals](../html/classmpr_1_1Signal.html)
+* [Maps](../html/classmpr_1_1Map.html)
+* [Slots](../html/classmpr_1_1Map_1_1Slot.html)
+* [Databases](../html/classmpr_1_1Database.html)
 
 For this tutorial, the only sections to pay attention to are **Devices** and
 **Signals**.  **Networks** are reserved for providing custom networking
@@ -24,13 +24,13 @@ design and will also not be covered here.
 
 ### Creating a device
 
-To create a _libmapper_ device, it is necessary to provide a few parameters the
+To create a _libmpr_ device, it is necessary to provide a few parameters the
 constructor, which is overloaded to accept either arguments of either
 `const char*` or C++ `std::string`:
 
 ~~~c++
-mapper::Device dev(const char *name, mapper.Network net = 0);
-mapper::Device dev(std::string name, mapper.Network net = 0);
+mpr::Device dev(const char *name, mpr.Network net = 0);
+mpr::Device dev(std::string name, mpr.Network net = 0);
 ~~~
 
 In regular usage only the first argument is needed. The optional `Network`
@@ -40,7 +40,7 @@ specifying the name of the network interface to use.
 An example of creating a device:
 
 ~~~c++
-mapper::Device dev("test");
+mpr::Device dev("test");
 ~~~
 
 ### Polling the device
@@ -101,7 +101,7 @@ sometimes useful to be able to determine this using `ready()`.  Only when
 
 Now that we know how to create a device, poll it, and free it, we only need to
 know how to add signals in order to give our program some input/output
-functionality.  While libmapper enables arbitrary connections between _any_
+functionality.  While libmpr enables arbitrary connections between _any_
 declared signals, we still find it helpful to distinguish between two type of
 signals: `inputs` and `outputs`. 
 
@@ -115,7 +115,7 @@ synthesizer might be updated locally through user interaction with a GUI,
 however the normal use of this signal is as a _destination_ for control data
 streams so it should be defined as an `input` signal.  Note that this
 distinction is to help with GUI organization and user-understanding –
-_libmapper_ enables connections from input signals and to output signals if
+_libmpr_ enables connections from input signals and to output signals if
 desired.
 
 ### Creating a signal
@@ -138,13 +138,13 @@ for input signals there is an additional argument:
 examples:
 
 ~~~c++
-mapper::Signal input;
+mpr::Signal input;
 input = dev.add_input_signal("my_input", 1, 'f',
                              "m/s", 0, 0, h)
 
 int min[4] = {1,2,3,4};
 int max[4] = {10,11,12,13};
-mapper::Signal output;
+mpr::Signal output;
 output = dev.add_output_signal("my_output", 4,
                                'i', 0, min, max)
 ~~~
@@ -156,9 +156,9 @@ currently `'i'`, `'f'`, or `'d'` (specified as characters in C, not strings),
 for `int`, `float`, or `double` values, respectively.
 
 The other parameters are not strictly required, but the more information you
-provide, the more the mapper can do some things automatically.  For example, if
+provide, the more _libmpr_ can do some things automatically.  For example, if
 `minimum` and `maximum` are provided, it will be possible to create
-linear-scaled connections very quickly.  If `unit` is provided, the mapper will
+linear-scaled connections very quickly.  If `unit` is provided, _libmpr_ will
 be able to similarly figure out a linear scaling based on unit conversion (from
 centimeters to inches for example). Currently automatic unit-based scaling is
 not a supported feature, but will be added in the future.  You can take
@@ -179,7 +179,7 @@ An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
 ~~~c++
-mapper::Signal sig;
+mpr::Signal sig;
 sig = dev.add_output_signal("outA", 1, 'i',
                             0, 0, 0);
 ~~~
@@ -189,7 +189,7 @@ An example of a `float` signal where some more information is provided:
 ~~~c++
 float min = 0.0f;
 float max = 5.0f;
-mapper::Signal sig;
+mpr::Signal sig;
 sig = dev.add_output_signal("sensor1", 1, 'f',
                             "V", &min, &max);
 ~~~
@@ -198,8 +198,8 @@ So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
 
 ~~~c++
-mapper::Device dev("test_sender");
-mapper::Signal sig;
+mpr::Device dev("test_sender");
+mpr::Signal sig;
 float min = 0.0f;
 float max = 5.0f;
 sig = dev.add_output_signal("sensor1", 1, 'f',
@@ -215,14 +215,14 @@ while (!done) {
 It is possible to retrieve a device's inputs or outputs by name or by index at a
 later time using the functions `dev.input()` or `dev.output()` with either the
 signal name or index as an argument. The functions `dev.inputs()` and
-`dev.outputs()` return an object of type `mapper::Signal::Query` which can be
+`dev.outputs()` return an object of type `mpr::Signal::Query` which can be
 used to retrieve all of the input/output signals belonging to a particular
 device:
 
 ~~~c++
 std::cout << "Signals belonging to " << dev.name() << std::endl;
 
-mapper::Signal::Query q = dev.signals(MAPPER_DIR_INCOMING).begin();
+mpr::Signal::Query q = dev.signals(MPR_DIR_INCOMING).begin();
 for (; q != q.end(); ++q) {
     std::cout << "input: " << (const char*)(*q) << std::endl;
 }
@@ -234,13 +234,13 @@ We can imagine the above program getting sensor information in a loop.  It could
 be running on an network-enable ARM device and reading the ADC register
 directly, or it could be running on a computer and reading data from an Arduino
 over a USB serial port, or it could just be a mouse-controlled GUI slider.
-However it's getting the data, it must provide it to _libmapper_ so that it will
+However it's getting the data, it must provide it to _libmpr_ so that it will
 be sent to other devices if that signal is mapped.
 
 This is accomplished by the `update()` function:
 
 ~~~c++
-void sig.update(void *value, int count, mapper::Timetag timetag);
+void sig.update(void *value, int count, mpr::Timetag timetag);
 ~~~
 
 The `count` and `timetag` arguments can be ommited, and the `update()` function
@@ -253,7 +253,7 @@ that are being updated - for now we will set this to 1.  Lastly the `timetag`
 argument allows you to specify a time associated with the signal update. If your
 value update was generated locally, or if your program does not have access to
 upstream timing information (e.g., from a microcontroller sampling sensor
-values), you can omit the argument and libmapper will tag the update with the
+values), you can omit the argument and libmpr will tag the update with the
 current time.
 
 So in the "sensor 1" example, assuming in `do_stuff()` we have some code which
@@ -270,7 +270,7 @@ while (!done) {
 ~~~
 
 This is about all that is needed to expose sensor 1's value to the network as a
-mappable parameter.  The _libmapper_ GUI can now map this value to a receiver,
+mappable parameter.  The _libmpr_ GUI can now map this value to a receiver,
 where it could control a synthesizer parameter or change the brightness of an
 LED, or whatever else you want to do.
 
@@ -278,7 +278,7 @@ LED, or whatever else you want to do.
 
 Most synthesizers of course will not know what to do with the value of sensor1
 --it is an electrical property that has nothing to do with sound or music.  This
-is where _libmapper_ really becomes useful.
+is where _libmpr_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_ exposing the
 signal, or it can be performed as part of the mapping.  Since the end user can
@@ -326,9 +326,9 @@ up the audio thread.
 Create the handler function, which is fairly simple,
 
 ~~~c++
-void pulsewidth_handler(mapper::Signal sig, mapper_id instance,
+void pulsewidth_handler(mpr::Signal sig, mpr_id instance,
                         void *value, int count,
-                        mapper::Timetag tt)
+                        mpr::Timetag tt)
 {
     Synthesizer *s = (Synthesizer*) sig.user_data();
     s->setPulseWidth(*(float*)v);
@@ -350,9 +350,9 @@ void main()
     float min_pw = 0.0f;
     float max_pw = 1.0f;
     
-    mapper::Device dev("synth");
+    mpr::Device dev("synth");
     
-    mapper::Signal pulsewidth =
+    mpr::Signal pulsewidth =
         dev.add_input_signal("pulsewidth", 1, 'f', 0, &min_pw,
                              &max_pw, pulsewidth_handler, &synth);
     
@@ -363,7 +363,7 @@ void main()
 
 ## Working with timetags
 
-_libmapper_ uses the `Timetag` data structure to store
+_libmpr_ uses the `Timetag` data structure to store
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps).
 For example, the handler function called when a signal update is received
 contains a `timetag` argument.  This argument indicates the time at which the
@@ -379,13 +379,13 @@ accurate measurement of the real time associated with the signal update, for
 example if you are writing a driver for an outboard sensor system that provides
 the sampling time.
 
-_libmapper_ also provides helper functions for getting the current device-time,
+_libmpr_ also provides helper functions for getting the current device-time,
 setting the value of a `Timetag` from other representations, and comparing or
 copying timetags.  Check the API documentation for more information.
 
 ## Working with signal instances
 
-_libmapper_ also provides support for signals with multiple _instances_, for
+_libmpr_ also provides support for signals with multiple _instances_, for
 example:
 
 * control parameters for polyphonic synthesizers;
@@ -394,12 +394,12 @@ example:
 * objects on a tabletop tangible user interface;
 * _temporal_ objects such as gestures or trajectories.
 
-The important qualities of signal instances in _libmapper_ are:
+The important qualities of signal instances in _libmpr_ are:
 
 * **instances are interchangeable**: if there are semantics attached to a
   specific instance it should be represented with separate signals instead.
 * **instances can be ephemeral**: signal instances can be dynamically created
-  and destroyed. _libmapper_ will ensure that linked devices share a common
+  and destroyed. _libmpr_ will ensure that linked devices share a common
   understanding of the relatonships between instances when they are mapped.
 * **map once for all instances**: one mapping connection serves to map all of a
   signal's instances.
@@ -409,21 +409,21 @@ instances you can use:
 
 ~~~c++
 sig.reserve_instances(int num)
-sig.reserve_instances(int num, mapper_id *ids)
-sig.reserve_instances(int num, mapper_id *ids, void **user_data)
+sig.reserve_instances(int num, mpr_id *ids)
+sig.reserve_instances(int num, mpr_id *ids, void **user_data)
 ~~~
 
 After reserving instances you can update a specific instance, for example:
 
 ~~~c++
-sig.instance_update(mapper_id instance, void *value,
-                    int count, mapper::Timetag timetag)
+sig.instance_update(mpr_id instance, void *value,
+                    int count, mpr::Timetag timetag)
 ~~~
 
 All of the arguments except one should be familiar from the documentation of
 `update()` presented earlier.  The `instance` argument does not have to be
 considered as an array index - it can be any integer that is convenient for
-labelling your instance. _libmapper_ will internally create a map from your id
+labelling your instance. _libmpr_ will internally create a map from your id
 label to one of the preallocated instance structures.
 
 ### Receiving instances
@@ -433,9 +433,8 @@ update is received has a argument called `instance`. Here is the function
 prototype again:
 
 ~~~c++
-void mapper_signal_update_handler(mapper::Signal sig, mapper_id instance,
-                                  void *value, int count,
-                                  mapper::Timetag tt);
+void mpr_sig_handler(mpr_sig sig, mpr_inst_evt evt, mpr_id inst,
+                     int len, mpr_type type, void *value, mpr_time_t tt);
 ~~~
 
 Under normal usage, this argument will have a value (0 <= n <= num_instances)
@@ -451,28 +450,28 @@ to set an action to take in case all allocated instances are in use and a
 previously unseen instance id is received. Use the function:
 
 ~~~c++
-sig.set_instance_allocation_mode(mapper_instance_stealing_type mode);
+sig.set_prop(MPR_PROP_STEAL_MODE, mpr_steal_type type);
 ~~~
 
 The argument `mode` can have one of the following values:
 
-* `MAPPER_NO_STEALING` Default value, in which no stealing of instances will occur;
-* `MAPPER_STEAL_OLDEST` Release the oldest active instance and reallocate its
+* `MPR_STEAL_NONE` Default value, in which no stealing of instances will occur;
+* `MPR_STEAL_OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `MAPPER_STEAL_NEWEST` Release the newest active instance and reallocate its
+* `MPR_STEAL_NEWEST` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
-release (e.g. the sound with the lowest volume), you can create an `instance_event_handler` for the signal and write the method yourself:
+release (e.g. the sound with the lowest volume), you can create a `mpr_sig_handler` for the signal and write the method yourself:
 
 ~~~c++
-void my_handler(mapper::Signal sig, mapper_id instance,
-                mapper_instance_event event, mapper::Timetag tt)
+void my_handler(mpr_sig sig, mpr_inst_evt evt, mpr_id inst, int len,
+                mpr_type type, const void *val, mpr::Timetag tt)
 {
     // user code chooses which instance to release
-    mapper_id release_me = choose_instance_to_release(sig);
+    mpr_id release_me = choose_instance_to_release(sig);
 
-    sig.release_instance(release_me, tt);
+    sig.instance(release_me).release(tt);
 }
 ~~~
 
@@ -480,8 +479,7 @@ For this function to be called when instance stealing is necessary, we need to
 register it for `IN_OVERFLOW` events:
 
 ~~~c++
-sig.set_instance_event_callback(my_handler,
-                                MAPPER_INSTANCE_OVERFLOW);
+sig.set_callback(my_handler, MPR_INSTANCE_OVERFLOW);
 ~~~
 
 ## Publishing metadata
@@ -489,8 +487,8 @@ sig.set_instance_event_callback(my_handler,
 Things like device names, signal units, and ranges, are examples of metadata
 --information about the data you are exposing on the network.
 
-_libmapper_ also provides the ability to specify arbitrary extra metadata in the
-form of name-value pairs.  These are not interpreted by _libmapper_ in any way,
+_libmpr_ also provides the ability to specify arbitrary extra metadata in the
+form of name-value pairs.  These are not interpreted by _libmpr_ in any way,
 but can be retrieved over the network.  This can be used for instance to give a
 device X and Y information, or to perhaps give a signal some property like
 "reliability", or some category like "light", "motor", "shaker", etc.
@@ -505,7 +503,7 @@ OSC-compatible type.  (So, numbers and strings, etc.)
 The property interface is through the functions,
 
 ~~~c++
-void <object>.set_property(<name>, <value>);
+void <object>.set_prop(<name>, <value>);
 ~~~
 
 The `<value>` arguments can be a scalar, array or std::vector of type `int`,
@@ -515,13 +513,13 @@ For example, to store a `float` indicating the X position of a device, you can
 call it like this:
 
 ~~~c++
-dev.set_property("x", 12.5f);
-sig.set_property("sensingMethod", "resistive");
+dev.set_prop("x", 12.5f);
+sig.set_prop("sensingMethod", "resistive");
 ~~~
 
 ### Reserved keys
 
-You can use any property name not already reserved by libmapper.
+You can use any property name not already reserved by _libmpr_.
 
 #### Reserved keys for devices
 

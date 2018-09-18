@@ -1,6 +1,6 @@
 
-#include "../src/mapper_internal.h"
-#include <mapper/mapper.h>
+#include "../src/mpr_internal.h"
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
@@ -16,19 +16,19 @@
 int verbose = 1;
 int period = 100;
 
-mapper_device dev = 0;
-mapper_signal inputs[100];
-mapper_signal outputs[100];
+mpr_dev dev = 0;
+mpr_sig inputs[100];
+mpr_sig outputs[100];
 
-void sig_handler(mapper_signal sig, mapper_id inst, int len, mapper_type type,
-                 const void *val, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int len,
+             mpr_type type, const void *val, mpr_time t)
 {
     if (!val)
         return;
 
     const char *name;
-    mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
-                                    NULL, NULL, (const void**)&name);
+    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, NULL);
     eprintf("--> destination got %s", name);
     float *v = (float*)val;
     for (int i = 0; i < sig->len; i++) {
@@ -71,45 +71,42 @@ int main(int argc, char ** argv)
 
     eprintf("Creating device... ");
     fflush(stdout);
-    dev = mapper_device_new("testsignals", 0);
+    dev = mpr_dev_new("testsignals", 0);
     if (!dev) {
         result = 1;
         goto done;
     }
-    while (!mapper_device_ready(dev)) {
-        mapper_device_poll(dev, 100);
+    while (!mpr_dev_ready(dev)) {
+        mpr_dev_poll(dev, 100);
     }
 
     eprintf("Adding 200 signals... ");
     fflush(stdout);
     for (i = 0; i < 100; i++) {
-        mapper_device_poll(dev, 100);
+        mpr_dev_poll(dev, 100);
         snprintf(signame, 32, "in%i", i);
-        if (!(inputs[i] = mapper_device_add_signal(dev, MAPPER_DIR_IN, 1,
-                                                   signame, 1, MAPPER_FLOAT,
-                                                   NULL, NULL, NULL,
-                                                   sig_handler))) {
+        if (!(inputs[i] = mpr_sig_new(dev, MPR_DIR_IN, 1, signame, 1, MPR_FLT,
+                                      NULL, NULL, NULL, handler, MPR_SIG_UPDATE))) {
             result = 1;
             goto done;
         }
         snprintf(signame, 32, "out%i", i);
-        if (!(outputs[i] = mapper_device_add_signal(dev, MAPPER_DIR_OUT, 1,
-                                                    signame, 1, MAPPER_FLOAT,
-                                                    NULL, NULL, NULL, NULL))) {
+        if (!(outputs[i] = mpr_sig_new(dev, MPR_DIR_OUT, 1, signame, 1, MPR_FLT,
+                                       NULL, NULL, NULL, NULL, 0))) {
             result = 1;
             goto done;
         }
     }
     eprintf("Removing 200 signals...\n");
     for (i = 0; i < 100; i++) {
-        mapper_device_remove_signal(dev, inputs[i]);
-        mapper_device_remove_signal(dev, outputs[i]);
-        mapper_device_poll(dev, period);
+        mpr_sig_free(inputs[i]);
+        mpr_sig_free(outputs[i]);
+        mpr_dev_poll(dev, period);
     }
 
   done:
     if (dev)
-        mapper_device_free(dev);
+        mpr_dev_free(dev);
     printf("........Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

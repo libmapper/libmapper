@@ -1,4 +1,4 @@
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
@@ -16,46 +16,46 @@ int autoconnect = 1;
 int done = 0;
 int period = 100;
 
-mapper_device source = 0;
-mapper_device destination = 0;
-mapper_signal sendsig = 0;
-mapper_signal recvsig = 0;
+mpr_dev src = 0;
+mpr_dev dst = 0;
+mpr_sig sendsig = 0;
+mpr_sig recvsig = 0;
 
 int sent = 0;
 int received = 0;
 
-int setup_source(char *iface)
+int setup_src(char *iface)
 {
-    source = mapper_device_new("testlinear-send", 0);
-    if (!source)
+    src = mpr_dev_new("testlinear-send", 0);
+    if (!src)
         goto error;
     eprintf("source created.\n");
 
     int mn=0, mx=1;
-    sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUT, 1, "outsig",
-                                       1, MAPPER_INT32, NULL, &mn, &mx, NULL);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 1, MPR_INT32, NULL,
+                          &mn, &mx, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
     eprintf("Number of outputs: %d\n",
-            mapper_device_get_num_signals(source, MAPPER_DIR_OUT));
+            mpr_list_get_count(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
     return 0;
 
   error:
     return 1;
 }
 
-void cleanup_source()
+void cleanup_src()
 {
-    if (source) {
+    if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(source);
+        mpr_dev_free(src);
         eprintf("ok\n");
     }
 }
 
-void insig_handler(mapper_signal sig, mapper_id instance, int length,
-                   mapper_type type, const void *value, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
+             mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
@@ -63,33 +63,32 @@ void insig_handler(mapper_signal sig, mapper_id instance, int length,
     received++;
 }
 
-int setup_destination(char *iface)
+int setup_dst(char *iface)
 {
-    destination = mapper_device_new("testlinear-recv", 0);
-    if (!destination)
+    dst = mpr_dev_new("testlinear-recv", 0);
+    if (!dst)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = mapper_device_add_signal(destination, MAPPER_DIR_IN, 1,
-                                       "insig", 1, MAPPER_FLOAT, NULL, &mn, &mx,
-                                       insig_handler);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
+                          &mn, &mx, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",
-            mapper_device_get_num_signals(destination, MAPPER_DIR_IN));
+            mpr_list_get_count(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
     return 0;
 
   error:
     return 1;
 }
 
-void cleanup_destination()
+void cleanup_dst()
 {
-    if (destination) {
+    if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(destination);
+        mpr_dev_free(dst);
         eprintf("ok\n");
     }
 }
@@ -98,18 +97,17 @@ int setup_maps()
 {
     float src_min = 0.f, src_max = 100.f, dest_min = -10.f, dest_max = 10.f;
 
-    mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
-    const char *expr = mapper_map_set_linear(map, 1, MAPPER_FLOAT, &src_min,
-                                             &src_max, 1, MAPPER_FLOAT,
-                                             &dest_min, &dest_max);
+    mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
+    const char *expr = mpr_map_set_linear(map, 1, MPR_FLT, &src_min, &src_max,
+                                          1, MPR_FLT, &dest_min, &dest_max);
     eprintf("Applying expression '%s' to map\n", expr);
 
-    mapper_object_push((mapper_object)map);
+    mpr_obj_push((mpr_obj)map);
 
     // Wait until mapping has been established
-    while (!done && !mapper_map_ready(map)) {
-        mapper_device_poll(source, 10);
-        mapper_device_poll(destination, 10);
+    while (!done && !mpr_map_ready(map)) {
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
     }
 
     return 0;
@@ -117,10 +115,9 @@ int setup_maps()
 
 void wait_ready()
 {
-    while (!done && !(mapper_device_ready(source)
-                      && mapper_device_ready(destination))) {
-        mapper_device_poll(source, 25);
-        mapper_device_poll(destination, 25);
+    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+        mpr_dev_poll(src, 25);
+        mpr_dev_poll(dst, 25);
     }
 }
 
@@ -129,14 +126,14 @@ void loop()
     eprintf("Polling device..\n");
     int i = 0;
     const char *name;
-    mapper_object_get_prop_by_index((mapper_object)sendsig, MAPPER_PROP_NAME,
-                                    NULL, NULL, NULL, (const void**)&name);
+    mpr_obj_get_prop_by_idx((mpr_obj)sendsig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, 0);
     while ((!terminate || i < 50) && !done) {
-        mapper_device_poll(source, 0);
+        mpr_dev_poll(src, 0);
         eprintf("Updating signal %s to %d\n", name, i);
-        mapper_signal_set_value(sendsig, 0, 1, MAPPER_INT32, &i, MAPPER_NOW);
+        mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i, MPR_NOW);
         sent++;
-        mapper_device_poll(destination, period);
+        mpr_dev_poll(dst, period);
         i++;
 
         if (!verbose) {
@@ -195,13 +192,13 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_destination(iface)) {
+    if (setup_dst(iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_source(iface)) {
+    if (setup_src(iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
@@ -217,16 +214,16 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (sent != received) {
+    if (!received || sent != received) {
         eprintf("Not all sent messages were received.\n");
-        eprintf("Updated value %d time%s, but received %d of them.\n",
+        eprintf("Updated value %d time%s and received %d of them.\n",
                 sent, sent == 1 ? "" : "s", received);
         result = 1;
     }
 
   done:
-    cleanup_destination();
-    cleanup_source();
+    cleanup_dst();
+    cleanup_src();
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

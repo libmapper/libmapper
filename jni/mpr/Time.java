@@ -1,0 +1,56 @@
+
+package mpr;
+
+public class Time
+{
+    public long sec;
+    public long frac;
+
+    public static final Time NOW = new Time(0, 1);
+    private static double multiplier = (double)1.0/((double)((long)1<<32));
+
+    private native void mprNow();
+
+    public Time(long _sec, long _frac)
+    {
+        sec = _sec;
+        frac = _frac;
+    }
+    public Time()
+    {
+        mprNow();
+    }
+
+    public Time(Double secondsSinceEpoch)
+    {
+        sec = (long)Math.floor(secondsSinceEpoch);
+        secondsSinceEpoch -= sec;
+        frac = (long)(secondsSinceEpoch*(double)((long)1<<32));
+    }
+
+    public Time now()
+    {
+        mprNow();
+        return this;
+    }
+
+    public double getDouble()
+    {
+        return (double)sec + (double)frac * multiplier;
+    }
+
+    public boolean isAfter(Time rhs)
+    {
+        return (sec > rhs.sec || (sec == rhs.sec && frac > rhs.frac));
+    }
+
+    public boolean isBefore(Time rhs)
+    {
+        return (sec < rhs.sec || (sec == rhs.sec && frac < rhs.frac));
+    }
+
+    public String toString()
+    {
+        return sec + "." + frac;
+    }
+}

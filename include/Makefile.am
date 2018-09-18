@@ -1,5 +1,4 @@
 
-libmapperdir = $(includedir)/mapper
+libmprdir = $(includedir)/mpr
 
-libmapper_HEADERS = mapper/mapper.h mapper/mapper_types.h mapper/mapper_constants.h \
-                    mapper/mapper_cpp.h
+libmpr_HEADERS = mpr/mpr.h mpr/mpr_types.h mpr/mpr_constants.h mpr/mpr_cpp.h

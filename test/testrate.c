@@ -1,5 +1,5 @@
-#include "../src/mapper_internal.h"
-#include <mapper/mapper.h>
+#include "../src/mpr_internal.h"
+#include <mpr/mpr.h>
 #include <stdio.h>
 #include <math.h>
 #include <lo/lo.h>
@@ -19,10 +19,10 @@ int autoconnect = 1;
 int done = 0;
 int polltime = 100;
 
-mapper_device src = 0;
-mapper_device dst = 0;
-mapper_signal sendsig = 0;
-mapper_signal recvsig = 0;
+mpr_dev src = 0;
+mpr_dev dst = 0;
+mpr_sig sendsig = 0;
+mpr_sig recvsig = 0;
 
 int sent = 0;
 int received = 0;
@@ -32,15 +32,15 @@ float period;
 /*! Creation of a local source. */
 int setup_src()
 {
-    src = mapper_device_new("testrate-send", 0);
+    src = mpr_dev_new("testrate-send", 0);
     if (!src)
         goto error;
     eprintf("source created.\n");
 
     float mn=0, mx=10;
 
-    sendsig = mapper_device_add_signal(src, MAPPER_DIR_OUT, 1, "outsig", 1,
-                                       MAPPER_FLOAT, "Hz", &mn, &mx, NULL);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 1, MPR_FLT, "Hz",
+                          &mn, &mx, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -55,21 +55,21 @@ void cleanup_src()
     if (src) {
         eprintf("Freeing source.. ");
         fflush(stdout);
-        mapper_device_free(src);
+        mpr_dev_free(src);
         eprintf("ok\n");
     }
 }
 
-void handler(mapper_signal sig, mapper_id instance, int len, mapper_type type,
-             const void *val, mapper_time t)
+void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int len,
+             mpr_type type, const void *val, mpr_time t)
 {
     ++received;
     if (!val)
         return;
 
     const char *name;
-    mapper_object_get_prop_by_index((mapper_object)sig, MAPPER_PROP_NAME, NULL,
-                                    NULL, NULL, (const void**)&name);
+    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
+                            (const void**)&name, NULL);
     eprintf("Rec'ved (period: %f, jitter: %f, diff:%f)\n", sig->period,
             sig->jitter, period - sig->period);
 }
@@ -77,20 +77,19 @@ void handler(mapper_signal sig, mapper_id instance, int len, mapper_type type,
 /*! Creation of a local destination. */
 int setup_dst()
 {
-    dst = mapper_device_new("testrate-recv", 0);
+    dst = mpr_dev_new("testrate-recv", 0);
     if (!dst)
         goto error;
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
 
-    recvsig = mapper_device_add_signal(dst, MAPPER_DIR_IN, 1, "insig", 1,
-                                       MAPPER_FLOAT, NULL, &mn, &mx, handler);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
+                          &mn, &mx, handler, MPR_SIG_UPDATE);
 
     // This signal is expected to be updated at 100 Hz
     float rate = 100.f;
-    mapper_object_set_prop((mapper_object)recvsig, MAPPER_PROP_RATE, NULL, 1,
-                           MAPPER_FLOAT, &rate, 1);
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_RATE, NULL, 1, MPR_FLT, &rate, 1);
 
     eprintf("Input signal 'insig' registered.\n");
 
@@ -105,30 +104,30 @@ void cleanup_dst()
     if (dst) {
         eprintf("Freeing destination.. ");
         fflush(stdout);
-        mapper_device_free(dst);
+        mpr_dev_free(dst);
         eprintf("ok\n");
     }
 }
 
-void wait_local_devices()
+void wait_local_devs()
 {
-    while (!done && !(mapper_device_ready(src) && mapper_device_ready(dst))) {
-        mapper_device_poll(src, 25);
-        mapper_device_poll(dst, 25);
+    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+        mpr_dev_poll(src, 25);
+        mpr_dev_poll(dst, 25);
     }
 }
 
 int setup_maps()
 {
     int i = 0;
-    mapper_map map = mapper_map_new(1, &sendsig, 1, &recvsig);
-    mapper_object_push((mapper_object)map);
+    mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
+    mpr_obj_push((mpr_obj)map);
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mapper_map_ready(map)) {
-        mapper_device_poll(src, 10);
-        mapper_device_poll(dst, 10);
+    while (!done && !mpr_map_ready(map)) {
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
         if (i++ > 100)
             return 1;
     }
@@ -146,19 +145,19 @@ void loop()
 
     i = 0;
     while ((!terminate || i < 50) && !done) {
-        mapper_device_poll(src, 0);
+        mpr_dev_poll(src, 0);
 
         // 10 times a second, we provide 10 samples, making a
         // periodically-sampled signal of 100 Hz.
         if (rand() % 200 > thresh) {
-            mapper_signal_set_value(sendsig, 0, 10, MAPPER_FLOAT, phasor, MAPPER_NOW);
+            mpr_sig_set_value(sendsig, 0, 10, MPR_FLT, phasor, MPR_NOW);
             eprintf("Sending (period: %f; jitter: %f)\n", sendsig->period,
                     sendsig->jitter);
             period = sendsig->period;
             ++sent;
         }
 
-        mapper_device_poll(dst, polltime);
+        mpr_dev_poll(dst, polltime);
         ++i;
 
         if (!verbose) {
@@ -225,7 +224,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    wait_local_devices();
+    wait_local_devs();
 
     if (autoconnect && setup_maps()) {
         eprintf("Error connecting signals.\n");
