@@ -34,12 +34,14 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
                 for (int i = 0; i < len; i++) {
                     printf(" %f", v[i]);
                 }
+                break;
             }
             case 'd': {
                 double *v = (double*)value;
                 for (int i = 0; i < len; i++) {
                     printf(" %f", v[i]);
                 }
+                break;
             }
             default:
                 break;

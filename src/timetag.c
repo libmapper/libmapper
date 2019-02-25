@@ -84,9 +84,9 @@ void mapper_timetag_subtract(mapper_timetag_t *tt, mapper_timetag_t subtrahend)
 {
     if (tt->sec > subtrahend.sec) {
         tt->sec -= subtrahend.sec;
+        if (tt->frac < subtrahend.frac) // overflow
+            --tt->sec;
         tt->frac -= subtrahend.frac;
-        if (tt->frac > subtrahend.frac) // overflow
-            tt->sec--;
     }
     else {
         tt->sec = 0;
