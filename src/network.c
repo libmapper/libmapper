@@ -1144,6 +1144,8 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
             mapper_device_link_handler *h = dev->local->link_handler;
             if (h)
                 h(dev, link, MAPPER_REMOVED);
+            // remove link immediately
+            mapper_database_remove_link(&net->database, link, MAPPER_REMOVED);
         }
 
         /* Parse the ordinal from the complete name which is in the
