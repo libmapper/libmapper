@@ -585,6 +585,7 @@ namespace mapper {
         friend class Property;
         virtual Object& set_property(Property *p) = 0;
     public:
+        virtual ~Object() {};
         virtual Object& remove_property(const string_type &key) = 0;
         virtual Property property(const string_type &name) const = 0;
         virtual Property property(int index) const = 0;
