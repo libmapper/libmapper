@@ -659,7 +659,9 @@ static void signal_handler_py(mapper_signal sig, mapper_id id,
                               const void *value, int count,
                               mapper_timetag_t *tt)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
     PyObject *arglist=0;
     PyObject *valuelist=0;
     PyObject *result=0;
@@ -714,7 +716,8 @@ static void signal_handler_py(mapper_signal sig, mapper_id id,
     Py_DECREF(arglist);
     Py_XDECREF(valuelist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 /* Wrapper for callback back to python when a mapper_instance_event handler
@@ -723,7 +726,10 @@ static void instance_event_handler_py(mapper_signal sig, mapper_id id,
                                       mapper_instance_event event,
                                       mapper_timetag_t *tt)
 {
-    PyEval_RestoreThread(_save);
+
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
     PyObject *arglist=0;
     PyObject *result=0;
 
@@ -741,14 +747,16 @@ static void instance_event_handler_py(mapper_signal sig, mapper_id id,
     result = PyEval_CallObject(callbacks[1], arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 /* Wrapper for callback back to python when a device map handler is called. */
 static void device_link_handler_py(mapper_device dev, mapper_link link,
                                    mapper_record_event event)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
 
     PyObject *py_link = SWIG_NewPointerObj(SWIG_as_voidptr(link),
                                            SWIGTYPE_p__link, 0);
@@ -766,14 +774,16 @@ static void device_link_handler_py(mapper_device dev, mapper_link link,
     PyObject *result = PyEval_CallObject(callbacks[0], arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 /* Wrapper for callback back to python when a device map handler is called. */
 static void device_map_handler_py(mapper_device dev, mapper_map map,
                                   mapper_record_event event)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
 
     PyObject *py_map = SWIG_NewPointerObj(SWIG_as_voidptr(map),
                                           SWIGTYPE_p__map, 0);
@@ -791,7 +801,8 @@ static void device_map_handler_py(mapper_device dev, mapper_map map,
     PyObject *result = PyEval_CallObject(callbacks[1], arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 static int coerce_prop(property_value prop, char type)
@@ -893,7 +904,8 @@ static void database_device_handler_py(mapper_database db, mapper_device dev,
                                        mapper_record_event event,
                                        const void *user)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
 
     PyObject *py_dev = SWIG_NewPointerObj(SWIG_as_voidptr(dev),
                                           SWIGTYPE_p__device, 0);
@@ -906,7 +918,8 @@ static void database_device_handler_py(mapper_database db, mapper_device dev,
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 /* Wrapper for callback back to python when a mapper_database_device handler
@@ -915,7 +928,8 @@ static void database_link_handler_py(mapper_database db, mapper_link link,
                                      mapper_record_event event,
                                      const void *user)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
 
     PyObject *py_link = SWIG_NewPointerObj(SWIG_as_voidptr(link),
                                            SWIGTYPE_p__link, 0);
@@ -928,7 +942,8 @@ static void database_link_handler_py(mapper_database db, mapper_link link,
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 /* Wrapper for callback back to python when a mapper_database_signal handler
@@ -937,7 +952,8 @@ static void database_signal_handler_py(mapper_database db, mapper_signal sig,
                                        mapper_record_event event,
                                        const void *user)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
 
     PyObject *py_sig = SWIG_NewPointerObj(SWIG_as_voidptr(sig),
                                           SWIGTYPE_p__signal, 0);
@@ -950,7 +966,8 @@ static void database_signal_handler_py(mapper_database db, mapper_signal sig,
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 /* Wrapper for callback back to python when a mapper_database_map handler
@@ -959,7 +976,8 @@ static void database_map_handler_py(mapper_database db, mapper_map map,
                                     mapper_record_event event,
                                     const void *user)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
 
     PyObject *py_map = SWIG_NewPointerObj(SWIG_as_voidptr(map),
                                           SWIGTYPE_p__map, 0);
@@ -972,7 +990,8 @@ static void database_map_handler_py(mapper_database db, mapper_map map,
     PyObject *result = PyEval_CallObject((PyObject*)user, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 static mapper_signal add_signal_internal(mapper_device dev, mapper_direction dir,
@@ -2700,7 +2719,7 @@ typedef struct _map_query {
         mapper_database_request_devices((mapper_database)$self);
         return $self;
     }
-    database *flush(int timeout=-1, booltype quiet=1) {
+    database *flush(int timeout=0, booltype quiet=1) {
         mapper_database_flush((mapper_database)$self, timeout, quiet);
         return $self;
     }
