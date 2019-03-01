@@ -13,6 +13,8 @@ extern const char* network_message_strings[NUM_MSG_STRINGS];
 static void unsubscribe_internal(mapper_database db, mapper_device dev,
                                  int send_message);
 
+int flushing = 0;
+
 #ifdef DEBUG
 static void print_subscription_flags(int flags)
 {
@@ -152,8 +154,13 @@ int mapper_database_timeout(mapper_database db)
 
 void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
 {
+    if (flushing == 1)
+        return;
+    flushing = 1;
     mapper_timetag_t tt;
     mapper_timetag_now(&tt);
+    if (timeout_sec <= 0)
+        timeout_sec = TIMEOUT_SEC;
 
     // flush expired device records
     mapper_device dev;
@@ -161,8 +168,9 @@ void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
     while ((dev = mapper_database_expired_device(db, last_ping))) {
         // remove subscription
         unsubscribe_internal(db, dev, 1);
-        mapper_database_remove_device(db, dev, MAPPER_EXPIRED, quiet);
+        mapper_database_remove_device(db, dev, MAPPER_REMOVED, quiet);
     }
+    flushing = 0;
 }
 
 static void add_callback(fptr_list *head, const void *f, const void *user)
