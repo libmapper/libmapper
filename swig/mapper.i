@@ -2374,6 +2374,9 @@ typedef struct _map_query {
     int get_process_location() {
         return mapper_map_process_location((mapper_map)$self);
     }
+    int get_protocol() {
+        return mapper_map_protocol((mapper_map)$self);
+    }
     property_value get_property(const char *key) {
         mapper_map map = (mapper_map)$self;
         int length;
@@ -2437,6 +2440,10 @@ typedef struct _map_query {
         mapper_map_set_process_location((mapper_map)$self, loc);
         return $self;
     }
+    map *set_protocol(int proto) {
+        mapper_map_set_protocol((mapper_map)$self, proto);
+        return $self;
+    }
     map *set_property(const char *key, property_value val=0,
                       booltype publish=1) {
         if (!key || strcmp(key, "user_data")==0)
@@ -2473,6 +2480,7 @@ typedef struct _map_query {
         num_properties = property(get_num_properties)
         num_slots = property(get_num_slots)
         process_location = property(get_process_location, set_process_location)
+        protocol = property(get_protocol, set_protocol)
         ready = property(get_ready)
         def get_properties(self):
             props = {}
