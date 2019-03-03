@@ -2727,7 +2727,7 @@ typedef struct _map_query {
         mapper_database_request_devices((mapper_database)$self);
         return $self;
     }
-    database *flush(int timeout=0, booltype quiet=1) {
+    database *flush(int timeout=0, booltype quiet=0) {
         mapper_database_flush((mapper_database)$self, timeout, quiet);
         return $self;
     }

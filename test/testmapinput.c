@@ -51,8 +51,8 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
 
 int setup_devices()
 {
-    devices[0] = mapper_device_new("testmapinput1", 0, 0);
-    devices[1] = mapper_device_new("testmapinput2", 0, 0);
+    devices[0] = mapper_device_new("testmapinput", 0, 0);
+    devices[1] = mapper_device_new("testmapinput", 0, 0);
     if (!devices[0] || !devices[1])
         goto error;
     eprintf("devices created.\n");

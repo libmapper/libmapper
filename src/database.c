@@ -13,7 +13,8 @@ extern const char* network_message_strings[NUM_MSG_STRINGS];
 static void unsubscribe_internal(mapper_database db, mapper_device dev,
                                  int send_message);
 
-int flushing = 0;
+int _flushing = 0;
+int _timeout_sec = TIMEOUT_SEC;
 
 #ifdef DEBUG
 static void print_subscription_flags(int flags)
@@ -142,9 +143,7 @@ mapper_network mapper_database_network(mapper_database db)
 
 void mapper_database_set_timeout(mapper_database db, int timeout_sec)
 {
-    if (timeout_sec < 0)
-        timeout_sec = TIMEOUT_SEC;
-    db->timeout_sec = timeout_sec;
+    db->timeout_sec = (timeout_sec <= 0) ? TIMEOUT_SEC : timeout_sec;
 }
 
 int mapper_database_timeout(mapper_database db)
@@ -154,23 +153,8 @@ int mapper_database_timeout(mapper_database db)
 
 void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
 {
-    if (flushing == 1)
-        return;
-    flushing = 1;
-    mapper_timetag_t tt;
-    mapper_timetag_now(&tt);
-    if (timeout_sec <= 0)
-        timeout_sec = TIMEOUT_SEC;
-
-    // flush expired device records
-    mapper_device dev;
-    uint32_t last_ping = tt.sec - timeout_sec;
-    while ((dev = mapper_database_expired_device(db, last_ping))) {
-        // remove subscription
-        unsubscribe_internal(db, dev, 1);
-        mapper_database_remove_device(db, dev, MAPPER_REMOVED, quiet);
-    }
-    flushing = 0;
+    _timeout_sec = (timeout_sec <= 0) ? TIMEOUT_SEC : timeout_sec;
+    _flushing = quiet + 1;
 }
 
 static void add_callback(fptr_list *head, const void *f, const void *user)
@@ -1506,6 +1490,21 @@ int mapper_database_poll(mapper_database db, int block_ms)
     }
 
     net->msgs_recvd |= count;
+
+    if (_flushing) {
+        // flush expired device records
+        mapper_timetag_t tt;
+        mapper_timetag_now(&tt);
+        mapper_device dev;
+        uint32_t last_ping = tt.sec - _timeout_sec;
+        while ((dev = mapper_database_expired_device(db, last_ping))) {
+            // remove subscription
+            unsubscribe_internal(db, dev, 1);
+            mapper_database_remove_device(db, dev, MAPPER_REMOVED, _flushing != 1);
+        }
+        _flushing = 0;
+    }
+
     return count;
 }
 
