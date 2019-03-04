@@ -54,28 +54,28 @@ MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNA
     testquery$$2.class testquery$$3.class testreverse$$1.class testreverse$$2.class \
     testreverse$$3.class testspeed$$1.class testspeed$$2.class testspeed$$3.class)
 
-mapper_%.h: mapper/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mapper_%.h: mapper/%.java
+	$(JAVAC) -h . $(<:%.java=%).java
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_database_%.h: mapper/database/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mapper_database_%.h: mapper/database/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_device_%.h: mapper/device/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mapper_device_%.h: mapper/device/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_link_%.h: mapper/link/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mapper_link_%.h: mapper/link/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_map_%.h: mapper/map/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mapper_map_%.h: mapper/map/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
-mapper_signal_%.h: mapper/signal/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mapper_signal_%.h: mapper/signal/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
 mapper/%.class: mapper/%.java

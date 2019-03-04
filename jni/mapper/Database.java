@@ -65,7 +65,9 @@ public class Database
     public native Database setTimeout(int timeout);
 
     /* flush */
-    public native Database flush();
+    public native Database flush(int timeout, boolean quiet);
+    public Database flush() {return flush(0, false); }
+    public Database flush(int timeout) {return flush(timeout, false); }
 
     /* poll */
     public native Database poll(int timeout);

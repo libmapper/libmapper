@@ -826,11 +826,11 @@ JNIEXPORT jobject JNICALL Java_mapper_Database_setTimeout
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Database_flush
-  (JNIEnv *env, jobject obj)
+  (JNIEnv *env, jobject obj, jint timeout, jboolean quiet)
 {
     mapper_database db = get_database_from_jobject(env, obj);
     if (db)
-        mapper_database_flush(db, mapper_database_timeout(db), 0);
+        mapper_database_flush(db, timeout, quiet);
     return obj;
 }
 
