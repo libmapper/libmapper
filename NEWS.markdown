@@ -1,8 +1,72 @@
 
 # libmapper NEWS
 
-Changes from 0.4 to 1.0
------------------------
+Version 1.2
+-----------
+
+Released 4 March 2019
+
+We are pleased to annouce the release of version 1.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+Changes of note since the 1.1 release include
+
+* Improvements to the *map slot* API
+* Added the ability to configure maps at runtime to use either UDP or TCP for transport.
+* Improvements to the device name allocation process.
+* Changes to the C++ and Java device queue API to match the approached used for the Python bindings.
+* Fixes to thread handling for callbacks in the SWIG/Python bindings.
+* Fixes and improvements to handling of expired devices by the Database.
+* Updated the makefile for Java bindings to use `javac -h` since `javah` is no longer available on current versions of the JDK.
+* Updates to tutorials, examples and test programs.
+
+Bugfixes:
+
+* Do not allow user code to rewrite map ids.
+* Ensure devices are marked as subscribed if manual subscription is added during temporary subscription window.
+* Fixed initialisation of the device ordinal property.
+* Fixed a timetag subtraction bug.
+* "/map" messages targeting existing maps are now forwarded correctly.
+
+Version 1.1
+-----------
+
+Released 6 October 2017
+
+We are pleased to present release 1.1 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+Changes of note since the 1.0 release include:
+
+* Updating the libmapper codebase to use the most recent version of [liblo](http://liblo.sourceforge.net/).
+* Addition of functionality for handling *signal groups*.
+* Simplified and updated documentation.
+* More informative debugging messages.
+* Improved handling of database subscriptions.
+* More efficient batch-sending of device, signal and map metadata.
+* Addition of a default signal direction property for database records, ensuring that the record can be retireved from the database while waiting for updated metadata.
+* Added simple check for map loops,.
+* Updated tests and tutorials.
+* Extension and simplification of the C++ headers, along with new API documentation.
+* Extension of the SWIG/Python bindings to support *convergent maps*.
+
+Bugfixes include:
+
+* Fix for integer size wornings when printing mapper_id values.
+* Fix for duplicate map records in database associated with calls to mapper_map_new() function using non-local signals.
+* Removal of stray references to libmapper-0.
+* Fix for user-defined variables in map expressions.
+* Fix for reporting sub-connections of convergent maps.
+* Fixes for initializing, updating and reporting various device, link and slot properties.
+* Ensure expression update triggers report to subscribers.
+* Ensure temporary device subscriptions are not interpreted as local devices.
+* Fix for possible oversized OSC bundles.
+* Ensure autorenewing subscriptions are actually renewed when database poll block time is short.
+* Fix for occasional false detection of duplicate signals when constructing maps.
+* Treat properties named 'maximum' and 'minimum' as aliases for 'max' and 'min'.
+* Database autosubscribe flags were overwriting configurations of user-code subscription created in device callback.
+* Fix for input history memory allocation in expression parser.
+
+Version 1.0
+-----------
 
 Released Jan 4, 2016.
 
@@ -209,8 +273,8 @@ libmapper bindings (C++, Java).
 * *Java.* The jni bindings have been largely rewritten to support API changes
 in libmapper and to improve consistency.
 
-Changes from 0.3 to 0.4
------------------------
+Version 0.4
+-----------
 
 Released August 3, 2016.
 
@@ -263,8 +327,8 @@ functionality.
 As usual, this release is subject to API changes and breakage, however libmapper
 is starting to approach a more mature and stable state.
 
-Changes from 0.2 to 0.3
------------------------
+Version 0.3
+-----------
 
 Released April 26, 2013.
 
@@ -351,8 +415,8 @@ libmapper is starting to approach a more mature and stable state.
 
 
 
-Changes from 0.1 to 0.2
------------------------
+Version 0.2
+-----------
 
 Released May 26, 2011.
 
