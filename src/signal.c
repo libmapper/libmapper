@@ -149,6 +149,44 @@ void mapper_signal_init(mapper_signal sig, mapper_direction dir,
     mapper_table_link_value(sig->props, AT_VERSION, 1, 'i', &sig->version,
                             flags);
 
+    if (minimum && maximum) {
+        // make sure in the right order
+        switch (type) {
+            case 'i': {
+                int *mini = (int*)minimum, *maxi = (int*)maximum;
+                for (i = 0; i < length; i++) {
+                    if (mini[i] > maxi[i]) {
+                        int temp = mini[i];
+                        mini[i] = maxi[i];
+                        maxi[i] = temp;
+                    }
+                }
+                break;
+            }
+            case 'f': {
+                float *minf = (float*)minimum, *maxf = (float*)maximum;
+                for (i = 0; i < length; i++) {
+                    if (minf[i] > maxf[i]) {
+                        float temp = minf[i];
+                        minf[i] = maxf[i];
+                        maxf[i] = temp;
+                    }
+                }
+                break;
+            }
+            case 'd': {
+                double *mind = (double*)minimum, *maxd = (double*)maximum;
+                for (i = 0; i < length; i++) {
+                    if (mind[i] > maxd[i]) {
+                        double temp = mind[i];
+                        mind[i] = maxd[i];
+                        maxd[i] = temp;
+                    }
+                }
+                break;
+            }
+        }
+    }
     if (minimum)
         mapper_signal_set_minimum(sig, minimum);
     if (maximum)
