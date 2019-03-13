@@ -1593,6 +1593,14 @@ int mapper_signal_set_from_message(mapper_signal sig, mapper_message msg)
                                                    REMOTE_MODIFY);
                 break;
             }
+            case AT_ID:
+                if (atom->types[0] == 'h') {
+                    if (sig->id != (atom->values[0])->i64) {
+                        sig->id = (atom->values[0])->i64;
+                        ++updated;
+                    }
+                }
+                break;
             case AT_LENGTH:
             case AT_TYPE:
                 len_type_diff += mapper_table_set_record_from_atom(sig->props,
