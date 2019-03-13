@@ -53,12 +53,20 @@ int setup_devices() {
 
         // give each device 10 inputs and 10 outputs
 		for (int j = 0; j < 10; j++) {
+            mn = fmod(rand() * 0.01, 21.f) - 10.f;
+            mx = fmod(rand() * 0.01, 21.f) - 10.f;
 			sprintf(str, "in%d", j);
 			mapper_device_add_input_signal(device_list[i], str, 1, 'f', 0,
                                            &mn, &mx, 0, 0);
+            mn = fmod(rand() * 0.01, 21.f) - 10.f;
+            mx = fmod(rand() * 0.01, 21.f) - 10.f;
             sprintf(str, "out%d", j);
+            if (j%2==0)
             mapper_device_add_output_signal(device_list[i], str, 1, 'f', 0,
                                             &mn, &mx);
+            else
+                mapper_device_add_output_signal(device_list[i], str, 1, 'f', 0,
+                                                &mn, NULL);
 		}
 	}
     return 0;
