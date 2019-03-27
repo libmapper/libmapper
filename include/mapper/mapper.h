@@ -1257,11 +1257,6 @@ const char *mapper_map_description(mapper_map map);
  *  \return             The number of slots. */
 int mapper_map_num_slots(mapper_map map, mapper_location loc);
 
-/*! Get the number of destination signals for to a specific map.
- *  \param map          The map to check.
- *  \return             The number of destination signals. */
-int mapper_map_num_destinations(mapper_map map);
-
 /*! Retrieve a slot for a specific map.
  *  \param map          The map to check.
  *  \param loc          The map endpoint, must be MAPPER_LOC_SOURCE or
