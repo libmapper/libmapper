@@ -2493,6 +2493,12 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     printf("\n");
 #endif
     if (!map) {
+        if (local_signal) {
+            // return "unmapped" to bus
+            mapper_network_set_dest_bus(net);
+            mapper_network_add_message(net, 0, MSG_UNMAPPED, msg);
+            mapper_network_send(net);
+        }
         return 0;
     }
 
