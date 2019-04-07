@@ -23,18 +23,26 @@ static int alphabetise_signals(int num, mapper_signal *sigs, int *order)
         order[i] = i;
     for (i = 1; i < num; i++) {
         j = i-1;
-        while (j >= 0
-               && (((result1 = strcmp(sigs[order[j]]->device->name,
-                                      sigs[order[j+1]]->device->name)) > 0)
-                   || ((result2 = strcmp(sigs[order[j]]->name,
-                                         sigs[order[j+1]]->name)) > 0))) {
-                   int temp = order[j];
-                   order[j] = order[j+1];
-                   order[j+1] = temp;
-                   j--;
+        while (j >= 0) {
+            result1 = strcmp(sigs[order[j]]->device->name,
+                             sigs[order[j+1]]->device->name);
+            if (result1 < 0)
+                break;
+            else if (result1 == 0) {
+                result2 = strcmp(sigs[order[j]]->name, sigs[order[j+1]]->name);
+                if (result2 == 0) {
+                    // abort: identical signal names
+                    return 1;
+                }
+                else if (result2 < 0)
+                    break;
+            }
+            // swap
+            int temp = order[j];
+            order[j] = order[j+1];
+            order[j+1] = temp;
+            j--;
         }
-        if (result1 == 0 && result2 == 0)
-            return 1;
     }
     return 0;
 }
