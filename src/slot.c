@@ -302,7 +302,7 @@ int mapper_slot_set_from_message(mapper_slot slot, mapper_message msg,
     
     for (i = 0; i < msg->num_atoms; i++) {
         atom = &msg->atoms[i];
-        if (!(atom->index & mask))
+        if ((atom->index & ~0xFF) != mask)
             continue;
         switch (atom->index & ~mask) {
             case AT_BOUND_MAX: {

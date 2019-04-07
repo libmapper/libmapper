@@ -2,6 +2,7 @@
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <string.h>
 #include <unistd.h>
@@ -12,16 +13,15 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
-#define NUM_SOURCES 2
-
 int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
 int done = 0;
+int num_sources = 3;
 
-mapper_device sources[NUM_SOURCES];
+mapper_device *sources = 0;
 mapper_device destination = 0;
-mapper_signal sendsig[NUM_SOURCES][2];
+mapper_signal *sendsigs = 0;
 mapper_signal recvsig = 0;
 
 int sent = 0;
@@ -30,23 +30,23 @@ int received = 0;
 int setup_sources()
 {
     int i, mni=0, mxi=1;
-    float mnf=0, mxf=1;
-    for (i = 0; i < NUM_SOURCES; i++)
-        sources[i] = 0;
-    for (i = 0; i < NUM_SOURCES; i++) {
+    sources = (mapper_device*)calloc(1, num_sources * sizeof(mapper_device));
+    sendsigs = (mapper_signal*)calloc(1, num_sources * sizeof(mapper_signal));
+
+    for (i = 0; i < num_sources; i++) {
         sources[i] = mapper_device_new("testconvergent-send", 0, 0);
         if (!sources[i])
             goto error;
+        sendsigs[i] = mapper_device_add_output_signal(sources[i], "sendsig", 1,
+                                                      'i', 0, &mni, &mxi);
+        if (!sendsigs[i])
+            goto error;
         eprintf("source %d created.\n", i);
-        sendsig[i][0] = mapper_device_add_output_signal(sources[i], "sendsig1", 1,
-                                                        'i', 0, &mni, &mxi);
-        sendsig[i][1] = mapper_device_add_output_signal(sources[i], "sendsig2", 1,
-                                                        'f', 0, &mnf, &mxf);
     }
     return 0;
 
   error:
-    for (i = 0; i < NUM_SOURCES; i++) {
+    for (i = 0; i < num_sources; i++) {
         if (sources[i])
             mapper_device_free(sources[i]);
     }
@@ -55,7 +55,7 @@ int setup_sources()
 
 void cleanup_source()
 {
-    for (int i = 0; i < NUM_SOURCES; i++) {
+    for (int i = 0; i < num_sources; i++) {
         if (sources[i]) {
             eprintf("Freeing source %d... ", i);
             fflush(stdout);
@@ -63,6 +63,8 @@ void cleanup_source()
             eprintf("ok\n");
         }
     }
+    free(sources);
+    free(sendsigs);
 }
 
 void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
@@ -109,26 +111,30 @@ void cleanup_destination()
 
 int setup_maps()
 {
-    mapper_signal all_sources[2] = {sendsig[0][0], sendsig[1][1]};
-
-    mapper_map map = mapper_map_new(2, all_sources, 1, &recvsig);
+    mapper_map map = mapper_map_new(num_sources, sendsigs, 1, &recvsig);
+    if (!map) {
+        eprintf("Failed to create map\n");
+        return 1;
+    }
     mapper_map_set_mode(map, MAPPER_MODE_EXPRESSION);
 
     // build expression string
-    mapper_slot slot1 = mapper_map_slot_by_signal(map, sendsig[0][0]);
-    mapper_slot slot2 = mapper_map_slot_by_signal(map, sendsig[1][1]);
-    char expr[64];
-    snprintf(expr, 64, "y=x%d-x%d", mapper_slot_index(slot1), mapper_slot_index(slot2));
+    int i, offset = 2, len = num_sources * 3 + 3;
+    char expr[len];
+    snprintf(expr, 3, "y=");
+    for (i = 0; i < num_sources; i++) {
+        mapper_slot slot = mapper_map_slot_by_signal(map, sendsigs[i]);
+        snprintf(expr + offset, len - offset, "-x%d", mapper_slot_index(slot));
+        if (i > 0)
+            mapper_slot_set_causes_update(slot, 0);
+        offset += 3;
+    }
     mapper_map_set_expression(map, expr);
-
-    mapper_slot_set_causes_update(slot1, 0);
-
     mapper_map_push(map);
 
     // wait until mappings have been established
-    int i;
     while (!done && !mapper_map_ready(map)) {
-        for (i = 0; i < NUM_SOURCES; i++)
+        for (i = 0; i < num_sources; i++)
             mapper_device_poll(sources[i], 10);
         mapper_device_poll(destination, 10);
     }
@@ -136,21 +142,21 @@ int setup_maps()
     return 0;
 }
 
-void wait_ready()
+void wait_ready(int *cancel)
 {
-    int i, ready = 0;
-    while (!done && !ready) {
-        ready = 1;
-        for (i = 0; i < NUM_SOURCES; i++) {
-            mapper_device_poll(sources[i], 25);
+    int i, keep_waiting = 1;
+    while (keep_waiting && !*cancel) {
+        keep_waiting = 0;
+
+        for (i = 0; i < num_sources; i++) {
+            mapper_device_poll(sources[i], 50);
             if (!mapper_device_ready(sources[i])) {
-                ready = 0;
-                break;
+                keep_waiting = 1;
             }
         }
-        mapper_device_poll(destination, 25);
+        mapper_device_poll(destination, 50);
         if (!mapper_device_ready(destination))
-            ready = 0;
+            keep_waiting = 1;
     }
 }
 
@@ -158,21 +164,13 @@ void loop()
 {
     eprintf("Polling device..\n");
     int i = 0, j;
-    float f = 0.;
     while ((!terminate || i < 50) && !done) {
-        for (j = 0; j < NUM_SOURCES; j++) {
+        for (j = 0; j < num_sources; j++) {
             mapper_device_poll(sources[j], 0);
+            eprintf("Updating signal %s/%s = %i\n", sources[j]->name,
+                    sendsigs[j]->name, i);
+            mapper_signal_update_int(sendsigs[j], i);
         }
-
-        eprintf("Updating signals: %s = %i, %s = %f\n",
-                sendsig[0][0]->name, i,
-                sendsig[0][1]->name, i * 2.f);
-        mapper_signal_update_int(sendsig[0][0], i);
-        mapper_signal_update_int(sendsig[1][0], i);
-        f = i * 2;
-        mapper_signal_update_float(sendsig[0][1], f);
-        mapper_signal_update_float(sendsig[1][1], f);
-
         sent++;
         mapper_device_poll(destination, 100);
         i++;
@@ -212,6 +210,15 @@ int main(int argc, char **argv)
                     case 't':
                         terminate = 1;
                         break;
+                    case '-':
+                        if (strcmp(argv[i], "--sources")==0 && argc>i+1) {
+                            i++;
+                            num_sources = atoi(argv[i]);
+                            if (num_sources <= 0)
+                                num_sources = 1;
+                            j = 1;
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -228,12 +235,12 @@ int main(int argc, char **argv)
     }
 
     if (setup_sources()) {
-        eprintf("Done initializing %d sources.\n", NUM_SOURCES);
+        eprintf("Done initializing %d sources.\n", num_sources);
         result = 1;
         goto done;
     }
 
-    wait_ready();
+    wait_ready(&done);
 
     if (autoconnect && setup_maps()) {
         eprintf("Error setting map.\n");
