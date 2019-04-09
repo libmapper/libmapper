@@ -1878,11 +1878,25 @@ static int handler_map(const char *path, const char *types, lo_arg **argv,
         ++dev->num_outgoing_maps;
         ++dev->num_incoming_maps;
 
+        ++map->destination.signal->num_incoming_maps;
+        for (i = 0; i < map->num_sources; i++)
+            ++map->sources[i]->signal->num_outgoing_maps;
+
         mapper_link link = mapper_database_add_or_update_link(&net->database,
                                                               dev, dev, 0);
 
         // Inform subscribers
         if (dev->local->subscribers) {
+            trace_dev(dev, "informing subscribers (DEVICE)\n")
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+            mapper_device_send_state(dev, MSG_DEVICE);
+
+            trace_dev(dev, "informing subscribers (SIGNAL)\n")
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_SIGNALS);
+            for (i = 0; i < map->num_sources; i++)
+                mapper_signal_send_state(map->sources[i]->signal, MSG_SIGNAL);
+            mapper_signal_send_state(map->destination.signal, MSG_SIGNAL);
+
             trace_dev(dev, "informing subscribers (LINKED)\n")
             mapper_network_set_dest_subscribers(net, MAPPER_OBJ_LINKS);
             mapper_link_send_state(link, MSG_LINKED, 0);
@@ -2176,7 +2190,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     }
 
     // TODO: if this endpoint is map admin, do not allow overwiting props
-    int updated = mapper_map_set_from_message(map, props, 0);
+    int map_updated = mapper_map_set_from_message(map, props, 0);
 
     // link props may have been updated
     if (map->destination.direction == MAPPER_DIR_OUTGOING) {
@@ -2222,32 +2236,54 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
     }
     if (map->status == STATUS_READY) {
         map->status = STATUS_ACTIVE;
-        mapper_device dev;
+        ++map_updated;
 
-        // Inform remote peer(s)
         if (map->destination.direction == MAPPER_DIR_OUTGOING) {
+            ++dev->num_outgoing_maps;
+            for (i = 0; i < map->num_sources; i++) {
+                if (map->sources[i]->signal->local)
+                    ++map->sources[i]->signal->num_outgoing_maps;
+            }
+
+            // Inform remote destination
             mapper_network_set_dest_mesh(net,
                                          map->destination.link->local->admin_addr);
             mapper_map_send_state(map, -1, MSG_MAPPED);
-            dev = map->sources[0]->signal->device;
-            ++dev->num_outgoing_maps;
         }
         else {
+            ++dev->num_incoming_maps;
+            ++map->destination.signal->num_incoming_maps;
+
+            // Inform remote sources
             for (i = 0; i < map->num_sources; i++) {
                 mapper_network_set_dest_mesh(net,
                                              map->sources[i]->link->local->admin_addr);
                 i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
                                           MSG_MAPPED);
             }
-            dev = map->destination.signal->device;
-            ++dev->num_incoming_maps;
         }
-        updated++;
+
+        if (dev->local->subscribers) {
+            trace_dev(dev, "informing subscribers (DEVICE)\n")
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+            mapper_device_send_state(dev, MSG_DEVICE);
+
+            trace_dev(dev, "informing subscribers (SIGNAL)\n")
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_SIGNALS);
+            if (map->destination.direction == MAPPER_DIR_OUTGOING) {
+                for (i = 0; i < map->num_sources; i++) {
+                    if (map->sources[i]->signal->local)
+                        mapper_signal_send_state(map->sources[i]->signal, MSG_SIGNAL);
+                }
+            }
+            else {
+                mapper_signal_send_state(map->destination.signal, MSG_SIGNAL);
+            }
+        }
     }
-    if (updated) {
+    if (map_updated) {
         if (dev->local->subscribers) {
             trace_dev(dev, "informing subscribers (MAPPED)\n")
-            // Inform subscribers
             if (map->destination.direction == MAPPER_DIR_OUTGOING)
                 mapper_network_set_dest_subscribers(net, MAPPER_OBJ_OUTGOING_MAPS);
             else
@@ -2504,11 +2540,23 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
 
     // inform remote peer(s)
     if (!map->destination.local->router_sig) {
+        --dev->num_outgoing_maps;
+        for (i = 0; i < map->num_sources; i++) {
+            if (map->sources[i]->signal->local) {
+                if ((--map->sources[i]->signal->num_outgoing_maps) < 0)
+                    map->sources[i]->signal->num_outgoing_maps = 0;
+            }
+        }
+
         mapper_network_set_dest_mesh(net,
                                      map->destination.link->local->admin_addr);
         mapper_map_send_state(map, -1, MSG_UNMAP);
     }
     else {
+        --dev->num_incoming_maps;
+        if ((--map->destination.signal->num_incoming_maps) < 0)
+            map->destination.signal->num_incoming_maps = 0;
+
         for (i = 0; i < map->num_sources; i++) {
             if (map->sources[i]->local->router_sig)
                 continue;
@@ -2519,6 +2567,22 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
     }
 
     if (dev->local->subscribers) {
+        trace_dev(dev, "informing subscribers (DEVICE)\n")
+        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+        mapper_device_send_state(dev, MSG_DEVICE);
+
+        trace_dev(dev, "informing subscribers (SIGNAL)\n")
+        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_SIGNALS);
+        if (map->destination.direction == MAPPER_DIR_OUTGOING) {
+            for (i = 0; i < map->num_sources; i++) {
+                if (map->sources[i]->signal->local)
+                    mapper_signal_send_state(map->sources[i]->signal, MSG_SIGNAL);
+            }
+        }
+        else {
+            mapper_signal_send_state(map->destination.signal, MSG_SIGNAL);
+        }
+
         trace_dev(dev, "informing subscribers (UNMAPPED)\n")
         // Inform subscribers
         if (map->destination.local->router_sig)
