@@ -245,8 +245,8 @@ int main(int argc, char ** argv)
     // try combining queries
     out << "devices with name matching 'my*' AND >=0 inputs" << std::endl;
     Device::List qdev = graph.devices();
-    qdev.filter(Property("name", "my*"), MPR_OP_EQ);
-    qdev.filter(Property("num_inputs", 0), MPR_OP_GTE);
+    qdev.filter(Property(MPR_PROP_NAME, "my*"), MPR_OP_EQ);
+    qdev.filter(Property(MPR_PROP_NUM_SIGS_IN, 0), MPR_OP_GTE);
     for (; qdev != qdev.end(); qdev++) {
         out << "  " << *qdev << " (" << (*qdev)[MPR_PROP_NUM_SIGS_IN]
             << " inputs)" << std::endl;
