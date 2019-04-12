@@ -244,22 +244,22 @@ static jobject get_jobject_from_graph_evt(JNIEnv *env, mpr_graph_evt evt)
     return obj;
 }
 
-static jobject get_jobject_from_inst_event(JNIEnv *env, int evt)
-{
-    jobject obj = 0;
-    jclass cls = (*env)->FindClass(env, "mpr/signal/InstanceEvent");
-    if (cls) {
-        jfieldID fid = (*env)->GetStaticFieldID(env, cls, inst_evt_strings[evt],
-                                                "Lmpr/signal/InstanceEvent;");
-        if (fid)
-            obj = (*env)->GetStaticObjectField(env, cls, fid);
-        else {
-            printf("Error looking up InstanceEvent field.\n");
-            exit(1);
-        }
-    }
-    return obj;
-}
+//static jobject get_jobject_from_inst_event(JNIEnv *env, int evt)
+//{
+//    jobject obj = 0;
+//    jclass cls = (*env)->FindClass(env, "mpr/signal/InstanceEvent");
+//    if (cls) {
+//        jfieldID fid = (*env)->GetStaticFieldID(env, cls, inst_evt_strings[evt],
+//                                                "Lmpr/signal/InstanceEvent;");
+//        if (fid)
+//            obj = (*env)->GetStaticObjectField(env, cls, fid);
+//        else {
+//            printf("Error looking up InstanceEvent field.\n");
+//            exit(1);
+//        }
+//    }
+//    return obj;
+//}
 
 static jobject build_Value(JNIEnv *env, const int len, mpr_type type,
                            const void *val, mpr_time_t *time)
