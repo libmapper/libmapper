@@ -1522,25 +1522,22 @@ namespace mapper {
             return (*this);
         }
         template <typename T>
-        Signal& update(T value)
-            { return update(&value, 1, 0); }
+        Signal& update(T value, Timetag tt=0)
+            { return update(&value, 1, tt); }
         template <typename T>
-        Signal& update(T* value)
-            { return update(value, 1, 0); }
-        template <typename T, int count>
-        Signal& update(T* value)
-            { return update(value, count, 0); }
-        template <typename T>
-        Signal& update(T* value, Timetag tt)
+        Signal& update(T* value, Timetag tt=0)
             { return update(value, 1, tt); }
+        template <typename T, int count>
+        Signal& update(T* value, Timetag tt=0)
+            { return update(value, count, tt); }
         template <typename T, size_t N>
-        Signal& update(std::array<T,N> value)
-            { return update(&value[0], N / mapper_signal_length(_sig), 0); }
+        Signal& update(std::array<T,N> value, Timetag tt=0)
+            { return update(&value[0], N / mapper_signal_length(_sig), tt); }
         template <typename T>
         Signal& update(std::vector<T> value, Timetag tt=0)
         {
             return update(&value[0],
-                          (int)value.size() / mapper_signal_length(_sig), *tt);
+                          (int)value.size() / mapper_signal_length(_sig), tt);
         }
         const void *value() const
             { return mapper_signal_value(_sig, 0); }
@@ -1623,13 +1620,13 @@ namespace mapper {
                 { mapper_signal_instance_release(_sig, _id, *tt); }
 
             template <typename T>
-            Instance& update(T value)
-                { return update(&value, 1, 0); }
+            Instance& update(T value, Timetag tt=0)
+                { return update(&value, 1, tt); }
             template <typename T>
-            Instance& update(T* value, int count=0)
-                { return update(value, count, 0); }
+            Instance& update(T* value, int count=0, Timetag tt=0)
+                { return update(value, count, tt); }
             template <typename T>
-            Instance& update(T* value, Timetag tt)
+            Instance& update(T* value, Timetag tt=0)
                 { return update(value, 1, tt); }
             template <typename T, size_t N>
             Instance& update(std::array<T,N> value, Timetag tt=0)
