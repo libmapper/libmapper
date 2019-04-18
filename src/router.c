@@ -154,8 +154,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                        * lmap->expr_vars[idx][j].length
                        * lmap->expr_vars[idx][j].size);
                 memset(lmap->expr_vars[idx][j].timetag, 0,
-                       sizeof(mapper_timetag_t)
-                       * lmap->expr_vars[idx][j].size);
+                       sizeof(mapper_timetag_t) * lmap->expr_vars[idx][j].size);
                 lmap->expr_vars[idx][j].position = -1;
             }
 

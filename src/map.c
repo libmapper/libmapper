@@ -1701,15 +1701,17 @@ void reallocate_map_histories(mapper_map map)
                 map->local->expr_vars[i][j].length = 0;
                 map->local->expr_vars[i][j].size = 0;
                 map->local->expr_vars[i][j].position = -1;
+                map->local->expr_vars[i][j].value = 0;
+                map->local->expr_vars[i][j].timetag = 0;
             }
             for (j = 0; j < new_num_vars; j++) {
                 int history_size = mapper_expr_variable_history_size(map->local->expr, j);
                 int vector_length = mapper_expr_variable_vector_length(map->local->expr, j);
-                mhist_realloc(map->local->expr_vars[i]+j, history_size,
+                mhist_realloc(&map->local->expr_vars[i][j], history_size,
                               vector_length * sizeof(double), 0);
-                (map->local->expr_vars[i]+j)->length = vector_length;
-                (map->local->expr_vars[i]+j)->size = history_size;
-                (map->local->expr_vars[i]+j)->position = -1;
+                map->local->expr_vars[i][j].length = vector_length;
+                map->local->expr_vars[i][j].size = history_size;
+                map->local->expr_vars[i][j].position = -1;
             }
         }
         map->local->num_expr_vars = new_num_vars;
