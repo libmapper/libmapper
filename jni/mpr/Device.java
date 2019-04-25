@@ -34,12 +34,19 @@ public class Device extends mpr.AbstractObject
     public int poll() { return poll(0); }
 
     /* signals */
-    public native Signal addSignal(Direction dir, int numInstances, String name,
-                                   int length, Type type, String unit,
-                                   Number minimum, Number maximum,
-                                   mpr.signal.UpdateListener l);
+    private native Signal add_signal(long dev, int dir, String name, int length,
+                                     int type, String unit, Number minimum,
+                                     Number maximum, Integer numInstances,
+                                     mpr.signal.UpdateListener l);
+    public Signal addSignal(Direction dir, String name, int length,
+                            Type type, String unit, Number minimum, Number maximum,
+                            Integer numInstances, mpr.signal.UpdateListener l) {
+        return add_signal(_obj, dir.value(), name, length, type.value(), unit,
+                          minimum, maximum, numInstances, l);
+    }
     public Signal addSignal(Direction dir, String name, int length, Type type) {
-        return addSignal(dir, 1, name, length, type, null, null, null, null);
+        return add_signal(_obj, dir.value(), name, length, type.value(),
+                          null, null, null, null, null);
     }
     public native Device removeSignal(Signal sig);
 

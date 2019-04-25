@@ -10,10 +10,10 @@ mins = [0,0,0,0,0,0,0,0,0,0]
 maxs = [1,1,1,1,1,1,1,1,1,1]
 
 src = mpr.device("src")
-outsig = src.add_signal(mpr.DIR_OUT, 1, "outsig", 10, mpr.INT32, None, mins, maxs)
+outsig = src.add_signal(mpr.DIR_OUT, "outsig", 10, mpr.INT32, None, mins, maxs)
 
 dest = mpr.device("dest")
-insig = dest.add_signal(mpr.DIR_IN, 1, "insig", 10, mpr.FLT, None, mins, maxs, h)
+insig = dest.add_signal(mpr.DIR_IN, "insig", 10, mpr.FLT, None, mins, maxs, None, h)
 
 while not src.ready or not dest.ready:
     src.poll(10)

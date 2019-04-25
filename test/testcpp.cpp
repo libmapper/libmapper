@@ -45,7 +45,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     if (!value || !verbose)
         return;
 
-    const char *name = mpr_obj_get_prop_str(sig, MPR_PROP_NAME, NULL);
+    const char *name = mpr_obj_get_prop_as_str(sig, MPR_PROP_NAME, NULL);
     printf("--> destination got %s", name);
 
     switch (type) {
@@ -113,16 +113,16 @@ int main(int argc, char ** argv)
     // make a copy of the device to check reference counting
 //    Device devcopy(dev);
 
-    Signal sig = dev.add_sig(MPR_DIR_IN, 1, "in1", 1, MPR_FLT, "meters",
-                             0, 0, handler);
+    Signal sig = dev.add_sig(MPR_DIR_IN, "in1", 1, MPR_FLT, "meters", 0, 0, 0,
+                             handler);
     dev.remove_sig(sig);
-    dev.add_sig(MPR_DIR_IN, 1, "in2", 2, MPR_INT32, 0, 0, 0, handler);
-    dev.add_sig(MPR_DIR_IN, 1, "in3", 2, MPR_INT32, 0, 0, 0, handler);
-    dev.add_sig(MPR_DIR_IN, 1, "in4", 2, MPR_INT32, 0, 0, 0, handler);
+    dev.add_sig(MPR_DIR_IN, "in2", 2, MPR_INT32, 0, 0, 0, 0, handler);
+    dev.add_sig(MPR_DIR_IN, "in3", 2, MPR_INT32, 0, 0, 0, 0, handler);
+    dev.add_sig(MPR_DIR_IN, "in4", 2, MPR_INT32, 0, 0, 0, 0, handler);
 
-    sig = dev.add_sig(MPR_DIR_OUT, 1, "out1", 1, MPR_FLT, "na");
+    sig = dev.add_sig(MPR_DIR_OUT, "out1", 1, MPR_FLT, "na");
     dev.remove_sig(sig);
-    sig = dev.add_sig(MPR_DIR_OUT, 1, "out2", 3, MPR_DBL, "meters");
+    sig = dev.add_sig(MPR_DIR_OUT, "out2", 3, MPR_DBL, "meters");
 
     out << "waiting" << std::endl;
     while (!dev.ready()) {
@@ -136,11 +136,11 @@ int main(int argc, char ** argv)
     out << "  interface: " << dev.graph().iface() << std::endl;
     out << "  bus url: " << dev.graph().address() << std::endl;
     out << "  port: " << dev["port"] << std::endl;
-    out << "  num_inputs: " << dev.signals(MPR_DIR_IN).length() << std::endl;
-    out << "  num_outputs: " << dev.signals(MPR_DIR_OUT).length() << std::endl;
-    out << "  num_incoming_maps: " << dev.signals().maps(MPR_DIR_IN).length()
+    out << "  num_inputs: " << dev.signals(MPR_DIR_IN).size() << std::endl;
+    out << "  num_outputs: " << dev.signals(MPR_DIR_OUT).size() << std::endl;
+    out << "  num_incoming_maps: " << dev.signals().maps(MPR_DIR_IN).size()
         << std::endl;
-    out << "  num_outgoing_maps: " << dev.signals().maps(MPR_DIR_OUT).length()
+    out << "  num_outgoing_maps: " << dev.signals().maps(MPR_DIR_OUT).size()
         << std::endl;
 
     int value[] = {1,2,3,4,5,6};

@@ -298,6 +298,8 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "bypass");
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
+    lo_message_add_string(lom, "@scope");
+    lo_message_add_string(lom, "testgraph__.2");
 
     if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
                                     lo_message_get_types(lom),
@@ -419,10 +421,10 @@ int main(int argc, char **argv)
     eprintf("\n--- Devices ---\n");
 
     eprintf("\nWalk the whole graph:\n");
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     int count=0;
     if (!list) {
-        eprintf("mpr_graph_get_list(devices) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
@@ -430,7 +432,7 @@ int main(int argc, char **argv)
     while (list) {
         count ++;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 4) {
@@ -443,7 +445,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind device named 'testgraph.3':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.3",
                            MPR_OP_EQ);
     if (!list) {
@@ -451,7 +453,7 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-    count = mpr_list_get_count(list);
+    count = mpr_list_get_size(list);
     if (count != 1) {
         eprintf("Found %d devices (Should be 1).\n", count);
         result = 1;
@@ -466,10 +468,10 @@ int main(int argc, char **argv)
 
     eprintf("\nFind device named 'dummy':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "dummy",
                            MPR_OP_EQ);
-    if (mpr_list_get_count(list)) {
+    if (mpr_list_get_size(list)) {
         eprintf("unexpectedly found 'dummy': %p\n", *list);
         result = 1;
         mpr_list_free(list);
@@ -481,13 +483,13 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices matching '__':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "*__*",
                            MPR_OP_EQ);
 
     count=0;
     if (!list) {
-        eprintf("objects(devices) -> filter(name) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
@@ -495,7 +497,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 2) {
@@ -508,19 +510,18 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'host'=='192.168.0.100':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_HOST, NULL, 1, MPR_STR,
                            "192.168.0.100", MPR_OP_EQ);
 
     count=0;
     if (!list) {
-        eprintf("objects(devices) -> filter(host) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("objects(devices) -> filter(host) returned something "
-                "which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -528,7 +529,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 2) {
@@ -542,19 +543,18 @@ int main(int argc, char **argv)
     eprintf("\nFind devices with property 'port'<5678:\n");
 
     int port = 5678;
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_PORT, NULL, 1, MPR_INT32, &port,
                            MPR_OP_LT);
 
     count=0;
     if (!list) {
-        eprintf("objects(devices) -> filter(port) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("objects(devices) -> filter(port) returned something "
-                "which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -562,7 +562,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 3) {
@@ -575,19 +575,18 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'num_outputs'==2:\n");
     int temp = 2;
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_UNKNOWN, "num_outputs", 1, MPR_INT32,
                            &temp, MPR_OP_EQ);
 
     count=0;
     if (!list) {
-        eprintf("objects(devices) -> filter(num_outputs) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("objects(devices) -> filter(num_outputs) returned something "
-                "which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -595,7 +594,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 1) {
@@ -609,7 +608,7 @@ int main(int argc, char **argv)
     eprintf("\nFind devices with properties 'host'!='localhost' AND 'port'>=4000:\n");
 
     port = 4000;
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_HOST, NULL, 1, MPR_STR, "localhost",
                            MPR_OP_NEQ);
     list = mpr_list_filter(list, MPR_PROP_PORT, NULL, 1, MPR_INT32, &port,
@@ -617,13 +616,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!list) {
-        eprintf("objects(devices) -> filter(host) -> filter(port) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("objects(devices) -> filter(host) -> filter(port) returned "
-                "something which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -631,7 +629,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 1) {
@@ -646,23 +644,23 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all signals for device 'testgraph.1':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1",
                            MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
     }
 
     count=0;
     if (!list) {
-        eprintf("mpr_dev_get_sigs() returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("mpr_dev_get_sigs() returned something which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -670,7 +668,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 4) {
@@ -683,51 +681,52 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all signals for device 'testgraph__xx.2':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR,
                            "testgraph__xx.2", MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
     }
 
     count=0;
-    if (mpr_list_get_count(list)) {
-        eprintf("mpr_dev_get_sigs() incorrectly found something.\n");
+    if (mpr_list_get_size(list)) {
+        eprintf("query incorrectly found something.\n");
         printobject(*list);
         mpr_list_free(list);
         result = 1;
         goto done;
     }
     else
-        eprintf("  correctly returned 0.\n");
+        eprintf("query correctly returned 0.\n");
 
     /*********/
 
     eprintf("\nFind all outputs for device 'testgraph__.2':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR,
                            "testgraph__.2", MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
-        list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
-                               MPR_OP_EQ);
-        mpr_dir dir = MPR_DIR_OUT;
-        list = mpr_list_filter(list, MPR_PROP_DIR, NULL, 1, MPR_INT32, &dir,
-                               MPR_OP_EQ);
+//        list = mpr_dev_sigs(dev, MPR_DIR_OUT);
+        list = mpr_obj_get_prop_as_list((mpr_obj)dev, MPR_PROP_SIG, NULL);
+//        list = mpr_graph_get_objs(graph, MPR_SIG);
+//        list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
+//                               MPR_OP_EQ);
+//        mpr_dir dir = MPR_DIR_OUT;
+//        list = mpr_list_filter(list, MPR_PROP_DIR, NULL, 1, MPR_INT32, &dir,
+//                               MPR_OP_EQ);
     }
 
     count=0;
     if (!list) {
-        eprintf("mpr_dev_get_sigs() returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("mpr_dev_get_sigs() returned something "
-                "which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -735,7 +734,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 3) {
@@ -748,11 +747,11 @@ int main(int argc, char **argv)
 
     eprintf("\nFind signal matching 'in' for device 'testgraph.1':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1",
                            MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
         list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "*in*",
@@ -761,13 +760,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!list) {
-        eprintf("mpr_dev_get_sigs() -> filter(name) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("mpr_dev_get_sigs() -> filter(name) returned "
-                "something which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -775,7 +773,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 2) {
@@ -788,11 +786,11 @@ int main(int argc, char **argv)
 
     eprintf("\nFind signal matching 'out' for device 'testgraph.1':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1",
                            MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
         list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*",
@@ -801,13 +799,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!list) {
-        eprintf("mpr_dev_get_sigs() -> filter(name) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("mpr_dev_get_sigs() -> filter(name) returned "
-                "something which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -815,7 +812,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 2) {
@@ -828,11 +825,11 @@ int main(int argc, char **argv)
 
     eprintf("\nFind signal matching 'out' for device 'testgraph__.2':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR,
                            "testgraph__.2", MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
         list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*",
@@ -841,13 +838,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!list) {
-        eprintf("mpr_dev_get_sigs() -> filter(name) returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("mpr_dev_get_sigs() -> filter(name) returned "
-                "something which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -855,7 +851,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 1) {
@@ -870,12 +866,12 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps with source 'out1':\n");
 
-    list = mpr_graph_get_list(graph, MPR_SIG);
+    list = mpr_graph_get_objs(graph, MPR_SIG);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "out1", MPR_OP_EQ);
     list2 = 0;
     while (list) {
-        list2 = mpr_list_union(list2, mpr_sig_get_maps((mpr_sig)*list, MPR_DIR_OUT));
-        list = mpr_list_next(list);
+        list2 = mpr_list_get_union(list2, mpr_sig_get_maps((mpr_sig)*list, MPR_DIR_OUT));
+        list = mpr_list_get_next(list);
     }
 
     count=0;
@@ -893,7 +889,7 @@ int main(int argc, char **argv)
     while (list2) {
         ++count;
         printobject(*list2);
-        list2 = mpr_list_next(list2);
+        list2 = mpr_list_get_next(list2);
     }
 
     if (count != 3) {
@@ -906,11 +902,11 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps for device 'testgraph.1', source 'out1':\n");
 
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1",
                            MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
         list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "out1",
@@ -922,12 +918,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!list) {
-        eprintf("mpr_sig_get_maps() returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("mpr_sig_get_maps() returned something which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -935,7 +931,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 2) {
@@ -948,12 +944,12 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps with destination signal named 'in2':\n");
 
-    list = mpr_graph_get_list(graph, MPR_SIG);
+    list = mpr_graph_get_objs(graph, MPR_SIG);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "in2", MPR_OP_EQ);
     list2 = 0;
     while (list) {
-        list2 = mpr_list_union(list2, mpr_sig_get_maps((mpr_sig)*list, MPR_DIR_IN));
-        list = mpr_list_next(list);
+        list2 = mpr_list_get_union(list2, mpr_sig_get_maps((mpr_sig)*list, MPR_DIR_IN));
+        list = mpr_list_get_next(list);
     }
 
     count=0;
@@ -971,7 +967,7 @@ int main(int argc, char **argv)
     while (list2) {
         ++count;
         printobject(*list2);
-        list2 = mpr_list_next(list2);
+        list2 = mpr_list_get_next(list2);
     }
 
     if (count != 1) {
@@ -983,11 +979,11 @@ int main(int argc, char **argv)
     /*********/
 
     eprintf("\nFind maps for device 'testgraph__.2', destination 'in1':\n");
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR,
                            "testgraph__.2", MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
         list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "in1",
@@ -998,12 +994,12 @@ int main(int argc, char **argv)
 
     count=0;
     if (!list) {
-        eprintf("mpr_sig_get_maps() returned 0.\n");
+        eprintf("query returned 0.\n");
         result = 1;
         goto done;
     }
     if (!*list) {
-        eprintf("mpr_sig_get_maps() returned something which pointed to 0.\n");
+        eprintf("query returned something which pointed to 0.\n");
         result = 1;
         goto done;
     }
@@ -1011,7 +1007,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 2) {
@@ -1026,11 +1022,11 @@ int main(int argc, char **argv)
             "\n          AND dest device 'testgraph.1', signal 'in1':\n");
 
     // get maps with source signal
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR,
                            "testgraph__.2", MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
         list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "out1",
@@ -1041,11 +1037,11 @@ int main(int argc, char **argv)
     }
 
     // get maps with destination signal
-    list2 = mpr_graph_get_list(graph, MPR_DEV);
+    list2 = mpr_graph_get_objs(graph, MPR_DEV);
     list2 = mpr_list_filter(list2, MPR_PROP_NAME, NULL, 1, MPR_STR,
                             "testgraph.1", MPR_OP_EQ);
     if (list2 && (dev = (mpr_dev)*list2)) {
-        list2 = mpr_graph_get_list(graph, MPR_SIG);
+        list2 = mpr_graph_get_objs(graph, MPR_SIG);
         list2 = mpr_list_filter(list2, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                 MPR_OP_EQ);
         list2 = mpr_list_filter(list2, MPR_PROP_NAME, NULL, 1, MPR_STR, "in1",
@@ -1056,7 +1052,7 @@ int main(int argc, char **argv)
     }
 
     // intersect map queries
-    list = mpr_list_isect(list, list2);
+    list = mpr_list_get_isect(list, list2);
 
     count=0;
     if (!list) {
@@ -1073,7 +1069,7 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 1) {
@@ -1088,11 +1084,11 @@ int main(int argc, char **argv)
             "\n          AND dest device 'testgraph.1', all signals:\n");
 
     // build source query
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR,
                            "testgraph__.2", MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        list = mpr_graph_get_list(graph, MPR_SIG);
+        list = mpr_graph_get_objs(graph, MPR_SIG);
         list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
         list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*",
@@ -1101,27 +1097,27 @@ int main(int argc, char **argv)
 
     list2 = 0;
     while (list) {
-        list2 = mpr_list_union(list2, mpr_sig_get_maps((mpr_sig)*list, MPR_DIR_OUT));
-        list = mpr_list_next(list);
+        list2 = mpr_list_get_union(list2, mpr_sig_get_maps((mpr_sig)*list, MPR_DIR_OUT));
+        list = mpr_list_get_next(list);
     }
 
     // build destination query
-    list = mpr_graph_get_list(graph, MPR_DEV);
+    list = mpr_graph_get_objs(graph, MPR_DEV);
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1",
                            MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-        mpr_list sigs = mpr_graph_get_list(graph, MPR_SIG);
+        mpr_list sigs = mpr_graph_get_objs(graph, MPR_SIG);
         sigs = mpr_list_filter(sigs, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
                                MPR_OP_EQ);
         list = 0;
         while (sigs) {
-            list = mpr_list_union(list, mpr_sig_get_maps((mpr_sig)*sigs, MPR_DIR_IN));
-            sigs = mpr_list_next(sigs);
+            list = mpr_list_get_union(list, mpr_sig_get_maps((mpr_sig)*sigs, MPR_DIR_IN));
+            sigs = mpr_list_get_next(sigs);
         }
     }
 
     // intersect queries
-    list = mpr_list_isect(list, list2);
+    list = mpr_list_get_isect(list, list2);
 
     count=0;
     if (!list) {
@@ -1138,7 +1134,47 @@ int main(int argc, char **argv)
     while (list) {
         ++count;
         printobject(*list);
-        list = mpr_list_next(list);
+        list = mpr_list_get_next(list);
+    }
+
+    if (count != 1) {
+        eprintf("Expected 1 record, but counted %d.\n", count);
+        result = 1;
+        goto done;
+    }
+
+    /*********/
+
+    eprintf("\nFind maps with scope 'testgraph__.2':\n");
+
+    list = mpr_graph_get_objs(graph, MPR_DEV);
+    list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR,
+                           "testgraph__.2", MPR_OP_EQ);
+    if (!list || !(dev = (mpr_dev)*list)) {
+        eprintf("failed to find device 'testgraph__.2'.\n");
+        result = 1;
+        goto done;
+    }
+
+    list = mpr_graph_get_objs(graph, MPR_MAP);
+    list = mpr_list_filter(list, MPR_PROP_SCOPE, NULL, 1, MPR_DEV, dev, MPR_OP_ANY);
+
+    count=0;
+    if (!list) {
+        eprintf("map scope filter query returned 0.\n");
+        result = 1;
+        goto done;
+    }
+    if (!*list) {
+        eprintf("map scope filter query returned something which pointed to 0.\n");
+        result = 1;
+        goto done;
+    }
+
+    while (list) {
+        ++count;
+        printobject(*list);
+        list = mpr_list_get_next(list);
     }
 
     if (count != 1) {

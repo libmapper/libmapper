@@ -25,18 +25,13 @@ double mpr_get_current_time()
 #endif
 }
 
-void mpr_time_now(mpr_time_t *t)
-{
-    lo_timetag_now((lo_timetag*)t);
-}
-
-double mpr_time_diff(const mpr_time_t l, const mpr_time_t r)
+double mpr_time_get_diff(const mpr_time l, const mpr_time r)
 {
     return ((double)l.sec - (double)r.sec
             + ((double)l.frac - (double)r.frac) * multiplier);
 }
 
-void mpr_time_add_dbl(mpr_time_t *t, double d)
+void mpr_time_add_dbl(mpr_time *t, double d)
 {
     if (!d)
         return;
@@ -55,10 +50,10 @@ void mpr_time_add_dbl(mpr_time_t *t, double d)
     }
 }
 
-void mpr_time_mul(mpr_time_t *t, double d)
+void mpr_time_mul(mpr_time *t, double d)
 {
     if (d > 0.) {
-        d *= mpr_time_get_dbl(*t);
+        d *= mpr_time_as_dbl(*t);
         t->sec = floor(d);
         d -= t->sec;
         t->frac = (uint32_t) (d * (double)(1LL<<32));
@@ -67,7 +62,7 @@ void mpr_time_mul(mpr_time_t *t, double d)
         t->sec = t->frac = 0;
 }
 
-void mpr_time_add(mpr_time_t *t, mpr_time_t addend)
+void mpr_time_add(mpr_time *t, mpr_time addend)
 {
     t->sec += addend.sec;
     t->frac += addend.frac;
@@ -75,7 +70,7 @@ void mpr_time_add(mpr_time_t *t, mpr_time_t addend)
         ++t->sec;
 }
 
-void mpr_time_sub(mpr_time_t *t, mpr_time_t subtrahend)
+void mpr_time_sub(mpr_time *t, mpr_time subtrahend)
 {
     if (t->sec > subtrahend.sec) {
         t->sec -= subtrahend.sec;
@@ -87,12 +82,12 @@ void mpr_time_sub(mpr_time_t *t, mpr_time_t subtrahend)
         t->sec = t->frac = 0;
 }
 
-double mpr_time_get_dbl(mpr_time_t t)
+double mpr_time_as_dbl(mpr_time t)
 {
     return (double)t.sec + (double)t.frac * multiplier;
 }
 
-void mpr_time_set_dbl(mpr_time_t *t, double value)
+void mpr_time_set_dbl(mpr_time *t, double value)
 {
     if (value > 0.) {
         t->sec = floor(value);
@@ -103,8 +98,10 @@ void mpr_time_set_dbl(mpr_time_t *t, double value)
         t->sec = t->frac = 0;
 }
 
-void mpr_time_cpy(mpr_time_t *l, mpr_time_t r)
+void mpr_time_set(mpr_time *l, mpr_time r)
 {
-    l->sec = r.sec;
-    l->frac = r.frac;
+    if (memcmp(&r, &MPR_NOW, sizeof(mpr_time)) == 0)
+        lo_timetag_now((lo_timetag*)l);
+    else
+        memcpy(l, &r, sizeof(mpr_time));
 }

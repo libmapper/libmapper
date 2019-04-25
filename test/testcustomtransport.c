@@ -120,9 +120,7 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
 
     mpr_sig dstsig = mpr_map_get_sig(map, MPR_LOC_DST, 0);
     mpr_dev dstdev = mpr_sig_get_dev(dstsig);
-    const char *host;
-    mpr_obj_get_prop_by_idx((mpr_obj)dstdev, MPR_PROP_HOST, NULL, NULL, NULL,
-                            (const void**)&host, 0);
+    const char *host = mpr_obj_get_prop_as_str((mpr_obj)dstdev, MPR_PROP_HOST, NULL);
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
@@ -158,8 +156,8 @@ int setup_src()
 
     mpr_graph_add_cb(mpr_obj_get_graph((mpr_obj)src), on_map, MPR_MAP, NULL);
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 1, MPR_FLT, "Hz",
-                          &mn, &mx, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, "Hz", &mn, &mx,
+                          NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -182,9 +180,7 @@ void cleanup_src()
 void insig_handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
                    mpr_type type, const void *value, mpr_time t)
 {
-    const char *name;
-    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                            (const void**)&name, 0);
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     if (value) {
         eprintf("--> destination got %s", name);
         float *v = (float*)value;
@@ -206,8 +202,8 @@ int setup_dst()
 
     float mn=0, mx=1;
 
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
-                          &mn, &mx, insig_handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL, &mn, &mx,
+                          NULL, insig_handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
 
@@ -229,7 +225,7 @@ void cleanup_dst()
 
 void wait_local_devs()
 {
-    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+    while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }

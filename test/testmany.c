@@ -55,17 +55,17 @@ int setup_devs() {
             mn = fmod(rand() * 0.01, 21.f) - 10.f;
             mx = fmod(rand() * 0.01, 21.f) - 10.f;
 			sprintf(str, "in%d", j);
-			mpr_sig_new(devices[i], MPR_DIR_IN, 1, str, 1, MPR_FLT, NULL,
-                        &mn, &mx, NULL, 0);
+			mpr_sig_new(devices[i], MPR_DIR_IN, str, 1, MPR_FLT, NULL,
+                        &mn, &mx, NULL, NULL, 0);
             mn = fmod(rand() * 0.01, 21.f) - 10.f;
             mx = fmod(rand() * 0.01, 21.f) - 10.f;
             sprintf(str, "out%d", j);
             if (j%2==0)
-                mpr_sig_new(devices[i], MPR_DIR_OUT, 1, str, 1, MPR_FLT, NULL,
-                            &mn, &mx, NULL, 0);
+                mpr_sig_new(devices[i], MPR_DIR_OUT, str, 1, MPR_FLT, NULL,
+                            &mn, &mx, NULL, NULL, 0);
             else
-                mpr_sig_new(devices[i], MPR_DIR_OUT, 1, str, 1, MPR_FLT, NULL,
-                            &mn, NULL, NULL, 0);
+                mpr_sig_new(devices[i], MPR_DIR_OUT, str, 1, MPR_FLT, NULL,
+                            &mn, NULL, NULL, NULL, 0);
 		}
 	}
     return 0;
@@ -97,7 +97,7 @@ void wait_local_devs(int *cancel) {
 
 		for (i = 0; i < num_devs; i++) {
 			mpr_dev_poll(devices[i], 50);
-			if (!mpr_dev_ready(devices[i])) {
+			if (!mpr_dev_get_is_ready(devices[i])) {
 				keep_waiting = 1;
 			}
 		}
@@ -114,17 +114,10 @@ void wait_local_devs(int *cancel) {
         }
 	}
     eprintf("\nRegistered devices:\n");
-    int highest = 0, len;
-    mpr_type type;
-    const void *val;
+    int ordinal, highest = 0;
     for (i = 0; i < num_devs; i++) {
-        mpr_obj_get_prop_by_idx((mpr_obj)devices[i], MPR_PROP_ORDINAL, NULL,
-                                &len, &type, &val, 0);
-        if (1 != len || MPR_INT32 != type) {
-            eprintf("Error retrieving ordinal property.\n");
-            return;
-        }
-        int ordinal = *(int*)val;
+        ordinal = mpr_obj_get_prop_as_i32((mpr_obj)devices[i], MPR_PROP_ORDINAL,
+                                          NULL);
         if (ordinal > highest)
             highest = ordinal;
     }
@@ -132,16 +125,11 @@ void wait_local_devs(int *cancel) {
         int count = 0;
         const char *name = 0;
         for (j = 0; j < num_devs; j++) {
-            mpr_obj_get_prop_by_idx((mpr_obj)devices[j], MPR_PROP_ORDINAL,
-                                    NULL, &len, &type, &val, 0);
-            if (1 != len || MPR_INT32 != type) {
-                eprintf("Error retrieving ordinal property.\n");
-                return;
-            }
-            int ordinal = *(int*)val;
+            ordinal = mpr_obj_get_prop_as_i32((mpr_obj)devices[j], MPR_PROP_ORDINAL,
+                                              NULL);
             if (ordinal == i) {
-                mpr_obj_get_prop_by_idx((mpr_obj)devices[j], MPR_PROP_NAME,
-                                        NULL, NULL, NULL, (const void**)&name, 0);
+                name = mpr_obj_get_prop_as_str((mpr_obj)devices[j], MPR_PROP_NAME,
+                                               NULL);
                 ++count;
             }
         }

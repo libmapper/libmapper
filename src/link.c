@@ -54,8 +54,8 @@ void mpr_link_init(mpr_link link)
     link->clock.new = 1;
     link->clock.sent.msg_id = 0;
     link->clock.rcvd.msg_id = -1;
-    mpr_time_t t;
-    mpr_time_now(&t);
+    mpr_time t;
+    mpr_time_set(&t, MPR_NOW);
     link->clock.rcvd.time.sec = t.sec + 10;
 
     // request missing metadata
@@ -64,7 +64,7 @@ void mpr_link_init(mpr_link link)
     NEW_LO_MSG(m, return);
     lo_message_add_string(m, "device");
     mpr_net n = &link->obj.graph->net;
-    mpr_net_bus(n);
+    mpr_net_use_bus(n);
     mpr_net_add_msg(n, cmd, 0, m);
     mpr_net_send(n);
 }
@@ -103,33 +103,33 @@ void mpr_link_free(mpr_link link)
     }
 }
 
-void mpr_link_start_queue(mpr_link link, mpr_time_t t)
+void mpr_link_start_queue(mpr_link link, mpr_time t)
 {
     if (!link)
         return;
     // check if queue already exists
     mpr_queue queue = link->queues;
     while (queue) {
-        if (memcmp(&queue->time, &t, sizeof(mpr_time_t))==0)
+        if (memcmp(&queue->time, &t, sizeof(mpr_time))==0)
             return;
         queue = queue->next;
     }
     // need to create a new queue
     queue = malloc(sizeof(struct _mpr_queue));
-    memcpy(&queue->time, &t, sizeof(mpr_time_t));
+    memcpy(&queue->time, &t, sizeof(mpr_time));
     queue->bundle.udp = lo_bundle_new(t);
     queue->bundle.tcp = lo_bundle_new(t);
     queue->next = link->queues;
     link->queues = queue;
 }
 
-void mpr_link_send_queue(mpr_link link, mpr_time_t t)
+void mpr_link_send_queue(mpr_link link, mpr_time t)
 {
     if (!link)
         return;
     mpr_queue *queue = &link->queues;
     while (*queue) {
-        if (memcmp(&(*queue)->time, &t, sizeof(mpr_time_t))==0)
+        if (memcmp(&(*queue)->time, &t, sizeof(mpr_time))==0)
             break;
         queue = &(*queue)->next;
     }
@@ -167,7 +167,7 @@ static int cmp_qry_link_maps(const void *context_data, mpr_map map)
 mpr_list mpr_link_get_maps(mpr_link link)
 {
     RETURN_UNLESS(link && link->devs[0]->obj.graph->maps, 0);
-    mpr_list q = mpr_list_new_query(link->devs[0]->obj.graph->maps,
+    mpr_list q = mpr_list_new_query((const void**)&link->devs[0]->obj.graph->maps,
                                     cmp_qry_link_maps, "h", link->obj.id);
     return mpr_list_start(q);
 }
@@ -181,7 +181,7 @@ void mpr_link_send(mpr_link link, net_msg_t cmd)
     mpr_net_add_msg(&link->obj.graph->net, 0, cmd, msg);
 }
 
-int mpr_link_is_local(mpr_link link)
+int mpr_link_get_is_local(mpr_link link)
 {
     return link->local_dev->loc || link->remote_dev->loc;
 }

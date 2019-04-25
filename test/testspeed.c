@@ -67,15 +67,15 @@ int setup_src()
         goto error;
     eprintf("source created.\n");
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 1, MPR_FLT, NULL,
-                          NULL, NULL, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, NULL,
+                          NULL, NULL, NULL, NULL, 0);
     if (!sendsig)
         goto error;
     mpr_sig_reserve_inst(sendsig, 10, 0, 0);
 
     eprintf("Output signal registered.\n");
     eprintf("Number of outputs: %d\n",
-            mpr_list_get_count(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
+            mpr_list_get_size(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
 
     return 0;
 
@@ -107,9 +107,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
             mpr_sig_set_value(sendsig, 0, length, type, value, MPR_NOW);
     }
     else {
-        const char *name;
-        mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                                (const void**)&name, NULL);
+        const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
         eprintf("--> destination %s instance %ld got NULL\n", name, (long)inst);
     }
 }
@@ -122,15 +120,15 @@ int setup_dst()
         goto error;
     eprintf("destination created.\n");
 
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
-                          NULL, NULL, handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
+                          NULL, NULL, NULL, handler, MPR_SIG_UPDATE);
     if (!recvsig)
         goto error;
     mpr_sig_reserve_inst(recvsig, 10, 0, 0);
 
     eprintf("Input signal registered.\n");
     eprintf("Number of inputs: %d\n",
-            mpr_list_get_count(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
+            mpr_list_get_size(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
 
     return 0;
 
@@ -150,7 +148,7 @@ void cleanup_dst()
 
 void wait_local_devs()
 {
-    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+    while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }
@@ -166,7 +164,7 @@ void map_sigs()
     mpr_obj_push((mpr_obj)map);
 
     // wait until mapping has been established
-    while (!done && !mpr_map_ready(map)) {
+    while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
     }

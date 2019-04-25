@@ -63,8 +63,8 @@ class test {
                 }
             }});
 
-        Signal inp1 = dev1.addSignal(Direction.INCOMING, 1, "insig1", 1, Type.INT,
-                                     "Hz", 2.0f, null, new UpdateListener() {
+        Signal inp1 = dev1.addSignal(Direction.INCOMING, "insig1", 1, Type.INT,
+                                     "Hz", 2.0f, null, null, new UpdateListener() {
             public void onUpdate(Signal sig, float[] v, Time time) {
                 System.out.println(" >> in onUpdate() for "+sig.getProperty("name")+": "
                                    +Arrays.toString(v)+" at t="+time);
@@ -72,10 +72,10 @@ class test {
 
         System.out.println("Input signal name: "+inp1.getProperty("name"));
 
-        Signal out1 = dev2.addSignal(Direction.OUTGOING, 1, "outsig1", 1, Type.INT,
-                                     "Hz", 0, 1, null);
-        Signal out2 = dev2.addSignal(Direction.OUTGOING, 1, "outsig2", 1,
-                                     Type.FLOAT, "Hz", 0.0f, 1.0f, null);
+        Signal out1 = dev2.addSignal(Direction.OUTGOING, "outsig1", 1, Type.INT,
+                                     "Hz", 0, 1, null, null);
+        Signal out2 = dev2.addSignal(Direction.OUTGOING, "outsig2", 1,
+                                     Type.FLOAT, "Hz", 0.0f, 1.0f, null, null);
 
         dev1.setProperty("width", 256);
         dev1.setProperty("height", 12.5);

@@ -275,7 +275,7 @@ typedef struct _mpr_obj
 typedef struct _mpr_hist
 {
     void *val;                  //!< Value for each sample of stored history.
-    mpr_time_t *time;           //!< Time for each sample of stored history.
+    mpr_time *time;             //!< Time for each sample of stored history.
     int len;                    //!< Vector length.
     mpr_type type;              //!< The type of this signal.
     char size;                  //!< History size of the buffer.
@@ -291,11 +291,11 @@ typedef struct _mpr_sig_inst
 {
     mpr_id id;                  //!< User-assignable instance id.
     void *data;                 //!< User data of this instance.
-    mpr_time_t created;         //!< The instance's creation timestamp.
+    mpr_time created;           //!< The instance's creation timestamp.
     char *has_val_flags;        //!< Indicates which vector elements have a value.
 
     void *val;                  //!< The current value of this signal instance.
-    mpr_time_t time;            //!< The time associated with the current value.
+    mpr_time time;              //!< The time associated with the current value.
 
     int idx;                    //!< Index for accessing value history.
     uint8_t has_val;            //!< Indicates whether this instance has a value.
@@ -345,6 +345,7 @@ struct _mpr_sig {
     int dir;                //!< DIR_OUTGOING / DIR_INCOMING / DIR_BOTH
     int len;                //!< Length of the signal vector, or 1 for scalars.
     int num_inst;           //!< Number of instances.
+    int use_inst;           //!< 1 if using instances, 0 otherwise.
     int num_maps_in;
     int num_maps_out;
 
@@ -355,7 +356,7 @@ struct _mpr_sig {
 /**** Router ****/
 
 typedef struct _mpr_queue {
-    mpr_time_t time;
+    mpr_time time;
     struct {
         lo_bundle udp;
         lo_bundle tcp;
@@ -515,7 +516,7 @@ struct _mpr_dev {
     char *prefix;               //!< The identifier (prefix) for this device.
     char *name;                 //!< The full name for this device, or zero.
 
-    mpr_time_t synced;          //!< Timestamp of last sync.
+    mpr_time synced;            //!< Timestamp of last sync.
 
     int ordinal;
     int num_inputs;             //!< Number of associated input signals.

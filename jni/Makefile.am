@@ -87,3 +87,8 @@ libmpr.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 
 EXTRA_DIST = $(JJAVA) test.java testreverse.java testspeed.java \
              $(JHEADERS)
+
+test_all_ordered = test testqueue testreverse testspeed
+
+tests: all
+	for i in $(test_all_ordered); do echo Running $$i; if ! java -Djava.library.path=.libs -cp libmpr.jar:. $$i; then exit 1; fi; done

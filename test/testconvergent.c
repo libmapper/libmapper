@@ -37,8 +37,8 @@ int setup_srcs()
         srcs[i] = mpr_dev_new("testconvergent-send", 0);
         if (!srcs[i])
             goto error;
-        sendsigs[i] = mpr_sig_new(srcs[i], MPR_DIR_OUT, 1, "sendsig", 1,
-                                  MPR_INT32, NULL, &mni, &mxi, NULL, 0);
+        sendsigs[i] = mpr_sig_new(srcs[i], MPR_DIR_OUT, "sendsig", 1,
+                                  MPR_INT32, NULL, &mni, &mxi, NULL, NULL, 0);
         if (!sendsigs[i])
             goto error;
         eprintf("source %d created.\n", i);
@@ -87,12 +87,12 @@ int setup_dst()
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "recvsig", 1, MPR_FLT, NULL,
-                          &mn, &mx, handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "recvsig", 1, MPR_FLT, NULL,
+                          &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
     eprintf("Number of inputs: %d\n",
-            mpr_list_get_count(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
+            mpr_list_get_size(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
     return 0;
 
 error:
@@ -124,12 +124,12 @@ int setup_maps()
     for (i = 0; i < num_sources; i++) {
         if (i == 0) {
             snprintf(expr + offset, len - offset, "-x%d",
-                     mpr_map_get_sig_index(map, sendsigs[i]));
+                     mpr_map_get_sig_idx(map, sendsigs[i]));
             offset += 3;
         }
         else {
             snprintf(expr + offset, len - offset, "-_x%d",
-                     mpr_map_get_sig_index(map, sendsigs[i]));
+                     mpr_map_get_sig_idx(map, sendsigs[i]));
             offset += 4;
         }
     }
@@ -137,7 +137,7 @@ int setup_maps()
     mpr_obj_push(map);
 
     // wait until mappings have been established
-    while (!done && !mpr_map_ready(map)) {
+    while (!done && !mpr_map_get_is_ready(map)) {
         for (i = 0; i < num_sources; i++)
             mpr_dev_poll(srcs[i], 10);
         mpr_dev_poll(dst, 10);
@@ -154,12 +154,12 @@ void wait_ready(int *cancel)
 
         for (i = 0; i < num_sources; i++) {
             mpr_dev_poll(srcs[i], 50);
-            if (!mpr_dev_ready(srcs[i])) {
+            if (!mpr_dev_get_is_ready(srcs[i])) {
                 keep_waiting = 1;
             }
         }
         mpr_dev_poll(dst, 50);
-        if (!mpr_dev_ready(dst))
+        if (!mpr_dev_get_is_ready(dst))
             keep_waiting = 1;
     }
 }

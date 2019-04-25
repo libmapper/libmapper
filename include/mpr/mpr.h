@@ -71,15 +71,17 @@ mpr_prop mpr_obj_get_prop_by_idx(mpr_obj obj, mpr_prop prop, const char **key,
 mpr_prop mpr_obj_get_prop_by_key(mpr_obj obj, const char *key, int *length,
                                  mpr_type *type, const void **value, int *pub);
 
-int mpr_obj_get_prop_i32(mpr_obj obj, mpr_prop prop, const char *key);
+int mpr_obj_get_prop_as_i32(mpr_obj obj, mpr_prop prop, const char *key);
 
-float mpr_obj_get_prop_flt(mpr_obj obj, mpr_prop prop, const char *key);
+float mpr_obj_get_prop_as_flt(mpr_obj obj, mpr_prop prop, const char *key);
 
-const char *mpr_obj_get_prop_str(mpr_obj obj, mpr_prop prop, const char *key);
+const char *mpr_obj_get_prop_as_str(mpr_obj obj, mpr_prop prop, const char *key);
 
-void *mpr_obj_get_prop_ptr(mpr_obj obj, mpr_prop prop, const char *key);
+void *mpr_obj_get_prop_as_ptr(mpr_obj obj, mpr_prop prop, const char *key);
 
-mpr_list mpr_obj_get_prop_list(mpr_obj obj, mpr_prop prop, const char *key);
+mpr_obj mpr_obj_get_prop_as_obj(mpr_obj obj, mpr_prop prop, const char *key);
+
+mpr_list mpr_obj_get_prop_as_list(mpr_obj obj, mpr_prop prop, const char *key);
 
 /*! Set a property.  Can be used to provide arbitrary metadata. Value pointed
  *  to will be copied.
@@ -127,19 +129,19 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop prop, const char *key, int len,
  *  \param list1        The first object list.
  *  \param list2        The second object list.
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
-mpr_list mpr_list_union(mpr_list list1, mpr_list list2);
+mpr_list mpr_list_get_union(mpr_list list1, mpr_list list2);
 
 /*! Get the intersection of two object lists (objects matching list1 AND list2).
  *  \param list1        The first object list.
  *  \param list2        The second object list.
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
-mpr_list mpr_list_isect(mpr_list list1, mpr_list list2);
+mpr_list mpr_list_get_isect(mpr_list list1, mpr_list list2);
 
 /*! Get the difference between two object lists (objects in list1 but NOT list2).
  *  \param list1        The first object list.
  *  \param list2        The second object list.
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
-mpr_list mpr_list_diff(mpr_list list1, mpr_list list2);
+mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2);
 
 /*! Get an indexed item in a list of objects.
  *  \param list         The previous object record pointer.
@@ -152,12 +154,12 @@ mpr_obj mpr_list_get_idx(mpr_list list, unsigned int idx);
  *  next item in the list.
  *  \param list         The previous object record pointer.
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
-mpr_list mpr_list_next(mpr_list list);
+mpr_list mpr_list_get_next(mpr_list list);
 
 /*! Copy a previously-constructed object list.
  *  \param list         The previous object record pointer.
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
-mpr_list mpr_list_cpy(mpr_list list);
+mpr_list mpr_list_get_cpy(mpr_list list);
 
 /*! Given a object record pointer returned from a previous object query,
  *  indicate that we are done iterating.
@@ -167,7 +169,7 @@ void mpr_list_free(mpr_list list);
 /*! Return the number of objects in a previous object query list.
  *  \param list         The previous object record pointer.
  *  \return             The number of objects in the list. */
-int mpr_list_get_count(mpr_list list);
+int mpr_list_get_size(mpr_list list);
 
 /* @} */
 
@@ -192,29 +194,30 @@ int mpr_list_get_count(mpr_list list);
  *  \param type         The data type of the update value.
  *  \param value        A pointer to the value update.
  *  \param time         The timetag associated with this event. */
-typedef void mpr_sig_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst,
-                             int length, mpr_type type, const void *value,
-                             mpr_time_t *time);
+typedef void mpr_sig_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst, int length,
+                             mpr_type type, const void *value, mpr_time time);
 
 /*! Allocate and initialize a signal.  Values and strings pointed to by this
  *  call will be copied.  For min and max values, actual type must correspond
  *  to 'type' (if type=MPR_INT32, then int*, etc).
  *  \param parent       The object to add a signal to.
  *  \param dir          The signal direction.
- *  \param num_inst     The number of signal instances.
  *  \param name         The name of the signal.
  *  \param len          The length of the signal vector, or 1 for a scalar.
  *  \param type         The type fo the signal value.
  *  \param unit         The unit of the signal, or 0 for none.
  *  \param min          Pointer to a minimum value, or 0 for none.
  *  \param max          Pointer to a maximum value, or 0 for none.
+ *  \param num_inst     Pointer to the number of signal instances or 0 to
+ *                      indicate that instances will not be used.
  *  \param handler      Function to be called when the value of the signal is
  *                      updated.
  *  \param events       Bitflags for types of events we are interested in.
  *  \return             The new signal. */
-mpr_sig mpr_sig_new(mpr_dev parent, mpr_dir dir, int num_inst, const char *name,
-                    int len, mpr_type type, const char *unit, const void *min,
-                    const void *max, mpr_sig_handler *handler, int events);
+mpr_sig mpr_sig_new(mpr_dev parent, mpr_dir dir, const char *name, int len,
+                    mpr_type type, const char *unit, const void *min,
+                    const void *max, int *num_inst, mpr_sig_handler *handler,
+                    int events);
 
 /* Free resources used by a signal.
  * \param sig           The signal to free. */
@@ -223,7 +226,8 @@ void mpr_sig_free(mpr_sig sig);
 /*! Update the value of a signal instance.  The signal will be routed according
  *  to external requests.
  *  \param sig          The signal to operate on.
- *  \param inst         The identifier of the instance to update.
+ *  \param inst         A pointer to the identifier of the instance to update,
+ *                      or 0 for the default instance.
  *  \param length       Length of the value argument. Expected to be a multiple
  *                      of the signal length. A block of values can be accepted,
  *                      with the current value as the last value(s) in an array.
@@ -239,15 +243,16 @@ void mpr_sig_free(mpr_sig sig);
  *                      information on bundling multiple signal updates with the
  *                      same time. */
 void mpr_sig_set_value(mpr_sig sig, mpr_id inst, int length, mpr_type type,
-                       const void *value, mpr_time_t time);
+                       const void *value, mpr_time time);
 
 /*! Get the value of a signal instance.
  *  \param sig          The signal to operate on.
- *  \param inst         The identifier of the instance to operate on.
+ *  \param inst         A pointer to the identifier of the instance to query,
+ *                      or 0 for the default instance.
  *  \param time         A location to receive the value's time tag. May be 0.
  *  \return             A pointer to an array containing the value of the signal
  *                      instance, or 0 if the signal instance has no value. */
-const void *mpr_sig_get_value(mpr_sig sig, mpr_id inst, mpr_time_t *time);
+const void *mpr_sig_get_value(mpr_sig sig, mpr_id inst, mpr_time *time);
 
 /*! Return the list of maps associated with a given signal.
  *  \param sig          Signal record to query for maps.
@@ -283,7 +288,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data);
  *                      will be tagged with the current time. See
  *                      mpr_dev_start_queue() for more information on
  *                      bundling multiple signal updates with the same time. */
-void mpr_sig_release_inst(mpr_sig sig, mpr_id inst, mpr_time_t time);
+void mpr_sig_release_inst(mpr_sig sig, mpr_id inst, mpr_time time);
 
 /*! Remove a specific instance of a signal and free its memory.
  *  \param sig          The signal to operate on.
@@ -315,14 +320,14 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig);
 /*! Get a signal instance's identifier by its index.  Intended to be used for
  *  iterating over the active instances.
  *  \param sig          The signal to operate on.
- *  \param index        The numerical index of the ID to retrieve.  Should be
+ *  \param idx          The numerical index of the ID to retrieve.  Should be
  *                      between zero and the number of instances.
  *  \param status       The status of the instances to searchl should be set to
  *                      MPR_STATUS_ACTIVE, MPR_STATUS_RESERVED, or both
  *                      (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED).
  *  \return             The instance ID associated with the given index, or zero
  *                      if unsuccessful. */
-mpr_id mpr_sig_get_inst_id(mpr_sig sig, int index, mpr_status status);
+mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status);
 
 /*! Associate a signal instance with an arbitrary pointer.
  *  \param sig          The signal to operate on.
@@ -404,20 +409,20 @@ int mpr_dev_poll(mpr_dev dev, int block_ms);
  *  \return             Non-zero if device is completely initialized, i.e., has
  *                      an allocated receiving port and unique identifier.
  *                      Zero otherwise. */
-int mpr_dev_ready(mpr_dev dev);
+int mpr_dev_get_is_ready(mpr_dev dev);
 
 /*! Start a time-tagged queue.
  *  \param dev          The device to use.
  *  \param time         A time to use for the updates bundled by this queue,
  *                      or MPR_NOW to use the current local time.
  *  \return             The time used to identify this queue. */
-mpr_time_t mpr_dev_start_queue(mpr_dev dev, mpr_time_t time);
+mpr_time mpr_dev_start_queue(mpr_dev dev, mpr_time time);
 
 /*! Dispatch a time-tagged queue.
  *  \param dev          The device to use.
  *  \param time         The time for an existing queue created with
  *                      mpr_dev_start_queue(). */
-void mpr_dev_send_queue(mpr_dev dev, mpr_time_t time);
+void mpr_dev_send_queue(mpr_dev dev, mpr_time time);
 
 /* @} */
 
@@ -455,21 +460,21 @@ int mpr_map_get_num_sigs(mpr_map map, mpr_loc loc);
 /*! Retrieve a signal for a specific map.
  *  \param map          The map to check.
  *  \param loc          The map endpoint, must be MPR_LOC_SRC or MPR_LOC_DST.
- *  \param index        The signal index.
+ *  \param idx          The signal index.
  *  \return             The signal, or NULL if not available. */
-mpr_sig mpr_map_get_sig(mpr_map map, mpr_loc loc, int index);
+mpr_sig mpr_map_get_sig(mpr_map map, mpr_loc loc, int idx);
 
 /*! Retrieve the index for a specific map signal.
  *  \param map          The map to check.
  *  \param sig          The signal to find.
  *  \return             The signal index. */
-int mpr_map_get_sig_index(mpr_map map, mpr_sig sig);
+int mpr_map_get_sig_idx(mpr_map map, mpr_sig sig);
 
 /*! Detect whether a map is completely initialized.
  *  \param map          The device to query.
  *  \return             Non-zero if map is completely initialized, zero
  *                      otherwise. */
-int mpr_map_ready(mpr_map map);
+int mpr_map_get_is_ready(mpr_map map);
 
 /*! Re-create stale map if necessary.
  *  \param map          The map to operate on. */
@@ -586,7 +591,7 @@ void mpr_graph_unsubscribe(mpr_graph g, mpr_dev dev);
  *  \param evt          A value of mpr_graph_evt indicating what is happening
  *                      to the object record.
  *  \param data         The user context pointer registered with this callback. */
-typedef void mpr_graph_handler(mpr_graph g, mpr_obj obj, mpr_graph_evt evt,
+typedef void mpr_graph_handler(mpr_graph g, mpr_obj obj, const mpr_graph_evt evt,
                                const void *data);
 
 /*! Register a callback for when an object record is added or updated in the
@@ -596,29 +601,25 @@ typedef void mpr_graph_handler(mpr_graph g, mpr_obj obj, mpr_graph_evt evt,
  *  \param types        Bitflags setting the type of information of interest.
  *                      Can be a combination of mpr_data_type values.
  *  \param data         A user-defined pointer to be passed to the callback
- *                      for context. */
-void mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types,
-                      const void *data);
+ *                      for context.
+ *  \return             One if a callback was added, otherwise zero. */
+int mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types,
+                     const void *data);
 
 /*! Remove a device record callback from the graph service.
  *  \param g            The graph to query.
  *  \param h            Callback function.
  *  \param data         The user context pointer that was originally specified
- *                      when adding the callback. */
-void mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *data);
+ *                      when adding the callback.
+ *  \return             One if a callback was removed, otherwise zero. */
+int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *data);
 
 /*! Return a list of objects.
  *  \param g            The graph to query.
  *  \param types        Bitflags setting the type of information of interest.
  *                      Can be a combination of mpr_data_type values.
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
-mpr_list mpr_graph_get_list(mpr_graph g, int types);
-
-/*! Return the list of maps that use the given scope.
- *  \param g            The graph to query.
- *  \param dev          The device owning the scope to query.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
-mpr_list mpr_graph_get_maps_by_scope(mpr_graph g, mpr_dev dev);
+mpr_list mpr_graph_get_objs(mpr_graph g, int types);
 
 /* @} */
 
@@ -628,50 +629,46 @@ mpr_list mpr_graph_get_maps_by_scope(mpr_graph g, mpr_dev dev);
 
  @{ libmpr primarily uses NTP timetags for communication and synchronization. */
 
-/*! Initialize a time structure to the current time.
- *  \param time         A previously allocated time structure to initialize. */
-void mpr_time_now(mpr_time_t *time);
-
 /*! Add a time to another given time.
  *  \param augend       A previously allocated time to augment.
  *  \param addend       A time to add. */
-void mpr_time_add(mpr_time_t *augend, mpr_time_t addend);
+void mpr_time_add(mpr_time *augend, mpr_time addend);
 
 /*! Add a double-precision floating point value to another given time.
  *  \param augend       A previously allocated time to augment.
  *  \param addend       A value in seconds to add. */
-void mpr_time_add_dbl(mpr_time_t *augend, double addend);
+void mpr_time_add_dbl(mpr_time *augend, double addend);
 
 /*! Subtract a time from another given time.
  *  \param minuend      A previously allocated time to augment.
  *  \param subtrahend   A time to add to subtract. */
-void mpr_time_sub(mpr_time_t *minuend, mpr_time_t subtrahend);
+void mpr_time_sub(mpr_time *minuend, mpr_time subtrahend);
 
 /*! Add a double-precision floating point value to another given time.
  *  \param time         A previously allocated time to multiply.
  *  \param multiplicand A value in seconds. */
-void mpr_time_mul(mpr_time_t *time, double multiplicand);
+void mpr_time_mul(mpr_time *time, double multiplicand);
 
 /*! Return value of mpr_time as a double-precision floating point value.
  *  \param time         The time to read.
  *  \return             Value of the time as a double-precision float. */
-double mpr_time_get_dbl(mpr_time_t time);
+double mpr_time_as_dbl(mpr_time time);
 
 /*! Set value of a mpr_time from a double-precision floating point value.
  *  \param time         A previously-allocated time to set.
  *  \param value        The value in seconds to set. */
-void mpr_time_set_dbl(mpr_time_t *time, double value);
+void mpr_time_set_dbl(mpr_time *time, double value);
 
 /*! Copy value of a mpr_time.
  *  \param timel        The target time for copying.
  *  \param timer        The source time. */
-void mpr_time_cpy(mpr_time_t *timel, mpr_time_t timer);
+void mpr_time_set(mpr_time *timel, mpr_time timer);
 
 /* @} */
 
 /*! Get the version of libmpr.
  *  \return             A string specifying the version of libmpr. */
-const char *mpr_version(void);
+const char *mpr_get_version(void);
 
 #ifdef __cplusplus
 }

@@ -10,6 +10,8 @@
 #include "types_internal.h"
 #include <mpr/mpr.h>
 
+#define MAX_LEN 512
+
 /*! Function prototypes. */
 static void reallocate_map_histories(mpr_map m);
 
@@ -24,9 +26,9 @@ static int alphabetise_sigs(int num, mpr_sig *s, int *o)
             res1 = strcmp(s[o[j]]->dev->name, s[o[j+1]]->dev->name);
             if (res1 < 0)
                 break;
-            else if (res1 == 0) {
+            else if (0 == res1) {
                 res2 = strcmp(s[o[j]]->name, s[o[j+1]]->name);
-                if (res2 == 0) {
+                if (0 == res2) {
                     // abort: identical signal names
                     return 1;
                 }
@@ -61,17 +63,18 @@ void mpr_map_init(mpr_map m)
     mpr_tbl t = m->obj.props.synced;
 
     // these properties need to be added in alphabetical order
+    mpr_tbl_link(t, PROP(DATA), 1, MPR_PTR, &m->obj.data,
+                 MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(t, PROP(EXPR), 1, MPR_STR, &m->expr_str, MODIFIABLE | INDIRECT);
     mpr_tbl_link(t, PROP(ID), 1, MPR_INT64, &m->obj.id, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(t, PROP(MUTED), 1, MPR_BOOL, &m->muted, MODIFIABLE);
     mpr_tbl_link(t, PROP(NUM_SIGS_IN), 1, MPR_INT32, &m->num_src, NON_MODIFIABLE);
     mpr_tbl_link(t, PROP(PROCESS_LOC), 1, MPR_INT32, &m->process_loc, MODIFIABLE);
     mpr_tbl_link(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, REMOTE_MODIFY);
-    mpr_list q = mpr_list_new_query(m->obj.graph->devs, cmp_qry_map_scopes, "v", &m);
+    mpr_list q = mpr_list_new_query((const void**)&m->obj.graph->devs,
+                                    cmp_qry_map_scopes, "v", &m);
     mpr_tbl_link(t, PROP(SCOPE), 1, MPR_LIST, q, NON_MODIFIABLE | PROP_OWNED);
     mpr_tbl_link(t, PROP(STATUS), 1, MPR_INT32, &m->status, NON_MODIFIABLE);
-    mpr_tbl_link(t, PROP(DATA), 1, MPR_PTR, &m->obj.data,
-                 MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, REMOTE_MODIFY);
 
     int i, is_local = 0;
@@ -108,7 +111,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         }
     }
     // Only 1 destination supported for now
-    RETURN_UNLESS(num_dst == 1, 0);
+    RETURN_UNLESS(1 == num_dst, 0);
     mpr_graph g = (*dst)->obj.graph;
 
     // check if record of map already exists
@@ -120,7 +123,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
             o = mpr_graph_get_obj(g, MPR_SIG, src[i]->obj.id);
             if (o) {
                 temp = mpr_sig_get_maps((mpr_sig)o, MPR_DIR_OUT);
-                maps = mpr_list_isect(maps, temp);
+                maps = mpr_list_get_isect(maps, temp);
             }
             else {
                 mpr_list_free(maps);
@@ -134,7 +137,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
                 mpr_list_free(maps);
                 return m;
             }
-            maps = mpr_list_next(maps);
+            maps = mpr_list_get_next(maps);
         }
     }
 
@@ -187,14 +190,14 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
 
 void mpr_map_release(mpr_map m)
 {
-    mpr_net_bus(&m->obj.graph->net);
+    mpr_net_use_bus(&m->obj.graph->net);
     mpr_map_send_state(m, -1, MSG_UNMAP);
 }
 
 void mpr_map_refresh(mpr_map m)
 {
     RETURN_UNLESS(m);
-    mpr_net_bus(&m->obj.graph->net);
+    mpr_net_use_bus(&m->obj.graph->net);
     mpr_map_send_state(m, -1, m->loc ? MSG_MAP_TO : MSG_MAP);
 }
 
@@ -246,7 +249,7 @@ mpr_slot mpr_map_get_slot_by_sig(mpr_map m, mpr_sig s)
     return 0;
 }
 
-int mpr_map_get_sig_index(mpr_map m, mpr_sig s)
+int mpr_map_get_sig_idx(mpr_map m, mpr_sig s)
 {
     int i;
     if (m->dst->sig->obj.id == s->obj.id)
@@ -258,9 +261,9 @@ int mpr_map_get_sig_index(mpr_map m, mpr_sig s)
     return -1;
 }
 
-int mpr_map_ready(mpr_map m)
+int mpr_map_get_is_ready(mpr_map m)
 {
-    return m ? (m->status == MPR_STATUS_ACTIVE) : 0;
+    return m ? (MPR_STATUS_ACTIVE == m->status) : 0;
 }
 
 void mpr_map_add_scope(mpr_map m, mpr_dev d)
@@ -268,9 +271,9 @@ void mpr_map_add_scope(mpr_map m, mpr_dev d)
     RETURN_UNLESS(m);
     mpr_prop p = PROP(SCOPE) | PROP_ADD;
     mpr_tbl_record r = mpr_tbl_get(m->obj.props.staged, p, NULL);
-    if (r && r->type == MPR_STR) {
+    if (r && MPR_STR == r->type) {
         const char *names[r->len+1];
-        if (r->len == 1)
+        if (1 == r->len)
             names[0] = (const char*)r->val;
         for (int i = 0; i < r->len; i++)
             names[i] = ((const char**)r->val)[i];
@@ -288,9 +291,9 @@ void mpr_map_remove_scope(mpr_map m, mpr_dev d)
     mpr_prop p = PROP(SCOPE) | PROP_REMOVE;
     mpr_tbl t = m->obj.props.staged;
     mpr_tbl_record r = mpr_tbl_get(t, p, NULL);
-    if (r && r->type == MPR_STR) {
+    if (r && MPR_STR == r->type) {
         const char *names[r->len];
-        if (r->len == 1) {
+        if (1 == r->len) {
             if (0 == strcmp((const char*)r->val, d->name))
                 mpr_tbl_remove(t, p, NULL, REMOTE_MODIFY);
         }
@@ -351,10 +354,9 @@ static int remove_scope_internal(mpr_map m, const char *name)
     }
     if (i == m->num_scopes)
         return 0;
-
     // found - remove scope at index i
-    for (; i < m->num_scopes; i++)
-        m->scopes[i-1] = m->scopes[i];
+    for (++i; i < m->num_scopes - 1; i++)
+        m->scopes[i] = m->scopes[i + 1];
     --m->num_scopes;
     m->scopes = realloc(m->scopes, m->num_scopes * sizeof(mpr_dev));
     return 1;
@@ -365,7 +367,7 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
     int i, j, updated = 0, num = a->len;
     lo_arg **scope_list = a->vals;
     if (scope_list && *scope_list) {
-        if (num == 1 && strcmp(&scope_list[0]->s, "none")==0)
+        if (1 == num && strcmp(&scope_list[0]->s, "none")==0)
             num = 0;
         const char *name, *no_slash;
 
@@ -381,7 +383,7 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
                     }
                     break;
                 }
-                no_slash = name[0] == '/' ? name + 1 : name;
+                no_slash = ('/' == name[0]) ? name + 1 : name;
                 if (strcmp(no_slash, m->scopes[i]->name) == 0) {
                     found = 1;
                     break;
@@ -399,69 +401,14 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
     return updated;
 }
 
-#define CALIBRATE(TYPE)                         \
-{                                               \
-    TYPE *v = mpr_hist_val_ptr(from[inst]);     \
-    TYPE *src_min = (TYPE*)slot->min;           \
-    TYPE *src_max = (TYPE*)slot->max;           \
-    if (slot->calib == 1) {                     \
-        for (i = 0; i < from->len; i++) {       \
-            src_min[i] = v[i];                  \
-            src_max[i] = v[i];                  \
-        }                                       \
-        slot->calib = 2;                        \
-        changed = 1;                            \
-    }                                           \
-    else {                                      \
-        for (i = 0; i < from->len; i++) {       \
-            if (v[i] < src_min[i]) {            \
-                src_min[i] = v[i];              \
-                changed = 1;                    \
-            }                                   \
-            if (v[i] > src_max[i]) {            \
-                src_max[i] = v[i];              \
-                changed = 1;                    \
-            }                                   \
-        }                                       \
-    }                                           \
-}
-
 // only called for outgoing maps
 int mpr_map_perform(mpr_map m, mpr_slot slot, int inst, mpr_type *types)
 {
-    int changed = 0, i;
+    int i;
     mpr_hist from = slot->loc->hist;
     mpr_hist to = m->dst->loc->hist;
 
-    if (slot->calib) {
-        if (!slot->min)
-            slot->min = malloc(slot->sig->len * mpr_type_size(slot->sig->type));
-        if (!slot->max)
-            slot->max = malloc(slot->sig->len * mpr_type_size(slot->sig->type));
-
-        // If calibration has just started, first data sample sets src min & max
-        switch (slot->sig->type) {
-            case MPR_FLT:   CALIBRATE(float);   break;
-            case MPR_INT32: CALIBRATE(int);     break;
-            case MPR_DBL:   CALIBRATE(double);  break;
-            default:                            break;
-        }
-    }
-
-    RETURN_UNLESS(m->status == MPR_STATUS_ACTIVE && !m->muted, 0);
-
-    if (m->process_loc == MPR_LOC_DST) {
-        to[inst].pos = 0;
-        // copy value without type coercion
-        memcpy(mpr_hist_val_ptr(to[inst]), mpr_hist_val_ptr(from[inst]),
-               mpr_sig_vector_bytes(slot->sig));
-        // copy time
-        memcpy(mpr_hist_time_ptr(to[inst]), mpr_hist_time_ptr(from[inst]),
-               sizeof(mpr_time_t));
-        for (i = 0; i < from->len; i++)
-            types[i] = m->src[0]->sig->type;
-        return 1;
-    }
+    RETURN_UNLESS(MPR_STATUS_ACTIVE == m->status && !m->muted, 0);
 
     if (!m->loc->expr) {
         trace("error: missing expression.\n");
@@ -472,17 +419,15 @@ int mpr_map_perform(mpr_map m, mpr_slot slot, int inst, mpr_type *types)
     for (i = 0; i < m->num_src; i++)
         src[i] = &m->src[i]->loc->hist[inst];
     return (mpr_expr_eval(m->loc->expr, src, &m->loc->expr_var[inst], &to[inst],
-                          mpr_hist_time_ptr(from[inst]), types));
+                          mpr_hist_get_time_ptr(from[inst]), types));
 }
 
 /*! Build a value update message for a given map. */
 lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
                              int count, mpr_type *types, mpr_id_map idmap)
 {
-    int i;
-    int len = ((m->process_loc == MPR_LOC_SRC)
-               ? m->dst->sig->len * count : slot->sig->len * count);
-
+    int i, len = ((MPR_LOC_SRC == m->process_loc)
+                  ? m->dst->sig->len * count : slot->sig->len * count);
     NEW_LO_MSG(msg, return 0);
 
     if (val && types) {
@@ -504,7 +449,7 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
         lo_message_add_string(msg, "@instance");
         lo_message_add_int64(msg, idmap->GID);
     }
-    if (m->process_loc == MPR_LOC_DST) {
+    if (MPR_LOC_DST == m->process_loc) {
         // add slot
         lo_message_add_string(msg, "@slot");
         lo_message_add_int32(msg, slot->obj.id);
@@ -519,9 +464,8 @@ static int replace_expr_str(mpr_map m, const char *expr_str)
     if (m->loc->expr && m->expr_str && strcmp(m->expr_str, expr_str)==0)
         return 1;
 
-    int i;
+    int i, src_lens[m->num_src];
     char src_types[m->num_src];
-    int src_lens[m->num_src];
     for (i = 0; i < m->num_src; i++) {
         src_types[i] = m->src[i]->sig->type;
         src_lens[i] = m->src[i]->sig->len;
@@ -534,8 +478,8 @@ static int replace_expr_str(mpr_map m, const char *expr_str)
     // expression update may force processing location to change
     // e.g. if expression combines signals from different devices
     // e.g. if expression refers to current/past value of destination
-    int out_hist_size = mpr_expr_out_hist_size(expr);
-    if (out_hist_size > 1 && m->process_loc == MPR_LOC_SRC) {
+    int out_hist_size = mpr_expr_get_out_hist_size(expr);
+    if (out_hist_size > 1 && MPR_LOC_SRC == m->process_loc) {
         m->process_loc = MPR_LOC_DST;
         if (!m->dst->sig->loc) {
             // copy expression string but do not execute it
@@ -557,117 +501,117 @@ static int replace_expr_str(mpr_map m, const char *expr_str)
     return 0;
 }
 
-static double propval_get_double(const void *val, const mpr_type type, int idx)
+static int print_var(const char *varname, char *str, int max_len, int vec_len,
+                     mpr_type type, const void *val)
 {
+    if (!str || strlen <= 0)
+        return -1;
+    snprintf(str, max_len, "%s=", varname);
+    int i, str_len = strlen(str);
+    if (vec_len > 1)
+        snprintf(str+str_len, max_len-str_len, "[");
     switch (type) {
-        case MPR_FLT:   return (double)((float*)val)[idx];
-        case MPR_INT32: return (double)((int*)val)[idx];
-        case MPR_DBL:   return ((double*)val)[idx];
+        case MPR_INT32:
+            for (i = 0; i < vec_len; i++) {
+                str_len = strlen(str);
+                snprintf(str+str_len, max_len-str_len, "%d,", ((int*)val)[i]);
+            }
+            break;
+        case MPR_FLT:
+            for (i = 0; i < vec_len; i++) {
+                str_len = strlen(str);
+                snprintf(str+str_len, max_len-str_len, "%f,", ((float*)val)[i]);
+            }
+            break;
+        case MPR_DBL:
+            for (i = 0; i < vec_len; i++) {
+                str_len = strlen(str);
+                snprintf(str+str_len, max_len-str_len, "%f,", ((double*)val)[i]);
+            }
+            break;
+        default:
+            break;
     }
-    return 0;
+    str_len = strlen(str) - 1;
+    if (vec_len > 1)
+        snprintf(str+str_len, max_len-str_len, "];");
+    else
+        snprintf(str+str_len, max_len-str_len, ";");
+    return strlen(str);
+}
+
+static inline int _min(int a, int b)
+{
+    return a < b ? a : b;
 }
 
 const char *mpr_map_set_linear(mpr_map m, int slen, mpr_type stype,
                                const void *smin, const void *smax, int dlen,
                                mpr_type dtype, const void *dmin, const void *dmax)
 {
-    int i, min_len, str_len;
-    char expr[256] = "";
+    int i, str_len;
+    char expr[MAX_LEN] = "";
     const char *e = expr;
 
-    mpr_tbl tbl = m->src[0]->obj.props.synced;
+    int min_len = slen ?: m->src[0]->sig->len;
+    min_len = _min(min_len, dlen ?: m->dst->sig->len);
+
     if (smin)
-        mpr_tbl_set(tbl, PROP(MIN), NULL, slen, stype, smin, REMOTE_MODIFY);
+        str_len = print_var("srcMin", expr, MAX_LEN, min_len, stype, smin);
+    else if (m->src[0]->sig->min)
+        str_len = print_var("srcMin", expr, MAX_LEN, min_len,
+                            m->src[0]->sig->type, m->src[0]->sig->min);
+    else
+        return NULL;
+
     if (smax)
-        mpr_tbl_set(tbl, PROP(MAX), NULL, slen, stype, smax, REMOTE_MODIFY);
+        str_len += print_var("srcMax", expr+str_len, MAX_LEN-str_len, min_len,
+                             stype, smax);
+    else if (m->src[0]->sig->max)
+        str_len += print_var("srcMax", expr+str_len, MAX_LEN-str_len, min_len,
+                             m->src[0]->sig->type, m->src[0]->sig->max);
+    else
+        return NULL;
 
-    tbl = m->dst->obj.props.synced;
     if (dmin)
-        mpr_tbl_set(tbl, PROP(MIN), NULL, dlen, dtype, dmin, REMOTE_MODIFY);
+        str_len += print_var("dstMin", expr+str_len, MAX_LEN-str_len, min_len,
+                             dtype, dmin);
+    else if (m->dst->sig->min)
+        str_len += print_var("dstMin", expr+str_len, MAX_LEN-str_len, min_len,
+                             m->dst->sig->type, m->dst->sig->min);
+    else
+        return NULL;
+
     if (dmax)
-        mpr_tbl_set(tbl, PROP(MAX), NULL, dlen, dtype, dmax, REMOTE_MODIFY);
+        str_len += print_var("dstMax", expr+str_len, MAX_LEN-str_len, min_len,
+                             dtype, dmax);
+    else if (m->dst->sig->max)
+        str_len += print_var("dstMax", expr+str_len, MAX_LEN-str_len, min_len,
+                             m->dst->sig->type, m->dst->sig->max);
+    else
+        return NULL;
 
-    slen = m->src[0]->sig->len;
-    stype = m->src[0]->sig->type;
-    smin = m->src[0]->min;
-    smax = m->src[0]->max;
+    snprintf(expr+str_len, MAX_LEN-str_len,
+             "srcRange=srcMax-srcMin;"
+             "m=srcRange?((dstMax-dstMin)/srcRange):0;"
+             "b=srcRange?(dstMin*srcMax-dstMax*srcMin)/srcRange:dstMin;");
 
-    dlen = m->dst->sig->len;
-    dtype = m->dst->sig->type;
-    dmin = m->dst->min;
-    dmax = m->dst->max;
+    str_len = strlen(expr);
 
-    RETURN_UNLESS(smin && smax && dmin && dmax, 0);
-
-    min_len = (slen < dlen ? slen : dlen);
-    double src_mind = 0, src_maxd = 0, dst_mind = 0, dst_maxd = 0;
-
-    if (dlen == slen)
-        snprintf(expr, 256, "y=x*");
-    else if (dlen > slen) {
+    if (m->dst->sig->len == m->src[0]->sig->len)
+        snprintf(expr+str_len, MAX_LEN-str_len, "y=m*x+b");
+    else if (m->dst->sig->len > m->src[0]->sig->len) {
         if (min_len == 1)
-            snprintf(expr, 256, "y[0]=x*");
+            snprintf(expr+str_len, MAX_LEN-str_len, "y[0]=m*x+b");
         else
-            snprintf(expr, 256, "y[0:%i]=x*", min_len-1);
+            snprintf(expr+str_len, MAX_LEN-str_len, "y[0:%i]=m*x+b", min_len-1);
     }
     else if (min_len == 1)
-        snprintf(expr, 256, "y=x[0]*");
+        snprintf(expr+str_len, MAX_LEN-str_len, "y=m*x[0]+b");
     else
-        snprintf(expr, 256, "y=x[0:%i]*", min_len-1);
+        snprintf(expr+str_len, MAX_LEN-str_len, "y=m*x[0:%i]+b", min_len-1);
 
-    if (min_len > 1) {
-        str_len = strlen(expr);
-        snprintf(expr+str_len, 256-str_len, "[");
-    }
-
-    // add multiplier
-    for (i = 0; i < min_len; i++) {
-        src_mind = propval_get_double(smin, stype, (i<slen) ? i : slen-1);
-        src_maxd = propval_get_double(smax, stype, (i<slen) ? i : slen-1);
-        str_len = strlen(expr);
-        if (src_mind == src_maxd)
-            snprintf(expr+str_len, 256-str_len, "0,");
-        else {
-            dst_mind = propval_get_double(dmin, dtype, (i<dlen) ? i : dlen-1);
-            dst_maxd = propval_get_double(dmax, dtype, (i<dlen) ? i : dlen-1);
-            if ((src_mind == dst_mind) && (src_maxd == dst_maxd))
-                snprintf(expr+str_len, 256-str_len, "1,");
-            else {
-                double scale = ((dst_mind - dst_maxd) / (src_mind - src_maxd));
-                snprintf(expr+str_len, 256-str_len, "%g,", scale);
-            }
-        }
-    }
-    str_len = strlen(expr);
-    if (min_len > 1)
-        snprintf(expr+str_len-1, 256-str_len+1, "]+[");
-    else
-        snprintf(expr+str_len-1, 256-str_len+1, "+");
-
-    // add offset
-    for (i = 0; i < min_len; i++) {
-        src_mind = propval_get_double(smin, stype, (i<slen) ? i : slen-1);
-        src_maxd = propval_get_double(smax, stype, (i<slen) ? i : slen-1);
-        str_len = strlen(expr);
-        if (src_mind == src_maxd)
-            snprintf(expr+str_len, 256-str_len, "%g,", dst_mind);
-        else {
-            dst_mind = propval_get_double(dmin, dtype, (i<dlen) ? i : dlen-1);
-            dst_maxd = propval_get_double(dmax, dtype, (i<dlen) ? i : dlen-1);
-            if ((src_mind == dst_mind) && (src_maxd == dst_maxd))
-                snprintf(expr+str_len, 256-str_len, "0,");
-            else {
-                double offset = ((dst_maxd * src_mind - dst_mind * src_maxd)
-                                 / (src_mind - src_maxd));
-                snprintf(expr+str_len, 256-str_len, "%g,", offset);
-            }
-        }
-    }
-    str_len = strlen(expr);
-    if (min_len > 1)
-        snprintf(expr+str_len-1, 256-str_len+1, "]");
-    else
-        expr[str_len-1] = '\0';
+    trace("linear expression requires %d chars\n", (int)strlen(expr));
 
     // If everything is successful, replace the map's expression.
     if (e) {
@@ -675,7 +619,7 @@ const char *mpr_map_set_linear(mpr_map m, int slen, mpr_type stype,
         if (m->loc) {
             if (m->loc->is_local_only)
                 should_compile = 1;
-            else if (m->process_loc == MPR_LOC_DST) {
+            else if (MPR_LOC_DST == m->process_loc) {
                 // check if destination is local
                 if (m->dst->loc->rsig)
                     should_compile = 1;
@@ -688,8 +632,17 @@ const char *mpr_map_set_linear(mpr_map m, int slen, mpr_type stype,
             }
         }
         if (should_compile) {
-            if (!replace_expr_str(m, e))
+            if (!replace_expr_str(m, e)) {
                 reallocate_map_histories(m);
+
+                // evaluate expression to intialise literals
+                mpr_time now;
+                mpr_time_set(&now, MPR_NOW);
+                mpr_hist *vars = m->loc->expr_var;
+                mpr_hist to = m->dst->loc->hist;
+                for (i = 0; i < m->loc->num_var_inst; i++)
+                    mpr_expr_eval(m->loc->expr, 0, &vars[i], &to[i], &now, 0);
+            }
         }
         else {
             mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, e,
@@ -704,7 +657,7 @@ static void mpr_map_set_expr(mpr_map m, const char *expr)
     int i, should_compile = 0;
     if (m->loc->is_local_only)
         should_compile = 1;
-    else if (m->process_loc == MPR_LOC_DST) {
+    else if (MPR_LOC_DST == m->process_loc) {
         // check if destination is local
         if (m->dst->loc->rsig)
             should_compile = 1;
@@ -716,8 +669,16 @@ static void mpr_map_set_expr(mpr_map m, const char *expr)
         }
     }
     if (should_compile) {
-        if (!replace_expr_str(m, expr))
+        if (!replace_expr_str(m, expr)) {
             reallocate_map_histories(m);
+                // evaluate expression to intialise literals
+            mpr_time now;
+            mpr_time_set(&now, MPR_NOW);
+            mpr_hist *vars = m->loc->expr_var;
+            mpr_hist to = m->dst->loc->hist;
+            for (i = 0; i < m->loc->num_var_inst; i++)
+                mpr_expr_eval(m->loc->expr, 0, &vars[i], &to[i], &now, 0);
+        }
         else
             return;
     }
@@ -738,12 +699,17 @@ static void mpr_map_set_expr(mpr_map m, const char *expr)
         }
     }
     use_inst += m->dst->use_inst;
-    if (mpr_expr_const_out(m->loc->expr) && !use_inst) {
-        mpr_time_t now;
-        mpr_time_now(&now);
+    if (mpr_expr_get_num_input_slots(m->loc->expr) <= 0 && !use_inst) {
+        mpr_time now;
+        mpr_time_set(&now, MPR_NOW);
 
         // evaluate expression
-        mpr_expr_eval(m->loc->expr, 0, 0, m->dst->loc->hist, &now, 0);
+        for (i = 0; i < m->loc->num_var_inst; i++) {
+            mpr_hist *vars = m->loc->expr_var;
+            mpr_hist to = m->dst->loc->hist;
+            for (i = 0; i < m->loc->num_var_inst; i++)
+                mpr_expr_eval(m->loc->expr, 0, &vars[i], &to[i], &now, 0);
+        }
 
         // call handler if it exists
         if (m->dst->loc) {
@@ -751,13 +717,13 @@ static void mpr_map_set_expr(mpr_map m, const char *expr)
             mpr_sig_handler *h = sig->loc->handler;
             if (h)
                 h(sig, MPR_SIG_UPDATE, 0, sig->len, sig->type,
-                  &m->dst->loc->hist[0].val, &now);
+                  &m->dst->loc->hist[0].val, now);
         }
     }
 
     // check whether each source slot causes computation
     for (i = 0; i < m->num_src; i++)
-        m->src[i]->causes_update = !mpr_expr_src_muted(m->loc->expr, i);
+        m->src[i]->causes_update = !mpr_expr_get_src_is_muted(m->loc->expr, i);
 }
 
 // TODO: move to slot.c?
@@ -772,15 +738,15 @@ static void init_slot_hist(mpr_slot slot)
         hist->type = slot->sig->type;
         hist->len = slot->sig->len;
         hist->size = 1;
-        hist->val = calloc(1, mpr_type_size(slot->sig->type) * slot->sig->len);
-        hist->time = calloc(1, sizeof(mpr_time_t));
+        hist->val = calloc(1, mpr_type_get_size(slot->sig->type) * slot->sig->len);
+        hist->time = calloc(1, sizeof(mpr_time));
         hist->pos = -1;
     }
 }
 
 static void apply_expr(mpr_map m)
 {
-    if (m->process_loc == MPR_LOC_DST && !m->dst->loc)
+    if (MPR_LOC_DST == m->process_loc && !m->dst->loc)
         return;
 
     // try user-defined expression
@@ -790,30 +756,29 @@ static void apply_expr(mpr_map m)
     }
 
     // try linear scaling
-    mpr_sig s = m->src[0]->sig, d = m->dst->sig;
-    if (mpr_map_set_linear(m, s->len, s->type, s->min, s->max, d->len, d->type,
-                           d->min, d->max))
+    mpr_slot s = m->src[0], d = m->dst;
+    if (mpr_map_set_linear(m, s->sig->len, s->sig->type, s->min, s->max,
+                           d->sig->len, d->sig->type, d->min, d->max))
         return;
 
     // try linear combination of inputs
-    char expr_str[256] = "";
-    if (m->num_src == 1) {
+    char expr_str[MAX_LEN] = "";
+    if (1 == m->num_src) {
         if (m->src[0]->sig->len == m->dst->sig->len)
-            snprintf(expr_str, 256, "y=x");
+            snprintf(expr_str, MAX_LEN, "y=x");
         else if (m->src[0]->sig->len > m->dst->sig->len) {
             // truncate source
-            if (m->dst->sig->len == 1)
-                snprintf(expr_str, 256, "y=x[0]");
+            if (1 == m->dst->sig->len)
+                snprintf(expr_str, MAX_LEN, "y=x[0]");
             else
-                snprintf(expr_str, 256, "y=x[0:%i]", m->dst->sig->len-1);
+                snprintf(expr_str, MAX_LEN, "y=x[0:%i]", m->dst->sig->len-1);
         }
-        else {
+        else if (1 == m->src[0]->sig->len) {
             // truncate dst
-            if (m->src[0]->sig->len == 1)
-                snprintf(expr_str, 256, "y[0]=x");
-            else
-                snprintf(expr_str, 256, "y[0:%i]=x", m->src[0]->sig->len-1);
+            snprintf(expr_str, MAX_LEN, "y[0]=x");
         }
+        else
+            snprintf(expr_str, MAX_LEN, "y[0:%i]=x", m->src[0]->sig->len-1);
     }
     else {
         // check vector lengths
@@ -826,39 +791,39 @@ static void apply_expr(mpr_map m)
         }
         int offset = 0, dst_vec_len;
         if (max_vec_len < m->dst->sig->len) {
-            snprintf(expr_str, 256, "y[0:%d]=(", max_vec_len-1);
+            snprintf(expr_str, MAX_LEN, "y[0:%d]=(", max_vec_len-1);
             offset = strlen(expr_str);
             dst_vec_len = max_vec_len;
         }
         else {
-            snprintf(expr_str, 256, "y=(");
+            snprintf(expr_str, MAX_LEN, "y=(");
             offset = 3;
             dst_vec_len = m->dst->sig->len;
         }
         for (i = 0; i < m->num_src; i++) {
             if (m->src[i]->sig->len > dst_vec_len) {
-                snprintf(expr_str + offset, 256 - offset,
+                snprintf(expr_str + offset, MAX_LEN - offset,
                          "x%d[0:%d]+", i, dst_vec_len-1);
                 offset = strlen(expr_str);
             }
             else if (m->src[i]->sig->len < dst_vec_len) {
-                snprintf(expr_str + offset, 256 - offset,
+                snprintf(expr_str + offset, MAX_LEN - offset,
                          "[x%d,0", i);
                 offset = strlen(expr_str);
                 for (j = 1; j < dst_vec_len - m->src[0]->sig->len; j++) {
-                    snprintf(expr_str + offset, 256 - offset, ",0");
+                    snprintf(expr_str + offset, MAX_LEN - offset, ",0");
                     offset += 2;
                 }
-                snprintf(expr_str + offset, 256 - offset, "]+");
+                snprintf(expr_str + offset, MAX_LEN - offset, "]+");
                 offset += 2;
             }
             else {
-                snprintf(expr_str + offset, 256 - offset, "x%d+", i);
+                snprintf(expr_str + offset, MAX_LEN - offset, "x%d+", i);
                 offset = strlen(expr_str);
             }
         }
         --offset;
-        snprintf(expr_str + offset, 256 - offset, ")/%d", m->num_src);
+        snprintf(expr_str + offset, MAX_LEN - offset, ")/%d", m->num_src);
     }
     mpr_map_set_expr(m, expr_str);
 }
@@ -868,13 +833,12 @@ static int mpr_map_check_status(mpr_map m)
     if (bitmatch(m->status, MPR_STATUS_READY))
         return m->status;
 
+    int i, mask = ~MPR_STATUS_LINK_KNOWN;
     m->status |= MPR_STATUS_LINK_KNOWN;
-    int mask = ~MPR_STATUS_LINK_KNOWN;
     if (m->dst->loc->rsig || (m->dst->link && m->dst->link && m->dst->link->addr.udp))
         m->dst->loc->status |= MPR_STATUS_LINK_KNOWN;
     m->status &= (m->dst->loc->status | mask);
 
-    int i;
     for (i = 0; i < m->num_src; i++) {
         if (m->src[i]->loc->rsig || (m->src[i]->link && m->src[i]->link
                                      && m->src[i]->link->addr.udp))
@@ -882,7 +846,7 @@ static int mpr_map_check_status(mpr_map m)
         m->status &= (m->src[i]->loc->status | mask);
     }
 
-    if (m->status == MPR_STATUS_LINK_KNOWN) {
+    if (MPR_STATUS_LINK_KNOWN == m->status) {
         // allocate memory for map history
         for (i = 0; i < m->num_src; i++)
             init_slot_hist(m->src[i]);
@@ -929,9 +893,9 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
         return 0;
     }
 
-    if (m->dst->dir == MPR_DIR_OUT) {
+    if (MPR_DIR_OUT == m->dst->dir) {
         // check if MPR_PROP_SLOT property is defined
-        a = mpr_msg_prop(msg, PROP(SLOT));
+        a = mpr_msg_get_prop(msg, PROP(SLOT));
         if (a && a->len == m->num_src) {
             mpr_tbl_record rec;
             for (i = 0; i < m->num_src; i++) {
@@ -977,11 +941,11 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 mpr_loc loc;
                 loc = mpr_loc_from_str(&(a->vals[0])->s);
                 if (m->loc) {
-                    if (loc == MPR_LOC_UNDEFINED) {
+                    if (MPR_LOC_UNDEFINED == loc) {
                         trace("map process location is undefined!\n");
                         break;
                     }
-                    if (loc == MPR_LOC_ANY) {
+                    if (MPR_LOC_ANY == loc) {
                         // no effect
                         break;
                     }
@@ -1004,7 +968,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     int should_compile = 0;
                     if (m->loc->is_local_only)
                         should_compile = 1;
-                    else if (m->process_loc == MPR_LOC_DST) {
+                    else if (MPR_LOC_DST == m->process_loc) {
                         // check if destination is local
                         if (m->dst->loc->rsig)
                             should_compile = 1;
@@ -1020,6 +984,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                             // TODO: don't increment updated counter twice
                             ++updated;
                             reallocate_map_histories(m);
+                            // evaluate expression to intialise literals
+                            mpr_time now;
+                            mpr_time_set(&now, MPR_NOW);
+                            mpr_hist *vars = m->loc->expr_var;
+                            mpr_hist to = m->dst->loc->hist;
+                            for (j = 0; j < m->loc->num_var_inst; j++)
+                                mpr_expr_eval(m->loc->expr, 0, &vars[j], &to[j],
+                                              &now, 0);
                         }
                         else {
                             // restore original process location
@@ -1036,10 +1008,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 }
                 updated += mpr_tbl_set(tbl, PROP(EXPR), NULL, 1, MPR_STR,
                                        expr_str, REMOTE_MODIFY);
+                if (!m->loc) {
+                    // remove any cached expression variables from table
+                    mpr_tbl_remove(tbl, MPR_PROP_EXTRA, "var@*", REMOTE_MODIFY);
+                }
                 break;
             }
             case PROP(SCOPE):
-                if (type_is_str(a->types[0]))
+                if (mpr_type_get_is_str(a->types[0]))
                     updated += mpr_map_update_scope(m, a);
                 break;
             case PROP(SCOPE) | PROP_ADD:
@@ -1057,6 +1033,51 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 break;
             }
             case PROP(EXTRA):
+                if (strncmp(a->key, "var@", 4)==0) {
+                    if (m->loc && m->loc->expr) {
+                        for (j = 0; j < m->loc->num_expr_var; j++) {
+                            if (!mpr_expr_get_var_is_public(m->loc->expr, j))
+                                continue;
+                            // check if matches existing varname
+                            const char *name = mpr_expr_get_var_name(m->loc->expr, j);
+                            if (strcmp(name, a->key+4)!=0)
+                                continue;
+                            // found variable
+                            // TODO: handle multiple instances
+                            int k = 0, l, var_len =  m->loc->expr_var[k][j].len;
+                            double *v = m->loc->expr_var[k][j].val + m->loc->expr_var[k][j].pos;
+                            // cast to double if necessary
+                            switch (a->types[0])  {
+                                case MPR_DBL:
+                                    for (k = 0, l = 0; k < var_len; k++, l++) {
+                                        if (l >= a->len)
+                                            l = 0;
+                                        v[k] = a->vals[l]->d;
+                                    }
+                                    break;
+                                case MPR_INT32:
+                                    for (k = 0, l = 0; k < var_len; k++, l++) {
+                                        if (l >= a->len)
+                                            l = 0;
+                                        v[k] = (double)a->vals[l]->i32;
+                                    }
+                                    break;
+                                case MPR_FLT:
+                                    for (k = 0, l = 0; k < var_len; k++, l++) {
+                                        if (l >= a->len)
+                                            l = 0;
+                                        v[k] = (float)a->vals[l]->f;
+                                    }
+                                    break;
+                                default:
+                                    break;
+                            }
+                            break;
+                        }
+                    }
+                    if (m->loc)
+                        break;
+                }
             case PROP(ID):
             case PROP(MUTED):
             case PROP(VERSION):
@@ -1094,9 +1115,9 @@ void reallocate_map_histories(mpr_map m)
         slot = m->src[i];
         slot_loc = slot->loc;
 
-        hist_size = mpr_expr_in_hist_size(m->loc->expr, i);
+        hist_size = mpr_expr_get_in_hist_size(m->loc->expr, i);
         if (hist_size > slot_loc->hist_size) {
-            size_t sample_size = mpr_type_size(slot->sig->type) * slot->sig->len;;
+            size_t sample_size = mpr_type_get_size(slot->sig->type) * slot->sig->len;;
             for (j = 0; j < slot->num_inst; j++)
                 mpr_hist_realloc(&slot_loc->hist[j], hist_size, sample_size, 1);
             slot_loc->hist_size = hist_size;
@@ -1106,13 +1127,13 @@ void reallocate_map_histories(mpr_map m)
         }
     }
 
-    hist_size = mpr_expr_out_hist_size(m->loc->expr);
+    hist_size = mpr_expr_get_out_hist_size(m->loc->expr);
     slot = m->dst;
     slot_loc = slot->loc;
 
     // reallocate output histories
     if (hist_size > slot_loc->hist_size) {
-        int sample_size = mpr_type_size(slot->sig->type) * slot->sig->len;
+        int sample_size = mpr_type_get_size(slot->sig->type) * slot->sig->len;
         for (i = 0; i < slot->num_inst; i++)
             mpr_hist_realloc(&slot_loc->hist[i], hist_size, sample_size, 0);
         slot_loc->hist_size = hist_size;
@@ -1122,7 +1143,7 @@ void reallocate_map_histories(mpr_map m)
     }
 
     // reallocate user variable histories
-    int new_num_var = mpr_expr_num_vars(m->loc->expr);
+    int new_num_var = mpr_expr_get_num_vars(m->loc->expr);
     if (new_num_var > m->loc->num_expr_var) {
         for (i = 0; i < m->loc->num_var_inst; i++) {
             m->loc->expr_var[i] = realloc(m->loc->expr_var[i],
@@ -1137,8 +1158,8 @@ void reallocate_map_histories(mpr_map m)
                 m->loc->expr_var[i][j].time = 0;
             }
             for (j = 0; j < new_num_var; j++) {
-                int hist_size = mpr_expr_var_hist_size(m->loc->expr, j);
-                int vector_len = mpr_expr_var_vec_len(m->loc->expr, j);
+                int hist_size = mpr_expr_get_var_hist_size(m->loc->expr, j);
+                int vector_len = mpr_expr_get_var_vec_len(m->loc->expr, j);
                 mpr_hist_realloc(m->loc->expr_var[i]+j, hist_size,
                                  vector_len * sizeof(double), 0);
                 m->loc->expr_var[i][j].len = vector_len;
@@ -1157,16 +1178,16 @@ void mpr_hist_realloc(mpr_hist hist, int hist_size, int samp_size, int is_input)
 {
     RETURN_UNLESS(hist && hist_size && samp_size);
     RETURN_UNLESS(hist_size != hist->size);
-    if (!is_input || (hist_size > hist->size) || (hist->pos == 0)) {
+    if (!is_input || (hist_size > hist->size) || (0 == hist->pos)) {
         // realloc in place
         hist->val = realloc(hist->val, hist_size * samp_size);
-        hist->time = realloc(hist->time, hist_size * sizeof(mpr_time_t));
+        hist->time = realloc(hist->time, hist_size * sizeof(mpr_time));
         if (!is_input) {
             // Initialize entire history to 0
             memset(hist->val, 0, hist_size * samp_size);
             hist->pos = -1;
         }
-        else if (hist->pos == 0) {
+        else if (0 == hist->pos) {
             memset(hist->val + samp_size * hist->size, 0,
                    samp_size * (hist_size - hist->size));
         }
@@ -1175,9 +1196,8 @@ void mpr_hist_realloc(mpr_hist hist, int hist_size, int samp_size, int is_input)
             memcpy(hist->val + samp_size * new_pos,
                    hist->val + samp_size * hist->pos,
                    samp_size * (hist->size - hist->pos));
-            memcpy(&hist->time[new_pos],
-                   &hist->time[(int)hist->pos], sizeof(mpr_time_t)
-                   * (hist->size - hist->pos));
+            memcpy(&hist->time[new_pos], &hist->time[(int)hist->pos],
+                   sizeof(mpr_time) * (hist->size - hist->pos));
             memset(hist->val + samp_size * hist->pos, 0,
                    samp_size * (hist_size - hist->size));
         }
@@ -1190,30 +1210,30 @@ void mpr_hist_realloc(mpr_hist hist, int hist_size, int samp_size, int is_input)
             memcpy(hist->val, hist->val + samp_size * (new_pos - hist_size),
                    samp_size * hist_size);
             memcpy(&hist->time, &hist->time[hist->pos - hist_size],
-                   sizeof(mpr_time_t) * hist_size);
+                   sizeof(mpr_time) * hist_size);
             hist->val = realloc(hist->val, hist_size * samp_size);
-            hist->time = realloc(hist->time, hist_size * sizeof(mpr_time_t));
+            hist->time = realloc(hist->time, hist_size * sizeof(mpr_time));
         }
         else {
             // there is overlap between new and old arrays - need to allocate new memory
             mpr_hist_t temp;
             temp.val = malloc(samp_size * hist_size);
-            temp.time = malloc(sizeof(mpr_time_t) * hist_size);
+            temp.time = malloc(sizeof(mpr_time) * hist_size);
             if (hist->pos < hist_size) {
                 memcpy(temp.val, hist->val, samp_size * hist->pos);
                 memcpy(temp.val + samp_size * hist->pos,
                        hist->val + samp_size * (hist->size - hist_size + hist->pos),
                        samp_size * (hist_size - hist->pos));
-                memcpy(temp.time, hist->time, sizeof(mpr_time_t) * hist->pos);
+                memcpy(temp.time, hist->time, sizeof(mpr_time) * hist->pos);
                 memcpy(&temp.time[(int)hist->pos],
                        &hist->time[hist->size - hist_size + hist->pos],
-                       sizeof(mpr_time_t) * (hist_size - hist->pos));
+                       sizeof(mpr_time) * (hist_size - hist->pos));
             }
             else {
                 memcpy(temp.val, hist->val + samp_size * (hist->pos - hist_size),
                        samp_size * hist_size);
                 memcpy(temp.time, &hist->time[hist->pos - hist_size],
-                       sizeof(mpr_time_t) * hist_size);
+                       sizeof(mpr_time) * hist_size);
                 hist->pos = hist_size - 1;
             }
             free(hist->val);
@@ -1229,13 +1249,13 @@ void mpr_hist_realloc(mpr_hist hist, int hist_size, int samp_size, int is_input)
  * to a peer device rather than an administrator. */
 int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
 {
-    if (cmd == MSG_MAPPED && m->status < MPR_STATUS_READY)
+    if (MSG_MAPPED == cmd && m->status < MPR_STATUS_READY)
         return slot;
     NEW_LO_MSG(msg, return slot);
     char dst_name[256], src_names[1024];
     snprintf(dst_name, 256, "%s%s", m->dst->sig->dev->name, m->dst->sig->path);
 
-    if (m->dst->dir == MPR_DIR_IN) {
+    if (MPR_DIR_IN == m->dst->dir) {
         // add mapping destination
         lo_message_add_string(msg, dst_name);
         lo_message_add_string(msg, "<-");
@@ -1259,7 +1279,7 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
         len += result + 1;
     }
 
-    if (m->dst->dir == MPR_DIR_OUT || !m->dst->dir) {
+    if (MPR_DIR_OUT == m->dst->dir || !m->dst->dir) {
         // add mapping destination
         lo_message_add_string(msg, "->");
         lo_message_add_string(msg, dst_name);
@@ -1267,22 +1287,22 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
 
     // Add unique id
     if (m->obj.id) {
-        lo_message_add_string(msg, mpr_prop_str(PROP(ID), 0));
+        lo_message_add_string(msg, mpr_prop_as_str(PROP(ID), 0));
         lo_message_add_int64(msg, *((int64_t*)&m->obj.id));
     }
 
-    if (cmd == MSG_UNMAP || cmd == MSG_UNMAPPED) {
+    if (MSG_UNMAP == cmd || MSG_UNMAPPED == cmd) {
         mpr_net_add_msg(&m->obj.graph->net, 0, cmd, msg);
         return i-1;
     }
 
     // add other properties
-    int staged = (cmd == MSG_MAP) || (cmd == MSG_MAP_MOD);
+    int staged = (MSG_MAP == cmd) || (MSG_MAP_MOD == cmd);
     mpr_tbl_add_to_msg(0, staged ? m->obj.props.staged : m->obj.props.synced, msg);
 
     // add slot id
-    if (m->dst->dir == MPR_DIR_IN && m->status < MPR_STATUS_READY && !staged) {
-        lo_message_add_string(msg, mpr_prop_str(PROP(SLOT), 0));
+    if (MPR_DIR_IN == m->dst->dir && m->status < MPR_STATUS_READY && !staged) {
+        lo_message_add_string(msg, mpr_prop_as_str(PROP(SLOT), 0));
         i = (slot >= 0) ? slot : 0;
         link = m->src[i]->loc ? m->src[i]->link : 0;
         for (; i < m->num_src; i++) {
@@ -1303,6 +1323,29 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
 
     /* destination properties */
     mpr_slot_add_props_to_msg(msg, m->dst, 1, staged);
+
+    // add public expression variables
+    int j, k, l;
+    char varname[32];
+    if (m->loc && m->loc->expr) {
+        for (j = 0; j < m->loc->num_expr_var; j++) {
+            if (!mpr_expr_get_var_is_public(m->loc->expr, j))
+                continue;
+            // TODO: handle multiple instances
+            k = 0;
+            if (m->loc->expr_var[k][j].pos >= 0) {
+                snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(m->loc->expr, j));
+                lo_message_add_string(msg, varname);
+                double *v = m->loc->expr_var[k][j].val + m->loc->expr_var[k][j].pos;
+                for (l = 0; l < m->loc->expr_var[k][j].len; l++)
+                    lo_message_add_double(msg, v[l]);
+            }
+            else {
+                trace("public expression variable '%s' is not yet initialised.\n",
+                      mpr_expr_get_var_name(m->loc->expr, j));
+            }
+        }
+    }
 
     mpr_net_add_msg(&m->obj.graph->net, 0, cmd, msg);
     return i-1;

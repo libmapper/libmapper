@@ -12,7 +12,7 @@ def h(sig, event, id, val, time):
         print('exception')
 
 def setup(d):
-    sig = d.add_signal(mpr.DIR_IN, 1, "freq", 1, mpr.INT32, "Hz", None, None, h)
+    sig = d.add_signal(mpr.DIR_IN, "freq", 1, mpr.INT32, "Hz", None, None, None, h)
 
     while not d.ready:
         d.poll(10)
@@ -25,8 +25,8 @@ def setup(d):
     print('network ip', graph.address)
     print('network interface', graph.interface)
 
-    d.set_properties({"testInt":5, "testFloat":12.7, "testString":[b"test",b"foo"],
-                      "removed1":b"shouldn't see this"})
+    d.set_properties({"testInt":5, "testFloat":12.7, "testString":["test","foo"],
+                      "removed1":"shouldn't see this"})
     d['testInt'] = 7
 #    d.set_properties({"removed1":None, "removed2":"test"})
     d.remove_property("removed1")
@@ -54,8 +54,8 @@ def setup(d):
 
     print('signal properties:', sig.properties)
 
-    d.add_signal(mpr.DIR_IN, 1, "insig", 4, mpr.INT32, None, None, None, h)
-    d.add_signal(mpr.DIR_OUT, 1, "outsig", 4, mpr.FLT)
+    d.add_signal(mpr.DIR_IN, "insig", 4, mpr.INT32, None, None, None, None, h)
+    d.add_signal(mpr.DIR_OUT, "outsig", 4, mpr.FLT)
     print('setup done!')
 
 #check libmpr version
@@ -94,16 +94,16 @@ for i in range(1000):
     dev.poll(10)
     g.poll()
     outsig.set_value([i+1,i+2,i+3,i+4])
-    
+
     if i==250:
         map = mpr.map(outsig, insig)
-        map['expression'] = 'y=y{-1}+x'
+        map['expr'] = 'y=y{-1}+x'
         map.signal(mpr.LOC_SRC)['minimum'] = [1,2,3,4]
         map.push()
 
 #        # test creating multi-source map
 #        map = mpr.map([sig1, sig2], sig3)
-#        map.expression = 'y=x0-x1'
+#        map.expr = 'y=x0-x1'
 #        map.push()
 
     if i==500:

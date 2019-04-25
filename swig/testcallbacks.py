@@ -39,11 +39,11 @@ def map_h(type, map, action):
 src = mpr.device("src")
 src.graph().add_callback(device_h, mpr.DEV)
 src.graph().add_callback(map_h, mpr.MAP)
-outsig = src.add_signal(mpr.DIR_OUT, 1, "outsig", 1, mpr.FLT, None, 0, 1000)
+outsig = src.add_signal(mpr.DIR_OUT, "outsig", 1, mpr.FLT, None, 0, 1000)
 
 dst = mpr.device("dst")
 dst.graph().add_callback(map_h, mpr.MAP)
-insig = dst.add_signal(mpr.DIR_IN, 1, "insig", 1, mpr.FLT, None, 0, 1, sig_h)
+insig = dst.add_signal(mpr.DIR_IN, "insig", 1, mpr.FLT, None, 0, 1, None, sig_h)
 
 while not src.ready or not dst.ready:
     src.poll()

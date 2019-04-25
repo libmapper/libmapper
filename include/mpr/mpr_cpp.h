@@ -59,17 +59,17 @@ public:                                                                     \
     /*! Retrieve an indexed item in the List.                            */ \
     /*  \param idx           The index of the element to retrieve.       */ \
     /*  \return              The retrieved Object.                       */ \
-    CLASS_NAME operator [] (unsigned int idx)                               \
+    CLASS_NAME operator [] (int idx)                                        \
         { return CLASS_NAME(mpr_list_get_idx(_list, idx)); }                \
     /*! Convert this List to a std::vector of CLASS_NAME.                */ \
     /*  \return              The converted List results.                 */ \
     virtual operator std::vector<CLASS_NAME>() const                        \
     {                                                                       \
         std::vector<CLASS_NAME> vec;                                        \
-        mpr_list cpy = mpr_list_cpy(_list);                                 \
+        mpr_list cpy = mpr_list_get_cpy(_list);                             \
         while (cpy) {                                                       \
             vec.push_back(CLASS_NAME(*cpy));                                \
-            cpy = mpr_list_next(cpy);                                       \
+            cpy = mpr_list_get_next(cpy);                                   \
         }                                                                   \
         return vec;                                                         \
     }                                                                       \
@@ -96,14 +96,14 @@ namespace mpr {
     class Time
     {
     public:
-        Time(mpr_time_t time)
+        Time(mpr_time time)
             { _time.sec = time.sec; _time.frac = time.frac; }
         Time(unsigned long int sec, unsigned long int frac)
             { _time.sec = sec; _time.frac = frac; }
         Time(double seconds)
             { mpr_time_set_dbl(&_time, seconds); }
         Time()
-            { mpr_time_now(&_time); }
+            { mpr_time_set(&_time, MPR_NOW); }
         uint32_t sec()
             { return _time.sec; }
         Time& set_sec(uint32_t sec)
@@ -113,35 +113,35 @@ namespace mpr {
         Time& set_frac (uint32_t frac)
             { RETURN_SELF(_time.frac = frac); }
         Time& now()
-            { RETURN_SELF(mpr_time_now(&_time)); }
-        operator mpr_time_t*()
+            { RETURN_SELF(mpr_time_set(&_time, MPR_NOW)); }
+        operator mpr_time*()
             { return &_time; }
         operator double() const
-            { return mpr_time_get_dbl(_time); }
+            { return mpr_time_as_dbl(_time); }
         Time& operator=(Time& time)
-            { RETURN_SELF(mpr_time_cpy(&_time, time._time)); }
+            { RETURN_SELF(mpr_time_set(&_time, time._time)); }
         Time& operator=(double d)
             { RETURN_SELF(mpr_time_set_dbl(&_time, d)); }
         Time operator+(Time& addend)
         {
-            mpr_time_t temp;
-            mpr_time_cpy(&temp, _time);
-            mpr_time_add(&temp, *(mpr_time_t*)addend);
+            mpr_time temp;
+            mpr_time_set(&temp, _time);
+            mpr_time_add(&temp, *(mpr_time*)addend);
             return temp;
         }
         Time operator-(Time& subtrahend)
         {
-            mpr_time_t temp;
-            mpr_time_cpy(&temp, _time);
-            mpr_time_sub(&temp, *(mpr_time_t*)subtrahend);
+            mpr_time temp;
+            mpr_time_set(&temp, _time);
+            mpr_time_sub(&temp, *(mpr_time*)subtrahend);
             return temp;
         }
         Time& operator+=(Time& addend)
-            { RETURN_SELF(mpr_time_add(&_time, *(mpr_time_t*)addend)); }
+            { RETURN_SELF(mpr_time_add(&_time, *(mpr_time*)addend)); }
         Time& operator+=(double addend)
             { RETURN_SELF(mpr_time_add_dbl(&_time, addend)); }
         Time& operator-=(Time& subtrahend)
-            { RETURN_SELF(mpr_time_sub(&_time, *(mpr_time_t*)subtrahend)); }
+            { RETURN_SELF(mpr_time_sub(&_time, *(mpr_time*)subtrahend)); }
         Time& operator-=(double subtrahend)
             { RETURN_SELF(mpr_time_add_dbl(&_time, -subtrahend)); }
         Time& operator*=(double multiplicand)
@@ -171,19 +171,25 @@ namespace mpr {
                     || (_time.sec == rhs._time.sec && _time.frac > rhs._time.frac));
         }
     private:
-        mpr_time_t _time;
+        mpr_time _time;
     };
 
     /*! List objects provide a lazily-computed iterable list of results
      *  from running queries against a mpr::Graph. */
-    class List : public std::iterator<std::input_iterator_tag, int>
+    class List
     {
     public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = int;
+        using difference_type = int;
+        using pointer = int*;
+        using reference = int&;
+
         List(mpr_list list)
             { _list = list; }
         /* override copy constructor */
         List(const List& orig)
-            { _list = mpr_list_cpy(orig._list); }
+            { _list = mpr_list_get_cpy(orig._list); }
         ~List()
             { mpr_list_free(_list); }
 
@@ -195,7 +201,7 @@ namespace mpr {
         bool operator!=(const List& rhs)
             { return (_list != rhs._list); }
         List& operator++()
-            { RETURN_SELF(if (_list) _list = mpr_list_next(_list)); }
+            { RETURN_SELF(if (_list) _list = mpr_list_get_next(_list)); }
         List operator++(int)
             { List tmp(*this); operator++(); return tmp; }
         List begin()
@@ -203,8 +209,8 @@ namespace mpr {
         List end()
             { return List(0); }
 
-        int length()
-            { return mpr_list_get_count(_list); }
+        int size()
+            { return mpr_list_get_size(_list); }
 
         /* Combination functions */
         /*! Add items found in List rhs to this List (without duplication).
@@ -212,7 +218,7 @@ namespace mpr {
          *  \return             Self. */
         List& join(const List& rhs)
         {
-            _list = mpr_list_union(_list, mpr_list_cpy(rhs._list));
+            _list = mpr_list_get_union(_list, mpr_list_get_cpy(rhs._list));
             return (*this);
         }
 
@@ -221,7 +227,7 @@ namespace mpr {
          *  \return             Self. */
         List& intersect(const List& rhs)
         {
-            _list = mpr_list_isect(_list, mpr_list_cpy(rhs._list));
+            _list = mpr_list_get_isect(_list, mpr_list_get_cpy(rhs._list));
             return (*this);
         }
 
@@ -236,7 +242,7 @@ namespace mpr {
          *  \return             Self. */
         List& subtract(const List& rhs)
         {
-            _list = mpr_list_diff(_list, mpr_list_cpy(rhs._list));
+            _list = mpr_list_get_diff(_list, mpr_list_get_cpy(rhs._list));
             return (*this);
         }
 
@@ -245,8 +251,8 @@ namespace mpr {
          *  \return             A new List containing the results. */
         List operator+(const List& rhs) const
         {
-            return List(mpr_list_union(mpr_list_cpy(_list),
-                                       mpr_list_cpy(rhs._list)));
+            return List(mpr_list_get_union(mpr_list_get_cpy(_list),
+                                           mpr_list_get_cpy(rhs._list)));
         }
 
         /*! Remove items NOT found in List rhs from this List
@@ -254,8 +260,8 @@ namespace mpr {
          *  \return             A new List containing the results. */
         List operator*(const List& rhs) const
         {
-            return List(mpr_list_isect(mpr_list_cpy(_list),
-                                       mpr_list_cpy(rhs._list)));
+            return List(mpr_list_get_isect(mpr_list_get_cpy(_list),
+                                           mpr_list_get_cpy(rhs._list)));
         }
 
         /*! Remove items found in List rhs from this List
@@ -263,8 +269,8 @@ namespace mpr {
          *  \return             A new List containing the results. */
         List operator-(const List& rhs) const
         {
-            return List(mpr_list_diff(mpr_list_cpy(_list),
-                                      mpr_list_cpy(rhs._list)));
+            return List(mpr_list_get_diff(mpr_list_get_cpy(_list),
+                                          mpr_list_get_cpy(rhs._list)));
         }
 
         /*! Add items found in List rhs to this List (without duplication).
@@ -272,7 +278,7 @@ namespace mpr {
          *  \return             Self. */
         List& operator+=(const List& rhs)
         {
-            _list = mpr_list_union(_list, mpr_list_cpy(rhs._list));
+            _list = mpr_list_get_union(_list, mpr_list_get_cpy(rhs._list));
             return (*this);
         }
 
@@ -281,7 +287,7 @@ namespace mpr {
          *  \return             Self. */
         List& operator*=(const List& rhs)
         {
-            _list = mpr_list_isect(_list, mpr_list_cpy(rhs._list));
+            _list = mpr_list_get_isect(_list, mpr_list_get_cpy(rhs._list));
             return (*this);
         }
 
@@ -290,7 +296,7 @@ namespace mpr {
          *  \return             Self. */
         List& operator-=(const List& rhs)
         {
-            _list = mpr_list_diff(_list, mpr_list_cpy(rhs._list));
+            _list = mpr_list_get_diff(_list, mpr_list_get_cpy(rhs._list));
             return (*this);
         }
 
@@ -376,7 +382,7 @@ namespace mpr {
         Property operator [] (const str_type &key) const;
 
         /*! Retrieve a Property by index.
-         *  \param index    The index of or symbolic identifier of the Property
+         *  \param prop     The index of or symbolic identifier of the Property
          *                  to retrieve.
          *  \return         The retrieved Property. */
         Property property(mpr_prop prop) const;
@@ -507,13 +513,13 @@ namespace mpr {
         /*! Detect whether a Map is completely initialized.
          *  \return         True if map is completely initialized. */
         bool ready() const
-            { return mpr_map_ready(_obj); }
+            { return mpr_map_get_is_ready(_obj); }
 
 //        /*! Get the scopes property for a this map.
 //         *  \return       A Device::List containing the list of results.  Use
 //         *                Device::List::next() to iterate. */
 //        Device::List scopes() const
-//            { return Device::List((void**)mpr_map_get_scopes(_obj)); }
+//            { return Device::List((void**)mpr_map_scopes(_obj)); }
 
         /*! Add a scope to this Map. Map scopes configure the propagation of
          *  Signal updates across the Map. Changes will not take effect until
@@ -547,15 +553,15 @@ namespace mpr {
         /*! Get the index of the Map endpoint matching a specific Signal.
          *  \param sig      The Signal to look for.
          *  \return         Index of the signal in this map, or -1 if not found. */
-        int index(signal_type sig) const
-            { return mpr_map_get_sig_index(_obj, (mpr_sig)sig); }
+        int idx(signal_type sig) const
+            { return mpr_map_get_sig_idx(_obj, (mpr_sig)sig); }
 
         /*! Retrieve a Signal from this Map.
          *  \param loc      MPR_LOC_SRC for source signals for this Map,
          *                  MPR_LOC_DST for destinations, or MPR_LOC_ANY for both.
-         *  \param index    The signal index.
+         *  \param idx      The signal index.
          *  \return         The Signal object. */
-        Signal signal(mpr_loc loc, int index = 0) const;
+        Signal signal(mpr_loc loc, int idx = 0) const;
 
         std::vector<Signal> signals(mpr_loc loc = MPR_LOC_ANY) const;
 
@@ -570,11 +576,11 @@ namespace mpr {
             List& release()
             {
                 // use a copy
-                mpr_list cpy = mpr_list_cpy(_list);
+                mpr_list cpy = mpr_list_get_cpy(_list);
                 while (cpy) {
                     if (MPR_MAP == mpr_obj_get_type(*cpy))
                         mpr_map_release((mpr_map)*cpy);
-                    cpy = mpr_list_next(cpy);
+                    cpy = mpr_list_get_next(cpy);
                 }
                 return (*this);
             }
@@ -633,7 +639,7 @@ namespace mpr {
         const void *value() const
             { return mpr_sig_get_value(_obj, 0, 0); }
         const void *value(Time time) const
-            { return mpr_sig_get_value(_obj, 0, (mpr_time_t*)time); }
+            { return mpr_sig_get_value(_obj, 0, (mpr_time*)time); }
         Signal& set_callback(mpr_sig_handler *h, int events=MPR_SIG_UPDATE)
             { RETURN_SELF(mpr_sig_set_cb(_obj, h, events)); }
 
@@ -645,6 +651,8 @@ namespace mpr {
                 { return (_id == i._id); }
             operator mpr_id() const
                 { return _id; }
+            int is_active() const
+                { return mpr_sig_get_inst_is_active(_sig, _id); }
             Instance& set_value(int *val, int len, Time time=0)
             {
                 mpr_sig_set_value(_sig, _id, len, MPR_INT32, val, *time);
@@ -694,7 +702,7 @@ namespace mpr {
                 { return mpr_sig_get_value(_sig, _id, 0); }
             const void *value(Time time) const
             {
-                mpr_time_t *_time = time;
+                mpr_time *_time = time;
                 return mpr_sig_get_value(_sig, _id, _time);
             }
         protected:
@@ -720,13 +728,13 @@ namespace mpr {
             { RETURN_SELF(mpr_sig_reserve_inst(_obj, num, ids, 0)); }
         Signal& reserve_instances(int num, mpr_id *ids, void **data)
             { RETURN_SELF(mpr_sig_reserve_inst(_obj, num, ids, data)); }
-        Instance instance_at_index(int idx, mpr_status status) const
+        Instance instance_at_idx(int idx, mpr_status status) const
             { return Instance(_obj, mpr_sig_get_inst_id(_obj, idx, status)); }
         Signal& remove_instance(Instance instance)
             { RETURN_SELF(mpr_sig_remove_inst(_obj, instance._id)); }
-        Instance oldest_active_instance()
+        Instance oldest_instance()
             { return Instance(_obj, mpr_sig_get_oldest_inst_id(_obj)); }
-        Instance newest_active_instance()
+        Instance newest_instance()
             { return Instance(_obj, mpr_sig_get_newest_inst_id(_obj)); }
         int num_instances(mpr_status status = MPR_STATUS_ACTIVE) const
             { return mpr_sig_get_num_inst(_obj, status); }
@@ -742,14 +750,14 @@ namespace mpr {
             Map::List maps(mpr_dir dir=MPR_DIR_ANY) const
             {
                 // use a copy
-                mpr_list cpy = mpr_list_cpy(_list);
+                mpr_list cpy = mpr_list_get_cpy(_list);
                 mpr_list temp, maps = NULL;
                 while (cpy) {
                     if (MPR_SIG == mpr_obj_get_type(*cpy)) {
                         temp = mpr_sig_get_maps((mpr_sig)*cpy, dir);
-                        maps = mpr_list_union(maps, temp);
+                        maps = mpr_list_get_union(maps, temp);
                     }
-                    cpy = mpr_list_next(cpy);
+                    cpy = mpr_list_get_next(cpy);
                 }
                 return Map::List(maps);
             }
@@ -796,19 +804,21 @@ namespace mpr {
         }
         ~Device()
         {
-            if (_owned && _obj && decr_refcount() <= 0)
+            if (_owned && _obj && decr_refcount() <= 0) {
                 mpr_dev_free(_obj);
+                free(_refcount_ptr);
+            }
         }
         operator mpr_dev() const
             { return _obj; }
 
-        Signal add_sig(mpr_dir dir, int num_inst, const str_type &name,
-                       int len, mpr_type type, const str_type &unit=0,
-                       void *min=0, void *max=0, mpr_sig_handler h=0,
+        Signal add_sig(mpr_dir dir, const str_type &name, int len, mpr_type type,
+                       const str_type &unit=0, void *min=0, void *max=0,
+                       int *num_inst=0, mpr_sig_handler h=0,
                        int events=MPR_SIG_UPDATE)
         {
-            return Signal(mpr_sig_new(_obj, dir, num_inst, name, len, type,
-                                      unit, min, max, h, events));
+            return Signal(mpr_sig_new(_obj, dir, name, len, type,
+                                      unit, min, max, num_inst, h, events));
         }
         Device& remove_sig(Signal& sig)
             { RETURN_SELF(mpr_sig_free(sig)); }
@@ -820,7 +830,7 @@ namespace mpr {
             { return mpr_dev_poll(_obj, block_ms); }
 
         bool ready() const
-            { return mpr_dev_ready(_obj); }
+            { return mpr_dev_get_is_ready(_obj); }
         Time start_queue(Time time=MPR_NOW)
             { mpr_dev_start_queue(_obj, *time); return time; }
         Device& send_queue(Time time)
@@ -876,8 +886,10 @@ namespace mpr {
         }
         ~Graph()
         {
-            if (_owned && _graph && decr_refcount() <= 0)
+            if (_owned && _graph && decr_refcount() <= 0) {
                 mpr_graph_free(_graph);
+                free(_refcount_ptr);
+            }
         }
         operator mpr_graph() const
             { return _graph; }
@@ -976,15 +988,15 @@ namespace mpr {
 
         // graph devices
         Device::List devices() const
-            { return Device::List(mpr_graph_get_list(_graph, MPR_DEV)); }
+            { return Device::List(mpr_graph_get_objs(_graph, MPR_DEV)); }
 
         // graph signals
         Signal::List signals() const
-            { return Signal::List(mpr_graph_get_list(_graph, MPR_SIG)); }
+            { return Signal::List(mpr_graph_get_objs(_graph, MPR_SIG)); }
 
         // graph maps
         Map::List maps() const
-            { return Map::List(mpr_graph_get_list(_graph, MPR_MAP)); }
+            { return Map::List(mpr_graph_get_objs(_graph, MPR_MAP)); }
 
     private:
         mpr_graph _graph;
@@ -1325,7 +1337,7 @@ namespace mpr {
         { return property(key); }
 
     /*! Retrieve a Property by index.
-     *  \param index    The index of or symbolic identifier of the Property
+     *  \param prop     The index or symbolic identifier of the Property
      *                  to retrieve.
      *  \return         The retrieved Property. */
     Property Object::property(mpr_prop prop) const
@@ -1344,10 +1356,10 @@ namespace mpr {
     List::operator std::vector<Object>() const
     {
         std::vector<Object> vec;
-        mpr_list cpy = mpr_list_cpy(_list);
+        mpr_list cpy = mpr_list_get_cpy(_list);
         while (cpy) {
             vec.push_back(Object(*cpy));
-            cpy = mpr_list_next(cpy);
+            cpy = mpr_list_get_next(cpy);
         }
         return vec;
     }
@@ -1364,10 +1376,10 @@ namespace mpr {
         Property p(vals...);
         if (!p)
             return (*this);
-        mpr_list cpy = mpr_list_cpy(_list);
+        mpr_list cpy = mpr_list_get_cpy(_list);
         while (cpy) {
             mpr_obj_set_prop(*cpy, p.prop, p.key, p.len, p.type, p.val, p.pub);
-            cpy = mpr_list_next(cpy);
+            cpy = mpr_list_get_next(cpy);
         }
         return (*this);
     }
@@ -1392,8 +1404,8 @@ namespace mpr {
     Map& Map::remove_scope(Device dev)
         { RETURN_SELF(mpr_map_remove_scope(_obj, mpr_dev(dev))); }
 
-    Signal Map::signal(mpr_loc loc, int index) const
-        { return Signal(mpr_map_get_sig(_obj, loc, index)); }
+    Signal Map::signal(mpr_loc loc, int idx) const
+        { return Signal(mpr_map_get_sig(_obj, loc, idx)); }
 
     std::vector<Signal> Map::signals(mpr_loc loc) const
     {
@@ -1408,7 +1420,7 @@ namespace mpr {
         { return Device(mpr_sig_get_dev(_obj)); }
 
     inline std::string version()
-        { return std::string(mpr_version()); }
+        { return std::string(mpr_get_version()); }
 };
 
 #define OSTREAM_TYPE(TYPE)                  \

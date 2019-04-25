@@ -4,7 +4,7 @@ _CXX =  $(filter-out ccache,$(CXX))
 all-local: _mpr.$(PYEXT)
 
 $(builddir)/%_wrap.c %.py: %.i
-	$(SWIG) -I$(top_srcdir)/include -python @PY3SWIG@ -modern -o $(builddir)/mpr_wrap.c \
+	$(SWIG) -I$(top_srcdir)/include -python -py3 -modern -o $(builddir)/mpr_wrap.c \
 		$(srcdir)/mpr.i
 
 # Don't interfere with distutils CFLAGS
@@ -30,3 +30,8 @@ uninstall-hook:
 	  | awk '{print "$(DESTDIR)"$$1}' | xargs rm -vf
 
 EXTRA_DIST = mpr.i tkgui.py copywhich.sh
+
+test_all_ordered = test testcallbacks testconvergent testinstance testqueue testreverse testvector
+
+tests: all
+	for i in $(test_all_ordered); do echo Running $$i; if ! python ./$$i.py; then exit 1; fi; done

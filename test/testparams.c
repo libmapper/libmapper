@@ -66,13 +66,13 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    atom = mpr_msg_prop(msg, MPR_PROP_HOST);
+    atom = mpr_msg_get_prop(msg, MPR_PROP_HOST);
     if (!atom) {
         eprintf("1: Could not get @host property.\n");
         result = 1;
         goto done;
     }
-    if (!type_is_str(atom->types[0])) {
+    if (!mpr_type_get_is_str(atom->types[0])) {
         eprintf("1: Type error retrieving @host property.");
         result = 1;
         goto done;
@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     if (result)
         goto done;
 
-    atom = mpr_msg_prop(msg, MPR_PROP_PORT);
+    atom = mpr_msg_get_prop(msg, MPR_PROP_PORT);
     if (!atom) {
         eprintf("1: Could not get @port property.\n");
         result = 1;
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
     if (result)
         goto done;
 
-    atom = mpr_msg_prop(msg, SRC_SLOT_PROP(0) | MPR_PROP_MIN);
+    atom = mpr_msg_get_prop(msg, SRC_SLOT_PROP(0) | MPR_PROP_MIN);
     if (!atom) {
         eprintf("1: Could not get @src@min property.\n");
         result = 1;
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    atom = mpr_msg_prop(msg, MPR_PROP_PORT);
+    atom = mpr_msg_get_prop(msg, MPR_PROP_PORT);
     if (!atom) {
         eprintf("2: Could not get @port property.\n");
         result = 1;
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    atom = mpr_msg_prop(msg, MPR_PROP_HOST);
+    atom = mpr_msg_get_prop(msg, MPR_PROP_HOST);
     if (atom) {
         eprintf("2: Error, should not have been able to retrieve @host property.\n");
         result = 1;
@@ -212,7 +212,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    atom = mpr_msg_prop(msg, MPR_PROP_PORT);
+    atom = mpr_msg_get_prop(msg, MPR_PROP_PORT);
     if (!atom) {
         eprintf("3: Could not get @port property.\n");
         result = 1;

@@ -113,8 +113,8 @@ int main(int argc, char **argv)
         }
         else {
             printf("\r  Devices: %4i, Signals: %4i, Maps: %4i",
-                   graph.devices().length(), graph.signals().length(),
-                   graph.maps().length());
+                   graph.devices().size(), graph.signals().size(),
+                   graph.maps().size());
             fflush(stdout);
         }
     }

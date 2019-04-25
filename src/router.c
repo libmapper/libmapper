@@ -10,7 +10,7 @@
 #include <mpr/mpr.h>
 
 static void send_or_bundle_msg(mpr_link link, const char *path, lo_message msg,
-                               mpr_time_t t, mpr_proto proto);
+                               mpr_time t, mpr_proto proto);
 
 static int map_in_scope(mpr_map map, mpr_id id)
 {
@@ -32,9 +32,9 @@ static void realloc_slot_insts(mpr_slot slot, int size)
             slot->loc->hist[i].type = slot->sig->type;
             slot->loc->hist[i].len = slot->sig->len;
             slot->loc->hist[i].size = slot->loc->hist_size;
-            slot->loc->hist[i].val = calloc(1, mpr_type_size(slot->sig->type)
+            slot->loc->hist[i].val = calloc(1, mpr_type_get_size(slot->sig->type)
                                             * slot->loc->hist_size);
-            slot->loc->hist[i].time = calloc(1, sizeof(mpr_time_t)
+            slot->loc->hist[i].time = calloc(1, sizeof(mpr_time)
                                              * slot->loc->hist_size);
             slot->loc->hist[i].pos = -1;
         }
@@ -68,7 +68,7 @@ static void realloc_map_insts(mpr_map map, int size)
                 lmap->expr_var[i][j].val = calloc(1, sizeof(double)
                                                   * lmap->expr_var[i][j].len
                                                   * lmap->expr_var[i][j].size);
-                lmap->expr_var[i][j].time = calloc(1, sizeof(mpr_time_t)
+                lmap->expr_var[i][j].time = calloc(1, sizeof(mpr_time)
                                                    * lmap->expr_var[i][j].size);
             }
         }
@@ -98,7 +98,7 @@ void mpr_rtr_num_inst_changed(mpr_rtr rtr, mpr_sig sig, int size)
 }
 
 void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
-                         int count, mpr_time_t t)
+                         int count, mpr_time t)
 {
     mpr_id_map idmap = sig->loc->idmaps[inst].map;
     lo_message msg;
@@ -137,7 +137,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                        * lmap->expr_var[idx][j].len
                        * lmap->expr_var[idx][j].size);
                 memset(lmap->expr_var[idx][j].time, 0,
-                       sizeof(mpr_time_t) * lmap->expr_var[idx][j].size);
+                       sizeof(mpr_time) * lmap->expr_var[idx][j].size);
                 lmap->expr_var[idx][j].pos = -1;
             }
 
@@ -147,9 +147,9 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             // also need to reset associated output memory
             dst_lslot->hist[idx].pos= -1;
             memset(dst_lslot->hist[idx].val, 0, dst_lslot->hist_size
-                   * dst_slot->sig->len * mpr_type_size(dst_slot->sig->type));
+                   * dst_slot->sig->len * mpr_type_get_size(dst_slot->sig->type));
             memset(dst_lslot->hist[idx].time, 0, dst_lslot->hist_size
-                   * sizeof(mpr_time_t));
+                   * sizeof(mpr_time));
             dst_lslot->hist[idx].pos = -1;
 
             if (slot->dir == MPR_DIR_OUT
@@ -170,9 +170,9 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
 
                 // also need to reset associated input memory
                 memset(lslot->hist[idx].val, 0, lslot->hist_size
-                       * slot->sig->len * mpr_type_size(slot->sig->type));
+                       * slot->sig->len * mpr_type_get_size(slot->sig->type));
                 memset(lslot->hist[idx].time, 0, lslot->hist_size
-                       * sizeof(mpr_time_t));
+                       * sizeof(mpr_time));
                 lslot->hist[idx].pos = -1;
 
                 if (!map->src[j]->use_inst)
@@ -215,10 +215,25 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
         if (slot->use_inst && !in_scope)
             continue;
 
+        if (slot->dir == MPR_DIR_IN)
+            continue;
+
+        if (MPR_LOC_DST == map->process_loc) {
+            // bypass map processing and bundle value without type coercion
+            char types[sig->len * count];
+            memset(types, sig->type, sig->len * count);
+            msg = mpr_map_build_msg(map, slot, val, count, types,
+                                    slot->use_inst ? idmap : 0);
+            if (msg)
+                send_or_bundle_msg(map->dst->link, map->dst->sig->path,
+                                   msg, t, map->protocol);
+            return;
+        }
+
         mpr_local_slot lslot = slot->loc;
         mpr_slot dst_slot = map->dst;
         mpr_slot to = (map->process_loc == MPR_LOC_SRC ? dst_slot : slot);
-        int to_size = mpr_type_size(to->sig->type) * to->sig->len;
+        int to_size = mpr_type_get_size(to->sig->type) * to->sig->len;
         char src_types[slot->sig->len * count];
         memset(src_types, slot->sig->type, slot->sig->len * count);
         char dst_types[to->sig->len * count];
@@ -226,15 +241,12 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
         k = 0;
         for (j = 0; j < count; j++) {
             // copy input history
-            size_t n = mpr_sig_vector_bytes(sig);
+            size_t n = mpr_sig_get_vector_bytes(sig);
             lslot->hist[idx].pos = ((lslot->hist[idx].pos + 1)
                                     % lslot->hist[idx].size);
-            memcpy(mpr_hist_val_ptr(lslot->hist[idx]), val + n * j, n);
-            memcpy(mpr_hist_time_ptr(lslot->hist[idx]), &t,
-                   sizeof(mpr_time_t));
-
-            if (slot->dir == MPR_DIR_IN)
-                continue;
+            memcpy(mpr_hist_get_val_ptr(lslot->hist[idx]), val + n * j, n);
+            memcpy(mpr_hist_get_time_ptr(lslot->hist[idx]), &t,
+                   sizeof(mpr_time));
 
             if (map->process_loc == MPR_LOC_SRC && !slot->causes_update)
                 continue;
@@ -242,7 +254,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             if (!(mpr_map_perform(map, slot, idx, dst_types + to->sig->len * k)))
                 continue;
 
-            void *result = mpr_hist_val_ptr(map->dst->loc->hist[idx]);
+            void *result = mpr_hist_get_val_ptr(dst_slot->loc->hist[idx]);
 
             if (count > 1) {
                 memcpy((char*)out_val_p + to_size * j, result, to_size);
@@ -251,7 +263,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 msg = mpr_map_build_msg(map, slot, result, 1, dst_types,
                                         slot->use_inst ? idmap : 0);
                 if (msg)
-                    send_or_bundle_msg(map->dst->link, dst_slot->sig->path,
+                    send_or_bundle_msg(dst_slot->link, dst_slot->sig->path,
                                        msg, t, map->protocol);
             }
             ++k;
@@ -261,7 +273,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             msg = mpr_map_build_msg(map, slot, out_val_p, k, dst_types,
                                        slot->use_inst ? idmap : 0);
             if (msg)
-                send_or_bundle_msg(map->dst->link, dst_slot->sig->path, msg,
+                send_or_bundle_msg(dst_slot->link, dst_slot->sig->path, msg,
                                    t, map->protocol);
         }
     }
@@ -271,12 +283,12 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
 // path: not owned, will not be freed (assumed is signal name, owned by signal)
 // message: will be owned, will be freed when done
 void send_or_bundle_msg(mpr_link link, const char *path, lo_message msg,
-                        mpr_time_t t, mpr_proto proto)
+                        mpr_time t, mpr_proto proto)
 {
     // Check if a matching bundle exists
     mpr_queue q = link->queues;
     while (q) {
-        if (memcmp(&q->time, &t, sizeof(mpr_time_t))==0)
+        if (memcmp(&q->time, &t, sizeof(mpr_time))==0)
             break;
         q = q->next;
     }
@@ -369,7 +381,7 @@ static mpr_id unused_map_id(mpr_dev dev, mpr_rtr rtr)
 }
 
 static void alloc_and_init_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src,
-                                      int *max_inst)
+                                      int *max_inst, int *use_inst)
 {
     slot->dir = (is_src ^ (slot->sig->loc ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT;
     slot->loc = (mpr_local_slot)calloc(1, sizeof(struct _mpr_local_slot));
@@ -379,17 +391,19 @@ static void alloc_and_init_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src,
 
         if (slot->sig->num_inst > *max_inst)
             *max_inst = slot->sig->num_inst;
+        if (slot->sig->use_inst)
+            *use_inst = 1;
 
         // start with signal extrema if known
         if (!slot->max && slot->sig->max) {
             // copy range from signal
-            slot->max = malloc(mpr_sig_vector_bytes(slot->sig));
-            memcpy(slot->max, slot->sig->max, mpr_sig_vector_bytes(slot->sig));
+            slot->max = malloc(mpr_sig_get_vector_bytes(slot->sig));
+            memcpy(slot->max, slot->sig->max, mpr_sig_get_vector_bytes(slot->sig));
         }
         if (!slot->min && slot->sig->min) {
             // copy range from signal
-            slot->min = malloc(mpr_sig_vector_bytes(slot->sig));
-            memcpy(slot->min, slot->sig->min, mpr_sig_vector_bytes(slot->sig));
+            slot->min = malloc(mpr_sig_get_vector_bytes(slot->sig));
+            memcpy(slot->min, slot->sig->min, mpr_sig_get_vector_bytes(slot->sig));
         }
     }
     if (!slot->sig->loc || (is_src && slot->map->dst->sig->loc)) {
@@ -421,20 +435,23 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
     lmap->num_var_inst = 0;
 
     // Allocate local slot structures
-    int max_num_inst = 0;
+    int max_num_inst = 0, use_inst = 0;
     for (i = 0; i < map->num_src; i++)
-        alloc_and_init_local_slot(rtr, map->src[i], 1, &max_num_inst);
-    alloc_and_init_local_slot(rtr, map->dst, 0, &max_num_inst);
+        alloc_and_init_local_slot(rtr, map->src[i], 1, &max_num_inst, &use_inst);
+    alloc_and_init_local_slot(rtr, map->dst, 0, &max_num_inst, &use_inst);
 
-    // Set num_inst property
+    // Set num_inst and use_inst properties
     map->dst->num_inst = max_num_inst;
-    map->dst->use_inst = map->dst->num_inst > 1;
+    map->dst->use_inst = use_inst;
     for (i = 0; i < map->num_src; i++) {
-        if (map->src[i]->sig->loc)
+        if (map->src[i]->sig->loc) {
             map->src[i]->num_inst = map->src[i]->sig->num_inst;
-        else
+            map->src[i]->use_inst = map->src[i]->sig->use_inst;
+        }
+        else {
             map->src[i]->num_inst = map->dst->num_inst;
-        map->src[i]->use_inst = map->src[i]->num_inst > 1;
+            map->src[i]->use_inst = map->dst->use_inst;
+        }
     }
     lmap->num_var_inst = max_num_inst;
 
@@ -731,7 +748,7 @@ mpr_map mpr_rtr_map_by_id(mpr_rtr rtr, mpr_sig local_sig, mpr_id id, mpr_dir dir
     return 0;
 }
 
-mpr_slot mpr_rtr_slot(mpr_rtr rtr, mpr_sig sig, int slot_id)
+mpr_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_sig sig, int slot_id)
 {
     // only interested in incoming slots
     mpr_rtr_sig rs = rtr->sigs;

@@ -1,4 +1,62 @@
-# libmpr <img style="float:right;padding:10px" src="http://libmapper.github.io/images/libmpr_logo_black_512px.png" width="100">
+<h1 align=center>
+  <a href="http://libmapper.github.io" title="Libmpr Documentation">
+    <img alt="libmpr" src="http://libmapper.github.io/images/libmapper_logo_black_512px.png" style="width:200px">
+  </a>
+  <br>
+  libmpr
+</h1>
+
+<p align=center>
+  <a href="./LICENSE">
+    <img
+      alt="license:lgpl"
+      src="https://img.shields.io/badge/license-LGPL v2.1-green.svg?style=flat-square"
+    />
+  </a>
+  <a href="https://github.com/libmapper/libmapper/releases">
+    <img
+      alt="tag:?"
+      src="https://img.shields.io/github/tag/libmapper/libmapper.svg?style=flat-square"
+    />
+  </a>
+  <a href="https://github.com/libmapper/libmapper/releases">
+    <img
+      alt="downloads:?"
+      src="https://img.shields.io/github/downloads/libmapper/libmapper/total.svg?style=flat-square"
+    />
+  </a>
+  <a href="https://travis-ci.org/libmapper/libmapper">
+    <img
+      alt="build:?"
+      src="https://img.shields.io/travis/libmapper/libmapper/master.svg?style=flat-square"
+    />
+  </a>
+  <a href="https://codecov.io/gh/libmapper/libmapper">
+    <img
+      alt="coverage:?"
+      src="https://img.shields.io/codecov/c/github/libmapper/libmapper.svg?style=flat-square"
+    />
+  </a>
+  <br/>
+  <a href="https://github.com/libmapper/libmapper">
+    <img
+      alt="forks:?"
+      src="https://img.shields.io/github/forks/libmapper/libmapper.svg?style=social"
+    />
+  </a>
+  <a href="https://github.com/libmapper/libmapper">
+    <img
+      alt="followers:?"
+      src="https://img.shields.io/github/stars/libmapper/libmapper.svg?style=social"
+    />
+  </a>
+  <a href="https://github.com/libmapper/libmapper">
+    <img
+      alt="watchers:?"
+      src="https://img.shields.io/github/watchers/libmapper/libmapper.svg?style=social"
+    />
+  </a>
+</p>
 
 This library is a system for representing input and output signals on a network
 and allowing arbitrary "mappings" to be dynamically created between them.

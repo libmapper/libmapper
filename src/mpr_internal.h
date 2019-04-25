@@ -43,7 +43,7 @@ void mpr_obj_increment_version(mpr_obj obj);
  *  \param len  The length of string pointed to by name.
  *  \return     The number of characters used, or 0 if error.  Note that in some
  *              cases the name may not be available. */
-int mpr_sig_full_name(mpr_sig sig, char *name, int len);
+int mpr_sig_get_full_name(mpr_sig sig, char *name, int len);
 
 int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
 
@@ -76,11 +76,11 @@ void mpr_net_poll(mpr_net n);
 
 void mpr_net_init(mpr_net n, const char *iface, const char *group, int port);
 
-void mpr_net_bus(mpr_net n);
+void mpr_net_use_bus(mpr_net n);
 
-void mpr_net_mesh(mpr_net n, lo_address addr);
+void mpr_net_use_mesh(mpr_net n, lo_address addr);
 
-void mpr_net_subscribers(mpr_net net, mpr_dev dev, int type);
+void mpr_net_use_subscribers(mpr_net net, mpr_dev dev, int type);
 
 void mpr_net_add_msg(mpr_net n, const char *str, net_msg_t cmd, lo_message msg);
 
@@ -107,7 +107,7 @@ void mpr_dev_add_sig_methods(mpr_dev dev, mpr_sig sig);
 
 void mpr_dev_remove_sig_methods(mpr_dev dev, mpr_sig sig);
 
-int mpr_dev_route_query(mpr_dev dev, mpr_sig sig, mpr_time_t t);
+int mpr_dev_route_query(mpr_dev dev, mpr_sig sig, mpr_time t);
 
 void mpr_dev_release_scope(mpr_dev dev, const char *scope);
 
@@ -115,9 +115,9 @@ mpr_id_map mpr_dev_add_idmap(mpr_dev dev, int group, mpr_id LID, mpr_id GID);
 
 void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map map);
 
-mpr_id_map mpr_dev_idmap_by_LID(mpr_dev dev, int group, mpr_id LID);
+mpr_id_map mpr_dev_get_idmap_by_LID(mpr_dev dev, int group, mpr_id LID);
 
-mpr_id_map mpr_dev_idmap_by_GID(mpr_dev dev, int group, mpr_id GID);
+mpr_id_map mpr_dev_get_idmap_by_GID(mpr_dev dev, int group, mpr_id GID);
 
 const char *mpr_dev_get_name(mpr_dev dev);
 
@@ -125,7 +125,7 @@ void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd);
 
 /*! Find information for a registered link.
  *  \param dev          Device record to query.
- *  \param remote_dev   Remote device.
+ *  \param remote       Remote device.
  *  \return             Information about the link, or zero if not found. */
 mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote);
 
@@ -142,8 +142,8 @@ mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_data_type type, mpr_id id);
  *  \return             Information about the device, or zero if not found. */
 mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name);
 
-mpr_map mpr_graph_find_map_by_names(mpr_graph g, int num_src, const char **srcs,
-                                    const char *dst);
+mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs,
+                                   const char *dst);
 
 /*! Find information for a registered signal.
  *  \param dev          The device to query.
@@ -160,9 +160,9 @@ void mpr_rtr_num_inst_changed(mpr_rtr r, mpr_sig s, int size);
 /*! For a given signal instance, calculate mapping outputs and forward to
  *  destinations. */
 void mpr_rtr_process_sig(mpr_rtr r, mpr_sig s, int inst_idx,
-                         const void *val, int count, mpr_time_t t);
+                         const void *val, int count, mpr_time t);
 
-int mpr_rtr_send_query(mpr_rtr r, mpr_sig s, mpr_time_t t);
+int mpr_rtr_send_query(mpr_rtr r, mpr_sig s, mpr_time t);
 
 void mpr_rtr_add_map(mpr_rtr r, mpr_map m);
 
@@ -171,43 +171,41 @@ void mpr_rtr_remove_link(mpr_rtr r, mpr_link l);
 int mpr_rtr_remove_map(mpr_rtr r, mpr_map m);
 
 /*! Find a mapping in a router by local signal and remote signal name. */
-mpr_map mpr_rtr_map_out(mpr_rtr r, mpr_sig local_src, int num_src,
-                        const char **src_names, const char *dst_name);
+mpr_map mpr_rtr_get_map_out(mpr_rtr r, mpr_sig s, int num_src, const char **src,
+                            const char *dst);
 
-mpr_map mpr_rtr_map_in(mpr_rtr r, mpr_sig local_dst, int num_src,
-                       const char **src_names);
+mpr_map mpr_rtr_get_map_in(mpr_rtr r, mpr_sig s, int num_src, const char **src);
 
-mpr_map mpr_rtr_map_by_id(mpr_rtr r, mpr_sig local_sig, mpr_id id, mpr_dir dir);
+mpr_map mpr_rtr_get_map_by_id(mpr_rtr r, mpr_sig s, mpr_id id, mpr_dir dir);
 
-mpr_slot mpr_rtr_slot(mpr_rtr r, mpr_sig s, int slot_num);
+mpr_slot mpr_rtr_get_slot(mpr_rtr r, mpr_sig s, int slot_num);
 
-int mpr_rtr_loop_check(mpr_rtr r, mpr_sig local_sig, int num_remotes,
-                       const char **remotes);
+int mpr_rtr_loop_check(mpr_rtr r, mpr_sig s, int n_remote, const char **remote);
 
 /**** Signals ****/
 
 /*! Free memory used by a mpr_sig. Call this only for signals that are not
  *  registered with a device. Registered signals will be freed by mpr_sig_free().
- *  \param sig      The signal to free. */
-void mpr_sig_free_internal(mpr_sig sig);
+ *  \param s        The signal to free. */
+void mpr_sig_free_internal(mpr_sig s);
 
-void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd);
+void mpr_sig_send_state(mpr_sig s, net_msg_t cmd);
 
-void mpr_sig_send_removed(mpr_sig sig);
+void mpr_sig_send_removed(mpr_sig s);
 
 /**** Instances ****/
 
 /*! Find an active instance with the given instance id.
- *  \param sig       The signal owning the desired instance.
- *  \param GID       Globally unique id of this instance.
- *  \param flags     Bitflags indicating if search should include released instances.
- *  \return          The index of the retrieved signal instance, or -1 if no active
- *                   instances match the specified instance id map. */
-int mpr_sig_find_inst_with_GID(mpr_sig sig, mpr_id GID, int flags);
+ *  \param s        The signal owning the desired instance.
+ *  \param GID      Globally unique id of this instance.
+ *  \param flags    Bitflags indicating if search should include released instances.
+ *  \return         The index of the retrieved signal instance, or -1 if no active
+ *                  instances match the specified instance id map. */
+int mpr_sig_find_inst_with_GID(mpr_sig s, mpr_id GID, int flags);
 
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
- *  \param sig      The signal owning the desired instance.
+ *  \param s        The signal owning the desired instance.
  *  \param LID      The requested signal instance id.
  *  \param flags    Bitflags indicating if search should include released
  *                  instances.
@@ -216,22 +214,22 @@ int mpr_sig_find_inst_with_GID(mpr_sig sig, mpr_id GID, int flags);
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
-int mpr_sig_inst_with_LID(mpr_sig sig, mpr_id LID, int flags, mpr_time_t *t);
+int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time *t);
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.
- *  \param sig       The signal owning the desired instance.
- *  \param GID       Globally unique id of this instance.
- *  \param flags     Bitflags indicating if search should include released instances.
- *  \param t         Time associated with this action.
- *  \return          The index of the retrieved signal instance, or NULL if no free
- *                   instances were available and allocation of a new instance
- *                   was unsuccessful according to the selected allocation
- *                   strategy. */
-int mpr_sig_inst_with_GID(mpr_sig sig, mpr_id GID, int flags, mpr_time_t *t);
+ *  \param s        The signal owning the desired instance.
+ *  \param GID      Globally unique id of this instance.
+ *  \param flags    Bitflags indicating if search should include released instances.
+ *  \param t        Time associated with this action.
+ *  \return         The index of the retrieved signal instance, or NULL if no free
+ *                  instances were available and allocation of a new instance
+ *                  was unsuccessful according to the selected allocation
+ *                  strategy. */
+int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time *t);
 
 /*! Release a specific signal instance. */
-void mpr_sig_release_inst_internal(mpr_sig sig, int inst_idx, mpr_time_t time);
+void mpr_sig_release_inst_internal(mpr_sig s, int inst_idx, mpr_time time);
 
 /**** Links ****/
 
@@ -246,12 +244,12 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port,
                       int data_port);
 void mpr_link_free(mpr_link link);
 void mpr_link_send(mpr_link link, net_msg_t cmd);
-void mpr_link_start_queue(mpr_link link, mpr_time_t t);
-void mpr_link_send_queue(mpr_link link, mpr_time_t t);
+void mpr_link_start_queue(mpr_link link, mpr_time t);
+void mpr_link_send_queue(mpr_link link, mpr_time t);
 
 mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2);
 
-int mpr_link_is_local(mpr_link link);
+int mpr_link_get_is_local(mpr_link link);
 
 /**** Maps ****/
 
@@ -275,21 +273,21 @@ lo_message mpr_map_build_msg(mpr_map map, mpr_slot slot, const void *val,
 int mpr_map_set_from_msg(mpr_map map, mpr_msg msg, int override);
 
 /*! Helper for printing typed values.
- *  \param length       The vector length of the value.
+ *  \param len          The vector length of the value.
  *  \param type         The value type.
  *  \param value        A pointer to the property value to print. */
-void mpr_prop_print(int length, mpr_type type, const void *val);
+void mpr_prop_print(int len, mpr_type type, const void *val);
 
 mpr_prop mpr_prop_from_str(const char *str);
-const char *mpr_prop_str(mpr_prop prop, int skip_slash);
+const char *mpr_prop_as_str(mpr_prop prop, int skip_slash);
 
-const char *mpr_loc_str(mpr_loc loc);
+const char *mpr_loc_as_str(mpr_loc loc);
 mpr_loc mpr_loc_from_str(const char *string);
 
-const char *mpr_protocol_str(mpr_proto pro);
+const char *mpr_protocol_as_str(mpr_proto pro);
 mpr_proto mpr_protocol_from_str(const char *string);
 
-const char *mpr_steal_str(mpr_steal_type stl);
+const char *mpr_steal_as_str(mpr_steal_type stl);
 
 int mpr_map_send_state(mpr_map map, int slot, net_msg_t cmd);
 
@@ -331,18 +329,18 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *sig_name,
                           const char *dev_name, mpr_msg msg);
 
 /*! Initialize an already-allocated mpr_sig structure. */
-void mpr_sig_init(mpr_sig sig, mpr_dir dir, int num_inst, const char *name,
-                  int length, mpr_type type, const char *unit, const void *min,
-                  const void *max);
+void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
+                  mpr_type type, const char *unit, const void *min,
+                  const void *max, int *num_inst);
 
 /*! Add or update a map entry in the graph using parsed message parameters.
  *  \param g            The graph to operate on.
  *  \param num_src      The number of source slots for this map
- *  \param src_names    The full name of the source signal.
- *  \param dst_name     The full name of the destination signal.
+ *  \param src          The full names of the source signals.
+ *  \param dst          The full name of the destination signal.
  *  \param msg          The parsed message parameters containing new metadata.
  *  \return             Pointer to the map. */
-mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
+mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src,
                           const char *dst_name, mpr_msg msg);
 
 /*! Remove objects in the provided query. */
@@ -391,10 +389,9 @@ void mpr_msg_free(mpr_msg msg);
  *  \param msg      Structure containing parameter info.
  *  \param prop     Symbolic identifier of the property to look for.
  *  \return         Pointer to mpr_msg_atom, or zero if not found. */
-mpr_msg_atom mpr_msg_prop(mpr_msg msg, mpr_prop prop);
+mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, mpr_prop prop);
 
-void mpr_msg_add_typed_val(lo_message msg, int length, mpr_type type,
-                           const void *val);
+void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type, const void *val);
 
 /*! Prepare a lo_message for sending based on a map struct. */
 const char *mpr_map_prepare_msg(mpr_map map, lo_message msg, int slot_idx);
@@ -410,28 +407,30 @@ mpr_expr mpr_expr_new_from_str(const char *str, int num_inputs,
                                const int *input_vector_lengths,
                                mpr_type output_type, int output_vector_length);
 
-int mpr_expr_in_hist_size(mpr_expr expr, int idx);
+int mpr_expr_get_in_hist_size(mpr_expr expr, int idx);
 
-int mpr_expr_out_hist_size(mpr_expr expr);
+int mpr_expr_get_out_hist_size(mpr_expr expr);
 
-int mpr_expr_num_vars(mpr_expr expr);
+int mpr_expr_get_num_vars(mpr_expr expr);
 
-int mpr_expr_var_hist_size(mpr_expr expr, int idx);
+int mpr_expr_get_var_hist_size(mpr_expr expr, int idx);
 
-int mpr_expr_var_vec_len(mpr_expr expr, int idx);
+int mpr_expr_get_var_vec_len(mpr_expr expr, int idx);
 
-int mpr_expr_src_muted(mpr_expr expr, int idx);
+int mpr_expr_get_src_is_muted(mpr_expr expr, int idx);
+
+const char *mpr_expr_get_var_name(mpr_expr expr, int idx);
+
+int mpr_expr_get_var_is_public(mpr_expr expr, int idx);
 
 #ifdef DEBUG
 void printexpr(const char*, mpr_expr);
 #endif
 
 int mpr_expr_eval(mpr_expr expr, mpr_hist *srcs, mpr_hist *expr_vars,
-                  mpr_hist result, mpr_time_t *t, mpr_type *types);
+                  mpr_hist result, mpr_time *t, mpr_type *types);
 
-int mpr_expr_const_out(mpr_expr expr);
-
-int mpr_expr_num_input_slots(mpr_expr expr);
+int mpr_expr_get_num_input_slots(mpr_expr expr);
 
 void mpr_expr_free(mpr_expr expr);
 
@@ -449,7 +448,7 @@ void mpr_tbl_clear(mpr_tbl tab);
 void mpr_tbl_free(mpr_tbl tab);
 
 /*! Get the number of records stored in a table. */
-int mpr_tbl_count(mpr_tbl tab);
+int mpr_tbl_get_size(mpr_tbl tab);
 
 /*! Look up a value in a table.  Returns 0 if found, 1 if not found,
  *  and fills in value if found. */
@@ -514,7 +513,7 @@ void mpr_list_remove_item(void **list, void *item);
 
 void mpr_list_free_item(void *item);
 
-mpr_list mpr_list_new_query(const void *list, const void *func,
+mpr_list mpr_list_new_query(const void **list, const void *func,
                             const mpr_type *types, ...);
 
 mpr_list mpr_list_start(mpr_list list);
@@ -528,7 +527,7 @@ double mpr_get_current_time(void);
  *  \param minuend      The minuend.
  *  \param subtrahend   The subtrahend.
  *  \return             The difference a-b in seconds. */
-double mpr_time_diff(mpr_time_t minuend, mpr_time_t subtrahend);
+double mpr_time_get_diff(mpr_time minuend, mpr_time subtrahend);
 
 /**** Debug macros ****/
 
@@ -573,7 +572,7 @@ static void die_unless(...) {};
 #endif
 
 /*! Helper to find size of signal value types. */
-inline static int mpr_type_size(mpr_type type)
+inline static int mpr_type_get_size(mpr_type type)
 {
     if (type < MPR_LIST)    return sizeof(void*);
     switch (type) {
@@ -586,28 +585,28 @@ inline static int mpr_type_size(mpr_type type)
         case MPR_PTR:       return sizeof(void*);
         case MPR_STR:       return sizeof(char*);
         case MPR_INT64:     return sizeof(int64_t);
-        case MPR_TIME:      return sizeof(mpr_time_t);
+        case MPR_TIME:      return sizeof(mpr_time);
         case MPR_TYPE:      return sizeof(mpr_type);
         default:
-            die_unless(0, "Unknown type '%c' in mpr_type_size().\n", type);
+            die_unless(0, "Unknown type '%c' in mpr_type_get_size().\n", type);
             return 0;
     }
 }
 
 /*! Helper to find the size in bytes of a signal's full vector. */
-inline static size_t mpr_sig_vector_bytes(mpr_sig sig)
+inline static size_t mpr_sig_get_vector_bytes(mpr_sig sig)
 {
-    return mpr_type_size(sig->type) * sig->len;
+    return mpr_type_get_size(sig->type) * sig->len;
 }
 
 /*! Helper to find the pointer to the current value in a mpr_hist_t. */
-inline static void* mpr_hist_val_ptr(mpr_hist_t h)
+inline static void* mpr_hist_get_val_ptr(mpr_hist_t h)
 {
-    return h.val + h.pos * h.len * mpr_type_size(h.type);
+    return h.val + h.pos * h.len * mpr_type_get_size(h.type);
 }
 
 /*! Helper to find the pointer to the current time in a mpr_hist_t. */
-inline static void* mpr_hist_time_ptr(mpr_hist_t h)
+inline static void* mpr_hist_get_time_ptr(mpr_hist_t h)
 {
     return &h.time[(int)h.pos];
 }
@@ -625,7 +624,7 @@ inline static int bitmatch(unsigned int a, unsigned int b)
 }
 
 /*! Helper to check if type is a number. */
-inline static int type_is_num(mpr_type type)
+inline static int mpr_type_get_is_num(mpr_type type)
 {
     switch (type) {
         case MPR_INT32:
@@ -637,19 +636,19 @@ inline static int type_is_num(mpr_type type)
 }
 
 /*! Helper to check if type is a boolean. */
-inline static int type_is_bool(mpr_type type)
+inline static int mpr_type_get_is_bool(mpr_type type)
 {
     return 'T' == type || 'F' == type;
 }
 
 /*! Helper to check if type is a string. */
-inline static int type_is_str(mpr_type type)
+inline static int mpr_type_get_is_str(mpr_type type)
 {
     return MPR_STR == type;
 }
 
 /*! Helper to check if type is a string or void* */
-inline static int type_is_ptr(mpr_type type)
+inline static int mpr_type_get_is_ptr(mpr_type type)
 {
     return MPR_PTR == type || MPR_STR == type;
 }
@@ -667,9 +666,9 @@ inline static const char *skip_slash(const char *string)
 }
 
 /*! Helper to check if a time has the MPR_NOW value */
-inline static int time_is_now(mpr_time t)
+inline static int mpr_time_get_is_now(mpr_time *t)
 {
-    return (memcmp(t, &MPR_NOW, sizeof(mpr_time_t)) == 0);
+    return (memcmp(t, &MPR_NOW, sizeof(mpr_time)) == 0);
 }
 
 #endif // __MPR_INTERNAL_H__

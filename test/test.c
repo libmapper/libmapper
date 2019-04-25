@@ -44,23 +44,22 @@ int setup_src()
     float mnf[]={3.2,2,0}, mxf[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    sendsig_1 = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig_1", 1, MPR_DBL, "Hz",
-                            &mnd, &mxd, NULL, 0);
-    sendsig_2 = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig_2", 1, MPR_FLT, "mm",
-                            mnf, mxf, NULL, 0);
-    sendsig_3 = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig_3", 3, MPR_FLT, NULL,
-                            mnf, mxf, NULL, 0);
-    sendsig_4 = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig_4", 1, MPR_FLT, NULL,
-                            mnf, mxf, NULL, 0);
+    sendsig_1 = mpr_sig_new(src, MPR_DIR_OUT, "outsig_1", 1, MPR_DBL, "Hz",
+                            &mnd, &mxd, NULL, NULL, 0);
+    sendsig_2 = mpr_sig_new(src, MPR_DIR_OUT, "outsig_2", 1, MPR_FLT, "mm",
+                            mnf, mxf, NULL, NULL, 0);
+    sendsig_3 = mpr_sig_new(src, MPR_DIR_OUT, "outsig_3", 3, MPR_FLT, NULL,
+                            mnf, mxf, NULL, NULL, 0);
+    sendsig_4 = mpr_sig_new(src, MPR_DIR_OUT, "outsig_4", 1, MPR_FLT, NULL,
+                            mnf, mxf, NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
 
     // Make sure we can add and remove outputs without crashing.
-    mpr_sig_free(mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig_5", 1, MPR_FLT, NULL,
-                             &mnf, &mxf, NULL, 0));
+    mpr_sig_free(mpr_sig_new(src, MPR_DIR_OUT, "outsig_5", 1, MPR_FLT, NULL,
+                             &mnf, &mxf, NULL, NULL, 0));
 
-    eprintf("Number of outputs: %d\n",
-            mpr_list_get_count(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
+    eprintf("Number of outputs: %d\n", mpr_list_get_size(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
 
     return 0;
 
@@ -82,9 +81,7 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int len, mpr_type type,
              const void *val, mpr_time t)
 {
     if (val) {
-        const char *name;
-        mpr_obj_get_prop_by_idx(sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                                (const void**)&name, 0);
+        const char *name = mpr_obj_get_prop_as_str(sig, MPR_PROP_NAME, NULL);
         eprintf("--> destination got %s", name);
 
         switch (type) {
@@ -121,23 +118,22 @@ int setup_dst()
     float mnf[]={0,0,0}, mxf[]={1,1,1};
     double mnd=0, mxd=1;
 
-    recvsig_1 = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig_1", 1, MPR_FLT, NULL,
-                            mnf, mxf, handler, MPR_SIG_UPDATE);
-    recvsig_2 = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig_2", 1, MPR_DBL, NULL,
-                            &mnd, &mxd, handler, MPR_SIG_UPDATE);
-    recvsig_3 = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig_3", 3, MPR_FLT, NULL,
-                            mnf, mxf, handler, MPR_SIG_UPDATE);
-    recvsig_4 = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig_4", 1, MPR_FLT, NULL,
-                            mnf, mxf, handler, MPR_SIG_UPDATE);
+    recvsig_1 = mpr_sig_new(dst, MPR_DIR_IN, "insig_1", 1, MPR_FLT, NULL,
+                            mnf, mxf, NULL, handler, MPR_SIG_UPDATE);
+    recvsig_2 = mpr_sig_new(dst, MPR_DIR_IN, "insig_2", 1, MPR_DBL, NULL,
+                            &mnd, &mxd, NULL, handler, MPR_SIG_UPDATE);
+    recvsig_3 = mpr_sig_new(dst, MPR_DIR_IN, "insig_3", 3, MPR_FLT, NULL,
+                            mnf, mxf, NULL, handler, MPR_SIG_UPDATE);
+    recvsig_4 = mpr_sig_new(dst, MPR_DIR_IN, "insig_4", 1, MPR_FLT, NULL,
+                            mnf, mxf, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
 
     // Make sure we can add and remove inputs and inputs within crashing.
-    mpr_sig_free(mpr_sig_new(dst, MPR_DIR_IN, 1, "insig_5", 1, MPR_FLT,
-                             NULL, &mnf, &mxf, NULL, MPR_SIG_UPDATE));
+    mpr_sig_free(mpr_sig_new(dst, MPR_DIR_IN, "insig_5", 1, MPR_FLT,
+                             NULL, &mnf, &mxf, NULL, NULL, MPR_SIG_UPDATE));
 
-    eprintf("Number of inputs: %d\n",
-            mpr_list_get_count(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
+    eprintf("Number of inputs: %d\n", mpr_list_get_size(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
 
     return 0;
 
@@ -159,7 +155,7 @@ void cleanup_dst()
 
 void wait_local_devs()
 {
-    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+    while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }
@@ -188,7 +184,7 @@ void loop()
             mpr_dev_poll(dst, 10);
             num_maps = 0;
             for (i = 0; i < 4; i++) {
-                num_maps += (mpr_map_ready(maps[i]));
+                num_maps += (mpr_map_get_is_ready(maps[i]));
             }
         }
     }

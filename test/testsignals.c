@@ -26,9 +26,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int len,
     if (!val)
         return;
 
-    const char *name;
-    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                            (const void**)&name, NULL);
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("--> destination got %s", name);
     float *v = (float*)val;
     for (int i = 0; i < sig->len; i++) {
@@ -76,7 +74,7 @@ int main(int argc, char ** argv)
         result = 1;
         goto done;
     }
-    while (!mpr_dev_ready(dev)) {
+    while (!mpr_dev_get_is_ready(dev)) {
         mpr_dev_poll(dev, 100);
     }
 
@@ -85,14 +83,14 @@ int main(int argc, char ** argv)
     for (i = 0; i < 100; i++) {
         mpr_dev_poll(dev, 100);
         snprintf(signame, 32, "in%i", i);
-        if (!(inputs[i] = mpr_sig_new(dev, MPR_DIR_IN, 1, signame, 1, MPR_FLT,
+        if (!(inputs[i] = mpr_sig_new(dev, MPR_DIR_IN, signame, 1, MPR_FLT, NULL,
                                       NULL, NULL, NULL, handler, MPR_SIG_UPDATE))) {
             result = 1;
             goto done;
         }
         snprintf(signame, 32, "out%i", i);
-        if (!(outputs[i] = mpr_sig_new(dev, MPR_DIR_OUT, 1, signame, 1, MPR_FLT,
-                                       NULL, NULL, NULL, NULL, 0))) {
+        if (!(outputs[i] = mpr_sig_new(dev, MPR_DIR_OUT, signame, 1, MPR_FLT,
+                                       NULL, NULL, NULL, NULL, NULL, 0))) {
             result = 1;
             goto done;
         }

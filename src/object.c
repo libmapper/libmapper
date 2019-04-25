@@ -28,9 +28,9 @@ int mpr_obj_get_num_props(mpr_obj o, int staged)
     int len = 0;
     if (o) {
         if (o->props.synced)
-            len += mpr_tbl_count(o->props.synced);
+            len += mpr_tbl_get_size(o->props.synced);
         if (staged && o->props.staged)
-            len += mpr_tbl_count(o->props.staged);
+            len += mpr_tbl_get_size(o->props.staged);
     }
     return len;
 }
@@ -50,7 +50,7 @@ mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, mpr_prop p, const char **k, int *l,
                                    v, pub);
 }
 
-int mpr_obj_get_prop_i32(mpr_obj o, mpr_prop p, const char *s)
+int mpr_obj_get_prop_as_i32(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
@@ -62,11 +62,12 @@ int mpr_obj_get_prop_i32(mpr_obj o, mpr_prop p, const char *s)
         case MPR_INT64: return (int)(*(int64_t*)v);
         case MPR_FLT:   return (int)(*(float*)v);
         case MPR_DBL:   return (int)(*(double*)v);
+        case MPR_TYPE:  return (int)(*(mpr_type*)v);
         default:        return 0;
     }
 }
 
-float mpr_obj_get_prop_flt(mpr_obj o, mpr_prop p, const char *s)
+float mpr_obj_get_prop_as_flt(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
@@ -82,7 +83,7 @@ float mpr_obj_get_prop_flt(mpr_obj o, mpr_prop p, const char *s)
     }
 }
 
-const char *mpr_obj_get_prop_str(mpr_obj o, mpr_prop p, const char *s)
+const char *mpr_obj_get_prop_as_str(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
@@ -90,7 +91,7 @@ const char *mpr_obj_get_prop_str(mpr_obj o, mpr_prop p, const char *s)
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
-void *mpr_obj_get_prop_ptr(mpr_obj o, mpr_prop p, const char *s)
+void *mpr_obj_get_prop_as_ptr(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
@@ -98,12 +99,21 @@ void *mpr_obj_get_prop_ptr(mpr_obj o, mpr_prop p, const char *s)
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
-mpr_list mpr_obj_get_prop_list(mpr_obj o, mpr_prop p, const char *s)
+mpr_obj mpr_obj_get_prop_as_obj(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && r->type == MPR_LIST, 0);
+    RETURN_UNLESS(r && r->val && r->type <= MPR_OBJ, 0);
     return r->flags & INDIRECT ? *r->val : r->val;
+}
+
+mpr_list mpr_obj_get_prop_as_list(mpr_obj o, mpr_prop p, const char *s)
+{
+    RETURN_UNLESS(o, 0);
+    mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
+    RETURN_UNLESS(r && r->val && MPR_LIST == r->type, 0);
+    mpr_list l = r->flags & INDIRECT ? *r->val : r->val;
+    return l ? mpr_list_start(mpr_list_get_cpy(l)) : 0;
 }
 
 mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
@@ -149,11 +159,11 @@ void mpr_obj_push(mpr_obj o)
     if (MPR_DEV == o->type) {
         mpr_dev d = (mpr_dev)o;
         if (d->loc) {
-            mpr_net_subscribers(n, d, o->type);
+            mpr_net_use_subscribers(n, d, o->type);
             mpr_dev_send_state(d, MSG_DEV);
         }
         else {
-            mpr_net_bus(n);
+            mpr_net_use_bus(n);
             mpr_dev_send_state(d, MSG_DEV_MOD);
         }
     }
@@ -162,16 +172,16 @@ void mpr_obj_push(mpr_obj o)
         if (s->loc) {
             mpr_data_type type = ((s->dir == MPR_DIR_OUT)
                                      ? MPR_SIG_OUT : MPR_SIG_IN);
-            mpr_net_subscribers(n, s->dev, type);
+            mpr_net_use_subscribers(n, s->dev, type);
             mpr_sig_send_state(s, MSG_SIG);
         }
         else {
-            mpr_net_bus(n);
+            mpr_net_use_bus(n);
             mpr_sig_send_state(s, MSG_SIG_MOD);
         }
     }
     else if (o->type & MPR_MAP) {
-        mpr_net_bus(n);
+        mpr_net_use_bus(n);
         mpr_map m = (mpr_map)o;
         if (m->status >= MPR_STATUS_ACTIVE)
             mpr_map_send_state(m, -1, MSG_MAP_MOD);
@@ -245,10 +255,10 @@ void mpr_obj_print(mpr_obj o, int staged)
                     printf("%s", MPR_DIR_OUT == *(int*)val ? "output" : "input");
                     break;
                 case MPR_PROP_PROCESS_LOC:
-                    printf("%s", mpr_loc_str(*(int*)val));
+                    printf("%s", mpr_loc_as_str(*(int*)val));
                     break;
                 case MPR_PROP_PROTOCOL:
-                    printf("%s", mpr_protocol_str(*(int*)val));
+                    printf("%s", mpr_protocol_as_str(*(int*)val));
                     break;
                 default:
                     mpr_prop_print(len, type, val);
@@ -264,8 +274,7 @@ void mpr_obj_print(mpr_obj o, int staged)
         if (MPR_PROP_EXTRA == p)
             p = mpr_tbl_get_prop_by_key(o->props.staged, key, &len, &type, &val, 0);
         else
-            p = mpr_tbl_get_prop_by_idx(o->props.staged, p, NULL, &len, &type,
-                                        &val, 0);
+            p = mpr_tbl_get_prop_by_idx(o->props.staged, p, NULL, &len, &type, &val, 0);
         if (MPR_PROP_UNKNOWN != p) {
             printf(" (staged: ");
             mpr_prop_print(len, type, val);

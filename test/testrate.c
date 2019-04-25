@@ -39,8 +39,8 @@ int setup_src()
 
     float mn=0, mx=10;
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 1, MPR_FLT, "Hz",
-                          &mn, &mx, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, "Hz",
+                          &mn, &mx, NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -67,10 +67,8 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int len,
     if (!val)
         return;
 
-    const char *name;
-    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                            (const void**)&name, NULL);
-    eprintf("Rec'ved (period: %f, jitter: %f, diff:%f)\n", sig->period,
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
+    eprintf("%s rec'ved (period: %f, jitter: %f, diff:%f)\n", name, sig->period,
             sig->jitter, period - sig->period);
 }
 
@@ -84,8 +82,8 @@ int setup_dst()
 
     float mn=0, mx=1;
 
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
-                          &mn, &mx, handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
+                          &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
 
     // This signal is expected to be updated at 100 Hz
     float rate = 100.f;
@@ -111,7 +109,7 @@ void cleanup_dst()
 
 void wait_local_devs()
 {
-    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+    while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }
@@ -125,7 +123,7 @@ int setup_maps()
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mpr_map_ready(map)) {
+    while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
         if (i++ > 100)

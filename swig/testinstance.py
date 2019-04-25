@@ -29,12 +29,11 @@ def print_instance_ids():
     print(phrase)
 
 src = mpr.device("src")
-outsig = src.add_signal(mpr.DIR_OUT, 1, "outsig", 1, mpr.FLT, None, 0, 100)
+outsig = src.add_signal(mpr.DIR_OUT, "outsig", 1, mpr.FLT, None, 0, 100, 5)
 outsig.reserve_instances(5)
 
 dest = mpr.device("dest")
-insig = dest.add_signal(mpr.DIR_IN, 1, "insig", 1, mpr.FLT, None, 0, 1, h)
-insig.remove_instance(0)
+insig = dest.add_signal(mpr.DIR_IN, "insig", 1, mpr.FLT, None, 0, 1, 0, h)
 insig.reserve_instances([100, 200, 300])
 insig.set_property(mpr.PROP_STEAL_MODE, mpr.STEAL_OLDEST)
 

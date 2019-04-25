@@ -139,21 +139,19 @@ examples:
 
 ~~~c++
 mpr::Signal input;
-input = dev.add_input_signal("my_input", 1, 'f',
-                             "m/s", 0, 0, h)
+input = dev.add_sig(MPR_DIR_IN, "my_input", MPR_FLT, "m/s", 0, 0, 0, h)
 
 int min[4] = {1,2,3,4};
 int max[4] = {10,11,12,13};
 mpr::Signal output;
-output = dev.add_output_signal("my_output", 4,
-                               'i', 0, min, max)
+output = dev.add_sig(MPR_DIR_OUT, "my_output", 4, MPR_INT32, 0, min, max)
 ~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
 type.  Signals are assumed to be vectors of values, so for usual single-valued
 signals, a length of 1 should be specified.  Finally, supported types are
-currently `'i'`, `'f'`, or `'d'` (specified as characters in C, not strings),
-for `int`, `float`, or `double` values, respectively.
+currently `MPR_INT32`, `MPR_FLT`, or `MPR_DBL`, for `int`, `float`, or `double`
+values, respectively.
 
 The other parameters are not strictly required, but the more information you
 provide, the more _libmpr_ can do some things automatically.  For example, if
@@ -180,8 +178,7 @@ minimum, or maximum information:
 
 ~~~c++
 mpr::Signal sig;
-sig = dev.add_output_signal("outA", 1, 'i',
-                            0, 0, 0);
+sig = dev.add_sig(MPR_DIR_OUT, "outA", 1, MPR_INT32);
 ~~~
 
 An example of a `float` signal where some more information is provided:
@@ -190,8 +187,7 @@ An example of a `float` signal where some more information is provided:
 float min = 0.0f;
 float max = 5.0f;
 mpr::Signal sig;
-sig = dev.add_output_signal("sensor1", 1, 'f',
-                            "V", &min, &max);
+sig = dev.add_sig(MPR_DIR_OUT, "sensor1", 1, MPR_FLT, "V", &min, &max);
 ~~~
 
 So far we know how to create a device and to specify an output signal
@@ -202,8 +198,7 @@ mpr::Device dev("test_sender");
 mpr::Signal sig;
 float min = 0.0f;
 float max = 5.0f;
-sig = dev.add_output_signal("sensor1", 1, 'f',
-                            "V", &min, &max);
+sig = dev.add_sig(MPR_DIR_OUT, "sensor1", 1, MPR_FLT, "V", &min, &max);
     
 while (!done) {
     dev.poll(10);
@@ -212,20 +207,21 @@ while (!done) {
 }
 ~~~
 
-It is possible to retrieve a device's inputs or outputs by name or by index at a
-later time using the functions `dev.input()` or `dev.output()` with either the
-signal name or index as an argument. The functions `dev.inputs()` and
-`dev.outputs()` return an object of type `mpr::Signal::Query` which can be
-used to retrieve all of the input/output signals belonging to a particular
+It is possible to retrieve a device's signals at a later time using the function `dev.signals()`. This function returns an object of type `mpr::Signal::List`
+which can be used to retrieve all of the signals belonging to a particular
 device:
 
 ~~~c++
 std::cout << "Signals belonging to " << dev.name() << std::endl;
 
-mpr::Signal::Query q = dev.signals(MPR_DIR_INCOMING).begin();
-for (; q != q.end(); ++q) {
-    std::cout << "input: " << (const char*)(*q) << std::endl;
+mpr::Signal::List list = dev.signals(MPR_DIR_IN).begin();
+for (; list != list.end(); ++list) {
+    std::cout << "signal: " << *list << std::endl;
 }
+
+// or more simply:
+for (mpr::Signal sig : dev.signals())
+    std::cout << "signal: " << sig << std::endl;
 ~~~
 
 ### Updating signals
@@ -237,24 +233,17 @@ over a USB serial port, or it could just be a mouse-controlled GUI slider.
 However it's getting the data, it must provide it to _libmpr_ so that it will
 be sent to other devices if that signal is mapped.
 
-This is accomplished by the `update()` function:
-
-~~~c++
-void sig.update(void *value, int count, mpr::Timetag timetag);
-~~~
-
-The `count` and `timetag` arguments can be ommited, and the `update()` function
-is overloaded to accept scalars, arrays, and vectors as appropriate for the
-datatype and length of the signal in question.  In other words, if the signal is
-a 10-vector of `int`, then `value` should point to an array or vector of 10
-`int`s.  If it is a scalar `float`, it should be provided with a `float`
-variable. The `count` argument allows you to specify the number of value samples
-that are being updated - for now we will set this to 1.  Lastly the `timetag`
-argument allows you to specify a time associated with the signal update. If your
-value update was generated locally, or if your program does not have access to
-upstream timing information (e.g., from a microcontroller sampling sensor
-values), you can omit the argument and libmpr will tag the update with the
-current time.
+This is accomplished by the function `set_value()`, which is overloaded to
+accept a wide variety of argument types (std::vector, std::array, etc.). Check
+the API documentation for more information. The data passed to set_value() is not
+required to match the length and type of the signal itself—libmpr will perform
+type coercion if necessary. More than one 'sample' of signal update may be
+applied at once by e.g. updating a signal with length 5 using a 20-element
+array.  Lastly the `time` argument allows you to specify a time associated with
+the signal update. If your value update was generated locally, or if your
+program does not have access to upstream timing information (e.g., from a
+microcontroller sampling sensor values), you can use the macro `MPR_NOW` and
+_libmpr_ will tag the update with the current time.
 
 So in the "sensor 1" example, assuming in `do_stuff()` we have some code which
 reads sensor 1's value into a float variable called `v1`, the loop becomes:
@@ -265,7 +254,7 @@ while (!done) {
     
     // call a hypothetical user function that reads a sensor
     float v1 = do_stuff();
-    sensor1.update(v1);
+    sensor1.set_value(v1);
 }
 ~~~
 
@@ -523,26 +512,21 @@ You can use any property name not already reserved by _libmpr_.
 
 #### Reserved keys for devices
 
-`description`, `host`, `id`, `is_local`, `libversion`, `name`, `num_incoming_maps`,
-`num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `value`, `version`,
-`user_data`
+`data`, `id`, `is_local`, `lib_version`, `linked`, `name`, `num_maps_in`,
+`num_maps_out`, `num_sigs_in`, `num_sigs_out`, `ordinal`, `status`, `synced`,
+`version`
 
 #### Reserved keys for signals
 
-`description`, `direction`, `id`, `is_local`, `length`, `max`, `maximum`, `min`,
-`minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`,
-`type`, `unit`, `user_data`
-
-#### Reserved keys for links
-
-`description`, `id`, `is_local`, `num_maps`
+`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`, `maximum`,
+`min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`, `period`, `steal`,
+`type`, `unit`, `use_inst`, `version`
 
 #### Reserved keys for maps
 
-`description`, `expression`, `id`, `is_local`, `mode`, `muted`, `num_destinations`,
-`num_sources`, `process_location`, `ready`, `status`
+`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`, `protocol`,
+`scope`, `status`, `version`
 
 #### Reserved keys for map slots
 
-`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`,
-`maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`
+`calib`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `use_inst`

@@ -162,27 +162,27 @@ output signals.  A signal requires a bit more information than a device, much of
 which is optional:
 
 ~~~c
-mpr_sig mpr_sig_new(mpr_dev parent, mpr_dir dir, int num_inst,
-                    const char *name, int length, mpr_type type,
-                    const char *unit, void *min, void *max,
-                    mpr_sig_handler *h, int events);
+mpr_sig mpr_sig_new(mpr_dev parent, mpr_dir dir, const char *name, int length,
+                    mpr_type type, const char *unit, void *min, void *max,
+                    int *num_inst, mpr_sig_handler *h, int events);
 ~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
 type.  Signals are assumed to be vectors of values, so for usual single-valued
 signals, a length of 1 should be specified.  Finally, supported types are
-currently 'i', 'f', or 'd' (specified as characters in C, not strings), for
-`int`, `float`, and `double` values, respectively.
+currently `MPR_INT32`, `MPR_FLT`, or `MPR_DBL` for
+[integer, float, and double](https://en.wikipedia.org/wiki/C_data_types)
+values, respectively.
 
 The other parameters are not strictly required, but the more information you
 provide, the more _libmpr_ can do some things automatically.  For example, if
-`minimum` and `maximum` are provided, it will be possible to create
-linear-scaled connections very quickly.  If `unit` is provided, _libmpr_ will
-be able to similarly figure out a linear scaling based on unit conversion (from
-centimeters to inches for example). Currently automatic unit-based scaling is
-not a supported feature, but will be added in the future.  You can take
-advantage of this future development by simply providing unit information
-whenever it is available.  It is also helpful documentation for users.
+`min` and `max` are provided, it will be possible to create linear-scaled
+connections very quickly.  If `unit` is provided, _libmpr_ will be able to
+similarly figure out a linear scaling based on unit conversion (from cm to
+inches for example). Currently automatic unit-based scaling is not a supported
+feature, but will be added in the future.  You can take advantage of this
+future development by simply providing unit information whenever it is
+available.  It is also helpful documentation for users.
 
 Notice that optional values are provided as `void*` pointers.  This is because a
 signal can either be `int`, `float`, or `double`, and your maximum and minimum
@@ -191,15 +191,15 @@ values should correspond in type.  So you should pass in a `int*`, `float*`, or
 
 Lastly, it is usually necessary to be informed when input signal values change.
 This is done by providing a function to be called whenever its value is modified
-by an incoming message.  It is passed in the `handler` parameter, with context
-information to be passed to that function during callback in `user_data`.
+by an incoming message.  It is passed in the `handler` parameter, along with an
+`events` parameter specifying which types of events should trigger the handler.
 
 An example of creating a "barebones" `int` scalar output signal with no unit,
-minimum, or maximum information:
+minimum, or maximum information and no callback handler:
 
 ~~~c
-mpr_sig outA = mpr_sig_new(dev, MPR_DIR_OUT, 1, "outA",
-                           1, 'i', 0, 0, 0, 0, 0);
+mpr_sig outA = mpr_sig_new(dev, MPR_DIR_OUT, "outA",
+                           1, MPR_INT32, 0, 0, 0, 0, 0, 0);
 ~~~
 
 An example of a `float` signal where some more information is provided:
@@ -207,8 +207,8 @@ An example of a `float` signal where some more information is provided:
 ~~~c
 float min = 0.0f;
 float max = 5.0f;
-mpr_sig s1 = mpr_sig_new(dev, MPR_DIR_OUT, 1, "sensor1", 1, 'f',
-                         "V", &min, &max, 0, 0);
+mpr_sig s1 = mpr_sig_new(dev, MPR_DIR_OUT, "sensor1", 1, MPR_FLT,
+                         "V", &min, &max, 0, 0, 0);
 ~~~
 
 So far we know how to create a device and to specify an output signal for it.
@@ -216,8 +216,8 @@ To recap, let's review the code so far:
 
 ~~~c
 mpr_dev dev = mpr_dev_new("my_device", 0, 0);
-mpr_sig s1 = mpr_sig_new(dev, MPR_DIR_OUT, 1, "sensor1", 1, 'f',
-                         "V", &min, &max, 0, 0);
+mpr_sig s1 = mpr_sig_new(dev, MPR_DIR_OUT, "sensor1", 1, MPR_FLT,
+                         "V", &min, &max, 0, 0, 0);
     
 while (!done) {
     mpr_dev_poll(dev, 50);
@@ -251,17 +251,16 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id inst, int length, mpr_type type,
                        void *value, mpr_time_t time);
 ~~~
 
-As you can see, a `void*` pointer must be provided.  This must point to a data
-structure matching the `length` and `type` arguments and the vector length of the
-signal itself.  If the signal is a 10-vector of `int`, then `value` should point
-to the first item in a C array of 10 `int`s.  If it is a scalar `float`, it should
-be provided with the address of a `float` variable. The `length` argument also
-allows you to specify the number of value samples that are being updated - for now
-we will set this to 1.  Lastly the `time` argument allows you to specify a time
-associated with the signal update. If your value update was generated locally,
-or if your program does not have access to upstream timing information (e.g.,
-from a microcontroller sampling sensor values), you can use the macro
-`MPR_NOW` and _libmpr_ will tag the update with the current time.
+As you can see, a `void*` pointer must be provided, which must point to a data
+structure matching the `length` and `type` arguments. This data structure is not
+required to match the length and type of the signal itself—libmpr will perform
+type coercion if necessary. More than one 'sample' of signal update may be
+applied at once by e.g. updating a signal with length 5 using a 20-element
+array.  Lastly the `time` argument allows you to specify a time associated with
+the signal update. If your value update was generated locally, or if your
+program does not have access to upstream timing information (e.g., from a
+microcontroller sampling sensor values), you can use the macro `MPR_NOW` and
+_libmpr_ will tag the update with the current time.
 
 So in the "sensor 1" example, assuming in `do_stuff` we have some code which
 reads sensor 1's value into a float variable called `v1`, the loop becomes:
@@ -272,7 +271,7 @@ while (!done) {
     
     // call hypothetical user function that reads a sensor
     float v1 = do_stuff();
-    mpr_sig_set_value(sensor1, 0, 1, MPR_FLOAT, &v1, MPR_NOW);
+    mpr_sig_set_value(sensor1, 0, 1, MPR_FLT, &v1, MPR_NOW);
 }
 ~~~
 
@@ -359,8 +358,9 @@ void main()
     
     mpr_dev synth_dev = mpr_dev_new("synth", 0);
     
-    mpr_sig pw = mpr_sig_new(synth_dev, MPR_DIR_IN, 1, "pulsewidth", 1, 'f', 0,
-                             &min_pw, &max_pw, pulsewidth_handler, MPR_INT_UPDATE);
+    mpr_sig pw = mpr_sig_new(synth_dev, MPR_DIR_IN, "pulsewidth", 1, 'f', 0,
+                             &min_pw, &max_pw, 0, pulsewidth_handler,
+                             MPR_SIG_UPDATE);
     mpr_obj_set_prop(pw, MPR_PROP_DATA, 0, 1, MPR_PTR, &synth, 0);
     
     while (!done)
@@ -433,7 +433,7 @@ instance structures.
 ### Receiving instances
 
 You might have noticed earlier that the handler function called when a signal
-update is received has a argument called `instance`. Here is the function
+update is received has a argument called `inst`. Here is the function
 prototype again:
 
 ~~~c
@@ -464,8 +464,8 @@ The argument `mode` can have one of the following values:
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
-release (e.g. the sound with the lowest volume), you can create an
-`instance_event_handler` for the signal and write the method yourself:
+release (e.g. the sound with the lowest volume), you can create an handler
+for the signal and write the method yourself:
 
 ~~~c
 void my_handler(mpr_sig sig, mpr_int_evt evt, mpr_id inst, int len,
@@ -481,10 +481,10 @@ void my_handler(mpr_sig sig, mpr_int_evt evt, mpr_id inst, int len,
 ~~~
 
 For this function to be called when instance stealing is necessary, we need to
-register it for `MPR_INSTANCE_OVERFLOW` events:
+register it for `MPR_SIG_INST_OFLW` events:
 
 ~~~c
-mpr_signal_set_cb(sig, my_handler, MPR_INSTANCE_OVERFLOW);
+mpr_signal_set_cb(sig, my_handler, MPR_SIG_INST_OFLW);
 ~~~
 
 ## Publishing metadata
@@ -518,7 +518,7 @@ mpr_prop mpr_obj_get_prop_by_key(mpr_obj obj, const char *key, int *len,
                                  mpr_type *type, const void **val, int *pub);
 ~~~
 
-The type of the `value` argument is specified by `type`: floats are MPR_FLOAT,
+The type of the `value` argument is specified by `type`: floats are MPR_FLT,
 32-bit integers are MPR_INT32, doubles are MPR_DBL, and strings are MPR_STR.
 
 For example, to store a `float` indicating the X position of a device, you can
@@ -526,7 +526,7 @@ call it like this:
 
 ~~~c
 float x = 12.5;
-mpr_obj_set_prop(my_device, 0, "x", 1, MPR_FLOAT, &x, 1);
+mpr_obj_set_prop(my_device, 0, "x", 1, MPR_FLT, &x, 1);
 
 char *sensingMethod = "resistive";
 mpr_obj_set_prop(sensor1, 0, "sensingMethod", 1, MPR_STR, sensingMethod);
@@ -542,26 +542,21 @@ You can use any property name not already reserved by _libmpr_.
 
 #### Reserved keys for devices
 
-`description`, `host`, `id`, `is_local`, `libversion`, `name`, `num_incoming_maps`,
-`num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`, `synced`, `value`, `version`,
-`user_data`
+`data`, `id`, `is_local`, `lib_version`, `linked`, `name`, `num_maps_in`,
+`num_maps_out`, `num_sigs_in`, `num_sigs_out`, `ordinal`, `status`, `synced`,
+`version`
 
 #### Reserved keys for signals
 
-`description`, `direction`, `id`, `is_local`, `length`, `max`, `maximum`, `min`,
-`minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`, `rate`,
-`type`, `unit`, `user_data`
-
-#### Reserved keys for links
-
-`description`, `id`, `is_local`, `num_maps`
+`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`, `maximum`,
+`min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`, `period`, `steal`,
+`type`, `unit`, `use_inst`, `version`
 
 #### Reserved keys for maps
 
-`description`, `expression`, `id`, `is_local`, `mode`, `muted`, `num_destinations`,
-`num_sources`, `process_location`, `ready`, `status`
+`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`, `protocol`,
+`scope`, `status`, `version`
 
 #### Reserved keys for map slots
 
-`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`,
-`maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`
+`calib`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `use_inst`

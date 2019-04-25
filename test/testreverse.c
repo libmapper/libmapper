@@ -28,9 +28,7 @@ int received = 0;
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
              mpr_type type, const void *val, mpr_time t)
 {
-    const char *name;
-    mpr_obj_get_prop_by_idx(sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                            (const void**)&name, 0);
+    const char *name = mpr_obj_get_prop_as_str(sig, MPR_PROP_NAME, NULL);
     int i;
     eprintf("--> %s got ", name);
     if (val) {
@@ -63,13 +61,13 @@ int setup_src()
 
     float mn[]={0.f,0.f}, mx[]={10.f,10.f};
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 1, "outsig", 2, MPR_FLT, NULL,
-                          mn, mx, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 2, MPR_FLT, NULL,
+                          mn, mx, NULL, NULL, 0);
     mpr_sig_set_cb(sendsig, handler, MPR_SIG_UPDATE);
 
     eprintf("Output signals registered.\n");
     eprintf("Number of outputs: %d\n",
-            mpr_list_get_count(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
+            mpr_list_get_size(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
 
     return 0;
 
@@ -97,12 +95,12 @@ int setup_dst()
 
     float mn=0, mx=1;
 
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 1, "insig", 1, MPR_FLT, NULL,
-                          &mn, &mx, handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
+                          &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal insig registered.\n");
     eprintf("Number of inputs: %d\n",
-            mpr_list_get_count(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
+            mpr_list_get_size(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
 
     return 0;
 
@@ -122,7 +120,7 @@ void cleanup_dst()
 
 void wait_local_devs()
 {
-    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+    while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }
@@ -137,7 +135,7 @@ int setup_maps()
 
     i = 0;
     // wait until mapping has been established
-    while (!done && !mpr_map_ready(map)) {
+    while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
         if (i++ > 100)

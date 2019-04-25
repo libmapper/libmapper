@@ -20,7 +20,7 @@ except:
                                      '../../swig'))
         import mpr
     except:
-        print 'Error importing libmpr module.'
+        print('Error importing libmpr module.')
         sys.exit(1)
 
 s = Server().boot()

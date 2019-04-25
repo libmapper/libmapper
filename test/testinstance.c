@@ -36,9 +36,10 @@ int setup_src()
         goto error;
 
     float mn=0, mx=10;
+    int num_inst = 10;
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, 10, "outsig", 1, MPR_FLT, NULL,
-                          &mn, &mx, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, NULL,
+                          &mn, &mx, &num_inst, NULL, 0);
     if (!sendsig)
         goto error;
 
@@ -64,9 +65,7 @@ void cleanup_src()
 void handler(mpr_sig sig, mpr_sig_evt e, mpr_id inst, int len, mpr_type type,
              const void *val, mpr_time t)
 {
-    const char *name;
-    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                            (const void**)&name, 0);
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
 
     if (e & MPR_SIG_INST_OFLW) {
         eprintf("OVERFLOW!! ALLOCATING ANOTHER INSTANCE.\n");
@@ -97,8 +96,9 @@ int setup_dst()
     float mn=0;//, mx=1;
 
     // Specify 0 instances since we wish to use specific ids
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, 0, "insig", 1, MPR_FLT, NULL,
-                          &mn, NULL, handler, MPR_SIG_UPDATE);
+    int num_inst = 0;
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL, &mn,
+                          NULL, &num_inst, handler, MPR_SIG_UPDATE);
     if (!recvsig)
         goto error;
 
@@ -128,7 +128,7 @@ void cleanup_dst()
 
 void wait_local_devs()
 {
-    while (!done && !(mpr_dev_ready(src) && mpr_dev_ready(dst))) {
+    while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
         mpr_dev_poll(dst, 25);
     }
@@ -137,9 +137,7 @@ void wait_local_devs()
 void print_instance_ids(mpr_sig sig)
 {
     int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
-    const char *name;
-    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                            (const void**)&name, 0);
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i=0; i<n; i++) {
         eprintf("%1i, ", (int)mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL));
@@ -150,9 +148,7 @@ void print_instance_ids(mpr_sig sig)
 void print_instance_vals(mpr_sig sig)
 {
     int i, id, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
-    const char *name;
-    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                            (const void**)&name, 0);
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i=0; i<n; i++) {
         id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL);
@@ -173,7 +169,7 @@ void map_sigs()
     mpr_obj_push((mpr_obj)map);
 
     // wait until mapping has been established
-    while (!done && !mpr_map_ready(map)) {
+    while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
     }

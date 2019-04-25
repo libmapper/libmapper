@@ -133,7 +133,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
     const char *key;
 
     for (i = 0; i < argc; i++) {
-        if (!type_is_str(types[i])) {
+        if (!mpr_type_get_is_str(types[i])) {
             /* property ID not a string */
 #if TRACING
             printf("message item '");
@@ -251,7 +251,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
                 continue;
             }
             if (prop.protocol_type == 'n') {
-                if (!type_is_num(a->types[0])) {
+                if (!mpr_type_get_is_num(a->types[0])) {
                     trace("Static property '%s' cannot have type '%c' (3).\n",
                           static_props[PROP_TO_INDEX(a->prop)].key, a->types[0]);
                     a->len = a->prop = 0;
@@ -260,7 +260,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
                 }
             }
             else if (prop.protocol_type == MPR_BOOL) {
-                if (!type_is_bool(a->types[0])) {
+                if (!mpr_type_get_is_bool(a->types[0])) {
                     trace("Static property '%s' cannot have type '%c' (2).\n",
                           static_props[PROP_TO_INDEX(a->prop)].key, a->types[0]);
                     a->len = a->prop = 0;
@@ -321,7 +321,7 @@ void mpr_msg_free(mpr_msg msg)
     }
 }
 
-mpr_msg_atom mpr_msg_prop(mpr_msg msg, mpr_prop prop)
+mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, mpr_prop prop)
 {
     int i;
     for (i = 0; i < msg->num_atoms; i++) {
@@ -365,7 +365,7 @@ void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type,
             LO_MESSAGE_ADD_VEC(msg, int64, int64_t, val);
             break;
         case MPR_TIME:
-            LO_MESSAGE_ADD_VEC(msg, timetag, mpr_time_t, val);
+            LO_MESSAGE_ADD_VEC(msg, timetag, mpr_time, val);
             break;
         case MPR_TYPE:
             LO_MESSAGE_ADD_VEC(msg, char, mpr_type, val);
@@ -387,11 +387,11 @@ void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type,
     }
 }
 
-const char *mpr_prop_str(mpr_prop p, int skip_slash)
+const char *mpr_prop_as_str(mpr_prop p, int skip_slash)
 {
     p = MASK_PROP_BITFLAGS(p);
     die_unless(p > MPR_PROP_UNKNOWN && p <= MPR_PROP_EXTRA,
-               "called mpr_prop_str() with bad index %d.\n", p);
+               "called mpr_prop_as_str() with bad index %d.\n", p);
     const char *s = static_props[PROP_TO_INDEX(p)].key;
     return skip_slash ? s + 1 : s;
 }
@@ -419,7 +419,7 @@ mpr_prop mpr_prop_from_str(const char *string)
     return MPR_PROP_EXTRA;
 }
 
-const char *mpr_loc_str(mpr_loc loc)
+const char *mpr_loc_as_str(mpr_loc loc)
 {
     if (loc <= 0 || loc > MPR_LOC_ANY)
         return "unknown";
@@ -437,7 +437,7 @@ mpr_loc mpr_loc_from_str(const char *str)
     return MPR_LOC_UNDEFINED;
 }
 
-const char *mpr_protocol_str(mpr_proto p)
+const char *mpr_protocol_as_str(mpr_proto p)
 {
     if (p <= 0 || p > MPR_NUM_PROTO)
         return "unknown";
@@ -455,7 +455,7 @@ mpr_proto mpr_protocol_from_str(const char *str)
     return MPR_PROTO_UNDEFINED;
 }
 
-const char *mpr_steal_str(mpr_steal_type stl)
+const char *mpr_steal_as_str(mpr_steal_type stl)
 {
     if (stl < MPR_STEAL_NONE || stl > MPR_STEAL_NEWEST)
         return "unknown";
@@ -469,7 +469,7 @@ int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
     int i, j, min_len = src_len < dst_len ? src_len : dst_len;
 
     if (src_type == dst_type) {
-        int size = mpr_type_size(src_type);
+        int size = mpr_type_get_size(src_type);
         do {
             memcpy(dst_val, src_val, size * min_len);
             dst_len -= min_len;
@@ -606,7 +606,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         case MPR_TIME:
             for (i = 0; i < len; i++)
-                printf("%f, ", mpr_time_get_dbl(((mpr_time_t*)val)[i]));
+                printf("%f, ", mpr_time_as_dbl(((mpr_time*)val)[i]));
             break;
         case MPR_TYPE:
             for (i = 0; i < len; i++)
@@ -640,8 +640,8 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         }
         case MPR_LIST: {
-            mpr_list list = mpr_list_cpy((mpr_list)val);
-            if (!list || !*list || !(len = mpr_list_get_count(list))) {
+            mpr_list list = mpr_list_get_cpy((mpr_list)val);
+            if (!list || !*list || !(len = mpr_list_get_size(list))) {
                 printf("[], ");
                 break;
             }
@@ -653,7 +653,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
                 else
                     mpr_prop_print(1, (*list)->type, *list);
                 printf(", ");
-                list = mpr_list_next(list);
+                list = mpr_list_get_next(list);
             }
         }
         default:

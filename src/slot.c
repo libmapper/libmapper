@@ -47,19 +47,7 @@ void mpr_slot_free(mpr_slot slot)
     FUNC_IF(free, slot->max);
 }
 
-int mpr_slot_get_index(mpr_slot slot)
-{
-    if (slot == slot->map->dst)
-        return 0;
-    int i;
-    for (i = 0; i < slot->map->num_src; i++) {
-        if (slot == slot->map->src[i])
-            return i;
-    }
-    return -1;
-}
-
-mpr_sig mpr_slot_get_sig(mpr_slot slot)
+mpr_sig mpr_slot_sig(mpr_slot slot)
 {
     return slot->sig;
 }
@@ -69,7 +57,7 @@ void mpr_slot_upgrade_extrema_memory(mpr_slot slot)
     int len;
     mpr_tbl_record rec = mpr_tbl_get(slot->obj.props.synced, MPR_PROP_MIN, NULL);
     if (rec && rec->val && *rec->val) {
-        void *new_mem = calloc(1, (mpr_type_size(slot->sig->type) * slot->sig->len));
+        void *new_mem = calloc(1, (mpr_type_get_size(slot->sig->type) * slot->sig->len));
         len = (rec->len < slot->sig->len ? rec->len : slot->sig->len);
         set_coerced_val(len, rec->type, rec->val, len, slot->sig->type, new_mem);
         mpr_tbl_set(slot->obj.props.synced, MPR_PROP_MIN, NULL, slot->sig->len,
@@ -78,7 +66,7 @@ void mpr_slot_upgrade_extrema_memory(mpr_slot slot)
     }
     rec = mpr_tbl_get(slot->obj.props.synced, MPR_PROP_MAX, NULL);
     if (rec && rec->val && *rec->val) {
-        void *new_mem = calloc(1, (mpr_type_size(slot->sig->type) * slot->sig->len));
+        void *new_mem = calloc(1, (mpr_type_get_size(slot->sig->type) * slot->sig->len));
         len = (rec->len < slot->sig->len ? rec->len : slot->sig->len);
         set_coerced_val(len, rec->type, rec->val, len, slot->sig->type, new_mem);
         mpr_tbl_set(slot->obj.props.synced, MPR_PROP_MAX, NULL, slot->sig->len,
@@ -95,7 +83,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
 
     /* type and length belong to parent signal */
     if (!slot->loc || !slot->loc->rsig) {
-        a = mpr_msg_prop(msg, MPR_PROP_LEN | mask);
+        a = mpr_msg_get_prop(msg, MPR_PROP_LEN | mask);
         if (a) {
             mpr_prop prop = a->prop;
             a->prop &= ~mask;
@@ -103,7 +91,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
                 ++updated;
             a->prop = prop;
         }
-        a = mpr_msg_prop(msg, MPR_PROP_TYPE | mask);
+        a = mpr_msg_get_prop(msg, MPR_PROP_TYPE | mask);
         if (a) {
             mpr_prop prop = a->prop;
             a->prop &= ~mask;
@@ -118,7 +106,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
     mpr_tbl sig_props = slot->sig->obj.props.synced;
     for (i = 0; i < msg->num_atoms; i++) {
         a = &msg->atoms[i];
-        if ((a->prop & ~0xFF) != mask)
+        if ((a->prop & ~0xFFFF) != mask)
             continue;
         switch (a->prop & ~mask) {
             case MPR_PROP_MAX:
@@ -128,7 +116,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
                                               REMOTE_MODIFY);
                     break;
                 }
-                if (!type_is_num(a->types[0]))
+                if (!mpr_type_get_is_num(a->types[0]))
                     break;
                 updated += mpr_tbl_set_from_atom(slot_props, a, REMOTE_MODIFY);
                 if (!slot->loc || !slot->loc->rsig) {
@@ -172,13 +160,12 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst,
 
     if (!staged && slot->sig->loc) {
         // include length from associated signal
-        snprintf(temp+len, 16-len, "%s", mpr_prop_str(MPR_PROP_LEN, 0));
+        snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_LEN, 0));
         lo_message_add_string(msg, temp);
         lo_message_add_int32(msg, slot->sig->len);
 
         // include type from associated signal
-        snprintf(temp+len, 16-len, "%s",
-                 mpr_prop_str(MPR_PROP_TYPE, 0));
+        snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_TYPE, 0));
         lo_message_add_string(msg, temp);
         lo_message_add_char(msg, slot->sig->type);
     }

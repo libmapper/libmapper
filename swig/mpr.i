@@ -116,19 +116,18 @@
         prop->type = 0;
         check_type($input, &prop->type, 1, 1);
         if (!prop->type) {
-            PyErr_SetString(PyExc_ValueError,
-                            "Problem determining value type.");
+            PyErr_SetString(PyExc_ValueError, "Problem determining value type.");
             return NULL;
         }
         if (PyList_Check($input))
             prop->len = PyList_Size($input);
         else
             prop->len = 1;
-        prop->val = malloc(prop->len * mpr_type_size(prop->type));
+        prop->val = malloc(prop->len * mpr_type_get_size(prop->type));
         prop->free_val = 1;
         if (py_to_prop($input, prop, 0)) {
             free(prop->val);
-            PyErr_SetString(PyExc_ValueError, "Problem parsing property value.");
+            PyErr_SetString(PyExc_ValueError, "Problem parsing property value (1).");
             return NULL;
         }
         $1 = prop;
@@ -180,11 +179,11 @@
             prop->val.len = PyList_Size($input);
         else
             prop->val.len = 1;
-        prop->val.val = malloc(prop->val.len * mpr_type_size(prop->val.type));
+        prop->val.val = malloc(prop->val.len * mpr_type_get_size(prop->val.type));
         prop->val.free_val = 1;
         if (py_to_prop($input, &prop->val, &prop->key)) {
             free(prop->val.val);
-            PyErr_SetString(PyExc_ValueError, "Problem parsing property value.");
+            PyErr_SetString(PyExc_ValueError, "Problem parsing property value. (2)");
             return NULL;
         }
         $1 = prop;
@@ -285,15 +284,23 @@ static int py_to_prop(PyObject *from, propval prop, const char **key)
     switch (prop->type) {
         case MPR_STR:
         {
-            // only strings (bytes in py3) are valid
+            // only strings (unicode in py3) are valid
             if (prop->len > 1) {
                 char **str_to = (char**)prop->val;
                 for (i = 0; i < prop->len; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
 #if PY_MAJOR_VERSION >= 3
-                    if (!PyBytes_Check(element))
+                    if (PyUnicode_Check(element)) {
+                        Py_ssize_t size;
+                        str_to[i] = strdup(PyUnicode_AsUTF8AndSize(element, &size));
+                        if (!str_to[i]) {
+                            return 1;
+                        }
+                    }
+                    else if (PyBytes_Check(element))
+                        str_to[i] = strdup(PyBytes_AsString(element));
+                    else
                         return 1;
-                    str_to[i] = strdup(PyBytes_AsString(element));
 #else
                     if (!PyString_Check(element))
                         return 1;
@@ -303,10 +310,19 @@ static int py_to_prop(PyObject *from, propval prop, const char **key)
             }
             else {
 #if PY_MAJOR_VERSION >= 3
-                if (!PyBytes_Check(from))
+                if (PyUnicode_Check(from)) {
+                    char **str_to = (char**)&prop->val;
+                    Py_ssize_t size;
+                    *str_to = strdup(PyUnicode_AsUTF8AndSize(from, &size));
+                    if (!*str_to)
+                        return 1;
+                }
+                else if (PyBytes_Check(from)) {
+                    char **str_to = (char**)&prop->val;
+                    *str_to = strdup(PyBytes_AsString(from));
+                }
+                else
                     return 1;
-                char **str_to = (char**)&prop->val;
-                *str_to = strdup(PyBytes_AsString(from));
 #else
                 if (!PyString_Check(from))
                     return 1;
@@ -474,12 +490,7 @@ static int check_type(PyObject *v, mpr_type *t, int can_promote, int allow_seque
         else if (*t == MPR_INT32 && can_promote)
             *t = MPR_FLT;
     }
-    else if (PyString_Check(v)
-             || PyUnicode_Check(v)
-#if PY_MAJOR_VERSION >= 3
-             || PyBytes_Check(v)
-#endif
-             ) {
+    else if (PyString_Check(v) || PyUnicode_Check(v)) {
         if (*t == 0)
             *t = MPR_STR;
         else if (*t != MPR_STR)
@@ -516,14 +527,14 @@ static PyObject *prop_to_py(propval prop, const char *key)
                 char **vect = (char**)prop->val;
                 for (i=0; i<prop->len; i++)
 #if PY_MAJOR_VERSION >= 3
-                    PyList_SetItem(v, i, PyBytes_FromString(vect[i]));
+                    PyList_SetItem(v, i, PyUnicode_FromString(vect[i]));
 #else
                     PyList_SetItem(v, i, PyString_FromString(vect[i]));
 #endif
             }
             else
 #if PY_MAJOR_VERSION >= 3
-                v = PyBytes_FromString((char*)prop->val);
+                v = PyUnicode_FromString((char*)prop->val);
 #else
                 v = PyString_FromString((char*)prop->val);
 #endif
@@ -586,7 +597,7 @@ static PyObject *prop_to_py(propval prop, const char *key)
         }
         case MPR_TIME:
         {
-            mpr_time_t *vect = (mpr_time_t*)prop->val;
+            mpr_time *vect = (mpr_time*)prop->val;
             if (prop->len > 1) {
                 for (i=0; i<prop->len; i++) {
                     PyObject *py_tt = SWIG_NewPointerObj(SWIG_as_voidptr(&vect[i]),
@@ -632,7 +643,9 @@ static PyObject *prop_to_py(propval prop, const char *key)
 static void signal_handler_py(mpr_sig sig, mpr_sig_evt e, mpr_id id, int len,
                               mpr_type type, const void *val, mpr_time tt)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
     PyObject *arglist=0;
     PyObject *vallist=0;
     PyObject *result=0;
@@ -640,7 +653,7 @@ static void signal_handler_py(mpr_sig sig, mpr_sig_evt e, mpr_id id, int len,
 
     PyObject *py_sig = SWIG_NewPointerObj(SWIG_as_voidptr(sig),
                                           SWIGTYPE_p__signal, 0);
-    PyObject *py_tt = SWIG_NewPointerObj(SWIG_as_voidptr(tt),
+    PyObject *py_tt = SWIG_NewPointerObj(SWIG_as_voidptr(&tt),
                                          SWIGTYPE_p__timetag, 0);
 
     if (val) {
@@ -683,7 +696,8 @@ static void signal_handler_py(mpr_sig sig, mpr_sig_evt e, mpr_id id, int len,
     Py_DECREF(arglist);
     Py_XDECREF(vallist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
 typedef int booltype;
@@ -697,7 +711,8 @@ typedef struct _signal_array {
 static void graph_handler_py(mpr_graph g, mpr_obj obj, mpr_graph_evt e,
                              const void *data)
 {
-    PyEval_RestoreThread(_save);
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
 
     PyObject *py_obj;
     mpr_data_type type = mpr_obj_get_type(obj);
@@ -727,12 +742,13 @@ static void graph_handler_py(mpr_graph g, mpr_obj obj, mpr_graph_evt e,
     PyObject *result = PyEval_CallObject((PyObject*)data, arglist);
     Py_DECREF(arglist);
     Py_XDECREF(result);
-    _save = PyEval_SaveThread();
+
+    PyGILState_Release(gstate);
 }
 
-static mpr_sig add_signal_internal(mpr_dev dev, mpr_dir dir, int num_inst,
-                                   const char *name, int len, char type,
-                                   const char *unit, propval min, propval max,
+static mpr_sig add_signal_internal(mpr_dev dev, mpr_dir dir, const char *name,
+                                   int len, char type, const char *unit,
+                                   propval min, propval max, propval num_inst,
                                    PyObject *PyFunc, int events)
 {
     int i;
@@ -805,8 +821,9 @@ static mpr_sig add_signal_internal(mpr_dev dev, mpr_dir dir, int num_inst,
             }
         }
     }
-    mpr_sig sig = mpr_sig_new(dev, dir, num_inst, name, len, type, unit, pmn,
-                              pmx, h, events);
+    int *pnum_inst = num_inst && MPR_INT32 == num_inst->type ? num_inst->val : 0;
+    mpr_sig sig = mpr_sig_new(dev, dir, name, len, type, unit, pmn, pmx,
+                              pnum_inst, h, events);
     sig->obj.data = callbacks;
 
     if (pmn_coerced)
@@ -1015,7 +1032,7 @@ typedef struct _device_list {
 %extend _device_list {
     _device_list(const device_list *orig) {
         struct _device_list *d = malloc(sizeof(struct _device_list));
-        d->list = mpr_list_cpy(orig->list);
+        d->list = mpr_list_get_cpy(orig->list);
         return d;
     }
     ~_device_list() {
@@ -1029,7 +1046,7 @@ typedef struct _device_list {
         mpr_obj result = 0;
         if ($self->list) {
             result = *($self->list);
-            $self->list = mpr_list_next($self->list);
+            $self->list = mpr_list_get_next($self->list);
         }
         if (result)
             return (device*)result;
@@ -1040,24 +1057,24 @@ typedef struct _device_list {
         if (!d || !d->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(d->list);
-        $self->list = mpr_list_union($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(d->list);
+        $self->list = mpr_list_get_union($self->list, cpy);
         return $self;
     }
     device_list *intersect(device_list *d) {
         if (!d || !d->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(d->list);
-        $self->list = mpr_list_isect($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(d->list);
+        $self->list = mpr_list_get_isect($self->list, cpy);
         return $self;
     }
     device_list *subtract(device_list *d) {
         if (!d || !d->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(d->list);
-        $self->list = mpr_list_diff($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(d->list);
+        $self->list = mpr_list_get_diff($self->list, cpy);
         return $self;
     }
     device_list *filter(const char *key, propval val=0, mpr_op op=MPR_OP_EQ) {
@@ -1075,7 +1092,7 @@ typedef struct _device_list {
         return $self;
     }
     int length() {
-        return mpr_list_get_count($self->list);
+        return mpr_list_get_size($self->list);
     }
     %pythoncode {
         def __next__(self):
@@ -1109,14 +1126,14 @@ typedef struct _device_list {
     /* Note, these functions return memory which is _not_ owned by Python.
      * Correspondingly, the SWIG default is to set thisown to False, which is
      * correct for this case. */
-    signal *add_signal(int dir, int num_inst, const char *name, int len=1,
-                       char type=MPR_FLT, const char *unit=0, propval min=0,
-                       propval max=0, PyObject *PyFunc=0,
+    signal *add_signal(int dir, const char *name, int len=1, char type=MPR_FLT,
+                       const char *unit=0, propval min=0, propval max=0,
+                       propval num_inst=0, PyObject *PyFunc=0,
                        int events=MPR_SIG_UPDATE)
     {
-        return (signal*)add_signal_internal((mpr_dev)$self, dir, num_inst, name,
-                                            len, type, unit, min, max, PyFunc,
-                                            events);
+        return (signal*)add_signal_internal((mpr_dev)$self, dir, name, len,
+                                            type, unit, min, max, num_inst,
+                                            PyFunc, events);
     }
     device *remove_signal(signal *sig) {
         mpr_sig msig = (mpr_sig)sig;
@@ -1140,19 +1157,19 @@ typedef struct _device_list {
     // queue management
     timetag *start_queue(timetag *py_tt=0) {
         if (py_tt) {
-            mpr_time_t *tt = (mpr_time_t*)py_tt;
+            mpr_time *tt = (mpr_time*)py_tt;
             mpr_dev_start_queue((mpr_dev)$self, *tt);
             return py_tt;
         }
         else {
-            mpr_time_t *tt = (mpr_time_t*)malloc(sizeof(mpr_time_t));
-            mpr_time_now(tt);
+            mpr_time *tt = (mpr_time*)malloc(sizeof(mpr_time));
+            mpr_time_set(tt, MPR_NOW);
             mpr_dev_start_queue((mpr_dev)$self, MPR_NOW);
             return (timetag*)tt;
         }
     }
     device *send_queue(timetag *py_tt) {
-        mpr_time_t *tt = (mpr_time_t*)py_tt;
+        mpr_time *tt = (mpr_time*)py_tt;
         mpr_dev_send_queue((mpr_dev)$self, *tt);
         return $self;
     }
@@ -1166,7 +1183,7 @@ typedef struct _device_list {
         return mpr_obj_get_num_props((mpr_obj)$self, 0);
     }
     booltype get_is_ready() {
-        return mpr_dev_ready((mpr_dev)$self);
+        return mpr_dev_get_is_ready((mpr_dev)$self);
     }
     propval get_property(const char *key) {
         return get_obj_prop_by_key((mpr_obj)$self, key);
@@ -1262,7 +1279,7 @@ typedef struct _signal_list {
 %extend _signal_list {
     _signal_list(const signal_list *orig) {
         struct _signal_list *s = malloc(sizeof(struct _signal_list));
-        s->list = mpr_list_cpy(orig->list);
+        s->list = mpr_list_get_cpy(orig->list);
         return s;
     }
     ~_signal_list() {
@@ -1276,7 +1293,7 @@ typedef struct _signal_list {
         mpr_obj result = 0;
         if ($self->list) {
             result = *($self->list);
-            $self->list = mpr_list_next($self->list);
+            $self->list = mpr_list_get_next($self->list);
         }
         if (result)
             return (signal*)result;
@@ -1287,24 +1304,24 @@ typedef struct _signal_list {
         if (!s || !s->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(s->list);
-        $self->list = mpr_list_union($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(s->list);
+        $self->list = mpr_list_get_union($self->list, cpy);
         return $self;
     }
     signal_list *intersect(signal_list *s) {
         if (!s || !s->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(s->list);
-        $self->list = mpr_list_isect($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(s->list);
+        $self->list = mpr_list_get_isect($self->list, cpy);
         return $self;
     }
     signal_list *subtract(signal_list *s) {
         if (!s || !s->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(s->list);
-        $self->list = mpr_list_diff($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(s->list);
+        $self->list = mpr_list_get_diff($self->list, cpy);
         return $self;
     }
     signal_list *filter(const char *key, propval val=0, mpr_op op=MPR_OP_EQ) {
@@ -1322,7 +1339,7 @@ typedef struct _signal_list {
         return $self;
     }
     int length() {
-        return mpr_list_get_count($self->list);
+        return mpr_list_get_size($self->list);
     }
     %pythoncode {
         def __next__(self):
@@ -1342,7 +1359,7 @@ typedef struct _signal_list {
         return mpr_sig_get_inst_id((mpr_sig)$self, idx, status);
     }
     signal *release_instance(int id, timetag *tt=0) {
-        mpr_sig_release_inst((mpr_sig)$self, id, tt ? *(mpr_time_t*)tt : MPR_NOW);
+        mpr_sig_release_inst((mpr_sig)$self, id, tt ? *(mpr_time*)tt : MPR_NOW);
         return $self;
     }
     signal *remove_instance(int id) {
@@ -1391,22 +1408,22 @@ typedef struct _signal_list {
         mpr_sig sig = (mpr_sig)$self;
         if (!val) {
             mpr_sig_set_value(sig, 0, 0, MPR_NULL, NULL,
-                              tt ? *(mpr_time_t*)tt : MPR_NOW);
+                              tt ? *(mpr_time*)tt : MPR_NOW);
             return $self;
         }
         mpr_sig_set_value(sig, 0, val->len, val->type, val->val,
-                          tt ? *(mpr_time_t*)tt : MPR_NOW);
+                          tt ? *(mpr_time*)tt : MPR_NOW);
         return $self;
     }
     signal *set_value(int id, propval val=0, timetag *tt=0) {
         mpr_sig sig = (mpr_sig)$self;
         if (!val) {
             mpr_sig_set_value(sig, 0, 0, MPR_NULL, NULL,
-                              tt ? *(mpr_time_t*)tt : MPR_NOW);
+                              tt ? *(mpr_time*)tt : MPR_NOW);
             return $self;
         }
         mpr_sig_set_value(sig, id, val->len, val->type, val->val,
-                          tt ? *(mpr_time_t*)tt : MPR_NOW);
+                          tt ? *(mpr_time*)tt : MPR_NOW);
         return $self;
     }
 
@@ -1526,7 +1543,7 @@ typedef struct _map_list {
 %extend _map_list {
     _map_list(const map_list *orig) {
         struct _map_list *mq = malloc(sizeof(struct _map_list));
-        mq->list = mpr_list_cpy(orig->list);
+        mq->list = mpr_list_get_cpy(orig->list);
         return mq;
     }
     ~_map_list() {
@@ -1540,7 +1557,7 @@ typedef struct _map_list {
         mpr_obj result = 0;
         if ($self->list) {
             result = *($self->list);
-            $self->list = mpr_list_next($self->list);
+            $self->list = mpr_list_get_next($self->list);
         }
         if (result)
             return (map*)result;
@@ -1551,24 +1568,24 @@ typedef struct _map_list {
         if (!m || !m->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(m->list);
-        $self->list = mpr_list_union($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(m->list);
+        $self->list = mpr_list_get_union($self->list, cpy);
         return $self;
     }
     map_list *intersect(map_list *m) {
         if (!m || !m->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(m->list);
-        $self->list = mpr_list_isect($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(m->list);
+        $self->list = mpr_list_get_isect($self->list, cpy);
         return $self;
     }
     map_list *subtract(map_list *m) {
         if (!m || !m->list)
             return $self;
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy(m->list);
-        $self->list = mpr_list_diff($self->list, cpy);
+        mpr_obj *cpy = mpr_list_get_cpy(m->list);
+        $self->list = mpr_list_get_diff($self->list, cpy);
         return $self;
     }
     map_list *filter(const char *key, propval val=0, mpr_op op=MPR_OP_EQ) {
@@ -1586,14 +1603,14 @@ typedef struct _map_list {
         return $self;
     }
     int length() {
-        return mpr_list_get_count($self->list);
+        return mpr_list_get_size($self->list);
     }
     map_list *release() {
         // need to use a copy of query
-        mpr_obj *cpy = mpr_list_cpy($self->list);
+        mpr_obj *cpy = mpr_list_get_cpy($self->list);
         while (cpy) {
             mpr_map_release((mpr_map)*cpy);
-            cpy = mpr_list_next(cpy);
+            cpy = mpr_list_get_next(cpy);
         }
         return $self;
     }
@@ -1629,7 +1646,7 @@ typedef struct _map_list {
         return (signal*)mpr_map_get_sig((mpr_map)$self, loc, idx);
     }
     int index(signal *sig) {
-        return mpr_map_get_sig_index((mpr_map)$self, (mpr_sig)sig);
+        return mpr_map_get_sig_idx((mpr_map)$self, (mpr_sig)sig);
     }
 
     // scopes
@@ -1647,7 +1664,7 @@ typedef struct _map_list {
         return mpr_obj_get_num_props((mpr_obj)$self, 0);
     }
     booltype get_ready() {
-        return mpr_map_ready((mpr_map)$self);
+        return mpr_map_get_is_ready((mpr_map)$self);
     }
     int get_num_signals(mpr_loc loc=MPR_DIR_ANY) {
         return mpr_map_get_num_sigs((mpr_map)$self, loc);
@@ -1774,33 +1791,28 @@ typedef struct _map_list {
         return $self;
     }
     graph *add_callback(PyObject *PyFunc, int type_flags=MPR_OBJ) {
-        Py_XINCREF(PyFunc);
-        mpr_graph_add_cb((mpr_graph)$self, graph_handler_py, type_flags, PyFunc);
+        if (mpr_graph_add_cb((mpr_graph)$self, graph_handler_py, type_flags, PyFunc))
+            Py_XINCREF(PyFunc);
         return $self;
     }
     graph *remove_callback(PyObject *PyFunc) {
-        mpr_graph_remove_cb((mpr_graph)$self, graph_handler_py, PyFunc);
-        Py_XDECREF(PyFunc);
+        if (mpr_graph_remove_cb((mpr_graph)$self, graph_handler_py, PyFunc))
+            Py_XDECREF(PyFunc);
         return $self;
     }
     device_list *devices() {
         device_list *ret = malloc(sizeof(struct _device_list));
-        ret->list = mpr_graph_get_list((mpr_graph)$self, MPR_DEV);
+        ret->list = mpr_graph_get_objs((mpr_graph)$self, MPR_DEV);
         return ret;
     }
     signal_list *signals() {
         signal_list *ret = malloc(sizeof(struct _signal_list));
-        ret->list = mpr_graph_get_list((mpr_graph)$self, MPR_SIG);
+        ret->list = mpr_graph_get_objs((mpr_graph)$self, MPR_SIG);
         return ret;
     }
     map_list *maps() {
         map_list *ret = malloc(sizeof(struct _map_list));
-        ret->list = mpr_graph_get_list((mpr_graph)$self, MPR_MAP);
-        return ret;
-    }
-    map_list *maps_by_scope(device *dev) {
-        map_list *ret = malloc(sizeof(struct _map_list));
-        ret->list = mpr_graph_get_maps_by_scope((mpr_graph)$self, (mpr_dev)dev);
+        ret->list = mpr_graph_get_objs((mpr_graph)$self, MPR_MAP);
         return ret;
     }
     %pythoncode {
@@ -1813,154 +1825,154 @@ typedef struct _map_list {
 
 %extend _timetag {
     _timetag() {
-        mpr_time_t *tt = (mpr_time_t*)malloc(sizeof(mpr_time_t));
-        mpr_time_now(tt);
+        mpr_time *tt = (mpr_time*)malloc(sizeof(mpr_time));
+        mpr_time_set(tt, MPR_NOW);
         return (timetag*)tt;
     }
-    _timetag(double val = 0) {
-        mpr_time_t *tt = malloc(sizeof(mpr_time_t));
+    _timetag(double val) {
+        mpr_time *tt = malloc(sizeof(mpr_time));
         mpr_time_set_dbl(tt, val);
         return (timetag*)tt;
     }
     ~_timetag() {
-        free((mpr_time_t*)$self);
+        free((mpr_time*)$self);
     }
     timetag *now() {
-        mpr_time_now((mpr_time_t*)$self);
+        mpr_time_set((mpr_time*)$self, MPR_NOW);
         return $self;
     }
     double get_double() {
-        return mpr_time_get_dbl(*(mpr_time_t*)$self);
+        return mpr_time_as_dbl(*(mpr_time*)$self);
     }
     timetag *__add__(timetag *addend) {
-        mpr_time_t *tt = malloc(sizeof(mpr_time_t));
-        mpr_time_cpy(tt, *(mpr_time_t*)$self);
-        mpr_time_add(tt, *(mpr_time_t*)addend);
+        mpr_time *tt = malloc(sizeof(mpr_time));
+        mpr_time_set(tt, *(mpr_time*)$self);
+        mpr_time_add(tt, *(mpr_time*)addend);
         return (timetag*)tt;
     }
     timetag *__add__(double addend) {
-        mpr_time_t *tt = malloc(sizeof(mpr_time_t));
-        mpr_time_cpy(tt, *(mpr_time_t*)$self);
+        mpr_time *tt = malloc(sizeof(mpr_time));
+        mpr_time_set(tt, *(mpr_time*)$self);
         mpr_time_add_dbl(tt, addend);
         return (timetag*)tt;
     }
     timetag *__iadd__(timetag *addend) {
-        mpr_time_t *tt = (mpr_time_t*)$self;
-        mpr_time_add(tt, *(mpr_time_t*)addend);
+        mpr_time *tt = (mpr_time*)$self;
+        mpr_time_add(tt, *(mpr_time*)addend);
         return $self;
     }
     timetag *__iadd__(double addend) {
-        mpr_time_t *tt = (mpr_time_t*)$self;
+        mpr_time *tt = (mpr_time*)$self;
         mpr_time_add_dbl(tt, addend);
         return $self;
     }
     double __radd__(double val) {
-        return val + mpr_time_get_dbl(*(mpr_time_t*)$self);
+        return val + mpr_time_as_dbl(*(mpr_time*)$self);
     }
     timetag *__sub__(timetag *subtrahend) {
-        mpr_time_t *tt = malloc(sizeof(mpr_time_t));
-        mpr_time_cpy(tt, *(mpr_time_t*)$self);
-        mpr_time_sub(tt, *(mpr_time_t*)subtrahend);
+        mpr_time *tt = malloc(sizeof(mpr_time));
+        mpr_time_set(tt, *(mpr_time*)$self);
+        mpr_time_sub(tt, *(mpr_time*)subtrahend);
         return (timetag*)tt;
     }
     timetag *__sub__(double subtrahend) {
-        mpr_time_t *tt = malloc(sizeof(mpr_time_t));
-        mpr_time_cpy(tt, *(mpr_time_t*)$self);
+        mpr_time *tt = malloc(sizeof(mpr_time));
+        mpr_time_set(tt, *(mpr_time*)$self);
         mpr_time_add_dbl(tt, -subtrahend);
         return (timetag*)tt;
     }
     timetag *__isub__(timetag *subtrahend) {
-        mpr_time_t *tt = (mpr_time_t*)$self;
-        mpr_time_sub(tt, *(mpr_time_t*)subtrahend);
+        mpr_time *tt = (mpr_time*)$self;
+        mpr_time_sub(tt, *(mpr_time*)subtrahend);
         return $self;
     }
     timetag *__isub__(double subtrahend) {
-        mpr_time_t *tt = (mpr_time_t*)$self;
+        mpr_time *tt = (mpr_time*)$self;
         mpr_time_add_dbl(tt, -subtrahend);
         return $self;
     }
     double __rsub__(double val) {
-        return val - mpr_time_get_dbl(*(mpr_time_t*)$self);
+        return val - mpr_time_as_dbl(*(mpr_time*)$self);
     }
     timetag *__mul__(double multiplicand) {
-        mpr_time_t *tt = malloc(sizeof(mpr_time_t));
-        mpr_time_cpy(tt, *(mpr_time_t*)$self);
+        mpr_time *tt = malloc(sizeof(mpr_time));
+        mpr_time_set(tt, *(mpr_time*)$self);
         mpr_time_mul(tt, multiplicand);
         return (timetag*)tt;
     }
     timetag *__imul__(double multiplicand) {
-        mpr_time_t *tt = (mpr_time_t*)$self;
+        mpr_time *tt = (mpr_time*)$self;
         mpr_time_mul(tt, multiplicand);
         return $self;
     }
     double __rmul__(double val) {
-        return val + mpr_time_get_dbl(*(mpr_time_t*)$self);
+        return val + mpr_time_as_dbl(*(mpr_time*)$self);
     }
     timetag *__div__(double divisor) {
-        mpr_time_t *tt = malloc(sizeof(mpr_time_t));
-        mpr_time_cpy(tt, *(mpr_time_t*)$self);
+        mpr_time *tt = malloc(sizeof(mpr_time));
+        mpr_time_set(tt, *(mpr_time*)$self);
         mpr_time_mul(tt, 1/divisor);
         return (timetag*)tt;
     }
     timetag *__idiv__(double divisor) {
-        mpr_time_t *tt = (mpr_time_t*)$self;
+        mpr_time *tt = (mpr_time*)$self;
         mpr_time_mul(tt, 1/divisor);
         return $self;
     }
     double __rdiv__(double val) {
-        return val / mpr_time_get_dbl(*(mpr_time_t*)$self);
+        return val / mpr_time_as_dbl(*(mpr_time*)$self);
     }
 
     booltype __lt__(timetag *rhs) {
-        mpr_time_t *tt = (mpr_time_t*)$self;
-        mpr_time_t *rhs_tt = (mpr_time_t*)rhs;
+        mpr_time *tt = (mpr_time*)$self;
+        mpr_time *rhs_tt = (mpr_time*)rhs;
         return (tt->sec < rhs_tt->sec
                 || (tt->sec == rhs_tt->sec && tt->frac < rhs_tt->frac));
     }
     booltype __lt__(double val) {
-        return mpr_time_get_dbl(*(mpr_time_t*)$self) < val;
+        return mpr_time_as_dbl(*(mpr_time*)$self) < val;
     }
     booltype __le__(timetag *rhs)
     {
-        mpr_time_t *tt = (mpr_time_t*)$self;
-        mpr_time_t *rhs_tt = (mpr_time_t*)rhs;
+        mpr_time *tt = (mpr_time*)$self;
+        mpr_time *rhs_tt = (mpr_time*)rhs;
         return (tt->sec < rhs_tt->sec
                 || (tt->sec == rhs_tt->sec && tt->frac <= rhs_tt->frac));
     }
     booltype __le__(double val)
     {
-        return mpr_time_get_dbl(*(mpr_time_t*)$self) <= val;
+        return mpr_time_as_dbl(*(mpr_time*)$self) <= val;
     }
     booltype __eq__(timetag *rhs)
     {
-        mpr_time_t *tt = (mpr_time_t*)$self;
-        mpr_time_t *rhs_tt = (mpr_time_t*)rhs;
+        mpr_time *tt = (mpr_time*)$self;
+        mpr_time *rhs_tt = (mpr_time*)rhs;
         return (tt->sec == rhs_tt->sec && tt->frac == rhs_tt->frac);
     }
     booltype __eq__(double val)
     {
-        return mpr_time_get_dbl(*(mpr_time_t*)$self) == val;
+        return mpr_time_as_dbl(*(mpr_time*)$self) == val;
     }
     booltype __ge__(timetag *rhs)
     {
-        mpr_time_t *tt = (mpr_time_t*)$self;
-        mpr_time_t *rhs_tt = (mpr_time_t*)rhs;
+        mpr_time *tt = (mpr_time*)$self;
+        mpr_time *rhs_tt = (mpr_time*)rhs;
         return (tt->sec > rhs_tt->sec
                 || (tt->sec == rhs_tt->sec && tt->frac >= rhs_tt->frac));
     }
     booltype __ge__(double val)
     {
-        return mpr_time_get_dbl(*(mpr_time_t*)$self) >= val;
+        return mpr_time_as_dbl(*(mpr_time*)$self) >= val;
     }
     booltype __gt__(timetag *rhs)
     {
-        mpr_time_t *tt = (mpr_time_t*)$self;
-        mpr_time_t *rhs_tt = (mpr_time_t*)rhs;
+        mpr_time *tt = (mpr_time*)$self;
+        mpr_time *rhs_tt = (mpr_time*)rhs;
         return (tt->sec > rhs_tt->sec
                 || (tt->sec == rhs_tt->sec && tt->frac > rhs_tt->frac));
     }
     booltype __gt__(double val)
     {
-        return mpr_time_get_dbl(*(mpr_time_t*)$self) > val;
+        return mpr_time_as_dbl(*(mpr_time*)$self) > val;
     }
 }

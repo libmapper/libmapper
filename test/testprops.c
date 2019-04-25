@@ -90,10 +90,10 @@ int main(int argc, char **argv)
     }
 
     mpr_dev dev = mpr_dev_new("testprops", 0);
-    mpr_sig sig = mpr_sig_new(dev, MPR_DIR_IN, 1, "test", 1, MPR_FLT, "Hz",
-                              NULL, NULL, NULL, 0);
+    mpr_sig sig = mpr_sig_new(dev, MPR_DIR_IN, "test", 1, MPR_FLT, "Hz",
+                              NULL, NULL, NULL, NULL, 0);
 
-    while (!mpr_dev_ready(dev)) {
+    while (!mpr_dev_get_is_ready(dev)) {
         mpr_dev_poll(dev, 100);
     }
 

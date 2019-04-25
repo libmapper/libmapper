@@ -9,28 +9,28 @@ extern "C" {
 
 #include <lo/lo.h>
 
-#define MPR_NOW ((mpr_time_t){0L,1L})
+#define MPR_NOW ((mpr_time){0L,1L})
 
 typedef enum {
-    MPR_DEV             = 0x01, //!< Devices only.
-    MPR_SIG_IN          = 0x02, //!< Input signals.
-    MPR_SIG_OUT         = 0x04, //!< Output signals.
-    MPR_SIG             = 0x06, //!< All signals.
-    MPR_MAP_IN          = 0x08, //!< Incoming maps.
-    MPR_MAP_OUT         = 0x10, //!< Outgoing maps.
-    MPR_MAP             = 0x18, //!< All maps.
-    MPR_OBJ             = 0x1F, //!< All objects: devices, signals, maps.
-    MPR_LIST            = 0x40, //!< object query.
-    MPR_INT32           = 'i',  //!< 32-bit integer.
-    MPR_INT64           = 'h',  //!< 64-bit integer.
-    MPR_FLT             = 'f',  //!< 32-bit floating point.
-    MPR_DBL             = 'd',  //!< 64-bit floatint point.
-    MPR_STR             = 's',  //!< String.
-    MPR_BOOL            = 'b',  //!< Boolean value.
-    MPR_TIME            = 't',  //!< 64-bit NTP timestamp.
-    MPR_TYPE            = 'c',  //!< libmapper data type.
-    MPR_PTR             = 'v',  //!< pointer.
-    MPR_NULL            = 'N'   //!< NULL value.
+    MPR_DEV             = 0x01,             //!< Devices only.
+    MPR_SIG_IN          = 0x02,             //!< Input signals.
+    MPR_SIG_OUT         = 0x04,             //!< Output signals.
+    MPR_SIG             = 0x06,             //!< All signals.
+    MPR_MAP_IN          = 0x08,             //!< Incoming maps.
+    MPR_MAP_OUT         = 0x10,             //!< Outgoing maps.
+    MPR_MAP             = 0x18,             //!< All maps.
+    MPR_OBJ             = 0x1F,             //!< All objects: devs, sigs, maps.
+    MPR_LIST            = 0x40,             //!< object query.
+    MPR_BOOL            = 'b',  /* 0x62 */  //!< Boolean value.
+    MPR_TYPE            = 'c',  /* 0x63 */  //!< libmpr data type.
+    MPR_DBL             = 'd',  /* 0x64 */  //!< 64-bit floating point.
+    MPR_FLT             = 'f',  /* 0x66 */  //!< 32-bit floating point.
+    MPR_INT64           = 'h',  /* 0x68 */  //!< 64-bit integer.
+    MPR_INT32           = 'i',  /* 0x69 */  //!< 32-bit integer.
+    MPR_STR             = 's',  /* 0x73 */  //!< String.
+    MPR_TIME            = 't',  /* 0x74 */  //!< 64-bit NTP timestamp.
+    MPR_PTR             = 'v',  /* 0x76 */  //!< pointer.
+    MPR_NULL            = 'N'   /* 0x4E */  //!< NULL value.
 } mpr_data_type;
 
 typedef char mpr_type;
@@ -82,8 +82,7 @@ typedef enum {
 
 /*! A 64-bit data structure containing an NTP-compatible time tag, as
  *  used by OSC. */
-typedef lo_timetag mpr_time_t;
-typedef mpr_time_t *mpr_time;
+typedef lo_timetag mpr_time;
 
 /*! This data structure must be large enough to hold a system pointer or a
  *  uin64_t */
@@ -101,7 +100,8 @@ typedef enum {
     MPR_OP_LTE          = 0x07, //!< Property value <= query value
     MPR_OP_NEQ          = 0x08, //!< Property value != query value
     MPR_OP_ALL          = 0x10, //!< Applies to all elements of value
-    MPR_OP_ANY          = 0x20  //!< Applies to any element of value
+    MPR_OP_ANY          = 0x20, //!< Applies to any element of value
+    MPR_OP_NONE         = 0x40
 } mpr_op;
 
 /*! Describes the possible endpoints of a map.

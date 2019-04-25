@@ -513,30 +513,25 @@ sig.set_property("sensingMethod", "resistive")
 
 ### Reserved keys
 
-You can use any property name not already reserved by libmpr.
+You can use any property name not already reserved by _libmpr_.
 
 #### Reserved keys for devices
 
-`description`, `host`, `id`, `is_local`, `libversion`, `name`,
-`num_incoming_maps`, `num_outgoing_maps`, `num_inputs`, `num_outputs`, `port`,
-`synced`, `value`, `version`, `user_data`
+`data`, `id`, `is_local`, `lib_version`, `linked`, `name`, `num_maps_in`,
+`num_maps_out`, `num_sigs_in`, `num_sigs_out`, `ordinal`, `status`, `synced`,
+`version`
 
 #### Reserved keys for signals
 
-`description`, `direction`, `id`, `is_local`, `length`, `max`, `maximum`, `min`,
-`minimum`, `name`, `num_incoming_maps`, `num_instances`, `num_outgoing_maps`,
-`rate`, `type`, `unit`, `user_data`
-
-#### Reserved keys for links
-
-`description`, `id`, `is_local`, `num_maps`
+`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`, `maximum`,
+`min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`, `period`, `steal`,
+`type`, `unit`, `use_inst`, `version`
 
 #### Reserved keys for maps
 
-`description`, `expression`, `id`, `is_local`, `mode`, `muted`,
-`num_destinations`, `num_sources`, `process_location`, `ready`, `status`
+`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`, `protocol`,
+`scope`, `status`, `version`
 
 #### Reserved keys for map slots
 
-`bound_max`, `bound_min`, `calibrating`, `causes_update`, `direction`, `length`,
-`maximum`, `minimum`, `num_instances`, `use_as_instance`, `type`
+`calib`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `use_inst`

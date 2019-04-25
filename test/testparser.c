@@ -29,7 +29,7 @@ double then, now;
 double total_elapsed_time = 0;
 mpr_type types[3];
 
-mpr_time_t time_in = {0, 0}, time_out = {0, 0};
+mpr_time time_in = {0, 0}, time_out = {0, 0};
 
 // signal_history structures
 mpr_hist_t inh[3], outh, user_vars[MAX_VARS], *user_vars_p;
@@ -53,6 +53,7 @@ typedef struct _var {
     char hist_size;
     char vector_len_locked;
     char assigned;
+    char public;
 } mpr_var_t, *mpr_var;
 
 struct _mpr_expr
@@ -191,11 +192,11 @@ int parse_and_eval(int expectation)
         goto fail;
     }
     for (i = 0; i < num_sources; i++) {
-        inh[i].size = mpr_expr_in_hist_size(e, i);
+        inh[i].size = mpr_expr_get_in_hist_size(e, i);
     }
-    outh.size = mpr_expr_out_hist_size(e);
+    outh.size = mpr_expr_get_out_hist_size(e);
 
-    if (mpr_expr_num_vars(e) > MAX_VARS) {
+    if (mpr_expr_get_num_vars(e) > MAX_VARS) {
         eprintf("Maximum variables exceeded.\n");
         goto fail;
     }

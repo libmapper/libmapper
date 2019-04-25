@@ -7,12 +7,12 @@ def h(sig, event, id, val, tt):
     print('     handler got', sig['name'], '=', val, 'at time', tt.get_double())
 
 src = mpr.device("src")
-outsig1 = src.add_signal(mpr.DIR_OUT, 1, "outsig1", 1, mpr.INT32, None, 0, 1000)
-outsig2 = src.add_signal(mpr.DIR_OUT, 1, "outsig2", 1, mpr.INT32, None, 0, 1000)
+outsig1 = src.add_signal(mpr.DIR_OUT, "outsig1", 1, mpr.INT32, None, 0, 1000)
+outsig2 = src.add_signal(mpr.DIR_OUT, "outsig2", 1, mpr.INT32, None, 0, 1000)
 
 dest = mpr.device("dest")
-insig1 = dest.add_signal(mpr.DIR_IN, 1, "insig1", 1, mpr.FLT, None, 0, 1, h)
-insig2 = dest.add_signal(mpr.DIR_IN, 1, "insig2", 1, mpr.FLT, None, 0, 1, h)
+insig1 = dest.add_signal(mpr.DIR_IN, "insig1", 1, mpr.FLT, None, 0, 1, None, h)
+insig2 = dest.add_signal(mpr.DIR_IN, "insig2", 1, mpr.FLT, None, 0, 1, None, h)
 
 while not src.ready or not dest.ready:
     src.poll()

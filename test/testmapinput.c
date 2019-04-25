@@ -28,9 +28,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
-        const char *name;
-        mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, NULL, NULL, NULL,
-                                (const void**)&name, 0);
+        const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
         eprintf("--> received %s", name);
 
         if (type == MPR_FLT) {
@@ -62,14 +60,14 @@ int setup_devs()
     float mnf2[]={3.2,2,0}, mxf2[]={-2,13,100};
     double mnd=0, mxd=10;
 
-    inputs[0] = mpr_sig_new(devices[0], MPR_DIR_IN, 1, "insig_1", 1, MPR_FLT,
-                            NULL, mnf1, mxf1, handler, MPR_SIG_UPDATE);
-    inputs[1] = mpr_sig_new(devices[0], MPR_DIR_IN, 1, "insig_2", 1, MPR_DBL,
-                            NULL, &mnd, &mxd, handler, MPR_SIG_UPDATE);
-    inputs[2] = mpr_sig_new(devices[1], MPR_DIR_IN, 1, "insig_3", 3, MPR_FLT,
-                            NULL, mnf1, mxf1, handler, MPR_SIG_UPDATE);
-    inputs[3] = mpr_sig_new(devices[1], MPR_DIR_IN, 1, "insig_4", 1, MPR_FLT,
-                            NULL, mnf2, mxf2, handler, MPR_SIG_UPDATE);
+    inputs[0] = mpr_sig_new(devices[0], MPR_DIR_IN, "insig_1", 1, MPR_FLT,
+                            NULL, mnf1, mxf1, NULL, handler, MPR_SIG_UPDATE);
+    inputs[1] = mpr_sig_new(devices[0], MPR_DIR_IN, "insig_2", 1, MPR_DBL,
+                            NULL, &mnd, &mxd, NULL, handler, MPR_SIG_UPDATE);
+    inputs[2] = mpr_sig_new(devices[1], MPR_DIR_IN, "insig_3", 3, MPR_FLT,
+                            NULL, mnf1, mxf1, NULL, handler, MPR_SIG_UPDATE);
+    inputs[3] = mpr_sig_new(devices[1], MPR_DIR_IN, "insig_4", 1, MPR_FLT,
+                            NULL, mnf2, mxf2, NULL, handler, MPR_SIG_UPDATE);
 
     /* In this test inputs[2] will never get its full vector value from
      * external updates – for the handler to be called we will need to
@@ -96,7 +94,7 @@ void cleanup_devs()
 
 void wait_local_devs()
 {
-    while (!done && !(mpr_dev_ready(devices[0]) && mpr_dev_ready(devices[1]))) {
+    while (!done && !(mpr_dev_get_is_ready(devices[0]) && mpr_dev_get_is_ready(devices[1]))) {
         mpr_dev_poll(devices[0], 25);
         mpr_dev_poll(devices[1], 25);
     }
@@ -122,7 +120,7 @@ void loop()
         while (!done && !ready) {
             mpr_dev_poll(devices[0], 100);
             mpr_dev_poll(devices[1], 100);
-            ready = mpr_map_ready(maps[0]) & mpr_map_ready(maps[1]);
+            ready = mpr_map_get_is_ready(maps[0]) & mpr_map_get_is_ready(maps[1]);
         }
     }
 

@@ -4,85 +4,80 @@ EXPORTS
     mpr_graph_free                              @2
     mpr_graph_get_address                       @3
     mpr_graph_get_interface                     @4
-    mpr_graph_get_list                          @5
-mpr_graph_get_maps_by_scope                 @6
+    mpr_graph_get_objs                          @5
+    mpr_graph_get_maps_by_scope                 @6
     mpr_graph_new                               @7
     mpr_graph_poll                              @8
     mpr_graph_print                             @9
     mpr_graph_remove_cb                         @10
     mpr_graph_set_interface                     @11
-    mpr_graph_set_multicast_addr                @12
+    mpr_graph_set_address                       @12
     mpr_graph_subscribe                         @13
     mpr_graph_unsubscribe                       @14
-mpr_device_add_signal_group                 @15
-    mpr_device_free                             @16
-    mpr_device_generate_unique_id               @17
-    mpr_device_get_signals                      @18
-    mpr_device_new                              @19
-    mpr_device_poll                             @20
-    mpr_device_ready                            @21
-mpr_device_remove_signal_group              @22
-    mpr_device_send_queue                       @23
-    mpr_device_start_queue                      @24
-    mpr_list_cpy                                @25
-    mpr_list_diff                               @26
-    mpr_list_filter                             @27
-    mpr_list_free                               @28
-    mpr_list_get_idx                            @29
-    mpr_list_isect                              @30
-    mpr_list_get_count                          @31
-    mpr_list_next                               @32
-    mpr_list_union                              @33
-    mpr_map_add_scope                           @34
-    mpr_map_get_num_signals                     @35
-    mpr_map_get_signal                          @36
-    mpr_map_get_signal_index                    @37
-    mpr_map_new                                 @38
-    mpr_map_ready                               @39
-    mpr_map_refresh                             @40
-    mpr_map_release                             @41
-    mpr_map_remove_scope                        @42
-    mpr_obj_get_graph                           @43
-    mpr_obj_get_num_props                       @44
-    mpr_obj_get_prop_by_idx                     @45
-    mpr_obj_get_prop_by_name                    @46
-    mpr_obj_get_prop_i32                        @47
-    mpr_obj_get_prop_flt                        @48
-    mpr_obj_get_prop_str                        @49
-    mpr_obj_get_prop_ptr                        @50
+    mpr_dev_free                                @15
+    mpr_dev_generate_unique_id                  @16
+    mpr_dev_get_sigs                            @17
+    mpr_dev_new                                 @18
+    mpr_dev_poll                                @19
+    mpr_dev_get_is_ready                        @20
+    mpr_dev_send_queue                          @21
+    mpr_dev_start_queue                         @22
+    mpr_list_get_cpy                            @23
+    mpr_list_get_diff                           @24
+    mpr_list_filter                             @25
+    mpr_list_free                               @26
+    mpr_list_get_idx                            @27
+    mpr_list_get_isect                          @28
+    mpr_list_get_next                           @29
+    mpr_list_get_size                           @30
+    mpr_list_get_union                          @31
+    mpr_map_add_scope                           @32
+    mpr_map_get_num_sigs                        @33
+    mpr_map_get_sig                             @34
+    mpr_map_get_sig_idx                         @35
+    mpr_map_new                                 @36
+    mpr_map_get_is_ready                        @37
+    mpr_map_refresh                             @38
+    mpr_map_release                             @39
+    mpr_map_remove_scope                        @40
+    mpr_map_set_linear                          @41
+    mpr_obj_get_graph                           @42
+    mpr_obj_get_num_props                       @43
+    mpr_obj_get_prop_by_idx                     @44
+    mpr_obj_get_prop_by_key                     @45
+    mpr_obj_get_prop_as_i32                     @46
+    mpr_obj_get_prop_as_flt                     @47
+    mpr_obj_get_prop_as_list                    @48
+    mpr_obj_get_prop_as_str                     @49
+    mpr_obj_get_prop_as_ptr                     @50
     mpr_obj_get_type                            @51
     mpr_obj_print                               @52
     mpr_obj_push                                @53
     mpr_obj_remove_prop                         @54
     mpr_obj_set_prop                            @55
-    mpr_signal_activate_inst                    @56
-    mpr_signal_get_device                       @57
-    mpr_signal_free                             @58
-mpr_signal_get_group                        @59
-    mpr_signal_get_inst_id                      @60
-    mpr_signal_get_inst_is_active               @61
-    mpr_signal_get_inst_stealing_mode           @62
-    mpr_signal_get_inst_data                    @63
-    mpr_signal_get_maps                         @64
-    mpr_signal_get_newest_inst_id               @65
-    mpr_signal_get_num_inst                     @66
-    mpr_signal_get_oldest_inst_id               @67
-    mpr_signal_get_value                        @68
-    mpr_signal_new                              @69
-    mpr_signal_release_inst                     @70
-    mpr_signal_remove_inst                      @71
-    mpr_signal_reserve_inst                     @72
-    mpr_signal_set_cb                           @73
-mpr_signal_set_group                        @74
-    mpr_signal_set_inst_stealing_mode           @75
-    mpr_signal_set_inst_data                    @76
-    mpr_signal_set_value                        @77
-    mpr_time_add                                @78
-    mpr_time_add_dbl                            @79
-    mpr_time_copy                               @80
-    mpr_time_get_dbl                            @81
-    mpr_time_mult                               @82
-    mpr_time_now                                @83
-    mpr_time_set_dbl                            @84
-    mpr_time_sub                                @85
-    mpr_version                                 @86
+    mpr_sig_activate_inst                       @56
+    mpr_sig_get_dev                             @57
+    mpr_sig_free                                @58
+    mpr_sig_get_inst_id                         @59
+    mpr_sig_get_inst_is_active                  @60
+    mpr_sig_get_inst_data                       @61
+    mpr_sig_get_maps                            @62
+    mpr_sig_get_newest_inst_id                  @63
+    mpr_sig_get_num_inst                        @64
+    mpr_sig_get_oldest_inst_id                  @65
+    mpr_sig_get_value                           @66
+    mpr_sig_new                                 @67
+    mpr_sig_release_inst                        @68
+    mpr_sig_remove_inst                         @69
+    mpr_sig_reserve_inst                        @70
+    mpr_sig_set_cb                              @71
+    mpr_sig_set_inst_data                       @72
+    mpr_sig_set_value                           @73
+    mpr_time_add                                @74
+    mpr_time_add_dbl                            @75
+    mpr_time_as_dbl                             @76
+    mpr_time_mul                                @77
+    mpr_time_set                                @78
+    mpr_time_set_dbl                            @79
+    mpr_time_sub                                @80
+    mpr_version                                 @81
