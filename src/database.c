@@ -935,7 +935,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                                              const char *dst_name,
                                              mapper_message msg)
 {
-    if (num_sources >= MAX_NUM_MAP_SOURCES) {
+    if (num_sources > MAX_NUM_MAP_SOURCES) {
         trace_db("error: maximum mapping sources exceeded.\n");
         return 0;
     }
