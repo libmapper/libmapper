@@ -1079,6 +1079,28 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                     rec->index = MASK_PROP_BITFLAGS(rec->index) | SRC_SLOT_PROPERTY(i);
                 }
             }
+            // check again if this mirrors a staged map
+            mapper_map next = db->maps, map2;
+            while (next) {
+                map2 = next;
+                next = mapper_list_next(next);
+                if (map2->id != 0)
+                    continue;
+                if (map->num_sources != map2->num_sources)
+                    continue;
+                if (map->destination.signal != map2->destination.signal)
+                    continue;
+                for (i = 0; i < map->num_sources; i++) {
+                    if (map->sources[i]->signal != map2->sources[i]->signal) {
+                        map2 = NULL;
+                        break;
+                    }
+                }
+                if (map2) {
+                    mapper_database_remove_map(db, map2, 0);
+                    break;
+                }
+            }
         }
     }
 
@@ -1266,23 +1288,25 @@ void mapper_database_remove_map(mapper_database db, mapper_map map,
 
     mapper_list_remove_item((void**)&db->maps, map);
 
-    fptr_list cb = db->map_callbacks;
-    while (cb) {
-        mapper_database_map_handler *h = cb->f;
-        h(db, map, event, cb->context);
-        cb = cb->next;
-    }
+    if (map->id != 0) {
+        fptr_list cb = db->map_callbacks;
+        while (cb) {
+            mapper_database_map_handler *h = cb->f;
+            h(db, map, event, cb->context);
+            cb = cb->next;
+        }
 
-    // decrement num_maps property of relevant links
-    mapper_device src = 0, dst = map->destination.signal->device;
-    int i;
-    for (i = 0; i < map->num_sources; i++) {
-        src = map->sources[i]->signal->device;
-        mapper_link link = mapper_device_link_by_remote_device(dst, src);
-        if (link && !link->local) {
-            --link->num_maps[src == link->devices[0] ? 0 : 1];
-            link->props->dirty = 1;
-            mapper_database_call_link_handlers(db, link, MAPPER_MODIFIED);
+        // decrement num_maps property of relevant links
+        mapper_device src = 0, dst = map->destination.signal->device;
+        int i;
+        for (i = 0; i < map->num_sources; i++) {
+            src = map->sources[i]->signal->device;
+            mapper_link link = mapper_device_link_by_remote_device(dst, src);
+            if (link && !link->local) {
+                --link->num_maps[src == link->devices[0] ? 0 : 1];
+                link->props->dirty = 1;
+                mapper_database_call_link_handlers(db, link, MAPPER_MODIFIED);
+            }
         }
     }
 
