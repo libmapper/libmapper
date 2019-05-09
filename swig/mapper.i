@@ -1572,6 +1572,8 @@ typedef struct _device_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __setitem__(self, key, value):
+            self.properties[key] = value
         def __nonzero__(self):
             return False if self.this is None else True
     }
@@ -1749,17 +1751,19 @@ typedef struct _link_query {
                     props[prop[0]] = prop[1];
             return props
         def __propgetter(self):
-            device = self
+            link = self
             props = self.get_properties()
             class propsetter(dict):
                 __getitem__ = props.__getitem__
                 def __setitem__(self, key, value):
                     props[key] = value
-                    device.set_property(key, value)
+                    link.set_property(key, value)
             return propsetter(self.get_properties())
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __setitem__(self, key, value):
+            self.set_property(key, value)
         def __nonzero__(self):
             return False if self.this is None else True
     }
@@ -2219,6 +2223,8 @@ typedef struct _signal_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __setitem__(self, key, value):
+            self.set_property(key, value)
         def __nonzero__(self):
             return False if self.this is None else True
     }
@@ -2368,7 +2374,7 @@ typedef struct _map_query {
     booltype get_ready() {
         return mapper_map_ready((mapper_map)$self);
     }
-    int get_num_slots(mapper_location loc=MAPPER_DIR_ANY) {
+    int get_num_slots(mapper_location loc=MAPPER_LOC_ANY) {
         return mapper_map_num_slots((mapper_map)$self, loc);
     }
     int get_process_location() {
@@ -2501,6 +2507,8 @@ typedef struct _map_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __setitem__(self, key, value):
+            self.set_property(key, value)
         def __nonzero__(self):
             return False if self.this is None else True
     }
@@ -2687,6 +2695,8 @@ typedef struct _map_query {
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __setitem__(self, key, value):
+            self.set_property(key, value)
         def __nonzero__(self):
             return False if self.this is None else True
     }
@@ -2969,17 +2979,19 @@ typedef struct _map_query {
                     props[prop[0]] = prop[1];
             return props
         def __propgetter(self):
-            slot = self
+            net = self
             props = self.get_properties()
             class propsetter(dict):
                 __getitem__ = props.__getitem__
                 def __setitem__(self, key, value):
                     props[key] = value
-                    slot.set_property(key, value)
+                    net.set_property(key, value)
             return propsetter(self.get_properties())
         properties = property(__propgetter)
         def set_properties(self, props):
             [self.set_property(k, props[k]) for k in props]
+        def __setitem__(self, key, value):
+            self.set_property(key, value)
         def __nonzero__(self):
             return False if self.this is None else True
     }

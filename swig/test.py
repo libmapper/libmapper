@@ -23,11 +23,11 @@ def setup(d):
     print('device interface', d.network().interface)
     print('device ordinal', d.ordinal)
 
-    d.set_properties({"testInt":5, "testFloat":12.7, "testString":[b"test",b"foo"],
-                      "removed1":b"shouldn't see this"})
-    d.properties['testInt'] = 7
-#    d.set_properties({"removed1":None, "removed2":"test"})
-#    d.remove_property("removed1")
+    d.set_properties({"testInt":5, "testFloat":12.7, "testString":["test","foo"],
+                      "removed1":"shouldn't see this"})
+    d['testInt'] = 7
+    d["removed2"] = "test"
+    d.remove_property("removed1")
 
     print('Printing', d.num_properties, 'properties:')
     for key, value in list(d.properties.items()):
@@ -49,7 +49,7 @@ def setup(d):
     sig.minimum = None
     print('signal minimum', sig.minimum)
 
-    sig.properties['testInt'] = 3
+    sig['testInt'] = 3
 
     print('signal properties:', sig.properties)
 
@@ -122,9 +122,10 @@ for l in db.links():
 
 print(db.num_maps, 'maps:')
 for m in db.maps():
-    print("    ", m.source().signal().device().name, ':', \
-        m.source().signal().name,\
-        '->', m.destination().signal().device().name, ':', m.destination().signal().name)
+    srcs = []
+    for s in range(m.num_slots - 1):
+        srcs.append(m.source(s).signal().device().name+':'+m.source(s).signal().name)
+    print("    ", srcs, '->', m.destination().signal().device().name+':'+m.destination().signal().name)
 
 # combining queries
 print('signals matching \'out*\' or \'*req\':')
