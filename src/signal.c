@@ -484,6 +484,31 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
         return i;
     }
 
+    if (sig->local->instance_stealing_mode != MAPPER_NO_STEALING
+        && (si = reserved_instance(sig))) {
+        // steal a "reserved" instance
+        si->id = id;
+
+        if (!map) {
+            // Claim id map locally, add id map to device and link from signal
+            mapper_id global = mapper_device_generate_unique_id(sig->device);
+            map = mapper_device_add_instance_id_map(sig->device, sig->local->group,
+                                                    id, global);
+        }
+        else {
+            ++map->refcount_local;
+        }
+
+        // store pointer to device map in a new signal map
+        si->is_active = 1;
+        mapper_signal_init_instance(si);
+        i = mapper_signal_add_id_map(sig, si, map);
+        if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
+            event_h(sig, id, MAPPER_NEW_INSTANCE, tt);
+        }
+        return i;
+    }
+
     if (event_h && (sig->local->instance_event_flags & MAPPER_INSTANCE_OVERFLOW)) {
         // call instance event handler
         event_h(sig, 0, MAPPER_INSTANCE_OVERFLOW, tt);

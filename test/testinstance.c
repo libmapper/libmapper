@@ -39,6 +39,7 @@ int setup_source()
 
     sendsig = mapper_device_add_signal(source, MAPPER_DIR_OUTGOING, 10,
                                        "outsig", 1, 'f', 0, &mn, &mx, 0, 0);
+    mapper_signal_set_instance_stealing_mode(sendsig, MAPPER_STEAL_OLDEST);
     if (!sendsig)
         goto error;
 
@@ -186,7 +187,7 @@ void loop()
 
     while (i < iterations && !done) {
         // here we should create, update and destroy some instances
-        instance = (rand() % 10);
+        instance = (rand() % 10)+5;
         switch (rand() % 5) {
             case 0:
                 // try to destroy an instance
@@ -281,8 +282,11 @@ int main(int argc, char **argv)
     stats[0] = sent;
     stats[1] = received;
 
-    for (i=0; i<10; i++)
-        mapper_signal_instance_release(sendsig, i, MAPPER_NOW);
+    for (i=0; i<mapper_signal_num_instances(sendsig); i++) {
+        mapper_signal_instance_release(sendsig,
+                                       mapper_signal_instance_id(sendsig, i),
+                                       MAPPER_NOW);
+    }
     sent = received = 0;
 
     mapper_signal_set_instance_stealing_mode(recvsig, MAPPER_STEAL_OLDEST);
@@ -296,8 +300,11 @@ int main(int argc, char **argv)
     stats[3] = received;
     sent = received = 0;
 
-    for (i=0; i<10; i++)
-        mapper_signal_instance_release(sendsig, i, MAPPER_NOW);
+    for (i=0; i<mapper_signal_num_instances(sendsig); i++) {
+        mapper_signal_instance_release(sendsig,
+                                       mapper_signal_instance_id(sendsig, i),
+                                       MAPPER_NOW);
+    }
     sent = received = 0;
 
     mapper_signal_set_instance_event_callback(recvsig, more_handler,
