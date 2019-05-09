@@ -30,3 +30,8 @@ uninstall-hook:
 	  | awk '{print "$(DESTDIR)"$$1}' | xargs rm -vf
 
 EXTRA_DIST = mapper.i tkgui.py copywhich.sh
+
+test_all_ordered = test testcallbacks testconvergent testinstance testquery testqueue testreverse testvector
+
+tests: all
+	for i in $(test_all_ordered); do echo Running $$i; if ! python ./$$i.py; then exit 1; fi; done
