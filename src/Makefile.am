@@ -3,7 +3,7 @@ noinst_HEADERS = mapper_internal.h types_internal.h
 EXTRA_DIST = libmapper.def
 
 if WINDOWS_DLL
-lt_windows = -no-undefined -export-symbols libmapper.def
+lt_windows = -no-undefined -export-symbols $(srcdir)/libmapper.def
 endif
 
 lib_LTLIBRARIES = libmapper.la
