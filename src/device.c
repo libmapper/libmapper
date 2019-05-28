@@ -196,6 +196,7 @@ void mapper_device_free(mapper_device dev)
             free(map);
         }
     }
+    free(dev->local->active_id_maps);
     while (dev->local->reserve_id_maps) {
         map = dev->local->reserve_id_maps;
         dev->local->reserve_id_maps = map->next;
