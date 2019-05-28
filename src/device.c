@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <assert.h>
 #include <sys/time.h>
-#include <zlib.h>
 #include <stddef.h>
 
 #include "mapper_internal.h"

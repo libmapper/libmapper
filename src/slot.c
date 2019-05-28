@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <limits.h>
-#include <zlib.h>
 
 #include "mapper_internal.h"
 #include "types_internal.h"
