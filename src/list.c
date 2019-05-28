@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
-#include <zlib.h>
 
 #include "mpr_internal.h"
 
