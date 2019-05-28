@@ -3,7 +3,7 @@ noinst_HEADERS = mpr_internal.h types_internal.h
 EXTRA_DIST = libmpr.def
 
 if WINDOWS_DLL
-lt_windows = -no-undefined -export-symbols libmpr.def
+lt_windows = -no-undefined -export-symbols $(srcdir)/libmpr.def
 endif
 
 lib_LTLIBRARIES = libmpr.la
