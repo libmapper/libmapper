@@ -52,7 +52,6 @@ EXPORTS
     mapper_device_is_local                              @51
     mapper_device_links                                 @52
     mapper_device_link_by_remote_device                 @53
-    mapper_device_lo_server                             @54
     mapper_device_maps                                  @55
     mapper_device_name                                  @56
     mapper_device_network                               @57
@@ -258,3 +257,5 @@ EXPORTS
     mapper_timetag_set_double                           @257
     mapper_timetag_subtract                             @258
     mapper_version                                      @259
+    mapper_device_lo_server_udp                         @260
+    mapper_device_lo_server_tcp                         @261
