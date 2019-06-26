@@ -2393,14 +2393,14 @@ static int handler_map_modify(const char *path, const char *types, lo_arg **argv
              * occur at the destination. */
             map->process_location = MAPPER_LOC_DESTINATION;
         }
-        else if ((atom = mapper_message_property(props, AT_EXPRESSION))) {
-            if (strstr(&atom->values[0]->s, "y={-")) {
-                map->process_location = MAPPER_LOC_DESTINATION;
-            }
-        }
-        else if (map->expression && strstr(map->expression, "y{-")) {
+    }
+    if ((atom = mapper_message_property(props, AT_EXPRESSION))) {
+        if (strstr(&atom->values[0]->s, "y{-")) {
             map->process_location = MAPPER_LOC_DESTINATION;
         }
+    }
+    else if (map->expression && strstr(map->expression, "y{-")) {
+        map->process_location = MAPPER_LOC_DESTINATION;
     }
 
     // do not continue if we are not in charge of processing
