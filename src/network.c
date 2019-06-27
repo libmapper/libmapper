@@ -731,10 +731,11 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
 
     int elapsed, num_maps;
     // some housekeeping: periodically check if our links are still active
-    mapper_link link = dev->database->links;
+    mapper_link next, link = dev->database->links;
     while (link) {
+        next = mapper_list_next(link);
         if (!link->local || (link->remote_device == dev)) {
-            link = mapper_list_next(link);
+            link = next;
             continue;
         }
         num_maps = link->num_maps[0] + link->num_maps[1];
@@ -807,7 +808,7 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
             mapper_timetag_copy(&sync->sent.timetag, lo_bundle_get_timestamp(b));
             lo_bundle_free_recursive(b);
         }
-        link = mapper_list_next(link);
+        link = next;
     }
 }
 
@@ -1145,6 +1146,7 @@ static int handler_logout(const char *path, const char *types, lo_arg **argv,
             if (h)
                 h(dev, link, MAPPER_REMOVED);
             // remove link immediately
+            mapper_router_remove_link(dev->local->router, link);
             mapper_database_remove_link(&net->database, link, MAPPER_REMOVED);
         }
 
