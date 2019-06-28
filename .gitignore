@@ -64,6 +64,7 @@ test/testinstance
 test/testlinear
 test/testmany
 test/testmapinput
+test/testmapprotocol
 test/testmonitor
 test/testnetwork
 test/testparams
@@ -77,5 +78,6 @@ test/testselect
 test/testsignals
 test/testspeed
 test/testsync
+test/testunmap
 test/testvector
 

@@ -12,13 +12,13 @@ noinst_PROGRAMS = test testconvergent testcpp testcustomtransport testdatabase \
                   testexpression testinstance testlinear testmany testmapinput \
                   testmapprotocol testmonitor testnetwork testparams testparser\
                   testprops testqueue testquery testrate testreverse testselect\
-                  testsignals testspeed testvector
+                  testsignals testspeed testunmap testvector
 
 test_all_ordered = testparams testprops testdatabase testparser testnetwork    \
                    testmany test testlinear testexpression testqueue testquery \
                    testrate testinstance testreverse testselect testvector     \
                    testcustomtransport testspeed testcpp testmapinput          \
-                   testconvergent testmapprotocol
+                   testconvergent testmapprotocol testunmap
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -112,13 +112,17 @@ testspeed_CFLAGS = $(TEST_CFLAGS)
 testspeed_SOURCES = testspeed.c
 testspeed_LDADD = $(TEST_LDADD)
 
+testunmap_CFLAGS = $(TEST_CFLAGS)
+testunmap_SOURCES = testunmap.c
+testunmap_LDADD = $(TEST_LDADD)
+
 testvector_CFLAGS = $(TEST_CFLAGS)
 testvector_SOURCES = testvector.c
 testvector_LDADD = $(TEST_LDADD)
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! ./$$i -qt; then exit 1; fi; done
-	echo Running testmonitor and testsignals; ./testmonitor -t & ./testsignals
+	echo Running testmonitor and testsignals; ./testmonitor -qt & ./testsignals
 
 memtest: all
 	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmapper.dylib valgrind --leak-check=full ./.libs/$$i -qt; then exit 1; fi; done
