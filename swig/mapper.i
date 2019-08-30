@@ -7,13 +7,16 @@
     }
     $1 = $input;
 }
+%typemap(typecheck, precedence=SWIG_TYPECHECK_INT64) mapper_id {
+    $1 = (PyInt_Check($input) || PyLong_Check($input)) ? 1 : 0;
+}
 %typemap(in) (mapper_id id) {
     if (PyInt_Check($input))
         $1 = PyInt_AsLong($input);
     else if (PyLong_Check($input)) {
         // truncate to 64 bits
         $1 = PyLong_AsUnsignedLongLong($input);
-        if ($1 == -1) {
+        if ($1 == (unsigned long long)-1) {
             PyErr_SetString(PyExc_ValueError, "Id value must fit into 64 bits.");
             return NULL;
         }
@@ -42,8 +45,7 @@
             $2[i] = (int)PyFloat_AsDouble(s);
         else {
             free($2);
-            PyErr_SetString(PyExc_ValueError,
-                            "List items must be int or float.");
+            PyErr_SetString(PyExc_ValueError, "List items must be int or float.");
             return NULL;
         }
     }
@@ -113,8 +115,7 @@
         prop->type = 0;
         check_type($input, &prop->type, 1, 1);
         if (!prop->type) {
-            PyErr_SetString(PyExc_ValueError,
-                            "Problem determining value type.");
+            PyErr_SetString(PyExc_ValueError, "Problem determining value type.");
             return NULL;
         }
         if (PyList_Check($input))
@@ -125,7 +126,7 @@
         prop->free_value = 1;
         if (py_to_prop($input, prop, 0)) {
             free(prop->value);
-            PyErr_SetString(PyExc_ValueError, "Problem parsing property value.");
+            PyErr_SetString(PyExc_ValueError, "Problem parsing property value (2).");
             return NULL;
         }
         $1 = prop;
@@ -161,31 +162,31 @@
     named_property_t *prop = alloca(sizeof(*prop));
     if ($input == Py_None)
         $1 = 0;
-        else {
-            prop->name = 0;
-            prop->value.type = 0;
-            check_type($input, &prop->value.type, 1, 1);
-            if (!prop->value.type) {
-                PyErr_SetString(PyExc_ValueError,
-                                "Problem determining value type.");
-                return NULL;
-            }
-            if (PyList_Check($input))
-                prop->value.length = PyList_Size($input);
-            else
-                prop->value.length = 1;
-            prop->value.value = malloc(prop->value.length
-                                       * mapper_type_size(prop->value.type));
-            prop->value.free_value = 1;
-            if (py_to_prop($input, &prop->value, &prop->name)) {
-                free(prop->value.value);
-                PyErr_SetString(PyExc_ValueError,
-                                "Problem parsing property value.");
-                return NULL;
-            }
-            $1 = prop;
+    else {
+        prop->name = 0;
+        prop->value.type = 0;
+        check_type($input, &prop->value.type, 1, 1);
+        if (!prop->value.type) {
+            PyErr_SetString(PyExc_ValueError,
+                            "Problem determining value type.");
+            return NULL;
         }
-    %}
+        if (PyList_Check($input))
+            prop->value.length = PyList_Size($input);
+        else
+            prop->value.length = 1;
+        prop->value.value = malloc(prop->value.length
+                                   * mapper_type_size(prop->value.type));
+        prop->value.free_value = 1;
+        if (py_to_prop($input, &prop->value, &prop->name)) {
+            free(prop->value.value);
+            PyErr_SetString(PyExc_ValueError,
+                            "Problem parsing property value (1).");
+            return NULL;
+        }
+        $1 = prop;
+    }
+%}
 %typemap(out) named_property {
     if ($1) {
         named_property prop = (named_property)$1;
@@ -230,6 +231,9 @@
     PyObject *o = $1 ? Py_True : Py_False;
     Py_INCREF(o);
     return o;
+}
+%typemap(typecheck, precedence=SWIG_TYPECHECK_BOOL) booltype {
+    $1 = PyBool_Check($input) ? 1 : 0;
 }
 
 %{
@@ -293,15 +297,22 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
     switch (prop->type) {
         case 's':
         {
-            // only strings (bytes in py3) are valid
+            // only strings (Unicode or bytes in py3) are valid
             if (prop->length > 1) {
                 char **str_to = (char**)prop->value;
                 for (i = 0; i < prop->length; i++) {
                     PyObject *element = PySequence_GetItem(from, i);
 #if PY_MAJOR_VERSION >= 3
-                    if (!PyBytes_Check(element))
+                    if (PyUnicode_Check(element)) {
+                        Py_ssize_t size;
+                        str_to[i] = strdup(PyUnicode_AsUTF8AndSize(element, &size));
+                        if (!str_to[i])
+                            return 1;
+                    }
+                    else if (PyBytes_Check(element))
+                        str_to[i] = strdup(PyBytes_AsString(element));
+                    else
                         return 1;
-                    str_to[i] = strdup(PyBytes_AsString(element));
 #else
                     if (!PyString_Check(element))
                         return 1;
@@ -311,10 +322,19 @@ static int py_to_prop(PyObject *from, property_value prop, const char **name)
             }
             else {
 #if PY_MAJOR_VERSION >= 3
-                if (!PyBytes_Check(from))
+                if (PyUnicode_Check(from)) {
+                    char **str_to = (char**)&prop->value;
+                    Py_ssize_t size;
+                    *str_to = strdup(PyUnicode_AsUTF8AndSize(from, &size));
+                    if (!*str_to)
+                        return 1;
+                }
+                else if (PyBytes_Check(from)) {
+                    char **str_to = (char**)&prop->value;
+                    *str_to = strdup(PyBytes_AsString(from));
+                }
+                else
                     return 1;
-                char **str_to = (char**)&prop->value;
-                *str_to = strdup(PyBytes_AsString(from));
 #else
                 if (!PyString_Check(from))
                     return 1;
@@ -539,14 +559,14 @@ static PyObject *prop_to_py(property_value prop, const char *name)
                 char **vect = (char**)prop->value;
                 for (i=0; i<prop->length; i++)
 #if PY_MAJOR_VERSION >= 3
-                    PyList_SetItem(v, i, PyBytes_FromString(vect[i]));
+                    PyList_SetItem(v, i, PyUnicode_FromString(vect[i]));
 #else
                     PyList_SetItem(v, i, PyString_FromString(vect[i]));
 #endif
             }
             else
 #if PY_MAJOR_VERSION >= 3
-                v = PyBytes_FromString((char*)prop->value);
+                v = PyUnicode_FromString((char*)prop->value);
 #else
                 v = PyString_FromString((char*)prop->value);
 #endif
@@ -1232,6 +1252,10 @@ typedef struct _device_query {
         $self->query = mapper_device_query_difference($self->query, copy);
         return $self;
     }
+    %pythoncode {
+        def __next__(self):
+            return self.next()
+    }
 }
 
 %extend _device {
@@ -1641,6 +1665,10 @@ typedef struct _link_query {
         $self->query = mapper_link_query_difference($self->query, copy);
         return $self;
     }
+    %pythoncode {
+        def __next__(self):
+            return self.next()
+    }
 }
 
 %extend _link {
@@ -1830,6 +1858,10 @@ typedef struct _signal_query {
         mapper_signal *copy = mapper_signal_query_copy(s->query);
         $self->query = mapper_signal_query_difference($self->query, copy);
         return $self;
+    }
+    %pythoncode {
+        def __next__(self):
+            return self.next()
     }
 }
 
@@ -2300,6 +2332,10 @@ typedef struct _map_query {
             copy = mapper_map_query_next(copy);
         }
         return $self;
+    }
+    %pythoncode {
+        def __next__(self):
+            return self.next()
     }
 }
 
