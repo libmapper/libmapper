@@ -2853,7 +2853,7 @@ int mapper_expr_evaluate(mapper_expr expr, mapper_history *input,
 #endif
             break;
         case TOK_VFUNC:
-            top -= function_table[tok->func].arity-1;
+            top -= vfunction_table[tok->func].arity-1;
 #if TRACING
             printf("%s%c(", vfunction_table[tok->func].name, tok->datatype);
             for (i = 0; i < vfunction_table[tok->func].arity; i++) {
