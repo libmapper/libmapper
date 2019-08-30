@@ -2752,54 +2752,54 @@ typedef struct _map_query {
         return $self;
     }
     database *add_device_callback(PyObject *PyFunc) {
-        Py_XINCREF(PyFunc);
-        mapper_database_add_device_callback((mapper_database)$self,
-                                            database_device_handler_py, PyFunc);
+        if (mapper_database_add_device_callback((mapper_database)$self,
+                                                database_device_handler_py, PyFunc))
+            Py_XINCREF(PyFunc);
         return $self;
     }
     database *remove_device_callback(PyObject *PyFunc) {
-        mapper_database_remove_device_callback((mapper_database)$self,
-                                               database_device_handler_py,
-                                               PyFunc);
-        Py_XDECREF(PyFunc);
+        if (mapper_database_remove_device_callback((mapper_database)$self,
+                                                   database_device_handler_py,
+                                                   PyFunc))
+            Py_XDECREF(PyFunc);
         return $self;
     }
     database *add_link_callback(PyObject *PyFunc) {
-        Py_XINCREF(PyFunc);
-        mapper_database_add_link_callback((mapper_database)$self,
-                                          database_link_handler_py, PyFunc);
+        if (mapper_database_add_link_callback((mapper_database)$self,
+                                              database_link_handler_py, PyFunc))
+            Py_XINCREF(PyFunc);
         return $self;
     }
     database *remove_link_callback(PyObject *PyFunc) {
-        mapper_database_remove_link_callback((mapper_database)$self,
-                                             database_link_handler_py,
-                                             PyFunc);
-        Py_XDECREF(PyFunc);
+        if (mapper_database_remove_link_callback((mapper_database)$self,
+                                                 database_link_handler_py,
+                                                 PyFunc))
+            Py_XDECREF(PyFunc);
         return $self;
     }
     database *add_signal_callback(PyObject *PyFunc) {
-        Py_XINCREF(PyFunc);
-        mapper_database_add_signal_callback((mapper_database)$self,
-                                            database_signal_handler_py, PyFunc);
+        if (mapper_database_add_signal_callback((mapper_database)$self,
+                                                database_signal_handler_py, PyFunc))
+            Py_XINCREF(PyFunc);
         return $self;
     }
     database *remove_signal_callback(PyObject *PyFunc) {
-        mapper_database_remove_signal_callback((mapper_database)$self,
-                                               database_signal_handler_py,
-                                               PyFunc);
-        Py_XDECREF(PyFunc);
+        if (mapper_database_remove_signal_callback((mapper_database)$self,
+                                                   database_signal_handler_py,
+                                                   PyFunc))
+            Py_XDECREF(PyFunc);
         return $self;
     }
     database *add_map_callback(PyObject *PyFunc) {
-        Py_XINCREF(PyFunc);
-        mapper_database_add_map_callback((mapper_database)$self,
-                                         database_map_handler_py, PyFunc);
+        if (mapper_database_add_map_callback((mapper_database)$self,
+                                             database_map_handler_py, PyFunc))
+            Py_XINCREF(PyFunc);
         return $self;
     }
     database *remove_map_callback(PyObject *PyFunc) {
-        mapper_database_remove_map_callback((mapper_database)$self,
-                                            database_map_handler_py, PyFunc);
-        Py_XDECREF(PyFunc);
+        if (mapper_database_remove_map_callback((mapper_database)$self,
+                                                database_map_handler_py, PyFunc))
+            Py_XDECREF(PyFunc);
         return $self;
     }
     int get_num_devices() {

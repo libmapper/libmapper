@@ -1797,18 +1797,18 @@ typedef void mapper_database_device_handler(mapper_database db,
  *  \param h            Callback function.
  *  \param user         A user-defined pointer to be passed to the callback
  *                      for context. */
-void mapper_database_add_device_callback(mapper_database db,
-                                         mapper_database_device_handler *h,
-                                         const void *user);
+int mapper_database_add_device_callback(mapper_database db,
+                                        mapper_database_device_handler *h,
+                                        const void *user);
 
 /*! Remove a device record callback from the database service.
  *  \param db           The database to query.
  *  \param h            Callback function.
  *  \param user         The user context pointer that was originally specified
  *                      when adding the callback. */
-void mapper_database_remove_device_callback(mapper_database db,
-                                            mapper_database_device_handler *h,
-                                            const void *user);
+int mapper_database_remove_device_callback(mapper_database db,
+                                           mapper_database_device_handler *h,
+                                           const void *user);
 
 /*! Return the number of devices stored in the database.
  *  \param db           The database to query.
@@ -1874,18 +1874,18 @@ typedef void mapper_database_signal_handler(mapper_database db,
  *  \param h            Callback function.
  *  \param user         A user-defined pointer to be passed to the callback for
  *                      context . */
-void mapper_database_add_signal_callback(mapper_database db,
-                                         mapper_database_signal_handler *h,
-                                         const void *user);
+int mapper_database_add_signal_callback(mapper_database db,
+                                        mapper_database_signal_handler *h,
+                                        const void *user);
 
 /*! Remove a signal record callback from the database service.
  *  \param db           The database to query.
  *  \param h            Callback function.
  *  \param user         The user context pointer that was originally specified
  *                      when adding the callback. */
-void mapper_database_remove_signal_callback(mapper_database db,
-                                            mapper_database_signal_handler *h,
-                                            const void *user);
+int mapper_database_remove_signal_callback(mapper_database db,
+                                           mapper_database_signal_handler *h,
+                                           const void *user);
 
 /*! Find information for a registered signal.
  *  \param db           The database to query.
@@ -1946,18 +1946,18 @@ typedef void mapper_database_link_handler(mapper_database db, mapper_link link,
  *  \param h            Callback function.
  *  \param user         A user-defined pointer to be passed to the callback for
  *                      context . */
-void mapper_database_add_link_callback(mapper_database db,
-                                       mapper_database_link_handler *h,
-                                       const void *user);
+int mapper_database_add_link_callback(mapper_database db,
+                                      mapper_database_link_handler *h,
+                                      const void *user);
 
 /*! Remove a link record callback from the database service.
  *  \param db           The database from which the callback should be removed.
  *  \param h            Callback function.
  *  \param user     	The user context pointer that was originally specified
  *                      when adding the callback. */
-void mapper_database_remove_link_callback(mapper_database db,
-                                          mapper_database_link_handler *h,
-                                          const void *user);
+int mapper_database_remove_link_callback(mapper_database db,
+                                         mapper_database_link_handler *h,
+                                         const void *user);
 
 /*! Return the number of links stored in the database.
  *  \param db           The database to query.
@@ -2009,18 +2009,18 @@ typedef void mapper_database_map_handler(mapper_database db, mapper_map map,
  *  \param h            Callback function.
  *  \param user         A user-defined pointer to be passed to the callback for
  *                      context . */
-void mapper_database_add_map_callback(mapper_database db,
-                                      mapper_database_map_handler *h,
-                                      const void *user);
+int mapper_database_add_map_callback(mapper_database db,
+                                     mapper_database_map_handler *h,
+                                     const void *user);
 
 /*! Remove a map record callback from the database service.
  *  \param db           The database from which the callback should be removed.
  *  \param h            Callback function.
  *  \param user     	The user context pointer that was originally specified
  *                      when adding the callback. */
-void mapper_database_remove_map_callback(mapper_database db,
-                                         mapper_database_map_handler *h,
-                                         const void *user);
+int mapper_database_remove_map_callback(mapper_database db,
+                                        mapper_database_map_handler *h,
+                                        const void *user);
 
 /*! Return the number of maps stored in the database.
  *  \param db           The database to query.

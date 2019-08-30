@@ -157,16 +157,26 @@ void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
     _flushing = quiet + 1;
 }
 
-static void add_callback(fptr_list *head, const void *f, const void *user)
+static int add_callback(fptr_list *head, const void *f, const void *user)
 {
-    fptr_list cb = (fptr_list)malloc(sizeof(struct _fptr_list));
+    fptr_list cb = *head;
+    fptr_list prevcb = 0;
+    while (cb) {
+        if (cb->f == f && cb->context == user)
+            return 0;
+        prevcb = cb;
+        cb = cb->next;
+    }
+
+    cb = (fptr_list)malloc(sizeof(struct _fptr_list));
     cb->f = (void*)f;
     cb->context = (void*)user;
     cb->next = *head;
     *head = cb;
+    return 1;
 }
 
-static void remove_callback(fptr_list *head, const void *f, const void *user)
+static int remove_callback(fptr_list *head, const void *f, const void *user)
 {
     fptr_list cb = *head;
     fptr_list prevcb = 0;
@@ -177,7 +187,7 @@ static void remove_callback(fptr_list *head, const void *f, const void *user)
         cb = cb->next;
     }
     if (!cb)
-        return;
+        return 0;
 
     if (prevcb)
         prevcb->next = cb->next;
@@ -185,6 +195,7 @@ static void remove_callback(fptr_list *head, const void *f, const void *user)
         *head = cb->next;
 
     free(cb);
+    return 1;
 }
 
 /**** Device records ****/
@@ -472,18 +483,18 @@ mapper_device *mapper_database_devices_by_property(mapper_database db,
                                   "iicvs", op, length, type, &value, name));
 }
 
-void mapper_database_add_device_callback(mapper_database db,
-                                         mapper_database_device_handler *h,
-                                         const void *user)
+int mapper_database_add_device_callback(mapper_database db,
+                                        mapper_database_device_handler *h,
+                                        const void *user)
 {
-    add_callback(&db->device_callbacks, h, user);
+    return add_callback(&db->device_callbacks, h, user);
 }
 
-void mapper_database_remove_device_callback(mapper_database db,
-                                            mapper_database_device_handler *h,
-                                            const void *user)
+int mapper_database_remove_device_callback(mapper_database db,
+                                           mapper_database_device_handler *h,
+                                           const void *user)
 {
-    remove_callback(&db->device_callbacks, h, user);
+    return remove_callback(&db->device_callbacks, h, user);
 }
 
 void mapper_database_check_device_status(mapper_database db, uint32_t time_sec)
@@ -573,18 +584,18 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
     return sig;
 }
 
-void mapper_database_add_signal_callback(mapper_database db,
-                                         mapper_database_signal_handler *h,
-                                         const void *user)
+int mapper_database_add_signal_callback(mapper_database db,
+                                        mapper_database_signal_handler *h,
+                                        const void *user)
 {
-    add_callback(&db->signal_callbacks, h, user);
+    return add_callback(&db->signal_callbacks, h, user);
 }
 
-void mapper_database_remove_signal_callback(mapper_database db,
-                                            mapper_database_signal_handler *h,
-                                            const void *user)
+int mapper_database_remove_signal_callback(mapper_database db,
+                                           mapper_database_signal_handler *h,
+                                           const void *user)
 {
-    remove_callback(&db->signal_callbacks, h, user);
+    return remove_callback(&db->signal_callbacks, h, user);
 }
 
 static int cmp_query_signals(const void *context_data, mapper_signal sig)
@@ -793,18 +804,18 @@ int mapper_database_update_link(mapper_database db, mapper_link link,
     return updated;
 }
 
-void mapper_database_add_link_callback(mapper_database db,
-                                       mapper_database_link_handler *h,
-                                       const void *user)
+int mapper_database_add_link_callback(mapper_database db,
+                                      mapper_database_link_handler *h,
+                                      const void *user)
 {
-    add_callback(&db->link_callbacks, h, user);
+    return add_callback(&db->link_callbacks, h, user);
 }
 
-void mapper_database_remove_link_callback(mapper_database db,
-                                          mapper_database_link_handler *h,
-                                          const void *user)
+int mapper_database_remove_link_callback(mapper_database db,
+                                         mapper_database_link_handler *h,
+                                         const void *user)
 {
-    remove_callback(&db->link_callbacks, h, user);
+    return remove_callback(&db->link_callbacks, h, user);
 }
 
 int mapper_database_num_links(mapper_database db)
@@ -1133,18 +1144,18 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
     return map;
 }
 
-void mapper_database_add_map_callback(mapper_database db,
-                                      mapper_database_map_handler *h,
-                                      const void *user)
+int mapper_database_add_map_callback(mapper_database db,
+                                     mapper_database_map_handler *h,
+                                     const void *user)
 {
-    add_callback(&db->map_callbacks, h, user);
+    return add_callback(&db->map_callbacks, h, user);
 }
 
-void mapper_database_remove_map_callback(mapper_database db,
-                                         mapper_database_map_handler *h,
-                                         const void *user)
+int mapper_database_remove_map_callback(mapper_database db,
+                                        mapper_database_map_handler *h,
+                                        const void *user)
 {
-    remove_callback(&db->map_callbacks, h, user);
+    return remove_callback(&db->map_callbacks, h, user);
 }
 
 int mapper_database_num_maps(mapper_database db)
