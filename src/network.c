@@ -2718,7 +2718,7 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
             if (dev->local)
                 return 0;
             trace_db("updating sync record for device '%s'\n", dev->name);
-            mapper_timetag_copy(&dev->synced, lo_message_get_timestamp(msg));
+            mapper_timetag_now(&dev->synced);
 
             if (!dev->subscribed && net->database.autosubscribe) {
                 trace_db("autosubscribing to device '%s'.\n", &argv[0]->s);
@@ -2743,7 +2743,7 @@ static int handler_sync(const char *path, const char *types, lo_arg **argv,
     }
     else if (types[0] == 'i') {
         if ((dev = mapper_database_device_by_id(&net->database, argv[0]->i)))
-            mapper_timetag_copy(&dev->synced, lo_message_get_timestamp(msg));
+            mapper_timetag_now(&dev->synced);
     }
 
     return 0;
