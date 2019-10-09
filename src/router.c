@@ -229,8 +229,23 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
 
         int in_scope = map_in_scope(map, id_map->global);
         // TODO: should we continue for out-of-scope local destination updates?
-        if (slot->use_instances && !in_scope) {
+        if (slot->use_instances && !in_scope)
             continue;
+
+        if (slot->direction == MAPPER_DIR_INCOMING)
+            continue;
+
+        if (MAPPER_LOC_DESTINATION == map->process_location) {
+            // bypass map processing and bundle value without type coercion
+            char types[sig->length * count];
+            memset(types, sig->type, sig->length * count);
+            msg = mapper_map_build_message(map, slot, value, count, types,
+                                           slot->use_instances ? id_map : 0);
+            if (msg)
+                send_or_bundle_message(map->destination.link,
+                                       map->destination.signal->path, msg, tt,
+                                       map->protocol);
+            return;
         }
 
         mapper_local_slot lslot = slot->local;
@@ -258,10 +273,6 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
                 --lslot->history[idx].position;
                 if (lslot->history[idx].position < 0)
                     lslot->history[idx].position = lslot->history[idx].size - 1;
-                continue;
-            }
-
-            if (slot->direction == MAPPER_DIR_INCOMING) {
                 continue;
             }
 

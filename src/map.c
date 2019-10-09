@@ -755,20 +755,6 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
     if (map->status != STATUS_ACTIVE || map->muted) {
         return 0;
     }
-    else if (map->process_location == MAPPER_LOC_DESTINATION) {
-        to[instance].position = 0;
-        // copy value without type coercion
-        memcpy(mapper_history_value_ptr(to[instance]),
-               mapper_history_value_ptr(from[instance]),
-               mapper_signal_vector_bytes(slot->signal));
-        // copy timetag
-        memcpy(mapper_history_tt_ptr(to[instance]),
-               mapper_history_tt_ptr(from[instance]),
-               sizeof(mapper_timetag_t));
-        for (i = 0; i < from->length; i++)
-            typestring[i] = map->sources[0]->signal->type;
-        return 1;
-    }
 
     if (!map->local->expr) {
         trace("error: missing expression.\n");
