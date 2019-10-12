@@ -8,10 +8,8 @@ optional signal processing described in the form of an expression.
 
 Expressions in libmpr must always be presented in the form `y = x`, where `x`
 refers to the updated source value and `y` is the computed value to be forwarded
-to the destination. Sub-expressions can be used if separated by a semicolon `;`
-however a value can only be assigned to a variable once per timestep – the
-expression `y=x; y=x*2` is not allowed. Spaces may be freely used within the
-expression, they will have no effect on the generated output.
+to the destination. Sub-expressions can be used if separated by a semicolon (`;`). Spaces may be freely used within the expression, they will have no effect on the
+generated output.
 
 ## Available operators
 
@@ -212,3 +210,37 @@ Just like the output variable `y` we can initialize past values of user-defined 
 by `2`. The current value of `ema` is `0` since it has not yet been set.
 3. `ema=ema{-1}*0.9+x*0.1` — set the current value of `ema` using current value of `x` and the past value of `ema`
 
+Accessing Variable Timetags
+===========================
+
+The precise time at which a variable is updated is always tracked by libmapper and communicated with the data value. We plan to use this information in the background for discarding out-of-order packets and jitter mitigation, but it may also be useful in your expressions.
+
+The timetag associated with a variable can be accessed using the syntax `t_<variable_name>` – for example the time associated with the current sample `x` is `t_x`, and the timetag associated with the last update of a hypothetical user-defined variable `foo` would be `t_foo`. This syntax can be used anywhere in your expressions:
+
+* `y=t_x` — output the timetag of the input instead of its value
+* `y=t_x-t_x{-1}` — output the time interval between subsequent updates
+
+This functionality can be used to limit the output rate:
+
+* `y=(t_x-t_y{-1})>0.5?x` — only output if more than 0.5 seconds has elapsed since the last output, otherwise discard input sample.
+
+Also we can calculate a moving average of the sample period:
+
+* `y=y{-1}*0.9+(t_x-t_y{-1})*0.1`
+
+Of course this moving average will start with a very large first value for `(t_x-t_y{-1})` since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of out expression:
+
+* `t_y{-1}=t_x;` `y=y{-1}*0.9+(t_x-t_y{-1})*0.1;`
+
+Here's a more complex example with 4 sub-expressions in which the rate is limited but incoming samples are averaged instead of discarding them:
+
+* `A=(t_x-t_y{-1})>0.1;` `y=A?B/C;` `B=!A*B+x;` `C=A?1:C+1;`
+
+Explanation:
+
+order | step   | expression | description
+----- | ------ | ------ | ------
+1 | check elapsed time | `A=(t_x-t_y{-1})>0.1;` | Set `A` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
+2 | conditional output | `y=A?B/C;` | Output `B/C` (the average) if `A` is true; otherwise do nothing
+3 | update accumulator | `B=!A*B+x;` | reset accumulator `B` to 0 if `A` is true, add `x`
+4 | update count | `C=A?1:C+1;` | increment `C`, reset if `A` is true

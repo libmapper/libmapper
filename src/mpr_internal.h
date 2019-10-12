@@ -608,7 +608,7 @@ inline static void* mpr_hist_get_val_ptr(mpr_hist_t h)
 /*! Helper to find the pointer to the current time in a mpr_hist_t. */
 inline static void* mpr_hist_get_time_ptr(mpr_hist_t h)
 {
-    return &h.time[(int)h.pos];
+    return h.time + h.pos * sizeof(mpr_time);
 }
 
 /*! Helper to check if a type character is valid. */

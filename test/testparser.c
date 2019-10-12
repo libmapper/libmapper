@@ -35,7 +35,7 @@ mpr_time time_in = {0, 0}, time_out = {0, 0};
 mpr_hist_t inh[3], outh, user_vars[MAX_VARS], *user_vars_p;
 mpr_hist inh_p[3] = {&inh[0], &inh[1], &inh[2]};
 mpr_type src_types[3];
-int src_lens[3], num_sources;
+int src_lens[3], n_sources;
 
 /*! Internal function to get the current time. */
 static double current_time()
@@ -47,11 +47,11 @@ static double current_time()
 
 typedef struct _var {
     char *name;
-    int vector_len;
+    int vec_len;
     mpr_type datatype;
     mpr_type casttype;
     char hist_size;
-    char vector_len_locked;
+    char vec_len_locked;
     char assigned;
     char public;
 } mpr_var_t, *mpr_var;
@@ -61,13 +61,12 @@ struct _mpr_expr
     void *tokens;
     void *start;
     mpr_var vars;
-    int start_offset;
+    int offset;
     int len;
-    int vector_size;
-    int inp_hist_size;
+    int vec_size;
+    int in_hist_size;
     int out_hist_size;
-    int num_vars;
-    int constant_output;
+    int n_vars;
 };
 
 /* TODO:
@@ -120,12 +119,12 @@ void print_val(mpr_type *types, int len, const void *val, int pos)
         printf("\b\b");
 }
 
-void setup_test_multisource(int _num_sources, mpr_type *in_types, int *in_lens,
+void setup_test_multisource(int _n_sources, mpr_type *in_types, int *in_lens,
                             mpr_type out_type, int out_len)
 {
-    num_sources = _num_sources;
+    n_sources = _n_sources;
     int i;
-    for (i = 0; i < _num_sources; i++) {
+    for (i = 0; i < _n_sources; i++) {
         src_types[i] = in_types[i];
         src_lens[i] = in_lens[i];
         inh[i].type = in_types[i];
@@ -185,13 +184,13 @@ int parse_and_eval(int expectation)
     eprintf("***************** Expression %d *****************\n",
             expression_count++);
     eprintf("Parsing string '%s'\n", str);
-    e = mpr_expr_new_from_str(str, num_sources, src_types, src_lens,
+    e = mpr_expr_new_from_str(str, n_sources, src_types, src_lens,
                               outh.type, outh.len);
     if (!e) {
         eprintf("Parser FAILED.\n");
         goto fail;
     }
-    for (i = 0; i < num_sources; i++) {
+    for (i = 0; i < n_sources; i++) {
         inh[i].size = mpr_expr_get_in_hist_size(e, i);
     }
     outh.size = mpr_expr_get_out_hist_size(e);
@@ -202,7 +201,7 @@ int parse_and_eval(int expectation)
     }
 
     // reallocate variable value histories
-    for (i = 0; i < e->num_vars; i++) {
+    for (i = 0; i < e->n_vars; i++) {
         eprintf("user_var[%d]: %p\n", i, &user_vars[i]);
         mpr_hist_realloc(&user_vars[i], e->vars[i].hist_size, sizeof(double), 0);
     }
@@ -642,6 +641,84 @@ int run_tests()
         return 1;
     eprintf("Expected: %f\n", 0.0);
 
+    /* 52) Access timetags */
+    snprintf(str, 256, "y=t_x");
+    setup_test('i', 1, 'd', 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: ????\n");
+
+    /* 53) Access timetags from past samples */
+    snprintf(str, 256, "y=t_x-t_y{-1}");
+    setup_test('i', 1, 'd', 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: ????\n");
+
+    /* 54) Moving average of inter-sample period */
+    /* Tricky - we need to init y{-1}.tt to x.tt or the first calculated
+     * difference will be enormous! */
+    snprintf(str, 256,
+             "t_y{-1}=t_x;"
+             "period=t_x-t_y{-1};"
+             "y=y{-1}*0.9+period*0.1;");
+    setup_test('i', 1, 'd', 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: ????\n");
+
+    /* 55) Moving average of inter-sample jitter */
+    /* Tricky - we need to init y{-1}.tt to x.tt or the first calculated
+     * difference will be enormous! */
+    snprintf(str, 256,
+             "t_y{-1}=t_x;"
+             "interval=t_x-t_y{-1};"
+             "sr=sr{-1}*0.9+interval*0.1;"
+             "y=y{-1}*0.9+(interval-sr)*0.1;");
+    setup_test('i', 1, 'd', 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: ????\n");
+
+    /* 56) Expression for limiting output rate */
+    snprintf(str, 256,
+             "t_y{-1}=t_x;"
+             "diff=t_x-t_y{-1};"
+             "y=(diff>0.1)?x;");
+    setup_test('i', 1, 'i', 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: 1 or NULL\n");
+
+    /* 57) Expression for limiting rate with smoothed output */
+    snprintf(str, 256,
+             "t_y{-1}=t_x;"
+             "output=(t_x-t_y{-1})>0.1;"
+             "y=output?agg/samps;"
+             "agg=!output*agg+x;"
+             "samps=output?1:samps+1");
+    setup_test('i', 1, 'i', 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: 1 or NULL\n");
+
+    /* 58) Manipulate timetag directly. This functionality may be used in the
+     *     future to schedule delays, however it currently will not affect
+     *     message timing. */
+    snprintf(str, 256, "y=x[0]{0}; t_y=t_x+10");
+    setup_test('i', 1, 'i', 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: 1 at time {%"PRIu32", %"PRIu32"}\n",
+            time_in.sec+10, time_in.frac);
+
+    /* 59) Faulty timetag syntax */
+    snprintf(str, 256, "y=t_x-y;");
+    setup_test('i', 1, 'i', 1);
+    if (parse_and_eval(EXPECT_FAILURE))
+        return 1;
+    eprintf("Expected: FAILURE\n");
+
     return 0;
 }
 
@@ -678,7 +755,7 @@ int main(int argc, char **argv)
 
     result = run_tests();
     eprintf("**********************************\n");
-    printf("..............Test %s\x1B[0m.",
+    printf(".......Test %s\x1B[0m.",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     if (!result)
         printf(" (%f seconds, %d tokens).\n",
