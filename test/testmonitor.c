@@ -71,7 +71,7 @@ void cleanup_database()
 void loop()
 {
     int i = 0;
-    while ((!terminate || i++ < 200) && !done)
+    while ((!terminate || i++ < 250) && !done)
     {
         mapper_database_poll(db, polltime_ms);
 

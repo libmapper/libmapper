@@ -598,6 +598,10 @@ void mapper_network_set_dest_subscribers(mapper_network net, int type)
 void mapper_network_add_message(mapper_network net, const char *str,
                                 network_message_t cmd, lo_message msg)
 {
+    if (lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT) {
+        mapper_network_send(net);
+        mapper_network_init(net);
+    }
     lo_bundle_add_message(net->bundle, str ?: network_message_strings[cmd], msg);
 }
 

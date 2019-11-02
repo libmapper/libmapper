@@ -1839,19 +1839,11 @@ int mapper_device_set_from_message(mapper_device dev, mapper_message msg)
     return mapper_table_set_from_message(dev->props, msg, REMOTE_MODIFY);
 }
 
-static int mapper_device_send_signals(mapper_device dev, mapper_direction dir,
-                                      int min, int max)
+static int mapper_device_send_signals(mapper_device dev, mapper_direction dir)
 {
-    int i = 0;
     mapper_signal *sig = mapper_device_signals(dev, dir);
     while (sig) {
-        if (i > max && max > 0) {
-            mapper_signal_query_done(sig);
-            return 1;
-        }
-        if (i >= min)
-            mapper_signal_send_state(*sig, MSG_SIGNAL);
-        ++i;
+        mapper_signal_send_state(*sig, MSG_SIGNAL);
         sig = mapper_signal_query_next(sig);
     }
     return 0;
@@ -1866,20 +1858,11 @@ static void mapper_device_send_links(mapper_device dev, mapper_direction dir)
     }
 }
 
-static int mapper_device_send_maps(mapper_device dev, mapper_direction dir,
-                                    int min, int max)
+static int mapper_device_send_maps(mapper_device dev, mapper_direction dir)
 {
-    int i = 0;
     mapper_map *maps = mapper_device_maps(dev, dir);
     while (maps) {
-        if (i > max && max > 0) {
-            mapper_map_query_done(maps);
-            return 1;
-        }
-        if (i >= min) {
-            mapper_map_send_state(*maps, -1, MSG_MAPPED);
-        }
-        ++i;
+        mapper_map_send_state(*maps, -1, MSG_MAPPED);
         maps = mapper_map_query_next(maps);
     }
     return 0;
@@ -1960,14 +1943,9 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
             dir |= MAPPER_DIR_INCOMING;
         if (flags & MAPPER_OBJ_OUTPUT_SIGNALS)
             dir |= MAPPER_DIR_OUTGOING;
-        int batch = 0, done = 0;
-        while (!done) {
-            mapper_network_set_dest_mesh(dev->database->network, address);
-            if (!mapper_device_send_signals(dev, dir, batch, batch + 9))
-                done = 1;
-            mapper_network_send(dev->database->network);
-            batch += 10;
-        }
+        mapper_network_set_dest_mesh(dev->database->network, address);
+        mapper_device_send_signals(dev, dir);
+        mapper_network_send(dev->database->network);
     }
 
     if (flags & MAPPER_OBJ_LINKS) {
@@ -1987,14 +1965,9 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
             dir |= MAPPER_DIR_INCOMING;
         if (flags & MAPPER_OBJ_OUTGOING_MAPS)
             dir |= MAPPER_DIR_OUTGOING;
-        int batch = 0, done = 0;
-        while (!done) {
-            mapper_network_set_dest_mesh(dev->database->network, address);
-            if (!mapper_device_send_maps(dev, dir, batch, batch + 9))
-                done = 1;
-            mapper_network_send(dev->database->network);
-            batch += 10;
-        }
+        mapper_network_set_dest_mesh(dev->database->network, address);
+        mapper_device_send_maps(dev, dir);
+        mapper_network_send(dev->database->network);
     }
 }
 
