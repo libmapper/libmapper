@@ -269,7 +269,8 @@ typedef struct _mapper_network {
     int msgs_recvd;                 /*!< 1 if messages have been received on the
                                      *   multicast bus/mesh. */
     int message_type;
-    uint32_t next_ping;
+    uint32_t next_bus_ping;
+    uint32_t next_sub_ping;
     uint8_t own_network;            /*! Zero if this network was created
                                      *  automatically by mapper_device_new()
                                      *  or mapper_database_new(), non-zero if
@@ -282,7 +283,7 @@ typedef struct _mapper_network {
 /*! The handle to this device is a pointer. */
 typedef mapper_network_t *mapper_network;
 
-#define TIMEOUT_SEC 10       // timeout after 10 seconds without ping
+#define TIMEOUT_SEC 10          // timeout after 10 seconds without ping
 
 /**** Signal ****/
 

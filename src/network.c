@@ -707,23 +707,8 @@ void mapper_network_remove_device(mapper_network net, mapper_device dev)
     net->device = 0;
 }
 
-// TODO: rename to mapper_device...?
-static void mapper_network_maybe_send_ping(mapper_network net, int force)
+static void _send_device_sync(mapper_network net, mapper_device dev)
 {
-    mapper_device dev = net->device;
-    int go = 0;
-
-    mapper_timetag_t now;
-    mapper_timetag_now(&now);
-    if (force || (now.sec >= net->next_ping)) {
-        go = 1;
-        net->next_ping = now.sec + 5 + (rand() % 4);
-    }
-
-    if (!dev || !go)
-        return;
-
-    mapper_network_set_dest_bus(net);
     lo_message msg = lo_message_new();
     if (!msg) {
         trace_net("couldn't allocate lo_message\n");
@@ -732,6 +717,32 @@ static void mapper_network_maybe_send_ping(mapper_network net, int force)
     lo_message_add_string(msg, mapper_device_name(dev));
     lo_message_add_int32(msg, dev->version);
     mapper_network_add_message(net, 0, MSG_SYNC, msg);
+}
+
+// TODO: rename to mapper_device...?
+static void mapper_network_maybe_send_ping(mapper_network net, int force)
+{
+    mapper_device dev = net->device;
+    if (!dev)
+        return;
+    int go = 0;
+
+    mapper_timetag_t now;
+    mapper_timetag_now(&now);
+    if (dev->local->subscribers && (now.sec >= net->next_sub_ping)) {
+        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+        _send_device_sync(net, dev);
+        net->next_sub_ping = now.sec + 2;
+    }
+    if (force || (now.sec >= net->next_bus_ping)) {
+        go = 1;
+        net->next_bus_ping = now.sec + 5 + (rand() % 4);
+    }
+    if (!go)
+        return;
+
+    mapper_network_set_dest_bus(net);
+    _send_device_sync(net, dev);
 
     int elapsed, num_maps;
     // some housekeeping: periodically check if our links are still active
