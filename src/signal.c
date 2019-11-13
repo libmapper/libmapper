@@ -296,7 +296,7 @@ int _oldest_inst(mpr_sig sig)
     return oldest;
 }
 
-mpr_id mpr_sig_oldest_inst_id(mpr_sig sig)
+mpr_id mpr_sig_get_oldest_inst_id(mpr_sig sig)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
     int idx = _oldest_inst(sig);
@@ -327,7 +327,7 @@ int _newest_inst(mpr_sig sig)
     return newest;
 }
 
-mpr_id mpr_sig_newest_inst_id(mpr_sig sig)
+mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
     int idx = _newest_inst(sig);

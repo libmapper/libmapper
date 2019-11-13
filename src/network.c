@@ -397,7 +397,7 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     mpr_net_add_graph_methods(net);
 }
 
-const char *mpr_version()
+const char *mpr_get_version()
 {
     return PACKAGE_VERSION;
 }
