@@ -13,12 +13,17 @@
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
+#define num_inputs 100
+#define num_outputs 100
+
 int verbose = 1;
 int period = 100;
 
+int wait_ms = 10000;
+
 mpr_dev dev = 0;
-mpr_sig inputs[100];
-mpr_sig outputs[100];
+mpr_sig inputs[num_inputs];
+mpr_sig outputs[num_outputs];
 
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int len,
              mpr_type type, const void *val, mpr_time t)
@@ -78,27 +83,43 @@ int main(int argc, char ** argv)
         mpr_dev_poll(dev, 100);
     }
 
-    eprintf("Adding 200 signals... ");
+    eprintf("Adding %d signals... ", num_inputs + num_outputs);
     fflush(stdout);
-    for (i = 0; i < 100; i++) {
+    int max = num_inputs > num_outputs ? num_inputs : num_outputs;
+    for (i = 0; i < max; i++) {
         mpr_dev_poll(dev, 100);
-        snprintf(signame, 32, "in%i", i);
-        if (!(inputs[i] = mpr_sig_new(dev, MPR_DIR_IN, signame, 1, MPR_FLT, NULL,
-                                      NULL, NULL, NULL, handler, MPR_SIG_UPDATE))) {
-            result = 1;
-            goto done;
+        if (i < num_inputs) {
+            snprintf(signame, 32, "in%i", i);
+            if (!(inputs[i] = mpr_sig_new(dev, MPR_DIR_IN, signame, 1, MPR_FLT,
+                                          NULL, NULL, NULL, NULL, handler,
+                                          MPR_SIG_UPDATE))) {
+                result = 1;
+                goto done;
+            }
         }
-        snprintf(signame, 32, "out%i", i);
-        if (!(outputs[i] = mpr_sig_new(dev, MPR_DIR_OUT, signame, 1, MPR_FLT,
-                                       NULL, NULL, NULL, NULL, NULL, 0))) {
-            result = 1;
-            goto done;
+        if (i < num_outputs) {
+            snprintf(signame, 32, "out%i", i);
+            if (!(outputs[i] = mpr_sig_new(dev, MPR_DIR_OUT, signame, 1, MPR_FLT,
+                                           NULL, NULL, NULL, NULL, NULL, 0))) {
+                result = 1;
+                goto done;
+            }
         }
     }
-    eprintf("Removing 200 signals...\n");
+
+    while (wait_ms > 0) {
+        printf("\rWaiting for %d ms.", wait_ms);
+        fflush(stdout);
+        mpr_dev_poll(dev, 100);
+        wait_ms -= 100;
+    }
+
+    eprintf("Removing %d signals...\n", num_inputs + num_outputs);
     for (i = 0; i < 100; i++) {
-        mpr_sig_free(inputs[i]);
-        mpr_sig_free(outputs[i]);
+        if (i < num_inputs)
+            mpr_sig_free(inputs[i]);
+        if (i < num_outputs)
+            mpr_sig_free(outputs[i]);
         mpr_dev_poll(dev, period);
     }
 

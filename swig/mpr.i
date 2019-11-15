@@ -16,7 +16,7 @@
     else if (PyLong_Check($input)) {
         // truncate to 64 bits
         $1 = PyLong_AsUnsignedLongLong($input);
-        if ($1 == -1) {
+        if ($1 == (unsigned long long)-1) {
             PyErr_SetString(PyExc_ValueError, "Id value must fit into 64 bits.");
             return NULL;
         }
@@ -45,8 +45,7 @@
             $2[i] = (int)PyFloat_AsDouble(s);
         else {
             free($2);
-            PyErr_SetString(PyExc_ValueError,
-                            "List items must be int or float.");
+            PyErr_SetString(PyExc_ValueError, "List items must be int or float.");
             return NULL;
         }
     }

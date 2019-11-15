@@ -1065,35 +1065,21 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
     return updated;
 }
 
-static int mpr_dev_send_sigs(mpr_dev dev, mpr_dir dir, int min, int max)
+static int mpr_dev_send_sigs(mpr_dev dev, mpr_dir dir)
 {
-    int i = 0;
     mpr_list l = mpr_dev_get_sigs(dev, dir);
     while (l) {
-        if (i > max && max > 0) {
-            mpr_list_free(l);
-            return 1;
-        }
-        if (i >= min)
-            mpr_sig_send_state((mpr_sig)*l, MSG_SIG);
-        ++i;
+        mpr_sig_send_state((mpr_sig)*l, MSG_SIG);
         l = mpr_list_get_next(l);
     }
     return 0;
 }
 
-static int mpr_dev_send_maps(mpr_dev dev, mpr_dir dir, int min, int max)
+static int mpr_dev_send_maps(mpr_dev dev, mpr_dir dir)
 {
-    int i = 0;
     mpr_list l = mpr_dev_get_maps(dev, dir);
     while (l) {
-        if (i > max && max > 0) {
-            mpr_list_free(l);
-            return 1;
-        }
-        if (i >= min)
-            mpr_map_send_state((mpr_map)*l, -1, MSG_MAPPED);
-        ++i;
+        mpr_map_send_state((mpr_map)*l, -1, MSG_MAPPED);
         l = mpr_list_get_next(l);
     }
     return 0;
@@ -1172,14 +1158,9 @@ void mpr_dev_manage_subscriber(mpr_dev dev, lo_address addr, int flags,
             dir |= MPR_DIR_IN;
         if (flags & MPR_SIG_OUT)
             dir |= MPR_DIR_OUT;
-        int batch = 0, done = 0;
-        while (!done) {
-            mpr_net_use_mesh(net, addr);
-            if (!mpr_dev_send_sigs(dev, dir, batch, batch + 9))
-                done = 1;
-            mpr_net_send(net);
-            batch += 10;
-        }
+        mpr_net_use_mesh(net, addr);
+        mpr_dev_send_sigs(dev, dir);
+        mpr_net_send(net);
     }
     if (flags & MPR_MAP) {
         mpr_dir dir = 0;
@@ -1187,13 +1168,8 @@ void mpr_dev_manage_subscriber(mpr_dev dev, lo_address addr, int flags,
             dir |= MPR_DIR_IN;
         if (flags & MPR_MAP_OUT)
             dir |= MPR_DIR_OUT;
-        int batch = 0, done = 0;
-        while (!done) {
-            mpr_net_use_mesh(net, addr);
-            if (!mpr_dev_send_maps(dev, dir, batch, batch + 9))
-                done = 1;
-            mpr_net_send(net);
-            batch += 10;
-        }
+        mpr_net_use_mesh(net, addr);
+        mpr_dev_send_maps(dev, dir);
+        mpr_net_send(net);
     }
 }

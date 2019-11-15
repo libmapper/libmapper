@@ -96,7 +96,7 @@ int main(int argc, char **argv)
     graph.add_callback(on_object, MPR_OBJ, 0);
 
     i = 0;
-    while ((!terminate || i++ < 200) && !done) {
+    while ((!terminate || i++ < 250) && !done) {
         graph.poll(polltime_ms);
 
         if (update++ < 0)
