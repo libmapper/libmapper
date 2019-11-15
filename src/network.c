@@ -1841,7 +1841,7 @@ static int handler_sync(const char *path, const char *types, lo_arg **av,
     if (dev) {
         RETURN_UNLESS(!dev->loc, 0);
         trace_graph("updating sync record for device '%s'\n", dev->name);
-        mpr_time_set(&dev->synced, lo_message_get_timestamp(msg));
+        mpr_time_set(&dev->synced, MPR_NOW);
 
         if (!dev->subscribed && graph->autosub) {
             trace_graph("autosubscribing to device '%s'.\n", &av[0]->s);
