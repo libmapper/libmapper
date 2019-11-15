@@ -1666,7 +1666,7 @@ typedef struct _map_list {
     booltype get_ready() {
         return mpr_map_get_is_ready((mpr_map)$self);
     }
-    int get_num_signals(mpr_loc loc=MPR_DIR_ANY) {
+    int get_num_signals(mpr_loc loc=MPR_LOC_ANY) {
         return mpr_map_get_num_sigs((mpr_map)$self, loc);
     }
     propval get_property(const char *key) {
