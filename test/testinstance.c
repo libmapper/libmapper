@@ -36,12 +36,14 @@ int setup_src()
         goto error;
 
     float mn=0, mx=10;
-    int num_inst = 10;
+    int num_inst = 10, stl = MPR_STEAL_OLDEST;
 
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, NULL,
                           &mn, &mx, &num_inst, NULL, 0);
     if (!sendsig)
         goto error;
+    mpr_obj_set_prop((mpr_obj)sendsig, MPR_PROP_STEAL_MODE, NULL, 1, MPR_INT32,
+                     &stl, 1);
 
     eprintf("Output signal added with %i instances.\n",
             mpr_sig_get_num_inst(sendsig, MPR_STATUS_ALL));
@@ -184,7 +186,7 @@ void loop()
 
     while (i < iterations && !done) {
         // here we should create, update and destroy some instances
-        inst = (rand() % 10);
+        inst = (rand() % 10) + 5;
         switch (rand() % 5) {
             case 0:
                 // try to destroy an instance
@@ -282,8 +284,8 @@ int main(int argc, char **argv)
     stats[0] = sent;
     stats[1] = received;
 
-    for (i=0; i<10; i++)
-        mpr_sig_release_inst(sendsig, i, MPR_NOW);
+    for (i=0; i<mpr_sig_get_num_inst(sendsig, MPR_STATUS_ACTIVE); i++)
+        mpr_sig_release_inst(sendsig, mpr_sig_get_inst_id(sendsig, i, MPR_STATUS_ACTIVE), MPR_NOW);
     sent = received = 0;
 
     eprintf("\n**********************************************\n");

@@ -369,6 +369,27 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time *t)
         return i;
     }
 
+    if (s->steal_mode != MPR_STEAL_NONE && (si = _reserved_inst(s))) {
+        // steal a reserved instance
+        si->id = LID;
+
+        if (!map) {
+            // Claim id map locally, add id map to device and link from signal
+            mpr_id GID = mpr_dev_generate_unique_id(s->dev);
+            map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, GID);
+        }
+        else
+            ++map->LID_refcount;
+
+        // store pointer to device map in a new signal map
+        si->active = 1;
+        _init_inst(si);
+        i = _add_idmap(s, si, map);
+        if (h && (s->loc->event_flags & MPR_SIG_INST_NEW))
+            h(s, MPR_SIG_INST_NEW, LID, 0, s->type, NULL, *t);
+        return i;
+    }
+
     RETURN_UNLESS(h, -1);
     if (s->loc->event_flags & MPR_SIG_INST_OFLW) {
         // call instance event handler
