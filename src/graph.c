@@ -689,6 +689,26 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
                     rec->prop = MASK_PROP_BITFLAGS(rec->prop) | SRC_SLOT_PROP(i);
                 }
             }
+            // check again if this mirrors a staged map
+            mpr_list maps = mpr_list_from_data(g->maps);
+            mpr_map map2;
+            while (maps) {
+                map2 = (mpr_map)*maps;
+                maps = mpr_list_get_next(maps);
+                if (map2->obj.id != 0 || map->num_src != map2->num_src
+                    || map->dst->sig != map2->dst->sig)
+                    continue;
+                for (i = 0; i < map->num_src; i++) {
+                    if (map->src[i]->sig != map2->src[i]->sig) {
+                        map2 = NULL;
+                        break;
+                    }
+                }
+                if (map2) {
+                    mpr_graph_remove_map(g, map2, 0);
+                    break;
+                }
+            }
         }
     }
 
