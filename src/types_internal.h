@@ -155,7 +155,8 @@ typedef struct _mpr_net {
                                      *   multicast bus/mesh. */
     int msg_type;
     int num_devs;
-    uint32_t next_ping;
+    uint32_t next_bus_ping;
+    uint32_t next_sub_ping;
     uint8_t graph_methods_added;
 } mpr_net_t, *mpr_net;
 

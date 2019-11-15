@@ -571,26 +571,39 @@ void mpr_net_add_dev(mpr_net net, mpr_dev dev)
     mpr_net_probe_dev_name(net, dev);
 }
 
+static void _send_device_sync(mpr_net net, mpr_dev dev)
+{
+    NEW_LO_MSG(msg, return);
+    lo_message_add_string(msg, mpr_dev_get_name(dev));
+    lo_message_add_int32(msg, dev->obj.version);
+    mpr_net_add_msg(net, 0, MSG_SYNC, msg);
+}
+
 // TODO: rename to mpr_dev...?
 static void mpr_net_maybe_send_ping(mpr_net net, int force)
 {
+    RETURN_UNLESS(net->num_devs);
     int go = 0, i;
     mpr_graph gph = net->graph;
     mpr_time now;
     mpr_time_set(&now, MPR_NOW);
-    if (force || (now.sec >= net->next_ping)) {
-        go = 1;
-        net->next_ping = now.sec + 5 + (rand() % 4);
+    for (i = 0; i < net->num_devs; i++) {
+        mpr_dev dev = net->devs[i];
+        if (dev->loc->subscribers && (now.sec >= net->next_sub_ping)) {
+            mpr_net_use_subscribers(net, dev, MPR_DEV);
+            _send_device_sync(net, dev);
+            net->next_sub_ping = now.sec + 2;
+        }
     }
-    RETURN_UNLESS(net->num_devs && go);
+    if (force || (now.sec >= net->next_bus_ping)) {
+        go = 1;
+        net->next_bus_ping = now.sec + 5 + (rand() % 4);
+    }
+    RETURN_UNLESS(go);
 
     mpr_net_use_bus(net);
     for (i = 0; i < net->num_devs; i++) {
-        mpr_dev dev = net->devs[i];
-        NEW_LO_MSG(msg, return);
-        lo_message_add_string(msg, mpr_dev_get_name(dev));
-        lo_message_add_int32(msg, dev->obj.version);
-        mpr_net_add_msg(net, 0, MSG_SYNC, msg);
+        _send_device_sync(net, net->devs[i]);
     }
 
     // some housekeeping: periodically check if our links are still active
