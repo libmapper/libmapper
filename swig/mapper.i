@@ -1565,6 +1565,7 @@ typedef struct _device_query {
 
     %pythoncode {
         description = property(get_description, set_description)
+        host = property(get_host)
         id = property(get_id)
         is_local = property(get_is_local)
         name = property(get_name)
