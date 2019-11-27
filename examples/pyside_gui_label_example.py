@@ -65,15 +65,13 @@ class gui(QMainWindow):
             QtGui.QFrame.timerEvent(self, event)
 
 def h(map, action):
-    print 'GOT DEVICE MAP HANDLER'
     id = map.source().signal().name
     id = int(id[6])
     if action == mapper.ADDED:
         sig = map.destination().signal()
-        gui.setLabel(id, 'foo')
+        gui.setLabel(id, sig.device().name+'/'+sig.name)
     else:
         gui.setLabel(id, 'slider%i' %id)
-    print 'DONE DEVICE MAP HANDLER'
 dev.set_map_callback(h)
 
 app = QApplication(sys.argv)

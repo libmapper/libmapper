@@ -17,7 +17,7 @@ except:
         sys.path.append(
                         os.path.join(os.path.join(os.getcwd(),
                                                   os.path.dirname(sys.argv[0])),
-                                     '../../swig'))
+                                     '../swig'))
         import mapper
     except:
         print 'Error importing libmapper module.'
@@ -26,9 +26,9 @@ except:
 s = Server().boot()
 s.start()
 
-duty = SigTo(value=0.5, time=0.5, init=0.5, add=-0.5)
-freq = SigTo(value=200, time=0.5, init=200)
-amp = SigTo(value=0.5, time=0.5, init=0.0)
+duty = SigTo(value=0.5, time=0.05, init=0.5, add=-0.5)
+freq = SigTo(value=200, time=0.05, init=200)
+amp = SigTo(value=0.5, time=0.05, init=0.0)
 
 p = Phasor(freq=freq, add=Clip(duty, min=-0.5, max=0.5))
 sig = DCBlock(Sig(value=Round(p), mul=[amp, amp])).out()
