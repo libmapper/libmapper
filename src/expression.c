@@ -1358,7 +1358,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                 if (!stack[i].vector_length_locked) {
                     if (stack[i].toktype == TOK_VFUNC) {
                         if (stack[i].vector_length != vector_length) {
-                            parse_error("Vector length mismatch (%d != %d).\n",
+                            parse_error("Vector length mismatch (1): %d != %d\n",
                                         stack[i].vector_length, vector_length);
                             return -1;
                         }
@@ -1367,7 +1367,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                              && stack[i].var < VAR_Y) {
                         int *vec_len = &vars[stack[i].var].vector_length;
                         if (*vec_len && *vec_len != vector_length) {
-                            parse_error("Vector length mismatch (%d != %d).\n",
+                            parse_error("Vector length mismatch (2): %d != %d\n",
                                         *vec_len, vector_length);
                             return -1;
                         }
@@ -1379,7 +1379,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                         stack[i].vector_length = vector_length;
                 }
                 else if (stack[i].vector_length != vector_length) {
-                    parse_error("Vector length mismatch (%d != %d).\n",
+                    parse_error("Vector length mismatch (3): %d != %d\n",
                                 stack[i].vector_length, vector_length);
                     return -1;
                 }
@@ -1425,7 +1425,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                 stack[top].vector_length = vector_length;
         }
         else if (stack[top].vector_length != vector_length) {
-            parse_error("Vector length mismatch (%d != %d).\n",
+            parse_error("Vector length mismatch (4): %d != %d\n",
                         stack[top].vector_length, vector_length);
             return -1;
         }
@@ -1460,7 +1460,7 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top,
         return -1;
     }
     if (stack[i].vector_length != vector_length) {
-        parse_error("Vector length mismatch (%d != %d).\n",
+        parse_error("Vector length mismatch (5): %d != %d\n",
                     stack[i].vector_length, vector_length);
         return -1;
     }
@@ -1806,25 +1806,43 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                 allow_toktype = OBJECT_TOKENS;
                 break;
             case TOK_SEMICOLON:
-                while (opstack_index >= 0) {
+                // finish popping operators to output, check for unbalanced parentheses
+                while (opstack_index >= 0 && opstack[opstack_index].toktype < TOK_ASSIGNMENT) {
+                    if (opstack[opstack_index].toktype == TOK_OPEN_PAREN)
+                        {FAIL("Unmatched parentheses or misplaced comma.");}
                     POP_OPERATOR_TO_OUTPUT();
                 }
-                if (opstack_index > 0)
-                    {FAIL("Malformed expression (4).");}
-                // check if last expression was assigned correctly
-                if (outstack[outstack_index].toktype < TOK_ASSIGNMENT)
-                    {FAIL("Malformed expression (5).");}
+
+                int var_idx = opstack[opstack_index].var;
+                if (var_idx < VAR_Y) {
+                    if (!variables[var_idx].vector_length) {
+                        variables[var_idx].vector_length
+                            = outstack[outstack_index].vector_length;
+                    }
+                    // update and lock vector length of assigned variable
+                    opstack[opstack_index].vector_length = variables[var_idx].vector_length;
+                    opstack[opstack_index].vector_length_locked = 1;
+                }
+
+                // pop assignment operator(s) to output
+                while (opstack_index >= 0) {
+                    if (!opstack_index && opstack[opstack_index].toktype < TOK_ASSIGNMENT)
+                        {FAIL("Malformed expression (4).");}
+                    PUSH_TO_OUTPUT(opstack[opstack_index]);
+                    if (outstack[outstack_index].toktype == TOK_ASSIGN_USE
+                        && check_assignment_types_and_lengths(outstack, outstack_index,
+                                                              variables) == -1) {
+                        // check vector length and type
+                        {FAIL("Malformed expression (5).");}
+                    }
+                    POP_OPERATOR();
+                }
+
+                // check vector length and type
                 if (check_assignment_types_and_lengths(outstack, outstack_index,
                                                        variables) == -1)
                     {FAIL("Malformed expression (6).");}
-                int var_idx = outstack[outstack_index].var;
-                if (var_idx < VAR_Y) {
-                    if (!variables[var_idx].vector_length)
-                        variables[var_idx].vector_length
-                            = outstack[outstack_index].vector_length;
-                    // lock vector length of assigned variable
-                    outstack[outstack_index].vector_length_locked = 1;
-                }
+
                 // start another sub-expression
                 assigning = 1;
                 allow_toktype = TOK_VAR;
@@ -2062,6 +2080,17 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
         if (opstack[opstack_index].toktype == TOK_OPEN_PAREN)
             {FAIL("Unmatched parentheses or misplaced comma.");}
         POP_OPERATOR_TO_OUTPUT();
+    }
+
+    int var_idx = opstack[opstack_index].var;
+    if (var_idx < VAR_Y) {
+        if (!variables[var_idx].vector_length) {
+            variables[var_idx].vector_length
+                = outstack[outstack_index].vector_length;
+        }
+        // update and lock vector length of assigned variable
+        opstack[opstack_index].vector_length = variables[var_idx].vector_length;
+        opstack[opstack_index].vector_length_locked = 1;
     }
 
     // pop assignment operator(s) to output
