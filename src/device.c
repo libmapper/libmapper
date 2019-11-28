@@ -1035,6 +1035,13 @@ void mapper_device_remove_signal(mapper_device dev, mapper_signal sig)
     int i;
     if (!dev || !sig || !sig->local || sig->device != dev)
         return;
+    mapper_signal dbsig = dev->database->signals;
+    while (dbsig) {
+        if (dbsig == sig)
+            break;
+        dbsig = mapper_list_next(dbsig);
+    }
+    if (!dbsig) return;
 
     mapper_direction dir = sig->direction;
     mapper_device_remove_signal_methods(dev, sig);
