@@ -141,25 +141,25 @@ void wait_local_devices()
 
 void print_instance_ids(mapper_signal sig)
 {
-    int i, n = mapper_signal_num_instances(sig);
+    int i, n = mapper_signal_num_active_instances(sig);
     eprintf("%s: [ ", mapper_signal_name(sig));
     for (i=0; i<n; i++) {
-        eprintf("%1i, ", (int)mapper_signal_instance_id(sig, i));
+        eprintf("%2i, ", (int)mapper_signal_active_instance_id(sig, i));
     }
     eprintf("\b\b ]   ");
 }
 
 void print_instance_vals(mapper_signal sig)
 {
-    int i, id, n = mapper_signal_num_instances(sig);
+    int i, id, n = mapper_signal_num_active_instances(sig);
     eprintf("%s: [ ", mapper_signal_name(sig));
     for (i=0; i<n; i++) {
-        id = mapper_signal_instance_id(sig, i);
+        id = mapper_signal_active_instance_id(sig, i);
         float *val = (float*)mapper_signal_instance_value(sig, id, 0);
         if (val)
-            printf("%1.0f, ", *val);
+            printf("%2.0f, ", *val);
         else
-            printf("–, ");
+            printf("––, ");
     }
     eprintf("\b\b ]   ");
 }
