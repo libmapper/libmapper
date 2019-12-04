@@ -423,11 +423,13 @@ int mapper_signal_find_instance_with_global_id(mapper_signal sig,
     return -1;
 }
 
-static mapper_signal_instance reserved_instance(mapper_signal sig)
+static mapper_signal_instance reserved_instance(mapper_signal sig, mapper_id *id)
 {
     int i;
     for (i = 0; i < sig->num_instances; i++) {
         if (!sig->local->instances[i]->is_active) {
+            if (id)
+                sig->local->instances[i]->id = *id;
             return sig->local->instances[i];
         }
     }
@@ -463,32 +465,7 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
 
     /* No instance with that id exists - need to try to activate instance and
      * create new id map. */
-    if ((si = find_instance_by_id(sig, id))) {
-        if (!map) {
-            // Claim id map locally, add id map to device and link from signal
-            mapper_id global = mapper_device_generate_unique_id(sig->device);
-            map = mapper_device_add_instance_id_map(sig->device, sig->local->group,
-                                                    id, global);
-        }
-        else {
-            ++map->refcount_local;
-        }
-
-        // store pointer to device map in a new signal map
-        si->is_active = 1;
-        mapper_signal_init_instance(si);
-        i = mapper_signal_add_id_map(sig, si, map);
-        if (event_h && (sig->local->instance_event_flags & MAPPER_NEW_INSTANCE)) {
-            event_h(sig, id, MAPPER_NEW_INSTANCE, tt);
-        }
-        return i;
-    }
-
-    if (sig->local->instance_stealing_mode != MAPPER_NO_STEALING
-        && (si = reserved_instance(sig))) {
-        // steal a "reserved" instance
-        si->id = id;
-
+    if ((si = find_instance_by_id(sig, id)) || (si = reserved_instance(sig, &id))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
             mapper_id global = mapper_device_generate_unique_id(sig->device);
@@ -589,7 +566,7 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
          * object class A is not related to instance 1 of object B. */
         // TODO: add object groups for explictly sharing id maps
 
-        if ((si = reserved_instance(sig))) {
+        if ((si = reserved_instance(sig, NULL))) {
             map = mapper_device_add_instance_id_map(sig->device, sig->local->group,
                                                     si->id, global_id);
             map->refcount_global = 1;
@@ -652,7 +629,7 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
 
     // try again
     if (!map) {
-        if ((si = reserved_instance(sig))) {
+        if ((si = reserved_instance(sig, NULL))) {
             map = mapper_device_add_instance_id_map(sig->device, sig->local->group,
                                                     si->id, global_id);
             map->refcount_global = 1;
