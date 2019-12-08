@@ -45,24 +45,24 @@ MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNA
     testreverse$$1.class testreverse$$2.class testreverse$$3.class          \
     testspeed$$1.class testspeed$$2.class testspeed$$3.class)
 
-mpr_%.h: mpr/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mpr_%.h: mpr/%.java
+	$(JAVAC) -h . $(<:%.java=%).java
 	if [ -f $@ ]; then touch $@; fi
 
-mpr_device_%.h: mpr/device/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mpr_device_%.h: mpr/device/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
-mpr_graph_%.h: mpr/graph/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mpr_graph_%.h: mpr/graph/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
-mpr_map_%.h: mpr/map/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mpr_map_%.h: mpr/map/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
-mpr_signal_%.h: mpr/signal/%.class
-	$(JAVAH) $(subst /,.,$(<:%.class=%))
+mpr_signal_%.h: mpr/signal/%.java
+	$(JAVAC) -h . $(<:%.java=%)
 	if [ -f $@ ]; then touch $@; fi
 
 mpr/%.class: mpr/%.java

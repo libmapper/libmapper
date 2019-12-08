@@ -52,12 +52,20 @@ int setup_devs() {
 
         // give each device 10 inputs and 10 outputs
 		for (int j = 0; j < 10; j++) {
+            mn = fmod(rand() * 0.01, 21.f) - 10.f;
+            mx = fmod(rand() * 0.01, 21.f) - 10.f;
 			sprintf(str, "in%d", j);
 			mpr_sig_new(devices[i], MPR_DIR_IN, 1, str, 1, MPR_FLT, NULL,
                         &mn, &mx, NULL, 0);
+            mn = fmod(rand() * 0.01, 21.f) - 10.f;
+            mx = fmod(rand() * 0.01, 21.f) - 10.f;
             sprintf(str, "out%d", j);
-            mpr_sig_new(devices[i], MPR_DIR_OUT, 1, str, 1, MPR_FLT, NULL,
-                        &mn, &mx, NULL, 0);
+            if (j%2==0)
+                mpr_sig_new(devices[i], MPR_DIR_OUT, 1, str, 1, MPR_FLT, NULL,
+                            &mn, &mx, NULL, 0);
+            else
+                mpr_sig_new(devices[i], MPR_DIR_OUT, 1, str, 1, MPR_FLT, NULL,
+                            &mn, NULL, NULL, 0);
 		}
 	}
     return 0;

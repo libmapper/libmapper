@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <signal.h>
 #include <unistd.h>
 
 #define eprintf(format, ...) do {               \
@@ -24,11 +25,13 @@ mpr_dev src = 0;
 mpr_dev dst = 0;
 mpr_sig sendsig = 0;
 mpr_sig recvsig = 0;
-
 mpr_map map = 0;
 
 int sent = 0;
 int received = 0;
+int done = 0;
+
+int terminate = 0;
 
 int setup_src()
 {
@@ -149,25 +152,35 @@ void wait_ready()
 
 void loop()
 {
-    int i;
+    int i = 0;
     const char *name;
     mpr_obj_get_prop_by_idx(sendsig, MPR_PROP_NAME, NULL, NULL, NULL,
                             (const void**)&name, 0);
-    for (i = 0; i < 10; i++) {
+    while (!done && i < 50) {
         mpr_dev_poll(src, 0);
         float val = i * 1.0f;
         eprintf("Updating signal %s to %f\n", name, val);
         mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &val, MPR_NOW);
         sent++;
         mpr_dev_poll(dst, period);
+        ++i;
+        if (!verbose) {
+            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            fflush(stdout);
+        }
     }
+}
+
+void ctrlc(int sig)
+{
+    done = 1;
 }
 
 int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -h help
+    // process flags for -v verbose, -t terminate, -h help
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);
@@ -176,6 +189,7 @@ int main(int argc, char **argv)
                     case 'h':
                         printf("testmapprotocol.c: possible arguments "
                                "-q quiet (suppress output), "
+                               "-t terminate automatically, "
                                "-f fast (execute quickly), "
                                "-h help\n");
                         return 1;
@@ -186,12 +200,17 @@ int main(int argc, char **argv)
                     case 'q':
                         verbose = 0;
                         break;
+                    case 't':
+                        terminate = 1;
+                        break;
                     default:
                         break;
                 }
             }
         }
     }
+
+    signal(SIGINT, ctrlc);
 
     if (setup_dst()) {
         eprintf("Error initializing destination.\n");
@@ -213,16 +232,15 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    eprintf("SENDING UDP\n");
-    loop();
+    do {
+        set_map_protocol(MPR_PROTO_UDP);
+        eprintf("SENDING UDP\n");
+        loop();
 
-    set_map_protocol(MPR_PROTO_TCP);
-    eprintf("SENDING TCP\n");
-    loop();
-
-    set_map_protocol(MPR_PROTO_UDP);
-    eprintf("SENDING UDP AGAIN\n");
-    loop();
+        set_map_protocol(MPR_PROTO_TCP);
+        eprintf("SENDING TCP\n");
+        loop();
+    } while (!terminate && !done);
 
     if (sent != received) {
         eprintf("Not all sent messages were received.\n");

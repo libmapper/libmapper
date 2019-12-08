@@ -196,9 +196,9 @@ typedef void mpr_sig_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst,
                              int length, mpr_type type, const void *value,
                              mpr_time_t *time);
 
-/*! Add a signal to a parent object.  Values and strings pointed to by this call
- *  (except data) will be copied.  For minimum and maximum, actual type
- *  must correspond to 'type' (if type=MPR_INT32, then int*, etc).
+/*! Allocate and initialize a signal.  Values and strings pointed to by this
+ *  call will be copied.  For min and max values, actual type must correspond
+ *  to 'type' (if type=MPR_INT32, then int*, etc).
  *  \param parent       The object to add a signal to.
  *  \param dir          The signal direction.
  *  \param num_inst     The number of signal instances.

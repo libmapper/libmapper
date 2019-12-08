@@ -757,7 +757,9 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
 {
     RETURN_UNLESS(ac && types[0] == MPR_STR, 0);
     mpr_net net = (mpr_net)user;
+#ifdef DEBUG
     mpr_dev dev = net->devs ? net->devs[0] : 0;
+#endif
     mpr_graph graph = net->graph;
     int i, j;
     mpr_msg props = 0;
@@ -1396,8 +1398,22 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
         ++dev->num_maps_out;
         ++dev->num_maps_in;
 
+        ++map->dst->sig->num_maps_in;
+        for (i = 0; i < map->num_src; i++)
+            ++map->src[i]->sig->num_maps_out;
+
         // Inform subscribers
         if (dev->loc->subscribers) {
+            trace_dev(dev, "informing subscribers (DEVICE)\n")
+            mpr_net_subscribers(net, dev, MPR_DEV);
+            mpr_dev_send_state(dev, MSG_DEV);
+
+            trace_dev(dev, "informing subscribers (SIGNAL)\n")
+            mpr_net_subscribers(net, dev, MPR_SIG);
+            for (i = 0; i < map->num_src; i++)
+                mpr_sig_send_state(map->src[i]->sig, MSG_SIG);
+            mpr_sig_send_state(map->dst->sig, MSG_SIG);
+
             trace_dev(dev, "informing subscribers (MAPPED)\n")
             mpr_net_subscribers(net, dev, MPR_MAP);
             mpr_map_send_state(map, -1, MSG_MAPPED);
@@ -1516,18 +1532,44 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         map->status = MPR_STATUS_ACTIVE;
         rc = 1;
 
-        // Inform remote peer(s)
         if (map->dst->dir == MPR_DIR_OUT) {
+            ++dev->num_maps_out;
+            for (i = 0; i < map->num_src; i++) {
+                if (map->src[i]->sig->loc)
+                    ++ map->src[i]->sig->num_maps_out;
+            }
+
+            // Inform remote destination
             mpr_net_mesh(net, map->dst->link->addr.admin);
             mpr_map_send_state(map, -1, MSG_MAPPED);
-            ++dev->num_maps_out;
         }
         else {
+            ++dev->num_maps_in;
+            ++map->dst->sig->num_maps_in;
+
+            // Inform remote sources
             for (i = 0; i < map->num_src; i++) {
                 mpr_net_mesh(net, map->src[i]->link->addr.admin);
                 i = mpr_map_send_state(map, map->loc->one_src ? -1 : i, MSG_MAPPED);
             }
-            ++dev->num_maps_in;
+        }
+
+        if (dev->loc->subscribers) {
+            trace_dev(dev, "informing subscribers (DEVICE)\n");
+            mpr_net_subscribers(net, dev, MPR_DEV);
+            mpr_dev_send_state(dev, MSG_DEV);
+
+            trace_dev(dev, "informing subscribers (SIGNAL)\n");
+            mpr_net_subscribers(net, dev, MPR_SIG);
+            if (map->dst->dir == MPR_DIR_OUT) {
+                for (i = 0; i < map->num_src; i++) {
+                    if (map->src[i]->sig->loc)
+                        mpr_sig_send_state(map->src[i]->sig, MSG_SIG);
+                }
+            }
+            else {
+                mpr_sig_send_state(map->dst->sig, MSG_SIG);
+            }
         }
     }
     if (rc || updated) {
@@ -1638,10 +1680,22 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
 
     // inform remote peer(s)
     if (!map->dst->loc->rsig) {
+        --dev->num_maps_out;
+        for (i = 0; i < map->num_src; i++) {
+            if (map->src[i]->sig->loc) {
+                if ((--map->src[i]->sig->num_maps_out) < 0)
+                    map->src[i]->sig->num_maps_out = 0;
+            }
+        }
+
         mpr_net_mesh(net, map->dst->link->addr.admin);
         mpr_map_send_state(map, -1, MSG_UNMAP);
     }
     else {
+        --dev->num_maps_in;
+        if ((--map->dst->sig->num_maps_in) < 0)
+            map->dst->sig->num_maps_in = 0;
+
         for (i = 0; i < map->num_src; i++) {
             if (map->src[i]->loc->rsig)
                 continue;
@@ -1651,6 +1705,22 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     }
 
     if (dev->loc->subscribers) {
+        trace_dev(dev, "informing subscribers (DEVICE)\n")
+        mpr_net_subscribers(net, dev, MPR_DEV);
+        mpr_dev_send_state(dev, MSG_DEV);
+
+        trace_dev(dev, "informing subscribers (SIGNAL)\n")
+        mpr_net_subscribers(net, dev, MPR_SIG);
+        if (map->dst->dir == MPR_DIR_OUT) {
+            for (i = 0; i < map->num_src; i++) {
+                if (map->src[i]->sig->loc)
+                    mpr_sig_send_state(map->src[i]->sig, MSG_SIG);
+            }
+        }
+        else {
+            mpr_sig_send_state(map->dst->sig, MSG_SIG);
+        }
+
         trace_dev(dev, "informing subscribers (UNMAPPED)\n")
         int dir = map->dst->loc->rsig ? MPR_DIR_IN : MPR_DIR_OUT;
         mpr_net_subscribers(net, dev, dir);

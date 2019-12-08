@@ -133,6 +133,26 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, int num_inst, const char *name,
                  MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(t, PROP(VERSION), 1, MPR_INT32, &s->obj.version, NON_MODIFIABLE);
 
+    if (min && max) {
+        // make sure in the right order
+#define TYPED_CASE(TYPE, CTYPE)                                 \
+case TYPE: {                                                    \
+    CTYPE *min##CTYPE = (CTYPE*)min, *max##CTYPE = (CTYPE*)max; \
+    for (i = 0; i < len; i++) {                                 \
+        if (min##CTYPE > max##CTYPE) {                          \
+            CTYPE temp = min##CTYPE[i];                         \
+            min##CTYPE[i] = max##CTYPE[i];                      \
+            max##CTYPE[i] = temp;                               \
+        }                                                       \
+    }                                                           \
+    break;                                                      \
+}
+        switch (type) {
+            TYPED_CASE(MPR_INT32, int)
+            TYPED_CASE(MPR_FLT, float)
+            TYPED_CASE(MPR_DBL, double)
+        }
+    }
     if (min)
         mpr_tbl_set(t, PROP(MIN), NULL, len, type, min, LOCAL_MODIFY);
     if (max)
@@ -946,6 +966,14 @@ int mpr_sig_set_from_msg(mpr_sig s, mpr_msg msg)
             case PROP(LEN):
             case PROP(TYPE):
                 len_type_diff += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
+                break;
+            case PROP(ID):
+                if (a->types[0] == 'h') {
+                    if (s->obj.id != (a->vals[0])->i64) {
+                        s->obj.id = (a->vals[0])->i64;
+                        ++updated;
+                    }
+                }
                 break;
             case PROP(STEAL_MODE): {
                 int stl;

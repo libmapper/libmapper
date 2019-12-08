@@ -18,17 +18,27 @@ static int alphabetise_sigs(int num, mpr_sig *s, int *o)
     int i, j, res1 = 1, res2 = 1;
     for (i = 0; i < num; i++)
         o[i] = i;
-    for (i = 1, j = 0; i < num; j = i-1, i++) {
-        while (j >= 0
-               && (((res1 = strcmp(s[o[j]]->dev->name, s[o[j+1]]->dev->name)) > 0)
-                   || ((res2 = strcmp(s[o[j]]->name, s[o[j+1]]->name)) > 0))) {
+    for (i = 1; i < num; i++) {
+        j = i-1;
+        while (j >= 0) {
+            res1 = strcmp(s[o[j]]->dev->name, s[o[j+1]]->dev->name);
+            if (res1 < 0)
+                break;
+            else if (res1 == 0) {
+                res2 = strcmp(s[o[j]]->name, s[o[j+1]]->name);
+                if (res2 == 0) {
+                    // abort: identical signal names
+                    return 1;
+                }
+                else if (res2 < 0)
+                    break;
+            }
+            // swap
             int temp = o[j];
             o[j] = o[j+1];
             o[j+1] = temp;
-            --j;
+            j--;
         }
-        if (res1 == 0 && res2 == 0)
-            return 1;
     }
     return 0;
 }
@@ -89,7 +99,8 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     int i, j;
     for (i = 0; i < num_src; i++) {
         for (j = 0; j < num_dst; j++) {
-            if (src[i]->obj.id == dst[j]->obj.id) {
+            if (   strcmp(src[i]->name, dst[j]->name)==0
+                && strcmp(src[i]->dev->name, dst[j]->dev->name)==0) {
                 trace("Cannot connect signal '%s:%s' to itself.\n",
                       mpr_dev_get_name(src[i]->dev), src[i]->name);
                 return 0;
@@ -137,11 +148,12 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     m->obj.type = MPR_MAP;
     m->obj.graph = g;
     m->num_src = num_src;
-    m->src = (mpr_slot*) malloc(sizeof(mpr_slot) * num_src);
+    m->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
     for (i = 0; i < num_src; i++) {
         m->src[i] = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
-        o = mpr_graph_get_obj(g, MPR_SIG, src[order[i]]->obj.id);
-        if (!o) {
+        if (src[order[i]]->dev->obj.graph == g)
+            o = (mpr_obj)src[order[i]];
+        else if (!(o = mpr_graph_get_obj(g, MPR_SIG, src[order[i]]->obj.id))) {
             o = (mpr_obj)mpr_graph_add_sig(g, src[order[i]]->name,
                                            src[order[i]]->dev->name, 0);
             if (!o->id) {
@@ -158,7 +170,6 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         m->src[i]->map = m;
         m->src[i]->obj.id = i;
     }
-
     m->dst = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
     m->dst->sig = *dst;
     m->dst->map = m;

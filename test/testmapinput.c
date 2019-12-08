@@ -52,8 +52,8 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 
 int setup_devs()
 {
-    devices[0] = mpr_dev_new("testmapinput1", 0);
-    devices[1] = mpr_dev_new("testmapinput2", 0);
+    devices[0] = mpr_dev_new("testmapinput", 0);
+    devices[1] = mpr_dev_new("testmapinput", 0);
     if (!devices[0] || !devices[1])
         goto error;
     eprintf("devices created.\n");

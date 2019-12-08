@@ -40,7 +40,6 @@ standard operating system procedure, and you can check if it is
 already installed by running,
 
     javac -version
-    javah -version
 
 These should print the installed version numbers of these programs if
 correctly configured.  You may install `swig` and `doxygen` packages
@@ -181,7 +180,7 @@ Similarly, the Java bindings may be tested by `cd`'ing to the `jni`
 folder and running `test` with the correct class and library paths:
 
     cd jni
-    java -cp libmpr.jar -Djava.libraries.path=.libs test
+    java -cp libmpr.jar -Djava.library.path=.libs test
 
 Cross-compiling for Windows under Linux
 ---------------------------------------

@@ -118,7 +118,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
     mpr_tbl sig_props = slot->sig->obj.props.synced;
     for (i = 0; i < msg->num_atoms; i++) {
         a = &msg->atoms[i];
-        if (!(a->prop & mask))
+        if ((a->prop & ~0xFF) != mask)
             continue;
         switch (a->prop & ~mask) {
             case MPR_PROP_MAX:
