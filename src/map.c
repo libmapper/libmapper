@@ -1133,15 +1133,17 @@ void reallocate_map_histories(mpr_map m)
                 m->loc->expr_var[i][j].len = 0;
                 m->loc->expr_var[i][j].size = 0;
                 m->loc->expr_var[i][j].pos = -1;
+                m->loc->expr_var[i][j].val = 0;
+                m->loc->expr_var[i][j].time = 0;
             }
             for (j = 0; j < new_num_var; j++) {
                 int hist_size = mpr_expr_var_hist_size(m->loc->expr, j);
                 int vector_len = mpr_expr_var_vec_len(m->loc->expr, j);
                 mpr_hist_realloc(m->loc->expr_var[i]+j, hist_size,
                                  vector_len * sizeof(double), 0);
-                (m->loc->expr_var[i]+j)->len = vector_len;
-                (m->loc->expr_var[i]+j)->size = hist_size;
-                (m->loc->expr_var[i]+j)->pos = -1;
+                m->loc->expr_var[i][j].len = vector_len;
+                m->loc->expr_var[i][j].size = hist_size;
+                m->loc->expr_var[i][j].pos = -1;
             }
         }
         m->loc->num_expr_var = new_num_var;

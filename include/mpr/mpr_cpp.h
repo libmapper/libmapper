@@ -616,23 +616,20 @@ namespace mpr {
             RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_DBL, val, *time));
         }
         template <typename T>
-        Signal& set_value(T val)
-            { return set_value(&val, 1, 0); }
+        Signal& set_value(T val, Time time=0)
+            { return set_value(&val, 1, time); }
         template <typename T>
-        Signal& set_value(T* val)
-            { return set_value(val, 1, 0); }
-        template <typename T, int len>
-        Signal& set_value(T* val)
-            { return set_value(val, len, 0); }
-        template <typename T>
-        Signal& set_value(T* val, Time time)
+        Signal& set_value(T* val, Time time=0)
             { return set_value(val, 1, time); }
+        template <typename T, int len>
+        Signal& set_value(T* val, Time time=0)
+            { return set_value(val, len, time); }
         template <typename T, size_t N>
-        Signal& set_value(std::array<T,N> val)
-            { return set_value(&val[0], N, 0); }
+        Signal& set_value(std::array<T,N> val, Time time=0)
+            { return set_value(&val[0], N, time); }
         template <typename T>
         Signal& set_value(std::vector<T> val, Time time=0)
-            { return set_value(&val[0], (int)val.size(), *time); }
+            { return set_value(&val[0], (int)val.size(), time); }
         const void *value() const
             { return mpr_sig_get_value(_obj, 0, 0); }
         const void *value(Time time) const
@@ -648,17 +645,17 @@ namespace mpr {
                 { return (_id == i._id); }
             operator mpr_id() const
                 { return _id; }
-            Instance& set_value(int *val, int len, Time time)
+            Instance& set_value(int *val, int len, Time time=0)
             {
                 mpr_sig_set_value(_sig, _id, len, MPR_INT32, val, *time);
                 return (*this);
             }
-            Instance& set_value(float *val, int len, Time time)
+            Instance& set_value(float *val, int len, Time time=0)
             {
                 mpr_sig_set_value(_sig, _id, len, MPR_FLT, val, *time);
                 return (*this);
             }
-            Instance& set_value(double *val, int len, Time time)
+            Instance& set_value(double *val, int len, Time time=0)
             {
                 mpr_sig_set_value(_sig, _id, len, MPR_DBL, val, *time);
                 return (*this);
@@ -670,11 +667,11 @@ namespace mpr {
                 { mpr_sig_release_inst(_sig, _id, *time); }
 
             template <typename T>
-            Instance& set_value(T val)
-                { return set_value(&val, 1, 0); }
+            Instance& set_value(T val, Time time=0)
+                { return set_value(&val, 1, time); }
             template <typename T>
-            Instance& set_value(T* val, int len=0)
-                { return set_value(val, len, 0); }
+            Instance& set_value(T* val, int len=0, Time time=0)
+                { return set_value(val, len, time); }
             template <typename T>
             Instance& set_value(T* val, Time time)
                 { return set_value(val, 1, time); }
