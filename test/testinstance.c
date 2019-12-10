@@ -138,27 +138,27 @@ void wait_local_devs()
 
 void print_instance_ids(mpr_sig sig)
 {
-    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i=0; i<n; i++) {
-        eprintf("%1i, ", (int)mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL));
+        eprintf("%2i, ", (int)mpr_sig_get_inst_id(sig, i, MPR_STATUS_ACTIVE));
     }
     eprintf("\b\b ]   ");
 }
 
 void print_instance_vals(mpr_sig sig)
 {
-    int i, id, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
+    int i, id, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i=0; i<n; i++) {
-        id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL);
+        id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ACTIVE);
         float *val = (float*)mpr_sig_get_value(sig, id, 0);
         if (val)
-            printf("%1.0f, ", *val);
+            printf("%2.0f, ", *val);
         else
-            printf("–, ");
+            printf("––, ");
     }
     eprintf("\b\b ]   ");
 }
@@ -284,8 +284,10 @@ int main(int argc, char **argv)
     stats[0] = sent;
     stats[1] = received;
 
-    for (i=0; i<mpr_sig_get_num_inst(sendsig, MPR_STATUS_ACTIVE); i++)
-        mpr_sig_release_inst(sendsig, mpr_sig_get_inst_id(sendsig, i, MPR_STATUS_ACTIVE), MPR_NOW);
+    j = mpr_sig_get_num_inst(sendsig, MPR_STATUS_ALL);
+    for (i = 0; i < j; i++) {
+        mpr_sig_release_inst(sendsig, mpr_sig_get_inst_id(sendsig, i, MPR_STATUS_ALL), MPR_NOW);
+    }
     sent = received = 0;
 
     eprintf("\n**********************************************\n");
@@ -301,8 +303,10 @@ int main(int argc, char **argv)
     stats[3] = received;
     sent = received = 0;
 
-    for (i=0; i<10; i++)
-        mpr_sig_release_inst(sendsig, i, MPR_NOW);
+    j = mpr_sig_get_num_inst(sendsig, MPR_STATUS_ALL);
+    for (i = 0; i < j; i++) {
+        mpr_sig_release_inst(sendsig, mpr_sig_get_inst_id(sendsig, i, MPR_STATUS_ALL), MPR_NOW);
+    }
     sent = received = 0;
 
     eprintf("\n**********************************************\n");

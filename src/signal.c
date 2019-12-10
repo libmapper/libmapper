@@ -262,12 +262,15 @@ int mpr_sig_find_inst_with_GID(mpr_sig s, mpr_id GID, int flags)
     return -1;
 }
 
-static mpr_sig_inst _reserved_inst(mpr_sig s)
+static mpr_sig_inst _reserved_inst(mpr_sig s, mpr_id *id)
 {
     int i;
     for (i = 0; i < s->num_inst; i++) {
-        if (!s->loc->inst[i]->active)
+        if (!s->loc->inst[i]->active) {
+            if (id)
+                s->loc->inst[i]->id = *id;
             return s->loc->inst[i];
+        }
     }
     return 0;
 }
@@ -351,28 +354,7 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time *t)
 
     /* No instance with that id exists - need to try to activate instance and
      * create new id map. */
-    if ((si = _find_inst_by_id(s, LID))) {
-        if (!map) {
-            // Claim id map locally, add id map to device and link from signal
-            mpr_id GID = mpr_dev_generate_unique_id(s->dev);
-            map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, GID);
-        }
-        else
-            ++map->LID_refcount;
-
-        // store pointer to device map in a new signal map
-        si->active = 1;
-        _init_inst(si);
-        i = _add_idmap(s, si, map);
-        if (h && (s->loc->event_flags & MPR_SIG_INST_NEW))
-            h(s, MPR_SIG_INST_NEW, LID, 0, s->type, NULL, *t);
-        return i;
-    }
-
-    if (s->steal_mode != MPR_STEAL_NONE && (si = _reserved_inst(s))) {
-        // steal a reserved instance
-        si->id = LID;
-
+    if ((si = _find_inst_by_id(s, LID)) || (si = _reserved_inst(s, &LID))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
             mpr_id GID = mpr_dev_generate_unique_id(s->dev);
@@ -450,7 +432,7 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time *t)
          * may wish to create devices with multiple object classes which do not
          * require mutual instance id synchronization - e.g. instance 1 of
          * object class A is not related to instance 1 of object B. */
-        if ((si = _reserved_inst(s))) {
+        if ((si = _reserved_inst(s, NULL))) {
             map = mpr_dev_add_idmap(s->dev, s->loc->group, si->id, GID);
             map->GID_refcount = 1;
             si->active = 1;
@@ -506,7 +488,7 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time *t)
 
     // try again
     if (!map) {
-        if ((si = _reserved_inst(s))) {
+        if ((si = _reserved_inst(s, NULL))) {
             map = mpr_dev_add_idmap(s->dev, s->loc->group, si->id, GID);
             map->GID_refcount = 1;
             si->active = 1;
