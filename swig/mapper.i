@@ -29,6 +29,19 @@
 %typemap(out) mapper_id {
     $result = Py_BuildValue("l", (uint64_t)$1);
 }
+%typemap(in) (const char *key) {
+    if (PyString_Check($input)) {
+        $1 = PyString_AsString($input);
+    }
+    else if (PyUnicode_Check($input)) {
+        Py_ssize_t size;
+        $1 = (char*)PyUnicode_AsUTF8AndSize($input, &size);
+    }
+    else {
+        PyErr_SetString(PyExc_TypeError, "Expecting a string");
+        return NULL;
+    }
+}
 %typemap(in) (int num_ids, mapper_id *argv) {
     int i;
     if (!PyList_Check($input)) {
@@ -574,13 +587,26 @@ static PyObject *prop_to_py(property_value prop, const char *name)
         }
         case 'c':
         {
+            char str[2] = {0, 0};
             if (prop->length > 1) {
                 char *vect = (char*)prop->value;
-                for (i=0; i<prop->length; i++)
-                    PyList_SetItem(v, i, Py_BuildValue("c", vect[i]));
+                for (i=0; i<prop->length; i++) {
+                    str[0] = vect[i];
+#if PY_MAJOR_VERSION >= 3
+                    PyList_SetItem(v, i, PyUnicode_FromString(str));
+#else
+                    PyList_SetItem(v, i, PyString_FromString(str));
+#endif
+                }
             }
-            else
-                v = Py_BuildValue("c", *(char*)prop->value);
+            else {
+                str[0] = *(char*)prop->value;
+#if PY_MAJOR_VERSION >= 3
+                v = PyUnicode_FromString(str);
+#else
+                v = PyString_FromString(str);
+#endif
+            }
             break;
         }
         case 'i':
