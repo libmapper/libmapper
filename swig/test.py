@@ -25,7 +25,7 @@ def setup(d):
     print('network ip', graph.address)
     print('network interface', graph.interface)
 
-    d.set_properties({"testInt":5, "testFloat":12.7, "testString":["test","foo"],
+    d.set_properties({"testInt":5, "testFloat":12.7, "testString":["test",b"foo"],
                       "removed1":"shouldn't see this"})
     d['testInt'] = 7
 #    d.set_properties({"removed1":None, "removed2":"test"})

@@ -74,21 +74,21 @@ const char* net_msg_strings[] =
 {
     "/device",                  /* MSG_DEV */
     "/%s/modify",               /* MSG_DEV_MOD */
-    "/-device",                 /* MSG_LOGOUT */
-    "/+map",                    /* MSG_MAP */
+    "/logout",                  /* MSG_LOGOUT */
+    "/map",                     /* MSG_MAP */
     "/mapTo",                   /* MSG_MAP_TO */
-    "/map",                     /* MSG_MAPPED */
+    "/mapped",                  /* MSG_MAPPED */
     "/map/modify",              /* MSG_MAP_MOD */
     "/name/probe",              /* MSG_NAME_PROBE */
-    "/name",                    /* MSG_NAME_REG */
+    "/name/registered",         /* MSG_NAME_REG */
     "/ping",                    /* MSG_PING */
     "/signal",                  /* MSG_SIG */
-    "/-signal",                 /* MSG_SIG_REM */
+    "/signal/removed",          /* MSG_SIG_REM */
     "/%s/signal/modify",        /* MSG_SIG_MOD */
     "/%s/subscribe",            /* MSG_SUBSCRIBE */
     "/sync",                    /* MSG_SYNC */
     "/unmap",                   /* MSG_UNMAP */
-    "/-map",                    /* MSG_UNMAPPED */
+    "/unmapped",                /* MSG_UNMAPPED */
     "/who",                     /* MSG_WHO */
 };
 
