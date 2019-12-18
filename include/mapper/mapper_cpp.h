@@ -1126,7 +1126,7 @@ namespace mapper {
          *                  originating from the specified Device to be
          *                  propagated across the Map.
          *  \return         Self. */
-        inline Map& add_scope(Device dev);
+        inline Map& add_scope(Device& dev);
 
         /*! Remove a scope from this Map. Map scopes configure the propagation
          *  of Signal instance updates across the Map. Changes to remote Maps
@@ -1137,7 +1137,7 @@ namespace mapper {
          *                  updates originating from the specified Device to be
          *                  blocked from propagating across the Map.
          *  \return         Self. */
-        inline Map& remove_scope(Device dev);
+        inline Map& remove_scope(Device& dev);
 
         /*! Retrieve the arbitrary pointer associated with this Map.
          *  \return             A pointer associated with this Map. */
@@ -1317,7 +1317,7 @@ namespace mapper {
              *  using push().
              *  \param value        A Property object specifying the maximum.
              *  \return             Self. */
-            Slot& set_maximum(const Property &value)
+            Slot& set_maximum(const Property& value)
             {
                 mapper_slot_set_maximum(_slot, value.length, value.type,
                                         (void*)(const void*)value);
@@ -1343,7 +1343,7 @@ namespace mapper {
              *  using push().
              *  \param value        A Property object specifying the minimum.
              *  \return             Self. */
-            Slot& set_minimum(const Property &value)
+            Slot& set_minimum(const Property& value)
             {
                 mapper_slot_set_minimum(_slot, value.length, value.type,
                                         (void*)(const void*)value);
@@ -1459,6 +1459,8 @@ namespace mapper {
         mapper_signal _sig;
 
     public:
+        Signal()
+            { _sig = NULL; }
         Signal(mapper_signal sig)
             { _sig = sig; }
         operator mapper_signal() const
@@ -1616,18 +1618,18 @@ namespace mapper {
 
             void release()
                 { mapper_signal_instance_release(_sig, _id, MAPPER_NOW); }
-            void release(Timetag tt)
+            void release(Timetag& tt)
                 { mapper_signal_instance_release(_sig, _id, *tt); }
 
             template <typename T>
             Instance& update(T value, Timetag tt=0)
                 { return update(&value, 1, tt); }
             template <typename T>
-            Instance& update(T* value, int count=0, Timetag tt=0)
-                { return update(value, count, tt); }
-            template <typename T>
             Instance& update(T* value, Timetag tt=0)
                 { return update(value, 1, tt); }
+            template <typename T, int count>
+            Instance& update(T* value, Timetag tt=0)
+                { return update(value, count, tt); }
             template <typename T, size_t N>
             Instance& update(std::array<T,N> value, Timetag tt=0)
             {
@@ -1899,7 +1901,7 @@ namespace mapper {
             { return mapper_device_port(_dev); }
         int ordinal() const
             { return mapper_device_ordinal(_dev); }
-        Timetag start_queue(Timetag tt)
+        Timetag& start_queue(Timetag& tt)
             { mapper_device_start_queue(_dev, *tt); return tt; }
         Timetag start_queue()
         {
@@ -1908,7 +1910,7 @@ namespace mapper {
             mapper_device_start_queue(_dev, tt);
             return tt;
         }
-        Device& send_queue(Timetag tt)
+        Device& send_queue(Timetag& tt)
             { mapper_device_send_queue(_dev, *tt); return (*this); }
 //        lo::Server lo_server()
 //            { return lo::Server(mapper_device_lo_server(_dev)); }
@@ -2203,10 +2205,10 @@ namespace mapper {
     signal_type::signal_type(const Signal& sig)
         { _sig = (mapper_signal)sig; }
 
-    Map& Map::add_scope(Device dev)
+    Map& Map::add_scope(Device& dev)
         { mapper_map_add_scope(_map, mapper_device(dev)); return (*this); }
 
-    Map& Map::remove_scope(Device dev)
+    Map& Map::remove_scope(Device& dev)
         { mapper_map_remove_scope(_map, mapper_device(dev)); return (*this); }
 
     Signal Map::Slot::signal() const
