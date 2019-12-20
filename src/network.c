@@ -487,7 +487,7 @@ void mpr_net_add_msg(mpr_net net, const char *s, net_msg_t c, lo_message m)
 {
     if (lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT) {
         mpr_net_send(net);
-        init_bundle(net->bundle);
+        init_bundle(net);
     }
     lo_bundle_add_message(net->bundle, s ?: net_msg_strings[c], m);
 }
