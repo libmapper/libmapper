@@ -464,7 +464,7 @@ int mapper_signal_instance_with_local_id(mapper_signal sig, mapper_id id,
                                                                     id);
 
     /* No instance with that id exists - need to try to activate instance and
-     * create new id map. */
+     * create new id map if necessary. */
     if ((si = find_instance_by_id(sig, id)) || (si = reserved_instance(sig, &id))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
@@ -552,7 +552,6 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
             }
         }
     }
-
     // check if the device already has a map for this global id
     mapper_id_map map = mapper_device_find_instance_id_map_by_global(sig->device,
                                                                      sig->local->group,
@@ -580,16 +579,9 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
             return i;
         }
     }
-    else {
-        si = find_instance_by_id(sig, map->local);
-        if (!si) {
-            /* TODO: Once signal groups are explicit, allow re-mapping to
-             * another instance if possible. */
-            trace("Signal %s has no instance %"PR_MAPPER_ID" available.\n",
-                  sig->name, map->local);
-            return -1;
-        }
-        else if (!si->is_active) {
+    else if (    (si = find_instance_by_id(sig, map->local))
+              || (si = reserved_instance(sig, &map->local))) {
+        if (!si->is_active) {
             si->is_active = 1;
             mapper_signal_init_instance(si);
             i = mapper_signal_add_id_map(sig, si, map);
@@ -601,6 +593,13 @@ int mapper_signal_instance_with_global_id(mapper_signal sig, mapper_id global_id
             }
             return i;
         }
+    }
+    else {
+        /* TODO: Once signal groups are explicit, allow re-mapping to
+         * another instance if possible. */
+        trace("Signal %s has no instance %"PR_MAPPER_ID" available.\n",
+              sig->name, map->local);
+        return -1;
     }
 
     // try releasing instance in use

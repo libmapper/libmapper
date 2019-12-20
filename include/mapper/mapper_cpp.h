@@ -1669,16 +1669,10 @@ namespace mapper {
         Instance instance()
         {
             mapper_id id = mapper_device_generate_unique_id(mapper_signal_device(_sig));
-            // TODO: wait before activating instance?
-            mapper_signal_instance_set_user_data(_sig, id, 0);
             return Instance(_sig, id);
         }
         Instance instance(mapper_id id)
-        {
-            // TODO: wait before activating instance?
-            mapper_signal_instance_set_user_data(_sig, id, 0);
-            return Instance(_sig, id);
-        }
+            { return Instance(_sig, id); }
         Signal& reserve_instances(int num, mapper_id *ids = 0)
         {
             mapper_signal_reserve_instances(_sig, num, ids, 0);

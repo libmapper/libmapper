@@ -19,27 +19,28 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
                    int count, mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("--> destination got %s", mapper_signal_name(sig));
+        printf("\t\t\t\t\t   | --> signal update: %s:%2llu got",
+               mapper_signal_name(sig), instance);
         int len = mapper_signal_length(sig);
         switch (mapper_signal_type(sig)) {
             case 'i': {
                 int *v = (int*)value;
                 for (int i = 0; i < len; i++) {
-                    printf(" %d", v[i]);
+                    printf(" %2d", v[i]);
                 }
                 break;
             }
             case 'f': {
                 float *v = (float*)value;
                 for (int i = 0; i < len; i++) {
-                    printf(" %f", v[i]);
+                    printf(" %2f", v[i]);
                 }
                 break;
             }
             case 'd': {
                 double *v = (double*)value;
                 for (int i = 0; i < len; i++) {
-                    printf(" %f", v[i]);
+                    printf(" %2f", v[i]);
                 }
                 break;
             }
@@ -47,6 +48,11 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
                 break;
         }
         printf("\n");
+    }
+    else {
+        printf("\t\t\t\t\t   | --> signal update: %s:%2llu got ––––––––\n",
+               mapper_signal_name(sig), instance);
+        mapper_signal_instance_release(sig, instance, MAPPER_NOW);
     }
     received++;
 }
@@ -228,6 +234,39 @@ int main(int argc, char ** argv)
             std::cout << "]";
         std::cout << " -> " << m.destination().signal().device().name()
                   << "/" << m.destination().signal().name() << std::endl;
+    }
+
+    // test API for signal instances
+    std::cout << "testing instances API" << std::endl;
+    mapper::Signal multisend = dev.add_signal(MAPPER_DIR_OUTGOING, 10,
+                                              "multisend", 1, 'f');
+    multisend.set_instance_stealing_mode(MAPPER_STEAL_OLDEST);
+    mapper::Signal multirecv = dev.add_signal(MAPPER_DIR_INCOMING, 10,
+                                              "multirecv", 1, 'f');
+    multirecv.set_callback(insig_handler);
+    multirecv.set_instance_stealing_mode(MAPPER_STEAL_OLDEST);
+    mapper::Map map2(multisend, multirecv);
+    map2.push();
+    while (!map2.ready()) {
+        dev.poll(100);
+    }
+    mapper_id id;
+    for (int i = 0; i < 200; i++) {
+        dev.poll(100);
+        id = (rand() % 10) + 5;
+        switch (rand() % 5) {
+            case 0:
+                // try to destroy an instance
+                printf("\t\t  Retiring instance %2llu --> |\n", id);
+                multisend.instance(id).release();
+                break;
+            default:
+                // try to update an instance
+                float v = (rand() % 10) * 1.0f;
+                multisend.instance(id).update(v);
+                printf("Sender instance %2llu updated to %2f --> |\n", id, v);
+                break;
+        }
     }
 
     // test some timetag manipulation
