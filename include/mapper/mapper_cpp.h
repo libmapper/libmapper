@@ -1787,8 +1787,10 @@ namespace mapper {
         }
         ~Device()
         {
-            if (_owned && _dev && decr_refcount() <= 0)
+            if (_owned && _dev && decr_refcount() <= 0) {
                 mapper_device_free(_dev);
+                free(_refcount_ptr);
+            }
         }
         operator mapper_device() const
             { return _dev; }
@@ -1988,8 +1990,10 @@ namespace mapper {
         }
         ~Database()
         {
-            if (_owned && _db && decr_refcount() <= 0)
+            if (_owned && _db && decr_refcount() <= 0) {
                 mapper_database_free(_db);
+                free(_refcount_ptr);
+            }
         }
 
         /*! Retrieve the Network object from a Database.
