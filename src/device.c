@@ -209,6 +209,8 @@ void mapper_device_free(mapper_device dev)
             dev->local->router->signals = dev->local->router->signals->next;
             free(rs);
         }
+        if (dev->local->router->buffer)
+            free(dev->local->router->buffer);
         free(dev->local->router);
     }
 
@@ -531,7 +533,16 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
 
     int size = (slot ? mapper_type_size(slot->signal->type)
                 : mapper_type_size(sig->type));
-    void *out_buffer = alloca(count * value_len * size);
+
+    mapper_router rtr = dev->local->router;
+    if (rtr->buffer_size < count * value_len * size) {
+        if (0 == rtr->buffer_size)
+            rtr->buffer_size = 1;
+        while (rtr->buffer_size < count * value_len * size)
+            rtr->buffer_size *= 2;
+        rtr->buffer = realloc(rtr->buffer, rtr->buffer_size);
+    }
+    void *out_buffer = rtr->buffer;
     int vals, out_count = 0, active = 1;
 
     if (map) {

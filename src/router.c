@@ -212,11 +212,14 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
         return;
     }
 
-    // if count > 1, we need to allocate sufficient memory for largest output
-    // vector so that we can store calculated values before sending
-    // TODO: calculate max_output_size, cache in link_signal
-    void *out_value_p = count == 1 ? 0 : alloca(count * sig->length
-                                                * sizeof(double));
+    if (rtr->buffer_size < count * sig->length * sizeof(double)) {
+        if (0 == rtr->buffer_size)
+            rtr->buffer_size = 1;
+        while (rtr->buffer_size < count * sig->length * sizeof(double))
+            rtr->buffer_size *= 2;
+        rtr->buffer = realloc(rtr->buffer, rtr->buffer_size);
+    }
+
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i])
             continue;
@@ -299,7 +302,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             void *result = mapper_history_value_ptr(map->destination.local->history[idx]);
 
             if (count > 1) {
-                memcpy((char*)out_value_p + to_size * j, result, to_size);
+                memcpy((char*)rtr->buffer + to_size * j, result, to_size);
             }
             else {
                 msg = mapper_map_build_message(map, slot, result, 1, dst_types,
@@ -313,7 +316,7 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
         }
         if (count > 1 && slot->direction == MAPPER_DIR_OUTGOING
             && (!slot->use_instances || in_scope)) {
-            msg = mapper_map_build_message(map, slot, out_value_p, k, dst_types,
+            msg = mapper_map_build_message(map, slot, rtr->buffer, k, dst_types,
                                            slot->use_instances ? id_map : 0);
             if (msg)
                 send_or_bundle_message(map->destination.link,

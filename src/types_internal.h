@@ -539,6 +539,8 @@ typedef struct _mapper_router_signal {
 typedef struct _mapper_router {
     struct _mapper_device *device;  //!< The device associated with this link.
     mapper_router_signal signals;   //!< The list of mappings for each signal.
+    void *buffer;
+    int buffer_size;
 } mapper_router_t, *mapper_router;
 
 /*! The instance ID map is a linked list of int32 instance ids for coordinating
