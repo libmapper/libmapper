@@ -122,7 +122,7 @@ testvector_LDADD = $(TEST_LDADD)
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! ./$$i -qt; then exit 1; fi; done
-	echo Running testmonitor and testsignals; ./testmonitor -qt & ./testsignals
+	echo Running testmonitor and testsignals; ./testmonitor -qt & ./testsignals -qt
 
 memtest: all
 	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmapper.dylib valgrind --leak-check=full ./.libs/$$i -qt; then exit 1; fi; done
