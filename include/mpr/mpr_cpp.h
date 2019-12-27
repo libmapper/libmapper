@@ -529,7 +529,7 @@ namespace mpr {
          *                  originating from the specified Device to be
          *                  propagated across the Map.
          *  \return         Self. */
-        inline Map& add_scope(Device dev);
+        inline Map& add_scope(Device& dev);
 
         /*! Remove a scope from this Map. Map scopes configure the propagation
          *  of Signal updates across the Map. Changes will not take effect until
@@ -539,7 +539,7 @@ namespace mpr {
          *                  updates originating from the specified Device to be
          *                  blocked from propagating across the Map.
          *  \return         Self. */
-        inline Map& remove_scope(Device dev);
+        inline Map& remove_scope(Device& dev);
 
         Map& set_linear(int srclen, mpr_type srctype, const void *srcmin,
                         const void *srcmax, int dstlen, mpr_type dsttype,
@@ -1398,10 +1398,10 @@ namespace mpr {
     signal_type::signal_type(const Signal& sig)
         { _sig = (mpr_sig)sig; }
 
-    Map& Map::add_scope(Device dev)
+    Map& Map::add_scope(Device& dev)
         { RETURN_SELF(mpr_map_add_scope(_obj, mpr_dev(dev))); }
 
-    Map& Map::remove_scope(Device dev)
+    Map& Map::remove_scope(Device& dev)
         { RETURN_SELF(mpr_map_remove_scope(_obj, mpr_dev(dev))); }
 
     Signal Map::signal(mpr_loc loc, int idx) const
@@ -1459,19 +1459,19 @@ std::ostream& operator<<(std::ostream& os, const mpr::Property& p)
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const mpr::Device dev)
+std::ostream& operator<<(std::ostream& os, const mpr::Device& dev)
 {
     return os << "<mpr::Device '" << dev[MPR_PROP_NAME] << "'>";
 }
 
-std::ostream& operator<<(std::ostream& os, const mpr::Signal sig)
+std::ostream& operator<<(std::ostream& os, const mpr::Signal& sig)
 {
     os << "<mpr::Signal '" << sig.device()[MPR_PROP_NAME]
        << ":" << sig[MPR_PROP_NAME] << "'>";
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const mpr::Map map)
+std::ostream& operator<<(std::ostream& os, const mpr::Map& map)
 {
     os << "<mpr::Map ";
 
