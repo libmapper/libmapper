@@ -195,10 +195,13 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
         return;
     }
 
-    // if count > 1, we need to allocate sufficient memory for largest output
-    // vector so that we can store calculated values before sending
-    // TODO: calculate max_output_size, cache in link_sig
-    void *out_val_p = count == 1 ? 0 : alloca(count * sig->len * sizeof(double));
+    if (rtr->buffer_size < count * sig->len * sizeof(double)) {
+        if (0 == rtr->buffer_size)
+            rtr->buffer_size = 1;
+        while (rtr->buffer_size < count * sig->len * sizeof(double))
+            rtr->buffer_size *= 2;
+        rtr->buffer = realloc(rtr->buffer, rtr->buffer_size);
+    }
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i])
             continue;
@@ -256,7 +259,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             void *result = mpr_hist_get_val_ptr(dst_slot->loc->hist[idx]);
 
             if (count > 1) {
-                memcpy((char*)out_val_p + to_size * j, result, to_size);
+                memcpy((char*)rtr->buffer + to_size * j, result, to_size);
             }
             else {
                 msg = mpr_map_build_msg(map, slot, result, 1, dst_types,
@@ -269,7 +272,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
         }
         if (count > 1 && slot->dir == MPR_DIR_OUT
             && (!slot->use_inst || in_scope)) {
-            msg = mpr_map_build_msg(map, slot, out_val_p, k, dst_types,
+            msg = mpr_map_build_msg(map, slot, rtr->buffer, k, dst_types,
                                        slot->use_inst ? idmap : 0);
             if (msg)
                 send_or_bundle_msg(dst_slot->link, dst_slot->sig->path, msg,

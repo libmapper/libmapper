@@ -295,14 +295,16 @@ int main(int argc, char ** argv)
         switch (rand() % 5) {
             case 0:
                 // try to destroy an instance
-                printf("\t\t  Retiring instance %2llu --> |\n", id);
+                if (verbose)
+                    printf("\t\t  Retiring instance %2llu --> |\n", id);
                 multisend.instance(id).release();
                 break;
             default:
                 // try to update an instance
                 float v = (rand() % 10) * 1.0f;
                 multisend.instance(id).set_value(v);
-                printf("Sender instance %2llu updated to %2f --> |\n", id, v);
+                if (verbose)
+                    printf("Sender instance %2llu updated to %2f --> |\n", id, v);
                 break;
         }
     }

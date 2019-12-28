@@ -211,6 +211,8 @@ void mpr_dev_free(mpr_dev dev)
             net->rtr->sigs = net->rtr->sigs->next;
             free(rs);
         }
+        if (net->rtr->buffer)
+            free(net->rtr->buffer);
         free(net->rtr);
     }
 
@@ -405,7 +407,14 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     idmap = sig->loc->idmaps[idmap_idx].map;
 
     int size = (slot ? mpr_type_get_size(slot->sig->type) : mpr_type_get_size(sig->type));
-    void *buffer = alloca(count * val_len * size);
+    if (rtr->buffer_size < count * val_len * size) {
+        if (0 == rtr->buffer_size)
+            rtr->buffer_size = 1;
+        while (rtr->buffer_size < count * val_len * size)
+            rtr->buffer_size *= 2;
+        rtr->buffer = realloc(rtr->buffer, rtr->buffer_size);
+    }
+    void *buffer = rtr->buffer;
     int vals, out_count = 0, active = 1;
 
     if (map) {
