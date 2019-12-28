@@ -714,16 +714,10 @@ namespace mpr {
         Instance instance()
         {
             mpr_id id = mpr_dev_generate_unique_id(mpr_sig_get_dev(_obj));
-            // TODO: wait before activating instance?
-            mpr_sig_set_inst_data(_obj, id, 0);
             return Instance(_obj, id);
         }
         Instance instance(mpr_id id)
-        {
-            // TODO: wait before activating instance?
-            mpr_sig_set_inst_data(_obj, id, 0);
-            return Instance(_obj, id);
-        }
+            { return Instance(_obj, id); }
         Signal& reserve_instances(int num, mpr_id *ids = 0)
             { RETURN_SELF(mpr_sig_reserve_inst(_obj, num, ids, 0)); }
         Signal& reserve_instances(int num, mpr_id *ids, void **data)
@@ -1169,12 +1163,6 @@ namespace mpr {
             pub = _pub;
         }
     private:
-        union {
-            double _d;
-            float _f;
-            int _i;
-            char _c;
-        } _scalar;
         bool owned;
 
         void maybe_free()
@@ -1219,8 +1207,7 @@ namespace mpr {
         template <typename T>
         void _set(T _val)
         {
-            memcpy(&_scalar, &_val, sizeof(_scalar));
-            _set(1, (T*)&_scalar);
+            _set(1, (T*)&_val);
         }
         template <typename T, size_t N>
         void _set(std::array<T, N>& _val)

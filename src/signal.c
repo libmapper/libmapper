@@ -353,7 +353,7 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time *t)
     mpr_id_map map = mpr_dev_get_idmap_by_LID(s->dev, s->loc->group, LID);
 
     /* No instance with that id exists - need to try to activate instance and
-     * create new id map. */
+     * create new id map if necessary. */
     if ((si = _find_inst_by_id(s, LID)) || (si = _reserved_inst(s, &LID))) {
         if (!map) {
             // Claim id map locally, add id map to device and link from signal
@@ -443,16 +443,9 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time *t)
             return i;
         }
     }
-    else {
-        si = _find_inst_by_id(s, map->LID);
-        if (!si) {
-            /* TODO: Once signal groups are explicit, allow re-mapping to
-             * another instance if possible. */
-            trace("Signal %s has no instance %"PR_MPR_ID" available.\n",
-                  s->name, map->LID);
-            return -1;
-        }
-        else if (!si->active) {
+    else if (   (si = _find_inst_by_id(s, map->LID))
+             || (si = _reserved_inst(s, &map->LID))) {
+        if (!si->active) {
             si->active = 1;
             _init_inst(si);
             i = _add_idmap(s, si, map);
@@ -462,6 +455,13 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time *t)
                 h(s, MPR_SIG_INST_NEW, si->id, 0, s->type, NULL, *t);
             return i;
         }
+    }
+    else {
+        /* TODO: Once signal groups are explicit, allow re-mapping to
+         * another instance if possible. */
+        trace("Signal %s has no instance %"PR_MPR_ID" available.\n",
+              s->name, map->LID);
+        return -1;
     }
 
     RETURN_UNLESS(h, -1);

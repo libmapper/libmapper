@@ -42,36 +42,42 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     ++received;
-    if (!value || !verbose)
+    if (!verbose)
         return;
 
     const char *name = mpr_obj_get_prop_as_str(sig, MPR_PROP_NAME, NULL);
-    printf("--> destination got %s", name);
+    printf("\t\t\t\t\t   | --> signal update: %s:%2llu got", name, instance);
 
-    switch (type) {
-        case MPR_INT32: {
-            int *v = (int*)value;
-            for (int i = 0; i < length; i++) {
-                printf(" %d", v[i]);
+    if (value) {
+        switch (type) {
+            case MPR_INT32: {
+                int *v = (int*)value;
+                for (int i = 0; i < length; i++) {
+                    printf(" %2d", v[i]);
+                }
+                break;
             }
-            break;
-        }
-        case MPR_FLT: {
-            float *v = (float*)value;
-            for (int i = 0; i < length; i++) {
-                printf(" %f", v[i]);
+            case MPR_FLT: {
+                float *v = (float*)value;
+                for (int i = 0; i < length; i++) {
+                    printf(" %2f", v[i]);
+                }
+                break;
             }
-            break;
-        }
-        case MPR_DBL: {
-            double *v = (double*)value;
-            for (int i = 0; i < length; i++) {
-                printf(" %f", v[i]);
+            case MPR_DBL: {
+                double *v = (double*)value;
+                for (int i = 0; i < length; i++) {
+                    printf(" %2f", v[i]);
+                }
+                break;
             }
-            break;
+            default:
+                break;
         }
-        default:
-            break;
+    }
+    else {
+        printf(" ––––––––");
+        mpr_sig_release_inst(sig, instance, MPR_NOW);
     }
     printf("\n");
 }
@@ -265,6 +271,40 @@ int main(int argc, char ** argv)
     }
     for (Map m : graph.maps()) {
         out << "  map: " << m << std::endl;
+    }
+
+    // test API for signal instances
+    std::cout << "testing instances API" << std::endl;
+
+    int num_inst = 10;
+    mpr::Signal multisend = dev.add_sig(MPR_DIR_OUT, "multisend", 1, MPR_FLT,
+                                        0, 0, 0, &num_inst, 0, 0);
+    mpr::Signal multirecv = dev.add_sig(MPR_DIR_IN, "multirecv", 1, MPR_FLT,
+                                        0, 0, 0, &num_inst, handler, MPR_SIG_UPDATE);
+    multisend.set_prop(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
+    multirecv.set_prop(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
+    mpr::Map map2(multisend, multirecv);
+    map2.push();
+    while (!map2.ready()) {
+        dev.poll(100);
+    }
+    mpr_id id;
+    for (int i = 0; i < 200; i++) {
+        dev.poll(100);
+        id = (rand() % 10) + 5;
+        switch (rand() % 5) {
+            case 0:
+                // try to destroy an instance
+                printf("\t\t  Retiring instance %2llu --> |\n", id);
+                multisend.instance(id).release();
+                break;
+            default:
+                // try to update an instance
+                float v = (rand() % 10) * 1.0f;
+                multisend.instance(id).set_value(v);
+                printf("Sender instance %2llu updated to %2f --> |\n", id, v);
+                break;
+        }
     }
 
     // test some time manipulation
