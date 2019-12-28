@@ -899,7 +899,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     }
 done:
     mpr_list_free(links);
-    FUNC_IF(mpr_msg_free, props);
+    mpr_msg_free(props);
     return 0;
 }
 
@@ -920,6 +920,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
         }
         mpr_tbl_clear_empty(dev->obj.props.synced);
     }
+    mpr_msg_free(props);
     return 0;
 }
 
@@ -1111,6 +1112,7 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
         }
         mpr_tbl_clear_empty(sig->obj.props.synced);
     }
+    mpr_msg_free(props);
     return 0;
 }
 
@@ -1669,12 +1671,15 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
 
     // do not continue if we are not in charge of processing
     if (loc == MPR_LOC_DST) {
-        TRACE_DEV_RETURN_UNLESS(map->dst->sig->loc, 0, "ignoring /map/modify, "
-                                "slaved to remote source.\n");
+        if (!map->dst->sig->loc) {
+            trace_dev(dev, "ignoring /map/modify, slaved to remote source.\n");
+            goto done;
+        }
     }
-    else
-        TRACE_DEV_RETURN_UNLESS(map->src[0]->sig->loc, 0, "ignoring "
-                                "/map/modify, slaved to remote destination.\n");
+    else if (!map->src[0]->sig->loc) {
+        trace_dev(dev, "ignoring /map/modify, slaved to remote destination.\n");
+        goto done;
+    }
 
     int updated = mpr_map_set_from_msg(map, props, 1);
     if (updated) {
@@ -1702,6 +1707,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     }
     trace_dev(dev, "updated %d map properties.\n", updated);
 
+done:
     mpr_msg_free(props);
     mpr_tbl_clear_empty(map->obj.props.synced);
     return 0;
