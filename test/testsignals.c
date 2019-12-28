@@ -16,9 +16,10 @@
 #define num_inputs 100
 #define num_outputs 100
 
+int done = 0;
 int verbose = 1;
 int period = 100;
-
+int terminate = 0;
 int wait_ms = 10000;
 
 mpr_dev dev = 0;
@@ -38,6 +39,28 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int len,
         eprintf(" %f", v[i]);
     }
     eprintf("\n");
+}
+
+void loop()
+{
+    if (terminate) {
+        while (wait_ms > 0 && !done) {
+            printf("\rWaiting for %d ms.", wait_ms);
+            fflush(stdout);
+            mpr_dev_poll(dev, 100);
+            wait_ms -= 100;
+        }
+    }
+    else {
+        while (!done) {
+            mpr_dev_poll(dev, 100);
+        }
+    }
+}
+
+void ctrlc(int sig)
+{
+    done = 1;
 }
 
 int main(int argc, char ** argv)
@@ -60,6 +83,9 @@ int main(int argc, char ** argv)
                     case 'q':
                         verbose = 0;
                         break;
+                    case 't':
+                        terminate = 1;
+                        break;
                     case 'f':
                         period = 1;
                         break;
@@ -69,6 +95,8 @@ int main(int argc, char ** argv)
             }
         }
     }
+
+    signal(SIGINT, ctrlc);
 
     char signame[32];
 
@@ -86,7 +114,7 @@ int main(int argc, char ** argv)
     eprintf("Adding %d signals... ", num_inputs + num_outputs);
     fflush(stdout);
     int max = num_inputs > num_outputs ? num_inputs : num_outputs;
-    for (i = 0; i < max; i++) {
+    for (i = 0; i < max && !done; i++) {
         mpr_dev_poll(dev, 100);
         if (i < num_inputs) {
             snprintf(signame, 32, "in%i", i);
@@ -107,15 +135,10 @@ int main(int argc, char ** argv)
         }
     }
 
-    while (wait_ms > 0) {
-        printf("\rWaiting for %d ms.", wait_ms);
-        fflush(stdout);
-        mpr_dev_poll(dev, 100);
-        wait_ms -= 100;
-    }
+    loop();
 
     eprintf("Removing %d signals...\n", num_inputs + num_outputs);
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < 100 && !done; i++) {
         if (i < num_inputs)
             mpr_sig_free(inputs[i]);
         if (i < num_outputs)

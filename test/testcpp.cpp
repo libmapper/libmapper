@@ -274,7 +274,7 @@ int main(int argc, char ** argv)
     }
 
     // test API for signal instances
-    std::cout << "testing instances API" << std::endl;
+    out << "testing instances API" << std::endl;
 
     int num_inst = 10;
     mpr::Signal multisend = dev.add_sig(MPR_DIR_OUT, "multisend", 1, MPR_FLT,
