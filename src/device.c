@@ -74,6 +74,12 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
 {
     if (!name_prefix)
         return 0;
+    if (name_prefix[0] == '/')
+        ++name_prefix;
+    if (strchr(name_prefix, '/')) {
+        trace_dev(dev, "error: character '/' is not permitted in device name.\n");
+        return NULL;
+    }
 
     if (!net) {
         net = mapper_network_new(0, 0, 0);
@@ -94,14 +100,6 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     mapper_device_start_servers(dev, port);
 
     if (!dev->local->udp_server || !dev->local->tcp_server) {
-        mapper_device_free(dev);
-        return NULL;
-    }
-
-    if (name_prefix[0] == '/')
-        ++name_prefix;
-    if (strchr(name_prefix, '/')) {
-        trace_dev(dev, "error: character '/' is not permitted in device name.\n");
         mapper_device_free(dev);
         return NULL;
     }
