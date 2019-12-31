@@ -160,7 +160,9 @@ void print_instance_vals(mpr_sig sig)
         else
             printf("––, ");
     }
-    eprintf("\b\b ]   ");
+    if (i)
+        eprintf("\b\b ");
+    eprintf("]   ");
 }
 
 void map_sigs()
