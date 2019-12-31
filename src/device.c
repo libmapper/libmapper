@@ -85,6 +85,12 @@ void init_dev_prop_tbl(mpr_dev dev)
 mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
 {
     RETURN_UNLESS(name_prefix, 0);
+    if (name_prefix[0] == '/')
+        ++name_prefix;
+    if (strchr(name_prefix, '/')) {
+        trace_dev(dev, "error: character '/' is not permitted in device name.\n");
+        return NULL;
+    }
     if (!g) {
         g = mpr_graph_new(0);
         g->own = 0;
@@ -102,14 +108,6 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     mpr_dev_start_servers(dev);
 
     if (!g->net.server.udp || !g->net.server.tcp) {
-        mpr_dev_free(dev);
-        return NULL;
-    }
-
-    if (name_prefix[0] == '/')
-        ++name_prefix;
-    if (strchr(name_prefix, '/')) {
-        trace_dev(dev, "error: character '/' is not permitted in device name.\n");
         mpr_dev_free(dev);
         return NULL;
     }
