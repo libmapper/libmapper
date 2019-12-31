@@ -34,7 +34,7 @@ sure to consult the tutorial to get started with libmapper concepts.
  *                      type is 'i', this should be int*; if the signal type is
  *                      'f', this should be float*.  It should be an array at
  *                      least as long as the signal's length property.
- *  \param count        The number of instances of the value that are being
+ *  \param count        The number of samples of the value that are being
  *                      updated.  For non-periodic signals, this should be 0 or
  *                      1.  For periodic signals, this may indicate that a block
  *                      of values should be accepted, where the last value is

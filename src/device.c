@@ -77,7 +77,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
     if (name_prefix[0] == '/')
         ++name_prefix;
     if (strchr(name_prefix, '/')) {
-        trace_dev(dev, "error: character '/' is not permitted in device name.\n");
+        trace("error: character '/' is not permitted in device name.\n");
         return NULL;
     }
 

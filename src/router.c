@@ -161,7 +161,6 @@ void mapper_router_process_signal(mapper_router rtr, mapper_signal sig,
             mapper_local_slot dst_lslot = dst_slot->local;
 
             // also need to reset associated output memory
-            dst_lslot->history[idx].position= -1;
             memset(dst_lslot->history[idx].value, 0, dst_lslot->history_size
                    * dst_slot->signal->length * mapper_type_size(dst_slot->signal->type));
             memset(dst_lslot->history[idx].timetag, 0, dst_lslot->history_size
