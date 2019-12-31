@@ -669,8 +669,8 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
 
     if (len && val) {
         if (type != sig->type) {
-            coerced = alloca(mpr_type_get_size(sig->type) * sig->len);
-            set_coerced_val(len, type, val, sig->len, sig->type, coerced);
+            coerced = alloca(mpr_type_get_size(sig->type) * len);
+            set_coerced_val(len, type, val, len, sig->type, coerced);
         }
         // need to copy last value to signal instance memory
         size_t n = mpr_sig_get_vector_bytes(sig);

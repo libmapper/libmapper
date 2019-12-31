@@ -144,7 +144,6 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             mpr_local_slot dst_lslot = dst_slot->loc;
 
             // also need to reset associated output memory
-            dst_lslot->hist[idx].pos= -1;
             memset(dst_lslot->hist[idx].val, 0, dst_lslot->hist_size
                    * dst_slot->sig->len * mpr_type_get_size(dst_slot->sig->type));
             memset(dst_lslot->hist[idx].time, 0, dst_lslot->hist_size
