@@ -159,8 +159,8 @@ void mpr_rtr_num_inst_changed(mpr_rtr r, mpr_sig s, int size);
 
 /*! For a given signal instance, calculate mapping outputs and forward to
  *  destinations. */
-void mpr_rtr_process_sig(mpr_rtr r, mpr_sig s, int inst_idx,
-                         const void *val, int count, mpr_time t);
+void mpr_rtr_process_sig(mpr_rtr r, mpr_sig s, int inst_idx, const void *val,
+                         mpr_time t);
 
 int mpr_rtr_send_query(mpr_rtr r, mpr_sig s, mpr_time t);
 
@@ -260,14 +260,14 @@ mpr_slot mpr_map_get_slot_by_sig(mpr_map map, mpr_sig sig);
 /*! Process the signal instance value according to mapping properties.
  *  The result of this operation should be sent to the destination.
  *  \param map          The mapping process to perform.
- *  \param slot         The source slot being updated.
- *  \param instance     Index of the signal instance to process.
  *  \param typestring   Pointer to a string to receive types.
+ *  \param time         Timestamp for this update.
+ *  \param instance     Index of the signal instance to process.
  *  \return             Zero if the operation was muted, one if performed. */
-int mpr_map_perform(mpr_map map, mpr_slot slot, int inst, mpr_type *typestring);
+int mpr_map_perform(mpr_map map, mpr_type *typestring, mpr_time *time, int inst);
 
 lo_message mpr_map_build_msg(mpr_map map, mpr_slot slot, const void *val,
-                             int length, mpr_type *types, mpr_id_map idmap);
+                             mpr_type *types, mpr_id_map idmap);
 
 /*! Set a mapping's properties based on message parameters. */
 int mpr_map_set_from_msg(mpr_map map, mpr_msg msg, int override);

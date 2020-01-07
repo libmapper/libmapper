@@ -401,11 +401,9 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
 }
 
 // only called for outgoing maps
-int mpr_map_perform(mpr_map m, mpr_slot slot, int inst, mpr_type *types)
+int mpr_map_perform(mpr_map m, mpr_type *types, mpr_time *time, int inst)
 {
     int i;
-    mpr_hist from = slot->loc->hist;
-    mpr_hist to = m->dst->loc->hist;
 
     RETURN_UNLESS(MPR_STATUS_ACTIVE == m->status && !m->muted, 0);
 
@@ -416,17 +414,17 @@ int mpr_map_perform(mpr_map m, mpr_slot slot, int inst, mpr_type *types)
 
     mpr_hist src[m->num_src];
     for (i = 0; i < m->num_src; i++)
-        src[i] = &m->src[i]->loc->hist[inst];
-    return (mpr_expr_eval(m->loc->expr, src, &m->loc->expr_var[inst], &to[inst],
-                          mpr_hist_get_time_ptr(from[inst]), types));
+        src[i] = &m->src[i]->loc->hist[inst % m->src[i]->sig->num_inst];
+    return (mpr_expr_eval(m->loc->expr, src, &m->loc->expr_var[inst],
+                          &m->dst->loc->hist[inst], time, types));
 }
 
 /*! Build a value update message for a given map. */
 lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
-                             int count, mpr_type *types, mpr_id_map idmap)
+                             mpr_type *types, mpr_id_map idmap)
 {
-    int i, len = ((MPR_LOC_SRC == m->process_loc)
-                  ? m->dst->sig->len * count : slot->sig->len * count);
+    int i;
+    int len = ((MPR_LOC_SRC == m->process_loc) ? m->dst->sig->len : slot->sig->len);
     NEW_LO_MSG(msg, return 0);
 
     if (val && types) {

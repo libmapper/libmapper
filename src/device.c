@@ -87,17 +87,14 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     RETURN_UNLESS(name_prefix, 0);
     if (name_prefix[0] == '/')
         ++name_prefix;
-    if (strchr(name_prefix, '/')) {
-        trace("error: character '/' is not permitted in device name.\n");
-        return NULL;
-    }
+    TRACE_RETURN_UNLESS(!strchr(name_prefix, '/'), NULL, "error: character '/' is "
+                        "not permitted in device name.\n");
     if (!g) {
         g = mpr_graph_new(0);
         g->own = 0;
     }
 
-    mpr_dev dev;
-    dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, sizeof(mpr_dev_t));
+    mpr_dev dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, sizeof(mpr_dev_t));
     dev->obj.type = MPR_DEV;
     dev->obj.graph = g;
     dev->loc = (mpr_local_dev)calloc(1, sizeof(mpr_local_dev_t));
@@ -246,14 +243,18 @@ void mpr_dev_on_registered(mpr_dev dev)
     dev->status = MPR_STATUS_READY;
 }
 
-static int check_types(const mpr_type *types, int len, mpr_type type,
-                       int vector_len)
+static inline int check_types(const mpr_type *types, int len, mpr_type type,
+                              int vector_len)
 {
-    int i;
-    RETURN_UNLESS(len >= vector_len && len % vector_len == 0, 0);
-    for (i = 0; i < len; i++)
-        RETURN_UNLESS(types[i] == type || types[i] == MPR_NULL, 0);
-    return len / vector_len;
+    int i, vals = 0;
+    RETURN_UNLESS(len >= vector_len, -1);
+    for (i = 0; i < len; i++) {
+        if (types[i] == type)
+            ++vals;
+        else if (types[i] != MPR_NULL)
+            return -1;
+    }
+    return vals;
 }
 
 static void call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
@@ -286,7 +287,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     mpr_sig sig = (mpr_sig)data;
     mpr_dev dev;
     mpr_rtr rtr = sig->obj.graph->net.rtr;
-    int i = 0, j, k, count = 1, nulls = 0;
+    int i, val_len = 0, vals;
     int idmap_idx, slot_idx = -1;
     mpr_id GID = 0;
     mpr_id_map idmap;
@@ -301,37 +302,31 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
 
     // We need to consider that there may be properties appended to the msg
     // check length and find properties if any
-    int val_len = 0;
-    while (val_len < argc && types[val_len] != MPR_STR) {
-        // count nulls here also to save time
-        if (types[i] == MPR_NULL)
-            ++nulls;
+    while (val_len < argc && types[val_len] != MPR_STR)
         ++val_len;
-    }
-
-    int argnum = val_len;
-    while (argnum < argc) {
+    i = val_len;
+    while (i < argc) {
         // Parse any attached properties (instance ids, slot number)
-        TRACE_DEV_RETURN_UNLESS(types[argnum] == MPR_STR, 0, "error in "
+        TRACE_DEV_RETURN_UNLESS(types[i] == MPR_STR, 0, "error in "
                                 "handler_sig: unexpected argument type.\n")
-        if (strcmp(&argv[argnum]->s, mpr_prop_as_str(PROP(INST), 0)) == 0
-            && argc >= argnum + 2) {
-            TRACE_DEV_RETURN_UNLESS(types[argnum+1] == MPR_INT64, 0, "error in "
-                                "handler_sig: bad arguments for 'instance' prop.\n")
-            GID = argv[argnum+1]->i64;
-            argnum += 2;
+        if (strcmp(&argv[i]->s, mpr_prop_as_str(PROP(INST), 0)) == 0
+            && argc >= i + 2) {
+            TRACE_DEV_RETURN_UNLESS(types[i+1] == MPR_INT64, 0, "error in "
+                                    "handler_sig: bad arguments for 'instance' prop.\n")
+            GID = argv[i+1]->i64;
+            i += 2;
         }
-        else if (strcmp(&argv[argnum]->s, mpr_prop_as_str(PROP(SLOT), 0)) == 0
-                 && argc >= argnum + 2) {
-            TRACE_DEV_RETURN_UNLESS(types[argnum+1] == MPR_INT32, 0, "error in "
+        else if (strcmp(&argv[i]->s, mpr_prop_as_str(PROP(SLOT), 0)) == 0
+                 && argc >= i + 2) {
+            TRACE_DEV_RETURN_UNLESS(types[i+1] == MPR_INT32, 0, "error in "
                                     "handler_sig: bad arguments for 'slot' prop.\n")
-            slot_idx = argv[argnum+1]->i32;
-            argnum += 2;
+            slot_idx = argv[i+1]->i32;
+            i += 2;
         }
         else {
 #ifdef DEBUG
             trace_dev(dev, "error in handler_sig: unknown property name '%s'.\n",
-                      &argv[argnum]->s);
+                      &argv[i]->s);
 #endif
             return 0;
         }
@@ -348,16 +343,16 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
         TRACE_DEV_RETURN_UNLESS(map->loc->expr, 0, "error in handler_sig: "
                                 "missing expression.\n");
         if (map->process_loc == MPR_LOC_DST)
-            count = check_types(types, val_len, slot->sig->type, slot->sig->len);
+            vals = check_types(types, val_len, slot->sig->type, slot->sig->len);
         else {
             // value has already been processed at source device
             map = 0;
-            count = check_types(types, val_len, sig->type, sig->len);
+            vals = check_types(types, val_len, sig->type, sig->len);
         }
     }
     else
-        count = check_types(types, val_len, sig->type, sig->len);
-    RETURN_UNLESS(count, 0);
+        vals = check_types(types, val_len, sig->type, sig->len);
+    RETURN_UNLESS(vals >= 0, 0);
 
     // TODO: optionally discard out-of-order messages
     // requires timebase sync for many-to-one mappings or local updates
@@ -370,7 +365,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
         if (idmap_idx < 0) {
             // no instance found with this map
             // Don't activate instance just to release it again
-            RETURN_UNLESS(nulls < val_len * count, 0);
+            RETURN_UNLESS(vals, 0);
             // otherwise try to init reserved/stolen instance with device map
             idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, &t);
             TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no instances available"
@@ -379,7 +374,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
         else if (sig->loc->idmaps[idmap_idx].status & RELEASED_LOCALLY) {
             /* map was already released locally, we are only interested
              * in release messages */
-            if (count == 1 && nulls == val_len) {
+            if (0 == vals) {
                 // we can clear signal's reference to map
                 idmap = sig->loc->idmaps[idmap_idx].map;
                 sig->loc->idmaps[idmap_idx].map = 0;
@@ -404,191 +399,150 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     float diff = mpr_time_get_diff(t, si->time);
     idmap = sig->loc->idmaps[idmap_idx].map;
 
-    int size = (slot ? mpr_type_get_size(slot->sig->type) : mpr_type_get_size(sig->type));
-    if (rtr->buffer_size < count * val_len * size) {
-        if (0 == rtr->buffer_size)
-            rtr->buffer_size = 1;
-        while (rtr->buffer_size < count * val_len * size)
-            rtr->buffer_size *= 2;
-        rtr->buffer = realloc(rtr->buffer, rtr->buffer_size);
-    }
-    void *buffer = rtr->buffer;
-    int vals, out_count = 0, active = 1;
+    int size = mpr_type_get_size(slot ? slot->sig->type : sig->type);
+    int active = 1;
 
     if (map) {
         mpr_local_slot slot_loc = slot->loc;
-        for (i = 0, k = 0; i < count; i++) {
-            vals = 0;
-            for (j = 0; j < slot->sig->len; j++, k++)
-                vals += (types[k] != MPR_NULL);
-            /* partial vector updates not allowed in convergent mappings
-             * since slot value mirrors remote signal value. */
-            // vals is allowed to equal 0 or sig->len (for release)
-            if (vals == 0) {
-                TRACE_DEV_RETURN_UNLESS(count>=0, 0, "error in handler_sig: release "
-                                        "cannot be embedded in multi-count update");
-                if (GID) {
-                    // TODO: mark SLOT status as remotely released rather than map
-                    sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
-                    --idmap->GID_refcount;
-                    if (idmap->GID_refcount <= 0 && idmap->LID_refcount <= 0)
-                        mpr_dev_remove_idmap(dev, sig->loc->group, idmap);
-                    call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
-                }
-                /* Do not call mpr_rtr_process_sig() here, since we don't know if
-                 * the local signal instance will actually be released. */
-                call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
-                if (map->process_loc != MPR_LOC_DST)
-                    continue;
-                /* Reset memory for corresponding source slot. */
-                memset(slot_loc->hist[id].val, 0,
-                       slot_loc->hist_size * slot->sig->len * size);
-                memset(slot_loc->hist[id].time, 0,
-                       slot_loc->hist_size * sizeof(mpr_time));
-                slot_loc->hist[id].pos = -1;
-                continue;
+        /* partial vector updates not allowed in convergent mappings since slot
+         * value mirrors remote signal value. vals is allowed to equal 0 or
+         * sig->len (for release) */
+        if (vals == 0) {
+            if (GID) {
+                // TODO: mark SLOT status as remotely released rather than map
+                sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
+                --idmap->GID_refcount;
+                if (idmap->GID_refcount <= 0 && idmap->LID_refcount <= 0)
+                    mpr_dev_remove_idmap(dev, sig->loc->group, idmap);
+                call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
             }
-            else if (vals != slot->sig->len) {
-#ifdef DEBUG
-                trace_dev(dev, "error in handler_sig: partial vector update "
-                          "applied to convergent mapping slot.");
-#endif
+            /* Do not call mpr_rtr_process_sig() here, since we don't know if
+             * the local signal instance will actually be released. */
+            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
+            if (map->process_loc != MPR_LOC_DST)
                 return 0;
+            /* Reset memory for corresponding source slot. */
+            memset(slot_loc->hist[id].val, 0,
+                   slot_loc->hist_size * slot->sig->len * size);
+            memset(slot_loc->hist[id].time, 0,
+                   slot_loc->hist_size * sizeof(mpr_time));
+            slot_loc->hist[id].pos = -1;
+            return 0;
+        }
+        else if (vals != slot->sig->len) {
+#ifdef DEBUG
+            trace_dev(dev, "error in handler_sig: partial vector update "
+                      "applied to convergent mapping slot.");
+#endif
+            return 0;
+        }
+        else if (GID && !active) {
+            // may need to activate instance
+            idmap_idx = mpr_sig_find_inst_with_GID(sig, GID, RELEASED_REMOTELY);
+            if (idmap_idx < 0) {
+                // no instance found with this map
+                // Don't activate instance just to release it again
+                RETURN_UNLESS(vals, 0);
+                // otherwise try to init reserved/stolen instance with device map
+                idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, &t);
+                TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no local instances "
+                                        "available for global instance id %"
+                                        PR_MPR_ID" (2)\n", GID)
             }
-            else if (GID && !active) {
-                // may need to activate instance
-                idmap_idx = mpr_sig_find_inst_with_GID(sig, GID, RELEASED_REMOTELY);
-                if (idmap_idx < 0) {
-                    // no instance found with this map
-                    // Don't activate instance just to release it again
-                    RETURN_UNLESS(nulls < val_len * count, 0);
-                    // otherwise try to init reserved/stolen instance with device map
-                    idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, &t);
-                    TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no local instances "
-                                            "available for global instance id %"
-                                            PR_MPR_ID" (2)\n", GID)
-                }
-            }
+        }
+        mpr_type typestring[map->dst->sig->len];
+        /* If this signal slot is non-instanced but the map has other instanced
+         * sources we will need to update all of the map instances. */
+        int all = (!slot->sig->use_inst && map->num_src > 1
+                   && map->loc->num_var_inst > 1);
+        if (all)
+            idmap_idx = 0;
+        for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
+            // check if map instance is active
+            if (all && !sig->loc->idmaps[idmap_idx].inst)
+                continue;
+            id = sig->loc->idmaps[idmap_idx].inst->idx;
+
+            /* TODO: would be more efficient not to allocate memory for multiple
+             * instances if slot is single-instance. */
             slot_loc->hist[id].pos = ((slot_loc->hist[id].pos + 1)
                                       % slot_loc->hist[id].size);
-            memcpy(mpr_hist_get_val_ptr(slot_loc->hist[id]), argv[i*count],
+            memcpy(mpr_hist_get_val_ptr(slot_loc->hist[id]), argv[0],
                    size * slot->sig->len);
             memcpy(mpr_hist_get_time_ptr(slot_loc->hist[id]), &t, sizeof(mpr_time));
-            if (slot->causes_update) {
-                mpr_type typestring[map->dst->sig->len];
-                mpr_hist src[map->num_src];
-                for (j = 0; j < map->num_src; j++)
-                    src[j] = &map->src[j]->loc->hist[id];
-                if (!mpr_expr_eval(map->loc->expr, src, &map->loc->expr_var[id],
-                                   &map->dst->loc->hist[id], &t, (mpr_type*)types))
-                    continue;
-                // TODO: check if expression has triggered instance-release
-                void *result = mpr_hist_get_val_ptr(map->dst->loc->hist[id]);
-                vals = 0;
-                for (j = 0; j < map->dst->sig->len; j++) {
-                    if (typestring[j] == MPR_NULL)
-                        continue;
-                    memcpy(si->val + j * size, result + j * size, size);
-                    si->has_val_flags[j / 8] |= 1 << (j % 8);
-                    ++vals;
-                }
-                if (vals == 0) {
-                    // try to release instance
-                    // first call handler with value buffer
-                    if (out_count) {
-                        if (!(sig->dir & MPR_DIR_OUT))
-                            mpr_rtr_process_sig(rtr, sig, idmap_idx, buffer,
-                                                out_count, t);
-                        call_handler(sig, MPR_SIG_UPDATE, idmap->LID,
-                                     sig->len * out_count, buffer, &t, diff);
-                        out_count = 0;
-                    }
-                    // next call handler with release
-                    if (GID) {
-                        sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
-                        --idmap->GID_refcount;
-                        call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
-                    }
-                    /* Do not call mpr_rtr_process_sig() here, since we
-                     * don't know if the local signal instance will actually be
-                     * released. */
-                    call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
-                    // mark instance as possibly released
-                    active = 0;
-                    continue;
-                }
-                if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len / 8 + 1)==0)
-                    si->has_val = 1;
-                if (si->has_val) {
-                    memcpy(&si->time, &t, sizeof(mpr_time));
-                    if (count > 1) {
-                        memcpy(buffer + out_count * sig->len * size, si->val, size);
-                        ++out_count;
-                    }
-                    else {
-                        if (!(sig->dir & MPR_DIR_OUT))
-                            mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, 1, t);
-                        call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
-                                     si->val, &t, diff);
-                    }
-                }
-            }
-            else
+            if (!slot->causes_update)
                 continue;
-        }
-        if (out_count) {
-            if (!(sig->dir & MPR_DIR_OUT))
-                mpr_rtr_process_sig(rtr, sig, idmap_idx, buffer, out_count, t);
-            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len * out_count,
-                         buffer, &t, diff);
+
+            if (!mpr_map_perform(map, typestring, &t, id))
+                continue;
+
+            // TODO: check if expression has triggered instance-release
+            void *result = mpr_hist_get_val_ptr(map->dst->loc->hist[id]);
+
+            vals = 0;
+            for (i = 0; i < map->dst->sig->len; i++) {
+                if (typestring[i] == MPR_NULL)
+                    continue;
+                memcpy(si->val + i * size, result + i * size, size);
+                si->has_val_flags[i / 8] |= 1 << (i % 8);
+                ++vals;
+            }
+
+            if (vals == 0) {
+            // try to release instance
+                if (GID) {
+                    sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
+                    --idmap->GID_refcount;
+                    call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
+                }
+                /* Do not call mpr_rtr_process_sig() here, since we don't know
+                 * if the local signal instance will actually be released. */
+                call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
+                // mark instance as possibly released
+                active = 0;
+                continue;
+            }
+            if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len / 8 + 1)==0)
+                si->has_val = 1;
+            if (si->has_val) {
+                memcpy(&si->time, &t, sizeof(mpr_time));
+                if (!(sig->dir & MPR_DIR_OUT))
+                    mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, t);
+                call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
+                             si->val, &t, diff);
+            }
+
+            if (!all)
+                break;
         }
     }
     else {
-        for (i = 0, k = 0; i < count; i++) {
-            vals = 0;
-            for (j = 0; j < sig->len; j++, k++) {
-                if (types[k] == MPR_NULL)
-                    continue;
-                memcpy(si->val + j * size, argv[k], size);
-                si->has_val_flags[j / 8] |= 1 << (j % 8);
-                ++vals;
+        if (vals == 0) {
+            if (GID) {
+                sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
+                --idmap->GID_refcount;
+                call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
             }
-            if (vals == 0) {
-                TRACE_DEV_RETURN_UNLESS(count == 1, 0, "error in handler_sig: "
-                                        "instance release cannot be embedded in "
-                                        "multi-count update");
-                if (GID) {
-                    sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
-                    --idmap->GID_refcount;
-                    call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
-                }
-                /* Do not call mpr_rtr_process_sig() here, since we don't
-                 * know if the local signal instance will actually be released. */
-                call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
-                return 0;
-            }
-            if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len/8+1)==0) {
-                si->has_val = 1;
-            }
-            if (si->has_val) {
-                memcpy(&si->time, &t, sizeof(mpr_time));
-                if (count > 1) {
-                    memcpy(buffer + out_count * sig->len * size, si->val, size);
-                    ++out_count;
-                }
-                else {
-                    if (!(sig->dir & MPR_DIR_OUT))
-                        mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, 1, t);
-                    call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
-                                 si->val, &t, diff);
-                }
-            }
+            /* Do not call mpr_rtr_process_sig() here, since we don't know if
+             * the local signal instance will actually be released. */
+            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
+            return 0;
         }
-        if (out_count) {
+        for (i = 0; i < sig->len; i++) {
+            if (types[i] == MPR_NULL)
+                continue;
+            memcpy(si->val + i * size, argv[i], size);
+            si->has_val_flags[i / 8] |= 1 << (i % 8);
+        }
+        if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len/8+1)==0) {
+            si->has_val = 1;
+        }
+        if (si->has_val) {
+            memcpy(&si->time, &t, sizeof(mpr_time));
             if (!(sig->dir & MPR_DIR_OUT))
-                mpr_rtr_process_sig(rtr, sig, idmap_idx, buffer, out_count, t);
-            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len * out_count,
-                         buffer, &t, diff);
+                mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, t);
+            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
+                         si->val, &t, diff);
         }
     }
     return 0;

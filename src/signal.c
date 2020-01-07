@@ -667,6 +667,8 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
     mpr_sig_inst si = sig->loc->idmaps[idx].inst;
     void *coerced = (void*)val;
 
+    // TODO: if len > sig->len, start nested bundle
+
     if (len && val) {
         if (type != sig->type) {
             coerced = alloca(mpr_type_get_size(sig->type) * len);
@@ -692,8 +694,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
         memcpy(&si->time, &time, sizeof(mpr_time));
     }
     mpr_sig_update_timing_stats(sig, diff);
-    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, coerced,
-                        len / sig->len, si->time);
+    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, coerced, si->time);
 }
 
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id, mpr_time time)
@@ -712,7 +713,7 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idx, mpr_time t)
     if (mpr_time_get_is_now(&t))
         mpr_time_set(&t, MPR_NOW);
 
-    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, 0, 0, t);
+    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, 0, t);
 
     --smap->map->LID_refcount;
     if (smap->map->LID_refcount <= 0 && smap->map->GID_refcount <= 0) {

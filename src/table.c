@@ -495,6 +495,8 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
     }
 
     RETURN_UNLESS(val || masked == MPR_PROP_EXTRA);
+    RETURN_UNLESS(masked != MPR_PROP_DEV && masked != MPR_PROP_SIG
+                  && masked != MPR_PROP_SLOT);
 
     if (rec->prop & PROP_ADD) {
         snprintf(temp, 256, "+");
