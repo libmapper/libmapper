@@ -375,7 +375,7 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     int value_len = 0;
     while (value_len < argc && types[value_len] != 's' && types[value_len] != 'S') {
         // count nulls here also to save time
-        if (types[i] == 'N')
+        if (types[value_len] == 'N')
             ++nulls;
         ++value_len;
     }
