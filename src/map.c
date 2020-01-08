@@ -1330,7 +1330,10 @@ static void apply_mode(mapper_map map)
                     }
                     int offset = 0, dest_vec_len;
                     if (max_vec_len < map->destination.signal->length) {
-                        snprintf(expr_str, 256, "y[0:%d]=(", max_vec_len-1);
+                        if (1 == max_vec_len)
+                            snprintf(expr_str, 256, "y[0]=(");
+                        else
+                            snprintf(expr_str, 256, "y[0:%d]=(", max_vec_len-1);
                         offset = strlen(expr_str);
                         dest_vec_len = max_vec_len;
                     }
@@ -1341,8 +1344,12 @@ static void apply_mode(mapper_map map)
                     }
                     for (i = 0; i < map->num_sources; i++) {
                         if (map->sources[i]->signal->length > dest_vec_len) {
-                            snprintf(expr_str + offset, 256 - offset,
-                                     "x%d[0:%d]+", i, dest_vec_len-1);
+                            if (1 == dest_vec_len)
+                                snprintf(expr_str + offset, 256 - offset,
+                                         "x%d[0]+", i);
+                            else
+                                snprintf(expr_str + offset, 256 - offset,
+                                         "x%d[0:%d]+", i, dest_vec_len-1);
                             offset = strlen(expr_str);
                         }
                         else if (map->sources[i]->signal->length < dest_vec_len) {
