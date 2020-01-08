@@ -788,7 +788,10 @@ static void apply_expr(mpr_map m)
         }
         int offset = 0, dst_vec_len;
         if (max_vec_len < m->dst->sig->len) {
-            snprintf(expr_str, MAX_LEN, "y[0:%d]=(", max_vec_len-1);
+            if (1 == max_vec_len)
+                snprintf(expr_str, MAX_LEN, "y[0]=(");
+            else
+                snprintf(expr_str, MAX_LEN, "y[0:%d]=(", max_vec_len-1);
             offset = strlen(expr_str);
             dst_vec_len = max_vec_len;
         }
@@ -799,8 +802,11 @@ static void apply_expr(mpr_map m)
         }
         for (i = 0; i < m->num_src; i++) {
             if (m->src[i]->sig->len > dst_vec_len) {
-                snprintf(expr_str + offset, MAX_LEN - offset,
-                         "x%d[0:%d]+", i, dst_vec_len-1);
+                if (1 == dst_vec_len)
+                    snprintf(expr_str + offset, MAX_LEN - offset, "x%d[0]+", i);
+                else
+                    snprintf(expr_str + offset, MAX_LEN - offset, "x%d[0:%d]+",
+                             i, dst_vec_len-1);
                 offset = strlen(expr_str);
             }
             else if (m->src[i]->sig->len < dst_vec_len) {

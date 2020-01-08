@@ -178,11 +178,10 @@ int mpr_list_get_size(mpr_list list);
 /*! @defgroup signals Signals
 
     @{ Signals define inputs or outputs for devices.  A signal consists of a
-       scalar or vector value of some integer or floating-point type.  A
-       mpr_sig is created by adding an input or output to a device.  It
-       can optionally be provided with some metadata such as a signal's range,
-       unit, or other properties.  Signals can be mapped by creating maps
-       through a GUI. */
+       scalar or vector value of some integer or floating-point type.  A signal
+       is created by adding an input or output to a device.  It can optionally
+       be provided with some metadata such as a signal's range, unit, or other
+       properties.  Signals can be mapped by creating maps through a GUI. */
 
 /*! A signal handler function can be called whenever a signal value changes.
  *  \param sig          The signal that has been updated.
