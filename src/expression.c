@@ -1575,7 +1575,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         else
                             {FAIL_IF(tok.i >= in_vec_len,
                                      "Index exceeds input vector length.");}
-                        {FAIL_IF(tok.i <= out[out_idx].vec_idx,
+                        {FAIL_IF(tok.i < out[out_idx].vec_idx,
                                  "Malformed vector index.");}
                         out[out_idx].vec_len =
                             tok.i - out[out_idx].vec_idx + 1;
