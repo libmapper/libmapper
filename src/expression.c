@@ -1883,7 +1883,7 @@ mapper_expr mapper_expr_new_from_string(const char *str, int num_inputs,
                         }
                         else if (tok.i >= input_vector_length)
                             {FAIL("Index exceeds input vector length.");}
-                        if (tok.i <= outstack[outstack_index].vector_index)
+                        if (tok.i < outstack[outstack_index].vector_index)
                             {FAIL("Malformed vector index.");}
                         outstack[outstack_index].vector_length =
                             tok.i - outstack[outstack_index].vector_index + 1;
