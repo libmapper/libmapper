@@ -175,7 +175,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
     struct ifaddrs *ifaphead;
     struct ifaddrs *ifap;
     struct ifaddrs *iflo=0, *ifchosen=0;
-    RETURN_UNLESS(getifaddrs(&ifaphead) == 0, 1);
+    RETURN_UNLESS(0 == getifaddrs(&ifaphead), 1);
 
     ifap = ifaphead;
     while (ifap) {
@@ -188,10 +188,10 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
         /* Note, we could also check for IFF_MULTICAST-- however this is the
          * data-sending port, not the libmpr bus port. */
 
-        if (sa->sin_family == AF_INET && ifap->ifa_flags & IFF_UP
+        if (AF_INET == sa->sin_family && ifap->ifa_flags & IFF_UP
             && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0) {
             ifchosen = ifap;
-            if (pref && strcmp(ifap->ifa_name, pref)==0)
+            if (pref && 0 == strcmp(ifap->ifa_name, pref))
                 break;
             else if (ifap->ifa_flags & IFF_LOOPBACK)
                 iflo = ifap;
@@ -229,15 +229,15 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
         paa = realloc(paa, size);
         rc = GetAdaptersAddresses(AF_INET, 0, 0, paa, &size);
     }
-    RETURN_UNLESS(rc == ERROR_SUCCESS, 2);
+    RETURN_UNLESS(ERROR_SUCCESS == rc, 2);
 
     PIP_ADAPTER_ADDRESSES loaa=0, aa = paa;
     PIP_ADAPTER_UNICAST_ADDRESS lopua=0;
-    while (aa && rc==ERROR_SUCCESS) {
+    while (aa && ERROR_SUCCESS == rc) {
         PIP_ADAPTER_UNICAST_ADDRESS pua = aa->FirstUnicastAddress;
         // Skip adapters that are not "Up".
-        if (pua && aa->OperStatus == IfOperStatusUp) {
-            if (aa->IfType == IF_TYPE_SOFTWARE_LOOPBACK) {
+        if (pua && IfOperStatusUp == aa->OperStatus) {
+            if (IF_TYPE_SOFTWARE_LOOPBACK == aa->IfType) {
                 loaa = aa;
                 lopua = pua;
             }
@@ -284,7 +284,7 @@ static void seed_srand()
 #ifndef WIN32
     FILE *f = fopen("/dev/urandom", "rb");
     if (f) {
-        if (fread(&s, 4, 1, f)==1) {
+        if (1 == fread(&s, 4, 1, f)) {
             srand(s);
             fclose(f);
             return;
@@ -409,7 +409,7 @@ void mpr_net_send(mpr_net net)
 #if FORCE_COMMS_TO_BUS
     lo_send_bundle_from(net->addr.bus, net->server.mesh, net->bundle);
 #else
-    if (net->addr.dst == BUNDLE_DST_SUBSCRIBERS) {
+    if (BUNDLE_DST_SUBSCRIBERS == net->addr.dst) {
         mpr_subscriber *sub = &net->addr.dev->loc->subscribers;
         mpr_time t;
         if (*sub)
@@ -430,7 +430,7 @@ void mpr_net_send(mpr_net net)
             sub = &(*sub)->next;
         }
     }
-    else if (net->addr.dst == BUNDLE_DST_BUS)
+    else if (BUNDLE_DST_BUS == net->addr.dst)
         lo_send_bundle_from(net->addr.bus, net->server.mesh, net->bundle);
     else
         lo_send_bundle_from(net->addr.dst, net->server.mesh, net->bundle);
@@ -771,7 +771,7 @@ static int handler_who(const char *path, const char *types, lo_arg **av, int ac,
 static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac && types[0] == MPR_STR, 0);
+    RETURN_UNLESS(ac && MPR_STR == types[0], 0);
     mpr_net net = (mpr_net)user;
 #ifdef DEBUG
     mpr_dev dev = net->devs ? net->devs[0] : 0;
@@ -858,7 +858,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
             if (!rs->slots[i])
                 continue;
             mpr_map map = rs->slots[i]->map;
-            if (rs->slots[i]->dir == MPR_DIR_OUT) {
+            if (MPR_DIR_OUT == rs->slots[i]->dir) {
                 // only send /mapTo once even if we have multiple local sources
                 if (map->loc->one_src && (rs->slots[i] != map->src[0]))
                     continue;
@@ -909,7 +909,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac >= 2 && types[0] == MPR_STR, 0);
+    RETURN_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac >= 2 && MPR_STR == types[0], 0);
     mpr_msg props = mpr_msg_parse_props(ac, types, av);
     trace_dev(dev, "got /%s/modify + %d properties.\n", path, props->num_atoms);
     if (mpr_dev_set_from_msg(dev, props)) {
@@ -928,7 +928,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
 static int handler_logout(const char *path, const char *types, lo_arg **av,
                           int ac, lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac && types[0] == MPR_STR, 0);
+    RETURN_UNLESS(ac && MPR_STR == types[0], 0);
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0, remote;
     mpr_graph gph = net->graph;
@@ -957,7 +957,7 @@ static int handler_logout(const char *path, const char *types, lo_arg **av,
 
         strtok(name, ".");
         ++name;
-        if (strcmp(name, dev->prefix) == 0) {
+        if (0 == strcmp(name, dev->prefix)) {
             // If device name matches and ordinal is within my block, free it
             diff = ordinal - dev->loc->ordinal.val - 1;
             if (diff >= 0 && diff < 8)
@@ -992,36 +992,36 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **av,
     for (i = 0; i < ac; i++) {
         if (types[i] != MPR_STR)
             break;
-        else if (strcmp(&av[i]->s, "all")==0)
+        else if (0 == strcmp(&av[i]->s, "all"))
             flags = MPR_OBJ;
-        else if (strcmp(&av[i]->s, "device")==0)
+        else if (0 == strcmp(&av[i]->s, "device"))
             flags |= MPR_DEV;
-        else if (strcmp(&av[i]->s, "signals")==0)
+        else if (0 == strcmp(&av[i]->s, "signals"))
             flags |= MPR_SIG;
-        else if (strcmp(&av[i]->s, "inputs")==0)
+        else if (0 == strcmp(&av[i]->s, "inputs"))
             flags |= MPR_SIG_IN;
-        else if (strcmp(&av[i]->s, "outputs")==0)
+        else if (0 == strcmp(&av[i]->s, "outputs"))
             flags |= MPR_SIG_OUT;
-        else if (strcmp(&av[i]->s, "maps")==0)
+        else if (0 == strcmp(&av[i]->s, "maps"))
             flags |= MPR_MAP;
-        else if (strcmp(&av[i]->s, "maps_in")==0)
+        else if (0 == strcmp(&av[i]->s, "maps_in"))
             flags |= MPR_MAP_IN;
-        else if (strcmp(&av[i]->s, "maps_out")==0)
+        else if (0 == strcmp(&av[i]->s, "maps_out"))
             flags |= MPR_MAP_OUT;
-        else if (strcmp(&av[i]->s, "@version")==0) {
+        else if (0 == strcmp(&av[i]->s, "@version")) {
             // next argument is last device version recorded by subscriber
             ++i;
-            if (i < ac && types[i] == MPR_INT32)
+            if (i < ac && MPR_INT32 == types[i])
                 version = av[i]->i;
         }
-        else if (strcmp(&av[i]->s, "@lease")==0) {
+        else if (0 == strcmp(&av[i]->s, "@lease")) {
             // next argument is lease timeout in seconds
             ++i;
-            if (types[i] == MPR_INT32)
+            if (MPR_INT32 == types[i])
                 timeout_seconds = av[i]->i;
-            else if (types[i] == MPR_FLT)
+            else if (MPR_FLT == types[i])
                 timeout_seconds = (int)av[i]->f;
-            else if (types[i] == MPR_DBL)
+            else if (MPR_DBL == types[i])
                 timeout_seconds = (int)av[i]->d;
             else
                 {trace_dev(dev, "error parsing subscription lease prop.\n");}
@@ -1037,7 +1037,7 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **av,
 static int handler_sig(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac >= 2 && types[0] == MPR_STR, 1);
+    RETURN_UNLESS(ac >= 2 && MPR_STR == types[0], 1);
     mpr_net net = (mpr_net)user;
     const char *full_sig_name = &av[0]->s;
     char *signamep, *devnamep;
@@ -1069,8 +1069,8 @@ static int handler_sig(const char *path, const char *types, lo_arg **av, int ac,
 static int prefix_cmp(const char *str1, const char *str2, const char **rest)
 {
     // skip first slash
-    str1 += (str1[0] == '/');
-    str2 += (str2[0] == '/');
+    str1 += ('/' == str1[0]);
+    str2 += ('/' == str2[0]);
 
     const char *s1=str1, *s2 = str2;
 
@@ -1093,7 +1093,7 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac > 1 && types[0] == MPR_STR, 0);
+    RETURN_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac > 1 && MPR_STR == types[0], 0);
 
     // retrieve signal
     mpr_sig sig = mpr_dev_get_sig_by_name(dev, &av[0]->s);
@@ -1106,7 +1106,7 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
     if (mpr_sig_set_from_msg(sig, props)) {
         if (dev->loc->subscribers) {
             trace_dev(dev, "informing subscribers (SIGNAL)\n");
-            int dir = sig->dir == MPR_DIR_IN ? MPR_SIG_IN : MPR_SIG_OUT;
+            int dir = (MPR_DIR_IN == sig->dir) ? MPR_SIG_IN : MPR_SIG_OUT;
             mpr_net_use_subscribers(net, dev, dir);
             mpr_sig_send_state(sig, MSG_SIG);
         }
@@ -1120,7 +1120,7 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
 static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
                                int ac, lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac && types[0] == MPR_STR, 1);
+    RETURN_UNLESS(ac && MPR_STR == types[0], 1);
     mpr_net net = (mpr_net)user;
     const char *full_sig_name = &av[0]->s;
     char *signamep, *devnamep;
@@ -1144,15 +1144,15 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
 static int handler_name(const char *path, const char *types, lo_arg **av,
                         int ac, lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac && types[0] == MPR_STR, 0);
+    RETURN_UNLESS(ac && MPR_STR == types[0], 0);
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
     int ordinal, diff, temp_id = -1, hint = 0;
     char *name = &av[0]->s;
     if (ac > 1) {
-        if (types[1] == MPR_INT32)
+        if (MPR_INT32 == types[1])
             temp_id = av[1]->i;
-        if (types[2] == MPR_INT32)
+        if (MPR_INT32 == types[2])
             hint = av[2]->i;
     }
 
@@ -1168,7 +1168,7 @@ static int handler_name(const char *path, const char *types, lo_arg **av,
         RETURN_UNLESS(ordinal >= 0, 0);
 
         // If device name matches
-        if (strcmp(name, dev->prefix) == 0) {
+        if (0 == strcmp(name, dev->prefix)) {
             // if id is locked and registered id is within my block, store it
             diff = ordinal - dev->loc->ordinal.val - 1;
             if (diff >= 0 && diff < 8)
@@ -1265,13 +1265,13 @@ static int parse_sig_names(const char *types, lo_arg **av, int ac, int *src_idx,
     // protocol: /map src1 ... srcN -> dst OR /map dst <- src1 ... srcN
     RETURN_UNLESS(!strncmp(types, "sss", 3), 0);
     int i, num_src = 0;
-    if (strcmp(&av[1]->s, "<-") == 0) {
+    if (0 == strcmp(&av[1]->s, "<-")) {
         *src_idx = 2;
         *dst_idx = 0;
         if (ac > 2) {
             i = 2;
-            while (i < ac && (types[i] == MPR_STR)) {
-                if ((&av[i]->s)[0] == '@')
+            while (i < ac && (MPR_STR == types[i])) {
+                if ('@' == (&av[i]->s)[0])
                     break;
                 else
                     ++num_src;
@@ -1285,12 +1285,12 @@ static int parse_sig_names(const char *types, lo_arg **av, int ac, int *src_idx,
         *src_idx = 0;
         *dst_idx = 1;
         i = 1;
-        while (i < ac && (types[i] == MPR_STR)) {
-            if ((&av[i]->s)[0] == '@')
+        while (i < ac && (MPR_STR == types[i])) {
+            if ('@' == (&av[i]->s)[0])
                 break;
-            else if ((strcmp(&av[i]->s, "->") == 0)
+            else if ((0 == strcmp(&av[i]->s, "->"))
                      && ac > (i+1)
-                     && (types[i+1] == MPR_STR)
+                     && (MPR_STR == types[i+1])
                      && (&av[i+1]->s)[0] != '@') {
                 num_src = i;
                 *dst_idx = i+1;
@@ -1327,10 +1327,10 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
     for (i = 3; i < ac; i++) {
         if (types[i] != MPR_STR)
             continue;
-        if (strcmp(&av[i]->s, "@id")==0)
+        if (0 == strcmp(&av[i]->s, "@id"))
             break;
     }
-    if (i < ac && types[++i] == MPR_INT64) {
+    if (i < ac && MPR_INT64 == types[++i]) {
         mpr_obj obj = mpr_graph_get_obj(net->graph, MPR_MAP, av[i]->i64);
         trace_graph("%s map with id %"PR_MPR_ID"\n",
                     obj ? "found" : "couldn't find", av[i]->i64);
@@ -1426,12 +1426,6 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
     if (map->loc->is_local_only) {
         trace_dev(dev, "map references only local signals... activating.\n");
         map->status = MPR_STATUS_ACTIVE;
-        ++dev->num_maps_out;
-        ++dev->num_maps_in;
-
-        ++map->dst->sig->num_maps_in;
-        for (i = 0; i < map->num_src; i++)
-            ++map->src[i]->sig->num_maps_out;
 
         // Inform subscribers
         if (dev->loc->subscribers) {
@@ -1498,7 +1492,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
 
     if (map->status >= MPR_STATUS_READY) {
         int i;
-        if (map->dst->dir == MPR_DIR_OUT) {
+        if (MPR_DIR_OUT == map->dst->dir) {
             mpr_net_use_mesh(net, map->dst->link->addr.admin);
             mpr_map_send_state(map, -1, MSG_MAPPED);
             for (i = 0; i < map->num_src; i++) {
@@ -1568,25 +1562,16 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         mpr_msg_free(props);
         return 0;
     }
-    if (map->status == MPR_STATUS_READY) {
+    if (MPR_STATUS_READY == map->status) {
         map->status = MPR_STATUS_ACTIVE;
         rc = 1;
 
-        if (map->dst->dir == MPR_DIR_OUT) {
-            ++dev->num_maps_out;
-            for (i = 0; i < map->num_src; i++) {
-                if (map->src[i]->sig->loc)
-                    ++ map->src[i]->sig->num_maps_out;
-            }
-
+        if (MPR_DIR_OUT == map->dst->dir) {
             // Inform remote destination
             mpr_net_use_mesh(net, map->dst->link->addr.admin);
             mpr_map_send_state(map, -1, MSG_MAPPED);
         }
         else {
-            ++dev->num_maps_in;
-            ++map->dst->sig->num_maps_in;
-
             // Inform remote sources
             for (i = 0; i < map->num_src; i++) {
                 mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
@@ -1601,7 +1586,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
 
             trace_dev(dev, "informing subscribers (SIGNAL)\n");
             mpr_net_use_subscribers(net, dev, MPR_SIG);
-            if (map->dst->dir == MPR_DIR_OUT) {
+            if (MPR_DIR_OUT == map->dst->dir) {
                 for (i = 0; i < map->num_src; i++) {
                     if (map->src[i]->sig->loc)
                         mpr_sig_send_state(map->src[i]->sig, MSG_SIG);
@@ -1616,7 +1601,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         if (mpr_obj_get_prop_as_i32(&map->obj, MPR_PROP_IS_LOCAL, 0)
             && dev && dev->loc && dev->loc->subscribers) {
             trace_dev(dev, "informing subscribers (MAPPED)\n")
-            int dir = map->dst->dir ? MPR_DIR_OUT : MPR_DIR_IN;
+            int dir = (MPR_DIR_OUT == map->dst->dir) ? MPR_MAP_OUT : MPR_MAP_IN;
             mpr_net_use_subscribers(net, dev, dir);
             mpr_map_send_state(map, -1, MSG_MAPPED);
         }
@@ -1670,7 +1655,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
         loc = MPR_LOC_DST;
 
     // do not continue if we are not in charge of processing
-    if (loc == MPR_LOC_DST) {
+    if (MPR_LOC_DST == loc) {
         if (!map->dst->sig->loc) {
             trace_dev(dev, "ignoring /map/modify, slaved to remote source.\n");
             goto done;
@@ -1729,22 +1714,10 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
 
     // inform remote peer(s)
     if (!map->dst->loc->rsig) {
-        --dev->num_maps_out;
-        for (i = 0; i < map->num_src; i++) {
-            if (map->src[i]->sig->loc) {
-                if ((--map->src[i]->sig->num_maps_out) < 0)
-                    map->src[i]->sig->num_maps_out = 0;
-            }
-        }
-
         mpr_net_use_mesh(net, map->dst->link->addr.admin);
         mpr_map_send_state(map, -1, MSG_UNMAP);
     }
     else {
-        --dev->num_maps_in;
-        if ((--map->dst->sig->num_maps_in) < 0)
-            map->dst->sig->num_maps_in = 0;
-
         for (i = 0; i < map->num_src; i++) {
             if (map->src[i]->loc->rsig)
                 continue;
@@ -1753,6 +1726,8 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
         }
     }
 
+    mpr_rtr_remove_map(net->rtr, map);
+
     if (dev->loc->subscribers) {
         trace_dev(dev, "informing subscribers (DEVICE)\n")
         mpr_net_use_subscribers(net, dev, MPR_DEV);
@@ -1760,24 +1735,22 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
 
         trace_dev(dev, "informing subscribers (SIGNAL)\n")
         mpr_net_use_subscribers(net, dev, MPR_SIG);
-        if (map->dst->dir == MPR_DIR_OUT) {
+        if (MPR_DIR_OUT == map->dst->dir) {
             for (i = 0; i < map->num_src; i++) {
                 if (map->src[i]->sig->loc)
                     mpr_sig_send_state(map->src[i]->sig, MSG_SIG);
             }
         }
-        else {
+        else
             mpr_sig_send_state(map->dst->sig, MSG_SIG);
-        }
 
         trace_dev(dev, "informing subscribers (UNMAPPED)\n")
-        int dir = map->dst->loc->rsig ? MPR_DIR_IN : MPR_DIR_OUT;
+        int dir = map->dst->loc->rsig ? MPR_MAP_IN : MPR_MAP_OUT;
         mpr_net_use_subscribers(net, dev, dir);
         mpr_map_send_state(map, -1, MSG_UNMAPPED);
     }
 
     /* The mapping is removed. */
-    mpr_rtr_remove_map(net->rtr, map);
     mpr_graph_remove_map(net->graph, map, MPR_OBJ_REM);
     // TODO: remove empty rtr_sigs
     return 0;
@@ -1827,7 +1800,7 @@ static int handler_ping(const char *path, const char *types, lo_arg **av,
                 latency = 0;
             }
 
-            if (clk->new == 1) {
+            if (1 == clk->new) {
                 clk->offset = offset;
                 clk->latency = latency;
                 clk->jitter = 0;
@@ -1858,7 +1831,7 @@ static int handler_sync(const char *path, const char *types, lo_arg **av,
                         int ac, lo_message msg, void *user)
 {
     mpr_net net = (mpr_net)user;
-    RETURN_UNLESS(net && ac && types[0] == MPR_STR, 0);
+    RETURN_UNLESS(net && ac && MPR_STR == types[0], 0);
     mpr_graph graph = net->graph;
     mpr_dev dev = mpr_graph_get_dev_by_name(graph, &av[0]->s);
     if (dev) {

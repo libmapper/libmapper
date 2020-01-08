@@ -96,6 +96,34 @@ void mpr_rtr_num_inst_changed(mpr_rtr rtr, mpr_sig sig, int size)
     }
 }
 
+static void mpr_rtr_update_map_count(mpr_rtr rtr)
+{
+    // find associated rtr_sig
+    mpr_rtr_sig rs = rtr->sigs;
+    int i, dev_maps_in = 0, dev_maps_out = 0;
+    mpr_dev dev = 0;
+    while (rs) {
+        if (!dev)
+            dev = rs->sig->dev;
+        int sig_maps_in = 0, sig_maps_out = 0;
+        for (i = 0; i < rs->num_slots; i++) {
+            if (!rs->slots[i] || rs->slots[i]->map->status < MPR_STATUS_ACTIVE)
+                continue;
+            if (MPR_DIR_IN == rs->slots[i]->dir)
+                ++sig_maps_in;
+            else if (MPR_DIR_OUT == rs->slots[i]->dir)
+                ++sig_maps_out;
+        }
+        rs->sig->num_maps_in = sig_maps_in;
+        rs->sig->num_maps_out = sig_maps_out;
+        dev_maps_in += sig_maps_in;
+        dev_maps_out += sig_maps_out;
+        rs = rs->next;
+    }
+    dev->num_maps_in = dev_maps_in;
+    dev->num_maps_out = dev_maps_out;
+}
+
 void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                          mpr_time t)
 {
@@ -507,6 +535,8 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
         lmap->is_local_only = 1;
         map->dst->link = map->src[0]->link;
     }
+
+    mpr_rtr_update_map_count(rtr);
 }
 
 static void check_link(mpr_rtr rtr, mpr_link link)
@@ -635,6 +665,7 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
     }
     FUNC_IF(mpr_expr_free, map->loc->expr);
     free(map->loc);
+    mpr_rtr_update_map_count(rtr);
     return 0;
 }
 

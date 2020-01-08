@@ -668,7 +668,7 @@ static void mpr_map_set_expr(mpr_map m, const char *expr)
     if (should_compile) {
         if (!replace_expr_str(m, expr)) {
             reallocate_map_histories(m);
-                // evaluate expression to intialise literals
+            // evaluate expression to intialise literals
             mpr_time now;
             mpr_time_set(&now, MPR_NOW);
             mpr_hist *vars = m->loc->expr_var;
