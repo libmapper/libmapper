@@ -908,13 +908,14 @@ static void lock_vec_len(mpr_token_t *stk, int top)
 {
     int i=top, arity=1;
     while ((i >= 0) && arity--) {
-        stk[i--].vec_len_locked = 1;
+        stk[i].vec_len_locked = 1;
         switch (stk[i].toktype) {
             case TOK_OP:        arity += op_tbl[stk[i].op].arity;   break;
             case TOK_FN:        arity += fn_tbl[stk[i].fn].arity;   break;
             case TOK_VECTORIZE: arity += stk[i].arity;              break;
             default:                                                break;
         }
+        --i;
     }
 }
 

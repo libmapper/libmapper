@@ -494,9 +494,9 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
         list = mpr_list_start(list);
     }
 
-    RETURN_UNLESS(val || masked == MPR_PROP_EXTRA);
-    RETURN_UNLESS(masked != MPR_PROP_DEV && masked != MPR_PROP_SIG
-                  && masked != MPR_PROP_SLOT);
+    DONE_UNLESS(val || masked == MPR_PROP_EXTRA);
+    DONE_UNLESS(masked != MPR_PROP_DEV && masked != MPR_PROP_SIG
+                && masked != MPR_PROP_SLOT);
 
     if (rec->prop & PROP_ADD) {
         snprintf(temp, 256, "+");
@@ -517,7 +517,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
 
     if (masked < 0 || masked > MPR_PROP_EXTRA) {
         trace("skipping malformed property.\n");
-        return;
+        goto done;
     }
     if (masked == MPR_PROP_EXTRA) {
         snprintf(temp + len, 256 - len, "@%s", rec->key);
@@ -531,8 +531,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
         // can use static string
         lo_message_add_string(msg, mpr_prop_as_str(masked, 0));
     }
-    if (rec->prop & PROP_REMOVE || !val || !rec->len)
-        return;
+    DONE_UNLESS(rec->len && !(rec->prop & PROP_REMOVE));
     // add value
     switch (masked) {
         case MPR_PROP_DIR: {
@@ -573,6 +572,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
                                   indirect ? *rec->val : rec->val);
             break;
     }
+  done:
     if (list)
         mpr_list_free(list);
 }

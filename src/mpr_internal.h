@@ -10,6 +10,7 @@
    of in types_internal.h */
 
 #define RETURN_UNLESS(a, ...) { if (!(a)) { return __VA_ARGS__; }}
+#define DONE_UNLESS(a) { if (!(a)) { goto done; }}
 #define FUNC_IF(a, b) { if (b) { a(b); }}
 #define PROP(NAME) MPR_PROP_##NAME
 

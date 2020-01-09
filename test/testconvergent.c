@@ -91,8 +91,9 @@ int setup_dst()
                           &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
-    eprintf("Number of inputs: %d\n",
-            mpr_list_get_size(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
+    mpr_list l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
+    eprintf("Number of inputs: %d\n", mpr_list_get_size(l));
+    mpr_list_free(l);
     return 0;
 
 error:

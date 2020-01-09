@@ -59,7 +59,9 @@ int setup_src()
     mpr_sig_free(mpr_sig_new(src, MPR_DIR_OUT, "outsig_5", 1, MPR_FLT, NULL,
                              &mnf, &mxf, NULL, NULL, 0));
 
-    eprintf("Number of outputs: %d\n", mpr_list_get_size(mpr_dev_get_sigs(src, MPR_DIR_OUT)));
+    mpr_list l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
+    eprintf("Number of outputs: %d\n", mpr_list_get_size(l));
+    mpr_list_free(l);
 
     return 0;
 
@@ -133,7 +135,9 @@ int setup_dst()
     mpr_sig_free(mpr_sig_new(dst, MPR_DIR_IN, "insig_5", 1, MPR_FLT,
                              NULL, &mnf, &mxf, NULL, NULL, MPR_SIG_UPDATE));
 
-    eprintf("Number of inputs: %d\n", mpr_list_get_size(mpr_dev_get_sigs(dst, MPR_DIR_IN)));
+    mpr_list l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
+    eprintf("Number of inputs: %d\n", mpr_list_get_size(l));
+    mpr_list_free(l);
 
     return 0;
 
