@@ -548,29 +548,6 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     return 0;
 }
 
-//static int handler_inst_release_request(const char *path, const char *types,
-//                                        lo_arg **argv, int argc, lo_message msg,
-//                                        const void *data)
-//{
-//    mpr_sig sig = (mpr_sig)data;
-//    mpr_dev dev = sig->dev;
-//    RETURN_UNLESS(dev, 0);
-//
-//    if (!sig->loc->handler || !(sig->loc->event_flags & MPR_SIG_REL_DNSTRM))
-//        return 0;
-//
-//    lo_timetag t = lo_message_get_timestamp(msg);
-//
-//    int idx = mpr_sig_find_inst_with_GID(sig, argv[0]->i64, 0);
-//    if (idx < 0)
-//        return 0;
-//
-//    if (sig->loc->handler)
-//        sig->loc->handler(sig, MPR_SIG_REL_DNSTRM, sig->loc->idmaps[idx].map->loc,
-//                          0, sig->type, 0, &t);
-//    return 0;
-//}
-
 mpr_id mpr_dev_get_unused_sig_id(mpr_dev dev)
 {
     int done = 0;
