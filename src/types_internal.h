@@ -176,6 +176,7 @@ typedef struct _mpr_graph {
     int autosub;
 
     int own;
+    int staged_maps;
 
     uint32_t resource_counter;
 } mpr_graph_t, *mpr_graph;
@@ -392,7 +393,7 @@ typedef struct _mpr_link {
 #define MAX_NUM_MAP_SRC     8    // arbitrary
 #define MAX_NUM_MAP_DST     8    // arbitrary
 
-#define MPR_STATUS_LINK_KNOWN   0x01
+#define MPR_STATUS_LINK_KNOWN   0x04
 
 typedef struct _mpr_local_slot {
     // each slot can point to local signal or a remote link structure

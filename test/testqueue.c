@@ -118,6 +118,10 @@ int create_maps()
         mpr_dev_poll(dst, 10);
     }
 
+    // TODO: ensure mpr_map_get_is_ready() does not return true until all peers are ACTIVE
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
+
     return 0;
 }
 

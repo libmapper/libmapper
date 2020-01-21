@@ -283,7 +283,7 @@ int main(int argc, char ** argv)
 
     loop();
 
-    if (autoconnect && received != sent) {
+    if (autoconnect && (!received || received != sent)) {
         eprintf("sent: %d, recvd: %d\n", sent, received);
         result = 1;
     }

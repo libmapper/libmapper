@@ -531,7 +531,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
         // can use static string
         lo_message_add_string(msg, mpr_prop_as_str(masked, 0));
     }
-    DONE_UNLESS(rec->len && !(rec->prop & PROP_REMOVE));
+    DONE_UNLESS(val && rec->len && !(rec->prop & PROP_REMOVE));
     // add value
     switch (masked) {
         case MPR_PROP_DIR: {

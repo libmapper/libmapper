@@ -146,6 +146,8 @@ mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name);
 mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs,
                                    const char *dst);
 
+void mpr_graph_cleanup(mpr_graph g);
+
 /*! Find information for a registered signal.
  *  \param dev          The device to query.
  *  \param sig_name     Name of the signal to find in the graph.

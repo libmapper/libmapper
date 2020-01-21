@@ -582,31 +582,35 @@ static void _send_device_sync(mpr_net net, mpr_dev dev)
 // TODO: rename to mpr_dev...?
 static void mpr_net_maybe_send_ping(mpr_net net, int force)
 {
-    RETURN_UNLESS(net->num_devs);
-    int go = 0, i;
-    mpr_graph gph = net->graph;
     mpr_time now;
     mpr_time_set(&now, MPR_NOW);
+    if (now.sec < net->next_sub_ping)
+        return;
+    net->next_sub_ping = now.sec + 2;
+
+    mpr_graph gph = net->graph;
+    // housekeeping #1: check for staged maps that have expired
+    mpr_graph_cleanup(gph);
+
+    RETURN_UNLESS(net->num_devs);
+    int i;
     for (i = 0; i < net->num_devs; i++) {
         mpr_dev dev = net->devs[i];
-        if (dev->loc->subscribers && (now.sec >= net->next_sub_ping)) {
+        if (dev->loc->subscribers) {
             mpr_net_use_subscribers(net, dev, MPR_DEV);
             _send_device_sync(net, dev);
-            net->next_sub_ping = now.sec + 2;
         }
     }
-    if (force || (now.sec >= net->next_bus_ping)) {
-        go = 1;
-        net->next_bus_ping = now.sec + 5 + (rand() % 4);
-    }
-    RETURN_UNLESS(go);
+    if (!force && (now.sec < net->next_bus_ping))
+        return;
+    net->next_bus_ping = now.sec + 5 + (rand() % 4);
 
     mpr_net_use_bus(net);
     for (i = 0; i < net->num_devs; i++) {
         _send_device_sync(net, net->devs[i]);
     }
 
-    // some housekeeping: periodically check if our links are still active
+    // housekeeping #2: periodically check if our links are still active
     mpr_list list = mpr_list_from_data(gph->links);
     while (list) {
         mpr_link lnk = (mpr_link)*list;
@@ -1555,13 +1559,16 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     }
     mpr_msg props = mpr_msg_parse_props(ac, types, av);
 
-    // TODO: if this endpoint is map admin, do not allow overwiting props
+    // TODO: if this endpoint is map admin, do not allow overwriting props
     int rc = 0, updated = mpr_map_set_from_msg(map, props, 0);
-    trace_dev(dev, "updated %d map properties.\n", updated);
-    if (map->status < MPR_STATUS_READY) {
-        mpr_msg_free(props);
-        return 0;
-    }
+    mpr_msg_free(props);
+#ifdef DEBUG
+    if (dev)
+        { trace_dev(dev, "updated %d map properties.\n", updated); }
+    else
+        { trace_graph("updated %d map properties.\n", updated); }
+#endif
+    RETURN_UNLESS(dev && map->status >= MPR_STATUS_READY, 0);
     if (MPR_STATUS_READY == map->status) {
         map->status = MPR_STATUS_ACTIVE;
         rc = 1;
@@ -1615,7 +1622,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             cb = temp;
         }
     }
-    mpr_msg_free(props);
     mpr_tbl_clear_empty(map->obj.props.synced);
     return 0;
 }

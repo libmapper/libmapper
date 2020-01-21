@@ -130,6 +130,28 @@ static void mpr_graph_autosub(mpr_graph g, int flags)
     g->autosub = flags;
 }
 
+void mpr_graph_cleanup(mpr_graph g)
+{
+    if (!g->staged_maps)
+        return;
+    // check for maps that were staged but never completed
+    int staged = 0;
+    mpr_list maps = mpr_list_from_data(g->maps);
+    while (maps) {
+        mpr_map map = (mpr_map)*maps;
+        maps = mpr_list_get_next(maps);
+        if (map->status <= MPR_STATUS_STAGED) {
+            if (map->status <= MPR_STATUS_EXPIRED)
+                mpr_graph_remove_map(g, map, MPR_OBJ_REM);
+            else {
+                --map->status;
+                ++staged;
+            }
+        }
+    }
+    g->staged_maps = staged;
+}
+
 mpr_graph mpr_graph_new(int subscribe_flags)
 {
     mpr_graph g = (mpr_graph) calloc(1, sizeof(mpr_graph_t));
@@ -766,6 +788,7 @@ void mpr_graph_print(mpr_graph g)
     mpr_list sigs = mpr_list_from_data(g->sigs);
     printf("Registered devices (%d) and signals (%d):\n",
            mpr_list_get_size(devs), mpr_list_get_size(sigs));
+    mpr_list_free(sigs);
     while (devs) {
         printf(" └─ ");
         mpr_obj_print(*devs, 0);
@@ -913,6 +936,7 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
         if (!s) {
             // store subscription record
             s = malloc(sizeof(struct _mpr_subscription));
+            s->flags = 0;
             s->dev = d;
             s->dev->obj.version = -1;
             s->next = g->subscriptions;

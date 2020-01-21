@@ -184,6 +184,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     mpr_map_init(m);
     m->status = MPR_STATUS_STAGED;
     m->protocol = MPR_PROTO_UDP;
+    ++g->staged_maps;
     return m;
 }
 
@@ -849,7 +850,7 @@ static int mpr_map_check_status(mpr_map m)
         m->status &= (m->src[i]->loc->status | mask);
     }
 
-    if (MPR_STATUS_LINK_KNOWN == m->status) {
+    if (MPR_STATUS_LINK_KNOWN | m->status) {
         // allocate memory for map history
         for (i = 0; i < m->num_src; i++)
             init_slot_hist(m->src[i]);
