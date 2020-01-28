@@ -336,6 +336,7 @@ void send_or_bundle_msg(mpr_link link, const char *path, lo_message msg,
             a = link->addr.udp;
             s = link->obj.graph->net.server.udp;
         }
+        RETURN_UNLESS(a);
         lo_send_bundle_from(a, s, b);
         lo_bundle_free_recursive(b);
     }

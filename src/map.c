@@ -1305,7 +1305,7 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
     mpr_tbl_add_to_msg(0, staged ? m->obj.props.staged : m->obj.props.synced, msg);
 
     // add slot id
-    if (MPR_DIR_IN == m->dst->dir && m->status < MPR_STATUS_READY && !staged) {
+    if (MPR_DIR_IN == m->dst->dir && m->status <= MPR_STATUS_READY && !staged) {
         lo_message_add_string(msg, mpr_prop_as_str(PROP(SLOT), 0));
         i = (slot >= 0) ? slot : 0;
         link = m->src[i]->loc ? m->src[i]->link : 0;
