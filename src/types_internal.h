@@ -476,8 +476,6 @@ typedef struct _mpr_rtr_sig {
 typedef struct _mpr_rtr {
     struct _mpr_dev *dev;        //!< The device associated with this link.
     mpr_rtr_sig sigs;            //!< The list of mappings for each signal.
-    void *buffer;
-    int buffer_size;
 } mpr_rtr_t, *mpr_rtr;
 
 /*! The instance ID map is a linked list of int32 instance ids for coordinating

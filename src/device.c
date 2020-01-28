@@ -206,8 +206,6 @@ void mpr_dev_free(mpr_dev dev)
             net->rtr->sigs = net->rtr->sigs->next;
             free(rs);
         }
-        if (net->rtr->buffer)
-            free(net->rtr->buffer);
         free(net->rtr);
     }
 
@@ -489,7 +487,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
             }
 
             if (vals == 0) {
-            // try to release instance
+                // try to release instance
                 if (GID) {
                     sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
                     --idmap->GID_refcount;
@@ -881,7 +879,6 @@ const char *mpr_dev_get_name(mpr_dev dev)
     RETURN_UNLESS(!dev->loc || (dev->loc->registered && dev->loc->ordinal.locked), 0);
     if (dev->name)
         return dev->name;
-
     unsigned int len = strlen(dev->prefix) + 6;
     dev->name = (char*)malloc(len);
     dev->name[0] = 0;
