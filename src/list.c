@@ -73,7 +73,7 @@ static mpr_list_header_t* mpr_list_new_item(size_t size)
     // the size of mpr_list_header_t and location of data
     die_unless(LIST_HEADER_SIZE == sizeof(void*)*4 + sizeof(query_type_t),
                "unexpected size for mpr_list_header_t");
-    die_unless(((char*)&lh->data - (char*)lh) == LIST_HEADER_SIZE,
+    die_unless(LIST_HEADER_SIZE == ((char*)&lh->data - (char*)lh),
                "unexpected offset for data in mpr_list_header_t");
 
     size += LIST_HEADER_SIZE;
@@ -186,7 +186,7 @@ void **mpr_list_query_continuation(mpr_list_header_t *lh)
 
 static void free_query_single_ctx(mpr_list_header_t *lh)
 {
-    if (lh->query_ctx->query_compare == cmp_parallel_query) {
+    if (cmp_parallel_query == lh->query_ctx->query_compare) {
         // this is a parallel query – we need to free components also
         void *data = &lh->query_ctx->data;
         mpr_list_header_t *lh1 = *(mpr_list_header_t**)data;
@@ -348,7 +348,7 @@ mpr_list mpr_list_start(mpr_list list)
     RETURN_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
     lh->self = *lh->start;
-    if (QUERY_DYNAMIC == lh->query_type) {
+    if (QUERY_DYNAMIC & lh->query_type) {
         if (!*list)
             return 0;
         if (lh->query_ctx->query_compare(&lh->query_ctx->data, *list))
@@ -373,7 +373,7 @@ mpr_list mpr_list_get_next(mpr_list list)
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
     RETURN_UNLESS(lh->next, 0);
 
-    if (lh->query_type & QUERY_STATIC)
+    if (QUERY_STATIC & lh->query_type)
         return (mpr_list)mpr_list_from_data(lh->next);
     else {
         /* Here we treat next as a pointer to a continuation function, so we can
@@ -390,7 +390,7 @@ void mpr_list_free(mpr_list list)
 {
     RETURN_UNLESS(list);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
-    if (lh->query_type > QUERY_STATIC && lh->query_ctx->query_free)
+    if (QUERY_STATIC < lh->query_type && lh->query_ctx->query_free)
         lh->query_ctx->query_free(lh);
 }
 
@@ -399,7 +399,7 @@ mpr_obj mpr_list_get_idx(mpr_list list, unsigned int idx)
     RETURN_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
 
-    if (idx == 0 && *lh->start)
+    if (0 == idx && *lh->start)
         return *lh->start;
 
     // Reset to beginning of list
@@ -441,7 +441,7 @@ static mpr_list_header_t *mpr_list_header_cpy(mpr_list_header_t *lh)
     cpy->query_ctx = (query_info_t*)malloc(lh->query_ctx->size);
     memcpy(cpy->query_ctx, lh->query_ctx, lh->query_ctx->size);
 
-    if (cpy->query_ctx->query_compare == cmp_parallel_query) {
+    if (cmp_parallel_query == cpy->query_ctx->query_compare) {
         // this is a parallel query – we need to copy components
         void *data = &cpy->query_ctx->data;
         mpr_list_header_t *lh1 = *(mpr_list_header_t**)data;
@@ -500,7 +500,7 @@ static mpr_list mpr_list_filter_internal(mpr_list list, const void *func,
     void **filter = new_query_internal((const void **)lh1->start, size, func,
                                        types, aq);
 
-    if (lh1->query_type == QUERY_STATIC)
+    if (QUERY_STATIC & lh1->query_type)
         return (mpr_list)filter;
 
     // return intersection
@@ -617,7 +617,7 @@ static int filter_by_prop(const void *ctx, mpr_obj o)
         return MPR_OP_NEX == op;
     if (MPR_OP_EX == op)
         return 1;
-    if (_type == MPR_LIST) {
+    if (MPR_LIST == _type) {
         if (op < MPR_OP_ANY)
             return 0;
         // use a copy of the list
@@ -627,13 +627,13 @@ static int filter_by_prop(const void *ctx, mpr_obj o)
                 mpr_list_free(l);
                 return 0;
             }
-            else if (*l == val && op == MPR_OP_ANY) {
+            else if (*l == val && MPR_OP_ANY == op) {
                 mpr_list_free(l);
                 return 1;
             }
             l = mpr_list_get_next(l);
         }
-        return op == MPR_OP_NONE;
+        return MPR_OP_NONE == op;
     }
     else if (_type != type || (op < MPR_OP_ALL && _len != len))
         return 0;
@@ -667,7 +667,7 @@ int mpr_list_get_size(mpr_list list)
     RETURN_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
     int count = 1;
-    if (lh->query_type == QUERY_DYNAMIC) {
+    if (QUERY_DYNAMIC & lh->query_type) {
         // use a copy
         list = mpr_list_get_cpy(list);
         while ((list = mpr_list_get_next(list)))
