@@ -1378,7 +1378,7 @@ namespace mapper {
 
         /*! Get the Map Slot matching a specific Signal.
          *  \param sig          The Signal corresponding to the desired slot.
-         *  \return         	The Slot. */
+         *  \return             The Slot. */
         Slot slot(signal_type sig)
             { return Slot(mapper_map_slot_by_signal(_map, (mapper_signal)sig)); }
 
@@ -1997,7 +1997,7 @@ namespace mapper {
         }
 
         /*! Retrieve the Network object from a Database.
-         *  \return         	The database Network object. */
+         *  \return             The database Network object. */
         Network network() const
             { return Network(mapper_database_network(_db)); }
 
