@@ -329,6 +329,8 @@ int mapper_slot_match_full_name(mapper_slot slot, const char *full_name);
 
 /**** Local device database ****/
 
+void mapper_database_cleanup(mapper_database db);
+
 /*! Add or update an entry in the device database using parsed message
  *  parameters.
  *  \param db           The database to operate on.

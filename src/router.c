@@ -409,6 +409,8 @@ void send_or_bundle_message(mapper_link link, const char *path, lo_message msg,
             a = llink->udp_data_addr;
             s = link->local_device->local->udp_server;
         }
+        if (!a)
+            return;
         lo_send_bundle_from(a, s, b);
         lo_bundle_free_recursive(b);
     }
@@ -762,6 +764,7 @@ int mapper_router_remove_map(mapper_router rtr, mapper_map map)
     return 0;
 }
 
+// check if there are any outgoing maps from local_sig to any of the remotes
 int mapper_router_loop_check(mapper_router rtr,
                              mapper_signal local_sig,
                              int num_remotes,

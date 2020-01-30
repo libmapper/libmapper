@@ -167,6 +167,7 @@ typedef struct _mapper_database {
     uint32_t resource_counter;
 
     int own_network;
+    int staged_maps;
 } mapper_database_t, *mapper_database;
 
 /**** Messages ****/
@@ -435,10 +436,11 @@ typedef struct _mapper_link {
 #define MAX_NUM_MAP_SOURCES         8    // arbitrary
 #define MAX_NUM_MAP_DESTINATIONS    8    // arbitrary
 
-#define STATUS_STAGED       0x00
-#define STATUS_TYPE_KNOWN   0x01
-#define STATUS_LENGTH_KNOWN 0x02
-#define STATUS_LINK_KNOWN   0x04
+#define STATUS_EXPIRED      0x00
+#define STATUS_STAGED       0x01
+#define STATUS_TYPE_KNOWN   0x02
+#define STATUS_LENGTH_KNOWN 0x04
+#define STATUS_LINK_KNOWN   0x08
 #define STATUS_READY        0x0F
 #define STATUS_ACTIVE       0x1F
 

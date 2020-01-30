@@ -162,7 +162,6 @@ void mapper_device_free(mapper_device dev)
         }
         mapper_device_remove_signal(dev, sig);
     }
-
     if (dev->local->registered) {
         // A registered device must tell the network it is leaving.
         lo_message msg = lo_message_new();
@@ -777,34 +776,6 @@ static int handler_signal(const char *path, const char *types, lo_arg **argv,
     return 0;
 }
 
-//static int handler_instance_release_request(const char *path, const char *types,
-//                                            lo_arg **argv, int argc, lo_message msg,
-//                                            const void *user_data)
-//{
-//    mapper_signal sig = (mapper_signal) user_data;
-//    mapper_device dev = sig->device;
-//
-//    if (!dev)
-//        return 0;
-//
-//    if (!sig->local->instance_event_handler ||
-//        !(sig->local->instance_event_flags & MAPPER_DOWNSTREAM_RELEASE))
-//        return 0;
-//
-//    lo_timetag tt = lo_message_get_timestamp(msg);
-//
-//    int index = mapper_signal_find_instance_with_global_id(sig, argv[0]->i64, 0);
-//    if (index < 0)
-//        return 0;
-//
-//    if (sig->local->instance_event_handler) {
-//        sig->local->instance_event_handler(sig, sig->local->id_maps[index].map->local,
-//                                           MAPPER_DOWNSTREAM_RELEASE, &tt);
-//    }
-//
-//    return 0;
-//}
-
 static int handler_query(const char *path, const char *types, lo_arg **argv,
                          int argc, lo_message msg, void *user_data)
 {
@@ -1007,7 +978,7 @@ void mapper_device_remove_signal_methods(mapper_device dev, mapper_signal sig)
 
 static void send_unmap(mapper_network net, mapper_map map)
 {
-    if (!map->status)
+    if (map->status <= STATUS_STAGED)
         return;
 
     // TODO: send appropriate messages using mesh

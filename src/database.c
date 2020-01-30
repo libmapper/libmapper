@@ -1169,6 +1169,27 @@ int mapper_database_num_maps(mapper_database db)
     return count;
 }
 
+void mapper_database_cleanup(mapper_database db)
+{
+    if (db->staged_maps <= 0)
+        return;
+    int staged = 0;
+    mapper_map *maps = mapper_database_maps(db);
+    while (maps) {
+        mapper_map map = *maps;
+        maps = mapper_map_query_next(maps);
+        if (map->status <= STATUS_STAGED) {
+            if (map->status <= STATUS_EXPIRED)
+                mapper_database_remove_map(db, map, MAPPER_REMOVED);
+            else {
+                --map->status;
+                ++staged;
+            }
+        }
+    }
+    db->staged_maps = staged;
+}
+
 mapper_map *mapper_database_maps(mapper_database db)
 {
     return mapper_list_from_data(db->maps);

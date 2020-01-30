@@ -163,6 +163,7 @@ mapper_map mapper_map_new(int num_srcs, mapper_signal *srcs,
 
     map = (mapper_map)mapper_list_add_item((void**)&db->maps,
                                            sizeof(mapper_map_t));
+    ++db->staged_maps;
     map->database = db;
     map->num_sources = num_srcs;
     map->sources = (mapper_slot*) malloc(sizeof(mapper_slot) * num_srcs);
@@ -1381,24 +1382,13 @@ static void apply_mode(mapper_map map)
     }
 }
 
-static int mapper_map_check_status(mapper_map map)
+static void mapper_map_check_status(mapper_map map)
 {
     if (bitmatch(map->status, STATUS_READY))
-        return map->status;
+        return;
 
     map->status |= METADATA_OK;
-    int mask = ~METADATA_OK;
-    if (map->destination.signal->length)
-        map->destination.local->status |= STATUS_LENGTH_KNOWN;
-    if (map->destination.signal->type)
-        map->destination.local->status |= STATUS_TYPE_KNOWN;
-    if (map->destination.local->router_sig
-        || (map->destination.link && map->destination.link->local
-            && map->destination.link->local->udp_data_addr))
-        map->destination.local->status |= STATUS_LINK_KNOWN;
-    map->status &= (map->destination.local->status | mask);
-
-    int i;
+    int i, mask = ~METADATA_OK;
     for (i = 0; i < map->num_sources; i++) {
         if (map->sources[i]->signal->length)
             map->sources[i]->local->status |= STATUS_LENGTH_KNOWN;
@@ -1410,6 +1400,18 @@ static int mapper_map_check_status(mapper_map map)
             map->sources[i]->local->status |= STATUS_LINK_KNOWN;
         map->status &= (map->sources[i]->local->status | mask);
     }
+    if (map->destination.signal->length)
+        map->destination.local->status |= STATUS_LENGTH_KNOWN;
+    if (map->destination.signal->type)
+        map->destination.local->status |= STATUS_TYPE_KNOWN;
+    if (map->destination.local->router_sig
+        || (map->destination.link && map->destination.link->local
+            && map->destination.link->local->udp_data_addr))
+        map->destination.local->status |= STATUS_LINK_KNOWN;
+    map->status &= (map->destination.local->status | mask);
+
+    if (map->status > STATUS_STAGED)
+        map->status &= ~STATUS_STAGED;
 
     if (map->status == METADATA_OK) {
         // allocate memory for map history
@@ -1444,7 +1446,7 @@ static int mapper_map_check_status(mapper_map map)
         }
         apply_mode(map);
     }
-    return map->status;
+    return;
 }
 
 // if 'override' flag is not set, only remote properties can be set
@@ -1876,7 +1878,7 @@ int mapper_map_send_state(mapper_map map, int slot, network_message_t cmd)
 
     // add slot id
     if (map->destination.direction == MAPPER_DIR_INCOMING
-        && map->status < STATUS_READY && !staged) {
+        && map->status <= STATUS_READY && !staged) {
         lo_message_add_string(msg, mapper_property_protocol_string(AT_SLOT));
         i = (slot >= 0) ? slot : 0;
         link = map->sources[i]->local ? map->sources[i]->link : 0;
