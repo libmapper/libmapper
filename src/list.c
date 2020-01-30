@@ -33,8 +33,6 @@ typedef enum {
     QUERY_DYNAMIC   = 2,
 } query_type_t;
 
-#define QUERY_COPY 4
-
 typedef struct {
     void *next;
     void *self;
@@ -348,7 +346,7 @@ mpr_list mpr_list_start(mpr_list list)
     RETURN_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
     lh->self = *lh->start;
-    if (QUERY_DYNAMIC & lh->query_type) {
+    if (QUERY_DYNAMIC == lh->query_type) {
         if (!*list)
             return 0;
         if (lh->query_ctx->query_compare(&lh->query_ctx->data, *list))
@@ -373,7 +371,7 @@ mpr_list mpr_list_get_next(mpr_list list)
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
     RETURN_UNLESS(lh->next, 0);
 
-    if (QUERY_STATIC & lh->query_type)
+    if (QUERY_STATIC == lh->query_type)
         return (mpr_list)mpr_list_from_data(lh->next);
     else {
         /* Here we treat next as a pointer to a continuation function, so we can
@@ -390,7 +388,7 @@ void mpr_list_free(mpr_list list)
 {
     RETURN_UNLESS(list);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
-    if (QUERY_STATIC < lh->query_type && lh->query_ctx->query_free)
+    if (QUERY_DYNAMIC == lh->query_type && lh->query_ctx->query_free)
         lh->query_ctx->query_free(lh);
 }
 
@@ -453,7 +451,6 @@ static mpr_list_header_t *mpr_list_header_cpy(mpr_list_header_t *lh)
         lh1 = *(mpr_list_header_t**)data;
         lh2 = *(mpr_list_header_t**)(data+sizeof(void*));
     }
-    cpy->query_type |= QUERY_COPY;
     return cpy;
 }
 
@@ -500,7 +497,7 @@ static mpr_list mpr_list_filter_internal(mpr_list list, const void *func,
     void **filter = new_query_internal((const void **)lh1->start, size, func,
                                        types, aq);
 
-    if (QUERY_STATIC & lh1->query_type)
+    if (QUERY_STATIC == lh1->query_type)
         return (mpr_list)filter;
 
     // return intersection
@@ -667,7 +664,7 @@ int mpr_list_get_size(mpr_list list)
     RETURN_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
     int count = 1;
-    if (QUERY_DYNAMIC & lh->query_type) {
+    if (QUERY_DYNAMIC == lh->query_type) {
         // use a copy
         list = mpr_list_get_cpy(list);
         while ((list = mpr_list_get_next(list)))

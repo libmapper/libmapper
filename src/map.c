@@ -832,10 +832,9 @@ static void apply_expr(mpr_map m)
     mpr_map_set_expr(m, expr_str);
 }
 
-static int mpr_map_check_status(mpr_map m)
+static void mpr_map_check_status(mpr_map m)
 {
-    if (bitmatch(m->status, MPR_STATUS_READY))
-        return m->status;
+    RETURN_UNLESS(!bitmatch(m->status, MPR_STATUS_READY));
 
     int i, mask = ~MPR_STATUS_LINK_KNOWN;
     m->status |= MPR_STATUS_LINK_KNOWN;
@@ -880,7 +879,7 @@ static int mpr_map_check_status(mpr_map m)
         }
         apply_expr(m);
     }
-    return m->status;
+    return;
 }
 
 // if 'override' flag is not set, only remote properties can be set
