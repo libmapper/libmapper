@@ -1643,6 +1643,7 @@ void mapper_database_subscribe(mapper_database db, mapper_device dev, int flags,
         if (!s) {
             // store subscription record
             s = malloc(sizeof(struct _mapper_subscription));
+            s->flags = 0;
             s->device = dev;
             s->device->version = -1;
             s->next = db->subscriptions;
