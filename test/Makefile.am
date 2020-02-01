@@ -12,12 +12,13 @@ noinst_PROGRAMS = test testconvergent testcpp testcustomtransport              \
                   testexpression testgraph testinstance testlinear testmany    \
                   testmapinput testmapprotocol testmonitor testnetwork         \
                   testparams testparser testprops testqueue testrate           \
-                  testreverse testsignals testspeed testvector
+                  testreverse testsignals testspeed testunmap testvector
 
 test_all_ordered = testparams testprops testgraph testparser testnetwork       \
                    testmany test testlinear testexpression testqueue testrate  \
                    testinstance testreverse testvector testcustomtransport     \
-                   testspeed testcpp testmapinput testconvergent testmapprotocol
+                   testspeed testcpp testmapinput testconvergent testunmap     \
+                   testmapprotocol
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -102,6 +103,10 @@ testsignals_LDADD = $(TEST_LDADD)
 testspeed_CFLAGS = $(TEST_CFLAGS)
 testspeed_SOURCES = testspeed.c
 testspeed_LDADD = $(TEST_LDADD)
+
+testunmap_CFLAGS = $(TEST_CFLAGS)
+testunmap_SOURCES = testunmap.c
+testunmap_LDADD = $(TEST_LDADD)
 
 testvector_CFLAGS = $(TEST_CFLAGS)
 testvector_SOURCES = testvector.c
