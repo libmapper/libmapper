@@ -11,6 +11,7 @@
 
 void mpr_link_init(mpr_link link)
 {
+    mpr_net net = &link->obj.graph->net;
     if (!link->num_maps)
         link->num_maps = (int*)calloc(1, sizeof(int) * 2);
     link->obj.props.mask = 0;
@@ -47,7 +48,9 @@ void mpr_link_init(mpr_link link)
         char port[10];
         snprintf(port, 10, "%d", *(int*)val);
         link->addr.udp = lo_address_new("localhost", port);
+        lo_address_set_iface(link->addr.udp, net->iface.name, 0);
         link->addr.tcp = lo_address_new_with_proto(LO_TCP, "localhost", port);
+        lo_address_set_iface(link->addr.tcp, net->iface.name, 0);
     }
 
     link->clock.new = 1;
@@ -62,10 +65,9 @@ void mpr_link_init(mpr_link link)
     snprintf(cmd, 256, "/%s/subscribe", link->remote_dev->name);
     NEW_LO_MSG(m, return);
     lo_message_add_string(m, "device");
-    mpr_net n = &link->obj.graph->net;
-    mpr_net_use_bus(n);
-    mpr_net_add_msg(n, cmd, 0, m);
-    mpr_net_send(n);
+    mpr_net_use_bus(net);
+    mpr_net_add_msg(net, cmd, 0, m);
+    mpr_net_send(net);
 }
 
 void mpr_link_connect(mpr_link link, const char *host, int admin_port,

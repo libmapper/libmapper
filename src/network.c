@@ -343,17 +343,27 @@ void mpr_net_add_graph_methods(mpr_net net)
 
 void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 {
+    // send out any cached messages
+    mpr_net_send(net);
+
     /* Default standard ip and port is group 224.0.1.3, port 7570 */
     char port_str[10], *s_port = port_str;
 
-    if (!net->multicast.group)
+    if (net->multicast.group) {
+        if (group && strcmp(group, net->multicast.group)) {
+            free(net->multicast.group);
+            net->multicast.group = strdup(group);
+        }
+    }
+    else
         net->multicast.group = strdup(group ?: "224.0.1.3");
     if (!net->multicast.port)
         net->multicast.port = port ?: 7570;
     snprintf(port_str, 10, "%d", net->multicast.port);
 
     /* Initialize interface information. */
-    get_iface_addr(iface, &net->iface.addr, &net->iface.name);
+    if (!net->iface.name || (iface && strcmp(iface, net->iface.name)))
+        get_iface_addr(iface, &net->iface.addr, &net->iface.name);
     trace_net("found interface: %s\n", net->iface.name ?: "none");
 
     /* Remove existing structures if necessary */
@@ -395,6 +405,10 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     NET_SERVER_FUNC(net, enable_queue, 0, 1);
 
     mpr_net_add_graph_methods(net);
+
+    int i;
+    for (i = 0; i < net->num_devs; i++)
+        mpr_net_add_dev(net, net->devs[i]);
 }
 
 const char *mpr_get_version()
@@ -441,8 +455,7 @@ void mpr_net_send(mpr_net net)
 
 static int init_bundle(mpr_net net)
 {
-    if (net->bundle)
-        mpr_net_send(net);
+    mpr_net_send(net);
     mpr_time t;
     mpr_time_set(&t, MPR_NOW);
     net->bundle = lo_bundle_new(t);
@@ -546,13 +559,19 @@ void mpr_net_add_dev(mpr_net net, mpr_dev dev)
     int i;
     for (i = 0; i < net->num_devs; i++) {
         if (net->devs[i] == dev)
-            return;
+            break;
     }
-
-    /* Initialize data structures */
-    net->devs = realloc(net->devs, (net->num_devs+1)*sizeof(mpr_dev));
-    net->devs[net->num_devs] = dev;
-    ++net->num_devs;
+    if (i < net->num_devs) {
+        // reset registered flag
+        dev->loc->registered = 0;
+        dev->loc->ordinal.val = 0;
+    }
+    else {
+        /* Initialize data structures */
+        net->devs = realloc(net->devs, (net->num_devs+1)*sizeof(mpr_dev));
+        net->devs[net->num_devs] = dev;
+        ++net->num_devs;
+    }
 
     /* Seed the random number generator. */
     seed_srand();

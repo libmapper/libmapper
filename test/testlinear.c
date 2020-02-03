@@ -29,6 +29,8 @@ int setup_src(char *iface)
     src = mpr_dev_new("testlinear-send", 0);
     if (!src)
         goto error;
+    if (iface)
+        mpr_graph_set_interface(mpr_obj_get_graph(src), iface);
     eprintf("source created.\n");
 
     int mn=0, mx=1;
@@ -69,6 +71,8 @@ int setup_dst(char *iface)
     dst = mpr_dev_new("testlinear-recv", 0);
     if (!dst)
         goto error;
+    if (iface)
+        mpr_graph_set_interface(mpr_obj_get_graph(dst), iface);
     eprintf("destination created.\n");
 
     float mn=0, mx=1;
