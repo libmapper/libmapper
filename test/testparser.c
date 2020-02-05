@@ -635,6 +635,13 @@ int run_tests()
         eprintf("Expected: %d\n", (cycles % 2) ? 80 - remainder : 20 + remainder);
     }
 
+    /* 51) Test calling midi conversion function with case mismatch */
+    snprintf(str, 256, "y=miditohz(x)");
+    setup_test('f', 1, 'f', 1);
+    if (parse_and_eval(EXPECT_SUCCESS))
+        return 1;
+    eprintf("Expected: %f\n", 440. * pow(2.0, (1 - 69) / 12.0));
+
     return 0;
 }
 

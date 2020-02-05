@@ -553,12 +553,23 @@ typedef struct _variable {
     char assigned;
 } mapper_variable_t, *mapper_variable;
 
+static int strncmp_nocase(const char *a, const char *b, int len)
+{
+    int i, diff;
+    for (i = 0; i < len; i++) {
+        diff = tolower(a[i]) - tolower(b[i]);
+        if (diff != 0)
+            return diff;
+    }
+    return 0;
+}
+
 static expr_func_t function_lookup(const char *s, int len)
 {
     int i, j;
     for (i=0; i<N_FUNCS; i++) {
         if (strlen(function_table[i].name) == len
-            && strncmp(s, function_table[i].name, len)==0) {
+            && strncmp_nocase(s, function_table[i].name, len)==0) {
             if (!function_table[i].arity)
                 return i;
             // also check for parenthesis
@@ -581,7 +592,7 @@ static expr_vfunc_t vfunction_lookup(const char *s, int len)
     int i, j;
     for (i=0; i<N_VFUNCS; i++) {
         if (strlen(vfunction_table[i].name) == len
-            && strncmp(s, vfunction_table[i].name, len)==0) {
+            && strncmp_nocase(s, vfunction_table[i].name, len)==0) {
             if (vfunction_table[i].arity)
                 return i;
             // also check for parenthesis
