@@ -14,9 +14,10 @@ _%.$(PYEXT): $(builddir)/%_wrap.c
 
 clean-local:
 	-@rm -vf mpr.py mpr_wrap.c
+	-@rm -vfr build __pycache__
 	$(PYTHON) setup.py clean --all
 
-MOSTLYCLEANFILES = _mpr.$(PYEXT) mpr.py mpr_wrap.c installed_files.log
+MOSTLYCLEANFILES = _mpr.$(PYEXT) _mpr.*.$(PYEXT) mpr.py mpr_wrap.c installed_files.log
 
 install-exec-hook: $(builddir)/mpr_wrap.c
 	if test -n "$(DESTDIR)"; then\

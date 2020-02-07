@@ -26,21 +26,22 @@ except:
 s = Server().boot()
 s.start()
 
-duty = SigTo(value=0.5, time=0.5, init=0.5, add=-0.5)
-freq = SigTo(value=200, time=0.5, init=200)
-amp = SigTo(value=0.5, time=0.5, init=0.0)
+duty = SigTo(value=0.5, time=0.01, init=0.5, add=-0.5)
+freq = SigTo(value=200, time=0.01, init=200)
+amp = SigTo(value=0.5, time=0.01, init=0.0)
 
 p = Phasor(freq=freq, add=Clip(duty, min=-0.5, max=0.5))
 sig = DCBlock(Sig(value=Round(p), mul=[amp, amp])).out()
 
 try:
     dev = mpr.device("pyo_pwm_example")
-    dev.add_signal(mpr.DIR_IN, "frequency", 1, 'f', "Hz", 0, 1000, 0, lambda s,i,n,t: freq.setValue(n))
-    dev.add_signal(mpr.DIR_IN, "amplitude", 1, 'f', "normalized", 0, 1, 0, lambda s,i,n,t: amp.setValue(n))
-    dev.add_signal(mpr.DIR_IN, "duty", 1, 'f', "normalized", 0, 1, 0, lambda s,i,n,t: duty.setValue(n))
+    dev.add_signal(mpr.DIR_IN, "frequency", 1, mpr.FLT, "Hz", 0, 1000, None, lambda s,e,i,v,t: freq.setValue(v))
+    dev.add_signal(mpr.DIR_IN, "amplitude", 1, mpr.FLT, "normalized", 0, 1, None, lambda s,e,i,v,t: amp.setValue(v))
+    dev.add_signal(mpr.DIR_IN, "duty", 1, 'f', "normalized", 0, 1, None, lambda s,e,i,v,t: duty.setValue(v))
 
     while True:
         dev.poll(5)
 
 finally:
     s.stop()
+    del dev

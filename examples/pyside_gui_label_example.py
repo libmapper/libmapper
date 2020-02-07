@@ -64,31 +64,28 @@ class gui(QMainWindow):
             QtGui.QFrame.timerEvent(self, event)
 
 def h(type, map, event):
-    print('GOT DEVICE MAP HANDLER', map.signal(mpr.LOC_SRC).properties)
     try:
-        print('comparing id')
         src = map.signal(mpr.LOC_SRC)
-        found = None
-        print('looking for index')
-        for i in sigs:
-            if src == sigs[i]:
-                found = i
-                break
-        if found == None:
-            return;
-        print('got index', id)
+        id = sigs.index(src)
         if id < 0:
             return
         if event == mpr.OBJ_NEW:
             sig = map.signal(mpr.LOC_DST)
-            gui.setLabel(id, sig.name)
-        elif event == mpr.OBJ_REM:
+            gui.setLabel(id, sig['name'])
+        elif event == mpr.OBJ_REM or event == mpr.OBJ_EXP:
             gui.setLabel(id, 'slider%i' %id)
-    except:
-        print('exception')
-    print('DONE DEVICE MAP HANDLER')
+    except Exception as e:
+        raise e
 
 dev.graph().add_callback(h, mpr.MAP)
+
+def remove_dev():
+    print('called remove_dev')
+    global dev
+    del dev
+
+import atexit
+atexit.register(remove_dev)
 
 app = QApplication(sys.argv)
 gui = gui()
