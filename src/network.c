@@ -722,22 +722,24 @@ static void _send_device_sync(mapper_network net, mapper_device dev)
 // TODO: rename to mapper_device...?
 static void mapper_network_maybe_send_ping(mapper_network net, int force)
 {
+    mapper_device dev = net->device;
     mapper_timetag_t now;
     mapper_timetag_now(&now);
-    if (now.sec < net->next_sub_ping)
-        return;
-    net->next_sub_ping = now.sec + 2;
-    // housekeeping #1: check for staged maps that have expired
-    mapper_database_cleanup(&net->database);
+    if (now.sec > net->next_sub_ping) {
+        net->next_sub_ping = now.sec + 2;
 
-    mapper_device dev = net->device;
-    if (!dev)
-        return;
-    if (dev->local->subscribers) {
-        mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
-        _send_device_sync(net, dev);
+        // housekeeping #1: check for staged maps that have expired
+        mapper_database_cleanup(&net->database);
+
+        if (!dev)
+            return;
+        if (dev->local->subscribers) {
+            mapper_network_set_dest_subscribers(net, MAPPER_OBJ_DEVICES);
+            _send_device_sync(net, dev);
+        }
     }
-    if (!force && (now.sec < net->next_bus_ping))
+
+    if (!dev || (!force && (now.sec < net->next_bus_ping)))
         return;
     net->next_bus_ping = now.sec + 5 + (rand() % 4);
 
