@@ -820,7 +820,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     }
     TRACE_DEV_RETURN_UNLESS(i == net->num_devs, 0,
                             "ignoring /device message from self\n");
-    trace_net("got /device %s\n", &av[0]->s);
+    trace_dev(dev, "got /device %s\n", &av[0]->s);
 
     // Discover whether the device is linked.
     mpr_dev remote = mpr_graph_get_dev_by_name(graph, name);

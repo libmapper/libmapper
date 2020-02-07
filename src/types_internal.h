@@ -33,6 +33,8 @@ typedef struct _mpr_expr *mpr_expr;
 
 /* Forward declarations for this file. */
 
+struct _mpr_obj;
+typedef struct _mpr_obj **mpr_list;
 struct _mpr_dev;
 typedef struct _mpr_dev mpr_dev_t;
 typedef struct _mpr_dev *mpr_dev;
@@ -162,10 +164,10 @@ typedef struct _mpr_net {
 
 typedef struct _mpr_graph {
     mpr_net_t net;
-    mpr_dev devs;                    //<! List of devices.
-    mpr_sig sigs;                    //<! List of signals.
-    mpr_map maps;                    //<! List of maps.
-    mpr_link links;                  //<! List of links.
+    mpr_list devs;                   //<! List of devices.
+    mpr_list sigs;                   //<! List of signals.
+    mpr_list maps;                   //<! List of maps.
+    mpr_list links;                  //<! List of links.
     fptr_list callbacks;             //<! List of object record callbacks.
 
     /*! Linked-list of autorenewing device subscriptions. */

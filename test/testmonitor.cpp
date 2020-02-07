@@ -28,23 +28,22 @@ void monitor_pause()
 
 void on_object(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
 {
-    if (verbose)
-        mpr_obj_print(o, 0);
-
     switch (e) {
     case MPR_OBJ_NEW:
-        eprintf("added.\n");
+        eprintf("Added: ");
         break;
     case MPR_OBJ_MOD:
-        eprintf("modified.\n");
+        eprintf("Modified: ");
         break;
     case MPR_OBJ_REM:
-        eprintf("removed.\n");
+        eprintf("Removed: ");
         break;
     case MPR_OBJ_EXP:
-        eprintf("unresponsive.\n");
+        eprintf("Unresponsive: ");
         break;
     }
+    if (verbose)
+        mpr_obj_print(o, 0);
     monitor_pause();
     update = 1;
 }

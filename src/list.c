@@ -663,6 +663,7 @@ int mpr_list_get_size(mpr_list list)
 {
     RETURN_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
+    RETURN_UNLESS(lh->start && *lh->start, 0);
     int count = 1;
     if (QUERY_DYNAMIC == lh->query_type) {
         // use a copy
