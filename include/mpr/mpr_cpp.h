@@ -328,6 +328,7 @@ namespace mpr {
 
         mpr_obj _obj;
     public:
+        Object() { _obj = NULL; }
         virtual ~Object() {}
         operator mpr_obj() const
             { return _obj; }
@@ -599,6 +600,7 @@ namespace mpr {
     class Signal : public Object
     {
     public:
+        Signal() : Object() {}
         Signal(mpr_sig sig) : Object(sig) {}
         operator mpr_sig() const
             { return _obj; }
