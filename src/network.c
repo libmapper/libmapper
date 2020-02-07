@@ -601,25 +601,26 @@ static void _send_device_sync(mpr_net net, mpr_dev dev)
 // TODO: rename to mpr_dev...?
 static void mpr_net_maybe_send_ping(mpr_net net, int force)
 {
+    int i;
     mpr_time now;
     mpr_time_set(&now, MPR_NOW);
-    if (now.sec < net->next_sub_ping)
-        return;
-    net->next_sub_ping = now.sec + 2;
-
     mpr_graph gph = net->graph;
-    // housekeeping #1: check for staged maps that have expired
-    mpr_graph_cleanup(gph);
+    if (now.sec > net->next_sub_ping) {
+        net->next_sub_ping = now.sec + 2;
 
-    RETURN_UNLESS(net->num_devs);
-    int i;
-    for (i = 0; i < net->num_devs; i++) {
-        mpr_dev dev = net->devs[i];
-        if (dev->loc->subscribers) {
-            mpr_net_use_subscribers(net, dev, MPR_DEV);
-            _send_device_sync(net, dev);
+        // housekeeping #1: check for staged maps that have expired
+        mpr_graph_cleanup(gph);
+
+        RETURN_UNLESS(net->num_devs);
+        for (i = 0; i < net->num_devs; i++) {
+            mpr_dev dev = net->devs[i];
+            if (dev->loc->subscribers) {
+                mpr_net_use_subscribers(net, dev, MPR_DEV);
+                _send_device_sync(net, dev);
+            }
         }
     }
+    RETURN_UNLESS(net->num_devs);
     if (!force && (now.sec < net->next_bus_ping))
         return;
     net->next_bus_ping = now.sec + 5 + (rand() % 4);
@@ -785,8 +786,9 @@ static int handler_who(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
     mpr_net net = (mpr_net)user;
+    RETURN_UNLESS(net->devs, 0);
+    trace_dev(net->devs[0], "received /who\n");
     mpr_net_maybe_send_ping(net, 1);
-    trace_net("received /who\n");
     return 0;
 }
 
