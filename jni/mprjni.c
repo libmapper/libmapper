@@ -1593,7 +1593,7 @@ JNIEXPORT jint JNICALL Java_mpr_Signal_mprStealingMode
   (JNIEnv *env, jobject obj, jlong jsig)
 {
     mpr_sig sig = (mpr_sig) ptr_jlong(jsig);
-    return sig ? mpr_obj_get_prop_as_i32((mpr_obj)sig, MPR_PROP_STEAL_MODE, NULL) : 0;
+    return sig ? mpr_obj_get_prop_as_int32((mpr_obj)sig, MPR_PROP_STEAL_MODE, NULL) : 0;
 }
 
 JNIEXPORT jobject JNICALL Java_mpr_Signal_updateInstance__JILmpr_Time_2

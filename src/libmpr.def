@@ -45,7 +45,7 @@ EXPORTS
     mpr_obj_get_num_props                       @43
     mpr_obj_get_prop_by_idx                     @44
     mpr_obj_get_prop_by_key                     @45
-    mpr_obj_get_prop_as_i32                     @46
+    mpr_obj_get_prop_as_int32                   @46
     mpr_obj_get_prop_as_flt                     @47
     mpr_obj_get_prop_as_list                    @48
     mpr_obj_get_prop_as_str                     @49

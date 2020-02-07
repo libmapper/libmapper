@@ -50,7 +50,7 @@ mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, mpr_prop p, const char **k, int *l,
                                    v, pub);
 }
 
-int mpr_obj_get_prop_as_i32(mpr_obj o, mpr_prop p, const char *s)
+int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);

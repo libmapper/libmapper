@@ -1358,8 +1358,8 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
         trace_graph("%s map with id %"PR_MPR_ID"\n",
                     obj ? "found" : "couldn't find", av[i]->i64);
         if (obj) {
-            int is_local = mpr_obj_get_prop_as_i32(obj, MPR_PROP_IS_LOCAL, NULL);
-            return loc && !is_local ? MPR_MAP_ERROR : (mpr_map)obj;
+            int is_loc = mpr_obj_get_prop_as_int32(obj, MPR_PROP_IS_LOCAL, NULL);
+            return loc && !is_loc ? MPR_MAP_ERROR : (mpr_map)obj;
         }
     }
 
@@ -1624,7 +1624,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         }
     }
     if (rc || updated) {
-        if (mpr_obj_get_prop_as_i32(&map->obj, MPR_PROP_IS_LOCAL, 0)
+        if (mpr_obj_get_prop_as_int32(&map->obj, MPR_PROP_IS_LOCAL, 0)
             && dev && dev->loc && dev->loc->subscribers) {
             trace_dev(dev, "informing subscribers (MAPPED)\n")
             int dir = (MPR_DIR_OUT == map->dst->dir) ? MPR_MAP_OUT : MPR_MAP_IN;

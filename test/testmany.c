@@ -116,8 +116,8 @@ void wait_local_devs(int *cancel) {
     eprintf("\nRegistered devices:\n");
     int ordinal, highest = 0;
     for (i = 0; i < num_devs; i++) {
-        ordinal = mpr_obj_get_prop_as_i32((mpr_obj)devices[i], MPR_PROP_ORDINAL,
-                                          NULL);
+        ordinal = mpr_obj_get_prop_as_int32((mpr_obj)devices[i], MPR_PROP_ORDINAL,
+                                             NULL);
         if (ordinal > highest)
             highest = ordinal;
     }
@@ -125,8 +125,8 @@ void wait_local_devs(int *cancel) {
         int count = 0;
         const char *name = 0;
         for (j = 0; j < num_devs; j++) {
-            ordinal = mpr_obj_get_prop_as_i32((mpr_obj)devices[j], MPR_PROP_ORDINAL,
-                                              NULL);
+            ordinal = mpr_obj_get_prop_as_int32((mpr_obj)devices[j], MPR_PROP_ORDINAL,
+                                                 NULL);
             if (ordinal == i) {
                 name = mpr_obj_get_prop_as_str((mpr_obj)devices[j], MPR_PROP_NAME,
                                                NULL);

@@ -71,7 +71,7 @@ mpr_prop mpr_obj_get_prop_by_idx(mpr_obj obj, mpr_prop prop, const char **key,
 mpr_prop mpr_obj_get_prop_by_key(mpr_obj obj, const char *key, int *length,
                                  mpr_type *type, const void **value, int *pub);
 
-int mpr_obj_get_prop_as_i32(mpr_obj obj, mpr_prop prop, const char *key);
+int mpr_obj_get_prop_as_int32(mpr_obj obj, mpr_prop prop, const char *key);
 
 float mpr_obj_get_prop_as_flt(mpr_obj obj, mpr_prop prop, const char *key);
 
