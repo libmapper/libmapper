@@ -383,27 +383,38 @@ typedef struct _var {
     char public;
 } mpr_var_t, *mpr_var;
 
-#define FN_LOOKUP(LC, UC)                                                       \
-static expr_##LC##_t LC##_lookup(const char *s, int len)                        \
-{                                                                               \
-    int i, j;                                                                   \
-    for (i=0; i<N_##UC; i++) {                                                      \
-        if (strlen(LC##_tbl[i].name)==len && strncmp(s, LC##_tbl[i].name, len)==0) {\
-            if (!LC##_tbl[i].arity)                 \
-                return i;                           \
-            /* also check for parenthesis */        \
-            j = strlen(LC##_tbl[i].name);           \
-            while (s[j]) {                          \
-                if (s[j] == '(')                    \
-                    return i;                       \
-                else if (s[j] != ' ')               \
-                    return UC##_UNKNOWN;            \
-                ++j;                                \
-            }                                       \
-            break;                                  \
-        }                                           \
-    }                                               \
-    return UC##_UNKNOWN;                            \
+static int strncmp_lc(const char *a, const char *b, int len)
+{
+    int i;
+    for (i = 0; i < len; i++) {
+        int diff = tolower(a[i]) - tolower(b[i]);
+        RETURN_UNLESS(0 == diff, diff);
+    }
+    return 0;
+}
+
+#define FN_LOOKUP(LC, UC)                                   \
+static expr_##LC##_t LC##_lookup(const char *s, int len)    \
+{                                                           \
+    int i, j;                                               \
+    for (i=0; i<N_##UC; i++) {                              \
+        if (   strlen(LC##_tbl[i].name)==len                \
+            && strncmp_lc(s, LC##_tbl[i].name, len)==0) {   \
+            if (!LC##_tbl[i].arity)                         \
+                return i;                                   \
+            /* also check for parenthesis */                \
+            j = strlen(LC##_tbl[i].name);                   \
+            while (s[j]) {                                  \
+                if (s[j] == '(')                            \
+                    return i;                               \
+                else if (s[j] != ' ')                       \
+                    return UC##_UNKNOWN;                    \
+                ++j;                                        \
+            }                                               \
+            break;                                          \
+        }                                                   \
+    }                                                       \
+    return UC##_UNKNOWN;                                    \
 }
 
 FN_LOOKUP(fn, FN)
