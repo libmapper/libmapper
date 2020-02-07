@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import sys, os
-from PySide.QtCore import *
-from PySide.QtGui import *
+from PySide2.QtCore import Qt, QBasicTimer
+from PySide2.QtWidgets import QApplication, QMainWindow, QSlider, QLabel
 try:
     import mpr
 except:
@@ -16,17 +16,16 @@ except:
                                      '../swig'))
         import mpr
     except:
-        print 'Error importing libmpr module.'
+        print('Error importing libmpr module.')
         sys.exit(1)
 
 numsliders = 3
 dev = mpr.device("pysideGUI")
 sigs = []
 for i in range(numsliders):
-    sigs.append(dev.add_signal(mpr.DIR_OUT, 1, 'slider%i' %i, 1, 'f', None, 0, 1))
+    sigs.append(dev.add_signal(mpr.DIR_OUT, 'slider%i' %i, 1, 'f', None, 0, 1))
 
 class gui(QMainWindow):
-    
     def __init__(self):
         QMainWindow.__init__(self)
         self.setGeometry(300, 300, 300, 300)
@@ -45,9 +44,9 @@ class gui(QMainWindow):
             self.labels.append(QLabel('slider%i' %i, self))
             self.labels[i].setGeometry(5, 75+i*75, 290, 15)
 
-        self.sliders[0].valueChanged.connect(lambda x: sigs[0].update(x*0.01))
-        self.sliders[1].valueChanged.connect(lambda x: sigs[1].update(x*0.01))
-        self.sliders[2].valueChanged.connect(lambda x: sigs[2].update(x*0.01))
+        self.sliders[0].valueChanged.connect(lambda x: sigs[0].set_value(x*0.01))
+        self.sliders[1].valueChanged.connect(lambda x: sigs[1].set_value(x*0.01))
+        self.sliders[2].valueChanged.connect(lambda x: sigs[2].set_value(x*0.01))
 
         self.timer = QBasicTimer()
         self.timer.start(10, self)
@@ -64,17 +63,32 @@ class gui(QMainWindow):
         else:
             QtGui.QFrame.timerEvent(self, event)
 
-def h(map, action):
-    print 'GOT DEVICE MAP HANDLER'
-    id = map.source().signal()['name']
-    id = int(id[6])
-    if action == mpr.ADDED:
-        sig = map.destination().signal()
-        gui.setLabel(id, 'foo')
-    else:
-        gui.setLabel(id, 'slider%i' %id)
-    print 'DONE DEVICE MAP HANDLER'
-dev.set_map_callback(h)
+def h(type, map, event):
+    print('GOT DEVICE MAP HANDLER', map.signal(mpr.LOC_SRC).properties)
+    try:
+        print('comparing id')
+        src = map.signal(mpr.LOC_SRC)
+        found = None
+        print('looking for index')
+        for i in sigs:
+            if src == sigs[i]:
+                found = i
+                break
+        if found == None:
+            return;
+        print('got index', id)
+        if id < 0:
+            return
+        if event == mpr.OBJ_NEW:
+            sig = map.signal(mpr.LOC_DST)
+            gui.setLabel(id, sig.name)
+        elif event == mpr.OBJ_REM:
+            gui.setLabel(id, 'slider%i' %id)
+    except:
+        print('exception')
+    print('DONE DEVICE MAP HANDLER')
+
+dev.graph().add_callback(h, mpr.MAP)
 
 app = QApplication(sys.argv)
 gui = gui()

@@ -17,7 +17,7 @@ except:
         sys.path.append(
                         os.path.join(os.path.join(os.getcwd(),
                                                   os.path.dirname(sys.argv[0])),
-                                     '../../swig'))
+                                     '../swig'))
         import mpr
     except:
         print('Error importing libmpr module.')
@@ -34,10 +34,10 @@ p = Phasor(freq=freq, add=Clip(duty, min=-0.5, max=0.5))
 sig = DCBlock(Sig(value=Round(p), mul=[amp, amp])).out()
 
 try:
-    dev = mpr.device("pyo_pwm_example", 9000)
-    dev.add_signal(mpr.DIR_IN, 1, "frequency", 1, 'f', "Hz", 0, 1000, lambda s,i,n,t: freq.setValue(n))
-    dev.add_signal(mpr.DIR_IN, 1, "amplitude", 1, 'f', "normalized", 0, 1, lambda s,i,n,t: amp.setValue(n))
-    dev.add_signal(mpr.DIR_IN, 1, "duty", 1, 'f', "normalized", 0, 1, lambda s,i,n,t: duty.setValue(n))
+    dev = mpr.device("pyo_pwm_example")
+    dev.add_signal(mpr.DIR_IN, "frequency", 1, 'f', "Hz", 0, 1000, 0, lambda s,i,n,t: freq.setValue(n))
+    dev.add_signal(mpr.DIR_IN, "amplitude", 1, 'f', "normalized", 0, 1, 0, lambda s,i,n,t: amp.setValue(n))
+    dev.add_signal(mpr.DIR_IN, "duty", 1, 'f', "normalized", 0, 1, 0, lambda s,i,n,t: duty.setValue(n))
 
     while True:
         dev.poll(5)
