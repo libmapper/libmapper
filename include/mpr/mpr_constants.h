@@ -168,8 +168,8 @@ typedef enum {
     MPR_STATUS_UNDEFINED    = 0x00,
     MPR_STATUS_EXPIRED      = 0x01,
     MPR_STATUS_STAGED       = 0x02,
-    MPR_STATUS_READY        = 0x0F,
-    MPR_STATUS_ACTIVE       = 0x1F,
+    MPR_STATUS_READY        = 0x1F,
+    MPR_STATUS_ACTIVE       = 0x3F,
     MPR_STATUS_ALL          = 0xFF,
 } mpr_status;
 

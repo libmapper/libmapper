@@ -10,6 +10,10 @@
 #include <mpr/mpr.h>
 
 #define MAX_LEN 512
+#define MPR_STATUS_LENGTH_KNOWN 0x04
+#define MPR_STATUS_TYPE_KNOWN   0x08
+#define MPR_STATUS_LINK_KNOWN   0x10
+#define METADATA_OK             0x1C
 
 /*! Function prototypes. */
 static void reallocate_map_histories(mpr_map m);
@@ -836,20 +840,28 @@ static void mpr_map_check_status(mpr_map m)
 {
     RETURN_UNLESS(!bitmatch(m->status, MPR_STATUS_READY));
 
-    int i, mask = ~MPR_STATUS_LINK_KNOWN;
-    m->status |= MPR_STATUS_LINK_KNOWN;
+    m->status |= METADATA_OK;
+    int i, mask = ~METADATA_OK;
+    if (m->dst->sig->len)
+        m->dst->loc->status |= MPR_STATUS_LENGTH_KNOWN;
+    if (m->dst->sig->type)
+        m->dst->loc->status |= MPR_STATUS_TYPE_KNOWN;
     if (m->dst->loc->rsig || (m->dst->link && m->dst->link && m->dst->link->addr.udp))
         m->dst->loc->status |= MPR_STATUS_LINK_KNOWN;
     m->status &= (m->dst->loc->status | mask);
 
     for (i = 0; i < m->num_src; i++) {
+        if (m->src[i]->sig->len)
+            m->src[i]->loc->status |= MPR_STATUS_LENGTH_KNOWN;
+        if (m->src[i]->sig->type)
+            m->src[i]->loc->status |= MPR_STATUS_TYPE_KNOWN;
         if (m->src[i]->loc->rsig || (m->src[i]->link && m->src[i]->link
                                      && m->src[i]->link->addr.udp))
             m->src[i]->loc->status |= MPR_STATUS_LINK_KNOWN;
         m->status &= (m->src[i]->loc->status | mask);
     }
 
-    if (MPR_STATUS_LINK_KNOWN | m->status) {
+    if ((m->status & METADATA_OK) == METADATA_OK) {
         // allocate memory for map history
         for (i = 0; i < m->num_src; i++)
             init_slot_hist(m->src[i]);

@@ -393,8 +393,6 @@ typedef struct _mpr_link {
 #define MAX_NUM_MAP_SRC     8    // arbitrary
 #define MAX_NUM_MAP_DST     8    // arbitrary
 
-#define MPR_STATUS_LINK_KNOWN   0x04
-
 typedef struct _mpr_local_slot {
     // each slot can point to local signal or a remote link structure
     struct _mpr_rtr_sig *rsig;      //!< Parent signal if local
