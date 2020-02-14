@@ -285,55 +285,64 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type,
     int i, updated = 0;
     void *old_val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
     void *new_val = old_val;
-
     if (old_val && (len != rec->len || type != rec->type)) {
         // free old values
         if (MPR_STR == rec->type && rec->len > 1) {
             for (i = 0; i < rec->len; i++)
                 free(((char**)old_val)[i]);
         }
-        free(old_val);
+        if (rec->len != 1 || (MPR_PTR != rec->type && MPR_LIST < rec->type))
+            free(old_val);
         old_val = 0;
         updated = 1;
     }
-
-    if (MPR_STR == type) {
-        if (1 == len) {
-            if (old_val) {
-                if (strcmp((char*)old_val, (char*)val)) {
-                    free((char*)old_val);
-                    old_val = 0;
-                    updated = 1;
+    switch (type) {
+            case MPR_STR:
+            if (1 == len) {
+                if (old_val) {
+                    if (strcmp((char*)old_val, (char*)val)) {
+                        free((char*)old_val);
+                        old_val = 0;
+                        updated = 1;
+                    }
+                    else
+                        return 0;
                 }
-                else
-                    return 0;
+                new_val = val ? (void*)strdup((char*)val) : 0;
             }
-            new_val = val ? (void*)strdup((char*)val) : 0;
-        }
-        else {
-            const char **from = (const char**)val;
-            if (!old_val)
-                new_val = calloc(1, sizeof(char*) * len);
-            char **to = (char**)new_val;
-            for (i = 0; i < len; i++) {
-                if (!to[i] || strcmp(from[i], to[i])) {
-                    int n = strlen(from[i]);
-                    to[i] = realloc(to[i], n+1);
-                    memcpy(to[i], from[i], n+1);
-                    updated = 1;
+            else {
+                const char **from = (const char**)val;
+                if (!old_val)
+                    new_val = calloc(1, sizeof(char*) * len);
+                char **to = (char**)new_val;
+                for (i = 0; i < len; i++) {
+                    if (!to[i] || strcmp(from[i], to[i])) {
+                        int n = strlen(from[i]);
+                        to[i] = realloc(to[i], n+1);
+                        memcpy(to[i], from[i], n+1);
+                        updated = 1;
+                    }
                 }
             }
+            break;
+        case MPR_PTR:
+        case MPR_OBJ:
+        case MPR_LIST:
+            if (1 == len && (!old_val || old_val != val)) {
+                new_val = (void*)val;
+                updated = 1;
+                break;
+            }
+        default: {
+            if (!old_val) {
+                new_val = malloc(mpr_type_get_size(type) * len);
+                memcpy(new_val, val, mpr_type_get_size(type) * len);
+                updated = 1;
+            }
+            else if ((updated = memcmp(old_val, val, mpr_type_get_size(type) * len)))
+                memcpy(new_val, val, mpr_type_get_size(type) * len);
         }
     }
-    else {
-        if (!old_val) {
-            new_val = malloc(mpr_type_get_size(type) * len);
-            memcpy(new_val, val, mpr_type_get_size(type) * len);
-        }
-        else if ((updated = memcmp(old_val, val, mpr_type_get_size(type) * len)))
-            memcpy(new_val, val, mpr_type_get_size(type) * len);
-    }
-
     if (rec->flags & INDIRECT)
         *rec->val = new_val;
     else
@@ -595,6 +604,32 @@ void mpr_tbl_add_to_msg(mpr_tbl tbl, mpr_tbl new, lo_message msg)
 }
 
 #ifdef DEBUG
+static const char *type_name(mpr_type type)
+{
+    switch (type) {
+        case MPR_DEV:       return "MPR_DEV";
+        case MPR_SIG_IN:    return "MPR_SIG_IN";
+        case MPR_SIG_OUT:   return "MPR_SIG_OUT";
+        case MPR_SIG:       return "MPR_SIG";
+        case MPR_MAP_IN:    return "MPR_MAP_IN";
+        case MPR_MAP_OUT:   return "MPR_MAP_OUT";
+        case MPR_MAP:       return "MPR_MAP";
+        case MPR_OBJ:       return "MPR_OBJ";
+        case MPR_LIST:      return "MPR_LIST";
+        case MPR_BOOL:      return "MPR_BOOL";
+        case MPR_TYPE:      return "MPR_TYPE";
+        case MPR_DBL:       return "MPR_DBL";
+        case MPR_FLT:       return "MPR_FLT";
+        case MPR_INT64:     return "MPR_INT64";
+        case MPR_INT32:     return "MPR_INT32";
+        case MPR_STR:       return "MPR_STR";
+        case MPR_TIME:      return "MPR_TIME";
+        case MPR_PTR:       return "MPR_PTR";
+        case MPR_NULL:      return "MPR_NULL";
+        default:            return "unknown type!";
+    }
+}
+
 void mpr_tbl_print_record(mpr_tbl_record rec)
 {
     if (!rec) {
@@ -614,7 +649,7 @@ void mpr_tbl_print_record(mpr_tbl_record rec)
             printf("OWNED");
         printf("]");
     }
-    printf(": %c%d : ", rec->type, rec->len);
+    printf(": %s[%d] : ", type_name(rec->type), rec->len);
     void *val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
     mpr_prop_print(rec->len, rec->type, val);
 }

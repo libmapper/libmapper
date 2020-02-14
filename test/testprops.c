@@ -26,6 +26,32 @@ int verbose = 1;
         fprintf(stdout, format, ##__VA_ARGS__); \
 } while(0)
 
+const char *type_name(mpr_type type)
+{
+    switch (type) {
+        case MPR_DEV:       return "MPR_DEV";
+        case MPR_SIG_IN:    return "MPR_SIG_IN";
+        case MPR_SIG_OUT:   return "MPR_SIG_OUT";
+        case MPR_SIG:       return "MPR_SIG";
+        case MPR_MAP_IN:    return "MPR_MAP_IN";
+        case MPR_MAP_OUT:   return "MPR_MAP_OUT";
+        case MPR_MAP:       return "MPR_MAP";
+        case MPR_OBJ:       return "MPR_OBJ";
+        case MPR_LIST:      return "MPR_LIST";
+        case MPR_BOOL:      return "MPR_BOOL";
+        case MPR_TYPE:      return "MPR_TYPE";
+        case MPR_DBL:       return "MPR_DBL";
+        case MPR_FLT:       return "MPR_FLT";
+        case MPR_INT64:     return "MPR_INT64";
+        case MPR_INT32:     return "MPR_INT32";
+        case MPR_STR:       return "MPR_STR";
+        case MPR_TIME:      return "MPR_TIME";
+        case MPR_PTR:       return "MPR_PTR";
+        case MPR_NULL:      return "MPR_NULL";
+        default:            return "unknown type!";
+    }
+}
+
 /* Code to return a key's "seen" code, to mark whether we've seen a
  * value. */
 int seen_code(const char *key)
@@ -148,9 +174,9 @@ int main(int argc, char **argv)
     }
     eprintf("OK\n");
 
-    eprintf("\t checking type: %c ... ", type);
+    eprintf("\t checking type: %s ... ", type_name(type));
     if (type != MPR_STR) {
-        eprintf("ERROR (expected %c)\n", MPR_STR);
+        eprintf("ERROR (expected %s)\n", type_name(MPR_STR));
         result = 1;
         goto cleanup;
     }
@@ -214,9 +240,9 @@ int main(int argc, char **argv)
     }
     eprintf("OK\n");
 
-    eprintf("\t checking type: %c ... ", type);
+    eprintf("\t checking type: %s ... ", type_name(type));
     if (type != MPR_INT32) {
-        eprintf("ERROR (expected %c)\n", MPR_INT32);
+        eprintf("ERROR (expected %s)\n", type_name(MPR_INT32));
         result = 1;
         goto cleanup;
     }
@@ -263,9 +289,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("\t checking type: %c ... ", type);
+    eprintf("\t checking type: %s ... ", type_name(type));
     if (type != MPR_INT32) {
-        eprintf("ERROR (expected %c)\n", MPR_INT32);
+        eprintf("ERROR (expected %s)\n", type_name(MPR_INT32));
         result = 1;
         goto cleanup;
     }
@@ -301,9 +327,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("\t checking type: %c ... ", type);
+    eprintf("\t checking type: %s ... ", type_name(type));
     if (type != MPR_STR) {
-        eprintf("ERROR (expected %c)\n", MPR_STR);
+        eprintf("ERROR (expected %s)\n", type_name(MPR_STR));
         result = 1;
         goto cleanup;
     }
@@ -339,9 +365,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("\t checking type: %c ... ", type);
+    eprintf("\t checking type: %s ... ", type_name(type));
     if (type != MPR_FLT) {
-        eprintf("ERROR (expected %c)\n", MPR_FLT);
+        eprintf("ERROR (expected %s)\n", type_name(MPR_FLT));
         result = 1;
         goto cleanup;
     }
@@ -412,9 +438,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("\t checking type: %c ... ", type);
+    eprintf("\t checking type: %s ... ", type_name(type));
     if (type != MPR_INT32) {
-        eprintf("ERROR (expected %c)\n", MPR_INT32);
+        eprintf("ERROR (expected %s)\n", type_name(MPR_INT32));
         result = 1;
         goto cleanup;
     }
@@ -471,9 +497,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("\t checking type: %c ... ", type);
+    eprintf("\t checking type: %s ... ", type_name(type));
     if (type != MPR_FLT) {
-        eprintf("ERROR (expected '%c')\n", MPR_FLT);
+        eprintf("ERROR (expected '%s')\n", type_name(MPR_FLT));
         result = 1;
         goto cleanup;
     }
@@ -509,7 +535,7 @@ int main(int argc, char **argv)
     /* Test rewriting property 'test' as string vector property. */
     eprintf("Test 18: rewriting 'test' as vector string property... ");
     char *set_string[] = {"foo", "bar"};
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_STR, &set_string, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_STR, set_string, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -530,9 +556,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("\t checking type: %c ... ", type);
+    eprintf("\t checking type: %s ... ", type_name(type));
     if (type != MPR_STR) {
-        eprintf("ERROR (expected '%c')\n", MPR_STR);
+        eprintf("ERROR (expected '%s')\n", type_name(MPR_STR));
         result = 1;
         goto cleanup;
     }
@@ -562,6 +588,274 @@ int main(int argc, char **argv)
         goto cleanup;
     }
     else
+        eprintf("OK\n");
+
+    /* Test rewriting property 'test' as void* property. */
+    eprintf("Test 20: rewriting 'test' as void* property... ");
+    const void *set_ptr = (const void*)0x9813;
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_PTR, set_ptr, 1);
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_X | SEEN_Y | SEEN_TEST))
+    {
+        eprintf("ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("Test 21: retrieving property 'test'... ");
+    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
+        eprintf("not found... ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking type: %s ... ", type_name(type));
+    if (type != MPR_PTR) {
+        eprintf("ERROR (expected '%s')\n", type_name(MPR_PTR));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking length: %d ...", length);
+    if (length != 1) {
+        eprintf("ERROR (expected %d)\n", 1);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    const void *read_ptr = (const void*)val;
+    eprintf("\t checking value: %p ... ", read_ptr);
+    if (read_ptr != set_ptr) {
+        eprintf("ERROR (expected %p)\n", set_ptr);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    /* Test rewriting property 'test' as void* property to MPR_PROP_DATA. */
+    eprintf("Test 22: writing MPR_PROP_DATA as void* property... ");
+    mpr_obj_set_prop(sig, MPR_PROP_DATA, NULL, 1, MPR_PTR, set_ptr, 1);
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_X | SEEN_Y | SEEN_TEST))
+    {
+        eprintf("ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("Test 23: retrieving property MPR_PROP_DATA... ");
+    if (!mpr_obj_get_prop_by_idx(sig, MPR_PROP_DATA, NULL, &length, &type, &val, 0)) {
+        eprintf("not found... ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking type: %s ... ", type_name(type));
+    if (type != MPR_PTR) {
+        eprintf("ERROR (expected '%s')\n", type_name(MPR_PTR));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking length: %d ...", length);
+    if (length != 1) {
+        eprintf("ERROR (expected %d)\n", 1);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    read_ptr = (const void*)val;
+    eprintf("\t checking value: %p ... ", read_ptr);
+    if (read_ptr != set_ptr) {
+        eprintf("ERROR (expected %p)\n", set_ptr);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    /* Test rewriting property 'test' as void* vector property. */
+    eprintf("Test 24: rewriting 'test' as vector void* property... ");
+    const void *set_ptrs[] = {(const void*)0x1111, (const void*)0x2222};
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_PTR, set_ptrs, 1);
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_X | SEEN_Y | SEEN_TEST))
+    {
+        eprintf("ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("Test 25: retrieving property 'test'... ");
+    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
+        eprintf("not found... ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking type: %s ... ", type_name(type));
+    if (type != MPR_PTR) {
+        eprintf("ERROR (expected '%s')\n", type_name(MPR_PTR));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking length: %d ...", length);
+    if (length != 2) {
+        eprintf("ERROR (expected %d)\n", 2);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    const void **read_ptrs = (const void**)val;
+    eprintf("\t checking value: [%p,%p] ... ", read_ptrs[0], read_ptrs[1]);
+    matched = 0;
+    for (i = 0; i < 2; i++) {
+        if (read_ptrs[i] == set_ptrs[i])
+            ++matched;
+    }
+    if (matched != 2) {
+        eprintf("ERROR (expected [%p, %p])\n", set_ptrs[0], set_ptrs[1]);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    /* Test rewriting property 'test' as mpr_obj property. */
+    eprintf("Test 26: rewriting 'test' as mpr_obj property... ");
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_OBJ, sig, 1);
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_X | SEEN_Y | SEEN_TEST))
+    {
+        eprintf("ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("Test 27: retrieving property 'test'... ");
+    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
+        eprintf("not found... ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking type: %s ... ", type_name(type));
+    if (type != MPR_OBJ) {
+        eprintf("ERROR (expected '%s')\n", type_name(MPR_OBJ));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking length: %d ...", length);
+    if (length != 1) {
+        eprintf("ERROR (expected %d)\n", 1);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    mpr_obj read_obj = (mpr_obj)val;
+    eprintf("\t checking value: %p ... ", read_obj);
+    if (read_obj != sig) {
+        eprintf("ERROR (expected %p)\n", sig);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    /* Test rewriting property 'test' as mpr_list property. */
+    eprintf("Test 28: rewriting 'test' as mpr_list property... ");
+    mpr_list set_list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_LIST, set_list, 1);
+    seen = check_keys(sig);
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
+                 | SEEN_X | SEEN_Y | SEEN_TEST))
+    {
+        eprintf("ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("Test 29: retrieving property 'test'... ");
+    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
+        eprintf("not found... ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking type: %s ... ", type_name(type));
+    if (type != MPR_LIST) {
+        eprintf("ERROR (expected '%s')\n", type_name(MPR_LIST));
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    eprintf("\t checking length: %d ...", length);
+    if (length != 1) {
+        eprintf("ERROR (expected %d)\n", 1);
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
+    mpr_list read_list = (mpr_list)val;
+    eprintf("\t checking value: %p ... ", read_list);
+    matched = 0;
+    // for (i = 0; i < 2; i++) {
+    //     if (read_ptrs[i] == set_ptrs[i])
+    //         ++matched;
+    // }
+    // if (matched != 2) {
+    //     eprintf("ERROR (expected [%p, %p])\n", set_ptrs[0], set_ptrs[1]);
+    //     result = 1;
+    //     goto cleanup;
+    // }
+    // else
         eprintf("OK\n");
 
   cleanup:

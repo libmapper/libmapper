@@ -613,8 +613,12 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
                 printf("%c, ", ((mpr_type*)val)[i]);
             break;
         case MPR_PTR:
-            for (i = 0; i < len; i++)
-                printf("%p, ", ((void**)val)[i]);
+            if (len == 1)
+                printf("%p, ", val);
+            else {
+                for (i = 0; i < len; i++)
+                    printf("%p, ", ((void**)val)[i]);
+            }
             break;
         case MPR_DEV:
             // just print device name

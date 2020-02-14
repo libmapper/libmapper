@@ -666,8 +666,8 @@ static void mpr_net_maybe_send_ping(mpr_net net, int force)
                 mpr_graph_remove_link(gph, lnk, num_maps ? MPR_OBJ_EXP : MPR_OBJ_REM);
             }
         }
-        else if (num_maps && mpr_obj_get_prop_by_idx(&lnk->remote_dev->obj,
-                                                     MPR_PROP_HOST, 0, 0, 0, 0, 0)) {
+        else if (num_maps && mpr_obj_get_prop_as_str(&lnk->remote_dev->obj,
+                                                     MPR_PROP_HOST, 0)) {
             /* Only send pings if this link has associated maps, ensuring empty
              * links are removed after the ping timeout. */
             lo_bundle bun = lo_bundle_new(now);

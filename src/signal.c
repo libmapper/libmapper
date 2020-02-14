@@ -121,7 +121,7 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
 
     // these properties need to be added in alphabetical order
     mpr_tbl_link(t, PROP(DATA), 1, MPR_PTR, &s->obj.data,
-                 MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
+                 LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(t, PROP(DEV), 1, MPR_DEV, &s->dev,
                  NON_MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(t, PROP(DIR), 1, MPR_INT32, &s->dir, rem_mod);

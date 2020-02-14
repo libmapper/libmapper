@@ -77,7 +77,7 @@ float mpr_obj_get_prop_as_flt(mpr_obj obj, mpr_prop prop, const char *key);
 
 const char *mpr_obj_get_prop_as_str(mpr_obj obj, mpr_prop prop, const char *key);
 
-void *mpr_obj_get_prop_as_ptr(mpr_obj obj, mpr_prop prop, const char *key);
+const void *mpr_obj_get_prop_as_ptr(mpr_obj obj, mpr_prop prop, const char *key);
 
 mpr_obj mpr_obj_get_prop_as_obj(mpr_obj obj, mpr_prop prop, const char *key);
 
@@ -114,7 +114,7 @@ void mpr_obj_push(mpr_obj obj);
 void mpr_obj_print(mpr_obj obj, int staged);
 
 /*! Filter a list of objects using the given property.
- *  \param list         The list og objects to filter.
+ *  \param list         The list of objects to filter.
  *  \param prop         Symbolic identifier of the property to look for.
  *  \param key          The name of the property to search for.
  *  \param len          The value length.

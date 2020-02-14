@@ -91,7 +91,7 @@ const char *mpr_obj_get_prop_as_str(mpr_obj o, mpr_prop p, const char *s)
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
-void *mpr_obj_get_prop_as_ptr(mpr_obj o, mpr_prop p, const char *s)
+const void *mpr_obj_get_prop_as_ptr(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
