@@ -20,7 +20,7 @@ class testspeed {
                     }
             });
 
-        UpdateListener l = new UpdateListener() {
+        Listener l = new Listener() {
             public void onUpdate(Signal sig, float[] v, Time time) {
                 testspeed.updated = true;
             }
@@ -29,7 +29,7 @@ class testspeed {
         Signal in = dev.addSignal(Direction.INCOMING, "insig", 1, Type.FLOAT,
                                   "Hz", null, null, null, l);
 
-        Signal out = dev.addSignal(Direction.OUTGOING, "outsig", 1, Type.INT,
+        Signal out = dev.addSignal(Direction.OUTGOING, "outsig", 1, Type.INT32,
                                    "Hz", null, null, null, null);
 
         System.out.println("Waiting for ready...");
@@ -49,7 +49,7 @@ class testspeed {
         int i = 0;
         while (i < 10000) {
             if (testspeed.updated) {
-                out.update(i);
+                out.setValue(i);
                 i++;
                 testspeed.updated = false;
                 if ((i % 1000) == 0)

@@ -19,15 +19,15 @@ class testreverse {
             });
 
         Signal inp1 = dev.addSignal(Direction.INCOMING, "insig1", 1, Type.FLOAT,
-                                    "Hz", null, null, null, new UpdateListener() {
-                public void onUpdate(Signal sig, float[] v, Time time) {
-                    System.out.println("in onUpdate(): "+Arrays.toString(v));
-                }});
+                                    "Hz", null, null, null, new Listener() {
+            public void onUpdate(Signal sig, float[] v, Time time) {
+                System.out.println("in onUpdate(): "+Arrays.toString(v));
+        }});
 
-        Signal out1 = dev.addSignal(Direction.OUTGOING, "outsig1", 1, Type.INT,
+        Signal out1 = dev.addSignal(Direction.OUTGOING, "outsig1", 1, Type.INT32,
                                     "Hz", null, null, null, null);
-        out1.setUpdateListener(
-            new UpdateListener() {
+        out1.setListener(
+            new Listener() {
                 public void onUpdate(Signal sig, int[] v, Time time) {
                     System.out.println("  >> in onUpdate(): "+Arrays.toString(v));
                 }});
@@ -53,7 +53,7 @@ class testreverse {
         int i = 100;
         while (i >= 0) {
             System.out.println("Updating input to ["+i+"]");
-            inp1.update(new int[] {i});
+            inp1.setValue(new int[] {i});
             dev.poll(100);
             --i;
         }

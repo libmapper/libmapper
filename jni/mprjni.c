@@ -33,7 +33,6 @@ typedef struct {
     jobject signal;
     jobject listener;
     jobject instUpdateListener;
-    jobject instEventListener;
 } signal_jni_context_t, *signal_jni_context;
 
 typedef struct {
@@ -43,51 +42,36 @@ typedef struct {
 } inst_jni_context_t, *inst_jni_context;
 
 const char *graph_evt_strings[] = {
-    "ADDED",
+    "NEW",
     "MODIFIED",
     "REMOVED",
     "EXPIRED"
 };
 
 const char *inst_evt_strings[] = {
-    "NEW",
+    "NEW_INSTANCE",
     "UPSTREAM_RELEASE",
     "DOWNSTREAM_RELEASE",
     "OVERFLOW",
+    "UPDATE",
     "ALL"
 };
 
 /**** Helpers ****/
 
-static int is_local(mpr_obj o)
+static int is_local(mpr_obj obj)
 {
-    int len;
-    mpr_type type;
-    const void *val;
-    mpr_obj_get_prop_by_idx(o, MPR_PROP_IS_LOCAL, o, &len, &type, &val, 0);
-    return (1 == len && MPR_BOOL == type) ? *(int*)val : 0;
+    return obj ? mpr_obj_get_prop_as_int32(obj, MPR_PROP_IS_LOCAL, 0) : 0;
 }
 
 static const char* signal_name(mpr_sig sig)
 {
-    if (!sig)
-        return NULL;
-    int len;
-    mpr_type type;
-    const void *val;
-    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_NAME, 0, &len, &type, &val, 0);
-    return (1 == len && MPR_STR == type && val) ? (const char*)val : NULL;
+    return sig ? mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, 0) : NULL;
 }
 
 static int signal_length(mpr_sig sig)
 {
-    if (!sig)
-        return 0;
-    int len;
-    mpr_type type;
-    const void *val;
-    mpr_obj_get_prop_by_idx((mpr_obj)sig, MPR_PROP_LEN, 0, &len, &type, &val, 0);
-    return (1 == len && MPR_INT32 == type && val) ? *(int*)val : 0;
+    return sig ? mpr_obj_get_prop_as_int32((mpr_obj)sig, MPR_PROP_LEN, 0) : 0;
 }
 
 static mpr_type signal_type(mpr_sig sig)
@@ -101,7 +85,7 @@ static mpr_type signal_type(mpr_sig sig)
     return (1 == len && val) ? *(mpr_type*)val : 0;
 }
 
-static const void* signal_user_data(mpr_sig sig)
+static inline const void* signal_user_data(mpr_sig sig)
 {
     return sig ? mpr_obj_get_prop_as_ptr((mpr_obj)sig, MPR_PROP_DATA, NULL) : NULL;
 }
@@ -278,6 +262,7 @@ static jobject build_Value(JNIEnv *env, const int len, mpr_type type,
         case MPR_BOOL:
         case MPR_INT32: {
             if (len == 1) {
+                cls = (*env)->FindClass(env, "java/lang/Integer");
                 mid = (*env)->GetMethodID(env, cls, "<init>", "(I)V");
                 if (mid)
                     ret = (*env)->NewObject(env, cls, mid, *((int *)val));
@@ -287,13 +272,15 @@ static jobject build_Value(JNIEnv *env, const int len, mpr_type type,
                 if (mid) {
                     jintArray arr = (*env)->NewIntArray(env, len);
                     (*env)->SetIntArrayRegion(env, arr, 0, len, val);
-                    ret = (*env)->NewObject(env, cls, mid, arr);
+                    // TODO: test
+                    ret = arr;//(*env)->NewObject(env, cls, mid, arr);
                 }
             }
             break;
         }
         case MPR_FLT: {
             if (len == 1) {
+                cls = (*env)->FindClass(env, "java/lang/Float");
                 mid = (*env)->GetMethodID(env, cls, "<init>", "(F)V");
                 if (mid)
                     ret = (*env)->NewObject(env, cls, mid, *((float *)val));
@@ -303,6 +290,7 @@ static jobject build_Value(JNIEnv *env, const int len, mpr_type type,
                 if (mid) {
                     jfloatArray arr = (*env)->NewFloatArray(env, len);
                     (*env)->SetFloatArrayRegion(env, arr, 0, len, val);
+                    // TODO: test
                     ret = (*env)->NewObject(env, cls, mid, arr);
                 }
             }
@@ -551,56 +539,56 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id,
 
     jobject update_cb;
     signal_jni_context ctx = (signal_jni_context)signal_user_data(sig);
-    if (!ctx)
+    if (!ctx) {
+        printf("Error: couldn't find signal ctx in callback\n");
         return;
-
-    if (ctx->instUpdateListener) {
-        inst_jni_context ictx;
-        ictx = ((inst_jni_context) mpr_sig_get_inst_data(sig, id));
-        if (!ictx)
-            return;
-        update_cb = ictx->listener;
-        if (update_cb && ictx->inst) {
-            jclass cls = (*genv)->GetObjectClass(genv, update_cb);
-            if (cls) {
-                jmethodID mid=0;
-                if (type == MPR_INT32) {
-                    mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
-                                               "(Lmpr/Signal$Instance;"
-                                               "[I"
-                                               "Lmpr/Time;)V");
-                }
-                else if (type == MPR_FLT) {
-                    mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
-                                               "(Lmpr/Signal$Instance;"
-                                               "[F"
-                                               "Lmpr/Time;)V");
-                }
-                else if (type == MPR_DBL) {
-                    mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
-                                               "(Lmpr/Signal$Instance;"
-                                               "[D"
-                                               "Lmpr/Time;)V");
-                }
-                if (mid) {
-                    (*genv)->CallVoidMethod(genv, update_cb, mid, ictx->inst,
-                                            vobj, jtime);
-                    if ((*genv)->ExceptionOccurred(genv))
-                        bailing = 1;
-                }
-                else {
-                    printf("Error looking up onUpdate method.\n");
-                    exit(1);
-                }
-                if (vobj)
-                    (*genv)->DeleteLocalRef(genv, vobj);
-                if (jtime)
-                    (*genv)->DeleteLocalRef(genv, jtime);
-                return;
-            }
-        }
-
     }
+
+    // if (ctx->instUpdateListener) {
+    //     printf("java_signal_update_cb() 5\n");
+    //     inst_jni_context ictx;
+    //     ictx = ((inst_jni_context) mpr_sig_get_inst_data(sig, id));
+    //     if (ictx && ictx->inst && ictx->listener) {
+    //         update_cb = ictx->listener;
+    //         jclass cls = (*genv)->GetObjectClass(genv, update_cb);
+    //         if (cls) {
+    //             jmethodID mid=0;
+    //             if (type == MPR_INT32) {
+    //                 mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
+    //                                            "(Lmpr/Signal$Instance;"
+    //                                            "[I"
+    //                                            "Lmpr/Time;)V");
+    //             }
+    //             else if (type == MPR_FLT) {
+    //                 mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
+    //                                            "(Lmpr/Signal$Instance;"
+    //                                            "[F"
+    //                                            "Lmpr/Time;)V");
+    //             }
+    //             else if (type == MPR_DBL) {
+    //                 mid = (*genv)->GetMethodID(genv, cls, "onUpdate",
+    //                                            "(Lmpr/Signal$Instance;"
+    //                                            "[D"
+    //                                            "Lmpr/Time;)V");
+    //             }
+    //             if (mid) {
+    //                 (*genv)->CallVoidMethod(genv, update_cb, mid, ictx->inst,
+    //                                         vobj, jtime);
+    //                 if ((*genv)->ExceptionOccurred(genv))
+    //                     bailing = 1;
+    //             }
+    //             else {
+    //                 printf("Error looking up onUpdate method.\n");
+    //                 exit(1);
+    //             }
+    //             if (vobj)
+    //                 (*genv)->DeleteLocalRef(genv, vobj);
+    //             if (jtime)
+    //                 (*genv)->DeleteLocalRef(genv, jtime);
+    //             return;
+    //         }
+    //     }
+    // }
 
     update_cb = ctx->listener;
     if (update_cb && ctx->signal) {
@@ -658,7 +646,7 @@ static jobject create_signal_object(JNIEnv *env, jobject devobj,
     }
 
     if (sigobj) {
-        mpr_obj_set_prop((mpr_obj)sig, MPR_PROP_DATA, NULL, 1, MPR_PTR, &ctx, 0);
+        mpr_obj_set_prop((mpr_obj)sig, MPR_PROP_DATA, NULL, 1, MPR_PTR, ctx, 0);
         ctx->signal = (*env)->NewGlobalRef(env, sigobj);
         ctx->listener = listener ? (*env)->NewGlobalRef(env, listener) : 0;
     }
@@ -684,10 +672,8 @@ JNIEXPORT void JNICALL Java_mpr_AbstractObject_mprObjectFree
     while (sigs) {
         mpr_sig temp = (mpr_sig)*sigs;
         sigs = mpr_list_get_next(sigs);
-
         // do not call instance event callbacks
         mpr_sig_set_cb(temp, 0, 0);
-
         // check if we have active instances
         int i;
         for (i = 0; i < mpr_sig_get_num_inst(temp, MPR_STATUS_ACTIVE); i++) {
@@ -704,14 +690,11 @@ JNIEXPORT void JNICALL Java_mpr_AbstractObject_mprObjectFree
                 (*env)->DeleteGlobalRef(env, ictx->user_ref);
             free(ictx);
         }
-
         signal_jni_context ctx = (signal_jni_context)signal_user_data(temp);
         if (ctx->signal)
             (*env)->DeleteGlobalRef(env, ctx->signal);
         if (ctx->listener)
             (*env)->DeleteGlobalRef(env, ctx->listener);
-        if (ctx->instEventListener)
-            (*env)->DeleteGlobalRef(env, ctx->instEventListener);
         free(ctx);
     }
     mpr_dev_free(dev);
@@ -767,6 +750,32 @@ JNIEXPORT jobject JNICALL Java_mpr_AbstractObject_getProperty__I
 JNIEXPORT void JNICALL Java_mpr_AbstractObject_mprSetProperty
   (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring name, jobject jval)
 {
+    printf("Java_mpr_AbstractObject_mprSetProperty()\n");
+    jclass cls = (*env)->GetObjectClass(env, jval);
+    if (!cls) {
+        printf("couldn't find class for %p\n", jval);
+        return;
+    }
+    // Find the getName() method on the class object
+    jmethodID mid = (*env)->GetMethodID(env, cls, "getName", "()Ljava/lang/String;");
+
+if (!mid) {
+    printf("couldn' find mid for %p\n", jval);
+    return;
+}
+    // Call the getName() to get a jstring object back
+    jstring strObj = (jstring)(*env)->CallObjectMethod(env, jval, mid);
+
+    // Now get the c string from the java jstring object
+    const char* str = (*env)->GetStringUTFChars(env, strObj, NULL);
+
+    // Print the class name
+    printf("\nClass is: %s\n", str);
+
+    // Release the memory pinned char array
+    (*env)->ReleaseStringUTFChars(env, strObj, str);
+    return;
+
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
     if (!mobj)
         return;
@@ -813,6 +822,51 @@ JNIEXPORT void JNICALL Java_mpr_Graph_mprGraphFree
 {
     mpr_graph g = (mpr_graph)ptr_jlong(jgraph);
     mpr_graph_free(g);
+}
+
+JNIEXPORT jstring JNICALL Java_mpr_Graph_getInterface
+  (JNIEnv *env, jobject obj)
+{
+    mpr_graph g = get_graph_from_jobject(env, obj);
+    if (!g)
+        return NULL;
+    const char *iface = mpr_graph_get_interface(g);
+    return build_Value(env, 1, MPR_STR, iface, 0);
+}
+
+JNIEXPORT jobject JNICALL Java_mpr_Graph_setInterface
+  (JNIEnv *env, jobject obj, jstring jiface)
+{
+    mpr_graph g = get_graph_from_jobject(env, obj);
+    if (g) {
+        const char *ciface = (*env)->GetStringUTFChars(env, jiface, 0);
+        mpr_graph_set_interface(g, ciface);
+        (*env)->ReleaseStringUTFChars(env, jiface, ciface);
+    }
+    return obj;
+}
+
+JNIEXPORT jstring JNICALL Java_mpr_Graph_getAddress
+  (JNIEnv *env, jobject obj)
+{
+    mpr_graph g = get_graph_from_jobject(env, obj);
+    if (g) {
+        const char *address = mpr_graph_get_address(g);
+        return build_Value(env, 1, MPR_STR, address, 0);
+    }
+    return NULL;
+}
+
+JNIEXPORT jobject JNICALL Java_mpr_Graph_setAddress
+  (JNIEnv *env, jobject obj, jstring jgroup, jint port)
+{
+    mpr_graph g = get_graph_from_jobject(env, obj);
+    if (g) {
+        const char *cgroup = (*env)->GetStringUTFChars(env, jgroup, 0);
+        mpr_graph_set_address(g, cgroup, port);
+        (*env)->ReleaseStringUTFChars(env, jgroup, cgroup);
+    }
+    return obj;
 }
 
 JNIEXPORT jobject JNICALL Java_mpr_Graph_poll
@@ -1017,9 +1071,14 @@ JNIEXPORT jobject JNICALL Java_mpr_Device_add_1signal
 
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
     const char *cunit = unit ? (*env)->GetStringUTFChars(env, unit, 0) : 0;
-//    int num_inst = 0;
-    mpr_sig sig = mpr_sig_new(dev, dir, cname, len, (char)type, cunit,
-                              0, 0, NULL, 0, 0);
+    int num_inst = 0;
+    if (numInst) {
+        jclass cls = (*env)->FindClass(env, "java/lang/Integer");
+        jmethodID getVal = (*env)->GetMethodID(env, cls, "intValue", "()I");
+        num_inst = (*env)->CallIntMethod(env, numInst, getVal);
+    }
+    mpr_sig sig = mpr_sig_new(dev, dir, cname, len, type, cunit,
+                              0, 0, num_inst ? &num_inst : NULL, 0, 0);
     if (listener)
         mpr_sig_set_cb(sig, java_signal_update_cb, MPR_SIG_UPDATE);
 
@@ -1043,19 +1102,18 @@ JNIEXPORT jobject JNICALL Java_mpr_Device_add_1signal
         return 0;
     }
     if (min) {
-        Java_mpr_AbstractObject_mprSetProperty(env, sigobj, jlong_ptr(sig),
-                                               MPR_PROP_MIN, NULL, min);
+        printf("trying to access class of min object\n");
+        jclass cls = (*env)->GetObjectClass(env, min);
+        if (!cls) {
+            printf("couldn't find class for %p\n", min);
+        }
+        // Java_mpr_AbstractObject_mprSetProperty(env, sigobj, jlong_ptr(sig),
+        //                                        MPR_PROP_MIN, NULL, min);
     }
-    if (max) {
-        Java_mpr_AbstractObject_mprSetProperty(env, sigobj, jlong_ptr(sig),
-                                               MPR_PROP_MAX, NULL, min);
-    }
-    if (numInst) {
-        jclass cls = (*env)->FindClass(env, "java/lang/Integer");
-        jmethodID getVal = (*env)->GetMethodID(env, cls, "intValue", "()I");
-        int num_inst = (*env)->CallIntMethod(env, numInst, getVal);
-        mpr_sig_reserve_inst(sig, num_inst, 0, 0);
-    }
+    // if (max) {
+    //     Java_mpr_AbstractObject_mprSetProperty(env, sigobj, jlong_ptr(sig),
+    //                                            MPR_PROP_MAX, NULL, max);
+    // }
     return sigobj;
 }
 
@@ -1093,8 +1151,6 @@ JNIEXPORT void JNICALL Java_mpr_Device_mprDeviceRemoveSignal
             (*env)->DeleteGlobalRef(env, ctx->signal);
         if (ctx->listener)
             (*env)->DeleteGlobalRef(env, ctx->listener);
-        if (ctx->instEventListener)
-            (*env)->DeleteGlobalRef(env, ctx->instEventListener);
         free(ctx);
 
         mpr_sig_free(sig);
@@ -1439,67 +1495,31 @@ JNIEXPORT jobject JNICALL Java_mpr_Signal_device
     return (*env)->NewObject(env, cls, mid, jlong_ptr(dev));
 }
 
-JNIEXPORT jobject JNICALL Java_mpr_Signal_setUpdateListener
-  (JNIEnv *env, jobject obj, jobject listener)
+JNIEXPORT void JNICALL Java_mpr_Signal_mprSignalSetCB
+  (JNIEnv *env, jobject obj, jlong jsig, jobject listener, jint flags)
 {
-    mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, obj);
-    if (!sig)
-        return obj;
-
+    mpr_sig sig = (mpr_sig) ptr_jlong(jsig);
+    // signal_jni_context ctx = mpr_obj_get_prop_as_ptr((mpr_obj)sig, MPR_PROP_DATA, 0);
     signal_jni_context ctx = (signal_jni_context)signal_user_data(sig);
-    if (ctx->listener)
+    if (!ctx) {
+        return;
+    }
+    if (ctx->listener == listener) {
+        mpr_sig_set_cb(sig, java_signal_update_cb, flags);
+        return;
+    }
+    if (ctx->listener) {
         (*env)->DeleteGlobalRef(env, ctx->listener);
+    }
     if (listener) {
         ctx->listener = (*env)->NewGlobalRef(env, listener);
-        mpr_sig_set_cb(sig, java_signal_update_cb, MPR_SIG_UPDATE);
+        mpr_sig_set_cb(sig, java_signal_update_cb, flags);
     }
     else {
         ctx->listener = 0;
-        mpr_sig_set_cb(sig, 0, 0);
+        mpr_sig_set_cb(sig, NULL, 0);
     }
-    return obj;
-}
-
-JNIEXPORT jobject JNICALL Java_mpr_Signal_setInstanceUpdateListener
-  (JNIEnv *env, jobject obj, jobject listener)
-{
-    mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, obj);
-    if (!sig)
-        return obj;
-
-    int i, idx, status = MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED;
-    for (i = 0; i < mpr_sig_get_num_inst(sig, status); i++) {
-        idx = mpr_sig_get_inst_id(sig, i, status);
-        inst_jni_context ctx = ((inst_jni_context) mpr_sig_get_inst_data(sig, idx));
-        if (!ctx)
-            continue;
-        if (ctx->listener)
-            (*env)->DeleteGlobalRef(env, ctx->listener);
-        ctx->listener = listener ? (*env)->NewGlobalRef(env, listener) : 0;
-    }
-
-    // also set it for the signal
-    signal_jni_context ctx = (signal_jni_context)signal_user_data(sig);
-    if (ctx) {
-        if (ctx->instUpdateListener)
-            (*env)->DeleteGlobalRef(env, ctx->instUpdateListener);
-        if (listener)
-            ctx->instUpdateListener = (*env)->NewGlobalRef(env, listener);
-        else
-            ctx->instUpdateListener = 0;
-    }
-    return obj;
-}
-
-JNIEXPORT jobject JNICALL Java_mpr_Signal_instUpdateListener
-  (JNIEnv *env, jobject obj)
-{
-    mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, obj);
-    if (sig) {
-        signal_jni_context ctx = (signal_jni_context)signal_user_data(sig);
-        return ctx ? ctx->listener : 0;
-    }
-    return 0;
+    return;
 }
 
 JNIEXPORT void JNICALL Java_mpr_Signal_mprSignalReserveInstances
@@ -1578,22 +1598,6 @@ JNIEXPORT jint JNICALL Java_mpr_Signal_numReservedInstances
 {
     mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, obj);
     return sig ? mpr_sig_get_num_inst(sig, MPR_STATUS_RESERVED) : 0;
-}
-
-JNIEXPORT void JNICALL Java_mpr_Signal_mprSetStealingMode
-  (JNIEnv *env, jobject obj, jint mode)
-{
-    mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, obj);
-    if (sig)
-        mpr_obj_set_prop((mpr_obj)sig, MPR_PROP_STEAL_MODE, NULL, 1, MPR_INT32,
-                         &mode, 1);
-}
-
-JNIEXPORT jint JNICALL Java_mpr_Signal_mprStealingMode
-  (JNIEnv *env, jobject obj, jlong jsig)
-{
-    mpr_sig sig = (mpr_sig) ptr_jlong(jsig);
-    return sig ? mpr_obj_get_prop_as_int32((mpr_obj)sig, MPR_PROP_STEAL_MODE, NULL) : 0;
 }
 
 JNIEXPORT jobject JNICALL Java_mpr_Signal_updateInstance__JILmpr_Time_2

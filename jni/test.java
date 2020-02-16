@@ -11,7 +11,7 @@ class test {
     public static void main(String [] args) {
         final Device dev1 = new Device("javatest");
         final Device dev2 = new Device("javatest");
-        final Graph g = new Graph(ObjectType.ALL);
+        final Graph g = new Graph(Type.OBJECT);
         Time start = new Time();
         System.out.println("Current time: "+start.now());
 
@@ -26,7 +26,7 @@ class test {
                     }
             });
 
-        g.addListener(new Listener<Device>() {
+        g.addListener(new mpr.graph.Listener<Device>() {
             public void onEvent(Device dev, mpr.graph.Event event) {
                 System.out.println("graph record "+event+" for device "+dev.getProperty("name"));
                 for (int i = 0; i < dev.numProperties(); i++) {
@@ -35,7 +35,7 @@ class test {
                 }
             }});
 
-        g.addListener(new Listener<Signal>() {
+        g.addListener(new mpr.graph.Listener<Signal>() {
             public void onEvent(Signal sig, mpr.graph.Event event) {
                 System.out.println("graph record "+event+" for signal "
                                    +sig.device().getProperty("name")
@@ -46,7 +46,7 @@ class test {
                 }
             }});
 
-        g.addListener(new Listener<mpr.Map>() {
+        g.addListener(new mpr.graph.Listener<mpr.Map>() {
             public void onEvent(mpr.Map map, mpr.graph.Event event) {
                 System.out.print("graph record "+event+" for map ");
                 for (int i = 0; i < map.numSignals(Location.SOURCE); i++) {
@@ -63,8 +63,8 @@ class test {
                 }
             }});
 
-        Signal inp1 = dev1.addSignal(Direction.INCOMING, "insig1", 1, Type.INT,
-                                     "Hz", 2.0f, null, null, new UpdateListener() {
+        Signal inp1 = dev1.addSignal(Direction.INCOMING, "insig1", 1, Type.INT32,
+                                     "Hz", 2.0f, null, null, new mpr.signal.Listener() {
             public void onUpdate(Signal sig, float[] v, Time time) {
                 System.out.println(" >> in onUpdate() for "+sig.getProperty("name")+": "
                                    +Arrays.toString(v)+" at t="+time);
@@ -72,7 +72,7 @@ class test {
 
         System.out.println("Input signal name: "+inp1.getProperty("name"));
 
-        Signal out1 = dev2.addSignal(Direction.OUTGOING, "outsig1", 1, Type.INT,
+        Signal out1 = dev2.addSignal(Direction.OUTGOING, "outsig1", 1, Type.INT32,
                                      "Hz", 0, 1, null, null);
         Signal out2 = dev2.addSignal(Direction.OUTGOING, "outsig2", 1,
                                      Type.FLOAT, "Hz", 0.0f, 1.0f, null, null);
@@ -142,11 +142,11 @@ class test {
             System.out.println("Signal has no value.");
 
         // Just to test vector-valued signal and time support,
-        out1.update(new int []{i}, Time.NOW);
+        out1.setValue(new int []{i}, Time.NOW);
 
         // Test instances
-        out1.setInstanceEventListener(new InstanceEventListener() {
-            public void onEvent(Signal.Instance inst, InstanceEvent event,
+        out1.setListener(new mpr.signal.Listener() {
+            public void onEvent(Signal.Instance inst, mpr.signal.Event event,
                                 Time time) {
                 System.out.println("onInstanceEvent() for "
                                    + inst.signal().getProperty("name") + " instance "
@@ -159,28 +159,28 @@ class test {
                                            +Arrays.toString((int[])userObject));
                     }
                 }
-            }}, mpr.signal.InstanceEvent.ALL);
+            }}, mpr.signal.Event.ALL);
 
-        System.out.println(inp1.getProperty("name") + " allocation mode: "
-                           + inp1.getStealingMode());
-        inp1.setStealingMode(StealingMode.NEWEST);
-        System.out.println(inp1.getProperty("name") + " allocation mode: "
-                           + inp1.getStealingMode());
+//        System.out.println(inp1.getProperty("name") + " allocation mode: "
+//                           + inp1.getStealingMode());
+//        inp1.setStealingType(StealingMode.NEWEST);
+//        System.out.println(inp1.getProperty("name") + " allocation mode: "
+//                           + inp1.getStealingMode());
 
         System.out.println("Reserving 4 instances for signal "
                            +out1.getProperty("name"));
         out1.reserveInstances(4);
         int[] foo = new int[]{1,2,3,4};
         Signal.Instance instance1 = out1.instance(foo);
-        instance1.update(new int[]{-8});
+        instance1.setValue(new int[]{-8});
         int v = instance1.intValue();
         Signal.Instance instance2 = out1.instance();
-        instance2.update(new float[]{21.9f});
+        instance2.setValue(new float[]{21.9f});
         instance2.intValue();
-        instance2.update(new double[]{48.12});
+        instance2.setValue(new double[]{48.12});
         instance2.intValue();
 
-        inp1.setInstanceUpdateListener(new InstanceUpdateListener() {
+        inp1.setListener(new mpr.signal.Listener() {
             public void onUpdate(Signal.Instance inst, float[] v, Time time) {
                 System.out.println("in onInstanceUpdate() for "
                                    +inst.signal().getProperty("name")+" instance "
@@ -192,16 +192,16 @@ class test {
                            +inp1.getProperty("name"));
         inp1.reserveInstances(4);
         System.out.println(inp1.getProperty("name") + " instance listener is "
-                           + inp1.instanceUpdateListener());
+                           + inp1.listener());
 
         while (i <= 100) {
             if ((i % 3) > 0) {
                 System.out.println("Updated instance1 value to: " + i);
-                instance1.update(i);
+                instance1.setValue(i);
             }
             else {
                 System.out.println("Updated instance2 value to: " + i);
-                instance2.update(i);
+                instance2.setValue(i);
             }
 
             if (i == 50) {

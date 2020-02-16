@@ -4,29 +4,32 @@ package mpr;
 import mpr.graph.*;
 //import mpr.map.*;
 //import mpr.signal.*;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+//import java.util.HashSet;
 
 public class Graph
 {
     /* constructor */
     private native long mprGraphNew(int flags);
-    public Graph(Set<ObjectType> types) {
+    public Graph(Set<Type> types) {
         int flags = 0;
-        for (ObjectType t : ObjectType.values()) {
+        for (Type t : Type.values()) {
             if (types.contains(t))
                 flags |= t.value();
         }
         _graph = mprGraphNew(flags);
     }
-    public Graph(ObjectType type) {
+    public Graph(Type type) {
         _graph = mprGraphNew(type.value());
+        _listeners = new HashSet();
     }
     public Graph() {
-        _graph = mprGraphNew(ObjectType.ALL.value());
+        _graph = mprGraphNew(Type.OBJECT.value());
+        _listeners = new HashSet();
     }
     public Graph(long graph) {
         _graph = graph;
+        _listeners = new HashSet();
     }
 
     /* free */
@@ -52,23 +55,23 @@ public class Graph
     /* subscriptions */
     private native void mprGraphSubscribe(long graph, mpr.Device dev, int flags,
                                           int timeout);
-    public Graph subscribe(mpr.Device dev, ObjectType type, int lease) {
+    public Graph subscribe(mpr.Device dev, Type type, int lease) {
         mprGraphSubscribe(_graph, dev, type.value(), lease);
         return this;
     }
-    public Graph subscribe(mpr.Device dev, ObjectType type) {
+    public Graph subscribe(mpr.Device dev, Type type) {
         return subscribe(dev, type, -1);
     }
-    public Graph subscribe(mpr.Device dev, Set<ObjectType> types, int lease) {
+    public Graph subscribe(mpr.Device dev, Set<Type> types, int lease) {
         int flags = 0;
-        for (ObjectType t : ObjectType.values()) {
+        for (Type t : Type.values()) {
             if (types.contains(t))
                 flags |= t.value();
         }
         mprGraphSubscribe(_graph, dev, flags, lease);
         return this;
     }
-    public Graph subscribe(mpr.Device dev, Set<ObjectType> types) {
+    public Graph subscribe(mpr.Device dev, Set<Type> types) {
         return subscribe(dev, types, -1);
     }
 
@@ -77,7 +80,7 @@ public class Graph
 
     // Listeners
     private native void addCallback(long graph, Listener l);
-    public <T extends AbstractObject> Graph addListener(Listener<T> l) {
+    public Graph addListener(Listener l) {
         addCallback(_graph, l);
         _listeners.add(l);
         return this;

@@ -2,8 +2,7 @@
 package mpr;
 
 //import mpr.NativeLib;
-import mpr.signal.UpdateListener;
-import mpr.signal.InstanceUpdateListener;
+import mpr.signal.Listener;
 import mpr.Type;
 import mpr.Time;
 
@@ -35,12 +34,15 @@ public class Device extends mpr.AbstractObject
 
     /* signals */
     private native Signal add_signal(long dev, int dir, String name, int length,
-                                     int type, String unit, Number minimum,
-                                     Number maximum, Integer numInstances,
-                                     mpr.signal.UpdateListener l);
-    public Signal addSignal(Direction dir, String name, int length,
-                            Type type, String unit, Number minimum, Number maximum,
-                            Integer numInstances, mpr.signal.UpdateListener l) {
+                                     int type, String unit,
+                                     java.lang.Object minimum,
+                                     java.lang.Object maximum,
+                                     Integer numInstances,
+                                     mpr.signal.Listener l);
+    public Signal addSignal(Direction dir, String name, int length, Type type,
+                            String unit, java.lang.Object minimum,
+                            java.lang.Object maximum, Integer numInstances,
+                            mpr.signal.Listener l) {
         return add_signal(_obj, dir.value(), name, length, type.value(), unit,
                           minimum, maximum, numInstances, l);
     }
@@ -49,10 +51,6 @@ public class Device extends mpr.AbstractObject
                           null, null, null, null, null);
     }
     public native Device removeSignal(Signal sig);
-
-    /* signal groups */
-    public native long addSignalGroup();
-    public native Device removeSignalGroup(long group);
 
     /* property: ready */
     public native boolean ready();

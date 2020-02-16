@@ -22,29 +22,25 @@ public class Signal extends AbstractObject
     public native Device device();
 
     /* callbacks */
-    private native void mprSignalSetInstanceEventCB(InstanceEventListener l,
-                                                    int flags);
-    public Signal setInstanceEventListener(InstanceEventListener l,
-                                           InstanceEvent event) {
-        mprSignalSetInstanceEventCB(l, event.value());
+    private native void mprSignalSetCB(long sig, Listener l, int flags);
+    public Signal setListener(Listener l, Event event) {
+        mprSignalSetCB(_obj, l, event.value());
         return this;
     }
-    public Signal setInstanceEventListener(InstanceEventListener l,
-                                           Set<InstanceEvent> events) {
+    public Signal setListener(Listener l, Set<Event> events) {
         int flags = 0;
-        for (InstanceEvent e : InstanceEvent.values()) {
+        for (Event e : Event.values()) {
             if (events.contains(e))
                 flags |= e.value();
         }
-        mprSignalSetInstanceEventCB(l, flags);
+        mprSignalSetCB(_obj, l, flags);
         return this;
     }
-    public native Signal setUpdateListener(UpdateListener l);
-    public native Signal setInstanceUpdateListener(InstanceUpdateListener l);
-    public native InstanceUpdateListener instanceUpdateListener();
-
-    public native Signal setGroup(long grp);
-    public native long getGroup();
+    public Signal setListener(Listener l) {
+        mprSignalSetCB(_obj, l, Event.UPDATE.value());
+        return this;
+    }
+    public native Listener listener();
 
     private native void mprSignalReserveInstances(long sig, int num, long[] ids);
     public Signal reserveInstances(int num) {
@@ -73,16 +69,6 @@ public class Signal extends AbstractObject
     public native int numActiveInstances();
     public native int numReservedInstances();
 
-    private native void mprSetStealingMode(int mode);
-    public Signal setStealingMode(StealingMode mode) {
-        mprSetStealingMode(mode.value());
-        return this;
-    }
-    private native int mprStealingMode(long sig);
-    public StealingMode getStealingMode() {
-        return StealingMode.values()[mprStealingMode(_obj)];
-    }
-
     /* update signal or instance */
     private native Signal updateInstance(long id, int i, Time t);
     private native Signal updateInstance(long id, float f, Time t);
@@ -91,41 +77,41 @@ public class Signal extends AbstractObject
     private native Signal updateInstance(long id, float[] f, Time t);
     private native Signal updateInstance(long id, double[] d, Time t);
 
-    public Signal update(int i) {
+    public Signal setValue(int i) {
         return updateInstance(0, i, null);
     }
-    public Signal update(float f) {
+    public Signal setValue(float f) {
         return updateInstance(0, f, null);
     }
-    public Signal update(double d) {
+    public Signal setValue(double d) {
         return updateInstance(0, d, null);
     }
-    public Signal update(int[] i) {
+    public Signal setValue(int[] i) {
         return updateInstance(0, i, null);
     }
-    public Signal update(float[] d) {
+    public Signal setValue(float[] d) {
         return updateInstance(0, d, null);
     }
-    public Signal update(double[] d) {
+    public Signal setValue(double[] d) {
         return updateInstance(0, d, null);
     }
 
-    public Signal update(int i, Time t) {
+    public Signal setValue(int i, Time t) {
         return updateInstance(0, i, t);
     }
-    public Signal update(float f, Time t) {
+    public Signal setValue(float f, Time t) {
         return updateInstance(0, f, t);
     }
-    public Signal update(double d, Time t) {
+    public Signal setValue(double d, Time t) {
         return updateInstance(0, d, t);
     }
-    public Signal update(int[] i, Time t) {
+    public Signal setValue(int[] i, Time t) {
         return updateInstance(0, i, t);
     }
-    public Signal update(float[] f, Time t) {
+    public Signal setValue(float[] f, Time t) {
         return updateInstance(0, f, t);
     }
-    public Signal update(double[] d, Time t) {
+    public Signal setValue(double[] d, Time t) {
         return updateInstance(0, d, t);
     }
 
@@ -187,52 +173,52 @@ public class Signal extends AbstractObject
         public long id() { return _id; }
 
         /* update */
-        public Instance update(int i, Time t) {
+        public Instance setValue(int i, Time t) {
             updateInstance(_id, i, t);
             return this;
         }
-        public Instance update(float f, Time t) {
+        public Instance setValue(float f, Time t) {
             updateInstance(_id, f, t);
             return this;
         }
-        public Instance update(double d, Time t) {
+        public Instance setValue(double d, Time t) {
             updateInstance(_id, d, t);
             return this;
         }
-        public Instance update(int[] i, Time t) {
+        public Instance setValue(int[] i, Time t) {
             updateInstance(_id, i, t);
             return this;
         }
-        public Instance update(float[] f, Time t) {
+        public Instance setValue(float[] f, Time t) {
             updateInstance(_id, f, t);
             return this;
         }
-        public Instance update(double[] d, Time t) {
+        public Instance setValue(double[] d, Time t) {
             updateInstance(_id, d, t);
             return this;
         }
 
-        public Instance update(int i) {
+        public Instance setValue(int i) {
             updateInstance(_id, i, null);
             return this;
         }
-        public Instance update(float f) {
+        public Instance setValue(float f) {
             updateInstance(_id, f, null);
             return this;
         }
-        public Instance update(double d) {
+        public Instance setValue(double d) {
             updateInstance(_id, d, null);
             return this;
         }
-        public Instance update(int[] i) {
+        public Instance setValue(int[] i) {
             updateInstance(_id, i, null);
             return this;
         }
-        public Instance update(float[] f) {
+        public Instance setValue(float[] f) {
             updateInstance(_id, f, null);
             return this;
         }
-        public Instance update(double[] d) {
+        public Instance setValue(double[] d) {
             updateInstance(_id, d, null);
             return this;
         }

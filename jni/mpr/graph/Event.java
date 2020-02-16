@@ -4,7 +4,7 @@ package mpr.graph;
 /*! The set of possible events for a graph entity. */
 public enum Event
 {
-    ADDED(0), MODIFIED(1), REMOVED(2), EXPIRED(3);
+    NEW(0), MODIFIED(1), REMOVED(2), EXPIRED(3);
 
     Event(int value) {
         this._value = value;

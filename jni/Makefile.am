@@ -15,23 +15,17 @@ JHEADERS = mpr_AbstractObject.h                                          \
            mpr_Time.h
 
 JFLAGS = -source 1.8 -target 1.8
-JCLASSES = mpr/NativeLib.class mpr/Graph.class                           \
-           mpr/graph/DeviceListener.class mpr/graph/Event.class          \
-           mpr/graph/MapListener.class mpr/graph/Operator.class          \
-           mpr/graph/SignalListener.class                                \
-           mpr/graph/ObjectType.class                                    \
+JCLASSES = mpr/NativeLib.class                                           \
+           mpr/AbstractObject.class                                      \
            mpr/Device.class                                              \
            mpr/Direction.class                                           \
+           mpr/Graph.class mpr/graph/Event.class                         \
+           mpr/graph/Listener.class mpr/graph/Operator.class             \
            mpr/List.class                                                \
-           mpr/Map.class                                                 \
-           mpr/map/Location.class                                        \
+           mpr/Map.class mpr/map/Location.class                          \
            mpr/Property.class                                            \
-           mpr/Signal.class                                              \
-           mpr/signal/InstanceEvent.class                                \
-           mpr/signal/InstanceEventListener.class                        \
-           mpr/signal/InstanceUpdateListener.class                       \
-           mpr/signal/StealingMode.class                                 \
-           mpr/signal/UpdateListener.class                               \
+           mpr/Signal.class mpr/signal/Event.class                       \
+           mpr/signal/Listener.class mpr/signal/StealingType.class       \
            mpr/Time.class                                                \
            mpr/Type.class
 
