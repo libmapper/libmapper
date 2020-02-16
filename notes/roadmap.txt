@@ -14,7 +14,7 @@ The current status is summarized here:
   network, responding to incoming signal values, and updating
   registered output signals.
 
-* Network routing (called Links) and Mappings (called Connections can
+* Network routing and inter-signal mapping can
   be established, and all required signal conditioning functions have
   been implemented, including support for vectors, conditionals.
 
@@ -34,6 +34,10 @@ The current status is summarized here:
 
 * Instances working
 
+* TCP transport working
+
+* Convergent mapping working
+
 Tasks To Do
 ===========
 
@@ -45,7 +49,7 @@ The following tasks currently need to be accomplished:
 * Include some Max/MSP standalone versions of controllers, Granul8,
   etc? (Joe)
 
-* Add saving/loading of json mapping files
+* Add saving/loading of json mapping files -> serialize mpr_lists?
 
 * Documentation, tutorials. 
     * External API. (Steve)
@@ -67,13 +71,9 @@ Lower priority tasks
 * finish timetag integration - delays, destination interpolation,
   timetag manipulation, timed filters. (In progress)
 
-* Ensure correct action is taken (if any) when signals are registered
-  and unregistered, or devices disappear and reappear. (Depends on
-  namespace hashing, save for later.)
-
 * Implement OSC aliasing for more efficient signal connections.
 
-* Look into usage on embedded platforms. (Works on gumstix!)
+* Look into usage on embedded platforms. (In progress)
 
 * In support of the previous point, implement the proposal for
   pre-defined expressions ("fixed" processing type).
@@ -84,11 +84,7 @@ Lower priority tasks
 * Check for disallowed OSC characters. Security testing.
     * Add default MAX_CONNECTIONS, MAX_SIGNALS
 
-* TCP transport (In progress)
-
 * Shared memory
-
-* Many-to-one mapping
 
 External tasks
 ==============
@@ -113,7 +109,5 @@ for current work.
 * Audio-rate signal connections via Jack, SoundFlower, etc.
 
 * Interpolation for filtering of sporadic signals
-
-* Many-to-one mapping.
 
 * Add documentation and icon URLs to device properties. Add to GUI. 

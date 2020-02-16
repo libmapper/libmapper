@@ -54,7 +54,7 @@ int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val, 0);
+    RETURN_UNLESS(r && r->val && 1 == r->len, 0);
     void *v = (r->flags & INDIRECT) ? *r->val : r->val;
     switch(r->type) {
         case MPR_BOOL:
@@ -71,7 +71,7 @@ float mpr_obj_get_prop_as_flt(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val, 0);
+    RETURN_UNLESS(r && r->val && 1 == r->len, 0);
     void *v = (r->flags & INDIRECT) ? *r->val : r->val;
     switch(r->type) {
         case MPR_BOOL:
@@ -87,7 +87,7 @@ const char *mpr_obj_get_prop_as_str(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && r->type == MPR_STR, 0);
+    RETURN_UNLESS(r && r->val && MPR_STR == r->type && 1 == r->len, 0);
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
@@ -95,7 +95,7 @@ const void *mpr_obj_get_prop_as_ptr(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && r->type == MPR_PTR, 0);
+    RETURN_UNLESS(r && r->val && MPR_PTR == r->type && 1 == r->len, 0);
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
@@ -103,7 +103,7 @@ mpr_obj mpr_obj_get_prop_as_obj(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && r->type <= MPR_OBJ, 0);
+    RETURN_UNLESS(r && r->val && MPR_OBJ >= r->type && 1 == r->len, 0);
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
@@ -111,7 +111,7 @@ mpr_list mpr_obj_get_prop_as_list(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && MPR_LIST == r->type, 0);
+    RETURN_UNLESS(r && r->val && MPR_LIST == r->type && 1 == r->len, 0);
     mpr_list l = r->flags & INDIRECT ? *r->val : r->val;
     return l ? mpr_list_start(mpr_list_get_cpy(l)) : 0;
 }

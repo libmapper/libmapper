@@ -13,16 +13,16 @@ Changes of note since the 1.1 release include
 * Improvements to the *map slot* API
 * Added the ability to configure maps at runtime to use either UDP or TCP for transport.
 * Improvements to the device name allocation process.
-* Changes to the C++ and Java device queue API to match the approached used for the Python bindings.
-* Fixes to thread handling for callbacks in the SWIG/Python bindings.
-* Fixes and improvements to handling of expired devices by the Database.
+* Changes to the C++ and Java device queue API to match the approach used for the Python bindings.
+* Fixes for callback thread handling in the SWIG/Python bindings.
+* Fixes and improvements for handling of expired devices by the Database.
 * Updated the makefile for Java bindings to use `javac -h` since `javah` is no longer available on current versions of the JDK.
 * Updates to tutorials, examples and test programs.
 
 Bugfixes:
 
-* Do not allow user code to rewrite map ids.
-* Ensure devices are marked as subscribed if manual subscription is added during temporary subscription window.
+* Prevent user code from rewriting map ids.
+* Ensure devices are marked as subscribed if a subscription is added manually during the temporary subscription window.
 * Fixed initialisation of the device ordinal property.
 * Fixed a timetag subtraction bug.
 * "/map" messages targeting existing maps are now forwarded correctly.
@@ -43,15 +43,15 @@ Changes of note since the 1.0 release include:
 * Improved handling of database subscriptions.
 * More efficient batch-sending of device, signal and map metadata.
 * Addition of a default signal direction property for database records, ensuring that the record can be retireved from the database while waiting for updated metadata.
-* Added simple check for map loops,.
+* Added simple check for map feedback loops,.
 * Updated tests and tutorials.
 * Extension and simplification of the C++ headers, along with new API documentation.
 * Extension of the SWIG/Python bindings to support *convergent maps*.
 
 Bugfixes include:
 
-* Fix for integer size wornings when printing mapper_id values.
-* Fix for duplicate map records in database associated with calls to mapper_map_new() function using non-local signals.
+* Fix for integer size warnings when printing mapper_id values.
+* Fix for duplicate map records in database associated with calls to the `mapper_map_new()` function using non-local signals.
 * Removal of stray references to libmapper-0.
 * Fix for user-defined variables in map expressions.
 * Fix for reporting sub-connections of convergent maps.
@@ -70,8 +70,8 @@ Version 1.0
 
 Released Jan 4, 2016.
 
-This is release includes many API changes, improvements, and new
-features since 0.4. They are summarized very briefly here:
+This release includes many API changes, improvements, and new
+features since version 0.4. They are summarized very briefly here:
 
 ### Structural changes
 
@@ -202,7 +202,7 @@ not addressed in the expression property will not be overwritten
 the expression string (e.g. `y=y{-1}+x`) now refer to the _actual value_ of the
 destination signal rather than the output of the expression. If the past
 behaviour is desired, a user-defined variable can be used to cache the
-expression output (e.g. `foo=foo+x; y=foo`). Note that if the destination value
+expression output (e.g. `foo=foo{-1}+x; y=foo`). Note that if the destination value
 is referenced in the expression string, libmapper will automatically move signal
 processing to the destination device.
 * _Multi-source maps_. Lastly, maps can now be created with multiple source
@@ -218,7 +218,7 @@ have been moved to the map slots:
   * `map->send_as_instance` ––> `slot->use_as_instance`
 
 Calibration used to be specified using the connection mode `MO_CALIBRATE`. It is
-specified using the slot property `calibrating`.
+now specified using the slot property `calibrating`.
 
 If all source slots belong to the same device, signal processing will be handled
 by the source device by default, otherwise the destination will handle
