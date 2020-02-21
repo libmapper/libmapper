@@ -1020,5 +1020,7 @@ void mpr_graph_set_address(mpr_graph g, const char *group, int port)
 
 const char *mpr_graph_get_address(mpr_graph g)
 {
-    return lo_address_get_url(g->net.addr.bus);
+    if (!g->net.addr.url)
+        g->net.addr.url = lo_address_get_url(g->net.addr.bus);
+    return g->net.addr.url;
 }

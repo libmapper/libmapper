@@ -431,8 +431,12 @@ void mpr_net_send(mpr_net net)
         while (*sub) {
             if ((*sub)->lease_exp < t.sec || !(*sub)->flags) {
                 // subscription expired, remove from subscriber list
+#ifdef DEBUG
+                char *addr = lo_address_get_url((*sub)->addr); 
                 trace_dev(net->addr.dev, "removing expired subscription from "
-                          "%s\n", lo_address_get_url((*sub)->addr));
+                          "%s\n", addr);
+                free(addr);
+#endif
                 mpr_subscriber temp = *sub;
                 *sub = temp->next;
                 FUNC_IF(lo_address_free, temp->addr);
@@ -523,6 +527,7 @@ void mpr_net_free(mpr_net net)
     FUNC_IF(lo_server_free, net->server.bus);
     FUNC_IF(lo_server_free, net->server.mesh);
     FUNC_IF(lo_address_free, net->addr.bus);
+    FUNC_IF(free, net->addr.url);
 }
 
 /*! Probe the network to see if a device's proposed name.ordinal is available. */

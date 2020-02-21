@@ -132,6 +132,7 @@ typedef struct _mpr_net {
         lo_address bus;             /*!< LibLo address for the multicast bus. */
         lo_address dst;
         struct _mpr_dev *dev;
+        char *url;
     } addr;
 
     struct {
