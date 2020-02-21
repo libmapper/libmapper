@@ -335,7 +335,7 @@ namespace mpr {
 
         /*! Get the specific type of an Object.
          *  \return         Object type. */
-        mpr_data_type type() const
+        mpr_type type() const
             { return mpr_obj_get_type(_obj); }
 
         /*! Get the underlying Graph.
@@ -964,7 +964,7 @@ namespace mpr {
          *  removed.
          *  \param h        Callback function.
          *  \param types    Bitflags setting the type of information of interest.
-         *                  Can be a combination of mpr_data_type values.
+         *                  Can be a combination of mpr_type values.
          *  \param data     A user-defined pointer to be passed to the
          *                  callback for context.
          *  \return         Self. */
@@ -1008,44 +1008,36 @@ namespace mpr {
     {
     public:
         template <typename T>
-        Property(mpr_prop _prop, T _val, bool _pub=true)
-            : Property(_prop, NULL, 0, 0, 0, _pub)
+        Property(mpr_prop _prop, T _val) : Property(_prop)
             { _set(_val); }
         template <typename T>
-        Property(const str_type &_key, T _val, bool _pub=true)
-            : Property(MPR_PROP_UNKNOWN, _key, 0, 0, 0, _pub)
+        Property(const str_type &_key, T _val) : Property(_key)
             { _set(_val); }
         template <typename T>
-        Property(mpr_prop _prop, int _len, T& _val, bool _pub=true)
-            : Property(_prop, NULL, 0, 0, 0, _pub)
+        Property(mpr_prop _prop, int _len, T& _val) : Property(_prop)
             { _set(_len, _val); }
         template <typename T>
-        Property(const str_type &_key, int _len, T& _val, bool _pub=true)
-            : Property(MPR_PROP_UNKNOWN, _key, 0, 0, 0, _pub)
+        Property(const str_type &_key, int _len, T& _val) : Property(_key)
             { _set(_len, _val); }
         template <typename T, size_t N>
-        Property(mpr_prop _prop, std::array<T, N> _val, bool _pub=true)
-            : Property(_prop, NULL, 0, 0, 0, _pub)
+        Property(mpr_prop _prop, std::array<T, N> _val) : Property(_prop)
             { _set(_val); }
         template <typename T, size_t N>
-        Property(const str_type &_key, std::array<T, N> _val, bool _pub=true)
-            : Property(MPR_PROP_UNKNOWN, _key, 0, 0, 0, _pub)
+        Property(const str_type &_key, std::array<T, N> _val) : Property(_key)
             { _set(_val); }
         template <typename T>
-        Property(mpr_prop _prop, std::vector<T> _val, bool _pub=true)
-            : Property(_prop, NULL, 0, 0, 0, _pub)
+        Property(mpr_prop _prop, std::vector<T> _val) : Property(_prop)
             { _set(_val); }
         template <typename T>
-        Property(const str_type &_key, std::vector<T> _val, bool _pub=true)
-            : Property(MPR_PROP_UNKNOWN, _key, 0, 0, 0, _pub)
+        Property(const str_type &_key, std::vector<T> _val) : Property(_key)
             { _set(_val); }
         template <typename T>
-        Property(mpr_prop _prop, int _len, char _type, T& _val, bool _pub=true)
-            : Property(_prop, NULL, 0, 0, 0, _pub)
+        Property(mpr_prop _prop, int _len, mpr_type _type, T& _val)
+            : Property(_prop)
             { _set(_len, _type, _val); }
         template <typename T>
-        Property(const str_type &_key, int _len, char _type, T& _val, bool _pub=true)
-            : Property(MPR_PROP_UNKNOWN, _key, 0, 0, 0, _pub)
+        Property(const str_type &_key, int _len, mpr_type _type, T& _val)
+            : Property(_key)
             { _set(_len, _type, _val); }
 
         ~Property()
@@ -1154,7 +1146,7 @@ namespace mpr {
     protected:
         friend class Graph;
         friend class Object;
-        Property(mpr_prop _prop, const str_type &_key, int _len, char _type,
+        Property(mpr_prop _prop, const str_type &_key, int _len, mpr_type _type,
                  const void *_val, int _pub)
         {
             prop = _prop;
@@ -1163,6 +1155,22 @@ namespace mpr {
                 _set(_len, _type, _val);
             owned = false;
             pub = _pub;
+        }
+        Property(mpr_prop _prop)
+        {
+            prop = _prop;
+            key = NULL;
+            val = 0;
+            owned = false;
+            pub = true;
+        }
+        Property(const str_type &_key)
+        {
+            prop = MPR_PROP_UNKNOWN;
+            key = _key;
+            val = 0;
+            owned = false;
+            pub = true;
         }
     private:
         bool owned;
@@ -1178,7 +1186,7 @@ namespace mpr {
                 owned = false;
             }
         }
-        void _set(int _len, char _type, const void *_val)
+        void _set(int _len, mpr_type _type, const void *_val)
         {
             type = _type;
             val = _val;

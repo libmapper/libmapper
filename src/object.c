@@ -11,7 +11,7 @@ mpr_graph mpr_obj_get_graph(mpr_obj o)
     return o ? o->graph : 0;
 }
 
-mpr_data_type mpr_obj_get_type(mpr_obj o)
+mpr_type mpr_obj_get_type(mpr_obj o)
 {
     return o ? o->type : 0;
 }
@@ -170,8 +170,7 @@ void mpr_obj_push(mpr_obj o)
     else if (o->type & MPR_SIG) {
         mpr_sig s = (mpr_sig)o;
         if (s->loc) {
-            mpr_data_type type = ((s->dir == MPR_DIR_OUT)
-                                     ? MPR_SIG_OUT : MPR_SIG_IN);
+            mpr_type type = ((s->dir == MPR_DIR_OUT) ? MPR_SIG_OUT : MPR_SIG_IN);
             mpr_net_use_subscribers(n, s->dev, type);
             mpr_sig_send_state(s, MSG_SIG);
         }

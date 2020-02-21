@@ -333,7 +333,7 @@ static int py_to_prop(PyObject *from, propval prop, const char **key)
         }
         case MPR_TYPE:
         {
-            // only mpr_data_type are valid
+            // only mpr_type are valid
             mpr_type *type_to = (mpr_type*)prop->val;
             if (prop->len > 1) {
                 for (i = 0; i < prop->len; i++) {
@@ -714,7 +714,7 @@ static void graph_handler_py(mpr_graph g, mpr_obj obj, mpr_graph_evt e,
     gstate = PyGILState_Ensure();
 
     PyObject *py_obj;
-    mpr_data_type type = mpr_obj_get_type(obj);
+    mpr_type type = mpr_obj_get_type(obj);
     switch (type) {
         case MPR_DEV:
             py_obj = SWIG_NewPointerObj(SWIG_as_voidptr(obj),

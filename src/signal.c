@@ -41,7 +41,6 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     RETURN_UNLESS(name && !check_sig_length(len) && mpr_type_get_is_num(type), 0);
     TRACE_RETURN_UNLESS(dir == MPR_DIR_IN || dir == MPR_DIR_OUT, 0, "signal "
                         "direction must be either input or output.\n")
-
     mpr_graph g = dev->obj.graph;
     mpr_sig s;
     if ((s = mpr_dev_get_sig_by_name(dev, name)))

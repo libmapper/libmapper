@@ -30,7 +30,7 @@ mpr_graph mpr_obj_get_graph(mpr_obj obj);
 /*! Return the specific type of an object.
  *  \param obj          The object to query.
  *  \return             The object type. */
-mpr_data_type mpr_obj_get_type(mpr_obj obj);
+mpr_type mpr_obj_get_type(mpr_obj obj);
 
 /*! Get an object's number of properties.
  *  \param obj          The object to check.
@@ -570,7 +570,7 @@ void mpr_graph_print(mpr_graph g);
  *  \param dev          The device of interest. If NULL the graph will
  *                      automatically subscribe to all discovered devices.
  *  \param types        Bitflags setting the type of information of interest.
- *                      Can be a combination of mpr_data_type values.
+ *                      Can be a combination of mpr_type values.
  *  \param timeout      The length in seconds for this subscription. If set to
  *                      -1, the graph will automatically renew the
  *                      subscription until it is freed or this function is
@@ -598,7 +598,7 @@ typedef void mpr_graph_handler(mpr_graph g, mpr_obj obj, const mpr_graph_evt evt
  *  \param g            The graph to query.
  *  \param h            Callback function.
  *  \param types        Bitflags setting the type of information of interest.
- *                      Can be a combination of mpr_data_type values.
+ *                      Can be a combination of mpr_type values.
  *  \param data         A user-defined pointer to be passed to the callback
  *                      for context.
  *  \return             One if a callback was added, otherwise zero. */
@@ -616,7 +616,7 @@ int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *data);
 /*! Return a list of objects.
  *  \param g            The graph to query.
  *  \param types        Bitflags setting the type of information of interest.
- *                      Can be a combination of mpr_data_type values.
+ *                      Can be a combination of mpr_type values.
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
 mpr_list mpr_graph_get_objs(mpr_graph g, int types);
 

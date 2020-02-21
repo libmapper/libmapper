@@ -135,7 +135,7 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote);
  *  \param type         The type of object to return.
  *  \param id           Unique id identifying the object to find in the graph.
  *  \return             Information about the object, or zero if not found. */
-mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_data_type type, mpr_id id);
+mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_type type, mpr_id id);
 
 /*! Find information for a registered device.
  *  \param g            The graph to query.
@@ -405,10 +405,8 @@ int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
 
 /**** Expression parser/evaluator ****/
 
-mpr_expr mpr_expr_new_from_str(const char *str, int num_inputs,
-                               const mpr_type *input_types,
-                               const int *input_vector_lengths,
-                               mpr_type output_type, int output_vector_length);
+mpr_expr mpr_expr_new_from_str(const char *str, int num_in, const mpr_type *in_types,
+                               const int *in_vec_lens, mpr_type out_type, int out_vec_len);
 
 int mpr_expr_get_in_hist_size(mpr_expr expr, int idx);
 
@@ -577,7 +575,7 @@ static void die_unless(...) {};
 /*! Helper to find size of signal value types. */
 inline static int mpr_type_get_size(mpr_type type)
 {
-    if (type < MPR_LIST)    return sizeof(void*);
+    if (type <= MPR_LIST)   return sizeof(void*);
     switch (type) {
         case MPR_INT32:
         case MPR_BOOL:

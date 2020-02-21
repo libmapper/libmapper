@@ -267,7 +267,7 @@ typedef struct _mpr_obj
     void *data;                     //!< User context pointer.
     struct _mpr_dict props;         //!< Properties associated with this signal.
     int version;                    //!< Version number.
-    mpr_data_type type;             //!< Object type.
+    mpr_type type;                  //!< Object type.
 } mpr_obj_t, *mpr_obj, **mpr_list;
 
 /**** Signal ****/

@@ -11,7 +11,7 @@ extern "C" {
 
 #define MPR_NOW ((mpr_time){0L,1L})
 
-typedef enum {
+enum {
     MPR_DEV             = 0x01,             //!< Devices only.
     MPR_SIG_IN          = 0x02,             //!< Input signals.
     MPR_SIG_OUT         = 0x04,             //!< Output signals.
@@ -31,7 +31,7 @@ typedef enum {
     MPR_TIME            = 't',  /* 0x74 */  //!< 64-bit NTP timestamp.
     MPR_PTR             = 'v',  /* 0x76 */  //!< pointer.
     MPR_NULL            = 'N'   /* 0x4E */  //!< NULL value.
-} mpr_data_type;
+};
 
 typedef char mpr_type;
 

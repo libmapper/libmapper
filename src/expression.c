@@ -843,7 +843,7 @@ void printexpr(const char *s, mpr_expr e)
 
 #endif // DEBUG
 
-static char compare_token_datatype(mpr_token_t tok, mpr_type type)
+static mpr_type compare_token_datatype(mpr_token_t tok, mpr_type type)
 {
     // return the higher datatype
     if (tok.datatype == MPR_DBL || type == MPR_DBL)

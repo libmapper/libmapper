@@ -226,7 +226,7 @@ int main(int argc, char ** argv)
     Map map(dev.signals(MPR_DIR_OUT)[0], dev.signals(MPR_DIR_IN)[1]);
     map.set_prop(MPR_PROP_EXPR, "y=x[0:1]+123");
     double d[3] = {1., 2., 3.};
-    map.signal(MPR_LOC_SRC).set_prop(Property(MPR_PROP_MIN, 0, 3, d));
+    map.signal(MPR_LOC_SRC).set_prop(Property(MPR_PROP_MIN, 3, d));
     map.push();
 
     while (!map.ready()) {
