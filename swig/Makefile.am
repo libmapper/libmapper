@@ -16,7 +16,7 @@ clean-local:
 	-@rm -vf mapper.py mapper_wrap.c
 	$(PYTHON) setup.py clean --all
 
-MOSTLYCLEANFILES = _mapper.$(PYEXT) mapper.py mapper_wrap.c installed_files.log
+MOSTLYCLEANFILES = _mapper*.$(PYEXT) mapper.py mapper_wrap.c installed_files.log
 
 install-exec-hook: $(builddir)/mapper_wrap.c
 	if test -n "$(DESTDIR)"; then\
