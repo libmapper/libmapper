@@ -211,7 +211,7 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
         atom->values = &argv[i+1];
         while (++i < argc) {
             if ((types[i] == 's' || types[i] == 'S')
-                && strspn(&argv[i]->s, "+-@")) {
+                && strcspn(&argv[i]->s, "@") < 2) {
                 /* Arrived at next property index. */
                 i--;
                 break;
