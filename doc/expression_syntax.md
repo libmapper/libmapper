@@ -1,10 +1,9 @@
-libmpr Expression Syntax
-===========================
+# Expression Syntax for *libmpr*
 
-Connections between signals that are maintained by libmpr can be configured with
+Connections between signals that are maintained by *libmpr* can be configured with
 optional signal processing described in the form of an expression.
 
-### General Syntax
+## General Syntax
 
 Expressions in libmpr must always be presented in the form `y = x`, where `x`
 refers to the updated source value and `y` is the computed value to be forwarded
@@ -49,8 +48,7 @@ generated output.
 * `|` – bitwise **OR**
 * `^` – bitwise **XOR**
 
-Available Functions
--------------------
+## Function List
 
 ### Absolute value:
 
@@ -113,8 +111,7 @@ Available Functions
 ### Filters
 * `ema(x,w)` – a cheap low-pass filter: calculate a running *exponential moving average* with input `x` and a weight `w` applied to the current sample.
 
-Vectors
-=======
+## Vectors
 
 Individual elements of variable values can be accessed using the notation
 `<variable>[<index>]`. The index specifies the vector element, and
@@ -141,8 +138,7 @@ There are several special functions that operate across all elements of the vect
 * `max(x)` — output the largest element of the vector
 * `min(x)` — output the smallest element of the vector
 
-FIR and IIR Filters
-===================
+## FIR and IIR Filters
 
 Past samples of expression input and output can be accessed using the notation
 `<variable>{<index>}`. The index specifies the history index in samples, and must be `<=0` for the input (with `0` representing the present input sample) and `<0` for the expression output ( i.e. it cannot be a value that has not been provided or computed yet ).
@@ -170,8 +166,8 @@ variable** (see below), e.g.:
 Of course the filter can contain references to past samples of both `x` and `y` -
 currently libmpr will reject expressions referring to sample delays `> 100`.
 
-Initializing filters
---------------------
+### Initializing filters
+
 Past values of the filter output `y{-n}` can be set using additional sub-expressions, separated using semicolons:
 
 * `y = y{-1} + x`; `y{-1} = 100`
@@ -190,8 +186,7 @@ A function could also be used for initialization:
 Any past values that are not explicitly initialized are given the value `0`.
 
 
-User-Declared Variables
-=======================
+## User-Declared Variables
 
 Up to 8 additional variables can be declared as-needed in the expression. The variable
 names can be any string except for the reserved variable names `x` and `y`.  The values
@@ -210,8 +205,7 @@ Just like the output variable `y` we can initialize past values of user-defined 
 by `2`. The current value of `ema` is `0` since it has not yet been set.
 3. `ema=ema{-1}*0.9+x*0.1` — set the current value of `ema` using current value of `x` and the past value of `ema`
 
-Accessing Variable Timetags
-===========================
+## Accessing Variable Timetags
 
 The precise time at which a variable is updated is always tracked by libmapper and communicated with the data value. We plan to use this information in the background for discarding out-of-order packets and jitter mitigation, but it may also be useful in your expressions.
 
