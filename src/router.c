@@ -440,7 +440,6 @@ static void alloc_and_init_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src,
     }
 
     // set some sensible defaults
-    slot->calib = 0;
     slot->causes_update = 1;
 }
 

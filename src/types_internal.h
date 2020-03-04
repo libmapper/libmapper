@@ -419,7 +419,6 @@ typedef struct _mpr_slot {
     int dir;                        //!< DI_INCOMING or DI_OUTGOING
     int causes_update;              //!< 1 if causes update, 0 otherwise.
     int use_inst;                   //!< 1 if using instances, 0 otherwise.
-    int calib;                      //!< >1 if calibrating, 0 otherwise
 } mpr_slot_t, *mpr_slot;
 
 /*! The mpr_local_map structure is a linked list of mappings for a given signal.

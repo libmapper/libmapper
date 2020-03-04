@@ -217,18 +217,23 @@ void mpr_obj_print(mpr_obj o, int staged)
         case MPR_MAP: {
             printf("MAP: ");
             mpr_map m = (mpr_map)o;
-            int i;
             if (m->num_src > 1)
                 printf("[");
-            for (i = 0; i < m->num_src; i++) {
-                mpr_prop_print(1, MPR_SIG, mpr_map_get_sig(m, MPR_LOC_SRC, i));
-                printf(", ");
+            mpr_list l = mpr_map_get_sigs(m, MPR_LOC_SRC);
+            while (l) {
+                mpr_prop_print(1, MPR_SIG, *l);
+                l = mpr_list_get_next(l);
+                printf("%s", l ? ", " : "");
             }
-            printf("\b\b");
             if (m->num_src > 1)
                 printf("]");
             printf(" -> ");
-            mpr_prop_print(1, MPR_SIG, mpr_map_get_sig(m, MPR_LOC_DST, 0));
+            l = mpr_map_get_sigs(m, MPR_LOC_DST);
+            while (l) {
+                mpr_prop_print(1, MPR_SIG, *l);
+                l = mpr_list_get_next(l);
+                printf("%s", l ? ", " : "");
+            }
             break;
         }
         default:

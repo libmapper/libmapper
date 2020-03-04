@@ -65,10 +65,11 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
     mpr_map map = (mpr_map)o;
 
     // we are looking for a map with one source (sendsig) and one dest (recvsig)
-    if (mpr_map_get_num_sigs(map, MPR_LOC_SRC) > 1)
+    mpr_list l = mpr_map_get_sigs(map, MPR_LOC_SRC);
+    if (mpr_list_get_size(l) > 1 || *(mpr_sig*)l != sendsig) {
+        mpr_list_free(l);
         return;
-    if (mpr_map_get_sig(map, MPR_LOC_SRC, 0) != sendsig)
-        return;
+    }
 
     if (e == MPR_OBJ_REM) {
         if (send_socket != -1) {
@@ -118,7 +119,8 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         exit(1);
     }
 
-    mpr_sig dstsig = mpr_map_get_sig(map, MPR_LOC_DST, 0);
+    l = mpr_map_get_sigs(map, MPR_LOC_DST);
+    mpr_sig dstsig = *(mpr_sig*)l;
     mpr_dev dstdev = mpr_sig_get_dev(dstsig);
     const char *host = mpr_obj_get_prop_as_str((mpr_obj)dstdev, MPR_PROP_HOST, NULL);
 

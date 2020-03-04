@@ -226,19 +226,26 @@ void mpr_map_free(mpr_map m)
     FUNC_IF(free, m->expr_str);
 }
 
-int mpr_map_get_num_sigs(mpr_map m, mpr_loc l)
+static int cmp_qry_map_sigs(const void *ctx, mpr_sig s)
 {
-    return ((l & MPR_LOC_SRC) ? m->num_src : 0) + (l & MPR_LOC_DST) ? 1 : 0;
+    mpr_map m = *(mpr_map*)ctx;
+    mpr_loc l = *(mpr_loc*)(ctx + sizeof(mpr_map));
+    int i;
+    if (l & MPR_LOC_SRC) {
+        for (i = 0; i < m->num_src; i++) {
+            if (s == m->src[i]->sig)
+                return 1;
+        }
+    }
+    return (l & MPR_LOC_DST) ? (s == m->dst->sig) : 0;
 }
 
-mpr_sig mpr_map_get_sig(mpr_map m, mpr_loc l, int i)
+mpr_list mpr_map_get_sigs(mpr_map m, mpr_loc l)
 {
-    if (l & MPR_LOC_SRC) {
-        if (i < m->num_src)
-            return m->src[i]->sig;
-        i -= m->num_src;
-    }
-    return (l & MPR_LOC_DST) ? m->dst->sig : NULL;
+    RETURN_UNLESS(m && m->obj.graph->sigs, 0);
+    mpr_list qry = mpr_list_new_query((const void**)&m->obj.graph->sigs,
+                                      cmp_qry_map_sigs, "vi", &m, l);
+    return mpr_list_start(qry);
 }
 
 mpr_slot mpr_map_get_slot_by_sig(mpr_map m, mpr_sig s)

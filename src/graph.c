@@ -808,15 +808,18 @@ void mpr_graph_print(mpr_graph g)
     while (maps) {
         printf(" └─ ");
         mpr_obj_print(*maps, 0);
-        int i;
         mpr_map map = (mpr_map)*maps;
-        for (i = 0; i < map->num_src; i++) {
-            mpr_sig sig = mpr_map_get_sig(map, MPR_LOC_SRC, i);
+        sigs = mpr_map_get_sigs(map, MPR_LOC_SRC);
+        while (sigs) {
+            mpr_sig sig = (mpr_sig)*sigs;
+            sigs = mpr_list_get_next(sigs);
             printf("    ├─ SRC ");
             mpr_obj_print((mpr_obj)sig, 0);
         }
-        for (i = 0; i < 1; i++) {
-            mpr_sig sig = mpr_map_get_sig(map, MPR_LOC_DST, i);
+        sigs = mpr_map_get_sigs(map, MPR_LOC_DST);
+        while (sigs) {
+            mpr_sig sig = (mpr_sig)*sigs;
+            sigs = mpr_list_get_next(sigs);
             printf("    └─ DST ");
             mpr_obj_print((mpr_obj)sig, 0);
         }

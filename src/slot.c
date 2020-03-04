@@ -23,7 +23,6 @@ void mpr_slot_init(mpr_slot slot)
     int mask = slot_mask(slot);
 
     // these properties need to be added in alphabetical order
-    mpr_tbl_link(t, MPR_PROP_CALIB | mask, 1, MPR_BOOL, &slot->calib, MODIFIABLE);
     mpr_tbl_link(t, MPR_PROP_MAX | mask, slot->sig->len, slot->sig->type,
                  &slot->max, MODIFIABLE | INDIRECT);
     mpr_tbl_link(t, MPR_PROP_MIN | mask, slot->sig->len, slot->sig->type,

@@ -1,5 +1,5 @@
 
-package mpr.graph;
+package mpr;
 
 /*! Possible operations for composing graph queries. */
 public enum Operator {

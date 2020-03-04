@@ -121,26 +121,26 @@ void mpr_obj_print(mpr_obj obj, int staged);
  *  \param type         The value type.
  *  \param value        The value.
  *  \param op           The comparison operator.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_list_filter(mpr_list list, mpr_prop prop, const char *key, int len,
                          mpr_type type, const void *value, mpr_op op);
 
 /*! Get the union of two object lists (objects matching list1 OR list2).
  *  \param list1        The first object list.
  *  \param list2        The second object list.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_list_get_union(mpr_list list1, mpr_list list2);
 
 /*! Get the intersection of two object lists (objects matching list1 AND list2).
  *  \param list1        The first object list.
  *  \param list2        The second object list.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_list_get_isect(mpr_list list1, mpr_list list2);
 
 /*! Get the difference between two object lists (objects in list1 but NOT list2).
  *  \param list1        The first object list.
  *  \param list2        The second object list.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2);
 
 /*! Get an indexed item in a list of objects.
@@ -153,12 +153,12 @@ mpr_obj mpr_list_get_idx(mpr_list list, unsigned int idx);
 /*! Given a object record pointer returned from a previous object query, get the
  *  next item in the list.
  *  \param list         The previous object record pointer.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_list_get_next(mpr_list list);
 
 /*! Copy a previously-constructed object list.
  *  \param list         The previous object record pointer.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_list_get_cpy(mpr_list list);
 
 /*! Given a object record pointer returned from a previous object query,
@@ -256,7 +256,7 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id inst, mpr_time *time);
 /*! Return the list of maps associated with a given signal.
  *  \param sig          Signal record to query for maps.
  *  \param dir          The direction of the map relative to the given signal.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_sig_get_maps(mpr_sig sig, mpr_dir dir);
 
 /*! Set or unset the message handler for a signal.
@@ -389,8 +389,9 @@ mpr_id mpr_dev_generate_unique_id(mpr_dev dev);
 
 /*! Return the list of signals for a given device.
  *  \param dev          The device to query.
- *  \param dir          The direction of the signals to return.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \param dir          The direction of the signals to return, should be
+ *                      MPR_DIR_IN, MPR_DIR_OUT, or MPR_DIR_ANY.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir);
 
 /*! Poll this device for new messages.  Note, if you have multiple devices, the
@@ -450,18 +451,12 @@ mpr_map mpr_map_new(int num_srcs, mpr_sig *srcs, int num_dsts, mpr_sig *dsts);
  *  \param map          The map to destroy. */
 void mpr_map_release(mpr_map map);
 
-/*! Get the number of signals for to a specific map.
+/*! Retrieve a list of connected signals for a specific map.
  *  \param map          The map to check.
- *  \param loc          MPR_LOC_SRC, MPR_LOC_DST,
- *  \return             The number of signals. */
-int mpr_map_get_num_sigs(mpr_map map, mpr_loc loc);
-
-/*! Retrieve a signal for a specific map.
- *  \param map          The map to check.
- *  \param loc          The map endpoint, must be MPR_LOC_SRC or MPR_LOC_DST.
- *  \param idx          The signal index.
- *  \return             The signal, or NULL if not available. */
-mpr_sig mpr_map_get_sig(mpr_map map, mpr_loc loc, int idx);
+ *  \param loc          The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or
+ *                      MPR_LOC_ANY.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_map_get_sigs(mpr_map map, mpr_loc loc);
 
 /*! Retrieve the index for a specific map signal.
  *  \param map          The map to check.
@@ -617,7 +612,7 @@ int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *data);
  *  \param g            The graph to query.
  *  \param types        Bitflags setting the type of information of interest.
  *                      Can be a combination of mpr_type values.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_graph_get_objs(mpr_graph g, int types);
 
 /* @} */

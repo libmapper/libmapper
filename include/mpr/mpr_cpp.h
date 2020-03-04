@@ -505,12 +505,6 @@ namespace mpr {
         void release() const
             { mpr_map_release(_obj); }
 
-        /*! Get the number of Signals for this Map.
-         *  \param loc      MPR_LOC_SRC, MPR_LOC_DST, or MPR_LOC_ANY (default).
-         *  \return         The number of signals. */
-        int num_sigs(mpr_loc loc=MPR_LOC_ANY) const
-            { return mpr_map_get_num_sigs(_obj, loc); }
-
         /*! Detect whether a Map is completely initialized.
          *  \return         True if map is completely initialized. */
         bool ready() const
@@ -557,14 +551,13 @@ namespace mpr {
         int idx(signal_type sig) const
             { return mpr_map_get_sig_idx(_obj, (mpr_sig)sig); }
 
-        /*! Retrieve a Signal from this Map.
+        /*! Retrieve a list of connected Signals for this Map.
          *  \param loc      MPR_LOC_SRC for source signals for this Map,
          *                  MPR_LOC_DST for destinations, or MPR_LOC_ANY for both.
-         *  \param idx      The signal index.
-         *  \return         The Signal object. */
-        Signal signal(mpr_loc loc, int idx = 0) const;
-
-        std::vector<Signal> signals(mpr_loc loc = MPR_LOC_ANY) const;
+         *  \return         A List of Signals. */
+        // TODO: would be nice to return Signal::List here but there is a circular dependency
+        List signals(mpr_loc loc=MPR_LOC_ANY) const
+            { return List(mpr_map_get_sigs(_obj, loc)); }
 
         OBJ_METHODS(Map);
 
@@ -1401,17 +1394,8 @@ namespace mpr {
     Map& Map::remove_scope(Device& dev)
         { RETURN_SELF(mpr_map_remove_scope(_obj, mpr_dev(dev))); }
 
-    Signal Map::signal(mpr_loc loc, int idx) const
-        { return Signal(mpr_map_get_sig(_obj, loc, idx)); }
-
-    std::vector<Signal> Map::signals(mpr_loc loc) const
-    {
-        std::vector<Signal> vec;
-        int len = mpr_map_get_num_sigs(_obj, loc);
-        for (int i = 0; i < len; i++)
-            vec.push_back(this->signal(loc, i));
-        return vec;
-    }
+    // Signal::List Map::signals(mpr_loc loc=MPR_LOC_ANY) const
+    //     { return Signal::List(mpr_map_get_sigs(_obj, loc)); }
 
     Device Signal::device() const
         { return Device(mpr_sig_get_dev(_obj)); }
@@ -1473,19 +1457,16 @@ std::ostream& operator<<(std::ostream& os, const mpr::Map& map)
     os << "<mpr::Map ";
 
     // add sources
-    int num_srcs = map.num_sigs(MPR_LOC_SRC);
-    if (num_srcs > 1)
-        os << "[";
-    for (int i = 0; i < num_srcs; i++)
-        os << map.signal(MPR_LOC_SRC, i)  << ", ";
-    os << "\b\b";
-    if (num_srcs > 1)
-        os << "]";
+    os << "[";
+    for (const mpr::Signal s : map.signals(MPR_LOC_SRC))
+        os << s << ", ";
+    os << "\b\b] -> ";
 
-    os << " -> ";
-
-    // add destination
-    os << map.signal(MPR_LOC_DST);
+    // add destinations
+    os << "[";
+    for (const mpr::Signal s : map.signals(MPR_LOC_DST))
+        os << s << ", ";
+    os << "\b\b]";
 
     os << ">";
     return os;
