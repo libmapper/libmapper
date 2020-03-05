@@ -13,7 +13,6 @@
 
 int verbose = 1;
 int terminate = 0;
-int autoconnect = 1;
 int done = 0;
 int period = 100;
 
@@ -22,14 +21,17 @@ mpr_dev dst = 0;
 mpr_sig sendsig = 0;
 mpr_sig recvsig = 0;
 
+mpr_map map;
+
 int sent = 0;
 int received = 0;
 
+float sMin, sMax, dMin, dMax;
 float M, B, expected;
 
 int setup_src(char *iface)
 {
-    src = mpr_dev_new("testlinear-send", 0);
+    src = mpr_dev_new("testcalibrate-send", 0);
     if (!src)
         goto error;
     if (iface)
@@ -64,17 +66,18 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
-        eprintf("handler: Got %f\n", (*(float*)value));
+        eprintf("handler: Got %f (expected", (*(float*)value));
         if (fabs(*(float*)value - expected) < 0.0001)
             received++;
         else
-            eprintf(" expected %f\n", expected);
+            eprintf(" %f", expected);
+        eprintf(")\n");
     }
 }
 
 int setup_dst(char *iface)
 {
-    dst = mpr_dev_new("testlinear-recv", 0);
+    dst = mpr_dev_new("testcalibrate-recv", 0);
     if (!dst)
         goto error;
     if (iface)
@@ -105,37 +108,32 @@ void cleanup_dst()
     }
 }
 
-int setup_maps()
+int setup_maps(int calibrate)
 {
-    mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
-
-    float sMin, sMax, dMin, dMax;
-    sMin = rand() % 100;
-    do {
-        sMax = rand() % 100;
-    } while (sMax == sMin);
-    dMin = rand() % 100;
-    do {
-        dMax = rand() % 100;
-    } while (dMax == dMin);
-
     char expr[128];
-    snprintf(expr, 128, "y=linear(x,%f,%f,%f,%f)", sMin, sMax, dMin, dMax);
+    if (!map)
+        map = mpr_map_new(1, &sendsig, 1, &recvsig);
+
+    if (calibrate) {
+        do {
+            dMin = rand() % 100;
+            dMax = rand() % 100;
+        } while (dMax <= dMin);
+        snprintf(expr, 128, "y=linear(x,?,?,%f,%f)", dMin, dMax);
+    }
+    else
+        snprintf(expr, 128, "y=linear(x,-,-,-,-)");   
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 
     // Wait until mapping has been established
-    while (!done && !mpr_map_get_is_ready(map)) {
+    do {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
-    }
+    } while (!done && !mpr_map_get_is_ready(map));
 
     eprintf("map initialized with expression '%s'\n",
             mpr_obj_get_prop_as_str(map, MPR_PROP_EXPR, NULL));
-
-    // calculate M and B for checking generated expression
-    M = (dMax - dMin) / (sMax - sMin);
-    B = (dMin * sMax - dMax * sMin) / (sMax - sMin);
 
     return 0;
 }
@@ -151,21 +149,68 @@ void wait_ready()
 void loop()
 {
     eprintf("Polling device..\n");
-    int i = 0;
+    int i = -1, val = 0, changed = 0;
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
-    while ((!terminate || i < 50) && !done) {
-        mpr_dev_poll(src, 0);
-        eprintf("Updating signal %s to %d\n", name, i);
-        mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i, MPR_NOW);
-        expected = i * M + B;
-        sent++;
-        mpr_dev_poll(dst, period);
-        i++;
 
-        if (!verbose) {
-            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
-            fflush(stdout);
+    while (1) {
+        eprintf("Calibrating to dst range [%f, %f]\n", dMin, dMax);
+        setup_maps(1);
+        i = 0;
+        while (i < 50 && !done) {
+            mpr_dev_poll(src, 0);
+            val += (rand() % 6) - 3;
+            eprintf("Updating signal %s to %d\n", name, val);
+            mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &val, MPR_NOW);
+            if (0 == i) {
+                sMin = sMax = val;
+                changed = 1;
+            }
+            else if (val < sMin) {
+                sMin = val;
+                changed = 1;
+            }
+            else if (val > sMax) {
+                sMax = val;
+                changed = 1;
+            }
+            if (changed) {
+                // (re)calculate M and B for checking generated expression
+                float sRange = sMax - sMin;
+                M = sRange ? (dMax - dMin) / sRange : 0;
+                B = sRange ? (dMin * sMax - dMax * sMin) / sRange : dMin;
+                eprintf("updated ranges: [%f,%f]->[%f,%f], M=%f, B=%f\n",
+                        sMin, sMax, dMin, dMax, M, B);
+                changed = 0;
+            }
+            expected = val * M + B;
+            ++sent;
+            mpr_dev_poll(dst, period);
+            i++;
+            if (!verbose) {
+                printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+                fflush(stdout);
+            }
         }
+
+        // no calibration
+        setup_maps(0);
+        i = 0;
+        while (i < 50 && !done) {
+            mpr_dev_poll(src, 0);
+            val = i;
+            eprintf("Updating signal %s to %d\n", name, val);
+            mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &val, MPR_NOW);
+            expected = val * M + B;
+            ++sent;
+            mpr_dev_poll(dst, period);
+            i++;
+            if (!verbose) {
+                printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+                fflush(stdout);
+            }
+        }
+        if (terminate || done)
+            break;
     }
 }
 
@@ -186,7 +231,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testlinear.c: possible arguments "
+                        printf("testcalibrate.c: possible arguments "
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
@@ -232,15 +277,9 @@ int main(int argc, char **argv)
 
     wait_ready();
 
-    if (autoconnect && setup_maps()) {
-        eprintf("Error initializing maps.\n");
-        result = 1;
-        goto done;
-    }
-
     loop();
 
-    if (autoconnect && (!received || sent != received)) {
+    if (!received || sent != received) {
         eprintf("Not all sent messages were received.\n");
         eprintf("Updated value %d time%s and received %d of them.\n",
                 sent, sent == 1 ? "" : "s", received);

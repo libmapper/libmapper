@@ -275,15 +275,6 @@ lo_message mpr_map_build_msg(mpr_map map, mpr_slot slot, const void *val,
 /*! Set a mapping's properties based on message parameters. */
 int mpr_map_set_from_msg(mpr_map map, mpr_msg msg, int override);
 
-/*! Helper for printing typed values.
- *  \param len          The vector length of the value.
- *  \param type         The value type.
- *  \param value        A pointer to the property value to print. */
-void mpr_prop_print(int len, mpr_type type, const void *val);
-
-mpr_prop mpr_prop_from_str(const char *str);
-const char *mpr_prop_as_str(mpr_prop prop, int skip_slash);
-
 const char *mpr_loc_as_str(mpr_loc loc);
 mpr_loc mpr_loc_from_str(const char *string);
 
@@ -414,8 +405,6 @@ int mpr_expr_get_out_hist_size(mpr_expr expr);
 
 int mpr_expr_get_num_vars(mpr_expr expr);
 
-int mpr_expr_get_var_hist_size(mpr_expr expr, int idx);
-
 int mpr_expr_get_var_vec_len(mpr_expr expr, int idx);
 
 int mpr_expr_get_src_is_muted(mpr_expr expr, int idx);
@@ -529,6 +518,18 @@ double mpr_get_current_time(void);
  *  \param subtrahend   The subtrahend.
  *  \return             The difference a-b in seconds. */
 double mpr_time_get_diff(mpr_time minuend, mpr_time subtrahend);
+
+/**** Properties ****/
+
+/*! Helper for printing typed values.
+ *  \param len          The vector length of the value.
+ *  \param type         The value type.
+ *  \param value        A pointer to the property value to print. */
+void mpr_prop_print(int len, mpr_type type, const void *val);
+
+mpr_prop mpr_prop_from_str(const char *str);
+
+const char *mpr_prop_as_str(mpr_prop prop, int skip_slash);
 
 /**** Debug macros ****/
 

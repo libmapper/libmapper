@@ -55,6 +55,7 @@ swig/mpr.py
 swig/mpr_wrap.c
 swig/setup.py
 test/test
+test/testcalibrate
 test/testconvergent
 test/testcpp
 test/testcustomtransport

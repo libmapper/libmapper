@@ -494,16 +494,6 @@ void mpr_map_add_scope(mpr_map map, mpr_dev dev);
  *                      propagating across the map. */
 void mpr_map_remove_scope(mpr_map map, mpr_dev dev);
 
-//const char *mpr_map_set_expression(mpr_map map, const char *expr);
-const char *mpr_map_set_linear(mpr_map map, int srclen, mpr_type srctype,
-                               const void *srcmin, const void *srcmax,
-                               int dstlen, mpr_type dsttype,
-                               const void *dstmin, const void *dstmax);
-
-//const char *mpr_map_set_linear_calib(mpr_map map, int dstlen,
-//                                     mpr_type dsttype, const void *dstmin,
-//                                     const void *dstmax, int timeout)
-
 /* @} */
 
 /***** Graph *****/

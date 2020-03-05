@@ -377,7 +377,6 @@ typedef struct _var {
     int vec_len;
     mpr_type datatype;
     mpr_type casttype;
-    char hist_size;     // limited to 100 in parser anyway
     char vec_len_locked;
     char assigned;
     char public;
@@ -819,9 +818,9 @@ void printtoken(mpr_token_t t)
     printf("\n");
 }
 
-void printstack(const char *s, mpr_token_t *stk, int top)
+void printstack(const char *s, mpr_token_t *stk, int top, int show_init_line)
 {
-    int i, j, indent = 0;
+    int i, j, indent = 0, can_advance = 1;
     printf("%s ", s);
     if (s)
         indent = strlen(s) + 1;
@@ -831,6 +830,25 @@ void printstack(const char *s, mpr_token_t *stk, int top)
                 printf(" ");
         }
         printtoken(stk[i]);
+        if (show_init_line && can_advance) {
+            switch (stk[i].toktype) {
+                case TOK_ASSIGN_CONST:
+                    if (stk[i].var != VAR_Y)
+                        break;
+                case TOK_ASSIGN:
+                case TOK_ASSIGN_USE:
+                case TOK_ASSIGN_TT:
+                    if (stk[i].hist_idx != 0)
+                        break;
+                    for (j=0; j<indent; j++)
+                        printf(" ");
+                    printf("--- <INITIALISATION DONE> ---\n");
+                    can_advance = 0;
+                    break;
+                default:
+                    break;
+            }
+        }
     }
     if (!i)
         printf("\n");
@@ -838,7 +856,7 @@ void printstack(const char *s, mpr_token_t *stk, int top)
 
 void printexpr(const char *s, mpr_expr e)
 {
-    printstack(s, e->tokens, e->len-1);
+    printstack(s, e->tokens, e->len-1, 1);
 }
 
 #endif // DEBUG
@@ -1384,7 +1402,6 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         snprintf(vars[n_vars].name, lex_idx-idx, "%s", str+idx+1);
                         vars[n_vars].datatype = MPR_DBL;
                         vars[n_vars].vec_len = 0;
-                        vars[n_vars].hist_size = 1;
                         vars[n_vars].assigned = 0;
                         vars[n_vars].public = public;
 #if TRACING
@@ -1428,7 +1445,6 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                     vars[n_vars].name = strdup(varname);
                     vars[n_vars].datatype = MPR_DBL;
                     vars[n_vars].vec_len = 1;
-                    vars[n_vars].hist_size = 1;
                     vars[n_vars].assigned = 1;
 
                     newtok.toktype = TOK_ASSIGN_USE;
@@ -1649,28 +1665,20 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                              "Output history index cannot be > -1.");}
                     {FAIL_IF(out[out_idx].hist_idx < MAX_HISTORY,
                              "Output history index cannot be < -100.");}
+                    if (out[out_idx].hist_idx < oldest_out)
+                        oldest_out = out[out_idx].hist_idx;
                 }
-                else {
+                else if (out[out_idx].var == VAR_X) {
                     {FAIL_IF(out[out_idx].hist_idx > 0,
                              "Input history index cannot be > 0.");}
                     {FAIL_IF(out[out_idx].hist_idx < MAX_HISTORY,
                              "Input history index cannot be < -100.");}
-                }
-                if (out[out_idx].var == VAR_X) {
                     if (out[out_idx].hist_idx < oldest_in)
                         oldest_in = out[out_idx].hist_idx;
                 }
-                else if (out[out_idx].var == VAR_Y) {
-                    if (out[out_idx].hist_idx < oldest_out)
-                        oldest_out = out[out_idx].hist_idx;
-                }
-                else {
-                    // user-defined variable
-                    int var_idx = out[out_idx].var;
-                    int hist_idx = out[out_idx].hist_idx;
-                    if ((hist_idx * -1 + 1) > vars[var_idx].hist_size)
-                        vars[var_idx].hist_size = hist_idx * -1 + 1;
-                }
+                else
+                    {FAIL_IF(out[out_idx].hist_idx != -1,
+                             "Variable history index can only be -1.");}
                 GET_NEXT_TOKEN(tok);
                 {FAIL_IF(tok.toktype != TOK_CLOSE_CURLY, "Unmatched brace.");}
                 var &= ~TOK_OPEN_CURLY;
@@ -1703,7 +1711,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         if (out[out_idx].hist_idx == 0)
                             ++out_assigned;
                     }
-                    else if (out[out_idx].hist_idx == 0)
+                    else if (out[out_idx].hist_idx >= -1)
                         vars[var].assigned = 1;
                     // nothing extraordinary, continue as normal
                     out[out_idx].toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
@@ -1714,7 +1722,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                 else if (out[out_idx].toktype == TOK_TT) {
                     // assignment to timetag
                     // for now we will only allow assigning to output t_y
-                    FAIL_IF(out[out_idx].var != VAR_Y, "Only output timetag is writable.")
+                    FAIL_IF(out[out_idx].var != VAR_Y, "Only output timetag is writable.");
                     out[out_idx].toktype = TOK_ASSIGN_TT;
                     out[out_idx].datatype = MPR_DBL;
                     PUSH_TO_OPERATOR(out[out_idx]);
@@ -1732,7 +1740,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         if (out[out_idx].hist_idx == 0)
                             ++out_assigned;
                     }
-                    else if (out[out_idx].hist_idx == 0)
+                    else if (out[out_idx].hist_idx >= -1)
                         vars[var].assigned = 1;
                     while (out_idx >= 0) {
                         if (out[out_idx].toktype != TOK_VAR)
@@ -1760,8 +1768,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                 break;
         }
 #if (TRACING && DEBUG)
-        printstack("OUTPUT STACK:  ", out, out_idx);
-        printstack("OPERATOR STACK:", op, op_idx);
+        printstack("OUTPUT STACK:  ", out, out_idx, 0);
+        printstack("OPERATOR STACK:", op, op_idx, 0);
 #endif
     }
 
@@ -1797,8 +1805,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
              "Malformed expression (9).");}
 
 #if (TRACING && DEBUG)
-    printstack("--->OUTPUT STACK:  ", out, out_idx);
-    printstack("--->OPERATOR STACK:", op, op_idx);
+    printstack("--->OUTPUT STACK:  ", out, out_idx, 0);
+    printstack("--->OPERATOR STACK:", op, op_idx, 0);
 #endif
 
     // Check for maximum vector length used in stack
@@ -1858,11 +1866,6 @@ int mpr_expr_get_var_is_public(mpr_expr expr, int idx)
 const char *mpr_expr_get_var_name(mpr_expr expr, int idx)
 {
     return (idx >= 0 && idx < expr->n_vars) ? expr->vars[idx].name : NULL;
-}
-
-int mpr_expr_get_var_hist_size(mpr_expr expr, int idx)
-{
-    return (idx >= 0 && idx < expr->n_vars) ? expr->vars[idx].hist_size : 0;
 }
 
 int mpr_expr_get_var_vec_len(mpr_expr expr, int idx)
@@ -2101,10 +2104,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 // TODO: allow other data types?
                 ++top;
                 dims[top] = tok->vec_len;
-                mpr_var var = &expr->vars[tok->var];
                 mpr_hist h = *expr_vars + tok->var;
-                idx = ((tok->hist_idx + h->pos + var->hist_size) % var->hist_size);
-                double *v = h->val + idx * var->vec_len * mpr_type_get_size(var->datatype);
+                double *v = h->val;
                 for (i = 0; i < tok->vec_len; i++)
                     stk[top][i].d = v[i+tok->vec_idx];
 #if TRACING
@@ -2132,9 +2133,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 idx = ((tok->hist_idx + h->pos + h->size) % h->size);
             }
             else if (expr_vars) {
-                mpr_var var = &expr->vars[tok->var];
                 h = *expr_vars + tok->var;
-                idx = ((tok->hist_idx + h->pos + var->hist_size) % var->hist_size);
+                idx = 0;
             }
             else
                 goto error;
@@ -2391,18 +2391,13 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 // passed the address of an array of mpr_hist structs
                 mpr_hist h = *expr_vars + tok->var;
 
-                // increment position
-                h->pos = (h->pos + 1) % h->size;
-
-                mpr_var var = &expr->vars[tok->var];
-                int idx = ((tok->hist_idx + h->pos + var->hist_size) % var->hist_size);
-                double *v = h->val + idx * var->vec_len * mpr_type_get_size(var->datatype);
+                double *v = h->val;
                 for (i = 0; i < tok->vec_len; i++)
                     v[i + tok->vec_idx] = stk[top][i + tok->offset].d;
 
                 // Also copy time from input
                 if (t) {
-                    mpr_time *tvar = mpr_hist_get_time_ptr(*h);
+                    mpr_time *tvar = h->time;
                     memcpy(tvar, t, sizeof(mpr_time));
                 }
 
@@ -2502,17 +2497,6 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
         return 0;
     }
 
-    for (i = 0; i < expr->n_vars; i++) {
-        if (expr->vars[i].assigned) {
-            // increment position
-            mpr_hist h = *expr_vars + i;
-            h->pos = (h->pos + 1) % h->size;
-#if TRACING
-            printf("incremented position for variable %s to %d\n",
-                   expr->vars[i].name, h->pos);
-#endif
-        }
-    }
     return 1;
 
   error:

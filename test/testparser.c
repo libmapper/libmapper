@@ -50,7 +50,6 @@ typedef struct _var {
     int vec_len;
     mpr_type datatype;
     mpr_type casttype;
-    char hist_size;
     char vec_len_locked;
     char assigned;
     char public;
@@ -203,7 +202,9 @@ int parse_and_eval(int expectation)
     // reallocate variable value histories
     for (i = 0; i < e->n_vars; i++) {
         eprintf("user_var[%d]: %p\n", i, &user_vars[i]);
-        mpr_hist_realloc(&user_vars[i], e->vars[i].hist_size, sizeof(double), 0);
+        int sample_size = sizeof(double) * mpr_expr_get_var_vec_len(e, i);
+
+        mpr_hist_realloc(&user_vars[i], 1, sample_size, 0);
     }
     user_vars_p = user_vars;
 

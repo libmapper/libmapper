@@ -498,15 +498,14 @@ static int replace_expr_str(mpr_map m, const char *expr_str)
             return 1;
         }
     }
-
     FUNC_IF(mpr_expr_free, m->loc->expr);
     m->loc->expr = expr;
 
     if (m->expr_str == expr_str)
         return 0;
-
     mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str,
                 REMOTE_MODIFY);
+    mpr_tbl_remove(m->obj.props.staged, PROP(EXPR), NULL, 0);
     return 0;
 }
 
@@ -554,116 +553,261 @@ static inline int _min(int a, int b)
     return a < b ? a : b;
 }
 
-const char *mpr_map_set_linear(mpr_map m, int slen, mpr_type stype,
-                               const void *smin, const void *smax, int dlen,
-                               mpr_type dtype, const void *dmin, const void *dmax)
-{
-    int i, str_len;
-    char expr[MAX_LEN] = "";
-    const char *e = expr;
-
-    int min_len = slen ?: m->src[0]->sig->len;
-    min_len = _min(min_len, dlen ?: m->dst->sig->len);
-
-    if (smin)
-        str_len = print_var("srcMin", expr, MAX_LEN, min_len, stype, smin);
-    else if (m->src[0]->sig->min)
-        str_len = print_var("srcMin", expr, MAX_LEN, min_len,
-                            m->src[0]->sig->type, m->src[0]->sig->min);
-    else
-        return NULL;
-
-    if (smax)
-        str_len += print_var("srcMax", expr+str_len, MAX_LEN-str_len, min_len,
-                             stype, smax);
-    else if (m->src[0]->sig->max)
-        str_len += print_var("srcMax", expr+str_len, MAX_LEN-str_len, min_len,
-                             m->src[0]->sig->type, m->src[0]->sig->max);
-    else
-        return NULL;
-
-    if (dmin)
-        str_len += print_var("dstMin", expr+str_len, MAX_LEN-str_len, min_len,
-                             dtype, dmin);
-    else if (m->dst->sig->min)
-        str_len += print_var("dstMin", expr+str_len, MAX_LEN-str_len, min_len,
-                             m->dst->sig->type, m->dst->sig->min);
-    else
-        return NULL;
-
-    if (dmax)
-        str_len += print_var("dstMax", expr+str_len, MAX_LEN-str_len, min_len,
-                             dtype, dmax);
-    else if (m->dst->sig->max)
-        str_len += print_var("dstMax", expr+str_len, MAX_LEN-str_len, min_len,
-                             m->dst->sig->type, m->dst->sig->max);
-    else
-        return NULL;
-
-    snprintf(expr+str_len, MAX_LEN-str_len,
-             "srcRange=srcMax-srcMin;"
-             "m=srcRange?((dstMax-dstMin)/srcRange):0;"
-             "b=srcRange?(dstMin*srcMax-dstMax*srcMin)/srcRange:dstMin;");
-
-    str_len = strlen(expr);
-
-    if (m->dst->sig->len == m->src[0]->sig->len)
-        snprintf(expr+str_len, MAX_LEN-str_len, "y=m*x+b");
-    else if (m->dst->sig->len > m->src[0]->sig->len) {
-        if (min_len == 1)
-            snprintf(expr+str_len, MAX_LEN-str_len, "y[0]=m*x+b");
-        else
-            snprintf(expr+str_len, MAX_LEN-str_len, "y[0:%i]=m*x+b", min_len-1);
-    }
-    else if (min_len == 1)
-        snprintf(expr+str_len, MAX_LEN-str_len, "y=m*x[0]+b");
-    else
-        snprintf(expr+str_len, MAX_LEN-str_len, "y=m*x[0:%i]+b", min_len-1);
-
-    trace("linear expression requires %d chars\n", (int)strlen(expr));
-
-    // If everything is successful, replace the map's expression.
-    if (e) {
-        int should_compile = 0;
-        if (m->loc) {
-            if (m->loc->is_local_only)
-                should_compile = 1;
-            else if (MPR_LOC_DST == m->process_loc) {
-                // check if destination is local
-                if (m->dst->loc->rsig)
-                    should_compile = 1;
-            }
-            else {
-                for (i = 0; i < m->num_src; i++) {
-                    if (m->src[i]->loc->rsig)
-                        should_compile = 1;
-                }
-            }
-        }
-        if (should_compile) {
-            if (!replace_expr_str(m, e)) {
-                reallocate_map_histories(m);
-
-                // evaluate expression to intialise literals
-                mpr_time now;
-                mpr_time_set(&now, MPR_NOW);
-                mpr_hist *vars = m->loc->expr_var;
-                mpr_hist to = m->dst->loc->hist;
-                for (i = 0; i < m->loc->num_var_inst; i++)
-                    mpr_expr_eval(m->loc->expr, 0, &vars[i], &to[i], &now, 0);
-            }
-        }
-        else {
-            mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, e,
-                        REMOTE_MODIFY);
-        }
-    }
-    return m->expr_str;
+#define INSERT_VAL(MINORMAX)                                        \
+mpr_hist *ev = m->loc->expr_var;                                    \
+for (j = 0; j < m->loc->num_expr_var; j++) {                        \
+    if (!mpr_expr_get_var_is_public(m->loc->expr, j))               \
+        continue;                                                   \
+    /* TODO: handle multiple instances */                           \
+    k = 0;                                                          \
+    if (strcmp(MINORMAX, mpr_expr_get_var_name(m->loc->expr, j)))   \
+        continue;                                                   \
+    if (ev[k][j].pos < 0) {                                         \
+        trace("expression variable '%s' is not yet initialised.\n", \
+              MINORMAX);                                            \
+        return NULL;                                                \
+    }                                                               \
+    len += snprintf(expr+len, MAX_LEN-len, "%s=", MINORMAX);        \
+    double *v = ev[k][j].val + ev[k][j].pos;                        \
+    if (ev[k][j].len > 1)                                           \
+        len += snprintf(expr+len, MAX_LEN-len, "[");                \
+    for (l = 0; l < ev[k][j].len; l++) {                            \
+        len += snprintf(expr+len, MAX_LEN-len, "%f,", v[0]);        \
+        /* remove trailing zeros */                                 \
+        while (expr[len-2] == '0') { --len; }                       \
+    }                                                               \
+    --len;                                                          \
+    if (ev[k][j].len > 1)                                           \
+        len += snprintf(expr+len, MAX_LEN-len, "]");                \
+    len += snprintf(expr+len, MAX_LEN-len, ";");                    \
+    break;                                                          \
+}                                                                   \
+if (j == m->loc->num_expr_var) {                                    \
+    trace("expression variable '%s' is not found.\n", MINORMAX);    \
+    return NULL;                                                    \
 }
 
-static void mpr_map_set_expr(mpr_map m, const char *expr)
+static const char *mpr_map_set_linear(mpr_map m, const char *e)
+{
+    // if e is NULL, try to fill in ranges from map signals
+    int j, k, l, len = 0;
+    char expr[MAX_LEN] = "";
+    char *var = "x";
+
+    int min_len = _min(m->src[0]->sig->len, m->dst->sig->len);
+
+    if (e) {
+        // how many instances of 'linear' appear in the expression string?
+        int num_inst = 0;
+        char *offset = (char*)e;
+        while ((offset = strstr(offset, "linear"))) {
+            ++num_inst;
+            offset += 6;
+        }
+        // for now we will only allow one instance of 'linear' function macro
+        if (num_inst != 1) {
+            trace("found %d instances of the string 'linear'\n", num_inst);
+            return NULL;
+        }
+
+        offset = (char*)e;
+        // for (i = 0; i < num_inst; i++) {
+            // TODO: copy sections of expression before 'linear('
+            offset = strstr(offset, "linear") + 6;
+            // remove any spaces
+            while (*offset && *offset == ' ')
+                ++offset;
+            // next character must be '('
+            if (*offset != '(') {
+                return NULL;
+            }
+            ++offset;
+            char* arg_str = strtok(offset, ")");
+            if (!arg_str) {
+                trace("error: no arguments found for 'linear' function\n");
+                return NULL;
+            }
+            char *args[5];
+            for (j = 0; j < 5; j++) {
+                args[j] = strtok(arg_str, ",");
+                arg_str = NULL;
+                if (!args[j])
+                    return NULL;
+            }
+            // we won't check if ranges are numeric since they could be variables
+            // but src extrema are allowed to be "?" to indicate calibration
+            // or '-' to indicate they should not be changed
+            if (0 == strcmp(args[1], "?"))
+                len = snprintf(expr, MAX_LEN, "sMin{-1}=x;sMin=min(%s,sMin);", var);
+            else if (0 == strcmp(args[1], "-")) {
+                // try to load sMin variable from existing expression
+                if (!m->loc || !m->loc->expr) {
+                    trace("can't retrieve previous expr var since map is not local\n");
+                    return NULL;
+                }
+                INSERT_VAL("sMin");
+            }
+            else {
+                len = snprintf(expr, MAX_LEN, "sMin=%s", args[1]);
+                /* remove trailing zeros */
+                while (expr[len-1] == '0' || expr[len-1] == '.') { --len; }
+                len += snprintf(expr+len, MAX_LEN-len, ";");
+            }
+
+            if (0 == strcmp(args[2], "?"))
+                len += snprintf(expr+len, MAX_LEN-len, "sMax{-1}=x;sMax=max(%s,sMax);", var);
+            else if (0 == strcmp(args[2], "-")) {
+                // try to load sMax variable from existing expression
+                if (!m->loc || !m->loc->expr) {
+                    trace("can't retrieve previous expr var since map is not local\n");
+                    return NULL;
+                }
+                INSERT_VAL("sMax");
+            }
+            else {
+                len += snprintf(expr+len, MAX_LEN-len, "sMax=%s", args[2]);
+                /* remove trailing zeros */
+                while (expr[len-1] == '0' || expr[len-1] == '.') { --len; }
+                len += snprintf(expr+len, MAX_LEN-len, ";");
+            }
+
+            if (0 == strcmp(args[3], "-")) {
+                // try to load dMin variable from existing expression
+                if (!m->loc || !m->loc->expr) {
+                    trace("can't retrieve previous expr var since map is not local\n");
+                    return NULL;
+                }
+                INSERT_VAL("dMin");
+            }
+            else {
+                len += snprintf(expr+len, MAX_LEN-len, "dMin=%s", args[3]);
+                /* remove trailing zeros */
+                while (expr[len-1] == '0' || expr[len-1] == '.') { --len; }
+                len += snprintf(expr+len, MAX_LEN-len, ";");
+            }
+
+            if (0 == strcmp(args[4], "-")) {
+                // try to load dMin variable from existing expression
+                if (!m->loc || !m->loc->expr) {
+                    trace("can't retrieve previous expr var since map is not local\n");
+                    return NULL;
+                }
+                INSERT_VAL("dMax");
+            }
+            else {
+                len += snprintf(expr+len, MAX_LEN-len, "dMax=%s", args[4]);
+                /* remove trailing zeros */
+                while (expr[len-1] == '0' || expr[len-1] == '.') { --len; }
+                len += snprintf(expr+len, MAX_LEN-len, ";");
+            }
+
+            var = args[0];
+            // TODO: copy sections of expression after closing paren ')'
+        // }
+
+    }
+    else if (   m->src[0]->sig->min && m->src[0]->sig->max
+             && m->dst->sig->min && m->dst->sig->max) {
+        len = print_var("sMin", expr, MAX_LEN, min_len, m->src[0]->sig->type,
+                        m->src[0]->sig->min);
+        len += print_var("sMax", expr+len, MAX_LEN-len, min_len,
+                         m->src[0]->sig->type, m->src[0]->sig->max);
+        len += print_var("dMin", expr+len, MAX_LEN-len, min_len,
+                         m->dst->sig->type, m->dst->sig->min);
+        len += print_var("dMax", expr+len, MAX_LEN-len, min_len,
+                         m->dst->sig->type, m->dst->sig->max);
+    }
+    else {
+        // try linear combination of inputs
+        if (1 == m->num_src) {
+            if (m->src[0]->sig->len == m->dst->sig->len)
+                snprintf(expr, MAX_LEN, "y=x");
+            else if (m->src[0]->sig->len > m->dst->sig->len) {
+                // truncate source
+                if (1 == m->dst->sig->len)
+                    snprintf(expr, MAX_LEN, "y=x[0]");
+                else
+                    snprintf(expr, MAX_LEN, "y=x[0:%i]", m->dst->sig->len-1);
+            }
+            else if (1 == m->src[0]->sig->len) {
+                // truncate dst
+                snprintf(expr, MAX_LEN, "y[0]=x");
+            }
+            else
+                snprintf(expr, MAX_LEN, "y[0:%i]=x", m->src[0]->sig->len-1);
+        }
+        else {
+            // check vector lengths
+            int i, j, max_vec_len = 0, min_vec_len = INT_MAX;
+            for (i = 0; i < m->num_src; i++) {
+                if (m->src[i]->sig->len > max_vec_len)
+                    max_vec_len = m->src[i]->sig->len;
+                if (m->src[i]->sig->len < min_vec_len)
+                    min_vec_len = m->src[i]->sig->len;
+            }
+            int dst_vec_len;
+            if (max_vec_len < m->dst->sig->len) {
+                if (1 == max_vec_len)
+                    len = snprintf(expr, MAX_LEN, "y[0]=(");
+                else
+                    len = snprintf(expr, MAX_LEN, "y[0:%d]=(", max_vec_len-1);
+                dst_vec_len = max_vec_len;
+            }
+            else {
+                len = snprintf(expr, MAX_LEN, "y=(");
+                dst_vec_len = m->dst->sig->len;
+            }
+            for (i = 0; i < m->num_src; i++) {
+                if (m->src[i]->sig->len > dst_vec_len) {
+                    if (1 == dst_vec_len)
+                        len += snprintf(expr+len, MAX_LEN-len, "x%d[0]+", i);
+                    else
+                        len += snprintf(expr+len, MAX_LEN-len, "x%d[0:%d]+",
+                                        i, dst_vec_len-1);
+                }
+                else if (m->src[i]->sig->len < dst_vec_len) {
+                    len += snprintf(expr+len, MAX_LEN-len, "[x%d,0", i);
+                    for (j = 1; j < dst_vec_len - m->src[0]->sig->len; j++)
+                        len += snprintf(expr+len, MAX_LEN-len, ",0");
+                    len += snprintf(expr+len, MAX_LEN-len, "]+");
+                }
+                else
+                    len += snprintf(expr+len, MAX_LEN-len, "x%d+", i);
+            }
+            --len;
+            snprintf(expr+len, MAX_LEN-len, ")/%d", m->num_src);
+        }
+    }
+
+    snprintf(expr+len, MAX_LEN-len,
+             "sRange=sMax-sMin;"
+             "m=sRange?((dMax-dMin)/sRange):0;"
+             "b=sRange?(dMin*sMax-dMax*sMin)/sRange:dMin;");
+
+    len = strlen(expr);
+
+    if (m->dst->sig->len == m->src[0]->sig->len)
+        snprintf(expr+len, MAX_LEN-len, "y=m*%s+b;", var);
+    else if (m->dst->sig->len > m->src[0]->sig->len) {
+        if (min_len == 1)
+            snprintf(expr+len, MAX_LEN-len, "y[0]=m*%s+b;", var);
+        else
+            snprintf(expr+len, MAX_LEN-len, "y[0:%i]=m*%s+b;",
+                     min_len-1, var);
+    }
+    else if (min_len == 1)
+        snprintf(expr+len, MAX_LEN-len, "y=m*%s[0]+b;", var);
+    else
+        snprintf(expr+len, MAX_LEN-len, "y=m*%s[0:%i]+b;", var, min_len-1);
+
+    trace("linear expression %s requires %d chars\n", expr, (int)strlen(expr));
+    return strdup(expr);
+}
+
+static int mpr_map_set_expr(mpr_map m, const char *expr)
 {
     int i, should_compile = 0;
+    const char *new_expr = 0;
     if (m->loc->is_local_only)
         should_compile = 1;
     else if (MPR_LOC_DST == m->process_loc) {
@@ -677,25 +821,29 @@ static void mpr_map_set_expr(mpr_map m, const char *expr)
                 should_compile = 1;
         }
     }
-    if (should_compile) {
-        if (!replace_expr_str(m, expr)) {
-            reallocate_map_histories(m);
-            // evaluate expression to intialise literals
-            mpr_time now;
-            mpr_time_set(&now, MPR_NOW);
-            mpr_hist *vars = m->loc->expr_var;
-            mpr_hist to = m->dst->loc->hist;
-            for (i = 0; i < m->loc->num_var_inst; i++)
-                mpr_expr_eval(m->loc->expr, 0, &vars[i], &to[i], &now, 0);
-        }
-        else
-            return;
+
+    if (!should_compile) {
+        if (expr)
+            mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr,
+                        REMOTE_MODIFY);
+        goto done;
     }
-    else {
-        mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr,
-                    REMOTE_MODIFY);
-        return;
+
+    if (!expr || strstr(expr, "linear"))
+        expr = new_expr = mpr_map_set_linear(m, expr);
+    RETURN_UNLESS(expr, 1);
+    if (!replace_expr_str(m, expr)) {
+        reallocate_map_histories(m);
+        // evaluate expression to intialise literals
+        mpr_time now;
+        mpr_time_set(&now, MPR_NOW);
+        mpr_hist *vars = m->loc->expr_var;
+        mpr_hist to = m->dst->loc->hist;
+        for (i = 0; i < m->loc->num_var_inst; i++)
+            mpr_expr_eval(m->loc->expr, 0, &vars[i], &to[i], &now, 0);
     }
+    else
+        goto done;
 
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
@@ -733,6 +881,10 @@ static void mpr_map_set_expr(mpr_map m, const char *expr)
     // check whether each source slot causes computation
     for (i = 0; i < m->num_src; i++)
         m->src[i]->causes_update = !mpr_expr_get_src_is_muted(m->loc->expr, i);
+done:
+    if (new_expr)
+        free((char*)new_expr);
+    return 0;
 }
 
 // TODO: move to slot.c?
@@ -751,96 +903,6 @@ static void init_slot_hist(mpr_slot slot)
         hist->time = calloc(1, sizeof(mpr_time));
         hist->pos = -1;
     }
-}
-
-static void apply_expr(mpr_map m)
-{
-    if (MPR_LOC_DST == m->process_loc && !m->dst->loc)
-        return;
-
-    // try user-defined expression
-    if (m->expr_str) {
-        mpr_map_set_expr(m, m->expr_str);
-        return;
-    }
-
-    // try linear scaling
-    mpr_slot s = m->src[0], d = m->dst;
-    if (mpr_map_set_linear(m, s->sig->len, s->sig->type, s->min, s->max,
-                           d->sig->len, d->sig->type, d->min, d->max))
-        return;
-
-    // try linear combination of inputs
-    char expr_str[MAX_LEN] = "";
-    if (1 == m->num_src) {
-        if (m->src[0]->sig->len == m->dst->sig->len)
-            snprintf(expr_str, MAX_LEN, "y=x");
-        else if (m->src[0]->sig->len > m->dst->sig->len) {
-            // truncate source
-            if (1 == m->dst->sig->len)
-                snprintf(expr_str, MAX_LEN, "y=x[0]");
-            else
-                snprintf(expr_str, MAX_LEN, "y=x[0:%i]", m->dst->sig->len-1);
-        }
-        else if (1 == m->src[0]->sig->len) {
-            // truncate dst
-            snprintf(expr_str, MAX_LEN, "y[0]=x");
-        }
-        else
-            snprintf(expr_str, MAX_LEN, "y[0:%i]=x", m->src[0]->sig->len-1);
-    }
-    else {
-        // check vector lengths
-        int i, j, max_vec_len = 0, min_vec_len = INT_MAX;
-        for (i = 0; i < m->num_src; i++) {
-            if (m->src[i]->sig->len > max_vec_len)
-                max_vec_len = m->src[i]->sig->len;
-            if (m->src[i]->sig->len < min_vec_len)
-                min_vec_len = m->src[i]->sig->len;
-        }
-        int offset = 0, dst_vec_len;
-        if (max_vec_len < m->dst->sig->len) {
-            if (1 == max_vec_len)
-                snprintf(expr_str, MAX_LEN, "y[0]=(");
-            else
-                snprintf(expr_str, MAX_LEN, "y[0:%d]=(", max_vec_len-1);
-            offset = strlen(expr_str);
-            dst_vec_len = max_vec_len;
-        }
-        else {
-            snprintf(expr_str, MAX_LEN, "y=(");
-            offset = 3;
-            dst_vec_len = m->dst->sig->len;
-        }
-        for (i = 0; i < m->num_src; i++) {
-            if (m->src[i]->sig->len > dst_vec_len) {
-                if (1 == dst_vec_len)
-                    snprintf(expr_str + offset, MAX_LEN - offset, "x%d[0]+", i);
-                else
-                    snprintf(expr_str + offset, MAX_LEN - offset, "x%d[0:%d]+",
-                             i, dst_vec_len-1);
-                offset = strlen(expr_str);
-            }
-            else if (m->src[i]->sig->len < dst_vec_len) {
-                snprintf(expr_str + offset, MAX_LEN - offset,
-                         "[x%d,0", i);
-                offset = strlen(expr_str);
-                for (j = 1; j < dst_vec_len - m->src[0]->sig->len; j++) {
-                    snprintf(expr_str + offset, MAX_LEN - offset, ",0");
-                    offset += 2;
-                }
-                snprintf(expr_str + offset, MAX_LEN - offset, "]+");
-                offset += 2;
-            }
-            else {
-                snprintf(expr_str + offset, MAX_LEN - offset, "x%d+", i);
-                offset = strlen(expr_str);
-            }
-        }
-        --offset;
-        snprintf(expr_str + offset, MAX_LEN - offset, ")/%d", m->num_src);
-    }
-    mpr_map_set_expr(m, expr_str);
 }
 
 static void mpr_map_check_status(mpr_map m)
@@ -896,7 +958,7 @@ static void mpr_map_check_status(mpr_map m)
                 }
             }
         }
-        apply_expr(m);
+        mpr_map_set_expr(m, m->expr_str);
     }
     return;
 }
@@ -907,13 +969,8 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
     int i, j, updated = 0;
     mpr_tbl tbl;
     mpr_msg_atom a;
-    if (!msg) {
-        if (m->loc && m->status < MPR_STATUS_READY) {
-            // check if mapping is now "ready"
-            mpr_map_check_status(m);
-        }
-        return 0;
-    }
+    if (!msg)
+        goto done;
 
     if (MPR_DIR_OUT == m->dst->dir) {
         // check if MPR_PROP_SLOT property is defined
@@ -1002,25 +1059,21 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         }
                     }
                     if (should_compile) {
-                        if (!replace_expr_str(m, expr_str)) {
-                            // TODO: don't increment updated counter twice
-                            ++updated;
-                            reallocate_map_histories(m);
-                            // evaluate expression to intialise literals
-                            mpr_time now;
-                            mpr_time_set(&now, MPR_NOW);
-                            mpr_hist *vars = m->loc->expr_var;
-                            mpr_hist to = m->dst->loc->hist;
-                            for (j = 0; j < m->loc->num_var_inst; j++)
-                                mpr_expr_eval(m->loc->expr, 0, &vars[j], &to[j],
-                                              &now, 0);
-                        }
-                        else {
+                        if (mpr_map_set_expr(m, expr_str)) {
                             // restore original process location
                             m->process_loc = orig_loc;
                             break;
                         }
+                        ++updated;
                     }
+                    else {
+                        updated += mpr_tbl_set(tbl, PROP(EXPR), NULL, 1, MPR_STR,
+                                               expr_str, REMOTE_MODIFY);
+                    }
+                }
+                else {
+                    updated += mpr_tbl_set(tbl, PROP(EXPR), NULL, 1, MPR_STR,
+                                           expr_str, REMOTE_MODIFY);
                 }
                 if (orig_loc != m->process_loc) {
                     mpr_loc loc = m->process_loc;
@@ -1028,8 +1081,6 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
                                            MPR_INT32, &loc, REMOTE_MODIFY);
                 }
-                updated += mpr_tbl_set(tbl, PROP(EXPR), NULL, 1, MPR_STR,
-                                       expr_str, REMOTE_MODIFY);
                 if (!m->loc) {
                     // remove any cached expression variables from table
                     mpr_tbl_remove(tbl, MPR_PROP_EXTRA, "var@*", REMOTE_MODIFY);
@@ -1109,14 +1160,10 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 break;
         }
     }
-
-    if (m->loc) {
-        if (m->status < MPR_STATUS_READY) {
-            // check if mapping is now "ready"
-            mpr_map_check_status(m);
-        }
-        else if (updated)
-            apply_expr(m);
+done:
+    if (m->loc && m->status < MPR_STATUS_READY) {
+        // check if mapping is now "ready"
+        mpr_map_check_status(m);
     }
     return updated;
 }
@@ -1139,7 +1186,7 @@ void reallocate_map_histories(mpr_map m)
 
         hist_size = mpr_expr_get_in_hist_size(m->loc->expr, i);
         if (hist_size > slot_loc->hist_size) {
-            size_t sample_size = mpr_type_get_size(slot->sig->type) * slot->sig->len;;
+            size_t sample_size = mpr_type_get_size(slot->sig->type) * slot->sig->len;
             for (j = 0; j < slot->num_inst; j++)
                 mpr_hist_realloc(&slot_loc->hist[j], hist_size, sample_size, 1);
             slot_loc->hist_size = hist_size;
@@ -1175,18 +1222,17 @@ void reallocate_map_histories(mpr_map m)
                 m->loc->expr_var[i][j].type = MPR_DBL;
                 m->loc->expr_var[i][j].len = 0;
                 m->loc->expr_var[i][j].size = 0;
-                m->loc->expr_var[i][j].pos = -1;
+                m->loc->expr_var[i][j].pos = 0;
                 m->loc->expr_var[i][j].val = 0;
                 m->loc->expr_var[i][j].time = 0;
             }
             for (j = 0; j < new_num_var; j++) {
-                int hist_size = mpr_expr_get_var_hist_size(m->loc->expr, j);
                 int vector_len = mpr_expr_get_var_vec_len(m->loc->expr, j);
-                mpr_hist_realloc(m->loc->expr_var[i]+j, hist_size,
+                mpr_hist_realloc(m->loc->expr_var[i]+j, 1,
                                  vector_len * sizeof(double), 0);
                 m->loc->expr_var[i][j].len = vector_len;
-                m->loc->expr_var[i][j].size = hist_size;
-                m->loc->expr_var[i][j].pos = -1;
+                m->loc->expr_var[i][j].size = 1;
+                m->loc->expr_var[i][j].pos = 0;
             }
         }
         m->loc->num_expr_var = new_num_var;
@@ -1368,7 +1414,6 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
             }
         }
     }
-
     mpr_net_add_msg(&m->obj.graph->net, 0, cmd, msg);
     return i-1;
 }

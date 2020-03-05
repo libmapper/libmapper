@@ -63,7 +63,7 @@ static void realloc_map_insts(mpr_map map, int size)
                 lmap->expr_var[i][j].type = lmap->expr_var[0][j].type;
                 lmap->expr_var[i][j].len = lmap->expr_var[0][j].len;
                 lmap->expr_var[i][j].size = lmap->expr_var[0][j].size;
-                lmap->expr_var[i][j].pos = -1;
+                lmap->expr_var[i][j].pos = 0;
                 lmap->expr_var[i][j].val = calloc(1, sizeof(double)
                                                   * lmap->expr_var[i][j].len
                                                   * lmap->expr_var[i][j].size);
@@ -157,16 +157,6 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
 
             if (map->status < MPR_STATUS_ACTIVE)
                 continue;
-
-            // need to reset user variable memory for this instance
-            for (j = 0; j < lmap->num_expr_var; j++) {
-                memset(lmap->expr_var[idx][j].val, 0, sizeof(double)
-                       * lmap->expr_var[idx][j].len
-                       * lmap->expr_var[idx][j].size);
-                memset(lmap->expr_var[idx][j].time, 0,
-                       sizeof(mpr_time) * lmap->expr_var[idx][j].size);
-                lmap->expr_var[idx][j].pos = -1;
-            }
 
             mpr_slot dst_slot = map->dst;
             mpr_local_slot dst_lslot = dst_slot->loc;

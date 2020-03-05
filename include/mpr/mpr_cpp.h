@@ -536,15 +536,6 @@ namespace mpr {
          *  \return         Self. */
         inline Map& remove_scope(Device& dev);
 
-        Map& set_linear(int srclen, mpr_type srctype, const void *srcmin,
-                        const void *srcmax, int dstlen, mpr_type dsttype,
-                        const void *dstmin, const void *dstmax)
-        {
-            mpr_map_set_linear(_obj, srclen, srctype, srcmin, srcmax, dstlen,
-                               dsttype, dstmin, dstmax);
-            return (*this);
-        }
-
         /*! Get the index of the Map endpoint matching a specific Signal.
          *  \param sig      The Signal to look for.
          *  \return         Index of the signal in this map, or -1 if not found. */

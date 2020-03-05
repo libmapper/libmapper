@@ -229,6 +229,7 @@ int main(int argc, char **argv)
   done:
     cleanup_dst();
     cleanup_src();
-    printf("Test %s.\n", result ? "FAILED" : "PASSED");
+    printf("...................Test %s\x1B[0m.\n",
+           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }
