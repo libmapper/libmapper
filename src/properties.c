@@ -200,8 +200,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
         a->types = &types[i+1];
         a->vals = &argv[i+1];
         while (++i < argc) {
-            if ((types[i] == MPR_STR)
-                && strspn(&argv[i]->s, "+-@")) {
+            if ((types[i] == MPR_STR) && strcspn(&argv[i]->s, "@") < 2) {
                 /* Arrived at next property index. */
                 --i;
                 break;
