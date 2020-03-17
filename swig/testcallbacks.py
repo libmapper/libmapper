@@ -30,7 +30,11 @@ def device_h(type, device, action):
 
 def map_h(type, map, action):
     try:
-        print('map', map.signal(mpr.LOC_SRC)['name'], '->', map.signal(mpr.LOC_DST)['name'], action_name(action))
+        print('map:')
+        for s in map.signals(mpr.LOC_SRC):
+            print("  src: ", s.device()['name'], ':', s['name'])
+        for s in map.signals(mpr.LOC_DST):
+            print("  dst: ", s.device()['name'], ':', s['name'])
     except:
         print('exception')
         print(map)
@@ -50,7 +54,7 @@ while not src.ready or not dst.ready:
     dst.poll(10)
 
 map = mpr.map(outsig, insig)
-map.signal(mpr.LOC_SRC)['calibrate'] = True
+map['expr'] = "y=linear(x,0,100,0,3)"
 map.push()
 
 while not map.ready:
@@ -58,6 +62,7 @@ while not map.ready:
     dst.poll(100)
 
 for i in range(100):
+    outsig.set_value(i)
     src.poll(10)
     dst.poll(10)
 

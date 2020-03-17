@@ -1216,14 +1216,14 @@ typedef struct _device_list {
     }
 
     // signal getter
-    signal_list *signals(mpr_dir dir=MPR_DIR_ANY) {
+    signal_list *signals(int dir=MPR_DIR_ANY) {
         signal_list *ret = malloc(sizeof(struct _signal_list));
         ret->list = mpr_dev_get_sigs((mpr_dev)$self, dir);
         return ret;
     }
 
     // map getter
-    map_list *maps(mpr_dir dir=MPR_DIR_ANY) {
+    map_list *maps(int dir=MPR_DIR_ANY) {
         map_list *ret = malloc(sizeof(struct _map_list));
         ret->list = mpr_dev_get_maps((mpr_dev)$self, dir);
         return ret;
@@ -1490,7 +1490,7 @@ typedef struct _signal_list {
         return $self;
     }
 
-    map_list *maps(mpr_dir dir=MPR_DIR_ANY) {
+    map_list *maps(int dir=MPR_DIR_ANY) {
         map_list *ret = malloc(sizeof(struct _map_list));
         ret->list = mpr_sig_get_maps((mpr_sig)$self, dir);
         return ret;
@@ -1643,10 +1643,11 @@ typedef struct _map_list {
         mpr_map_release((mpr_map)$self);
     }
 
-    // signal getters
-    // TODO: return generator for source signal iterable
-    signal *signal(int loc, int idx=0) {
-        return (signal*)mpr_map_get_sig((mpr_map)$self, loc, idx);
+    // signal getter
+    signal_list *signals(int loc=MPR_LOC_ANY) {
+        signal_list *ret = malloc(sizeof(struct _signal_list));
+        ret->list = mpr_map_get_sigs((mpr_map)$self, loc);
+        return ret;
     }
     int index(signal *sig) {
         return mpr_map_get_sig_idx((mpr_map)$self, (mpr_sig)sig);
@@ -1668,9 +1669,6 @@ typedef struct _map_list {
     }
     booltype get_ready() {
         return mpr_map_get_is_ready((mpr_map)$self);
-    }
-    int get_num_signals(mpr_loc loc=MPR_LOC_ANY) {
-        return mpr_map_get_num_sigs((mpr_map)$self, loc);
     }
     propval get_property(const char *key) {
         return get_obj_prop_by_key((mpr_obj)$self, key);
@@ -1698,23 +1696,6 @@ typedef struct _map_list {
             mpr_obj_remove_prop((mpr_obj)$self, idx, NULL);
         return $self;
     }
-    map *set_linear(propval srcmin=0, propval srcmax=0,
-                    propval dstmin=0, propval dstmax=0) {
-        mpr_map m = (mpr_map)$self;
-        if (srcmin)
-            mpr_map_set_linear(m, srcmin->len, srcmin->type, srcmin->val,
-                               NULL, 0, 0, NULL, NULL);
-        if (srcmax)
-            mpr_map_set_linear(m, srcmax->len, srcmax->type, NULL,
-                               srcmax->val, 0, 0, NULL, NULL);
-        if (dstmin)
-            mpr_map_set_linear(m, 0, 0, NULL, NULL, dstmin->len,
-                               dstmin->type, dstmin->val, NULL);
-        if (dstmax)
-            mpr_map_set_linear(m, 0, 0, NULL, NULL, dstmax->len,
-                               dstmax->type, NULL, dstmax->val);
-        return $self;
-    }
     map *push() {
         mpr_obj_push((mpr_obj)$self);
         return $self;
@@ -1722,7 +1703,6 @@ typedef struct _map_list {
 
     %pythoncode {
         num_properties = property(get_num_properties)
-        num_signals = property(get_num_signals)
         ready = property(get_ready)
         def get_properties(self):
             props = {}

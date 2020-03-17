@@ -76,7 +76,10 @@ def graph_cb(type, object, action):
     if type is mpr.DEV or type is mpr.SIG:
         print('  ', object['name'])
     elif type is mpr.MAP:
-        print('  ', object.signal(mpr.LOC_SRC)['name'], '->', object.signal(mpr.LOC_DST)['name'])
+        for s in object.signals(mpr.LOC_SRC):
+            print("  src: ", s.device()['name'], ':', s['name'])
+        for s in object.signals(mpr.LOC_DST):
+            print("  dst: ", s.device()['name'], ':', s['name'])
 
 g = mpr.graph(mpr.OBJ)
 
@@ -98,7 +101,6 @@ for i in range(1000):
     if i==250:
         map = mpr.map(outsig, insig)
         map['expr'] = 'y=y{-1}+x'
-        map.signal(mpr.LOC_SRC)['minimum'] = [1,2,3,4]
         map.push()
 
 #        # test creating multi-source map
@@ -108,7 +110,6 @@ for i in range(1000):
 
     if i==500:
         print('muting map')
-        map.signal(mpr.LOC_SRC)['minimum'] = [10,11,12,13]
         map['muted'] = True
         map.push()
 
@@ -127,10 +128,10 @@ maps = g.maps()
 nmaps = maps.length()
 print(nmaps, 'map:' if nmaps is 1 else 'maps:')
 for m in g.maps():
-    s = m.signal(mpr.LOC_SRC)
-    d = m.signal(mpr.LOC_SRC)
-    print("    ", s.device()['name'], ':', s['name'],\
-        '->', d.device()['name'], ':', d['name'])
+    for s in m.signals(mpr.LOC_SRC):
+        print("  src: ", s.device()['name'], ':', s['name'])
+    for s in m.signals(mpr.LOC_DST):
+        print("  dst: ", s.device()['name'], ':', s['name'])
 
 # combining queries
 print('signals matching \'out*\' or \'*req\':')

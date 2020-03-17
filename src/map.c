@@ -563,9 +563,8 @@ for (j = 0; j < m->loc->num_expr_var; j++) {                        \
     if (strcmp(MINORMAX, mpr_expr_get_var_name(m->loc->expr, j)))   \
         continue;                                                   \
     if (ev[k][j].pos < 0) {                                         \
-        trace("expression variable '%s' is not yet initialised.\n", \
-              MINORMAX);                                            \
-        return NULL;                                                \
+        trace("expression variable '%s' is not yet initialised.\n", MINORMAX); \
+        goto abort;                                                 \
     }                                                               \
     len += snprintf(expr+len, MAX_LEN-len, "%s=", MINORMAX);        \
     double *v = ev[k][j].val + ev[k][j].pos;                        \
@@ -573,8 +572,6 @@ for (j = 0; j < m->loc->num_expr_var; j++) {                        \
         len += snprintf(expr+len, MAX_LEN-len, "[");                \
     for (l = 0; l < ev[k][j].len; l++) {                            \
         len += snprintf(expr+len, MAX_LEN-len, "%f,", v[0]);        \
-        /* remove trailing zeros */                                 \
-        while (expr[len-2] == '0') { --len; }                       \
     }                                                               \
     --len;                                                          \
     if (ev[k][j].len > 1)                                           \
@@ -584,7 +581,7 @@ for (j = 0; j < m->loc->num_expr_var; j++) {                        \
 }                                                                   \
 if (j == m->loc->num_expr_var) {                                    \
     trace("expression variable '%s' is not found.\n", MINORMAX);    \
-    return NULL;                                                    \
+    goto abort;                                                     \
 }
 
 static const char *mpr_map_set_linear(mpr_map m, const char *e)
@@ -609,7 +606,8 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
             trace("found %d instances of the string 'linear'\n", num_inst);
             return NULL;
         }
-
+        // use a copy in case we fail after tokenisation
+        e = strdup(e);
         offset = (char*)e;
         // for (i = 0; i < num_inst; i++) {
             // TODO: copy sections of expression before 'linear('
@@ -619,20 +617,20 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
                 ++offset;
             // next character must be '('
             if (*offset != '(') {
-                return NULL;
+                goto abort;
             }
             ++offset;
             char* arg_str = strtok(offset, ")");
             if (!arg_str) {
                 trace("error: no arguments found for 'linear' function\n");
-                return NULL;
+                goto abort;
             }
             char *args[5];
             for (j = 0; j < 5; j++) {
                 args[j] = strtok(arg_str, ",");
                 arg_str = NULL;
                 if (!args[j])
-                    return NULL;
+                    goto abort;
             }
             // we won't check if ranges are numeric since they could be variables
             // but src extrema are allowed to be "?" to indicate calibration
@@ -643,63 +641,57 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
                 // try to load sMin variable from existing expression
                 if (!m->loc || !m->loc->expr) {
                     trace("can't retrieve previous expr var since map is not local\n");
-                    return NULL;
+                    len += snprintf(expr+len, MAX_LEN-len, "sMin=0;");
                 }
-                INSERT_VAL("sMin");
+                else {
+                    INSERT_VAL("sMin");
+                }
             }
-            else {
-                len = snprintf(expr, MAX_LEN, "sMin=%s", args[1]);
-                /* remove trailing zeros */
-                while (expr[len-1] == '0' || expr[len-1] == '.') { --len; }
-                len += snprintf(expr+len, MAX_LEN-len, ";");
-            }
+            else
+                len = snprintf(expr, MAX_LEN, "sMin=%s;", args[1]);
 
             if (0 == strcmp(args[2], "?"))
                 len += snprintf(expr+len, MAX_LEN-len, "sMax{-1}=x;sMax=max(%s,sMax);", var);
             else if (0 == strcmp(args[2], "-")) {
                 // try to load sMax variable from existing expression
                 if (!m->loc || !m->loc->expr) {
-                    trace("can't retrieve previous expr var since map is not local\n");
-                    return NULL;
+                    // TODO: try using signal instead
+                    trace("can't retrieve previous expr var, using default\n");
+                    // TODO: test with vector signals
+                    len += snprintf(expr+len, MAX_LEN-len, "sMax=1;");
                 }
-                INSERT_VAL("sMax");
+                else {
+                    INSERT_VAL("sMax");
+                }
             }
-            else {
-                len += snprintf(expr+len, MAX_LEN-len, "sMax=%s", args[2]);
-                /* remove trailing zeros */
-                while (expr[len-1] == '0' || expr[len-1] == '.') { --len; }
-                len += snprintf(expr+len, MAX_LEN-len, ";");
-            }
+            else
+                len += snprintf(expr+len, MAX_LEN-len, "sMax=%s;", args[2]);
 
             if (0 == strcmp(args[3], "-")) {
                 // try to load dMin variable from existing expression
                 if (!m->loc || !m->loc->expr) {
                     trace("can't retrieve previous expr var since map is not local\n");
-                    return NULL;
+                    len += snprintf(expr+len, MAX_LEN-len, "dMin=0;");
                 }
-                INSERT_VAL("dMin");
+                else {
+                    INSERT_VAL("dMin");
+                }
             }
-            else {
-                len += snprintf(expr+len, MAX_LEN-len, "dMin=%s", args[3]);
-                /* remove trailing zeros */
-                while (expr[len-1] == '0' || expr[len-1] == '.') { --len; }
-                len += snprintf(expr+len, MAX_LEN-len, ";");
-            }
+            else
+                len += snprintf(expr+len, MAX_LEN-len, "dMin=%s;", args[3]);
 
             if (0 == strcmp(args[4], "-")) {
                 // try to load dMin variable from existing expression
                 if (!m->loc || !m->loc->expr) {
                     trace("can't retrieve previous expr var since map is not local\n");
-                    return NULL;
+                    len += snprintf(expr+len, MAX_LEN-len, "dMax=1;");
                 }
-                INSERT_VAL("dMax");
+                else {
+                    INSERT_VAL("dMax");
+                }
             }
-            else {
-                len += snprintf(expr+len, MAX_LEN-len, "dMax=%s", args[4]);
-                /* remove trailing zeros */
-                while (expr[len-1] == '0' || expr[len-1] == '.') { --len; }
-                len += snprintf(expr+len, MAX_LEN-len, ";");
-            }
+            else
+                len += snprintf(expr+len, MAX_LEN-len, "dMax=%s;", args[4]);
 
             var = args[0];
             // TODO: copy sections of expression after closing paren ')'
@@ -777,6 +769,7 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
             --len;
             snprintf(expr+len, MAX_LEN-len, ")/%d", m->num_src);
         }
+        return strdup(expr);
     }
 
     snprintf(expr+len, MAX_LEN-len,
@@ -802,6 +795,10 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
 
     trace("linear expression %s requires %d chars\n", expr, (int)strlen(expr));
     return strdup(expr);
+
+abort:
+    FUNC_IF(free, (char*)e);
+    return NULL;
 }
 
 static int mpr_map_set_expr(mpr_map m, const char *expr)
