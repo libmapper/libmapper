@@ -587,7 +587,7 @@ mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs,
 mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
                           const char *dst_name, mpr_msg msg)
 {
-    if (num_src >= MAX_NUM_MAP_SRC) {
+    if (num_src > MAX_NUM_MAP_SRC) {
         trace_graph("error: maximum mapping sources exceeded.\n");
         return 0;
     }
