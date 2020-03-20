@@ -3,15 +3,15 @@ package mpr;
 
 public class Time
 {
-    public long sec;
-    public long frac;
+    public int sec;
+    public int frac;
 
     public static final Time NOW = new Time(0, 1);
     private static double multiplier = (double)1.0/((double)((long)1<<32));
 
     private native void mprNow();
 
-    public Time(long _sec, long _frac)
+    public Time(int _sec, int _frac)
     {
         sec = _sec;
         frac = _frac;
@@ -23,9 +23,9 @@ public class Time
 
     public Time(Double secondsSinceEpoch)
     {
-        sec = (long)Math.floor(secondsSinceEpoch);
+        sec = (int)Math.floor(secondsSinceEpoch);
         secondsSinceEpoch -= sec;
-        frac = (long)(secondsSinceEpoch*(double)((long)1<<32));
+        frac = (int)(secondsSinceEpoch*(double)((long)1<<32));
     }
 
     public Time now()
@@ -51,6 +51,6 @@ public class Time
 
     public String toString()
     {
-        return sec + "." + frac;
+        return Double.toString(this.getDouble());
     }
 }

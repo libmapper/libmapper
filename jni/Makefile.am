@@ -6,7 +6,7 @@ libmprjni_la_LDFLAGS = -export-dynamic -version-info @SO_VERSION@
 libmprjni_la_LIBADD = \
     $(top_builddir)/src/libmpr.la $(liblo_LIBS)
 
-JHEADERS = mpr_AbstractObject.h                                          \
+JHEADERS = mpr_AbstractObject.h mpr_AbstractObject_Properties.h          \
            mpr_Graph.h                                                   \
            mpr_Device.h                                                  \
            mpr_List.h                                                    \
@@ -20,9 +20,10 @@ JCLASSES = mpr/NativeLib.class                                           \
            mpr/Device.class                                              \
            mpr/Direction.class                                           \
            mpr/Graph.class mpr/graph/Event.class                         \
-           mpr/graph/Listener.class mpr/graph/Operator.class             \
+           mpr/graph/Listener.class                                      \
            mpr/List.class                                                \
            mpr/Map.class mpr/map/Location.class                          \
+           mpr/Operator.class                                            \
            mpr/Property.class                                            \
            mpr/Signal.class mpr/signal/Event.class                       \
            mpr/signal/Listener.class mpr/signal/StealingType.class       \

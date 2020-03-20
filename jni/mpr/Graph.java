@@ -76,7 +76,6 @@ public class Graph
     }
 
     public native Graph unsubscribe(mpr.Device dev);
-    public native Graph requestDevices();
 
     // Listeners
     private native void addCallback(long graph, Listener l);
@@ -94,13 +93,19 @@ public class Graph
     }
 
     // devices
-    public native mpr.List<mpr.Device> devices();
+    private native long devices(long graph);
+    public mpr.List<mpr.Device> devices()
+        { return new mpr.List<mpr.Device>(devices(_graph)); }
 
     // signals
-    public native mpr.List<mpr.Signal> signals();
+    private native long signals(long graph);
+    public mpr.List<mpr.Signal> signals()
+        { return new mpr.List<mpr.Signal>(signals(_graph)); }
 
     // maps
-    public native mpr.List<mpr.Map> maps();
+    private native long maps(long graph);
+    public mpr.List<mpr.Map> maps()
+        { return new mpr.List<mpr.Map>(maps(_graph)); }
 
     /* Note: this is _not_ guaranteed to run, the user should still call free()
      * explicitly when the graph is no longer needed. */

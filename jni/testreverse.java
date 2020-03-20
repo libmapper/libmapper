@@ -20,16 +20,18 @@ class testreverse {
 
         Signal inp1 = dev.addSignal(Direction.INCOMING, "insig1", 1, Type.FLOAT,
                                     "Hz", null, null, null, new Listener() {
-            public void onUpdate(Signal sig, float[] v, Time time) {
-                System.out.println("in onUpdate(): "+Arrays.toString(v));
+            public void onEvent(Signal sig, mpr.signal.Event e, float v, Time time) {
+                if (e == mpr.signal.Event.UPDATE)
+                    System.out.println("  insig1 got: "+v);
         }});
 
         Signal out1 = dev.addSignal(Direction.OUTGOING, "outsig1", 1, Type.INT32,
                                     "Hz", null, null, null, null);
         out1.setListener(
             new Listener() {
-                public void onUpdate(Signal sig, int[] v, Time time) {
-                    System.out.println("  >> in onUpdate(): "+Arrays.toString(v));
+                public void onEvent(Signal sig, mpr.signal.Event e, int v, Time time) {
+                    if (e == mpr.signal.Event.UPDATE)
+                        System.out.println("  outsig1 got(): "+v);
                 }});
 
         System.out.println("Waiting for ready...");
@@ -38,9 +40,9 @@ class testreverse {
         }
         System.out.println("Device is ready.");
 
-        System.out.println("Device name: "+dev.getProperty(Property.NAME));
-        System.out.println("Device port: "+dev.getProperty(Property.PORT));
-        System.out.println("Device ordinal: "+dev.getProperty(Property.ORDINAL));
+        System.out.println("Device name: "+dev.properties().get(Property.NAME));
+        System.out.println("Device port: "+dev.properties().get(Property.PORT));
+        System.out.println("Device ordinal: "+dev.properties().get(Property.ORDINAL));
         System.out.println("Network interface: "+dev.graph().getInterface());
 
         Map map = new Map(inp1, out1);

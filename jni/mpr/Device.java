@@ -5,6 +5,8 @@ package mpr;
 import mpr.signal.Listener;
 import mpr.Type;
 import mpr.Time;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
 public class Device extends mpr.AbstractObject
 {
@@ -38,17 +40,32 @@ public class Device extends mpr.AbstractObject
                                      java.lang.Object minimum,
                                      java.lang.Object maximum,
                                      Integer numInstances,
-                                     mpr.signal.Listener l);
+                                     mpr.signal.Listener l, String methodSig);
     public Signal addSignal(Direction dir, String name, int length, Type type,
                             String unit, java.lang.Object minimum,
                             java.lang.Object maximum, Integer numInstances,
                             mpr.signal.Listener l) {
-        return add_signal(_obj, dir.value(), name, length, type.value(), unit,
-                          minimum, maximum, numInstances, l);
+        if (l == null)
+            return add_signal(_obj, dir.value(), name, length, type.value(),
+                              unit, minimum, maximum, numInstances, null, null);
+
+        // try to check type of listener
+        String[] instanceName = l.toString().split("@", 0);
+        for (Method method : l.getClass().getMethods()) {
+            if ((method.getModifiers() & Modifier.STATIC) != 0)
+                continue;
+            String methodName = method.toString();
+            if (methodName.startsWith("public void "+instanceName[0]+".")) {
+                return add_signal(_obj, dir.value(), name, length, type.value(),
+                                  unit, minimum, maximum, numInstances, l,
+                                  methodName);
+            }
+        }
+        return null;
     }
     public Signal addSignal(Direction dir, String name, int length, Type type) {
         return add_signal(_obj, dir.value(), name, length, type.value(),
-                          null, null, null, null, null);
+                          null, null, null, null, null, null);
     }
     public native Device removeSignal(Signal sig);
 

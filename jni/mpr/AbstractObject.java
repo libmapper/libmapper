@@ -4,7 +4,9 @@ package mpr;
 import mpr.NativeLib;
 import mpr.Property;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.AbstractMap;
+import java.util.Map.*;
+import java.util.Set;
 
 public abstract class AbstractObject<T extends AbstractObject<T>>
 {
@@ -28,157 +30,71 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
         return new mpr.Graph(graph(_obj));
     }
 
+    private native void _push(long obj);
+
     /* properties */
-    public native int numProperties();
+    public class Properties extends AbstractMap<Object,Object>
+    {
+        /* constructor */
+        public Properties(AbstractObject obj) { _obj = obj._obj; }
 
-    public native java.lang.Object getProperty(String propName);
-    public native Map.Entry getProperty(int index);
-    public Map.Entry getProperty(Property propID) {
-        return getProperty(propID.value());
+        private native int _count(long obj);
+        public int count()
+            { return _count(_obj); }
+
+        private native Entry<Object, Object> _get(long obj, int id, String key);
+        public Entry<Object, Object> get(Property propID)
+            { return _get(_obj, propID.value(), null); }
+        public Entry<Object, Object> get(int index)
+            { return _get(_obj, index, null); }
+        public Entry<Object, Object> get(String key)
+            { return _get(_obj, 0, key); }
+
+        private native Set<Object> _keySet(long obj);
+        public Set<Object> keySet()
+            { return _keySet(_obj); }
+
+        private native Set<Entry<Object, Object>> _entrySet(long obj);
+        public Set<Entry<Object, Object>> entrySet()
+            { return _entrySet(_obj); }
+
+        private native void _put(long obj, int id, String key, Object value);
+        public Properties put(Property propID, Object value)
+            { _put(_obj, propID.value(), null, value); return this; }
+        public Properties put(String key, Object value)
+            { _put(_obj, 0, key, value); return this; }
+
+        private native void _remove(long obj, int id, String key);
+        public Properties remove(Property propID)
+            { _remove(_obj, propID.value(), null); return this; }
+        public Properties remove(int index)
+            { _remove(_obj, index, null); return this; }
+        public Properties remove(String key)
+            { _remove(_obj, 0, key); return this; }
+
+//        public Properties push() {
+//            _push(_obj);
+//            return this;
+//        }
     }
 
-    private native void mprSetProperty(long obj, int prop, String name,
-                                       java.lang.Object value);
-//    private native void setProperty(long obj, int prop, String name, Enum<?> value);
-//    private native void setProperty(long obj, int prop, String name, boolean value);
-//    private native void setProperty(long obj, int prop, String name, int value);
-//    private native void setProperty(long obj, int prop, String name, long value);
-//    private native void setProperty(long obj, int prop, String name, float value);
-//    private native void setProperty(long obj, int prop, String name, double value);
-//    private native void setProperty(long obj, int prop, String name, String value);
-//    private native void setProperty(long obj, int prop, String name, boolean[] value);
-//    private native void setProperty(long obj, int prop, String name, int[] value);
-//    private native void setProperty(long obj, int prop, String name, long[] value);
-//    private native void setProperty(long obj, int prop, String name, float[] value);
-//    private native void setProperty(long obj, int prop, String name, double[] value);
-//    private native void setProperty(long obj, int prop, String name, String[] value);
+    public Properties properties()
+        { return new Properties(this); }
 
-    // TODO: also need arrays, list, etc - can use generics?
-
-    public T setProperty(String propName, java.lang.Object propValue) {
-        mprSetProperty(_obj, 0, propName, propValue);
-        return self();
-    }
-
-    public T setProperty(Property propID, java.lang.Object propValue) {
-        mprSetProperty(_obj, propID.value(), null, propValue);
-        return self();
-    }
-
-//    public T setProperty(String name, Enum<?> e) {
-//        setObjectProperty(_obj, 0, name, e);
-//        return self();
-//    }
-//    public T setProperty(Property prop, Enum<?> e) {
-//        setObjectProperty(_obj, prop.value(), null, e);
-//        return self();
-//    }
-//    public T setProperty(String name, boolean value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, boolean value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, int value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, int value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, float value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, float value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, double value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, double value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, String value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, String value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, boolean[] value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, boolean[] value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, int[] value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, int[] value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, float[] value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, float[] value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, double[] value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, double[] value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-//    public T setProperty(String name, String[] value) {
-//        setObjectProperty(_obj, 0, name, value);
-//        return self();
-//    }
-//    public T setProperty(Property prop, String[] value) {
-//        setObjectProperty(_obj, prop.value(), null, value);
-//        return self();
-//    }
-
-    private native void removeProperty(int propID, String name);
-    public T removeProperty(Property propID) {
-        removeProperty(propID.value(), null);
-        return self();
-    }
-    public T removeProperty(String propName) {
-        removeProperty(0, propName);
-        return self();
-    }
-
-    private native void mprPush(long obj);
     public T push() {
-        mprPush(_obj);
+        _push(_obj);
         return self();
     }
 
     // Note: this is _not_ guaranteed to run, the user should still
     // call free() explicitly when the object is no longer needed.
-    protected void finalize() throws Throwable {
-        try {
-            free();
-        } finally {
-            super.finalize();
-        }
-    }
+//    protected void finalize() throws Throwable {
+//        try {
+//            free();
+//        } finally {
+//            super.finalize();
+//        }
+//    }
 
     protected long _obj;
     public boolean valid() {

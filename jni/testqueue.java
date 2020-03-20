@@ -21,7 +21,7 @@ class testqueue {
             });
 
         Listener l = new Listener() {
-            public void onEvent(Signal sig, float[] v, Time time) {
+            public void onEvent(Signal sig, mpr.signal.Event e, float v, Time time) {
                 testqueue.updated = true;
             }
         };

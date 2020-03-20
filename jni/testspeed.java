@@ -21,7 +21,8 @@ class testspeed {
             });
 
         Listener l = new Listener() {
-            public void onUpdate(Signal sig, float[] v, Time time) {
+            public void onEvent(Signal sig, mpr.signal.Event e, float[] v, Time time) {
+                if (e == mpr.signal.Event.UPDATE)
                 testspeed.updated = true;
             }
         };

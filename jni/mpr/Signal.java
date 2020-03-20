@@ -5,9 +5,12 @@ import mpr.Map;
 import mpr.signal.*;
 import mpr.Device;
 import java.util.Set;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 
 public class Signal extends AbstractObject
 {
+    /* constructors */
     public Signal(long sig) {
         super(sig);
     }
@@ -22,9 +25,29 @@ public class Signal extends AbstractObject
     public native Device device();
 
     /* callbacks */
-    private native void mprSignalSetCB(long sig, Listener l, int flags);
+    private native void mprSignalSetCB(long sig, Listener l, String methodSig,
+                                       int flags);
+    private void _setListener(Listener l, int flags) {
+        if (l == null) {
+            mprSignalSetCB(_obj, null, null, 0);
+            return;
+        }
+
+        // try to check type of listener
+        String[] instanceName = l.toString().split("@", 0);
+        for (Method method : l.getClass().getMethods()) {
+            if ((method.getModifiers() & Modifier.STATIC) != 0)
+                continue;
+            String methodName = method.toString();
+            if (methodName.startsWith("public void "+instanceName[0]+".")) {
+                mprSignalSetCB(_obj, l, methodName, flags);
+                return;
+            }
+        }
+        System.out.println("Error: no match for listener.");
+    }
     public Signal setListener(Listener l, Event event) {
-        mprSignalSetCB(_obj, l, event.value());
+        _setListener(l, event.value());
         return this;
     }
     public Signal setListener(Listener l, Set<Event> events) {
@@ -33,11 +56,11 @@ public class Signal extends AbstractObject
             if (events.contains(e))
                 flags |= e.value();
         }
-        mprSignalSetCB(_obj, l, flags);
+        _setListener(l, flags);
         return this;
     }
     public Signal setListener(Listener l) {
-        mprSignalSetCB(_obj, l, Event.UPDATE.value());
+        _setListener(l, Event.UPDATE.value());
         return this;
     }
     public native Listener listener();
@@ -69,68 +92,24 @@ public class Signal extends AbstractObject
     public native int numActiveInstances();
     public native int numReservedInstances();
 
-    /* update signal or instance */
-    private native Signal updateInstance(long id, int i, Time t);
-    private native Signal updateInstance(long id, float f, Time t);
-    private native Signal updateInstance(long id, double d, Time t);
-    private native Signal updateInstance(long id, int[] i, Time t);
-    private native Signal updateInstance(long id, float[] f, Time t);
-    private native Signal updateInstance(long id, double[] d, Time t);
-
-    public Signal setValue(int i) {
-        return updateInstance(0, i, null);
+    /* set value */
+    public native Signal setValue(long id, Object value, Time time);
+    public Signal setValue(long id, Object value) {
+        return setValue(id, value, null);
     }
-    public Signal setValue(float f) {
-        return updateInstance(0, f, null);
+    public Signal setValue(Object value) {
+        return setValue(0, value, null);
     }
-    public Signal setValue(double d) {
-        return updateInstance(0, d, null);
-    }
-    public Signal setValue(int[] i) {
-        return updateInstance(0, i, null);
-    }
-    public Signal setValue(float[] d) {
-        return updateInstance(0, d, null);
-    }
-    public Signal setValue(double[] d) {
-        return updateInstance(0, d, null);
+    public Signal setValue(Object value, Time time) {
+        return setValue(0, value, time);
     }
 
-    public Signal setValue(int i, Time t) {
-        return updateInstance(0, i, t);
-    }
-    public Signal setValue(float f, Time t) {
-        return updateInstance(0, f, t);
-    }
-    public Signal setValue(double d, Time t) {
-        return updateInstance(0, d, t);
-    }
-    public Signal setValue(int[] i, Time t) {
-        return updateInstance(0, i, t);
-    }
-    public Signal setValue(float[] f, Time t) {
-        return updateInstance(0, f, t);
-    }
-    public Signal setValue(double[] d, Time t) {
-        return updateInstance(0, d, t);
-    }
+    /* get value */
+    public native boolean hasValue(long id);
+    public boolean hasValue() { return hasValue(0); }
 
-    /* signal or instance value */
-    public native boolean hasValue();
-
-    public native int intValue(long id);
-    public int intValue() { return intValue(0); }
-    public native float floatValue(long id);
-    public float floatValue() { return floatValue(0); }
-    public native double doubleValue(long id);
-    public double doubleValue() { return doubleValue(0); }
-
-    public native int[] intValues(long id);
-    public int[] intValues() { return intValues(0); }
-    public native float[] floatValues(long id);
-    public float[] floatValues() { return floatValues(0); }
-    public native double[] doubleValues(long id);
-    public double[] doubleValues() { return doubleValues(0); }
+    public native Object getValue(long id);
+    public Object getValue() { return getValue(0); }
 
     public class Instance
     {
@@ -172,64 +151,20 @@ public class Signal extends AbstractObject
         public native int isActive();
         public long id() { return _id; }
 
-        /* update */
-        public Instance setValue(int i, Time t) {
-            updateInstance(_id, i, t);
-            return this;
-        }
-        public Instance setValue(float f, Time t) {
-            updateInstance(_id, f, t);
-            return this;
-        }
-        public Instance setValue(double d, Time t) {
-            updateInstance(_id, d, t);
-            return this;
-        }
-        public Instance setValue(int[] i, Time t) {
-            updateInstance(_id, i, t);
-            return this;
-        }
-        public Instance setValue(float[] f, Time t) {
-            updateInstance(_id, f, t);
-            return this;
-        }
-        public Instance setValue(double[] d, Time t) {
-            updateInstance(_id, d, t);
-            return this;
-        }
+        public boolean hasValue() { return _sigobj.hasValue(_id); }
 
-        public Instance setValue(int i) {
-            updateInstance(_id, i, null);
+        /* update */
+        public Instance setValue(Object value, Time time) {
+            _sigobj.setValue(_id, value, time);
             return this;
         }
-        public Instance setValue(float f) {
-            updateInstance(_id, f, null);
-            return this;
-        }
-        public Instance setValue(double d) {
-            updateInstance(_id, d, null);
-            return this;
-        }
-        public Instance setValue(int[] i) {
-            updateInstance(_id, i, null);
-            return this;
-        }
-        public Instance setValue(float[] f) {
-            updateInstance(_id, f, null);
-            return this;
-        }
-        public Instance setValue(double[] d) {
-            updateInstance(_id, d, null);
+        public Instance setValue(Object value) {
+            _sigobj.setValue(_id, value, null);
             return this;
         }
 
         /* value */
-        public int intValue() { return _sigobj.intValue(_id); }
-        public float floatValue() { return _sigobj.floatValue(_id); }
-        public double doubleValue() { return _sigobj.doubleValue(_id); }
-        public int[] intValues() { return _sigobj.intValues(_id); }
-        public float[] floatValues() { return _sigobj.floatValues(_id); }
-        public double[] doubleValues() { return _sigobj.doubleValues(_id); }
+        public Object getValue() { return _sigobj.getValue(_id); }
 
         /* userObject */
         public native java.lang.Object userReference();

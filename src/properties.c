@@ -461,7 +461,7 @@ const char *mpr_steal_as_str(mpr_steal_type stl)
     return mpr_steal_strings[stl];
 }
 
-// Helper for setting property value from different lo_arg types
+// Helper for setting property value from different data types
 int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
                     int dst_len, mpr_type dst_type, void *dst_val)
 {
