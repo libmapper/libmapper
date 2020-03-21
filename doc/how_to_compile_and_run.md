@@ -1,4 +1,3 @@
-
 Building libmpr
 ==================
 
@@ -11,14 +10,14 @@ Linux and OS X
 
 ### Dependencies
 
-libmpr depends version 0.27 of liblo or later.
+libmpr depends on version 0.30 of liblo or later.
 Please consult the [LibLo project page][liblo] for details.
 
 [liblo]: http://liblo.sourceforge.net
 
 The GNU configure step detects liblo using the "pkg-config" program.
 This is usually already installed in Linux systems, but on OS X, we
-recommend installing it via [MacPorts][ports] or [HomeBrew][brew].  In
+recommend installing it via [MacPorts][ports] or [HomeBrew][brew]. In
 the future libmpr packages for MacPorts and HomeBrew will be
 directly provided, but this is not yet the case.
 
