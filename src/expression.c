@@ -1133,13 +1133,13 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                 if (!stk[i].vec_len_locked) {
                     if (stk[i].toktype == TOK_VFN) {
                         if (stk[i].vec_len != vec_len)
-                            PARSE_ERROR(-1, "Vector length mismatch (%d != %d)\n",
+                            PARSE_ERROR(-1, "Vector length mismatch (1) %d != %d\n",
                                         stk[i].vec_len, vec_len);
                     }
                     else if (stk[i].toktype == TOK_VAR && stk[i].var < VAR_Y) {
                         int *vec_len_ptr = &vars[stk[i].var].vec_len;
                         if (*vec_len_ptr && *vec_len_ptr != vec_len)
-                            PARSE_ERROR(-1, "Vector length mismatch (%d != %d)\n",
+                            PARSE_ERROR(-1, "Vector length mismatch (2) %d != %d\n",
                                         *vec_len_ptr, vec_len);
                         *vec_len_ptr = vec_len;
                         stk[i].vec_len = vec_len;
@@ -1149,7 +1149,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                         stk[i].vec_len = vec_len;
                 }
                 else if (stk[i].vec_len != vec_len)
-                    PARSE_ERROR(-1, "Vector length mismatch (%d != %d)\n",
+                    PARSE_ERROR(-1, "Vector length mismatch (3) %d != %d\n",
                                 stk[i].vec_len, vec_len);
             }
 
@@ -1193,7 +1193,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                 stk[top].vec_len = vec_len;
         }
         else if (stk[top].vec_len != vec_len)
-            PARSE_ERROR(-1, "Vector length mismatch (%d != %d)\n",
+            PARSE_ERROR(-1, "Vector length mismatch (4) %d != %d\n",
                         stk[top].vec_len, vec_len);
     }
     else
@@ -1220,7 +1220,8 @@ static int check_assign_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     if (i < 0)
         PARSE_ERROR(-1, "Malformed expression (1)\n");
     if (stk[i].vec_len != vec_len)
-        PARSE_ERROR(-1, "Length mismatch (%d != %d)\n", stk[i].vec_len, vec_len);
+        PARSE_ERROR(-1, "Vector length mismatch (5) %d != %d\n",
+                    stk[i].vec_len, vec_len);
     promote_token_datatype(&stk[i], stk[top].datatype);
     if (check_type_and_len(stk, i, vars) == -1)
         return -1;
@@ -1547,21 +1548,37 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                 allow_toktype = OBJECT_TOKENS;
                 break;
             case TOK_SEMICOLON:
-                while (op_idx >= 0)
+                // finish popping operators to output, check for unbalanced parentheses
+                while (op_idx >= 0 && op[op_idx].toktype < TOK_ASSIGN) {
+                    if (op[op_idx].toktype == TOK_OPEN_PAREN)
+                        {FAIL("Unmatched parentheses or misplaced comma.");}
                     POP_OPERATOR_TO_OUTPUT();
-                {FAIL_IF(op_idx > 0, "Malformed expression (4).");}
-                // check if last expression was assigned correctly
-                {FAIL_IF(out[out_idx].toktype < TOK_ASSIGN,
-                         "Malformed expression (5).");}
-                {FAIL_IF(check_assign_type_and_len(out, out_idx, vars) == -1,
-                         "Malformed expression (6).");}
-                int var_idx = out[out_idx].var;
+                }
+
+                int var_idx = op[op_idx].var;
                 if (var_idx < VAR_Y) {
                     if (!vars[var_idx].vec_len)
                         vars[var_idx].vec_len = out[out_idx].vec_len;
-                    // lock vector length of assigned variable
-                    out[out_idx].vec_len_locked = 1;
+                    // update and lock vector length of assigned variable
+                    op[op_idx].vec_len = vars[var_idx].vec_len;
+                    op[op_idx].vec_len_locked = 1;
                 }
+
+                // pop assignment operators to output
+                while (op_idx >= 0) {
+                    if (!op_idx && op[op_idx].toktype < TOK_ASSIGN)
+                        {FAIL("Malformed expression (4)");}
+                    PUSH_TO_OUTPUT(op[op_idx]);
+                    if (out[out_idx].toktype == TOK_ASSIGN_USE
+                        && check_assign_type_and_len(out, out_idx, vars) == -1)
+                        {FAIL("Malformed expression (5)");}
+                    POP_OPERATOR();
+                }
+
+                // check vector length and type
+                if (check_assign_type_and_len(out, out_idx, vars) == -1)
+                    {FAIL("Malformed expression (6)");}
+
                 // start another sub-expression
                 assigning = 1;
                 allow_toktype = TOK_VAR | TOK_TT | TOK_PUBLIC;
@@ -1786,6 +1803,17 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
         {FAIL_IF(op[op_idx].toktype == TOK_OPEN_PAREN,
                  "Unmatched parentheses or misplaced comma.");}
         POP_OPERATOR_TO_OUTPUT();
+    }
+
+    if (op_idx >= 0) {
+        int var_idx = op[op_idx].var;
+        if (var_idx < VAR_Y) {
+            if (!vars[var_idx].vec_len)
+                vars[var_idx].vec_len = out[out_idx].vec_len;
+            // update and lock vector length of assigned variable
+            op[op_idx].vec_len = vars[var_idx].vec_len;
+            op[op_idx].vec_len_locked = 1;
+        }
     }
 
     // pop assignment operator(s) to output
