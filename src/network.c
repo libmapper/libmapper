@@ -302,9 +302,9 @@ static void mpr_net_add_dev_methods(mpr_net net, mpr_dev dev)
 {
     int i;
     char path[256];
+    const char *dname = mpr_dev_get_name(dev);
     for (i = 0; i < NUM_DEV_HANDLERS; i++) {
-        snprintf(path, 256, net_msg_strings[device_handlers[i].str_idx],
-                 mpr_dev_get_name(dev));
+        snprintf(path, 256, net_msg_strings[device_handlers[i].str_idx], dname);
         NET_SERVER_FUNC(net, add_method, path, device_handlers[i].types,
                         device_handlers[i].h, net);
     }
@@ -432,7 +432,7 @@ void mpr_net_send(mpr_net net)
             if ((*sub)->lease_exp < t.sec || !(*sub)->flags) {
                 // subscription expired, remove from subscriber list
 #ifdef DEBUG
-                char *addr = lo_address_get_url((*sub)->addr); 
+                char *addr = lo_address_get_url((*sub)->addr);
                 trace_dev(net->addr.dev, "removing expired subscription from "
                           "%s\n", addr);
                 free(addr);
@@ -1594,39 +1594,41 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     else
         { trace_graph("updated %d map properties.\n", updated); }
 #endif
-    RETURN_UNLESS(dev && map->status >= MPR_STATUS_READY, 0);
-    if (MPR_STATUS_READY == map->status) {
-        map->status = MPR_STATUS_ACTIVE;
-        rc = 1;
+    if (dev) {
+        RETURN_UNLESS(map->status >= MPR_STATUS_READY, 0);
+        if (MPR_STATUS_READY == map->status) {
+            map->status = MPR_STATUS_ACTIVE;
+            rc = 1;
 
-        if (MPR_DIR_OUT == map->dst->dir) {
-            // Inform remote destination
-            mpr_net_use_mesh(net, map->dst->link->addr.admin);
-            mpr_map_send_state(map, -1, MSG_MAPPED);
-        }
-        else {
-            // Inform remote sources
-            for (i = 0; i < map->num_src; i++) {
-                mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
-                i = mpr_map_send_state(map, map->loc->one_src ? -1 : i, MSG_MAPPED);
-            }
-        }
-
-        if (dev->loc->subscribers) {
-            trace_dev(dev, "informing subscribers (DEVICE)\n");
-            mpr_net_use_subscribers(net, dev, MPR_DEV);
-            mpr_dev_send_state(dev, MSG_DEV);
-
-            trace_dev(dev, "informing subscribers (SIGNAL)\n");
-            mpr_net_use_subscribers(net, dev, MPR_SIG);
             if (MPR_DIR_OUT == map->dst->dir) {
-                for (i = 0; i < map->num_src; i++) {
-                    if (map->src[i]->sig->loc)
-                        mpr_sig_send_state(map->src[i]->sig, MSG_SIG);
-                }
+                // Inform remote destination
+                mpr_net_use_mesh(net, map->dst->link->addr.admin);
+                mpr_map_send_state(map, -1, MSG_MAPPED);
             }
             else {
-                mpr_sig_send_state(map->dst->sig, MSG_SIG);
+                // Inform remote sources
+                for (i = 0; i < map->num_src; i++) {
+                    mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
+                    i = mpr_map_send_state(map, map->loc->one_src ? -1 : i, MSG_MAPPED);
+                }
+            }
+
+            if (dev->loc->subscribers) {
+                trace_dev(dev, "informing subscribers (DEVICE)\n");
+                mpr_net_use_subscribers(net, dev, MPR_DEV);
+                mpr_dev_send_state(dev, MSG_DEV);
+
+                trace_dev(dev, "informing subscribers (SIGNAL)\n");
+                mpr_net_use_subscribers(net, dev, MPR_SIG);
+                if (MPR_DIR_OUT == map->dst->dir) {
+                    for (i = 0; i < map->num_src; i++) {
+                        if (map->src[i]->sig->loc)
+                            mpr_sig_send_state(map->src[i]->sig, MSG_SIG);
+                    }
+                }
+                else {
+                    mpr_sig_send_state(map->dst->sig, MSG_SIG);
+                }
             }
         }
     }
@@ -1741,6 +1743,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
 
 #ifdef DEBUG
     trace_dev(dev, "%s /unmap\n", map && MPR_MAP_ERROR != map ? "got" : "ignoring");
+    lo_message_pp(msg);
 #endif
     RETURN_UNLESS(map, 0);
 
@@ -1796,6 +1799,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **av,
     mpr_map map = find_map(net, types, ac, av, 0, 0, 0);
 #ifdef DEBUG
     trace_net("%s /unmapped\n", map ? "got" : "ignoring");
+    lo_message_pp(msg);
 #endif
     if (map)
         mpr_graph_remove_map(net->graph, map, MPR_OBJ_REM);

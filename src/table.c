@@ -162,8 +162,11 @@ int mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len, mpr_type *type
         *len = found ? rec->len : 0;
     if (type)
         *type = found ? rec->type : MPR_NULL;
-    if (val)
+    if (val) {
         *val = found ? (rec->flags & INDIRECT ? *rec->val : rec->val) : NULL;
+        if (found && MPR_LIST == rec->type)
+            *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
+    }
     if (pub)
         *pub = rec->flags ^ LOCAL_ACCESS_ONLY;
 
@@ -208,7 +211,7 @@ int mpr_tbl_get_prop_by_idx(mpr_tbl t, mpr_prop prop, const char **key, int *len
     if (val) {
         *val = found ? (rec->flags & INDIRECT ? *rec->val : rec->val) : NULL;
         if (found && MPR_LIST == rec->type)
-            *val = mpr_list_get_cpy((mpr_list)*val);
+            *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
     }
     if (pub)
         *pub = rec->flags ^ LOCAL_ACCESS_ONLY;

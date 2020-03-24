@@ -643,7 +643,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         }
         case MPR_LIST: {
-            mpr_list list = mpr_list_get_cpy((mpr_list)val);
+            mpr_list list = (mpr_list)val;
             if (!list || !*list || !(len = mpr_list_get_size(list))) {
                 printf("[], ");
                 break;

@@ -87,8 +87,8 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     RETURN_UNLESS(name_prefix, 0);
     if (name_prefix[0] == '/')
         ++name_prefix;
-    TRACE_RETURN_UNLESS(!strchr(name_prefix, '/'), NULL, "error: character '/' is "
-                        "not permitted in device name.\n");
+    TRACE_RETURN_UNLESS(!strchr(name_prefix, '/'), NULL, "error: character '/' "
+                        "is not permitted in device name.\n");
     if (!g) {
         g = mpr_graph_new(0);
         g->own = 0;

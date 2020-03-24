@@ -244,10 +244,13 @@ void mpr_obj_print(mpr_obj o, int staged)
     int num_props = mpr_obj_get_num_props(o, 0);
     for (i = 0; i < num_props; i++) {
         p = mpr_obj_get_prop_by_idx(o, i, &key, &len, &type, &val, 0);
-        die_unless(val != 0, "returned zero value\n");
+        die_unless(val != 0 || MPR_LIST == type, "returned zero value\n");
 
         // already printed this
         if (MPR_PROP_NAME == p)
+            continue;
+        // don't print device signals as metadata
+        if (MPR_DEV == o->type && MPR_PROP_SIG == p)
             continue;
 
         printf(", %s=", key);
