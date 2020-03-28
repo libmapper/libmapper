@@ -6,12 +6,14 @@ import sys, mpr, random
 def h(sig, event, id, val, timetag):
     print('  handler got', sig['name'], '=', val, 'at time', timetag.get_double())
 
-srcs = [mpr.device("src"), mpr.device("src"), mpr.device("src")]
+srcs = [mpr.device("py.testconvergent.src"),
+        mpr.device("py.testconvergent.src"),
+        mpr.device("py.testconvergent.src")]
 outsigs = [srcs[0].add_signal(mpr.DIR_OUT, "outsig", 1, mpr.INT32),
            srcs[1].add_signal(mpr.DIR_OUT, "outsig", 1, mpr.INT32),
            srcs[2].add_signal(mpr.DIR_OUT, "outsig", 1, mpr.INT32)]
 
-dest = mpr.device("dest")
+dest = mpr.device("py.testconvergent.dst")
 insig = dest.add_signal(mpr.DIR_IN, "insig", 1, mpr.FLT, None, None, None, None, h)
 
 while not srcs[0].ready or not srcs[1].ready or not srcs[2].ready or not dest.ready:

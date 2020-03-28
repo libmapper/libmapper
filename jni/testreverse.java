@@ -5,7 +5,7 @@ import java.util.Arrays;
 
 class testreverse {
     public static void main(String [] args) {
-        final Device dev = new Device("javatestreverse");
+        final Device dev = new Device("java.testreverse");
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".

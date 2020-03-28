@@ -60,7 +60,7 @@ def setup(d):
 
 #check libmpr version
 print('using libmpr version', mpr.version)
-dev = mpr.device("test")
+dev = mpr.device("py.test")
 setup(dev)
 
 def object_name(type):

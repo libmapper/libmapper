@@ -10,11 +10,11 @@ def h(sig, event, id, val, timetag):
         print('exception')
         print(sig, val)
 
-src = mpr.device("src")
+src = mpr.device("py.testreverse.src")
 outsig = src.add_signal(mpr.DIR_OUT, "outsig", 1, mpr.FLT, None, 0, 1000)
 outsig.set_callback(h)
 
-dest = mpr.device("dest")
+dest = mpr.device("py.testreverse.dst")
 insig = dest.add_signal(mpr.DIR_IN, "insig", 1, mpr.FLT, None, 0, 1)
 
 while not src.ready or not dest.ready:

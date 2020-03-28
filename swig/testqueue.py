@@ -6,11 +6,11 @@ import sys, mpr, random
 def h(sig, event, id, val, tt):
     print('     handler got', sig['name'], '=', val, 'at time', tt.get_double())
 
-src = mpr.device("src")
+src = mpr.device("py.testqueue.src")
 outsig1 = src.add_signal(mpr.DIR_OUT, "outsig1", 1, mpr.INT32, None, 0, 1000)
 outsig2 = src.add_signal(mpr.DIR_OUT, "outsig2", 1, mpr.INT32, None, 0, 1000)
 
-dest = mpr.device("dest")
+dest = mpr.device("py.testqueue.dst")
 insig1 = dest.add_signal(mpr.DIR_IN, "insig1", 1, mpr.FLT, None, 0, 1, None, h)
 insig2 = dest.add_signal(mpr.DIR_IN, "insig2", 1, mpr.FLT, None, 0, 1, None, h)
 

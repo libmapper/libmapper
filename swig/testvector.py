@@ -9,10 +9,10 @@ def h(sig, event, id, val, timetag):
 mins = [0,0,0,0,0,0,0,0,0,0]
 maxs = [1,1,1,1,1,1,1,1,1,1]
 
-src = mpr.device("src")
+src = mpr.device("py.testvector.src")
 outsig = src.add_signal(mpr.DIR_OUT, "outsig", 10, mpr.INT32, None, mins, maxs)
 
-dest = mpr.device("dest")
+dest = mpr.device("py.testvector.dst")
 insig = dest.add_signal(mpr.DIR_IN, "insig", 10, mpr.FLT, None, mins, maxs, None, h)
 
 while not src.ready or not dest.ready:
