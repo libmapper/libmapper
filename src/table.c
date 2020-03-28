@@ -76,7 +76,7 @@ void mpr_tbl_clear(mpr_tbl t)
             if (val) {
                 if (MPR_LIST == rec->type)
                     mpr_list_free(val);
-                else {
+                else if (MPR_OBJ != rec->type && MPR_PTR != rec->type) {
                     if ((MPR_STR == rec->type) && rec->len > 1) {
                         char **vals = (char**)val;
                         for (j = 0; j < rec->len; j++)

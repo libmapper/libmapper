@@ -162,9 +162,7 @@ class test {
 
         Iterator<Device> devs = g.devices().iterator();
         while (devs.hasNext()) {
-            System.out.println("foo");
             System.out.println("  device: " + devs.next().properties().get("name"));
-            System.out.println("foo2");
         }
 
         // another iterator style

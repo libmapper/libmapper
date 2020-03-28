@@ -291,8 +291,7 @@ static jobject build_Value(JNIEnv *env, const int len, mpr_type type,
 
     if (len <= 0 || !val) {
         // return empty Value
-        mid = (*env)->GetMethodID(env, cls, "<init>", "()V");
-        return mid ? (*env)->NewObject(env, cls, mid) : 0;
+        return NULL;
     }
 
     switch (type) {

@@ -67,9 +67,11 @@ void init_dev_prop_tbl(mpr_dev dev)
     mpr_tbl_link(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, mod);
     mpr_tbl_link(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, mod);
     mpr_tbl_link(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, mod);
-    qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs,
-                             cmp_qry_dev_sigs, "hi", dev->obj.id, MPR_DIR_ANY);
-    mpr_tbl_link(tbl, PROP(SIG), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
+    if (!dev->loc) {
+        qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs,
+                                 cmp_qry_dev_sigs, "hi", dev->obj.id, MPR_DIR_ANY);
+        mpr_tbl_link(tbl, PROP(SIG), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
+    }
     mpr_tbl_link(tbl, PROP(STATUS), 1, MPR_INT32, &dev->status, mod | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, mod);
@@ -236,6 +238,10 @@ void mpr_dev_on_registered(mpr_dev dev)
             sig->obj.id |= dev->obj.id;
         }
     }
+    mpr_list qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs,
+                                      cmp_qry_dev_sigs, "hi", dev->obj.id, MPR_DIR_ANY);
+    mpr_tbl_set(dev->obj.props.synced, PROP(SIG), NULL, 1, MPR_LIST, qry,
+                NON_MODIFIABLE | PROP_OWNED);
     dev->loc->registered = 1;
     dev->ordinal = dev->loc->ordinal.val;
     dev->status = MPR_STATUS_READY;

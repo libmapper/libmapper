@@ -709,14 +709,10 @@ int main(int argc, char **argv)
     list = mpr_list_filter(list, MPR_PROP_NAME, NULL, 1, MPR_STR,
                            "testgraph__.2", MPR_OP_EQ);
     if (list && (dev = (mpr_dev)*list)) {
-//        list = mpr_dev_sigs(dev, MPR_DIR_OUT);
         list = mpr_obj_get_prop_as_list((mpr_obj)dev, MPR_PROP_SIG, NULL);
-//        list = mpr_graph_get_objs(graph, MPR_SIG);
-//        list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
-//                               MPR_OP_EQ);
-//        mpr_dir dir = MPR_DIR_OUT;
-//        list = mpr_list_filter(list, MPR_PROP_DIR, NULL, 1, MPR_INT32, &dir,
-//                               MPR_OP_EQ);
+        mpr_dir dir = MPR_DIR_OUT;
+        list = mpr_list_filter(list, MPR_PROP_DIR, NULL, 1, MPR_INT32, &dir,
+                               MPR_OP_EQ);
     }
 
     count=0;

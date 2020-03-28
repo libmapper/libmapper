@@ -300,7 +300,7 @@ int main(int argc, char **argv)
 
     /* Check that there is no value associated with previously-removed
      * "test". */
-    eprintf("Test 10:  retrieving removed property 'test': ");
+    eprintf("Test 10: retrieving removed property 'test': ");
     if (mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
         eprintf("found... ERROR\n");
         result = 1;
@@ -311,7 +311,7 @@ int main(int argc, char **argv)
 
     /* Check that there is an integer value associated with static,
      * required property "length". */
-    eprintf("Test 11:  retrieving static, required property 'length'... ");
+    eprintf("Test 11: retrieving static, required property 'length'... ");
     if (!mpr_obj_get_prop_by_key(sig, "length", &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -347,7 +347,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 12:  retrieving static, required property 'length' usign int getter... ");
+    eprintf("Test 12: retrieving static, required property 'length' usign int getter...\n");
     int_val = mpr_obj_get_prop_as_int32(sig, MPR_PROP_LEN, NULL);
 
     eprintf("\t checking value: '%d' ... ", int_val);
@@ -454,7 +454,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 16: retrieving static, optional property 'max' using float getter... ");
+    eprintf("Test 16: retrieving static, optional property 'max' using float getter...\n");
     float flt_val = mpr_obj_get_prop_as_flt(sig, MPR_PROP_MAX, NULL);
 
     eprintf("\t checking value: '%f' ... ", flt_val);
@@ -932,23 +932,8 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    /* Test rewriting property 'test' as mpr_list property. */
-    eprintf("Test 36: rewriting 'test' as mpr_list property... ");
-    mpr_list set_list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_LIST, set_list, 1);
-    seen = check_keys(sig);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
-                 | SEEN_X | SEEN_Y | SEEN_TEST))
-    {
-        eprintf("ERROR\n");
-        result = 1;
-        goto cleanup;
-    }
-    else
-        eprintf("OK\n");
-
-    eprintf("Test 37: retrieving property 'test'... ");
-    if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
+    eprintf("Test 36: retrieving property 'signal'... ");
+    if (!mpr_obj_get_prop_by_key(dev, "signal", &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -975,17 +960,31 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     mpr_list read_list = (mpr_list)val;
+    mpr_list check_list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     eprintf("\t checking value: %p ... ", read_list);
-    if (read_list != set_list) {
-        eprintf("ERROR (expected %p)\n", set_list);
+    if (read_list == check_list) {
+        eprintf("ERROR (expected copy)\n");
         result = 1;
         goto cleanup;
     }
-    else
-        eprintf("OK\n");
+    while (check_list && read_list) {
+        if (*check_list != *read_list) {
+            eprintf("ERROR (list element mismatch)\n");
+            result = 1;
+            goto cleanup;
+        }
+        check_list = mpr_list_get_next(check_list);
+        read_list = mpr_list_get_next(read_list);
+    }
+    if (read_list || check_list) {
+        eprintf("ERROR (list length mismatch %p, %p)\n", read_list, check_list);
+        result = 1;
+        goto cleanup;
+    }
+    eprintf("OK\n");
 
-    eprintf("Test 38: retrieving property 'test' using list getter... ");
-    read_list = mpr_obj_get_prop_as_list(sig, MPR_PROP_EXTRA, "test");
+    eprintf("Test 37: retrieving property 'signal' using list getter... ");
+    read_list = mpr_obj_get_prop_as_list(dev, MPR_PROP_SIG, NULL);
     if (!read_list) {
         eprintf("not found... ERROR\n");
         result = 1;
@@ -996,16 +995,17 @@ int main(int argc, char **argv)
 
     // mpr_obj_get_prop_as_list returns a copy of the list, so we will need to compare the contents
     eprintf("\t checking value: %p ... ", read_list);
-    while (set_list && read_list) {
-        if (*set_list != *read_list) {
+    check_list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+    while (check_list && read_list) {
+        if (*check_list != *read_list) {
             eprintf("ERROR (list element mismatch)\n");
             result = 1;
             goto cleanup;
         }
-        set_list = mpr_list_get_next(set_list);
+        check_list = mpr_list_get_next(check_list);
         read_list = mpr_list_get_next(read_list);
     }
-    if (read_list || set_list) {
+    if (read_list || check_list) {
         eprintf("ERROR (list length mismatch)\n");
         result = 1;
         goto cleanup;
