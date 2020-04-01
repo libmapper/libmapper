@@ -727,12 +727,6 @@ namespace mapper {
             owned = false;
         }
     private:
-        union {
-            double _d;
-            float _f;
-            int _i;
-            char _c;
-        } _scalar;
         bool owned;
 
         void maybe_free()
@@ -778,10 +772,7 @@ namespace mapper {
         }
         template <typename T>
         void _set(T _value)
-        {
-            memcpy(&_scalar, &_value, sizeof(_scalar));
-            _set(1, (T*)&_scalar);
-        }
+            { _set(1, (T*)&_value); }
         template <typename T, size_t N>
         void _set(std::array<T, N>& _value)
         {
@@ -1215,7 +1206,7 @@ namespace mapper {
                 { _slot = slot; }
             Slot(const Slot &other)
                 { _slot = other._slot; }
-            ~Slot() { printf("destroying slot %p\n", _slot); }
+            ~Slot() {}
             operator mapper_slot() const
                 { return _slot; }
 
@@ -2041,7 +2032,7 @@ namespace mapper {
          *                  MAPPER_OBJ_SIGNALS, MAPPER_OBJ_INCOMING_MAPS,
          *                  MAPPER_OBJ_OUTGOING_MAPS, MAPPER_OBJ_MAPS, or simply
          *                  MAPPER_OBJ_ALL for all information.
-         *  \param timeout  The desired duration in seconds for this 
+         *  \param timeout  The desired duration in seconds for this
          *                  subscription. If set to -1, the database will
          *                  automatically renew the subscription until it is
          *                  freed or this function is called again.
