@@ -509,43 +509,58 @@ static int replace_expr_str(mpr_map m, const char *expr_str)
     return 0;
 }
 
+static inline int trim_zeros(char *str, int len)
+{
+    if (!strchr(str, '.'))
+        return len;
+    while ('0' == str[len-1])
+        --len;
+    if ('.' == str[len-1])
+        --len;
+    str[len] = '\0';
+    return len;
+}
+
 static int print_var(const char *varname, char *str, int max_len, int vec_len,
                      mpr_type type, const void *val)
 {
     if (!str || strlen <= 0)
         return -1;
     snprintf(str, max_len, "%s=", varname);
-    int i, str_len = strlen(str);
+    int i, str_len = strlen(str), var_len;
     if (vec_len > 1)
-        snprintf(str+str_len, max_len-str_len, "[");
+        str_len += snprintf(str+str_len, max_len-str_len, "[");
     switch (type) {
         case MPR_INT32:
             for (i = 0; i < vec_len; i++) {
-                str_len = strlen(str);
-                snprintf(str+str_len, max_len-str_len, "%d,", ((int*)val)[i]);
+                var_len = snprintf(str+str_len, max_len-str_len, "%d", ((int*)val)[i]);
+                str_len += trim_zeros(str+str_len, var_len);
+                str_len += snprintf(str+str_len, max_len-str_len, ",");
             }
             break;
         case MPR_FLT:
             for (i = 0; i < vec_len; i++) {
-                str_len = strlen(str);
-                snprintf(str+str_len, max_len-str_len, "%f,", ((float*)val)[i]);
+                var_len = snprintf(str+str_len, max_len-str_len, "%f", ((float*)val)[i]);
+                str_len += trim_zeros(str+str_len, var_len);
+                str_len += snprintf(str+str_len, max_len-str_len, ",");
             }
             break;
         case MPR_DBL:
             for (i = 0; i < vec_len; i++) {
-                str_len = strlen(str);
-                snprintf(str+str_len, max_len-str_len, "%f,", ((double*)val)[i]);
+                var_len = snprintf(str+str_len, max_len-str_len, "%f", ((double*)val)[i]);
+                str_len += trim_zeros(str+str_len, var_len);
+                str_len += snprintf(str+str_len, max_len-str_len, ",");
             }
             break;
         default:
             break;
     }
-    str_len = strlen(str) - 1;
+    --str_len;
     if (vec_len > 1)
-        snprintf(str+str_len, max_len-str_len, "];");
+        str_len += snprintf(str+str_len, max_len-str_len, "];");
     else
-        snprintf(str+str_len, max_len-str_len, ";");
-    return strlen(str);
+        str_len += snprintf(str+str_len, max_len-str_len, ";");
+    return str_len;
 }
 
 static inline int _min(int a, int b)
@@ -563,7 +578,7 @@ for (j = 0; j < m->loc->num_expr_var; j++) {                        \
     if (strcmp(MINORMAX, mpr_expr_get_var_name(m->loc->expr, j)))   \
         continue;                                                   \
     if (ev[k][j].pos < 0) {                                         \
-        trace("expression variable '%s' is not yet initialised.\n", MINORMAX); \
+        trace("expr var '%s' is not yet initialised.\n", MINORMAX); \
         goto abort;                                                 \
     }                                                               \
     len += snprintf(expr+len, MAX_LEN-len, "%s=", MINORMAX);        \
@@ -571,7 +586,9 @@ for (j = 0; j < m->loc->num_expr_var; j++) {                        \
     if (ev[k][j].len > 1)                                           \
         len += snprintf(expr+len, MAX_LEN-len, "[");                \
     for (l = 0; l < ev[k][j].len; l++) {                            \
-        len += snprintf(expr+len, MAX_LEN-len, "%f,", v[0]);        \
+        val_len = snprintf(expr+len, MAX_LEN-len, "%f", v[l]);      \
+        len += trim_zeros(expr+len, val_len);                       \
+        len += snprintf(expr+len, MAX_LEN-len, ",");                \
     }                                                               \
     --len;                                                          \
     if (ev[k][j].len > 1)                                           \
@@ -580,14 +597,14 @@ for (j = 0; j < m->loc->num_expr_var; j++) {                        \
     break;                                                          \
 }                                                                   \
 if (j == m->loc->num_expr_var) {                                    \
-    trace("expression variable '%s' is not found.\n", MINORMAX);    \
+    trace("expr var '%s' is not found.\n", MINORMAX);               \
     goto abort;                                                     \
 }
 
 static const char *mpr_map_set_linear(mpr_map m, const char *e)
 {
     // if e is NULL, try to fill in ranges from map signals
-    int j, k, l, len = 0;
+    int j, k, l, len = 0, val_len;
     char expr[MAX_LEN] = "";
     char *var = "x";
 
@@ -647,8 +664,11 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
                     INSERT_VAL("sMin");
                 }
             }
-            else
-                len = snprintf(expr, MAX_LEN, "sMin=%s;", args[1]);
+            else {
+                val_len = snprintf(expr, MAX_LEN, "sMin=%s", args[1]);
+                len += trim_zeros(expr, val_len);
+                len += snprintf(expr+len, MAX_LEN-len, ";");
+            }
 
             if (0 == strcmp(args[2], "?"))
                 len += snprintf(expr+len, MAX_LEN-len, "sMax{-1}=x;sMax=max(%s,sMax);", var);
@@ -664,8 +684,11 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
                     INSERT_VAL("sMax");
                 }
             }
-            else
-                len += snprintf(expr+len, MAX_LEN-len, "sMax=%s;", args[2]);
+            else {
+                val_len = snprintf(expr+len, MAX_LEN-len, "sMax=%s", args[2]);
+                len += trim_zeros(expr+len, val_len);
+                len += snprintf(expr+len, MAX_LEN-len, ";");
+            }
 
             if (0 == strcmp(args[3], "-")) {
                 // try to load dMin variable from existing expression
@@ -677,8 +700,11 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
                     INSERT_VAL("dMin");
                 }
             }
-            else
-                len += snprintf(expr+len, MAX_LEN-len, "dMin=%s;", args[3]);
+            else {
+                val_len = snprintf(expr+len, MAX_LEN-len, "dMin=%s", args[3]);
+                len += trim_zeros(expr+len, val_len);
+                len += snprintf(expr+len, MAX_LEN-len, ";");
+            }
 
             if (0 == strcmp(args[4], "-")) {
                 // try to load dMin variable from existing expression
@@ -690,8 +716,11 @@ static const char *mpr_map_set_linear(mpr_map m, const char *e)
                     INSERT_VAL("dMax");
                 }
             }
-            else
-                len += snprintf(expr+len, MAX_LEN-len, "dMax=%s;", args[4]);
+            else {
+                val_len = snprintf(expr+len, MAX_LEN-len, "dMax=%s", args[4]);
+                len += trim_zeros(expr+len, val_len);
+                len += snprintf(expr+len, MAX_LEN-len, ";");
+            }
 
             var = args[0];
             // TODO: copy sections of expression after closing paren ')'
