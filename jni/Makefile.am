@@ -34,11 +34,10 @@ JCLASSESINTERNAL = mpr/Signal$$Instance.class
 
 JJAVA = $(JCLASSES:%.class=%.java)
 
-BUILT_SOURCES = $(JHEADERS) test.class testreverse.class testspeed.class libmpr.jar
+BUILT_SOURCES = $(JHEADERS) test.class testqueue.class testreverse.class \
+    testspeed.class libmpr.jar
 MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
-    $(subst $$,\$$,test$$1.class test$$2.class test$$3.class                \
-    testreverse$$1.class testreverse$$2.class testreverse$$3.class          \
-    testspeed$$1.class testspeed$$2.class testspeed$$3.class)
+    test*.class
 
 mpr_%.h: mpr/%.java
 	$(JAVAC) -h . $(<:%.java=%).java
@@ -66,6 +65,9 @@ mpr/%.class: mpr/%.java
 test.class: test.java $(JCLASSES)
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
+testqueue.class: testqueue.java $(JCLASSES)
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+
 testreverse.class: testreverse.java $(JCLASSES)
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
@@ -80,7 +82,7 @@ libmpr.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	  ln -v -s ../../$@; \
 	  fi # For processing test sketch
 
-EXTRA_DIST = $(JJAVA) test.java testreverse.java testspeed.java \
+EXTRA_DIST = $(JJAVA) test.java testqueue.java testreverse.java testspeed.java \
              $(JHEADERS)
 
 test_all_ordered = test testqueue testreverse testspeed
