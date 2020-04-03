@@ -1363,8 +1363,8 @@ typedef struct _signal_list {
         mpr_sig_release_inst((mpr_sig)$self, id, tt ? *(mpr_time*)tt : MPR_NOW);
         return $self;
     }
-    signal *remove_instance(int id) {
-        mpr_sig_remove_inst((mpr_sig)$self, id);
+    signal *remove_instance(int id, timetag *tt=0) {
+        mpr_sig_remove_inst((mpr_sig)$self, id, tt ? *(mpr_time*)tt : MPR_NOW);
         return $self;
     }
     signal *reserve_instances(int num=1) {

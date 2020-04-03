@@ -535,7 +535,6 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         }
     case 'e':
         if (!integer_found) {
-            n = idx;
             while (c && (isalpha(c) || isdigit(c) || c == '_'))
                 c = str[++idx];
             tok->toktype = TOK_FN;

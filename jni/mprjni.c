@@ -1509,7 +1509,7 @@ JNIEXPORT jlong JNICALL Java_mpr_Signal_00024Instance_mprInstance
         // try to steal an active instance
         mpr_dev dev = mpr_sig_get_dev(sig);
         id = mpr_dev_generate_unique_id(dev);
-        if (!mpr_sig_activate_inst(sig, id)) {
+        if (!mpr_sig_activate_inst(sig, id, MPR_NOW)) {
             printf("Could not activate instance with id %"PR_MPR_ID"\n", id);
             return 0;
         }

@@ -1177,6 +1177,7 @@ static int handler_name(const char *path, const char *types, lo_arg **av,
     RETURN_UNLESS(ac && MPR_STR == types[0], 0);
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
+    RETURN_UNLESS(dev, 0);
     int ordinal, diff, temp_id = -1, hint = 0;
     char *name = &av[0]->s;
     if (ac > 1) {
@@ -1235,6 +1236,7 @@ static int handler_name_probe(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
+    RETURN_UNLESS(dev, 0);
     char *name = &av[0]->s;
     int i, temp_id = av[1]->i;
 
@@ -1433,6 +1435,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
+    RETURN_UNLESS(dev, 0);
 #ifdef DEBUG
     trace_dev(dev, "received /map ");
     lo_message_pp(msg);
@@ -1661,6 +1664,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     RETURN_UNLESS(ac >= 4, 0);
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
+    RETURN_UNLESS(dev, 0);
     mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, 0);
     RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
     RETURN_UNLESS(map->loc && map->status >= MPR_STATUS_ACTIVE, 0);
@@ -1738,6 +1742,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
+    RETURN_UNLESS(dev, 0);
     mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, 0);
     int i;
 

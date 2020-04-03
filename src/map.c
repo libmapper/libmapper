@@ -375,7 +375,7 @@ static int remove_scope_internal(mpr_map m, const char *name)
 
 static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
 {
-    int i, j, updated = 0, num = a->len;
+    int i = 0, j, updated = 0, num = a->len;
     lo_arg **scope_list = a->vals;
     if (scope_list && *scope_list) {
         if (1 == num && strcmp(&scope_list[0]->s, "none")==0)
@@ -383,7 +383,7 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
         const char *name, *no_slash;
 
         // First remove old scopes that are missing
-        for (i = 0; i < m->num_scopes; i++) {
+        while (i < m->num_scopes) {
             int found = 0;
             for (j = 0; j < num; j++) {
                 name = &scope_list[j]->s;
@@ -400,10 +400,10 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
                     break;
                 }
             }
-            if (!found) {
-                remove_scope_internal(m, m->scopes[i]->name);
-                ++updated;
-            }
+            if (!found && m->scopes[i])
+                updated += remove_scope_internal(m, m->scopes[i]->name);
+            else
+                ++i;
         }
         // ...then add any new scopes
         for (i = 0; i < num; i++)
@@ -832,6 +832,7 @@ abort:
 
 static int mpr_map_set_expr(mpr_map m, const char *expr)
 {
+    RETURN_UNLESS(m->num_src > 0, 0);
     int i, should_compile = 0;
     const char *new_expr = 0;
     if (m->loc->is_local_only)
@@ -962,7 +963,7 @@ static void mpr_map_check_status(mpr_map m)
             init_slot_hist(m->src[i]);
         init_slot_hist(m->dst);
         if (!m->loc->expr_var)
-            m->loc->expr_var = calloc(1, sizeof(mpr_hist*) * m->loc->num_var_inst);
+            m->loc->expr_var = calloc(1, sizeof(mpr_hist) * m->loc->num_var_inst);
         m->status = MPR_STATUS_READY;
         // update in/out counts for link
         if (m->loc->is_local_only) {
@@ -1254,7 +1255,7 @@ void reallocate_map_histories(mpr_map m)
             }
             for (j = 0; j < new_num_var; j++) {
                 int vector_len = mpr_expr_get_var_vec_len(m->loc->expr, j);
-                mpr_hist_realloc(m->loc->expr_var[i]+j, 1,
+                mpr_hist_realloc(&m->loc->expr_var[i][j], 1,
                                  vector_len * sizeof(double), 0);
                 m->loc->expr_var[i][j].len = vector_len;
                 m->loc->expr_var[i][j].size = 1;

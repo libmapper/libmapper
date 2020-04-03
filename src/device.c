@@ -115,7 +115,7 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     g->net.rtr->dev = dev;
 
     dev->loc->ordinal.val = 1;
-    dev->loc->idmaps.active = (mpr_id_map *) malloc(sizeof(mpr_id_map *));
+    dev->loc->idmaps.active = (mpr_id_map*) malloc(sizeof(mpr_id_map));
     dev->loc->idmaps.active[0] = 0;
     dev->loc->num_sig_groups = 1;
 
@@ -371,7 +371,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
             // Don't activate instance just to release it again
             RETURN_UNLESS(vals, 0);
             // otherwise try to init reserved/stolen instance with device map
-            idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, &t);
+            idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, t);
             TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no instances available"
                                     " for GUID %"PR_MPR_ID" (1)\n", GID);
         }
@@ -395,7 +395,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
         // use the first available instance
         idmap_idx = 0;
         if (!sig->loc->idmaps[0].inst)
-            idmap_idx = mpr_sig_get_inst_with_LID(sig, sig->loc->inst[0]->id, 1, &t);
+            idmap_idx = mpr_sig_get_inst_with_LID(sig, sig->loc->inst[0]->id, 1, t);
         RETURN_UNLESS(idmap_idx >= 0, 0);
     }
     mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
@@ -404,7 +404,6 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     idmap = sig->loc->idmaps[idmap_idx].map;
 
     int size = mpr_type_get_size(slot ? slot->sig->type : sig->type);
-    int active = 1;
 
     if (map) {
         mpr_local_slot slot_loc = slot->loc;
@@ -439,20 +438,6 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
                       "applied to convergent mapping slot.");
 #endif
             return 0;
-        }
-        else if (GID && !active) {
-            // may need to activate instance
-            idmap_idx = mpr_sig_find_inst_with_GID(sig, GID, RELEASED_REMOTELY);
-            if (idmap_idx < 0) {
-                // no instance found with this map
-                // Don't activate instance just to release it again
-                RETURN_UNLESS(vals, 0);
-                // otherwise try to init reserved/stolen instance with device map
-                idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, &t);
-                TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no local instances "
-                                        "available for global instance id %"
-                                        PR_MPR_ID" (2)\n", GID)
-            }
         }
         mpr_type typestring[map->dst->sig->len];
         /* If this signal slot is non-instanced but the map has other instanced
@@ -502,8 +487,6 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
                 /* Do not call mpr_rtr_process_sig() here, since we don't know
                  * if the local signal instance will actually be released. */
                 call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
-                // mark instance as possibly released
-                active = 0;
                 continue;
             }
             if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len / 8 + 1)==0)
@@ -1084,7 +1067,6 @@ void mpr_dev_manage_subscriber(mpr_dev dev, lo_address addr, int flags,
         sub->flags = flags;
         sub->next = dev->loc->subscribers;
         dev->loc->subscribers = sub;
-        s = &sub;
     }
 
     // bring new subscriber up to date

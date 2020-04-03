@@ -55,7 +55,7 @@ static void realloc_map_insts(mpr_map map, int size)
     // check if expression variable histories need to be reallocated
     mpr_local_map lmap = map->loc;
     if (size > lmap->num_var_inst) {
-        lmap->expr_var = realloc(lmap->expr_var, sizeof(mpr_hist*) * size);
+        lmap->expr_var = realloc(lmap->expr_var, sizeof(mpr_hist) * size);
         for (i = lmap->num_var_inst; i < size; i++) {
             lmap->expr_var[i] = malloc(sizeof(struct _mpr_hist)
                                        * lmap->num_expr_var);
@@ -141,7 +141,6 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
 
     int i, j, idx = sig->loc->idmaps[inst].inst->idx;
     mpr_map map;
-    mpr_local_map lmap;
 
     if (!val) {
         mpr_local_slot lslot;
@@ -153,7 +152,6 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
 
             slot = rs->slots[i];
             map = slot->map;
-            lmap = map->loc;
 
             if (map->status < MPR_STATUS_ACTIVE)
                 continue;
@@ -344,7 +342,7 @@ static mpr_rtr_sig add_rtr_sig(mpr_rtr r, mpr_sig s)
         rs = (mpr_rtr_sig)calloc(1, sizeof(struct _mpr_rtr_sig));
         rs->sig = s;
         rs->num_slots = 1;
-        rs->slots = malloc(sizeof(mpr_local_slot *));
+        rs->slots = malloc(sizeof(mpr_slot));
         rs->slots[0] = 0;
         rs->next = r->sigs;
         r->sigs = rs;
@@ -363,7 +361,7 @@ static int rtr_sig_store_slot(mpr_rtr_sig rs, mpr_slot slot)
         }
     }
     // all indices occupied, allocate more
-    rs->slots = realloc(rs->slots, sizeof(mpr_slot*) * rs->num_slots * 2);
+    rs->slots = realloc(rs->slots, sizeof(mpr_slot) * rs->num_slots * 2);
     rs->slots[rs->num_slots] = slot;
     for (i = rs->num_slots+1; i < rs->num_slots * 2; i++)
         rs->slots[i] = 0;
@@ -409,18 +407,6 @@ static void alloc_and_init_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src,
             *max_inst = slot->sig->num_inst;
         if (slot->sig->use_inst)
             *use_inst = 1;
-
-        // start with signal extrema if known
-        if (!slot->max && slot->sig->max) {
-            // copy range from signal
-            slot->max = malloc(mpr_sig_get_vector_bytes(slot->sig));
-            memcpy(slot->max, slot->sig->max, mpr_sig_get_vector_bytes(slot->sig));
-        }
-        if (!slot->min && slot->sig->min) {
-            // copy range from signal
-            slot->min = malloc(mpr_sig_get_vector_bytes(slot->sig));
-            memcpy(slot->min, slot->sig->min, mpr_sig_get_vector_bytes(slot->sig));
-        }
     }
     if (!slot->sig->loc || (is_src && slot->map->dst->sig->loc)) {
         mpr_link link = mpr_graph_add_link(rtr->dev->obj.graph, rtr->dev,

@@ -710,8 +710,8 @@ namespace mpr {
             { RETURN_SELF(mpr_sig_reserve_inst(_obj, num, ids, data)); }
         Instance instance_at_idx(int idx, mpr_status status) const
             { return Instance(_obj, mpr_sig_get_inst_id(_obj, idx, status)); }
-        Signal& remove_instance(Instance instance)
-            { RETURN_SELF(mpr_sig_remove_inst(_obj, instance._id)); }
+        Signal& remove_instance(Instance instance, Time time=0)
+            { RETURN_SELF(mpr_sig_remove_inst(_obj, instance._id, *time)); }
         Instance oldest_instance()
             { return Instance(_obj, mpr_sig_get_oldest_inst_id(_obj)); }
         Instance newest_instance()
@@ -915,7 +915,7 @@ namespace mpr {
          *                  Can be a combination of MPR_DEV, MPR_SIG_IN,
          *                  MPR_SIG_OUT, MPR_SIG, MPR_MAP_IN, MPR_MAP_OUT,
          *                  MPR_MAP, or simply MPR_OBJ for all information.
-         *  \param timeout  The desired duration in seconds for this 
+         *  \param timeout  The desired duration in seconds for this
          *                  subscription. If set to -1, the graph will
          *                  automatically renew the subscription until it is
          *                  freed or this function is called again.

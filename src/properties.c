@@ -223,7 +223,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
             }
         }
         // check type against static props
-        if (MASK_PROP_BITFLAGS(a->prop) < MPR_PROP_EXTRA) {
+        else if (MASK_PROP_BITFLAGS(a->prop) < MPR_PROP_EXTRA) {
             static_prop_t prop;
             prop = static_props[PROP_TO_INDEX(a->prop)];
             if (prop.len) {

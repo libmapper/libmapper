@@ -217,7 +217,7 @@ int mpr_sig_find_inst_with_GID(mpr_sig s, mpr_id GID, int flags);
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
-int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time *t);
+int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t);
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.
@@ -229,7 +229,7 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time *t);
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
-int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time *t);
+int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t);
 
 /*! Release a specific signal instance. */
 void mpr_sig_release_inst_internal(mpr_sig s, int inst_idx, mpr_time time);

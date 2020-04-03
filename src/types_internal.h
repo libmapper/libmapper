@@ -412,8 +412,6 @@ typedef struct _mpr_slot {
     mpr_sig sig;                    //!< Pointer to parent signal
     mpr_link link;
 
-    void *min;                      //!< Array of minima, or NULL for N/A
-    void *max;                      //!< Array of maxima, or NULL for N/A
     int num_inst;
 
     int dir;                        //!< DI_INCOMING or DI_OUTGOING

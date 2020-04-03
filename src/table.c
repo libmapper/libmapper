@@ -480,7 +480,6 @@ int mpr_tbl_set_from_atom(mpr_tbl t, mpr_msg_atom atom, int flags)
         update_elements_osc(rec, atom->len, atom->types, atom->vals);
         qsort(t->rec, t->count, sizeof(mpr_tbl_record_t), compare_rec);
         updated = t->dirty = 1;
-        return 1;
     }
     return updated;
 }

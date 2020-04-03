@@ -291,8 +291,12 @@ void mpr_sig_release_inst(mpr_sig sig, mpr_id inst, mpr_time time);
 
 /*! Remove a specific instance of a signal and free its memory.
  *  \param sig          The signal to operate on.
- *  \param inst         The identifier of the instance to suspend. */
-void mpr_sig_remove_inst(mpr_sig sig, mpr_id inst);
+ *  \param inst         The identifier of the instance to suspend.
+ *  \param time         The time at which the instance was removed; if NULL,
+ *                      will be tagged with the current time. See
+ *                      mpr_dev_start_queue() for more information on
+ *                      bundling multiple signal updates with the same time. */
+void mpr_sig_remove_inst(mpr_sig sig, mpr_id inst, mpr_time time);
 
 /*! Return whether a given signal instance is currently active.
  *  \param sig          The signal to operate on.
@@ -303,8 +307,12 @@ int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id inst);
 /*! Activate a specific signal instance.
  *  \param sig          The signal to operate on.
  *  \param inst         The identifier of the instance to activate.
+ *  \param time         The time at which the instance was activated; if NULL,
+ *                      will be tagged with the current time. See
+ *                      mpr_dev_start_queue() for more information on
+ *                      bundling multiple signal updates with the same time.
  *  \return             Non-zero if the instance is active, zero otherwise. */
-int mpr_sig_activate_inst(mpr_sig sig, mpr_id inst);
+int mpr_sig_activate_inst(mpr_sig sig, mpr_id inst, mpr_time time);
 
 /*! Get the local id of the oldest active instance.
  *  \param sig          The signal to operate on.

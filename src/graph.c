@@ -264,13 +264,11 @@ int mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types,
                      const void *user)
 {
     fptr_list cb = g->callbacks;
-    fptr_list prevcb = 0;
     while (cb) {
         if (cb->f == h && cb->ctx == user) {
             cb->types |= types;
             return 0;
         }
-        prevcb = cb;
         cb = cb->next;
     }
 
@@ -413,7 +411,7 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name,
                           mpr_msg msg)
 {
     mpr_sig sig = 0;
-    int sig_rc = 0, dev_rc = 0, updated = 0;
+    int sig_rc = 0, updated = 0;
 
     mpr_dev dev = mpr_graph_get_dev_by_name(g, dev_name);
     if (dev) {
@@ -421,10 +419,8 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name,
         if (sig && sig->loc)
             return sig;
     }
-    else {
+    else
         dev = mpr_graph_add_dev(g, dev_name, 0);
-        dev_rc = 1;
-    }
 
     if (!sig) {
         trace_graph("adding signal '%s:%s'.\n", dev_name, name);
@@ -674,8 +670,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
             if (j == map->num_src) {
                 ++changed;
                 ++map->num_src;
-                map->src = realloc(map->src, sizeof(struct _mpr_slot)
-                                   * map->num_src);
+                map->src = realloc(map->src, sizeof(mpr_slot) * map->num_src);
                 map->src[j] = (mpr_slot) calloc(1, sizeof(struct _mpr_slot));
                 map->src[j]->dir = MPR_DIR_OUT;
                 map->src[j]->sig = src_sig;

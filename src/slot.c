@@ -22,11 +22,6 @@ void mpr_slot_init(mpr_slot slot)
     slot->obj.props.staged = mpr_tbl_new();
     int mask = slot_mask(slot);
 
-    // these properties need to be added in alphabetical order
-    mpr_tbl_link(t, MPR_PROP_MAX | mask, slot->sig->len, slot->sig->type,
-                 &slot->max, MODIFIABLE | INDIRECT);
-    mpr_tbl_link(t, MPR_PROP_MIN | mask, slot->sig->len, slot->sig->type,
-                 &slot->min, MODIFIABLE | INDIRECT);
     mpr_tbl_link(t, MPR_PROP_NUM_INST | mask, 1, MPR_INT32, &slot->num_inst,
                  local ? NON_MODIFIABLE : MODIFIABLE);
     mpr_tbl_link(t, MPR_PROP_SIG | mask, 1, MPR_SIG, &slot->sig,
@@ -41,8 +36,6 @@ void mpr_slot_free(mpr_slot slot)
 {
     FUNC_IF(mpr_tbl_free, slot->obj.props.synced);
     FUNC_IF(mpr_tbl_free, slot->obj.props.staged);
-    FUNC_IF(free, slot->min);
-    FUNC_IF(free, slot->max);
 }
 
 mpr_sig mpr_slot_sig(mpr_slot slot)
