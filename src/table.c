@@ -168,7 +168,7 @@ int mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len, mpr_type *type
             *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
     }
     if (pub)
-        *pub = rec->flags ^ LOCAL_ACCESS_ONLY;
+        *pub = found ? rec->flags ^ LOCAL_ACCESS_ONLY : 0;
 
     return found ? rec->prop : MPR_PROP_UNKNOWN;
 }
@@ -214,7 +214,7 @@ int mpr_tbl_get_prop_by_idx(mpr_tbl t, mpr_prop prop, const char **key, int *len
             *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
     }
     if (pub)
-        *pub = rec->flags ^ LOCAL_ACCESS_ONLY;
+        *pub = found ? rec->flags ^ LOCAL_ACCESS_ONLY : 0;
 
     return found ? rec->prop : MPR_PROP_UNKNOWN;
 }
@@ -284,7 +284,7 @@ void mpr_tbl_clear_empty(mpr_tbl t)
 static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type,
                            const void *val)
 {
-    RETURN_UNLESS(len, 0);
+    RETURN_UNLESS(len && (rec->val || !(rec->flags & INDIRECT)), 0);
     int i, updated = 0;
     void *old_val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
     void *new_val = old_val;
