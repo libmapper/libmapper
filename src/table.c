@@ -250,7 +250,7 @@ static int is_value_different(mapper_table_record_t *rec, int length, char type,
         return 1;
 
     recval = (rec->flags & INDIRECT) ? *rec->value : rec->value;
-    if (!recval ^ !value)
+    if (!recval || !value)
         return 1;
 
     switch (type) {
@@ -344,7 +344,7 @@ static void update_value_elements(mapper_table_record_t *rec, int length,
      * we'll use memcpy instead, which does not crash. */
 
     int i, realloced = 0;
-    if (length < 1)
+    if (length < 1 || !args)
         return;
 
     int indirect = rec->flags & INDIRECT;
@@ -509,11 +509,11 @@ static int is_value_different_osc(mapper_table_record_t *rec, int length,
     void *recval;
     if (rec->length != length || !type_match(rec->type, types[0]))
         return 1;
-    
+
     recval = (rec->flags & INDIRECT) ? *rec->value : rec->value;
     if (!recval)
         return 1;
-    
+
     switch (types[0]) {
         case 's':
             if (length == 1)

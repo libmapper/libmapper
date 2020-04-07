@@ -160,11 +160,9 @@ void mapper_database_flush(mapper_database db, int timeout_sec, int quiet)
 static int add_callback(fptr_list *head, const void *f, const void *user)
 {
     fptr_list cb = *head;
-    fptr_list prevcb = 0;
     while (cb) {
         if (cb->f == f && cb->context == user)
             return 0;
-        prevcb = cb;
         cb = cb->next;
     }
 
@@ -537,7 +535,7 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
                                                    mapper_message msg)
 {
     mapper_signal sig = 0;
-    int sig_rc = 0, dev_rc = 0, updated = 0;
+    int sig_rc = 0, updated = 0;
 
     mapper_device dev = mapper_database_device_by_name(db, device_name);
     if (dev) {
@@ -545,10 +543,8 @@ mapper_signal mapper_database_add_or_update_signal(mapper_database db,
         if (sig && sig->local)
             return sig;
     }
-    else {
+    else
         dev = mapper_database_add_or_update_device(db, device_name, 0);
-        dev_rc = 1;
-    }
 
     if (!sig) {
         trace_db("adding signal '%s:%s'.\n", device_name, name);
@@ -946,8 +942,8 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
                                              const char *dst_name,
                                              mapper_message msg)
 {
-    if (num_sources > MAX_NUM_MAP_SOURCES) {
-        trace_db("error: maximum mapping sources exceeded.\n");
+    if (0 >= num_sources || MAX_NUM_MAP_SOURCES < num_sources) {
+        trace_db("error: illegal number of map sources (%d).\n", num_sources);
         return 0;
     }
 
@@ -1054,7 +1050,7 @@ mapper_map mapper_database_add_or_update_map(mapper_database db, int num_sources
             if (j == map->num_sources) {
                 ++changed;
                 ++map->num_sources;
-                map->sources = realloc(map->sources, sizeof(struct _mapper_slot)
+                map->sources = realloc(map->sources, sizeof(mapper_slot)
                                        * map->num_sources);
                 map->sources[j] = (mapper_slot) calloc(1, sizeof(struct _mapper_slot));
                 map->sources[j]->direction = MAPPER_DIR_OUTGOING;

@@ -111,7 +111,7 @@ mapper_device mapper_device_new(const char *name_prefix, int port,
 
     dev->local->link_timeout_sec = TIMEOUT_SEC;
 
-    dev->local->active_id_maps = (mapper_id_map *) malloc(sizeof(mapper_id_map *));
+    dev->local->active_id_maps = (mapper_id_map*)malloc(sizeof(mapper_id_map));
     dev->local->active_id_maps[0] = 0;
     dev->local->num_signal_groups = 1;
 
@@ -1574,6 +1574,8 @@ const char *mapper_device_name(mapper_device dev)
 
     if (dev->name)
         return dev->name;
+    if (!dev->local)
+        return 0;
 
     unsigned int len = strlen(dev->identifier) + 6;
     dev->name = (char*)malloc(len);
@@ -1916,7 +1918,6 @@ void mapper_device_manage_subscriber(mapper_device dev, lo_address address,
         sub->flags = flags;
         sub->next = dev->local->subscribers;
         dev->local->subscribers = sub;
-        s = &sub;
     }
 
     // bring new subscriber up to date
@@ -1965,7 +1966,7 @@ mapper_signal_group mapper_device_add_signal_group(mapper_device dev)
     ++dev->local->num_signal_groups;
     dev->local->active_id_maps = realloc(dev->local->active_id_maps,
                                          dev->local->num_signal_groups
-                                         * sizeof(mapper_id_map*));
+                                         * sizeof(mapper_id_map));
     dev->local->active_id_maps[dev->local->num_signal_groups-1] = 0;
 
     return dev->local->num_signal_groups-1;
@@ -1984,7 +1985,7 @@ void mapper_device_remove_signal_group(mapper_device dev,
     --dev->local->num_signal_groups;
     dev->local->active_id_maps = realloc(dev->local->active_id_maps,
                                          dev->local->num_signal_groups
-                                         * sizeof(mapper_id_map *));
+                                         * sizeof(mapper_id_map));
 }
 
 void mapper_device_print(mapper_device dev)

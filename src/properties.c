@@ -234,7 +234,7 @@ mapper_message mapper_message_parse_properties(int argc, const char *types,
             }
         }
         // check type against static props
-        if (MASK_PROP_BITFLAGS(atom->index) < AT_EXTRA) {
+        else if (MASK_PROP_BITFLAGS(atom->index) < AT_EXTRA) {
             static_property_t prop;
             prop = static_properties[MASK_PROP_BITFLAGS(atom->index)];
             if (prop.length) {

@@ -139,21 +139,23 @@ void loop()
 void on_device(mapper_database db, mapper_device dev, mapper_record_event e,
                const void *user)
 {
-    printf("Device %s ", dev->name);
-    switch (e) {
-    case MAPPER_ADDED:
-        printf("added.\n");
-        break;
-    case MAPPER_MODIFIED:
-        printf("modified.\n");
-        break;
-    case MAPPER_REMOVED:
-        printf("removed.\n");
-        break;
-    case MAPPER_EXPIRED:
-        printf("unresponsive.\n");
-        mapper_database_flush(db, 10, 0);
-        break;
+    if (verbose) {
+        printf("Device %s ", dev->name);
+        switch (e) {
+        case MAPPER_ADDED:
+            printf("added.\n");
+            break;
+        case MAPPER_MODIFIED:
+            printf("modified.\n");
+            break;
+        case MAPPER_REMOVED:
+            printf("removed.\n");
+            break;
+        case MAPPER_EXPIRED:
+            printf("unresponsive.\n");
+            mapper_database_flush(db, 10, 0);
+            break;
+        }
     }
     monitor_pause();
     update = 1;
@@ -162,8 +164,33 @@ void on_device(mapper_database db, mapper_device dev, mapper_record_event e,
 void on_link(mapper_database db, mapper_link lnk, mapper_record_event e,
              const void *user)
 {
-    printf("Link %s <-> %s ", lnk->devices[0]->name, lnk->devices[1]->name);
-    switch (e) {
+    if (verbose) {
+        printf("Link %s <-> %s ", lnk->devices[0]->name, lnk->devices[1]->name);
+        switch (e) {
+            case MAPPER_ADDED:
+                printf("added.\n");
+                break;
+            case MAPPER_MODIFIED:
+                printf("modified.\n");
+                break;
+            case MAPPER_REMOVED:
+                printf("removed.\n");
+                break;
+            case MAPPER_EXPIRED:
+                printf("unresponsive.\n");
+                break;
+        }
+    }
+    monitor_pause();
+    update = 1;
+}
+
+void on_signal(mapper_database db, mapper_signal sig, mapper_record_event e,
+               const void *user)
+{
+    if (verbose) {
+        printf("Signal %s/%s ", sig->device->name, sig->name);
+        switch (e) {
         case MAPPER_ADDED:
             printf("added.\n");
             break;
@@ -176,28 +203,7 @@ void on_link(mapper_database db, mapper_link lnk, mapper_record_event e,
         case MAPPER_EXPIRED:
             printf("unresponsive.\n");
             break;
-    }
-    monitor_pause();
-    update = 1;
-}
-
-void on_signal(mapper_database db, mapper_signal sig, mapper_record_event e,
-               const void *user)
-{
-    printf("Signal %s/%s ", sig->device->name, sig->name);
-    switch (e) {
-    case MAPPER_ADDED:
-        printf("added.\n");
-        break;
-    case MAPPER_MODIFIED:
-        printf("modified.\n");
-        break;
-    case MAPPER_REMOVED:
-        printf("removed.\n");
-        break;
-    case MAPPER_EXPIRED:
-        printf("unresponsive.\n");
-        break;
+        }
     }
     monitor_pause();
     update = 1;
@@ -207,25 +213,27 @@ void on_map(mapper_database db, mapper_map map, mapper_record_event e,
             const void *user)
 {
     int i;
-    printf("Map ");
-    for (i = 0; i < map->num_sources; i++)
-        printf("%s/%s ", map->sources[i]->signal->device->name,
-               map->sources[i]->signal->name);
-    printf("-> %s/%s ", map->destination.signal->device->name,
-           map->destination.signal->name);
-    switch (e) {
-    case MAPPER_ADDED:
-        printf("added.\n");
-        break;
-    case MAPPER_MODIFIED:
-        printf("modified.\n");
-        break;
-    case MAPPER_REMOVED:
-        printf("removed.\n");
-        break;
-    case MAPPER_EXPIRED:
-        printf("unresponsive.\n");
-        break;
+    if (verbose) {
+        printf("Map ");
+        for (i = 0; i < map->num_sources; i++)
+            printf("%s/%s ", map->sources[i]->signal->device->name,
+                   map->sources[i]->signal->name);
+        printf("-> %s/%s ", map->destination.signal->device->name,
+               map->destination.signal->name);
+        switch (e) {
+        case MAPPER_ADDED:
+            printf("added.\n");
+            break;
+        case MAPPER_MODIFIED:
+            printf("modified.\n");
+            break;
+        case MAPPER_REMOVED:
+            printf("removed.\n");
+            break;
+        case MAPPER_EXPIRED:
+            printf("unresponsive.\n");
+            break;
+        }
     }
     monitor_pause();
     update = 1;

@@ -1431,26 +1431,25 @@ static int mapper_signal_add_id_map(mapper_signal sig, mapper_signal_instance si
                                     mapper_id_map map)
 {
     // find unused signal map
-    int i;
+    int i, len = sig->local->id_map_length;
 
-    for (i = 0; i < sig->local->id_map_length; i++) {
+    for (i = 0; i < len; i++) {
         if (!sig->local->id_maps[i].map)
             break;
     }
-    if (i == sig->local->id_map_length) {
+    if (i == len) {
         // need more memory
-        if (sig->local->id_map_length >= MAX_INSTANCES) {
+        if (len >= MAX_INSTANCES) {
             // Arbitrary limit to number of tracked id_maps
             return -1;
         }
-        sig->local->id_map_length *= 2;
+        len = len ? len * 2 : 1;
         sig->local->id_maps = realloc(sig->local->id_maps,
-                                      sig->local->id_map_length *
-                                      sizeof(struct _mapper_signal_id_map));
+                                      len * sizeof(struct _mapper_signal_id_map));
         memset(sig->local->id_maps + i, 0,
-               (sig->local->id_map_length - i)
-               * sizeof(struct _mapper_signal_id_map));
+               (len - i) * sizeof(struct _mapper_signal_id_map));
     }
+    sig->local->id_map_length = len;
     sig->local->id_maps[i].map = map;
     sig->local->id_maps[i].instance = si;
     sig->local->id_maps[i].status = 0;

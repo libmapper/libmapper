@@ -722,7 +722,6 @@ static int expr_lex(const char *str, int index, mapper_token_t *tok)
         }
     case 'e':
         if (!integer_found) {
-            n = index;
             while (c && (isalpha(c) || isdigit(c)))
                 c = str[++index];
             tok->toktype = TOK_FUNC;

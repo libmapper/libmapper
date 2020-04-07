@@ -656,11 +656,11 @@ int mapper_map_perform(mapper_map map, mapper_slot slot, int instance,
 
     if (slot->calibrating) {
         if (!slot->minimum) {
-            slot->minimum = malloc(slot->signal->length
+            slot->minimum = calloc(1, slot->signal->length
                                    * mapper_type_size(slot->signal->type));
         }
         if (!slot->maximum) {
-            slot->maximum = malloc(slot->signal->length
+            slot->maximum = calloc(1, slot->signal->length
                                    * mapper_type_size(slot->signal->type));
         }
 
@@ -1004,6 +1004,8 @@ lo_message mapper_map_build_message(mapper_map map, mapper_slot slot,
  * parses successfully. Returns 0 on success, non-zero on error. */
 static int replace_expression_string(mapper_map map, const char *expr_str)
 {
+    if (map->num_sources <= 0)
+        return 1;
     if (map->local->expr && map->expression
         && strcmp(map->expression, expr_str)==0)
         return 1;
@@ -1420,7 +1422,7 @@ static void mapper_map_check_status(mapper_map map)
         }
         init_slot_history(&map->destination);
         if (!map->local->expr_vars) {
-            map->local->expr_vars = calloc(1, sizeof(mapper_history*)
+            map->local->expr_vars = calloc(1, sizeof(mapper_history)
                                            * map->local->num_var_instances);
         }
         map->status = STATUS_READY;
@@ -1701,10 +1703,9 @@ void reallocate_map_histories(mapper_map map)
             for (j = 0; j < new_num_vars; j++) {
                 int history_size = mapper_expr_variable_history_size(map->local->expr, j);
                 int vector_length = mapper_expr_variable_vector_length(map->local->expr, j);
+                map->local->expr_vars[i][j].length = vector_length;
                 mhist_realloc(&map->local->expr_vars[i][j], history_size,
                               vector_length * sizeof(double), 0);
-                map->local->expr_vars[i][j].length = vector_length;
-                map->local->expr_vars[i][j].size = history_size;
                 map->local->expr_vars[i][j].position = -1;
             }
         }

@@ -65,7 +65,7 @@ static void reallocate_map_instances(mapper_map map, int size)
     // check if expression variable histories need to be reallocated
     mapper_local_map lmap = map->local;
     if (size > lmap->num_var_instances) {
-        lmap->expr_vars = realloc(lmap->expr_vars, sizeof(mapper_history*) * size);
+        lmap->expr_vars = realloc(lmap->expr_vars, sizeof(mapper_history) * size);
         for (i = lmap->num_var_instances; i < size; i++) {
             lmap->expr_vars[i] = malloc(sizeof(struct _mapper_history)
                                         * lmap->num_expr_vars);
@@ -430,7 +430,7 @@ static mapper_router_signal find_or_add_router_signal(mapper_router rtr,
               calloc(1, sizeof(struct _mapper_router_signal)));
         rs->signal = sig;
         rs->num_slots = 1;
-        rs->slots = malloc(sizeof(mapper_local_slot *));
+        rs->slots = malloc(sizeof(mapper_slot));
         rs->slots[0] = 0;
         rs->next = rtr->signals;
         rtr->signals = rs;
@@ -449,7 +449,7 @@ static int router_signal_store_slot(mapper_router_signal rs, mapper_slot slot)
         }
     }
     // all indices occupied, allocate more
-    rs->slots = realloc(rs->slots, sizeof(mapper_slot*) * rs->num_slots * 2);
+    rs->slots = realloc(rs->slots, sizeof(mapper_slot) * rs->num_slots * 2);
     rs->slots[rs->num_slots] = slot;
     for (i = rs->num_slots+1; i < rs->num_slots * 2; i++) {
         rs->slots[i] = 0;

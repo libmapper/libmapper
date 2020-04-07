@@ -2097,7 +2097,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
 
     num_sources = parse_signal_names(types, argv, argc, &src_index,
                                      &dest_index, &prop_index);
-    if (!num_sources)
+    if (num_sources <= 0)
         return 0;
 
     if (!is_alphabetical(num_sources, &argv[src_index])) {
@@ -2256,10 +2256,12 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
                     ++map->sources[i]->signal->num_outgoing_maps;
             }
 
-            // Inform remote destination
-            mapper_network_set_dest_mesh(net,
-                                         map->destination.link->local->admin_addr);
-            mapper_map_send_state(map, -1, MSG_MAPPED);
+            if (map->destination.link) {
+                // Inform remote destination
+                mapper_network_set_dest_mesh(net,
+                                             map->destination.link->local->admin_addr);
+                mapper_map_send_state(map, -1, MSG_MAPPED);
+            }
         }
         else {
             ++dev->num_incoming_maps;
@@ -2267,6 +2269,8 @@ static int handler_mapped(const char *path, const char *types, lo_arg **argv,
 
             // Inform remote sources
             for (i = 0; i < map->num_sources; i++) {
+                if (!map->sources[i]->link)
+                    continue;
                 mapper_network_set_dest_mesh(net,
                                              map->sources[i]->link->local->admin_addr);
                 i = mapper_map_send_state(map, map->local->one_source ? -1 : i,
@@ -2488,7 +2492,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **argv,
 
     num_sources = parse_signal_names(types, argv, argc, &src_index,
                                      &dest_index, 0);
-    if (!num_sources)
+    if (num_sources <= 0)
         return 0;
 
     if (!is_alphabetical(num_sources, &argv[src_index])) {
