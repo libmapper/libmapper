@@ -36,6 +36,11 @@
 //(Signal sig, int instance_id, void *value, int count)
 //(Signal sig, int instance_id, void *value, int count, TimeTag tt)
 
+/* this sometimes get impolitely defined by mingw header rpc.h */
+#ifdef interface
+#undef interface
+#endif
+
 #define MAPPER_TYPE(NAME) mapper_ ## NAME
 #define MAPPER_FUNC(OBJ, FUNC) mapper_ ## OBJ ## _ ## FUNC
 

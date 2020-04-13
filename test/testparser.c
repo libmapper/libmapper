@@ -338,7 +338,7 @@ int run_tests()
     setup_test('d', 3, 'i', 1);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
-    eprintf("Expected: %i\n", (int)!(src_double[1]*0));
+    eprintf("Expected: %i\n", (int)!(src_double[1] && 0));
 
     /* 12) any() */
     snprintf(str, 256, "y=any(x-1)");

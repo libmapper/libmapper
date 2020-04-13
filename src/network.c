@@ -2648,7 +2648,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **argv,
     trace_net("got /unmapped");
     for (i = 0; i < id_index; i++)
         printf(" %s", &argv[i]->s);
-    printf(" %llu\n", *id);
+    printf(" %" PR_MAPPER_ID "\n", *id);
 #endif
 
     mapper_map map = mapper_database_map_by_id(&net->database, *id);

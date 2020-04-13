@@ -1,0 +1,48 @@
+language: cpp
+sudo: false  # docker VM
+git:
+  depth: 99999
+matrix:
+  include:
+  - os: linux
+    addons:
+      apt:
+        sources:
+          - ubuntu-toolchain-r-test
+        packages:
+          - g++-8
+          - autoconf-archive
+          - curl
+          - zlib1g-dev
+    env: HOST="" MATRIX_EVAL="CC=gcc-8 && CXX=g++-8"
+    compiler: gcc
+  - os: linux
+    dist: xenial
+    addons:
+      apt:
+        sources:
+          - ubuntu-toolchain-r-test
+        packages:
+          - g++-mingw-w64
+          - autoconf-archive
+          - curl
+    env:
+      - HOST="x86_64-w64-mingw32"
+      - MINGW_ON_LINUX="1"
+      - MATRIX_EVAL="unset CC && unset CXX && curl -L -O http://www.zlib.net/zlib-1.2.11.tar.gz && tar -xzf zlib-1.2.11.tar.gz && cp -v zlib-1.2.11/crc32.c src/ && echo libmapper_la_SOURCES += crc32.c >>src/Makefile.am && echo libmapper_la_CFLAGS += -I\$\(top_srcdir\)/zlib-1.2.11 >>src/Makefile.am && sed -e 's,\(AC_CHECK_LIB(\[z\]\),dnl \1,' -i configure.ac && sed -e 's,\(\./\$\$i\),wine \1.exe,' -i test/Makefile.am"
+  - os: osx
+    osx_image: xcode11.3
+    env: HOST="" MATRIX_EVAL="brew install autoconf-archive"
+    compiler: clang
+before_install:
+  - eval "${MATRIX_EVAL}"
+  - curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
+install: pwd && echo MINGW_ON_LINUX=$MINGW_ON_LINUX && mkdir $PWD/inst && (./autogen.sh --host=$HOST --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false)) && make && ([ x = x$MINGW_ON_LINUX ] && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) || true) && make install && find inst
+script: if [ x = x$MINGW_ON_LINUX ]; then cd test/ && make tests; fi
+notifications:
+  email:
+    recipients:
+      - radarsat1@gmail.com
+      - joseph.malloch@gmail.com
+    on_success: never
+    on_failure: change

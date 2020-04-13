@@ -746,7 +746,7 @@ void mapper_property_print(int length, char type, const void *value)
         {
             int64_t *pi = (int64_t*)value;
             for (i = 0; i < length; i++)
-                printf("%lli, ", (long long)pi[i]);
+                printf("%" PRINTF_LL "d, ", (long long)pi[i]);
             break;
         }
         case 't':

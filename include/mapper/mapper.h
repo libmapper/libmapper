@@ -1002,7 +1002,7 @@ void mapper_device_print(mapper_device dev);
  *  is only required if you wish to specify custom network parameters.  Creating
  *  a device without specifying an network will give you an object working on
  *  the "standard" configuration.
- * \param interface     If non-zero, a string identifying a preferred network
+ * \param iface         If non-zero, a string identifying a preferred network
  *                      interface.  This string can be enumerated e.g. using
  *                      if_nameindex(). If zero, an interface will be selected
  *                      automatically.
@@ -1013,7 +1013,7 @@ void mapper_device_print(mapper_device dev);
  *                      indicates that the standard port 7570 should be used.
  * \return              A newly allocated network structure.  Should be freed
  *                      using mapper_network_free() */
-mapper_network mapper_network_new(const char *interface, const char *group,
+mapper_network mapper_network_new(const char *iface, const char *group,
                                   int port);
 
 /*! Free a network structure created with mapper_network_new().

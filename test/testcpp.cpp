@@ -19,8 +19,8 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
                    int count, mapper_timetag_t *timetag)
 {
     if (value) {
-        printf("\t\t\t\t\t   | --> signal update: %s:%2llu got",
-               mapper_signal_name(sig), instance);
+        printf("\t\t\t\t\t   | --> signal update: %s:%2lu got",
+               mapper_signal_name(sig), (unsigned long)instance);
         int len = mapper_signal_length(sig);
         switch (mapper_signal_type(sig)) {
             case 'i': {
@@ -50,8 +50,8 @@ void insig_handler(mapper_signal sig, mapper_id instance, const void *value,
         printf("\n");
     }
     else {
-        printf("\t\t\t\t\t   | --> signal update: %s:%2llu got ––––––––\n",
-               mapper_signal_name(sig), instance);
+        printf("\t\t\t\t\t   | --> signal update: %s:%2lu got ––––––––\n",
+               mapper_signal_name(sig), (unsigned long)instance);
         mapper_signal_instance_release(sig, instance, MAPPER_NOW);
     }
     received++;
@@ -250,21 +250,21 @@ int main(int argc, char ** argv)
     while (!map2.ready()) {
         dev.poll(100);
     }
-    mapper_id id;
+    unsigned long id;
     for (int i = 0; i < 200; i++) {
         dev.poll(100);
         id = (rand() % 10) + 5;
         switch (rand() % 5) {
             case 0:
                 // try to destroy an instance
-                printf("\t\t  Retiring instance %2llu --> |\n", id);
+                printf("\t\t  Retiring instance %2lu --> |\n", id);
                 multisend.instance(id).release();
                 break;
             default:
                 // try to update an instance
                 float v = (rand() % 10) * 1.0f;
                 multisend.instance(id).update(v);
-                printf("Sender instance %2llu updated to %2f --> |\n", id, v);
+                printf("Sender instance %2lu updated to %2f --> |\n", id, v);
                 break;
         }
     }
