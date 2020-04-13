@@ -1,5 +1,7 @@
 # libmapper <img style="float:right;padding:10px" src="http://libmapper.github.io/images/libmapper_logo_black_512px.png" width="100">
 
+[![Build Status](https://travis-ci.org/malloch/libmapper.svg?branch=master)](https://travis-ci.org/malloch/libmapper)
+
 This library is a system for representing input and output signals on a network
 and allowing arbitrary "mappings" to be dynamically created between them.
 
