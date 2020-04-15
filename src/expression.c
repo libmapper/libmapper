@@ -359,11 +359,11 @@ typedef struct _token {
     };
     union {
         mpr_type casttype;
-        int offset;
+        size_t offset;
     };
-    int vec_len;
+    size_t vec_len;
     union {
-        int vec_idx;
+        size_t vec_idx;
         int arity;
     };
     char hist_idx;
@@ -374,7 +374,7 @@ typedef struct _token {
 
 typedef struct _var {
     char *name;
-    int vec_len;
+    size_t vec_len;
     mpr_type datatype;
     mpr_type casttype;
     char vec_len_locked;
@@ -1136,10 +1136,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                                         stk[i].vec_len, vec_len);
                     }
                     else if (stk[i].toktype == TOK_VAR && stk[i].var < VAR_Y) {
-                        int *vec_len_ptr = &vars[stk[i].var].vec_len;
-                        if (*vec_len_ptr && *vec_len_ptr != vec_len)
-                            PARSE_ERROR(-1, "Vector length mismatch (2) %d != %d\n",
-                                        *vec_len_ptr, vec_len);
+                        size_t *vec_len_ptr = &vars[stk[i].var].vec_len;
                         *vec_len_ptr = vec_len;
                         stk[i].vec_len = vec_len;
                         stk[i].vec_len_locked = 1;
@@ -1148,7 +1145,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                         stk[i].vec_len = vec_len;
                 }
                 else if (stk[i].vec_len != vec_len)
-                    PARSE_ERROR(-1, "Vector length mismatch (3) %d != %d\n",
+                    PARSE_ERROR(-1, "Vector length mismatch (2) %d != %d\n",
                                 stk[i].vec_len, vec_len);
             }
 
@@ -1192,7 +1189,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                 stk[top].vec_len = vec_len;
         }
         else if (stk[top].vec_len != vec_len)
-            PARSE_ERROR(-1, "Vector length mismatch (4) %d != %d\n",
+            PARSE_ERROR(-1, "Vector length mismatch (3) %d != %d\n",
                         stk[top].vec_len, vec_len);
     }
     else
@@ -1219,7 +1216,7 @@ static int check_assign_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     if (i < 0)
         PARSE_ERROR(-1, "Malformed expression (1)\n");
     if (stk[i].vec_len != vec_len)
-        PARSE_ERROR(-1, "Vector length mismatch (5) %d != %d\n",
+        PARSE_ERROR(-1, "Vector length mismatch (4) %d != %d\n",
                     stk[i].vec_len, vec_len);
     promote_token_datatype(&stk[i], stk[top].datatype);
     if (check_type_and_len(stk, i, vars) == -1)
