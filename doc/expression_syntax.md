@@ -104,14 +104,6 @@ Available Functions
 * `midiToHz(x)` — convert MIDI note value to Hz
 * `hzToMidi(x)` — convert Hz value to MIDI note
 
-### Vector functions
-* `any(x)` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
-* `all(x)` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
-* `sum(x)` – output the sum of the elements in vector `x`
-* `mean(x)` – output the average (mean) of the elements in vector `x`
-* `max(x)` – output the maximum element in vector `x` (overloaded function)
-* `min(x)` – output the minimum element in vector `x` (overloaded function)
-
 ### Filters
 * `ema(x,w)` – a cheap low-pass filter: calculate a running *exponential moving average* with input `x` and a weight `w` applied to the current sample.
 
@@ -138,10 +130,12 @@ leave `y[1]` unchanged.
 
 There are several special functions that operate across all elements of the vector:
 
-* `any(x)` — output `1` if **any** of the elements of `x` are non-zero, otherwise output `0`
-* `all(x)` — output `1` if **all** of the elements of `x` are non-zero, otherwise output `0`
-* `max(x)` — output the largest element of the vector
-* `min(x)` — output the smallest element of the vector
+* `any(x)` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
+* `all(x)` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
+* `sum(x)` – output the sum of the elements in vector `x`
+* `mean(x)` – output the average (mean) of the elements in vector `x`
+* `max(x)` – output the maximum element in vector `x` (overloaded function)
+* `min(x)` – output the minimum element in vector `x` (overloaded function)
 
 FIR and IIR Filters
 ===================
