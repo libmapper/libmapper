@@ -1376,11 +1376,6 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                     else if (stack[i].toktype == TOK_VAR
                              && stack[i].var < VAR_Y) {
                         int *vec_len = &vars[stack[i].var].vector_length;
-                        if (*vec_len && *vec_len != vector_length) {
-                            parse_error("Vector length mismatch (2): %d != %d\n",
-                                        *vec_len, vector_length);
-                            return -1;
-                        }
                         *vec_len = vector_length;
                         stack[i].vector_length = vector_length;
                         stack[i].vector_length_locked = 1;
@@ -1389,7 +1384,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                         stack[i].vector_length = vector_length;
                 }
                 else if (stack[i].vector_length != vector_length) {
-                    parse_error("Vector length mismatch (3): %d != %d\n",
+                    parse_error("Vector length mismatch (2): %d != %d\n",
                                 stack[i].vector_length, vector_length);
                     return -1;
                 }
@@ -1435,7 +1430,7 @@ static int check_types_and_lengths(mapper_token_t *stack, int top,
                 stack[top].vector_length = vector_length;
         }
         else if (stack[top].vector_length != vector_length) {
-            parse_error("Vector length mismatch (4): %d != %d\n",
+            parse_error("Vector length mismatch (3): %d != %d\n",
                         stack[top].vector_length, vector_length);
             return -1;
         }
@@ -1470,7 +1465,7 @@ static int check_assignment_types_and_lengths(mapper_token_t *stack, int top,
         return -1;
     }
     if (stack[i].vector_length != vector_length) {
-        parse_error("Vector length mismatch (5): %d != %d\n",
+        parse_error("Vector length mismatch (4): %d != %d\n",
                     stack[i].vector_length, vector_length);
         return -1;
     }

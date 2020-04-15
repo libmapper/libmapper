@@ -624,7 +624,7 @@ int run_tests()
 
     /* 50) Functions with memory: schmitt() */
     snprintf(str, 256, "y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
-    setup_test('i', 1, 'f', 1);
+    setup_test('i', 3, 'f', 3);
     if (parse_and_eval(EXPECT_SUCCESS))
         return 1;
     if (iterations < 80)
@@ -632,7 +632,8 @@ int run_tests()
     else {
         int cycles = (iterations-20) / 60;
         int remainder = (iterations-20) % 60;
-        eprintf("Expected: %d\n", (cycles % 2) ? 80 - remainder : 20 + remainder);
+        float ans = (cycles % 2) ? 80 - remainder : 20 + remainder;
+        eprintf("Expected: [%f, %f, %f]\n", ans, ans, ans);
     }
 
     /* 51) Test calling midi conversion function with case mismatch */
