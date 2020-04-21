@@ -46,7 +46,8 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
         return;
 
     const char *name = mpr_obj_get_prop_as_str(sig, MPR_PROP_NAME, NULL);
-    printf("\t\t\t\t\t   | --> signal update: %s:%2llu got", name, instance);
+    printf("\t\t\t\t\t   | --> signal update: %s:%2lu got", name,
+           (unsigned long)instance);
 
     if (value) {
         switch (type) {
@@ -286,7 +287,7 @@ int main(int argc, char ** argv)
     while (!map2.ready()) {
         dev.poll(100);
     }
-    mpr_id id;
+    unsigned long id;
     for (int i = 0; i < 200; i++) {
         dev.poll(100);
         id = (rand() % 10) + 5;
@@ -294,7 +295,8 @@ int main(int argc, char ** argv)
             case 0:
                 // try to destroy an instance
                 if (verbose)
-                    printf("\t\t  Retiring instance %2llu --> |\n", id);
+                    printf("\t\t  Retiring instance %2lu --> |\n",
+                           (unsigned long)id);
                 multisend.instance(id).release();
                 break;
             default:
@@ -302,7 +304,8 @@ int main(int argc, char ** argv)
                 float v = (rand() % 10) * 1.0f;
                 multisend.instance(id).set_value(v);
                 if (verbose)
-                    printf("Sender instance %2llu updated to %2f --> |\n", id, v);
+                    printf("Sender instance %2lu updated to %2f --> |\n",
+                           (unsigned long)id, v);
                 break;
         }
     }

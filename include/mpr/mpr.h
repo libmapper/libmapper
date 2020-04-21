@@ -522,8 +522,8 @@ mpr_graph mpr_graph_new(int autosub_flags);
 
 /*! Specify network interface to use.
  *  \param g            The graph structure to use.
- *  \param interface    The name of the network interface to use. */
-void mpr_graph_set_interface(mpr_graph g, const char *interface);
+ *  \param iface        The name of the network interface to use. */
+void mpr_graph_set_interface(mpr_graph g, const char *iface);
 
 /*! Return a string indicating the name of the network interface in use.
  *  \param g            The graph structure to query.

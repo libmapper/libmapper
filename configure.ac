@@ -56,8 +56,7 @@ AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs
 AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettimeofday() is available.])],
               [AC_ERROR([This is not a POSIX system!])])
 
-AC_CHECK_LIB([z], [gzread], ,
-    [AC_MSG_ERROR([zlib not found, see http://www.zlib.net])])
+AC_CHECK_LIB([z], [gzread], , [AC_MSG_ERROR([zlib not found, see http://www.zlib.net])])
 
 AM_CONDITIONAL(WINDOWS, test x$is_windows = xyes)
 AM_CONDITIONAL(WINDOWS_DLL, test x$is_windows = xyes && test x$enable_shared = xyes)
@@ -80,8 +79,12 @@ AC_LIBTOOL_WIN32_DLL
 AM_PROG_LIBTOOL
 
 # Check for the math library
+# (Does not survive -Werror!)
+tmpCFLAGS="$CFLAGS"
+CFLAGS=$(echo $CFLAGS | tr ' ' '\n' | grep -v -- -Werror)
 LT_LIB_M
 LIBS="$LIBS $LIBM"
+CFLAGS="$tmpCFLAGS"
 
 # Check for C++11 features
 _CXXFLAGS="$CXXFLAGS"
@@ -120,6 +123,23 @@ AC_COMPILE_IFELSE(
   [AC_MSG_RESULT([no])
    CXXFLAGS="$_CXXFLAGS"])
 AC_LANG_POP([C++])
+
+# Since we don't require C99, format code for long long int can vary
+# in some compilers.  (In particular, MingW seems to require "I64"
+# instead of "ll")
+AC_MSG_CHECKING([how to print long long int])
+_CFLAGS="$CFLAGS"
+CFLAGS="$_CFLAGS -Werror -Wall"
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM([#include <stdio.h>],[printf("%lld", (long long int)0);])],
+    [printf_ll=\"ll\"],
+    [AC_COMPILE_IFELSE(
+      [AC_LANG_PROGRAM([#include <stdio.h>],[printf("%I64d", (long long int)0);])],
+        [printf_ll=\"I64\"],
+        AC_MSG_ERROR([printf doesn't support long long int]))])
+AC_MSG_RESULT([$printf_ll])
+AC_DEFINE_UNQUOTED([PRINTF_LL],[$printf_ll],[printf code for type long long int])
+CFLAGS="$_CFLAGS"
 
 # Check options
 AC_ARG_ENABLE(debug,
@@ -298,7 +318,7 @@ AS_IF([test x$with_liblo != xno],[
   AC_SUBST(LIBLO,liblo)
 
   tmpLIBS="$LIBS"
-  LIBS="$LIBS $liblo_LIBS"
+  LIBS="$LIBS $liblo_LIBS $LIBM"
   AC_CHECK_FUNC([lo_address_set_iface],
     [AC_DEFINE([HAVE_LIBLO_SET_IFACE],[],[Define to use lo_address_set_iface function in liblo.])])
   AC_CHECK_FUNC([lo_server_new_multicast_iface],
@@ -306,7 +326,7 @@ AS_IF([test x$with_liblo != xno],[
   AC_CHECK_FUNC([lo_bundle_count],
     [AC_DEFINE([HAVE_LIBLO_BUNDLE_COUNT],[],[Define to use lo_bundle_count function in liblo.])])
   AC_CHECK_FUNC([lo_servers_recv_noblock],
-    [AC_DEFINE([HAVE_LIBLO_SERVERS_RECV_NOBLOCK],[],[Define to use lo_servers_recv_noblock function in liblo.])],[AC_ERROR([liblo >= 0.30 required.])])]
+    [AC_DEFINE([HAVE_LIBLO_SERVERS_RECV_NOBLOCK],[],[Define to use lo_servers_recv_noblock function in liblo.])],[AC_ERROR([liblo >= 0.30 required.])])
   LIBS="$tmpLIBS"
 ])
 

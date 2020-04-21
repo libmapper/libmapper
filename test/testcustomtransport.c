@@ -107,12 +107,13 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         return;
     }
 
-    int port = *a_port, on = 1;
+    int port = *a_port;
+    unsigned long on = 1;
 
     send_socket = socket(AF_INET, SOCK_STREAM, 0);
 
     // Set socket to be non-blocking so that accept() is successful
-    if (ioctl(send_socket, FIONBIO, (char *)&on) < 0)
+    if (ioctl(send_socket, FIONBIO, &on) < 0)
     {
         perror("ioctl() failed on FIONBIO");
         close(send_socket);
@@ -307,11 +308,10 @@ void loop()
                         eprintf("TCP connection accepted.\n");
                 }
 
-                if (recv_socket >= 0
-                    && FD_ISSET(recv_socket, &fdsr))
+                if (recv_socket >= 0 && FD_ISSET(recv_socket, &fdsr))
                 {
                     float j;
-                    if (recv(recv_socket, &j, sizeof(float), 0) > 0) {
+                    if (recv(recv_socket, (void*)&j, sizeof(float), 0) > 0) {
                         eprintf("received value %g\n", j);
                         received++;
                     }
@@ -327,7 +327,7 @@ void loop()
                     && (!terminate || sent < iterations)) {
 
                     float j = (i % 10) * 1.0f;
-                    if (send(send_socket, &j, sizeof(float), 0) > 0) {
+                    if (send(send_socket, (void*)&j, sizeof(float), 0) > 0) {
                         eprintf("source value updated to %g -->\n", j);
                         sent++;
                     }

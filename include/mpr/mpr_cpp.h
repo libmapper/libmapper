@@ -30,6 +30,10 @@
 //(Signal sig, int instance_id, void *val, int len)
 //(Signal sig, int instance_id, void *val, int len, Time time)
 
+#ifdef interface
+#undef interface
+#endif
+
 #define RETURN_SELF(FUNC)   \
 { FUNC; return (*this); }
 
@@ -875,11 +879,11 @@ namespace mpr {
             { return _graph; }
 
         /*! Specify the network interface to use.
-         *  \param interface    A string specifying the name of the network
+         *  \param iface        A string specifying the name of the network
          *                      interface to use.
          *  \return             Self. */
-        Graph& set_iface(const str_type &interface)
-            { RETURN_SELF(mpr_graph_set_interface(_graph, interface)); }
+        Graph& set_iface(const str_type &iface)
+            { RETURN_SELF(mpr_graph_set_interface(_graph, iface)); }
 
         /*! Return a string indicating the name of the network interface in use.
          *  \return     A string containing the name of the network interface.*/
