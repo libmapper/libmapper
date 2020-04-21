@@ -425,10 +425,8 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
             if (map->process_loc != MPR_LOC_DST)
                 return 0;
             /* Reset memory for corresponding source slot. */
-            memset(slot_loc->hist[id].val, 0,
-                   slot_loc->hist_size * slot->sig->len * size);
-            memset(slot_loc->hist[id].time, 0,
-                   slot_loc->hist_size * sizeof(mpr_time));
+            memset(slot_loc->hist[id].val, 0, slot_loc->mem * slot->sig->len * size);
+            memset(slot_loc->hist[id].time, 0, slot_loc->mem * sizeof(mpr_time));
             slot_loc->hist[id].pos = -1;
             return 0;
         }
@@ -455,7 +453,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
             /* TODO: would be more efficient not to allocate memory for multiple
              * instances if slot is single-instance. */
             slot_loc->hist[id].pos = ((slot_loc->hist[id].pos + 1)
-                                      % slot_loc->hist[id].size);
+                                      % slot_loc->hist[id].mem);
             memcpy(mpr_hist_get_val_ptr(slot_loc->hist[id]), argv[0],
                    size * slot->sig->len);
             memcpy(mpr_hist_get_time_ptr(slot_loc->hist[id]), &t, sizeof(mpr_time));

@@ -487,8 +487,8 @@ static int replace_expr_str(mpr_map m, const char *expr_str)
     // expression update may force processing location to change
     // e.g. if expression combines signals from different devices
     // e.g. if expression refers to current/past value of destination
-    int out_hist_size = mpr_expr_get_out_hist_size(expr);
-    if (out_hist_size > 1 && MPR_LOC_SRC == m->process_loc) {
+    int out_mem = mpr_expr_get_out_hist_size(expr);
+    if (out_mem > 1 && MPR_LOC_SRC == m->process_loc) {
         m->process_loc = MPR_LOC_DST;
         if (!m->dst->sig->loc) {
             // copy expression string but do not execute it
@@ -919,13 +919,13 @@ static void init_slot_hist(mpr_slot slot)
 {
     RETURN_UNLESS(!slot->loc->hist);
     slot->loc->hist = malloc(sizeof(struct _mpr_hist) * slot->num_inst);
-    slot->loc->hist_size = 1;
+    slot->loc->mem = 1;
     int i;
     for (i = 0; i < slot->num_inst; i++) {
         mpr_hist hist = &slot->loc->hist[i];
         hist->type = slot->sig->type;
         hist->len = slot->sig->len;
-        hist->size = 1;
+        hist->mem = 1;
         hist->val = calloc(1, mpr_type_get_size(slot->sig->type) * slot->sig->len);
         hist->time = calloc(1, sizeof(mpr_time));
         hist->pos = -1;
@@ -1199,7 +1199,7 @@ done:
  * is a bit tricky... for now we will use the maximum. */
 void reallocate_map_histories(mpr_map m)
 {
-    int i, j, hist_size;
+    int i, j, mem;
     mpr_slot slot;
     mpr_local_slot slot_loc;
 
@@ -1211,30 +1211,30 @@ void reallocate_map_histories(mpr_map m)
         slot = m->src[i];
         slot_loc = slot->loc;
 
-        hist_size = mpr_expr_get_in_hist_size(m->loc->expr, i);
-        if (hist_size > slot_loc->hist_size) {
+        mem = mpr_expr_get_in_hist_size(m->loc->expr, i);
+        if (mem > slot_loc->mem) {
             size_t sample_size = mpr_type_get_size(slot->sig->type) * slot->sig->len;
             for (j = 0; j < slot->num_inst; j++)
-                mpr_hist_realloc(&slot_loc->hist[j], hist_size, sample_size, 1);
-            slot_loc->hist_size = hist_size;
+                mpr_hist_realloc(&slot_loc->hist[j], mem, sample_size, 1);
+            slot_loc->mem = mem;
         }
-        else if (hist_size < slot_loc->hist_size) {
+        else if (mem < slot_loc->mem) {
             // Do nothing for now...
         }
     }
 
-    hist_size = mpr_expr_get_out_hist_size(m->loc->expr);
+    mem = mpr_expr_get_out_hist_size(m->loc->expr);
     slot = m->dst;
     slot_loc = slot->loc;
 
     // reallocate output histories
-    if (hist_size > slot_loc->hist_size) {
+    if (mem > slot_loc->mem) {
         int sample_size = mpr_type_get_size(slot->sig->type) * slot->sig->len;
         for (i = 0; i < slot->num_inst; i++)
-            mpr_hist_realloc(&slot_loc->hist[i], hist_size, sample_size, 0);
-        slot_loc->hist_size = hist_size;
+            mpr_hist_realloc(&slot_loc->hist[i], mem, sample_size, 0);
+        slot_loc->mem = mem;
     }
-    else if (hist_size < slot_loc->hist_size) {
+    else if (mem < slot_loc->mem) {
         // Do nothing for now...
     }
 
@@ -1248,7 +1248,7 @@ void reallocate_map_histories(mpr_map m)
             for (j = m->loc->num_expr_var; j < new_num_var; j++) {
                 m->loc->expr_var[i][j].type = MPR_DBL;
                 m->loc->expr_var[i][j].len = 0;
-                m->loc->expr_var[i][j].size = 0;
+                m->loc->expr_var[i][j].mem = 0;
                 m->loc->expr_var[i][j].pos = 0;
                 m->loc->expr_var[i][j].val = 0;
                 m->loc->expr_var[i][j].time = 0;
@@ -1268,75 +1268,69 @@ void reallocate_map_histories(mpr_map m)
     }
 }
 
-void mpr_hist_realloc(mpr_hist hist, int hist_size, int samp_size, int is_input)
+void mpr_hist_realloc(mpr_hist h, int mem, int samp_size, int is_input)
 {
-    RETURN_UNLESS(hist && hist_size && samp_size);
-    RETURN_UNLESS(hist_size != hist->size);
-    if (!is_input || (hist_size > hist->size) || (0 == hist->pos)) {
+    RETURN_UNLESS(h && mem && samp_size);
+    RETURN_UNLESS(mem != h->mem || samp_size != h->len * mpr_type_get_size(h->type));
+    if (!is_input || (mem > h->mem) || (0 == h->pos)) {
         // realloc in place
-        hist->val = realloc(hist->val, hist_size * samp_size);
-        hist->time = realloc(hist->time, hist_size * sizeof(mpr_time));
-        if (!is_input) {
+        h->val = realloc(h->val, mem * samp_size);
+        h->time = realloc(h->time, mem * sizeof(mpr_time));
+        if (!is_input || samp_size != h->len * mpr_type_get_size(h->type)) {
             // Initialize entire history to 0
-            memset(hist->val, 0, hist_size * samp_size);
-            hist->pos = -1;
+            memset(h->val, 0, mem * samp_size);
+            h->pos = -1;
         }
-        else if (0 == hist->pos) {
-            memset(hist->val + samp_size * hist->size, 0,
-                   samp_size * (hist_size - hist->size));
+        else if (0 == h->pos) {
+            memset(h->val + samp_size * h->mem, 0,
+                   samp_size * (mem - h->mem));
         }
         else {
-            int new_pos = hist_size - hist->size + hist->pos;
-            memcpy(hist->val + samp_size * new_pos,
-                   hist->val + samp_size * hist->pos,
-                   samp_size * (hist->size - hist->pos));
-            memcpy(&hist->time[new_pos], &hist->time[(int)hist->pos],
-                   sizeof(mpr_time) * (hist->size - hist->pos));
-            memset(hist->val + samp_size * hist->pos, 0,
-                   samp_size * (hist_size - hist->size));
+            int new_pos = mem - h->mem + h->pos;
+            memcpy(h->val + samp_size * new_pos, h->val + samp_size * h->pos,
+                   samp_size * (h->mem - h->pos));
+            memcpy(&h->time[new_pos], &h->time[(int)h->pos],
+                   sizeof(mpr_time) * (h->mem - h->pos));
+            memset(h->val + samp_size * h->pos, 0, samp_size * (mem - h->mem));
         }
     }
     else {
         // copying into smaller array
-        if (hist->pos >= hist_size * 2) {
+        if (h->pos >= mem * 2) {
             // no overlap - memcpy ok
-            int new_pos = hist_size - hist->size + hist->pos;
-            memcpy(hist->val, hist->val + samp_size * (new_pos - hist_size),
-                   samp_size * hist_size);
-            memcpy(&hist->time, &hist->time[hist->pos - hist_size],
-                   sizeof(mpr_time) * hist_size);
-            hist->val = realloc(hist->val, hist_size * samp_size);
-            hist->time = realloc(hist->time, hist_size * sizeof(mpr_time));
+            int new_pos = mem - h->mem + h->pos;
+            memcpy(h->val, h->val + samp_size * (new_pos - mem), samp_size * mem);
+            memcpy(&h->time, &h->time[h->pos - mem], sizeof(mpr_time) * mem);
+            h->val = realloc(h->val, mem * samp_size);
+            h->time = realloc(h->time, mem * sizeof(mpr_time));
         }
         else {
             // there is overlap between new and old arrays - need to allocate new memory
-            mpr_hist_t temp;
-            temp.val = malloc(samp_size * hist_size);
-            temp.time = malloc(sizeof(mpr_time) * hist_size);
-            if (hist->pos < hist_size) {
-                memcpy(temp.val, hist->val, samp_size * hist->pos);
-                memcpy(temp.val + samp_size * hist->pos,
-                       hist->val + samp_size * (hist->size - hist_size + hist->pos),
-                       samp_size * (hist_size - hist->pos));
-                memcpy(temp.time, hist->time, sizeof(mpr_time) * hist->pos);
-                memcpy(&temp.time[(int)hist->pos],
-                       &hist->time[hist->size - hist_size + hist->pos],
-                       sizeof(mpr_time) * (hist_size - hist->pos));
+            mpr_hist_t tmp;
+            tmp.val = malloc(samp_size * mem);
+            tmp.time = malloc(sizeof(mpr_time) * mem);
+            if (h->pos < mem) {
+                memcpy(tmp.val, h->val, samp_size * h->pos);
+                memcpy(tmp.val + samp_size * h->pos,
+                       h->val + samp_size * (h->mem - mem + h->pos),
+                       samp_size * (mem - h->pos));
+                memcpy(tmp.time, h->time, sizeof(mpr_time) * h->pos);
+                memcpy(&tmp.time[(int)h->pos], &h->time[h->mem - mem + h->pos],
+                       sizeof(mpr_time) * (mem - h->pos));
             }
             else {
-                memcpy(temp.val, hist->val + samp_size * (hist->pos - hist_size),
-                       samp_size * hist_size);
-                memcpy(temp.time, &hist->time[hist->pos - hist_size],
-                       sizeof(mpr_time) * hist_size);
-                hist->pos = hist_size - 1;
+                memcpy(tmp.val, h->val + samp_size * (h->pos - mem),
+                       samp_size * mem);
+                memcpy(tmp.time, &h->time[h->pos - mem], sizeof(mpr_time) * mem);
+                h->pos = mem - 1;
             }
-            free(hist->val);
-            free(hist->time);
-            hist->val = temp.val;
-            hist->time = temp.time;
+            free(h->val);
+            free(h->time);
+            h->val = tmp.val;
+            h->time = tmp.time;
         }
     }
-    hist->size = hist_size;
+    h->mem = mem;
 }
 
 /* If the "slot_index" argument is >= 0, we can assume this message will be sent

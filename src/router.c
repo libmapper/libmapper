@@ -30,11 +30,10 @@ static void realloc_slot_insts(mpr_slot slot, int size)
         for (i = slot->num_inst; i < size; i++) {
             slot->loc->hist[i].type = slot->sig->type;
             slot->loc->hist[i].len = slot->sig->len;
-            slot->loc->hist[i].size = slot->loc->hist_size;
+            slot->loc->hist[i].mem = slot->loc->mem;
             slot->loc->hist[i].val = calloc(1, mpr_type_get_size(slot->sig->type)
-                                            * slot->loc->hist_size);
-            slot->loc->hist[i].time = calloc(1, sizeof(mpr_time)
-                                             * slot->loc->hist_size);
+                                            * slot->loc->mem);
+            slot->loc->hist[i].time = calloc(1, sizeof(mpr_time) * slot->loc->mem);
             slot->loc->hist[i].pos = -1;
         }
         slot->num_inst = size;
@@ -62,13 +61,13 @@ static void realloc_map_insts(mpr_map map, int size)
             for (j = 0; j < lmap->num_expr_var; j++) {
                 lmap->expr_var[i][j].type = lmap->expr_var[0][j].type;
                 lmap->expr_var[i][j].len = lmap->expr_var[0][j].len;
-                lmap->expr_var[i][j].size = lmap->expr_var[0][j].size;
+                lmap->expr_var[i][j].mem = lmap->expr_var[0][j].mem;
                 lmap->expr_var[i][j].pos = 0;
                 lmap->expr_var[i][j].val = calloc(1, sizeof(double)
                                                   * lmap->expr_var[i][j].len
-                                                  * lmap->expr_var[i][j].size);
+                                                  * lmap->expr_var[i][j].mem);
                 lmap->expr_var[i][j].time = calloc(1, sizeof(mpr_time)
-                                                   * lmap->expr_var[i][j].size);
+                                                   * lmap->expr_var[i][j].mem);
             }
         }
         lmap->num_var_inst = size;
@@ -160,12 +159,12 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             mpr_local_slot dst_lslot = dst_slot->loc;
 
             // also need to reset associated output memory
-            memset(dst_lslot->hist[idx].val, 0, dst_lslot->hist_size
+            memset(dst_lslot->hist[idx].val, 0, dst_lslot->mem
                    * dst_slot->sig->len * mpr_type_get_size(dst_slot->sig->type));
-            memset(dst_lslot->hist[idx].time, 0, dst_lslot->hist_size
-                   * sizeof(mpr_time));
+            memset(dst_lslot->hist[idx].time, 0, dst_lslot->mem * sizeof(mpr_time));
             dst_lslot->hist[idx].pos = -1;
 
+            // send release to downstream
             if (slot->dir == MPR_DIR_OUT
                 && !(sig->loc->idmaps[inst].status & RELEASED_REMOTELY)) {
                 msg = 0;
@@ -179,6 +178,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 }
             }
 
+            // send release to upstream
             for (j = 0; j < map->num_src; j++) {
                 slot = map->src[j];
                 if (!slot->sig->use_inst)
@@ -186,10 +186,9 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 lslot = slot->loc;
 
                 // also need to reset associated input memory
-                memset(lslot->hist[idx].val, 0, lslot->hist_size
+                memset(lslot->hist[idx].val, 0, lslot->mem
                        * slot->sig->len * mpr_type_get_size(slot->sig->type));
-                memset(lslot->hist[idx].time, 0, lslot->hist_size
-                       * sizeof(mpr_time));
+                memset(lslot->hist[idx].time, 0, lslot->mem * sizeof(mpr_time));
                 lslot->hist[idx].pos = -1;
 
                 if (!map_in_scope(map, idmap->GID))
@@ -199,7 +198,6 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                     continue;
 
                 if (slot->dir == MPR_DIR_IN) {
-                    // send release to upstream
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
                     if (msg) {
                         send_or_bundle_msg(slot->link, slot->sig->path, msg,
@@ -264,8 +262,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
         }
 
         // copy input history
-        lslot->hist[idx].pos = ((lslot->hist[idx].pos + 1)
-                                % lslot->hist[idx].size);
+        lslot->hist[idx].pos = ((lslot->hist[idx].pos + 1) % lslot->hist[idx].mem);
         memcpy(mpr_hist_get_val_ptr(lslot->hist[idx]), val, n);
         memcpy(mpr_hist_get_time_ptr(lslot->hist[idx]), &t, sizeof(mpr_time));
 

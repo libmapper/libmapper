@@ -283,7 +283,7 @@ typedef struct _mpr_hist
     mpr_time *time;             //!< Time for each sample of stored history.
     int len;                    //!< Vector length.
     mpr_type type;              //!< The type of this signal.
-    char size;                  //!< History size of the buffer.
+    char mem;                   //!< History size of the buffer.
     char pos;                   //!< Current position in the circular buffer.
 } mpr_hist_t, *mpr_hist;
 
@@ -401,7 +401,7 @@ typedef struct _mpr_local_slot {
     struct _mpr_rtr_sig *rsig;      //!< Parent signal if local
     mpr_hist hist;                  /*!< Array of value histories for
                                      *   each signal instance. */
-    int hist_size;                  //!< History size.
+    int mem;                        //!< History size.
     char status;
 } mpr_local_slot_t, *mpr_local_slot;
 

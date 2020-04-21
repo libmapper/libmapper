@@ -212,19 +212,30 @@ void switch_modes()
 void print_results()
 {
     int i, j;
-    printf("\n*****************************************************\n");
-    printf("\nRESULTS OF SPEED TEST:\n");
+    double total_elapsed_time = 0;
     for (i=0; i<numModes; i++) {
-        printf("MODE %i\n", i);
+        for (j=0; j<numTrials; j++)
+            total_elapsed_time += times[i*numTrials+j];
+    }
+    printf(" (%i messages in %f seconds).\n", iterations * numModes * numTrials,
+           total_elapsed_time);
+    if (!verbose)
+        return;
+
+    eprintf("\n*****************************************************\n");
+    eprintf("\nRESULTS OF SPEED TEST:\n");
+    for (i=0; i<numModes; i++) {
+        eprintf("MODE %i\n", i);
         float bestTime = times[i*numTrials];
         for (j=0; j<numTrials; j++) {
-            printf("trial %i: %i messages processed in %f seconds\n", j, iterations, times[i*numTrials+j]);
+            eprintf("trial %i: %i messages processed in %f seconds\n", j,
+                    iterations, times[i*numTrials+j]);
             if (times[i*numTrials+j] < bestTime)
                 bestTime = times[i*numTrials+j];
         }
-        printf("\nbest trial: %i messages in %f seconds\n", iterations, bestTime);
+        eprintf("\nbest trial: %i messages in %f seconds\n", iterations, bestTime);
     }
-    printf("\n*****************************************************\n");
+    eprintf("\n*****************************************************\n");
 }
 
 int main(int argc, char **argv)
@@ -286,9 +297,11 @@ int main(int argc, char **argv)
   done:
     cleanup_dst();
     cleanup_src();
-    if (verbose)
-        print_results();
-    printf("\r..................................................Test %s\x1B[0m.\n",
+    printf("\r..................................................Test %s\x1B[0m.",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
+    if (!result)
+        print_results();
+    else
+        printf(".\n");
     return result;
 }

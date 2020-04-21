@@ -528,9 +528,9 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
             c = str[++idx];
         } while (c && isdigit(c));
         if (c!='e') {
-            tok->f = atof(str+i);
+            tok->d = atof(str+i);
             tok->toktype = TOK_CONST;
-            tok->datatype = MPR_FLT;
+            tok->datatype = MPR_DBL;
             return idx;
         }
     case 'e':
@@ -556,8 +556,8 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         while (c && isdigit(c))
             c = str[++idx];
         tok->toktype = TOK_CONST;
-        tok->datatype = MPR_FLT;
-        tok->f = atof(str+i);
+        tok->datatype = MPR_DBL;
+        tok->d = atof(str+i);
         return idx;
     case '+':
         SET_TOK_OPTYPE(OP_ADD);
@@ -744,7 +744,7 @@ void mpr_expr_free(mpr_expr expr)
 
 #ifdef DEBUG
 
-void printtoken(mpr_token_t t)
+static void printtoken(mpr_token_t t, mpr_var_t *vars)
 {
     int i, len = 64;
     char s[len];
@@ -764,11 +764,12 @@ void printtoken(mpr_token_t t)
         case TOK_CLOSE_SQUARE:  snprintf(s, len, "]");                   break;
         case TOK_VAR:
             if (t.var == VAR_Y)
-                snprintf(s, len, "y{%d}[%d]", t.hist_idx, t.vec_idx);
+                snprintf(s, len, "y{%d}[%zu]", t.hist_idx, t.vec_idx);
             else if (t.var >= VAR_X)
-                snprintf(s, len, "x%d{%d}[%d]", t.var-VAR_X, t.hist_idx, t.vec_idx);
+                snprintf(s, len, "x%d{%d}[%zu]", t.var-VAR_X, t.hist_idx, t.vec_idx);
             else
-                snprintf(s, len, "var%d{%d}[%d]", t.var, t.hist_idx, t.vec_idx);
+                snprintf(s, len, "%s{%d}[%zu]", vars[t.var].name, t.hist_idx,
+                         t.vec_idx);
             break;
         case TOK_TT:
             if (t.var == VAR_Y)
@@ -776,7 +777,7 @@ void printtoken(mpr_token_t t)
             else if (t.var >= VAR_X)
                 snprintf(s, len, "t_x%d{%d}", t.var-VAR_X, t.hist_idx);
             else
-                snprintf(s, len, "t_var%d{%d}", t.var, t.hist_idx);
+                snprintf(s, len, "t_%s{%d}", vars[t.var].name, t.hist_idx);
             break;
         case TOK_FN:        snprintf(s, len, "%s()", fn_tbl[t.fn].name); break;
         case TOK_COMMA:     snprintf(s, len, ",");                       break;
@@ -786,18 +787,18 @@ void printtoken(mpr_token_t t)
         case TOK_VFN:       snprintf(s, len, "%s()", vfn_tbl[t.fn].name); break;
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
-        case TOK_ASSIGN_TT:
         case TOK_ASSIGN_USE:
             if (t.var == VAR_Y)
-                snprintf(s, len, "ASSIGN_TO:%sy{%d}[%d]->[%d]%s",
-                         TOK_ASSIGN_TT == t.toktype ? "t_" : "",
+                snprintf(s, len, "ASSIGN_TO:y{%d}[%zu]->[%zu]%s",
                          t.hist_idx, t.offset, t.vec_idx,
                          t.toktype == TOK_ASSIGN_CONST ? " (const) " : "");
             else
-                snprintf(s, len, "ASSIGN_TO:%svar%d{%d}[%d]->[%d]%s",
-                         TOK_ASSIGN_TT == t.toktype ? "t_" : "",
-                         t.var, t.hist_idx, t.offset, t.vec_idx,
+                snprintf(s, len, "ASSIGN_TO:%s{%d}[%zu]->[%zu]%s",
+                         vars[t.var].name, t.hist_idx, t.offset, t.vec_idx,
                          t.toktype == TOK_ASSIGN_CONST ? " (const) " : "");
+            break;
+        case TOK_ASSIGN_TT:
+            snprintf(s, len, "ASSIGN_TO:t_y{%d}->[%zu]", t.hist_idx, t.vec_idx);
             break;
         case TOK_END:       printf("END\n");                return;
         default:            printf("(unknown token)\n");    return;
@@ -807,7 +808,7 @@ void printtoken(mpr_token_t t)
     len = strlen(s);
     for (i = len; i < 40; i++)
         printf(" ");
-    printf("%c[%d]", t.datatype, t.vec_len);
+    printf("%c[%zu]", t.datatype, t.vec_len);
     if (t.toktype < TOK_ASSIGN && t.casttype)
         printf("->%c", t.casttype);
     else
@@ -817,18 +818,23 @@ void printtoken(mpr_token_t t)
     printf("\n");
 }
 
-void printstack(const char *s, mpr_token_t *stk, int top, int show_init_line)
+static void printstack(const char *s, mpr_token_t *stk, int top,
+                       mpr_var_t *vars, int show_init_line)
 {
     int i, j, indent = 0, can_advance = 1;
     printf("%s ", s);
     if (s)
         indent = strlen(s) + 1;
+    if (top < 0) {
+        printf("EMPTY\n");
+        return;
+    }
     for (i=0; i<=top; i++) {
         if (i != 0) {
             for (j=0; j<indent; j++)
                 printf(" ");
         }
-        printtoken(stk[i]);
+        printtoken(stk[i], vars);
         if (show_init_line && can_advance) {
             switch (stk[i].toktype) {
                 case TOK_ASSIGN_CONST:
@@ -837,12 +843,20 @@ void printstack(const char *s, mpr_token_t *stk, int top, int show_init_line)
                 case TOK_ASSIGN:
                 case TOK_ASSIGN_USE:
                 case TOK_ASSIGN_TT:
-                    if (stk[i].hist_idx != 0)
+                    // look ahead for future assignments
+                    for (j=i+1; j<=top; j++) {
+                        if (stk[j].toktype < TOK_ASSIGN)
+                            continue;
+                        if (TOK_ASSIGN_CONST == stk[j].toktype && stk[j].var != VAR_Y)
+                            break;
+                        if (stk[j].hist_idx != 0)
+                            break;
+                        for (j=0; j<indent; j++)
+                            printf(" ");
+                        printf("--- <INITIALISATION DONE> ---\n");
+                        can_advance = 0;
                         break;
-                    for (j=0; j<indent; j++)
-                        printf(" ");
-                    printf("--- <INITIALISATION DONE> ---\n");
-                    can_advance = 0;
+                    }
                     break;
                 default:
                     break;
@@ -855,7 +869,7 @@ void printstack(const char *s, mpr_token_t *stk, int top, int show_init_line)
 
 void printexpr(const char *s, mpr_expr e)
 {
-    printstack(s, e->tokens, e->len-1, 1);
+    printstack(s, e->tokens, e->len-1, e->vars, 1);
 }
 
 #endif // DEBUG
@@ -986,7 +1000,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     // TODO: allow precomputation of const-only vectors
     int i, arity, can_precompute = 1, optimize = NONE;
     mpr_type type = stk[top].datatype;
-    int vec_len = stk[top].vec_len;
+    size_t vec_len = stk[top].vec_len;
 
     switch (stk[top].toktype) {
         case TOK_OP:
@@ -1132,7 +1146,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                 if (!stk[i].vec_len_locked) {
                     if (stk[i].toktype == TOK_VFN) {
                         if (stk[i].vec_len != vec_len)
-                            PARSE_ERROR(-1, "Vector length mismatch (1) %d != %d\n",
+                            PARSE_ERROR(-1, "Vector length mismatch (1) %zu != %zu\n",
                                         stk[i].vec_len, vec_len);
                     }
                     else if (stk[i].toktype == TOK_VAR && stk[i].var < VAR_Y) {
@@ -1145,7 +1159,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                         stk[i].vec_len = vec_len;
                 }
                 else if (stk[i].vec_len != vec_len)
-                    PARSE_ERROR(-1, "Vector length mismatch (2) %d != %d\n",
+                    PARSE_ERROR(-1, "Vector length mismatch (2) %zu != %zu\n",
                                 stk[i].vec_len, vec_len);
             }
 
@@ -1189,11 +1203,11 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                 stk[top].vec_len = vec_len;
         }
         else if (stk[top].vec_len != vec_len)
-            PARSE_ERROR(-1, "Vector length mismatch (3) %d != %d\n",
+            PARSE_ERROR(-1, "Vector length mismatch (3) %zu != %zu\n",
                         stk[top].vec_len, vec_len);
     }
     else
-        stk[top].datatype = MPR_FLT;
+        stk[top].datatype = MPR_DBL;
 
     // if stack within bounds of arity was only constants, we're ok to compute
     if (can_precompute)
@@ -1204,7 +1218,8 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
 
 static int check_assign_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
 {
-    int i = top, vec_len = 0;
+    int i = top;
+    size_t vec_len = 0;
     expr_var_t var = stk[top].var;
 
     while (i >= 0 && (stk[i].toktype & TOK_ASSIGN)) {
@@ -1216,7 +1231,7 @@ static int check_assign_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     if (i < 0)
         PARSE_ERROR(-1, "Malformed expression (1)\n");
     if (stk[i].vec_len != vec_len)
-        PARSE_ERROR(-1, "Vector length mismatch (4) %d != %d\n",
+        PARSE_ERROR(-1, "Vector length mismatch (4) %zu != %zu\n",
                     stk[i].vec_len, vec_len);
     promote_token_datatype(&stk[i], stk[top].datatype);
     if (check_type_and_len(stk, i, vars) == -1)
@@ -1428,7 +1443,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                 public = 0;
                 break;
             case TOK_FN:
-                tok.datatype = fn_tbl[tok.fn].fn_int ? MPR_INT32 : MPR_FLT;
+                tok.datatype = fn_tbl[tok.fn].fn_int ? MPR_INT32 : MPR_DBL;
                 mpr_token_t newtok;
                 if (fn_tbl[tok.fn].memory) {
                     // add assignment token
@@ -1468,7 +1483,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                     is_const = 0;
                 if (fn_tbl[tok.fn].memory) {
                     newtok.toktype = TOK_VAR;
-                    newtok.hist_idx = -1;
+                    newtok.hist_idx = 0;
                     PUSH_TO_OUTPUT(newtok);
                 }
                 break;
@@ -1781,8 +1796,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                 break;
         }
 #if (TRACING && DEBUG)
-        printstack("OUTPUT STACK:  ", out, out_idx, 0);
-        printstack("OPERATOR STACK:", op, op_idx, 0);
+        printstack("OUTPUT STACK:  ", out, out_idx, vars, 0);
+        printstack("OPERATOR STACK:", op, op_idx, vars, 0);
 #endif
     }
 
@@ -1829,8 +1844,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
              "Malformed expression (9).");}
 
 #if (TRACING && DEBUG)
-    printstack("--->OUTPUT STACK:  ", out, out_idx, 0);
-    printstack("--->OPERATOR STACK:", op, op_idx, 0);
+    printstack("--->OUTPUT STACK:  ", out, out_idx, vars, 0);
+    printstack("--->OPERATOR STACK:", op, op_idx, vars, 0);
 #endif
 
     // Check for maximum vector length used in stack
@@ -2036,7 +2051,7 @@ static const char *type_name(const mpr_type type)
 #define COPY_TO_STACK(SRC)                                                  \
     ++top;                                                                  \
     dims[top] = tok->vec_len;                                               \
-    idx = ((tok->hist_idx + SRC->pos + SRC->size) % SRC->size);             \
+    idx = ((tok->hist_idx + SRC->pos + SRC->mem) % SRC->mem);               \
     void *v = (SRC->val + idx * SRC->len * mpr_type_get_size(SRC->type));   \
     switch (SRC->type) {                                                    \
         COPY_TYPED(MPR_INT32, int, i)                                       \
@@ -2071,7 +2086,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
         memset(types, MPR_NULL, out->len);
 
     /* Increment index position of output data structure. */
-    out->pos = (out->pos + 1) % out->size;
+    out->pos = (out->pos + 1) % out->mem;
 
     for (i = 0; i < expr->n_vars; i++)
         expr->vars[i].assigned = 0;
@@ -2107,7 +2122,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                     return 1;
                 COPY_TO_STACK(out);
 #if TRACING
-                printf("loading variable y{%d}[%d] ", tok->hist_idx, tok->vec_idx);
+                printf("loading variable y{%d}[%zu] ", tok->hist_idx, tok->vec_idx);
                 print_stack_vec(stk[top], tok->datatype, tok->vec_len);
                 printf(" \n");
 #endif
@@ -2118,7 +2133,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 mpr_hist h = in[tok->var-VAR_X];
                 COPY_TO_STACK(h);
 #if TRACING
-                printf("loading variable x%d{%d}[%d] ", tok->var-VAR_X,
+                printf("loading variable x%d{%d}[%zu] ", tok->var-VAR_X,
                        tok->hist_idx, tok->vec_idx);
                 print_stack_vec(stk[top], tok->datatype, tok->vec_len);
                 printf(" \n");
@@ -2133,7 +2148,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 for (i = 0; i < tok->vec_len; i++)
                     stk[top][i].d = v[i+tok->vec_idx];
 #if TRACING
-                printf("loading variable %s{%d}[%d] ", expr->vars[tok->var].name,
+                printf("loading variable %s{%d}[%zu] ", expr->vars[tok->var].name,
                        tok->hist_idx, tok->vec_idx);
                 print_stack_vec(stk[top], tok->datatype, tok->vec_len);
                 printf(" \n");
@@ -2150,24 +2165,34 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             mpr_hist h;
             if (tok->var == VAR_Y) {
                 h = out;
-                idx = ((tok->hist_idx + h->pos + h->size) % h->size);
+                idx = ((tok->hist_idx + h->pos + h->mem) % h->mem);
+#if TRACING
+                printf("loading timetag t_y{%d}", tok->hist_idx);
+#endif
             }
             else if (tok->var >= VAR_X) {
                 h = in[tok->var-VAR_X];
-                idx = ((tok->hist_idx + h->pos + h->size) % h->size);
+                idx = ((tok->hist_idx + h->pos + h->mem) % h->mem);
+#if TRACING
+                printf("loading timetag t_x%d{%d}", tok->var-VAR_X, tok->hist_idx);
+#endif
             }
             else if (expr_vars) {
                 h = *expr_vars + tok->var;
                 idx = 0;
+#if TRACING
+                printf("loading timetag t_%s{%d}", expr->vars[tok->var].name,
+                       tok->hist_idx);
+#endif
             }
             else
                 goto error;
             double t_d = mpr_time_as_dbl(h->time[idx]);
+#if TRACING
+            printf(" as double %f\n", t_d);
+#endif
             for (i = 0; i < tok->vec_len; i++)
                 stk[top][i].d = t_d;
-#if TRACING
-            printf("loading NTP timetag as double %f\n", t_d);
-#endif
             break;
         }
         case TOK_OP:
@@ -2359,7 +2384,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             }
             dims[top] = tok->vec_len;
 #if TRACING
-            printf("built %i-element vector: ", tok->vec_len);
+            printf("built %zu-element vector: ", tok->vec_len);
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf(" \n");
 #endif
@@ -2370,10 +2395,10 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
         case TOK_ASSIGN_CONST:
 #if TRACING
             if (tok->var == VAR_Y)
-                printf("assigning values to y{%i}[%i] (%s x %d)\n", tok->hist_idx,
+                printf("assigning values to y{%i}[%zu] (%s x %zu)\n", tok->hist_idx,
                        tok->vec_idx, type_name(tok->datatype), tok->vec_len);
             else
-                printf("assigning values to %s{%i}[%i] (%s x %d)\n",
+                printf("assigning values to %s{%i}[%zu] (%s x %zu)\n",
                        expr->vars[tok->var].name, tok->hist_idx, tok->vec_idx,
                        type_name(tok->datatype), tok->vec_len);
 #endif
@@ -2382,11 +2407,11 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 can_advance = 0;
                 if (!out)
                     return 1;
-                int idx = (tok->hist_idx + out->pos + out->size);
+                int idx = (tok->hist_idx + out->pos + out->mem);
                 if (idx < 0)
-                    idx = out->size - idx;
+                    idx = out->mem - idx;
                 else
-                    idx %= out->size;
+                    idx %= out->mem;
                 void *v = (out->val + idx * out->len * mpr_type_get_size(out->type));
 
                 switch (out->type) {
@@ -2408,6 +2433,12 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                     for (i = tok->vec_idx; i < tok->vec_idx + tok->vec_len; i++)
                         types[i] = tok->datatype;
                 }
+
+                // Also copy time from input
+                if (t) {
+                    mpr_time *tvar = &out->time[idx];
+                    memcpy(tvar, t, sizeof(mpr_time));
+                }
             }
             else if (tok->var >= 0 && tok->var < N_USER_VARS) {
                 if (!expr_vars)
@@ -2420,10 +2451,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                     v[i + tok->vec_idx] = stk[top][i + tok->offset].d;
 
                 // Also copy time from input
-                if (t) {
-                    mpr_time *tvar = h->time;
-                    memcpy(tvar, t, sizeof(mpr_time));
-                }
+                if (t)
+                    memcpy(h->time, t, sizeof(mpr_time));
 
                 expr->vars[tok->var].assigned = 1;
             }
@@ -2440,18 +2469,29 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             }
             break;
         case TOK_ASSIGN_TT:
-            // assignment to timetag
             if (tok->var != VAR_Y)
                 goto error;
-            can_advance = 0;
+#if TRACING
+            printf("assigning timetag to t_y{%i}\n", tok->hist_idx);
+#endif
             if (!out)
                 return 1;
-            int idx = (tok->hist_idx + out->pos + out->size);
+            int idx = (tok->hist_idx + out->pos + out->mem);
             if (idx < 0)
-                idx = out->size - idx;
+                idx = out->mem - idx;
             else
-                idx %= out->size;
+                idx %= out->mem;
             mpr_time_set_dbl(&out->time[idx], stk[top][0].d);
+            /* If assignment was constant or history initialization, move expr
+             * start token pointer so we don't evaluate this section again. */
+            if (tok->hist_idx != 0 || can_advance) {
+#if TRACING
+                printf("moving expr offset to %ld\n", tok - expr->start + 1);
+#endif
+                expr->offset = tok - expr->start + 1;
+            }
+            else
+                can_advance = 0;
             break;
         default: goto error;
         }
@@ -2495,7 +2535,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
          * so we need to copy to output here. */
 
         /* Increment index position of output data structure. */
-        out->pos = (out->pos + 1) % out->size;
+        out->pos = (out->pos + 1) % out->mem;
         void *v = mpr_hist_get_val_ptr(*out);
         switch (out->type) {
 #define TYPED_CASE(MTYPE, TYPE, EL)                 \
@@ -2517,7 +2557,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
     if (!updated) {
         --out->pos;
         if (out->pos < 0)
-            out->pos = out->size - 1;
+            out->pos = out->mem - 1;
         return 0;
     }
 
