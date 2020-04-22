@@ -204,12 +204,12 @@ void loop()
         i++;
 
         if (verbose) {
-            printf("monosend: n/a ");
+            printf("ID:    monosend: n/a ");
             print_instance_ids(multisend);
             print_instance_ids(multirecv);
             eprintf("\n");
 
-            printf("monosend: %2.0f  ", *(float*)mpr_sig_get_value(monosend, 0, 0));
+            printf("VALUE: monosend: %2.0f  ", *(float*)mpr_sig_get_value(monosend, 0, 0));
             print_instance_vals(multisend);
             print_instance_vals(multirecv);
             printf("\n");

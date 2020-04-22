@@ -993,7 +993,7 @@ static void mpr_map_check_status(mpr_map m)
 // if 'override' flag is not set, only remote properties can be set
 int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
 {
-    int i, j, updated = 0;
+    int i, j, updated = 0, should_compile = 0;
     mpr_tbl tbl;
     mpr_msg_atom a;
     if (!msg)
@@ -1044,13 +1044,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 updated += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
                 break;
             case PROP(PROCESS_LOC): {
-                mpr_loc loc;
-                loc = mpr_loc_from_str(&(a->vals[0])->s);
+                mpr_loc loc = mpr_loc_from_str(&(a->vals[0])->s);
+                if (loc == m->process_loc)
+                    break;
+                if (MPR_LOC_UNDEFINED == loc) {
+                    trace("map process location is undefined!\n");
+                    break;
+                }
                 if (m->loc) {
-                    if (MPR_LOC_UNDEFINED == loc) {
-                        trace("map process location is undefined!\n");
-                        break;
-                    }
                     if (MPR_LOC_ANY == loc) {
                         // no effect
                         break;
@@ -1060,9 +1061,31 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                          * includes source signals from different devices. */
                         loc = MPR_LOC_DST;
                     }
-                }
-                updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
+                    if (MPR_LOC_DST == loc) {
+                        // check if destination is local
+                        if (m->dst->loc->rsig)
+                            should_compile = 1;
+                    }
+                    else {
+                        for (j = 0; j < m->num_src; j++) {
+                            if (m->src[j]->loc->rsig)
+                                should_compile = 1;
+                        }
+                    }
+                    if (should_compile) {
+                        if (mpr_map_set_expr(m, m->expr_str)) {
+                            // do not change process location
+                            break;
+                        }
+                        ++updated;
+                    }
+                    else
+                        updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
                                        MPR_INT32, &loc, REMOTE_MODIFY);
+                }
+                else
+                    updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
+                                           MPR_INT32, &loc, REMOTE_MODIFY);
                 break;
             }
             case PROP(EXPR): {
@@ -1071,7 +1094,6 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 if (m->loc && bitmatch(m->status, MPR_STATUS_READY)) {
                     if (strstr(expr_str, "y{-"))
                         m->process_loc = MPR_LOC_DST;
-                    int should_compile = 0;
                     if (m->loc->is_local_only)
                         should_compile = 1;
                     else if (MPR_LOC_DST == m->process_loc) {
