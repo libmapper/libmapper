@@ -402,16 +402,19 @@ int main(int argc, char **argv)
 
     eprintf("NO STEALING: sent %i updates, received %i updates (mismatch is OK).\n",
             stats[0], stats[1]);
+    result += stats[0] < stats[1];
     eprintf("STEAL OLDEST: sent %i updates, received %i updates (mismatch is OK).\n",
             stats[2], stats[3]);
+    result += stats[2] < stats[3];
     eprintf("ADD INSTANCE: sent %i updates, received %i updates.\n",
             stats[4], stats[5]);
+    result += stats[4] != stats[5];
     eprintf("SRC-SIDE MIXED INSTANCING: sent %i updates, received %i updates.\n",
             stats[6], stats[7]);
+    result += stats[6] > stats[7];
     eprintf("DST-SIDE MIXED INSTANCING: sent %i updates, received %i updates.\n",
             stats[8], stats[9]);
-
-    result = (stats[4] != stats[5]);
+    result += stats[8] > stats[9];
 
   done:
     cleanup_dst();

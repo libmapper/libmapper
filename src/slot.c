@@ -126,7 +126,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
                     mpr_slot_upgrade_extrema_memory(slot);
                 break;
             case MPR_PROP_NUM_INST:
-                // static prop is slot is associated with a local signal
+                // static prop if slot is associated with a local signal
                 if (slot->map->loc)
                     break;
             default:

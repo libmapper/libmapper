@@ -1284,7 +1284,7 @@ static int handler_name_probe(const char *path, const char *types, lo_arg **av,
  * "/mapped" to its peer.
  *
  * Negotiation of convergent ("many-to-one") maps is governed by the destination
- * device; if the map involves inputs from difference devices the destination
+ * device; if the map involves inputs from different devices the destination
  * will provoke the creation of simple submaps from the various sources and
  * perform any combination signal-processing, otherwise processing metadata is
  * forwarded to the source device.  A convergent mapping is started with a
