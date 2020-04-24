@@ -25,7 +25,7 @@ static int map_in_scope(mpr_map map, mpr_id id)
 static void realloc_slot_insts(mpr_slot slot, int size)
 {
     int i;
-    if (slot->num_inst < size) {
+    if (slot->sig->use_inst && slot->num_inst < size) {
         slot->loc->hist = realloc(slot->loc->hist, sizeof(struct _mpr_hist) * size);
         for (i = slot->num_inst; i < size; i++) {
             slot->loc->hist[i].type = slot->sig->type;
