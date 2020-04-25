@@ -278,8 +278,8 @@ static void call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
  * - A vector consisting completely of nulls indicates a signal instance release
  *   TODO: use more specific message for release?
  * - Updates to a specific signal instance are indicated using the label
- *   "@instance" followed by two integers which uniquely identify this instance
- *   within the network of libmpr devices
+ *   "@instance" followed by a 64bit integer which uniquely identifies this
+ *   instance within the network of libmpr devices
  * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
  *   are indicated using the label "@slot" followed by a single integer slot #
  * - Multiple "samples" of a signal value may be packed into a single message

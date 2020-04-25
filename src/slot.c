@@ -43,29 +43,6 @@ mpr_sig mpr_slot_sig(mpr_slot slot)
     return slot->sig;
 }
 
-void mpr_slot_upgrade_extrema_memory(mpr_slot slot)
-{
-    int len;
-    mpr_tbl_record rec = mpr_tbl_get(slot->obj.props.synced, MPR_PROP_MIN, NULL);
-    if (rec && rec->val && *rec->val) {
-        void *new_mem = calloc(1, (mpr_type_get_size(slot->sig->type) * slot->sig->len));
-        len = (rec->len < slot->sig->len ? rec->len : slot->sig->len);
-        set_coerced_val(len, rec->type, rec->val, len, slot->sig->type, new_mem);
-        mpr_tbl_set(slot->obj.props.synced, MPR_PROP_MIN, NULL, slot->sig->len,
-                    slot->sig->type, new_mem, REMOTE_MODIFY);
-        FUNC_IF(free, new_mem);
-    }
-    rec = mpr_tbl_get(slot->obj.props.synced, MPR_PROP_MAX, NULL);
-    if (rec && rec->val && *rec->val) {
-        void *new_mem = calloc(1, (mpr_type_get_size(slot->sig->type) * slot->sig->len));
-        len = (rec->len < slot->sig->len ? rec->len : slot->sig->len);
-        set_coerced_val(len, rec->type, rec->val, len, slot->sig->type, new_mem);
-        mpr_tbl_set(slot->obj.props.synced, MPR_PROP_MAX, NULL, slot->sig->len,
-                    slot->sig->type, new_mem, REMOTE_MODIFY);
-        FUNC_IF(free, new_mem);
-    }
-}
-
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
 {
     RETURN_UNLESS(slot && msg, 0);
@@ -90,41 +67,13 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
                 ++updated;
             a->prop = prop;
         }
-        if (updated)
-            mpr_slot_upgrade_extrema_memory(slot);
     }
     mpr_tbl slot_props = slot->obj.props.synced;
-    mpr_tbl sig_props = slot->sig->obj.props.synced;
     for (i = 0; i < msg->num_atoms; i++) {
         a = &msg->atoms[i];
         if ((a->prop & ~0xFFFF) != mask)
             continue;
         switch (a->prop & ~mask) {
-            case MPR_PROP_MAX:
-            case MPR_PROP_MIN:
-                if (a->types[0] == MPR_NULL) {
-                    updated += mpr_tbl_remove(slot_props, a->prop & ~mask, NULL,
-                                              REMOTE_MODIFY);
-                    break;
-                }
-                if (!mpr_type_get_is_num(a->types[0]))
-                    break;
-                updated += mpr_tbl_set_from_atom(slot_props, a, REMOTE_MODIFY);
-                if (!slot->loc || !slot->loc->rsig) {
-                    if (!slot->sig->len) {
-                        updated += mpr_tbl_set(sig_props, MPR_PROP_LEN, NULL, 1,
-                                               MPR_INT32, &a->len, REMOTE_MODIFY);
-                    }
-                    if (!slot->sig->type) {
-                        updated += mpr_tbl_set(sig_props, MPR_PROP_TYPE, NULL, 1,
-                                               MPR_TYPE, &a->types[0], REMOTE_MODIFY);
-                    }
-                }
-                else if (!slot->sig->len || !slot->sig->type)
-                    break;
-                if ((a->len != slot->sig->len) || a->types[0] != slot->sig->type)
-                    mpr_slot_upgrade_extrema_memory(slot);
-                break;
             case MPR_PROP_NUM_INST:
                 // static prop if slot is associated with a local signal
                 if (slot->map->loc)

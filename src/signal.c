@@ -963,7 +963,7 @@ int mpr_sig_set_from_msg(mpr_sig s, mpr_msg msg)
     RETURN_UNLESS(msg, 0);
     mpr_tbl tbl = s->obj.props.synced;
     mpr_msg_atom a;
-    int i, updated = 0, len_type_diff = 0;
+    int i, updated = 0;
     for (i = 0; i < msg->num_atoms; i++) {
         a = &msg->atoms[i];
         if (s->loc && (MASK_PROP_BITFLAGS(a->prop) != PROP(EXTRA)))
@@ -981,10 +981,6 @@ int mpr_sig_set_from_msg(mpr_sig s, mpr_msg msg)
                                        REMOTE_MODIFY);
                 break;
             }
-            case PROP(LEN):
-            case PROP(TYPE):
-                len_type_diff += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
-                break;
             case PROP(ID):
                 if (a->types[0] == 'h') {
                     if (s->obj.id != (a->vals[0])->i64) {
@@ -1012,15 +1008,5 @@ int mpr_sig_set_from_msg(mpr_sig s, mpr_msg msg)
                 break;
         }
     }
-    if (len_type_diff) {
-        // may need to upgrade extrema props for associated map slots
-        mpr_list maps = mpr_sig_get_maps(s, MPR_DIR_ANY);
-        mpr_slot slot;
-        while (maps) {
-            slot = mpr_map_get_slot_by_sig((mpr_map)*maps, s);
-            mpr_slot_upgrade_extrema_memory(slot);
-            maps = mpr_list_get_next(maps);
-        }
-    }
-    return updated + len_type_diff;
+    return updated;
 }
