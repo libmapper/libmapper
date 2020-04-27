@@ -1259,7 +1259,7 @@ typedef struct _device_list {
         def __nonzero__(self):
             return False if self.this is None else True
         def __eq__(self, rhs):
-            return self['id'] == rhs['id']
+            return rhs != None and self['id'] == rhs['id']
     }
 }
 
@@ -1525,7 +1525,7 @@ typedef struct _signal_list {
         def __nonzero__(self):
             return False if self.this is None else True
         def __eq__(self, rhs):
-            return self['id'] == rhs['id']
+            return rhs != None and self['id'] == rhs['id']
     }
 }
 
@@ -1731,7 +1731,7 @@ typedef struct _map_list {
         def __nonzero__(self):
             return False if self.this is None else True
         def __eq__(self, rhs):
-            return self['id'] == rhs['id']
+            return rhs != None and self['id'] == rhs['id']
     }
 }
 
