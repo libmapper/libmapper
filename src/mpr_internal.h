@@ -67,6 +67,9 @@ mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir);
 
 mpr_id mpr_dev_get_unused_sig_id(mpr_dev dev);
 
+int mpr_dev_add_link(mpr_dev dev, mpr_dev rem);
+void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem);
+
 /**** Networking ****/
 
 void mpr_net_add_dev(mpr_net n, mpr_dev d);

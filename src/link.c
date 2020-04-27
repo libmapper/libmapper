@@ -85,6 +85,7 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port,
     link->addr.admin = lo_address_new(host, str);
     trace_dev(link->local_dev, "activated router to device '%s' at %s:%d\n",
               link->remote_dev->name, host, data_port);
+    mpr_dev_add_link(link->local_dev, link->remote_dev);
 }
 
 void mpr_link_free(mpr_link link)
@@ -95,6 +96,8 @@ void mpr_link_free(mpr_link link)
     FUNC_IF(lo_address_free, link->addr.admin);
     FUNC_IF(lo_address_free, link->addr.udp);
     FUNC_IF(lo_address_free, link->addr.tcp);
+    if (link->local_dev->loc)
+        mpr_dev_remove_link(link->local_dev, link->remote_dev);
     while (link->queues) {
         mpr_queue queue = link->queues;
         lo_bundle_free_recursive(queue->bundle.udp);

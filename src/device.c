@@ -691,25 +691,25 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             device_count = (status[2] > 0) + (status[3] > 0);
             net->msgs_recvd |= admin_count;
         }
-        return admin_count + device_count;
     }
-
-    double then = mpr_get_current_time();
-    int left_ms = block_ms, elapsed, checked_admin = 0;
-    while (left_ms > 0) {
-        // set timeout to a maximum of 100ms
-        if (left_ms > 100)
-            left_ms = 100;
-        if (lo_servers_recv_noblock(net->server.all, status, 4, left_ms)) {
-            admin_count += (status[0] > 0) + (status[1] > 0);
-            device_count += (status[2] > 0) + (status[3] > 0);
+    else {
+        double then = mpr_get_current_time();
+        int left_ms = block_ms, elapsed, checked_admin = 0;
+        while (left_ms > 0) {
+            // set timeout to a maximum of 100ms
+            if (left_ms > 100)
+                left_ms = 100;
+            if (lo_servers_recv_noblock(net->server.all, status, 4, left_ms)) {
+                admin_count += (status[0] > 0) + (status[1] > 0);
+                device_count += (status[2] > 0) + (status[3] > 0);
+            }
+            elapsed = (mpr_get_current_time() - then) * 1000;
+            if ((elapsed - checked_admin) > 100) {
+                mpr_net_poll(net);
+                checked_admin = elapsed;
+            }
+            left_ms = block_ms - elapsed;
         }
-        elapsed = (mpr_get_current_time() - then) * 1000;
-        if ((elapsed - checked_admin) > 100) {
-            mpr_net_poll(net);
-            checked_admin = elapsed;
-        }
-        left_ms = block_ms - elapsed;
     }
 
     /* When done, or if non-blocking, check for remaining messages up to a
@@ -911,21 +911,34 @@ void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd)
     dev->obj.props.synced->dirty = 0;
 }
 
-static int add_link_internal(mpr_dev dev, const char *name)
+int mpr_dev_add_link(mpr_dev dev, mpr_dev rem)
 {
-    RETURN_UNLESS(dev && name, 0);
     int i;
-    mpr_dev dev2 = mpr_graph_add_dev(dev->obj.graph, name, 0);
     for (i = 0; i < dev->num_linked; i++) {
-        if (dev->linked[i] && dev->linked[i]->obj.id == dev2->obj.id)
+        if (dev->linked[i] && dev->linked[i]->obj.id == rem->obj.id)
             return 0;
     }
 
     // not found - add a new linked device
     i = ++dev->num_linked;
     dev->linked = realloc(dev->linked, i * sizeof(mpr_dev));
-    dev->linked[i-1] = dev2;
+    dev->linked[i-1] = rem;
     return 1;
+}
+
+void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem)
+{
+    int i, j;
+    for (i = 0; i < dev->num_linked; i++) {
+        if (!dev->linked[i] || dev->linked[i]->obj.id != rem->obj.id)
+            continue;
+        for (j = i+1; j < dev->num_linked; j++)
+            dev->linked[j-1] = dev->linked[j];
+        --dev->num_linked;
+        dev->linked = realloc(dev->linked, dev->num_linked * sizeof(mpr_dev));
+        dev->obj.props.synced->dirty = 1;
+        return;
+    }
 }
 
 static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom a)
@@ -960,8 +973,11 @@ static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom a)
         if (updated)
             dev->linked = realloc(dev->linked, dev->num_linked * sizeof(mpr_dev));
         // Add any new links
-        for (i = 0; i < num; i++)
-            updated += add_link_internal(dev, &link_list[i]->s);
+        mpr_dev rem;
+        for (i = 0; i < num; i++) {
+            if ((rem = mpr_graph_add_dev(dev->obj.graph, &link_list[i]->s, 0)))
+                updated += mpr_dev_add_link(dev, rem);
+        }
     }
     return updated;
 }
@@ -976,7 +992,7 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
         a = &m->atoms[i];
         switch (MASK_PROP_BITFLAGS(a->prop)) {
             case PROP(LINKED):
-                if (dev->loc && mpr_type_get_is_str(a->types[0]))
+                if (mpr_type_get_is_str(a->types[0]))
                     updated += mpr_dev_update_linked(dev, a);
                 break;
             default:
