@@ -42,43 +42,45 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     ++received;
-    if (!verbose)
+    if (verbose) {
+        const char *name = mpr_obj_get_prop_as_str(sig, MPR_PROP_NAME, NULL);
+        printf("\t\t\t\t\t   | --> signal update: %s:%2lu got", name,
+               (unsigned long)instance);
+    }
+
+    if (!value) {
+        if (verbose)
+            printf(" ––––––––\n");
+        mpr_sig_release_inst(sig, instance, MPR_NOW);
+        return;
+    }
+    else if (!verbose)
         return;
 
-    const char *name = mpr_obj_get_prop_as_str(sig, MPR_PROP_NAME, NULL);
-    printf("\t\t\t\t\t   | --> signal update: %s:%2lu got", name,
-           (unsigned long)instance);
-
-    if (value) {
-        switch (type) {
-            case MPR_INT32: {
-                int *v = (int*)value;
-                for (int i = 0; i < length; i++) {
-                    printf(" %2d", v[i]);
-                }
-                break;
+    switch (type) {
+        case MPR_INT32: {
+            int *v = (int*)value;
+            for (int i = 0; i < length; i++) {
+                printf(" %2d", v[i]);
             }
-            case MPR_FLT: {
-                float *v = (float*)value;
-                for (int i = 0; i < length; i++) {
-                    printf(" %2f", v[i]);
-                }
-                break;
-            }
-            case MPR_DBL: {
-                double *v = (double*)value;
-                for (int i = 0; i < length; i++) {
-                    printf(" %2f", v[i]);
-                }
-                break;
-            }
-            default:
-                break;
+            break;
         }
-    }
-    else {
-        printf(" ––––––––");
-        mpr_sig_release_inst(sig, instance, MPR_NOW);
+        case MPR_FLT: {
+            float *v = (float*)value;
+            for (int i = 0; i < length; i++) {
+                printf(" %2f", v[i]);
+            }
+            break;
+        }
+        case MPR_DBL: {
+            double *v = (double*)value;
+            for (int i = 0; i < length; i++) {
+                printf(" %2f", v[i]);
+            }
+            break;
+        }
+        default:
+            break;
     }
     printf("\n");
 }
@@ -118,7 +120,7 @@ int main(int argc, char ** argv)
     Device dev("mydevice");
 
     // make a copy of the device to check reference counting
-//    Device devcopy(dev);
+    Device devcopy(dev);
 
     Signal sig = dev.add_sig(MPR_DIR_IN, "in1", 1, MPR_FLT, "meters", 0, 0, 0,
                              handler);
