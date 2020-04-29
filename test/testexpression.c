@@ -24,6 +24,9 @@ mpr_sig recvsig = 0;
 int sent = 0;
 int received = 0;
 
+float expected_val;
+double expected_time;
+
 int setup_src()
 {
     src = mpr_dev_new("testexpression-send", 0);
@@ -58,10 +61,16 @@ void cleanup_src()
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
-    if (value) {
-        eprintf("handler: Got %f\n", (*(float*)value));
-    }
-    received++;
+    if (!value)
+        return;
+    eprintf("handler: Got value %f, time %f\n", (*(float*)value),
+            mpr_time_as_dbl(t));
+    if (*(float*)value != expected_val)
+        eprintf("  error: expected value %f\n", expected_val);
+    else if (mpr_time_as_dbl(t) != expected_time)
+        eprintf("  error: expected time %f\n", expected_time);
+    else
+        received++;
 }
 
 int setup_dst()
@@ -99,7 +108,7 @@ int setup_maps()
 {
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
-    const char *expr = "y=x*10";
+    const char *expr = "y=x*10;t_y=t_x+10";
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 
@@ -124,11 +133,16 @@ void loop()
 {
     eprintf("Polling device..\n");
     int i = 0;
+    mpr_time t;
     while ((!terminate || i < 50) && !done) {
         mpr_dev_poll(src, 0);
-        eprintf("Updating output signal to %f\n", (i * 1.0f));
         float val = i * 1.0f;
-        mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &val, MPR_NOW);
+        expected_val = val * 10;
+        mpr_time_set(&t, MPR_NOW);
+        expected_time = mpr_time_as_dbl(t) + 10;
+        eprintf("Updating output signal to %f at time %f\n", (i * 1.0f),
+                mpr_time_as_dbl(t));
+        mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &val, t);
         sent++;
         mpr_dev_poll(dst, period);
         i++;

@@ -269,19 +269,21 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
         if (map->process_loc == MPR_LOC_SRC && !slot->causes_update)
             continue;
 
+        struct _mpr_sig_idmap *idmaps = sig->loc->idmaps;
         for (; inst < sig->loc->idmap_len; inst++) {
             // check if map instance is active
-            if ((all || sig->use_inst) && !sig->loc->idmaps[inst].inst)
+            if ((all || sig->use_inst) && !idmaps[inst].inst)
                 continue;
-            idx = sig->loc->idmaps[inst].inst->idx;
+            idx = idmaps[inst].inst->idx;
             if (!(mpr_map_perform(map, dst_types, &t, idx)))
                 continue;
             void *result = mpr_hist_get_val_ptr(dst_slot->loc->hist[idx]);
             msg = mpr_map_build_msg(map, slot, result, dst_types,
-                                    sig->use_inst ? sig->loc->idmaps[inst].map : 0);
+                                    sig->use_inst ? idmaps[inst].map : 0);
             if (msg) {
-                send_or_bundle_msg(dst_slot->link, dst_slot->sig->path,
-                                   msg, t, map->protocol);
+                send_or_bundle_msg(dst_slot->link, dst_slot->sig->path, msg,
+                                   *(mpr_time*)mpr_hist_get_time_ptr(dst_slot->loc->hist[idx]),
+                                   map->protocol);
             }
             if (!all)
                 break;
