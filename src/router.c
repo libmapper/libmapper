@@ -8,7 +8,7 @@
 #include "types_internal.h"
 #include <mpr/mpr.h>
 
-static void send_or_bundle_msg(mpr_link link, const char *path, lo_message msg,
+static void send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg,
                                mpr_time t, mpr_proto proto);
 
 static int map_in_scope(mpr_map map, mpr_id id)
@@ -126,6 +126,12 @@ static void mpr_rtr_update_map_count(mpr_rtr rtr)
 void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                          mpr_time t)
 {
+    // abort if signal is already being processed - might be a local loop
+    if (sig->loc->locked) {
+        trace_dev(rtr->dev, "Mapping loop detected on signal %s! (1)\n",
+                  sig->name);
+        return;
+    }
     mpr_id_map idmap = sig->loc->idmaps[inst].map;
     lo_message msg;
 
@@ -140,6 +146,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
 
     int i, j, idx = sig->loc->idmaps[inst].inst->idx;
     mpr_map map;
+    uint8_t *lock = &sig->loc->locked;
+    *lock = 1;
 
     if (!val) {
         mpr_local_slot lslot;
@@ -173,8 +181,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 else if (map_in_scope(map, idmap->GID))
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
                 if (msg) {
-                    send_or_bundle_msg(dst_slot->link, dst_slot->sig->path,
-                                       msg, t, map->protocol);
+                    send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t,
+                                       map->protocol);
                 }
             }
 
@@ -200,12 +208,13 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 if (slot->dir == MPR_DIR_IN) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
                     if (msg) {
-                        send_or_bundle_msg(slot->link, slot->sig->path, msg,
-                                           t, map->protocol);
+                        send_or_bundle_msg(slot->link, slot->sig, msg, t,
+                                           map->protocol);
                     }
                 }
             }
         }
+        *lock = 0;
         return;
     }
     for (i = 0; i < rs->num_slots; i++) {
@@ -233,9 +242,10 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             msg = mpr_map_build_msg(map, slot, val, types,
                                     sig->use_inst ? idmap : 0);
             if (msg) {
-                send_or_bundle_msg(map->dst->link, map->dst->sig->path,
-                                   msg, t, map->protocol);
+                send_or_bundle_msg(map->dst->link, map->dst->sig, msg, t,
+                                   map->protocol);
             }
+            *lock = 0;
             return;
         }
 
@@ -281,7 +291,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             msg = mpr_map_build_msg(map, slot, result, dst_types,
                                     sig->use_inst ? idmaps[inst].map : 0);
             if (msg) {
-                send_or_bundle_msg(dst_slot->link, dst_slot->sig->path, msg,
+                send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
                                    *(mpr_time*)mpr_hist_get_time_ptr(dst_slot->loc->hist[idx]),
                                    map->protocol);
             }
@@ -289,13 +299,14 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 break;
         }
     }
+    *lock = 0;
 }
 
 // note on memory handling of mpr_rtr_bundle_msg():
 // path: not owned, will not be freed (assumed is signal name, owned by signal)
 // message: will be owned, will be freed when done
-void send_or_bundle_msg(mpr_link link, const char *path, lo_message msg,
-                        mpr_time t, mpr_proto proto)
+void send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
+                        mpr_proto proto)
 {
     // Check if a matching bundle exists
     mpr_queue q = link->queues;
@@ -304,15 +315,24 @@ void send_or_bundle_msg(mpr_link link, const char *path, lo_message msg,
             break;
         q = q->next;
     }
-    if (q) {
+    int is_local_only = link->local_dev == link->remote_dev;
+    if (q && !q->locked) {
         // Add message to existing bundle
-        lo_bundle b = (proto == MPR_PROTO_TCP) ? q->bundle.tcp : q->bundle.udp;
-        lo_bundle_add_message(b, path, msg);
+        lo_bundle b = (proto == MPR_PROTO_UDP || is_local_only) ? q->bundle.udp : q->bundle.tcp;
+        lo_bundle_add_message(b, dst->path, msg);
+    }
+    else if (is_local_only) {
+        // set out-of-band timestamp
+        mpr_dev_bundle_start(t, NULL);
+        // call handler directly instead of sending over the network
+        mpr_dev_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
+                        lo_message_get_argc(msg), msg, (void*)dst);
+        lo_message_free(msg);
     }
     else {
         // Send message immediately
         lo_bundle b = lo_bundle_new(t);
-        lo_bundle_add_message(b, path, msg);
+        lo_bundle_add_message(b, dst->path, msg);
         lo_address a;
         lo_server s;
         if (proto == MPR_PROTO_TCP) {

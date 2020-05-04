@@ -29,30 +29,6 @@ void mpr_link_init(mpr_link link)
     if (!link->obj.id && link->local_dev->loc)
         link->obj.id = mpr_dev_generate_unique_id(link->local_dev);
 
-    if (link->local_dev == link->remote_dev) {
-        /* Add data_addr for use by self-connections. In the future we may
-         * decide to call local handlers directly, however this could result in
-         * unfortunate loops/stack overflow. Sending data for self-connections
-         * to localhost adds the messages to liblo's stack and imposes a delay
-         * since the receiving handler will not be called until
-         * mpr_dev_poll(). */
-        int len;
-        mpr_type type;
-        const void *val;
-        mpr_obj_get_prop_by_idx(&link->local_dev->obj, MPR_PROP_PORT, NULL,
-                                &len, &type, &val, 0);
-        if (1 != len || MPR_INT32 != type) {
-            trace_dev(link->local_dev, "Error retrieving port for link.");
-            return;
-        }
-        char port[10];
-        snprintf(port, 10, "%d", *(int*)val);
-        link->addr.udp = lo_address_new("localhost", port);
-        lo_address_set_iface(link->addr.udp, net->iface.name, 0);
-        link->addr.tcp = lo_address_new_with_proto(LO_TCP, "localhost", port);
-        lo_address_set_iface(link->addr.tcp, net->iface.name, 0);
-    }
-
     link->clock.new = 1;
     link->clock.sent.msg_id = 0;
     link->clock.rcvd.msg_id = -1;
@@ -124,6 +100,7 @@ void mpr_link_start_queue(mpr_link link, mpr_time t)
     queue->bundle.udp = lo_bundle_new(t);
     queue->bundle.tcp = lo_bundle_new(t);
     queue->next = link->queues;
+    queue->locked = 0;
     link->queues = queue;
 }
 
@@ -137,22 +114,45 @@ void mpr_link_send_queue(mpr_link link, mpr_time t)
             break;
         queue = &(*queue)->next;
     }
-    if (*queue) {
+    RETURN_UNLESS(*queue);
+
+    (*queue)->locked = 1;
+
+    if (link->local_dev == link->remote_dev) {
+        lo_bundle b = (*queue)->bundle.udp;
+        // set out-of-band timestamp
+        mpr_dev_bundle_start(lo_bundle_get_timestamp(b), NULL);
+        // call handler directly instead of sending over the network
+        int i = 0, num = lo_bundle_count(b);
+        const char *path;
+        while (i < num) {
+            lo_message m = lo_bundle_get_message(b, i, &path);
+            // need to look up signal by path
+            mpr_rtr_sig rs = link->obj.graph->net.rtr->sigs;
+            while (rs) {
+                if (0 == strcmp(path, rs->sig->path)) {
+                    mpr_dev_handler(NULL, lo_message_get_types(m),
+                                    lo_message_get_argv(m),
+                                    lo_message_get_argc(m), m, (void*)rs->sig);
+                    break;
+                }
+                rs = rs->next;
+            }
+            ++i;
+        }
+    }
+    else {
         mpr_net n = &link->obj.graph->net;
-#ifdef HAVE_LIBLO_BUNDLE_COUNT
         if (lo_bundle_count((*queue)->bundle.udp))
-#endif
             lo_send_bundle_from(link->addr.udp, n->server.udp, (*queue)->bundle.udp);
         lo_bundle_free_recursive((*queue)->bundle.udp);
-#ifdef HAVE_LIBLO_BUNDLE_COUNT
         if (lo_bundle_count((*queue)->bundle.tcp))
-#endif
             lo_send_bundle_from(link->addr.tcp, n->server.tcp, (*queue)->bundle.tcp);
-        lo_bundle_free_recursive((*queue)->bundle.tcp);
-        mpr_queue temp = *queue;
-        *queue = (*queue)->next;
-        free(temp);
     }
+    lo_bundle_free_recursive((*queue)->bundle.tcp);
+    mpr_queue temp = *queue;
+    *queue = (*queue)->next;
+    free(temp);
 }
 
 static int cmp_qry_link_maps(const void *context_data, mpr_map map)

@@ -63,6 +63,7 @@ test/testexpression
 test/testgraph
 test/testinstance
 test/testlinear
+test/testlocalmap
 test/testmany
 test/testmapinput
 test/testmapprotocol

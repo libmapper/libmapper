@@ -28,6 +28,8 @@ extern const char* net_msg_strings[NUM_MSG_STRINGS];
 // prototypes
 void mpr_dev_start_servers(mpr_dev dev);
 
+mpr_time ts = {0,1};
+
 static int cmp_qry_linked(const void *ctx, mpr_dev dev)
 {
     mpr_dev self = *(mpr_dev*)ctx;
@@ -264,10 +266,22 @@ static inline int check_types(const mpr_type *types, int len, mpr_type type,
 static void call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
                          const void *val, mpr_time *time, float diff)
 {
+    // abort if signal is already being processed - might be a local loop
+    if (sig->loc->locked) {
+        trace_dev(sig->dev, "Mapping loop detected on signal %s! (2)\n",
+                  sig->name);
+        return;
+    }
     mpr_sig_update_timing_stats(sig, diff);
     mpr_sig_handler *h = sig->loc->handler;
     if (h && (evt & sig->loc->event_flags))
         h(sig, evt, inst, len, sig->type, val, *time);
+}
+
+int mpr_dev_bundle_start(lo_timetag t, void *data)
+{
+    mpr_time_set(&ts, t);
+    return 0;
 }
 
 /* Notes:
@@ -285,8 +299,8 @@ static void call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
  * - Multiple "samples" of a signal value may be packed into a single message
  * - In future updates, instance release may be triggered by expression eval
  */
-static int handler_sig(const char *path, const char *types, lo_arg **argv,
-                       int argc, lo_message msg, void *data)
+int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc,
+                    lo_message msg, void *data)
 {
     mpr_sig sig = (mpr_sig)data;
     mpr_dev dev;
@@ -298,7 +312,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     mpr_map map = 0;
     mpr_slot slot = 0;
 
-    TRACE_RETURN_UNLESS(sig && (dev = sig->dev), 0, "error in handler_sig, "
+    TRACE_RETURN_UNLESS(sig && (dev = sig->dev), 0, "error in mpr_dev_handler, "
                         "cannot retrieve user data\n");
     TRACE_DEV_RETURN_UNLESS(sig->num_inst, 0, "signal '%s' has no instances.\n",
                             sig->name);
@@ -312,24 +326,24 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     while (i < argc) {
         // Parse any attached properties (instance ids, slot number)
         TRACE_DEV_RETURN_UNLESS(types[i] == MPR_STR, 0, "error in "
-                                "handler_sig: unexpected argument type.\n")
+                                "mpr_dev_handler: unexpected argument type.\n")
         if (strcmp(&argv[i]->s, mpr_prop_as_str(PROP(INST), 0)) == 0
             && argc >= i + 2) {
             TRACE_DEV_RETURN_UNLESS(types[i+1] == MPR_INT64, 0, "error in "
-                                    "handler_sig: bad arguments for 'instance' prop.\n")
+                                    "mpr_dev_handler: bad arguments for 'instance' prop.\n")
             GID = argv[i+1]->i64;
             i += 2;
         }
         else if (strcmp(&argv[i]->s, mpr_prop_as_str(PROP(SLOT), 0)) == 0
                  && argc >= i + 2) {
             TRACE_DEV_RETURN_UNLESS(types[i+1] == MPR_INT32, 0, "error in "
-                                    "handler_sig: bad arguments for 'slot' prop.\n")
+                                    "mpr_dev_handler: bad arguments for 'slot' prop.\n")
             slot_idx = argv[i+1]->i32;
             i += 2;
         }
         else {
 #ifdef DEBUG
-            trace_dev(dev, "error in handler_sig: unknown property name '%s'.\n",
+            trace_dev(dev, "error in mpr_dev_handler: unknown property name '%s'.\n",
                       &argv[i]->s);
 #endif
             return 0;
@@ -339,12 +353,12 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     if (slot_idx >= 0) {
         // retrieve mapping associated with this slot
         slot = mpr_rtr_get_slot(dev->obj.graph->net.rtr, sig, slot_idx);
-        TRACE_DEV_RETURN_UNLESS(slot, 0, "error in handler_sig: slot %d not "
+        TRACE_DEV_RETURN_UNLESS(slot, 0, "error in mpr_dev_handler: slot %d not "
                                 "found.\n", slot_idx);
         map = slot->map;
         TRACE_DEV_RETURN_UNLESS(map->status >= MPR_STATUS_READY, 0, "error in "
-                                "handler_sig: mapping not yet ready.\n");
-        TRACE_DEV_RETURN_UNLESS(map->loc->expr, 0, "error in handler_sig: "
+                                "mpr_dev_handler: mapping not yet ready.\n");
+        TRACE_DEV_RETURN_UNLESS(map->loc->expr, 0, "error in mpr_dev_handler: "
                                 "missing expression.\n");
         if (map->process_loc == MPR_LOC_DST)
             vals = check_types(types, val_len, slot->sig->type, slot->sig->len);
@@ -362,7 +376,6 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
     // requires timebase sync for many-to-one mappings or local updates
     //    if (sig->discard_out_of_order && out_of_order(si->time, t))
     //        return 0;
-    lo_timetag t = lo_message_get_timestamp(msg);
 
     if (GID) {
         idmap_idx = mpr_sig_find_inst_with_GID(sig, GID, RELEASED_LOCALLY);
@@ -371,7 +384,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
             // Don't activate instance just to release it again
             RETURN_UNLESS(vals, 0);
             // otherwise try to init reserved/stolen instance with device map
-            idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, t);
+            idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, ts);
             TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no instances available"
                                     " for GUID %"PR_MPR_ID" (1)\n", GID);
         }
@@ -389,18 +402,18 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
             return 0;
         }
         TRACE_DEV_RETURN_UNLESS(sig->loc->idmaps[idmap_idx].inst, 0, "error in "
-                                "handler_sig: missing instance!\n");
+                                "mpr_dev_handler: missing instance!\n");
     }
     else {
         // use the first available instance
         idmap_idx = 0;
         if (!sig->loc->idmaps[0].inst)
-            idmap_idx = mpr_sig_get_inst_with_LID(sig, sig->loc->inst[0]->id, 1, t);
+            idmap_idx = mpr_sig_get_inst_with_LID(sig, sig->loc->inst[0]->id, 1, ts);
         RETURN_UNLESS(idmap_idx >= 0, 0);
     }
     mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
     int id = si->idx;
-    float diff = mpr_time_get_diff(t, si->time);
+    float diff = mpr_time_get_diff(ts, si->time);
     idmap = sig->loc->idmaps[idmap_idx].map;
 
     int size = mpr_type_get_size(slot ? slot->sig->type : sig->type);
@@ -417,11 +430,11 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
                 --idmap->GID_refcount;
                 if (idmap->GID_refcount <= 0 && idmap->LID_refcount <= 0)
                     mpr_dev_remove_idmap(dev, sig->loc->group, idmap);
-                call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
+                call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &ts, diff);
             }
             /* Do not call mpr_rtr_process_sig() here, since we don't know if
              * the local signal instance will actually be released. */
-            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
+            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &ts, diff);
             if (map->process_loc != MPR_LOC_DST)
                 return 0;
             /* Reset memory for corresponding source slot. */
@@ -432,7 +445,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
         }
         else if (vals != slot->sig->len) {
 #ifdef DEBUG
-            trace_dev(dev, "error in handler_sig: partial vector update "
+            trace_dev(dev, "error in mpr_dev_handler: partial vector update "
                       "applied to convergent mapping slot.");
 #endif
             return 0;
@@ -456,11 +469,11 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
                                       % slot_loc->hist[id].mem);
             memcpy(mpr_hist_get_val_ptr(slot_loc->hist[id]), argv[0],
                    size * slot->sig->len);
-            memcpy(mpr_hist_get_time_ptr(slot_loc->hist[id]), &t, sizeof(mpr_time));
+            memcpy(mpr_hist_get_time_ptr(slot_loc->hist[id]), &ts, sizeof(mpr_time));
             if (!slot->causes_update)
                 continue;
 
-            if (!mpr_map_perform(map, typestring, &t, id))
+            if (!mpr_map_perform(map, typestring, &ts, id))
                 continue;
 
             // TODO: check if expression has triggered instance-release
@@ -480,21 +493,24 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
                 if (GID) {
                     sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
                     --idmap->GID_refcount;
-                    call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
+                    call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &ts, diff);
                 }
                 /* Do not call mpr_rtr_process_sig() here, since we don't know
                  * if the local signal instance will actually be released. */
-                call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
+                call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &ts, diff);
                 continue;
             }
             if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len / 8 + 1)==0)
                 si->has_val = 1;
             if (si->has_val) {
-                memcpy(&si->time, &t, sizeof(mpr_time));
-                if (!(sig->dir & MPR_DIR_OUT))
-                    mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, t);
+                memcpy(&si->time, &ts, sizeof(mpr_time));
                 call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
-                             si->val, &t, diff);
+                             si->val, &ts, diff);
+                if (si->active) {
+                    // TODO: only call next line if sig was not updated in handler
+                    if (!(sig->dir & MPR_DIR_OUT))
+                        mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);
+                }
             }
 
             if (!all)
@@ -506,11 +522,11 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
             if (GID) {
                 sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
                 --idmap->GID_refcount;
-                call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &t, diff);
+                call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &ts, diff);
             }
             /* Do not call mpr_rtr_process_sig() here, since we don't know if
              * the local signal instance will actually be released. */
-            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &t, diff);
+            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, 0, 0, &ts, diff);
             return 0;
         }
         for (i = 0; i < sig->len; i++) {
@@ -523,11 +539,15 @@ static int handler_sig(const char *path, const char *types, lo_arg **argv,
             si->has_val = 1;
         }
         if (si->has_val) {
-            memcpy(&si->time, &t, sizeof(mpr_time));
-            if (!(sig->dir & MPR_DIR_OUT))
-                mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, t);
+            memcpy(&si->time, &ts, sizeof(mpr_time));
             call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
-                         si->val, &t, diff);
+                         si->val, &ts, diff);
+            // check if instance was released
+            if (si->active) {
+                // TODO: only call next line if sig was not updated in handler
+                if (!(sig->dir & MPR_DIR_OUT))
+                    mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);
+            }
         }
     }
     return 0;
@@ -558,7 +578,7 @@ void mpr_dev_add_sig_methods(mpr_dev dev, mpr_sig sig)
 {
     RETURN_UNLESS(sig && sig->loc);
     mpr_net net = &dev->obj.graph->net;
-    DEV_SERVER_FUNC(add_method, sig->path, NULL, handler_sig, (void*)sig);
+    DEV_SERVER_FUNC(add_method, sig->path, NULL, mpr_dev_handler, (void*)sig);
     ++dev->loc->n_output_callbacks;
 }
 
@@ -837,6 +857,9 @@ void mpr_dev_start_servers(mpr_dev dev)
     // Disable liblo message queueing
     DEV_SERVER_FUNC(enable_queue, 0, 1);
 
+    // Add bundle handlers
+    DEV_SERVER_FUNC(add_bundle_handlers, mpr_dev_bundle_start, NULL, (void*)dev);
+
     int portnum = lo_server_get_port(net->server.udp);
     mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum,
                 NON_MODIFIABLE);
@@ -857,7 +880,8 @@ void mpr_dev_start_servers(mpr_dev dev)
         mpr_sig sig = (mpr_sig)*sigs;
         sigs = mpr_list_get_next(sigs);
         if (sig->loc->handler)
-            DEV_SERVER_FUNC(add_method, sig->path, NULL, handler_sig, (void*)sig);
+            DEV_SERVER_FUNC(add_method, sig->path, NULL, mpr_dev_handler,
+                            (void*)sig);
     }
 }
 

@@ -330,6 +330,7 @@ typedef struct _mpr_local_sig
                                      *  instance event handler. */
 
     mpr_sig_group group;
+    uint8_t locked;
 } mpr_local_sig_t, *mpr_local_sig;
 
 /*! A record that describes properties of a signal. */
@@ -367,6 +368,7 @@ typedef struct _mpr_queue {
         lo_bundle tcp;
     } bundle;
     struct _mpr_queue *next;
+    uint8_t locked;
 } *mpr_queue;
 
 typedef struct _mpr_link {

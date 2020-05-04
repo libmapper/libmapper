@@ -9,8 +9,8 @@ TEST_LDADD = $(top_builddir)/src/libmpr.la $(liblo_LIBS)
 endif
 
 noinst_PROGRAMS = test testcalibrate testconvergent testcpp testcustomtransport\
-                  testexpression testgraph testinstance testlinear testmany    \
-                  testmapinput testmapprotocol testmonitor testnetwork         \
+                  testexpression testgraph testinstance testlinear testlocalmap\
+                  testmany testmapinput testmapprotocol testmonitor testnetwork\
                   testparams testparser testprops testqueue testrate           \
                   testreverse testsignals testspeed testunmap testvector
 
@@ -18,7 +18,7 @@ test_all_ordered = testparams testprops testgraph testparser testnetwork       \
                    testmany test testlinear testexpression testqueue testrate  \
                    testinstance testreverse testvector testcustomtransport     \
                    testspeed testcpp testmapinput testconvergent testunmap     \
-                   testmapprotocol testcalibrate
+                   testmapprotocol testcalibrate testlocalmap
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -55,6 +55,10 @@ testinstance_LDADD = $(TEST_LDADD)
 testlinear_CFLAGS = $(TEST_CFLAGS)
 testlinear_SOURCES = testlinear.c
 testlinear_LDADD = $(TEST_LDADD)
+
+testlocalmap_CFLAGS = $(TEST_CFLAGS)
+testlocalmap_SOURCES = testlocalmap.c
+testlocalmap_LDADD = $(TEST_LDADD)
 
 testmany_CFLAGS = $(TEST_CFLAGS)
 testmany_SOURCES = testmany.c
