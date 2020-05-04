@@ -31,8 +31,8 @@ while not map1.ready or not map2.ready:
 for i in range(50):
     now = src.start_queue()
     print('Updating output signals to', i, 'at time', now.get_double())
-    outsig1.set_value(i)
-    outsig2.set_value(i)
+    outsig1.set_value(i, now)
+    outsig2.set_value(i, now)
     src.send_queue(now)
     dest.poll(100)
     src.poll(0)

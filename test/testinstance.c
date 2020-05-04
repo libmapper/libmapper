@@ -170,6 +170,16 @@ void print_instance_vals(mpr_sig sig)
     eprintf("]   ");
 }
 
+void release_active_instances(mpr_sig sig)
+{
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE);
+    for (i = 0; i < n; i++) {
+        mpr_sig_release_inst(sig,
+                             mpr_sig_get_inst_id(multisend, 0, MPR_STATUS_ACTIVE),
+                             MPR_NOW);
+    }
+}
+
 void loop()
 {
     eprintf("-------------------- GO ! --------------------\n");
@@ -291,12 +301,7 @@ int main(int argc, char **argv)
     stats[0] = sent;
     stats[1] = received;
 
-    j = mpr_sig_get_num_inst(multisend, MPR_STATUS_ALL);
-    for (i = 0; i < j; i++) {
-        mpr_sig_release_inst(multisend,
-                             mpr_sig_get_inst_id(multisend, i, MPR_STATUS_ALL),
-                             MPR_NOW);
-    }
+    release_active_instances(multisend);
     sent = received = 0;
 
     eprintf("\n**********************************************\n");
@@ -311,12 +316,7 @@ int main(int argc, char **argv)
     stats[2] = sent;
     stats[3] = received;
 
-    j = mpr_sig_get_num_inst(multisend, MPR_STATUS_ALL);
-    for (i = 0; i < j; i++) {
-        mpr_sig_release_inst(multisend,
-                             mpr_sig_get_inst_id(multisend, i, MPR_STATUS_ALL),
-                             MPR_NOW);
-    }
+    release_active_instances(multisend);
     sent = received = 0;
 
     eprintf("\n**********************************************\n");
@@ -333,12 +333,7 @@ int main(int argc, char **argv)
     stats[4] = sent;
     stats[5] = received;
 
-    j = mpr_sig_get_num_inst(multisend, MPR_STATUS_ALL);
-    for (i = 0; i < j; i++) {
-        mpr_sig_release_inst(multisend,
-                             mpr_sig_get_inst_id(multisend, i, MPR_STATUS_ALL),
-                             MPR_NOW);
-    }
+    release_active_instances(multisend);
     sent = received = 0;
 
     // allow time for change to take effect
@@ -354,7 +349,7 @@ int main(int argc, char **argv)
     // both source signals belong to the same device
     mpr_sig srcs[2] = {multisend, monosend};
     map = mpr_map_new(2, srcs, 1, &multirecv);
-    expr = "y = x0 * x1";
+    expr = "y = x0 + x1";
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push((mpr_obj)map);
 
@@ -371,12 +366,7 @@ int main(int argc, char **argv)
     stats[6] = sent;
     stats[7] = received;
 
-    j = mpr_sig_get_num_inst(multisend, MPR_STATUS_ALL);
-    for (i = 0; i < j; i++) {
-        mpr_sig_release_inst(multisend,
-                             mpr_sig_get_inst_id(multisend, i, MPR_STATUS_ALL),
-                             MPR_NOW);
-    }
+    release_active_instances(multisend);
     sent = received = 0;
 
     eprintf("\n**********************************************\n");
@@ -411,10 +401,10 @@ int main(int argc, char **argv)
     result += stats[4] != stats[5];
     eprintf("SRC-SIDE MIXED INSTANCING: sent %i updates, received %i updates.\n",
             stats[6], stats[7]);
-    result += stats[6] > stats[7];
+    result += stats[6] >= stats[7];
     eprintf("DST-SIDE MIXED INSTANCING: sent %i updates, received %i updates.\n",
             stats[8], stats[9]);
-    result += stats[8] > stats[9];
+    result += stats[8] >= stats[9];
 
   done:
     cleanup_dst();

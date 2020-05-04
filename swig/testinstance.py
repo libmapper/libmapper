@@ -6,7 +6,7 @@ import sys, mpr, random
 def h(sig, event, id, val, timetag):
     try:
         print('--> destination instance', id, 'got', val)
-        if not val:
+        if val is None:
             print('retiring destination instance', id)
             sig.release_instance(id)
     except:

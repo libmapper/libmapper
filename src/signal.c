@@ -773,14 +773,10 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
     int i, j = 0;
+    status = status & MPR_STATUS_ACTIVE ? 1 : 0;
     for (i = 0; i < sig->num_inst; i++) {
-        if (sig->loc->inst[i]->active) {
-            if (!(status & MPR_STATUS_ACTIVE))
-                continue;
-        }
-        else if (!(status & MPR_STATUS_RESERVED))
-            continue;
-        ++j;
+        if (sig->loc->inst[i]->active == status)
+            ++j;
     }
     return j;
 }
@@ -789,12 +785,9 @@ mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
     int i, j = -1;
+    status = status & MPR_STATUS_ACTIVE ? 1 : 0;
     for (i = 0; i < sig->num_inst; i++) {
-        if (sig->loc->inst[i]->active) {
-            if (!(status & MPR_STATUS_ACTIVE))
-                continue;
-        }
-        else if (!(status & MPR_STATUS_RESERVED))
+        if (sig->loc->inst[i]->active != status)
             continue;
         if (++j == idx)
             return sig->loc->inst[i]->id;
