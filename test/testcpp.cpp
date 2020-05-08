@@ -147,10 +147,13 @@ int main(int argc, char ** argv)
     out << "  port: " << dev["port"] << std::endl;
     out << "  num_inputs: " << dev.signals(MPR_DIR_IN).size() << std::endl;
     out << "  num_outputs: " << dev.signals(MPR_DIR_OUT).size() << std::endl;
-    out << "  num_incoming_maps: " << dev.signals().maps(MPR_DIR_IN).size()
-        << std::endl;
-    out << "  num_outgoing_maps: " << dev.signals().maps(MPR_DIR_OUT).size()
-        << std::endl;
+    int num_incoming_maps = 0, num_outgoing_maps = 0;
+    for (Signal s : dev.signals()) {
+        num_incoming_maps += s.maps(MPR_DIR_IN).size();
+        num_outgoing_maps += s.maps(MPR_DIR_OUT).size();
+    }
+    out << "  num_incoming_maps: " << num_incoming_maps << std::endl;
+    out << "  num_outgoing_maps: " << num_outgoing_maps << std::endl;
 
     int value[] = {1,2,3,4,5,6};
     dev.set_prop("foo", 6, value);
@@ -219,7 +222,7 @@ int main(int argc, char ** argv)
 
     out << "signal: " << sig << std::endl;
 
-    Signal::List qsig = dev.signals(MPR_DIR_IN);
+    List<Signal> qsig = dev.signals(MPR_DIR_IN);
     qsig.begin();
     for (; qsig != qsig.end(); ++qsig) {
         out << "  input: " << *qsig << std::endl;
@@ -244,14 +247,14 @@ int main(int argc, char ** argv)
 
     // try retrieving linked devices
     out << "devices linked to " << dev << ":" << std::endl;
-    Device::List foo = dev[MPR_PROP_LINKED];
+    List<Device> foo = dev[MPR_PROP_LINKED];
     for (; foo != foo.end(); foo++) {
         out << "  " << *foo << std::endl;
     }
 
     // try combining queries
     out << "devices with name matching 'my*' AND >=0 inputs" << std::endl;
-    Device::List qdev = graph.devices();
+    List<Device> qdev = graph.devices();
     qdev.filter(Property(MPR_PROP_NAME, "my*"), MPR_OP_EQ);
     qdev.filter(Property(MPR_PROP_NUM_SIGS_IN, 0), MPR_OP_GTE);
     for (; qdev != qdev.end(); qdev++) {

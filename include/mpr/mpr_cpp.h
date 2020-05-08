@@ -47,36 +47,12 @@ protected:                                                                  \
 public:                                                                     \
     template <typename... Values>                                           \
     CLASS_NAME& set_prop(Values... vals)                                    \
-        { RETURN_SELF(Object::set_prop(vals...)); }                          \
+        { RETURN_SELF(Object::set_prop(vals...)); }                         \
     template <typename T>                                                   \
     CLASS_NAME& remove_prop(T prop)                                         \
         { RETURN_SELF(Object::remove_prop(prop)); }                         \
     const CLASS_NAME& push() const                                          \
         { RETURN_SELF(Object::push()); }                                    \
-
-#define LIST_METHODS(CLASS_NAME)                                            \
-public:                                                                     \
-    List(mpr_list obj) : mpr::List(obj) {}                                  \
-    List(const List& orig)  : mpr::List(orig) {}                            \
-    CLASS_NAME operator*()                                                  \
-        { return CLASS_NAME(*_list); }                                      \
-    /*! Retrieve an indexed item in the List.                            */ \
-    /*  \param idx           The index of the element to retrieve.       */ \
-    /*  \return              The retrieved Object.                       */ \
-    CLASS_NAME operator [] (int idx)                                        \
-        { return CLASS_NAME(mpr_list_get_idx(_list, idx)); }                \
-    /*! Convert this List to a std::vector of CLASS_NAME.                */ \
-    /*  \return              The converted List results.                 */ \
-    virtual operator std::vector<CLASS_NAME>() const                        \
-    {                                                                       \
-        std::vector<CLASS_NAME> vec;                                        \
-        mpr_list cpy = mpr_list_get_cpy(_list);                             \
-        while (cpy) {                                                       \
-            vec.push_back(CLASS_NAME(*cpy));                                \
-            cpy = mpr_list_get_next(cpy);                                   \
-        }                                                                   \
-        return vec;                                                         \
-    }                                                                       \
 
 namespace mpr {
 
@@ -180,6 +156,7 @@ namespace mpr {
 
     /*! List objects provide a lazily-computed iterable list of results
      *  from running queries against a mpr::Graph. */
+    template <class T>
     class List
     {
     public:
@@ -310,6 +287,28 @@ namespace mpr {
         template <typename... Values>
         List& set_prop(Values... vals);
 
+        T operator*()
+            { return T(*_list); }
+
+        /*! Retrieve an indexed item in the List.
+         *  \param idx           The index of the element to retrieve.
+         *  \return              The retrieved Object. */
+        T operator [] (int idx)
+            { return T(mpr_list_get_idx(_list, idx)); }
+
+        /*! Convert this List to a std::vector of CLASS_NAME.
+         *  \return              The converted List results. */
+        virtual operator std::vector<T>() const
+        {
+            std::vector<T> vec;
+            mpr_list cpy = mpr_list_get_cpy(_list);
+            while (cpy) {
+                vec.push_back(T(*cpy));
+                cpy = mpr_list_get_next(cpy);
+            }
+            return vec;
+        }
+
     protected:
         mpr_list _list;
     };
@@ -326,7 +325,9 @@ namespace mpr {
 
         Object(mpr_obj obj) { _obj = obj; }
 
-        friend class List;
+        friend class List<Device>;
+        friend class List<Signal>;
+        friend class List<Map>;
         friend class Property;
         void set_prop(Property *p);
 
@@ -515,10 +516,10 @@ namespace mpr {
             { return mpr_map_get_is_ready(_obj); }
 
 //        /*! Get the scopes property for a this map.
-//         *  \return       A Device::List containing the list of results.  Use
-//         *                Device::List::next() to iterate. */
-//        Device::List scopes() const
-//            { return Device::List((void**)mpr_map_scopes(_obj)); }
+//         *  \return       A List containing the list of results.  Use
+//         *                List::next() to iterate. */
+//        List<Device> scopes() const
+//            { return List<Device>((void**)mpr_map_scopes(_obj)); }
 
         /*! Add a scope to this Map. Map scopes configure the propagation of
          *  Signal updates across the Map. Changes will not take effect until
@@ -550,30 +551,10 @@ namespace mpr {
          *  \param loc      MPR_LOC_SRC for source signals for this Map,
          *                  MPR_LOC_DST for destinations, or MPR_LOC_ANY for both.
          *  \return         A List of Signals. */
-        // TODO: would be nice to return Signal::List here but there is a circular dependency
-        List signals(mpr_loc loc=MPR_LOC_ANY) const
-            { return List(mpr_map_get_sigs(_obj, loc)); }
+        List<Signal> signals(mpr_loc loc=MPR_LOC_ANY) const
+            { return List<Signal>(mpr_map_get_sigs(_obj, loc)); }
 
         OBJ_METHODS(Map);
-
-        class List : public mpr::List
-        {
-            LIST_METHODS(Map);
-
-            /*! Release each Map in the List.
-             *  \return             Self. */
-            List& release()
-            {
-                // use a copy
-                mpr_list cpy = mpr_list_get_cpy(_list);
-                while (cpy) {
-                    if (MPR_MAP == mpr_obj_get_type(*cpy))
-                        mpr_map_release((mpr_map)*cpy);
-                    cpy = mpr_list_get_next(cpy);
-                }
-                return (*this);
-            }
-        };
 
     protected:
         friend class Graph;
@@ -595,8 +576,8 @@ namespace mpr {
         operator bool() const
             { return _obj ? true : false; }
         inline Device device() const;
-        Map::List maps(mpr_dir dir=MPR_DIR_ANY) const
-            { return Map::List(mpr_sig_get_maps(_obj, dir)); }
+        List<Map> maps(mpr_dir dir=MPR_DIR_ANY) const
+            { return List<Map>(mpr_sig_get_maps(_obj, dir)); }
 
         /* Value update functions*/
         Signal& set_value(int *val, int len, Time time)
@@ -724,28 +705,6 @@ namespace mpr {
             { return mpr_sig_get_num_inst(_obj, status); }
 
         OBJ_METHODS(Signal);
-
-        class List : public mpr::List
-        {
-            LIST_METHODS(Signal);
-
-            /*! Build a new list of maps touched by any signal in the list
-             *  \return             A list of maps. */
-            Map::List maps(mpr_dir dir=MPR_DIR_ANY) const
-            {
-                // use a copy
-                mpr_list cpy = mpr_list_get_cpy(_list);
-                mpr_list temp, maps = NULL;
-                while (cpy) {
-                    if (MPR_SIG == mpr_obj_get_type(*cpy)) {
-                        temp = mpr_sig_get_maps((mpr_sig)*cpy, dir);
-                        maps = mpr_list_get_union(maps, temp);
-                    }
-                    cpy = mpr_list_get_next(cpy);
-                }
-                return Map::List(maps);
-            }
-        };
     };
 
     /*! A Device is an entity on the network which has input and/or output
@@ -807,8 +766,8 @@ namespace mpr {
         Device& remove_sig(Signal& sig)
             { RETURN_SELF(mpr_sig_free(sig)); }
 
-        Signal::List signals(mpr_dir dir=MPR_DIR_ANY) const
-            { return Signal::List(mpr_dev_get_sigs(_obj, dir)); }
+        List<Signal> signals(mpr_dir dir=MPR_DIR_ANY) const
+            { return List<Signal>(mpr_dev_get_sigs(_obj, dir)); }
 
         int poll(int block_ms=0) const
             { return mpr_dev_poll(_obj, block_ms); }
@@ -821,9 +780,6 @@ namespace mpr {
             { RETURN_SELF(mpr_dev_send_queue(_obj, *time)); }
 
         OBJ_METHODS(Device);
-
-        class List : public mpr::List
-            { LIST_METHODS(Device); };
     };
 
     class device_type {
@@ -971,16 +927,16 @@ namespace mpr {
             { RETURN_SELF(mpr_graph_print(_graph)); }
 
         // graph devices
-        Device::List devices() const
-            { return Device::List(mpr_graph_get_objs(_graph, MPR_DEV)); }
+        List<Device> devices() const
+            { return List<Device>(mpr_graph_get_objs(_graph, MPR_DEV)); }
 
         // graph signals
-        Signal::List signals() const
-            { return Signal::List(mpr_graph_get_objs(_graph, MPR_SIG)); }
+        List<Signal> signals() const
+            { return List<Signal>(mpr_graph_get_objs(_graph, MPR_SIG)); }
 
         // graph maps
-        Map::List maps() const
-            { return Map::List(mpr_graph_get_objs(_graph, MPR_MAP)); }
+        List<Map> maps() const
+            { return List<Map>(mpr_graph_get_objs(_graph, MPR_MAP)); }
 
     private:
         mpr_graph _graph;
@@ -1116,13 +1072,11 @@ namespace mpr {
             }
             return temp_v;
         }
-        operator List() const
+        operator List<Device>() const
             { return (type == MPR_LIST) ? (mpr_list)val : NULL; }
-        operator Device::List() const
+        operator List<Signal>() const
             { return (type == MPR_LIST) ? (mpr_list)val : NULL; }
-        operator Signal::List() const
-            { return (type == MPR_LIST) ? (mpr_list)val : NULL; }
-        operator Map::List() const
+        operator List<Map>() const
             { return (type == MPR_LIST) ? (mpr_list)val : NULL; }
 
         mpr_prop prop;
@@ -1223,7 +1177,7 @@ namespace mpr {
             if (len == 1)
                 val = strdup(_vals[0]);
             else if (len > 1) {
-                    // need to copy string array
+                // need to copy string array
                 val = (char**)malloc(sizeof(char*) * len);
                 for (unsigned int i = 0; i < len; i++)
                     ((char**)val)[i] = strdup((char*)_vals[i]);
@@ -1238,7 +1192,7 @@ namespace mpr {
             if (len == 1)
                 val = strdup(_vals[0].c_str());
             else if (len > 1) {
-                    // need to copy string array
+                // need to copy string array
                 val = (char**)malloc(sizeof(char*) * len);
                 for (unsigned int i = 0; i < len; i++)
                     ((char**)val)[i] = strdup((char*)_vals[i].c_str());
@@ -1252,7 +1206,7 @@ namespace mpr {
             if (len == 1)
                 val = strdup(_vals[0].c_str());
             else if (len > 1) {
-                    // need to copy string array
+                // need to copy string array
                 val = malloc(sizeof(char*) * len);
                 for (unsigned int i = 0; i < len; i++)
                     ((char**)val)[i] = strdup((char*)_vals[i].c_str());
@@ -1283,7 +1237,7 @@ namespace mpr {
             if (len == 1)
                 val = strdup(_val[0].c_str());
             else if (len > 1) {
-                    // need to copy string array
+                // need to copy string array
                 val = malloc(sizeof(char*) * len);
                 for (unsigned int i = 0; i < len; i++)
                     ((char**)val)[i] = strdup((char*)_val[i].c_str());
@@ -1338,7 +1292,8 @@ namespace mpr {
     Property Object::operator [] (mpr_prop prop) const
         { return property(prop); }
 
-    List::operator std::vector<Object>() const
+    template <class T>
+    List<T>::operator std::vector<Object>() const
     {
         std::vector<Object> vec;
         mpr_list cpy = mpr_list_get_cpy(_list);
@@ -1349,14 +1304,16 @@ namespace mpr {
         return vec;
     }
 
-    List& List::filter(const Property& p, mpr_op op)
+    template <class T>
+    List<T>& List<T>::filter(const Property& p, mpr_op op)
     {
         _list = mpr_list_filter(_list, p.prop, p.key, p.len, p.type, p.val, op);
         return (*this);
     }
 
+    template <class T>
     template <typename... Values>
-    List& List::set_prop(Values... vals)
+    List<T>& List<T>::set_prop(Values... vals)
     {
         Property p(vals...);
         if (!p)
@@ -1388,9 +1345,6 @@ namespace mpr {
 
     Map& Map::remove_scope(Device& dev)
         { RETURN_SELF(mpr_map_remove_scope(_obj, mpr_dev(dev))); }
-
-    // Signal::List Map::signals(mpr_loc loc=MPR_LOC_ANY) const
-    //     { return Signal::List(mpr_map_get_sigs(_obj, loc)); }
 
     Device Signal::device() const
         { return Device(mpr_sig_get_dev(_obj)); }
