@@ -237,6 +237,7 @@ static void _init_inst(mpr_sig_inst si)
 {
     si->has_val = 0;
     mpr_time_set(&si->created, MPR_NOW);
+    mpr_time_set(&si->time, si->created);
 }
 
 static int _find_inst_with_LID(mpr_sig s, mpr_id LID, int flags)
@@ -659,8 +660,11 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
                 RETURN_UNLESS(((double*)val)[i] == ((double*)val)[i]);
         }
     }
+    int send_queue = 1;
     if (mpr_time_get_is_now(&time))
         mpr_time_set(&time, MPR_NOW);
+    else if (len == sig->len || mpr_dev_has_queue(sig->dev, time))
+        send_queue = 0;
 
     int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time);
     RETURN_UNLESS(idx >= 0);
@@ -668,25 +672,41 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
     mpr_sig_inst si = sig->loc->idmaps[idx].inst;
     void *coerced = (void*)val;
 
-    // TODO: if len > sig->len, start nested bundle
-
-    if (len && val) {
-        if (type != sig->type) {
-            coerced = alloca(mpr_type_get_size(sig->type) * len);
-            set_coerced_val(len, type, val, len, sig->type, coerced);
-        }
-        // need to copy last value to signal instance memory
-        size_t n = mpr_sig_get_vector_bytes(sig);
-        memcpy(si->val, coerced + n * (len - sig->len), n);
-        si->has_val = 1;
-    }
-    else
-        si->has_val = 0;
-
-    float diff = mpr_time_get_diff(time, si->time);
+    // update timing statistics
+    double diff = mpr_time_get_diff(time, si->time);
     memcpy(&si->time, &time, sizeof(mpr_time));
     mpr_sig_update_timing_stats(sig, diff);
-    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, coerced, si->time);
+
+    if (!len || !val) {
+        si->has_val = 0;
+        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, coerced, si->time);
+        return;
+    }
+
+    size_t n = mpr_type_get_size(type) * len, m = mpr_sig_get_vector_bytes(sig);
+
+    // send the update(s)
+    if (type != sig->type) {
+        coerced = alloca(m);
+        set_coerced_val(sig->len, type, val, sig->len, sig->type, coerced);
+    }
+    if (send_queue)
+        mpr_dev_start_queue(sig->dev, time);
+    while (len) {
+        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, coerced, si->time);
+        len -= sig->len;
+        if (0 >= len) {
+            // copy last value to signal instance memory
+            memcpy(si->val, coerced, m);
+            si->has_val = 1;
+        }
+        else if (type != sig->type)
+            set_coerced_val(sig->len, type, val + n, sig->len, sig->type, coerced);
+        else
+            coerced += m;
+    }
+    if (send_queue)
+        mpr_dev_send_queue(sig->dev, time);
 }
 
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id, mpr_time time)
@@ -766,6 +786,10 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
         time->sec = si->time.sec;
         time->frac = si->time.frac;
     }
+    mpr_time now;
+    mpr_time_set(&now, MPR_NOW);
+    double diff = mpr_time_get_diff(now, si->time);
+    mpr_sig_update_timing_stats(sig, diff);
     return si->val;
 }
 

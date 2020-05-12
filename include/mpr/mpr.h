@@ -238,9 +238,8 @@ void mpr_sig_free(mpr_sig sig);
  *                      length property.
  *  \param time         The time at which the value update was aquired. If NULL,
  *                      libmpr will tag the value update with the current
- *                      time.  See mpr_dev_start_queue() for more
- *                      information on bundling multiple signal updates with the
- *                      same time. */
+ *                      time.  See mpr_dev_start_queue() for more information on
+ *                      bundling multiple signal updates with the same time. */
 void mpr_sig_set_value(mpr_sig sig, mpr_id inst, int length, mpr_type type,
                        const void *value, mpr_time time);
 

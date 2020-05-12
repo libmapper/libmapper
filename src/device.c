@@ -296,7 +296,6 @@ int mpr_dev_bundle_start(lo_timetag t, void *data)
  *   instance within the network of libmpr devices
  * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
  *   are indicated using the label "@slot" followed by a single integer slot #
- * - Multiple "samples" of a signal value may be packed into a single message
  * - In future updates, instance release may be triggered by expression eval
  */
 int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc,
@@ -748,6 +747,17 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
 
     net->msgs_recvd |= admin_count;
     return admin_count + device_count;
+}
+
+int mpr_dev_has_queue(mpr_dev dev, mpr_time t)
+{
+    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
+    while (links) {
+        if (mpr_link_has_queue((mpr_link)*links, t))
+            return 1;
+        links = mpr_list_get_next(links);
+    }
+    return 0;
 }
 
 // Function to start a signal update queue

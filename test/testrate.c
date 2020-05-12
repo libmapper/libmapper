@@ -27,6 +27,8 @@ mpr_sig recvsig = 0;
 int sent = 0;
 int received = 0;
 
+int count = 0;
+float expected[10];
 float period;
 
 /*! Creation of a local source. */
@@ -63,13 +65,19 @@ void cleanup_src()
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int len,
              mpr_type type, const void *val, mpr_time t)
 {
-    ++received;
     if (!val)
         return;
 
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
-    eprintf("%s rec'ved (period: %f, jitter: %f, diff:%f)\n", name, sig->period,
-            sig->jitter, period - sig->period);
+    eprintf("%s rec'ved %f (period: %f, jitter: %f, diff: %f)\n", name,
+            *(float*)val, sig->period, sig->jitter, period - sig->period);
+    if (*(float*)val == expected[count])
+        ++received;
+    else
+        eprintf("  expected %f\n", expected[count]);
+    ++count;
+    if (count >= 10)
+        count = 0;
 }
 
 /*! Creation of a local destination. */
@@ -135,11 +143,13 @@ int setup_maps()
 
 void loop()
 {
-    int i = 0, thresh = 0;
+    int i = 0, j = 0, thresh = 0;
 
-    float phasor[10];
-    for (i=0; i<10; i++)
-        phasor[i] = i;
+    float vector[10];
+    for (i=0; i<10; i++) {
+        vector[i] = i;
+        expected[i] = vector[i] * 0.1;
+    }
 
     i = 0;
     while ((!terminate || i < 50) && !done) {
@@ -148,14 +158,17 @@ void loop()
         // 10 times a second, we provide 10 samples, making a
         // periodically-sampled signal of 100 Hz.
         if (rand() % 200 > thresh) {
-            mpr_sig_set_value(sendsig, 0, 10, MPR_FLT, phasor, MPR_NOW);
-            eprintf("Sending (period: %f; jitter: %f)\n", sendsig->period,
-                    sendsig->jitter);
+            mpr_sig_set_value(sendsig, 0, 10, MPR_FLT, vector, MPR_NOW);
+            eprintf("Sending update (period: %f; jitter: %f)\n",
+                    sendsig->period, sendsig->jitter);
             period = sendsig->period;
             ++sent;
         }
 
         mpr_dev_poll(dst, polltime);
+        j = i % 10;
+        ++vector[j];
+        expected[j] = vector[j] * 0.1;
         ++i;
 
         if (!verbose) {
@@ -232,7 +245,7 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (sent != received) {
+    if (received != sent * 10) {
         eprintf("Not all sent messages were received.\n");
         eprintf("Updated value %d time%s, but received %d of them.\n",
                 sent, sent == 1 ? "" : "s", received);

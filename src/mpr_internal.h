@@ -75,6 +75,8 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
 int mpr_dev_bundle_start(lo_timetag t, void *data);
 
+int mpr_dev_has_queue(mpr_dev dev, mpr_time t);
+
 /**** Networking ****/
 
 void mpr_net_add_dev(mpr_net n, mpr_dev d);
@@ -261,6 +263,19 @@ void mpr_link_send_queue(mpr_link link, mpr_time t);
 mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2);
 
 int mpr_link_get_is_local(mpr_link link);
+
+inline static int mpr_link_has_queue(mpr_link link, mpr_time t)
+{
+    RETURN_UNLESS(link, 0);
+    // check if queue already exists
+    mpr_queue q = link->queues;
+    while (q) {
+        if (memcmp(&q->time, &t, sizeof(mpr_time))==0)
+            return 1;
+        q = q->next;
+    }
+    return 0;
+}
 
 /**** Maps ****/
 
