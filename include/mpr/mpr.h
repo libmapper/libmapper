@@ -38,9 +38,10 @@ mpr_type mpr_obj_get_type(mpr_obj obj);
  *  \return             The number of properties stored in the table. */
 int mpr_obj_get_num_props(mpr_obj obj, int staged);
 
-/*! Look up a property by index of symbolic identifier.
+/*! Look up a property by index or one of the symbolic identifiers listed in
+ * mpr_constants.h.
  *  \param obj          The object to check.
- *  \param prop         Symbolic identifier of the property to retrieve.
+ *  \param prop         Index or symbolic identifier of the property to retrieve.
  *  \param key          A pointer to a location to receive the name of the
  *                      property value (Optional, pass 0 to ignore).
  *  \param len          A pointer to a location to receive the vector length of
@@ -71,20 +72,97 @@ mpr_prop mpr_obj_get_prop_by_idx(mpr_obj obj, mpr_prop prop, const char **key,
 mpr_prop mpr_obj_get_prop_by_key(mpr_obj obj, const char *key, int *length,
                                  mpr_type *type, const void **value, int *pub);
 
+/*! Look up a property by symbolic identifier or name and return as an integer
+ *  if possible. Since the returned value cannot represent a missing property it
+ *  is recommended that this function only be used to recover properties that
+ *  are guaranteed to exist and have a compatible type.
+ *  \param obj          The object to check.
+ *  \param prop         The symbolic identifier of the property to recover. Can
+ *                      be set to MPR_UNKNOWN or MPR_EXTRA to specify the
+ *                      property by name instead.
+ *  \param key          A string identifier (name) for the property. Only used
+ *                      if the 'prop' argument is set to MPR_UNKNOWN or
+ *                      MPR_EXTRA.
+ *  \return             Value of the property cast to integer type, or zero
+ *                      if the property does not exist or can't be cast. */
 int mpr_obj_get_prop_as_int32(mpr_obj obj, mpr_prop prop, const char *key);
 
+/*! Look up a property by symbolic identifier or name and return as a float
+ *  if possible. Since the returned value cannot represent a missing property it
+ *  is recommended that this function only be used to recover properties that
+ *  are guaranteed to exist and have a compatible type.
+ *  \param obj          The object to check.
+ *  \param prop         The symbolic identifier of the property to recover. Can
+ *                      be set to MPR_UNKNOWN or MPR_EXTRA to specify the
+ *                      property by name instead.
+ *  \param key          A string identifier (name) for the property. Only used
+ *                      if the 'prop' argument is set to MPR_UNKNOWN or
+ *                      MPR_EXTRA.
+ *  \return             Value of the property cast to float type, or zero
+ *                      if the property does not exist or can't be cast. */
 float mpr_obj_get_prop_as_flt(mpr_obj obj, mpr_prop prop, const char *key);
 
+/*! Look up a property by symbolic identifier or name and return as a c string
+ *  if possible. The returned value belongs to the object and should not be
+ *  freed.
+ *  \param obj          The object to check.
+ *  \param prop         The symbolic identifier of the property to recover. Can
+ *                      be set to MPR_UNKNOWN or MPR_EXTRA to specify the
+ *                      property by name instead.
+ *  \param key          A string identifier (name) for the property. Only used
+ *                      if the 'prop' argument is set to MPR_UNKNOWN or
+ *                      MPR_EXTRA.
+ *  \return             Value of the property, or null if the property does not
+ *                      exist or has an incompatible type. */
 const char *mpr_obj_get_prop_as_str(mpr_obj obj, mpr_prop prop, const char *key);
 
+/*! Look up a property by symbolic identifier or name and return as a c pointer
+ *  if possible. The returned value belongs to the object and should not be
+ *  freed.
+ *  \param obj          The object to check.
+ *  \param prop         The symbolic identifier of the property to recover. Can
+ *                      be set to MPR_UNKNOWN or MPR_EXTRA to specify the
+ *                      property by name instead.
+ *  \param key          A string identifier (name) for the property. Only used
+ *                      if the 'prop' argument is set to MPR_UNKNOWN or
+ *                      MPR_EXTRA.
+ *  \return             Value of the property, or null if the property does not
+ *                      exist or has an incompatible type. */
 const void *mpr_obj_get_prop_as_ptr(mpr_obj obj, mpr_prop prop, const char *key);
 
+/*! Look up a property by symbolic identifier or name and return as a mpr_obj
+ *  if possible. The returned value belongs to the object and should not be
+ *  freed.
+ *  \param obj          The object to check.
+ *  \param prop         The symbolic identifier of the property to recover. Can
+ *                      be set to MPR_UNKNOWN or MPR_EXTRA to specify the
+ *                      property by name instead.
+ *  \param key          A string identifier (name) for the property. Only used
+ *                      if the 'prop' argument is set to MPR_UNKNOWN or
+ *                      MPR_EXTRA.
+ *  \return             Value of the property, or null if the property does not
+ *                      exist or has an incompatible type. */
 mpr_obj mpr_obj_get_prop_as_obj(mpr_obj obj, mpr_prop prop, const char *key);
 
+/*! Look up a property by symbolic identifier or name and return as a mpr_list
+ *  if possible. The returned value is a copy and can be safely modified (e.g.
+ *  iterated) or freed.
+ *  \param obj          The object to check.
+ *  \param prop         The symbolic identifier of the property to recover. Can
+ *                      be set to MPR_UNKNOWN or MPR_EXTRA to specify the
+ *                      property by name instead.
+ *  \param key          A string identifier (name) for the property. Only used
+ *                      if the 'prop' argument is set to MPR_UNKNOWN or
+ *                      MPR_EXTRA.
+ *  \return             Value of the property, or null if the property does not
+ *                      exist or has an incompatible type. */
 mpr_list mpr_obj_get_prop_as_list(mpr_obj obj, mpr_prop prop, const char *key);
 
 /*! Set a property.  Can be used to provide arbitrary metadata. Value pointed
- *  to will be copied.
+ *  to will be copied.  Properties can be specified by setting the 'prop'
+ *  argument to one of the symbolic identifiers listed in mpr_constants.h;
+ *  if 'prop' is set to MPR_PROP_UNKNOWN or MPR_PROP_EXTRA the 'name' argument
+ *  will be used instead.
  *  \param obj          The object to operate on.
  *  \param prop         Symbolic identifier of the property to add.
  *  \param key          The name of the property to add.
