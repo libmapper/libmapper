@@ -134,8 +134,9 @@ int setup_maps()
             mpr_obj_get_prop_as_str(map, MPR_PROP_EXPR, NULL));
 
     // calculate M and B for checking generated expression
-    M = (dMax - dMin) / (sMax - sMin);
-    B = (dMin * sMax - dMax * sMin) / (sMax - sMin);
+    float sRange = sMax - sMin;
+    M = sRange ? ((dMax - dMin) / sRange) : 0;
+    B = sRange ? ((dMin * sMax - dMax * sMin) / sRange) : 0;
 
     return 0;
 }
@@ -190,7 +191,8 @@ int main(int argc, char **argv)
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
-                               "-h help\n");
+                               "-h help, "
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'f':

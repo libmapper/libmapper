@@ -2,6 +2,7 @@
 #include "../src/mpr_internal.h"
 #include <mpr/mpr.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <unistd.h>
 #include <string.h>
@@ -17,6 +18,7 @@ int terminate = 0;
 int autoconnect = 1;
 int done = 0;
 int period = 100;
+int vec_len = 3;
 
 mpr_dev src = 0;
 mpr_dev dst = 0;
@@ -26,6 +28,8 @@ mpr_sig recvsig = 0;
 int sent = 0;
 int received = 0;
 
+float *sMin, *sMax, *dMin, *dMax, *M, *B, *expected;
+
 int setup_src()
 {
     src = mpr_dev_new("testvector-send", 0);
@@ -33,9 +37,8 @@ int setup_src()
         goto error;
     eprintf("source created.\n");
 
-    float mn[]={0,0,0}, mx[]={1,2,3};
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 3, MPR_FLT, NULL,
-                          &mn, &mx, NULL, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", vec_len, MPR_FLT, NULL,
+                          sMin, sMax, NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
     mpr_list l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
@@ -60,11 +63,25 @@ void cleanup_src()
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
-    if (value) {
-        float *f = (float*)value;
-        eprintf("handler: Got [%f, %f, %f]\n", f[0], f[1], f[2]);
+    int i;
+    if (!value || length != vec_len)
+        return;
+    float *f = (float*)value;
+    eprintf("handler: Got [");
+    for (i = 0; i < length; i++) {
+        eprintf("%f, ", f[i]);
+        if (fabs(f[i] - expected[i]) > 0.0001)
+            value = 0;
     }
-    received++;
+    eprintf("\b\b]\n");
+    if (value)
+        received++;
+    else {
+        eprintf("expected [");
+        for (i = 0; i < length; i++)
+            eprintf("%f, ", expected[i]);
+        eprintf("\b\b]\n");
+    }
 }
 
 int setup_dst()
@@ -74,9 +91,8 @@ int setup_dst()
         goto error;
     eprintf("destination created.\n");
 
-    float mn[]={0,0,0}, mx[]={1,1,1};
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 3, MPR_FLT, NULL,
-                          &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", vec_len, MPR_FLT, NULL,
+                          dMin, dMax, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
     mpr_list l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
@@ -114,6 +130,13 @@ int setup_maps()
             return 1;
     }
 
+    // calculate M and B for generated expected values
+    for (i = 0; i < vec_len; i++) {
+        float sRange = sMax[i] - sMin[i];
+        M[i] = sRange ? ((dMax[i] - dMin[i]) / sRange) : 0;
+        B[i] = sRange ? ((dMin[i] * sMax[i] - dMax[i] * sMin[i]) / sRange) : 0;
+    }
+
     return 0;
 }
 
@@ -128,16 +151,19 @@ void wait_ready()
 void loop()
 {
     eprintf("Polling device..\n");
-    int i = 0;
+    int i = 0, j = 0;
+    float *v = malloc(vec_len * sizeof(float));
     while ((!terminate || i < 50) && !done) {
         mpr_dev_poll(src, 0);
-        float v[3];
-        v[0] = (float)i;
-        v[1] = (float)i+1;
-        v[2] = (float)i+2;
-        eprintf("Updating signal %s to [%f, %f, %f]\n",
-               sendsig->name, v[0], v[1], v[2]);
-        mpr_sig_set_value(sendsig, 0, 3, MPR_FLT, v, MPR_NOW);
+        for (j = 0; j < vec_len; j++) {
+            v[j] = (float)(i + j);
+            expected[j] = v[j] * M[j] + B[j];
+        }
+        eprintf("Updating signal %s to [", sendsig->name);
+        for (j = 0; j < vec_len; j++)
+            eprintf("%f, ", v[j]);
+        eprintf("\b\b]\n");
+        mpr_sig_set_value(sendsig, 0, vec_len, MPR_FLT, v, MPR_NOW);
         sent++;
         mpr_dev_poll(dst, period);
         i++;
@@ -147,6 +173,7 @@ void loop()
             fflush(stdout);
         }
     }
+    free(v);
 }
 
 void ctrlc(int sig)
@@ -169,7 +196,8 @@ int main(int argc, char **argv)
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
-                               "-h help\n");
+                               "-h help, "
+                               "--vec_len vector length (default 3)\n");
                         return 1;
                         break;
                     case 'f':
@@ -181,11 +209,37 @@ int main(int argc, char **argv)
                     case 't':
                         terminate = 1;
                         break;
+                    case '-':
+                        if (strcmp(argv[i], "--vec_len")==0 && argc>i+1) {
+                            i++;
+                            vec_len = atoi(argv[i]);
+                            j = 1;
+                        }
+                        break;
                     default:
                         break;
                 }
             }
         }
+    }
+
+    sMin = malloc(vec_len * sizeof(float));
+    sMax = malloc(vec_len * sizeof(float));
+    dMin = malloc(vec_len * sizeof(float));
+    dMax = malloc(vec_len * sizeof(float));
+    M = malloc(vec_len * sizeof(float));
+    B = malloc(vec_len * sizeof(float));
+    expected = malloc(vec_len * sizeof(float));
+
+    for (i = 0; i < vec_len; i++) {
+        sMin[i] = rand() % 100;
+        do {
+            sMax[i] = rand() % 100;
+        } while (sMax[i] == sMin[i]);
+        dMin[i] = rand() % 100;
+        do {
+            dMax[i] = rand() % 100;
+        } while (dMax[i] == dMin[i]);
     }
 
     signal(SIGINT, ctrlc);
@@ -224,5 +278,12 @@ int main(int argc, char **argv)
     cleanup_src();
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
+    free(sMin);
+    free(sMax);
+    free(dMin);
+    free(dMax);
+    free(M);
+    free(B);
+    free(expected);
     return result;
 }
