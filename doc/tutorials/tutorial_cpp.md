@@ -12,13 +12,8 @@ If you take a look at the API documentation, there is a section called
 * [Slots](../html/classmpr_1_1Map_1_1Slot.html)
 * [Databases](../html/classmpr_1_1Database.html)
 
-For this tutorial, the only sections to pay attention to are **Devices** and
-**Signals**.  **Networks** are reserved for providing custom networking
-configurations, but in general you don't need to worry about it.
-
-The **Database** module is used to keep track of what devices, signals and maps
-are on the network.  It is used mainly for creating user interfaces for mapping
-design and will also not be covered here.
+For this tutorial, the only sections to pay attention to are **Devices** and **Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
+user interfaces for designing mapping configurations.
 
 ## Devices
 
@@ -29,11 +24,11 @@ constructor, which is overloaded to accept either arguments of either
 `const char*` or C++ `std::string`:
 
 ~~~c++
-mpr::Device dev(const char *name, mpr.Network net = 0);
-mpr::Device dev(std::string name, mpr.Network net = 0);
+mpr::Device dev(const char *name, mpr.Graph graph = 0);
+mpr::Device dev(std::string name, mpr.Graph graph = 0);
 ~~~
 
-In regular usage only the first argument is needed. The optional `Network`
+In regular usage only the first argument is needed. The optional `Graph`
 argument can be used to specify different networking parameters, such as
 specifying the name of the network interface to use.
 
@@ -126,7 +121,7 @@ which is optional:
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
-* the signal's data type expressed as a character 'i', 'f', 'd'
+* the signal's data type, one of MPR_INT32, MPR_FLT, or MPR_DBL
 * the signal's unit (optional)
 * the signal's minimum value (optional)
 * the signal's maximum value (optional)

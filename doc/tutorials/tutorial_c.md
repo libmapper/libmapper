@@ -12,23 +12,17 @@ project.
 If you take a look at the API documentation, there is a section called
 "modules".  This is divided into the following sections:
 
-* [Networks](../html/group__networks.html)
+* [Graphs](../html/group__graphs.html)
 * [Devices](../html/group__devices.html)
 * [Signals](../html/group__signals.html)
 * [Maps](../html/group__maps.html)
 * [Slots](../html/group__slots.html)
-* [Databases](../html/group__databases.html)
 
 For this tutorial, the only sections to pay attention to are **Devices** and
-**Signals**.  **Networks** are reserved for providing custom networking
-configurations, but in general you don't need to worry about it.
-
-The **Database** module is used to keep track of what devices, signals and maps
-are on the network.  It is used mainly for creating user interfaces for mapping
-design and will also not be covered here.
-
-Functions and types from each module are prefixed with `mpr_<module>_`, in
-order to avoid namespace clashing.
+**Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
+user interfaces for designing mapping configurations. Functions and types from
+each module are prefixed with `mpr_<module>_`, in order to avoid namespace
+clashing.
 
 ## Devices
 
@@ -41,23 +35,14 @@ To create a _libmpr_ device, it is necessary to provide a few parameters to
 mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph graph);
 ~~~
 
-Every device on the network needs a name and port.  In fact the requested name
-and port are only "starting values".  There is an initialization period after a
-device is created where a unique ordinal is chosen to append to the device name.
-This allows multiple devices with the same name to exist on the network.
+Every device on the network needs a descriptive name – the name does not have to
+be unique since during initialization a unique ordinal will be appended to the
+device name. This allows multiple devices with the same name to exist on the
+network.
 
-Similarly, each device gets a unique port to use for exchanging signal data.
-The provided port number is the "starting port", but the allocation algorithm
-will possibly choose another port number close to it if someone else on the
-network is already using it.  We usually use a port number of 9000, and let the
-system decide if this is appropriate.^[Strictly this is only necessary for
-devices on the same computer, but port numbers are in abundance so we just
-allocate one per device to keep things consistent.]
-
-The third parameter of mpr_dev_new is an optional graph instance.
-It is not necessary to provide this, but can be used to specify different
-networking parameters, such as specifying the name of the network interface
-to use.
+The second parameter of mpr_dev_new is an optional graph instance. It is not
+necessary to provide this, but can be used to specify different networking
+parameters, such as specifying the name of the network interface to use.
 
 An example of creating a device:
 
@@ -84,10 +69,10 @@ Polling interval is not extremely sensitive, but should be at least 100 ms or
 less.  The faster it is polled, the faster it can handle incoming and outgoing
 signals.
 
-The `mpr_dev_poll` function can be blocking or non-blocking, depending on
-how you want your application to behave.  It takes a number of milliseconds
-during which it should do some work, or 0 if it should check for any immediate
-actions and then return without waiting:
+The `mpr_dev_poll` function can be blocking or non-blocking, depending on how
+you want your application to behave.  It takes a number of milliseconds during
+which it should do some work, or 0 if it should check for any immediate actions
+and then return without waiting:
 
 ~~~c
 int mpr_dev_poll(mpr_dev dev, int block_ms);
@@ -167,10 +152,10 @@ mpr_sig mpr_sig_new(mpr_dev parent, mpr_dir dir, const char *name, int length,
                     int *num_inst, mpr_sig_handler *h, int events);
 ~~~
 
-The only _required_ parameters here are the signal "length", its name, and data
-type.  Signals are assumed to be vectors of values, so for usual single-valued
-signals, a length of 1 should be specified.  Finally, supported types are
-currently `MPR_INT32`, `MPR_FLT`, or `MPR_DBL` for
+The only _required_ parameters here are the signal direction, name, vector length
+and data type.  Signals are assumed to be vectors of values, so for usual
+single-valued signals, a length of 1 should be specified.  Finally, supported types
+are currently `MPR_INT32`, `MPR_FLT`, or `MPR_DBL` for
 [integer, float, and double](https://en.wikipedia.org/wiki/C_data_types)
 values, respectively.
 
@@ -184,15 +169,16 @@ feature, but will be added in the future.  You can take advantage of this
 future development by simply providing unit information whenever it is
 available.  It is also helpful documentation for users.
 
-Notice that optional values are provided as `void*` pointers.  This is because a
-signal can either be `int`, `float`, or `double`, and your maximum and minimum
-values should correspond in type.  So you should pass in a `int*`, `float*`, or
-`double*` by taking the address of a local variable.
+Notice that these optional values are provided as `void*` pointers.  This is
+because a signal can either be `int`, `float`, or `double`, and your maximum and
+minimum values should correspond in type and length.  So you should pass in a
+`int*`, `float*`, or `double*` by taking the address of a local variable.
 
 Lastly, it is usually necessary to be informed when input signal values change.
 This is done by providing a function to be called whenever its value is modified
 by an incoming message.  It is passed in the `handler` parameter, along with an
-`events` parameter specifying which types of events should trigger the handler.
+`events` parameter specifying which types of events should trigger the handler –
+for input signals.
 
 An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information and no callback handler:
@@ -321,10 +307,10 @@ received or generated.
 
 As mentioned above, the `mpr_sig_new()` function takes an optional `handler` and
 `events`.  This is a function that will be called whenever the value of that
-signal changes of instances events occur.  To create a receiver for a
+signal changes or instances events occur.  To create a receiver for a
 synthesizer parameter "pulse width" (given as a ratio between 0 and 1), specify
 a handler when calling `mpr_sig_new()`.  We'll imagine there is some C++
-synthesizer implemented as a class `Synthr` which has functions `setPulseWidth()`
+synthesizer implemented as a class `Synth` which has functions `setPulseWidth()`
 which sets the pulse width in a thread-safe manner, and `startAudioInBackground()`
 which sets up the audio thread.
 

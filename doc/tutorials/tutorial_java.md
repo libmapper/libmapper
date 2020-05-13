@@ -15,20 +15,15 @@ import mpr.*;
 
 The _libmpr_ API is is divided into the following sections:
 
-* Networks
+* Graphs
 * Devices
 * Signals
 * Maps
 * Slots
-* Databases
 
-For this tutorial, the only sections to pay attention to are `Devices` and
-`Signals`.  `Networks` are reserved for providing custom networking
-configurations, and in general you don't need to worry about it.
-
-The `Database` module is used to keep track of what devices, signals and maps
-are on the network.  It is used mainly for creating user interfaces for mapping
-design and will also not be covered here.
+For this tutorial, the only sections to pay attention to are **Devices** and
+**Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
+user interfaces for designing mapping configurations.
 
 ## Devices
 
@@ -138,7 +133,7 @@ which is optional:
 
 * a name for the signal (must be unique within a device's inputs or outputs)
 * the signal's vector length
-* the signal's data type expressed as a character 'i', 'f' or 'd'
+* the signal's data type: Type.INT32, Type.FLT, or Type.DBL
 * the signal's unit (optional)
 * the signal's minimum value (optional)
 * the signal's maximum value (optional)
@@ -150,14 +145,14 @@ for input signals there is an additional argument:
 examples:
 
 ~~~java
-Signal in = dev.addInputSignal("my_input", 1, 'f', "m/s",
-                               new Value(-10.f), null,
-                               new UpdateListener() {
-    public void onUpdate(Signal sig, float[] value, TimeTag tt) {
-        System.out.println("got input for signal "+sig.name);
+Signal in = dev.addSignal(Direction.INCOMING, "my_input", 1, Type.FLOAT, "m/s",
+                          -10.f, 10.f, null, new Listener() {
+    public void onEvent(Signal sig, mpr.signal.Event, float value, Time t) {
+        System.out.println("got input for signal "+sig.properties().get("name"));
     }});
 
-Signal out = dev.addOutputSignal("my_output", 4, 'i', null, 0, 1000);
+Signal out = dev.addSignal(Direction.OUTGOING, "my_output", 4, Type.INT32, null,
+                           0, 1000, null, null);
 ~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
@@ -183,13 +178,13 @@ An example of creating a "barebones" integer scalar output signal with no unit,
 minimum, or maximum information:
 
 ~~~java
-Signal outA = dev.addOutputSignal("outA", 1, 'i', null, null, null);
+Signal outA = dev.addSignal(Direction.OUTGOING, "outA", 1, 'i', null, null, null);
 ~~~
 
 An example of a `float` signal where some more information is provided:
 
 ~~~java
-Signal sensor1 = dev.addOutputSignal("sensor1", 1, 'f', "V", 0.0, 5.0)
+Signal sensor1 = dev.addSignal(Direction.OUTGOING, "sensor1", 1, 'f', "V", 0.0, 5.0)
 ~~~
 
 So far we know how to create a device and to specify an output signal for it.
@@ -202,9 +197,8 @@ import mpr.signal.*;
 class test {
     public static void main() {
         final Device dev = new Device("testDevice");
-        Signal sensor1 = dev.addOutputSignal("sensor1", 1, 'f', "V",
-                                             new Value('f', 0.0),
-                                             new Value('f', 5.0));
+        Signal sensor1 = dev.addSignal(Direction.OUTGOING, "sensor1", 1, 'f', "V",
+                                       0.0, 5.0);
         while (1) {
             dev.poll(50);
             ... do stuff ...
@@ -314,15 +308,14 @@ import mpr.signal.*;
 # Some synth stuff
 startAudioInBackground();
 
-UpdateListener freqHandler = new UpdateListener() {
-    public void onUpdate(Signal sig, float[] value, TimeTag tt) {
+UpdateListener freqHandler = new Listener() {
+    public void onEvent(Signal sig, mpr.signal.Event event, float value, Time t) {
         setPulseWidth(value);
     }};
 
 final Device dev = new Device("mySynth");
-Signal pw = dev.addInputSignal("pulseWidth", 1, 'f', "Hz",
-                               new Value('f', 0.0), new Value('f', 1.0),
-                               freqHandler);
+Signal pw = dev.addSignal(Direction.INCOMING, "pulseWidth", 1, Type.FLOAT,
+                          "Hz", 0.0, 1.0, null, freqHandler);
 
 while (1) {
     dev.poll(100);
@@ -335,11 +328,9 @@ Alternately, we can declare the `UpdateListener` as part of the
 `addInputSignal()` function:
 
 ~~~java
-Signal pulseWidth = dev.addInputSignal("pulseWidth", 1, 'f', "Hz",
-                                       new Value('f', 0.0),
-                                       new Value('f', 1.0),
-                                       new UpdateListener() {
-    public void onUpdate(Signal sig, float[] value, TimeTag tt) {
+Signal pulseWidth = dev.addSignal(Direction.INCOMING, "pulseWidth", 1, 'f', "Hz",
+                                  0.0, 1.0, null, new Listener() {
+    public void onEvent(Signal sig, mpr.signal.Event event, float value, Time t) {
         setPulseWidth(value);
     }
 });
@@ -425,18 +416,18 @@ Object o = inst.userReference();
 ### Receiving instances
 
 To receive updates to multiple instances of an input signal you will need to
-declare an `InstanceUpdateListener` for the signal in question. Here is the
+declare a `Listener` for the signal in question. Here is the
 listener prototype:
 
 ~~~java
-new InstanceUpdateListener(Signal.Instance inst, float[] value, TimeTag tt);
+new Listener(Signal.Instance inst, float value, Time t);
 ~~~
 
-The listener can be added using the function `setInstanceUpdateListener()`:
+The listener can be added using the function `setListener()`:
 
 ~~~java
-<sig>.setInstanceUpdateListener(new InstanceUpdateListener() {
-    public void onUpdate(Signal.Instance inst, float[] v, TimeTag tt) {
+<sig>.setListener(new mpr.signal.Listener() {
+    public void onUpdate(Signal.Instance inst, float v, Time t) {
         System.out.println("in onInstanceUpdate() for "
                            +inst.signal().name()+" instance "
                            +inst.id()+": "+inst.userReference()+", val= "
@@ -473,10 +464,10 @@ release (e.g. the sound with the lowest volume), you can create an
 `InstanceEventListener` for the signal and write the method yourself:
 
 ~~~java
-InstanceEventListener myHandler = new InstanceEventListener() {    
-    public void onEvent(Signal.Instance inst, InstanceEvent event,
-                        TimeTag tt) {
-        System.out.println("onInstanceEvent() for "
+signal.Listener myHandler = new signal.Listener() {
+    public void onEvent(Signal.Instance inst, mpr.signal.Event event,
+                        Time t) {
+        System.out.println("onEvent() for "
                            + inst.signal().name() + " instance "
                            + inst.id() + ": " + event.value());
         // call user function that chooses an instance to release
@@ -487,11 +478,10 @@ InstanceEventListener myHandler = new InstanceEventListener() {
 ~~~
 
 For this function to be called when instance stealing is necessary, we
-need to register it for `mpr.signal.InstanceEvent.OVERFLOW` events:
+need to register it for `mpr.signal.Event.OVERFLOW` events:
 
 ~~~java
-<sig>.setInstanceEventListener(myHandler,
-                               mpr.signal.InstanceEvent.OVERFLOW);
+<sig>.setListener(myHandler, mpr.signal.Event.OVERFLOW);
 ~~~
 
 ## Publishing metadata

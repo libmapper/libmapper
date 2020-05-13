@@ -17,18 +17,15 @@ import mpr
 
 The libmpr API is is divided into the following sections:
 
-* Networks
+* Graph
 * Devices
 * Signals
 * Maps
 * Slots
-* Databases
 
 For this tutorial, the only sections to pay attention to are **Devices** and
-**Signals**.  **Networks** are reserved for providing custom networking
-configurations, but in general you don't need to worry about it. **Databases**,
-**Maps** and **Slots** are mostly used when building user interfaces for
-designing mapping configurations.
+**Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
+user interfaces for designing mapping configurations.
 
 ## Devices
 
@@ -39,12 +36,7 @@ constructor.  There is an initialization period after a device is created where
 a unique ordinal is chosen to append to the device name.  This allows multiple
 devices with the same name to exist on the network.
 
-If no other arguments are given, libmpr will randomly choose a port to use
-for exchanging signal data.  If desired, a second argument setting a specific
-"starting port" can be given, but the allocation algorithm will possibly choose
-another port number close to it if the port is in use.
-
-A third optional parameter of the constructor is a network object.  It is not
+A second optional parameter of the constructor is a Graph object.  It is not
 necessary to provide this, but can be used to specify different networking
 parameters, such as specifying the name of the network interface to use.
 
@@ -137,7 +129,7 @@ which is optional:
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
-* the signal's data type expressed as a character 'i', 'f', 'd'
+* the signal's data type: mpr.INT32, mpr.FLT, mpr.DBL
 * the signal's unit (optional)
 * the signal's minimum value (optional)
 * the signal's maximum value (optional)
