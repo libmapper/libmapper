@@ -240,28 +240,6 @@ static void _init_inst(mpr_sig_inst si)
     mpr_time_set(&si->time, si->created);
 }
 
-static int _find_inst_with_LID(mpr_sig s, mpr_id LID, int flags)
-{
-    int i;
-    for (i = 0; i < s->loc->idmap_len; i++) {
-        if (s->loc->idmaps[i].inst && s->loc->idmaps[i].map->LID == LID)
-            return (s->loc->idmaps[i].status & ~flags) ? -1 : i;
-    }
-    return -1;
-}
-
-int mpr_sig_find_inst_with_GID(mpr_sig s, mpr_id GID, int flags)
-{
-    int i;
-    for (i = 0; i < s->loc->idmap_len; i++) {
-        if (!s->loc->idmaps[i].map)
-            continue;
-        if (s->loc->idmaps[i].map->GID == GID)
-            return (s->loc->idmaps[i].status & ~flags) ? -1 : i;
-    }
-    return -1;
-}
-
 static mpr_sig_inst _reserved_inst(mpr_sig s, mpr_id *id)
 {
     int i;
@@ -337,7 +315,7 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig)
     return (idx >= 0) ? sig->loc->idmaps[idx].map->LID : 0;
 }
 
-int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t)
+int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int activate)
 {
     RETURN_UNLESS(s && s->loc, -1);
     mpr_sig_idmap_t *maps = s->loc->idmaps;
@@ -348,6 +326,7 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t)
         if (maps[i].inst && maps[i].map->LID == LID)
             return (maps[i].status & ~flags) ? -1 : i;
     }
+    RETURN_UNLESS(activate, -1);
 
     // check if device has record of id map
     mpr_id_map map = mpr_dev_get_idmap_by_LID(s->dev, s->loc->group, LID);
@@ -411,7 +390,7 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t)
     return -1;
 }
 
-int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t)
+int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int activate)
 {
     RETURN_UNLESS(s && s->loc, -1);
     mpr_sig_idmap_t *maps = s->loc->idmaps;
@@ -422,6 +401,7 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t)
         if (maps[i].inst && maps[i].map->GID == GID)
             return (maps[i].status & ~flags) ? -1 : i;
     }
+    RETURN_UNLESS(activate, -1);
 
     // check if the device already has a map for this global id
     mpr_id_map map = mpr_dev_get_idmap_by_GID(s->dev, s->loc->group, GID);
@@ -608,7 +588,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
 int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id id)
 {
     RETURN_UNLESS(sig, 0);
-    int idx = _find_inst_with_LID(sig, id, 0);
+    int idx = mpr_sig_get_inst_with_LID(sig, id, 0, MPR_NOW, 0);
     return (idx >= 0) ? sig->loc->idmaps[idx].inst->active : 0;
 }
 
@@ -666,7 +646,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
     else if (len == sig->len || mpr_dev_has_queue(sig->dev, time))
         send_queue = 0;
 
-    int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time);
+    int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time, 1);
     RETURN_UNLESS(idx >= 0);
 
     mpr_sig_inst si = sig->loc->idmaps[idx].inst;
@@ -712,7 +692,8 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id, mpr_time time)
 {
     RETURN_UNLESS(sig && sig->loc);
-    int idx = _find_inst_with_LID(sig, id, RELEASED_REMOTELY);
+    int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY,
+                                        MPR_NOW, 0);
     if (idx >= 0)
         mpr_sig_release_inst_internal(sig, idx, time);
 }
@@ -778,7 +759,8 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id, mpr_time time)
 const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
-    int idx = _find_inst_with_LID(sig, id, RELEASED_REMOTELY);
+    int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY,
+                                        MPR_NOW, 0);
     RETURN_UNLESS(idx >= 0, 0);
     mpr_sig_inst si = sig->loc->idmaps[idx].inst;
     RETURN_UNLESS(si && si->has_val, 0)
@@ -824,7 +806,7 @@ int mpr_sig_activate_inst(mpr_sig sig, mpr_id id, mpr_time time)
     RETURN_UNLESS(sig && sig->loc, 0);
     if (mpr_time_get_is_now(&time))
         mpr_time_set(&time, MPR_NOW);
-    int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time);
+    int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time, 1);
     return idx >= 0;
 }
 

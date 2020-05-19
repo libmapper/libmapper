@@ -380,13 +380,13 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
     if (scope_list && *scope_list) {
         if (1 == num && strcmp(&scope_list[0]->s, "none")==0)
             num = 0;
-        const char *name, *no_slash;
+        const char *name;
 
         // First remove old scopes that are missing
         while (i < m->num_scopes) {
             int found = 0;
             for (j = 0; j < num; j++) {
-                name = &scope_list[j]->s;
+                name = skip_slash(&scope_list[j]->s);
                 if (!m->scopes[i]) {
                     if (strcmp(name, "all") == 0) {
                         found = 1;
@@ -394,8 +394,7 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
                     }
                     break;
                 }
-                no_slash = ('/' == name[0]) ? name + 1 : name;
-                if (strcmp(no_slash, m->scopes[i]->name) == 0) {
+                if (strcmp(name, m->scopes[i]->name) == 0) {
                     found = 1;
                     break;
                 }
@@ -440,6 +439,7 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
     NEW_LO_MSG(msg, return 0);
 
     if (val && types) {
+        // value of vector elements can be <type> or NULL
         for (i = 0; i < len; i++) {
             switch (types[i]) {
             case MPR_INT32: lo_message_add_int32(msg, ((int*)val)[i]);     break;

@@ -377,13 +377,14 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     //        return 0;
 
     if (GID) {
-        idmap_idx = mpr_sig_find_inst_with_GID(sig, GID, RELEASED_LOCALLY);
+        idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, RELEASED_LOCALLY,
+                                              MPR_NOW, 1);
         if (idmap_idx < 0) {
             // no instance found with this map
             // Don't activate instance just to release it again
             RETURN_UNLESS(vals, 0);
             // otherwise try to init reserved/stolen instance with device map
-            idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, ts);
+            idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, ts, 1);
             TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no instances available"
                                     " for GUID %"PR_MPR_ID" (1)\n", GID);
         }
@@ -407,7 +408,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         // use the first available instance
         idmap_idx = 0;
         if (!sig->loc->idmaps[0].inst)
-            idmap_idx = mpr_sig_get_inst_with_LID(sig, sig->loc->inst[0]->id, 1, ts);
+            idmap_idx = mpr_sig_get_inst_with_LID(sig, sig->loc->inst[0]->id, 1, ts, 1);
         RETURN_UNLESS(idmap_idx >= 0, 0);
     }
     mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
@@ -444,6 +445,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         }
         else if (vals != slot->sig->len) {
 #ifdef DEBUG
+            // TODO: enable partial vector updates within convergent maps
             trace_dev(dev, "error in mpr_dev_handler: partial vector update "
                       "applied to convergent mapping slot.");
 #endif

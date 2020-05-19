@@ -314,10 +314,9 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
 
 void mpr_msg_free(mpr_msg msg)
 {
-    if (msg) {
-        FUNC_IF(free, msg->atoms);
-        free(msg);
-    }
+    RETURN_UNLESS(msg);
+    FUNC_IF(free, msg->atoms);
+    free(msg);
 }
 
 mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, mpr_prop prop)

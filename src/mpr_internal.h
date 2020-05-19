@@ -208,14 +208,6 @@ void mpr_sig_send_removed(mpr_sig s);
 
 /**** Instances ****/
 
-/*! Find an active instance with the given instance id.
- *  \param s        The signal owning the desired instance.
- *  \param GID      Globally unique id of this instance.
- *  \param flags    Bitflags indicating if search should include released instances.
- *  \return         The index of the retrieved signal instance, or -1 if no active
- *                  instances match the specified instance id map. */
-int mpr_sig_find_inst_with_GID(mpr_sig s, mpr_id GID, int flags);
-
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
  *  \param s        The signal owning the desired instance.
@@ -223,11 +215,13 @@ int mpr_sig_find_inst_with_GID(mpr_sig s, mpr_id GID, int flags);
  *  \param flags    Bitflags indicating if search should include released
  *                  instances.
  *  \param t        Time associated with this action.
+ *  \param activate Set to 1 to activate a reserved instance if necessary.
  *  \return         The index of the retrieved signal instance, or -1 if no free
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
-int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t);
+int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t,
+                              int activate);
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.
@@ -235,11 +229,13 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t);
  *  \param GID      Globally unique id of this instance.
  *  \param flags    Bitflags indicating if search should include released instances.
  *  \param t        Time associated with this action.
+ *  \param activate Set to 1 to activate a reserved instance if necessary.
  *  \return         The index of the retrieved signal instance, or NULL if no free
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
-int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t);
+int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t,
+                              int activate);
 
 /*! Release a specific signal instance. */
 void mpr_sig_release_inst_internal(mpr_sig s, int inst_idx, mpr_time time);
@@ -438,6 +434,21 @@ int mpr_expr_get_var_is_public(mpr_expr expr, int idx);
 void printexpr(const char*, mpr_expr);
 #endif
 
+/*! Evaluate the given inputs using the compiled expression.
+ *  \param expr         The expression to use.
+ *  \param srcs         An array of mpr_hist structures for sources.
+ *  \param expr_vars    An array of mpr_hist structures for user variables.
+ *  \param result       A mpr_hist structure for the destination.
+ *  \param t            A pointer to a timetag structure for storing the time
+ *                      associated with the result.
+ *  \param types        An array of mpr_type for storing the output type per
+ *                      vector element
+ *  \result             0 if the expression evaluation caused no change, or a
+ *                      bitwise OR of MPR_SIG_UPDATE (if an update was
+ *                      generated), MPR_SIG_REL_UPSTRM (if the expression
+ *                      generated an instance release before the update), and
+ *                      MPR_SIG_REL_DNSRTM (if the expression generated an
+ *                      instance release after an update). */
 int mpr_expr_eval(mpr_expr expr, mpr_hist *srcs, mpr_hist *expr_vars,
                   mpr_hist result, mpr_time *t, mpr_type *types);
 
