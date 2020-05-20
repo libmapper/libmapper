@@ -291,6 +291,9 @@ typedef struct _mpr_hist
 #define RELEASED_LOCALLY  0x01
 #define RELEASED_REMOTELY 0x02
 
+#define RELEASED_BEFORE_UPDATE 0x02
+#define RELEASED_AFTER_UPDATE  0x04
+
 /*! A signal is defined as a vector of values, along with some metadata. */
 typedef struct _mpr_sig_inst
 {
@@ -448,6 +451,8 @@ typedef struct _mpr_map {
     mpr_dev *scopes;
 
     char *expr_str;
+
+    struct _mpr_id_map *idmap;          //!< Associated mpr_id_map.
 
     int muted;                          //!< 1 to mute mapping, 0 to unmute
     int num_scopes;

@@ -50,33 +50,6 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
 
 void mpr_sig_update_timing_stats(mpr_sig sig, float diff);
 
-/**** Devices ****/
-
-int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg msg);
-
-void mpr_dev_manage_subscriber(mpr_dev dev, lo_address address, int flags,
-                               int timeout_seconds, int revision);
-
-/*! Return the list of inter-device links associated with a given device.
- *  \param dev          Device record query.
- *  \param dir          The direction of the link relative to the given device.
- *  \return             The list of results.  Use mpr_list_next() to iterate. */
-mpr_list mpr_dev_get_links(mpr_dev dev, mpr_dir dir);
-
-mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir);
-
-mpr_id mpr_dev_get_unused_sig_id(mpr_dev dev);
-
-int mpr_dev_add_link(mpr_dev dev, mpr_dev rem);
-void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem);
-
-int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc,
-                    lo_message msg, void *data);
-
-int mpr_dev_bundle_start(lo_timetag t, void *data);
-
-int mpr_dev_has_queue(mpr_dev dev, mpr_time t);
-
 /**** Networking ****/
 
 void mpr_net_add_dev(mpr_net n, mpr_dev d);
@@ -108,7 +81,46 @@ if (!VARNAME) {                                     \
     FAIL;                                           \
 }
 
-/***** Device *****/
+/***** Devices *****/
+
+int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg msg);
+
+void mpr_dev_manage_subscriber(mpr_dev dev, lo_address address, int flags,
+                               int timeout_seconds, int revision);
+
+/*! Return the list of inter-device links associated with a given device.
+ *  \param dev          Device record query.
+ *  \param dir          The direction of the link relative to the given device.
+ *  \return             The list of results.  Use mpr_list_next() to iterate. */
+mpr_list mpr_dev_get_links(mpr_dev dev, mpr_dir dir);
+
+mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir);
+
+mpr_id mpr_dev_get_unused_sig_id(mpr_dev dev);
+
+int mpr_dev_add_link(mpr_dev dev, mpr_dev rem);
+void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem);
+
+int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc,
+                    lo_message msg, void *data);
+
+int mpr_dev_bundle_start(lo_timetag t, void *data);
+
+int mpr_dev_has_queue(mpr_dev dev, mpr_time t);
+
+inline static void mpr_dev_LID_incref(mpr_id_map map)
+{
+    ++map->LID_refcount;
+}
+
+inline static void mpr_dev_GID_incref(mpr_id_map map)
+{
+    ++map->GID_refcount;
+}
+
+int mpr_dev_LID_decref(mpr_dev dev, int group, mpr_id_map map);
+
+int mpr_dev_GID_decref(mpr_dev dev, int group, mpr_id_map map);
 
 void init_dev_prop_tbl(mpr_dev dev);
 
@@ -123,8 +135,6 @@ int mpr_dev_route_query(mpr_dev dev, mpr_sig sig, mpr_time t);
 void mpr_dev_release_scope(mpr_dev dev, const char *scope);
 
 mpr_id_map mpr_dev_add_idmap(mpr_dev dev, int group, mpr_id LID, mpr_id GID);
-
-void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map map);
 
 mpr_id_map mpr_dev_get_idmap_by_LID(mpr_dev dev, int group, mpr_id LID);
 
@@ -429,6 +439,8 @@ int mpr_expr_get_src_is_muted(mpr_expr expr, int idx);
 const char *mpr_expr_get_var_name(mpr_expr expr, int idx);
 
 int mpr_expr_get_var_is_public(mpr_expr expr, int idx);
+
+int mpr_expr_get_manages_instances(mpr_expr expr);
 
 #ifdef DEBUG
 void printexpr(const char*, mpr_expr);

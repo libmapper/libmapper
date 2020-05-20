@@ -14,6 +14,7 @@
 } while(0)
 
 int verbose = 1;
+int terminate = 0;
 int iterations = 100;
 int autoconnect = 1;
 int period = 100;
@@ -25,7 +26,8 @@ mpr_sig multisend = 0;
 mpr_sig multirecv = 0;
 mpr_sig monosend = 0;
 
-int sent = 0;
+int monosent = 0;
+int multisent = 0;
 int received = 0;
 int done = 0;
 
@@ -183,8 +185,8 @@ void release_active_instances(mpr_sig sig)
 void loop()
 {
     eprintf("-------------------- GO ! --------------------\n");
-    int i = 0;
-    float value = 0;
+    int i = 0, vali = 0;
+    float valf = 0;
     mpr_id inst;
 
     while (i < iterations && !done) {
@@ -198,16 +200,18 @@ void loop()
                 break;
             default:
                 // try to update an instance
-                value = (rand() % 10) * 1.0f;
+                valf = (rand() % 10) * 1.0f;
                 eprintf("--> Updating multisend instance %"PR_MPR_ID" to %f\n",
-                        inst, value);
-                mpr_sig_set_value(multisend, inst, 1, MPR_FLT, &value, MPR_NOW);
-                sent++;
+                        inst, valf);
+                mpr_sig_set_value(multisend, inst, 1, MPR_FLT, &valf, MPR_NOW);
+                ++multisent;
                 break;
         }
         // also update mono-instance signal
-        eprintf("--> Updating monosend to %f\n", value);
-        mpr_sig_set_value(monosend, 0, 1, MPR_INT32, &i, MPR_NOW);
+        vali += (rand() % 5) - 2;
+        eprintf("--> Updating monosend to %d\n", vali);
+        mpr_sig_set_value(monosend, 0, 1, MPR_INT32, &vali, MPR_NOW);
+        ++monosent;
 
         mpr_dev_poll(dst, period);
         mpr_dev_poll(src, 0);
@@ -225,7 +229,7 @@ void loop()
             printf("\n");
         }
         else {
-            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            printf("\r  Sent: %4i, Received: %4i   ", multisent+monosent, received);
             fflush(stdout);
         }
     }
@@ -238,7 +242,7 @@ void ctrlc(int sig)
 
 int main(int argc, char **argv)
 {
-    int i, j, result = 0, stats[10];
+    int i, j, result = 0, stats[14];
 
     // process flags for -v verbose, -t terminate, -h help
     for (i = 1; i < argc; i++) {
@@ -250,6 +254,7 @@ int main(int argc, char **argv)
                         printf("testinstance.c: possible arguments "
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
+                               "-t terminate automatically, "
                                "-h help\n");
                         return 1;
                         break;
@@ -258,6 +263,9 @@ int main(int argc, char **argv)
                         break;
                     case 'q':
                         verbose = 0;
+                        break;
+                    case 't':
+                        terminate = 1;
                         break;
                     default:
                         break;
@@ -298,11 +306,11 @@ int main(int argc, char **argv)
     eprintf("************ NO INSTANCE STEALING ************\n");
     loop();
 
-    stats[0] = sent;
+    stats[0] = multisent;
     stats[1] = received;
 
     release_active_instances(multisend);
-    sent = received = 0;
+    monosent = multisent = received = 0;
 
     eprintf("\n**********************************************\n");
     eprintf("************ STEAL OLDEST INSTANCE ***********\n");
@@ -313,11 +321,11 @@ int main(int argc, char **argv)
         printf("\n");
     loop();
 
-    stats[2] = sent;
+    stats[2] = multisent;
     stats[3] = received;
 
     release_active_instances(multisend);
-    sent = received = 0;
+    monosent = multisent = received = 0;
 
     eprintf("\n**********************************************\n");
     eprintf("*********** CALLBACK -> ADD INSTANCE *********\n");
@@ -330,11 +338,11 @@ int main(int argc, char **argv)
         printf("\n");
     loop();
 
-    stats[4] = sent;
+    stats[4] = multisent;
     stats[5] = received;
 
     release_active_instances(multisend);
-    sent = received = 0;
+    monosent = multisent = received = 0;
 
     // allow time for change to take effect
     // TODO: ensure map release also releases instances properly so this is not necessary
@@ -363,11 +371,11 @@ int main(int argc, char **argv)
         printf("\n");
     loop();
 
-    stats[6] = sent;
+    stats[6] = monosent + multisent;
     stats[7] = received;
 
     release_active_instances(multisend);
-    sent = received = 0;
+    monosent = multisent = received = 0;
 
     eprintf("\n**********************************************\n");
     eprintf("****** MIXED INSTANCING -> DST PROCESSING ****\n");
@@ -386,10 +394,58 @@ int main(int argc, char **argv)
         printf("\n");
     loop();
 
-    stats[8] = sent;
+    stats[8] = monosent + multisent;
     stats[9] = received;
-    sent = received = 0;
 
+    release_active_instances(multisend);
+    monosent = multisent = received = 0;
+
+    eprintf("\n**********************************************\n");
+    eprintf("**** EXPRESSION INSTANCES -> SRC PROCESSING ****\n");
+
+    mpr_map_release(map);
+    map = mpr_map_new(1, &monosend, 1, &multirecv);
+    // TODO: expr = "y = x; alive = 1 + schmitt(x - x{-1}, 1, -1);";
+    expr = "y = x; alive = x - x{-1} >= 0;";
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+    mpr_obj_push((mpr_obj)map);
+
+    // wait until mapping has been established
+    while (!done && !mpr_map_get_is_ready(map)) {
+        mpr_dev_poll(src, 10);
+        mpr_dev_poll(dst, 10);
+    }
+
+    if (!verbose)
+        printf("\n");
+    loop();
+
+    stats[10] = monosent;
+    stats[11] = received;
+
+    monosent = multisent = received = 0;
+
+    eprintf("\n**********************************************\n");
+    eprintf("**** EXPRESSION INSTANCES -> DST PROCESSING ****\n");
+
+    // move processing to destination device
+    loc = MPR_LOC_DST;
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROCESS_LOC, NULL, 1, MPR_INT32,
+                     &loc, 1);
+    mpr_obj_push((mpr_obj)map);
+
+    // allow time for change to take effect
+    mpr_dev_poll(src, 10);
+    mpr_dev_poll(dst, 10);
+
+    if (!verbose)
+        printf("\n");
+    loop();
+
+    stats[12] = monosent;
+    stats[13] = received;
+
+    // TODO: more sophisticated checks for received counts
     eprintf("NO STEALING: sent %i updates, received %i updates (mismatch is OK).\n",
             stats[0], stats[1]);
     result += stats[0] < stats[1];
@@ -405,6 +461,12 @@ int main(int argc, char **argv)
     eprintf("DST-SIDE MIXED INSTANCING: sent %i updates, received %i updates.\n",
             stats[8], stats[9]);
     result += stats[8] >= stats[9];
+    eprintf("SRC-SIDE EXPRESSION INSTANCING: sent %i updates, received %i updates.\n",
+            stats[10], stats[11]);
+    result += stats[10] < stats[11];
+    eprintf("DST-SIDE EXPRESSION INSTANCING: sent %i updates, received %i updates.\n",
+            stats[12], stats[13]);
+    result += stats[12] < stats[13];
 
   done:
     cleanup_dst();

@@ -95,7 +95,7 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
         s->loc->vec_known = calloc(1, len / 8 + 1);
         for (i = 0; i < len; i++)
             s->loc->vec_known[i/8] |= 1 << (i % 8);
-        if (num_inst && *num_inst >= 0) {
+        if (num_inst) {
             mpr_sig_reserve_inst(s, *num_inst, 0, 0);
             s->use_inst = 1;
         }
@@ -340,7 +340,7 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int 
             map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, GID);
         }
         else
-            ++map->LID_refcount;
+            mpr_dev_LID_incref(map);
 
         // store pointer to device map in a new signal map
         si->active = 1;
@@ -379,7 +379,7 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int 
             map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, GID);
         }
         else
-            ++map->LID_refcount;
+            mpr_dev_LID_incref(map);
         si->active = 1;
         _init_inst(si);
         i = _add_idmap(s, si, map);
@@ -429,8 +429,8 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int 
             si->active = 1;
             _init_inst(si);
             i = _add_idmap(s, si, map);
-            ++map->LID_refcount;
-            ++map->GID_refcount;
+            mpr_dev_LID_incref(map);
+            mpr_dev_GID_incref(map);
             if (h && (s->loc->event_flags & MPR_SIG_INST_NEW))
                 h(s, MPR_SIG_INST_NEW, si->id, 0, s->type, NULL, t);
             return i;
@@ -486,8 +486,8 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int 
         si->active = 1;
         _init_inst(si);
         i = _add_idmap(s, si, map);
-        ++map->LID_refcount;
-        ++map->GID_refcount;
+        mpr_dev_LID_incref(map);
+        mpr_dev_GID_incref(map);
         if (h && (s->loc->event_flags & MPR_SIG_INST_NEW))
             h(s, MPR_SIG_INST_NEW, si->id, 0, s->type, NULL, t);
         return i;
@@ -548,7 +548,8 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
     si->idx = lowest;
     _init_inst(si);
     si->data = data;
-    ++sig->num_inst;
+    if (++sig->num_inst > 1)
+        sig->use_inst = 1;
     qsort(sig->loc->inst, sig->num_inst, sizeof(mpr_sig_inst), _compare_ids);
 
     // return largest index
@@ -643,7 +644,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
     int send_queue = 1;
     if (mpr_time_get_is_now(&time))
         mpr_time_set(&time, MPR_NOW);
-    else if (len == sig->len || mpr_dev_has_queue(sig->dev, time))
+    else if (mpr_dev_has_queue(sig->dev, time))
         send_queue = 0;
 
     int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time, 1);
@@ -708,11 +709,8 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idx, mpr_time t)
 
     mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, 0, t);
 
-    --smap->map->LID_refcount;
-    if (smap->map->LID_refcount <= 0 && smap->map->GID_refcount <= 0) {
-        mpr_dev_remove_idmap(sig->dev, sig->loc->group, smap->map);
+    if (mpr_dev_LID_decref(sig->dev, sig->loc->group, smap->map))
         smap->map = 0;
-    }
     else if ((sig->dir & MPR_DIR_OUT) || smap->status & RELEASED_REMOTELY) {
         // TODO: consider multiple upstream source instances?
         smap->map = 0;
