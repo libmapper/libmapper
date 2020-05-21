@@ -323,7 +323,8 @@ namespace mpr {
             { return _refcount_ptr ? --(*_refcount_ptr) : 0; }
         bool _owned;
 
-        Object(mpr_obj obj) { _obj = obj; }
+        Object(mpr_obj obj)
+            { _obj = obj; _owned = 0; _refcount_ptr = 0; }
 
         friend class List<Device>;
         friend class List<Signal>;
@@ -333,7 +334,7 @@ namespace mpr {
 
         mpr_obj _obj;
     public:
-        Object() { _obj = NULL; }
+        Object() { _obj = NULL; _owned = 0; _refcount_ptr = 0; }
         virtual ~Object() {}
         operator mpr_obj() const
             { return _obj; }
@@ -734,16 +735,16 @@ namespace mpr {
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
-        Device(const Device& dev) : Object(dev)
+        Device(const Device& orig) : Object(orig)
         {
+            _owned = orig._owned;
+            _refcount_ptr = orig._refcount_ptr;
             if (_owned)
                 incr_refcount();
         }
         Device(mpr_dev dev) : Object(dev)
         {
             _owned = false;
-            _refcount_ptr = (int*)malloc(sizeof(int));
-            *_refcount_ptr = 1;
         }
         ~Device()
         {
@@ -821,8 +822,6 @@ namespace mpr {
         {
             _graph = graph;
             _owned = false;
-            _refcount_ptr = (int*)malloc(sizeof(int));
-            *_refcount_ptr = 1;
         }
         ~Graph()
         {
@@ -992,7 +991,7 @@ namespace mpr {
             { return *(const T*)val; }
         operator const bool() const
         {
-            if (!len || !type)
+            if (!len || !type || !val)
                 return false;
             switch (type) {
                 case MPR_INT32: return *(int*)val != 0;
@@ -1093,8 +1092,7 @@ namespace mpr {
         {
             prop = _prop;
             key = _key;
-            if (_len && _val)
-                _set(_len, _type, _val);
+            _set(_len, _type, _val);
             owned = false;
             pub = _pub;
         }
@@ -1137,8 +1135,10 @@ namespace mpr {
         void _set(int _len, bool _val[])
         {
             int *ival = (int*)malloc(sizeof(int)*_len);
-            if (!ival)
+            if (!ival) {
+                val = 0;
                 return;
+            }
             for (int i = 0; i < _len; i++)
                 ival[i] = (int)_val[i];
             val = ival;
@@ -1158,16 +1158,16 @@ namespace mpr {
             { _set(_len, MPR_STR, (1 == _len) ? (void*)_val[0] : (void*)_val); }
         template <typename T>
         void _set(T _val)
-        {
-            _set(1, (T*)&_val);
-        }
+            { _set(1, (T*)&_val); }
         template <typename T, size_t N>
         void _set(std::array<T, N>& _val)
         {
             if (!_val.empty())
                 _set(N, _val.data());
-            else
+            else {
+                val = 0;
                 len = 0;
+            }
         }
         template <size_t N>
         void _set(std::array<const char*, N>& _vals)
@@ -1183,6 +1183,8 @@ namespace mpr {
                     ((char**)val)[i] = strdup((char*)_vals[i]);
                 owned = true;
             }
+            else
+                val = 0;
         }
         template <size_t N>
         void _set(std::array<std::string, N>& _vals)
@@ -1198,6 +1200,8 @@ namespace mpr {
                     ((char**)val)[i] = strdup((char*)_vals[i].c_str());
                 owned = true;
             }
+            else
+                val = 0;
         }
         void _set(int _len, std::string _vals[])
         {
@@ -1212,6 +1216,8 @@ namespace mpr {
                     ((char**)val)[i] = strdup((char*)_vals[i].c_str());
                 owned = true;
             }
+            else
+                val = 0;
         }
         template <typename T>
         void _set(std::vector<T> _val)
@@ -1243,6 +1249,8 @@ namespace mpr {
                     ((char**)val)[i] = strdup((char*)_val[i].c_str());
                 owned = true;
             }
+            else
+                val = 0;
         }
         void _set(mpr_list _val)
             { _set(1, MPR_LIST, _val); }
@@ -1358,7 +1366,7 @@ if (p.len == 1)                             \
     os << *(TYPE*)p.val;                    \
 else if (p.len > 1) {                       \
     os << "[";                              \
-    for (int i = 0; i < p.len; i++)         \
+    for (unsigned int i = 0; i < p.len; i++)\
         os << ((TYPE*)p.val)[i] << ", ";    \
     os << "\b\b]";                          \
 }
@@ -1378,7 +1386,7 @@ std::ostream& operator<<(std::ostream& os, const mpr::Property& p)
                 os << (const char*)p.val;
             else if (p.len > 1) {
                 os << "[";
-                for (int i = 0; i < p.len; i++)
+                for (unsigned int i = 0; i < p.len; i++)
                     os << ((const char**)p.val)[i] << ", ";
                 os << "\b\b]";
             }

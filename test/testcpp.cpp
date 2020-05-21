@@ -87,12 +87,12 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 
 int main(int argc, char ** argv)
 {
-    unsigned int i = 0, j, result = 0;
+    int i = 0, j, result = 0;
 
     // process flags for -v verbose, -t terminate, -h help
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
-            int len = strlen(argv[i]);
+            int len = (int)strlen(argv[i]);
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
@@ -173,7 +173,7 @@ int main(int argc, char ** argv)
     std::array<const char*, 3> a3 = {{"four", "five", "six"}};
     dev.set_prop("foo", a3);
     std::array<const char*, 3> a4 = dev["foo"];
-    for (i = 0; i < a4.size(); i++)
+    for (i = 0; i < (int)a4.size(); i++)
         out << a4[i] << " ";
     out << std::endl;
 
