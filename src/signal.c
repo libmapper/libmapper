@@ -865,8 +865,8 @@ mpr_dev mpr_sig_get_dev(mpr_sig s)
 
 static int cmp_qry_sig_maps(const void *context_data, mpr_map map)
 {
-    mpr_sig s = *(mpr_sig *)context_data;
-    int dir = *(int*)(context_data + sizeof(int64_t));
+    mpr_sig s = *(mpr_sig*)context_data;
+    int dir = *(int*)(context_data + sizeof(mpr_sig*));
     if (!dir || (dir & MPR_DIR_OUT)) {
         int i;
         for (i = 0; i < map->num_src; i++) {

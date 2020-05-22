@@ -229,7 +229,7 @@ void mpr_map_free(mpr_map m)
 static int cmp_qry_map_sigs(const void *ctx, mpr_sig s)
 {
     mpr_map m = *(mpr_map*)ctx;
-    mpr_loc l = *(mpr_loc*)(ctx + sizeof(mpr_map));
+    mpr_loc l = *(mpr_loc*)(ctx + sizeof(mpr_map*));
     int i;
     if (l & MPR_LOC_SRC) {
         for (i = 0; i < m->num_src; i++) {

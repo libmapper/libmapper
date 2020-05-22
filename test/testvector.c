@@ -28,7 +28,8 @@ mpr_sig recvsig = 0;
 int sent = 0;
 int received = 0;
 
-float *sMin, *sMax, *dMin, *dMax, *M, *B, *expected;
+float *sMin, *sMax, *dMin, *dMax, *expected;
+double *M, *B;
 
 int setup_src()
 {
@@ -70,7 +71,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     eprintf("handler: Got [");
     for (i = 0; i < length; i++) {
         eprintf("%f, ", f[i]);
-        if (fabs(f[i] - expected[i]) > 0.0001)
+        if (f[i] != expected[i])
             value = 0;
     }
     eprintf("\b\b]\n");
@@ -132,9 +133,16 @@ int setup_maps()
 
     // calculate M and B for generated expected values
     for (i = 0; i < vec_len; i++) {
-        float sRange = sMax[i] - sMin[i];
-        M[i] = sRange ? ((dMax[i] - dMin[i]) / sRange) : 0;
-        B[i] = sRange ? ((dMin[i] * sMax[i] - dMax[i] * sMin[i]) / sRange) : 0;
+        double sRange = (double)sMax[i] - (double)sMin[i];
+        if (sRange) {
+            M[i] = ((double)dMax[i] - (double)dMin[i]) / sRange;
+            B[i] = (  (double)dMin[i] * (double)sMax[i]
+                    - (double)dMax[i] * (double)sMin[i]) / sRange;
+        }
+        else {
+            M[i] = 0;
+            B[i] = 0;
+        }
     }
 
     return 0;
@@ -157,7 +165,7 @@ void loop()
         mpr_dev_poll(src, 0);
         for (j = 0; j < vec_len; j++) {
             v[j] = (float)(i + j);
-            expected[j] = v[j] * M[j] + B[j];
+            expected[j] = (double)v[j] * M[j] + B[j];
         }
         eprintf("Updating signal %s to [", sendsig->name);
         for (j = 0; j < vec_len; j++)
@@ -227,8 +235,8 @@ int main(int argc, char **argv)
     sMax = malloc(vec_len * sizeof(float));
     dMin = malloc(vec_len * sizeof(float));
     dMax = malloc(vec_len * sizeof(float));
-    M = malloc(vec_len * sizeof(float));
-    B = malloc(vec_len * sizeof(float));
+    M = malloc(vec_len * sizeof(double));
+    B = malloc(vec_len * sizeof(double));
     expected = malloc(vec_len * sizeof(float));
 
     for (i = 0; i < vec_len; i++) {
