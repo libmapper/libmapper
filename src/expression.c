@@ -367,7 +367,7 @@ typedef struct _token {
         size_t vec_idx;
         int arity;
     };
-    char hist_idx;
+    int8_t hist_idx;
     char vec_len_locked;
     mpr_type datatype;
     char muted;
