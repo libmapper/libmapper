@@ -2,6 +2,10 @@ language: cpp
 sudo: false  # docker VM
 git:
   depth: 99999
+branches:
+  only:
+    - master
+    - v2-devel
 matrix:
   include:
   - os: linux
