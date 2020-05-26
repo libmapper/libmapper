@@ -405,8 +405,10 @@ int main(int argc, char **argv)
 
     mpr_map_release(map);
     map = mpr_map_new(1, &monosend, 1, &multirecv);
-    // TODO: expr = "y = x; alive = 1 + schmitt(x - x{-1}, 1, -1);";
-    expr = "y = x; alive = x - x{-1} >= 0;";
+
+//    expr = "alive = schmitt(x-x{-1}, -2, -1); y = x;";
+    expr = "counter{-1}=0;alive=counter>=5;y=x;counter=(counter+1)%10;";
+//    expr = "y = x; alive = x - x{-1} >= 0;";
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push((mpr_obj)map);
 

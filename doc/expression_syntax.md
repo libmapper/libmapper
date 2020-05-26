@@ -29,10 +29,9 @@ generated output.
 * `==` – equal
 * `!=` – not equal
 
-
 ### Conditional operators
 
-* `?:` – if / then / else (ternary operation) used in the form `a?b:c`. If the second operand is not included the first will be used in its place. If the last operand is missing (the "else" argument) the function will not generate an output if `a` is false
+* `?:` – if / then / else (ternary operation) used in the form `a?b:c`. If the second operand is omitted (e.g. `a ?: c`) the first will be used in its place.
 
 ### Logical operators
 

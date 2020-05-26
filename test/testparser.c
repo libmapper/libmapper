@@ -23,9 +23,9 @@ int iterations = 20000;
 int expression_count = 1;
 int token_count = 0;
 
-int src_int[SRC_ARRAY_LEN], dst_int[DST_ARRAY_LEN], tmp_int[DST_ARRAY_LEN];
-float src_flt[SRC_ARRAY_LEN], dst_flt[DST_ARRAY_LEN], tmp_flt[DST_ARRAY_LEN];
-double src_dbl[SRC_ARRAY_LEN], dst_dbl[DST_ARRAY_LEN], tmp_dbl[DST_ARRAY_LEN];
+int src_int[SRC_ARRAY_LEN], dst_int[DST_ARRAY_LEN], expect_int[DST_ARRAY_LEN];
+float src_flt[SRC_ARRAY_LEN], dst_flt[DST_ARRAY_LEN], expect_flt[DST_ARRAY_LEN];
+double src_dbl[SRC_ARRAY_LEN], dst_dbl[DST_ARRAY_LEN], expect_dbl[DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
 mpr_type types[SRC_ARRAY_LEN];
@@ -67,6 +67,7 @@ struct _mpr_expr
     int in_mem;
     int out_mem;
     int n_vars;
+    int inst_ctl;
 };
 
 /*! A helper function to seed the random number generator. */
@@ -145,7 +146,7 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
             {
                 int *pi = (int*)val;
                 eprintf("%d, ", pi[i + offset]);
-                if (check && pi[i + offset] != tmp_int[i])
+                if (check && pi[i + offset] != expect_int[i])
                     error = i;
                 break;
             }
@@ -153,7 +154,7 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
             {
                 float *pf = (float*)val;
                 eprintf("%g, ", pf[i + offset]);
-                if (check && pf[i + offset] != tmp_flt[i])
+                if (check && pf[i + offset] != expect_flt[i])
                     error = i;
                 break;
             }
@@ -161,7 +162,7 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
             {
                 double *pd = (double*)val;
                 eprintf("%g, ", pd[i + offset]);
-                if (check && pd[i + offset] != tmp_dbl[i])
+                if (check && pd[i + offset] != expect_dbl[i])
                     error = i;
                 break;
             }
@@ -184,13 +185,13 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
                 eprintf("(expected NULL)\n");
                 break;
             case MPR_INT32:
-                eprintf("(expected %d)\n", tmp_int[error]);
+                eprintf("(expected %d)\n", expect_int[error]);
                 break;
             case MPR_FLT:
-                eprintf("(expected %g)\n", tmp_flt[error]);
+                eprintf("(expected %g)\n", expect_flt[error]);
                 break;
             case MPR_DBL:
-                eprintf("(expected %g)\n", tmp_dbl[error]);
+                eprintf("(expected %g)\n", expect_dbl[error]);
                 break;
         }
         return 1;
@@ -368,113 +369,113 @@ int run_tests()
     /* 1) Complex string */
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    tmp_flt[0] = 26*2/2+log10(M_PI)+2.*pow(2,1*(3+7*.1)*1.1+src_flt[0])*3*4+cos(2.0);
+    expect_flt[0] = 26*2/2+log10(M_PI)+2.*pow(2,1*(3+7*.1)*1.1+src_flt[0])*3*4+cos(2.0);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 2) Building vectors, conditionals */
     snprintf(str, 256, "y=(x>1)?[1,2,3]:[2,4,6]");
     setup_test(MPR_FLT, 3, MPR_INT32, 3);
-    tmp_int[0] = src_flt[0] > 1 ? 1 : 2;
-    tmp_int[1] = src_flt[1] > 1 ? 2 : 4;
-    tmp_int[2] = src_flt[2] > 1 ? 3 : 6;
+    expect_int[0] = src_flt[0] > 1 ? 1 : 2;
+    expect_int[1] = src_flt[1] > 1 ? 2 : 4;
+    expect_int[2] = src_flt[2] > 1 ? 3 : 6;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 3) Conditionals with shortened syntax */
     snprintf(str, 256, "y=x?:123");
     setup_test(MPR_FLT, 1, MPR_INT32, 1);
-    tmp_int[0] = (int)(src_flt[0] ? src_flt[0] : 123);
+    expect_int[0] = (int)(src_flt[0] ? src_flt[0] : 123);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 4) Conditional that should be optimized */
     snprintf(str, 256, "y=1?2:123");
     setup_test(MPR_FLT, 1, MPR_INT32, 1);
-    tmp_int[0] = 2;
+    expect_int[0] = 2;
     if (parse_and_eval(EXPECT_SUCCESS, 2, 1))
         return 1;
 
     /* 5) Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[x*-2+1,0]");
     setup_test(MPR_INT32, 2, MPR_DBL, 3);
-    tmp_dbl[0] = (double)src_int[0] * -2 + 1;
-    tmp_dbl[1] = (double)src_int[1] * -2 + 1;
-    tmp_dbl[2] = 0.0;
+    expect_dbl[0] = (double)src_int[0] * -2 + 1;
+    expect_dbl[1] = (double)src_int[1] * -2 + 1;
+    expect_dbl[2] = 0.0;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 6) Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[-99.4, -x*1.1+x]");
     setup_test(MPR_INT32, 2, MPR_DBL, 3);
-    tmp_dbl[0] = atof("-99.4f");
-    tmp_dbl[1] = (double)(-src_int[0] * 1.1 + src_int[0]);
-    tmp_dbl[2] = (double)(-src_int[1] * 1.1 + src_int[1]);
+    expect_dbl[0] = atof("-99.4f");
+    expect_dbl[1] = (double)(-src_int[0] * 1.1 + src_int[0]);
+    expect_dbl[2] = (double)(-src_int[1] * 1.1 + src_int[1]);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 7) Indexing vectors by range */
     snprintf(str, 256, "y=x[1:2]+100");
     setup_test(MPR_DBL, 3, MPR_FLT, 2);
-    tmp_flt[0] = (float)src_dbl[1] + 100;
-    tmp_flt[1] = (float)src_dbl[2] + 100;
+    expect_flt[0] = (float)src_dbl[1] + 100;
+    expect_flt[1] = (float)src_dbl[2] + 100;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 8) Typical linear scaling expression with vectors */
     snprintf(str, 256, "y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    tmp_flt[0] = src_flt[0] * 0.1 + 2.;
-    tmp_flt[1] = src_flt[1] * 3.7 + 1.3;
-    tmp_flt[2] = src_flt[2] * -.1112 + 9000.;
+    expect_flt[0] = src_flt[0] * 0.1 + 2.;
+    expect_flt[1] = src_flt[1] * 3.7 + 1.3;
+    expect_flt[2] = src_flt[2] * -.1112 + 9000.;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 9) Check type and vector length promotion of operation sequences */
     snprintf(str, 256, "y=1+2*3-4*x");
     setup_test(MPR_FLT, 2, MPR_FLT, 2);
-    tmp_flt[0] = 1. + 2. * 3. - 4. * src_flt[0];
-    tmp_flt[1] = 1. + 2. * 3. - 4. * src_flt[1];
+    expect_flt[0] = 1. + 2. * 3. - 4. * src_flt[0];
+    expect_flt[1] = 1. + 2. * 3. - 4. * src_flt[1];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 10) Swizzling, more pre-computation */
     snprintf(str, 256, "y=[x[2],x[0]]*0+1+12");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
-    tmp_flt[0] = src_flt[2] * 0. + 1. + 12.;
-    tmp_flt[1] = src_flt[0] * 0. + 1. + 12.;
+    expect_flt[0] = src_flt[2] * 0. + 1. + 12.;
+    expect_flt[1] = src_flt[0] * 0. + 1. + 12.;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 11) Logical negation */
     snprintf(str, 256, "y=!(x[1]*0)");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
-    tmp_int[0] = (int)!(src_dbl[1] && 0);
+    expect_int[0] = (int)!(src_dbl[1] && 0);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 12) any() */
     snprintf(str, 256, "y=any(x-1)");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
-    tmp_int[0] =    ((int)src_dbl[0] - 1) ? 1 : 0
-                  | ((int)src_dbl[1] - 1) ? 1 : 0
-                  | ((int)src_dbl[2] - 1) ? 1 : 0;
+    expect_int[0] =    ((int)src_dbl[0] - 1) ? 1 : 0
+                     | ((int)src_dbl[1] - 1) ? 1 : 0
+                     | ((int)src_dbl[2] - 1) ? 1 : 0;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 13) all() */
     snprintf(str, 256, "y=x[2]*all(x-1)");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
-    tmp_int[0] = (int)src_dbl[2] * (  ((int)src_dbl[0] - 1) ? 1 : 0
-                                    & ((int)src_dbl[1] - 1) ? 1 : 0
-                                    & ((int)src_dbl[2] - 1) ? 1 : 0);
+    expect_int[0] = (int)src_dbl[2] * (  ((int)src_dbl[0] - 1) ? 1 : 0
+                                       & ((int)src_dbl[1] - 1) ? 1 : 0
+                                       & ((int)src_dbl[2] - 1) ? 1 : 0);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 14) pi and e, extra spaces */
     snprintf(str, 256, "y=x + pi -     e");
     setup_test(MPR_DBL, 1, MPR_FLT, 1);
-    tmp_flt[0] = (float)(src_dbl[0] + M_PI - M_E);
+    expect_flt[0] = (float)(src_dbl[0] + M_PI - M_E);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
@@ -499,7 +500,7 @@ int run_tests()
     /* 18) Unnecessary vector notation */
     snprintf(str, 256, "y=x+[1]");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    tmp_int[0] = src_int[0] + 1;
+    expect_int[0] = src_int[0] + 1;
     if (parse_and_eval(EXPECT_SUCCESS, 4, 1))
         return 1;
 
@@ -518,38 +519,38 @@ int run_tests()
     /* 21) Scientific notation */
     snprintf(str, 256, "y=x[1]*1.23e-20");
     setup_test(MPR_INT32, 2, MPR_DBL, 1);
-    tmp_dbl[0] = (double)src_int[1] * 1.23e-20;
+    expect_dbl[0] = (double)src_int[1] * 1.23e-20;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 22) Vector assignment */
     snprintf(str, 256, "y[1]=x[1]");
     setup_test(MPR_DBL, 3, MPR_INT32, 3);
-    tmp_int[1] = (int)src_dbl[1];
+    expect_int[1] = (int)src_dbl[1];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 23) Vector assignment */
     snprintf(str, 256, "y[1:2]=[x[1],10]");
     setup_test(MPR_DBL, 3, MPR_INT32, 3);
-    tmp_int[1] = (int)src_dbl[1];
-    tmp_int[2] = 10;
+    expect_int[1] = (int)src_dbl[1];
+    expect_int[2] = 10;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 24) Output vector swizzling */
     snprintf(str, 256, "[y[0],y[2]]=x[1:2]");
     setup_test(MPR_FLT, 3, MPR_DBL, 3);
-    tmp_dbl[0] = (double)src_flt[1];
-    tmp_dbl[2] = (double)src_flt[2];
+    expect_dbl[0] = (double)src_flt[1];
+    expect_dbl[2] = (double)src_flt[2];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 25) Multiple expressions */
     snprintf(str, 256, "y[0]=x*100-23.5; y[2]=100-x*6.7");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    tmp_flt[0] = (float)((double)src_int[0] * 100 - 23.5);
-    tmp_flt[2] = (float)(100 - (double)src_int[0] * 6.7);
+    expect_flt[0] = (float)((double)src_int[0] * 100 - 23.5);
+    expect_flt[2] = (float)(100 - (double)src_int[0] * 6.7);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
@@ -562,32 +563,32 @@ int run_tests()
     /* 27) Initialize filters */
     snprintf(str, 256, "y=x+y{-1}; y{-1}=100");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    tmp_int[0] = src_int[0] * iterations + 100;
+    expect_int[0] = src_int[0] * iterations + 100;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 28) Initialize filters + vector index */
     snprintf(str, 256, "y=x+y{-1}; y[1]{-1}=100");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
-    tmp_int[0] = src_int[0] * iterations;
-    tmp_int[1] = src_int[1] * iterations + 100;
+    expect_int[0] = src_int[0] * iterations;
+    expect_int[1] = src_int[1] * iterations + 100;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 29) Initialize filters + vector index */
     snprintf(str, 256, "y=x+y{-1}; y{-1}=[100,101]");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
-    tmp_int[0] = src_int[0] * iterations + 100;
-    tmp_int[1] = src_int[1] * iterations + 101;
+    expect_int[0] = src_int[0] * iterations + 100;
+    expect_int[1] = src_int[1] * iterations + 101;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 30) Initialize filters */
     snprintf(str, 256, "y=x+y{-1}; y[0]{-1}=100; y[2]{-1}=200");
     setup_test(MPR_INT32, 3, MPR_INT32, 3);
-    tmp_int[0] = src_int[0] * iterations + 100;
-    tmp_int[1] = src_int[1] * iterations;
-    tmp_int[2] = src_int[2] * iterations + 200;
+    expect_int[0] = src_int[0] * iterations + 100;
+    expect_int[1] = src_int[1] * iterations;
+    expect_int[2] = src_int[2] * iterations + 200;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
@@ -596,28 +597,28 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     switch (iterations % 6) {
         case 0:
-            tmp_int[0] = 100;
-            tmp_int[1] = 101;
+            expect_int[0] = 100;
+            expect_int[1] = 101;
             break;
         case 1:
-            tmp_int[0] = src_int[0] + 100 - 102;
-            tmp_int[1] = src_int[1] + 101 - 103;
+            expect_int[0] = src_int[0] + 100 - 102;
+            expect_int[1] = src_int[1] + 101 - 103;
             break;
         case 2:
-            tmp_int[0] = src_int[0] * 2 - 102;
-            tmp_int[1] = src_int[1] * 2 - 103;
+            expect_int[0] = src_int[0] * 2 - 102;
+            expect_int[1] = src_int[1] * 2 - 103;
             break;
         case 3:
-            tmp_int[0] = src_int[0] * 2 - 100;
-            tmp_int[1] = src_int[1] * 2 - 101;
+            expect_int[0] = src_int[0] * 2 - 100;
+            expect_int[1] = src_int[1] * 2 - 101;
             break;
         case 4:
-            tmp_int[0] = src_int[0] - 100 + 102;
-            tmp_int[1] = src_int[1] - 101 + 103;
+            expect_int[0] = src_int[0] - 100 + 102;
+            expect_int[1] = src_int[1] - 101 + 103;
             break;
         case 5:
-            tmp_int[0] = 102;
-            tmp_int[1] = 103;
+            expect_int[0] = 102;
+            expect_int[1] = 103;
             break;
     }
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
@@ -668,22 +669,25 @@ int run_tests()
     /* 39) Variable declaration */
     snprintf(str, 256, "y=x+var; var=[3.5,0]");
     setup_test(MPR_INT32, 2, MPR_FLT, 2);
-    tmp_flt[0] = (float)((double)src_int[0] + 3.5);
-    tmp_flt[1] = (float)((double)src_int[1]);
+    expect_flt[0] = (float)((double)src_int[0] + 3.5);
+    expect_flt[1] = (float)((double)src_int[1]);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 40) Variable declaration */
     snprintf(str, 256, "ema=ema{-1}*0.9+x*0.1; y=ema*2; ema{-1}=90");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    tmp_flt[0] = ((90 - src_int[0]) * powf(M_E, iterations * -0.1053605) + src_int[0]) * 2;
+    expect_dbl[0] = 90;
+    for (int i = 0; i < iterations; i++)
+        expect_dbl[0] = expect_dbl[0] * 0.9 + src_int[0] * 0.1;
+    expect_flt[0] = expect_dbl[0] * 2;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 41) Multiple variable declaration */
     snprintf(str, 256, "a=1.1; b=2.2; c=3.3; y=x+a-b*c");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    tmp_flt[0] = (float)((double)src_int[0] + 1.1 - 2.2 * 3.3);
+    expect_flt[0] = (float)((double)src_int[0] + 1.1 - 2.2 * 3.3);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
@@ -696,34 +700,34 @@ int run_tests()
     /* 43) Vector functions mean() and sum() */
     snprintf(str, 256, "y=mean(x)==(sum(x)/3)");
     setup_test(MPR_FLT, 3, MPR_INT32, 1);
-    tmp_int[0] = 1;
+    expect_int[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 44) Overloaded vector functions max() and min() */
     snprintf(str, 256, "y=max(x)-min(x)*max(x[0],1)");
     setup_test(MPR_FLT, 3, MPR_INT32, 1);
-    tmp_int[0] = (  ((src_flt[0] > src_flt[1]) ?
-                     (src_flt[0] > src_flt[2] ? src_flt[0] : src_flt[2]) :
-                     (src_flt[1] > src_flt[2] ? src_flt[1] : src_flt[2]))
-                  - ((src_flt[0] < src_flt[1]) ?
-                     (src_flt[0] < src_flt[2] ? src_flt[0] : src_flt[2]) :
-                     (src_flt[1] < src_flt[2] ? src_flt[1] : src_flt[2]))
-                  * (src_flt[0] > 1 ? src_flt[0] : 1));
+    expect_int[0] = (  ((src_flt[0] > src_flt[1]) ?
+                        (src_flt[0] > src_flt[2] ? src_flt[0] : src_flt[2]) :
+                        (src_flt[1] > src_flt[2] ? src_flt[1] : src_flt[2]))
+                     - ((src_flt[0] < src_flt[1]) ?
+                        (src_flt[0] < src_flt[2] ? src_flt[0] : src_flt[2]) :
+                        (src_flt[1] < src_flt[2] ? src_flt[1] : src_flt[2]))
+                     * (src_flt[0] > 1 ? src_flt[0] : 1));
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 45) Optimization: operations by zero */
     snprintf(str, 256, "y=0*sin(x)*200+1.1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    tmp_flt[0] = 1.1;
+    expect_flt[0] = 1.1;
     if (parse_and_eval(EXPECT_SUCCESS, 2, 1))
         return 1;
 
     /* 46) Optimization: operations by one */
     snprintf(str, 256, "y=x*1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    tmp_flt[0] = (float)src_int[0];
+    expect_flt[0] = (float)src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 2, 1))
         return 1;
 
@@ -738,36 +742,32 @@ int run_tests()
     mpr_type types[] = {MPR_INT32, MPR_FLT, MPR_DBL};
     int lens[] = {2, 3, 2};
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
-    tmp_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
-    tmp_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);
+    expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
+    expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 49) Functions with memory: ema() */
     snprintf(str, 256, "y=x-ema(x,0.1)+2");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    // result should approach 2 as iterations increases
-    tmp_flt[0] = src_int[0] * powf(M_E, iterations * -0.1053605) + 2;
-    parse_and_eval(EXPECT_SUCCESS, 0, 0);
-    dst_flt[0] = ((float*)outh.val)[outh.pos * outh.len];
-    if (fabsf(dst_flt[0] - tmp_flt[0]) > 0.001) {
-        eprintf("... error: expected approximately %g\n", tmp_flt[0]);
+    expect_dbl[0] = 0;
+    for (int i = 0; i < iterations; i++)
+        expect_dbl[0] = expect_dbl[0] * 0.9 + src_int[0] * 0.1;
+    expect_flt[0] = src_int[0] - expect_dbl[0] + 2;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
-    }
-    else
-        eprintf("... OK\n");
 
     /* 50) Functions with memory: schmitt() */
     snprintf(str, 256, "y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
     setup_test(MPR_INT32, 3, MPR_FLT, 3);
     if (iterations < 80) {
-        tmp_flt[0] = tmp_flt[1] = tmp_flt[2] = iterations;
+        expect_flt[0] = expect_flt[1] = expect_flt[2] = iterations;
     }
     else {
         int cycles = (iterations-80) / 60;
         int remainder = (iterations-80) % 60;
         float ans = (cycles % 2) ? 20 + remainder : 80 - remainder;
-        tmp_flt[0] = tmp_flt[1] = tmp_flt[2] = ans;
+        expect_flt[0] = expect_flt[1] = expect_flt[2] = ans;
     }
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
@@ -775,9 +775,9 @@ int run_tests()
     /* 51) Multiple output assignment */
     snprintf(str, 256, "y=x-10000; y=max(min(y,1),0)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    tmp_flt[0] = src_flt[0] - 10000;
-    tmp_flt[0] = tmp_flt[0] < 0 ? 0 : tmp_flt[0];
-    tmp_flt[0] = tmp_flt[0] > 0 ? 1 : tmp_flt[0];
+    expect_flt[0] = src_flt[0] - 10000;
+    expect_flt[0] = expect_flt[0] < 0 ? 0 : expect_flt[0];
+    expect_flt[0] = expect_flt[0] > 0 ? 1 : expect_flt[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
@@ -851,21 +851,22 @@ int run_tests()
     snprintf(str, 256,
              "t_y{-1}=t_x;"
              "diff=t_x-t_y{-1};"
-             "y=(diff>0.1)?x;");
+             "alive=diff>0.1;"
+             "y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    tmp_int[0] = src_int[0];
+    expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     /* 57) Expression for limiting rate with smoothed output */
     snprintf(str, 256,
              "t_y{-1}=t_x;"
-             "output=(t_x-t_y{-1})>0.1;"
-             "y=output?agg/samps;"
-             "agg=!output*agg+x;"
-             "samps=output?1:samps+1");
+             "alive=(t_x-t_y{-1})>0.1;"
+             "y=agg/samps;"
+             "agg=!alive*agg+x;"
+             "samps=alive?1:samps+1");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    tmp_dbl[0] = (double)src_int[0];
+    expect_dbl[0] = (double)src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
@@ -874,7 +875,7 @@ int run_tests()
      *     message timing. */
     snprintf(str, 256, "y=x[0]{0}; t_y=t_x+10");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    tmp_int[0] = src_int[0];
+    expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
     mpr_time time = outh.time[(int)outh.pos];
@@ -889,6 +890,14 @@ int run_tests()
     snprintf(str, 256, "y=t_x-y;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+        return 1;
+
+    /* 60) Instance management */
+    const char *expr60 = "count{-1}=0;alive=count>=5;y=x;count=(count+1)%10;";
+    snprintf(str, 256, "%s", expr60);
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = src_int[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
         return 1;
 
     return 0;
@@ -961,6 +970,6 @@ int main(int argc, char **argv)
     if (!result)
         printf(" (%f seconds, %d tokens).\n", total_elapsed_time, token_count);
     else
-        printf(".\n");
+        printf("\n");
     return result;
 }

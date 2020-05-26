@@ -118,7 +118,6 @@ TYPED_SCHMITT(double, d)
 typedef enum {
     VAR_UNKNOWN=-1,
     VAR_Y=N_USER_VARS,
-    VAR_I,
     VAR_X,
     N_VARS
 } expr_var_t;
@@ -260,7 +259,7 @@ typedef enum {
     OP_BITWISE_OR,
     OP_LOGICAL_AND,
     OP_LOGICAL_OR,
-    OP_IF_THEN,
+    OP_IF,
     OP_IF_ELSE,
     OP_IF_THEN_ELSE,
 } expr_op_t;
@@ -323,6 +322,15 @@ typedef float vfn_flt_arity1(mpr_val_t*, int);
 typedef double vfn_dbl_arity1(mpr_val_t*, int);
 
 typedef struct _token {
+    union {
+        float f;
+        int i;
+        double d;
+        expr_var_t var;
+        expr_op_t op;
+        expr_fn_t fn;
+        expr_vfn_t vfn;
+    };
     enum {
         TOK_CONST           = 0x000001,
         TOK_NEGATE          = 0x000002,
@@ -349,15 +357,6 @@ typedef struct _token {
         TOK_TT              = 0x080000,
         TOK_END             = 0x100000,
     } toktype;
-    union {
-        float f;
-        int i;
-        double d;
-        expr_var_t var;
-        expr_op_t op;
-        expr_fn_t fn;
-        expr_vfn_t vfn;
-    };
     union {
         mpr_type casttype;
         size_t offset;
@@ -422,7 +421,6 @@ FN_LOOKUP(vfn, VFN)
 
 static void var_lookup(mpr_token_t *tok, const char *s, int len)
 {
-    // TODO: allow more than 10 source slots
     if ('t' == *s && '_' == *(s+1)) {
         tok->toktype = TOK_TT;
         s += 2;
@@ -436,13 +434,17 @@ static void var_lookup(mpr_token_t *tok, const char *s, int len)
     else if ('x' == *s) {
         if (1 == len)
             tok->var = VAR_X;
-        else if (2 == len && isdigit(*(s+1)))
-            tok->var = VAR_X + atoi(s+1);
-        else
-            tok->var = VAR_UNKNOWN;
+        else {
+            int i, ordinal = 1;
+            for (i = 1; i < len; i++) {
+                if (!isdigit(*(s+i))) {
+                    ordinal = 0;
+                    break;
+                }
+            }
+            tok->var = ordinal ? VAR_X + atoi(s+1) : VAR_UNKNOWN;
+        }
     }
-    else if (5 == len && 0 == strncmp(s, "alive", 5))
-        tok->var = VAR_I;
     else
         tok->var = VAR_UNKNOWN;
 }
@@ -683,7 +685,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return ++idx;
     case '?':
         // conditional
-        SET_TOK_OPTYPE(OP_IF_THEN);
+        SET_TOK_OPTYPE(OP_IF);
         c = str[++idx];
         if (c == ':') {
             tok->op = OP_IF_ELSE;
@@ -731,7 +733,7 @@ struct _mpr_expr
     int in_hist_size;
     int out_hist_size;
     int n_vars;
-    int manage_instances;
+    int inst_ctl;
 };
 
 void mpr_expr_free(mpr_expr expr)
@@ -769,8 +771,6 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         case TOK_VAR:
             if (t.var == VAR_Y)
                 snprintf(s, len, "y{%d}[%zu]", t.hist_idx, t.vec_idx);
-            else if (VAR_I == t.var)
-                snprintf(s, len, "instance_manager");
             else if (t.var >= VAR_X)
                 snprintf(s, len, "x%d{%d}[%zu]", t.var-VAR_X, t.hist_idx, t.vec_idx);
             else
@@ -798,8 +798,6 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
                 snprintf(s, len, "ASSIGN_TO:y{%d}[%zu]->[%zu]%s",
                          t.hist_idx, t.offset, t.vec_idx,
                          t.toktype == TOK_ASSIGN_CONST ? " (const) " : "");
-            else if (VAR_I == t.var)
-                snprintf(s, len, "ASSIGN_TO:instance_manager");
             else
                 snprintf(s, len, "ASSIGN_TO:%s{%d}[%zu]->[%zu]%s",
                          vars[t.var].name, t.hist_idx, t.offset, t.vec_idx,
@@ -865,6 +863,10 @@ static void printstack(const char *s, mpr_token_t *stk, int top,
                         can_advance = 0;
                         break;
                     }
+                    break;
+                case TOK_VAR:
+                    if (stk[i].var >= VAR_X)
+                        can_advance = 0;
                     break;
                 default:
                     break;
@@ -971,7 +973,7 @@ static void lock_vec_len(mpr_token_t *stk, int top)
 
 static int precompute(mpr_token_t *stk, int len, int vec_len)
 {
-    struct _mpr_expr e = {0, stk, 0, 0, len, vec_len, 0, 0, 0};
+    struct _mpr_expr e = {0, stk, 0, 0, len, vec_len, 0, 0, 0, -1};
     void *v = malloc(mpr_type_get_size(stk[len-1].datatype) * vec_len);
     mpr_hist_t h = {v, 0, vec_len, stk[len-1].datatype, 1, -1};
     if (!(mpr_expr_eval(&e, 0, 0, &h, 0, 0) & 1)) {
@@ -1009,9 +1011,10 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     int i, arity, can_precompute = 1, optimize = NONE;
     mpr_type type = stk[top].datatype;
     size_t vec_len = stk[top].vec_len;
-
     switch (stk[top].toktype) {
         case TOK_OP:
+            if (stk[top].op == OP_IF)
+                PARSE_ERROR(-1, "Ternary operator is missing operand.\n");
             arity = op_tbl[stk[top].op].arity;
             break;
         case TOK_FN:
@@ -1036,7 +1039,6 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
         default:
             return top;
     }
-
     if (arity) {
         // find operator or function inputs
         i = top;
@@ -1216,7 +1218,6 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     }
     else
         stk[top].datatype = MPR_DBL;
-
     // if stack within bounds of arity was only constants, we're ok to compute
     if (can_precompute)
         return top - precompute(&stk[top-arity], arity+1, vec_len);
@@ -1230,9 +1231,7 @@ static int check_assign_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     size_t vec_len = 0;
     expr_var_t var = stk[top].var;
 
-    while (i >= 0 && (stk[i].toktype & TOK_ASSIGN)) {
-        if (stk[i].var != var)
-            PARSE_ERROR(-1, "Cannot mix variable references in assignment\n");
+    while (i >= 0 && (stk[i].toktype & TOK_ASSIGN) && (stk[i].var == var)) {
         vec_len += stk[i].vec_len;
         --i;
     }
@@ -1335,7 +1334,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
 
     mpr_var_t vars[N_USER_VARS];
     int n_vars = 0;
-    int manage_instances = 0;
+    int inst_ctl = -1;
     int assign_mask = (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE
                        | TOK_OPEN_CURLY | TOK_PUBLIC);
     int OBJECT_TOKENS = (TOK_VAR | TOK_CONST | TOK_FN | TOK_VFN | TOK_MUTED
@@ -1396,12 +1395,6 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                     tok.vec_len = out_vec_len;
                     tok.vec_len_locked = 1;
                 }
-                else if (VAR_I == tok.var) {
-                    tok.datatype = MPR_INT32;
-                    tok.vec_len = 1;
-                    tok.vec_len_locked = 1;
-                    manage_instances = 1;
-                }
                 else {
                     // get name of variable
                     int idx = lex_idx-1;
@@ -1437,7 +1430,14 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
 #endif
                         tok.var = n_vars;
                         tok.datatype = MPR_DBL;
-                        tok.vec_len = 0;
+                        // special case: 'alive' tracks instance lifetime
+                        if (strcmp(vars[n_vars].name, "alive")==0) {
+                            inst_ctl = n_vars;
+                            tok.vec_len = 1;
+                            tok.vec_len_locked = 1;
+                        }
+                        else
+                            tok.vec_len = 0;
                         ++n_vars;
                     }
                 }
@@ -1566,7 +1566,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
             case TOK_COLON:
                 // pop from operator stack to output until conditional found
                 while (op_idx >= 0 && (op[op_idx].toktype != TOK_OP ||
-                                       op[op_idx].op != OP_IF_THEN)) {
+                                       op[op_idx].op != OP_IF)) {
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 {FAIL_IF(op_idx < 0, "Unmatched colon.");}
@@ -1580,7 +1580,6 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         {FAIL("Unmatched parentheses or misplaced comma.");}
                     POP_OPERATOR_TO_OUTPUT();
                 }
-
                 int var_idx = op[op_idx].var;
                 if (var_idx < VAR_Y) {
                     if (!vars[var_idx].vec_len)
@@ -1589,7 +1588,6 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                     op[op_idx].vec_len = vars[var_idx].vec_len;
                     op[op_idx].vec_len_locked = 1;
                 }
-
                 // pop assignment operators to output
                 while (op_idx >= 0) {
                     if (!op_idx && op[op_idx].toktype < TOK_ASSIGN)
@@ -1600,11 +1598,9 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         {FAIL("Malformed expression (5)");}
                     POP_OPERATOR();
                 }
-
                 // check vector length and type
                 if (check_assign_type_and_len(out, out_idx, vars) == -1)
                     {FAIL("Malformed expression (6)");}
-
                 // start another sub-expression
                 assigning = 1;
                 allow_toktype = TOK_VAR | TOK_TT | TOK_PUBLIC;
@@ -1872,7 +1868,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
     mpr_expr expr = malloc(sizeof(struct _mpr_expr));
     expr->len = out_idx + 1;
     expr->offset = 0;
-    expr->manage_instances = manage_instances;
+    expr->inst_ctl = inst_ctl;
 
     // copy tokens
     expr->tokens = malloc(sizeof(struct _token)*expr->len);
@@ -1955,7 +1951,7 @@ int mpr_expr_get_num_input_slots(mpr_expr expr)
 
 int mpr_expr_get_manages_instances(mpr_expr expr)
 {
-    return expr ? expr->manage_instances : 0;
+    return expr ? expr->inst_ctl >= 0 : 0;
 }
 
 #if TRACING
@@ -2009,30 +2005,6 @@ static const char *type_name(const mpr_type type)
         break;
 
 #define CONDITIONAL_CASES(EL)                                       \
-    case OP_IF_THEN:                                                \
-        for (i = 0; i < tok->vec_len; i++) {                        \
-            if (stk[top][i].EL)                                     \
-                stk[top][i].EL = stk[top+1][i].EL;                  \
-            else {                                                  \
-                /* skip ahead until after assignment */             \
-                found = 0;                                          \
-                ++tok;                                              \
-                ++count;                                            \
-                while (count < len && tok->toktype != TOK_END) {    \
-                    if (tok->toktype >= TOK_ASSIGN)                 \
-                        found = 1;                                  \
-                    else if (found) {                               \
-                        --tok;                                      \
-                        --count;                                    \
-                        break;                                      \
-                    }                                               \
-                    ++tok;                                          \
-                    ++count;                                        \
-                }                                                   \
-                goto skip_typecast;                                 \
-            }                                                       \
-        }                                                           \
-        break;                                                      \
     case OP_IF_ELSE:                                                \
         for (i = 0; i < tok->vec_len; i++) {                        \
             if (!stk[top][i].EL)                                    \
@@ -2093,16 +2065,21 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
     }
     mpr_token_t *tok = expr->start;
     int len = expr->len;
-    int status = 1, alive = !expr->manage_instances;
+    int status = 1, alive = 1;
     if (out->pos >= 0) {
-        alive = 1;
         tok += expr->offset;
         len -= expr->offset;
+    }
+    if (expr->inst_ctl >= 0) {
+        // recover instance state
+        mpr_hist h = *expr_vars + expr->inst_ctl;
+        double *v = h->val;
+        alive = (0 != v[0]);
     }
     mpr_val_t stk[len][expr->vec_size];
     int dims[len];
 
-    int i, j, k, top = -1, count = 0, found, can_advance = 1;
+    int i, j, k, top = -1, count = 0, can_advance = 1;
 
     // init types
     if (types)
@@ -2222,8 +2199,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             top -= op_tbl[tok->op].arity-1;
             dims[top] = tok->vec_len;
 #if TRACING
-            if (tok->op == OP_IF_THEN || tok->op == OP_IF_ELSE ||
-                tok->op == OP_IF_THEN_ELSE) {
+            if (tok->op == OP_IF_THEN_ELSE || tok->op == OP_IF_ELSE) {
                 printf("IF ");
                 print_stack_vec(stk[top], tok->datatype, tok->vec_len);
                 printf(" THEN ");
@@ -2234,10 +2210,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 }
                 else {
                     print_stack_vec(stk[top+1], tok->datatype, tok->vec_len);
-                    if (tok->op == OP_IF_THEN_ELSE) {
-                        printf(" ELSE ");
-                        print_stack_vec(stk[top+2], tok->datatype, tok->vec_len);
-                    }
+                    printf(" ELSE ");
+                    print_stack_vec(stk[top+2], tok->datatype, tok->vec_len);
                 }
             }
             else {
@@ -2420,27 +2394,15 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             if (VAR_Y == tok->var)
                 printf("assigning values to y{%i}[%zu] (%s x %zu)\n", tok->hist_idx,
                        tok->vec_idx, type_name(tok->datatype), tok->vec_len);
-            else if (VAR_I == tok->var)
-                printf("assigning value to instance lifetime manager\n");
             else
                 printf("assigning values to %s{%i}[%zu] (%s x %zu)\n",
                        expr->vars[tok->var].name, tok->hist_idx, tok->vec_idx,
                        type_name(tok->datatype), tok->vec_len);
 #endif
-            if (VAR_I == tok->var) {
-                if (alive && !stk[top][0].i) {
-                    if (status & MPR_SIG_UPDATE)
-                        status |= RELEASED_AFTER_UPDATE;
-                    else
-                        status |= RELEASED_BEFORE_UPDATE;
-                }
-                alive = stk[top][0].i;
-                break;
-            }
-            else if (!alive)
-                break;
-            status |= MPR_SIG_UPDATE;
             if (tok->var == VAR_Y) {
+                if (!alive)
+                    break;
+                status |= MPR_SIG_UPDATE;
                 can_advance = 0;
                 if (!out)
                     return status;
@@ -2492,6 +2454,17 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                     memcpy(h->time, t, sizeof(mpr_time));
 
                 expr->vars[tok->var].assigned = 1;
+
+                if (tok->var == expr->inst_ctl) {
+                    if (alive && stk[top][0].d == 0) {
+                        if (status & MPR_SIG_UPDATE)
+                            status |= RELEASED_AFTER_UPDATE;
+                        else
+                            status |= RELEASED_BEFORE_UPDATE;
+                    }
+                    alive = stk[top][0].d != 0;
+                    break;
+                }
             }
             else
                 goto error;
@@ -2562,7 +2535,6 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                     goto error;
             }
         }
-    skip_typecast:
         ++tok;
         ++count;
     }
@@ -2595,7 +2567,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
         --out->pos;
         if (out->pos < 0)
             out->pos = out->mem - 1;
-        return status - 1;
+        return status;
     }
 
     return status;

@@ -323,8 +323,7 @@ namespace mpr {
             { return _refcount_ptr ? --(*_refcount_ptr) : 0; }
         bool _owned;
 
-        Object(mpr_obj obj)
-            { _obj = obj; _owned = 0; _refcount_ptr = 0; }
+        Object(mpr_obj obj) { _obj = obj; _owned = 0; _refcount_ptr = 0; }
 
         friend class List<Device>;
         friend class List<Signal>;
@@ -822,6 +821,7 @@ namespace mpr {
         {
             _graph = graph;
             _owned = false;
+            _refcount_ptr = 0;
         }
         ~Graph()
         {
