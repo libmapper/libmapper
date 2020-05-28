@@ -273,6 +273,9 @@ static void call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
                   sig->name);
         return;
     }
+    // non-instanced signals cannot have a null value
+    if (!val && !sig->use_inst)
+        return;
     mpr_sig_update_timing_stats(sig, diff);
     mpr_sig_handler *h = sig->loc->handler;
     if (h && (evt & sig->loc->event_flags))
@@ -390,7 +393,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 /* special case: do a dry-run to check whether this map will
                  * cause a release. If so, don't bother stealing an instance. */
                 int status = mpr_expr_eval(map->loc->expr, 0, 0, 0, &ts, 0);
-                if (status & RELEASED_BEFORE_UPDATE)
+                if (status & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
             }
 
@@ -484,7 +487,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
             // check if expression has triggered instance-release
             int status = mpr_map_perform(map, typestring, &ts, id);
-            if (status & RELEASED_BEFORE_UPDATE) {
+            if (status & EXPR_RELEASE_BEFORE_UPDATE) {
                 // try to release instance
                 /* Do not call mpr_rtr_process_sig() here, since we don't know
                 * if the local signal instance will actually be released. */
@@ -492,7 +495,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                            ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
                 call_handler(sig, evt, idmap->LID, 0, 0, &ts, diff);
             }
-            if (status & MPR_SIG_UPDATE) {
+            if (status & EXPR_UPDATE) {
                 void *result = mpr_hist_get_val_ptr(map->dst->loc->hist[id]);
                 vals = 0;
                 for (i = 0; i < map->dst->sig->len; i++) {
@@ -529,7 +532,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                     }
                 }
             }
-            if (status & RELEASED_AFTER_UPDATE) {
+            if (status & EXPR_RELEASE_AFTER_UPDATE) {
                 // try to release instance
                 /* Do not call mpr_rtr_process_sig() here, since we don't know
                 * if the local signal instance will actually be released. */

@@ -279,7 +279,7 @@ int _oldest_inst(mpr_sig sig)
 
 mpr_id mpr_sig_get_oldest_inst_id(mpr_sig sig)
 {
-    RETURN_UNLESS(sig && sig->loc, 0);
+    RETURN_UNLESS(sig && sig->loc && sig->use_inst, 0);
     int idx = _oldest_inst(sig);
     return (idx >= 0) ? sig->loc->idmaps[idx].map->LID : 0;
 }
@@ -310,7 +310,7 @@ int _newest_inst(mpr_sig sig)
 
 mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig)
 {
-    RETURN_UNLESS(sig && sig->loc, 0);
+    RETURN_UNLESS(sig && sig->loc && sig->use_inst, 0);
     int idx = _newest_inst(sig);
     return (idx >= 0) ? sig->loc->idmaps[idx].map->LID : 0;
 }
@@ -548,8 +548,12 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
     si->idx = lowest;
     _init_inst(si);
     si->data = data;
-    if (++sig->num_inst > 1)
+    if (++sig->num_inst > 1) {
+        if (!sig->use_inst) {
+            // TODO: modify associated maps for instanced signals
+        }
         sig->use_inst = 1;
+    }
     qsort(sig->loc->inst, sig->num_inst, sizeof(mpr_sig_inst), _compare_ids);
 
     // return largest index
@@ -692,7 +696,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
 
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id, mpr_time time)
 {
-    RETURN_UNLESS(sig && sig->loc);
+    RETURN_UNLESS(sig && sig->loc && sig->use_inst);
     int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY,
                                         MPR_NOW, 0);
     if (idx >= 0)
@@ -727,7 +731,7 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idx, mpr_time t)
 
 void mpr_sig_remove_inst(mpr_sig sig, mpr_id id, mpr_time time)
 {
-    RETURN_UNLESS(sig && sig->loc);
+    RETURN_UNLESS(sig && sig->loc && sig->use_inst);
     if (mpr_time_get_is_now(&time))
         mpr_time_set(&time, MPR_NOW);
     int i;
@@ -776,6 +780,7 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
 int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
+    RETURN_UNLESS(sig->use_inst, 1);
     int i, j = 0;
     status = status & MPR_STATUS_ACTIVE ? 1 : 0;
     for (i = 0; i < sig->num_inst; i++) {
@@ -788,6 +793,7 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
 mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
+    RETURN_UNLESS(sig->use_inst, 0);
     int i, j = -1;
     status = status & MPR_STATUS_ACTIVE ? 1 : 0;
     for (i = 0; i < sig->num_inst; i++) {
@@ -802,6 +808,7 @@ mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
 int mpr_sig_activate_inst(mpr_sig sig, mpr_id id, mpr_time time)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
+    RETURN_UNLESS(sig->use_inst, 0);
     if (mpr_time_get_is_now(&time))
         mpr_time_set(&time, MPR_NOW);
     int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time, 1);

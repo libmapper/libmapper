@@ -361,22 +361,22 @@ typedef struct _token {
         mpr_type casttype;
         size_t offset;
     };
+    mpr_type datatype;
     size_t vec_len;
     union {
         size_t vec_idx;
-        int arity;
+        int8_t arity;
     };
     int8_t hist_idx;
     char vec_len_locked;
-    mpr_type datatype;
     char muted;
 } mpr_token_t, *mpr_token;
 
 typedef struct _var {
     char *name;
-    size_t vec_len;
     mpr_type datatype;
     mpr_type casttype;
+    size_t vec_len;
     char vec_len_locked;
     char assigned;
     char public;
@@ -727,13 +727,14 @@ struct _mpr_expr
     mpr_token tokens;
     mpr_token start;
     mpr_var vars;
-    int offset;
-    int len;
-    int vec_size;
-    int in_hist_size;
-    int out_hist_size;
-    int n_vars;
-    int inst_ctl;
+    int8_t offset;
+    int8_t len;
+    int8_t vec_size;
+    int8_t in_hist_size;
+    int8_t out_hist_size;
+    int8_t n_vars;
+    int8_t inst_ctl;
+    int8_t mute_ctl;
 };
 
 void mpr_expr_free(mpr_expr expr)
@@ -973,7 +974,7 @@ static void lock_vec_len(mpr_token_t *stk, int top)
 
 static int precompute(mpr_token_t *stk, int len, int vec_len)
 {
-    struct _mpr_expr e = {0, stk, 0, 0, len, vec_len, 0, 0, 0, -1};
+    struct _mpr_expr e = {0, stk, 0, 0, len, vec_len, 0, 0, 0, -1, -1};
     void *v = malloc(mpr_type_get_size(stk[len-1].datatype) * vec_len);
     mpr_hist_t h = {v, 0, vec_len, stk[len-1].datatype, 1, -1};
     if (!(mpr_expr_eval(&e, 0, 0, &h, 0, 0) & 1)) {
@@ -1335,6 +1336,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
     mpr_var_t vars[N_USER_VARS];
     int n_vars = 0;
     int inst_ctl = -1;
+    int mute_ctl = -1;
     int assign_mask = (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE
                        | TOK_OPEN_CURLY | TOK_PUBLIC);
     int OBJECT_TOKENS = (TOK_VAR | TOK_CONST | TOK_FN | TOK_VFN | TOK_MUTED
@@ -1433,6 +1435,11 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         // special case: 'alive' tracks instance lifetime
                         if (strcmp(vars[n_vars].name, "alive")==0) {
                             inst_ctl = n_vars;
+                            tok.vec_len = 1;
+                            tok.vec_len_locked = 1;
+                        }
+                        else if (strcmp(vars[n_vars].name, "muted")==0) {
+                            mute_ctl = n_vars;
                             tok.vec_len = 1;
                             tok.vec_len_locked = 1;
                         }
@@ -1869,6 +1876,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
     expr->len = out_idx + 1;
     expr->offset = 0;
     expr->inst_ctl = inst_ctl;
+    expr->mute_ctl = mute_ctl;
 
     // copy tokens
     expr->tokens = malloc(sizeof(struct _token)*expr->len);
@@ -2065,7 +2073,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
     }
     mpr_token_t *tok = expr->start;
     int len = expr->len;
-    int status = 1, alive = 1;
+    int status = 1, alive = 1, muted = 0;
     if (out->pos >= 0) {
         tok += expr->offset;
         len -= expr->offset;
@@ -2075,6 +2083,12 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
         mpr_hist h = *expr_vars + expr->inst_ctl;
         double *v = h->val;
         alive = (0 != v[0]);
+    }
+    if (expr->mute_ctl >= 0) {
+        // recover mute state
+        mpr_hist h = *expr_vars + expr->mute_ctl;
+        double *v = h->val;
+        muted = (0 != v[0]);
     }
     mpr_val_t stk[len][expr->vec_size];
     int dims[len];
@@ -2402,7 +2416,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             if (tok->var == VAR_Y) {
                 if (!alive)
                     break;
-                status |= MPR_SIG_UPDATE;
+                status |=  muted ? EXPR_MUTED_UPDATE : EXPR_UPDATE;
                 can_advance = 0;
                 if (!out)
                     return status;
@@ -2457,12 +2471,16 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
 
                 if (tok->var == expr->inst_ctl) {
                     if (alive && stk[top][0].d == 0) {
-                        if (status & MPR_SIG_UPDATE)
-                            status |= RELEASED_AFTER_UPDATE;
+                        if (status & EXPR_UPDATE)
+                            status |= EXPR_RELEASE_AFTER_UPDATE;
                         else
-                            status |= RELEASED_BEFORE_UPDATE;
+                            status |= EXPR_RELEASE_BEFORE_UPDATE;
                     }
                     alive = stk[top][0].d != 0;
+                    break;
+                }
+                else if (tok->var == expr->mute_ctl) {
+                    muted = stk[top][0].d != 0;
                     break;
                 }
             }
@@ -2563,7 +2581,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
     }
 
     /* Undo position increment if nothing was updated. */
-    if (!(status & MPR_SIG_UPDATE)) {
+    if (!(status & (EXPR_UPDATE | EXPR_MUTED_UPDATE))) {
         --out->pos;
         if (out->pos < 0)
             out->pos = out->mem - 1;

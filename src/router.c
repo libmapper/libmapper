@@ -295,7 +295,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 else
                     continue;
             }
-            if (idmap && status & RELEASED_BEFORE_UPDATE) {
+            if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE) {
                 /* send instance release if dst is instanced and either src or
                  * map is also instanced. */
                 if (dst_slot->use_inst && (sig->use_inst || idmap)) {
@@ -310,7 +310,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                     }
                 }
             }
-            if (status & MPR_SIG_UPDATE) {
+            if (status & EXPR_UPDATE) {
                 // send instance update
                 if (!sig->use_inst && slot->use_inst && !idmap) {
                     // create an id_map and store it in the map
@@ -326,7 +326,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                                        *(mpr_time*)mpr_hist_get_time_ptr(dst_slot->loc->hist[idx]),
                                        map->protocol);
             }
-            if (idmap && status & RELEASED_AFTER_UPDATE) {
+            if (idmap && status & EXPR_RELEASE_AFTER_UPDATE) {
                 /* send instance release if dst is instanced and either src or
                  * map is also instanced. */
                 if (dst_slot->use_inst && (sig->use_inst || idmap)) {

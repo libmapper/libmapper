@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <string.h>
 #include <unistd.h>
+#include <assert.h>
 
 #define SRC_ARRAY_LEN 3
 #define DST_ARRAY_LEN 6
@@ -22,6 +23,7 @@ mpr_expr e;
 int iterations = 20000;
 int expression_count = 1;
 int token_count = 0;
+int update_count;
 
 int src_int[SRC_ARRAY_LEN], dst_int[DST_ARRAY_LEN], expect_int[DST_ARRAY_LEN];
 float src_flt[SRC_ARRAY_LEN], dst_flt[DST_ARRAY_LEN], expect_flt[DST_ARRAY_LEN];
@@ -48,9 +50,9 @@ static double current_time()
 
 typedef struct _var {
     char *name;
-    int vec_len;
     mpr_type datatype;
     mpr_type casttype;
+    size_t vec_len;
     char vec_len_locked;
     char assigned;
     char public;
@@ -61,13 +63,14 @@ struct _mpr_expr
     void *tokens;
     void *start;
     mpr_var vars;
-    int offset;
-    int len;
-    int vec_size;
-    int in_mem;
-    int out_mem;
-    int n_vars;
-    int inst_ctl;
+    int8_t offset;
+    int8_t len;
+    int8_t vec_size;
+    int8_t in_mem;
+    int8_t out_mem;
+    int8_t n_vars;
+    int8_t inst_ctl;
+    int8_t mute_ctl;
 };
 
 /*! A helper function to seed the random number generator. */
@@ -218,9 +221,11 @@ void setup_test_multisource(int _n_sources, mpr_type *in_types, int *in_lens,
             case MPR_FLT:
                 inh[i].val = src_flt;
                 break;
-            default:
+            case MPR_DBL:
                 inh[i].val = src_dbl;
                 break;
+            default:
+                assert(0);
         }
         inh[i].pos = 0;
         inh[i].time = &time_in;
@@ -252,10 +257,10 @@ void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
 #define EXPECT_SUCCESS 0
 #define EXPECT_FAILURE 1
 
-int parse_and_eval(int expectation, int max_tokens, int check)
+int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
 {
     // clear output arrays
-    int i, result = 0;
+    int i, j, result = 0;
 
     if (verbose) {
         printf("***************** Expression %d *****************\n",
@@ -266,8 +271,8 @@ int parse_and_eval(int expectation, int max_tokens, int check)
         printf("\rExpression %d", expression_count++);
         fflush(stdout);
     }
-    e = mpr_expr_new_from_str(str, n_sources, src_types, src_lens,
-                              outh.type, outh.len);
+    e = mpr_expr_new_from_str(str, n_sources, src_types, src_lens, outh.type,
+                              outh.len);
     if (!e) {
         eprintf("Parser FAILED");
         goto fail;
@@ -287,6 +292,12 @@ int parse_and_eval(int expectation, int max_tokens, int check)
 
     /* mpr_hist_realloc will not initialize memory if history size is unchanged
      * so we will explicitly initialise it here. */
+    for (i = 0; i < n_sources; i++) {
+        if (inh[i].mem <= 1)
+            continue;
+        int samp_size = inh[i].len * mpr_type_get_size(inh[i].type);
+        memset(inh[i].val + samp_size, 0, (inh[i].mem - 1) * samp_size);
+    }
     memset(outh.val, 0, outh.mem * outh.len * mpr_type_get_size(outh.type));
 
     if (mpr_expr_get_num_vars(e) > MAX_VARS) {
@@ -326,31 +337,78 @@ int parse_and_eval(int expectation, int max_tokens, int check)
 
     token_count += e->len;
 
+    int status;
+    update_count = 0;
+    then = current_time();
+
     eprintf("Try evaluation once... ");
     mpr_time_set(&time_in, MPR_NOW);
-    if (!mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types)) {
+    status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types);
+    if (!status) {
         eprintf("FAILED.\n");
         result = 1;
         goto free;
     }
+    else if (status & MPR_SIG_UPDATE)
+        ++update_count;
     eprintf("OK\n");
 
-    then = current_time();
     eprintf("Calculate expression %i more times... ", iterations-1);
     fflush(stdout);
     i = iterations-1;
     while (i--) {
+        // copy src values
+        for (j = 0; j < n_sources; j++) {
+            if (inh[j].mem <= 1)
+                continue;
+            inh[j].pos = ((inh[j].pos + 1) % inh[j].mem);
+            int samp_size = inh[j].len * mpr_type_get_size(inh[j].type);
+            switch (inh[j].type) {
+                case MPR_INT32:
+                    memcpy(mpr_hist_get_val_ptr(inh[j]), src_int, samp_size);
+                    break;
+                case MPR_FLT:
+                    memcpy(mpr_hist_get_val_ptr(inh[j]), src_flt, samp_size);
+                    break;
+                case MPR_DBL:
+                    memcpy(mpr_hist_get_val_ptr(inh[j]), src_dbl, samp_size);
+                    break;
+                default:
+                    assert(0);
+            }
+        }
+        // update timestamp
         mpr_time_set(&time_in, MPR_NOW);
-        mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types);
+        status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types);
+        if (!status) {
+            result = 1;
+            break;
+        }
+        if (status & MPR_SIG_UPDATE)
+            ++update_count;
         // sleep here stops compiler from optimizing loop away
         usleep(1);
     }
     now = current_time();
-    eprintf("%g seconds.\n", now-then);
     total_elapsed_time += now-then;
+
+    if (0 == result)
+        eprintf("OK\n");
 
     if (check_result(types, outh.len, outh.val, outh.pos, check))
         result = 1;
+
+    eprintf("Recv'd %d updates... ", update_count);
+    if (exp_updates >= 0 && exp_updates != update_count) {
+        eprintf("error: expected %d\n", exp_updates);
+        result = 1;
+    }
+    else if (exp_updates >= 0)
+        eprintf("OK\n");
+    else
+        eprintf("not checked\n");
+
+    eprintf("Elapsed time: %g seconds.\n", now-then);
 
 free:
     mpr_expr_free(e);
@@ -370,7 +428,7 @@ int run_tests()
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 26*2/2+log10(M_PI)+2.*pow(2,1*(3+7*.1)*1.1+src_flt[0])*3*4+cos(2.0);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 2) Building vectors, conditionals */
@@ -379,21 +437,21 @@ int run_tests()
     expect_int[0] = src_flt[0] > 1 ? 1 : 2;
     expect_int[1] = src_flt[1] > 1 ? 2 : 4;
     expect_int[2] = src_flt[2] > 1 ? 3 : 6;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 3) Conditionals with shortened syntax */
     snprintf(str, 256, "y=x?:123");
     setup_test(MPR_FLT, 1, MPR_INT32, 1);
     expect_int[0] = (int)(src_flt[0] ? src_flt[0] : 123);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 4) Conditional that should be optimized */
     snprintf(str, 256, "y=1?2:123");
     setup_test(MPR_FLT, 1, MPR_INT32, 1);
     expect_int[0] = 2;
-    if (parse_and_eval(EXPECT_SUCCESS, 2, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
     /* 5) Building vectors with variables, operations inside vector-builder */
@@ -402,7 +460,7 @@ int run_tests()
     expect_dbl[0] = (double)src_int[0] * -2 + 1;
     expect_dbl[1] = (double)src_int[1] * -2 + 1;
     expect_dbl[2] = 0.0;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 6) Building vectors with variables, operations inside vector-builder */
@@ -411,7 +469,7 @@ int run_tests()
     expect_dbl[0] = atof("-99.4f");
     expect_dbl[1] = (double)(-src_int[0] * 1.1 + src_int[0]);
     expect_dbl[2] = (double)(-src_int[1] * 1.1 + src_int[1]);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 7) Indexing vectors by range */
@@ -419,7 +477,7 @@ int run_tests()
     setup_test(MPR_DBL, 3, MPR_FLT, 2);
     expect_flt[0] = (float)src_dbl[1] + 100;
     expect_flt[1] = (float)src_dbl[2] + 100;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 8) Typical linear scaling expression with vectors */
@@ -428,7 +486,7 @@ int run_tests()
     expect_flt[0] = src_flt[0] * 0.1 + 2.;
     expect_flt[1] = src_flt[1] * 3.7 + 1.3;
     expect_flt[2] = src_flt[2] * -.1112 + 9000.;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 9) Check type and vector length promotion of operation sequences */
@@ -436,7 +494,7 @@ int run_tests()
     setup_test(MPR_FLT, 2, MPR_FLT, 2);
     expect_flt[0] = 1. + 2. * 3. - 4. * src_flt[0];
     expect_flt[1] = 1. + 2. * 3. - 4. * src_flt[1];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 10) Swizzling, more pre-computation */
@@ -444,14 +502,14 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[2] * 0. + 1. + 12.;
     expect_flt[1] = src_flt[0] * 0. + 1. + 12.;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 11) Logical negation */
     snprintf(str, 256, "y=!(x[1]*0)");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
     expect_int[0] = (int)!(src_dbl[1] && 0);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 12) any() */
@@ -460,7 +518,7 @@ int run_tests()
     expect_int[0] =    ((int)src_dbl[0] - 1) ? 1 : 0
                      | ((int)src_dbl[1] - 1) ? 1 : 0
                      | ((int)src_dbl[2] - 1) ? 1 : 0;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 13) all() */
@@ -469,65 +527,65 @@ int run_tests()
     expect_int[0] = (int)src_dbl[2] * (  ((int)src_dbl[0] - 1) ? 1 : 0
                                        & ((int)src_dbl[1] - 1) ? 1 : 0
                                        & ((int)src_dbl[2] - 1) ? 1 : 0);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 14) pi and e, extra spaces */
     snprintf(str, 256, "y=x + pi -     e");
     setup_test(MPR_DBL, 1, MPR_FLT, 1);
     expect_flt[0] = (float)(src_dbl[0] + M_PI - M_E);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 15) Bad vector notation */
     snprintf(str, 256, "y=(x-2)[1]");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 16) Vector index outside bounds */
     snprintf(str, 256, "y=x[3]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 17) Vector length mismatch */
     snprintf(str, 256, "y=x[1:2]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 18) Unnecessary vector notation */
     snprintf(str, 256, "y=x+[1]");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0] + 1;
-    if (parse_and_eval(EXPECT_SUCCESS, 4, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 4, 1, iterations))
         return 1;
 
     /* 19) Invalid history index */
     snprintf(str, 256, "y=x{-101}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 20) Invalid history index */
     snprintf(str, 256, "y=x-y{-101}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 21) Scientific notation */
     snprintf(str, 256, "y=x[1]*1.23e-20");
     setup_test(MPR_INT32, 2, MPR_DBL, 1);
     expect_dbl[0] = (double)src_int[1] * 1.23e-20;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 22) Vector assignment */
     snprintf(str, 256, "y[1]=x[1]");
     setup_test(MPR_DBL, 3, MPR_INT32, 3);
     expect_int[1] = (int)src_dbl[1];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 23) Vector assignment */
@@ -535,7 +593,7 @@ int run_tests()
     setup_test(MPR_DBL, 3, MPR_INT32, 3);
     expect_int[1] = (int)src_dbl[1];
     expect_int[2] = 10;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 24) Output vector swizzling */
@@ -543,7 +601,7 @@ int run_tests()
     setup_test(MPR_FLT, 3, MPR_DBL, 3);
     expect_dbl[0] = (double)src_flt[1];
     expect_dbl[2] = (double)src_flt[2];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 25) Multiple expressions */
@@ -551,20 +609,20 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     expect_flt[0] = (float)((double)src_int[0] * 100 - 23.5);
     expect_flt[2] = (float)(100 - (double)src_int[0] * 6.7);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 26) Error check: separating sub-expressions with commas */
     snprintf(str, 256, "foo=1,  y=y{-1}+foo");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 27) Initialize filters */
     snprintf(str, 256, "y=x+y{-1}; y{-1}=100");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0] * iterations + 100;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 28) Initialize filters + vector index */
@@ -572,7 +630,7 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = src_int[0] * iterations;
     expect_int[1] = src_int[1] * iterations + 100;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 29) Initialize filters + vector index */
@@ -580,7 +638,7 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = src_int[0] * iterations + 100;
     expect_int[1] = src_int[1] * iterations + 101;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 30) Initialize filters */
@@ -589,7 +647,7 @@ int run_tests()
     expect_int[0] = src_int[0] * iterations + 100;
     expect_int[1] = src_int[1] * iterations;
     expect_int[2] = src_int[2] * iterations + 200;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 31) Initialize filters */
@@ -621,49 +679,49 @@ int run_tests()
             expect_int[1] = 103;
             break;
     }
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 32) Only initialize */
     snprintf(str, 256, "y{-1}=100");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 33) Bad syntax */
     snprintf(str, 256, " ");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 34) Bad syntax */
     snprintf(str, 256, " ");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 35) Bad syntax */
     snprintf(str, 256, "y");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 36) Bad syntax */
     snprintf(str, 256, "y=");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 37) Bad syntax */
     snprintf(str, 256, "=x");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 38) sin */
     snprintf(str, 256, "sin(x)");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 39) Variable declaration */
@@ -671,7 +729,7 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + 3.5);
     expect_flt[1] = (float)((double)src_int[1]);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 40) Variable declaration */
@@ -681,27 +739,27 @@ int run_tests()
     for (int i = 0; i < iterations; i++)
         expect_dbl[0] = expect_dbl[0] * 0.9 + src_int[0] * 0.1;
     expect_flt[0] = expect_dbl[0] * 2;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 41) Multiple variable declaration */
     snprintf(str, 256, "a=1.1; b=2.2; c=3.3; y=x+a-b*c");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = (float)((double)src_int[0] + 1.1 - 2.2 * 3.3);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 42) Malformed variable declaration */
     snprintf(str, 256, "y=x + myvariable * 10");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 43) Vector functions mean() and sum() */
     snprintf(str, 256, "y=mean(x)==(sum(x)/3)");
     setup_test(MPR_FLT, 3, MPR_INT32, 1);
     expect_int[0] = 1;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 44) Overloaded vector functions max() and min() */
@@ -714,27 +772,27 @@ int run_tests()
                         (src_flt[0] < src_flt[2] ? src_flt[0] : src_flt[2]) :
                         (src_flt[1] < src_flt[2] ? src_flt[1] : src_flt[2]))
                      * (src_flt[0] > 1 ? src_flt[0] : 1));
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 45) Optimization: operations by zero */
     snprintf(str, 256, "y=0*sin(x)*200+1.1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 1.1;
-    if (parse_and_eval(EXPECT_SUCCESS, 2, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
     /* 46) Optimization: operations by one */
     snprintf(str, 256, "y=x*1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = (float)src_int[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 2, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
     /* 47) Error check: division by zero */
     snprintf(str, 256, "y=x/0");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 48) Multiple Inputs */
@@ -744,7 +802,7 @@ int run_tests()
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
     expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 49) Functions with memory: ema() */
@@ -754,7 +812,7 @@ int run_tests()
     for (int i = 0; i < iterations; i++)
         expect_dbl[0] = expect_dbl[0] * 0.9 + src_int[0] * 0.1;
     expect_flt[0] = src_int[0] - expect_dbl[0] + 2;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 50) Functions with memory: schmitt() */
@@ -769,7 +827,7 @@ int run_tests()
         float ans = (cycles % 2) ? 20 + remainder : 80 - remainder;
         expect_flt[0] = expect_flt[1] = expect_flt[2] = ans;
     }
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 51) Multiple output assignment */
@@ -778,13 +836,13 @@ int run_tests()
     expect_flt[0] = src_flt[0] - 10000;
     expect_flt[0] = expect_flt[0] < 0 ? 0 : expect_flt[0];
     expect_flt[0] = expect_flt[0] > 0 ? 1 : expect_flt[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 52) Access timetags */
     snprintf(str, 256, "y=t_x");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    parse_and_eval(EXPECT_SUCCESS, 0, 0);
+    parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     dst_dbl[0] = ((double*)outh.val)[outh.pos * outh.len];
     if (dst_dbl[0] != mpr_time_as_dbl(time_in)) {
         eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
@@ -796,7 +854,7 @@ int run_tests()
     /* 53) Access timetags from past samples */
     snprintf(str, 256, "y=t_x-t_y{-1}");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    parse_and_eval(EXPECT_SUCCESS, 0, 0);
+    parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     // results may vary depending on machine but we can perform a sanity check
     dst_dbl[0] = ((double*)outh.val)[outh.pos * outh.len];
     if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.0001) {
@@ -816,7 +874,7 @@ int run_tests()
              "period=t_x-t_y{-1};"
              "y=y{-1}*0.9+period*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    parse_and_eval(EXPECT_SUCCESS, 0, 0);
+    parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     // results may vary depending on machine but we can perform a sanity check
     dst_dbl[0] = ((double*)outh.val)[outh.pos * outh.len];
     if (dst_dbl[0] < 0. || dst_dbl[0] > 0.0001) {
@@ -835,7 +893,7 @@ int run_tests()
              "sr=sr{-1}*0.9+interval*0.1;"
              "y=y{-1}*0.9+abs(interval-sr)*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
-    parse_and_eval(EXPECT_SUCCESS, 0, 0);
+    parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     // results may vary depending on machine but we can perform a sanity check
     dst_dbl[0] = ((double*)outh.val)[outh.pos * outh.len];
     if (dst_dbl[0] < 0. || dst_dbl[0] > 0.0001) {
@@ -855,7 +913,7 @@ int run_tests()
              "y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
         return 1;
 
     /* 57) Expression for limiting rate with smoothed output */
@@ -867,7 +925,7 @@ int run_tests()
              "samps=alive?1:samps+1");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_dbl[0] = (double)src_int[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
         return 1;
 
     /* 58) Manipulate timetag directly. This functionality may be used in the
@@ -876,7 +934,7 @@ int run_tests()
     snprintf(str, 256, "y=x[0]{0}; t_y=t_x+10");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
     mpr_time time = outh.time[(int)outh.pos];
     if (mpr_time_as_dbl(time) != mpr_time_as_dbl(time_in) + 10) {
@@ -889,7 +947,7 @@ int run_tests()
     /* 59) Faulty timetag syntax */
     snprintf(str, 256, "y=t_x-y;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 60) Instance management */
@@ -897,7 +955,18 @@ int run_tests()
     snprintf(str, 256, "%s", expr60);
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
+        return 1;
+    if (abs(iterations / 2 - update_count) > 4) {
+        eprintf("error: expected approximately %d updates\n", iterations / 2);
+        return 1;
+    }
+
+    /* 61) Change filter */
+    snprintf(str, 256, "muted=(x==x{-1});y=x;");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    expect_int[0] = src_int[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, 1))
         return 1;
 
     return 0;

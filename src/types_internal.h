@@ -291,8 +291,10 @@ typedef struct _mpr_hist
 #define RELEASED_LOCALLY  0x01
 #define RELEASED_REMOTELY 0x02
 
-#define RELEASED_BEFORE_UPDATE 0x02
-#define RELEASED_AFTER_UPDATE  0x04
+#define EXPR_RELEASE_BEFORE_UPDATE 0x02
+#define EXPR_RELEASE_AFTER_UPDATE  0x04
+#define EXPR_MUTED_UPDATE          0x08
+#define EXPR_UPDATE                0x10
 
 /*! A signal is defined as a vector of values, along with some metadata. */
 typedef struct _mpr_sig_inst
