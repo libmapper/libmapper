@@ -1753,9 +1753,11 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     RETURN_UNLESS(map, 0);
 
     // inform remote peer(s)
-    if (!map->dst->loc->rsig) {
-        mpr_net_use_mesh(net, map->dst->link->addr.admin);
-        mpr_map_send_state(map, -1, MSG_UNMAP);
+    if (!map->dst->loc || !map->dst->loc->rsig) {
+        if (!map->dst->link) {
+            mpr_net_use_mesh(net, map->dst->link->addr.admin);
+            mpr_map_send_state(map, -1, MSG_UNMAP);
+        }
     }
     else {
         for (i = 0; i < map->num_src; i++) {

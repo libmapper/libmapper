@@ -462,6 +462,7 @@ typedef struct _mpr_map {
     mpr_loc process_loc;
     int status;
     int protocol;                       //!< Data transport protocol.
+    int use_inst;
 } mpr_map_t, *mpr_map;
 
 /*! The rtr_sig is a linked list containing a signal and a list of mapping

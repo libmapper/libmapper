@@ -25,11 +25,93 @@ mpr_dev dst = 0;
 mpr_sig multisend = 0;
 mpr_sig multirecv = 0;
 mpr_sig monosend = 0;
+mpr_sig monorecv = 0;
 
-int monosent = 0;
-int multisent = 0;
+int test_counter = 0;
 int received = 0;
 int done = 0;
+
+const char *sig_type_names[] = { "SINGLETON", "INSTANCED", "MIXED" };
+
+typedef enum {
+    SINGLETON,   // singleton
+    INSTANCED,   // instanced
+    MIXED    // mixed convergent
+} sig_type;
+
+const char *overflow_action_names[] = { "none", "steal newest", "steal oldest",
+                                        "add instance" };
+
+typedef enum {
+    NONE = MPR_STEAL_NONE,
+    NEW = MPR_STEAL_NEWEST,
+    OLD = MPR_STEAL_OLDEST,
+    ADD
+} oflw_action;
+
+typedef struct _test_config {
+    sig_type    src_type;
+    sig_type    dst_type;
+    mpr_loc     process_loc;
+    oflw_action overflow_action;
+    int         use_inst;
+    const char  *expr;
+    float       count_multiplier;
+    float       count_epsilon;
+} test_config;
+
+test_config test_configs[] = {
+    // singleton -> instanced; control a single instance (default?)
+    // TODO: should work with epsilon=0.0
+    { SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, 1, "alive=1;y=x;", 1., 0.01 }, // OK
+    { SINGLETON, INSTANCED, MPR_LOC_DST, NONE, 1, "alive=1;y=x;", 1., 0.01 }, // OK
+
+    // singleton -> instanced; control all active instances
+//    { SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, 0, "y=x;", 3., 0. }, // FAIL
+//    { SINGLETON, INSTANCED, MPR_LOC_DST, NONE, 0, "y=x;", 3., 0. }, // FAIL
+
+    // instanced -> singleton; default
+    // CHECK: should be low received count
+    // CHECK: if controlling instance is released, move to next updated inst
+//    { INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, 1, NULL, 1., 0. }, // FAIL
+//    { INSTANCED, SINGLETON, MPR_LOC_DST, NONE, 1, NULL, 1., 0. }, // FAIL
+
+    // instanced -> instanced; no stealing
+    // TODO: test what happens if map->uses_inst=0
+    // TODO: try to reduce epsilons to zero (then eliminate them)
+    { INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, 1, "y{-1}=-10;y=y{-1}+1", 4., 0.01 }, // OK
+    { INSTANCED, INSTANCED, MPR_LOC_DST, NONE, 1, "y{-1}=-10;y=y{-1}+1", 4., 0.01 }, // OK
+
+    // instanced -> instanced; steal newest instance
+    { INSTANCED, INSTANCED, MPR_LOC_SRC, NEW, 1, "y{-1}=-10;y=y{-1}+1", 4., 0.01 }, // OK
+    { INSTANCED, INSTANCED, MPR_LOC_DST, NEW, 1, "y{-1}=-10;y=y{-1}+1", 4., 0.01 }, // OK
+
+    // instanced -> instanced; steal oldest instance
+    { INSTANCED, INSTANCED, MPR_LOC_SRC, OLD, 1, "y{-1}=-10;y=y{-1}+1", 4., 0.01 }, // OK
+    { INSTANCED, INSTANCED, MPR_LOC_DST, OLD, 1, "y{-1}=-10;y=y{-1}+1", 4., 0.01 }, // OK
+
+    // instanced -> instanced; add instances if needed
+//    { INSTANCED, INSTANCED, MPR_LOC_SRC, ADD, 1, "y{-1}=-10;y=y{-1}+1", 5., 0.1 }, // FAIL
+//    { INSTANCED, INSTANCED, MPR_LOC_DST, ADD, 1, "y{-1}=-10;y=y{-1}+1", 5., 0.1 }, // FAIL
+
+    // mixed convergent
+    { MIXED,     INSTANCED, MPR_LOC_SRC, NONE, 1, "y = x0+x1", 8.0, 0.01 }, // OK
+//    { MIXED,     INSTANCED, MPR_LOC_DST, NONE, 1, "y = x0+x1", 8.0, 0. }, // FAIL
+
+    // singleton -> instanced; in-map instance management
+    // NOT RECEIVING RELEASE AT DESTINATION (probably not sent?)
+//    { SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, 1, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0.01 }, // PROBLEM
+    { SINGLETON, INSTANCED, MPR_LOC_DST, NONE, 1, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0.02 }, // OK
+
+    // instanced -> instanced; in-map instance management
+//    { INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, 1, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0.5 }, // FAIL
+//    { INSTANCED, INSTANCED, MPR_LOC_DST, NONE, 1, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0.5 }, // FAIL
+
+    // TODO: src instance pooling (convergent)
+    // TODO: dst instance pooling (divergent)
+};
+const int NUM_TESTS =
+    sizeof(test_configs)/sizeof(test_configs[0]);
 
 /*! Creation of a local source. */
 int setup_src()
@@ -41,10 +123,10 @@ int setup_src()
     float mn=0, mx=10;
     int num_inst = 10, stl = MPR_STEAL_OLDEST;
 
-    multisend = mpr_sig_new(src, MPR_DIR_OUT, "multisend", 1, MPR_FLT,
-                            NULL, &mn, &mx, &num_inst, NULL, 0);
-    monosend = mpr_sig_new(src, MPR_DIR_OUT, "monosend", 1, MPR_FLT,
-                           NULL, &mn, &mx, NULL, NULL, 0);
+    multisend = mpr_sig_new(src, MPR_DIR_OUT, "multisend", 1, MPR_FLT, NULL,
+                            &mn, &mx, &num_inst, NULL, 0);
+    monosend = mpr_sig_new(src, MPR_DIR_OUT, "monosend", 1, MPR_FLT, NULL,
+                           &mn, &mx, NULL, NULL, 0);
     if (!multisend || !monosend)
         goto error;
     mpr_obj_set_prop((mpr_obj)multisend, MPR_PROP_STEAL_MODE, NULL, 1,
@@ -85,7 +167,7 @@ void handler(mpr_sig sig, mpr_sig_evt e, mpr_id inst, int len, mpr_type type,
     else if (val) {
         eprintf("--> destination %s instance %i got %f\n", name, (int)inst,
                 (*(float*)val));
-        received++;
+        ++received;
     }
     else {
         eprintf("--> destination %s instance %i got NULL\n", name, (int)inst);
@@ -106,6 +188,8 @@ int setup_dst()
     int num_inst = 0;
     multirecv = mpr_sig_new(dst, MPR_DIR_IN, "multirecv", 1, MPR_FLT, NULL,
                             &mn, NULL, &num_inst, handler, MPR_SIG_UPDATE);
+    monorecv = mpr_sig_new(dst, MPR_DIR_IN, "monorecv", 1, MPR_FLT, NULL,
+                           &mn, NULL, 0, handler, MPR_SIG_UPDATE);
     if (!multirecv)
         goto error;
 
@@ -133,7 +217,7 @@ void cleanup_dst()
     }
 }
 
-void wait_local_devs()
+void wait_devs()
 {
     while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 25);
@@ -176,42 +260,38 @@ void release_active_instances(mpr_sig sig)
 {
     int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE);
     for (i = 0; i < n; i++) {
-        mpr_sig_release_inst(sig,
-                             mpr_sig_get_inst_id(multisend, 0, MPR_STATUS_ACTIVE),
-                             MPR_NOW);
+        mpr_sig_release_inst(sig, mpr_sig_get_inst_id(sig, 0, MPR_STATUS_ACTIVE), MPR_NOW);
     }
 }
 
 void loop()
 {
     eprintf("-------------------- GO ! --------------------\n");
-    int i = 0, vali = 0;
+    int i = 0, j, vali = 0, num_parallel_inst = 5;
     float valf = 0;
     mpr_id inst;
+    received = 0;
 
     while (i < iterations && !done) {
         // here we should create, update and destroy some instances
-        inst = (rand() % 10) + 5;
-        switch (rand() % 5) {
-            case 0:
-                // try to destroy an instance
-                eprintf("--> Retiring multisend instance %"PR_MPR_ID"\n", inst);
-                mpr_sig_release_inst(multisend, inst, MPR_NOW);
-                break;
-            default:
-                // try to update an instance
-                valf = (rand() % 10) * 1.0f;
-                eprintf("--> Updating multisend instance %"PR_MPR_ID" to %f\n",
-                        inst, valf);
-                mpr_sig_set_value(multisend, inst, 1, MPR_FLT, &valf, MPR_NOW);
-                ++multisent;
-                break;
+        inst = i % 10;
+
+        // try to destroy an instance
+        eprintf("--> Retiring multisend instance %"PR_MPR_ID"\n", inst);
+        mpr_sig_release_inst(multisend, inst, MPR_NOW);
+
+        for (j = 0; j < num_parallel_inst; j++) {
+            inst = (inst + 1) % 10;
+
+            // try to update an instance
+            valf = (rand() % 10) * 1.0f;
+            eprintf("--> Updating multisend instance %"PR_MPR_ID" to %f\n", inst, valf);
+            mpr_sig_set_value(multisend, inst, 1, MPR_FLT, &valf, MPR_NOW);
         }
         // also update mono-instance signal
         vali += (rand() % 5) - 2;
         eprintf("--> Updating monosend to %d\n", vali);
         mpr_sig_set_value(monosend, 0, 1, MPR_INT32, &vali, MPR_NOW);
-        ++monosent;
 
         mpr_dev_poll(dst, period);
         mpr_dev_poll(src, 0);
@@ -221,7 +301,7 @@ void loop()
             printf("ID:    monosend: n/a ");
             print_instance_ids(multisend);
             print_instance_ids(multirecv);
-            eprintf("\n");
+            printf("\n");
 
             printf("VALUE: monosend: %2.0f  ", *(float*)mpr_sig_get_value(monosend, 0, 0));
             print_instance_vals(multisend);
@@ -229,7 +309,7 @@ void loop()
             printf("\n");
         }
         else {
-            printf("\r  Sent: %4i, Received: %4i   ", multisent+monosent, received);
+            printf("\r  Iteration: %d, Received: %d", i, received);
             fflush(stdout);
         }
     }
@@ -240,9 +320,107 @@ void ctrlc(int sig)
     done = 1;
 }
 
+int run_test(int test_num, test_config *config)
+{
+    mpr_sig *src_ptr, *dst_ptr;
+    mpr_sig both_src[] = {monosend, multisend};
+
+    if (verbose) {
+        printf("Test %d: %s -> %s; processing location: %s; overflow action: %s\n",
+               test_num, sig_type_names[config->src_type],
+               sig_type_names[config->dst_type],
+               config->process_loc == MPR_LOC_SRC ? "SRC" : "DST",
+               overflow_action_names[config->overflow_action]);
+    }
+    else
+        printf("Test %d:\n", test_num);
+
+    int num_src = 1;
+    switch (config->src_type) {
+        case SINGLETON:
+            src_ptr = &monosend;
+            break;
+        case INSTANCED:
+            src_ptr = &multisend;
+            break;
+        case MIXED:
+            src_ptr = both_src;
+            num_src = 2;
+            break;
+        default:
+            eprintf("unexpected destination signal\n");
+            return 1;
+    }
+    switch (config->dst_type) {
+        case SINGLETON:
+            dst_ptr = &monorecv;
+            break;
+        case INSTANCED:
+            dst_ptr = &multirecv;
+            break;
+        default:
+            eprintf("unexpected destination signal\n");
+            return 1;
+    }
+    mpr_map map = mpr_map_new(num_src, src_ptr, 1, dst_ptr);
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROCESS_LOC, NULL, 1, MPR_INT32,
+                     &config->process_loc, 1);
+    if (config->expr)
+        mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
+                         config->expr, 1);
+
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL,
+                     &config->use_inst, 1);
+    mpr_obj_push((mpr_obj)map);
+    while (!done && !mpr_map_get_is_ready(map)) {
+        mpr_dev_poll(src, 100);
+        mpr_dev_poll(dst, 100);
+    }
+    mpr_dev_poll(src, 100);
+    mpr_dev_poll(dst, 100);
+
+    // remove any extra destination instances allocated by previous tests
+    int status = MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED;
+    while (5 <= mpr_sig_get_num_inst(multirecv, status)) {
+        mpr_sig_remove_inst(multirecv, mpr_sig_get_inst_id(multirecv, 4, status), MPR_NOW);
+    }
+
+    if (!config->use_inst) {
+        // activate 3 destination instances
+        mpr_sig_activate_inst(multirecv, 2, MPR_NOW);
+        mpr_sig_activate_inst(multirecv, 4, MPR_NOW);
+        mpr_sig_activate_inst(multirecv, 6, MPR_NOW);
+    }
+
+    loop();
+
+    int compare_count = ((float)iterations * config->count_multiplier);
+    release_active_instances(multisend);
+    release_active_instances(multirecv);
+
+    mpr_map_release(map);
+    mpr_dev_poll(src, 100);
+    mpr_dev_poll(dst, 100);
+    mpr_dev_poll(src, 100);
+    mpr_dev_poll(dst, 100);
+
+    int count_epsilon = (float)compare_count * config->count_epsilon;
+
+    eprintf("Received %d of %d +/- %d updates\n",
+            received, compare_count, count_epsilon);
+
+    int result = abs(compare_count - received) > count_epsilon;
+
+    eprintf("Test %d %s: %s -> %s, %s processing\n", test_num,
+            result ? "FAILED" : "PASSED", sig_type_names[config->src_type],
+            sig_type_names[config->dst_type],
+            config->process_loc == MPR_LOC_SRC ? "SRC" : "DST");
+    return result;
+}
+
 int main(int argc, char **argv)
 {
-    int i, j, result = 0, stats[14];
+    int i, j, result = 0;
 
     // process flags for -v verbose, -t terminate, -h help
     for (i = 1; i < argc; i++) {
@@ -281,194 +459,21 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
-
     if (setup_src()) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
     }
+    wait_devs();
 
-    wait_local_devs();
-
-    // create multi-instance -> multi-instance map
-    mpr_map map = mpr_map_new(1, &multisend, 1, &multirecv);
-    const char *expr = "y{-1}=-10;y=y{-1}+1";
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
-    mpr_obj_push((mpr_obj)map);
-
-    // wait until mapping has been established
-    while (!done && !mpr_map_get_is_ready(map)) {
-        mpr_dev_poll(src, 10);
-        mpr_dev_poll(dst, 10);
+    i = 0;
+    while (!done && i < NUM_TESTS) {
+        test_config *config = &test_configs[i];
+        if (run_test(i, config))
+            return 1;
+        ++i;
+        printf("\n");
     }
-
-    eprintf("\n**********************************************\n");
-    eprintf("************ NO INSTANCE STEALING ************\n");
-    loop();
-
-    stats[0] = multisent;
-    stats[1] = received;
-
-    release_active_instances(multisend);
-    monosent = multisent = received = 0;
-
-    eprintf("\n**********************************************\n");
-    eprintf("************ STEAL OLDEST INSTANCE ***********\n");
-    int stl = MPR_STEAL_OLDEST;
-    mpr_obj_set_prop((mpr_obj)multirecv, MPR_PROP_STEAL_MODE, NULL, 1, MPR_INT32,
-                     &stl, 1);
-    if (!verbose)
-        printf("\n");
-    loop();
-
-    stats[2] = multisent;
-    stats[3] = received;
-
-    release_active_instances(multisend);
-    monosent = multisent = received = 0;
-
-    eprintf("\n**********************************************\n");
-    eprintf("*********** CALLBACK -> ADD INSTANCE *********\n");
-    stl = MPR_STEAL_NONE;
-    mpr_obj_set_prop((mpr_obj)multirecv, MPR_PROP_STEAL_MODE, NULL, 1, MPR_INT32,
-                     &stl, 1);
-    mpr_sig_set_cb(multirecv, handler,
-                   MPR_SIG_UPDATE | MPR_SIG_INST_OFLW | MPR_SIG_REL_UPSTRM);
-    if (!verbose)
-        printf("\n");
-    loop();
-
-    stats[4] = multisent;
-    stats[5] = received;
-
-    release_active_instances(multisend);
-    monosent = multisent = received = 0;
-
-    // allow time for change to take effect
-    // TODO: ensure map release also releases instances properly so this is not necessary
-    mpr_dev_poll(src, 10);
-    mpr_dev_poll(dst, 10);
-
-    eprintf("\n**********************************************\n");
-    eprintf("****** MIXED INSTANCING -> SRC PROCESSING ****\n");
-
-    // create [multi-instance, mono-instance] -> multiinstance map
-    mpr_map_release(map);
-    // both source signals belong to the same device
-    mpr_sig srcs[2] = {multisend, monosend};
-    map = mpr_map_new(2, srcs, 1, &multirecv);
-    expr = "y = x0 + x1";
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
-    mpr_obj_push((mpr_obj)map);
-
-    // wait until mapping has been established
-    while (!done && !mpr_map_get_is_ready(map)) {
-        mpr_dev_poll(src, 10);
-        mpr_dev_poll(dst, 10);
-    }
-
-    if (!verbose)
-        printf("\n");
-    loop();
-
-    stats[6] = monosent + multisent;
-    stats[7] = received;
-
-    release_active_instances(multisend);
-    monosent = multisent = received = 0;
-
-    eprintf("\n**********************************************\n");
-    eprintf("****** MIXED INSTANCING -> DST PROCESSING ****\n");
-
-    // move processing to destination device
-    mpr_loc loc = MPR_LOC_DST;
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROCESS_LOC, NULL, 1, MPR_INT32,
-                     &loc, 1);
-    mpr_obj_push((mpr_obj)map);
-
-    // allow time for change to take effect
-    mpr_dev_poll(src, 10);
-    mpr_dev_poll(dst, 10);
-
-    if (!verbose)
-        printf("\n");
-    loop();
-
-    stats[8] = monosent + multisent;
-    stats[9] = received;
-
-    release_active_instances(multisend);
-    monosent = multisent = received = 0;
-
-    eprintf("\n**********************************************\n");
-    eprintf("**** EXPRESSION INSTANCES -> SRC PROCESSING ****\n");
-
-    mpr_map_release(map);
-    map = mpr_map_new(1, &monosend, 1, &multirecv);
-
-//    expr = "alive = schmitt(x-x{-1}, -2, -1); y = x;";
-    expr = "counter{-1}=0;alive=counter>=5;y=x;counter=(counter+1)%10;";
-//    expr = "y = x; alive = x - x{-1} >= 0;";
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
-    mpr_obj_push((mpr_obj)map);
-
-    // wait until mapping has been established
-    while (!done && !mpr_map_get_is_ready(map)) {
-        mpr_dev_poll(src, 10);
-        mpr_dev_poll(dst, 10);
-    }
-
-    if (!verbose)
-        printf("\n");
-    loop();
-
-    stats[10] = monosent;
-    stats[11] = received;
-
-    monosent = multisent = received = 0;
-
-    eprintf("\n**********************************************\n");
-    eprintf("**** EXPRESSION INSTANCES -> DST PROCESSING ****\n");
-
-    // move processing to destination device
-    loc = MPR_LOC_DST;
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROCESS_LOC, NULL, 1, MPR_INT32,
-                     &loc, 1);
-    mpr_obj_push((mpr_obj)map);
-
-    // allow time for change to take effect
-    mpr_dev_poll(src, 10);
-    mpr_dev_poll(dst, 10);
-
-    if (!verbose)
-        printf("\n");
-    loop();
-
-    stats[12] = monosent;
-    stats[13] = received;
-
-    // TODO: more sophisticated checks for received counts
-    eprintf("NO STEALING: sent %i updates, received %i updates (mismatch is OK).\n",
-            stats[0], stats[1]);
-    result += stats[0] < stats[1];
-    eprintf("STEAL OLDEST: sent %i updates, received %i updates (mismatch is OK).\n",
-            stats[2], stats[3]);
-    result += stats[2] < stats[3];
-    eprintf("ADD INSTANCE: sent %i updates, received %i updates.\n",
-            stats[4], stats[5]);
-    result += stats[4] != stats[5];
-    eprintf("SRC-SIDE MIXED INSTANCING: sent %i updates, received %i updates.\n",
-            stats[6], stats[7]);
-    result += stats[6] >= stats[7];
-    eprintf("DST-SIDE MIXED INSTANCING: sent %i updates, received %i updates.\n",
-            stats[8], stats[9]);
-    result += stats[8] >= stats[9];
-    eprintf("SRC-SIDE EXPRESSION INSTANCING: sent %i updates, received %i updates.\n",
-            stats[10], stats[11]);
-    result += stats[10] < stats[11];
-    eprintf("DST-SIDE EXPRESSION INSTANCING: sent %i updates, received %i updates.\n",
-            stats[12], stats[13]);
-    result += stats[12] < stats[13];
 
   done:
     cleanup_dst();

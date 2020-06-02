@@ -78,6 +78,7 @@ void mpr_map_init(mpr_map m)
                                     cmp_qry_map_scopes, "v", &m);
     mpr_tbl_link(t, PROP(SCOPE), 1, MPR_LIST, q, NON_MODIFIABLE | PROP_OWNED);
     mpr_tbl_link(t, PROP(STATUS), 1, MPR_INT32, &m->status, NON_MODIFIABLE);
+    mpr_tbl_link(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, REMOTE_MODIFY);
     mpr_tbl_link(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, REMOTE_MODIFY);
 
     int i, is_local = 0;
@@ -450,11 +451,11 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
             }
         }
     }
-    else if (idmap) {
+    else if (m->use_inst) {
         for (i = 0; i < len; i++)
             lo_message_add_nil(msg);
     }
-    if (idmap) {
+    if (m->use_inst) {
         lo_message_add_string(msg, "@instance");
         lo_message_add_int64(msg, idmap->GID);
     }
@@ -1079,9 +1080,8 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         }
                         ++updated;
                     }
-                    else
-                        updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                       MPR_INT32, &loc, REMOTE_MODIFY);
+                    updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
+                                   MPR_INT32, &loc, REMOTE_MODIFY);
                 }
                 else
                     updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,

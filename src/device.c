@@ -300,7 +300,9 @@ int mpr_dev_bundle_start(lo_timetag t, void *data)
  *   instance within the network of libmpr devices
  * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
  *   are indicated using the label "@slot" followed by a single integer slot #
- * - In future updates, instance release may be triggered by expression eval
+ * - Instance creation and release may also be triggered by expression
+ *   evaluation. Refer to the document "Using Instanced Signals with Libmapper"
+ *   for more information.
  */
 int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc,
                     lo_message msg, void *data)
@@ -381,15 +383,14 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     //        return 0;
 
     if (GID) {
-        idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, RELEASED_LOCALLY,
-                                              MPR_NOW, 1);
+        idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, RELEASED_LOCALLY, MPR_NOW, 1);
         if (idmap_idx < 0) {
             // no instance found with this map
             // Don't activate instance just to release it again
             RETURN_UNLESS(vals, 0);
 
             if (map && MPR_LOC_DST == map->process_loc
-                && mpr_expr_get_manages_instances(map->loc->expr)) {
+                && mpr_expr_get_manages_inst(map->loc->expr)) {
                 /* special case: do a dry-run to check whether this map will
                  * cause a release. If so, don't bother stealing an instance. */
                 int status = mpr_expr_eval(map->loc->expr, 0, 0, 0, &ts, 0);
@@ -414,8 +415,8 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             }
             return 0;
         }
-        TRACE_DEV_RETURN_UNLESS(sig->loc->idmaps[idmap_idx].inst, 0, "error in "
-                                "mpr_dev_handler: missing instance!\n");
+        TRACE_DEV_RETURN_UNLESS(sig->loc->idmaps[idmap_idx].inst, 0,
+                                "error in mpr_dev_handler: missing instance!\n");
     }
     else {
         // use the first available instance
@@ -467,6 +468,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
          * sources we will need to update all of the map instances. */
         int all = (!slot->sig->use_inst && map->num_src > 1
                    && map->loc->num_var_inst > 1);
+//        int all = !map->use_inst;
         if (all)
             idmap_idx = 0;
         for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
@@ -567,8 +569,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         }
         if (si->has_val) {
             memcpy(&si->time, &ts, sizeof(mpr_time));
-            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len,
-                         si->val, &ts, diff);
+            call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, &ts, diff);
             // check if instance was released
             if (si->active) {
                 // TODO: only call next line if sig was not updated in handler

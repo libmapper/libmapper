@@ -189,14 +189,57 @@ subsequent calls to the evaluator. In the following example, the user-defined va
 value `x`, *independent* of the output value `y` which is set to give the difference
 between the current sample and the moving average:
 
-* `ema = ema{-1} * 0.9 + x * 0.1; y = x - ema`
+* `ema = ema{-1} * 0.9 + x * 0.1;``y = x - ema`
 
 Just like the output variable `y` we can initialize past values of user-defined variables before expression evaluation. **Initialization will always be performed first**, after which sub-expressions are evaluated **in the order they are written**. For example, the expression string `y=ema*2; ema=ema{-1}*0.9+x*0.1; ema{-1}=90` will be evaluated in the following order:
 
 1. `ema{-1}=90` — initialize the past value of variable `ema` to `90`
 2. `y=ema*2` — set output variable `y` to equal the **current** value of `ema` multiplied
 by `2`. The current value of `ema` is `0` since it has not yet been set.
-3. `ema=ema{-1}*0.9+x*0.1` — set the current value of `ema` using current value of `x` and the past value of `ema`
+3. `ema=ema{-1}*0.9+x*0.1` — set the current value of `ema` using current value of `x` and the past value of `ema`.
+
+## Instance Management
+
+Signal instancing can also be managed from within the map expression by manipulating a special variable named `alive` that represents the instance state. The use cases for in-map instancing can be complex, but here are some simple examples:
+
+                     | Singleton Destination | Instanced Destination
+---------------------|-----------------------|-----------------------
+**Singleton Source** | conditional output    | conditional serial instancing
+**Instanced Source** | conditional output    | modified instancing
+
+### Conditional output
+
+In the case of a map with a singleton (non-instanced) destination, in-map
+instance management can be used for conditional updates. For example,
+imagine we want to map `x -> y` but only propagate updates when `x > 10` – we could use the expression:
+
+* `alive = x > 10;``y = x;`
+
+The statement `alive = x > 10` is evaluated first, and the update `y = x` is only propagated to the destination if `x > 10` evaluates to True (non-zero) **at the time of assignment**. The entire expression is evaluated however, so counters can be incremented etc. even while `alive` is False. There is a more complex example in the section below on Accessing Variable Timetags.
+
+### Conditional serial instancing
+
+When mapping a singleton source signal to an instanced destination signal there are several possible desired behaviours:
+
+1. The source signal controls **one** of the available destination signal instances. This is the default behaviour.
+2. The source signal controls **all** of the available destination signal instances **in parallel**. This is accomplished by setting the `use_inst` property of the destination slot to False (0).
+3. The source signal controls available destination signal instances **serially**. This is accomplished by manipulating the `alive` variable as described above. On each rising edge (transition from 0 to non-zero) of the `alive` variable a new instance id map will be generated
+
+### Modified instancing
+
+*currently undocumented*
+
+## Propagation Management
+
+If desired, the expression can be evaluated "silently" so that updates do not propagate to the destination. This is accomplished by manipulating a special variable named `muted`. For maps with singleton destination signals this has an identical effect to manipulating the `alive` variable, but for instanced destinations it enables filtering updates without releasing the associated instance.
+
+The example below implements a "change" filter in which only updates with different input values are sent to the destination:
+
+* `muted=(x==x{-1});``y=x;`
+
+Note that (as above) the value of the `muted` variable must be true (non-zero) **when y is assigned** in order to mute the update; the arbitrary example below will instead mute the next update following the condition `(x==x{-1})`:
+
+* `y=x;``muted=(x==x{-1});`
 
 ## Accessing Variable Timetags
 
@@ -207,9 +250,9 @@ The timetag associated with a variable can be accessed using the syntax `t_<vari
 * `y=t_x` — output the timetag of the input instead of its value
 * `y=t_x-t_x{-1}` — output the time interval between subsequent updates
 
-This functionality can be used to limit the output rate:
+This functionality can be used along with in-map signal instancing to limit the output rate:
 
-* `y=(t_x-t_y{-1})>0.5?x` — only output if more than 0.5 seconds has elapsed since the last output, otherwise discard input sample.
+* `alive=(t_x-t_y{-1})>0.5;``y=x` — only output if more than 0.5 seconds has elapsed since the last output, otherwise discard input sample.
 
 Also we can calculate a moving average of the sample period:
 
@@ -221,13 +264,13 @@ Of course this moving average will start with a very large first value for `(t_x
 
 Here's a more complex example with 4 sub-expressions in which the rate is limited but incoming samples are averaged instead of discarding them:
 
-* `A=(t_x-t_y{-1})>0.1;` `y=A?B/C;` `B=!A*B+x;` `C=A?1:C+1;`
+* `alive=(t_x-t_y{-1})>0.1;` `y=B/C;` `B=!alive*B+x;` `C=alive?1:C+1;`
 
 Explanation:
 
-order | step   | expression | description
------ | ------ | ------ | ------
-1 | check elapsed time | `A=(t_x-t_y{-1})>0.1;` | Set `A` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
-2 | conditional output | `y=A?B/C;` | Output `B/C` (the average) if `A` is true; otherwise do nothing
-3 | update accumulator | `B=!A*B+x;` | reset accumulator `B` to 0 if `A` is true, add `x`
-4 | update count | `C=A?1:C+1;` | increment `C`, reset if `A` is true
+order | step           | expression | description
+----- | -------------- | ---------- | -----------
+1 | check elapsed time | `alive=(t_x-t_y{-1})>0.1;` | Set `alive` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
+2 | conditional output | `y=B/C;` | Output the average `B/C` (if `alive` is true)
+3 | update accumulator | `B=!alive*B+x;` | reset accumulator `B` to 0 if `alive` is true, add `x`
+4 | update count       | `C=alive?1:C+1;` | increment `C`, reset if `alive` is true

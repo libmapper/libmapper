@@ -177,13 +177,11 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             if (slot->dir == MPR_DIR_OUT
                 && !(sig->loc->idmaps[inst].status & RELEASED_REMOTELY)) {
                 msg = 0;
-                if (!slot->use_inst)
-                    msg = mpr_map_build_msg(map, slot, 0, 0, 0);
-                else if (in_scope)
+                if (!map->use_inst || in_scope) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                if (msg)
                     send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t,
                                        map->protocol);
+                }
             }
 
             // send release to upstream
@@ -207,9 +205,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
 
                 if (slot->dir == MPR_DIR_IN) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    if (msg)
-                        send_or_bundle_msg(slot->link, slot->sig, msg, t,
-                                           map->protocol);
+                    send_or_bundle_msg(slot->link, slot->sig, msg, t,
+                                       map->protocol);
                 }
             }
         }
@@ -238,28 +235,30 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
             // bypass map processing and bundle value without type coercion
             char types[sig->len];
             memset(types, sig->type, sig->len);
-            msg = mpr_map_build_msg(map, slot, val, types,
-                                    sig->use_inst ? idmap : 0);
-            if (msg)
-                send_or_bundle_msg(map->dst->link, map->dst->sig, msg, t,
-                                   map->protocol);
+            msg = mpr_map_build_msg(map, slot, val, types, idmap);
+            send_or_bundle_msg(map->dst->link, map->dst->sig, msg, t,
+                               map->protocol);
             continue;
         }
 
+        // copy input history
+        size_t n = mpr_sig_get_vector_bytes(sig);
         mpr_local_slot lslot = slot->loc;
+        lslot->hist[idx].pos = ((lslot->hist[idx].pos + 1) % lslot->hist[idx].mem);
+        memcpy(mpr_hist_get_val_ptr(lslot->hist[idx]), val, n);
+        memcpy(mpr_hist_get_time_ptr(lslot->hist[idx]), &t, sizeof(mpr_time));
+
+        if (map->process_loc == MPR_LOC_SRC && !slot->causes_update)
+            continue;
+
         mpr_slot dst_slot = map->dst;
         mpr_slot to = (map->process_loc == MPR_LOC_SRC ? dst_slot : slot);
-        char src_types[slot->sig->len];
+        char src_types[slot->sig->len], dst_types[to->sig->len];
         memset(src_types, slot->sig->type, slot->sig->len);
-        char dst_types[to->sig->len];
         memset(dst_types, to->sig->type, to->sig->len);
 
-        size_t n = mpr_sig_get_vector_bytes(sig);
-
         /* If this signal is non-instanced but the map has other instanced
-         * sources we will need to update all of the map instances. */
-        if (!sig->use_inst)
-            inst = 0;
+         * sources we will need to update all of the active map instances. */
         int all = !sig->use_inst && map->num_src > 1 && map->loc->num_var_inst > 1;
         if (all) {
             // find a source signal with more instances
@@ -268,16 +267,15 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                     sig = map->src[j]->sig;
         }
 
-        if (!sig->use_inst)
-            idmap = mpr_expr_get_manages_instances(map->loc->expr) ? map->idmap : 0;
-
-        // copy input history
-        lslot->hist[idx].pos = ((lslot->hist[idx].pos + 1) % lslot->hist[idx].mem);
-        memcpy(mpr_hist_get_val_ptr(lslot->hist[idx]), val, n);
-        memcpy(mpr_hist_get_time_ptr(lslot->hist[idx]), &t, sizeof(mpr_time));
-
-        if (map->process_loc == MPR_LOC_SRC && !slot->causes_update)
-            continue;
+        int map_manages_inst = 0;
+        if (!sig->use_inst) {
+            if (mpr_expr_get_manages_inst(map->loc->expr)) {
+                map_manages_inst = 1;
+                idmap = map->idmap;
+            }
+            else
+                idmap = 0;
+        }
 
         struct _mpr_sig_idmap *idmaps = sig->loc->idmaps;
         for (; inst < sig->loc->idmap_len; inst++) {
@@ -286,8 +284,6 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 continue;
             idx = idmaps[inst].inst->idx;
             int status = mpr_map_perform(map, dst_types, &t, idx);
-            // TODO: only allow if src signal is non-instanced
-            // TODO: extend for instanced signals also?
             if (!status) {
                 // no updates or releases
                 if (!all)
@@ -295,50 +291,49 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
                 else
                     continue;
             }
-            if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE) {
-                /* send instance release if dst is instanced and either src or
-                 * map is also instanced. */
-                if (dst_slot->use_inst && (sig->use_inst || idmap)) {
-                    msg = mpr_map_build_msg(map, slot, 0, 0,
-                                            sig->use_inst ? idmaps[inst].map : idmap);
-                    if (msg)
-                        send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
-                                           t, map->protocol);
-                    if (!sig->use_inst) {
-                        mpr_dev_LID_decref(rtr->dev, 0, idmap);
-                        idmap = map->idmap = 0;
-                    }
+            /* send instance release if dst is instanced and either src or map
+             * is also instanced. */
+            if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE && dst_slot->use_inst) {
+                msg = mpr_map_build_msg(map, slot, 0, 0,
+                                        sig->use_inst ? idmaps[inst].map : idmap);
+                send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
+                                   t, map->protocol);
+                if (map_manages_inst) {
+                    mpr_dev_LID_decref(rtr->dev, 0, idmap);
+                    idmap = map->idmap = 0;
                 }
             }
             if (status & EXPR_UPDATE) {
                 // send instance update
-                if (!sig->use_inst && slot->use_inst && !idmap) {
-                    // create an id_map and store it in the map
-                    mpr_id GID = mpr_dev_generate_unique_id(sig->dev);
-                    idmap = map->idmap = mpr_dev_add_idmap(sig->dev, sig->loc->group,
-                                                           0, GID);
-                }
                 void *result = mpr_hist_get_val_ptr(dst_slot->loc->hist[idx]);
-                msg = mpr_map_build_msg(map, slot, result, dst_types,
-                                        sig->use_inst ? idmaps[inst].map : idmap);
-                if (msg)
-                    send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
-                                       *(mpr_time*)mpr_hist_get_time_ptr(dst_slot->loc->hist[idx]),
-                                       map->protocol);
-            }
-            if (idmap && status & EXPR_RELEASE_AFTER_UPDATE) {
-                /* send instance release if dst is instanced and either src or
-                 * map is also instanced. */
-                if (dst_slot->use_inst && (sig->use_inst || idmap)) {
-                    msg = mpr_map_build_msg(map, slot, 0, 0,
-                                            sig->use_inst ? idmaps[inst].map : idmap);
-                    if (msg)
-                        send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
-                                           t, map->protocol);
-                    if (!sig->use_inst) {
-                        mpr_dev_LID_decref(rtr->dev, 0, idmap);
-                        idmap = map->idmap = 0;
+                if (map_manages_inst) {
+                    if (!idmap) {
+                        // create an id_map and store it in the map
+                        mpr_id GID = mpr_dev_generate_unique_id(sig->dev);
+                        idmap = map->idmap = mpr_dev_add_idmap(sig->dev, sig->loc->group,
+                                                               0, GID);
                     }
+                    msg = mpr_map_build_msg(map, slot, result, dst_types,
+                                            map->idmap);
+                }
+                else {
+                    msg = mpr_map_build_msg(map, slot, result, dst_types,
+                                            idmaps[inst].map);
+                }
+                send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
+                                   *(mpr_time*)mpr_hist_get_time_ptr(dst_slot->loc->hist[idx]),
+                                   map->protocol);
+            }
+            /* send instance release if dst is instanced and either src or map
+             * is also instanced. */
+            if (idmap && status & EXPR_RELEASE_AFTER_UPDATE && dst_slot->use_inst) {
+                msg = mpr_map_build_msg(map, slot, 0, 0,
+                                        sig->use_inst ? idmaps[inst].map : idmap);
+                send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t,
+                                   map->protocol);
+                if (map_manages_inst) {
+                    mpr_dev_LID_decref(rtr->dev, 0, idmap);
+                    idmap = map->idmap = 0;
                 }
             }
             if (!all)
@@ -354,6 +349,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val,
 void send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
                         mpr_proto proto)
 {
+    RETURN_UNLESS(msg);
     // Check if a matching bundle exists
     mpr_queue q = link->queues;
     while (q) {
@@ -508,7 +504,7 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
 
     // Set num_inst and use_inst properties
     map->dst->num_inst = max_num_inst;
-    map->dst->use_inst = use_inst;
+    map->use_inst = map->dst->use_inst = use_inst;
     for (i = 0; i < map->num_src; i++) {
         if (map->src[i]->sig->loc) {
             map->src[i]->num_inst = map->src[i]->sig->num_inst;

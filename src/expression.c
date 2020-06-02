@@ -1957,7 +1957,7 @@ int mpr_expr_get_num_input_slots(mpr_expr expr)
     return count >= VAR_X ? count - VAR_X + 1 : 0;
 }
 
-int mpr_expr_get_manages_instances(mpr_expr expr)
+int mpr_expr_get_manages_inst(mpr_expr expr)
 {
     return expr ? expr->inst_ctl >= 0 : 0;
 }
