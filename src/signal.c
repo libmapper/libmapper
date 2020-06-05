@@ -14,7 +14,7 @@
 /* Function prototypes */
 static int _add_idmap(mpr_sig s, mpr_sig_inst si, mpr_id_map map);
 
-static int _compare_ids(const void *l, const void *r)
+static int _compare_inst_ids(const void *l, const void *r)
 {
     return memcmp(&(*(mpr_sig_inst*)l)->id, &(*(mpr_sig_inst*)r)->id, sizeof(mpr_id));
 }
@@ -26,7 +26,7 @@ static mpr_sig_inst _find_inst_by_id(mpr_sig s, mpr_id id)
     mpr_sig_inst sip = &si;
     si.id = id;
     mpr_sig_inst *sipp = bsearch(&sip, s->loc->inst, s->num_inst,
-                                 sizeof(mpr_sig_inst), _compare_ids);
+                                 sizeof(mpr_sig_inst), _compare_inst_ids);
     return (sipp && *sipp) ? *sipp : 0;
 }
 
@@ -231,6 +231,24 @@ void mpr_sig_free_internal(mpr_sig s)
     FUNC_IF(free, s->unit);
 }
 
+void mpr_sig_call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
+                          const void *val, mpr_time *time, float diff)
+{
+    // abort if signal is already being processed - might be a local loop
+    if (sig->loc->locked) {
+        trace_dev(sig->dev, "Mapping loop detected on signal %s! (2)\n",
+                  sig->name);
+        return;
+    }
+    // non-instanced signals cannot have a null value
+    if (!val && !sig->use_inst)
+        return;
+    mpr_sig_update_timing_stats(sig, diff);
+    mpr_sig_handler *h = sig->loc->handler;
+    if (h && (evt & sig->loc->event_flags))
+        h(sig, evt, inst, len, sig->type, val, *time);
+}
+
 /**** Instances ****/
 
 static void _init_inst(mpr_sig_inst si)
@@ -247,6 +265,7 @@ static mpr_sig_inst _reserved_inst(mpr_sig s, mpr_id *id)
         if (!s->loc->inst[i]->active) {
             if (id)
                 s->loc->inst[i]->id = *id;
+            qsort(s->loc->inst, s->num_inst, sizeof(mpr_sig_inst), _compare_inst_ids);
             return s->loc->inst[i];
         }
     }
@@ -360,19 +379,23 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int 
         i = _oldest_inst(s);
         if (i < 0)
             return -1;
-        h(s, MPR_SIG_UPDATE, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
+        int evt = (  MPR_SIG_REL_UPSTRM & s->loc->event_flags
+                   ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
+        h(s, evt, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
     }
     else if (s->steal_mode == MPR_STEAL_NEWEST) {
         i = _newest_inst(s);
         if (i < 0)
             return -1;
-        h(s, MPR_SIG_UPDATE, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
+        int evt = (  MPR_SIG_REL_UPSTRM & s->loc->event_flags
+                   ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
+        h(s, evt, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
     }
     else
         return -1;
 
     // try again
-    if ((si = _find_inst_by_id(s, LID))) {
+    if ((si = _find_inst_by_id(s, LID)) || (si = _reserved_inst(s, &LID))) {
         if (!map) {
             // Claim id map locally add id map to device and link from signal
             mpr_id GID = mpr_dev_generate_unique_id(s->dev);
@@ -398,7 +421,7 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int 
     mpr_sig_inst si;
     int i;
     for (i = 0; i < s->loc->idmap_len; i++) {
-        if (maps[i].inst && maps[i].map->GID == GID)
+        if (maps[i].map && maps[i].map->GID == GID)
             return (maps[i].status & ~flags) ? -1 : i;
     }
     RETURN_UNLESS(activate, -1);
@@ -423,8 +446,7 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int 
             return i;
         }
     }
-    else if (   (si = _find_inst_by_id(s, map->LID))
-             || (si = _reserved_inst(s, &map->LID))) {
+    else if ((si = _find_inst_by_id(s, map->LID)) || (si = _reserved_inst(s, &map->LID))) {
         if (!si->active) {
             si->active = 1;
             _init_inst(si);
@@ -439,8 +461,7 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int 
     else {
         /* TODO: Once signal groups are explicit, allow re-mapping to
          * another instance if possible. */
-        trace("Signal %s has no instance %"PR_MPR_ID" available.\n",
-              s->name, map->LID);
+        trace("Signal %s has no instance %"PR_MPR_ID" available.\n", s->name, map->LID);
         return -1;
     }
 
@@ -455,13 +476,15 @@ int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int 
         i = _oldest_inst(s);
         if (i < 0)
             return -1;
-        h(s, MPR_SIG_UPDATE, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
+        int evt = (MPR_SIG_REL_UPSTRM & s->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
+        h(s, evt, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
     }
     else if (s->steal_mode == MPR_STEAL_NEWEST) {
         i = _newest_inst(s);
         if (i < 0)
             return -1;
-        h(s, MPR_SIG_UPDATE, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
+        int evt = (MPR_SIG_REL_UPSTRM & s->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
+        h(s, evt, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
     }
     else
         return -1;
@@ -507,8 +530,7 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
 
     // reallocate array of instances
     sig->loc->inst = realloc(sig->loc->inst, sizeof(mpr_sig_inst) * (sig->num_inst+1));
-    sig->loc->inst[sig->num_inst] =
-        (mpr_sig_inst) calloc(1, sizeof(struct _mpr_sig_inst));
+    sig->loc->inst[sig->num_inst] = (mpr_sig_inst) calloc(1, sizeof(struct _mpr_sig_inst));
     si = sig->loc->inst[sig->num_inst];
     si->val = calloc(1, mpr_sig_get_vector_bytes(sig));
     si->has_val_flags = calloc(1, sig->len / 8 + 1);
@@ -554,7 +576,7 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
         }
         sig->use_inst = 1;
     }
-    qsort(sig->loc->inst, sig->num_inst, sizeof(mpr_sig_inst), _compare_ids);
+    qsort(sig->loc->inst, sig->num_inst, sizeof(mpr_sig_inst), _compare_inst_ids);
 
     // return largest index
     int highest = -1;
@@ -697,8 +719,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id, mpr_time time)
 {
     RETURN_UNLESS(sig && sig->loc && sig->use_inst);
-    int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY,
-                                        MPR_NOW, 0);
+    int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
     if (idx >= 0)
         mpr_sig_release_inst_internal(sig, idx, time);
 }
@@ -732,37 +753,47 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idx, mpr_time t)
 void mpr_sig_remove_inst(mpr_sig sig, mpr_id id, mpr_time time)
 {
     RETURN_UNLESS(sig && sig->loc && sig->use_inst);
+
     if (mpr_time_get_is_now(&time))
         mpr_time_set(&time, MPR_NOW);
-    int i;
-    for (i = 0; i < sig->num_inst; i++) {
-        if (sig->loc->inst[i]->id == id) {
-            if (sig->loc->inst[i]->active) {
-                // First release instance
-                mpr_sig_release_inst_internal(sig, i, time);
-            }
-            break;
-        }
-    }
-    if (i == sig->num_inst)
-        return;
 
+    int i, remove_idx;
+    for (i = 0; i < sig->num_inst; i++) {
+        if (sig->loc->inst[i]->id == id)
+            break;
+    }
+    RETURN_UNLESS(i < sig->num_inst);
+
+    if (sig->loc->inst[i]->active) {
+       // First release instance
+       mpr_sig_release_inst_internal(sig, i, time);
+    }
+
+    remove_idx = sig->loc->inst[i]->idx;
+
+    // Free value and timetag memory held by instance
     FUNC_IF(free, sig->loc->inst[i]->val);
     FUNC_IF(free, sig->loc->inst[i]->has_val_flags);
     free(sig->loc->inst[i]);
-    ++i;
-    for (; i < sig->num_inst; i++)
+
+    for (++i; i < sig->num_inst; i++)
         sig->loc->inst[i-1] = sig->loc->inst[i];
     --sig->num_inst;
     sig->loc->inst = realloc(sig->loc->inst, sizeof(mpr_sig_inst) * sig->num_inst);
-    // TODO: could also realloc signal value histories
+
+    // Remove instance memory held by map slots
+    mpr_rtr_remove_inst(sig->obj.graph->net.rtr, sig, remove_idx);
+
+    for (i = 0; i < sig->num_inst; i++) {
+        if (sig->loc->inst[i]->idx > remove_idx)
+            --sig->loc->inst[i]->idx;
+    }
 }
 
 const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
-    int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY,
-                                        MPR_NOW, 0);
+    int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
     RETURN_UNLESS(idx >= 0, 0);
     mpr_sig_inst si = sig->loc->idmaps[idx].inst;
     RETURN_UNLESS(si && si->has_val, 0)
@@ -782,12 +813,11 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
     RETURN_UNLESS(sig && sig->loc, 0);
     RETURN_UNLESS(sig->use_inst, 1);
     int i, j = 0;
-    int status_active = (status & MPR_STATUS_ACTIVE) ? 1 : 0;
-    int status_reserved = (status & MPR_STATUS_RESERVED) ? 1 : 0;
-    if (status_active == status_reserved)
-        return status_active ? sig->num_inst : 0;
+    if (status == MPR_STATUS_ALL)
+        return sig->num_inst;
+    status = status & MPR_STATUS_ACTIVE ? 1 : 0;
     for (i = 0; i < sig->num_inst; i++) {
-        if (sig->loc->inst[i]->active == status_active)
+        if (sig->loc->inst[i]->active == status)
             ++j;
     }
     return j;
@@ -798,12 +828,11 @@ mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
     RETURN_UNLESS(sig && sig->loc, 0);
     RETURN_UNLESS(sig->use_inst, 0);
     int i, j = -1;
-    int status_active = (status & MPR_STATUS_ACTIVE) ? 1 : 0;
-    int status_reserved = (status & MPR_STATUS_RESERVED) ? 1 : 0;
-    if (status_active == status_reserved)
-        return status_active ? sig->loc->inst[idx]->id : 0;
+    if (status == MPR_STATUS_ALL)
+        return sig->loc->inst[idx]->id;
+    status = status & MPR_STATUS_ACTIVE ? 1 : 0;
     for (i = 0; i < sig->num_inst; i++) {
-        if (sig->loc->inst[i]->active != status_active)
+        if (sig->loc->inst[i]->active != status)
             continue;
         if (++j == idx)
             return sig->loc->inst[i]->id;

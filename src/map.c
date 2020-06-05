@@ -413,7 +413,7 @@ static int mpr_map_update_scope(mpr_map m, mpr_msg_atom a)
 }
 
 // only called for outgoing maps
-int mpr_map_perform(mpr_map m, mpr_type *types, mpr_time *time, int inst)
+int mpr_map_perform(mpr_map m, mpr_type *types, mpr_time *time, int inst_idx)
 {
     int i;
 
@@ -426,9 +426,9 @@ int mpr_map_perform(mpr_map m, mpr_type *types, mpr_time *time, int inst)
 
     mpr_hist src[m->num_src];
     for (i = 0; i < m->num_src; i++)
-        src[i] = &m->src[i]->loc->hist[inst % m->src[i]->sig->num_inst];
-    return (mpr_expr_eval(m->loc->expr, src, &m->loc->expr_var[inst],
-                          &m->dst->loc->hist[inst], time, types));
+        src[i] = &m->src[i]->loc->hist[inst_idx % m->src[i]->sig->num_inst];
+    return (mpr_expr_eval(m->loc->expr, src, &m->loc->expr_var[inst_idx],
+                          &m->dst->loc->hist[inst_idx], time, types));
 }
 
 /*! Build a value update message for a given map. */
@@ -455,7 +455,7 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
         for (i = 0; i < len; i++)
             lo_message_add_nil(msg);
     }
-    if (m->use_inst) {
+    if (m->use_inst && idmap) {
         lo_message_add_string(msg, "@instance");
         lo_message_add_int64(msg, idmap->GID);
     }
@@ -876,15 +876,7 @@ static int mpr_map_set_expr(mpr_map m, const char *expr)
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
     /* TODO: should call handler for all instances updated through this map. */
-    int use_inst = 0;
-    for (i = 0; i < m->num_src; i++) {
-        if (m->src[i]->use_inst) {
-            use_inst = 1;
-            break;
-        }
-    }
-    use_inst += m->dst->use_inst;
-    if (mpr_expr_get_num_input_slots(m->loc->expr) <= 0 && !use_inst) {
+    if (mpr_expr_get_num_input_slots(m->loc->expr) <= 0 && !m->use_inst) {
         mpr_time now;
         mpr_time_set(&now, MPR_NOW);
 
@@ -1202,6 +1194,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 }
             case PROP(ID):
             case PROP(MUTED):
+            case PROP(USE_INST):
             case PROP(VERSION):
                 updated += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
                 break;

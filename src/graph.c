@@ -638,21 +638,16 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
             map->src[i]->obj.graph = g;
             map->src[i]->causes_update = 1;
             map->src[i]->map = map;
-            if (map->src[i]->sig->loc) {
+            if (map->src[i]->sig->loc)
                 map->src[i]->num_inst = map->src[i]->sig->num_inst;
-                map->src[i]->use_inst = map->src[i]->sig->use_inst;
-            }
         }
         map->dst = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
         map->dst->sig = dst_sig;
         map->dst->obj.graph = g;
         map->dst->causes_update = 1;
         map->dst->map = map;
-        if (map->dst->sig->loc) {
+        if (map->dst->sig->loc)
             map->dst->num_inst = map->dst->sig->num_inst;
-            map->dst->use_inst = map->dst->sig->use_inst;
-        }
-
         mpr_map_init(map);
         rc = 1;
     }
@@ -663,9 +658,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
             mpr_sig src_sig = add_sig_from_whole_name(g, src_names[i]);
             RETURN_UNLESS(src_sig, 0);
             for (j = 0; j < map->num_src; j++) {
-                if (map->src[j]->sig == src_sig) {
+                if (map->src[j]->sig == src_sig)
                     break;
-                }
             }
             if (j == map->num_src) {
                 ++changed;
@@ -677,10 +671,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
                 map->src[j]->obj.graph = g;
                 map->src[j]->causes_update = 1;
                 map->src[j]->map = map;
-                if (map->src[j]->sig->loc) {
+                if (map->src[j]->sig->loc)
                     map->src[j]->num_inst = map->src[j]->sig->num_inst;
-                    map->src[j]->use_inst = map->src[j]->sig->use_inst;
-                }
                 mpr_slot_init(map->src[j]);
                 ++updated;
             }

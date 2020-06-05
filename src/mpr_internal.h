@@ -46,6 +46,9 @@ void mpr_obj_increment_version(mpr_obj obj);
  *              cases the name may not be available. */
 int mpr_sig_get_full_name(mpr_sig sig, char *name, int len);
 
+void mpr_sig_call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
+                          const void *val, mpr_time *time, float diff);
+
 int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
 
 void mpr_sig_update_timing_stats(mpr_sig sig, float diff);
@@ -179,6 +182,8 @@ mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name);
 void mpr_rtr_remove_sig(mpr_rtr r, mpr_rtr_sig rs);
 
 void mpr_rtr_num_inst_changed(mpr_rtr r, mpr_sig s, int size);
+
+void mpr_rtr_remove_inst(mpr_rtr rtr, mpr_sig sig, int idx);
 
 /*! For a given signal instance, calculate mapping outputs and forward to
  *  destinations. */

@@ -2074,7 +2074,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
     mpr_token_t *tok = expr->start;
     int len = expr->len;
     int status = 1, alive = 1, muted = 0;
-    if (out->pos >= 0) {
+    if (out && out->pos >= 0) {
         tok += expr->offset;
         len -= expr->offset;
     }
@@ -2095,12 +2095,13 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
 
     int i, j, k, top = -1, count = 0, can_advance = 1;
 
-    // init types
-    if (types)
-        memset(types, MPR_NULL, out->len);
-
-    /* Increment index position of output data structure. */
-    out->pos = (out->pos + 1) % out->mem;
+    if (out) {
+        // init types
+        if (types)
+            memset(types, MPR_NULL, out->len);
+        /* Increment index position of output data structure. */
+        out->pos = (out->pos + 1) % out->mem;
+    }
 
     for (i = 0; i < expr->n_vars; i++)
         expr->vars[i].assigned = 0;
@@ -2178,6 +2179,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             dims[top] = tok->vec_len;
             mpr_hist h;
             if (tok->var == VAR_Y) {
+                if (!out)
+                    return status;
                 h = out;
                 idx = ((tok->hist_idx + h->pos + h->mem) % h->mem);
 #if TRACING
@@ -2556,6 +2559,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
         ++tok;
         ++count;
     }
+
+    RETURN_UNLESS(out, status);
 
     if (!types) {
         /* Internal evaluation during parsing doesn't contain assignment token,

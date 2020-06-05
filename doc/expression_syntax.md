@@ -221,8 +221,9 @@ The statement `alive = x > 10` is evaluated first, and the update `y = x` is onl
 
 When mapping a singleton source signal to an instanced destination signal there are several possible desired behaviours:
 
-1. The source signal controls **one** of the available destination signal instances. This is the default behaviour.
-2. The source signal controls **all** of the available destination signal instances **in parallel**. This is accomplished by setting the `use_inst` property of the destination slot to False (0).
+1. The source signal controls **one** of the available destination signal instances. The destination instance is activated upon receiving the first update and a release event is triggered when the map is destroyed so the lifetime of the map controls the lifetime of the destination signal instance. This is the default behaviour.
+2. The source signal controls **all** of the available **active** destination signal instances **in parallel**. This is accomplished by setting the `use_inst` property of the map to False (0). Note that in this case a source update will not activate new instances, so this configuration should probably only be used with destination signals that manage their own instances or that are persistent (non-ephemeral).
+    * example 1: the destination signal is contained in a software shim to interface with MIDI. Singleton signal *mouse/position/x* is mapped to the *polyPressure* signal in the MIDI bridge, and the map's `use_inst` property is set to False to enable controlling the poly pressure parameter of all active notes in parallel.
 3. The source signal controls available destination signal instances **serially**. This is accomplished by manipulating the `alive` variable as described above. On each rising edge (transition from 0 to non-zero) of the `alive` variable a new instance id map will be generated
 
 ### Modified instancing

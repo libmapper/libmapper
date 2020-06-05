@@ -16,7 +16,6 @@ static int slot_mask(mpr_slot slot)
 
 void mpr_slot_init(mpr_slot slot)
 {
-//    slot->obj.type = MPR_OBJ_SLOT;
     int local = slot->loc && slot->loc->rsig;
     mpr_tbl t = slot->obj.props.synced = mpr_tbl_new();
     slot->obj.props.staged = mpr_tbl_new();
@@ -26,8 +25,6 @@ void mpr_slot_init(mpr_slot slot)
                  local ? NON_MODIFIABLE : MODIFIABLE);
     mpr_tbl_link(t, MPR_PROP_SIG | mask, 1, MPR_SIG, &slot->sig,
                  NON_MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(t, MPR_PROP_USE_INST | mask, 1, MPR_BOOL, &slot->use_inst,
-                 MODIFIABLE);
 
     slot->obj.props.mask = mask;
 }
@@ -36,11 +33,6 @@ void mpr_slot_free(mpr_slot slot)
 {
     FUNC_IF(mpr_tbl_free, slot->obj.props.synced);
     FUNC_IF(mpr_tbl_free, slot->obj.props.staged);
-}
-
-mpr_sig mpr_slot_sig(mpr_slot slot)
-{
-    return slot->sig;
 }
 
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg, int *status)
