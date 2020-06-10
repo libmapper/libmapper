@@ -56,10 +56,10 @@ public:                                                                     \
 
 namespace mpr {
 
+    class Object;
     class Device;
     class Signal;
     class Map;
-    class Object;
     class Property;
     class Graph;
 
@@ -232,8 +232,7 @@ namespace mpr {
          *  \return             A new List containing the results. */
         List operator+(const List& rhs) const
         {
-            return List(mpr_list_get_union(mpr_list_get_cpy(_list),
-                                           mpr_list_get_cpy(rhs._list)));
+            return List(mpr_list_get_union(mpr_list_get_cpy(_list), mpr_list_get_cpy(rhs._list)));
         }
 
         /*! Remove items NOT found in List rhs from this List
@@ -241,8 +240,7 @@ namespace mpr {
          *  \return             A new List containing the results. */
         List operator*(const List& rhs) const
         {
-            return List(mpr_list_get_isect(mpr_list_get_cpy(_list),
-                                           mpr_list_get_cpy(rhs._list)));
+            return List(mpr_list_get_isect(mpr_list_get_cpy(_list), mpr_list_get_cpy(rhs._list)));
         }
 
         /*! Remove items found in List rhs from this List
@@ -250,8 +248,7 @@ namespace mpr {
          *  \return             A new List containing the results. */
         List operator-(const List& rhs) const
         {
-            return List(mpr_list_get_diff(mpr_list_get_cpy(_list),
-                                          mpr_list_get_cpy(rhs._list)));
+            return List(mpr_list_get_diff(mpr_list_get_cpy(_list), mpr_list_get_cpy(rhs._list)));
         }
 
         /*! Add items found in List rhs to this List (without duplication).
@@ -313,6 +310,7 @@ namespace mpr {
         mpr_list _list;
     };
 
+    /*! Objects provide a generic representation of Devices, Signals, and Maps. */
     class Object
     {
     protected:
@@ -388,8 +386,7 @@ namespace mpr {
         Property operator [] (const str_type &key) const;
 
         /*! Retrieve a Property by index.
-         *  \param prop     The index of or symbolic identifier of the Property
-         *                  to retrieve.
+         *  \param prop     The index of or symbolic identifier of the Property to retrieve.
          *  \return         The retrieved Property. */
         Property property(mpr_prop prop) const;
 
@@ -439,8 +436,7 @@ namespace mpr {
          *                  the Map already exists) or newly created. In the
          *                  latter case the Map will not take effect until it
          *                  has been added to the graph using push(). */
-        Map(int num_srcs, signal_type srcs[],
-            int num_dsts, signal_type dsts[]) : Object(NULL)
+        Map(int num_srcs, signal_type srcs[], int num_dsts, signal_type dsts[]) : Object(NULL)
         {
             mpr_sig cast_src[num_srcs], cast_dst = dsts[0];
             for (int i = 0; i < num_srcs; i++)
@@ -581,17 +577,11 @@ namespace mpr {
 
         /* Value update functions*/
         Signal& set_value(int *val, int len, Time time)
-        {
-            RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_INT32, val, *time));
-        }
+            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_INT32, val, *time)); }
         Signal& set_value(float *val, int len, Time time)
-        {
-            RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_FLT, val, *time));
-        }
+            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_FLT, val, *time)); }
         Signal& set_value(double *val, int len, Time time)
-        {
-            RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_DBL, val, *time));
-        }
+            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_DBL, val, *time)); }
         template <typename T>
         Signal& set_value(T val, Time time=0)
             { return set_value(&val, 1, time); }
@@ -614,6 +604,10 @@ namespace mpr {
         Signal& set_callback(mpr_sig_handler *h, int events=MPR_SIG_UPDATE)
             { RETURN_SELF(mpr_sig_set_cb(_obj, h, events)); }
 
+        /*! Signal Instances can be used to describe the multiplicity and/or ephemerality
+        of phenomena associated with Signals. A signal describes the phenomena, e.g.
+        the position of a 'blob' in computer vision, and the signal's instances will
+        describe the positions of actual detected blobs. */
         class Instance {
         public:
             Instance(mpr_sig sig, mpr_id id)
@@ -693,7 +687,7 @@ namespace mpr {
             { RETURN_SELF(mpr_sig_reserve_inst(_obj, num, ids, 0)); }
         Signal& reserve_instances(int num, mpr_id *ids, void **data)
             { RETURN_SELF(mpr_sig_reserve_inst(_obj, num, ids, data)); }
-        Instance instance_at_idx(int idx, mpr_status status) const
+        Instance instance(int idx, mpr_status status) const
             { return Instance(_obj, mpr_sig_get_inst_id(_obj, idx, status)); }
         Signal& remove_instance(Instance instance, Time time=0)
             { RETURN_SELF(mpr_sig_remove_inst(_obj, instance._id, *time)); }
@@ -975,12 +969,10 @@ namespace mpr {
         Property(const str_type &_key, std::vector<T> _val) : Property(_key)
             { _set(_val); }
         template <typename T>
-        Property(mpr_prop _prop, int _len, mpr_type _type, T& _val)
-            : Property(_prop)
+        Property(mpr_prop _prop, int _len, mpr_type _type, T& _val) : Property(_prop)
             { _set(_len, _type, _val); }
         template <typename T>
-        Property(const str_type &_key, int _len, mpr_type _type, T& _val)
-            : Property(_key)
+        Property(const str_type &_key, int _len, mpr_type _type, T& _val) : Property(_key)
             { _set(_len, _type, _val); }
 
         ~Property()
@@ -1284,8 +1276,7 @@ namespace mpr {
         { return property(key); }
 
     /*! Retrieve a Property by index.
-     *  \param prop     The index or symbolic identifier of the Property
-     *                  to retrieve.
+     *  \param prop     The index or symbolic identifier of the Property to retrieve.
      *  \return         The retrieved Property. */
     Property Object::property(mpr_prop prop) const
     {
@@ -1404,8 +1395,7 @@ std::ostream& operator<<(std::ostream& os, const mpr::Device& dev)
 
 std::ostream& operator<<(std::ostream& os, const mpr::Signal& sig)
 {
-    os << "<mpr::Signal '" << sig.device()[MPR_PROP_NAME]
-       << ":" << sig[MPR_PROP_NAME] << "'>";
+    os << "<mpr::Signal '" << sig.device()[MPR_PROP_NAME] << ":" << sig[MPR_PROP_NAME] << "'>";
     return os;
 }
 

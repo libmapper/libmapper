@@ -191,65 +191,73 @@ void mpr_obj_push(mpr_obj obj);
  *  \param staged       1 to print staged properties, 0 otherwise. */
 void mpr_obj_print(mpr_obj obj, int staged);
 
-/*! Filter a list of objects using the given property.
- *  \param list         The list of objects to filter.
- *  \param prop         Symbolic identifier of the property to look for.
- *  \param key          The name of the property to search for.
- *  \param len          The value length.
- *  \param type         The value type.
- *  \param value        The value.
- *  \param op           The comparison operator.
+/*** Devices ***/
+
+/*! @defgroup devices Devices
+
+    @{ A device is an entity on the distributed graph which has input and/or
+       output signals.  The mpr_dev is the primary interface through which
+       a program uses libmpr.  A device must have a name, to which a unique
+       ordinal is subsequently appended.  It can also be given other
+       user-specified metadata.  Devices signals can be connected, which is
+       accomplished by requests from an external GUI. */
+
+/*! Allocate and initialize a device.
+ *  \param name         A short descriptive string to identify the device.
+ *                      Must not contain spaces or the slash character '/'.
+ *  \param graph        A previously allocated graph structure to use.
+ *                      If 0, one will be allocated for use with this device.
+ *  \return             A newly allocated device.  Should be freed
+ *                      using mpr_dev_free(). */
+mpr_dev mpr_dev_new(const char *name, mpr_graph graph);
+
+/*! Free resources used by a device.
+ *  \param dev          The device to free. */
+void mpr_dev_free(mpr_dev dev);
+
+/*! Return a unique id associated with a given device.
+ *  \param dev          The device to use.
+ *  \return             A new unique id. */
+mpr_id mpr_dev_generate_unique_id(mpr_dev dev);
+
+/*! Return the list of signals for a given device.
+ *  \param dev          The device to query.
+ *  \param dir          The direction of the signals to return, should be
+ *                      MPR_DIR_IN, MPR_DIR_OUT, or MPR_DIR_ANY.
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
-mpr_list mpr_list_filter(mpr_list list, mpr_prop prop, const char *key, int len,
-                         mpr_type type, const void *value, mpr_op op);
+mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir);
 
-/*! Get the union of two object lists (objects matching list1 OR list2).
- *  \param list1        The first object list.
- *  \param list2        The second object list.
- *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
-mpr_list mpr_list_get_union(mpr_list list1, mpr_list list2);
+/*! Poll this device for new messages.  Note, if you have multiple devices, the
+ *  right thing to do is call this function for each of them with block_ms=0,
+ *  and add your own sleep if necessary.
+ *  \param dev          The device to check messages for.
+ *  \param block_ms     Number of milliseconds to block waiting for messages, or
+ *                      0 for non-blocking behaviour.
+ *  \return             The number of handled messages. May be zero if there was
+ *                      nothing to do. */
+int mpr_dev_poll(mpr_dev dev, int block_ms);
 
-/*! Get the intersection of two object lists (objects matching list1 AND list2).
- *  \param list1        The first object list.
- *  \param list2        The second object list.
- *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
-mpr_list mpr_list_get_isect(mpr_list list1, mpr_list list2);
+/*! Detect whether a device is completely initialized.
+ *  \param dev          The device to query.
+ *  \return             Non-zero if device is completely initialized, i.e., has
+ *                      an allocated receiving port and unique identifier.
+ *                      Zero otherwise. */
+int mpr_dev_get_is_ready(mpr_dev dev);
 
-/*! Get the difference between two object lists (objects in list1 but NOT list2).
- *  \param list1        The first object list.
- *  \param list2        The second object list.
- *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
-mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2);
+/*! Start a time-tagged queue.
+ *  \param dev          The device to use.
+ *  \param time         A time to use for the updates bundled by this queue,
+ *                      or MPR_NOW to use the current local time.
+ *  \return             The time used to identify this queue. */
+mpr_time mpr_dev_start_queue(mpr_dev dev, mpr_time time);
 
-/*! Get an indexed item in a list of objects.
- *  \param list         The previous object record pointer.
- *  \param idx          The index of the list element to retrieve.
- *  \return             A pointer to the object record, or zero if it doesn't
- *                      exist. */
-mpr_obj mpr_list_get_idx(mpr_list list, unsigned int idx);
+/*! Dispatch a time-tagged queue.
+ *  \param dev          The device to use.
+ *  \param time         The time for an existing queue created with
+ *                      mpr_dev_start_queue(). */
+void mpr_dev_send_queue(mpr_dev dev, mpr_time time);
 
-/*! Given a object record pointer returned from a previous object query, get the
- *  next item in the list.
- *  \param list         The previous object record pointer.
- *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
-mpr_list mpr_list_get_next(mpr_list list);
-
-/*! Copy a previously-constructed object list.
- *  \param list         The previous object record pointer.
- *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
-mpr_list mpr_list_get_cpy(mpr_list list);
-
-/*! Given a object record pointer returned from a previous object query,
- *  indicate that we are done iterating.
- *  \param list         The previous object record pointer. */
-void mpr_list_free(mpr_list list);
-
-/*! Return the number of objects in a previous object query list.
- *  \param list         The previous object record pointer.
- *  \return             The number of objects in the list. */
-int mpr_list_get_size(mpr_list list);
-
-/* @} */
+/** @} */ // end of group Devices
 
 /*** Signals ***/
 
@@ -336,6 +344,11 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id inst, mpr_time *time);
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_sig_get_maps(mpr_sig sig, mpr_dir dir);
 
+/*! Get the parent mpr_dev for a specific signal.
+ *  \param sig          The signal to check.
+ *  \return             The signal's parent device. */
+mpr_dev mpr_sig_get_dev(mpr_sig sig);
+
 /*! Set or unset the message handler for a signal.
  *  \param sig          The signal to operate on.
  *  \param handler      A pointer to a mpr_sig_handler function
@@ -344,6 +357,13 @@ mpr_list mpr_sig_get_maps(mpr_sig sig, mpr_dir dir);
 void mpr_sig_set_cb(mpr_sig sig, mpr_sig_handler *handler, int events);
 
 /**** Signal Instances ****/
+
+/*! @defgroup instances Instances
+
+    @{ Signal Instances can be used to describe the multiplicity and/or ephemerality
+       of phenomena associated with Signals. A signal describes the phenomena, e.g.
+       the position of a 'blob' in computer vision, and the signal's instances will
+       describe the positions of actual detected blobs. */
 
 /*! Add new instances to the reserve list. Note that if instance ids are
  *  specified, libmpr will not add multiple instances with the same id.
@@ -426,13 +446,6 @@ void mpr_sig_set_inst_data(mpr_sig sig, mpr_id inst, const void *data);
  *  \return             A pointer associated with this instance. */
 void *mpr_sig_get_inst_data(mpr_sig sig, mpr_id inst);
 
-/**** Signal properties ****/
-
-/*! Get the parent mpr_dev for a specific signal.
- *  \param sig          The signal to check.
- *  \return             The signal's parent device. */
-mpr_dev mpr_sig_get_dev(mpr_sig sig);
-
 /*! Get the number of instances for a specific signal.
  *  \param sig          The signal to check.
  *  \param status       The status of the instances to searchl should be set to
@@ -441,75 +454,9 @@ mpr_dev mpr_sig_get_dev(mpr_sig sig);
  *  \return             The number of allocated signal instances. */
 int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status);
 
-/* @} */
+/** @} */ // end of group Instances
 
-/*** Devices ***/
-
-/*! @defgroup devices Devices
-
-    @{ A device is an entity on the distributed graph which has input and/or
-       output signals.  The mpr_dev is the primary interface through which
-       a program uses libmpr.  A device must have a name, to which a unique
-       ordinal is subsequently appended.  It can also be given other
-       user-specified metadata.  Devices signals can be connected, which is
-       accomplished by requests from an external GUI. */
-
-/*! Allocate and initialize a device.
- *  \param name         A short descriptive string to identify the device.
- *                      Must not contain spaces or the slash character '/'.
- *  \param graph        A previously allocated graph structure to use.
- *                      If 0, one will be allocated for use with this device.
- *  \return             A newly allocated device.  Should be freed
- *                      using mpr_dev_free(). */
-mpr_dev mpr_dev_new(const char *name, mpr_graph graph);
-
-/*! Free resources used by a device.
- *  \param dev          The device to free. */
-void mpr_dev_free(mpr_dev dev);
-
-/*! Return a unique id associated with a given device.
- *  \param dev          The device to use.
- *  \return             A new unique id. */
-mpr_id mpr_dev_generate_unique_id(mpr_dev dev);
-
-/*! Return the list of signals for a given device.
- *  \param dev          The device to query.
- *  \param dir          The direction of the signals to return, should be
- *                      MPR_DIR_IN, MPR_DIR_OUT, or MPR_DIR_ANY.
- *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
-mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir);
-
-/*! Poll this device for new messages.  Note, if you have multiple devices, the
- *  right thing to do is call this function for each of them with block_ms=0,
- *  and add your own sleep if necessary.
- *  \param dev          The device to check messages for.
- *  \param block_ms     Number of milliseconds to block waiting for messages, or
- *                      0 for non-blocking behaviour.
- *  \return             The number of handled messages. May be zero if there was
- *                      nothing to do. */
-int mpr_dev_poll(mpr_dev dev, int block_ms);
-
-/*! Detect whether a device is completely initialized.
- *  \param dev          The device to query.
- *  \return             Non-zero if device is completely initialized, i.e., has
- *                      an allocated receiving port and unique identifier.
- *                      Zero otherwise. */
-int mpr_dev_get_is_ready(mpr_dev dev);
-
-/*! Start a time-tagged queue.
- *  \param dev          The device to use.
- *  \param time         A time to use for the updates bundled by this queue,
- *                      or MPR_NOW to use the current local time.
- *  \return             The time used to identify this queue. */
-mpr_time mpr_dev_start_queue(mpr_dev dev, mpr_time time);
-
-/*! Dispatch a time-tagged queue.
- *  \param dev          The device to use.
- *  \param time         The time for an existing queue created with
- *                      mpr_dev_start_queue(). */
-void mpr_dev_send_queue(mpr_dev dev, mpr_time time);
-
-/* @} */
+/** @} */ // end of group Signals
 
 /***** Maps *****/
 
@@ -579,7 +526,76 @@ void mpr_map_add_scope(mpr_map map, mpr_dev dev);
  *                      propagating across the map. */
 void mpr_map_remove_scope(mpr_map map, mpr_dev dev);
 
-/* @} */
+/** @} */ // end of group Maps
+
+/** @} */ // end of group Objects
+
+/*** Lists ***/
+
+/*! @defgroup lists Lists
+
+     @{ Lists provide a data structure for retrieving multiple Objects (Devices, Signals, or Maps)
+        as a result of a query. */
+
+/*! Filter a list of objects using the given property.
+ *  \param list         The list of objects to filter.
+ *  \param prop         Symbolic identifier of the property to look for.
+ *  \param key          The name of the property to search for.
+ *  \param len          The value length.
+ *  \param type         The value type.
+ *  \param value        The value.
+ *  \param op           The comparison operator.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_list_filter(mpr_list list, mpr_prop prop, const char *key, int len,
+                         mpr_type type, const void *value, mpr_op op);
+
+/*! Get the union of two object lists (objects matching list1 OR list2).
+ *  \param list1        The first object list.
+ *  \param list2        The second object list.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_list_get_union(mpr_list list1, mpr_list list2);
+
+/*! Get the intersection of two object lists (objects matching list1 AND list2).
+ *  \param list1        The first object list.
+ *  \param list2        The second object list.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_list_get_isect(mpr_list list1, mpr_list list2);
+
+/*! Get the difference between two object lists (objects in list1 but NOT list2).
+ *  \param list1        The first object list.
+ *  \param list2        The second object list.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2);
+
+/*! Get an indexed item in a list of objects.
+ *  \param list         The previous object record pointer.
+ *  \param idx          The index of the list element to retrieve.
+ *  \return             A pointer to the object record, or zero if it doesn't
+ *                      exist. */
+mpr_obj mpr_list_get_idx(mpr_list list, unsigned int idx);
+
+/*! Given a object record pointer returned from a previous object query, get the
+ *  next item in the list.
+ *  \param list         The previous object record pointer.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_list_get_next(mpr_list list);
+
+/*! Copy a previously-constructed object list.
+ *  \param list         The previous object record pointer.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_list_get_cpy(mpr_list list);
+
+/*! Given a object record pointer returned from a previous object query,
+ *  indicate that we are done iterating.
+ *  \param list         The previous object record pointer. */
+void mpr_list_free(mpr_list list);
+
+/*! Return the number of objects in a previous object query list.
+ *  \param list         The previous object record pointer.
+ *  \return             The number of objects in the list. */
+int mpr_list_get_size(mpr_list list);
+
+/** @} */ // end of group Lists
 
 /***** Graph *****/
 
@@ -690,7 +706,7 @@ int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *data);
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_graph_get_objs(mpr_graph g, int types);
 
-/* @} */
+/** @} */ // end of group Graphs
 
 /***** Time *****/
 
@@ -733,7 +749,7 @@ void mpr_time_set_dbl(mpr_time *time, double value);
  *  \param timer        The source time. */
 void mpr_time_set(mpr_time *timel, mpr_time timer);
 
-/* @} */
+/** @} */ // end of group Times
 
 /*! Get the version of libmpr.
  *  \return             A string specifying the version of libmpr. */

@@ -141,10 +141,8 @@ typedef struct _mpr_net {
         struct in_addr addr;        /*!< The IP address of interface. */
     } iface;
 
-    struct _mpr_dev **devs;         /*!< Local devices managed by this network
-                                     *   structure. */
-    lo_bundle bundle;               /*!< Bundle pointer for sending
-                                     *   messages on the multicast bus. */
+    struct _mpr_dev **devs;         /*!< Local devices managed by this network structure. */
+    lo_bundle bundle;               /*!< Bundle pointer for sending messages on the multicast bus. */
 
     struct {
         char *group;
@@ -228,8 +226,7 @@ typedef struct _mpr_allocated_t {
 
     unsigned int val;           //!< The resource to be allocated.
     int collision_count;        //!< The number of collisions detected.
-    uint8_t locked;             /*!< Whether or not the value has been locked
-                                 *   in (allocated). */
+    uint8_t locked;             /*!< Whether or not the value has been locked (allocated). */
     uint8_t online;             /*!< Whether or not we are connected to the
                                  *   distributed allocation network. */
 } mpr_allocated_t, *mpr_allocated;
@@ -406,8 +403,7 @@ typedef struct _mpr_link {
 typedef struct _mpr_local_slot {
     // each slot can point to local signal or a remote link structure
     struct _mpr_rtr_sig *rsig;      //!< Parent signal if local
-    mpr_hist hist;                  /*!< Array of value histories for
-                                     *   each signal instance. */
+    mpr_hist hist;                  /*!< Array of value histories for each signal instance. */
     int mem;                        //!< History size.
     char status;
 } mpr_local_slot_t, *mpr_local_slot;
@@ -461,7 +457,7 @@ typedef struct _mpr_map {
     mpr_loc process_loc;
     int status;
     int protocol;                       //!< Data transport protocol.
-    int use_inst;                   //!< 1 if using instances, 0 otherwise.
+    int use_inst;                       //!< 1 if using instances, 0 otherwise.
 } mpr_map_t, *mpr_map;
 
 /*! The rtr_sig is a linked list containing a signal and a list of mapping

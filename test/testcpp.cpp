@@ -122,8 +122,7 @@ int main(int argc, char ** argv)
     // make a copy of the device to check reference counting
     Device devcopy(dev);
 
-    Signal sig = dev.add_sig(MPR_DIR_IN, "in1", 1, MPR_FLT, "meters", 0, 0, 0,
-                             handler);
+    Signal sig = dev.add_sig(MPR_DIR_IN, "in1", 1, MPR_FLT, "meters", 0, 0, 0, handler);
     dev.remove_sig(sig);
     dev.add_sig(MPR_DIR_IN, "in2", 2, MPR_INT32, 0, 0, 0, 0, handler);
     dev.add_sig(MPR_DIR_IN, "in3", 2, MPR_INT32, 0, 0, 0, 0, handler);
