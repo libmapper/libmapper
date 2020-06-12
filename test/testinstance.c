@@ -141,6 +141,7 @@ test_config test_configs[] = {
 
     // singleton ==> instanced; in-map instance management
     { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0.01 },
+    // TODO: figure out how to reactivate instance with new id map after release
     { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.05, 0.01 },
 
     // work in progress:
@@ -579,10 +580,10 @@ int run_test(test_config *config)
 
     if (!verbose) {
         if (result)
-            printf(" (expected %4d ± %2d) .......... \x1B[31mFAILED\x1B[0m.\n", compare_count,
+            printf(" (expected %4d ± %2d) \x1B[31mFAILED\x1B[0m.\n", compare_count,
                    count_epsilon);
         else
-            printf(" (expected) ................... \x1B[32mPASSED\x1B[0m.\n");
+            printf(" (expected) ......... \x1B[32mPASSED\x1B[0m.\n");
     }
 
     return result;

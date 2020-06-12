@@ -335,7 +335,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
     if (slot_idx >= 0) {
         // retrieve mapping associated with this slot
-        slot = mpr_rtr_get_slot(dev->obj.graph->net.rtr, sig, slot_idx);
+        slot = mpr_rtr_get_slot(rtr, sig, slot_idx);
         TRACE_DEV_RETURN_UNLESS(slot, 0, "error in mpr_dev_handler: slot %d not found.\n", slot_idx);
         map = slot->map;
         TRACE_DEV_RETURN_UNLESS(map->status >= MPR_STATUS_READY, 0, "error in mpr_dev_handler: "
@@ -367,13 +367,16 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             // Don't activate instance just to release it again
             RETURN_UNLESS(vals, 0);
 
-            if (map_manages_inst) {
+            if (map_manages_inst && vals == slot->sig->len) {
                 /* special case: do a dry-run to check whether this map will
                  * cause a release. If so, don't bother stealing an instance. */
-                // TODO: need to actually feed the expression input and zeroed expr_vars
-//                int status = mpr_expr_eval(map->loc->expr, 0, 0, 0, &ts, 0);
-//                if (status & EXPR_RELEASE_BEFORE_UPDATE)
-//                    return 0;
+                mpr_hist_t h = {argv[0], 0, val_len, slot->sig->type, 1, -1};
+                mpr_hist src[map->num_src];
+                for (i = 0; i < map->num_src; i++)
+                    src[i] = (i == slot->obj.id) ? &h : 0;
+                int status = mpr_expr_eval(map->loc->expr, src, 0, 0, &ts, 0);
+                if (status & EXPR_RELEASE_BEFORE_UPDATE)
+                    return 0;
             }
 
             // otherwise try to init reserved/stolen instance with device map

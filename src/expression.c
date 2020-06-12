@@ -2071,6 +2071,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
 #endif
         return 0;
     }
+
     mpr_token_t *tok = expr->start;
     int len = expr->len;
     int status = 1, alive = 1, muted = 0;
@@ -2078,18 +2079,21 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
         tok += expr->offset;
         len -= expr->offset;
     }
-    if (expr->inst_ctl >= 0) {
+
+    if (expr_vars && expr->inst_ctl >= 0) {
         // recover instance state
         mpr_hist h = *expr_vars + expr->inst_ctl;
         double *v = h->val;
         alive = (0 != v[0]);
     }
-    if (expr->mute_ctl >= 0) {
+
+    if (expr_vars && expr->mute_ctl >= 0) {
         // recover mute state
         mpr_hist h = *expr_vars + expr->mute_ctl;
         double *v = h->val;
         muted = (0 != v[0]);
     }
+
     mpr_val_t stk[len][expr->vec_size];
     int dims[len];
 
