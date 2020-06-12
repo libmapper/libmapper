@@ -238,12 +238,10 @@ static int get_query_size(const char *types, va_list aq)
                 }
                 break;
             default:
-                va_end(aq);
                 return 0;
         }
         ++i;
     };
-    va_end(aq);
     return size;
 }
 
@@ -313,15 +311,12 @@ static void **new_query_internal(const void **list, int size, const void *func,
                 }
                 break;
             default:
-                va_end(aq);
                 free(lh->query_ctx);
                 free(lh);
                 return 0;
         }
         ++i;
     }
-
-    va_end(aq);
 
     lh->query_ctx->size = sizeof(query_info_t)+size;
     lh->query_ctx->query_compare = (query_compare_func_t*)func;
@@ -337,8 +332,12 @@ mpr_list mpr_list_new_query(const void **list, const void *func,
     va_list aq;
     va_start(aq, types);
     int size = get_query_size(types, aq);
+    va_end(aq);
+
     va_start(aq, types);
-    return (mpr_list)new_query_internal(list, size, func, types, aq);
+    mpr_list qry = (mpr_list)new_query_internal(list, size, func, types, aq);
+    va_end(aq);
+    return qry;
 }
 
 mpr_list mpr_list_start(mpr_list list)
@@ -490,12 +489,14 @@ static mpr_list mpr_list_filter_internal(mpr_list list, const void *func,
     va_list aq;
     va_start(aq, types);
     int size = get_query_size(types, aq);
+    va_end(aq);
 
     mpr_list_header_t *lh1 = mpr_list_header_by_self(list);
 
     va_start(aq, types);
     void **filter = new_query_internal((const void **)lh1->start, size, func,
                                        types, aq);
+    va_end(aq);
 
     if (QUERY_STATIC == lh1->query_type)
         return (mpr_list)filter;
