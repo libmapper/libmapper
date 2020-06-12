@@ -122,7 +122,7 @@ int setup_maps(int calibrate)
         snprintf(expr, 128, "y=linear(x,?,?,%f,%f)", dMin, dMax);
     }
     else
-        snprintf(expr, 128, "y=linear(x,-,-,-,-)");   
+        snprintf(expr, 128, "y=linear(x,-,-,-,-)");
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 

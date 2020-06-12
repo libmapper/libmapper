@@ -1695,12 +1695,12 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     // do not continue if we are not in charge of processing
     if (MPR_LOC_DST == loc) {
         if (!map->dst->sig->loc) {
-            trace_dev(dev, "ignoring /map/modify, slaved to remote source.\n");
+            trace_dev(dev, "ignoring /map/modify, synced to remote source.\n");
             goto done;
         }
     }
     else if (!map->src[0]->sig->loc) {
-        trace_dev(dev, "ignoring /map/modify, slaved to remote destination.\n");
+        trace_dev(dev, "ignoring /map/modify, synced to remote destination.\n");
         goto done;
     }
 

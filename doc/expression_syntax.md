@@ -215,15 +215,15 @@ imagine we want to map `x -> y` but only propagate updates when `x > 10` – we
 
 * `alive = x > 10;``y = x;`
 
-The statement `alive = x > 10` is evaluated first, and the update `y = x` is only propagated to the destination if `x > 10` evaluates to True (non-zero) **at the time of assignment**. The entire expression is evaluated however, so counters can be incremented etc. even while `alive` is False. There is a more complex example in the section below on Accessing Variable Timetags.
+Since in this case the destination signal is not instanced it will not be "released" when `alive` evaluates to False, however any assignments to the output `y` while `alive` is False will not take effect. The statement `alive = x > 10` is evaluated first, and the update `y = x` is only propagated to the destination if `x > 10` evaluates to True (non-zero) **at the time of assignment**. The entire expression is evaluated however, so counters can be incremented etc. even while `alive` is False. There is a more complex example in the section below on Accessing Variable Timetags.
 
 ### Conditional serial instancing
 
 When mapping a singleton source signal to an instanced destination signal there are several possible desired behaviours:
 
-1. The source signal controls **one** of the available destination signal instances. The destination instance is activated upon receiving the first update and a release event is triggered when the map is destroyed so the lifetime of the map controls the lifetime of the destination signal instance. This is the default behaviour.
+1. The source signal controls **one** of the available destination signal instances. The destination instance is activated upon receiving the first update and a release event is triggered when the map is destroyed so the lifetime of the map controls the lifetime of the destination signal instance. This configuration is the default for maps from singleton->instanced signals, and is achieved by setting the map property `use_inst` to True.
 2. The source signal controls **all** of the available **active** destination signal instances **in parallel**. This is accomplished by setting the `use_inst` property of the map to False (0). Note that in this case a source update will not activate new instances, so this configuration should probably only be used with destination signals that manage their own instances or that are persistent (non-ephemeral).
-    * example 1: the destination signal is contained in a software shim to interface with MIDI. Singleton signal *mouse/position/x* is mapped to the *polyPressure* signal in the MIDI bridge, and the map's `use_inst` property is set to False to enable controlling the poly pressure parameter of all active notes in parallel.
+    * Example 1: a destination signal named *polyPressure* belongs to a software shim device for interfacing with MIDI. The singleton signal *mouse/position/x* is mapped to *polyPressure*, and the map's `use_inst` property is set to False to enable controlling the poly pressure parameter of all active notes in parallel.
 3. The source signal controls available destination signal instances **serially**. This is accomplished by manipulating the `alive` variable as described above. On each rising edge (transition from 0 to non-zero) of the `alive` variable a new instance id map will be generated
 
 ### Modified instancing
@@ -244,7 +244,7 @@ Note that (as above) the value of the `muted` variable must be true (non-zero) *
 
 ## Accessing Variable Timetags
 
-The precise time at which a variable is updated is always tracked by libmapper and communicated with the data value. We plan to use this information in the background for discarding out-of-order packets and jitter mitigation, but it may also be useful in your expressions.
+The precise time at which a variable is updated is always tracked by libmapper and communicated with the data value. In the future we plan to use this information in the background for discarding out-of-order packets and jitter mitigation, but it may also be useful in your expressions.
 
 The timetag associated with a variable can be accessed using the syntax `t_<variable_name>` – for example the time associated with the current sample `x` is `t_x`, and the timetag associated with the last update of a hypothetical user-defined variable `foo` would be `t_foo`. This syntax can be used anywhere in your expressions:
 
@@ -259,7 +259,7 @@ Also we can calculate a moving average of the sample period:
 
 * `y=y{-1}*0.9+(t_x-t_y{-1})*0.1`
 
-Of course this moving average will start with a very large first value for `(t_x-t_y{-1})` since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of out expression:
+Of course the first value for `(t_x-t_y{-1})` will be very large since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of out expression:
 
 * `t_y{-1}=t_x;` `y=y{-1}*0.9+(t_x-t_y{-1})*0.1;`
 
