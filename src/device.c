@@ -370,10 +370,10 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             if (map_manages_inst && vals == slot->sig->len) {
                 /* special case: do a dry-run to check whether this map will
                  * cause a release. If so, don't bother stealing an instance. */
-                mpr_hist_t h = {argv[0], 0, val_len, slot->sig->type, 1, -1};
-                mpr_hist src[map->num_src];
+                mpr_value_t v = {argv[0], 0, val_len, slot->sig->type, 1, -1};
+                mpr_value src[map->num_src];
                 for (i = 0; i < map->num_src; i++)
-                    src[i] = (i == slot->obj.id) ? &h : 0;
+                    src[i] = (i == slot->obj.id) ? &v : 0;
                 int status = mpr_expr_eval(map->loc->expr, src, 0, 0, &ts, 0);
                 if (status & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
@@ -436,9 +436,9 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
         /* Reset memory for corresponding source slot. */
         mpr_local_slot lslot = slot->loc;
-        memset(lslot->hist[inst_idx].val, 0, lslot->mem * slot->sig->len * size);
-        memset(lslot->hist[inst_idx].time, 0, lslot->mem * sizeof(mpr_time));
-        lslot->hist[inst_idx].pos = -1;
+        memset(lslot->val[inst_idx].samps, 0, lslot->mem * slot->sig->len * size);
+        memset(lslot->val[inst_idx].times, 0, lslot->mem * sizeof(mpr_time));
+        lslot->val[inst_idx].pos = -1;
         return 0;
     }
 
@@ -476,9 +476,9 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
             /* TODO: would be more efficient not to allocate memory for multiple
              * instances if slot is single-instance. */
-            lslot->hist[inst_idx].pos = ((lslot->hist[inst_idx].pos + 1) % lslot->hist[inst_idx].mem);
-            memcpy(mpr_hist_get_val_ptr(lslot->hist[inst_idx]), argv[0], size * slot->sig->len);
-            memcpy(mpr_hist_get_time_ptr(lslot->hist[inst_idx]), &ts, sizeof(mpr_time));
+            lslot->val[inst_idx].pos = ((lslot->val[inst_idx].pos + 1) % lslot->val[inst_idx].mem);
+            memcpy(mpr_value_get_samp(lslot->val[inst_idx]), argv[0], size * slot->sig->len);
+            memcpy(mpr_value_get_time(lslot->val[inst_idx]), &ts, sizeof(mpr_time));
             if (!slot->causes_update)
                 continue;
             typestring = alloca(map->dst->sig->len * sizeof(mpr_type));
@@ -497,7 +497,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
         if (status & EXPR_UPDATE) {
             if (map) {
-                void *result = mpr_hist_get_val_ptr(map->dst->loc->hist[inst_idx]);
+                void *result = mpr_value_get_samp(map->dst->loc->val[inst_idx]);
                 // TODO: create new map->idmap
 //                if (map_manages_inst) {
 //                    if (!idmap) {

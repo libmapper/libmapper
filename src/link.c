@@ -9,6 +9,11 @@
 #include "types_internal.h"
 #include <mpr/mpr.h>
 
+mpr_link mpr_link_new(mpr_dev local_dev, mpr_dev remote_dev)
+{
+    return mpr_graph_add_link(local_dev->obj.graph, local_dev, remote_dev);
+}
+
 void mpr_link_init(mpr_link link)
 {
     mpr_net net = &link->obj.graph->net;

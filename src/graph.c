@@ -40,7 +40,7 @@ void print_subscription_flags(int flags)
 }
 #endif
 
-static void on_dev_autosub(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *v)
+static void _on_dev_autosub(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *v)
 {
     // New subscriptions are handled in network.c as response to "sync" msg
     if (MPR_OBJ_REM == e)
@@ -92,10 +92,10 @@ static void send_subscribe_msg(mpr_graph g, mpr_dev d, int flags, int timeout)
     mpr_net_send(&g->net);
 }
 
-static void mpr_graph_autosub(mpr_graph g, int flags)
+static void _autosubscribe(mpr_graph g, int flags)
 {
     if (!g->autosub && flags) {
-        mpr_graph_add_cb(g, on_dev_autosub, MPR_DEV, g);
+        mpr_graph_add_cb(g, _on_dev_autosub, MPR_DEV, g);
             // update flags for existing subscriptions
         mpr_time t;
         mpr_time_set(&t, MPR_NOW);
@@ -119,7 +119,7 @@ static void mpr_graph_autosub(mpr_graph g, int flags)
         }
     }
     else if (g->autosub && !flags) {
-        mpr_graph_remove_cb(g, on_dev_autosub, g);
+        mpr_graph_remove_cb(g, _on_dev_autosub, g);
         while (g->subscriptions)
             mpr_graph_subscribe(g, g->subscriptions->dev, 0, 0);
     }
@@ -161,7 +161,7 @@ mpr_graph mpr_graph_new(int subscribe_flags)
     g->own = 1;
     mpr_net_init(&g->net, 0, 0, 0);
     if (subscribe_flags)
-        mpr_graph_autosub(g, subscribe_flags);
+        _autosubscribe(g, subscribe_flags);
     return g;
 }
 
@@ -300,6 +300,21 @@ int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
     return 1;
 }
 
+static void _remove_by_qry(mpr_graph g, mpr_list l, mpr_graph_evt e)
+{
+    mpr_obj o;
+    while (l) {
+        o = *l;
+        l = mpr_list_get_next(l);
+        switch ((int)o->type) {
+            case MPR_LINK:  mpr_graph_remove_link(g, (mpr_link)o, e);   break;
+            case MPR_SIG:   mpr_graph_remove_sig(g, (mpr_sig)o, e);     break;
+            case MPR_MAP:   mpr_graph_remove_map(g, (mpr_map)o, e);     break;
+            default:                                                    break;
+        }
+    }
+}
+
 /**** Device records ****/
 
 mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
@@ -345,7 +360,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
 void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
 {
     RETURN_UNLESS(d);
-    mpr_graph_remove_by_qry(g, mpr_dev_get_maps(d, MPR_DIR_ANY), e);
+    _remove_by_qry(g, mpr_dev_get_maps(d, MPR_DIR_ANY), e);
 
     // remove matching maps scopes
     mpr_list maps = mpr_graph_get_objs(g, MPR_MAP);
@@ -354,8 +369,8 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
         maps = mpr_list_get_next(maps);
     }
 
-    mpr_graph_remove_by_qry(g, mpr_dev_get_links(d, MPR_DIR_ANY), e);
-    mpr_graph_remove_by_qry(g, mpr_dev_get_sigs(d, MPR_DIR_ANY), e);
+    _remove_by_qry(g, mpr_dev_get_links(d, MPR_DIR_ANY), e);
+    _remove_by_qry(g, mpr_dev_get_sigs(d, MPR_DIR_ANY), e);
 
     mpr_list_remove_item((void**)&g->devs, d);
 
@@ -388,7 +403,7 @@ mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name)
     return 0;
 }
 
-void mpr_graph_check_dev_status(mpr_graph g, uint32_t time_sec)
+static void _check_dev_status(mpr_graph g, uint32_t time_sec)
 {
     time_sec -= TIMEOUT_SEC;
     mpr_list devs = mpr_list_from_data(g->devs);
@@ -460,7 +475,7 @@ void mpr_graph_remove_sig(mpr_graph g, mpr_sig s, mpr_graph_evt e)
     RETURN_UNLESS(s);
 
     // remove any stored maps using this signal
-    mpr_graph_remove_by_qry(g, mpr_sig_get_maps(s, MPR_DIR_ANY), e);
+    _remove_by_qry(g, mpr_sig_get_maps(s, MPR_DIR_ANY), e);
 
     mpr_list_remove_item((void**)&g->sigs, s);
 
@@ -479,21 +494,6 @@ void mpr_graph_remove_sig(mpr_graph g, mpr_sig s, mpr_graph_evt e)
 
     mpr_sig_free_internal(s);
     mpr_list_free_item(s);
-}
-
-void mpr_graph_remove_by_qry(mpr_graph g, mpr_list l, mpr_graph_evt e)
-{
-    mpr_obj o;
-    while (l) {
-        o = *l;
-        l = mpr_list_get_next(l);
-        switch ((int)o->type) {
-            case MPR_LINK:  mpr_graph_remove_link(g, (mpr_link)o, e);   break;
-            case MPR_SIG:   mpr_graph_remove_sig(g, (mpr_sig)o, e);     break;
-            case MPR_MAP:   mpr_graph_remove_map(g, (mpr_map)o, e);     break;
-            default:                                                    break;
-        }
-    }
 }
 
 /**** Link records ****/
@@ -523,7 +523,7 @@ mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 void mpr_graph_remove_link(mpr_graph g, mpr_link l, mpr_graph_evt e)
 {
     RETURN_UNLESS(l);
-    mpr_graph_remove_by_qry(g, mpr_link_get_maps(l), e);
+    _remove_by_qry(g, mpr_link_get_maps(l), e);
     mpr_list_remove_item((void**)&g->links, l);
     mpr_link_free(l);
     mpr_list_free_item(l);
@@ -531,7 +531,7 @@ void mpr_graph_remove_link(mpr_graph g, mpr_link l, mpr_graph_evt e)
 
 /**** Map records ****/
 
-static int compare_slot_names(const void *l, const void *r)
+static int _compare_slot_names(const void *l, const void *r)
 {
     int result = strcmp((*(mpr_slot*)l)->sig->dev->name,
                         (*(mpr_slot*)r)->sig->dev->name);
@@ -638,16 +638,12 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
             map->src[i]->obj.graph = g;
             map->src[i]->causes_update = 1;
             map->src[i]->map = map;
-            if (map->src[i]->sig->loc)
-                map->src[i]->num_inst = map->src[i]->sig->num_inst;
         }
         map->dst = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
         map->dst->sig = dst_sig;
         map->dst->obj.graph = g;
         map->dst->causes_update = 1;
         map->dst->map = map;
-        if (map->dst->sig->loc)
-            map->dst->num_inst = map->dst->sig->num_inst;
         mpr_map_init(map);
         rc = 1;
     }
@@ -671,16 +667,13 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
                 map->src[j]->obj.graph = g;
                 map->src[j]->causes_update = 1;
                 map->src[j]->map = map;
-                if (map->src[j]->sig->loc)
-                    map->src[j]->num_inst = map->src[j]->sig->num_inst;
                 mpr_slot_init(map->src[j]);
                 ++updated;
             }
         }
         if (changed) {
             // slots should be in alphabetical order
-            qsort(map->src, map->num_src, sizeof(mpr_slot),
-                  compare_slot_names);
+            qsort(map->src, map->num_src, sizeof(mpr_slot), _compare_slot_names);
             // fix slot ids
             mpr_tbl tab;
             mpr_tbl_record rec;
@@ -841,7 +834,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
     mpr_net_poll(n);
     mpr_time_set(&t, MPR_NOW);
     renew_subscriptions(g, t.sec);
-    mpr_graph_check_dev_status(g, t.sec);
+    _check_dev_status(g, t.sec);
 
     if (!block_ms) {
         if (lo_servers_recv_noblock(n->server.admin, status, 2, 0)) {
@@ -865,7 +858,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
             mpr_time_set(&t, MPR_NOW);
             renew_subscriptions(g, t.sec);
             mpr_net_poll(n);
-            mpr_graph_check_dev_status(g, t.sec);
+            _check_dev_status(g, t.sec);
             checked_admin = elapsed;
         }
 
@@ -876,7 +869,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
     return count;
 }
 
-static mpr_subscription subscription(mpr_graph g, mpr_dev d)
+static mpr_subscription _get_subscription(mpr_graph g, mpr_dev d)
 {
     mpr_subscription s = g->subscriptions;
     while (s) {
@@ -890,7 +883,7 @@ static mpr_subscription subscription(mpr_graph g, mpr_dev d)
 void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
 {
     if (!d) {
-        mpr_graph_autosub(g, flags);
+        _autosubscribe(g, flags);
         return;
     }
     else if (d->loc) {
@@ -921,7 +914,7 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
 #endif
         // special case: autorenew subscription lease
         // first check if subscription already exists
-        mpr_subscription s = subscription(g, d);
+        mpr_subscription s = _get_subscription(g, d);
 
         if (!s) {
             // store subscription record
@@ -960,7 +953,7 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
 void mpr_graph_unsubscribe(mpr_graph g, mpr_dev d)
 {
     if (!d)
-        mpr_graph_autosub(g, 0);
+        _autosubscribe(g, 0);
     mpr_graph_subscribe(g, d, 0, 0);
 }
 
@@ -968,7 +961,7 @@ int mpr_graph_subscribed_by_dev(mpr_graph g, const char *name)
 {
     mpr_dev dev = mpr_graph_get_dev_by_name(g, name);
     if (dev) {
-        mpr_subscription s = subscription(g, dev);
+        mpr_subscription s = _get_subscription(g, dev);
         return s ? s->flags : 0;
     }
     return 0;
@@ -987,7 +980,7 @@ int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
     devname[devnamelen] = 0;
     mpr_dev dev = mpr_graph_get_dev_by_name(g, devname);
     if (dev) {
-        mpr_subscription s = subscription(g, dev);
+        mpr_subscription s = _get_subscription(g, dev);
         return s ? s->flags : 0;
     }
     return 0;

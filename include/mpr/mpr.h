@@ -50,7 +50,7 @@ int mpr_obj_get_num_props(mpr_obj obj, int staged);
  *                      property value. (Required.)
  *  \param val          A pointer to a location to receive the address of the
  *                      property's value. (Required.)
- *  \param pub          1 if property is published, 0 otherwise.
+ *  \param pub          1 if property is public, 0 otherwise.
  *  \return             Symbolic identifier of the retrieved property, or
  *                      MPR_PROP_UNKNOWN if not found. */
 mpr_prop mpr_obj_get_prop_by_idx(mpr_obj obj, mpr_prop prop, const char **key,
@@ -66,7 +66,7 @@ mpr_prop mpr_obj_get_prop_by_idx(mpr_obj obj, mpr_prop prop, const char **key,
  *                      property value. (Required.)
  *  \param value        A pointer to a location to receive the address of the
  *                      property's value. (Required.)
- *  \param pub          1 if property is published, 0 otherwise.
+ *  \param pub          1 if property is public, 0 otherwise.
  *  \return             Symbolic identifier of the retrieved property, or
  *                      MPR_PROP_UNKNOWN if not found. */
 mpr_prop mpr_obj_get_prop_by_key(mpr_obj obj, const char *key, int *length,
@@ -169,7 +169,7 @@ mpr_list mpr_obj_get_prop_as_list(mpr_obj obj, mpr_prop prop, const char *key);
  *  \param len          The length of value array.
  *  \param type         The property  datatype.
  *  \param value        An array of property values.
- *  \param publish      1 to publish to the distributed graph, 0 for local-only.
+ *  \param pub          1 to publish to the distributed graph, 0 for local-only.
  *  \return             Symbolic identifier of the set property, or
  *                      MPR_PROP_UNKNOWN if not found. */
 mpr_prop mpr_obj_set_prop(mpr_obj obj, mpr_prop prop, const char *key, int len,
@@ -199,23 +199,23 @@ void mpr_obj_print(mpr_obj obj, int staged);
        output signals.  The mpr_dev is the primary interface through which
        a program uses libmpr.  A device must have a name, to which a unique
        ordinal is subsequently appended.  It can also be given other
-       user-specified metadata.  Devices signals can be connected, which is
-       accomplished by requests from an external GUI. */
+       user-specified metadata.  Device signals can be connected, which is
+       accomplished by requests from an external GUI or session manager. */
 
 /*! Allocate and initialize a device.
  *  \param name         A short descriptive string to identify the device.
  *                      Must not contain spaces or the slash character '/'.
- *  \param graph        A previously allocated graph structure to use.
+ *  \param g            A previously allocated graph structure to use.
  *                      If 0, one will be allocated for use with this device.
  *  \return             A newly allocated device.  Should be freed
  *                      using mpr_dev_free(). */
-mpr_dev mpr_dev_new(const char *name, mpr_graph graph);
+mpr_dev mpr_dev_new(const char *name, mpr_graph g);
 
 /*! Free resources used by a device.
  *  \param dev          The device to free. */
 void mpr_dev_free(mpr_dev dev);
 
-/*! Return a unique id associated with a given device.
+/*! Return a unique identifier associated with a given device.
  *  \param dev          The device to use.
  *  \return             A new unique id. */
 mpr_id mpr_dev_generate_unique_id(mpr_dev dev);
@@ -273,7 +273,7 @@ void mpr_dev_send_queue(mpr_dev dev, mpr_time time);
  *  \param sig          The signal that has been updated.
  *  \param evt          The type of event that has occured, e.g. MPR_SIG_UPDATE
  *                      when the value has changed.
- *  \param inst         The id of the instance that has been changed, if
+ *  \param inst         The identifier of the instance that has been changed, if
  *                      applicable.
  *  \param length       The array length of the update value.
  *  \param type         The data type of the update value.
@@ -401,7 +401,9 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id inst, mpr_time time);
  *  \return             Non-zero if the instance is active, zero otherwise. */
 int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id inst);
 
-/*! Activate a specific signal instance.
+/*! Activate a specific signal instance without setting it's value. In general it is not necessary
+ *  to use this function, since signal instances will be automatically activated as necessary when
+ *  signals are updated by mpr_sig_set_value() or through a map.
  *  \param sig          The signal to operate on.
  *  \param inst         The identifier of the instance to activate.
  *  \param time         The time at which the instance was activated; if NULL,
@@ -411,12 +413,12 @@ int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id inst);
  *  \return             Non-zero if the instance is active, zero otherwise. */
 int mpr_sig_activate_inst(mpr_sig sig, mpr_id inst, mpr_time time);
 
-/*! Get the local id of the oldest active instance.
+/*! Get the local identifier of the oldest active instance.
  *  \param sig          The signal to operate on.
  *  \return             The instance identifier, or zero if unsuccessful. */
 mpr_id mpr_sig_get_oldest_inst_id(mpr_sig sig);
 
-/*! Get the local id of the newest active instance.
+/*! Get the local identifier of the newest active instance.
  *  \param sig          The signal to operate on.
  *  \return             The instance identifier, or zero if unsuccessful. */
 mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig);
@@ -424,12 +426,12 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig);
 /*! Get a signal instance's identifier by its index.  Intended to be used for
  *  iterating over the active instances.
  *  \param sig          The signal to operate on.
- *  \param idx          The numerical index of the ID to retrieve.  Should be
+ *  \param idx          The numerical index of the instance to retrieve.  Should be
  *                      between zero and the number of instances.
  *  \param status       The status of the instances to searchl should be set to
  *                      MPR_STATUS_ACTIVE, MPR_STATUS_RESERVED, or both
  *                      (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED).
- *  \return             The instance ID associated with the given index, or zero
+ *  \return             The instance identifier associated with the given index, or zero
  *                      if unsuccessful. */
 mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status);
 
@@ -466,7 +468,8 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status);
        of one or more sources, one destination, and properties which determine
        how the source data is processed. */
 
-/*! Create a map between a set of signals.
+/*! Create a map between a set of signals. The map will not take effect until it
+ *  has been added to the distributed graph using mpr_obj_push().
  *  \param num_srcs     The number of source signals in this map.
  *  \param srcs         Array of source signal data structures.
  *  \param num_dsts     The number of destination signals in this map.

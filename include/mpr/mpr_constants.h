@@ -164,12 +164,12 @@ typedef enum {
 } mpr_graph_evt;
 
 typedef enum {
-    MPR_STATUS_RESERVED     = 0x20,
     MPR_STATUS_UNDEFINED    = 0x00,
-    MPR_STATUS_EXPIRED      = 0x01,
-    MPR_STATUS_STAGED       = 0x02,
-    MPR_STATUS_READY        = 0x1F,
-    MPR_STATUS_ACTIVE       = 0x3F,
+    MPR_STATUS_RESERVED     = 0x01,
+    MPR_STATUS_EXPIRED      = 0x02,
+    MPR_STATUS_STAGED       = 0x04,
+    MPR_STATUS_READY        = 0x3E,
+    MPR_STATUS_ACTIVE       = 0x7E, // must exclude MPR_STATUS_RESERVED
     MPR_STATUS_ALL          = 0xFF,
 } mpr_status;
 

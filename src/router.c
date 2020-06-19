@@ -8,10 +8,10 @@
 #include "types_internal.h"
 #include <mpr/mpr.h>
 
-static void send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg,
-                               mpr_time t, mpr_proto proto);
+static void _send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg,
+                                mpr_time t, mpr_proto proto);
 
-static int map_in_scope(mpr_map map, mpr_id id)
+static int _is_map_in_scope(mpr_map map, mpr_id id)
 {
     int i;
     id &= 0xFFFFFFFF00000000; // interested in device hash part only
@@ -22,84 +22,20 @@ static int map_in_scope(mpr_map map, mpr_id id)
     return 0;
 }
 
-static void realloc_slot_insts(mpr_slot slot, int size)
+static mpr_rtr_sig _find_rtr_sig(mpr_rtr rtr, mpr_sig sig)
 {
-    int i;
-    if (slot->sig->use_inst && slot->num_inst < size) {
-        slot->loc->hist = realloc(slot->loc->hist, sizeof(struct _mpr_hist) * size);
-        for (i = slot->num_inst; i < size; i++) {
-            slot->loc->hist[i].type = slot->sig->type;
-            slot->loc->hist[i].len = slot->sig->len;
-            slot->loc->hist[i].mem = slot->loc->mem;
-            slot->loc->hist[i].val = calloc(1, mpr_type_get_size(slot->sig->type)
-                                            * slot->loc->mem);
-            slot->loc->hist[i].time = calloc(1, sizeof(mpr_time) * slot->loc->mem);
-            slot->loc->hist[i].pos = -1;
-        }
-        slot->num_inst = size;
-    }
+    mpr_rtr_sig rs = rtr->sigs;
+    while (rs && rs->sig != sig)
+        rs = rs->next;
+    return rs;
 }
 
 void mpr_rtr_remove_inst(mpr_rtr rtr, mpr_sig sig, int idx) {
-    int i, j;
-    // find the router signal
-    mpr_rtr_sig rs = rtr->sigs;
-    while (rs) {
-        if (rs->sig == sig)
-            break;
-        rs = rs->next;
-    }
+    int i;
+    mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_UNLESS(rs);
-
-    // reallocate signal histories
-    for (i = 0; i < rs->num_slots; i++) {
-        mpr_slot slot = rs->slots[i];
-        if (!slot)
-            continue;
-        // free value and timestamp memory for removed index
-        free(slot->loc->hist[idx].val);
-        free(slot->loc->hist[idx].time);
-        for (j = idx + 1; j < slot->num_inst; j++) {
-            // shift slot histories
-            memcpy(&(slot->loc->hist[j-1]), &(slot->loc->hist[j]), sizeof(mpr_hist_t));
-        }
-        --slot->num_inst;
-        slot->loc->hist = realloc(slot->loc->hist, sizeof(struct _mpr_hist) * slot->num_inst);
-    }
-}
-
-static void realloc_map_insts(mpr_map map, int size)
-{
-    int i, j;
-
-    // check if source histories need to be reallocated
-    for (i = 0; i < map->num_src; i++)
-        realloc_slot_insts(map->src[i], size);
-
-    // check if destination histories need to be reallocated
-    realloc_slot_insts(map->dst, size);
-
-    // check if expression variable histories need to be reallocated
-    mpr_local_map lmap = map->loc;
-    if (size > lmap->num_var_inst) {
-        lmap->expr_var = realloc(lmap->expr_var, sizeof(mpr_hist) * size);
-        for (i = lmap->num_var_inst; i < size; i++) {
-            lmap->expr_var[i] = malloc(sizeof(struct _mpr_hist)
-                                       * lmap->num_expr_var);
-            for (j = 0; j < lmap->num_expr_var; j++) {
-                lmap->expr_var[i][j].type = lmap->expr_var[0][j].type;
-                lmap->expr_var[i][j].len = lmap->expr_var[0][j].len;
-                lmap->expr_var[i][j].mem = lmap->expr_var[0][j].mem;
-                lmap->expr_var[i][j].pos = 0;
-                lmap->expr_var[i][j].val = calloc(1, sizeof(double)
-                                                  * lmap->expr_var[i][j].len
-                                                  * lmap->expr_var[i][j].mem);
-                lmap->expr_var[i][j].time = calloc(1, sizeof(mpr_time)
-                                                   * lmap->expr_var[i][j].mem);
-            }
-        }
-        lmap->num_var_inst = size;
-    }
+    for (i = 0; i < rs->num_slots; i++)
+        mpr_slot_remove_inst(rs->slots[i], idx);
 }
 
 // TODO: check for mismatched instance counts when using multiple sources
@@ -107,23 +43,18 @@ void mpr_rtr_num_inst_changed(mpr_rtr rtr, mpr_sig sig, int size)
 {
     int i;
     // check if we have a reference to this signal
-    mpr_rtr_sig rs = rtr->sigs;
-    while (rs) {
-        if (rs->sig == sig)
-            break;
-        rs = rs->next;
-    }
+    mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_UNLESS(rs);
 
     // for array of slots, may need to reallocate destination instances
     for (i = 0; i < rs->num_slots; i++) {
         mpr_slot slot = rs->slots[i];
         if (slot)
-            realloc_map_insts(slot->map, size);
+            mpr_map_alloc_values(slot->map);
     }
 }
 
-static void mpr_rtr_update_map_count(mpr_rtr rtr)
+static void _update_map_count(mpr_rtr rtr)
 {
     // find associated rtr_sig
     mpr_rtr_sig rs = rtr->sigs;
@@ -162,12 +93,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
     lo_message msg;
 
     // find the router signal
-    mpr_rtr_sig rs = rtr->sigs;
-    while (rs) {
-        if (rs->sig == sig)
-            break;
-        rs = rs->next;
-    }
+    mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_UNLESS(rs);
 
     int i, j, idx = sig->loc->idmaps[inst].inst->idx;
@@ -191,20 +117,22 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
 
             mpr_slot dst_slot = map->dst;
             mpr_local_slot dst_lslot = dst_slot->loc;
-            int in_scope = map_in_scope(map, idmap->GID);
+            int in_scope = _is_map_in_scope(map, idmap->GID);
 
             // reset associated output memory
-            memset(dst_lslot->hist[idx].val, 0,
-                   dst_lslot->mem * dst_slot->sig->len * mpr_type_get_size(dst_slot->sig->type));
-            memset(dst_lslot->hist[idx].time, 0, dst_lslot->mem * sizeof(mpr_time));
-            dst_lslot->hist[idx].pos = -1;
+            if (dst_lslot->val) {
+                memset(dst_lslot->val[idx].samps, 0,
+                       dst_lslot->mem * dst_slot->sig->len * mpr_type_get_size(dst_slot->sig->type));
+                memset(dst_lslot->val[idx].times, 0, dst_lslot->mem * sizeof(mpr_time));
+                dst_lslot->val[idx].pos = -1;
+            }
 
             // send release to downstream
             if (slot->dir == MPR_DIR_OUT) {
                 msg = 0;
                 if (!map->use_inst || in_scope) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                    _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
                 }
             }
 
@@ -216,10 +144,12 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
                 lslot = slot->loc;
 
                 // reset associated input memory
-                memset(lslot->hist[idx].val, 0,
-                       lslot->mem * slot->sig->len * mpr_type_get_size(slot->sig->type));
-                memset(lslot->hist[idx].time, 0, lslot->mem * sizeof(mpr_time));
-                lslot->hist[idx].pos = -1;
+                if (lslot->val) {
+                    memset(lslot->val[idx].samps, 0,
+                           lslot->mem * slot->sig->len * mpr_type_get_size(slot->sig->type));
+                    memset(lslot->val[idx].times, 0, lslot->mem * sizeof(mpr_time));
+                    lslot->val[idx].pos = -1;
+                }
 
                 if (!in_scope)
                     continue;
@@ -229,7 +159,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
 
                 if (slot->dir == MPR_DIR_IN) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    send_or_bundle_msg(slot->link, slot->sig, msg, t, map->protocol);
+                    _send_or_bundle_msg(slot->link, slot->sig, msg, t, map->protocol);
                 }
             }
         }
@@ -246,7 +176,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
         if (map->status < MPR_STATUS_ACTIVE)
             continue;
 
-        int in_scope = map_in_scope(map, sig->loc->idmaps[inst].map->GID);
+        int in_scope = _is_map_in_scope(map, sig->loc->idmaps[inst].map->GID);
         // TODO: should we continue for out-of-scope local destination updates?
         if (map->use_inst && !in_scope)
             continue;
@@ -262,17 +192,17 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
             // bypass map processing and bundle value without type coercion
             char types[sig->len];
             memset(types, sig->type, sig->len);
-            msg = mpr_map_build_msg(map, slot, val, types, all ? 0 : idmap);
-            send_or_bundle_msg(map->dst->link, map->dst->sig, msg, t, map->protocol);
+            msg = mpr_map_build_msg(map, slot, val, types, sig->use_inst ? idmap : 0);
+            _send_or_bundle_msg(map->dst->link, map->dst->sig, msg, t, map->protocol);
             continue;
         }
 
-        // copy input history
+        // copy input value
         size_t n = mpr_sig_get_vector_bytes(sig);
         mpr_local_slot lslot = slot->loc;
-        lslot->hist[idx].pos = ((lslot->hist[idx].pos + 1) % lslot->hist[idx].mem);
-        memcpy(mpr_hist_get_val_ptr(lslot->hist[idx]), val, n);
-        memcpy(mpr_hist_get_time_ptr(lslot->hist[idx]), &t, sizeof(mpr_time));
+        lslot->val[idx].pos = ((lslot->val[idx].pos + 1) % lslot->val[idx].mem);
+        memcpy(mpr_value_get_samp(lslot->val[idx]), val, n);
+        memcpy(mpr_value_get_time(lslot->val[idx]), &t, sizeof(mpr_time));
 
         if (map->process_loc == MPR_LOC_SRC && !slot->causes_update)
             continue;
@@ -286,7 +216,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
         if (all) {
             // find a source signal with more instances
             for (j = 0; j < map->num_src; j++)
-                if (map->src[j]->sig->loc && map->src[j]->sig->num_inst > sig->num_inst)
+                if (map->src[j]->sig->loc && map->src[j]->num_inst > slot->num_inst)
                     sig = map->src[j]->sig;
             inst = 0;
         }
@@ -315,11 +245,10 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
                 else
                     continue;
             }
-            /* send instance release if dst is instanced and either src or map
-             * is also instanced. */
+            /* send instance release if dst is instanced and either src or map is also instanced. */
             if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE && map->use_inst) {
                 msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[inst].map : idmap);
-                send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
                 if (map_manages_inst) {
                     mpr_dev_LID_decref(rtr->dev, 0, idmap);
                     idmap = map->idmap = 0;
@@ -327,27 +256,27 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
             }
             if (status & EXPR_UPDATE) {
                 // send instance update
-                void *result = mpr_hist_get_val_ptr(dst_slot->loc->hist[idx]);
+                void *result = mpr_value_get_samp(dst_slot->loc->val[idx]);
                 if (map_manages_inst) {
                     if (!idmap) {
                         // create an id_map and store it in the map
                         mpr_id GID = mpr_dev_generate_unique_id(sig->dev);
-                        idmap = map->idmap = mpr_dev_add_idmap(sig->dev, sig->loc->group, 0, GID);
+                        idmap = map->idmap = mpr_dev_add_idmap(sig->dev, 0, 0, GID);
                     }
                     msg = mpr_map_build_msg(map, slot, result, dst_types, map->idmap);
                 }
                 else {
                     msg = mpr_map_build_msg(map, slot, result, dst_types, idmaps[inst].map);
                 }
-                send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
-                                   *(mpr_time*)mpr_hist_get_time_ptr(dst_slot->loc->hist[idx]),
+                _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
+                                    *(mpr_time*)mpr_value_get_time(dst_slot->loc->val[idx]),
                                    map->protocol);
             }
             /* send instance release if dst is instanced and either src or map
              * is also instanced. */
             if (idmap && status & EXPR_RELEASE_AFTER_UPDATE && map->use_inst) {
                 msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[inst].map : idmap);
-                send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
                 if (map_manages_inst) {
                     mpr_dev_LID_decref(rtr->dev, 0, idmap);
                     idmap = map->idmap = 0;
@@ -363,8 +292,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
 // note on memory handling of mpr_rtr_bundle_msg():
 // path: not owned, will not be freed (assumed is signal name, owned by signal)
 // message: will be owned, will be freed when done
-void send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
-                        mpr_proto proto)
+void _send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t, mpr_proto proto)
 {
     RETURN_UNLESS(msg);
     // Check if a matching bundle exists
@@ -408,27 +336,25 @@ void send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
     }
 }
 
-static mpr_rtr_sig add_rtr_sig(mpr_rtr r, mpr_sig s)
+static mpr_rtr_sig _add_rtr_sig(mpr_rtr rtr, mpr_sig sig)
 {
     // find signal in rtr_sig list
-    mpr_rtr_sig rs = r->sigs;
-    while (rs && rs->sig != s)
-        rs = rs->next;
+    mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
 
     // if not found, create a new list entry
     if (!rs) {
         rs = (mpr_rtr_sig)calloc(1, sizeof(struct _mpr_rtr_sig));
-        rs->sig = s;
+        rs->sig = sig;
         rs->num_slots = 1;
         rs->slots = malloc(sizeof(mpr_slot));
         rs->slots[0] = 0;
-        rs->next = r->sigs;
-        r->sigs = rs;
+        rs->next = rtr->sigs;
+        rtr->sigs = rs;
     }
     return rs;
 }
 
-static int rtr_sig_store_slot(mpr_rtr_sig rs, mpr_slot slot)
+static int _store_slot(mpr_rtr_sig rs, mpr_slot slot)
 {
     int i;
     for (i = 0; i < rs->num_slots; i++) {
@@ -448,7 +374,7 @@ static int rtr_sig_store_slot(mpr_rtr_sig rs, mpr_slot slot)
     return i;
 }
 
-static mpr_id unused_map_id(mpr_dev dev, mpr_rtr rtr)
+static mpr_id _get_unused_map_id(mpr_dev dev, mpr_rtr rtr)
 {
     int i, done = 0;
     mpr_id id;
@@ -472,26 +398,24 @@ static mpr_id unused_map_id(mpr_dev dev, mpr_rtr rtr)
     return id;
 }
 
-static void alloc_and_init_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src,
-                                      int *max_inst, int *use_inst)
+static void _add_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src,
+                            int *max_inst, int *use_inst)
 {
     slot->dir = (is_src ^ (slot->sig->loc ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT;
     slot->loc = (mpr_local_slot)calloc(1, sizeof(struct _mpr_local_slot));
     if (slot->sig->loc) {
-        slot->loc->rsig = add_rtr_sig(rtr, slot->sig);
-        rtr_sig_store_slot(slot->loc->rsig, slot);
+        slot->loc->rsig = _add_rtr_sig(rtr, slot->sig);
+        _store_slot(slot->loc->rsig, slot);
 
         if (slot->sig->num_inst > *max_inst)
             *max_inst = slot->sig->num_inst;
+        if (slot->num_inst > *max_inst)
+            *max_inst = slot->num_inst;
         if (slot->sig->use_inst)
             *use_inst = 1;
     }
-    if (!slot->sig->loc || (is_src && slot->map->dst->sig->loc)) {
-        mpr_link link = mpr_graph_add_link(rtr->dev->obj.graph, rtr->dev,
-                                           slot->sig->dev);
-        mpr_link_init(link);
-        slot->link = link;
-    }
+    if (!slot->sig->loc || (is_src && slot->map->dst->sig->loc))
+        slot->link = mpr_link_new(rtr->dev, slot->sig->dev);
 
     // set some sensible defaults
     slot->causes_update = 1;
@@ -513,26 +437,24 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
     // TODO: configure number of instances available for each slot
     lmap->num_var_inst = 0;
 
-    // Allocate local slot structures
+    // Add local slot structures
     int max_num_inst = 0, use_inst = 0;
     for (i = 0; i < map->num_src; i++)
-        alloc_and_init_local_slot(rtr, map->src[i], 1, &max_num_inst, &use_inst);
-    alloc_and_init_local_slot(rtr, map->dst, 0, &max_num_inst, &use_inst);
+        _add_local_slot(rtr, map->src[i], 1, &max_num_inst, &use_inst);
+    _add_local_slot(rtr, map->dst, 0, &max_num_inst, &use_inst);
+
+    // default to using instanced maps if any of the contributing signals are instanced
+    map->use_inst = use_inst;
 
     // Set num_inst and use_inst properties
-    map->dst->num_inst = max_num_inst;
-    map->use_inst = use_inst;
-    for (i = 0; i < map->num_src; i++) {
-        if (map->src[i]->sig->loc)
-            map->src[i]->num_inst = map->src[i]->sig->num_inst;
-        else
-            map->src[i]->num_inst = map->dst->num_inst;
-    }
-    lmap->num_var_inst = max_num_inst;
+//    mpr_map_alloc_values(map);
+//    for (i = 0; i < map->num_src; i++)
+//        mpr_slot_alloc_values(map->src[i]);
+//    mpr_slot_alloc_values(map->dst);
 
     // assign a unique id to this map if we are the destination
     if (local_dst)
-        map->obj.id = unused_map_id(rtr->dev, rtr);
+        map->obj.id = _get_unused_map_id(rtr->dev, rtr);
 
     /* assign indices to source slots - may be overwritten later by message */
     for (i = 0; i < map->num_src; i++) {
@@ -575,10 +497,7 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
     }
 
     // default to processing at source device unless heterogeneous sources
-    if (lmap->one_src)
-        map->process_loc = MPR_LOC_SRC;
-    else
-        map->process_loc = MPR_LOC_DST;
+    map->process_loc = (lmap->one_src) ? MPR_LOC_SRC : MPR_LOC_DST;
 
     if (local_dst && (local_src == map->num_src)) {
         // all reference signals are local
@@ -586,10 +505,10 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
         map->dst->link = map->src[0]->link;
     }
 
-    mpr_rtr_update_map_count(rtr);
+    _update_map_count(rtr);
 }
 
-static void check_link(mpr_rtr rtr, mpr_link link)
+static void _check_link(mpr_rtr rtr, mpr_link link)
 {
     /* We could remove link the link here if it has no associated maps, however
      * under normal usage it is likely that users will add new maps after
@@ -640,23 +559,6 @@ void mpr_rtr_remove_sig(mpr_rtr rtr, mpr_rtr_sig rs)
     }
 }
 
-static void free_slot_memory(mpr_slot slot)
-{
-    RETURN_UNLESS(slot->loc);
-    int i;
-    // TODO: use rtr_sig for holding memory of local slots for effiency
-//    if (!slot->loc->rsig) {
-        if (slot->loc->hist) {
-            for (i = 0; i < slot->num_inst; i++) {
-                free(slot->loc->hist[i].val);
-                free(slot->loc->hist[i].time);
-            }
-            free(slot->loc->hist);
-        }
-//    }
-    free(slot->loc);
-}
-
 int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
 {
     RETURN_UNLESS(map && map->loc, 1);
@@ -664,6 +566,9 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
     int i, j;
     mpr_time t;
     mpr_time_set(&t, MPR_NOW);
+
+    if (map->idmap)
+        mpr_dev_LID_decref(rtr->dev, 0, map->idmap);
 
     // remove map and slots from rtr_sig lists if necessary
     if (map->dst->loc->rsig) {
@@ -706,9 +611,9 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
     }
     else if (map->status >= MPR_STATUS_READY && map->dst->link) {
         --map->dst->link->num_maps[0];
-        check_link(rtr, map->dst->link);
+        _check_link(rtr, map->dst->link);
     }
-    free_slot_memory(map->dst);
+    mpr_slot_free_value(map->dst);
     for (i = 0; i < map->num_src; i++) {
         if (map->src[i]->loc->rsig) {
             mpr_rtr_sig rs = map->src[i]->loc->rsig;
@@ -719,9 +624,9 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
         }
         else if (map->status >= MPR_STATUS_READY && map->src[i]->link) {
             --map->src[i]->link->num_maps[1];
-            check_link(rtr, map->src[i]->link);
+            _check_link(rtr, map->src[i]->link);
         }
-        free_slot_memory(map->src[i]);
+        mpr_slot_free_value(map->src[i]);
     }
 
     // one more case: if map is local only need to decrement num_maps in local map
@@ -732,30 +637,28 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
     }
 
     // free buffers associated with user-defined expression variables
-    if (map->loc->expr_var) {
+    if (map->loc->vars) {
         for (i = 0; i < map->loc->num_var_inst; i++) {
-            if (map->loc->num_expr_var) {
-                for (j = 0; j < map->loc->num_expr_var; j++) {
-                    free(map->loc->expr_var[i][j].val);
-                    free(map->loc->expr_var[i][j].time);
+            if (map->loc->num_vars) {
+                for (j = 0; j < map->loc->num_vars; j++) {
+                    free(map->loc->vars[i][j].samps);
+                    free(map->loc->vars[i][j].times);
                 }
             }
-            free(map->loc->expr_var[i]);
+            free(map->loc->vars[i]);
         }
-        free(map->loc->expr_var);
+        free(map->loc->vars);
     }
     FUNC_IF(mpr_expr_free, map->loc->expr);
     free(map->loc);
-    mpr_rtr_update_map_count(rtr);
+    _update_map_count(rtr);
     return 0;
 }
 
 int mpr_rtr_loop_check(mpr_rtr rtr, mpr_sig local_sig, int num_remotes,
                        const char **remotes)
 {
-    mpr_rtr_sig rs = rtr->sigs;
-    while (rs && rs->sig != local_sig)
-        rs = rs->next;
+    mpr_rtr_sig rs = _find_rtr_sig(rtr, local_sig);
     RETURN_UNLESS(rs, 0);
     int i, j;
     for (i = 0; i < rs->num_slots; i++) {
@@ -773,96 +676,10 @@ int mpr_rtr_loop_check(mpr_rtr rtr, mpr_sig local_sig, int num_remotes,
     return 0;
 }
 
-mpr_map mpr_rtr_map_out(mpr_rtr rtr, mpr_sig local_src, int num_src,
-                        const char **src_names, const char *dst_name)
-{
-    // find associated rtr_sig
-    mpr_rtr_sig rs = rtr->sigs;
-    while (rs && rs->sig != local_src)
-        rs = rs->next;
-    RETURN_UNLESS(rs, 0);
-
-    // find associated map
-    int i, j;
-    for (i = 0; i < rs->num_slots; i++) {
-        if (!rs->slots[i] || rs->slots[i]->dir == MPR_DIR_IN)
-            continue;
-        mpr_slot slot = rs->slots[i];
-        mpr_map map = slot->map;
-
-        // check destination
-        if (mpr_slot_match_full_name(map->dst, dst_name))
-            continue;
-
-        // check sources
-        int found = 1;
-        for (j = 0; j < map->num_src; j++) {
-            if (map->src[j]->loc->rsig == rs)
-                continue;
-            if (mpr_slot_match_full_name(map->src[j], src_names[j])) {
-                found = 0;
-                break;
-            }
-        }
-        if (found)
-            return map;
-    }
-    return 0;
-}
-
-mpr_map mpr_rtr_map_in(mpr_rtr rtr, mpr_sig local_dst, int num_src,
-                       const char **src_names)
-{
-    // find associated rtr_sig
-    mpr_rtr_sig rs = rtr->sigs;
-    while (rs && rs->sig != local_dst)
-        rs = rs->next;
-    RETURN_UNLESS(rs, 0);
-
-    // find associated map
-    int i, j;
-    for (i = 0; i < rs->num_slots; i++) {
-        if (!rs->slots[i] || rs->slots[i]->dir == MPR_DIR_OUT)
-            continue;
-        mpr_map map = rs->slots[i]->map;
-
-        // check sources
-        int found = 1;
-        for (j = 0; j < num_src; j++) {
-            if (mpr_slot_match_full_name(map->src[j], src_names[j])) {
-                found = 0;
-                break;
-            }
-        }
-        if (found)
-            return map;
-    }
-    return 0;
-}
-
-mpr_map mpr_rtr_map_by_id(mpr_rtr rtr, mpr_sig local_sig, mpr_id id, mpr_dir dir)
-{
-    int i;
-    mpr_rtr_sig rs = rtr->sigs;
-    while (rs && rs->sig != local_sig)
-        rs = rs->next;
-    RETURN_UNLESS(rs, 0);
-
-    for (i = 0; i < rs->num_slots; i++) {
-        if (!rs->slots[i] || (dir && rs->slots[i]->dir != dir))
-            continue;
-        if (rs->slots[i]->map->obj.id == id)
-            return rs->slots[i]->map;
-    }
-    return 0;
-}
-
 mpr_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_sig sig, int slot_id)
 {
     // only interested in incoming slots
-    mpr_rtr_sig rs = rtr->sigs;
-    while (rs && rs->sig != sig)
-        rs = rs->next;
+    mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_UNLESS(rs, NULL);
 
     int i, j;

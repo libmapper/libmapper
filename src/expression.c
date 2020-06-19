@@ -775,8 +775,7 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
             else if (t.var >= VAR_X)
                 snprintf(s, len, "x%d{%d}[%zu]", t.var-VAR_X, t.hist_idx, t.vec_idx);
             else
-                snprintf(s, len, "%s{%d}[%zu]", vars[t.var].name, t.hist_idx,
-                         t.vec_idx);
+                snprintf(s, len, "%s{%d}[%zu]", vars[t.var].name, t.hist_idx, t.vec_idx);
             break;
         case TOK_TT:
             if (t.var == VAR_Y)
@@ -975,26 +974,26 @@ static void lock_vec_len(mpr_token_t *stk, int top)
 static int precompute(mpr_token_t *stk, int len, int vec_len)
 {
     struct _mpr_expr e = {0, stk, 0, 0, len, vec_len, 0, 0, 0, -1, -1};
-    void *v = malloc(mpr_type_get_size(stk[len-1].datatype) * vec_len);
-    mpr_hist_t h = {v, 0, vec_len, stk[len-1].datatype, 1, -1};
-    if (!(mpr_expr_eval(&e, 0, 0, &h, 0, 0) & 1)) {
-        free(v);
+    void *s = malloc(mpr_type_get_size(stk[len-1].datatype) * vec_len);
+    mpr_value_t v = {s, 0, vec_len, stk[len-1].datatype, 1, -1};
+    if (!(mpr_expr_eval(&e, 0, 0, &v, 0, 0) & 1)) {
+        free(s);
         return 0;
     }
 
     int i;
-    switch (h.type) {
+    switch (v.type) {
 #define TYPED_CASE(MTYPE, TYPE, EL)         \
         case MTYPE:                         \
             for (i = 0; i < vec_len; i++)   \
-                stk[i].EL = ((TYPE*)v)[i];  \
+                stk[i].EL = ((TYPE*)s)[i];  \
             break;
         TYPED_CASE(MPR_INT32, int, i)
         TYPED_CASE(MPR_FLT, float, f)
         TYPED_CASE(MPR_DBL, double, d)
 #undef TYPED_CASE
         default:
-            free(v);
+            free(s);
             return 0;
         break;
     }
@@ -1002,7 +1001,7 @@ static int precompute(mpr_token_t *stk, int len, int vec_len)
         stk[i].toktype = TOK_CONST;
         stk[i].datatype = stk[len-1].datatype;
     }
-    free(v);
+    free(s);
     return len-1;
 }
 
@@ -2047,13 +2046,13 @@ static const char *type_name(const mpr_type type)
 #define COPY_TYPED(MTYPE, TYPE, EL)                         \
     case MTYPE:                                             \
         for (i = 0; i < tok->vec_len; i++)                  \
-            stk[top][i].EL = ((TYPE*)v)[i+tok->vec_idx];    \
+            stk[top][i].EL = ((TYPE*)a)[i+tok->vec_idx];    \
         break;
 #define COPY_TO_STACK(SRC)                                                  \
     ++top;                                                                  \
     dims[top] = tok->vec_len;                                               \
     idx = ((tok->hist_idx + SRC->pos + SRC->mem) % SRC->mem);               \
-    void *v = (SRC->val + idx * SRC->len * mpr_type_get_size(SRC->type));   \
+    void *a = (SRC->samps + idx * SRC->len * mpr_type_get_size(SRC->type)); \
     switch (SRC->type) {                                                    \
         COPY_TYPED(MPR_INT32, int, i)                                       \
         COPY_TYPED(MPR_FLT, float, f)                                       \
@@ -2062,8 +2061,8 @@ static const char *type_name(const mpr_type type)
             goto error;                                                     \
     }
 
-int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
-                  mpr_hist out, mpr_time *t, mpr_type *types)
+int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
+                  mpr_value out, mpr_time *t, mpr_type *types)
 {
     if (!expr) {
 #if TRACING
@@ -2082,16 +2081,16 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
 
     if (expr_vars && expr->inst_ctl >= 0) {
         // recover instance state
-        mpr_hist h = *expr_vars + expr->inst_ctl;
-        double *v = h->val;
-        alive = (0 != v[0]);
+        mpr_value v = *expr_vars + expr->inst_ctl;
+        double *d = v->samps;
+        alive = (0 != d[0]);
     }
 
     if (expr_vars && expr->mute_ctl >= 0) {
         // recover mute state
-        mpr_hist h = *expr_vars + expr->mute_ctl;
-        double *v = h->val;
-        muted = (0 != v[0]);
+        mpr_value v = *expr_vars + expr->mute_ctl;
+        double *d = v->samps;
+        muted = (0 != d[0]);
     }
 
     mpr_val_t stk[len][expr->vec_size];
@@ -2149,8 +2148,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             else if (tok->var >= VAR_X) {
                 if (!in)
                     return status;
-                mpr_hist h = in[tok->var-VAR_X];
-                COPY_TO_STACK(h);
+                mpr_value v = in[tok->var-VAR_X];
+                COPY_TO_STACK(v);
 #if TRACING
                 printf("loading variable x%d{%d}[%zu] ", tok->var-VAR_X,
                        tok->hist_idx, tok->vec_idx);
@@ -2162,10 +2161,10 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 // TODO: allow other data types?
                 ++top;
                 dims[top] = tok->vec_len;
-                mpr_hist h = *expr_vars + tok->var;
-                double *v = h->val;
+                mpr_value v = *expr_vars + tok->var;
+                double *d = v->samps;
                 for (i = 0; i < tok->vec_len; i++)
-                    stk[top][i].d = v[i+tok->vec_idx];
+                    stk[top][i].d = d[i+tok->vec_idx];
 #if TRACING
                 printf("loading variable %s{%d}[%zu] ", expr->vars[tok->var].name,
                        tok->hist_idx, tok->vec_idx);
@@ -2181,34 +2180,33 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
             int idx;
             ++top;
             dims[top] = tok->vec_len;
-            mpr_hist h;
+            mpr_value v;
             if (tok->var == VAR_Y) {
                 if (!out)
                     return status;
-                h = out;
-                idx = ((tok->hist_idx + h->pos + h->mem) % h->mem);
+                v = out;
+                idx = ((tok->hist_idx + v->pos + v->mem) % v->mem);
 #if TRACING
                 printf("loading timetag t_y{%d}", tok->hist_idx);
 #endif
             }
             else if (tok->var >= VAR_X) {
-                h = in[tok->var-VAR_X];
-                idx = ((tok->hist_idx + h->pos + h->mem) % h->mem);
+                v = in[tok->var-VAR_X];
+                idx = ((tok->hist_idx + v->pos + v->mem) % v->mem);
 #if TRACING
                 printf("loading timetag t_x%d{%d}", tok->var-VAR_X, tok->hist_idx);
 #endif
             }
             else if (expr_vars) {
-                h = *expr_vars + tok->var;
+                v = *expr_vars + tok->var;
                 idx = 0;
 #if TRACING
-                printf("loading timetag t_%s{%d}", expr->vars[tok->var].name,
-                       tok->hist_idx);
+                printf("loading timetag t_%s{%d}", expr->vars[tok->var].name, tok->hist_idx);
 #endif
             }
             else
                 goto error;
-            double t_d = mpr_time_as_dbl(h->time[idx]);
+            double t_d = mpr_time_as_dbl(v->times[idx]);
 #if TRACING
             printf(" as double %f\n", t_d);
 #endif
@@ -2432,7 +2430,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                     idx = out->mem - idx;
                 else
                     idx %= out->mem;
-                void *v = (out->val + idx * out->len * mpr_type_get_size(out->type));
+                void *v = (out->samps + idx * out->len * mpr_type_get_size(out->type));
 
                 switch (out->type) {
 #define TYPED_CASE(MTYPE, TYPE, EL)                             \
@@ -2456,23 +2454,23 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
 
                 // Also copy time from input
                 if (t) {
-                    mpr_time *tvar = &out->time[idx];
+                    mpr_time *tvar = &out->times[idx];
                     memcpy(tvar, t, sizeof(mpr_time));
                 }
             }
             else if (tok->var >= 0 && tok->var < N_USER_VARS) {
                 if (!expr_vars)
                     goto error;
-                // passed the address of an array of mpr_hist structs
-                mpr_hist h = *expr_vars + tok->var;
+                // passed the address of an array of mpr_value structs
+                mpr_value v = *expr_vars + tok->var;
 
-                double *v = h->val;
+                double *d = v->samps;
                 for (i = 0; i < tok->vec_len; i++)
-                    v[i + tok->vec_idx] = stk[top][i + tok->offset].d;
+                    d[i + tok->vec_idx] = stk[top][i + tok->offset].d;
 
                 // Also copy time from input
                 if (t)
-                    memcpy(h->time, t, sizeof(mpr_time));
+                    memcpy(v->times, t, sizeof(mpr_time));
 
                 expr->vars[tok->var].assigned = 1;
 
@@ -2516,7 +2514,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
                 idx = out->mem - idx;
             else
                 idx %= out->mem;
-            mpr_time_set_dbl(&out->time[idx], stk[top][0].d);
+            mpr_time_set_dbl(&out->times[idx], stk[top][0].d);
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
             if (tok->hist_idx != 0 || can_advance) {
@@ -2572,7 +2570,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_hist *in, mpr_hist *expr_vars,
 
         /* Increment index position of output data structure. */
         out->pos = (out->pos + 1) % out->mem;
-        void *v = mpr_hist_get_val_ptr(*out);
+        void *v = mpr_value_get_samp(*out);
         switch (out->type) {
 #define TYPED_CASE(MTYPE, TYPE, EL)                 \
             case MTYPE:                             \

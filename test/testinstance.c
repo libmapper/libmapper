@@ -41,7 +41,7 @@ typedef enum {
     MIXED_DEV = 0x07    // mixed convergent, different device
 } instance_type;
 
-const char *oflw_action_names[] = { "no action", "steal oldest", "steal newest", "add instance" };
+const char *oflw_action_names[] = { "", "steal oldest", "steal newest", "add instance" };
 
 typedef enum {
     NONE = MPR_STEAL_NONE,
@@ -137,12 +137,11 @@ test_config test_configs[] = {
 
     // singleton ––> instanced; in-map instance management
     { 31, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 1.5, 0.02 },
-    { 32, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 1.5, 0.01 },
+    { 32, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 1.5, 0.015 },
 
     // singleton ==> instanced; in-map instance management
     { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0.01 },
-    // TODO: figure out how to reactivate instance with new id map after release
-    { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.05, 0.01 },
+    { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0.01 },
 
     // work in progress:
     // instanced ––> instanced; in-map instance management (late start, early release, ad hoc)
@@ -411,13 +410,14 @@ int run_test(test_config *config)
     mpr_sig both_src[] = {monosend, multisend};
 
 
-    printf("Configuration %d: %s%s %s> %s%s; overflow: %s%s%s\n",
+    printf("Configuration %d: %s%s %s> %s%s%s%s%s%s\n",
            config->test_id,
            instance_type_names[config->src_type],
            config->process_loc == MPR_LOC_SRC ? "*" : "",
            config->map_type == SINGLETON ? "––" : "==",
            instance_type_names[config->dst_type],
            config->process_loc == MPR_LOC_DST ? "*" : "",
+           config->oflw_action ? "; overflow: " : "",
            oflw_action_names[config->oflw_action],
            config->expr ? "; expression: " : "",
            config->expr ?: "");
@@ -533,15 +533,17 @@ int run_test(test_config *config)
         ++reserve_count;
         id_map = &(*id_map)->next;
     }
-    if ((active_count + reserve_count) > 6) {
-        printf("Error: src device using %d id maps (should be <=6)\n", active_count + reserve_count);
+    if (active_count > 1 || reserve_count > 5) {
+        printf("Error: src device using %d active and %d reserve id maps (total should be <=6)\n",
+               active_count, reserve_count);
+        id_map = &src->loc->idmaps.active[0];
+        while (*id_map) {
+            printf("  LID*%d: %llu, GID*%d: %llu\n", (*id_map)->LID_refcount, (*id_map)->LID,
+                   (*id_map)->GID_refcount, (*id_map)->GID);
+            id_map = &(*id_map)->next;
+        }
         ++result;
     }
-//    if (active_count > 1 || reserve_count > 5) {
-//        printf("Error: src device using %d active and %d reserve id maps (should be <=1 and <=5)\n",
-//               active_count, reserve_count);
-//        ++result;
-//    }
 
     active_count = reserve_count = 0;
     id_map = &dst->loc->idmaps.active[0];
@@ -557,6 +559,12 @@ int run_test(test_config *config)
     if (active_count > 1 || reserve_count >= 10) {
         printf("Error: dst device using %d active and %d reserve id maps (should be 0 and <10)\n",
                active_count, reserve_count);
+        id_map = &dst->loc->idmaps.active[0];
+        while (*id_map) {
+            printf("  LID*%d: %llu, GID*%d: %llu\n", (*id_map)->LID_refcount, (*id_map)->LID,
+                   (*id_map)->GID_refcount, (*id_map)->GID);
+            id_map = &(*id_map)->next;
+        }
         ++result;
     }
 
@@ -566,7 +574,7 @@ int run_test(test_config *config)
 
     result += abs(compare_count - received) > count_epsilon;
 
-    eprintf("Configuration %d %s: %s%s %s> %s%s; overflow action: %s%s%s\n",
+    eprintf("Configuration %d %s: %s%s %s> %s%s%s%s%s%s\n",
             config->test_id,
             result ? "FAILED" : "PASSED",
             instance_type_names[config->src_type],
@@ -574,6 +582,7 @@ int run_test(test_config *config)
             config->map_type == SINGLETON ? "––" : "==",
             instance_type_names[config->dst_type],
             config->process_loc == MPR_LOC_DST ? "*" : "",
+            config->oflw_action ? "; overflow: " : "",
             oflw_action_names[config->oflw_action],
             config->expr ? "; expression: " : "",
             config->expr ?: "");

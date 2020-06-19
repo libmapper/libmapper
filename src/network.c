@@ -1412,8 +1412,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
                 RETURN_UNLESS(MPR_LOC_SRC != loc, MPR_MAP_ERROR);
         }
     }
-    mpr_map map = mpr_graph_get_map_by_names(net->graph, num_src, src_names,
-                                             dst_name);
+    mpr_map map = mpr_graph_get_map_by_names(net->graph, num_src, src_names, dst_name);
     if (!map && add) {
         // safety check: make sure we don't have an outgoing map to src (loop)
         if (sig && mpr_rtr_loop_check(net->rtr, sig, num_src, src_names)) {
@@ -1429,7 +1428,8 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
 
 
 /*! When the /map message is received by the destination device, send a /mapTo
- *  message to the source device. */
+ *  message to the source device.
+ */
 static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {

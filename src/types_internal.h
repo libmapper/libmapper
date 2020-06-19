@@ -274,15 +274,15 @@ typedef struct _mpr_obj
  *  size of the history array is determined by the needs of mapping expressions.
  *  @ingroup signals */
 
-typedef struct _mpr_hist
+typedef struct _mpr_value
 {
-    void *val;                  //!< Value for each sample of stored history.
-    mpr_time *time;             //!< Time for each sample of stored history.
+    void *samps;                //!< Value for each sample of stored history.
+    mpr_time *times;            //!< Time for each sample of stored history.
     int len;                    //!< Vector length.
     mpr_type type;              //!< The type of this signal.
     char mem;                   //!< History size of the buffer.
     char pos;                   //!< Current position in the circular buffer.
-} mpr_hist_t, *mpr_hist;
+} mpr_value_t, *mpr_value;
 
 /*! Bit flags for indicating signal instance status. */
 #define RELEASED_LOCALLY  0x01
@@ -403,7 +403,7 @@ typedef struct _mpr_link {
 typedef struct _mpr_local_slot {
     // each slot can point to local signal or a remote link structure
     struct _mpr_rtr_sig *rsig;      //!< Parent signal if local
-    mpr_hist hist;                  /*!< Array of value histories for each signal instance. */
+    mpr_value val;                  /*!< Array of value histories for each signal instance. */
     int mem;                        //!< History size.
     char status;
 } mpr_local_slot_t, *mpr_local_slot;
@@ -429,8 +429,8 @@ typedef struct _mpr_local_map {
     struct _mpr_rtr *rtr;
 
     mpr_expr expr;                  //!< The mapping expression.
-    mpr_hist *expr_var;             //!< User variables values.
-    int num_expr_var;               //!< Number of user variables.
+    mpr_value *vars;                //!< User variables values.
+    int num_vars;                   //!< Number of user variables.
     int num_var_inst;
 
     uint8_t is_local_only;
