@@ -609,8 +609,8 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
             }
         }
     }
-    else if (map->status >= MPR_STATUS_READY && map->dst->link) {
-        --map->dst->link->num_maps[0];
+    else if (map->dst->link) {
+        mpr_link_remove_map(map->dst->link, map);
         _check_link(rtr, map->dst->link);
     }
     mpr_slot_free_value(map->dst);
@@ -622,8 +622,8 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
                     rs->slots[j] = 0;
             }
         }
-        else if (map->status >= MPR_STATUS_READY && map->src[i]->link) {
-            --map->src[i]->link->num_maps[1];
+        else if (map->src[i]->link) {
+            mpr_link_remove_map(map->src[i]->link, map);
             _check_link(rtr, map->src[i]->link);
         }
         mpr_slot_free_value(map->src[i]);

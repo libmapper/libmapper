@@ -174,6 +174,24 @@ mpr_list mpr_link_get_maps(mpr_link link)
     return mpr_list_start(q);
 }
 
+void mpr_link_remove_map(mpr_link link, mpr_map rem)
+{
+    int in = 0, out = 0, rev = link->devs[0]->loc ? 0 : 1;
+    mpr_list list = mpr_link_get_maps(link);
+    while (list) {
+        mpr_map map = *(mpr_map*)list;
+        list = mpr_list_get_next(list);
+        if (map == rem)
+            continue;
+        if (map->dst->loc && map->dst->loc->rsig)
+            ++in;
+        else
+            ++out;
+    }
+    link->num_maps[0] = rev ? out : in;
+    link->num_maps[1] = rev ? in : out;
+}
+
 void mpr_link_send(mpr_link link, net_msg_t cmd)
 {
     NEW_LO_MSG(msg, return);

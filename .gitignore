@@ -65,6 +65,7 @@ test/testinstance
 test/testlinear
 test/testlocalmap
 test/testmany
+test/testmapfail
 test/testmapinput
 test/testmapprotocol
 test/testmonitor

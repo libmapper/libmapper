@@ -1498,6 +1498,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
             mpr_sig_send_state(sig, MSG_SIG);
         }
     }
+    ++net->graph->staged_maps;
     return 0;
 }
 
@@ -1542,6 +1543,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
             }
         }
     }
+    ++net->graph->staged_maps;
     return 0;
 }
 

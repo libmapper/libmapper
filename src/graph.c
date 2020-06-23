@@ -141,8 +141,10 @@ void mpr_graph_cleanup(mpr_graph g)
         mpr_map map = (mpr_map)*maps;
         maps = mpr_list_get_next(maps);
         if (map->status <= MPR_STATUS_STAGED) {
-            if (map->status <= MPR_STATUS_EXPIRED)
+            if (map->status <= MPR_STATUS_EXPIRED) {
+                mpr_rtr_remove_map(g->net.rtr, map);
                 mpr_graph_remove_map(g, map, MPR_OBJ_REM);
+            }
             else {
                 --map->status;
                 ++staged;

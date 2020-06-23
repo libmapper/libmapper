@@ -298,6 +298,7 @@ mpr_link mpr_link_new(mpr_dev local_dev, mpr_dev remote_dev);
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
 mpr_list mpr_link_get_maps(mpr_link link);
 
+void mpr_link_remove_map(mpr_link link, mpr_map rem);
 
 void mpr_link_init(mpr_link link);
 void mpr_link_connect(mpr_link link, const char *host, int admin_port,

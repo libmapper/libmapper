@@ -10,10 +10,10 @@
 #include <mpr/mpr.h>
 
 #define MAX_LEN 512
-#define MPR_STATUS_LENGTH_KNOWN 0x08
-#define MPR_STATUS_TYPE_KNOWN   0x10
-#define MPR_STATUS_LINK_KNOWN   0x20
-#define METADATA_OK             0x38
+#define MPR_STATUS_LENGTH_KNOWN 0x04
+#define MPR_STATUS_TYPE_KNOWN   0x08
+#define MPR_STATUS_LINK_KNOWN   0x10
+#define METADATA_OK             0x1C
 
 static inline int _max(int a, int b)
 {
@@ -532,12 +532,6 @@ void mpr_map_alloc_values(mpr_map m)
             for (j = lm->num_vars; j < num_vars; j++) {
                 int vec_len = mpr_expr_get_var_vec_len(m->loc->expr, j);
                 init_vars(&lm->vars[i][j], vec_len);
-//                lm->vars[i][j].type = MPR_DBL;
-//                lm->vars[i][j].len = lm->vars[0][j].len;
-//                lm->vars[i][j].mem = lm->vars[0][j].mem;
-//                lm->vars[i][j].pos = 0;
-//                lm->vars[i][j].samps = 0; // alloc instead
-//                lm->vars[i][j].times = 0; // alloc instead
             }
         }
     }
@@ -547,12 +541,6 @@ void mpr_map_alloc_values(mpr_map m)
         for (j = 0; j < num_vars; j++) {
             int vec_len = mpr_expr_get_var_vec_len(m->loc->expr, j);
             init_vars(&lm->vars[i][j], vec_len);
-//            lm->vars[i][j].type = MPR_DBL;
-//            lm->vars[i][j].len = vec_len;
-//            lm->vars[i][j].mem = 0;
-//            lm->vars[i][j].pos = 0;
-//            lm->vars[i][j].samps = calloc(1, sizeof(double) * vec_len);
-//            lm->vars[i][j].times = calloc(1, sizeof(mpr_time));
         }
     }
 
@@ -955,8 +943,14 @@ static int _set_expr(mpr_map m, const char *expr)
         for (i = 0; i < m->loc->num_var_inst; i++)
             mpr_expr_eval(m->loc->expr, 0, &vars[i], &to[i], &now, 0);
     }
-    else
+    else {
+        if (!m->loc->expr && (   (MPR_LOC_DST == m->process_loc && m->dst->sig->loc)
+                              || (MPR_LOC_SRC == m->process_loc && m->src[0]->sig->loc))) {
+            // no previous expression, abort map
+            m->status = MPR_STATUS_EXPIRED;
+        }
         goto done;
+    }
 
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
