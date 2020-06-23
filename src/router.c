@@ -446,21 +446,20 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
     // default to using instanced maps if any of the contributing signals are instanced
     map->use_inst = use_inst;
 
-    // Set num_inst and use_inst properties
-//    mpr_map_alloc_values(map);
-//    for (i = 0; i < map->num_src; i++)
-//        mpr_slot_alloc_values(map->src[i]);
-//    mpr_slot_alloc_values(map->dst);
-
     // assign a unique id to this map if we are the destination
     if (local_dst)
         map->obj.id = _get_unused_map_id(rtr->dev, rtr);
 
-    /* assign indices to source slots - may be overwritten later by message */
-    for (i = 0; i < map->num_src; i++) {
-        map->src[i]->obj.id = i;
+    /* assign indices to source slots */
+    if (local_dst) {
+        for (i = 0; i < map->num_src; i++)
+            map->src[i]->obj.id = map->dst->loc->rsig->id_counter++;
     }
-    map->dst->obj.id = (local_dst ? map->dst->loc->rsig->id_counter++ : -1);
+    else {
+        /* may be overwritten later by message */
+        for (i = 0; i < map->num_src; i++)
+            map->src[i]->obj.id = i;
+    }
 
     // add scopes
     int scope_count = 0;
