@@ -146,8 +146,8 @@ void mpr_link_send_queue(mpr_link link, mpr_time t)
         lo_bundle_free_recursive((*q)->bundle.udp);
         if (lo_bundle_count((*q)->bundle.tcp))
             lo_send_bundle_from(link->addr.tcp, n->server.tcp, (*q)->bundle.tcp);
+        lo_bundle_free_recursive((*q)->bundle.tcp);
     }
-    lo_bundle_free_recursive((*q)->bundle.tcp);
     mpr_queue temp = *q;
     *q = (*q)->next;
     free(temp);

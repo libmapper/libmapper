@@ -319,7 +319,7 @@ typedef struct _mpr_sig_idmap
 
 typedef struct _mpr_local_sig
 {
-    struct _mpr_dev *dev;           //!< The device associated with this signal.
+//    struct _mpr_dev *dev;         //!< The device associated with this signal.
     struct _mpr_sig_idmap *idmaps;  //!< ID maps and active instances.
     int idmap_len;
     struct _mpr_sig_inst **inst;    //!< Array of pointers to the signal insts.

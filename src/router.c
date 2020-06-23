@@ -445,6 +445,7 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
 
     // default to using instanced maps if any of the contributing signals are instanced
     map->use_inst = use_inst;
+    map->protocol = use_inst ? MPR_PROTO_TCP : MPR_PROTO_UDP;
 
     // assign a unique id to this map if we are the destination
     if (local_dst)
