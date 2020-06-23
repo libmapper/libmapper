@@ -19,6 +19,7 @@ int received = 0;
 
 int verbose = 1;
 int terminate = 0;
+int period = 100;
 
 class out_stream : public std::ostream {
 public:
@@ -99,11 +100,15 @@ int main(int argc, char ** argv)
                         printf("testcpp.cpp: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-f fast (execute quickly), "
                                "-h help\n");
                         return 1;
                         break;
                     case 'q':
                         verbose = 0;
+                        break;
+                    case 'f':
+                        period = 1;
                         break;
                     case 't':
                         terminate = 1;
@@ -134,7 +139,7 @@ int main(int argc, char ** argv)
 
     out << "waiting" << std::endl;
     while (!dev.ready()) {
-        dev.poll(100);
+        dev.poll(10);
     }
     out << "ready" << std::endl;
 
@@ -233,12 +238,12 @@ int main(int argc, char ** argv)
     map.push();
 
     while (!map.ready()) {
-        dev.poll(100);
+        dev.poll(10);
     }
 
     std::vector <double> v(3);
     while (i++ < 100) {
-        dev.poll(10);
+        dev.poll(period);
         graph.poll();
         v[i%3] = i;
         sig.set_value(v);
@@ -289,11 +294,11 @@ int main(int argc, char ** argv)
     mpr::Map map2(multisend, multirecv);
     map2.push();
     while (!map2.ready()) {
-        dev.poll(100);
+        dev.poll(10);
     }
     unsigned long id;
     for (int i = 0; i < 200; i++) {
-        dev.poll(100);
+        dev.poll(period);
         id = (rand() % 10) + 5;
         switch (rand() % 5) {
             case 0:
