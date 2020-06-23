@@ -472,8 +472,7 @@ namespace mpr {
          *              Map already exists) or newly created. In the latter case
          *              the Map will not take effect until it has been added to
          *              the distributed graph using push(). */
-        template <typename T>
-        Map(std::vector<T>& srcs, std::vector<T>& dsts) : Object(NULL)
+        Map(std::vector<signal_type>& srcs, std::vector<signal_type>& dsts) : Object(NULL)
         {
             if (!srcs.size() || (dsts.size() != 1)) {
                 _obj = 0;
@@ -540,7 +539,7 @@ namespace mpr {
         /*! Get the index of the Map endpoint matching a specific Signal.
          *  \param sig      The Signal to look for.
          *  \return         Index of the signal in this map, or -1 if not found. */
-        int idx(signal_type sig) const
+        int signal_idx(signal_type sig) const
             { return mpr_map_get_sig_idx(_obj, (mpr_sig)sig); }
 
         /*! Retrieve a list of connected Signals for this Map.
