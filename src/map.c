@@ -1189,6 +1189,15 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                                        &pro, REMOTE_MODIFY);
                 break;
             }
+            case PROP(USE_INST): {
+                int use_inst = a->types[0] == 'T';
+                if (m->loc && m->use_inst && !use_inst) {
+                    // TODO: release map instances
+                }
+                updated += mpr_tbl_set(tbl, PROP(USE_INST), NULL, 1, MPR_BOOL,
+                                       &use_inst, REMOTE_MODIFY);
+                break;
+            }
             case PROP(EXTRA):
                 if (strncmp(a->key, "var@", 4)==0) {
                     if (m->loc && m->loc->expr) {
@@ -1237,7 +1246,6 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 }
             case PROP(ID):
             case PROP(MUTED):
-            case PROP(USE_INST):
             case PROP(VERSION):
                 updated += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
                 break;

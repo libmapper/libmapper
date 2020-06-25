@@ -488,6 +488,9 @@ int run_test(test_config *config)
         mpr_sig_remove_inst(multirecv, mpr_sig_get_inst_id(multirecv, 4, MPR_STATUS_ALL), MPR_NOW);
     }
 
+    mpr_dev_poll(src, 100);
+    mpr_dev_poll(dst, 100);
+
     if (INSTANCED & config->dst_type && SINGLETON == config->map_type) {
         // activate 3 destination instances
         eprintf("activating 3 destination instances\n");
@@ -534,7 +537,7 @@ int run_test(test_config *config)
         id_map = &(*id_map)->next;
     }
     if (active_count > 1 || reserve_count > 5) {
-        printf("Error: src device using %d active and %d reserve id maps (total should be <=6)\n",
+        printf("Error: src device using %d active and %d reserve id maps (should be 0 and <=10)\n",
                active_count, reserve_count);
         id_map = &src->loc->idmaps.active[0];
         while (*id_map) {

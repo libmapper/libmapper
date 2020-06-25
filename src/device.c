@@ -826,9 +826,12 @@ static void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map rem)
 int mpr_dev_LID_decref(mpr_dev dev, int group, mpr_id_map map)
 {
     --map->LID_refcount;
-    if (map->LID_refcount <= 0 && map->GID_refcount <= 0) {
-        mpr_dev_remove_idmap(dev, group, map);
-        return 1;
+    if (map->LID_refcount <= 0) {
+        map->LID_refcount = 0;
+        if (map->GID_refcount <= 0) {
+            mpr_dev_remove_idmap(dev, group, map);
+            return 1;
+        }
     }
     return 0;
 }
@@ -836,9 +839,12 @@ int mpr_dev_LID_decref(mpr_dev dev, int group, mpr_id_map map)
 int mpr_dev_GID_decref(mpr_dev dev, int group, mpr_id_map map)
 {
     --map->GID_refcount;
-    if (map->LID_refcount <= 0 && map->GID_refcount <= 0) {
-        mpr_dev_remove_idmap(dev, group, map);
-        return 1;
+    if (map->GID_refcount <= 0) {
+        map->GID_refcount = 0;
+        if (map->LID_refcount <= 0) {
+            mpr_dev_remove_idmap(dev, group, map);
+            return 1;
+        }
     }
     return 0;
 }

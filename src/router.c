@@ -567,8 +567,17 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
     mpr_time t;
     mpr_time_set(&t, MPR_NOW);
 
-    if (map->idmap)
-        mpr_dev_LID_decref(rtr->dev, 0, map->idmap);
+    if (map->idmap) {
+        // release map-generated instances
+        if (map->dst->loc->rsig) {
+            lo_message msg = mpr_map_build_msg(map, 0, 0, 0, map->idmap);
+            mpr_dev_bundle_start(t, NULL);
+            mpr_dev_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
+                            lo_message_get_argc(msg), msg, (void*)map->dst->sig->loc);
+        }
+        else
+            mpr_dev_LID_decref(rtr->dev, 0, map->idmap);
+    }
 
     // remove map and slots from rtr_sig lists if necessary
     if (map->dst->loc->rsig) {
