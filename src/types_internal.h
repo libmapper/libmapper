@@ -274,14 +274,20 @@ typedef struct _mpr_obj
  *  size of the history array is determined by the needs of mapping expressions.
  *  @ingroup signals */
 
-typedef struct _mpr_value
+typedef struct _mpr_value_buffer
 {
     void *samps;                //!< Value for each sample of stored history.
     mpr_time *times;            //!< Time for each sample of stored history.
-    int len;                    //!< Vector length.
+    int8_t pos;                 //!< Current position in the circular buffer.
+} mpr_value_buffer_t, *mpr_value_buffer;
+
+typedef struct _mpr_value
+{
+    mpr_value_buffer inst;      /*!< Array of value histories for each signal instance. */
+    int vlen;                   //!< Vector length.
+    int num_inst;               //!< Number of instances.
     mpr_type type;              //!< The type of this signal.
-    char mem;                   //!< History size of the buffer.
-    char pos;                   //!< Current position in the circular buffer.
+    int8_t mlen;                //!< History size of the buffer.
 } mpr_value_t, *mpr_value;
 
 /*! Bit flags for indicating signal instance status. */
@@ -319,7 +325,6 @@ typedef struct _mpr_sig_idmap
 
 typedef struct _mpr_local_sig
 {
-//    struct _mpr_dev *dev;         //!< The device associated with this signal.
     struct _mpr_sig_idmap *idmaps;  //!< ID maps and active instances.
     int idmap_len;
     struct _mpr_sig_inst **inst;    //!< Array of pointers to the signal insts.
@@ -403,8 +408,7 @@ typedef struct _mpr_link {
 typedef struct _mpr_local_slot {
     // each slot can point to local signal or a remote link structure
     struct _mpr_rtr_sig *rsig;      //!< Parent signal if local
-    mpr_value val;                  /*!< Array of value histories for each signal instance. */
-    int mem;                        //!< History size.
+    mpr_value_t val;                /*!< Value histories for each signal instance. */
     char status;
 } mpr_local_slot_t, *mpr_local_slot;
 
@@ -429,9 +433,10 @@ typedef struct _mpr_local_map {
     struct _mpr_rtr *rtr;
 
     mpr_expr expr;                  //!< The mapping expression.
-    mpr_value *vars;                //!< User variables values.
+    mpr_value_t *vars;              //!< User variables values.
+    const char **var_names;         //!< User variables names.
     int num_vars;                   //!< Number of user variables.
-    int num_var_inst;
+    int num_inst;                   //!< Number of local instances.
 
     uint8_t is_local_only;
     uint8_t one_src;

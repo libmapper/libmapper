@@ -176,11 +176,6 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
             else if (a->key[4] == '.') {
                 // in form 'src.<ordinal>'
                 slot_idx = atoi(a->key + 5);
-                if (slot_idx >= MAX_NUM_MAP_SRC) {
-                    trace("Bad slot ordinal in property '%s'.\n", a->key);
-                    a->types = 0;
-                    continue;
-                }
                 a->key = strchr(a->key + 5, '@');
                 if (!a->key || !(++a->key)) {
                     trace("No sub-property found in key '%s'.\n", a->key);

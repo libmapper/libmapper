@@ -1256,8 +1256,7 @@ namespace mpr {
     Object& Object::set_prop(Values... vals)
     {
         Property p(vals...);
-        if (p)
-            set_prop(&p);
+        set_prop(&p);
         return (*this);
     }
 

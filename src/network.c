@@ -669,10 +669,10 @@ static void mpr_net_maybe_send_ping(mpr_net net, int force)
                 // remove related data structures
                 mpr_rtr_remove_link(net->rtr, lnk);
                 mpr_graph_remove_link(gph, lnk, num_maps ? MPR_OBJ_EXP : MPR_OBJ_REM);
+                continue;
             }
         }
-        else if (num_maps && mpr_obj_get_prop_as_str(&lnk->remote_dev->obj,
-                                                     MPR_PROP_HOST, 0)) {
+        if (num_maps && mpr_obj_get_prop_as_str(&lnk->remote_dev->obj, MPR_PROP_HOST, 0)) {
             /* Only send pings if this link has associated maps, ensuring empty
              * links are removed after the ping timeout. */
             lo_bundle bun = lo_bundle_new(now);
@@ -1770,8 +1770,6 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
         }
     }
 
-    mpr_rtr_remove_map(net->rtr, map);
-
     if (dev->loc->subscribers) {
         trace_dev(dev, "informing subscribers (DEVICE)\n")
         mpr_net_use_subscribers(net, dev, MPR_DEV);
@@ -1795,6 +1793,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     }
 
     /* The mapping is removed. */
+    mpr_rtr_remove_map(net->rtr, map);
     mpr_graph_remove_map(net->graph, map, MPR_OBJ_REM);
     // TODO: remove empty rtr_sigs
     return 0;

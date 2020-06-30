@@ -70,6 +70,7 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         mpr_list_free(l);
         return;
     }
+    mpr_list_free(l);
 
     if (e == MPR_OBJ_REM) {
         if (send_socket != -1) {
@@ -122,6 +123,7 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
 
     l = mpr_map_get_sigs(map, MPR_LOC_DST);
     mpr_sig dstsig = *(mpr_sig*)l;
+    mpr_list_free(l);
     mpr_dev dstdev = mpr_sig_get_dev(dstsig);
     const char *host = mpr_obj_get_prop_as_str((mpr_obj)dstdev, MPR_PROP_HOST, NULL);
 

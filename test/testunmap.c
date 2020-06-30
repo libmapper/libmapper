@@ -141,7 +141,8 @@ void loop()
     int i = 0;
     while ((!terminate || srcgraph->links || dstgraph->links) && !done) {
         mpr_dev_poll(src, 0);
-        eprintf("Updating signal %s to %d\n", sendsig->name, i);
+        eprintf("Updating signal %s to %d\n",
+                sendsig && sendsig->name ? sendsig->name : "", i);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i, MPR_NOW);
         sent++;
         mpr_dev_poll(dst, 100);
@@ -221,7 +222,7 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (srcgraph->links || dstgraph->links) {
+    if ((srcgraph && srcgraph->links) || (dstgraph && dstgraph->links)) {
         eprintf("Link cleanup failed.\n");
         result = 1;
     }

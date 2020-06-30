@@ -97,7 +97,8 @@ void mpr_link_start_queue(mpr_link link, mpr_time t)
     mpr_queue q = malloc(sizeof(struct _mpr_queue));
     memcpy(&q->time, &t, sizeof(mpr_time));
     q->bundle.udp = lo_bundle_new(t);
-    q->bundle.tcp = lo_bundle_new(t);
+    if (link->local_dev != link->remote_dev)
+        q->bundle.tcp = lo_bundle_new(t);
     q->next = link->queues;
     q->locked = 0;
     link->queues = q;
@@ -138,6 +139,7 @@ void mpr_link_send_queue(mpr_link link, mpr_time t)
             }
             ++i;
         }
+        lo_bundle_free_recursive((*q)->bundle.udp);
     }
     else {
         mpr_net n = &link->obj.graph->net;

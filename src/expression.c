@@ -21,7 +21,7 @@ typedef union _mpr_val {
     float f;
     double d;
     int i;
-} mpr_val_t;
+} mpr_expr_val_t, *mpr_expr_val;
 
 #define EXTREMA_FUNC(NAME, TYPE, OP)    \
     static TYPE NAME(TYPE x, TYPE y) { return (x OP y) ? x : y; }
@@ -54,7 +54,7 @@ FLOAT_OR_DOUBLE_UNARY_FUNC(uniform, rand() / (RAND_MAX + 1.0) * x);
     }                               \
     return 1 - RET;
 #define TEST_VEC_TYPED(NAME, TYPE, OP, CMP, RET, EL)    \
-    static TYPE NAME##EL(mpr_val_t *val, int len) {     \
+    static TYPE NAME##EL(mpr_expr_val val, int len) {   \
         TEST_VEC(OP, CMP, RET, EL)                      \
     }
 TEST_VEC_TYPED(all, int, ==, 0, 0, i)
@@ -65,7 +65,7 @@ TEST_VEC_TYPED(all, double, ==, 0., 0, d)
 TEST_VEC_TYPED(any, double, !=, 0., 1, d)
 
 #define SUM_FUNC(TYPE, EL)                          \
-    static TYPE sum##EL(mpr_val_t *val, int len)    \
+    static TYPE sum##EL(mpr_expr_val val, int len)  \
     {                                               \
         TYPE aggregate = 0;                         \
         for (int i = 0; i < len; i++)               \
@@ -76,18 +76,18 @@ SUM_FUNC(int, i)
 SUM_FUNC(float, f)
 SUM_FUNC(double, d)
 
-static float meanf(mpr_val_t *val, int len)
+static float meanf(mpr_expr_val val, int len)
 {
     return sumf(val, len) / (float)len;
 }
 
-static double meand(mpr_val_t *val, int len)
+static double meand(mpr_expr_val val, int len)
 {
     return sumd(val, len) / (double)len;
 }
 
 #define EXTREMA_VFUNC(NAME, OP, TYPE, EL)   \
-static TYPE NAME(mpr_val_t *val, int len)   \
+static TYPE NAME(mpr_expr_val val, int len) \
 {                                           \
     TYPE extrema = val[0].EL;               \
     for (int i = 1; i < len; i++) {         \
@@ -317,9 +317,9 @@ typedef double fn_dbl_arity1(double);
 typedef double fn_dbl_arity2(double,double);
 typedef double fn_dbl_arity3(double,double,double);
 typedef double fn_dbl_arity4(double,double,double,double);
-typedef int vfn_int_arity1(mpr_val_t*, int);
-typedef float vfn_flt_arity1(mpr_val_t*, int);
-typedef double vfn_dbl_arity1(mpr_val_t*, int);
+typedef int vfn_int_arity1(mpr_expr_val, int);
+typedef float vfn_flt_arity1(mpr_expr_val, int);
+typedef double vfn_dbl_arity1(mpr_expr_val, int);
 
 typedef struct _token {
     union {
@@ -975,8 +975,9 @@ static int precompute(mpr_token_t *stk, int len, int vec_len)
 {
     struct _mpr_expr e = {0, stk, 0, 0, len, vec_len, 0, 0, 0, -1, -1};
     void *s = malloc(mpr_type_get_size(stk[len-1].datatype) * vec_len);
-    mpr_value_t v = {s, 0, vec_len, stk[len-1].datatype, 1, -1};
-    if (!(mpr_expr_eval(&e, 0, 0, &v, 0, 0) & 1)) {
+    mpr_value_buffer_t b = {s, 0, -1};
+    mpr_value_t v = {&b, vec_len, 1, stk[len-1].datatype, 1};
+    if (!(mpr_expr_eval(&e, 0, 0, &v, 0, 0, 0) & 1)) {
         free(s);
         return 0;
     }
@@ -1962,7 +1963,7 @@ int mpr_expr_get_manages_inst(mpr_expr expr)
 }
 
 #if TRACING
-static void print_stack_vec(mpr_val_t *stk, mpr_type type, int vec_len)
+static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len)
 {
     int i;
     if (vec_len > 1)
@@ -2051,8 +2052,9 @@ static const char *type_name(const mpr_type type)
 #define COPY_TO_STACK(SRC)                                                  \
     ++top;                                                                  \
     dims[top] = tok->vec_len;                                               \
-    idx = ((tok->hist_idx + SRC->pos + SRC->mem) % SRC->mem);               \
-    void *a = (SRC->samps + idx * SRC->len * mpr_type_get_size(SRC->type)); \
+    mpr_value_buffer b = &SRC->inst[inst_idx % SRC->num_inst];              \
+    idx = ((tok->hist_idx + b->pos + SRC->mlen) % SRC->mlen);               \
+    void *a = (b->samps + idx * SRC->vlen * mpr_type_get_size(SRC->type));  \
     switch (SRC->type) {                                                    \
         COPY_TYPED(MPR_INT32, int, i)                                       \
         COPY_TYPED(MPR_FLT, float, f)                                       \
@@ -2061,8 +2063,8 @@ static const char *type_name(const mpr_type type)
             goto error;                                                     \
     }
 
-int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
-                  mpr_value out, mpr_time *t, mpr_type *types)
+int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
+                  mpr_value v_out, mpr_time *t, mpr_type *types, int inst_idx)
 {
     if (!expr) {
 #if TRACING
@@ -2074,36 +2076,38 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
     mpr_token_t *tok = expr->start;
     int len = expr->len;
     int status = 1, alive = 1, muted = 0;
-    if (out && out->pos >= 0) {
+    mpr_value_buffer b_out = v_out ? &v_out->inst[inst_idx] : 0;
+    if (v_out && b_out->pos >= 0) {
         tok += expr->offset;
         len -= expr->offset;
     }
 
-    if (expr_vars && expr->inst_ctl >= 0) {
-        // recover instance state
-        mpr_value v = *expr_vars + expr->inst_ctl;
-        double *d = v->samps;
-        alive = (0 != d[0]);
+    if (v_vars) {
+        if (expr->inst_ctl >= 0) {
+            // recover instance state
+            mpr_value v = *v_vars + expr->inst_ctl;
+            double *d = v->inst[inst_idx].samps;
+            alive = (0 != d[0]);
+        }
+        if (expr->mute_ctl >= 0) {
+            // recover mute state
+            mpr_value v = *v_vars + expr->mute_ctl;
+            double *d = v->inst[inst_idx].samps;
+            muted = (0 != d[0]);
+        }
     }
 
-    if (expr_vars && expr->mute_ctl >= 0) {
-        // recover mute state
-        mpr_value v = *expr_vars + expr->mute_ctl;
-        double *d = v->samps;
-        muted = (0 != d[0]);
-    }
-
-    mpr_val_t stk[len][expr->vec_size];
+    mpr_expr_val_t stk[len][expr->vec_size];
     int dims[len];
 
     int i, j, k, top = -1, count = 0, can_advance = 1;
 
-    if (out) {
+    if (v_out) {
         // init types
         if (types)
-            memset(types, MPR_NULL, out->len);
+            memset(types, MPR_NULL, v_out->vlen);
         /* Increment index position of output data structure. */
-        out->pos = (out->pos + 1) % out->mem;
+        b_out->pos = (b_out->pos + 1) % v_out->mlen;
     }
 
     for (i = 0; i < expr->n_vars; i++)
@@ -2136,9 +2140,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
         case TOK_VAR: {
             int idx;
             if (tok->var == VAR_Y) {
-                if (!out)
+                if (!v_out)
                     return status;
-                COPY_TO_STACK(out);
+                COPY_TO_STACK(v_out);
 #if TRACING
                 printf("loading variable y{%d}[%zu] ", tok->hist_idx, tok->vec_idx);
                 print_stack_vec(stk[top], tok->datatype, tok->vec_len);
@@ -2146,9 +2150,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
 #endif
             }
             else if (tok->var >= VAR_X) {
-                if (!in)
+                if (!v_in)
                     return status;
-                mpr_value v = in[tok->var-VAR_X];
+                mpr_value v = v_in[tok->var-VAR_X];
                 COPY_TO_STACK(v);
 #if TRACING
                 printf("loading variable x%d{%d}[%zu] ", tok->var-VAR_X,
@@ -2157,12 +2161,12 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
                 printf(" \n");
 #endif
             }
-            else if (expr_vars) {
+            else if (v_vars) {
                 // TODO: allow other data types?
                 ++top;
                 dims[top] = tok->vec_len;
-                mpr_value v = *expr_vars + tok->var;
-                double *d = v->samps;
+                mpr_value v = *v_vars + tok->var;
+                double *d = v->inst[inst_idx].samps;
                 for (i = 0; i < tok->vec_len; i++)
                     stk[top][i].d = d[i+tok->vec_idx];
 #if TRACING
@@ -2180,25 +2184,27 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
             int idx;
             ++top;
             dims[top] = tok->vec_len;
-            mpr_value v;
+            mpr_value_buffer b;
             if (tok->var == VAR_Y) {
-                if (!out)
+                if (!v_out)
                     return status;
-                v = out;
-                idx = ((tok->hist_idx + v->pos + v->mem) % v->mem);
+                b = b_out;
+                idx = ((tok->hist_idx + b->pos + v_out->mlen) % v_out->mlen);
 #if TRACING
                 printf("loading timetag t_y{%d}", tok->hist_idx);
 #endif
             }
             else if (tok->var >= VAR_X) {
-                v = in[tok->var-VAR_X];
-                idx = ((tok->hist_idx + v->pos + v->mem) % v->mem);
+                mpr_value v = v_in[tok->var-VAR_X];
+                b = &v->inst[inst_idx % v->num_inst];
+                idx = ((tok->hist_idx + b->pos + v->mlen) % v->mlen);
 #if TRACING
                 printf("loading timetag t_x%d{%d}", tok->var-VAR_X, tok->hist_idx);
 #endif
             }
-            else if (expr_vars) {
-                v = *expr_vars + tok->var;
+            else if (v_vars) {
+                mpr_value v = *v_vars + tok->var;
+                b = &v->inst[inst_idx];
                 idx = 0;
 #if TRACING
                 printf("loading timetag t_%s{%d}", expr->vars[tok->var].name, tok->hist_idx);
@@ -2206,7 +2212,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
             }
             else
                 goto error;
-            double t_d = mpr_time_as_dbl(v->times[idx]);
+            double t_d = mpr_time_as_dbl(b->times[idx]);
 #if TRACING
             printf(" as double %f\n", t_d);
 #endif
@@ -2423,16 +2429,16 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
                     break;
                 status |=  muted ? EXPR_MUTED_UPDATE : EXPR_UPDATE;
                 can_advance = 0;
-                if (!out)
+                if (!v_out)
                     return status;
-                int idx = (tok->hist_idx + out->pos + out->mem);
+                int idx = (tok->hist_idx + b_out->pos + v_out->mlen);
                 if (idx < 0)
-                    idx = out->mem - idx;
+                    idx = v_out->mlen - idx;
                 else
-                    idx %= out->mem;
-                void *v = (out->samps + idx * out->len * mpr_type_get_size(out->type));
+                    idx %= v_out->mlen;
+                void *v = (b_out->samps + idx * v_out->vlen * mpr_type_get_size(v_out->type));
 
-                switch (out->type) {
+                switch (v_out->type) {
 #define TYPED_CASE(MTYPE, TYPE, EL)                             \
                     case MTYPE:                                 \
                         for (i = 0; i < tok->vec_len; i++)      \
@@ -2454,23 +2460,24 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
 
                 // Also copy time from input
                 if (t) {
-                    mpr_time *tvar = &out->times[idx];
+                    mpr_time *tvar = &b_out->times[idx];
                     memcpy(tvar, t, sizeof(mpr_time));
                 }
             }
             else if (tok->var >= 0 && tok->var < N_USER_VARS) {
-                if (!expr_vars)
+                if (!v_vars)
                     goto error;
                 // passed the address of an array of mpr_value structs
-                mpr_value v = *expr_vars + tok->var;
+                mpr_value v = *v_vars + tok->var;
+                mpr_value_buffer b = &v->inst[inst_idx];
 
-                double *d = v->samps;
+                double *d = b->samps;
                 for (i = 0; i < tok->vec_len; i++)
                     d[i + tok->vec_idx] = stk[top][i + tok->offset].d;
 
                 // Also copy time from input
                 if (t)
-                    memcpy(v->times, t, sizeof(mpr_time));
+                    memcpy(b->times, t, sizeof(mpr_time));
 
                 expr->vars[tok->var].assigned = 1;
 
@@ -2507,14 +2514,14 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
 #if TRACING
             printf("assigning timetag to t_y{%i}\n", tok->hist_idx);
 #endif
-            if (!out)
+            if (!v_out)
                 return status;
-            int idx = (tok->hist_idx + out->pos + out->mem);
+            int idx = (tok->hist_idx + b_out->pos + v_out->mlen);
             if (idx < 0)
-                idx = out->mem - idx;
+                idx = v_out->mlen - idx;
             else
-                idx %= out->mem;
-            mpr_time_set_dbl(&out->times[idx], stk[top][0].d);
+                idx %= v_out->mlen;
+            mpr_time_set_dbl(&b_out->times[idx], stk[top][0].d);
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
             if (tok->hist_idx != 0 || can_advance) {
@@ -2562,19 +2569,19 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
         ++count;
     }
 
-    RETURN_UNLESS(out, status);
+    RETURN_UNLESS(v_out, status);
 
     if (!types) {
         /* Internal evaluation during parsing doesn't contain assignment token,
          * so we need to copy to output here. */
 
         /* Increment index position of output data structure. */
-        out->pos = (out->pos + 1) % out->mem;
-        void *v = mpr_value_get_samp(*out);
-        switch (out->type) {
+        b_out->pos = (b_out->pos + 1) % v_out->mlen;
+        void *v = mpr_value_get_samp(v_out, inst_idx);
+        switch (v_out->type) {
 #define TYPED_CASE(MTYPE, TYPE, EL)                 \
             case MTYPE:                             \
-                for (i = 0; i < out->len; i++)      \
+                for (i = 0; i < v_out->vlen; i++)   \
                     ((TYPE*)v)[i] = stk[top][i].EL; \
                 break;
             TYPED_CASE(MPR_INT32, int, i)
@@ -2589,9 +2596,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *in, mpr_value *expr_vars,
 
     /* Undo position increment if nothing was updated. */
     if (!(status & (EXPR_UPDATE | EXPR_MUTED_UPDATE))) {
-        --out->pos;
-        if (out->pos < 0)
-            out->pos = out->mem - 1;
+        --b_out->pos;
+        if (b_out->pos < 0)
+            b_out->pos = v_out->mlen - 1;
         return status;
     }
 

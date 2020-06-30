@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <limits.h>
-#include <assert.h>
 
 #include "mpr_internal.h"
 #include "types_internal.h"
@@ -48,18 +47,10 @@ void mpr_slot_free(mpr_slot slot)
 void mpr_slot_free_value(mpr_slot slot)
 {
     RETURN_UNLESS(slot->loc);
-    int i;
     // TODO: use rtr_sig for holding memory of local slots for effiency
-//    if (!slot->loc->rsig) {
-        if (slot->loc->val) {
-            for (i = 0; i < slot->num_inst; i++) {
-                free(slot->loc->val[i].samps);
-                free(slot->loc->val[i].times);
-            }
-            free(slot->loc->val);
-        }
-//    }
+    mpr_value_free(&slot->loc->val);
     free(slot->loc);
+    slot->loc = 0;
 }
 
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
@@ -149,55 +140,20 @@ int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
 
 void mpr_slot_alloc_values(mpr_slot slot, int num_inst, int hist_size)
 {
-    int i;
     RETURN_UNLESS(num_inst && hist_size && slot->sig->type && slot->sig->len);
-    int samp_size = mpr_sig_get_vector_bytes(slot->sig);
     if (slot->sig->loc)
         num_inst = slot->sig->num_inst;
 
-    if (!slot->loc->val) {
-        slot->loc->val = malloc(sizeof(struct _mpr_value) * num_inst);
-        slot->num_inst = 0;
-    }
-    else if (slot->num_inst < num_inst) {
-        slot->loc->val = realloc(slot->loc->val, sizeof(struct _mpr_value) * num_inst);
-    }
-    else if (num_inst < slot->num_inst) {
-        // Do nothing for now...
-    }
+    // reallocate memory
+    mpr_value_realloc(&slot->loc->val, slot->sig->len, slot->sig->type,
+                      hist_size, num_inst, slot == slot->map->dst);
 
-    // reallocate existing memory if necessary
-    for (i = 0; i < slot->num_inst; i++) {
-        mpr_value_realloc(&slot->loc->val[i], hist_size, samp_size, slot == slot->map->dst);
-        slot->loc->mem = hist_size;
-    }
-
-    // allocate memory for new instances
-    for (i = slot->num_inst; i < num_inst; i++) {
-        mpr_value val = &slot->loc->val[i];
-        val->type = slot->sig->type;
-        val->len = slot->sig->len;
-        val->mem = hist_size;
-        val->samps = calloc(1, samp_size * hist_size);
-        val->times = calloc(1, sizeof(mpr_time) * hist_size);
-        val->pos = -1;
-    }
     slot->num_inst = num_inst;
 }
 
 void mpr_slot_remove_inst(mpr_slot slot, int idx)
 {
-    int i;
     RETURN_UNLESS(slot && idx >= 0 && idx < slot->num_inst);
-
-    // free value and timestamp memory for removed index
-    free(slot->loc->val[idx].samps);
-    free(slot->loc->val[idx].times);
-    for (i = idx + 1; i < slot->num_inst; i++) {
-        // shift slot values
-        memcpy(&(slot->loc->val[i-1]), &(slot->loc->val[i]), sizeof(mpr_value_t));
-    }
-    --slot->num_inst;
-    assert(slot->num_inst >= 0);
-    slot->loc->val = realloc(slot->loc->val, sizeof(struct _mpr_value) * slot->num_inst);
+    // TODO: remove slot->num_inst property
+    slot->num_inst = mpr_value_remove_inst(&slot->loc->val, idx);
 }

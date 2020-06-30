@@ -494,6 +494,7 @@ void printexpr(const char*, mpr_expr);
  *                      associated with the result.
  *  \param types        An array of mpr_type for storing the output type per
  *                      vector element
+ *  \param inst_idx     Index of the instance being updated.
  *  \result             0 if the expression evaluation caused no change, or a
  *                      bitwise OR of MPR_SIG_UPDATE (if an update was
  *                      generated), MPR_SIG_REL_UPSTRM (if the expression
@@ -501,7 +502,7 @@ void printexpr(const char*, mpr_expr);
  *                      MPR_SIG_REL_DNSRTM (if the expression generated an
  *                      instance release after an update). */
 int mpr_expr_eval(mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
-                  mpr_value result, mpr_time *t, mpr_type *types);
+                  mpr_value result, mpr_time *t, mpr_type *types, int inst_idx);
 
 int mpr_expr_get_num_input_slots(mpr_expr expr);
 
@@ -602,6 +603,12 @@ double mpr_get_current_time(void);
  *  \return             The difference a-b in seconds. */
 double mpr_time_get_diff(mpr_time minuend, mpr_time subtrahend);
 
+/*! Helper to check if a time has the MPR_NOW value */
+inline static int mpr_time_get_is_now(mpr_time *t)
+{
+    return (memcmp(t, &MPR_NOW, sizeof(mpr_time)) == 0);
+}
+
 /**** Properties ****/
 
 /*! Helper for printing typed values.
@@ -640,19 +647,30 @@ inline static int mpr_type_get_size(mpr_type type)
 
 /**** Values ****/
 
-void mpr_value_realloc(mpr_value val, int hist_size, int samp_size, int is_output);
+void mpr_value_realloc(mpr_value val, int vec_len, mpr_type type,
+                       int mem_len, int num_inst, int is_output);
+
+void mpr_value_reset_inst(mpr_value v, int idx);
+
+int mpr_value_remove_inst(mpr_value v, int idx);
+
+void mpr_value_set_sample(mpr_value v, int idx, void *s, mpr_time t);
 
 /*! Helper to find the pointer to the current value in a mpr_value_t. */
-inline static void* mpr_value_get_samp(mpr_value_t v)
+inline static void* mpr_value_get_samp(mpr_value v, int idx)
 {
-    return v.samps + v.pos * v.len * mpr_type_get_size(v.type);
+    mpr_value_buffer b = &v->inst[idx];
+    return b->samps + b->pos * v->vlen * mpr_type_get_size(v->type);
 }
 
 /*! Helper to find the pointer to the current time in a mpr_value_t. */
-inline static void* mpr_value_get_time(mpr_value_t v)
+inline static void* mpr_value_get_time(mpr_value v, int idx)
 {
-    return v.times + v.pos * sizeof(mpr_time);
+    mpr_value_buffer b = &v->inst[idx];
+    return &b->times[b->pos];
 }
+
+void mpr_value_free(mpr_value v);
 
 /*! Helper to find the size in bytes of a signal's full vector. */
 inline static size_t mpr_sig_get_vector_bytes(mpr_sig sig)
@@ -712,12 +730,6 @@ inline static int type_match(const mpr_type l, const mpr_type r)
 inline static const char *skip_slash(const char *string)
 {
     return string + (string && string[0]=='/');
-}
-
-/*! Helper to check if a time has the MPR_NOW value */
-inline static int mpr_time_get_is_now(mpr_time *t)
-{
-    return (memcmp(t, &MPR_NOW, sizeof(mpr_time)) == 0);
 }
 
 #endif // __MPR_INTERNAL_H__

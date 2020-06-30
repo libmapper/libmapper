@@ -541,8 +541,8 @@ int run_test(test_config *config)
                active_count, reserve_count);
         id_map = &src->loc->idmaps.active[0];
         while (*id_map) {
-            printf("  LID*%d: %llu, GID*%d: %llu\n", (*id_map)->LID_refcount, (*id_map)->LID,
-                   (*id_map)->GID_refcount, (*id_map)->GID);
+            printf("  LID*%d: %"PR_MPR_ID", GID*%d: %"PR_MPR_ID"\n", (*id_map)->LID_refcount,
+                   (*id_map)->LID, (*id_map)->GID_refcount, (*id_map)->GID);
             id_map = &(*id_map)->next;
         }
         ++result;
@@ -564,8 +564,8 @@ int run_test(test_config *config)
                active_count, reserve_count);
         id_map = &dst->loc->idmaps.active[0];
         while (*id_map) {
-            printf("  LID*%d: %llu, GID*%d: %llu\n", (*id_map)->LID_refcount, (*id_map)->LID,
-                   (*id_map)->GID_refcount, (*id_map)->GID);
+            printf("  LID*%d: %"PR_MPR_ID", GID*%d: %"PR_MPR_ID"\n", (*id_map)->LID_refcount,
+                   (*id_map)->LID, (*id_map)->GID_refcount, (*id_map)->GID);
             id_map = &(*id_map)->next;
         }
         ++result;

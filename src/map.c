@@ -419,9 +419,9 @@ int mpr_map_perform(mpr_map m, mpr_type *types, mpr_time *time, int inst_idx)
 
     mpr_value src[m->num_src];
     for (i = 0; i < m->num_src; i++)
-        src[i] = &m->src[i]->loc->val[inst_idx % m->src[i]->num_inst];
-    return (mpr_expr_eval(m->loc->expr, src, &m->loc->vars[inst_idx],
-                          &m->dst->loc->val[inst_idx], time, types));
+        src[i] = &m->src[i]->loc->val;
+    return (mpr_expr_eval(m->loc->expr, src, &m->loc->vars, &m->dst->loc->val,
+                          time, types, inst_idx));
 }
 
 /*! Build a value update message for a given map. */
@@ -460,16 +460,6 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
     return msg;
 }
 
-static void init_vars(mpr_value v, int vec_len)
-{
-    v->type = MPR_DBL;
-    v->len = vec_len;
-    v->mem = 0;
-    v->pos = 0;
-    v->samps = calloc(1, sizeof(double) * vec_len);
-    v->times = calloc(1, sizeof(mpr_time));
-}
-
 void mpr_map_alloc_values(mpr_map m)
 {
     // If there is no expression or the processing is remote, then no memory needs to be (re)allocated.
@@ -481,7 +471,8 @@ void mpr_map_alloc_values(mpr_map m)
     // if so we can eliminate process_loc tests below
     // if not we are allocating variable memory when we don't need to
 
-    int i, j, hist_size, num_var_inst;
+    int i, j, hist_size, num_inst = 0;
+    mpr_expr e = m->loc->expr;
 
     // HANDLE edge case: if the map is local, then src->dir is OUT and dst->dir is IN
 
@@ -489,63 +480,67 @@ void mpr_map_alloc_values(mpr_map m)
     if (MPR_DIR_OUT == m->dst->dir) {
         int max_num_inst = 0;
         for (i = 0; i < m->num_src; i++) {
-            hist_size = mpr_expr_get_in_hist_size(m->loc->expr, i);
+            hist_size = mpr_expr_get_in_hist_size(e, i);
             max_num_inst = _max(m->src[i]->sig->num_inst, max_num_inst);
             mpr_slot_alloc_values(m->src[i], m->src[i]->sig->num_inst, hist_size);
         }
-        hist_size = mpr_expr_get_out_hist_size(m->loc->expr);
+        hist_size = mpr_expr_get_out_hist_size(e);
         // allocate enough dst slot and variable instances for the most multitudinous source signal
         mpr_slot_alloc_values(m->dst, max_num_inst, hist_size);
-        num_var_inst = max_num_inst;
+        num_inst = max_num_inst;
     }
     else if (MPR_DIR_IN == m->dst->dir) {
         // allocate enough instances for destination signal
         for (i = 0; i < m->num_src; i++) {
-            hist_size = mpr_expr_get_in_hist_size(m->loc->expr, i);
+            hist_size = mpr_expr_get_in_hist_size(e, i);
             mpr_slot_alloc_values(m->src[i], m->dst->sig->num_inst, hist_size);
         }
-        hist_size = mpr_expr_get_out_hist_size(m->loc->expr);
+        hist_size = mpr_expr_get_out_hist_size(e);
         mpr_slot_alloc_values(m->dst, m->dst->sig->num_inst, hist_size);
-        num_var_inst = m->dst->sig->num_inst;
+        num_inst = m->dst->sig->num_inst;
     }
 
     mpr_local_map lm = m->loc;
-    int num_vars = mpr_expr_get_num_vars(lm->expr);
-
-    if (lm->num_vars >= num_vars &&  lm->num_var_inst >= num_var_inst)
-        return;
+    int num_vars = mpr_expr_get_num_vars(e);
 
     // TODO: only need to allocate this memory for processing location
-    if (!lm->vars) {
-        lm->vars = calloc(1, sizeof(mpr_value) * num_var_inst);
-        lm->num_var_inst = 0;
-    }
-    else {
-        lm->vars = realloc(lm->vars, sizeof(mpr_value) * num_var_inst);
-    }
-
-    if (num_vars > lm->num_vars) {
-        // reallocate existing user variables
-        for (i = 0; i < lm->num_var_inst; i++) {
-            lm->vars[i] = realloc(lm->vars[i], num_vars * sizeof(struct _mpr_value));
-            // initialize new variables
-            for (j = lm->num_vars; j < num_vars; j++) {
-                int vec_len = mpr_expr_get_var_vec_len(m->loc->expr, j);
-                init_vars(&lm->vars[i][j], vec_len);
-            }
+    mpr_value_t *vars = calloc(1, sizeof(mpr_value_t) * num_vars);
+    const char **var_names = malloc(sizeof(char*) * num_vars);
+    for (i = 0; i < num_vars; i++) {
+        var_names[i] = strdup(mpr_expr_get_var_name(e, i));
+        int vlen = mpr_expr_get_var_vec_len(e, i);
+        // check if var already exists
+        for (j = 0; j < lm->num_vars; j++) {
+            if (!lm->var_names[j] || strcmp(lm->var_names[j], var_names[i]))
+                continue;
+            if (lm->vars[i].vlen != vlen)
+                continue;
+            // match found
+            break;
         }
-    }
-
-    for (i = lm->num_var_inst; i < num_var_inst; i++) {
-        lm->vars[i] = calloc(1, num_vars * sizeof(struct _mpr_value));
-        for (j = 0; j < num_vars; j++) {
-            int vec_len = mpr_expr_get_var_vec_len(m->loc->expr, j);
-            init_vars(&lm->vars[i][j], vec_len);
+        if (j < lm->num_vars) {
+            // copy old variable memory
+            memcpy(&vars[i], &lm->vars[j], sizeof(mpr_value_t));
+            lm->vars[j].inst = 0;
         }
+        mpr_value_realloc(&vars[i], vlen, MPR_DBL, 1, num_inst, 0);
+        // set position to 0 since we are not currently allowing history on user variables
+        for (j = 0; j < num_inst; j++)
+            vars[i].inst[j].pos = 0;
     }
 
+    // free old variables and replace with new
+    for (i = 0; i < lm->num_vars; i++) {
+        mpr_value_free(&lm->vars[i]);
+        FUNC_IF(free, (void*)lm->var_names[i]);
+    }
+    FUNC_IF(free, lm->vars);
+    FUNC_IF(free, lm->var_names);
+
+    lm->vars = vars;
+    lm->var_names = var_names;
     lm->num_vars = num_vars;
-    lm->num_var_inst = num_var_inst;
+    lm->num_inst = num_inst;
 }
 
 /* Helper to replace a map's expression only if the given string
@@ -643,7 +638,7 @@ static int _snprint_var(const char *varname, char *str, int max_len, int vec_len
 }
 
 #define INSERT_VAL(MINORMAX)                                        \
-mpr_value *ev = m->loc->vars;                                       \
+mpr_value_t *ev = m->loc->vars;                                     \
 for (j = 0; j < m->loc->num_vars; j++) {                            \
     if (!mpr_expr_get_var_is_public(m->loc->expr, j))               \
         continue;                                                   \
@@ -651,21 +646,21 @@ for (j = 0; j < m->loc->num_vars; j++) {                            \
     k = 0;                                                          \
     if (strcmp(MINORMAX, mpr_expr_get_var_name(m->loc->expr, j)))   \
         continue;                                                   \
-    if (ev[k][j].pos < 0) {                                         \
+    if (ev[j].inst[k].pos < 0) {                                    \
         trace("expr var '%s' is not yet initialised.\n", MINORMAX); \
         goto abort;                                                 \
     }                                                               \
     len += snprintf(expr+len, MAX_LEN-len, "%s=", MINORMAX);        \
-    double *v = ev[k][j].samps + ev[k][j].pos;                      \
-    if (ev[k][j].len > 1)                                           \
+    double *v = ev[j].inst[k].samps + ev[j].inst[k].pos;            \
+    if (ev[j].vlen > 1)                                             \
         len += snprintf(expr+len, MAX_LEN-len, "[");                \
-    for (l = 0; l < ev[k][j].len; l++) {                            \
+    for (l = 0; l < ev[j].vlen; l++) {                              \
         val_len = snprintf(expr+len, MAX_LEN-len, "%f", v[l]);      \
         len += _trim_zeros(expr+len, val_len);                      \
         len += snprintf(expr+len, MAX_LEN-len, ",");                \
     }                                                               \
     --len;                                                          \
-    if (ev[k][j].len > 1)                                           \
+    if (ev[j].vlen > 1)                                             \
         len += snprintf(expr+len, MAX_LEN-len, "]");                \
     len += snprintf(expr+len, MAX_LEN-len, ";");                    \
     break;                                                          \
@@ -799,7 +794,6 @@ static const char *_set_linear(mpr_map m, const char *e)
             var = args[0];
             // TODO: copy sections of expression after closing paren ')'
         // }
-
     }
     else if (m->src[0]->sig->min && m->src[0]->sig->max && m->dst->sig->min && m->dst->sig->max) {
         len = _snprint_var("sMin", expr, MAX_LEN, min_len, m->src[0]->sig->type,
@@ -871,6 +865,7 @@ static const char *_set_linear(mpr_map m, const char *e)
             --len;
             snprintf(expr+len, MAX_LEN-len, ")/%d", m->num_src);
         }
+        FUNC_IF(free, (char*)e);
         return strdup(expr);
     }
 
@@ -895,6 +890,7 @@ static const char *_set_linear(mpr_map m, const char *e)
         snprintf(expr+len, MAX_LEN-len, "y=m*%s[0:%i]+b;", var, min_len-1);
 
     trace("linear expression %s requires %d chars\n", expr, (int)strlen(expr));
+    FUNC_IF(free, (char*)e);
     return strdup(expr);
 
 abort:
@@ -933,15 +929,14 @@ static int _set_expr(mpr_map m, const char *expr)
     if (!expr || strstr(expr, "linear"))
         expr = new_expr = _set_linear(m, expr);
     RETURN_UNLESS(expr, 1);
+
     if (!_replace_expr_str(m, expr)) {
         mpr_map_alloc_values(m);
         // evaluate expression to intialise literals
         mpr_time now;
         mpr_time_set(&now, MPR_NOW);
-        mpr_value *vars = m->loc->vars;
-        mpr_value to = m->dst->loc->val;
-        for (i = 0; i < m->loc->num_var_inst; i++)
-            mpr_expr_eval(m->loc->expr, 0, &vars[i], &to[i], &now, 0);
+        for (i = 0; i < m->loc->num_inst; i++)
+            mpr_expr_eval(m->loc->expr, 0, &m->loc->vars, &m->dst->loc->val, &now, 0, i);
     }
     else {
         if (!m->loc->expr && (   (MPR_LOC_DST == m->process_loc && m->dst->sig->loc)
@@ -963,7 +958,7 @@ static int _set_expr(mpr_map m, const char *expr)
         mpr_sig sig = m->dst->loc->rsig->sig;
         mpr_sig_handler *h = sig->loc->handler;
         if (h)
-            h(sig, MPR_SIG_UPDATE, 0, sig->len, sig->type, &m->dst->loc->val[0].samps, now);
+            h(sig, MPR_SIG_UPDATE, 0, sig->len, sig->type, &m->dst->loc->val.inst[0].samps, now);
     }
 
     // check whether each source slot causes computation
@@ -1210,8 +1205,8 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                                 continue;
                             // found variable
                             // TODO: handle multiple instances
-                            int k = 0, l, var_len =  m->loc->vars[k][j].len;
-                            double *v = m->loc->vars[k][j].samps + m->loc->vars[k][j].pos;
+                            int k = 0, l, var_len =  m->loc->vars[j].vlen;
+                            double *v = mpr_value_get_samp(&m->loc->vars[j], k);
                             // cast to double if necessary
                             switch (a->types[0])  {
                                 case MPR_DBL:
@@ -1350,11 +1345,11 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
                 continue;
             // TODO: handle multiple instances
             k = 0;
-            if (m->loc->vars[k][j].pos >= 0) {
+            if (m->loc->vars[j].inst[k].pos >= 0) {
                 snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(m->loc->expr, j));
                 lo_message_add_string(msg, varname);
-                double *v = m->loc->vars[k][j].samps + m->loc->vars[k][j].pos;
-                for (l = 0; l < m->loc->vars[k][j].len; l++)
+                double *v = mpr_value_get_samp(&m->loc->vars[j], k);
+                for (l = 0; l < m->loc->vars[j].vlen; l++)
                     lo_message_add_double(msg, v[l]);
             }
             else {

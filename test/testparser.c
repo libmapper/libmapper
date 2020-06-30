@@ -1,4 +1,4 @@
-#include <../src/mpr_internal.h>
+#include "../src/mpr_internal.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,8 +37,8 @@ mpr_time time_in = {0, 0}, time_out = {0, 0};
 // signal_history structures
 mpr_value_t inh[SRC_ARRAY_LEN], outh, user_vars[MAX_VARS], *user_vars_p;
 mpr_value inh_p[SRC_ARRAY_LEN];
-mpr_type src_types[SRC_ARRAY_LEN];
-int src_lens[SRC_ARRAY_LEN], n_sources;
+mpr_type src_types[SRC_ARRAY_LEN], dst_type;
+int src_lens[SRC_ARRAY_LEN], n_sources, dst_len;
 
 /*! Internal function to get the current time. */
 static double current_time()
@@ -104,7 +104,7 @@ int random_int()
  * construct a 32-bit field using concatenation */
 float random_flt()
 {
-    uint32_t buffer;
+    uint32_t buffer = 0;
     float *f = (float*)&buffer;
     do {
         for (int i = 0; i < 4; i++) {
@@ -119,7 +119,7 @@ float random_flt()
  * construct a 64-bit field using concatenation */
 double random_dbl()
 {
-    uint64_t buffer;
+    uint64_t buffer = 0;
     double *d = (double*)&buffer;
     do {
         for (int i = 0; i < 8; i++) {
@@ -134,6 +134,19 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
 {
     if (!val || !types || len < 1)
         return 1;
+
+    switch (dst_type) {
+        case MPR_INT32:
+            memcpy(dst_int, mpr_value_get_samp(&outh, 0), sizeof(int) * len);
+            break;
+        case MPR_FLT:
+            memcpy(dst_flt, mpr_value_get_samp(&outh, 0), sizeof(float) * len);
+            break;
+        default:
+            memcpy(dst_dbl, mpr_value_get_samp(&outh, 0), sizeof(double) * len);
+            break;
+    }
+    memcpy(&time_out, mpr_value_get_time(&outh, 0), sizeof(mpr_time));
 
     eprintf("Got: ");
     if (len > 1)
@@ -203,50 +216,17 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
     return 0;
 }
 
-void setup_test_multisource(int _n_sources, mpr_type *in_types, int *in_lens,
-                            mpr_type out_type, int out_len)
+void setup_test_multisource(int _n_sources, mpr_type *_src_types, int *_src_lens,
+                            mpr_type _dst_type, int _dst_len)
 {
     n_sources = _n_sources;
     int i;
     for (i = 0; i < _n_sources; i++) {
-        src_types[i] = in_types[i];
-        src_lens[i] = in_lens[i];
-        inh[i].type = in_types[i];
-        inh[i].mem = 3;
-        inh[i].len = in_lens[i];
-        switch (in_types[i]) {
-            case MPR_INT32:
-                inh[i].samps = src_int;
-                break;
-            case MPR_FLT:
-                inh[i].samps = src_flt;
-                break;
-            case MPR_DBL:
-                inh[i].samps = src_dbl;
-                break;
-            default:
-                assert(0);
-        }
-        inh[i].pos = 0;
-        inh[i].times = &time_in;
+        src_types[i] = _src_types[i];
+        src_lens[i] = _src_lens[i];
     }
-
-    outh.type = out_type;
-    outh.mem = 3;
-    outh.len = out_len;
-    switch (out_type) {
-        case MPR_INT32:
-            outh.samps = dst_int;
-            break;
-        case MPR_FLT:
-            outh.samps = dst_flt;
-            break;
-        default:
-            outh.samps = dst_dbl;
-            break;
-    }
-    outh.pos = -1;
-    outh.times = &time_out;
+    dst_len = _dst_len;
+    dst_type = _dst_type;
 }
 
 void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
@@ -271,8 +251,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         printf("\rExpression %d", expression_count++);
         fflush(stdout);
     }
-    e = mpr_expr_new_from_str(str, n_sources, src_types, src_lens, outh.type,
-                              outh.len);
+    e = mpr_expr_new_from_str(str, n_sources, src_types, src_lens, dst_type, dst_len);
     if (!e) {
         eprintf("Parser FAILED");
         goto fail;
@@ -282,22 +261,39 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         result = 1;
         goto free;
     }
+    int mlen;
+    mpr_time_set(&time_in, MPR_NOW);
     for (i = 0; i < n_sources; i++) {
-        inh[i].mem = mpr_expr_get_in_hist_size(e, i);
-        mpr_value_realloc(&inh[i], inh[i].mem, inh[i].len * mpr_type_get_size(inh[i].type), 0);
+        mlen = mpr_expr_get_in_hist_size(e, i);
+        mpr_value_realloc(&inh[i], src_lens[i], src_types[i], mlen, 1, 0);
+        switch (src_types[i]) {
+            case MPR_INT32:
+                memcpy(inh[i].inst[0].samps, src_int, sizeof(int) * src_lens[i]);
+                break;
+            case MPR_FLT:
+                memcpy(inh[i].inst[0].samps, src_flt, sizeof(float) * src_lens[i]);
+                break;
+            case MPR_DBL:
+                memcpy(inh[i].inst[0].samps, src_dbl, sizeof(double) * src_lens[i]);
+                break;
+            default:
+                assert(0);
+        }
+        inh[i].inst[0].pos = 0;
+        memcpy(inh[i].inst[0].times, &time_in, sizeof(mpr_time));
     }
-    outh.mem = mpr_expr_get_out_hist_size(e);
-    mpr_value_realloc(&outh, outh.mem, outh.len * mpr_type_get_size(outh.type), 1);
+    mlen = mpr_expr_get_out_hist_size(e);
+    mpr_value_realloc(&outh, dst_len, dst_type, mlen, 1, 1);
 
     /* mpr_value_realloc will not initialize memory if history size is unchanged
      * so we will explicitly initialise it here. */
     for (i = 0; i < n_sources; i++) {
-        if (inh[i].mem <= 1)
+        if (inh[i].mlen <= 1)
             continue;
-        int samp_size = inh[i].len * mpr_type_get_size(inh[i].type);
-        memset(inh[i].samps + samp_size, 0, (inh[i].mem - 1) * samp_size);
+        int samp_size = inh[i].vlen * mpr_type_get_size(inh[i].type);
+        memset(inh[i].inst[0].samps + samp_size, 0, (inh[i].mlen - 1) * samp_size);
     }
-    memset(outh.samps, 0, outh.mem * outh.len * mpr_type_get_size(outh.type));
+    memset(outh.inst[0].samps, 0, outh.mlen * outh.vlen * mpr_type_get_size(outh.type));
 
     if (mpr_expr_get_num_vars(e) > MAX_VARS) {
         eprintf("Maximum variables exceeded.\n");
@@ -307,12 +303,12 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     // reallocate variable value histories
     for (i = 0; i < e->n_vars; i++) {
         // eprintf("user_var[%d]: %p\n", i, &user_vars[i]);
-        int sample_size = sizeof(double) * mpr_expr_get_var_vec_len(e, i);
-        mpr_value_realloc(&user_vars[i], 1, sample_size, 0);
+        int vlen = mpr_expr_get_var_vec_len(e, i);
+        mpr_value_realloc(&user_vars[i], vlen, MPR_DBL, 1, 1, 0);
 
         /* mpr_value_realloc will not initialize memory if history size is
          * unchanged so we will explicitly initialise it here. */
-        memset(user_vars[i].samps, 0, sample_size);
+        memset(user_vars[i].inst[0].samps, 0, vlen * mpr_type_get_size(MPR_DBL));
     }
     user_vars_p = user_vars;
 
@@ -341,8 +337,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     then = current_time();
 
     eprintf("Try evaluation once... ");
-    mpr_time_set(&time_in, MPR_NOW);
-    status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types);
+    status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types, 0);
     if (!status) {
         eprintf("FAILED.\n");
         result = 1;
@@ -356,29 +351,28 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     fflush(stdout);
     i = iterations-1;
     while (i--) {
+        // update timestamp
+        mpr_time_set(&time_in, MPR_NOW);
         // copy src values
         for (j = 0; j < n_sources; j++) {
-            if (inh[j].mem <= 1)
-                continue;
-            inh[j].pos = ((inh[j].pos + 1) % inh[j].mem);
-            int samp_size = inh[j].len * mpr_type_get_size(inh[j].type);
+            inh[j].inst[0].pos = ((inh[j].inst[0].pos + 1) % inh[j].mlen);
+            int samp_size = inh[j].vlen * mpr_type_get_size(inh[j].type);
             switch (inh[j].type) {
                 case MPR_INT32:
-                    memcpy(mpr_value_get_samp(inh[j]), src_int, samp_size);
+                    memcpy(mpr_value_get_samp(&inh[j], 0), src_int, samp_size);
                     break;
                 case MPR_FLT:
-                    memcpy(mpr_value_get_samp(inh[j]), src_flt, samp_size);
+                    memcpy(mpr_value_get_samp(&inh[j], 0), src_flt, samp_size);
                     break;
                 case MPR_DBL:
-                    memcpy(mpr_value_get_samp(inh[j]), src_dbl, samp_size);
+                    memcpy(mpr_value_get_samp(&inh[j], 0), src_dbl, samp_size);
                     break;
                 default:
                     assert(0);
             }
+            memcpy(mpr_value_get_time(&inh[j], 0), &time_in, sizeof(mpr_time));
         }
-        // update timestamp
-        mpr_time_set(&time_in, MPR_NOW);
-        status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types);
+        status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types, 0);
         if (!status) {
             result = 1;
             break;
@@ -394,7 +388,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     if (0 == result)
         eprintf("OK\n");
 
-    if (check_result(types, outh.len, outh.samps, outh.pos, check))
+    if (check_result(types, outh.vlen, outh.inst[0].samps, outh.inst[0].pos, check))
         result = 1;
 
     eprintf("Recv'd %d updates... ", update_count);
@@ -523,9 +517,9 @@ int run_tests()
     /* 13) all() */
     snprintf(str, 256, "y=x[2]*all(x-1)");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
-    expect_int[0] = (int)src_dbl[2] * (  ((int)src_dbl[0] - 1) ? 1 : 0
-                                       & ((int)src_dbl[1] - 1) ? 1 : 0
-                                       & ((int)src_dbl[2] - 1) ? 1 : 0);
+    expect_int[0] = (int)src_dbl[2] * (  (((int)src_dbl[0] - 1) ? 1 : 0)
+                                       & (((int)src_dbl[1] - 1) ? 1 : 0)
+                                       & (((int)src_dbl[2] - 1) ? 1 : 0));
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -842,11 +836,8 @@ int run_tests()
     snprintf(str, 256, "y=t_x");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    dst_dbl[0] = ((double*)outh.samps)[outh.pos * outh.len];
-    if (dst_dbl[0] != mpr_time_as_dbl(time_in)) {
+    if (dst_dbl[0] != mpr_time_as_dbl(time_in))
         eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
-        return 1;
-    }
     else
         eprintf("... OK\n");
 
@@ -855,11 +846,10 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     // results may vary depending on machine but we can perform a sanity check
-    dst_dbl[0] = ((double*)outh.samps)[outh.pos * outh.len];
-    if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.0001) {
-        eprintf("... error: expected value between %g and %g\n", 0.0, 0.0001);
+    if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.001) {
+        eprintf("... error: expected value between %g and %g\n", 0.0, 0.001);
         printf("%g < %g... %d\n", dst_dbl[0], 0.0, dst_dbl[0] < 0.0);
-        printf("%g > %g... %d\n", dst_dbl[0], 0.0001, dst_dbl[0] > 0.0010);
+        printf("%g > %g... %d\n", dst_dbl[0], 0.0001, dst_dbl[0] > 0.001);
         return 1;
     }
     else
@@ -875,9 +865,8 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     // results may vary depending on machine but we can perform a sanity check
-    dst_dbl[0] = ((double*)outh.samps)[outh.pos * outh.len];
-    if (dst_dbl[0] < 0. || dst_dbl[0] > 0.0001) {
-        eprintf("... error: expected value between %g and %g\n", 0.0, 0.0001);
+    if (dst_dbl[0] < 0. || dst_dbl[0] > 0.001) {
+        eprintf("... error: expected value between %g and %g\n", 0.0, 0.001);
         return 1;
     }
     else
@@ -894,7 +883,6 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     // results may vary depending on machine but we can perform a sanity check
-    dst_dbl[0] = ((double*)outh.samps)[outh.pos * outh.len];
     if (dst_dbl[0] < 0. || dst_dbl[0] > 0.0001) {
         eprintf("... error: expected value between %g and %g\n", 0.0, 0.0001);
         printf("%g < %g... %d\n", dst_dbl[0], 0.0, dst_dbl[0] < 0.0);
@@ -935,7 +923,7 @@ int run_tests()
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
-    mpr_time time = outh.times[(int)outh.pos];
+    mpr_time time = *(mpr_time*)mpr_value_get_time(&outh, 0);
     if (mpr_time_as_dbl(time) != mpr_time_as_dbl(time_in) + 10) {
         eprintf("Expected timestamp {%"PRIu32", %"PRIu32"} but got "
                 "{%"PRIu32", %"PRIu32"}\n", time_in.sec+10, time_in.frac,
@@ -1003,6 +991,10 @@ int main(int argc, char **argv)
         }
     }
 
+    for (int i = 0; i < SRC_ARRAY_LEN; i++)
+        inh[i].inst = 0;
+    outh.inst = 0;
+
     eprintf("**********************************\n");
     seed_srand();
     eprintf("Generating random inputs:\n");
@@ -1032,6 +1024,12 @@ int main(int argc, char **argv)
         inh_p[i] = &inh[i];
 
     result = run_tests();
+
+    for (int i = 0; i < SRC_ARRAY_LEN; i++) {
+        mpr_value_free(&inh[i]);
+    }
+    mpr_value_free(&outh);
+
     eprintf("**********************************\n");
     printf("\r..................................................Test %s\x1B[0m.",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");

@@ -313,13 +313,13 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         // Parse any attached properties (instance ids, slot number)
         TRACE_DEV_RETURN_UNLESS(types[i] == MPR_STR, 0, "error in "
                                 "mpr_dev_handler: unexpected argument type.\n")
-        if ((strcmp(&argv[i]->s, mpr_prop_as_str(PROP(INST), 0)) == 0) && argc >= i + 2) {
+        if ((strcmp(&argv[i]->s, "@instance") == 0) && argc >= i + 2) {
             TRACE_DEV_RETURN_UNLESS(types[i+1] == MPR_INT64, 0, "error in "
                                     "mpr_dev_handler: bad arguments for 'instance' prop.\n")
             GID = argv[i+1]->i64;
             i += 2;
         }
-        else if ((strcmp(&argv[i]->s, mpr_prop_as_str(PROP(SLOT), 0)) == 0) && argc >= i + 2) {
+        else if ((strcmp(&argv[i]->s, "@slot") == 0) && argc >= i + 2) {
             TRACE_DEV_RETURN_UNLESS(types[i+1] == MPR_INT32, 0, "error in "
                                     "mpr_dev_handler: bad arguments for 'slot' prop.\n")
             slot_idx = argv[i+1]->i32;
@@ -370,11 +370,12 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             if (map_manages_inst && vals == slot->sig->len) {
                 /* special case: do a dry-run to check whether this map will
                  * cause a release. If so, don't bother stealing an instance. */
-                mpr_value_t v = {argv[0], 0, val_len, slot->sig->type, 1, -1};
+                mpr_value_buffer_t b = {argv[0], 0, -1};
+                mpr_value_t v = {&b, val_len, 1, slot->sig->type, 1};
                 mpr_value src[map->num_src];
                 for (i = 0; i < map->num_src; i++)
                     src[i] = (i == slot->obj.id) ? &v : 0;
-                int status = mpr_expr_eval(map->loc->expr, src, 0, 0, &ts, 0);
+                int status = mpr_expr_eval(map->loc->expr, src, 0, 0, &ts, 0, 0);
                 if (status & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
             }
@@ -436,9 +437,8 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
         /* Reset memory for corresponding source slot. */
         mpr_local_slot lslot = slot->loc;
-        memset(lslot->val[inst_idx].samps, 0, lslot->mem * slot->sig->len * size);
-        memset(lslot->val[inst_idx].times, 0, lslot->mem * sizeof(mpr_time));
-        lslot->val[inst_idx].pos = -1;
+        // TODO: make a function (reset)
+        mpr_value_reset_inst(&lslot->val, inst_idx);
         return 0;
     }
 
@@ -456,7 +456,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     if (map) {
         /* Or if this signal slot is non-instanced but the map has other instanced
          * sources we will need to update all of the map instances. */
-        all |= !map->use_inst || (!slot->sig->use_inst && map->num_src > 1 && map->loc->num_var_inst > 1);
+        all |= !map->use_inst || (!slot->sig->use_inst && map->num_src > 1 && map->loc->num_inst > 1);
     }
     if (all)
         idmap_idx = 0;
@@ -476,9 +476,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
             /* TODO: would be more efficient not to allocate memory for multiple
              * instances if slot is single-instance. */
-            lslot->val[inst_idx].pos = ((lslot->val[inst_idx].pos + 1) % lslot->val[inst_idx].mem);
-            memcpy(mpr_value_get_samp(lslot->val[inst_idx]), argv[0], size * slot->sig->len);
-            memcpy(mpr_value_get_time(lslot->val[inst_idx]), &ts, sizeof(mpr_time));
+            mpr_value_set_sample(&lslot->val, inst_idx, argv[0], ts);
             if (!slot->causes_update)
                 continue;
             typestring = alloca(map->dst->sig->len * sizeof(mpr_type));
@@ -497,7 +495,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
         if (status & EXPR_UPDATE) {
             if (map) {
-                void *result = mpr_value_get_samp(map->dst->loc->val[inst_idx]);
+                void *result = mpr_value_get_samp(&map->dst->loc->val, inst_idx);
                 // TODO: create new map->idmap
 //                if (map_manages_inst) {
 //                    if (!idmap) {
