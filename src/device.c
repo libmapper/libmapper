@@ -361,7 +361,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     //        return 0;
 
     if (GID) {
-        idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, RELEASED_LOCALLY, ts, 0);
+        idmap_idx = mpr_sig_get_idmap_with_GID(sig, GID, RELEASED_LOCALLY, ts, 0);
         if (idmap_idx < 0) {
             // no instance found with this map
             // Don't activate instance just to release it again
@@ -381,7 +381,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             }
 
             // otherwise try to init reserved/stolen instance with device map
-            idmap_idx = mpr_sig_get_inst_with_GID(sig, GID, 0, ts, 1);
+            idmap_idx = mpr_sig_get_idmap_with_GID(sig, GID, 0, ts, 1);
             TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no instances available"
                                     " for GUID %"PR_MPR_ID" (1)\n", GID);
         }
@@ -402,7 +402,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         // use the first available instance
         idmap_idx = 0;
         if (!sig->loc->idmaps[0].inst)
-            idmap_idx = mpr_sig_get_inst_with_LID(sig, sig->loc->inst[0]->id, 1, ts, 1);
+            idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->loc->inst[0]->id, 1, ts, 1);
         RETURN_UNLESS(idmap_idx >= 0, 0);
     }
     mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
@@ -696,7 +696,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     mpr_net_poll(net);
 
     if (!dev->loc->registered) {
-        if (lo_servers_recv_noblock(net->server.admin, status, 2, 0)) {
+        if (lo_servers_recv_noblock(net->server.admin, status, 2, block_ms)) {
             admin_count = (status[0] > 0) + (status[1] > 0);
             net->msgs_recvd |= admin_count;
         }

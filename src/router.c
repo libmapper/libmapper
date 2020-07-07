@@ -82,21 +82,21 @@ static void _update_map_count(mpr_rtr rtr)
     dev->num_maps_out = dev_maps_out;
 }
 
-void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mpr_time t)
+void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *val, mpr_time t)
 {
     // abort if signal is already being processed - might be a local loop
     if (sig->loc->locked) {
         trace_dev(rtr->dev, "Mapping loop detected on signal %s! (1)\n", sig->name);
         return;
     }
-    mpr_id_map idmap = sig->loc->idmaps[inst].map;
+    mpr_id_map idmap = sig->loc->idmaps[idmap_idx].map;
     lo_message msg;
 
     // find the router signal
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_UNLESS(rs);
 
-    int i, j, idx = sig->loc->idmaps[inst].inst->idx;
+    int i, j, idx = sig->loc->idmaps[idmap_idx].inst->idx;
     mpr_map map;
     uint8_t *lock = &sig->loc->locked;
     *lock = 1;
@@ -144,7 +144,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
                 if (!in_scope)
                     continue;
 
-                if (sig->loc->idmaps[inst].status & RELEASED_REMOTELY)
+                if (sig->loc->idmaps[idmap_idx].status & RELEASED_REMOTELY)
                     continue;
 
                 if (slot->dir == MPR_DIR_IN) {
@@ -166,7 +166,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
         if (map->status < MPR_STATUS_ACTIVE)
             continue;
 
-        int in_scope = _is_map_in_scope(map, sig->loc->idmaps[inst].map->GID);
+        int in_scope = _is_map_in_scope(map, sig->loc->idmaps[idmap_idx].map->GID);
         // TODO: should we continue for out-of-scope local destination updates?
         if (map->use_inst && !in_scope)
             continue;
@@ -205,7 +205,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
             for (j = 0; j < map->num_src; j++)
                 if (map->src[j]->sig->loc && map->src[j]->num_inst > slot->num_inst)
                     sig = map->src[j]->sig;
-            inst = 0;
+            idmap_idx = 0;
         }
 
         int map_manages_inst = 0;
@@ -219,11 +219,11 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
         }
 
         struct _mpr_sig_idmap *idmaps = sig->loc->idmaps;
-        for (; inst < sig->loc->idmap_len; inst++) {
+        for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
             // check if map instance is active
-            if ((all || sig->use_inst) && !idmaps[inst].inst)
+            if ((all || sig->use_inst) && !idmaps[idmap_idx].inst)
                 continue;
-            idx = idmaps[inst].inst->idx;
+            idx = idmaps[idmap_idx].inst->idx;
             int status = mpr_map_perform(map, dst_types, &t, idx);
             if (!status) {
                 // no updates or releases
@@ -234,7 +234,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
             }
             /* send instance release if dst is instanced and either src or map is also instanced. */
             if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE && map->use_inst) {
-                msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[inst].map : idmap);
+                msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[idmap_idx].map : idmap);
                 _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
                 if (map_manages_inst) {
                     mpr_dev_LID_decref(rtr->dev, 0, idmap);
@@ -253,7 +253,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
                     msg = mpr_map_build_msg(map, slot, result, dst_types, map->idmap);
                 }
                 else {
-                    msg = mpr_map_build_msg(map, slot, result, dst_types, idmaps[inst].map);
+                    msg = mpr_map_build_msg(map, slot, result, dst_types, idmaps[idmap_idx].map);
                 }
                 _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
                                     *(mpr_time*)mpr_value_get_time(&dst_slot->loc->val, idx),
@@ -262,7 +262,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int inst, const void *val, mp
             /* send instance release if dst is instanced and either src or map
              * is also instanced. */
             if (idmap && status & EXPR_RELEASE_AFTER_UPDATE && map->use_inst) {
-                msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[inst].map : idmap);
+                msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[idmap_idx].map : idmap);
                 _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
                 if (map_manages_inst) {
                     mpr_dev_LID_decref(rtr->dev, 0, idmap);

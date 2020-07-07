@@ -340,7 +340,7 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig)
     return (idx >= 0) ? sig->loc->idmaps[idx].map->LID : 0;
 }
 
-int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int activate)
+int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int activate)
 {
     RETURN_UNLESS(s && s->loc, -1);
     mpr_sig_idmap_t *maps = s->loc->idmaps;
@@ -419,7 +419,7 @@ int mpr_sig_get_inst_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int 
     return -1;
 }
 
-int mpr_sig_get_inst_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int activate)
+int mpr_sig_get_idmap_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int activate)
 {
     RETURN_UNLESS(s && s->loc, -1);
     mpr_sig_idmap_t *maps = s->loc->idmaps;
@@ -622,8 +622,8 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
 int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id id)
 {
     RETURN_UNLESS(sig, 0);
-    int idx = mpr_sig_get_inst_with_LID(sig, id, 0, MPR_NOW, 0);
-    return (idx >= 0) ? sig->loc->idmaps[idx].inst->active : 0;
+    int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, 0, MPR_NOW, 0);
+    return (idmap_idx >= 0) ? sig->loc->idmaps[idmap_idx].inst->active : 0;
 }
 
 void mpr_sig_update_timing_stats(mpr_sig sig, float diff)
@@ -680,10 +680,10 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
     else if (mpr_dev_has_queue(sig->dev, time))
         send_queue = 0;
 
-    int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time, 1);
-    RETURN_UNLESS(idx >= 0);
+    int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, 0, time, 1);
+    RETURN_UNLESS(idmap_idx >= 0);
 
-    mpr_sig_inst si = sig->loc->idmaps[idx].inst;
+    mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
     void *coerced = (void*)val;
 
     // update timing statistics
@@ -693,7 +693,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
 
     if (!len || !val) {
         si->has_val = 0;
-        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, coerced, si->time);
+        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, coerced, si->time);
         return;
     }
 
@@ -707,7 +707,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
     if (send_queue)
         mpr_dev_start_queue(sig->dev, time);
     while (len) {
-        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, coerced, si->time);
+        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, coerced, si->time);
         len -= sig->len;
         if (0 >= len) {
             // copy last value to signal instance memory
@@ -726,20 +726,20 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id, mpr_time time)
 {
     RETURN_UNLESS(sig && sig->loc && sig->use_inst);
-    int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
-    if (idx >= 0)
-        mpr_sig_release_inst_internal(sig, idx, time);
+    int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
+    if (idmap_idx >= 0)
+        mpr_sig_release_inst_internal(sig, idmap_idx, time);
 }
 
-void mpr_sig_release_inst_internal(mpr_sig sig, int idx, mpr_time t)
+void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx, mpr_time t)
 {
-    mpr_sig_idmap_t *smap = &sig->loc->idmaps[idx];
+    mpr_sig_idmap_t *smap = &sig->loc->idmaps[idmap_idx];
     RETURN_UNLESS(smap->inst);
 
     if (mpr_time_get_is_now(&t))
         mpr_time_set(&t, MPR_NOW);
 
-    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idx, 0, t);
+    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, 0, t);
 
     if (mpr_dev_LID_decref(sig->dev, sig->loc->group, smap->map))
         smap->map = 0;
@@ -749,7 +749,7 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idx, mpr_time t)
     }
     else {
         // mark map as locally-released but do not remove it
-        sig->loc->idmaps[idx].status |= RELEASED_LOCALLY;
+        sig->loc->idmaps[idmap_idx].status |= RELEASED_LOCALLY;
     }
 
     // Put instance back in reserve list
@@ -800,9 +800,9 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id, mpr_time time)
 const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
-    int idx = mpr_sig_get_inst_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
-    RETURN_UNLESS(idx >= 0, 0);
-    mpr_sig_inst si = sig->loc->idmaps[idx].inst;
+    int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
+    RETURN_UNLESS(idmap_idx >= 0, 0);
+    mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
     RETURN_UNLESS(si && si->has_val, 0)
     if (time) {
         time->sec = si->time.sec;
@@ -854,8 +854,8 @@ int mpr_sig_activate_inst(mpr_sig sig, mpr_id id, mpr_time time)
     RETURN_UNLESS(sig->use_inst, 0);
     if (mpr_time_get_is_now(&time))
         mpr_time_set(&time, MPR_NOW);
-    int idx = mpr_sig_get_inst_with_LID(sig, id, 0, time, 1);
-    return idx >= 0;
+    int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, 0, time, 1);
+    return idmap_idx >= 0;
 }
 
 void mpr_sig_set_inst_data(mpr_sig sig, mpr_id id, const void *data)
