@@ -368,16 +368,6 @@ struct _mpr_sig {
 
 /**** Router ****/
 
-typedef struct _mpr_queue {
-    mpr_time time;
-    struct {
-        lo_bundle udp;
-        lo_bundle tcp;
-    } bundle;
-    struct _mpr_queue *next;
-    uint8_t locked;
-} *mpr_queue;
-
 typedef struct _mpr_link {
     mpr_obj_t obj;                  // always first
     union {
@@ -395,8 +385,11 @@ typedef struct _mpr_link {
         lo_address tcp;             //!< Network address of remote endpoint
     } addr;
 
-    mpr_queue queues;               /*!< Linked-list of message queues
-                                     *   waiting to be sent. */
+    struct {
+        lo_bundle udp;
+        lo_bundle tcp;
+    } bundle;
+
     mpr_sync_clock_t clock;
 } mpr_link_t, *mpr_link;
 
@@ -512,6 +505,8 @@ typedef struct _mpr_local_dev {
         struct _mpr_id_map *reserve;    //!< The list of reserve instance id maps.
     } idmaps;
 
+    mpr_time time;
+    int time_is_stale;
     int num_sig_groups;
 } mpr_local_dev_t, *mpr_local_dev;
 

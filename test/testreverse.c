@@ -152,11 +152,11 @@ void loop()
     eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
     float val[] = {0, 0};
-    mpr_sig_set_value(sendsig, 0, 2, MPR_FLT, val, MPR_NOW);
+    mpr_sig_set_value(sendsig, 0, 2, MPR_FLT, val);
 
     while ((!terminate || i < 50) && !done) {
         val[0] = i % 10;
-        mpr_sig_set_value(recvsig, 0, 1, MPR_FLT, val, MPR_NOW);
+        mpr_sig_set_value(recvsig, 0, 1, MPR_FLT, val);
         sent++;
         eprintf("\ndestination value updated to %f -->\n", (i % 10) * 1.0f);
         mpr_dev_poll(dst, 0);

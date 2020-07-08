@@ -917,19 +917,19 @@ int run_tests()
 
     /* 58) Manipulate timetag directly. This functionality may be used in the
      *     future to schedule delays, however it currently will not affect
-     *     message timing. */
+     *     message timing. Disabled for now. */
     snprintf(str, 256, "y=x[0]{0}; t_y=t_x+10");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
-    mpr_time time = *(mpr_time*)mpr_value_get_time(&outh, 0);
-    if (mpr_time_as_dbl(time) != mpr_time_as_dbl(time_in) + 10) {
-        eprintf("Expected timestamp {%"PRIu32", %"PRIu32"} but got "
-                "{%"PRIu32", %"PRIu32"}\n", time_in.sec+10, time_in.frac,
-                time.sec, time.frac);
-        return 1;
-    }
+    // mpr_time time = *(mpr_time*)mpr_value_get_time(&outh, 0);
+    // if (mpr_time_as_dbl(time) != mpr_time_as_dbl(time_in) + 10) {
+    //     eprintf("Expected timestamp {%"PRIu32", %"PRIu32"} but got "
+    //             "{%"PRIu32", %"PRIu32"}\n", time_in.sec+10, time_in.frac,
+    //             time.sec, time.frac);
+    //     return 1;
+    // }
 
     /* 59) Faulty timetag syntax */
     snprintf(str, 256, "y=t_x-y;");

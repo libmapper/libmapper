@@ -637,21 +637,21 @@ static int _snprint_var(const char *varname, char *str, int max_len, int vec_len
     return str_len;
 }
 
-#define INSERT_VAL(MINORMAX)                                        \
+#define INSERT_VAL(VARNAME)                                         \
 mpr_value_t *ev = m->loc->vars;                                     \
 for (j = 0; j < m->loc->num_vars; j++) {                            \
     if (!mpr_expr_get_var_is_public(m->loc->expr, j))               \
         continue;                                                   \
     /* TODO: handle multiple instances */                           \
     k = 0;                                                          \
-    if (strcmp(MINORMAX, mpr_expr_get_var_name(m->loc->expr, j)))   \
+    if (strcmp(VARNAME, mpr_expr_get_var_name(m->loc->expr, j)))    \
         continue;                                                   \
     if (ev[j].inst[k].pos < 0) {                                    \
-        trace("expr var '%s' is not yet initialised.\n", MINORMAX); \
+        trace("expr var '%s' is not yet initialised.\n", VARNAME);  \
         goto abort;                                                 \
     }                                                               \
-    len += snprintf(expr+len, MAX_LEN-len, "%s=", MINORMAX);        \
-    double *v = ev[j].inst[k].samps + ev[j].inst[k].pos;            \
+    len += snprintf(expr+len, MAX_LEN-len, "%s=", VARNAME);         \
+    double *v = mpr_value_get_samp(&ev[j], k);                      \
     if (ev[j].vlen > 1)                                             \
         len += snprintf(expr+len, MAX_LEN-len, "[");                \
     for (l = 0; l < ev[j].vlen; l++) {                              \
@@ -666,7 +666,7 @@ for (j = 0; j < m->loc->num_vars; j++) {                            \
     break;                                                          \
 }                                                                   \
 if (j == m->loc->num_vars) {                                        \
-    trace("expr var '%s' is not found.\n", MINORMAX);               \
+    trace("expr var '%s' is not found.\n", VARNAME);                \
     goto abort;                                                     \
 }
 

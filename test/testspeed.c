@@ -102,10 +102,10 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
         if (++received >= iterations)
             switch_modes();
         if (use_inst) {
-            mpr_sig_set_value(sendsig, counter, length, type, value, MPR_NOW);
+            mpr_sig_set_value(sendsig, counter, length, type, value);
         }
         else
-            mpr_sig_set_value(sendsig, 0, length, type, value, MPR_NOW);
+            mpr_sig_set_value(sendsig, 0, length, type, value);
     }
     else {
         const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
@@ -201,7 +201,7 @@ void switch_modes()
         case 1:
             use_inst = 0;
             for (i=1; i<10; i++) {
-                mpr_sig_release_inst(sendsig, i, MPR_NOW);
+                mpr_sig_release_inst(sendsig, i);
             }
             break;
     }
@@ -287,7 +287,7 @@ int main(int argc, char **argv)
     // start things off
     eprintf("STARTING TEST...\n");
     times[0] = current_time();
-    mpr_sig_set_value(sendsig, counter++, 1, MPR_FLT, &value, MPR_NOW);
+    mpr_sig_set_value(sendsig, counter++, 1, MPR_FLT, &value);
     while (!done) {
         mpr_dev_poll(dst, 0);
         mpr_dev_poll(src, 0);

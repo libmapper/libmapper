@@ -158,11 +158,10 @@ void loop()
     mpr_time t;
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
     while ((!terminate || i < 50) && !done) {
-        mpr_time_set(&t, MPR_NOW);
-        eprintf("Updating signal %s to %d at time %f\n", name, i,
-                mpr_time_as_dbl(t));
+        t = mpr_dev_get_time(dev);
+        eprintf("Updating signal %s to %d at time %f\n", name, i, mpr_time_as_dbl(t));
         expected = i * M + B;
-        mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i, t);
+        mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i);
         sent++;
         mpr_dev_poll(dev, period);
         i++;
@@ -246,7 +245,7 @@ int main(int argc, char **argv)
     }
 
     // try to provoke an update loop
-    mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i, MPR_NOW);
+    mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i);
 
     if (autoconnect && (!received || sent != received)) {
         eprintf("Not all sent messages were received.\n");

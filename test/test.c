@@ -197,24 +197,24 @@ void loop()
     float val[3];
 
     while ((!terminate || i < 50) && !done) {
-        mpr_dev_poll(src, 0);
 
         val[0] = val[1] = val[2] = (i % 10) * 1.0f;
-        mpr_sig_set_value(sendsig_1, 0, 1, MPR_FLT, val, MPR_NOW);
+        mpr_sig_set_value(sendsig_1, 0, 1, MPR_FLT, val);
         eprintf("outsig_1 value updated to %d -->\n", i % 10);
 
-        mpr_sig_set_value(sendsig_2, 0, 1, MPR_FLT, val, MPR_NOW);
+        mpr_sig_set_value(sendsig_2, 0, 1, MPR_FLT, val);
         eprintf("outsig_2 value updated to %d -->\n", i % 10);
 
-        mpr_sig_set_value(sendsig_3, 0, 3, MPR_FLT, val, MPR_NOW);
+        mpr_sig_set_value(sendsig_3, 0, 3, MPR_FLT, val);
         eprintf("outsig_3 value updated to [%f,%f,%f] -->\n",
                val[0], val[1], val[2]);
 
-        mpr_sig_set_value(sendsig_4, 0, 1, MPR_FLT, val, MPR_NOW);
+        mpr_sig_set_value(sendsig_4, 0, 1, MPR_FLT, val);
         eprintf("outsig_4 value updated to %d -->\n", i % 10);
 
         eprintf("Sent %i messages.\n", 4);
         sent += 4;
+        mpr_dev_poll(src, 0);
         recvd = mpr_dev_poll(dst, period);
         eprintf("Received %i messages.\n\n", recvd);
         i++;

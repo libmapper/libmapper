@@ -162,7 +162,6 @@ void loop()
     int i = 0, j = 0;
     float *v = malloc(vec_len * sizeof(float));
     while ((!terminate || i < 50) && !done) {
-        mpr_dev_poll(src, 0);
         for (j = 0; j < vec_len; j++) {
             v[j] = (float)(i + j);
             expected[j] = (double)v[j] * M[j] + B[j];
@@ -171,8 +170,9 @@ void loop()
         for (j = 0; j < vec_len; j++)
             eprintf("%f, ", v[j]);
         eprintf("\b\b]\n");
-        mpr_sig_set_value(sendsig, 0, vec_len, MPR_FLT, v, MPR_NOW);
+        mpr_sig_set_value(sendsig, 0, vec_len, MPR_FLT, v);
         sent++;
+        mpr_dev_poll(src, 0);
         mpr_dev_poll(dst, period);
         i++;
 

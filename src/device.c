@@ -163,7 +163,7 @@ void mpr_dev_free(mpr_dev dev)
             // release active instances
             for (i = 0; i < sig->loc->idmap_len; i++) {
                 if (sig->loc->idmaps[i].inst)
-                    mpr_sig_release_inst_internal(sig, i, MPR_NOW);
+                    mpr_sig_release_inst_internal(sig, i);
             }
         }
         mpr_sig_free(sig);
@@ -691,6 +691,14 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
     RETURN_UNLESS(dev && dev->loc, 0);
+    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
+    while (links) {
+        mpr_link_send_bundle((mpr_link)*links);
+        // mpr_link_start_bundle((mpr_link)*links, dev->loc->time);
+        links = mpr_list_get_next(links);
+    }
+
+
     int admin_count = 0, device_count = 0, status[4];
     mpr_net net = &dev->obj.graph->net;
     mpr_net_poll(net);
@@ -700,6 +708,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             admin_count = (status[0] > 0) + (status[1] > 0);
             net->msgs_recvd |= admin_count;
         }
+        dev->loc->time_is_stale = 1;
         return admin_count;
     }
     else if (!block_ms) {
@@ -743,42 +752,28 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
         mpr_dev_send_state(dev, MSG_DEV);
     }
 
+    dev->loc->time_is_stale = 1;
     net->msgs_recvd |= admin_count;
     return admin_count + device_count;
 }
 
-int mpr_dev_has_queue(mpr_dev dev, mpr_time t)
+mpr_time mpr_dev_get_time(mpr_dev dev)
 {
-    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
-    while (links) {
-        if (mpr_link_has_queue((mpr_link)*links, t))
-            return 1;
-        links = mpr_list_get_next(links);
-    }
-    return 0;
+    RETURN_UNLESS(dev && dev->loc, MPR_NOW);
+    if (dev->loc->time_is_stale)
+        mpr_dev_set_time(dev, MPR_NOW);
+    return dev->loc->time;
 }
 
-// Function to start a signal update queue
-mpr_time mpr_dev_start_queue(mpr_dev dev, mpr_time t)
+void mpr_dev_set_time(mpr_dev dev, mpr_time time)
 {
-    RETURN_UNLESS(dev, t);
-    if (mpr_time_get_is_now(&t))
-        mpr_time_set(&t, MPR_NOW);
-    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
-    while (links) {
-        mpr_link_start_queue((mpr_link)*links, t);
-        links = mpr_list_get_next(links);
-    }
-    return t;
-}
+    RETURN_UNLESS(dev && dev->loc && memcmp(&time, &dev->loc->time, sizeof(mpr_time)));
+    dev->loc->time_is_stale = 0;
 
-// Function to send a signal update queue
-void mpr_dev_send_queue(mpr_dev dev, mpr_time t)
-{
-    RETURN_UNLESS(dev);
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mpr_link_send_queue((mpr_link)*links, t);
+        mpr_link_send_bundle((mpr_link)*links);
+        mpr_link_start_bundle((mpr_link)*links, dev->loc->time);
         links = mpr_list_get_next(links);
     }
 }

@@ -72,7 +72,7 @@ int setup_devs()
     /* In this test inputs[2] will never get its full vector value from
      * external updates – for the handler to be called we will need to
      * initialize its value. */
-    mpr_sig_set_value(inputs[2], 0, 3, MPR_FLT, mnf2, MPR_NOW);
+    mpr_sig_set_value(inputs[2], 0, 3, MPR_FLT, mnf2);
 
     return 0;
 
@@ -128,7 +128,7 @@ void loop()
     float val;
     while ((!terminate || i < 50) && !done) {
         val = (i % 10) * 1.0f;
-        mpr_sig_set_value(inputs[0], 0, 1, MPR_FLT, &val, MPR_NOW);
+        mpr_sig_set_value(inputs[0], 0, 1, MPR_FLT, &val);
         eprintf("insig_1 value updated to %f -->\n", val);
         sent += 1;
 

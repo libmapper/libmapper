@@ -24,6 +24,14 @@ public class Device extends mpr.AbstractObject
         super(dev);
     }
 
+    /* free */
+    private native void mprDeviceFree(long obj);
+    public void free() {
+        if (_obj != 0)
+            mprDeviceFree(_obj);
+        _obj = 0;
+    }
+
     /* self */
     @Override
     public Device self() {
@@ -73,11 +81,8 @@ public class Device extends mpr.AbstractObject
     public native boolean ready();
 
     /* manage update queues */
-    public native Time startQueue(Time t);
-    public Time startQueue() {
-        return startQueue(null);
-    }
-    public native Device sendQueue(Time t);
+    public native Time getTime();
+    public native Device setTime(Time t);
 
     /* retrieve associated signals */
     private native long signals(long dev, int dir);

@@ -575,27 +575,27 @@ namespace mpr {
             { return List<Map>(mpr_sig_get_maps(_obj, dir)); }
 
         /* Value update functions*/
-        Signal& set_value(int *val, int len, Time time)
-            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_INT32, val, *time)); }
-        Signal& set_value(float *val, int len, Time time)
-            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_FLT, val, *time)); }
-        Signal& set_value(double *val, int len, Time time)
-            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_DBL, val, *time)); }
+        Signal& set_value(int *val, int len)
+            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_INT32, val)); }
+        Signal& set_value(float *val, int len)
+            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_FLT, val)); }
+        Signal& set_value(double *val, int len)
+            { RETURN_SELF(mpr_sig_set_value(_obj, 0, len, MPR_DBL, val)); }
         template <typename T>
-        Signal& set_value(T val, Time time=0)
-            { return set_value(&val, 1, time); }
+        Signal& set_value(T val)
+            { return set_value(&val, 1); }
         template <typename T>
-        Signal& set_value(T* val, Time time=0)
-            { return set_value(val, 1, time); }
+        Signal& set_value(T* val)
+            { return set_value(val, 1); }
         template <typename T, int len>
-        Signal& set_value(T* val, Time time=0)
-            { return set_value(val, len, time); }
+        Signal& set_value(T* val)
+            { return set_value(val, len); }
         template <typename T, size_t N>
-        Signal& set_value(std::array<T,N> val, Time time=0)
-            { return set_value(&val[0], N, time); }
+        Signal& set_value(std::array<T,N> val)
+            { return set_value(&val[0], N); }
         template <typename T>
-        Signal& set_value(std::vector<T> val, Time time=0)
-            { return set_value(&val[0], (int)val.size(), time); }
+        Signal& set_value(std::vector<T> val)
+            { return set_value(&val[0], (int)val.size()); }
         const void *value() const
             { return mpr_sig_get_value(_obj, 0, 0); }
         const void *value(Time time) const
@@ -617,42 +617,40 @@ namespace mpr {
                 { return _id; }
             int is_active() const
                 { return mpr_sig_get_inst_is_active(_sig, _id); }
-            Instance& set_value(int *val, int len, Time time=0)
+            Instance& set_value(int *val, int len)
             {
-                mpr_sig_set_value(_sig, _id, len, MPR_INT32, val, *time);
+                mpr_sig_set_value(_sig, _id, len, MPR_INT32, val);
                 return (*this);
             }
-            Instance& set_value(float *val, int len, Time time=0)
+            Instance& set_value(float *val, int len)
             {
-                mpr_sig_set_value(_sig, _id, len, MPR_FLT, val, *time);
+                mpr_sig_set_value(_sig, _id, len, MPR_FLT, val);
                 return (*this);
             }
-            Instance& set_value(double *val, int len, Time time=0)
+            Instance& set_value(double *val, int len)
             {
-                mpr_sig_set_value(_sig, _id, len, MPR_DBL, val, *time);
+                mpr_sig_set_value(_sig, _id, len, MPR_DBL, val);
                 return (*this);
             }
 
             void release()
-                { mpr_sig_release_inst(_sig, _id, MPR_NOW); }
-            void release(Time time)
-                { mpr_sig_release_inst(_sig, _id, *time); }
+                { mpr_sig_release_inst(_sig, _id); }
 
             template <typename T>
-            Instance& set_value(T val, Time time=0)
-                { return set_value(&val, 1, time); }
+            Instance& set_value(T val)
+                { return set_value(&val, 1); }
             template <typename T>
-            Instance& set_value(T* val, int len=0, Time time=0)
-                { return set_value(val, len, time); }
+            Instance& set_value(T* val, int len=0)
+                { return set_value(val, len); }
             template <typename T>
-            Instance& set_value(T* val, Time time)
-                { return set_value(val, 1, time); }
+            Instance& set_value(T* val)
+                { return set_value(val, 1); }
             template <typename T, size_t N>
-            Instance& set_value(std::array<T,N> val, Time time=0)
-                { return set_value(&val[0], N, time); }
+            Instance& set_value(std::array<T,N> val)
+                { return set_value(&val[0], N); }
             template <typename T>
-            Instance& set_value(std::vector<T> val, Time time=0)
-                { return set_value(&val[0], val.size(), time); }
+            Instance& set_value(std::vector<T> val)
+                { return set_value(&val[0], val.size()); }
 
             mpr_id id() const
                 { return _id; }
@@ -688,8 +686,8 @@ namespace mpr {
             { RETURN_SELF(mpr_sig_reserve_inst(_obj, num, ids, data)); }
         Instance instance(int idx, mpr_status status) const
             { return Instance(_obj, mpr_sig_get_inst_id(_obj, idx, status)); }
-        Signal& remove_instance(Instance instance, Time time=0)
-            { RETURN_SELF(mpr_sig_remove_inst(_obj, instance._id, *time)); }
+        Signal& remove_instance(Instance instance)
+            { RETURN_SELF(mpr_sig_remove_inst(_obj, instance._id)); }
         Instance oldest_instance()
             { return Instance(_obj, mpr_sig_get_oldest_inst_id(_obj)); }
         Instance newest_instance()
@@ -767,10 +765,10 @@ namespace mpr {
 
         bool ready() const
             { return mpr_dev_get_is_ready(_obj); }
-        Time start_queue(Time time=MPR_NOW)
-            { mpr_dev_start_queue(_obj, *time); return time; }
-        Device& send_queue(Time time)
-            { RETURN_SELF(mpr_dev_send_queue(_obj, *time)); }
+        Time get_time()
+            { return mpr_dev_get_time(_obj); }
+        Device& set_time(Time time)
+            { RETURN_SELF(mpr_dev_set_time(_obj, *time)); }
 
         OBJ_METHODS(Device);
     };

@@ -172,9 +172,9 @@ void loop()
 
     while ((!terminate || i < 50) && !done) {
         for (j = 0; j < num_sources; j++) {
-            mpr_dev_poll(srcs[j], 0);
             eprintf("Updating source %d = %i\n", j, i);
-            mpr_sig_set_value(sendsigs[j], 0, 1, MPR_INT32, &i, MPR_NOW);
+            mpr_sig_set_value(sendsigs[j], 0, 1, MPR_INT32, &i);
+            mpr_dev_poll(srcs[j], 0);
         }
         sent++;
         mpr_dev_poll(dst, period);

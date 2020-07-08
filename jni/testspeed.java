@@ -21,14 +21,19 @@ class testspeed {
             });
 
         Listener l = new Listener() {
-            public void onEvent(Signal sig, mpr.signal.Event e, float[] v, Time time) {
+            public void onEvent(Signal sig, mpr.signal.Event e, float v, Time time) {
                 if (e == mpr.signal.Event.UPDATE)
-                testspeed.updated = true;
+                    testspeed.updated = true;
             }
         };
 
         Signal in = dev.addSignal(Direction.INCOMING, "insig", 1, Type.FLOAT,
-                                  "Hz", null, null, null, l);
+                                  "Hz", null, null, null, new Listener() {
+            public void onEvent(Signal sig, mpr.signal.Event e, float v, Time time) {
+                if (e == mpr.signal.Event.UPDATE)
+                    testspeed.updated = true;
+            }
+        });
 
         Signal out = dev.addSignal(Direction.OUTGOING, "outsig", 1, Type.INT32,
                                    "Hz", null, null, null, null);
@@ -42,6 +47,7 @@ class testspeed {
         Map map = new Map(out, in);
         map.push();
         while (!map.ready()) {
+            System.out.println("waiting for map");
             dev.poll(100);
         }
 
@@ -50,7 +56,7 @@ class testspeed {
         int i = 0;
         while (i < 10000) {
             if (testspeed.updated) {
-                out.setValue(i);
+                out.setValue(new int[] {i});
                 i++;
                 testspeed.updated = false;
                 if ((i % 1000) == 0)

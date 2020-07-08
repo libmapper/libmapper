@@ -52,7 +52,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     if (!value) {
         if (verbose)
             printf(" ––––––––\n");
-        mpr_sig_release_inst(sig, instance, MPR_NOW);
+        mpr_sig_release_inst(sig, instance);
         return;
     }
     else if (!verbose)

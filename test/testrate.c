@@ -27,8 +27,7 @@ mpr_sig recvsig = 0;
 int sent = 0;
 int received = 0;
 
-int count = 0;
-float expected[10];
+float expected;
 float period;
 
 /*! Creation of a local source. */
@@ -71,13 +70,10 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int len,
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s rec'ved %f (period: %f, jitter: %f, diff: %f)\n", name,
             *(float*)val, sig->period, sig->jitter, period - sig->period);
-    if (*(float*)val == expected[count])
+    if (*(float*)val == expected)
         ++received;
     else
-        eprintf("  expected %f\n", expected[count]);
-    ++count;
-    if (count >= 10)
-        count = 0;
+        eprintf("  expected %f\n", expected);
 }
 
 /*! Creation of a local destination. */
@@ -143,32 +139,21 @@ int setup_maps()
 
 void loop()
 {
-    int i = 0, j = 0, thresh = 0;
+    int i = 0, thresh = 0;
 
-    float vector[10];
-    for (i=0; i<10; i++) {
-        vector[i] = i;
-        expected[i] = vector[i] * 0.1;
-    }
+    float fval;
 
     i = 0;
     while ((!terminate || i < 50) && !done) {
+        fval = (float)i;
+        mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &fval);
+        eprintf("Sending update (period: %f; jitter: %f)\n",
+                sendsig->period, sendsig->jitter);
+        period = sendsig->period;
+        ++sent;
+        expected = fval * 0.1;
         mpr_dev_poll(src, 0);
-
-        // 10 times a second, we provide 10 samples, making a
-        // periodically-sampled signal of 100 Hz.
-        if (rand() % 200 > thresh) {
-            mpr_sig_set_value(sendsig, 0, 10, MPR_FLT, vector, MPR_NOW);
-            eprintf("Sending update (period: %f; jitter: %f)\n",
-                    sendsig->period, sendsig->jitter);
-            period = sendsig->period;
-            ++sent;
-        }
-
         mpr_dev_poll(dst, polltime);
-        j = i % 10;
-        ++vector[j];
-        expected[j] = vector[j] * 0.1;
         ++i;
 
         if (!verbose) {
@@ -245,7 +230,7 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (received != sent * 10) {
+    if (received != sent) {
         eprintf("Not all sent messages were received.\n");
         eprintf("Updated value %d time%s, but received %d of them.\n",
                 sent, sent == 1 ? "" : "s", received);

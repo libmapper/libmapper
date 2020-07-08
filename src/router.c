@@ -282,20 +282,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
 void _send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t, mpr_proto proto)
 {
     RETURN_UNLESS(msg);
-    // Check if a matching bundle exists
-    mpr_queue q = link->queues;
-    while (q) {
-        if (memcmp(&q->time, &t, sizeof(mpr_time))==0)
-            break;
-        q = q->next;
-    }
-    int is_local_only = link->local_dev == link->remote_dev;
-    if (q && !q->locked) {
-        // Add message to existing bundle
-        lo_bundle b = (proto == MPR_PROTO_UDP || is_local_only) ? q->bundle.udp : q->bundle.tcp;
-        lo_bundle_add_message(b, dst->path, msg);
-    }
-    else if (is_local_only) {
+    if (link->local_dev == link->remote_dev) {
         // set out-of-band timestamp
         mpr_dev_bundle_start(t, NULL);
         // call handler directly instead of sending over the network
@@ -304,22 +291,9 @@ void _send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
         lo_message_free(msg);
     }
     else {
-        // Send message immediately
-        lo_bundle b = lo_bundle_new(t);
+        // Add message to existing bundle
+        lo_bundle b = (proto == MPR_PROTO_UDP) ? link->bundle.udp : link->bundle.tcp;
         lo_bundle_add_message(b, dst->path, msg);
-        lo_address a;
-        lo_server s;
-        if (proto == MPR_PROTO_TCP) {
-            a = link->addr.tcp;
-            s = link->obj.graph->net.server.tcp;
-        }
-        else {
-            a = link->addr.udp;
-            s = link->obj.graph->net.server.udp;
-        }
-        RETURN_UNLESS(a);
-        lo_send_bundle_from(a, s, b);
-        lo_bundle_free_recursive(b);
     }
 }
 

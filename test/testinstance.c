@@ -209,7 +209,7 @@ void handler(mpr_sig sig, mpr_sig_evt e, mpr_id inst, int len, mpr_type type,
     }
     else if (e & MPR_SIG_REL_UPSTRM) {
         eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
-        mpr_sig_release_inst(sig, inst, MPR_NOW);
+        mpr_sig_release_inst(sig, inst);
     }
     else if (val) {
         eprintf("--> destination %s instance %i got %f\n", name, (int)inst, (*(float*)val));
@@ -217,7 +217,7 @@ void handler(mpr_sig sig, mpr_sig_evt e, mpr_id inst, int len, mpr_type type,
     }
     else {
         eprintf("--> destination %s instance %i got NULL\n", name, (int)inst);
-        mpr_sig_release_inst(sig, inst, MPR_NOW);
+        mpr_sig_release_inst(sig, inst);
     }
 }
 
@@ -319,7 +319,7 @@ void release_active_instances(mpr_sig sig)
 {
     int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE);
     for (i = 0; i < n; i++)
-        mpr_sig_release_inst(sig, mpr_sig_get_inst_id(sig, 0, MPR_STATUS_ACTIVE), MPR_NOW);
+        mpr_sig_release_inst(sig, mpr_sig_get_inst_id(sig, 0, MPR_STATUS_ACTIVE));
 }
 
 void loop(instance_type src_type, instance_type dst_type)
@@ -337,7 +337,7 @@ void loop(instance_type src_type, instance_type dst_type)
 
             // try to destroy an instance
             eprintf("--> Retiring multisend instance %"PR_MPR_ID"\n", inst);
-            mpr_sig_release_inst(multisend, inst, MPR_NOW);
+            mpr_sig_release_inst(multisend, inst);
 
             for (j = 0; j < num_parallel_inst; j++) {
                 inst = (inst + 1) % 10;
@@ -345,17 +345,17 @@ void loop(instance_type src_type, instance_type dst_type)
                 // try to update an instance
                 valf = inst * 1.0f;
                 eprintf("--> Updating multisend instance %"PR_MPR_ID" to %f\n", inst, valf);
-                mpr_sig_set_value(multisend, inst, 1, MPR_FLT, &valf, MPR_NOW);
+                mpr_sig_set_value(multisend, inst, 1, MPR_FLT, &valf);
             }
         }
         if (src_type & SINGLETON) {
             // update singleton source signal
             eprintf("--> Updating monosend to %d\n", i);
-            mpr_sig_set_value(monosend, 0, 1, MPR_INT32, &i, MPR_NOW);
+            mpr_sig_set_value(monosend, 0, 1, MPR_INT32, &i);
         }
 
-        mpr_dev_poll(dst, period);
         mpr_dev_poll(src, 0);
+        mpr_dev_poll(dst, period);
         i++;
 
         if (verbose) {
@@ -485,7 +485,7 @@ int run_test(test_config *config)
     // remove any extra destination instances allocated by previous tests
     while (5 <= mpr_sig_get_num_inst(multirecv, MPR_STATUS_ALL)) {
         eprintf("removing extra destination instance\n");
-        mpr_sig_remove_inst(multirecv, mpr_sig_get_inst_id(multirecv, 4, MPR_STATUS_ALL), MPR_NOW);
+        mpr_sig_remove_inst(multirecv, mpr_sig_get_inst_id(multirecv, 4, MPR_STATUS_ALL));
     }
 
     mpr_dev_poll(src, 100);
@@ -494,9 +494,9 @@ int run_test(test_config *config)
     if (INSTANCED & config->dst_type && SINGLETON == config->map_type) {
         // activate 3 destination instances
         eprintf("activating 3 destination instances\n");
-        mpr_sig_activate_inst(multirecv, 2, MPR_NOW);
-        mpr_sig_activate_inst(multirecv, 4, MPR_NOW);
-        mpr_sig_activate_inst(multirecv, 6, MPR_NOW);
+        mpr_sig_activate_inst(multirecv, 2);
+        mpr_sig_activate_inst(multirecv, 4);
+        mpr_sig_activate_inst(multirecv, 6);
     }
 
     loop(config->src_type, config->dst_type);

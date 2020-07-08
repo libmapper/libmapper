@@ -1769,6 +1769,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                     // assignment to timetag
                     // for now we will only allow assigning to output t_y
                     FAIL_IF(out[out_idx].var != VAR_Y, "Only output timetag is writable.");
+                    // disable writing to current timetag for now
+                    FAIL_IF(out[out_idx].hist_idx >= 0, "Only past samples of output timetag are writable.");
                     out[out_idx].toktype = TOK_ASSIGN_TT;
                     out[out_idx].datatype = MPR_DBL;
                     PUSH_TO_OPERATOR(out[out_idx]);
@@ -2509,7 +2511,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             break;
         case TOK_ASSIGN_TT:
-            if (tok->var != VAR_Y)
+            if (tok->var != VAR_Y || tok->hist_idx == 0)
                 goto error;
 #if TRACING
             printf("assigning timetag to t_y{%i}\n", tok->hist_idx);

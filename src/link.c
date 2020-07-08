@@ -79,46 +79,25 @@ void mpr_link_free(mpr_link link)
     FUNC_IF(lo_address_free, link->addr.tcp);
     if (link->local_dev->loc)
         mpr_dev_remove_link(link->local_dev, link->remote_dev);
-    while (link->queues) {
-        mpr_queue queue = link->queues;
-        lo_bundle_free_recursive(queue->bundle.udp);
-        lo_bundle_free_recursive(queue->bundle.tcp);
-        link->queues = queue->next;
-        free(queue);
-    }
+    lo_bundle_free_recursive(link->bundle.udp);
+    lo_bundle_free_recursive(link->bundle.tcp);
 }
 
-void mpr_link_start_queue(mpr_link link, mpr_time t)
+void mpr_link_start_bundle(mpr_link link, mpr_time t)
 {
     RETURN_UNLESS(link);
-    if (mpr_link_has_queue(link, t))
-        return;
     // need to create a new queue
-    mpr_queue q = malloc(sizeof(struct _mpr_queue));
-    memcpy(&q->time, &t, sizeof(mpr_time));
-    q->bundle.udp = lo_bundle_new(t);
+    link->bundle.udp = lo_bundle_new(t);
     if (link->local_dev != link->remote_dev)
-        q->bundle.tcp = lo_bundle_new(t);
-    q->next = link->queues;
-    q->locked = 0;
-    link->queues = q;
+        link->bundle.tcp = lo_bundle_new(t);
 }
 
-void mpr_link_send_queue(mpr_link link, mpr_time t)
+void mpr_link_send_bundle(mpr_link link)
 {
-    RETURN_UNLESS(link);
-    mpr_queue *q = &link->queues;
-    while (*q) {
-        if (memcmp(&(*q)->time, &t, sizeof(mpr_time))==0)
-            break;
-        q = &(*q)->next;
-    }
-    RETURN_UNLESS(*q);
-
-    (*q)->locked = 1;
+    RETURN_UNLESS(link && link->bundle.udp);
 
     if (link->local_dev == link->remote_dev) {
-        lo_bundle b = (*q)->bundle.udp;
+        lo_bundle b = link->bundle.udp;
         // set out-of-band timestamp
         mpr_dev_bundle_start(lo_bundle_get_timestamp(b), NULL);
         // call handler directly instead of sending over the network
@@ -139,20 +118,18 @@ void mpr_link_send_queue(mpr_link link, mpr_time t)
             }
             ++i;
         }
-        lo_bundle_free_recursive((*q)->bundle.udp);
+        lo_bundle_free_recursive(link->bundle.udp);
     }
     else {
         mpr_net n = &link->obj.graph->net;
-        if (lo_bundle_count((*q)->bundle.udp))
-            lo_send_bundle_from(link->addr.udp, n->server.udp, (*q)->bundle.udp);
-        lo_bundle_free_recursive((*q)->bundle.udp);
-        if (lo_bundle_count((*q)->bundle.tcp))
-            lo_send_bundle_from(link->addr.tcp, n->server.tcp, (*q)->bundle.tcp);
-        lo_bundle_free_recursive((*q)->bundle.tcp);
+        if (lo_bundle_count(link->bundle.udp))
+            lo_send_bundle_from(link->addr.udp, n->server.udp, link->bundle.udp);
+        lo_bundle_free_recursive(link->bundle.udp);
+        if (lo_bundle_count(link->bundle.tcp))
+            lo_send_bundle_from(link->addr.tcp, n->server.tcp, link->bundle.tcp);
+        lo_bundle_free_recursive(link->bundle.tcp);
     }
-    mpr_queue temp = *q;
-    *q = (*q)->next;
-    free(temp);
+    link->bundle.udp = link->bundle.tcp = 0;
 }
 
 static int cmp_qry_link_maps(const void *context_data, mpr_map map)

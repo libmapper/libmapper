@@ -18,24 +18,28 @@ public class Graph
                 flags |= t.value();
         }
         _graph = mprGraphNew(flags);
+        _owned = true;
     }
     public Graph(Type type) {
         _graph = mprGraphNew(type.value());
         _listeners = new HashSet();
+        _owned = true;
     }
     public Graph() {
         _graph = mprGraphNew(Type.OBJECT.value());
         _listeners = new HashSet();
+        _owned = true;
     }
     public Graph(long graph) {
         _graph = graph;
         _listeners = new HashSet();
+        _owned = false;
     }
 
     /* free */
     private native void mprGraphFree(long graph);
     public void free() {
-        if (_graph != 0)
+        if (_graph != 0 && _owned)
             mprGraphFree(_graph);
         _graph = 0;
     }
@@ -118,6 +122,7 @@ public class Graph
     }
 
     private long _graph;
+    private boolean _owned;
     private Set<Listener> _listeners;
     public boolean valid() {
         return _graph != 0;

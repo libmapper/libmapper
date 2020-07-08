@@ -127,10 +127,11 @@ int setup_maps(int calibrate)
     mpr_obj_push(map);
 
     // Wait until mapping has been established
+    int iter = 4;
     do {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
-    } while (!done && !mpr_map_get_is_ready(map));
+    } while (!done && (!mpr_map_get_is_ready(map) || --iter));
 
     eprintf("map initialized with expression '%s'\n",
             mpr_obj_get_prop_as_str(map, MPR_PROP_EXPR, NULL));
@@ -157,10 +158,9 @@ void loop()
         setup_maps(1);
         i = 0;
         while (i < 50 && !done) {
-            mpr_dev_poll(src, 0);
             val += (rand() % 6) - 3;
             eprintf("Updating signal %s to %d\n", name, val);
-            mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &val, MPR_NOW);
+            mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &val);
             if (0 == i) {
                 sMin = sMax = val;
                 changed = 1;
@@ -184,6 +184,7 @@ void loop()
             }
             expected = val * M + B;
             ++sent;
+            mpr_dev_poll(src, 0);
             mpr_dev_poll(dst, period);
             i++;
             if (!verbose) {
@@ -196,12 +197,12 @@ void loop()
         setup_maps(0);
         i = 0;
         while (i < 50 && !done) {
-            mpr_dev_poll(src, 0);
             val = i;
             eprintf("Updating signal %s to %d\n", name, val);
-            mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &val, MPR_NOW);
+            mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &val);
             expected = val * M + B;
             ++sent;
+            mpr_dev_poll(src, 0);
             mpr_dev_poll(dst, period);
             i++;
             if (!verbose) {

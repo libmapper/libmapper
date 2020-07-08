@@ -151,8 +151,6 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
 int mpr_dev_bundle_start(lo_timetag t, void *data);
 
-int mpr_dev_has_queue(mpr_dev dev, mpr_time t);
-
 inline static void mpr_dev_LID_incref(mpr_dev dev, mpr_id_map map)
 {
     ++map->LID_refcount;
@@ -174,8 +172,6 @@ void mpr_dev_on_registered(mpr_dev dev);
 void mpr_dev_add_sig_methods(mpr_dev dev, mpr_sig sig);
 
 void mpr_dev_remove_sig_methods(mpr_dev dev, mpr_sig sig);
-
-int mpr_dev_route_query(mpr_dev dev, mpr_sig sig, mpr_time t);
 
 void mpr_dev_release_scope(mpr_dev dev, const char *scope);
 
@@ -229,10 +225,7 @@ void mpr_rtr_remove_inst(mpr_rtr rtr, mpr_sig sig, int idx);
 
 /*! For a given signal instance, calculate mapping outputs and forward to
  *  destinations. */
-void mpr_rtr_process_sig(mpr_rtr r, mpr_sig s, int inst_idx, const void *val,
-                         mpr_time t);
-
-int mpr_rtr_send_query(mpr_rtr r, mpr_sig s, mpr_time t);
+void mpr_rtr_process_sig(mpr_rtr r, mpr_sig s, int inst_idx, const void *val, mpr_time t);
 
 void mpr_rtr_add_map(mpr_rtr r, mpr_map m);
 
@@ -285,7 +278,7 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
 int mpr_sig_get_idmap_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int activate);
 
 /*! Release a specific signal instance. */
-void mpr_sig_release_inst_internal(mpr_sig s, int inst_idx, mpr_time time);
+void mpr_sig_release_inst_internal(mpr_sig s, int inst_idx);
 
 /**** Links ****/
 
@@ -303,25 +296,12 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port,
                       int data_port);
 void mpr_link_free(mpr_link link);
 void mpr_link_send(mpr_link link, net_msg_t cmd);
-void mpr_link_start_queue(mpr_link link, mpr_time t);
-void mpr_link_send_queue(mpr_link link, mpr_time t);
+void mpr_link_start_bundle(mpr_link link, mpr_time t);
+void mpr_link_send_bundle(mpr_link link);
 
 mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2);
 
 int mpr_link_get_is_local(mpr_link link);
-
-inline static int mpr_link_has_queue(mpr_link link, mpr_time t)
-{
-    RETURN_UNLESS(link, 0);
-    // check if queue already exists
-    mpr_queue q = link->queues;
-    while (q) {
-        if (memcmp(&q->time, &t, sizeof(mpr_time))==0)
-            return 1;
-        q = q->next;
-    }
-    return 0;
-}
 
 /**** Maps ****/
 

@@ -1154,22 +1154,14 @@ typedef struct _device_list {
     }
 
     // queue management
-    timetag *start_queue(timetag *py_tt=0) {
-        if (py_tt) {
-            mpr_time *tt = (mpr_time*)py_tt;
-            mpr_dev_start_queue((mpr_dev)$self, *tt);
-            return py_tt;
-        }
-        else {
-            mpr_time *tt = (mpr_time*)malloc(sizeof(mpr_time));
-            mpr_time_set(tt, MPR_NOW);
-            mpr_dev_start_queue((mpr_dev)$self, MPR_NOW);
-            return (timetag*)tt;
-        }
+    timetag *get_time() {
+        mpr_time *tt = (mpr_time*)malloc(sizeof(mpr_time));
+        mpr_time_set(tt, mpr_dev_get_time((mpr_dev)$self));
+        return (timetag*)tt;
     }
-    device *send_queue(timetag *py_tt) {
+    device *set_time(timetag *py_tt) {
         mpr_time *tt = (mpr_time*)py_tt;
-        mpr_dev_send_queue((mpr_dev)$self, *tt);
+        mpr_dev_set_time((mpr_dev)$self, *tt);
         return $self;
     }
 
@@ -1359,12 +1351,12 @@ typedef struct _signal_list {
     int instance_id(int idx, int status=MPR_STATUS_ACTIVE) {
         return mpr_sig_get_inst_id((mpr_sig)$self, idx, status);
     }
-    signal *release_instance(int id, timetag *tt=0) {
-        mpr_sig_release_inst((mpr_sig)$self, id, tt ? *(mpr_time*)tt : MPR_NOW);
+    signal *release_instance(int id) {
+        mpr_sig_release_inst((mpr_sig)$self, id);
         return $self;
     }
-    signal *remove_instance(int id, timetag *tt=0) {
-        mpr_sig_remove_inst((mpr_sig)$self, id, tt ? *(mpr_time*)tt : MPR_NOW);
+    signal *remove_instance(int id) {
+        mpr_sig_remove_inst((mpr_sig)$self, id);
         return $self;
     }
     signal *reserve_instances(int num=1) {
@@ -1405,26 +1397,22 @@ typedef struct _signal_list {
         mpr_sig_set_cb(sig, h, events);
         return $self;
     }
-    signal *set_value(propval val=0, timetag *tt=0) {
+    signal *set_value(propval val=0) {
         mpr_sig sig = (mpr_sig)$self;
         if (!val) {
-            mpr_sig_set_value(sig, 0, 0, MPR_NULL, NULL,
-                              tt ? *(mpr_time*)tt : MPR_NOW);
+            mpr_sig_set_value(sig, 0, 0, MPR_NULL, NULL);
             return $self;
         }
-        mpr_sig_set_value(sig, 0, val->len, val->type, val->val,
-                          tt ? *(mpr_time*)tt : MPR_NOW);
+        mpr_sig_set_value(sig, 0, val->len, val->type, val->val);
         return $self;
     }
-    signal *set_value(int id, propval val=0, timetag *tt=0) {
+    signal *set_value(int id, propval val=0) {
         mpr_sig sig = (mpr_sig)$self;
         if (!val) {
-            mpr_sig_set_value(sig, 0, 0, MPR_NULL, NULL,
-                              tt ? *(mpr_time*)tt : MPR_NOW);
+            mpr_sig_set_value(sig, 0, 0, MPR_NULL, NULL);
             return $self;
         }
-        mpr_sig_set_value(sig, id, val->len, val->type, val->val,
-                          tt ? *(mpr_time*)tt : MPR_NOW);
+        mpr_sig_set_value(sig, id, val->len, val->type, val->val);
         return $self;
     }
 

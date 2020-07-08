@@ -216,7 +216,7 @@ void mpr_sig_free_internal(mpr_sig s)
         // Free instances
         for (i = 0; i < s->loc->idmap_len; i++) {
             if (s->loc->idmaps[i].inst)
-                mpr_sig_release_inst_internal(s, i, MPR_NOW);
+                mpr_sig_release_inst_internal(s, i);
         }
         free(s->loc->idmaps);
         for (i = 0; i < s->num_inst; i++) {
@@ -640,12 +640,11 @@ void mpr_sig_update_timing_stats(mpr_sig sig, float diff)
     }
 }
 
-void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
-                       const void *val, mpr_time time)
+void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const void *val)
 {
     RETURN_UNLESS(sig && sig->loc);
     if (!val) {
-        mpr_sig_release_inst(sig, id, time);
+        mpr_sig_release_inst(sig, id);
         return;
     }
     if (!mpr_type_get_is_num(type)) {
@@ -655,10 +654,10 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
 #endif
         return;
     }
-    if (len % sig->len != 0) {
+    if (len && (len != sig->len)) {
 #ifdef DEBUG
-        trace("called update on signal '%s' with value length %d (should be "
-              "a multiple of %d)\n", sig->name, len, sig->len);
+        trace("called update on signal '%s' with value length %d (should be  %d)\n",
+              sig->name, len, sig->len);
 #endif
         return;
     }
@@ -674,17 +673,12 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
                 RETURN_UNLESS(((double*)val)[i] == ((double*)val)[i]);
         }
     }
-    int send_queue = 1;
-    if (mpr_time_get_is_now(&time))
-        mpr_time_set(&time, MPR_NOW);
-    else if (mpr_dev_has_queue(sig->dev, time))
-        send_queue = 0;
 
+    mpr_time time = mpr_dev_get_time(sig->dev);
     int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, 0, time, 1);
     RETURN_UNLESS(idmap_idx >= 0);
 
     mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
-    void *coerced = (void*)val;
 
     // update timing statistics
     double diff = mpr_time_get_diff(time, si->time);
@@ -693,53 +687,39 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type,
 
     if (!len || !val) {
         si->has_val = 0;
-        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, coerced, si->time);
+        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, 0, si->time);
         return;
     }
 
-    size_t n = mpr_type_get_size(type) * len, m = mpr_sig_get_vector_bytes(sig);
+    size_t n = mpr_sig_get_vector_bytes(sig);
 
-    // send the update(s)
+    void *coerced = (void*)val;
     if (type != sig->type) {
-        coerced = alloca(m);
+        coerced = alloca(n);
         set_coerced_val(sig->len, type, val, sig->len, sig->type, coerced);
     }
-    if (send_queue)
-        mpr_dev_start_queue(sig->dev, time);
-    while (len) {
-        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, coerced, si->time);
-        len -= sig->len;
-        if (0 >= len) {
-            // copy last value to signal instance memory
-            memcpy(si->val, coerced, m);
-            si->has_val = 1;
-        }
-        else if (type != sig->type)
-            set_coerced_val(sig->len, type, val + n, sig->len, sig->type, coerced);
-        else
-            coerced += m;
-    }
-    if (send_queue)
-        mpr_dev_send_queue(sig->dev, time);
+
+    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, coerced, si->time);
+    memcpy(si->val, coerced, n);
+    si->has_val = 1;
 }
 
-void mpr_sig_release_inst(mpr_sig sig, mpr_id id, mpr_time time)
+void mpr_sig_release_inst(mpr_sig sig, mpr_id id)
 {
     RETURN_UNLESS(sig && sig->loc && sig->use_inst);
     int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
     if (idmap_idx >= 0)
-        mpr_sig_release_inst_internal(sig, idmap_idx, time);
+        mpr_sig_release_inst_internal(sig, idmap_idx);
 }
 
-void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx, mpr_time t)
+void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx)
 {
     mpr_sig_idmap_t *smap = &sig->loc->idmaps[idmap_idx];
     RETURN_UNLESS(smap->inst);
 
-    if (mpr_time_get_is_now(&t))
-        mpr_time_set(&t, MPR_NOW);
+    mpr_time time = mpr_dev_get_time(sig->dev);
 
-    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, 0, t);
+    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, 0, time);
 
     if (mpr_dev_LID_decref(sig->dev, sig->loc->group, smap->map))
         smap->map = 0;
@@ -757,12 +737,9 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx, mpr_time t)
     smap->inst = 0;
 }
 
-void mpr_sig_remove_inst(mpr_sig sig, mpr_id id, mpr_time time)
+void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
 {
     RETURN_UNLESS(sig && sig->loc && sig->use_inst);
-
-    if (mpr_time_get_is_now(&time))
-        mpr_time_set(&time, MPR_NOW);
 
     int i, remove_idx;
     for (i = 0; i < sig->num_inst; i++) {
@@ -773,7 +750,7 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id, mpr_time time)
 
     if (sig->loc->inst[i]->active) {
        // First release instance
-       mpr_sig_release_inst_internal(sig, i, time);
+       mpr_sig_release_inst_internal(sig, i);
     }
 
     remove_idx = sig->loc->inst[i]->idx;
@@ -848,12 +825,11 @@ mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
     return 0;
 }
 
-int mpr_sig_activate_inst(mpr_sig sig, mpr_id id, mpr_time time)
+int mpr_sig_activate_inst(mpr_sig sig, mpr_id id)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
     RETURN_UNLESS(sig->use_inst, 0);
-    if (mpr_time_get_is_now(&time))
-        mpr_time_set(&time, MPR_NOW);
+    mpr_time time = mpr_dev_get_time(sig->dev);
     int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, 0, time, 1);
     return idmap_idx >= 0;
 }

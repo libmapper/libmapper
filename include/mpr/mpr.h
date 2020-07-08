@@ -244,18 +244,18 @@ int mpr_dev_poll(mpr_dev dev, int block_ms);
  *                      Zero otherwise. */
 int mpr_dev_get_is_ready(mpr_dev dev);
 
-/*! Start a time-tagged queue.
+/*! Get the current time for a device.
  *  \param dev          The device to use.
- *  \param time         A time to use for the updates bundled by this queue,
- *                      or MPR_NOW to use the current local time.
- *  \return             The time used to identify this queue. */
-mpr_time mpr_dev_start_queue(mpr_dev dev, mpr_time time);
+ *  \return             The current time. */
+mpr_time mpr_dev_get_time(mpr_dev dev);
 
-/*! Dispatch a time-tagged queue.
+/*! Set the time for a device. Use only if user code has access to a more accurate
+ *  timestamp than the operating system.
  *  \param dev          The device to use.
- *  \param time         The time for an existing queue created with
- *                      mpr_dev_start_queue(). */
-void mpr_dev_send_queue(mpr_dev dev, mpr_time time);
+ *  \param time         The time to set. This time will be used for tagging signal
+ *                      updates until the next occurrence mpr_dev_set_time() or
+ *                      mpr_dev_poll(). */
+void mpr_dev_set_time(mpr_dev dev, mpr_time time);
 
 /** @} */ // end of group Devices
 
@@ -321,13 +321,8 @@ void mpr_sig_free(mpr_sig sig);
  *                      type is MPR_INT32, this should be int*; if the signal
  *                      type is MPR_FLOAT, this should be float* (etc).  It
  *                      should be an array at least as long as the signal's
- *                      length property.
- *  \param time         The time at which the value update was aquired. If NULL,
- *                      libmpr will tag the value update with the current
- *                      time.  See mpr_dev_start_queue() for more information on
- *                      bundling multiple signal updates with the same time. */
-void mpr_sig_set_value(mpr_sig sig, mpr_id inst, int length, mpr_type type,
-                       const void *value, mpr_time time);
+ *                      length property. */
+void mpr_sig_set_value(mpr_sig sig, mpr_id inst, int length, mpr_type type, const void *value);
 
 /*! Get the value of a signal instance.
  *  \param sig          The signal to operate on.
@@ -379,21 +374,13 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data);
 /*! Release a specific instance of a signal by removing it from the list of
  *  active instances and adding it to the reserve list.
  *  \param sig          The signal to operate on.
- *  \param inst         The identifier of the instance to suspend.
- *  \param time         The time at which the instance was released; if NULL,
- *                      will be tagged with the current time. See
- *                      mpr_dev_start_queue() for more information on
- *                      bundling multiple signal updates with the same time. */
-void mpr_sig_release_inst(mpr_sig sig, mpr_id inst, mpr_time time);
+ *  \param inst         The identifier of the instance to suspend. */
+void mpr_sig_release_inst(mpr_sig sig, mpr_id inst);
 
 /*! Remove a specific instance of a signal and free its memory.
  *  \param sig          The signal to operate on.
- *  \param inst         The identifier of the instance to suspend.
- *  \param time         The time at which the instance was removed; if NULL,
- *                      will be tagged with the current time. See
- *                      mpr_dev_start_queue() for more information on
- *                      bundling multiple signal updates with the same time. */
-void mpr_sig_remove_inst(mpr_sig sig, mpr_id inst, mpr_time time);
+ *  \param inst         The identifier of the instance to suspend. */
+void mpr_sig_remove_inst(mpr_sig sig, mpr_id inst);
 
 /*! Return whether a given signal instance is currently active.
  *  \param sig          The signal to operate on.
@@ -405,13 +392,8 @@ int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id inst);
  *  to use this function, since signal instances will be automatically activated as necessary when
  *  signals are updated by mpr_sig_set_value() or through a map.
  *  \param sig          The signal to operate on.
- *  \param inst         The identifier of the instance to activate.
- *  \param time         The time at which the instance was activated; if NULL,
- *                      will be tagged with the current time. See
- *                      mpr_dev_start_queue() for more information on
- *                      bundling multiple signal updates with the same time.
- *  \return             Non-zero if the instance is active, zero otherwise. */
-int mpr_sig_activate_inst(mpr_sig sig, mpr_id inst, mpr_time time);
+ *  \param inst         The identifier of the instance to activate. */
+int mpr_sig_activate_inst(mpr_sig sig, mpr_id inst);
 
 /*! Get the local identifier of the oldest active instance.
  *  \param sig          The signal to operate on.

@@ -38,8 +38,9 @@ class test {
 
         g.addListener(new mpr.graph.Listener<Signal>() {
             public void onEvent(Signal sig, mpr.graph.Event event) {
-                mpr.AbstractObject.Properties ps = sig.properties();
-                mpr.AbstractObject.Properties pd = sig.device().properties();
+                System.out.println("Graph evnt signal");
+                mpr.Signal.Properties ps = sig.properties();
+                mpr.Device.Properties pd = sig.device().properties();
                 System.out.println("graph record "+event+" for signal "
                                    +pd.get("name")+":"+ps.get("name"));
                 for (int i = 0; i < ps.count(); i++) {
@@ -50,6 +51,7 @@ class test {
 
         g.addListener(new mpr.graph.Listener<mpr.Map>() {
             public void onEvent(mpr.Map map, mpr.graph.Event event) {
+                System.out.println("Graph evnt map");
                 System.out.print("graph record "+event+" for map ");
                 for (mpr.Signal s : map.signals(Location.SOURCE))
                     System.out.print(s.device().properties().get("name")+":"
@@ -141,7 +143,7 @@ class test {
             System.out.println("Signal has no value.");
 
         // Just to test vector-valued signal and time support,
-        out1.setValue(new int []{i}, Time.NOW);
+        out1.setValue(new int []{i});
 
         while (i <= 100) {
             System.out.println("Updated signal out1 value to: " + i);

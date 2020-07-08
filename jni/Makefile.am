@@ -34,7 +34,7 @@ JCLASSESINTERNAL = mpr/Signal$$Instance.class
 
 JJAVA = $(JCLASSES:%.class=%.java)
 
-BUILT_SOURCES = $(JHEADERS) test.class testqueue.class testreverse.class \
+BUILT_SOURCES = $(JHEADERS) test.class testreverse.class \
     testspeed.class libmpr.jar
 MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
     test*.class
@@ -65,9 +65,6 @@ mpr/%.class: mpr/%.java
 test.class: test.java $(JCLASSES)
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
-testqueue.class: testqueue.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
-
 testreverse.class: testreverse.java $(JCLASSES)
 	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
 
@@ -82,10 +79,10 @@ libmpr.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	  ln -v -s ../../$@; \
 	  fi # For processing test sketch
 
-EXTRA_DIST = $(JJAVA) test.java testqueue.java testreverse.java testspeed.java \
+EXTRA_DIST = $(JJAVA) test.java testreverse.java testspeed.java \
              $(JHEADERS)
 
-test_all_ordered = test testqueue testreverse testspeed
+test_all_ordered = test testreverse testspeed
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! java -Djava.library.path=.libs -cp libmpr.jar:. $$i; then exit 1; fi; done

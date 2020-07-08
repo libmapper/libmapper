@@ -13,14 +13,6 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
     /* constructor */
     public AbstractObject(long obj) { _obj = obj; }
 
-    /* free */
-    private native void mprObjectFree(long obj);
-    public void free() {
-        if (_obj != 0)
-            mprObjectFree(_obj);
-        _obj = 0;
-    }
-
     /* self */
     abstract T self();
 

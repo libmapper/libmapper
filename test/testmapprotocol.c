@@ -157,11 +157,11 @@ void loop()
     int i = 0;
     const char *name = mpr_obj_get_prop_as_str(sendsig, MPR_PROP_NAME, NULL);
     while (!done && i < 50) {
-        mpr_dev_poll(src, 0);
         float val = i * 1.0f;
         eprintf("Updating signal %s to %f\n", name, val);
-        mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &val, MPR_NOW);
+        mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &val);
         sent++;
+        mpr_dev_poll(src, 0);
         mpr_dev_poll(dst, period);
         ++i;
         if (!verbose) {

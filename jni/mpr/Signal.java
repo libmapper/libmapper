@@ -93,15 +93,9 @@ public class Signal extends AbstractObject
     public native int numReservedInstances();
 
     /* set value */
-    public native Signal setValue(long id, Object value, Time time);
-    public Signal setValue(long id, Object value) {
-        return setValue(id, value, null);
-    }
+    public native Signal setValue(long id, Object value);
     public Signal setValue(Object value) {
-        return setValue(0, value, null);
-    }
-    public Signal setValue(Object value, Time time) {
-        return setValue(0, value, time);
+        return setValue(0, value);
     }
 
     /* get value */
@@ -132,19 +126,10 @@ public class Signal extends AbstractObject
         }
 
         /* release */
-        public native void release(Time t);
-        public void release() {
-            release(null);
-        }
+        public native void release();
 
         /* remove instances */
-        private native void mprFreeInstance(long sig, long id, Time t);
-        public void free(Time t) {
-            mprFreeInstance(_sigptr, _id, t);
-        }
-        public void free() {
-            mprFreeInstance(_sigptr, _id, null);
-        }
+        public native void free();
 
         public Signal signal() { return _sigobj; }
 
@@ -154,12 +139,8 @@ public class Signal extends AbstractObject
         public boolean hasValue() { return _sigobj.hasValue(_id); }
 
         /* update */
-        public Instance setValue(Object value, Time time) {
-            _sigobj.setValue(_id, value, time);
-            return this;
-        }
         public Instance setValue(Object value) {
-            _sigobj.setValue(_id, value, null);
+            _sigobj.setValue(_id, value);
             return this;
         }
 
@@ -169,6 +150,11 @@ public class Signal extends AbstractObject
         /* userObject */
         public native java.lang.Object userReference();
         public native Instance setUserReference(java.lang.Object obj);
+
+        /* properties */
+        // TODO: filter for instance-specific properties like id, value, time
+        public Signal.Properties properties()
+            { return _sigobj.properties(); }
 
         private Signal _sigobj;
         private long _sigptr;
