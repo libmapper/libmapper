@@ -193,7 +193,7 @@ void mpr_obj_push(mpr_obj o)
     }
 
     // clear the staged properties
-    mpr_tbl_clear(o->props.staged);
+    FUNC_IF(mpr_tbl_clear, o->props.staged);
 }
 
 void mpr_obj_print(mpr_obj o, int staged)
