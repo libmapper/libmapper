@@ -1,15 +1,15 @@
 #!/bin/sh
 
 PY=$1
-PYMACHINE="$($PY -c 'import platform; print(platform.machine())')"
+PYPLATFORM="$($PY -c 'import distutils.util as u; import sys; print("%s-%d.%d"%(u.get_platform(), sys.version_info.major, sys.version_info.minor))')"
 ARCHES="$(ls -d build/lib.*/$2*.so)"
 
 # If the Python platform architecture is found, copy that one
 for A in $ARCHES
 do
-    if file $A | grep -q $PYMACHINE; then
-	echo $A
-	exit 0
+    if ls $A | grep -q $PYPLATFORM; then
+	      echo $A
+	      exit 0
     fi
 done
 
