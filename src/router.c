@@ -4,12 +4,9 @@
 
 #include <lo/lo.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
-#include <mpr/mpr.h>
-
-static void _send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg,
-                                mpr_time t, mpr_proto proto);
+#include <mapper/mapper.h>
 
 static int _is_map_in_scope(mpr_map map, mpr_id id)
 {
@@ -127,7 +124,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
                 msg = 0;
                 if (!map->use_inst || in_scope) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                    mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
                 }
             }
 
@@ -149,7 +146,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
 
                 if (slot->dir == MPR_DIR_IN) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    _send_or_bundle_msg(slot->link, slot->sig, msg, t, map->protocol);
+                    mpr_link_add_msg(slot->link, slot->sig, msg, t, map->protocol);
                 }
             }
         }
@@ -183,7 +180,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             char types[sig->len];
             memset(types, sig->type, sig->len);
             msg = mpr_map_build_msg(map, slot, val, types, sig->use_inst ? idmap : 0);
-            _send_or_bundle_msg(map->dst->link, map->dst->sig, msg, t, map->protocol);
+            mpr_link_add_msg(map->dst->link, map->dst->sig, msg, t, map->protocol);
             continue;
         }
 
@@ -235,7 +232,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             /* send instance release if dst is instanced and either src or map is also instanced. */
             if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE && map->use_inst) {
                 msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[idmap_idx].map : idmap);
-                _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
                 if (map_manages_inst) {
                     mpr_dev_LID_decref(rtr->dev, 0, idmap);
                     idmap = map->idmap = 0;
@@ -255,15 +252,15 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
                 else {
                     msg = mpr_map_build_msg(map, slot, result, dst_types, idmaps[idmap_idx].map);
                 }
-                _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg,
-                                    *(mpr_time*)mpr_value_get_time(&dst_slot->loc->val, idx),
-                                    map->protocol);
+                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg,
+                                 *(mpr_time*)mpr_value_get_time(&dst_slot->loc->val, idx),
+                                 map->protocol);
             }
             /* send instance release if dst is instanced and either src or map
              * is also instanced. */
             if (idmap && status & EXPR_RELEASE_AFTER_UPDATE && map->use_inst) {
                 msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[idmap_idx].map : idmap);
-                _send_or_bundle_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
                 if (map_manages_inst) {
                     mpr_dev_LID_decref(rtr->dev, 0, idmap);
                     idmap = map->idmap = 0;
@@ -274,27 +271,6 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
         }
     }
     *lock = 0;
-}
-
-// note on memory handling of mpr_rtr_bundle_msg():
-// path: not owned, will not be freed (assumed is signal name, owned by signal)
-// message: will be owned, will be freed when done
-void _send_or_bundle_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t, mpr_proto proto)
-{
-    RETURN_UNLESS(msg);
-    if (link->local_dev == link->remote_dev) {
-        // set out-of-band timestamp
-        mpr_dev_bundle_start(t, NULL);
-        // call handler directly instead of sending over the network
-        mpr_dev_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
-                        lo_message_get_argc(msg), msg, (void*)dst);
-        lo_message_free(msg);
-    }
-    else {
-        // Add message to existing bundle
-        lo_bundle b = (proto == MPR_PROTO_UDP) ? link->bundle.udp : link->bundle.tcp;
-        lo_bundle_add_message(b, dst->path, msg);
-    }
 }
 
 static mpr_rtr_sig _add_rtr_sig(mpr_rtr rtr, mpr_sig sig)

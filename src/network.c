@@ -24,10 +24,10 @@
  #endif
 #endif
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
 #include "config.h"
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 
@@ -156,11 +156,11 @@ const int NUM_GRAPH_HANDLERS =
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
 {
-    trace_net("[libmpr] liblo server error %d in path %s: %s\n", num, where, msg);
+    trace_net("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
 }
 
 /* Functions for handling the resource allocation scheme.  If check_collisions()
- * returns 1, the resource in question should be probed on the libmpr bus. */
+ * returns 1, the resource in question should be probed on the libmapper bus. */
 static int check_collisions(mpr_net net, mpr_allocated resource);
 
 /*! Local function to get the IP address of a network interface. */
@@ -186,7 +186,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
         }
 
         /* Note, we could also check for IFF_MULTICAST-- however this is the
-         * data-sending port, not the libmpr bus port. */
+         * data-sending port, not the libmapper bus port. */
 
         if (AF_INET == sa->sin_family && ifap->ifa_flags & IFF_UP
             && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0) {
@@ -697,7 +697,7 @@ static void mpr_net_maybe_send_ping(mpr_net net, int force)
 }
 
 /*! This is the main function to be called once in a while from a program so
- *  that the libmpr bus can be automatically managed. */
+ *  that the libmapper bus can be automatically managed. */
 void mpr_net_poll(mpr_net net)
 {
     // send out any cached messages

@@ -2,7 +2,7 @@
 
 import Tkinter
 import sys
-import mpr
+import mapper as mpr
 
 def on_gui_change(x):
     sig_out.update(int(x))
@@ -16,7 +16,7 @@ sig_in = dev.add_input_signal("signal", 1, mpr.INT32, None, 0, 100, on_change)
 sig_out = dev.add_output_signal("signal", 1, mpr.INT32, None, 0, 100)
 
 master = Tkinter.Tk()
-master.title("libmpr Python GUI demo")
+master.title("libmapper Python GUI demo")
 
 name = Tkinter.StringVar()
 name.set("Waiting for device name...")

@@ -14,7 +14,7 @@
  #endif
 #endif
 
-#include <mpr/mpr_constants.h>
+#include <mapper/mapper_constants.h>
 
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
@@ -23,9 +23,9 @@
 #define PR_MPR_ID "llu"
 #endif
 
-/**** Defined in mpr.h ****/
+/**** Defined in mapper.h ****/
 
-/* Types defined here replace opaque prototypes in mpr.h, thus we cannot
+/* Types defined here replace opaque prototypes in mapper.h, thus we cannot
  * include it here.  Instead we include some prototypes here. Typedefs cannot
  * be repeated, therefore they are refered to by struct name. */
 

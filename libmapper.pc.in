@@ -1,0 +1,11 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libmapper
+Description: A library for mapping controllers and synthesizers.
+Requires: @LIBLO@
+Version: @VERSION@
+Libs: -L${libdir} -lmpr
+Cflags: -I${includedir}/mpr

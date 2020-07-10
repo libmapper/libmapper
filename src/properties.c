@@ -5,7 +5,7 @@
 #include <assert.h>
 
 #include "types_internal.h"
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 
 #ifdef DEBUG
 #define TRACING 0 /* Set non-zero to see parsed properties. */

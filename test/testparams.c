@@ -3,7 +3,7 @@
 #include <string.h>
 #include <lo/lo_lowlevel.h>
 #include "../src/types_internal.h"
-#include "../src/mpr_internal.h"
+#include "../src/mapper_internal.h"
 
 int verbose = 1;
 

@@ -1,6 +1,6 @@
-# Getting started with libmpr
+# Getting started with libmapper
 
-Since _libmpr_ uses GNU autoconf, getting started with the library is the
+Since _libmapper_ uses GNU autoconf, getting started with the library is the
 same as any other library on Linux; use `./configure` and then `make` to compile
 it.  You'll need `swig` available if you want to compile the Python bindings.
 On Mac OS X, we provide a precompiled Framework bundle for 32- and 64-bit Intel
@@ -28,7 +28,7 @@ clashing.
 
 ### Creating a device
 
-To create a _libmpr_ device, it is necessary to provide a few parameters to
+To create a _libmapper_ device, it is necessary to provide a few parameters to
 `mpr_dev_new`:
 
 ~~~c
@@ -123,7 +123,7 @@ mpr_dev_free(my_dev);
 
 Now that we know how to create a device, poll it, and free it, we only need to
 know how to add signals in order to give our program some input/output
-functionality.  While _libmpr_ enables arbitrary connections between _any_
+functionality.  While _libmapper_ enables arbitrary connections between _any_
 declared signals, we still find it helpful to distinguish between two type of
 signals: `inputs` and `outputs`. 
 
@@ -137,7 +137,7 @@ synthesizer might be updated locally through user interaction with a GUI,
 however the normal use of this signal is as a _destination_ for control data
 streams so it should be defined as an `input` signal.  Note that this
 distinction is to help with GUI organization and user-understanding –
-_libmpr_ enables connections from input signals and to output signals if
+_libmapper_ enables connections from input signals and to output signals if
 desired.
 
 ### Creating a signal
@@ -160,9 +160,9 @@ are currently `MPR_INT32`, `MPR_FLT`, or `MPR_DBL` for
 values, respectively.
 
 The other parameters are not strictly required, but the more information you
-provide, the more _libmpr_ can do some things automatically.  For example, if
+provide, the more _libmapper_ can do some things automatically.  For example, if
 `min` and `max` are provided, it will be possible to create linear-scaled
-connections very quickly.  If `unit` is provided, _libmpr_ will be able to
+connections very quickly.  If `unit` is provided, _libmapper_ will be able to
 similarly figure out a linear scaling based on unit conversion (from cm to
 inches for example). Currently automatic unit-based scaling is not a supported
 feature, but will be added in the future.  You can take advantage of this
@@ -227,7 +227,7 @@ We can imagine the above program getting sensor information in a loop.  It could
 be running on an network-enable ARM device and reading the ADC register
 directly, or it could be running on a computer and reading data from an Arduino
 over a USB serial port, or it could just be a mouse-controlled GUI slider.
-However it's getting the data, it must provide it to _libmpr_ so that it will
+However it's getting the data, it must provide it to _libmapper_ so that it will
 be sent to other devices if that signal is mapped.
 
 This is accomplished by the function `mpr_sig_set_value()`:
@@ -239,14 +239,14 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id inst, int length, mpr_type type,
 
 As you can see, a `void*` pointer must be provided, which must point to a data
 structure matching the `length` and `type` arguments. This data structure is not
-required to match the length and type of the signal itself—libmpr will perform
+required to match the length and type of the signal itself—libmapper will perform
 type coercion if necessary. More than one 'sample' of signal update may be
 applied at once by e.g. updating a signal with length 5 using a 20-element
 array.  Lastly the `time` argument allows you to specify a time associated with
 the signal update. If your value update was generated locally, or if your
 program does not have access to upstream timing information (e.g., from a
 microcontroller sampling sensor values), you can use the macro `MPR_NOW` and
-_libmpr_ will tag the update with the current time.
+_libmapper_ will tag the update with the current time.
 
 So in the "sensor 1" example, assuming in `do_stuff` we have some code which
 reads sensor 1's value into a float variable called `v1`, the loop becomes:
@@ -262,7 +262,7 @@ while (!done) {
 ~~~
 
 This is about all that is needed to expose sensor 1's value to the network as a
-mappable parameter.  The _libmpr_ GUI can now map this value to a receiver,
+mappable parameter.  The _libmapper_ GUI can now map this value to a receiver,
 where it could control a synthesizer parameter or change the brightness of an
 LED, or whatever else you want to do.
 
@@ -270,7 +270,7 @@ LED, or whatever else you want to do.
 
 Most synthesizers of course will not know what to do with the value of sensor1
 --it is an electrical property that has nothing to do with sound or music.  This
-is where _libmpr_ really becomes useful.
+is where _libmapper_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_ exposing the
 signal, or it can be performed as part of the mapping.  Since the end user can
@@ -358,28 +358,20 @@ void main()
 
 ## Working with timetags
 
-_libmpr_ uses the `mpr_time_t` data structure to store
+_libmapper_ uses the `mpr_time_t` data structure to store
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps).
 For example, the handler function called when a signal update is received
 contains a `timetag` argument.  This argument indicates the time at which the
 source signal was _sampled_ (in the case of sensor signals) or _generated_ (in
 the case of sequenced or algorithimically-generated signals).
 
-When updating output signals using the function `mpr_sig_set_value()` a time
-argument must be provided. This timestamp should only be overridden if your
-program has access to a more accurate measurement of the real time associated
-with the signal update, for example if you are writing a driver for an outboard
-sensor system that provides the sampling time.  Otherwise the constant
-`MPR_NOW` can be used as the timetag argument to cause _libmpr_ to provide
-the current time.
-
-_libmpr_ also provides helper functions for getting the current device-time,
+_libmapper_ provides helper functions for getting the current device-time,
 setting the value of a `mpr_time_t` from other representations, and comparing or
 copying timetags.  Check the API documentation for more information.
 
 ## Working with signal instances
 
-_libmpr_ also provides support for signals with multiple _instances_, for
+_libmapper_ also provides support for signals with multiple _instances_, for
 example:
 
 * control parameters for polyphonic synthesizers;
@@ -388,12 +380,12 @@ example:
 * objects on a tabletop tangible user interface;
 * _temporal_ objects such as gestures or trajectories.
 
-The important qualities of signal instances in _libmpr_ are:
+The important qualities of signal instances in _libmapper_ are:
 
 * **instances are interchangeable**: if there are semantics attached to a
   specific instance it should be represented with separate signals instead.
 * **instances can be ephemeral**: signal instances can be dynamically created
-  and destroyed. _libmpr_ will ensure that linked devices share a common
+  and destroyed. _libmapper_ will ensure that linked devices share a common
   understanding of the relatonships between instances when they are mapped.
 * **map once for all instances**: one mapping connection serves to map all of
   its instances.
@@ -405,14 +397,14 @@ instances you can use:
 mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data);
 ~~~
 
-If the `ids` argument is null _libmpr_ will automatically assign unique ids to
+If the `ids` argument is null _libmapper_ will automatically assign unique ids to
 the reserved instances.
 
 After reserving instances you can update a specific instance using
 `mpr_sig_set_value()`.
 
 The `instance` argument does not have to be considered as an array index - it
-can be any value that is convenient for labelling your instance. _libmpr_
+can be any value that is convenient for labelling your instance. _libmapper_
 will internally create a map from your id label to one of the preallocated
 instance structures.
 
@@ -442,7 +434,7 @@ previously unseen instance id is received. Use the function `mpr_obj_set_prop()`
 
 The argument `mode` can have one of the following values:
 
-* `MPR_STREAL_NONE` Default value, in which no stealing of instances will
+* `MPR_STEAL_NONE` Default value, in which no stealing of instances will
   occur;
 * `MPR_STEAL_OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
@@ -460,7 +452,7 @@ void my_handler(mpr_sig sig, mpr_int_evt evt, mpr_id inst, int len,
     // hypothetical user code chooses which instance to release
     mpr_id release_me = choose_instance_to_release(sig);
 
-    mpr_sig_release_inst(sig, release_me, *time);
+    mpr_sig_release_inst(sig, release_me);
     
     // now an instance is available
 }
@@ -470,7 +462,7 @@ For this function to be called when instance stealing is necessary, we need to
 register it for `MPR_SIG_INST_OFLW` events:
 
 ~~~c
-mpr_signal_set_cb(sig, my_handler, MPR_SIG_INST_OFLW);
+mpr_sig_set_cb(sig, my_handler, MPR_SIG_INST_OFLW);
 ~~~
 
 ## Publishing metadata
@@ -478,8 +470,8 @@ mpr_signal_set_cb(sig, my_handler, MPR_SIG_INST_OFLW);
 Things like device names, signal units, and ranges, are examples of metadata
 --information about the data you are exposing on the network.
 
-_libmpr_ also provides the ability to specify arbitrary extra metadata in the
-form of name-value pairs.  These are not interpreted by _libmpr_ in any way,
+_libmapper_ also provides the ability to specify arbitrary extra metadata in the
+form of name-value pairs.  These are not interpreted by _libmapper_ in any way,
 but can be retrieved over the network.  This can be used for instance to give a
 device X and Y information, or to perhaps give a signal some property like
 "reliability", or some category like "light", "motor", "shaker", etc.
@@ -524,7 +516,7 @@ staged and must be pushed out to the network using the functions `mpr_obj_push()
 
 ### Reserved keys
 
-You can use any property name not already reserved by _libmpr_.
+You can use any property name not already reserved by _libmapper_.
 
 #### Reserved keys for devices
 

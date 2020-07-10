@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import sys, mpr, random
+import sys, random, mapper as mpr
 
 def h(sig, event, id, val, timetag):
     try:

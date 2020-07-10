@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stddef.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 
 /*   Note on the trick used here: Presuming that we can have lists as the result
  * of a search query, we need to be able to return a linked list composed of

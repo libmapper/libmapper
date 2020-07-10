@@ -5,7 +5,7 @@
 #include <zlib.h>
 #include <sys/time.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 
 #define AUTOSUB_INTERVAL 60
 extern const char* net_msg_strings[NUM_MSG_STRINGS];

@@ -5,9 +5,9 @@
 #include <stddef.h>
 #include <limits.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 mpr_link mpr_link_new(mpr_dev local_dev, mpr_dev remote_dev)
 {
@@ -86,10 +86,25 @@ void mpr_link_free(mpr_link link)
 void mpr_link_start_bundle(mpr_link link, mpr_time t)
 {
     RETURN_UNLESS(link);
-    // need to create a new queue
+    if (link->bundle.udp)
+        mpr_link_send_bundle(link);
     link->bundle.udp = lo_bundle_new(t);
     if (link->local_dev != link->remote_dev)
         link->bundle.tcp = lo_bundle_new(t);
+}
+
+// note on memory handling of mpr_link_add_msg():
+// message: will be owned, will be freed when done
+void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
+                      mpr_proto proto)
+{
+    RETURN_UNLESS(msg);
+    if (link->local_dev == link->remote_dev)
+        proto = MPR_PROTO_UDP;
+
+    // add message to existing bundles
+    lo_bundle b = (proto == MPR_PROTO_UDP) ? link->bundle.udp : link->bundle.tcp;
+    lo_bundle_add_message(b, dst->path, msg);
 }
 
 void mpr_link_send_bundle(mpr_link link)

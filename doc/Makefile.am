@@ -3,7 +3,7 @@ MAINTAINERCLEANFILES=Makefile.in
 
 CLEANFILES=doxygen-build.stamp
 
-DOX=libmpr.doxyfile
+DOX=libmapper.doxyfile
 
 EXTRA_DIST=expression_syntax.md how_to_compile_and_run.md windows.md	\
            tutorials/tutorial_c.md tutorials/tutorial_introduction.md	\
@@ -18,7 +18,7 @@ DOC_DIR=$(HTML_DIR)
 all-local: doxygen-build.stamp
 
 doxygen-build.stamp: $(DOX) $(top_srcdir)/src/*.c $(top_srcdir)/src/*.h \
-	$(top_srcdir)/include/mpr/*.h
+	$(top_srcdir)/include/mapper/*.h
 	@echo '*** Running doxygen ***'
 	doxygen $(DOX)
 	touch doxygen-build.stamp

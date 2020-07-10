@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-setup.py file for SWIG mpr
+setup.py file for SWIG mapper
 """
 
 from distutils.core import setup, Extension
@@ -13,22 +13,22 @@ LO_LDLIBS = [x[2:] for x in LO_LIBS.split() if x[0:2]=='-l']
 LO_CFLAGS = "@liblo_CFLAGS@"
 LO_INCDIRS = [x[2:] for x in LO_CFLAGS.split() if x[0:2]=='-I']
 
-mpr_module = Extension('_mpr',
-                       sources=['mpr_wrap.c'],
-                       include_dirs=['@top_srcdir@/src',
-                                     '@top_builddir@/src',
-                                     '@top_srcdir@/include']+LO_INCDIRS,
-                       library_dirs=['@top_builddir@/src/.libs']+LO_LDDIRS,
-                       libraries=['mpr']+LO_LDLIBS,
-                       )
+mapper_module = Extension('_mapper',
+                          sources=['mapper_wrap.c'],
+                          include_dirs=['@top_srcdir@/src',
+                                        '@top_builddir@/src',
+                                        '@top_srcdir@/include']+LO_INCDIRS,
+                          library_dirs=['@top_builddir@/src/.libs']+LO_LDDIRS,
+                          libraries=['mapper']+LO_LDLIBS,
+                          )
 
-setup (name = 'mpr',
+setup (name = 'mapper',
        version = '@PACKAGE_VERSION@',
        author      = "libmapper.org",
        author_email = "dot_mapper@googlegroups.com",
        url = "http://libmapper.org",
        description = """A library for mapping controllers and synthesizers.""",
        license = "GNU LGPL version 2.1 or later",
-       ext_modules = [mpr_module],
-       py_modules = ["mpr"],
+       ext_modules = [mapper_module],
+       py_modules = ["mapper"],
        )

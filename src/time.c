@@ -1,4 +1,3 @@
-
 #include "config.h"
 
 #include <lo/lo.h>
@@ -7,9 +6,9 @@
 #include <math.h>
 #include <sys/time.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 static double multiplier = 1.0/((double)(1LL<<32));
 

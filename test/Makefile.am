@@ -5,7 +5,7 @@ TEST_CXXFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 if WINDOWS_DLL
 TEST_LDADD = $(top_builddir)/src/*.lo $(liblo_LIBS)
 else
-TEST_LDADD = $(top_builddir)/src/libmpr.la $(liblo_LIBS)
+TEST_LDADD = $(top_builddir)/src/libmapper.la $(liblo_LIBS)
 endif
 
 noinst_PROGRAMS = test testcalibrate testconvergent testcpp testcustomtransport\
@@ -125,6 +125,6 @@ tests: all
 	echo Running testmonitor and testsignals; ./testmonitor -qtf & ./testsignals -qtf
 
 memtest: all
-	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmpr.dylib valgrind --leak-check=full ./.libs/$$i -qt; then exit 1; fi; done
+	for i in $(noinst_PROGRAMS); do echo Running $$i; if ! LD_PRELOAD=/usr/local/lib/libmapper.dylib valgrind --leak-check=full ./.libs/$$i -qt; then exit 1; fi; done
 
 endif

@@ -1,6 +1,6 @@
 
-import mpr.*;
-import mpr.signal.*;
+import mapper.*;
+import mapper.signal.*;
 import java.util.Arrays;
 
 class testreverse {
@@ -20,8 +20,8 @@ class testreverse {
 
         Signal inp1 = dev.addSignal(Direction.INCOMING, "insig1", 1, Type.FLOAT,
                                     "Hz", null, null, null, new Listener() {
-            public void onEvent(Signal sig, mpr.signal.Event e, float v, Time time) {
-                if (e == mpr.signal.Event.UPDATE)
+            public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
+                if (e == mapper.signal.Event.UPDATE)
                     System.out.println("  insig1 got: "+v);
         }});
 
@@ -29,8 +29,8 @@ class testreverse {
                                     "Hz", null, null, null, null);
         out1.setListener(
             new Listener() {
-                public void onEvent(Signal sig, mpr.signal.Event e, int v, Time time) {
-                    if (e == mpr.signal.Event.UPDATE)
+                public void onEvent(Signal sig, mapper.signal.Event e, int v, Time time) {
+                    if (e == mapper.signal.Event.UPDATE)
                         System.out.println("  outsig1 got(): "+v);
                 }});
 

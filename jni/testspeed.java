@@ -1,6 +1,6 @@
 
-import mpr.*;
-import mpr.signal.*;
+import mapper.*;
+import mapper.signal.*;
 import java.util.Arrays;
 
 class testspeed {
@@ -21,16 +21,16 @@ class testspeed {
             });
 
         Listener l = new Listener() {
-            public void onEvent(Signal sig, mpr.signal.Event e, float v, Time time) {
-                if (e == mpr.signal.Event.UPDATE)
+            public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
+                if (e == mapper.signal.Event.UPDATE)
                     testspeed.updated = true;
             }
         };
 
         Signal in = dev.addSignal(Direction.INCOMING, "insig", 1, Type.FLOAT,
                                   "Hz", null, null, null, new Listener() {
-            public void onEvent(Signal sig, mpr.signal.Event e, float v, Time time) {
-                if (e == mpr.signal.Event.UPDATE)
+            public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
+                if (e == mapper.signal.Event.UPDATE)
                     testspeed.updated = true;
             }
         });

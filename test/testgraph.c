@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <lo/lo_lowlevel.h>
-#include "../src/mpr_internal.h"
+#include "../src/mapper_internal.h"
 
 #define eprintf(format, ...) do {               \
     if (verbose)                                \

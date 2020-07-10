@@ -1,11 +1,11 @@
-# Expression Syntax for *libmpr*
+# Expression Syntax for *libmapper*
 
-Connections between signals that are maintained by *libmpr* can be configured with
+Connections between signals that are maintained by *libmapper* can be configured with
 optional signal processing described in the form of an expression.
 
 ## General Syntax
 
-Expressions in libmpr must always be presented in the form `y = x`, where `x`
+Expressions in libmapper must always be presented in the form `y = x`, where `x`
 refers to the updated source value and `y` is the computed value to be forwarded
 to the destination. Sub-expressions can be used if separated by a semicolon (`;`). Spaces may be freely used within the expression, they will have no effect on the
 generated output.
@@ -157,7 +157,7 @@ variable** (see below), e.g.:
 * `output = output + x - 1`;`y = output`
 
 Of course the filter can contain references to past samples of both `x` and `y` -
-currently libmpr will reject expressions referring to sample delays `> 100`.
+currently libmapper will reject expressions referring to sample delays `> 100`.
 
 ### Initializing filters
 

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <signal.h>
 
-#include <mpr/mpr_cpp.h>
+#include <mapper/mapper_cpp.h>
 
 #include "pwm_synth/pwm.h"
 
@@ -47,7 +47,7 @@ int main()
 {
     signal(SIGINT, ctrlc);
 
-    mpr::Device dev("pwm");
+    mapper::Device dev("pwm");
 
     float min0 = 0;
     float max1 = 1;

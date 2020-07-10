@@ -1,6 +1,5 @@
-
-#include "../src/mpr_internal.h"
-#include <mpr/mpr.h>
+#include "../src/mapper_internal.h"
+#include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>

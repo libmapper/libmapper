@@ -1,4 +1,4 @@
-#include "../src/mpr_internal.h"
+#include "../src/mapper_internal.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

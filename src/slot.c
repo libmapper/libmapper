@@ -5,9 +5,9 @@
 #include <stddef.h>
 #include <limits.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, int is_src)
 {

@@ -1,8 +1,8 @@
 
-import mpr.*;
-import mpr.graph.*;
-import mpr.signal.*;
-import mpr.map.*;
+import mapper.*;
+import mapper.graph.*;
+import mapper.signal.*;
+import mapper.map.*;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -26,9 +26,9 @@ class test {
                     }
             });
 
-        g.addListener(new mpr.graph.Listener<Device>() {
-            public void onEvent(Device dev, mpr.graph.Event event) {
-                mpr.AbstractObject.Properties p = dev.properties();
+        g.addListener(new mapper.graph.Listener<Device>() {
+            public void onEvent(Device dev, mapper.graph.Event event) {
+                mapper.AbstractObject.Properties p = dev.properties();
                 System.out.println("graph record "+event+" for device "+p.get("name"));
                 for (int i = 0; i < p.count(); i++) {
                     Entry e = p.get(i);
@@ -36,11 +36,11 @@ class test {
                 }
             }});
 
-        g.addListener(new mpr.graph.Listener<Signal>() {
-            public void onEvent(Signal sig, mpr.graph.Event event) {
+        g.addListener(new mapper.graph.Listener<Signal>() {
+            public void onEvent(Signal sig, mapper.graph.Event event) {
                 System.out.println("Graph evnt signal");
-                mpr.Signal.Properties ps = sig.properties();
-                mpr.Device.Properties pd = sig.device().properties();
+                mapper.Signal.Properties ps = sig.properties();
+                mapper.Device.Properties pd = sig.device().properties();
                 System.out.println("graph record "+event+" for signal "
                                    +pd.get("name")+":"+ps.get("name"));
                 for (int i = 0; i < ps.count(); i++) {
@@ -49,18 +49,18 @@ class test {
                 }
             }});
 
-        g.addListener(new mpr.graph.Listener<mpr.Map>() {
-            public void onEvent(mpr.Map map, mpr.graph.Event event) {
+        g.addListener(new mapper.graph.Listener<mapper.Map>() {
+            public void onEvent(mapper.Map map, mapper.graph.Event event) {
                 System.out.println("Graph evnt map");
                 System.out.print("graph record "+event+" for map ");
-                for (mpr.Signal s : map.signals(Location.SOURCE))
+                for (mapper.Signal s : map.signals(Location.SOURCE))
                     System.out.print(s.device().properties().get("name")+":"
                                      +s.properties().get("name")+" ");
                 System.out.println("-> ");
-                for (mpr.Signal s : map.signals(Location.DESTINATION))
+                for (mapper.Signal s : map.signals(Location.DESTINATION))
                     System.out.print(s.device().properties().get("name")+":"
                                      +s.properties().get("name")+" ");
-                mpr.Map.Properties p = map.properties();
+                mapper.Map.Properties p = map.properties();
                 for (int i = 0; i < p.count(); i++) {
                     Entry e = p.get(i);
                     System.out.println("  " + e.getKey() + ": " + e.getValue());
@@ -68,8 +68,8 @@ class test {
             }});
 
         Signal inp1 = dev1.addSignal(Direction.INCOMING, "insig1", 1, Type.INT32,
-                                     "Hz", 2.0f, null, null, new mpr.signal.Listener() {
-            public void onEvent(Signal sig, mpr.signal.Event e, int v, Time time) {
+                                     "Hz", 2.0f, null, null, new mapper.signal.Listener() {
+            public void onEvent(Signal sig, mapper.signal.Event e, int v, Time time) {
                 System.out.println("in onEvent() for "
                                    +sig.properties().get("name").getValue()+": "
                                    +v+" at t="+time);
@@ -125,7 +125,7 @@ class test {
         System.out.println("  "+dev1.properties().get("ordinal"));
         System.out.println("  interface="+dev1.graph().getInterface());
 
-        mpr.Map map = new mpr.Map(out1, inp1);
+        mapper.Map map = new mapper.Map(out1, inp1);
         map.properties().put(Property.EXPRESSION, "y=x*100");
         map.push();
 
@@ -173,14 +173,14 @@ class test {
             System.out.println("  signal: " + s.properties().get("name"));
         }
 
-        List<mpr.Map> maps = g.maps();
-        for (mpr.Map m : maps) {
+        List<mapper.Map> maps = g.maps();
+        for (mapper.Map m : maps) {
             System.out.print("  map: ");
-            for (mpr.Signal s : m.signals(Location.SOURCE))
+            for (mapper.Signal s : m.signals(Location.SOURCE))
                 System.out.print(s.device().properties().get("name")+":"
                                  +s.properties().get("name")+" ");
             System.out.println("-> ");
-            for (mpr.Signal s : m.signals(Location.DESTINATION))
+            for (mapper.Signal s : m.signals(Location.DESTINATION))
                 System.out.print(s.device().properties().get("name")+":"
                                  +s.properties().get("name")+" ");
         }

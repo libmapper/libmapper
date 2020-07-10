@@ -1,5 +1,5 @@
 
-# libmpr NEWS
+# libmapper NEWS
 
 Version 1.2
 -----------

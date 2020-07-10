@@ -1,6 +1,6 @@
 
-import mpr.*;
-import mpr.signal.*;
+import mapper.*;
+import mapper.signal.*;
 import java.util.Arrays;
 
 class testqueue {
@@ -21,7 +21,7 @@ class testqueue {
             });
 
         Listener l = new Listener() {
-            public void onEvent(Signal sig, mpr.signal.Event e, float v, Time time) {
+            public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
                 testqueue.updated = true;
             }
         };

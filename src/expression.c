@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 
 #define MAX_HISTORY -100
 #define STACK_SIZE 128

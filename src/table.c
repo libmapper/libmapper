@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 
 static int match_pattern(const char* s, const char* p)
 {

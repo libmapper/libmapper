@@ -5,9 +5,9 @@
 #include <stddef.h>
 #include <limits.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 #define MAX_LEN 512
 #define MPR_STATUS_LENGTH_KNOWN 0x04
@@ -950,12 +950,12 @@ static int _set_expr(mpr_map m, const char *expr)
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
     /* TODO: should call handler for all instances updated through this map. */
-    if (mpr_expr_get_num_input_slots(m->loc->expr) <= 0 && !m->use_inst && m->dst->loc) {
+    if (mpr_expr_get_num_input_slots(m->loc->expr) <= 0 && !m->use_inst && m->dst->sig->loc) {
         mpr_time now;
         mpr_time_set(&now, MPR_NOW);
 
         // call handler if it exists
-        mpr_sig sig = m->dst->loc->rsig->sig;
+        mpr_sig sig = m->dst->sig;
         mpr_sig_handler *h = sig->loc->handler;
         if (h)
             h(sig, MPR_SIG_UPDATE, 0, sig->len, sig->type, &m->dst->loc->val.inst[0].samps, now);

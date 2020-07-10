@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import sys, mpr
+import sys, mapper as mpr
 
 start = mpr.timetag()
 
@@ -58,8 +58,8 @@ def setup(d):
     d.add_signal(mpr.DIR_OUT, "outsig", 4, mpr.FLT)
     print('setup done!')
 
-#check libmpr version
-print('using libmpr version', mpr.version)
+#check libmapper version
+print('using libmapper version', mpr.version)
 dev = mpr.device("py.test")
 setup(dev)
 

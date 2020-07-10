@@ -4,7 +4,7 @@ import sys, os
 from PySide2.QtCore import Qt, QBasicTimer
 from PySide2.QtWidgets import QApplication, QMainWindow, QSlider, QLabel
 try:
-    import mpr
+    import mapper as mpr
 except:
     try:
         # Try the "swig" directory, relative to the location of this
@@ -14,9 +14,9 @@ except:
                         os.path.join(os.path.join(os.getcwd(),
                                                   os.path.dirname(sys.argv[0])),
                                      '../swig'))
-        import mpr
+        import mapper as mpr
     except:
-        print('Error importing libmpr module.')
+        print('Error importing libmapper module.')
         sys.exit(1)
 
 numsliders = 3
@@ -30,7 +30,7 @@ class gui(QMainWindow):
         QMainWindow.__init__(self)
         self.setGeometry(300, 300, 300, 300)
         self.setFixedSize(300, 300)
-        self.setWindowTitle('libmpr device gui example')
+        self.setWindowTitle('libmapper device gui example')
         blurb = QLabel('These sliders will be dynamically labeled with the name of destination signals to which they are connected.', self)
         blurb.setGeometry(5, 0, 290, 50)
         blurb.setWordWrap(True)
@@ -65,13 +65,13 @@ class gui(QMainWindow):
 
 def h(type, map, event):
     try:
-        src = map.signal(mpr.LOC_SRC)
+        src = map.signals(mpr.LOC_SRC).next()
         id = sigs.index(src)
         if id < 0:
             return
         if event == mpr.OBJ_NEW:
-            sig = map.signal(mpr.LOC_DST)
-            gui.setLabel(id, sig['name'])
+            dst = map.signals(mpr.LOC_DST).next()
+            gui.setLabel(id, dst['name'])
         elif event == mpr.OBJ_REM or event == mpr.OBJ_EXP:
             gui.setLabel(id, 'slider%i' %id)
     except Exception as e:

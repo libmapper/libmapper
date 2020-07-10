@@ -3,12 +3,12 @@
 # Pyo is a sound synthesis system for Python.
 # It is currently only available for Python 2
 
-# Here we use it to demonstrate connecting a simple Pyo synthesizer to libmpr.
+# Here we use it to demonstrate connecting a simple Pyo synthesizer to libmapper.
 
 from pyo import *
 import math
 try:
-    import mpr
+    import mapper as mpr
 except:
     try:
         # Try the "swig" directory, relative to the location of this
@@ -18,9 +18,9 @@ except:
                         os.path.join(os.path.join(os.getcwd(),
                                                   os.path.dirname(sys.argv[0])),
                                      '../swig'))
-        import mpr
+        import mapper as mpr
     except:
-        print('Error importing libmpr module.')
+        print('Error importing libmapper module.')
         sys.exit(1)
 
 s = Server().boot()

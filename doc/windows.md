@@ -1,11 +1,11 @@
 Note: This is an on-going document to describe the set-up procedure
-for compiling libmpr under windows. It is not done yet, sorry.  If
+for compiling libmapper under windows. It is not done yet, sorry.  If
 you use Windows, please feel free to help.
 
-How to compile libmpr on Microsoft Windows
+How to compile libmapper on Microsoft Windows
 =============================================
 
-Since libmpr uses open source tools for its build system, the
+Since libmapper uses open source tools for its build system, the
 following instructions must be followed to set up a development
 environment on a Microsoft Windows operating system:
 
@@ -58,24 +58,24 @@ You now have to tell Python to use the MinGW compiler when building extensions. 
     [build]
     compiler = mingw32
 
-Get source for liblo and libmpr
+Get source for liblo and libmapper
 ----------------------------------
 
 * Download and install [liblo](https://github.com/radarsat1/liblo). Warning: if you download the 0.28 release code instead of from the git repository there is a symbol missing from the file `src/liblo.def` (lo_server_enable_queue)
-* Download [libmpr](http://libmapper.github.io/downloads.html)
+* Download [libmapper](http://libmapper.github.io/downloads.html)
 
 Edit your PKG_CONFIG_PATH:
 
     $ export PKG_CONFIG_PATH=/local/lib/pkgconfig
 
-Build and install libmpr:
+Build and install libmapper:
 
     $ ./autogen.sh
     $ make
     $ sudo make install
 
 
-How to compile libmpr for Windows using Linux
+How to compile libmapper for Windows using Linux
 ================================================
 
 Another way to produce the Windows build is to use MingW from a Linux

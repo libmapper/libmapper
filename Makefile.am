@@ -1,12 +1,12 @@
 SUBDIRS = src include test examples @SWIGDIR@ @JNI@ @DOXYGEN@ extra
 
-EXTRA_DIST = libtool ltmain.sh autogen.sh libmpr.pc.in
+EXTRA_DIST = libtool ltmain.sh autogen.sh libmapper.pc.in
 
 clean-local:
-	-rm -rf libmpr.pc
+	-rm -rf libmapper.pc
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libmpr.pc
+pkgconfig_DATA = libmapper.pc
 
 dist_doc_DATA = README COPYING ChangeLog NEWS
 

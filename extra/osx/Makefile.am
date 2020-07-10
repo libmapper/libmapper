@@ -1,2 +1,2 @@
 
-EXTRA_DIST=libmpr_slider_launcher.py
+EXTRA_DIST=libmapper_slider_launcher.py

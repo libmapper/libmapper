@@ -1,13 +1,12 @@
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 #include <stddef.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 #define MAX_INSTANCES 128
 

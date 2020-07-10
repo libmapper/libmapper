@@ -8,10 +8,10 @@
 #include <sys/time.h>
 #include <stddef.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
 #include "config.h"
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
@@ -279,7 +279,7 @@ int mpr_dev_bundle_start(lo_timetag t, void *data)
  *   TODO: use more specific message for release?
  * - Updates to a specific signal instance are indicated using the label
  *   "@instance" followed by a 64bit integer which uniquely identifies this
- *   instance within the network of libmpr devices
+ *   instance within the network of libmapper devices
  * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
  *   are indicated using the label "@slot" followed by a single integer slot #
  * - Instance creation and release may also be triggered by expression
@@ -688,16 +688,23 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
     return 0;
 }
 
-int mpr_dev_poll(mpr_dev dev, int block_ms)
+void mpr_dev_update_done(mpr_dev dev)
 {
-    RETURN_UNLESS(dev && dev->loc, 0);
+    RETURN_UNLESS(dev && dev->loc);
+    dev->loc->time_is_stale = 1;
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
         mpr_link_send_bundle((mpr_link)*links);
-        // mpr_link_start_bundle((mpr_link)*links, dev->loc->time);
         links = mpr_list_get_next(links);
     }
+}
 
+int mpr_dev_poll(mpr_dev dev, int block_ms)
+{
+    static int locked = 1; // disallow when already called
+    RETURN_UNLESS(dev && dev->loc, 0);
+
+    mpr_dev_update_done(dev);
 
     int admin_count = 0, device_count = 0, status[4];
     mpr_net net = &dev->obj.graph->net;
@@ -709,6 +716,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             net->msgs_recvd |= admin_count;
         }
         dev->loc->time_is_stale = 1;
+        locked = 0;
         return admin_count;
     }
     else if (!block_ms) {
@@ -752,8 +760,8 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
         mpr_dev_send_state(dev, MSG_DEV);
     }
 
-    dev->loc->time_is_stale = 1;
     net->msgs_recvd |= admin_count;
+    locked = 0;
     return admin_count + device_count;
 }
 
@@ -772,7 +780,6 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
 
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mpr_link_send_bundle((mpr_link)*links);
         mpr_link_start_bundle((mpr_link)*links, dev->loc->time);
         links = mpr_list_get_next(links);
     }
@@ -867,7 +874,7 @@ mpr_id_map mpr_dev_get_idmap_by_GID(mpr_dev dev, int group, mpr_id GID)
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
 {
-    trace_net("[libmpr] liblo server error %d in path %s: %s\n", num, where, msg);
+    trace_net("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
 }
 
 void mpr_dev_start_servers(mpr_dev dev)

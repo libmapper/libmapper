@@ -6,9 +6,9 @@
 #include <limits.h>
 #include <assert.h>
 
-#include "mpr_internal.h"
+#include "mapper_internal.h"
 #include "types_internal.h"
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 static inline int _min(int a, int b) { return a < b ? a : b; }
 
