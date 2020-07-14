@@ -30,7 +30,8 @@ JCLASSES = mapper/NativeLib.class                                        \
            mapper/Time.class                                             \
            mapper/Type.class
 
-JCLASSESINTERNAL = mapper/Signal$$Instance.class
+JCLASSESINTERNAL = mapper/Signal$$Instance.class mapper/AbstractObject$$Properties.class \
+                   mapper/AbstractObject$$Properties$$Entry.class
 
 JJAVA = $(JCLASSES:%.class=%.java)
 

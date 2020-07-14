@@ -5,7 +5,6 @@ import mapper.signal.*;
 import mapper.map.*;
 import java.util.Arrays;
 import java.util.Iterator;
-import java.util.Map.Entry;
 
 class test {
     public static void main(String [] args) {
@@ -28,10 +27,11 @@ class test {
 
         g.addListener(new mapper.graph.Listener<Device>() {
             public void onEvent(Device dev, mapper.graph.Event event) {
-                mapper.AbstractObject.Properties p = dev.properties();
+                Device.Properties p = dev.properties();
                 System.out.println("graph record "+event+" for device "+p.get("name"));
-                for (int i = 0; i < p.count(); i++) {
-                    Entry e = p.get(i);
+                int numProps = p.size();
+                for (int i = 0; i < numProps; i++) {
+                    Device.Properties.Entry e = p.getEntry(i);
                     System.out.println("  " + e.getKey() + ": " + e.getValue());
                 }
             }});
@@ -39,12 +39,13 @@ class test {
         g.addListener(new mapper.graph.Listener<Signal>() {
             public void onEvent(Signal sig, mapper.graph.Event event) {
                 System.out.println("Graph evnt signal");
-                mapper.Signal.Properties ps = sig.properties();
-                mapper.Device.Properties pd = sig.device().properties();
+                Signal.Properties ps = sig.properties();
+                Device.Properties pd = sig.device().properties();
                 System.out.println("graph record "+event+" for signal "
                                    +pd.get("name")+":"+ps.get("name"));
-                for (int i = 0; i < ps.count(); i++) {
-                    Entry e = ps.get(i);
+                int numProps = ps.size();
+                for (int i = 0; i < numProps; i++) {
+                    Signal.Properties.Entry e = ps.getEntry(i);
                     System.out.println("  " + e.getKey() + ": " + e.getValue());
                 }
             }});
@@ -60,18 +61,19 @@ class test {
                 for (mapper.Signal s : map.signals(Location.DESTINATION))
                     System.out.print(s.device().properties().get("name")+":"
                                      +s.properties().get("name")+" ");
-                mapper.Map.Properties p = map.properties();
-                for (int i = 0; i < p.count(); i++) {
-                    Entry e = p.get(i);
+                Map.Properties p = map.properties();
+                int numProps = p.size();
+                for (int i = 0; i < numProps; i++) {
+                    Map.Properties.Entry e = p.getEntry(i);
                     System.out.println("  " + e.getKey() + ": " + e.getValue());
                 }
             }});
 
         Signal inp1 = dev1.addSignal(Direction.INCOMING, "insig1", 1, Type.INT32,
-                                     "Hz", 2.0f, null, null, new mapper.signal.Listener() {
+                                     "Hz", null, null, null, new mapper.signal.Listener() {
             public void onEvent(Signal sig, mapper.signal.Event e, int v, Time time) {
                 System.out.println("in onEvent() for "
-                                   +sig.properties().get("name").getValue()+": "
+                                   +sig.properties().get("name")+": "
                                    +v+" at t="+time);
             }});
 
@@ -88,10 +90,11 @@ class test {
         dev1.properties().put("deletethis", "should not see me");
         dev1.properties().remove("deletethis");
 
-        int numProps = dev1.properties().count();
+        Device.Properties p = dev1.properties();
+        int numProps = p.size();
         System.out.println("Listing " + numProps + " Device Properties:");
         for (int i = 0; i < numProps; i++) {
-            Entry e = dev1.properties().get(i);
+            Device.Properties.Entry e = p.getEntry(i);
             System.out.println("  " + e.getKey() + ": " + e.getValue());
         }
 
@@ -125,14 +128,14 @@ class test {
         System.out.println("  "+dev1.properties().get("ordinal"));
         System.out.println("  interface="+dev1.graph().getInterface());
 
-        mapper.Map map = new mapper.Map(out1, inp1);
-        map.properties().put(Property.EXPRESSION, "y=x*100");
-        map.push();
+//        mapper.Map map = new mapper.Map(out1, inp1);
+//        map.properties().put(Property.EXPRESSION, "y=x*100");
+//        map.push();
 
-        while (!map.ready()) {
-            dev1.poll(50);
-            dev2.poll(50);
-        }
+//        while (!map.ready()) {
+//            dev1.poll(50);
+//            dev2.poll(50);
+//        }
 
         int i = 0;
 
@@ -150,8 +153,8 @@ class test {
             out1.setValue(i);
 
             if (i == 50) {
-                map.properties().put(Property.EXPRESSION, "y=x*-100");
-                map.push();
+//                map.properties().put(Property.EXPRESSION, "y=x*-100");
+//                map.push();
             }
             dev1.poll(50);
             dev2.poll(50);

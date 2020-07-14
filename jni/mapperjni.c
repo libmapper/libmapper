@@ -281,7 +281,7 @@ static jobject get_jobject_from_signal_evt(JNIEnv *env, mpr_sig_evt evt)
     }
     return obj;
 }
-static jobject build_Value(JNIEnv *env, const int len, mpr_type type,
+static jobject build_value(JNIEnv *env, const int len, mpr_type type,
                            const void *val, mpr_time *time)
 {
     jmethodID mid;
@@ -651,7 +651,6 @@ static int signal_listener_type(const char *cMethodSig)
     }
     if (instanced)
         type += 6;
-    printf("returning handler type %d\n", type);
     return type;
 }
 
@@ -675,11 +674,11 @@ static jobject create_signal_object(JNIEnv *env, jobject devobj, signal_jni_cont
     mpr_obj_set_prop((mpr_obj)sig, MPR_PROP_DATA, NULL, 1, MPR_PTR, ctx, 0);
     ctx->signal = (*env)->NewGlobalRef(env, sigobj);
     ctx->listener_type = SIG_CB_UNKNOWN;
+    ctx->listener = 0;
 
     if (!listener || !methodSig ||
         !(*env)->IsInstanceOf(env, listener,
                               (*env)->FindClass(env, "mapper/signal/Listener"))) {
-        ctx->listener = 0;
         return sigobj;
     }
 
@@ -688,6 +687,8 @@ static jobject create_signal_object(JNIEnv *env, jobject devobj, signal_jni_cont
     (*env)->ReleaseStringUTFChars(env, methodSig, cMethodSig);
     if (ctx->listener_type > SIG_CB_UNKNOWN)
         ctx->listener = (*env)->NewGlobalRef(env, listener);
+    else
+        printf("problem retrieving listener type\n");
 
     return sigobj;
 }
@@ -711,15 +712,133 @@ JNIEXPORT void JNICALL Java_mapper_AbstractObject__1push
 
 /**** mapper_AbstractObject_Properties.h ****/
 
-JNIEXPORT jint JNICALL Java_mapper_AbstractObject_00024Properties__1count
-  (JNIEnv *env, jobject jobj, jlong ptr)
+JNIEXPORT jboolean JNICALL Java_mapper_AbstractObject_00024Properties__1containsKey
+  (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring jkey)
 {
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
-    return mpr_obj_get_num_props(mobj, 0);
+    const char *ckey = 0;
+    mpr_prop prop;
+    mpr_type proptype;
+    int proplen;
+    const void *propval;
+
+    if (jkey) {
+        ckey = (*env)->GetStringUTFChars(env, jkey, 0);
+        prop = mpr_obj_get_prop_by_key(mobj, ckey, &proplen, &proptype, &propval, 0);
+        (*env)->ReleaseStringUTFChars(env, jkey, ckey);
+    }
+    else
+        prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &proplen, &proptype, &propval, 0);
+
+    return (MPR_PROP_UNKNOWN == prop) ? JNI_FALSE : JNI_TRUE;
+}
+
+int compare_object_equals_property(JNIEnv *env, jobject jval, int prop_len, mpr_type prop_type,
+                                   const void *prop_val)
+{
+    jclass cls = (*env)->GetObjectClass(env, jval);
+    if (!cls) {
+        printf("couldn't find class for %p\n", jval);
+        return JNI_FALSE;
+    }
+    jmethodID mid;
+    if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Boolean"))) {
+        if (MPR_BOOL != prop_type)
+            return 0;
+        mid = (*env)->GetMethodID(env, cls, "booleanValue", "()Z");
+        int val = (JNI_TRUE == (*env)->CallBooleanMethod(env, jval, mid));
+        return !(*(int*)prop_val ^ val);
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Double"))) {
+        if (MPR_DBL != prop_type)
+            return 0;
+        mid = (*env)->GetMethodID(env, cls, "doubleValue", "()D");
+        double val = (*env)->CallDoubleMethod(env, jval, mid);
+        return *(double*)prop_val == val;
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Float"))) {
+        if (MPR_FLT != prop_type)
+            return 0;
+        mid = (*env)->GetMethodID(env, cls, "floatValue", "()F");
+        float val = (*env)->CallFloatMethod(env, jval, mid);
+        return *(float*)prop_val == val;
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Integer"))) {
+        if (MPR_INT32 != prop_type)
+            return 0;
+        mid = (*env)->GetMethodID(env, cls, "intValue", "()I");
+        int val = (*env)->CallIntMethod(env, jval, mid);
+        return *(int*)prop_val == val;
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Long"))) {
+        if (MPR_INT64 != prop_type)
+            return 0;
+        mid = (*env)->GetMethodID(env, cls, "longValue", "()L");
+        long val = (*env)->CallLongMethod(env, jval, mid);
+        return *(int64_t*)prop_val == val;
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/String"))) {
+        if (MPR_STR != prop_type)
+            return 0;
+        const char *val = (*env)->GetStringUTFChars(env, jval, 0);
+        return strcmp((const char*)prop_val, val) ? JNI_FALSE : JNI_TRUE;
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "[I"))) {
+        if (MPR_INT32 != prop_type)
+            return 0;
+        int len = (*env)->GetArrayLength(env, jval);
+        if (prop_len != len)
+            return 0;
+        jint* vals = (*env)->GetIntArrayElements(env, jval, NULL);
+        int ret = vals && 0 == memcmp(vals, prop_val, sizeof(int) * len);
+        (*env)->ReleaseIntArrayElements(env, jval, vals, JNI_ABORT);
+        return ret;
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "[F"))) {
+        if (MPR_FLT != prop_type)
+            return 0;
+        int len = (*env)->GetArrayLength(env, jval);
+        if (prop_len != len)
+            return 0;
+        jfloat* vals = (*env)->GetFloatArrayElements(env, jval, NULL);
+        int ret = vals && 0 == memcmp(vals, prop_val, sizeof(float) * len);
+        (*env)->ReleaseFloatArrayElements(env, jval, vals, JNI_ABORT);
+        return ret;
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "[D"))) {
+        if (MPR_DBL != prop_type)
+            return 0;
+        int len = (*env)->GetArrayLength(env, jval);
+        if (prop_len != len)
+            return 0;
+        jdouble* vals = (*env)->GetDoubleArrayElements(env, jval, NULL);
+        int ret = vals && 0 == memcmp(vals, prop_val, sizeof(double) * len);
+        (*env)->ReleaseDoubleArrayElements(env, jval, vals, JNI_ABORT);
+        return ret;
+    }
+    // TODO: add mapper types: dev, sig, map, time; arrays of bool, etc
+    return 0;
+}
+
+JNIEXPORT jboolean JNICALL Java_mapper_AbstractObject_00024Properties__1containsValue
+  (JNIEnv *env, jobject jobj, jlong ptr, jobject jval)
+{
+    mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
+
+    int i, len, num = mpr_obj_get_num_props(mobj, 0);
+    mpr_type type;
+    const void *val;
+    for (i = 0; i < num; i++) {
+        // retrieve property
+        mpr_obj_get_prop_by_idx(mobj, i, NULL, &len, &type, &val, NULL);
+        if (compare_object_equals_property(env, jval, len, type, val))
+            return JNI_TRUE;
+    }
+    return JNI_FALSE;
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1get
-  (JNIEnv *env, jobject jobj, jlong ptr, jint id, jobject jkey)
+  (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring jkey)
 {
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
     const char *ckey = 0;
@@ -727,17 +846,6 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1get
     mpr_type type;
     int len;
     const void *val;
-
-    jclass cls = (*env)->FindClass(env, "java/util/AbstractMap$SimpleEntry");
-    if (NULL == cls) {
-        printf("failed to find class for AbstractMap$SimpleEntry\n");
-        return NULL;
-    }
-    jmethodID init = (*env)->GetMethodID(env, cls, "<init>", "(Ljava/lang/Object;Ljava/lang/Object;)V");
-    if (!init) {
-        printf("failed to find methodID for AbstractMap$SimpleEntry constructor\n");
-        return NULL;
-    }
 
     if (jkey) {
         ckey = (*env)->GetStringUTFChars(env, jkey, 0);
@@ -747,84 +855,91 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1get
     else
         prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &len, &type, &val, 0);
 
-    jobject o = (MPR_PROP_UNKNOWN != prop)
-                ? build_Value(env, len, type, val, 0)
-                : NULL;
-
-    if (!jkey)
-        jkey = (*env)->NewStringUTF(env, ckey);
-    jobject mapEntry = (*env)->NewObject(env, cls, init, jkey, o);
-    return mapEntry;
+    jobject o = (MPR_PROP_UNKNOWN != prop) ? build_value(env, len, type, val, 0) : NULL;
+    return o;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1keySet
-  (JNIEnv *env, jobject jobj, jlong ptr)
+JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1getEntry
+  (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring jkey)
 {
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
-    jclass cls = (*env)->FindClass(env, "java/util/Set");
-    if (NULL == cls) {
-        return NULL;
-    }
-    jmethodID init = (*env)->GetMethodID(env, cls, "<init>", "()V");
-    if (NULL == init)
-        printf("problem with init MID\n");
-    jobject set = (*env)->NewObject(env, cls, init, 1);
-    jmethodID add = (*env)->GetMethodID(env, cls, "add", "Ljava/lang/String;");
-    if (NULL == add)
-        printf("problem with add MID\n");
-    int i, num = mpr_obj_get_num_props(mobj, 0);
-    const char *key;
-    for (i = 0; i < num; i++) {
-        mpr_obj_get_prop_by_idx(mobj, i, &key, NULL, NULL, NULL, NULL);
-        if (!key) {
-            printf("problem retrieving key for object property %d\n", i);
-            continue;
-        }
-        jobject jkey = (*env)->NewStringUTF(env, key);
-        (*env)->CallObjectMethod(env, set, add, jkey);
-    }
-    return set;
-}
-
-JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1entrySet
-  (JNIEnv *env, jobject jobj, jlong ptr)
-{
-    mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
-    jclass cls = (*env)->FindClass(env, "java/util/Set");
-    if (NULL == cls) {
-        return NULL;
-    }
-    jmethodID init = (*env)->GetMethodID(env, cls, "<init>", "()V");
-    if (NULL == init)
-        printf("problem with init MID\n");
-    jobject set = (*env)->NewObject(env, cls, init, 1);
-    jmethodID add = (*env)->GetMethodID(env, cls, "add", "Ljava/lang/String;");
-    if (NULL == add)
-        printf("problem with add MID\n");
-    int i, len, num = mpr_obj_get_num_props(mobj, 0);
+    const char *ckey = 0;
+    mpr_prop prop;
     mpr_type type;
+    int len;
     const void *val;
-    for (i = 0; i < num; i++) {
-        mpr_obj_get_prop_by_idx(mobj, i, NULL, &len, &type, &val, NULL);
-        jobject o = build_Value(env, len, type, val, 0);
-        (*env)->CallObjectMethod(env, set, add, o);
+
+    jclass entryClass = (*env)->FindClass(env, "mapper/AbstractObject$Properties$Entry");
+    jboolean flag = (*env)->ExceptionCheck(env);
+    if (flag) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+        (*env)->ThrowNew(env, entryClass, "error message");
+        return NULL;
     }
-    return set;
+    if (NULL == entryClass) {
+        printf("failed to find Entry class\n");
+        return NULL;
+    }
+    jmethodID entryInitMID = (*env)->GetMethodID(env, entryClass, "<init>",
+                                                 "(ILjava/lang/String;Ljava/lang/Object;)V");
+    flag = (*env)->ExceptionCheck(env);
+    if (flag) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+        (*env)->ThrowNew(env, entryClass, "error message");
+        return NULL;
+    }
+    if (NULL == entryInitMID) {
+        printf("failed to find methodID for Entry<int, String, Object> constructor\n");
+        return NULL;
+    }
+
+    if (jkey) {
+        ckey = (*env)->GetStringUTFChars(env, jkey, 0);
+        prop = mpr_obj_get_prop_by_key(mobj, ckey, &len, &type, &val, 0);
+    }
+    else
+        prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &len, &type, &val, 0);
+
+    jobject jval = (MPR_PROP_UNKNOWN != prop) ? build_value(env, len, type, val, 0) : NULL;
+    jobject entry = (*env)->CallObjectMethod(env, entryClass, entryInitMID, (int)prop, ckey, jval);
+
+    if (jkey)
+        (*env)->ReleaseStringUTFChars(env, jkey, ckey);
+
+    return entry;
 }
 
-JNIEXPORT void JNICALL Java_mapper_AbstractObject_00024Properties__1put
+// needs to return the previous value or null
+JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1put
   (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring jkey, jobject jval)
 {
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
 
+    const char *ckey = 0;
+    const void *val;
+    mpr_prop prop;
+    mpr_type type;
+    int len;
+
     jclass cls = (*env)->GetObjectClass(env, jval);
     if (!cls) {
         printf("couldn't find class for %p\n", jval);
-        return;
+        return NULL;
     }
     jmethodID mid;
 
-    const char *ckey = jkey ? (*env)->GetStringUTFChars(env, jkey, 0) : 0;
+    // retrieve previous value for return
+    if (jkey) {
+        ckey = (*env)->GetStringUTFChars(env, jkey, 0);
+        prop = mpr_obj_get_prop_by_key(mobj, ckey, &len, &type, &val, 0);
+    }
+    else
+        prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &len, &type, &val, 0);
+
+    jobject ret = (MPR_PROP_UNKNOWN == prop) ? NULL : build_value(env, len, type, val, 0);
+
 
     if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Boolean"))) {
         mid = (*env)->GetMethodID(env, cls, "booleanValue", "()Z");
@@ -870,20 +985,57 @@ JNIEXPORT void JNICALL Java_mapper_AbstractObject_00024Properties__1put
         const char *val = (*env)->GetStringUTFChars(env, jval, 0);
         mpr_obj_set_prop(mobj, id, ckey, 1, MPR_STR, val, 1);
     }
-    // TODO: handle arrays, etc
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "[I"))) {
+        int len = (*env)->GetArrayLength(env, jval);
+        jint* vals = (*env)->GetIntArrayElements(env, jval, NULL);
+        if (vals) {
+            mpr_obj_set_prop(mobj, id, ckey, len, MPR_INT32, vals, 1);
+            (*env)->ReleaseIntArrayElements(env, jval, vals, JNI_ABORT);
+        }
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "[F"))) {
+        int len = (*env)->GetArrayLength(env, jval);
+        jfloat* vals = (*env)->GetFloatArrayElements(env, jval, NULL);
+        if (vals) {
+            mpr_obj_set_prop(mobj, id, ckey, len, MPR_FLT, vals, 1);
+            (*env)->ReleaseFloatArrayElements(env, jval, vals, JNI_ABORT);
+        }
+    }
+    else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "[D"))) {
+        int len = (*env)->GetArrayLength(env, jval);
+        jdouble* vals = (*env)->GetDoubleArrayElements(env, jval, NULL);
+        if (vals) {
+            mpr_obj_set_prop(mobj, id, ckey, len, MPR_DBL, vals, 1);
+            (*env)->ReleaseDoubleArrayElements(env, jval, vals, JNI_ABORT);
+        }
+    }
+    // TODO: handle arrays of other types: bool, byte, char, long, short, string
 
     if (jkey && ckey)
         (*env)->ReleaseStringUTFChars(env, jkey, ckey);
+    return ret;
 }
 
-JNIEXPORT void JNICALL Java_mapper_AbstractObject_00024Properties__1remove
+// returns the previous value if there was one
+JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1remove
   (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring jkey)
 {
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
+
+    jobject ret = Java_mapper_AbstractObject_00024Properties__1get(env, jobj, ptr, id, jkey);
+
     const char *ckey = jkey ? (*env)->GetStringUTFChars(env, jkey, 0) : 0;
     mpr_obj_remove_prop(mobj, id, ckey);
     if (jkey && ckey)
         (*env)->ReleaseStringUTFChars(env, jkey, ckey);
+    return ret;
+}
+
+JNIEXPORT jint JNICALL Java_mapper_AbstractObject_00024Properties__1size
+  (JNIEnv *env, jobject jobj, jlong ptr)
+{
+    mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
+    return mpr_obj_get_num_props(mobj, 0);
 }
 
 /**** mapper_Graph.h ****/
@@ -908,7 +1060,7 @@ JNIEXPORT jstring JNICALL Java_mapper_Graph_getInterface
     if (!g)
         return NULL;
     const char *iface = mpr_graph_get_interface(g);
-    return build_Value(env, 1, MPR_STR, iface, 0);
+    return build_value(env, 1, MPR_STR, iface, 0);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Graph_setInterface
@@ -930,7 +1082,7 @@ JNIEXPORT jstring JNICALL Java_mapper_Graph_getAddress
     if (!g)
         return NULL;
     const char *address = mpr_graph_get_address(g);
-    return build_Value(env, 1, MPR_STR, address, 0);
+    return build_value(env, 1, MPR_STR, address, 0);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Graph_setAddress
@@ -1051,6 +1203,7 @@ JNIEXPORT void JNICALL Java_mapper_Graph_addCallback
     mpr_graph g = (mpr_graph)ptr_jlong(jgraph);
     if (!g || !listener)
         return;
+    // need to free callbacks on graph_free!
     jobject o = (*env)->NewGlobalRef(env, listener);
     mpr_graph_add_cb(g, java_graph_cb, MPR_DEV, o);
 }
@@ -1801,7 +1954,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_getValue
         len = signal_length(sig);
         val = mpr_sig_get_value(sig, id, &time);
     }
-    return build_Value(env, len, type, val, &time);
+    return build_value(env, len, type, val, &time);
 }
 
 JNIEXPORT jlong JNICALL Java_mapper_Signal_maps

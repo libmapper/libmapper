@@ -3,10 +3,6 @@ package mapper;
 
 import mapper.NativeLib;
 import mapper.Property;
-import java.util.Iterator;
-import java.util.AbstractMap;
-import java.util.Map.*;
-import java.util.Set;
 
 public abstract class AbstractObject<T extends AbstractObject<T>>
 {
@@ -25,49 +21,114 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
     private native void _push(long obj);
 
     /* properties */
-    public class Properties extends AbstractMap<Object,Object>
+    public class Properties
     {
         /* constructor */
         public Properties(AbstractObject obj) { _obj = obj._obj; }
 
-        private native int _count(long obj);
-        public int count()
-            { return _count(_obj); }
+        public void clear()
+            { throw new UnsupportedOperationException(); }
 
-        private native Entry<Object, Object> _get(long obj, int id, String key);
-        public Entry<Object, Object> get(Property propID)
-            { return _get(_obj, propID.value(), null); }
-        public Entry<Object, Object> get(int index)
-            { return _get(_obj, index, null); }
-        public Entry<Object, Object> get(String key)
-            { return _get(_obj, 0, key); }
+        private native boolean _containsKey(long obj, int idx, String key);
+        public boolean containsKey(Object key)
+        {
+            if (key instanceof Integer)
+                return _containsKey(_obj, (int)key, null);
+            else if (key instanceof String)
+                return _containsKey(_obj, 0, (String)key);
+            else if (key instanceof mapper.Property)
+                return _containsKey(_obj, ((mapper.Property)key).value(), null);
+            else
+                return false;
+        }
 
-        private native Set<Object> _keySet(long obj);
-        public Set<Object> keySet()
-            { return _keySet(_obj); }
+        private native boolean _containsValue(long obj, Object value);
+        public boolean containsValue(Object value)
+            { return _containsValue(_obj, value); }
 
-        private native Set<Entry<Object, Object>> _entrySet(long obj);
-        public Set<Entry<Object, Object>> entrySet()
-            { return _entrySet(_obj); }
+        public class Entry
+        {
+            public Entry(int id, String key, Object value)
+            {
+                _id = id;
+                _key = key;
+                _value = value;
+            }
 
-        private native void _put(long obj, int id, String key, Object value);
-        public Properties put(Property propID, Object value)
-            { _put(_obj, propID.value(), null, value); return this; }
-        public Properties put(String key, Object value)
-            { _put(_obj, 0, key, value); return this; }
+            public String getKey()
+                { return _key; }
+            public mapper.Property getProperty()
+                { return mapper.Property.values()[_id]; }
+            public Object getValue()
+                { return _value; }
+            public String toString()
+                { return _key + ": " + _value.toString(); }
 
-        private native void _remove(long obj, int id, String key);
-        public Properties remove(Property propID)
-            { _remove(_obj, propID.value(), null); return this; }
-        public Properties remove(int index)
-            { _remove(_obj, index, null); return this; }
-        public Properties remove(String key)
-            { _remove(_obj, 0, key); return this; }
+            private int _id;
+            private String _key;
+            private Object _value;
+        }
 
-//        public Properties push() {
-//            _push(_obj);
-//            return this;
-//        }
+        // TODO: implement iterator
+
+        private native Entry _getEntry(long obj, int idx, String key);
+        public Entry getEntry(Object key)
+        {
+            if (key instanceof Integer)
+                return _getEntry(_obj, (int)key, null);
+            else if (key instanceof String)
+                return _getEntry(_obj, 0, (String)key);
+            else if (key instanceof mapper.Property)
+                return _getEntry(_obj, ((mapper.Property)key).value(), null);
+            else
+                return null;
+        }
+
+        private native Object _get(long obj, int idx, String key);
+        public Object get(Object key)
+        {
+            if (key instanceof Integer)
+                return _get(_obj, (int)key, null);
+            else if (key instanceof String)
+                return _get(_obj, 0, (String)key);
+            else if (key instanceof mapper.Property)
+                return _get(_obj, ((mapper.Property)key).value(), null);
+            else
+                return null;
+        }
+
+        public boolean isEmpty()
+            { return false; }
+
+        private native Object _put(long obj, int idx, String key, Object value);
+        public Object put(Object key, Object value)
+        {
+            if (key instanceof Integer)
+                return _put(_obj, (int)key, null, value);
+            else if (key instanceof String)
+                return _put(_obj, 0, (String)key, value);
+            else if (key instanceof mapper.Property)
+                return _put(_obj, ((mapper.Property)key).value(), null, value);
+            else
+                return null;
+        }
+
+        private native Object _remove(long obj, int idx, String key);
+        public Object remove(Object key)
+        {
+            if (key instanceof Integer)
+                return _remove(_obj, (int)key, null);
+            else if (key instanceof String)
+                return _remove(_obj, 0, (String)key);
+            else if (key instanceof mapper.Property)
+                return _remove(_obj, ((mapper.Property)key).value(), null);
+            else
+                return null;
+        }
+
+        private native int _size(long obj);
+        public int size()
+            { return _size(_obj); }
     }
 
     public Properties properties()
