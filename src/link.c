@@ -107,12 +107,18 @@ void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
     lo_bundle_add_message(b, dst->path, msg);
 }
 
-void mpr_link_send_bundle(mpr_link link)
+void mpr_link_process_bundles(mpr_link link, mpr_time t)
 {
-    RETURN_UNLESS(link && link->bundle.udp);
+    RETURN_UNLESS(link);
+    lo_bundle b;
 
     if (link->local_dev == link->remote_dev) {
-        lo_bundle b = link->bundle.udp;
+        b = link->bundle.udp;
+        link->bundle.udp = lo_bundle_new(t);
+
+        if (!b)
+            return;
+
         // set out-of-band timestamp
         mpr_dev_bundle_start(lo_bundle_get_timestamp(b), NULL);
         // call handler directly instead of sending over the network
@@ -133,18 +139,26 @@ void mpr_link_send_bundle(mpr_link link)
             }
             ++i;
         }
-        lo_bundle_free_recursive(link->bundle.udp);
+        lo_bundle_free_recursive(b);
     }
     else {
         mpr_net n = &link->obj.graph->net;
-        if (lo_bundle_count(link->bundle.udp))
-            lo_send_bundle_from(link->addr.udp, n->server.udp, link->bundle.udp);
-        lo_bundle_free_recursive(link->bundle.udp);
-        if (lo_bundle_count(link->bundle.tcp))
-            lo_send_bundle_from(link->addr.tcp, n->server.tcp, link->bundle.tcp);
-        lo_bundle_free_recursive(link->bundle.tcp);
+        b = link->bundle.udp;
+        link->bundle.udp = lo_bundle_new(t);
+        if (b) {
+            if (lo_bundle_count(b))
+                lo_send_bundle_from(link->addr.udp, n->server.udp, b);
+            lo_bundle_free_recursive(b);
+        }
+
+        b = link->bundle.tcp;
+        link->bundle.tcp = lo_bundle_new(t);
+        if (b) {
+            if (lo_bundle_count(b))
+                lo_send_bundle_from(link->addr.tcp, n->server.tcp, b);
+            lo_bundle_free_recursive(b);
+        }
     }
-    link->bundle.udp = link->bundle.tcp = 0;
 }
 
 static int cmp_qry_link_maps(const void *context_data, mpr_map map)

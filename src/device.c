@@ -694,7 +694,7 @@ void mpr_dev_update_done(mpr_dev dev)
     dev->loc->time_is_stale = 1;
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mpr_link_send_bundle((mpr_link)*links);
+        mpr_link_process_bundles((mpr_link)*links, dev->loc->time);
         links = mpr_list_get_next(links);
     }
 }
@@ -780,7 +780,7 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
 
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mpr_link_start_bundle((mpr_link)*links, dev->loc->time);
+        mpr_link_process_bundles((mpr_link)*links, dev->loc->time);
         links = mpr_list_get_next(links);
     }
 }
