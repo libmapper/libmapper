@@ -2,7 +2,7 @@
 #include <cstring>
 #include <signal.h>
 
-#include <mpr/mpr_cpp.h>
+#include <mapper/mapper_cpp.h>
 
 #define eprintf(format, ...) do {               \
     if (verbose)                                \
@@ -10,7 +10,7 @@
 } while(0)
 
 
-using namespace mpr;
+using namespace mapper;
 
 int verbose = 1;
 int terminate = 0;

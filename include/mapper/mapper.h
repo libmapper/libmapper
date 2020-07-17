@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-#include <mpr/mpr_constants.h>
-#include <mpr/mpr_types.h>
+#include <mapper/mapper_constants.h>
+#include <mapper/mapper_types.h>
 
 /*! \mainpage libmapper
 

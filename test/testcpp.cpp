@@ -7,13 +7,13 @@
 
 #include "config.h"
 
-#include <mpr/mpr_cpp.h>
+#include <mapper/mapper_cpp.h>
 
 #ifdef HAVE_ARPA_INET_H
  #include <arpa/inet.h>
 #endif
 
-using namespace mpr;
+using namespace mapper;
 
 int received = 0;
 
@@ -285,13 +285,13 @@ int main(int argc, char ** argv)
     out << "testing instances API" << std::endl;
 
     int num_inst = 10;
-    mpr::Signal multisend = dev.add_sig(MPR_DIR_OUT, "multisend", 1, MPR_FLT,
+    mapper::Signal multisend = dev.add_sig(MPR_DIR_OUT, "multisend", 1, MPR_FLT,
                                         0, 0, 0, &num_inst, 0, 0);
-    mpr::Signal multirecv = dev.add_sig(MPR_DIR_IN, "multirecv", 1, MPR_FLT,
+    mapper::Signal multirecv = dev.add_sig(MPR_DIR_IN, "multirecv", 1, MPR_FLT,
                                         0, 0, 0, &num_inst, handler, MPR_SIG_UPDATE);
     multisend.set_prop(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
     multirecv.set_prop(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
-    mpr::Map map2(multisend, multirecv);
+    mapper::Map map2(multisend, multirecv);
     map2.push();
     while (!map2.ready()) {
         dev.poll(10);
