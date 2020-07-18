@@ -7,5 +7,5 @@ Name: libmapper
 Description: A library for mapping controllers and synthesizers.
 Requires: @LIBLO@
 Version: @VERSION@
-Libs: -L${libdir} -lmpr
-Cflags: -I${includedir}/mpr
+Libs: -L${libdir} -lmapper
+Cflags: -I${includedir}/mapper
