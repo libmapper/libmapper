@@ -83,16 +83,6 @@ void mpr_link_free(mpr_link link)
     lo_bundle_free_recursive(link->bundle.tcp);
 }
 
-void mpr_link_start_bundle(mpr_link link, mpr_time t)
-{
-    RETURN_UNLESS(link);
-    if (link->bundle.udp)
-        mpr_link_send_bundle(link);
-    link->bundle.udp = lo_bundle_new(t);
-    if (link->local_dev != link->remote_dev)
-        link->bundle.tcp = lo_bundle_new(t);
-}
-
 // note on memory handling of mpr_link_add_msg():
 // message: will be owned, will be freed when done
 void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
@@ -110,22 +100,20 @@ void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
 void mpr_link_process_bundles(mpr_link link, mpr_time t)
 {
     RETURN_UNLESS(link);
-    lo_bundle b;
+    lo_bundle udp = link->bundle.udp;
+    link->bundle.udp = lo_bundle_new(t);
 
     if (link->local_dev == link->remote_dev) {
-        b = link->bundle.udp;
-        link->bundle.udp = lo_bundle_new(t);
-
-        if (!b)
+        if (!udp)
             return;
 
         // set out-of-band timestamp
-        mpr_dev_bundle_start(lo_bundle_get_timestamp(b), NULL);
+        mpr_dev_bundle_start(lo_bundle_get_timestamp(udp), NULL);
         // call handler directly instead of sending over the network
-        int i = 0, num = lo_bundle_count(b);
+        int i = 0, num = lo_bundle_count(udp);
         const char *path;
         while (i < num) {
-            lo_message m = lo_bundle_get_message(b, i, &path);
+            lo_message m = lo_bundle_get_message(udp, i, &path);
             // need to look up signal by path
             mpr_rtr_sig rs = link->obj.graph->net.rtr->sigs;
             while (rs) {
@@ -139,24 +127,21 @@ void mpr_link_process_bundles(mpr_link link, mpr_time t)
             }
             ++i;
         }
-        lo_bundle_free_recursive(b);
+        lo_bundle_free_recursive(udp);
     }
     else {
-        mpr_net n = &link->obj.graph->net;
-        b = link->bundle.udp;
-        link->bundle.udp = lo_bundle_new(t);
-        if (b) {
-            if (lo_bundle_count(b))
-                lo_send_bundle_from(link->addr.udp, n->server.udp, b);
-            lo_bundle_free_recursive(b);
-        }
-
-        b = link->bundle.tcp;
+        lo_bundle tcp = link->bundle.tcp;
         link->bundle.tcp = lo_bundle_new(t);
-        if (b) {
-            if (lo_bundle_count(b))
-                lo_send_bundle_from(link->addr.tcp, n->server.tcp, b);
-            lo_bundle_free_recursive(b);
+        mpr_net n = &link->obj.graph->net;
+        if (udp) {
+            if (lo_bundle_count(udp))
+                lo_send_bundle_from(link->addr.udp, n->server.udp, udp);
+            lo_bundle_free_recursive(udp);
+        }
+        if (tcp) {
+            if (lo_bundle_count(tcp))
+                lo_send_bundle_from(link->addr.tcp, n->server.tcp, tcp);
+            lo_bundle_free_recursive(tcp);
         }
     }
 }

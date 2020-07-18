@@ -142,6 +142,8 @@ void loop()
             fflush(stdout);
         }
     }
+    mpr_dev_poll(devices[0], period);
+    mpr_dev_poll(devices[1], period);
 }
 
 void ctrlc(int sig)

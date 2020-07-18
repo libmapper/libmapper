@@ -296,7 +296,6 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port,
                       int data_port);
 void mpr_link_free(mpr_link link);
 void mpr_link_process_bundles(mpr_link link, mpr_time t);
-void mpr_link_send_bundle(mpr_link link);
 void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
                       mpr_proto proto);
 
