@@ -66,6 +66,9 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port,
     link->addr.admin = lo_address_new(host, str);
     trace_dev(link->local_dev, "activated router to device '%s' at %s:%d\n",
               link->remote_dev->name, host, data_port);
+    link->bundle.udp[0] = link->bundle.udp[1] = 0;
+    link->bundle.tcp[0] = link->bundle.tcp[1] = 0;
+    link->bundle.idx = 0;
     mpr_dev_add_link(link->local_dev, link->remote_dev);
 }
 
@@ -74,34 +77,47 @@ void mpr_link_free(mpr_link link)
     FUNC_IF(mpr_tbl_free, link->obj.props.synced);
     FUNC_IF(mpr_tbl_free, link->obj.props.staged);
     FUNC_IF(free, link->num_maps);
+    if (!link->local_dev->loc)
+        return;
     FUNC_IF(lo_address_free, link->addr.admin);
     FUNC_IF(lo_address_free, link->addr.udp);
     FUNC_IF(lo_address_free, link->addr.tcp);
-    if (link->local_dev->loc)
-        mpr_dev_remove_link(link->local_dev, link->remote_dev);
-    lo_bundle_free_recursive(link->bundle.udp);
-    lo_bundle_free_recursive(link->bundle.tcp);
+    FUNC_IF(lo_bundle_free_recursive, link->bundle.udp[link->bundle.idx]);
+    FUNC_IF(lo_bundle_free_recursive, link->bundle.tcp[link->bundle.idx]);
+    mpr_dev_remove_link(link->local_dev, link->remote_dev);
 }
 
 // note on memory handling of mpr_link_add_msg():
 // message: will be owned, will be freed when done
-void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
-                      mpr_proto proto)
+void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t, mpr_proto proto)
 {
     RETURN_UNLESS(msg);
     if (link->local_dev == link->remote_dev)
         proto = MPR_PROTO_UDP;
 
     // add message to existing bundles
-    lo_bundle b = (proto == MPR_PROTO_UDP) ? link->bundle.udp : link->bundle.tcp;
-    lo_bundle_add_message(b, dst->path, msg);
+    unsigned int idx = link->bundle.idx;
+    lo_bundle *b = (proto == MPR_PROTO_UDP) ? &link->bundle.udp[idx] : &link->bundle.tcp[idx];
+    if (!*b)
+        *b = lo_bundle_new(t);
+    lo_bundle_add_message(*b, dst->path, msg);
 }
 
 void mpr_link_process_bundles(mpr_link link, mpr_time t)
 {
     RETURN_UNLESS(link);
-    lo_bundle udp = link->bundle.udp;
-    link->bundle.udp = lo_bundle_new(t);
+
+    unsigned int idx = link->bundle.idx;
+    unsigned int alt = idx ? 0 : 1;
+
+    // init alternate bundle
+    link->bundle.udp[alt] = link->bundle.tcp[alt] = 0;
+
+    lo_bundle udp = link->bundle.udp[idx];
+    lo_bundle tcp = link->bundle.tcp[idx];
+
+    // increment bundle index
+    link->bundle.idx = alt;
 
     if (link->local_dev == link->remote_dev) {
         if (!udp)
@@ -130,8 +146,6 @@ void mpr_link_process_bundles(mpr_link link, mpr_time t)
         lo_bundle_free_recursive(udp);
     }
     else {
-        lo_bundle tcp = link->bundle.tcp;
-        link->bundle.tcp = lo_bundle_new(t);
         mpr_net n = &link->obj.graph->net;
         if (udp) {
             if (lo_bundle_count(udp))

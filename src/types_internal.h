@@ -310,7 +310,7 @@ typedef struct _mpr_sig_inst
     void *val;                  //!< The current value of this signal instance.
     mpr_time time;              //!< The time associated with the current value.
 
-    int idx;                    //!< Index for accessing value history.
+    unsigned int idx;           //!< Index for accessing value history.
     uint8_t has_val;            //!< Indicates whether this instance has a value.
     uint8_t active;             //!< Status of this instance.
 } mpr_sig_inst_t, *mpr_sig_inst;
@@ -386,8 +386,9 @@ typedef struct _mpr_link {
     } addr;
 
     struct {
-        lo_bundle udp;
-        lo_bundle tcp;
+        lo_bundle udp[2];           //!< 2 copies for simple circular buffer
+        lo_bundle tcp[2];           //!< 2 copies for simple circular buffer
+        unsigned int idx;
     } bundle;
 
     mpr_sync_clock_t clock;
@@ -506,8 +507,9 @@ typedef struct _mpr_local_dev {
     } idmaps;
 
     mpr_time time;
-    int time_is_stale;
     int num_sig_groups;
+    uint8_t time_is_stale;
+    uint8_t locked;
 } mpr_local_dev_t, *mpr_local_dev;
 
 

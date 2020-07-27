@@ -690,21 +690,24 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 
 void mpr_dev_update_done(mpr_dev dev)
 {
-    RETURN_UNLESS(dev && dev->loc);
+    RETURN_UNLESS(dev && dev->loc && !dev->loc->locked);
+    dev->loc->locked = 1;
     dev->loc->time_is_stale = 1;
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
         mpr_link_process_bundles((mpr_link)*links, dev->loc->time);
         links = mpr_list_get_next(links);
     }
+    dev->loc->locked = 0;
 }
 
 int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
-    static int locked = 1; // disallow when already called
-    RETURN_UNLESS(dev && dev->loc, 0);
+    RETURN_UNLESS(dev && dev->loc && !dev->loc->locked, 0);
 
     mpr_dev_update_done(dev);
+
+    dev->loc->locked = 1;
 
     int admin_count = 0, device_count = 0, status[4];
     mpr_net net = &dev->obj.graph->net;
@@ -716,7 +719,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             net->msgs_recvd |= admin_count;
         }
         dev->loc->time_is_stale = 1;
-        locked = 0;
+        dev->loc->locked = 0;
         return admin_count;
     }
     else if (!block_ms) {
@@ -761,7 +764,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     }
 
     net->msgs_recvd |= admin_count;
-    locked = 0;
+    dev->loc->locked = 0;
     return admin_count + device_count;
 }
 

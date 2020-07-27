@@ -526,7 +526,7 @@ int mpr_sig_get_idmap_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int
 static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
 {
     RETURN_UNLESS(sig->num_inst < MAX_INSTANCES, -1);
-    int i, lowest, cont;
+    int i, cont;
     mpr_sig_inst si;
 
     // check if instance with this id already exists! If so, stop here.
@@ -559,20 +559,7 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
         }
         si->id = lowest_id;
     }
-    // find lowest unused positive index
-    lowest = 0;
-    cont = 1;
-    while (cont) {
-        cont = 0;
-        for (i = 0; i < sig->num_inst; i++) {
-            if (sig->loc->inst[i]->idx == lowest) {
-                cont = 1;
-                break;
-            }
-        }
-        lowest += cont;
-    }
-    si->idx = lowest;
+    si->idx = sig->num_inst;
     _init_inst(si);
     si->data = data;
 
@@ -583,14 +570,7 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
         sig->use_inst = 1;
     }
     qsort(sig->loc->inst, sig->num_inst, sizeof(mpr_sig_inst), _compare_inst_ids);
-
-    // return largest index
-    int highest = -1;
-    for (i = 0; i < sig->num_inst; i++) {
-        if (sig->loc->inst[i]->idx > highest)
-            highest = sig->loc->inst[i]->idx;
-    }
-    return highest;
+    return sig->num_inst-1;;
 }
 
 int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)

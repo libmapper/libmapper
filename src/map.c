@@ -1194,7 +1194,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 break;
             }
             case PROP(EXTRA):
-                if (strncmp(a->key, "var@", 4)==0) {
+                if (strcmp(a->key, "expression")==0) {
+                    if (mpr_type_get_is_str(a->types[0])) {
+                        // set property type to expr and repeat
+                        a->prop = PROP(EXPR);
+                        --i;
+                    }
+                }
+                else if (strncmp(a->key, "var@", 4)==0) {
                     if (m->loc && m->loc->expr) {
                         for (j = 0; j < m->loc->num_vars; j++) {
                             if (!mpr_expr_get_var_is_public(m->loc->expr, j))
