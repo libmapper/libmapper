@@ -27,12 +27,12 @@ static mpr_rtr_sig _find_rtr_sig(mpr_rtr rtr, mpr_sig sig)
     return rs;
 }
 
-void mpr_rtr_remove_inst(mpr_rtr rtr, mpr_sig sig, int idx) {
+void mpr_rtr_remove_inst(mpr_rtr rtr, mpr_sig sig, int inst_idx) {
     int i;
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_UNLESS(rs);
     for (i = 0; i < rs->num_slots; i++)
-        mpr_slot_remove_inst(rs->slots[i], idx);
+        mpr_slot_remove_inst(rs->slots[i], inst_idx);
 }
 
 // TODO: check for mismatched instance counts when using multiple sources
@@ -93,7 +93,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_UNLESS(rs);
 
-    int i, j, idx = sig->loc->idmaps[idmap_idx].inst->idx;
+    int i, j, inst_idx = sig->loc->idmaps[idmap_idx].inst->idx;
+    int bundle_idx = rtr->dev->loc->bundle_idx;
     mpr_map map;
     uint8_t *lock = &sig->loc->locked;
     *lock = 1;
@@ -117,14 +118,14 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             int in_scope = _is_map_in_scope(map, idmap->GID);
 
             // reset associated output memory
-            mpr_value_reset_inst(&dst_lslot->val, idx);
+            mpr_value_reset_inst(&dst_lslot->val, inst_idx);
 
             // send release to downstream
             if (slot->dir == MPR_DIR_OUT) {
                 msg = 0;
                 if (!map->use_inst || in_scope) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                    mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol, bundle_idx);
                 }
             }
 
@@ -136,7 +137,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
                 lslot = slot->loc;
 
                 // reset associated input memory
-                mpr_value_reset_inst(&lslot->val, idx);
+                mpr_value_reset_inst(&lslot->val, inst_idx);
 
                 if (!in_scope)
                     continue;
@@ -146,7 +147,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
 
                 if (slot->dir == MPR_DIR_IN) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    mpr_link_add_msg(slot->link, slot->sig, msg, t, map->protocol);
+                    mpr_link_add_msg(slot->link, slot->sig, msg, t, map->protocol, bundle_idx);
                 }
             }
         }
@@ -180,13 +181,13 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             char types[sig->len];
             memset(types, sig->type, sig->len);
             msg = mpr_map_build_msg(map, slot, val, types, sig->use_inst ? idmap : 0);
-            mpr_link_add_msg(map->dst->link, map->dst->sig, msg, t, map->protocol);
+            mpr_link_add_msg(map->dst->link, map->dst->sig, msg, t, map->protocol, bundle_idx);
             continue;
         }
 
         // copy input value
         mpr_local_slot lslot = slot->loc;
-        mpr_value_set_sample(&lslot->val, idx, (void*)val, t);
+        mpr_value_set_sample(&lslot->val, inst_idx, (void*)val, t);
 
         if (map->process_loc == MPR_LOC_SRC && !slot->causes_update)
             continue;
@@ -220,8 +221,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             // check if map instance is active
             if ((all || sig->use_inst) && !idmaps[idmap_idx].inst)
                 continue;
-            idx = idmaps[idmap_idx].inst->idx;
-            int status = mpr_map_perform(map, dst_types, &t, idx);
+            inst_idx = idmaps[idmap_idx].inst->idx;
+            int status = mpr_map_perform(map, dst_types, &t, inst_idx);
             if (!status) {
                 // no updates or releases
                 if (!all)
@@ -232,7 +233,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             /* send instance release if dst is instanced and either src or map is also instanced. */
             if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE && map->use_inst) {
                 msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[idmap_idx].map : idmap);
-                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol, bundle_idx);
                 if (map_manages_inst) {
                     mpr_dev_LID_decref(rtr->dev, 0, idmap);
                     idmap = map->idmap = 0;
@@ -240,7 +241,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             }
             if (status & EXPR_UPDATE) {
                 // send instance update
-                void *result = mpr_value_get_samp(&dst_slot->loc->val, idx);
+                void *result = mpr_value_get_samp(&dst_slot->loc->val, inst_idx);
                 if (map_manages_inst) {
                     if (!idmap) {
                         // create an id_map and store it in the map
@@ -253,14 +254,14 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
                     msg = mpr_map_build_msg(map, slot, result, dst_types, idmaps[idmap_idx].map);
                 }
                 mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg,
-                                 *(mpr_time*)mpr_value_get_time(&dst_slot->loc->val, idx),
-                                 map->protocol);
+                                 *(mpr_time*)mpr_value_get_time(&dst_slot->loc->val, inst_idx),
+                                 map->protocol, bundle_idx);
             }
             /* send instance release if dst is instanced and either src or map
              * is also instanced. */
             if (idmap && status & EXPR_RELEASE_AFTER_UPDATE && map->use_inst) {
                 msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[idmap_idx].map : idmap);
-                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol);
+                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol, bundle_idx);
                 if (map_manages_inst) {
                     mpr_dev_LID_decref(rtr->dev, 0, idmap);
                     idmap = map->idmap = 0;

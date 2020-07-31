@@ -368,6 +368,13 @@ struct _mpr_sig {
 
 /**** Router ****/
 
+typedef struct _mpr_bundle {
+    lo_bundle udp;
+    lo_bundle tcp;
+} mpr_bundle_t, *mpr_bundle;
+
+#define NUM_BUNDLES 3
+
 typedef struct _mpr_link {
     mpr_obj_t obj;                  // always first
     union {
@@ -385,11 +392,7 @@ typedef struct _mpr_link {
         lo_address tcp;             //!< Network address of remote endpoint
     } addr;
 
-    struct {
-        lo_bundle udp[2];           //!< 2 copies for simple circular buffer
-        lo_bundle tcp[2];           //!< 2 copies for simple circular buffer
-        unsigned int idx;
-    } bundle;
+    mpr_bundle_t bundles[NUM_BUNDLES];  //!< Circular buffer to allow for interrupts during poll()
 
     mpr_sync_clock_t clock;
 } mpr_link_t, *mpr_link;
@@ -509,7 +512,8 @@ typedef struct _mpr_local_dev {
     mpr_time time;
     int num_sig_groups;
     uint8_t time_is_stale;
-    uint8_t locked;
+    uint8_t polling;
+    uint8_t bundle_idx;
 } mpr_local_dev_t, *mpr_local_dev;
 
 

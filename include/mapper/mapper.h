@@ -262,7 +262,7 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time);
  *  timestep instead, however calling mpr_dev_poll() at a lower rate may be
  *  more performant.
  *  \param dev          The device to use. */
-void mpr_dev_update_done(mpr_dev dev);
+void mpr_dev_process_outputs(mpr_dev dev);
 
 /** @} */ // end of group Devices
 

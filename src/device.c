@@ -688,26 +688,30 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
     return 0;
 }
 
-void mpr_dev_update_done(mpr_dev dev)
+// TODO: handle interrupt-driven updates that omit call to this function
+void mpr_dev_process_outputs(mpr_dev dev)
 {
-    RETURN_UNLESS(dev && dev->loc && !dev->loc->locked);
-    dev->loc->locked = 1;
+    RETURN_UNLESS(dev && dev->loc);
     dev->loc->time_is_stale = 1;
+    // if (dev->loc->polling)
+
+    int idx = dev->loc->bundle_idx = (dev->loc->bundle_idx + 1) % NUM_BUNDLES;
+    if (--idx < 0)
+        idx = NUM_BUNDLES - 1;
+
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mpr_link_process_bundles((mpr_link)*links, dev->loc->time);
+        mpr_link_process_bundles((mpr_link)*links, dev->loc->time, idx);
         links = mpr_list_get_next(links);
     }
-    dev->loc->locked = 0;
 }
 
 int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
-    RETURN_UNLESS(dev && dev->loc && !dev->loc->locked, 0);
+    RETURN_UNLESS(dev && dev->loc && !dev->loc->polling, 0);
 
-    mpr_dev_update_done(dev);
-
-    dev->loc->locked = 1;
+    mpr_dev_process_outputs(dev);
+    dev->loc->polling = 1;
 
     int admin_count = 0, device_count = 0, status[4];
     mpr_net net = &dev->obj.graph->net;
@@ -719,7 +723,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             net->msgs_recvd |= admin_count;
         }
         dev->loc->time_is_stale = 1;
-        dev->loc->locked = 0;
+        dev->loc->polling = 0;
         return admin_count;
     }
     else if (!block_ms) {
@@ -757,6 +761,9 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
            && (lo_servers_recv_noblock(net->server.dev, &status[2], 2, 0)))
         device_count += (status[2] > 0) + (status[3] > 0);
 
+    dev->loc->polling = 0;
+    mpr_dev_process_outputs(dev);
+
     if (dev->obj.props.synced->dirty && mpr_dev_get_is_ready(dev) && dev->loc->subscribers) {
         // inform device subscribers of change props
         mpr_net_use_subscribers(net, dev, MPR_DEV);
@@ -764,7 +771,6 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     }
 
     net->msgs_recvd |= admin_count;
-    dev->loc->locked = 0;
     return admin_count + device_count;
 }
 
@@ -779,11 +785,16 @@ mpr_time mpr_dev_get_time(mpr_dev dev)
 void mpr_dev_set_time(mpr_dev dev, mpr_time time)
 {
     RETURN_UNLESS(dev && dev->loc && memcmp(&time, &dev->loc->time, sizeof(mpr_time)));
+    mpr_time_set(&dev->loc->time, time);
     dev->loc->time_is_stale = 0;
+
+    int idx = dev->loc->bundle_idx = (dev->loc->bundle_idx + 1) % NUM_BUNDLES;
+    if (--idx < 0)
+        idx = NUM_BUNDLES - 1;
 
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
-        mpr_link_process_bundles((mpr_link)*links, dev->loc->time);
+        mpr_link_process_bundles((mpr_link)*links, dev->loc->time, idx);
         links = mpr_list_get_next(links);
     }
 }
