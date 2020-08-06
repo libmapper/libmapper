@@ -8,15 +8,13 @@ noinst_PROGRAMS = test testcalibrate testconvergent testcpp testcustomtransport\
                   testexpression testgraph testinstance testlinear testlocalmap\
                   testmany testmapfail testmapinput testmapprotocol testmonitor\
                   testnetwork testparams testparser testprops testrate         \
-                  testreverse testsignals testspeed testthread testunmap       \
-                  testvector
+                  testreverse testsignals testspeed testunmap testvector
 
 test_all_ordered = testparams testprops testgraph testparser testnetwork       \
                    testmany test testlinear testexpression testrate            \
                    testinstance testreverse testvector testcustomtransport     \
                    testspeed testcpp testmapinput testconvergent testunmap     \
-                   testmapfail testmapprotocol testcalibrate testlocalmap      \
-                   testthread
+                   testmapfail testmapprotocol testcalibrate testlocalmap
 else
 TEST_LDADD = $(top_builddir)/src/libmapper.la $(liblo_LIBS)
 noinst_PROGRAMS = test testcalibrate testconvergent testcpp testcustomtransport\

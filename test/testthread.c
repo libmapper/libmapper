@@ -5,9 +5,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
-// #ifdef HAVE_LIBPTHREAD
+
 #include <pthread.h>
-// #endif
 
 #if defined(WIN32) || defined(_MSC_VER)
 #define SLEEP_MS(x) Sleep(x)
