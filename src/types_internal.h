@@ -114,12 +114,12 @@ typedef struct _mpr_net {
         union {
             lo_server all[4];
             struct {
-                lo_server_thread admin[2];
+                lo_server admin[2];
                 lo_server dev[2];
             };
             struct {
-                lo_server_thread bus;   /*!< LibLo server for the multicast. */
-                lo_server_thread mesh;  /*!< LibLo server for mesh comms. */
+                lo_server bus;      /*!< LibLo server for the multicast. */
+                lo_server mesh;     /*!< LibLo server for mesh comms. */
 
                 /*! Servers used to handle incoming signal messages. */
                 lo_server udp;
@@ -373,7 +373,7 @@ typedef struct _mpr_bundle {
     lo_bundle tcp;
 } mpr_bundle_t, *mpr_bundle;
 
-#define NUM_BUNDLES 3
+#define NUM_BUNDLES 4
 
 typedef struct _mpr_link {
     mpr_obj_t obj;                  // always first
@@ -392,7 +392,7 @@ typedef struct _mpr_link {
         lo_address tcp;             //!< Network address of remote endpoint
     } addr;
 
-    mpr_bundle_t bundles[NUM_BUNDLES];  //!< Circular buffer to allow for interrupts during poll()
+    mpr_bundle_t bundles[NUM_BUNDLES];  //!< Circular buffer to handle interrupts during poll()
 
     mpr_sync_clock_t clock;
 } mpr_link_t, *mpr_link;
@@ -514,6 +514,7 @@ typedef struct _mpr_local_dev {
     uint8_t time_is_stale;
     uint8_t polling;
     uint8_t bundle_idx;
+    uint8_t updated;
 } mpr_local_dev_t, *mpr_local_dev;
 
 

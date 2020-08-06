@@ -689,29 +689,37 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 }
 
 // TODO: handle interrupt-driven updates that omit call to this function
-void mpr_dev_process_outputs(mpr_dev dev)
+static inline int mpr_dev_process_outputs_internal(mpr_dev dev, int idx)
 {
-    RETURN_UNLESS(dev && dev->loc);
-    dev->loc->time_is_stale = 1;
-    // if (dev->loc->polling)
-
-    int idx = dev->loc->bundle_idx = (dev->loc->bundle_idx + 1) % NUM_BUNDLES;
-    if (--idx < 0)
-        idx = NUM_BUNDLES - 1;
-
     mpr_list links = mpr_list_from_data(dev->obj.graph->links);
+    int msgs = 0;
     while (links) {
-        mpr_link_process_bundles((mpr_link)*links, dev->loc->time, idx);
+        msgs += mpr_link_process_bundles((mpr_link)*links, dev->loc->time, idx);
         links = mpr_list_get_next(links);
     }
+    return msgs ? 1 : 0;
+}
+
+// increase bundle idx and return previous index
+static inline int fetch_and_add_bundle_idx(mpr_dev dev, int addend)
+{
+    // is it possible to simultaneously add to bundle idx and clear "updated" flag?
+    int idx = __sync_fetch_and_add(&dev->loc->bundle_idx, addend);
+    dev->loc->updated = 0;
+    return idx % NUM_BUNDLES;
+}
+
+void mpr_dev_process_outputs(mpr_dev dev) {
+    RETURN_UNLESS(dev && dev->loc);
+    int idx = fetch_and_add_bundle_idx(dev, dev->loc->updated);
+    dev->loc->time_is_stale = 1;
+    if (!dev->loc->polling)
+        mpr_dev_process_outputs_internal(dev, idx);
 }
 
 int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
-    RETURN_UNLESS(dev && dev->loc && !dev->loc->polling, 0);
-
-    mpr_dev_process_outputs(dev);
-    dev->loc->polling = 1;
+    RETURN_UNLESS(dev && dev->loc, 0);
 
     int admin_count = 0, device_count = 0, status[4];
     mpr_net net = &dev->obj.graph->net;
@@ -722,11 +730,18 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             admin_count = (status[0] > 0) + (status[1] > 0);
             net->msgs_recvd |= admin_count;
         }
-        dev->loc->time_is_stale = 1;
         dev->loc->polling = 0;
+        dev->loc->bundle_idx = 1;
         return admin_count;
     }
-    else if (!block_ms) {
+
+    int idx = fetch_and_add_bundle_idx(dev, 1);
+    dev->loc->time_is_stale = 1;
+    dev->loc->polling = 1;
+    idx = (idx + mpr_dev_process_outputs_internal(dev, idx)) % NUM_BUNDLES;
+    dev->loc->polling = 0;
+
+    if (!block_ms) {
         if (lo_servers_recv_noblock(net->server.all, status, 4, 0)) {
             admin_count = (status[0] > 0) + (status[1] > 0);
             device_count = (status[2] > 0) + (status[3] > 0);
@@ -740,10 +755,16 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             // set timeout to a maximum of 100ms
             if (left_ms > 100)
                 left_ms = 100;
+            dev->loc->polling = 1;
             if (lo_servers_recv_noblock(net->server.all, status, 4, left_ms)) {
                 admin_count += (status[0] > 0) + (status[1] > 0);
                 device_count += (status[2] > 0) + (status[3] > 0);
             }
+            // check if any signal update bundles need to be sent
+            if (idx != dev->loc->bundle_idx % NUM_BUNDLES)
+                idx = (idx + mpr_dev_process_outputs_internal(dev, idx)) % NUM_BUNDLES;
+            dev->loc->polling = 0;
+
             elapsed = (mpr_get_current_time() - then) * 1000;
             if ((elapsed - checked_admin) > 100) {
                 mpr_net_poll(net);
@@ -761,8 +782,16 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
            && (lo_servers_recv_noblock(net->server.dev, &status[2], 2, 0)))
         device_count += (status[2] > 0) + (status[3] > 0);
 
+    // process any outputs cached during interrupts
+    dev->loc->polling = 1;
+    while (1) {
+        if (idx == (dev->loc->bundle_idx % NUM_BUNDLES))
+            break;
+        if (!mpr_dev_process_outputs_internal(dev, idx))
+            break;
+        idx = (idx + 1) % NUM_BUNDLES;
+    }
     dev->loc->polling = 0;
-    mpr_dev_process_outputs(dev);
 
     if (dev->obj.props.synced->dirty && mpr_dev_get_is_ready(dev) && dev->loc->subscribers) {
         // inform device subscribers of change props
@@ -787,16 +816,8 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     RETURN_UNLESS(dev && dev->loc && memcmp(&time, &dev->loc->time, sizeof(mpr_time)));
     mpr_time_set(&dev->loc->time, time);
     dev->loc->time_is_stale = 0;
-
-    int idx = dev->loc->bundle_idx = (dev->loc->bundle_idx + 1) % NUM_BUNDLES;
-    if (--idx < 0)
-        idx = NUM_BUNDLES - 1;
-
-    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
-    while (links) {
-        mpr_link_process_bundles((mpr_link)*links, dev->loc->time, idx);
-        links = mpr_list_get_next(links);
-    }
+    if (!dev->loc->polling)
+        mpr_dev_process_outputs_internal(dev, fetch_and_add_bundle_idx(dev, dev->loc->updated));
 }
 
 void mpr_dev_reserve_idmap(mpr_dev dev)

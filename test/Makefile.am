@@ -9,16 +9,18 @@ TEST_LDADD = $(top_builddir)/src/libmapper.la $(liblo_LIBS)
 endif
 
 noinst_PROGRAMS = test testcalibrate testconvergent testcpp testcustomtransport\
-                  testexpression testgraph testinstance testlinear testlocalmap\
-                  testmany testmapfail testmapinput testmapprotocol testmonitor\
-                  testnetwork testparams testparser testprops testrate         \
-                  testreverse testsignals testspeed testunmap testvector
+                  testexpression testgraph testinstance testinterrupt          \
+                  testlinear testlocalmap testmany testmapfail testmapinput    \
+                  testmapprotocol testmonitor testnetwork testparams testparser\
+                  testprops testrate testreverse testsignals testspeed         \
+                  testthread testunmap testvector
 
 test_all_ordered = testparams testprops testgraph testparser testnetwork       \
                    testmany test testlinear testexpression testrate            \
                    testinstance testreverse testvector testcustomtransport     \
                    testspeed testcpp testmapinput testconvergent testunmap     \
-                   testmapfail testmapprotocol testcalibrate testlocalmap
+                   testmapfail testmapprotocol testcalibrate testlocalmap      \
+                   testthread testinterrupt
 
 test_CFLAGS = $(TEST_CFLAGS)
 test_SOURCES = test.c
@@ -51,6 +53,10 @@ testgraph_LDADD = $(TEST_LDADD)
 testinstance_CFLAGS = $(TEST_CFLAGS)
 testinstance_SOURCES = testinstance.c
 testinstance_LDADD = $(TEST_LDADD)
+
+testinterrupt_CFLAGS = $(TEST_CFLAGS)
+testinterrupt_SOURCES = testinterrupt.c
+testinterrupt_LDADD = $(TEST_LDADD)
 
 testlinear_CFLAGS = $(TEST_CFLAGS)
 testlinear_SOURCES = testlinear.c
@@ -111,6 +117,10 @@ testsignals_LDADD = $(TEST_LDADD)
 testspeed_CFLAGS = $(TEST_CFLAGS)
 testspeed_SOURCES = testspeed.c
 testspeed_LDADD = $(TEST_LDADD)
+
+testthread_CFLAGS = $(TEST_CFLAGS)
+testthread_SOURCES = testthread.c
+testthread_LDADD = $(TEST_LDADD)
 
 testunmap_CFLAGS = $(TEST_CFLAGS)
 testunmap_SOURCES = testunmap.c

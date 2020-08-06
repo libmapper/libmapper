@@ -94,7 +94,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
     RETURN_UNLESS(rs);
 
     int i, j, inst_idx = sig->loc->idmaps[idmap_idx].inst->idx;
-    int bundle_idx = rtr->dev->loc->bundle_idx;
+    uint8_t bundle_idx = rtr->dev->loc->bundle_idx % NUM_BUNDLES;
+    rtr->dev->loc->updated = 1; // mark as updated
     mpr_map map;
     uint8_t *lock = &sig->loc->locked;
     *lock = 1;

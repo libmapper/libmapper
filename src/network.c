@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <sys/time.h>
 #include <zlib.h>
 #include <math.h>
 
