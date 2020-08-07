@@ -119,10 +119,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
             b->udp = 0;
             if ((tmp = lo_bundle_count(lb))) {
                 num = tmp;
-                int ret = lo_send_bundle_from(link->addr.udp, n->server.udp, lb);
-                if (ret == -1)
-                    printf("ERR: %d, %d, %s\n", ret, lo_address_errno(link->addr.tcp),
-                            lo_address_errstr(link->addr.tcp));
+                lo_send_bundle_from(link->addr.udp, n->server.udp, lb);
             }
             lo_bundle_free_recursive(lb);
         }
@@ -130,10 +127,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
             b->tcp = 0;
             if ((tmp = lo_bundle_count(lb))) {
                 num += tmp;
-                int ret = lo_send_bundle_from(link->addr.tcp, n->server.tcp, lb);
-                if (ret == -1)
-                    printf("ERR: %d, %d, %s\n", ret, lo_address_errno(link->addr.tcp),
-                            lo_address_errstr(link->addr.tcp));
+                lo_send_bundle_from(link->addr.tcp, n->server.tcp, lb);
             }
             lo_bundle_free_recursive(lb);
         }

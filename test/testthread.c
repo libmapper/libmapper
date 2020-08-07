@@ -75,10 +75,10 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 {
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
-        // if (fabs(*(float*)value - expected) < 0.0001)
+        if (fabs(*(float*)value - expected) < 0.0001)
             received++;
-        // else
-        //     eprintf(" expected %f\n", expected);
+        else
+            eprintf(" expected %f\n", expected);
     }
 }
 

@@ -373,7 +373,7 @@ typedef struct _mpr_bundle {
     lo_bundle tcp;
 } mpr_bundle_t, *mpr_bundle;
 
-#define NUM_BUNDLES 4
+#define NUM_BUNDLES 8
 
 typedef struct _mpr_link {
     mpr_obj_t obj;                  // always first

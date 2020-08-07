@@ -701,17 +701,17 @@ static inline int mpr_dev_process_outputs_internal(mpr_dev dev, int idx)
 }
 
 // increase bundle idx and return previous index
-static inline int fetch_and_add_bundle_idx(mpr_dev dev, int addend)
+static inline int fetch_and_add_bundle_idx(mpr_dev dev)
 {
     // is it possible to simultaneously add to bundle idx and clear "updated" flag?
-    int idx = __sync_fetch_and_add(&dev->loc->bundle_idx, addend);
+    int idx = __sync_fetch_and_add(&dev->loc->bundle_idx, dev->loc->updated);
     dev->loc->updated = 0;
     return idx % NUM_BUNDLES;
 }
 
 void mpr_dev_process_outputs(mpr_dev dev) {
     RETURN_UNLESS(dev && dev->loc);
-    int idx = fetch_and_add_bundle_idx(dev, dev->loc->updated);
+    int idx = fetch_and_add_bundle_idx(dev);
     dev->loc->time_is_stale = 1;
     if (!dev->loc->polling)
         mpr_dev_process_outputs_internal(dev, idx);
@@ -730,14 +730,13 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             admin_count = (status[0] > 0) + (status[1] > 0);
             net->msgs_recvd |= admin_count;
         }
-        dev->loc->polling = 0;
         dev->loc->bundle_idx = 1;
         return admin_count;
     }
 
-    int idx = fetch_and_add_bundle_idx(dev, 1);
-    dev->loc->time_is_stale = 1;
     dev->loc->polling = 1;
+    int idx = fetch_and_add_bundle_idx(dev);
+    dev->loc->time_is_stale = 1;
     idx = (idx + mpr_dev_process_outputs_internal(dev, idx)) % NUM_BUNDLES;
     dev->loc->polling = 0;
 
@@ -761,8 +760,11 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
                 device_count += (status[2] > 0) + (status[3] > 0);
             }
             // check if any signal update bundles need to be sent
-            if (idx != dev->loc->bundle_idx % NUM_BUNDLES)
-                idx = (idx + mpr_dev_process_outputs_internal(dev, idx)) % NUM_BUNDLES;
+            while (idx != (dev->loc->bundle_idx % NUM_BUNDLES)) {
+                if (!mpr_dev_process_outputs_internal(dev, idx))
+                    break;
+                idx = (idx + 1) % NUM_BUNDLES;
+            }
             dev->loc->polling = 0;
 
             elapsed = (mpr_get_current_time() - then) * 1000;
@@ -784,9 +786,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
 
     // process any outputs cached during interrupts
     dev->loc->polling = 1;
-    while (1) {
-        if (idx == (dev->loc->bundle_idx % NUM_BUNDLES))
-            break;
+    while (idx != (dev->loc->bundle_idx % NUM_BUNDLES)) {
         if (!mpr_dev_process_outputs_internal(dev, idx))
             break;
         idx = (idx + 1) % NUM_BUNDLES;
@@ -794,7 +794,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     dev->loc->polling = 0;
 
     if (dev->obj.props.synced->dirty && mpr_dev_get_is_ready(dev) && dev->loc->subscribers) {
-        // inform device subscribers of change props
+        // inform device subscribers of changed properties
         mpr_net_use_subscribers(net, dev, MPR_DEV);
         mpr_dev_send_state(dev, MSG_DEV);
     }
@@ -817,7 +817,7 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     mpr_time_set(&dev->loc->time, time);
     dev->loc->time_is_stale = 0;
     if (!dev->loc->polling)
-        mpr_dev_process_outputs_internal(dev, fetch_and_add_bundle_idx(dev, dev->loc->updated));
+        mpr_dev_process_outputs_internal(dev, fetch_and_add_bundle_idx(dev));
 }
 
 void mpr_dev_reserve_idmap(mpr_dev dev)
