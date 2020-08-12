@@ -28,6 +28,8 @@ extern const char* net_msg_strings[NUM_MSG_STRINGS];
 // prototypes
 void mpr_dev_start_servers(mpr_dev dev);
 static void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map rem);
+static inline int mpr_dev_process_outputs_internal(mpr_dev dev, int idx);
+static inline int fetch_and_add_bundle_idx(mpr_dev dev);
 
 mpr_time ts = {0,1};
 
@@ -139,7 +141,7 @@ void mpr_dev_free(mpr_dev dev)
     mpr_graph gph = dev->obj.graph;
     mpr_net net = &gph->net;
 
-    // free any queued outgoing messages without sending
+    // free any queued graph messages without sending
     mpr_net_free_msgs(net);
 
     // remove OSC handlers associated with this device
@@ -181,10 +183,17 @@ void mpr_dev_free(mpr_dev dev)
     }
 
     // Release links to other devices
+    int idx = fetch_and_add_bundle_idx(dev);
     mpr_list links = mpr_dev_get_links(dev, MPR_DIR_ANY);
     while (links) {
         mpr_link link = (mpr_link)*links;
         links = mpr_list_get_next(links);
+        while (idx != (dev->loc->bundle_idx % NUM_BUNDLES)) {
+            if (!mpr_dev_process_outputs_internal(dev, idx))
+                break;
+            idx = (idx + 1) % NUM_BUNDLES;
+        }
+        dev->loc->polling = 0;
         mpr_graph_remove_link(gph, link, MPR_OBJ_REM);
     }
 
@@ -313,13 +322,13 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         // Parse any attached properties (instance ids, slot number)
         TRACE_DEV_RETURN_UNLESS(types[i] == MPR_STR, 0, "error in "
                                 "mpr_dev_handler: unexpected argument type.\n")
-        if ((strcmp(&argv[i]->s, "@instance") == 0) && argc >= i + 2) {
+        if ((strcmp(&argv[i]->s, "@in") == 0) && argc >= i + 2) {
             TRACE_DEV_RETURN_UNLESS(types[i+1] == MPR_INT64, 0, "error in "
                                     "mpr_dev_handler: bad arguments for 'instance' prop.\n")
             GID = argv[i+1]->i64;
             i += 2;
         }
-        else if ((strcmp(&argv[i]->s, "@slot") == 0) && argc >= i + 2) {
+        else if ((strcmp(&argv[i]->s, "@sl") == 0) && argc >= i + 2) {
             TRACE_DEV_RETURN_UNLESS(types[i+1] == MPR_INT32, 0, "error in "
                                     "mpr_dev_handler: bad arguments for 'slot' prop.\n")
             slot_idx = argv[i+1]->i32;

@@ -449,12 +449,12 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
             lo_message_add_nil(msg);
     }
     if (m->use_inst && idmap) {
-        lo_message_add_string(msg, "@instance");
+        lo_message_add_string(msg, "@in");
         lo_message_add_int64(msg, idmap->GID);
     }
     if (MPR_LOC_DST == m->process_loc && MPR_DIR_OUT == m->dst->dir) {
         // add slot
-        lo_message_add_string(msg, "@slot");
+        lo_message_add_string(msg, "@sl");
         lo_message_add_int32(msg, slot->obj.id);
     }
     return msg;
