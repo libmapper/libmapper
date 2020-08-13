@@ -7,7 +7,7 @@
 
 #define MAX_HISTORY -100
 #define STACK_SIZE 128
-#define N_USER_VARS 8
+#define N_USER_VARS 16
 #ifdef DEBUG
     #define TRACING 0 /* Set non-zero to see trace during parse & eval. */
 #else
