@@ -19,11 +19,11 @@ The _libmapper_ API is is divided into the following sections:
 * Devices
 * Signals
 * Maps
-* Slots
+* Lists
 
 For this tutorial, the only sections to pay attention to are **Devices** and
-**Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
-user interfaces for designing mapping configurations.
+**Signals**. The other sections are mostly used when building user interfaces for
+designing mapping configurations.
 
 ## Devices
 
@@ -34,12 +34,7 @@ constructor.  There is a brief initialization period after a device is created
 during which a unique ordinal is chosen to append to the device name.  This
 allows multiple devices with the same name to exist on the network.
 
-If no other arguments are given, _libmapper_ will randomly choose a port to use
-for exchanging signal data.  If desired, a second argument setting a specific
-"starting port" can be given, but the allocation algorithm will possibly choose
-another port number close to it if the port is in use.
-
-A third optional parameter of the constructor is a network object.  It is not
+A second optional parameter of the constructor is a `Graph` object.  It is not
 necessary to provide this, but can be used to specify different networking
 parameters, such as specifying the name of the network interface to use.
 
@@ -137,17 +132,19 @@ which is optional:
 * the signal's unit (optional)
 * the signal's minimum value (optional)
 * the signal's maximum value (optional)
+* the signal's number of `Instances` (optional, will default to singleton)
 
-for input signals there is an additional argument:
+for input signals you will usually include additional arguments:
 
 * a function to be called when the signal is updated
+* 
 
 examples:
 
 ~~~java
 Signal in = dev.addSignal(Direction.INCOMING, "my_input", 1, Type.FLOAT, "m/s",
-                          -10.f, 10.f, null, new Listener() {
-    public void onEvent(Signal sig, mapper.signal.Event, float value, Time t) {
+                          -10.f, 10.f, null, new mapper.signal.Listener() {
+    public void onEvent(Signal sig, mapper.signal.Event e, float value, Time t) {
         System.out.println("got input for signal "+sig.properties().get("name"));
     }});
 

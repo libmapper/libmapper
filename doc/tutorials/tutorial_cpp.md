@@ -5,12 +5,11 @@
 If you take a look at the API documentation, there is a section called
 "modules".  This is divided into the following sections:
 
-* [Networks](../html/classmpr_1_1Network.html)
-* [Devices](../html/classmpr_1_1Device.html)
-* [Signals](../html/classmpr_1_1Signal.html)
-* [Maps](../html/classmpr_1_1Map.html)
-* [Slots](../html/classmpr_1_1Map_1_1Slot.html)
-* [Databases](../html/classmpr_1_1Database.html)
+* [Graphs](../html/classmapper_1_1Graph.html)
+* [Devices](../html/classmapper_1_1Device.html)
+* [Signals](../html/classmapper_1_1Signal.html)
+* [Maps](../html/classmapper_1_1Map.html)
+* [Lists](../html/classmapper_1_1List.html)
 
 For this tutorial, the only sections to pay attention to are **Devices** and **Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
 user interfaces for designing mapping configurations.
@@ -119,28 +118,28 @@ We'll start with creating a "sender", so we will first talk about how to update
 output signals.  A signal requires a bit more information than a device, much of
 which is optional:
 
+1. the direction of the signal: either `MPR_DIR_IN` or `MPR_DIR_OUT`
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
-* the signal's data type, one of MPR_INT32, MPR_FLT, or MPR_DBL
+* the signal's data type, one of `MPR_INT32`, `MPR_FLT`, or `MPR_DBL`
 * the signal's unit (optional)
-* the signal's minimum value (optional)
-* the signal's maximum value (optional)
-* the signal's instance count (optional)
-
-for input signals there is an additional argument:
-
-* a function to be called when the signal is updated
+* the signal's minimum value (optional, type and length should match previous args)
+* the signal's maximum value (optional, type and length should match previous args)
+* the signal's instance count (pass `NULL` for singleton signals)
+* a function to be called when the signal is updated (optional)
+* flags indicating which events should trigger a call to the function
 
 examples:
 
 ~~~c++
 mapper::Signal input;
-input = dev.add_sig(MPR_DIR_IN, "my_input", MPR_FLT, "m/s", 0, 0, 0, h)
+input = dev.add_sig(MPR_DIR_IN, "my_input", 1, MPR_FLT, "m/s", 0, 0, 0, h,
+                    MPR_SIG_UPDATE);
 
 int min[4] = {1,2,3,4};
 int max[4] = {10,11,12,13};
 mapper::Signal output;
-output = dev.add_sig(MPR_DIR_OUT, "my_output", 4, MPR_INT32, 0, min, max)
+output = dev.add_sig(MPR_DIR_OUT, "my_output", 4, MPR_INT32, 0, min, max);
 ~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
@@ -334,8 +333,8 @@ void main()
     mapper::Device dev("synth");
     
     mapper::Signal pulsewidth =
-        dev.add_input_signal("pulsewidth", 1, 'f', 0, &min_pw,
-                             &max_pw, pulsewidth_handler, &synth);
+        dev.add_sig(MPR_DIR_IN, "pulsewidth", 1, MPR_FLT, 0, &min_pw,
+                    &max_pw, 0, pulsewidth_handler, MPR_SIG_UPDATE);
     
     while (!done)
         dev.poll(50);

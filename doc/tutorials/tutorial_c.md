@@ -10,26 +10,26 @@ project.
 ## Overview of the API structure
 
 If you take a look at the API documentation, there is a section called
-"modules".  This is divided into the following sections:
+"modules".  This is divided into the following main sections:
 
 * [Graphs](../html/group__graphs.html)
-* [Devices](../html/group__devices.html)
-* [Signals](../html/group__signals.html)
-* [Maps](../html/group__maps.html)
-* [Slots](../html/group__slots.html)
+* [Objects](../html/group__objects.html)
+    * [Devices](../html/group__devices.html)
+    * [Signals](../html/group__signals.html) and [Signal Instances](../html/group__instances.html)
+    * [Maps](../html/group__maps.html)
+* [Lists](../html/group__lists.html)
 
 For this tutorial, the only sections to pay attention to are **Devices** and
-**Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
-user interfaces for designing mapping configurations. Functions and types from
-each module are prefixed with `mpr_<module>_`, in order to avoid namespace
-clashing.
+**Signals**. The other sections are mostly used when building user interfaces for
+designing mapping configurations. Functions and types from each module are prefixed
+with `mpr_<module>_`, in order to avoid namespace clashing.
 
 ## Devices
 
 ### Creating a device
 
-To create a _libmapper_ device, it is necessary to provide a few parameters to
-`mpr_dev_new`:
+To create a _libmapper_ device, it is necessary to provide two arguments to the
+function `mpr_dev_new`:
 
 ~~~c
 mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph graph);
@@ -40,9 +40,10 @@ be unique since during initialization a unique ordinal will be appended to the
 device name. This allows multiple devices with the same name to exist on the
 network.
 
-The second parameter of mpr_dev_new is an optional graph instance. It is not
-necessary to provide this, but can be used to specify different networking
-parameters, such as specifying the name of the network interface to use.
+The second argument is an optional graph instance. It is not necessary to provide
+this, but can be used to specify different networking parameters, such as specifying
+the name of the network interface to use. For this tutorial we will let libmapper
+choose a default interface.
 
 An example of creating a device:
 
@@ -233,22 +234,16 @@ be sent to other devices if that signal is mapped.
 This is accomplished by the function `mpr_sig_set_value()`:
 
 ~~~c
-void mpr_sig_set_value(mpr_sig sig, mpr_id inst, int length, mpr_type type,
-                       void *value, mpr_time_t time);
+void mpr_sig_set_value(mpr_sig sig, mpr_id inst, int length,
+                       mpr_type type, void *value);
 ~~~
 
 As you can see, a `void*` pointer must be provided, which must point to a data
 structure matching the `length` and `type` arguments. This data structure is not
 required to match the length and type of the signal itself—libmapper will perform
-type coercion if necessary. More than one 'sample' of signal update may be
-applied at once by e.g. updating a signal with length 5 using a 20-element
-array.  Lastly the `time` argument allows you to specify a time associated with
-the signal update. If your value update was generated locally, or if your
-program does not have access to upstream timing information (e.g., from a
-microcontroller sampling sensor values), you can use the macro `MPR_NOW` and
-_libmapper_ will tag the update with the current time.
+type coercion if necessary.
 
-So in the "sensor 1" example, assuming in `do_stuff` we have some code which
+So in the "sensor 1" example, assuming in `do_stuff()` we have some code which
 reads sensor 1's value into a float variable called `v1`, the loop becomes:
 
 ~~~c
@@ -257,7 +252,7 @@ while (!done) {
     
     // call hypothetical user function that reads a sensor
     float v1 = do_stuff();
-    mpr_sig_set_value(sensor1, 0, 1, MPR_FLT, &v1, MPR_NOW);
+    mpr_sig_set_value(sensor1, 0, 1, MPR_FLT, &v1);
 }
 ~~~
 
@@ -366,7 +361,7 @@ source signal was _sampled_ (in the case of sensor signals) or _generated_ (in
 the case of sequenced or algorithimically-generated signals).
 
 _libmapper_ provides helper functions for getting the current device-time,
-setting the value of a `mpr_time_t` from other representations, and comparing or
+setting the value of a `mpr_time` structure from other representations, and comparing or
 copying timetags.  Check the API documentation for more information.
 
 ## Working with signal instances
@@ -416,7 +411,7 @@ prototype again:
 
 ~~~c
 void mpr_sig_handler(mpr_sig sig, mpr_inst_evt evt, mpr_id inst, int len,
-                     mpr_type type, const void *value, mpr_time_t *time);
+                     mpr_type type, const void *value, mpr_time time);
 ~~~
 
 Under normal usage, this argument will have a value (0 <= n <= num_instances)
@@ -447,7 +442,7 @@ for the signal and write the method yourself:
 
 ~~~c
 void my_handler(mpr_sig sig, mpr_int_evt evt, mpr_id inst, int len,
-                mpt_type type, const void *value, mpr_time_t *time)
+                mpt_type type, const void *value, mpr_time time)
 {
     // hypothetical user code chooses which instance to release
     mpr_id release_me = choose_instance_to_release(sig);
@@ -533,8 +528,4 @@ You can use any property name not already reserved by _libmapper_.
 #### Reserved keys for maps
 
 `data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`, `protocol`,
-`scope`, `status`, `version`
-
-#### Reserved keys for map slots
-
-`calib`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `use_inst`
+`scope`, `status`, `use_inst`, `version`

@@ -21,7 +21,6 @@ The libmapper API is is divided into the following sections:
 * Devices
 * Signals
 * Maps
-* Slots
 
 For this tutorial, the only sections to pay attention to are **Devices** and
 **Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
@@ -129,7 +128,7 @@ which is optional:
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
-* the signal's data type: mapper.INT32, mapper.FLT, mapper.DBL
+* the signal's data type: `mapper.INT32`, `mapper.FLT`, `mapper.DBL`
 * the signal's unit (optional)
 * the signal's minimum value (optional)
 * the signal's maximum value (optional)
@@ -141,9 +140,9 @@ for input signals there is an additional argument:
 examples:
 
 ~~~python
-sig_in = dev.add_input_signal("my_input", 1, 'f', "m/s", -10, 10, h)
+sig_in = dev.add_signal(mapper.DIR_IN, "my_input", 1, mpr.FLT, "m/s", -10, 10, h)
 
-sig_out = dev.add_output_signal("my_output", 4, 'i', None, 0, 1000)
+sig_out = dev.add_signal(mapper.DIR_OUT, "my_output", 4, mpr.INT32, None, 0, 1000)
 ~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
@@ -169,29 +168,29 @@ An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
 ~~~python
-outA = dev.add_output_signal("outA", 1, 'i', None, None, None)
+outA = dev.add_signal(mapper.DIR_OUT, "outA", 1, mapper.INT32, None, None, None)
 ~~~
 
 or omitting some arguments:
 
 ~~~python
-outA = dev.add_output_signal("outA", 1, 'i')
+outA = dev.add_signal(mapper.DIR_OUT, "outA", 1, mapper.INT32)
 ~~~
 
 An example of a `float` signal where some more information is provided:
 
 ~~~python
-sensor1 = dev.add_output_signal("sensor1", 1, 'f', "V", 0.0, 5.0)
+sensor1 = dev.add_signal(mpr.DIR_OUT, "sensor1", 1, mpr.FLT, "V", 0.0, 5.0)
 ~~~
 
 So far we know how to create a device and to specify an output signal for it.
 To recap, let's review the code so far:
 
 ~~~python
-import mapper
+import mapper as mpr
 
 dev = mapper.device("test_sender")
-sensor1 = dev.add_output_signal("sensor1", 1, 'f', "V", 0.0, 5.0)
+sensor1 = dev.add_signal(mpr.DIR_OUT, "sensor1", 1, mpr.FLT, "V", 0.0, 5.0)
     
 while 1:
     dev.poll(50)
@@ -270,11 +269,11 @@ Now that we know how to create a sender, it would be useful to also know how to
 receive signals, so that we can create a sender-receiver pair to test out the
 provided mapping functionality.
 
-As mentioned above, the `add_input_signal()` function takes an optional
+As mentioned above, the `add_signal()` function takes an optional
 `handler`.  This is a function that will be called whenever the value of that
 signal changes.  To create a receiver for a synthesizer parameter "pulse width"
 (given as a ratio between 0 and 1), specify a handler when calling
-`add_input_signal()`.  We'll imagine there is some python synthesizer
+`add_signal()`.  We'll imagine there is some python synthesizer
 implemented as a class `synthesizer` which has functions `setPulseWidth()` which
 sets the pulse width in a thread-safe manner, and `startAudioInBackground()`
 which sets up the audio thread.
@@ -313,7 +312,7 @@ def freq_handler(sig, id, val, timetag):
         print sig, val
 
 dev = mapper.device('pyo_example')
-dev.add_input_signal('frequency', 1, 'f', 'Hz', 20, 2000, freq_handler)
+dev.add_signal(mpr.DIR_IN, 'frequency', 1, mpr.FLT, 'Hz', 20, 2000, freq_handler)
 
 while True:
     dev.poll( 100 )
@@ -326,15 +325,15 @@ separate handler:
 
 ~~~python
 from pyo import *
-import mapper
+import mapper as mpr
 
 # Some pyo stuff
 synth = Server().boot().start()
 sine = Sine(freq=200, mul=0.5).out()
 
 dev = mapper.device('pyo_example')
-dev.add_input_signal('frequency', 1, 'f', "Hz", 20, 2000,
-                     lambda s, i, f, t: sine.setFreq(f))
+dev.add_signal(mpr.DIR_IN, 'frequency', 1, mpr.FLT, "Hz", 20, 2000,
+              lambda s, i, f, t: sine.setFreq(f))
 
 while True:
     dev.poll(100)
@@ -344,7 +343,7 @@ synth.stop()
 
 ## Working with timetags
 
-_libmapper_ uses the `mpr_timetag_t` data structure internally to store
+_libmapper_ uses the `mpr_time_t` data structure internally to store
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps),
 but this value is represented using the `timetag` type in the python bindings.
 For example, the handler function called when a signal update is received
@@ -511,8 +510,4 @@ You can use any property name not already reserved by _libmapper_.
 #### Reserved keys for maps
 
 `data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`, `protocol`,
-`scope`, `status`, `version`
-
-#### Reserved keys for map slots
-
-`calib`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `use_inst`
+`scope`, `status`, `use_inst`, `version`
