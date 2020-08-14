@@ -62,6 +62,7 @@ test/testcustomtransport
 test/testexpression
 test/testgraph
 test/testinstance
+test/testinterrupt
 test/testlinear
 test/testlocalmap
 test/testmany
@@ -73,13 +74,11 @@ test/testnetwork
 test/testparams
 test/testparser
 test/testprops
-test/testquery
-test/testqueue
 test/testrate
 test/testreverse
-test/testselect
 test/testsignals
 test/testspeed
+test/testthread
 test/testunmap
 test/testvector
 
