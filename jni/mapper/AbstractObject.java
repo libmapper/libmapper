@@ -48,12 +48,7 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
 
         public class Entry
         {
-            public Entry(int id, String key, Object value)
-            {
-                _id = id;
-                _key = key;
-                _value = value;
-            }
+            private native Entry _set(long obj, int idx, String key);
 
             public String getKey()
                 { return _key; }
@@ -71,15 +66,20 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
 
         // TODO: implement iterator
 
-        private native Entry _getEntry(long obj, int idx, String key);
         public Entry getEntry(Object key)
         {
-            if (key instanceof Integer)
-                return _getEntry(_obj, (int)key, null);
-            else if (key instanceof String)
-                return _getEntry(_obj, 0, (String)key);
-            else if (key instanceof mapper.Property)
-                return _getEntry(_obj, ((mapper.Property)key).value(), null);
+            if (key instanceof Integer) {
+                Entry e = new Entry();
+                return e._set(_obj, (int)key, null);
+            }
+            else if (key instanceof String) {
+                Entry e = new Entry();
+                return e._set(_obj, 0, (String)key);
+            }
+            else if (key instanceof mapper.Property) {
+                Entry e = new Entry();
+                return e._set(_obj, ((mapper.Property)key).value(), null);
+            }
             else
                 return null;
         }

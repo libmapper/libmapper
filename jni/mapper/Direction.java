@@ -4,8 +4,8 @@ package mapper;
 /*! Describes the directionality of map endpoints. */
 public enum Direction {
     UNDEFINED   (0),
-    INCOMING    (1),
-    OUTGOING    (2),
+    IN          (1),
+    OUT         (2),
     ANY         (3),
     BOTH        (4);
 

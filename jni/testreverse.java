@@ -18,14 +18,14 @@ class testreverse {
                     }
             });
 
-        Signal inp1 = dev.addSignal(Direction.INCOMING, "insig1", 1, Type.FLOAT,
+        Signal inp1 = dev.addSignal(Direction.IN, "insig1", 1, Type.FLOAT,
                                     "Hz", null, null, null, new Listener() {
             public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
                 if (e == mapper.signal.Event.UPDATE)
                     System.out.println("  insig1 got: "+v);
         }});
 
-        Signal out1 = dev.addSignal(Direction.OUTGOING, "outsig1", 1, Type.INT32,
+        Signal out1 = dev.addSignal(Direction.OUT, "outsig1", 1, Type.INT32,
                                     "Hz", null, null, null, null);
         out1.setListener(
             new Listener() {

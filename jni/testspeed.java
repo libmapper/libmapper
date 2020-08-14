@@ -27,7 +27,7 @@ class testspeed {
             }
         };
 
-        Signal in = dev.addSignal(Direction.INCOMING, "insig", 1, Type.FLOAT,
+        Signal in = dev.addSignal(Direction.IN, "insig", 1, Type.FLOAT,
                                   "Hz", null, null, null, new Listener() {
             public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
                 if (e == mapper.signal.Event.UPDATE)
@@ -35,7 +35,7 @@ class testspeed {
             }
         });
 
-        Signal out = dev.addSignal(Direction.OUTGOING, "outsig", 1, Type.INT32,
+        Signal out = dev.addSignal(Direction.OUT, "outsig", 1, Type.INT32,
                                    "Hz", null, null, null, null);
 
         System.out.println("Waiting for ready...");

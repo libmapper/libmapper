@@ -85,7 +85,6 @@ typedef struct {
 
 typedef struct {
     jobject inst;
-    jobject listener;
     jobject user_ref;
 } inst_jni_context_t, *inst_jni_context;
 
@@ -197,40 +196,35 @@ static mpr_graph get_graph_from_jobject(JNIEnv *env, jobject obj)
     return 0;
 }
 
-static mpr_time *get_time_from_jobject(JNIEnv *env, jobject obj, mpr_time *time)
+static int get_time_from_jobject(JNIEnv *env, jobject obj, mpr_time *time)
 {
     if (!obj) return 0;
     jclass cls = (*env)->GetObjectClass(env, obj);
     if (cls) {
-        jfieldID sec = (*env)->GetFieldID(env, cls, "sec", "I");
-        jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "I");
-        if (sec && frac) {
-            time->sec = (*env)->GetLongField(env, obj, sec);
-            time->frac = (*env)->GetLongField(env, obj, frac);
-            return time;
+        jfieldID fid = (*env)->GetFieldID(env, cls, "_time", "J");
+        if (fid) {
+            jlong jtime = (*env)->GetLongField(env, obj, fid);
+            memcpy(time, &jtime, sizeof(mpr_time));
+            return 0;
         }
     }
-    return 0;
+    return -1;
 }
 
-static jobject get_jobject_from_time(JNIEnv *env, mpr_time *time)
+static jobject get_jobject_from_time(JNIEnv *env, mpr_time time)
 {
     jobject jtime = 0;
-    if (time) {
-        jclass cls = (*env)->FindClass(env, "mapper/Time");
-        if (cls) {
-            jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(II)V");
-            if (mid) {
-                jtime = (*env)->NewObject(env, cls, mid, time->sec, time->frac);
-            }
-            else {
-                printf("Error looking up Time constructor.\n");
-                exit(1);
-            }
+    jclass cls = (*env)->FindClass(env, "mapper/Time");
+    if (cls) {
+        jmethodID mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
+        if (mid) {
+            jtime = (*env)->NewObject(env, cls, mid, *(jlong*)&time);
+        }
+        else {
+            printf("Error looking up Time constructor.\n");
+            exit(1);
         }
     }
-//    else
-    // TODO: return MPR_NOW ?
     return jtime;
 }
 
@@ -281,8 +275,7 @@ static jobject get_jobject_from_signal_evt(JNIEnv *env, mpr_sig_evt evt)
     }
     return obj;
 }
-static jobject build_value(JNIEnv *env, const int len, mpr_type type,
-                           const void *val, mpr_time *time)
+static jobject build_value_object(JNIEnv *env, const int len, mpr_type type, const void *val)
 {
     jmethodID mid;
     jclass cls = 0;
@@ -303,13 +296,8 @@ static jobject build_value(JNIEnv *env, const int len, mpr_type type,
                     ret = (*env)->NewObject(env, cls, mid, *((int *)val));
             }
             else {
-                mid = (*env)->GetMethodID(env, cls, "<init>", "([I)V");
-                if (mid) {
-                    jintArray arr = (*env)->NewIntArray(env, len);
-                    (*env)->SetIntArrayRegion(env, arr, 0, len, val);
-                    // TODO: test
-                    ret = arr;//(*env)->NewObject(env, cls, mid, arr);
-                }
+                ret = (*env)->NewIntArray(env, len);
+                (*env)->SetIntArrayRegion(env, ret, 0, len, val);
             }
             break;
         }
@@ -321,13 +309,8 @@ static jobject build_value(JNIEnv *env, const int len, mpr_type type,
                     ret = (*env)->NewObject(env, cls, mid, *((long *)val));
             }
             else {
-                mid = (*env)->GetMethodID(env, cls, "<init>", "([J)V");
-                if (mid) {
-                    jintArray arr = (*env)->NewLongArray(env, len);
-                    (*env)->SetLongArrayRegion(env, arr, 0, len, val);
-                    // TODO: test
-                    ret = arr;//(*env)->NewObject(env, cls, mid, arr);
-                }
+                ret = (*env)->NewLongArray(env, len);
+                (*env)->SetLongArrayRegion(env, ret, 0, len, val);
             }
             break;
         }
@@ -339,13 +322,8 @@ static jobject build_value(JNIEnv *env, const int len, mpr_type type,
                     ret = (*env)->NewObject(env, cls, mid, *((float *)val));
             }
             else {
-                mid = (*env)->GetMethodID(env, cls, "<init>", "([F)V");
-                if (mid) {
-                    jfloatArray arr = (*env)->NewFloatArray(env, len);
-                    (*env)->SetFloatArrayRegion(env, arr, 0, len, val);
-                    // TODO: test
-                    ret = (*env)->NewObject(env, cls, mid, arr);
-                }
+                ret = (*env)->NewFloatArray(env, len);
+                (*env)->SetFloatArrayRegion(env, ret, 0, len, val);
             }
             break;
         }
@@ -357,12 +335,8 @@ static jobject build_value(JNIEnv *env, const int len, mpr_type type,
                     ret = (*env)->NewObject(env, cls, mid, *((double *)val));
             }
             else {
-                mid = (*env)->GetMethodID(env, cls, "<init>", "([D)V");
-                if (mid) {
-                    jdoubleArray arr = (*env)->NewDoubleArray(env, len);
-                    (*env)->SetDoubleArrayRegion(env, arr, 0, len, val);
-                    ret = (*env)->NewObject(env, cls, mid, arr);
-                }
+                ret = (*env)->NewDoubleArray(env, len);
+                (*env)->SetDoubleArrayRegion(env, ret, 0, len, val);
             }
             break;
         }
@@ -386,10 +360,9 @@ static jobject build_value(JNIEnv *env, const int len, mpr_type type,
         case MPR_TIME: {
             if (1 == len) {
                 cls = (*env)->FindClass(env, "mapper/Time");
-                mid = (*env)->GetMethodID(env, cls, "<init>", "(II)V");
-                mpr_time *t = (mpr_time*)val;
+                mid = (*env)->GetMethodID(env, cls, "<init>", "(J)V");
                 if (mid)
-                    ret = (*env)->NewObject(env, cls, mid, (*t).sec, (*t).frac);
+                    ret = (*env)->NewObject(env, cls, mid, *(mpr_time*)val);
             }
             break;
         }
@@ -422,7 +395,7 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id,
     if (bailing)
         return;
 
-    jobject jtime = get_jobject_from_time(genv, &time);
+    jobject jtime = get_jobject_from_time(genv, time);
     signal_jni_context ctx = (signal_jni_context)signal_user_data(sig);
     if (!ctx || !ctx->signal || !ctx->listener) {
         printf("Error: missing signal ctx in callback\n");
@@ -445,9 +418,29 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id,
     void *sig_ptr = ctx->signal;
     if (ctx->listener_type >= SIG_CB_SCAL_INT_INST) {
         ictx = ((inst_jni_context) mpr_sig_get_inst_data(sig, id));
-        if (!ictx || !ictx->inst) {
-            printf("error: no instance user data\n");
-            return;
+        if (!ictx) {
+            ictx = ((inst_jni_context) calloc(1, sizeof(inst_jni_context_t)));
+            jclass cls = (*genv)->FindClass(genv, "mapper/Signal$Instance");
+            // jclass cls = (*genv)->FindClass(genv, "mapper/Signal");
+            if (!cls) {
+                printf("error finding Instance class\n");
+                // printf("error finding Signal class\n");
+                return;
+            }
+            mid = (*genv)->GetMethodID(genv, cls, "<init>", "(Lmapper/Signal;)V");
+            // mid = (*genv)->GetMethodID(genv, cls, "instance", "()Lmapper/Signal$Instance;");
+            if (!mid) {
+                printf("error finding Instance constructor method id\n");
+                return;
+            }
+            // jobject obj = (*genv)->CallObjectMethod(genv, ctx->signal, mid);
+            jobject obj = (*genv)->NewObject(genv, cls, mid, ctx->signal);
+            if (!obj) {
+                printf("error instantiating Signal.Instance object\n");
+                return;
+            }
+            printf("");
+            ictx->inst = (*genv)->NewGlobalRef(genv, obj);
         }
         sig_ptr = ictx->inst;
     }
@@ -855,57 +848,67 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1get
     else
         prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &len, &type, &val, 0);
 
-    jobject o = (MPR_PROP_UNKNOWN != prop) ? build_value(env, len, type, val, 0) : NULL;
+    jobject o = (MPR_PROP_UNKNOWN != prop) ? build_value_object(env, len, type, val) : NULL;
     return o;
 }
 
-JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1getEntry
-  (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring jkey)
+JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties_00024Entry__1set
+  (JNIEnv *env, jobject entry, jlong ptr, jint id, jstring jkey)
 {
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
     const char *ckey = 0;
     mpr_prop prop;
     mpr_type type;
-    int len;
+    int len, rel_str = 0;
     const void *val;
 
-    jclass entryClass = (*env)->FindClass(env, "mapper/AbstractObject$Properties$Entry");
-    jboolean flag = (*env)->ExceptionCheck(env);
-    if (flag) {
-        (*env)->ExceptionDescribe(env);
-        (*env)->ExceptionClear(env);
-        (*env)->ThrowNew(env, entryClass, "error message");
-        return NULL;
-    }
-    if (NULL == entryClass) {
-        printf("failed to find Entry class\n");
-        return NULL;
-    }
-    jmethodID entryInitMID = (*env)->GetMethodID(env, entryClass, "<init>",
-                                                 "(ILjava/lang/String;Ljava/lang/Object;)V");
-    flag = (*env)->ExceptionCheck(env);
-    if (flag) {
-        (*env)->ExceptionDescribe(env);
-        (*env)->ExceptionClear(env);
-        (*env)->ThrowNew(env, entryClass, "error message");
-        return NULL;
-    }
-    if (NULL == entryInitMID) {
-        printf("failed to find methodID for Entry<int, String, Object> constructor\n");
-        return NULL;
-    }
+    jclass cls = (*env)->GetObjectClass(env, entry);
+    if (!cls)
+        return entry;
 
     if (jkey) {
         ckey = (*env)->GetStringUTFChars(env, jkey, 0);
         prop = mpr_obj_get_prop_by_key(mobj, ckey, &len, &type, &val, 0);
+        rel_str = 1;
     }
-    else
+    else {
         prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &len, &type, &val, 0);
+        jkey = (*env)->NewStringUTF(env, (char *)ckey);
+    }
 
-    jobject jval = (MPR_PROP_UNKNOWN != prop) ? build_value(env, len, type, val, 0) : NULL;
-    jobject entry = (*env)->CallObjectMethod(env, entryClass, entryInitMID, (int)prop, ckey, jval);
+    jobject jval = (MPR_PROP_UNKNOWN != prop) ? build_value_object(env, len, type, val) : NULL;
 
-    if (jkey)
+    jfieldID fid = (*env)->GetFieldID(env, cls, "_id", "I");
+    if (fid)
+        (*env)->SetIntField(env, entry, fid, prop);
+    if ((*env)->ExceptionOccurred(env)) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+        return entry;
+    }
+    fid = (*env)->GetFieldID(env, cls, "_key", "Ljava/lang/String;");
+    if ((*env)->ExceptionOccurred(env)) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+        return entry;
+    }
+    if (fid)
+        (*env)->SetObjectField(env, entry, fid, jkey);
+    if ((*env)->ExceptionOccurred(env)) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+        return entry;
+    }
+    fid = (*env)->GetFieldID(env, cls, "_value", "Ljava/lang/Object;");
+    if (fid)
+        (*env)->SetObjectField(env, entry, fid, jval);
+    if ((*env)->ExceptionOccurred(env)) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+        return entry;
+    }
+
+    if (rel_str)
         (*env)->ReleaseStringUTFChars(env, jkey, ckey);
 
     return entry;
@@ -938,7 +941,7 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1put
     else
         prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &len, &type, &val, 0);
 
-    jobject ret = (MPR_PROP_UNKNOWN == prop) ? NULL : build_value(env, len, type, val, 0);
+    jobject ret = (MPR_PROP_UNKNOWN == prop) ? NULL : build_value_object(env, len, type, val);
 
 
     if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Boolean"))) {
@@ -1060,7 +1063,7 @@ JNIEXPORT jstring JNICALL Java_mapper_Graph_getInterface
     if (!g)
         return NULL;
     const char *iface = mpr_graph_get_interface(g);
-    return build_value(env, 1, MPR_STR, iface, 0);
+    return build_value_object(env, 1, MPR_STR, iface);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Graph_setInterface
@@ -1082,7 +1085,7 @@ JNIEXPORT jstring JNICALL Java_mapper_Graph_getAddress
     if (!g)
         return NULL;
     const char *address = mpr_graph_get_address(g);
-    return build_value(env, 1, MPR_STR, address, 0);
+    return build_value_object(env, 1, MPR_STR, address);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Graph_setAddress
@@ -1275,8 +1278,6 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceFree
                 continue;
             if (ictx->inst)
                 (*env)->DeleteGlobalRef(env, ictx->inst);
-            if (ictx->listener)
-                (*env)->DeleteGlobalRef(env, ictx->listener);
             if (ictx->user_ref)
                 (*env)->DeleteGlobalRef(env, ictx->user_ref);
             free(ictx);
@@ -1379,8 +1380,6 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceRemoveSignal
                 continue;
             if (ictx->inst)
                 (*env)->DeleteGlobalRef(env, ictx->inst);
-            if (ictx->listener)
-                (*env)->DeleteGlobalRef(env, ictx->listener);
             if (ictx->user_ref)
                 (*env)->DeleteGlobalRef(env, ictx->user_ref);
             free(ictx);
@@ -1412,7 +1411,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_getTime
         return 0;
     mpr_time time;
     mpr_time_set(&time, mpr_dev_get_time(dev));
-    return get_jobject_from_time(env, &time);
+    return get_jobject_from_time(env, time);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Device_setTime
@@ -1421,9 +1420,8 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_setTime
     mpr_dev dev = (mpr_dev)get_mpr_obj_from_jobject(env, obj);
     if (!dev || !is_local((mpr_obj)dev))
         return 0;
-    mpr_time time, *ptime = 0;
-    ptime = get_time_from_jobject(env, jtime, &time);
-    if (ptime)
+    mpr_time time;
+    if (!get_time_from_jobject(env, jtime, &time))
         mpr_dev_set_time(dev, time);
     return obj;
 }
@@ -1659,15 +1657,20 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
         }
     }
 
-    inst_jni_context ctx = ((inst_jni_context) mpr_sig_get_inst_data(sig, id));
-    if (!ctx) {
-        printf("No context found for instance %"PR_MPR_ID"\n", id);
-        return 0;
+    inst_jni_context ictx = ((inst_jni_context) mpr_sig_get_inst_data(sig, id));
+    if (ictx) {
+        if (ictx->inst)
+            (*env)->DeleteGlobalRef(env, ictx->inst);
+        if (ictx->user_ref)
+            (*env)->DeleteGlobalRef(env, ictx->user_ref);
+    }
+    else {
+        ictx = ((inst_jni_context) calloc(1, sizeof(inst_jni_context_t)));
     }
 
-    ctx->inst = (*env)->NewGlobalRef(env, obj);
+    ictx->inst = (*env)->NewGlobalRef(env, obj);
     if (ref)
-        ctx->user_ref = (*env)->NewGlobalRef(env, ref);
+        ictx->user_ref = (*env)->NewGlobalRef(env, ref);
     return id;
 }
 
@@ -1687,14 +1690,12 @@ JNIEXPORT void JNICALL Java_mapper_Signal_00024Instance_free
     mpr_sig sig = get_inst_from_jobject(env, obj, &id);
     if (!sig)
         return;
-    inst_jni_context ctx = mpr_sig_get_inst_data(sig, id);
-    if (ctx) {
-        if (ctx->listener)
-            (*env)->DeleteGlobalRef(env, ctx->listener);
-        if (ctx->inst)
-            (*env)->DeleteGlobalRef(env, ctx->inst);
-        if (ctx->user_ref)
-            (*env)->DeleteGlobalRef(env, ctx->user_ref);
+    inst_jni_context ictx = mpr_sig_get_inst_data(sig, id);
+    if (ictx) {
+        if (ictx->inst)
+            (*env)->DeleteGlobalRef(env, ictx->inst);
+        if (ictx->user_ref)
+            (*env)->DeleteGlobalRef(env, ictx->user_ref);
     }
     mpr_sig_release_inst(sig, id);
 }
@@ -1946,15 +1947,14 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_getValue
     mpr_type type = MPR_INT32;
     int len = 0;
     const void *val = 0;
-    mpr_time time = {0,1};
 
     mpr_id id = (mpr_id)ptr_jlong(jid);
     if (sig) {
         type = signal_type(sig);
         len = signal_length(sig);
-        val = mpr_sig_get_value(sig, id, &time);
+        val = mpr_sig_get_value(sig, id, NULL);
     }
-    return build_value(env, len, type, val, &time);
+    return build_value_object(env, len, type, val);
 }
 
 JNIEXPORT jlong JNICALL Java_mapper_Signal_maps
@@ -1966,18 +1966,118 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_maps
 
 /**** mpr_Time.h ****/
 
-JNIEXPORT void JNICALL Java_mapper_Time_mapperNow
+JNIEXPORT jlong JNICALL Java_mapper_Time_mapperTime
   (JNIEnv *env, jobject obj)
 {
+    mpr_time time;
+    mpr_time_set(&time, MPR_NOW);
+    return *(jlong*)&time;
+}
+
+JNIEXPORT jlong JNICALL Java_mapper_Time_mapperTimeFromDouble
+  (JNIEnv *env, jobject obj, jdouble dbl)
+{
+    mpr_time time;
+    mpr_time_set_dbl(&time, dbl);
+    return *(jlong*)&time;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Time_multiply
+  (JNIEnv *env, jobject obj, jdouble multiplicand)
+{
+    if (!obj) return 0;
     jclass cls = (*env)->GetObjectClass(env, obj);
-    if (cls) {
-        jfieldID sec = (*env)->GetFieldID(env, cls, "sec", "I");
-        jfieldID frac = (*env)->GetFieldID(env, cls, "frac", "I");
-        if (sec && frac) {
-            mpr_time time;
-            mpr_time_set(&time, MPR_NOW);
-            (*env)->SetLongField(env, obj, sec, time.sec);
-            (*env)->SetLongField(env, obj, frac, time.frac);
-        }
-    }
+    if (!cls) return 0;
+    jfieldID fid = (*env)->GetFieldID(env, cls, "_time", "J");
+    if (!fid) return 0;
+
+    mpr_time time;
+    jlong *jtime = (jlong*)&time;
+    *jtime = (*env)->GetLongField(env, obj, fid);
+    mpr_time_mul(&time, multiplicand);
+    (*env)->SetLongField(env, obj, fid, *jtime);
+
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Time_add
+  (JNIEnv *env, jobject obj, jobject obj2)
+{
+    if (!obj) return 0;
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (!cls) return 0;
+    jfieldID fid = (*env)->GetFieldID(env, cls, "_time", "J");
+    if (!fid) return 0;
+
+    mpr_time lhs, rhs;
+    jlong *jtime = (jlong*)&lhs;
+    *jtime = (*env)->GetLongField(env, obj, fid);
+    get_time_from_jobject(env, obj2, &rhs);
+    mpr_time_add(&lhs, rhs);
+    (*env)->SetLongField(env, obj, fid, *jtime);
+
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Time_addDouble
+  (JNIEnv *env, jobject obj, jdouble addend)
+{
+    if (!obj) return 0;
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (!cls) return 0;
+    jfieldID fid = (*env)->GetFieldID(env, cls, "_time", "J");
+    if (!fid) return 0;
+
+    mpr_time time;
+    jlong *jtime = (jlong*)&time;
+    *jtime = (*env)->GetLongField(env, obj, fid);
+    mpr_time_add_dbl(&time, addend);
+    (*env)->SetLongField(env, obj, fid, *jtime);
+
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Time_subtract
+  (JNIEnv *env, jobject obj, jobject obj2)
+{
+    if (!obj) return 0;
+    jclass cls = (*env)->GetObjectClass(env, obj);
+    if (!cls) return 0;
+    jfieldID fid = (*env)->GetFieldID(env, cls, "_time", "J");
+    if (!fid) return 0;
+
+    mpr_time lhs, rhs;
+    jlong *jtime = (jlong*)&lhs;
+    *jtime = (*env)->GetLongField(env, obj, fid);
+    get_time_from_jobject(env, obj2, &rhs);
+    mpr_time_sub(&lhs, rhs);
+    (*env)->SetLongField(env, obj, fid, *jtime);
+
+    return obj;
+}
+
+JNIEXPORT jdouble JNICALL Java_mapper_Time_getDouble
+  (JNIEnv *env, jobject obj)
+{
+    mpr_time time;
+    get_time_from_jobject(env, obj, &time);
+    return mpr_time_as_dbl(time);
+}
+
+JNIEXPORT jboolean JNICALL Java_mapper_Time_isAfter
+  (JNIEnv *env, jobject this, jobject other)
+{
+    mpr_time lhs, rhs;
+    get_time_from_jobject(env, this, &lhs);
+    get_time_from_jobject(env, other, &rhs);
+    return lhs.sec > rhs.sec || (lhs.sec == rhs.sec && lhs.frac > rhs.frac);
+}
+
+JNIEXPORT jboolean JNICALL Java_mapper_Time_isBefore
+  (JNIEnv *env, jobject this, jobject other)
+{
+    mpr_time lhs, rhs;
+    get_time_from_jobject(env, this, &lhs);
+    get_time_from_jobject(env, other, &rhs);
+    return lhs.sec < rhs.sec || (lhs.sec == rhs.sec && lhs.frac < rhs.frac);
 }

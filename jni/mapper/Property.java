@@ -22,7 +22,7 @@ public enum Property
     MIN                 (0x0F00),
     MUTED               (0x1000),
     NAME                (0x1100),
-    NUM_INSTANCES       (0x1200),
+    NUM_INST            (0x1200),
     NUM_MAPS            (0x1300),
     NUM_MAPS_IN         (0x1400),
     NUM_MAPS_OUT        (0x1500),
@@ -31,7 +31,7 @@ public enum Property
     ORDINAL             (0x1800),
     PERIOD              (0x1900),
     PORT                (0x1A00),
-    PROCESS_LOCATION    (0x1B00),
+    PROCESS_LOC         (0x1B00),
     PROTOCOL            (0x1C00),
     RATE                (0x1D00),
     SCOPE               (0x1E00),
@@ -42,7 +42,7 @@ public enum Property
     SYNCED              (0x2300),
     TYPE                (0x2400),
     UNIT                (0x2500),
-    USE_INSTANCES       (0x2600),
+    USE_INST            (0x2600),
     VERSION             (0x2700),
     EXTRA               (0x2800);
 

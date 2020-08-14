@@ -69,20 +69,20 @@ class test {
                 }
             }});
 
-        Signal inp1 = dev1.addSignal(Direction.INCOMING, "insig1", 1, Type.INT32,
-                                     "Hz", null, null, null, new mapper.signal.Listener() {
+        Signal inp1 = dev1.addSignal(Direction.IN, "insig1", 1, Type.INT32, "Hz",
+                                     null, null, null, new mapper.signal.Listener() {
             public void onEvent(Signal sig, mapper.signal.Event e, int v, Time time) {
                 System.out.println("in onEvent() for "
                                    +sig.properties().get("name")+": "
-                                   +v+" at t="+time);
+                                   +v+" at t="+time.toString());
             }});
 
         System.out.println("Input signal name: "+inp1.properties().get("name"));
 
-        Signal out1 = dev2.addSignal(Direction.OUTGOING, "outsig1", 1,
-                                     Type.INT32, "Hz", 0, 1, null, null);
-        Signal out2 = dev2.addSignal(Direction.OUTGOING, "outsig2", 2,
-                                     Type.FLOAT, "Hz", 0.0f, 1.0f, null, null);
+        Signal out1 = dev2.addSignal(Direction.OUT, "outsig1", 1, Type.INT32,
+                                     "Hz", 0, 1, null, null);
+        Signal out2 = dev2.addSignal(Direction.OUT, "outsig2", 2, Type.FLOAT,
+                                     "Hz", 0.0f, 1.0f, null, null);
 
         dev1.properties().put("width", 256);
         dev1.properties().put("height", 12.5);
@@ -106,15 +106,15 @@ class test {
         out1.properties().put("minimum", 12);
 
         System.out.println("Signal properties:");
-        System.out.println("  " + out1.properties().get("name"));
+        System.out.println("  name:" + out1.properties().get("name"));
 
-        System.out.println("  " + out1.properties().get("height"));
-        System.out.println("  " + out1.properties().get("width"));
-        System.out.println("  " + out1.properties().get("depth"));
-        System.out.println("  " + out1.properties().get("deletethis")
+        System.out.println("  height: " + out1.properties().get("height"));
+        System.out.println("  width: " + Arrays.toString((int[])out1.properties().get("width")));
+        System.out.println("  depth: " + out1.properties().get("depth"));
+        System.out.println("  deletethis: " + out1.properties().get("deletethis")
                            + " (should be null)");
-        System.out.println("  " + out1.properties().get("minimum"));
-        System.out.println("  " + out1.properties().get("maximum"));
+        System.out.println("  minimum: " + out1.properties().get("minimum"));
+        System.out.println("  maximum: " + out1.properties().get("maximum"));
 
         System.out.println("Waiting for ready...");
         while (!dev1.ready() || !dev2.ready()) {
@@ -128,14 +128,14 @@ class test {
         System.out.println("  "+dev1.properties().get("ordinal"));
         System.out.println("  interface="+dev1.graph().getInterface());
 
-//        mapper.Map map = new mapper.Map(out1, inp1);
-//        map.properties().put(Property.EXPRESSION, "y=x*100");
-//        map.push();
+        mapper.Map map = new mapper.Map(out1, inp1);
+        map.properties().put(Property.EXPRESSION, "y=x*100");
+        map.push();
 
-//        while (!map.ready()) {
-//            dev1.poll(50);
-//            dev2.poll(50);
-//        }
+        while (!map.ready()) {
+            dev1.poll(50);
+            dev2.poll(50);
+        }
 
         int i = 0;
 
@@ -153,8 +153,8 @@ class test {
             out1.setValue(i);
 
             if (i == 50) {
-//                map.properties().put(Property.EXPRESSION, "y=x*-100");
-//                map.push();
+                map.properties().put(Property.EXPRESSION, "y=x*-100");
+                map.push();
             }
             dev1.poll(50);
             dev2.poll(50);

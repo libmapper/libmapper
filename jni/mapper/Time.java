@@ -3,54 +3,49 @@ package mapper;
 
 public class Time
 {
-    public int sec;
-    public int frac;
+    public static final Time NOW = new Time();
 
-    public static final Time NOW = new Time(0, 1);
-    private static double multiplier = (double)1.0/((double)((long)1<<32));
+    private native long mapperTime();
+    private native long mapperTimeFromDouble(double time);
 
-    private native void mapperNow();
-
-    public Time(int _sec, int _frac)
-    {
-        sec = _sec;
-        frac = _frac;
-    }
     public Time()
     {
-        mapperNow();
+        _time = mapperTime();
     }
-
-    public Time(Double secondsSinceEpoch)
+    public Time(long time)
     {
-        sec = (int)Math.floor(secondsSinceEpoch);
-        secondsSinceEpoch -= sec;
-        frac = (int)(secondsSinceEpoch*(double)((long)1<<32));
+        _time = time;
+    }
+    public Time(double time)
+    {
+        _time = mapperTimeFromDouble(time);
     }
 
     public Time now()
     {
-        mapperNow();
+        _time = mapperTime();
         return this;
     }
 
-    public double getDouble()
+    public native Time add(Time addend);
+    public native Time addDouble(double addend);
+    public native Time subtract(Time subtrahend);
+    public native Time multiply(double multiplicand);
+
+    public native double getDouble();
+    public Time setDouble(double time)
     {
-        return (double)sec + (double)frac * multiplier;
+        _time = mapperTimeFromDouble(time);
+        return this;
     }
 
-    public boolean isAfter(Time rhs)
-    {
-        return (sec > rhs.sec || (sec == rhs.sec && frac > rhs.frac));
-    }
-
-    public boolean isBefore(Time rhs)
-    {
-        return (sec < rhs.sec || (sec == rhs.sec && frac < rhs.frac));
-    }
+    public native boolean isAfter(Time time);
+    public native boolean isBefore(Time time);
 
     public String toString()
     {
         return Double.toString(this.getDouble());
     }
+
+    private long _time;
 }
