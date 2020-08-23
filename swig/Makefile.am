@@ -10,7 +10,7 @@ $(builddir)/%_wrap.c %.py: %.i
 # Don't interfere with distutils CFLAGS
 _%.$(PYEXT): $(builddir)/%_wrap.c
 	env CFLAGS="" CXX="$(_CXX)" $(PYTHON) setup.py build_ext
-	cp -v `./copywhich.sh $(PYTHON) $(@:.so=)` .
+	cp -v `@top_srcdir@/swig/copywhich.sh $(PYTHON) $(@:.so=)` .
 
 clean-local:
 	-@rm -vf mapper.py mapper_wrap.c
