@@ -55,43 +55,43 @@ MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNA
     testreverse$$3.class testspeed$$1.class testspeed$$2.class testspeed$$3.class)
 
 mapper_%.h: mapper/%.java
-	$(JAVAC) -h . $(<:%.java=%).java
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_database_%.h: mapper/database/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_device_%.h: mapper/device/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_link_%.h: mapper/link/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_map_%.h: mapper/map/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_signal_%.h: mapper/signal/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper/%.class: mapper/%.java
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 test.class: test.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 testquery.class: testquery.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 testreverse.class: testreverse.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 testspeed.class: testspeed.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 libmapper.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
