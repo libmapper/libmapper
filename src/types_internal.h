@@ -251,10 +251,9 @@ typedef struct _mapper_subscriber {
 
 /*! A structure that keeps information about a device. */
 typedef struct _mapper_network {
-    lo_server_thread bus_server;    /*!< LibLo server thread for the
-                                     *   multicast bus. */
+    lo_server bus_server;           /*!< LibLo server for the multicast bus. */
     lo_address bus_addr;            /*!< LibLo address for the multicast bus. */
-    lo_server_thread mesh_server;   /*!< LibLo server thread for mesh comms. */
+    lo_server mesh_server;          /*!< LibLo server for mesh comms. */
     char *interface_name;           /*!< The name of the network interface
                                      *   for receiving messages. */
     struct in_addr interface_ip;    /*!< The IP address of interface. */
