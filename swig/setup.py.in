@@ -4,6 +4,7 @@
 setup.py file for SWIG mapper
 """
 
+import setuptools
 from distutils.core import setup, Extension
 
 LO_LIBS = "@liblo_LIBS@"

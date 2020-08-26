@@ -1,10 +1,16 @@
 language: cpp
+
 sudo: false  # docker VM
+
 git:
   depth: 99999
+
 matrix:
   include:
   - os: linux
+    services: docker
+    language: python
+    python: "3.6"
     addons:
       apt:
         sources:
@@ -14,7 +20,14 @@ matrix:
           - autoconf-archive
           - curl
           - zlib1g-dev
-    env: HOST="" MATRIX_EVAL="CC=gcc-8 && CXX=g++-8"
+          - python3-pip
+          - python3-setuptools
+    env:
+      - HOST=""
+      - MATRIX_EVAL="CC=gcc-8 && CXX=g++-8"
+      - CIBW_BUILD="cp3*"
+      - CIBW_BEFORE_ALL="yum install -y automake autoconf zlib-devel swig && cd {package}/../../liblo-0.31 && ./autogen.sh && make clean && make && make install"
+      - CIBW_BEFORE_BUILD="cd {package}/../.. && env NOCONFIGURE=1 ./autogen.sh && cd build && ../configure && make && make install && cd swig && make mapper_wrap.c"
     compiler: gcc
   - os: linux
     dist: xenial
@@ -26,23 +39,47 @@ matrix:
           - g++-mingw-w64
           - autoconf-archive
           - curl
+          - python3-pip
+          - python3-setuptools
     env:
       - HOST="x86_64-w64-mingw32"
       - MINGW_ON_LINUX="1"
       - MATRIX_EVAL="unset CC && unset CXX && curl -L -O http://www.zlib.net/zlib-1.2.11.tar.gz && tar -xzf zlib-1.2.11.tar.gz && cp -v zlib-1.2.11/crc32.c src/ && echo libmapper_la_SOURCES += crc32.c >>src/Makefile.am && echo libmapper_la_CFLAGS += -I\$\(top_srcdir\)/zlib-1.2.11 >>src/Makefile.am && sed -e 's,\(AC_CHECK_LIB(\[z\]\),dnl \1,' -i configure.ac && sed -e 's,\(\./\$\$i\),wine \1.exe,' -i test/Makefile.am"
   - os: osx
     osx_image: xcode11.3
-    env: HOST="" MATRIX_EVAL="brew install autoconf-archive"
+    language: sh
+    env:
+      - HOST=""
+      - MATRIX_EVAL=""
+      - CIBW_BUILD="cp3*"
+      - CIBW_BEFORE_ALL="cd {package}/../../liblo-0.31 && ./autogen.sh && make clean && make && make install"
+      - CIBW_BEFORE_BUILD="cd {package}/.. && ../configure && make && make install && cd swig && make mapper_wrap.c && rm -rv .pydistutils.cfg {package}/.pydistutils.cfg ~/.pydistutils.cfg"
+    addons:
+      homebrew:
+        # update: true
+        packages:
+          - python3
+          - autoconf-archive
+          - swig
     compiler: clang
+
 before_install:
   - eval "${MATRIX_EVAL}"
   - curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
-install: pwd && echo MINGW_ON_LINUX=$MINGW_ON_LINUX && mkdir $PWD/inst && (./autogen.sh --host=$HOST --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false)) && make && ([ x = x$MINGW_ON_LINUX ] && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) || true) && make install && find inst
-script: if [ x = x$MINGW_ON_LINUX ]; then cd test/ && make tests; fi
+
+install:
+  - echo MINGW_ON_LINUX=$MINGW_ON_LINUX && mkdir $PWD/inst
+  - python3 -m pip install cibuildwheel
+
+script:
+  - (./autogen.sh --host=$HOST --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false)) && make && ([ x = x$MINGW_ON_LINUX ] && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) || true) && make install && find inst
+  - if [ x = x$MINGW_ON_LINUX ]; then (cd test/ && make tests); fi
+  - if [ -n "$CIBW_BEFORE_BUILD" ]; then make distclean && mkdir build && cd build && ../configure PKG_CONFIG_PATH=$PWD/../liblo-0.31/inst/lib/pkgconfig && make && cd .. && ls build/swig && python3 -m cibuildwheel --output-dir wheelhouse build/swig; ls wheelhouse; fi
+
 notifications:
   email:
     recipients:
       - radarsat1@gmail.com
       - joseph.malloch@gmail.com
     on_success: never
-    on_failure: change
+    on_failure: never
