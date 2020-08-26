@@ -27,7 +27,7 @@
 
 int autoconnect = 1;
 int terminate = 0;
-int iterations = 50; // only matters when terminate==1
+int iterations = 5; // only matters when terminate==1
 int verbose = 1;
 
 mapper_device source = 0;
