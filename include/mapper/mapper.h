@@ -169,7 +169,7 @@ mpr_list mpr_obj_get_prop_as_list(mpr_obj obj, mpr_prop prop, const char *key);
  *  \param len          The length of value array.
  *  \param type         The property  datatype.
  *  \param value        An array of property values.
- *  \param pub          1 to publish to the distributed graph, 0 for local-only.
+ *  \param publish      1 to publish to the distributed graph, 0 for local-only.
  *  \return             Symbolic identifier of the set property, or
  *                      MPR_PROP_UNKNOWN if not found. */
 mpr_prop mpr_obj_set_prop(mpr_obj obj, mpr_prop prop, const char *key, int len,
@@ -399,7 +399,8 @@ int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id inst);
  *  to use this function, since signal instances will be automatically activated as necessary when
  *  signals are updated by mpr_sig_set_value() or through a map.
  *  \param sig          The signal to operate on.
- *  \param inst         The identifier of the instance to activate. */
+ *  \param inst         The identifier of the instance to activate.
+ *  \return             Non-zero if the instance is active, zero otherwise. */
 int mpr_sig_activate_inst(mpr_sig sig, mpr_id inst);
 
 /*! Get the local identifier of the oldest active instance.

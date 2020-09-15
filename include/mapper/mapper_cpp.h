@@ -373,7 +373,8 @@ namespace mapper {
             { RETURN_SELF(mpr_obj_push(_obj)); }
 
         /*! Retrieve the number of Properties owned by an Object.
-         *  \param key      The name of the Property to check.
+         *  \param staged   Set to true to count properties that have been
+         *                  staged but not synchronized with the graph.
          *  \return         The number of Properties. */
         int num_props(bool staged = false) const
             { return mpr_obj_get_num_props(_obj, staged); }

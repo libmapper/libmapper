@@ -38,17 +38,8 @@ typedef struct _mpr_obj **mpr_list;
 struct _mpr_dev;
 typedef struct _mpr_dev mpr_dev_t;
 typedef struct _mpr_dev *mpr_dev;
-struct _mpr_sig;
-typedef struct _mpr_sig mpr_sig_t;
-typedef struct _mpr_sig *mpr_sig;
-struct _mpr_link;
-typedef struct _mpr_link mpr_link_t;
-typedef struct _mpr_link *mpr_link;
 struct _mpr_map;
-typedef struct _mpr_map mpr_map_t;
-typedef struct _mpr_map *mpr_map;
 struct _mpr_allocated_t;
-struct _mpr_map;
 struct _mpr_id_map;
 typedef int mpr_sig_group;
 
@@ -136,9 +127,8 @@ typedef struct _mpr_net {
     } addr;
 
     struct {
-        char *name;                 /*!< The name of the network interface
-                                     *   for receiving messages. */
-        struct in_addr addr;        /*!< The IP address of interface. */
+        char *name;                 /*!< The name of the network interface. */
+        struct in_addr addr;        /*!< The IP address of network interface. */
     } iface;
 
     struct _mpr_dev **devs;         /*!< Local devices managed by this network structure. */
@@ -163,11 +153,11 @@ typedef struct _mpr_net {
 
 typedef struct _mpr_graph {
     mpr_net_t net;
-    mpr_list devs;                   //<! List of devices.
-    mpr_list sigs;                   //<! List of signals.
-    mpr_list maps;                   //<! List of maps.
-    mpr_list links;                  //<! List of links.
-    fptr_list callbacks;             //<! List of object record callbacks.
+    mpr_list devs;                   //!< List of devices.
+    mpr_list sigs;                   //!< List of signals.
+    mpr_list maps;                   //!< List of maps.
+    mpr_list links;                  //!< List of links.
+    fptr_list callbacks;             //!< List of object record callbacks.
 
     /*! Linked-list of autorenewing device subscriptions. */
     mpr_subscription subscriptions;
@@ -266,7 +256,7 @@ typedef struct _mpr_obj
     struct _mpr_dict props;         //!< Properties associated with this signal.
     int version;                    //!< Version number.
     mpr_type type;                  //!< Object type.
-} mpr_obj_t, *mpr_obj, **mpr_list;
+} mpr_obj_t, *mpr_obj;
 
 /**** Signal ****/
 
@@ -336,12 +326,13 @@ typedef struct _mpr_local_sig
     int event_flags;                /*! Flags for deciding when to call the
                                      *  instance event handler. */
 
-    mpr_sig_group group;
+    mpr_sig_group group;            // TODO: replace with hierarchical instancing
     uint8_t locked;
+    uint8_t updated;                // TODO: fold into updated_inst bitflags.
 } mpr_local_sig_t, *mpr_local_sig;
 
 /*! A record that describes properties of a signal. */
-struct _mpr_sig {
+typedef struct _mpr_sig {
     mpr_obj_t obj;          // always first
     mpr_local_sig loc;
     mpr_dev dev;
@@ -364,7 +355,7 @@ struct _mpr_sig {
 
     mpr_type type;              //!< The type of this signal.
     mpr_steal_type steal_mode;  //!< Type of voice stealing to perform.
-};
+} mpr_sig_t, *mpr_sig;
 
 /**** Router ****/
 

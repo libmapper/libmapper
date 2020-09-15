@@ -76,25 +76,6 @@ void mpr_obj_increment_version(mpr_obj obj);
 
 #define MPR_LINK 0x20
 
-/**** Signals ****/
-
-#define MPR_MAX_VECTOR_LEN 128
-
-/*! Get the full OSC name of a signal, including device name prefix.
- *  \param sig  The signal value to query.
- *  \param name A string to accept the name.
- *  \param len  The length of string pointed to by name.
- *  \return     The number of characters used, or 0 if error.  Note that in some
- *              cases the name may not be available. */
-int mpr_sig_get_full_name(mpr_sig sig, char *name, int len);
-
-void mpr_sig_call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
-                          const void *val, mpr_time *time, float diff);
-
-int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
-
-void mpr_sig_update_timing_stats(mpr_sig sig, float diff);
-
 /**** Networking ****/
 
 void mpr_net_add_dev(mpr_net n, mpr_dev d);
@@ -239,6 +220,28 @@ int mpr_rtr_loop_check(mpr_rtr r, mpr_sig s, int n_remote, const char **remote);
 
 /**** Signals ****/
 
+#define MPR_MAX_VECTOR_LEN 128
+
+/*! Initialize an already-allocated mpr_sig structure. */
+void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
+                  mpr_type type, const char *unit, const void *min,
+                  const void *max, int *num_inst);
+
+/*! Get the full OSC name of a signal, including device name prefix.
+ *  \param sig  The signal value to query.
+ *  \param name A string to accept the name.
+ *  \param len  The length of string pointed to by name.
+ *  \return     The number of characters used, or 0 if error.  Note that in some
+ *              cases the name may not be available. */
+int mpr_sig_get_full_name(mpr_sig sig, char *name, int len);
+
+void mpr_sig_call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
+                          const void *val, mpr_time *time, float diff);
+
+int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
+
+void mpr_sig_update_timing_stats(mpr_sig sig, float diff);
+
 /*! Free memory used by a mpr_sig. Call this only for signals that are not
  *  registered with a device. Registered signals will be freed by mpr_sig_free().
  *  \param s        The signal to free. */
@@ -374,19 +377,14 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *dev_name, mpr_msg msg);
 mpr_sig mpr_graph_add_sig(mpr_graph g, const char *sig_name,
                           const char *dev_name, mpr_msg msg);
 
-/*! Initialize an already-allocated mpr_sig structure. */
-void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
-                  mpr_type type, const char *unit, const void *min,
-                  const void *max, int *num_inst);
-
 /*! Add or update a map entry in the graph using parsed message parameters.
  *  \param g            The graph to operate on.
  *  \param num_src      The number of source slots for this map
- *  \param src          The full names of the source signals.
- *  \param dst          The full name of the destination signal.
+ *  \param src_names    The full names of the source signals.
+ *  \param dst_name     The full name of the destination signal.
  *  \param msg          The parsed message parameters containing new metadata.
  *  \return             Pointer to the map. */
-mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src,
+mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
                           const char *dst_name, mpr_msg msg);
 
 /*! Remove a device from the graph. */
@@ -591,7 +589,7 @@ inline static int mpr_time_get_is_now(mpr_time *t)
 /*! Helper for printing typed values.
  *  \param len          The vector length of the value.
  *  \param type         The value type.
- *  \param value        A pointer to the property value to print. */
+ *  \param val          A pointer to the property value to print. */
 void mpr_prop_print(int len, mpr_type type, const void *val);
 
 mpr_prop mpr_prop_from_str(const char *str);
