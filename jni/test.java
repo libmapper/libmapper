@@ -8,8 +8,8 @@ import java.util.Iterator;
 
 class test {
     public static void main(String [] args) {
-        final Device dev1 = new Device("javatest");
-        final Device dev2 = new Device("javatest");
+        final Device dev1 = new Device("java_test");
+        final Device dev2 = new Device("java_test");
         final Graph g = new Graph(Type.OBJECT);
         Time start = new Time();
         System.out.println("Current time: "+start.now());
@@ -132,10 +132,12 @@ class test {
         map.properties().put(Property.EXPRESSION, "y=x*100");
         map.push();
 
+        System.out.print("Establishing map... ");
         while (!map.ready()) {
             dev1.poll(50);
             dev2.poll(50);
         }
+        System.out.println("OK");
 
         int i = 0;
 
@@ -145,7 +147,7 @@ class test {
         else
             System.out.println("Signal has no value.");
 
-        // Just to test vector-valued signal and time support,
+        // Just to test vector-valued signal
         out1.setValue(new int []{i});
 
         while (i <= 100) {
@@ -182,10 +184,11 @@ class test {
             for (mapper.Signal s : m.signals(Location.SOURCE))
                 System.out.print(s.device().properties().get("name")+":"
                                  +s.properties().get("name")+" ");
-            System.out.println("-> ");
+            System.out.print("-> ");
             for (mapper.Signal s : m.signals(Location.DESTINATION))
                 System.out.print(s.device().properties().get("name")+":"
                                  +s.properties().get("name")+" ");
+            System.out.println();
         }
 
         System.out.println();
