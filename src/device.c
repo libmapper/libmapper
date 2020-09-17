@@ -979,7 +979,7 @@ const char *mpr_dev_get_name(mpr_dev dev)
 
 int mpr_dev_get_is_ready(mpr_dev dev)
 {
-    return dev->status >= MPR_STATUS_READY;
+    return dev ? dev->status >= MPR_STATUS_READY : MPR_STATUS_UNDEFINED;
 }
 
 mpr_id mpr_dev_generate_unique_id(mpr_dev dev)

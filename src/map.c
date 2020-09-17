@@ -564,7 +564,7 @@ static int _replace_expr_str(mpr_map m, const char *expr_str)
     // e.g. if expression combines signals from different devices
     // e.g. if expression refers to current/past value of destination
     int out_mem = mpr_expr_get_out_hist_size(expr);
-    if (out_mem > 1 && MPR_LOC_SRC == m->process_loc) {
+    if (!m->loc->is_local_only && out_mem > 1 && MPR_LOC_SRC == m->process_loc) {
         m->process_loc = MPR_LOC_DST;
         if (!m->dst->sig->loc) {
             // copy expression string but do not execute it
