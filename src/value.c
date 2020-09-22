@@ -133,3 +133,36 @@ void mpr_value_free(mpr_value v) {
     free(v->inst);
     v->inst = 0;
 }
+
+#ifdef DEBUG
+void mpr_value_print(mpr_value v, int inst_idx) {
+    int i = inst_idx >= 0 ? inst_idx : 0, j;
+    switch (v->type) {
+#define TYPED_CASE(MTYPE, TYPE, STR)                                \
+        case MTYPE:                                                 \
+            for (i = 0; i < v->num_inst; i++) {                     \
+                printf("%d: ", i);                                  \
+                if (v->inst[i].pos >= 0) {                          \
+                    if (v->vlen > 1)                                \
+                        printf("[");                                \
+                    TYPE *samp = (TYPE*)mpr_value_get_samp(v, i);   \
+                    for (j = 0; j < v->vlen; j++)                   \
+                        printf(STR, samp[j]);                       \
+                    if (v->vlen > 1)                                \
+                        printf("\b\b]\n");                          \
+                    else                                            \
+                        printf("\b\b\n");                           \
+                }                                                   \
+                else                                                \
+                    printf("NULL\n");                               \
+                if (inst_idx < 0)                                   \
+                    break;                                          \
+            }                                                       \
+            break;
+        TYPED_CASE(MPR_INT32, int, "%d, ");
+        TYPED_CASE(MPR_FLT, float, "%f, ");
+        TYPED_CASE(MPR_DBL, double, "%f, ");
+#undef TYPED_CASE
+    }
+}
+#endif

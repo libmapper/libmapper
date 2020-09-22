@@ -647,6 +647,10 @@ inline static void* mpr_value_get_time(mpr_value v, int idx)
 
 void mpr_value_free(mpr_value v);
 
+#ifdef DEBUG
+void mpr_value_print(mpr_value v, int inst_idx);
+#endif
+
 /*! Helper to find the size in bytes of a signal's full vector. */
 inline static size_t mpr_sig_get_vector_bytes(mpr_sig sig)
 {
