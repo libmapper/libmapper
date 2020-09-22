@@ -80,10 +80,11 @@ void mpr_link_free(mpr_link link)
     FUNC_IF(lo_address_free, link->addr.admin);
     FUNC_IF(lo_address_free, link->addr.udp);
     FUNC_IF(lo_address_free, link->addr.tcp);
-    FUNC_IF(lo_bundle_free_recursive, link->bundles[0].udp);
-    FUNC_IF(lo_bundle_free_recursive, link->bundles[0].tcp);
-    FUNC_IF(lo_bundle_free_recursive, link->bundles[1].udp);
-    FUNC_IF(lo_bundle_free_recursive, link->bundles[1].tcp);
+    int i;
+    for (i = 0; i < NUM_BUNDLES; i++) {
+        FUNC_IF(lo_bundle_free_recursive, link->bundles[i].udp);
+        FUNC_IF(lo_bundle_free_recursive, link->bundles[i].tcp);
+    }
     mpr_dev_remove_link(link->local_dev, link->remote_dev);
 }
 
@@ -117,8 +118,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
         mpr_net n = &link->obj.graph->net;
         if ((lb = b->udp)) {
             b->udp = 0;
-            if ((tmp = lo_bundle_count(lb))) {
-                num = tmp;
+            if ((num = lo_bundle_count(lb))) {
                 lo_send_bundle_from(link->addr.udp, n->server.udp, lb);
             }
             lo_bundle_free_recursive(lb);

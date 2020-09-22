@@ -33,11 +33,13 @@ int setup_srcs()
     srcs = (mpr_dev*)calloc(1, num_sources * sizeof(mpr_dev));
     sendsigs = (mpr_sig*)calloc(1, num_sources * sizeof(mpr_sig));
 
+    char tmpname[16];
     for (i = 0; i < num_sources; i++) {
         srcs[i] = mpr_dev_new("testconvergent-send", 0);
         if (!srcs[i])
             goto error;
-        sendsigs[i] = mpr_sig_new(srcs[i], MPR_DIR_OUT, "sendsig", 1,
+        snprintf(tmpname, 16, "sendsig%d", i);
+        sendsigs[i] = mpr_sig_new(srcs[0], MPR_DIR_OUT, tmpname, 1,
                                   MPR_INT32, NULL, &mni, &mxi, NULL, NULL, 0);
         if (!sendsigs[i])
             goto error;
@@ -123,16 +125,16 @@ int setup_maps()
     char expr[len];
     snprintf(expr, 3, "y=");
     for (i = 0; i < num_sources; i++) {
-        if (i == 0) {
+//        if (i == 0) {
             snprintf(expr + offset, len - offset, "-x%d",
                      mpr_map_get_sig_idx(map, sendsigs[i]));
             offset += 3;
-        }
-        else {
-            snprintf(expr + offset, len - offset, "-_x%d",
-                     mpr_map_get_sig_idx(map, sendsigs[i]));
-            offset += 4;
-        }
+//        }
+//        else {
+//            snprintf(expr + offset, len - offset, "-_x%d",
+//                     mpr_map_get_sig_idx(map, sendsigs[i]));
+//            offset += 4;
+//        }
     }
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
@@ -174,8 +176,9 @@ void loop()
         for (j = 0; j < num_sources; j++) {
             eprintf("Updating source %d = %i\n", j, i);
             mpr_sig_set_value(sendsigs[j], 0, 1, MPR_INT32, &i);
-            mpr_dev_poll(srcs[j], 0);
+//            mpr_dev_poll(srcs[j], 0);
         }
+        mpr_dev_poll(srcs[0], 0);
         sent++;
         mpr_dev_poll(dst, period);
         i++;

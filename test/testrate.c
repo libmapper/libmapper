@@ -123,6 +123,9 @@ int setup_maps()
 {
     int i = 0;
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
+
+    // TODO: set up update bundling as map property
+
     mpr_obj_push((mpr_obj)map);
 
     i = 0;

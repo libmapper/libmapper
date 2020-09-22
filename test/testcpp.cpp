@@ -243,10 +243,10 @@ int main(int argc, char ** argv)
 
     std::vector <double> v(3);
     while (i++ < 100) {
-        dev.poll(period);
         graph.poll();
         v[i%3] = i;
         sig.set_value(v);
+        dev.poll(period);
     }
 
     // try retrieving linked devices
@@ -298,7 +298,6 @@ int main(int argc, char ** argv)
     }
     unsigned long id;
     for (int i = 0; i < 200; i++) {
-        dev.poll(period);
         id = (rand() % 10) + 5;
         switch (rand() % 5) {
             case 0:
@@ -317,6 +316,7 @@ int main(int argc, char ** argv)
                            (unsigned long)id, v);
                 break;
         }
+        dev.poll(period);
     }
 
     // test some time manipulation

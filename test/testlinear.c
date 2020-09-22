@@ -107,6 +107,7 @@ void cleanup_dst()
 
 int setup_maps()
 {
+    printf("setup_maps()\n");
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
     float sMin, sMax, dMin, dMax;
@@ -153,7 +154,6 @@ void wait_ready()
 
 void loop()
 {
-    eprintf("Polling device..\n");
     int i = 0;
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
     while ((!terminate || i < 50) && !done) {

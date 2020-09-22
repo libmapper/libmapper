@@ -93,13 +93,15 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
     if (s->loc) {
         s->loc->vec_known = calloc(1, len / 8 + 1);
         for (i = 0; i < len; i++)
-            s->loc->vec_known[i/8] |= 1 << (i % 8);
+            set_bitflag(s->loc->vec_known, i);
         if (num_inst) {
             mpr_sig_reserve_inst(s, *num_inst, 0, 0);
             s->use_inst = 1;
+            s->loc->updated_inst = calloc(1, *num_inst / 8 + 1);
         }
         else {
             mpr_sig_reserve_inst(s, 1, 0, 0);
+            s->loc->updated_inst = calloc(1, 1);
         }
 
         // Reserve one instance id map
@@ -202,7 +204,7 @@ void mpr_sig_free(mpr_sig sig)
         mpr_net_use_subscribers(net, dev, dir);
         mpr_sig_send_removed(sig);
     }
-
+    free(sig->loc->updated_inst);
     mpr_graph_remove_sig(sig->obj.graph, sig, MPR_OBJ_REM);
     mpr_obj_increment_version((mpr_obj)dev);
 }
@@ -359,9 +361,8 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
      * create new id map if necessary. */
     if ((si = _find_inst_by_id(s, LID)) || (si = _reserved_inst(s, &LID))) {
         if (!map) {
-            // Claim id map locally, add id map to device and link from signal
-            mpr_id GID = mpr_dev_generate_unique_id(s->dev);
-            map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, GID);
+            // Claim id map locally
+            map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, 0);
         }
         else
             mpr_dev_LID_incref(s->dev, map);
@@ -402,9 +403,8 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
     // try again
     if ((si = _find_inst_by_id(s, LID)) || (si = _reserved_inst(s, &LID))) {
         if (!map) {
-            // Claim id map locally add id map to device and link from signal
-            mpr_id GID = mpr_dev_generate_unique_id(s->dev);
-            map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, GID);
+            // Claim id map locally
+            map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, 0);
         }
         else
             mpr_dev_LID_incref(s->dev, map);
@@ -607,6 +607,9 @@ int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id id)
 
 void mpr_sig_update_timing_stats(mpr_sig sig, float diff)
 {
+    // make sure time is monotonic
+    if (diff < 0)
+        diff = 0;
     if (-1 == sig->period)
         sig->period = 0;
     else if (0 == sig->period)
@@ -622,7 +625,7 @@ void mpr_sig_update_timing_stats(mpr_sig sig, float diff)
 void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const void *val)
 {
     RETURN_UNLESS(sig && sig->loc);
-    if (!val) {
+    if (!len || !val) {
         mpr_sig_release_inst(sig, id);
         return;
     }
@@ -635,7 +638,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     }
     if (len && (len != sig->len)) {
 #ifdef DEBUG
-        trace("called update on signal '%s' with value length %d (should be  %d)\n",
+        trace("called update on signal '%s' with value length %d (should be %d)\n",
               sig->name, len, sig->len);
 #endif
         return;
@@ -652,35 +655,32 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
                 RETURN_UNLESS(((double*)val)[i] == ((double*)val)[i]);
         }
     }
-
     mpr_time time = mpr_dev_get_time(sig->dev);
     int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, 0, time, 1);
     RETURN_UNLESS(idmap_idx >= 0);
-
     mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
 
-    // update timing statistics
-    double diff = mpr_time_get_diff(time, si->time);
-    memcpy(&si->time, &time, sizeof(mpr_time));
+    // update time
+    double diff = si->has_val ? mpr_time_get_diff(time, si->time) : 0;
     mpr_sig_update_timing_stats(sig, diff);
+    memcpy(&si->time, &time, sizeof(mpr_time));
 
-    if (!len || !val) {
-        si->has_val = 0;
-        mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, 0, si->time);
-        return;
-    }
-
-    size_t n = mpr_sig_get_vector_bytes(sig);
-
+    // update value
     void *coerced = (void*)val;
+    size_t n = mpr_sig_get_vector_bytes(sig);
     if (type != sig->type) {
         coerced = alloca(n);
         set_coerced_val(sig->len, type, val, sig->len, sig->type, coerced);
     }
-
-    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, coerced, si->time);
     memcpy(si->val, coerced, n);
     si->has_val = 1;
+
+    // mark instance as updated
+    set_bitflag(sig->loc->updated_inst, si->idx);
+    sig->dev->loc->updated = sig->loc->updated = 1;
+
+    mpr_rtr rtr = sig->obj.graph->net.rtr;
+    mpr_rtr_process_sig(rtr, sig, idmap_idx, si->has_val ? si->val : 0, si->time);
 }
 
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id)
@@ -696,9 +696,12 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx)
     mpr_sig_idmap_t *smap = &sig->loc->idmaps[idmap_idx];
     RETURN_UNLESS(smap->inst);
 
-    mpr_time time = mpr_dev_get_time(sig->dev);
+    // mark instance as updated
+    set_bitflag(sig->loc->updated_inst, smap->inst->idx);
+    sig->dev->loc->updated = sig->loc->updated = 1;
 
-    mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, 0, time);
+    mpr_rtr rtr = sig->obj.graph->net.rtr;
+    mpr_rtr_process_sig(rtr, sig, idmap_idx, 0, smap->inst->time);
 
     if (mpr_dev_LID_decref(sig->dev, sig->loc->group, smap->map))
         smap->map = 0;
@@ -708,7 +711,7 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx)
     }
     else {
         // mark map as locally-released but do not remove it
-        sig->loc->idmaps[idmap_idx].status |= RELEASED_LOCALLY;
+        smap->status |= RELEASED_LOCALLY;
     }
 
     // Put instance back in reserve list
@@ -906,6 +909,7 @@ static int _add_idmap(mpr_sig s, mpr_sig_inst si, mpr_id_map map)
         // need more memory
         if (s->loc->idmap_len >= MAX_INSTANCES) {
             // Arbitrary limit to number of tracked idmaps
+            // TODO: add checks for this return value
             return -1;
         }
         s->loc->idmap_len = s->loc->idmap_len ? s->loc->idmap_len * 2 : 1;

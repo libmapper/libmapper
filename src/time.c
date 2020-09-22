@@ -18,7 +18,7 @@ double mpr_get_current_time()
 #ifdef HAVE_GETTIMEOFDAY
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return (double)tv.tv_sec + tv.tv_usec / 1000000.0;
+    return (double)tv.tv_sec + ((double)tv.tv_usec) * 0.000001;
 #else
 #error No timing method known on this platform.
 #endif

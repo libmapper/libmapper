@@ -138,8 +138,9 @@ void loop()
         float val = i * 1.0f;
         expected_val = val * 10;
         t = mpr_dev_get_time(src);
-        expected_time = mpr_time_as_dbl(t) + 10;
-        eprintf("Updating output signal to %f at time %f\n", (i * 1.0f), mpr_time_as_dbl(t));
+        expected_time = mpr_time_as_dbl(t);
+        eprintf("Updating output signal to %f at time %f\n", (i * 1.0f),
+                mpr_time_as_dbl(t));
         mpr_sig_set_value(sendsig, 0, 1, MPR_FLT, &val);
         sent++;
         mpr_dev_poll(src, 0);

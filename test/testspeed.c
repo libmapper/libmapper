@@ -289,8 +289,8 @@ int main(int argc, char **argv)
     times[0] = current_time();
     mpr_sig_set_value(sendsig, counter++, 1, MPR_FLT, &value);
     while (!done) {
-        mpr_dev_poll(dst, 0);
         mpr_dev_poll(src, 0);
+        mpr_dev_poll(dst, 0);
     }
     goto done;
 

@@ -280,9 +280,10 @@ typedef struct _mpr_value
     int8_t mlen;                //!< History size of the buffer.
 } mpr_value_t, *mpr_value;
 
-/*! Bit flags for indicating signal instance status. */
-#define RELEASED_LOCALLY  0x01
-#define RELEASED_REMOTELY 0x02
+/*! Bit flags for indicating instance id_map status. */
+#define UPDATED           0x01
+#define RELEASED_LOCALLY  0x02
+#define RELEASED_REMOTELY 0x04
 
 #define EXPR_RELEASE_BEFORE_UPDATE 0x02
 #define EXPR_RELEASE_AFTER_UPDATE  0x04
@@ -290,6 +291,7 @@ typedef struct _mpr_value
 #define EXPR_UPDATE                0x10
 
 /*! A signal is defined as a vector of values, along with some metadata. */
+// plan: remove idx? we shouldn't need it anymore
 typedef struct _mpr_sig_inst
 {
     mpr_id id;                  //!< User-assignable instance id.
@@ -300,16 +302,17 @@ typedef struct _mpr_sig_inst
     void *val;                  //!< The current value of this signal instance.
     mpr_time time;              //!< The time associated with the current value.
 
-    unsigned int idx;           //!< Index for accessing value history.
+    uint8_t idx;                //!< Index for accessing value history.
     uint8_t has_val;            //!< Indicates whether this instance has a value.
     uint8_t active;             //!< Status of this instance.
 } mpr_sig_inst_t, *mpr_sig_inst;
 
+// plan: remove inst, add map/slot resource index (is this the same for all source signals?)
 typedef struct _mpr_sig_idmap
 {
     struct _mpr_id_map *map;    //!< Associated mpr_id_map.
     struct _mpr_sig_inst *inst; //!< Signal instance.
-    int status;                 /*!< Either 0 or a combination of
+    int status;                 /*!< Either 0 or a combination of UPDATED,
                                  *   RELEASED_LOCALLY and RELEASED_REMOTELY. */
 } mpr_sig_idmap_t;
 
@@ -319,6 +322,7 @@ typedef struct _mpr_local_sig
     int idmap_len;
     struct _mpr_sig_inst **inst;    //!< Array of pointers to the signal insts.
     char *vec_known;                //!< Bitflags when entire vector is known.
+    char *updated_inst;             //!< Bitflags to indicate updated instances.
 
     /*! An optional function to be called when the signal value changes or when
      *  signal instance management events occur.. */
@@ -350,8 +354,8 @@ typedef struct _mpr_sig {
     int len;                //!< Length of the signal vector, or 1 for scalars.
     int num_inst;           //!< Number of instances.
     int use_inst;           //!< 1 if using instances, 0 otherwise.
-    int num_maps_in;
-    int num_maps_out;
+    int num_maps_in;        // TODO: use dynamic query instead?
+    int num_maps_out;       // TODO: use dynamic query instead?
 
     mpr_type type;              //!< The type of this signal.
     mpr_steal_type steal_mode;  //!< Type of voice stealing to perform.
@@ -364,7 +368,7 @@ typedef struct _mpr_bundle {
     lo_bundle tcp;
 } mpr_bundle_t, *mpr_bundle;
 
-#define NUM_BUNDLES 8
+#define NUM_BUNDLES 1
 
 typedef struct _mpr_link {
     mpr_obj_t obj;                  // always first
@@ -421,6 +425,7 @@ typedef struct _mpr_local_map {
     struct _mpr_rtr *rtr;
 
     mpr_expr expr;                  //!< The mapping expression.
+    char *updated_inst;             //!< Bitflags to indicate updated instances.
     mpr_value_t *vars;              //!< User variables values.
     const char **var_names;         //!< User variables names.
     int num_vars;                   //!< Number of user variables.
@@ -428,6 +433,7 @@ typedef struct _mpr_local_map {
 
     uint8_t is_local_only;
     uint8_t one_src;
+    uint8_t updated;
 } mpr_local_map_t, *mpr_local_map;
 
 /*! A record that describes the properties of a mapping.

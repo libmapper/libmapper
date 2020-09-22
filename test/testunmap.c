@@ -139,11 +139,11 @@ void loop()
     eprintf("Polling device..\n");
     int i = 0;
     while ((!terminate || srcgraph->links || dstgraph->links) && !done) {
-        mpr_dev_poll(src, 0);
         eprintf("Updating signal %s to %d\n",
                 sendsig && sendsig->name ? sendsig->name : "", i);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i);
         sent++;
+        mpr_dev_poll(src, 0);
         mpr_dev_poll(dst, 100);
         i++;
 

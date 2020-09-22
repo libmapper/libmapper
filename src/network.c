@@ -35,7 +35,7 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 #define BUNDLE_DST_SUBSCRIBERS (void*)-1
 #define BUNDLE_DST_BUS          0
 
-#define MAX_BUNDLE_COUNT 10
+#define MAX_BUNDLE_LEN 65535
 
 #if FORCE_COMMS_TO_BUS
     #define NET_SERVER_FUNC(NET, FUNC, ...)                     \
@@ -467,8 +467,7 @@ static int init_bundle(mpr_net net)
 
 void mpr_net_use_bus(mpr_net net)
 {
-    if (net->bundle && (   net->addr.dst != BUNDLE_DST_BUS
-                        || lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT))
+    if (net->bundle && (net->addr.dst != BUNDLE_DST_BUS))
         mpr_net_send(net);
     net->addr.dst = BUNDLE_DST_BUS;
     if (!net->bundle)
@@ -477,8 +476,7 @@ void mpr_net_use_bus(mpr_net net)
 
 void mpr_net_use_mesh(mpr_net net, lo_address addr)
 {
-    if (net->bundle && (   net->addr.dst != addr
-                        || lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT))
+    if (net->bundle && (net->addr.dst != addr))
         mpr_net_send(net);
     net->addr.dst = addr;
     if (!net->bundle)
@@ -489,8 +487,7 @@ void mpr_net_use_subscribers(mpr_net net, mpr_dev dev, int type)
 {
     if (net->bundle && (   net->addr.dst != BUNDLE_DST_SUBSCRIBERS
                         || net->addr.dev != dev
-                        || net->msg_type != type
-                        || lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT))
+                        || net->msg_type != type))
         mpr_net_send(net);
     net->addr.dst = BUNDLE_DST_SUBSCRIBERS;
     net->addr.dev = dev;
@@ -501,11 +498,14 @@ void mpr_net_use_subscribers(mpr_net net, mpr_dev dev, int type)
 
 void mpr_net_add_msg(mpr_net net, const char *s, net_msg_t c, lo_message m)
 {
-    if (lo_bundle_count(net->bundle) >= MAX_BUNDLE_COUNT) {
+    int len = lo_bundle_length(net->bundle);
+    if (!s)
+        s = net_msg_strings[c];
+    if (len && len + lo_message_length(m, s) >= MAX_BUNDLE_LEN) {
         mpr_net_send(net);
         init_bundle(net);
     }
-    lo_bundle_add_message(net->bundle, s ?: net_msg_strings[c], m);
+    lo_bundle_add_message(net->bundle, s, m);
 }
 
 void mpr_net_free_msgs(mpr_net net)

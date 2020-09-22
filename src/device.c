@@ -28,8 +28,7 @@ extern const char* net_msg_strings[NUM_MSG_STRINGS];
 // prototypes
 void mpr_dev_start_servers(mpr_dev dev);
 static void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map rem);
-static inline int mpr_dev_process_outputs_internal(mpr_dev dev, int idx);
-static inline int fetch_and_add_bundle_idx(mpr_dev dev);
+static inline int mpr_dev_process_outputs_internal(mpr_dev dev);
 
 mpr_time ts = {0,1};
 
@@ -183,17 +182,11 @@ void mpr_dev_free(mpr_dev dev)
     }
 
     // Release links to other devices
-    int idx = fetch_and_add_bundle_idx(dev);
     mpr_list links = mpr_dev_get_links(dev, MPR_DIR_ANY);
     while (links) {
         mpr_link link = (mpr_link)*links;
         links = mpr_list_get_next(links);
-        while (idx != (dev->loc->bundle_idx % NUM_BUNDLES)) {
-            if (!mpr_dev_process_outputs_internal(dev, idx))
-                break;
-            idx = (idx + 1) % NUM_BUNDLES;
-        }
-        dev->loc->polling = 0;
+        mpr_dev_process_outputs_internal(dev);
         mpr_graph_remove_link(gph, link, MPR_OBJ_REM);
     }
 
@@ -470,92 +463,50 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     if (all)
         idmap_idx = 0;
 
+    if (map) {
+        for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
+            // check if map instance is active
+            if ((si = sig->loc->idmaps[idmap_idx].inst)) {
+                inst_idx = si->idx;
+                idmap = sig->loc->idmaps[idmap_idx].map;
+                mpr_local_slot lslot = slot->loc;
+                mpr_value_set_sample(&lslot->val, inst_idx, argv[0], ts);
+                set_bitflag(map->loc->updated_inst, inst_idx);
+                map->loc->updated = 1;
+            }
+            if (!all)
+                break;
+        }
+        return 0;
+    }
+
     for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
         // check if map instance is active
-        if (all && !(si = sig->loc->idmaps[idmap_idx].inst))
-            continue;
-
-        inst_idx = sig->loc->idmaps[idmap_idx].inst->idx;
-        idmap = sig->loc->idmaps[idmap_idx].map;
-
-        int status = MPR_SIG_UPDATE;
-        mpr_type *typestring = 0;
-        if (map) {
-            mpr_local_slot lslot = slot->loc;
-
-            /* TODO: would be more efficient not to allocate memory for multiple
-             * instances if slot is single-instance. */
-            mpr_value_set_sample(&lslot->val, inst_idx, argv[0], ts);
-            if (!slot->causes_update)
-                continue;
-            typestring = alloca(map->dst->sig->len * sizeof(mpr_type));
-            status = mpr_map_perform(map, typestring, &ts, inst_idx);
-            if (!map->use_inst || !sig->use_inst)
-                status &= EXPR_UPDATE;
-        }
-
-        if (status & EXPR_RELEASE_BEFORE_UPDATE) {
-            // TODO: release map-tracked instance
-            /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
-             * know if the local signal instance will actually be released. */
-            int evt = MPR_SIG_REL_UPSTRM & sig->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(sig, evt, idmap->LID, 0, 0, &ts, diff);
-        }
-
-        if (status & EXPR_UPDATE) {
-            if (map) {
-                void *result = mpr_value_get_samp(&map->dst->loc->val, inst_idx);
-                // TODO: create new map->idmap
-//                if (map_manages_inst) {
-//                    if (!idmap) {
-//                        // create an id_map and store it in the map
-//                        mpr_id GID = mpr_dev_generate_unique_id(sig->dev);
-//                        idmap = map->idmap = mpr_dev_add_idmap(sig->dev, sig->loc->group, 0, GID);
-//                    }
-//                }
-                for (i = 0; i < sig->len; i++) {
-                    if (typestring[i] == MPR_NULL)
-                        continue;
-                    memcpy(si->val + i * size, result + i * size, size);
-                    si->has_val_flags[i / 8] |= 1 << (i % 8);
-                }
+        if ((si = sig->loc->idmaps[idmap_idx].inst)) {
+            inst_idx = si->idx;
+            idmap = sig->loc->idmaps[idmap_idx].map;
+            for (i = 0; i < sig->len; i++) {
+                if (types[i] == MPR_NULL)
+                    continue;
+                memcpy(si->val + i * size, argv[i], size);
+                set_bitflag(si->has_val_flags, i);
             }
-            else {
-                for (i = 0; i < sig->len; i++) {
-                    if (types[i] == MPR_NULL)
-                        continue;
-                    memcpy(si->val + i * size, argv[i], size);
-                    si->has_val_flags[i / 8] |= 1 << (i % 8);
-                }
-            }
-
-            if (memcmp(si->has_val_flags, sig->loc->vec_known, sig->len / 8 + 1)==0)
+            if (!compare_bitflags(si->has_val_flags, sig->loc->vec_known, sig->len))
                 si->has_val = 1;
             if (si->has_val) {
                 memcpy(&si->time, &ts, sizeof(mpr_time));
                 mpr_sig_call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, &ts, diff);
-                // check if instance was released
-                if (si->active) {
-                    // TODO: only call next line if sig was not updated in handler
-                    // TODO: package outgoing updates in a bundle
-                    if (!(sig->dir & MPR_DIR_OUT))
-                        mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);
+                // Pass this update downstream if signal is an input and was not updated in handler.
+                if (   !(sig->dir & MPR_DIR_OUT)
+                    && !get_bitflag(sig->loc->updated_inst, si->idx)) {
+                    mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);
+                    // TODO: ensure update is propagated within this poll cycle
                 }
             }
         }
-
-        if (status & EXPR_RELEASE_AFTER_UPDATE) {
-            // TODO: release map-tracked instance
-            /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
-             * know if the local signal instance will actually be released. */
-            int evt = MPR_SIG_REL_UPSTRM & sig->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(sig, evt, idmap->LID, 0, 0, &ts, diff);
-        }
-
         if (!all)
             break;
     }
-
     return 0;
 }
 
@@ -698,32 +649,56 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 }
 
 // TODO: handle interrupt-driven updates that omit call to this function
-static inline int mpr_dev_process_outputs_internal(mpr_dev dev, int idx)
+static inline void mpr_dev_process_inputs_internal(mpr_dev dev)
 {
-    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
-    int msgs = 0;
-    while (links) {
-        msgs += mpr_link_process_bundles((mpr_link)*links, dev->loc->time, idx);
-        links = mpr_list_get_next(links);
+//    RETURN_UNLESS(dev->loc->updated, 0);
+    mpr_graph graph = dev->obj.graph;
+    // process and send updated maps
+    // TODO: speed this up!
+    mpr_list maps = mpr_list_from_data(graph->maps);
+    while (maps) {
+        mpr_map map = *(mpr_map*)maps;
+        maps = mpr_list_get_next(maps);
+        mpr_map_receive(map, dev->loc->time);
     }
-    return msgs ? 1 : 0;
+//    mpr_list links = mpr_list_from_data(graph->links);
+//    int msgs = 0;
+//    while (links) {
+//        msgs += mpr_link_process_bundles((mpr_link)*links, dev->loc->time, idx);
+//        links = mpr_list_get_next(links);
+//    }
+//    dev->loc->updated = 0;
+//    return msgs ? 1 : 0;
 }
 
-// increase bundle idx and return previous index
-static inline int fetch_and_add_bundle_idx(mpr_dev dev)
+// TODO: handle interrupt-driven updates that omit call to this function
+static inline int mpr_dev_process_outputs_internal(mpr_dev dev)
 {
-    // is it possible to simultaneously add to bundle idx and clear "updated" flag?
-    int idx = __sync_fetch_and_add(&dev->loc->bundle_idx, dev->loc->updated);
+//    RETURN_UNLESS(dev->loc->updated, 0);
+    mpr_graph graph = dev->obj.graph;
+    // process and send updated maps
+    // TODO: speed this up!
+    mpr_list maps = mpr_list_from_data(graph->maps);
+    while (maps) {
+        mpr_map map = *(mpr_map*)maps;
+        maps = mpr_list_get_next(maps);
+        mpr_map_send(map, dev->loc->time);
+    }
+    mpr_list links = mpr_list_from_data(graph->links);
+    int msgs = 0;
+    while (links) {
+        msgs += mpr_link_process_bundles((mpr_link)*links, dev->loc->time, 0);
+        links = mpr_list_get_next(links);
+    }
     dev->loc->updated = 0;
-    return idx % NUM_BUNDLES;
+    return msgs ? 1 : 0;
 }
 
 void mpr_dev_process_outputs(mpr_dev dev) {
     RETURN_UNLESS(dev && dev->loc);
-    int idx = fetch_and_add_bundle_idx(dev);
     dev->loc->time_is_stale = 1;
     if (!dev->loc->polling)
-        mpr_dev_process_outputs_internal(dev, idx);
+        mpr_dev_process_outputs_internal(dev);
 }
 
 int mpr_dev_poll(mpr_dev dev, int block_ms)
@@ -744,9 +719,8 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     }
 
     dev->loc->polling = 1;
-    int idx = fetch_and_add_bundle_idx(dev);
     dev->loc->time_is_stale = 1;
-    idx = (idx + mpr_dev_process_outputs_internal(dev, idx)) % NUM_BUNDLES;
+    mpr_dev_process_outputs_internal(dev);
     dev->loc->polling = 0;
 
     if (!block_ms) {
@@ -769,11 +743,8 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
                 device_count += (status[2] > 0) + (status[3] > 0);
             }
             // check if any signal update bundles need to be sent
-            while (idx != (dev->loc->bundle_idx % NUM_BUNDLES)) {
-                if (!mpr_dev_process_outputs_internal(dev, idx))
-                    break;
-                idx = (idx + 1) % NUM_BUNDLES;
-            }
+            mpr_dev_process_inputs_internal(dev);
+            mpr_dev_process_outputs_internal(dev);
             dev->loc->polling = 0;
 
             elapsed = (mpr_get_current_time() - then) * 1000;
@@ -793,13 +764,9 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
            && (lo_servers_recv_noblock(net->server.dev, &status[2], 2, 0)))
         device_count += (status[2] > 0) + (status[3] > 0);
 
-    // process any outputs cached during interrupts
+    // process incoming maps
     dev->loc->polling = 1;
-    while (idx != (dev->loc->bundle_idx % NUM_BUNDLES)) {
-        if (!mpr_dev_process_outputs_internal(dev, idx))
-            break;
-        idx = (idx + 1) % NUM_BUNDLES;
-    }
+    mpr_dev_process_inputs_internal(dev);
     dev->loc->polling = 0;
 
     if (dev->obj.props.synced->dirty && mpr_dev_get_is_ready(dev) && dev->loc->subscribers) {
@@ -826,7 +793,7 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     mpr_time_set(&dev->loc->time, time);
     dev->loc->time_is_stale = 0;
     if (!dev->loc->polling)
-        mpr_dev_process_outputs_internal(dev, fetch_and_add_bundle_idx(dev));
+        mpr_dev_process_outputs_internal(dev);
 }
 
 void mpr_dev_reserve_idmap(mpr_dev dev)

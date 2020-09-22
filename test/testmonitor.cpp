@@ -92,7 +92,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    graph.add_callback(on_object, MPR_OBJ, 0);
+    graph.add_callback(on_object, MPR_DEV, 0);
 
     i = 0;
     while ((!terminate || i++ < 250) && !done) {

@@ -261,7 +261,7 @@ void mpr_sig_send_removed(mpr_sig s);
  *                  instances.
  *  \param t        Time associated with this action.
  *  \param activate Set to 1 to activate a reserved instance if necessary.
- *  \return         The index of the retrieved signal instance, or -1 if no free
+ *  \return         The index of the retrieved instance id map, or -1 if no free
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
@@ -274,7 +274,7 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
  *  \param flags    Bitflags indicating if search should include released instances.
  *  \param t        Time associated with this action.
  *  \param activate Set to 1 to activate a reserved instance if necessary.
- *  \return         The index of the retrieved signal instance, or NULL if no free
+ *  \return         The index of the retrieved instance id map, or -1 if no free
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
@@ -312,11 +312,10 @@ void mpr_map_alloc_values(mpr_map map);
 /*! Process the signal instance value according to mapping properties.
  *  The result of this operation should be sent to the destination.
  *  \param map          The mapping process to perform.
- *  \param typestring   Pointer to a string to receive types.
- *  \param time         Timestamp for this update.
- *  \param instance     Index of the signal instance to process.
- *  \return             Zero if the operation was muted, one if performed. */
-int mpr_map_perform(mpr_map map, mpr_type *typestring, mpr_time *time, int inst);
+ *  \param time         Timestamp for this update. */
+void mpr_map_send(mpr_map map, mpr_time time);
+
+void mpr_map_receive(mpr_map map, mpr_time time);
 
 lo_message mpr_map_build_msg(mpr_map map, mpr_slot slot, const void *val,
                              mpr_type *types, mpr_id_map idmap);
@@ -709,6 +708,26 @@ inline static int type_match(const mpr_type l, const mpr_type r)
 inline static const char *skip_slash(const char *string)
 {
     return string + (string && string[0]=='/');
+}
+
+inline static void set_bitflag(char *bytearray, int idx)
+{
+    bytearray[idx / 8] |= 1 << (idx % 8);
+}
+
+inline static int get_bitflag(char *bytearray, int idx)
+{
+    return bytearray[idx / 8] & 1 << (idx % 8);
+}
+
+inline static int compare_bitflags(char *l, char *r, int num_flags)
+{
+    return memcmp(l, r, num_flags / 8 + 1);
+}
+
+inline static void clear_bitflags(char *bytearray, int num_flags)
+{
+    memset(bytearray, 0, num_flags / 8 + 1);
 }
 
 #endif // __MAPPER_INTERNAL_H__

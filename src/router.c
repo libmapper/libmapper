@@ -190,14 +190,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
         mpr_local_slot lslot = slot->loc;
         mpr_value_set_sample(&lslot->val, inst_idx, (void*)val, t);
 
-        if (map->process_loc == MPR_LOC_SRC && !slot->causes_update)
+        if (!slot->causes_update)
             continue;
-
-        mpr_slot dst_slot = map->dst;
-        mpr_slot to = (map->process_loc == MPR_LOC_SRC ? dst_slot : slot);
-        char src_types[slot->sig->len], dst_types[to->sig->len];
-        memset(src_types, slot->sig->type, slot->sig->len);
-        memset(dst_types, to->sig->type, to->sig->len);
 
         if (all) {
             // find a source signal with more instances
@@ -207,67 +201,14 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             idmap_idx = 0;
         }
 
-        int map_manages_inst = 0;
-        if (!sig->use_inst) {
-            if (mpr_expr_get_manages_inst(map->loc->expr)) {
-                map_manages_inst = 1;
-                idmap = map->idmap;
-            }
-            else
-                idmap = 0;
-        }
-
         struct _mpr_sig_idmap *idmaps = sig->loc->idmaps;
         for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
             // check if map instance is active
             if ((all || sig->use_inst) && !idmaps[idmap_idx].inst)
                 continue;
             inst_idx = idmaps[idmap_idx].inst->idx;
-            int status = mpr_map_perform(map, dst_types, &t, inst_idx);
-            if (!status) {
-                // no updates or releases
-                if (!all)
-                    break;
-                else
-                    continue;
-            }
-            /* send instance release if dst is instanced and either src or map is also instanced. */
-            if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE && map->use_inst) {
-                msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[idmap_idx].map : idmap);
-                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol, bundle_idx);
-                if (map_manages_inst) {
-                    mpr_dev_LID_decref(rtr->dev, 0, idmap);
-                    idmap = map->idmap = 0;
-                }
-            }
-            if (status & EXPR_UPDATE) {
-                // send instance update
-                void *result = mpr_value_get_samp(&dst_slot->loc->val, inst_idx);
-                if (map_manages_inst) {
-                    if (!idmap) {
-                        // create an id_map and store it in the map
-                        mpr_id GID = mpr_dev_generate_unique_id(sig->dev);
-                        idmap = map->idmap = mpr_dev_add_idmap(sig->dev, 0, 0, GID);
-                    }
-                    msg = mpr_map_build_msg(map, slot, result, dst_types, map->idmap);
-                }
-                else {
-                    msg = mpr_map_build_msg(map, slot, result, dst_types, idmaps[idmap_idx].map);
-                }
-                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg,
-                                 *(mpr_time*)mpr_value_get_time(&dst_slot->loc->val, inst_idx),
-                                 map->protocol, bundle_idx);
-            }
-            /* send instance release if dst is instanced and either src or map
-             * is also instanced. */
-            if (idmap && status & EXPR_RELEASE_AFTER_UPDATE && map->use_inst) {
-                msg = mpr_map_build_msg(map, slot, 0, 0, sig->use_inst ? idmaps[idmap_idx].map : idmap);
-                mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol, bundle_idx);
-                if (map_manages_inst) {
-                    mpr_dev_LID_decref(rtr->dev, 0, idmap);
-                    idmap = map->idmap = 0;
-                }
-            }
+            set_bitflag(map->loc->updated_inst, inst_idx);
+            map->loc->updated = 1;
             if (!all)
                 break;
         }
@@ -436,7 +377,7 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
     }
 
     // default to processing at source device unless heterogeneous sources
-    map->process_loc = (lmap->one_src) ? MPR_LOC_SRC : MPR_LOC_DST;
+    map->process_loc = (lmap->is_local_only || lmap->one_src) ? MPR_LOC_SRC : MPR_LOC_DST;
 
     if (local_dst && (local_src == map->num_src)) {
         // all reference signals are local
@@ -593,6 +534,7 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
         free(map->loc->vars);
         free(map->loc->var_names);
     }
+    FUNC_IF(free, map->loc->updated_inst);
     FUNC_IF(mpr_expr_free, map->loc->expr);
     free(map->loc);
     _update_map_count(rtr);
