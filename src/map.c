@@ -1075,6 +1075,8 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 updated += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
                 break;
             case PROP(PROCESS_LOC): {
+                if (m->loc && m->loc->is_local_only)
+                    break;
                 mpr_loc loc = mpr_loc_from_str(&(a->vals[0])->s);
                 if (loc == m->process_loc)
                     break;
@@ -1211,6 +1213,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                             if (strcmp(name, a->key+4)!=0)
                                 continue;
                             // found variable
+                            ++updated;
                             // TODO: handle multiple instances
                             int k = 0, l, var_len =  m->loc->vars[j].vlen;
                             double *v = mpr_value_get_samp(&m->loc->vars[j], k);
@@ -1238,6 +1241,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                                     }
                                     break;
                                 default:
+                                    --updated;
                                     break;
                             }
                             break;
@@ -1245,6 +1249,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     }
                     if (m->loc)
                         break;
+                    // otherwise continue to mpr_tbl_set_from_atom() below
                 }
             case PROP(ID):
             case PROP(MUTED):

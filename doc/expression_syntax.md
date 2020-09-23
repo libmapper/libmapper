@@ -198,6 +198,119 @@ Just like the output variable `y` we can initialize past values of user-defined 
 by `2`. The current value of `ema` is `0` since it has not yet been set.
 3. `ema=ema{-1}*0.9+x*0.1` — set the current value of `ema` using current value of `x` and the past value of `ema`.
 
+User-declared variables will also be reported as map metadata, prefixed by the string `var@`. The variable `ema` from the example above would be reported as the map property `var@ema`. These metadata may be modified at runtime by editing the map property using a GUI or through the libmapper properties API:
+
+~~~c
+// C API
+// establish a map between previously-declared signals 'src' and 'dst'
+mpr_map map = mpr_map_new(1, &src, 1, &dst);
+mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
+                 "mix=0.1;y=y{-1}*mix+x*(1-mix);", 1);
+mpr_obj_push((mpr_obj)map);
+
+...
+
+// modify the variable "mix"
+float mix = 0.2;
+mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "var@mix", 1, MPR_FLT, &mix, 1);
+mpr_obj_push((mpr_obj)map);
+~~~
+
+~~~python
+# Python API
+# establish a map between previously-declared signals 'src' and 'dst'
+map = mpr.map(src, dst)
+map['expr'] = 'mix=0.1;y=y{-1}*mix+x*(1-mix);'
+map.push()
+
+...
+
+# modify the variable "mix"
+map['var@mix'] = 0.2
+map.push()
+~~~
+
+Note that modifying variables in this way is not intended for automatic (i.e. high-rate) control. If you wish to include a high-rate variable you should declare it as a signal and use convergent maps as explained below.
+
+## Convergent maps
+
+Convergent mapping—in which multiple source signals update a single destination signal are supported by libmapper in five different ways:
+
+<table style="width:100%">
+  <tr>
+    <th>Method</th>
+    <th>Example</th>
+  </tr>
+  <tr>
+    <td><strong>interleaved updates (naïve convergent maps)</strong>: if multiple source signals are connected to the same destination, new updates will simply overwrite the previous value. This is the default for singleton (i.e. non-instanced) signals.</td>
+    <td>
+<div><pre><code class="language-dot">digraph naive {
+    size="1.5";
+    A [fillcolor="#FF000088", style=filled];
+    B [fillcolor="#FFFF0088", style=filled];
+    C [fillcolor="#0000FF66", style=filled];
+    A -> C:nw [xlabel="y=x  "];
+    B -> C:ne [xlabel="y=x"];
+}</code></pre></div>
+    </td>
+  </tr>
+  <tr>
+    <td><strong>partial vector updates</strong>: if the destination signal has a vector value (i.e. a value with a length > 1), individual sources may address different elements of the destination.</td>
+    <td>
+    <div><pre><code class="language-dot">digraph vector {
+    size="1.5";
+    A [fillcolor="#FF000088", style=filled];
+    B [fillcolor="#FFFF0088", style=filled];
+    C [fillcolor="#0000FF66", style=filled];
+    A -> C:nw [xlabel="y[0]=x  "];
+    B -> C:ne [xlabel="y[1]=x"];
+}</code></pre></div>
+    </td>
+  </tr>
+    <tr>
+    <td><strong>shared instance pools</strong>: instanced destination signals will automatically assign different instances to different sources.</td>
+    <td>
+    <div><pre><code class="language-dot">digraph pooled {
+    size="1.5";
+    A [fillcolor="#FF000088", style=filled];
+    B [fillcolor="#FFFF0088", style=filled];
+    C [fillcolor="#0000FF66", style=filled];
+    A -> C:nw [xlabel="y=x  "];
+    B -> C:ne [xlabel="y=x"];
+}</code></pre></div>
+    </td>
+  </tr>
+    <tr>
+    <td><strong>destination value references</strong>: including the destination signal value in the expression enables simple "mixing" of multiple sources in an IIR filter.</td>
+    <td>
+    <div><pre><code class="language-dot">digraph iir {
+    size="1.5";
+    A [fillcolor="#FF000088", style=filled];
+    B [fillcolor="#FFFF0088", style=filled];
+    C [fillcolor="#0000FF66", style=filled];
+    A -> C:nw [headlabel="y=\ny{-1}+x     "];
+    B -> C:ne [headlabel="y=\n     y{-1}-x"];
+}</code></pre></div>
+    </td>
+  </tr>
+  </tr>
+    <tr>
+    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string `x`+`<source index>`, for example:</td>
+    <td>
+    <div><pre><code class="language-dot">digraph convergent {
+    size="1.5";
+    A [fillcolor="#FF000088", style=filled];
+    B [fillcolor="#FFFF0088", style=filled];
+    C [fillcolor="#0000FF66", style=filled];
+    map [shape=point];
+    A:se -> map [arrowhead=none];
+    B:sw -> map [arrowhead=none];
+    map -> C [xlabel="   y=x0+x1\n "];
+}</code></pre></div>
+    </td>
+  </tr>
+</table>
+
 ## Instance Management
 
 Signal instancing can also be managed from within the map expression by manipulating a special variable named `alive` that represents the instance state. The use cases for in-map instancing can be complex, but here are some simple examples:
@@ -232,7 +345,9 @@ When mapping a singleton source signal to an instanced destination signal there 
 
 ## Propagation Management
 
-If desired, the expression can be evaluated "silently" so that updates do not propagate to the destination. This is accomplished by manipulating a special variable named `muted`. For maps with singleton destination signals this has an identical effect to manipulating the `alive` variable, but for instanced destinations it enables filtering updates without releasing the associated instance.
+By default, convergent maps will trigger expression evaluation when *any* of the source signals are updated. For example, the convergent map `y=x0+x1` will output a new value whenever `x0` *or* `x1` are updated. Evaluation can be disabled for a source signal by inserting an underscore `_` symbol before the source name, e.g. `y=x0+_x1` will be evaluated only when the source `x0` is updated, while updates to source `x1` will be stored but will not trigger evaluation or propagation to the destination signal.
+
+If desired, the entire expression can be evaluated "silently" so that updates do not propagate to the destination. This is accomplished by manipulating a special variable named `muted`. For maps with singleton destination signals this has an identical effect to manipulating the `alive` variable, but for instanced destinations it enables filtering updates without releasing the associated instance.
 
 The example below implements a "change" filter in which only updates with different input values are sent to the destination:
 
@@ -269,9 +384,9 @@ Here's a more complex example with 4 sub-expressions in which the rate is limite
 
 Explanation:
 
-order | step           | expression | description
------ | -------------- | ---------- | -----------
-1 | check elapsed time | `alive=(t_x-t_y{-1})>0.1;` | Set `alive` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
-2 | conditional output | `y=B/C;` | Output the average `B/C` (if `alive` is true)
-3 | update accumulator | `B=!alive*B+x;` | reset accumulator `B` to 0 if `alive` is true, add `x`
-4 | update count       | `C=alive?1:C+1;` | increment `C`, reset if `alive` is true
+order | step           | expression clause         | description
+----- | -------------- | ------------------------- | -----------
+1 | check elapsed time | `alive=(t_x-t_y{-1})>0.1` | Set `alive` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
+2 | conditional output | `y=B/C`                   | Output the average `B/C` (if `alive` is true)
+3 | update accumulator | `B=!alive*B+x`            | reset accumulator `B` to 0 if `alive` is true, add `x`
+4 | update count       | `C=alive?1:C+1`           | increment `C`, reset if `alive` is true
