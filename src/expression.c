@@ -1387,14 +1387,14 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                     int slot = tok.var-VAR_X;
                     {FAIL_IF(slot >= n_ins, "Input slot index > number of sources.");}
                     tok.datatype = in_types[slot];
-                    tok.vec_len = in_vec_lens[slot];
+                    tok.vec_len = (TOK_VAR == tok.toktype) ? in_vec_lens[slot] : 1;
                     in_vec_len = tok.vec_len;
                     tok.vec_len_locked = 1;
                     is_const = 0;
                 }
                 else if (tok.var == VAR_Y) {
                     tok.datatype = out_type;
-                    tok.vec_len = out_vec_len;
+                    tok.vec_len = (TOK_VAR == tok.toktype) ? out_vec_len : 1;
                     tok.vec_len_locked = 1;
                 }
                 else {
