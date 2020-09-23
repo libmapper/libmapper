@@ -315,10 +315,23 @@ Convergent mapping—in which multiple source signals update a single destinatio
 
 Signal instancing can also be managed from within the map expression by manipulating a special variable named `alive` that represents the instance state. The use cases for in-map instancing can be complex, but here are some simple examples:
 
-                     | Singleton Destination | Instanced Destination
----------------------|-----------------------|-----------------------
-**Singleton Source** | conditional output    | conditional serial instancing
-**Instanced Source** | conditional output    | modified instancing
+<table>
+    <tr>
+        <th></th>
+        <th>Singleton Destination</th>
+        <th>Instanced Destination</th>
+    </tr>
+    <tr>
+        <th>Singleton Source</th>
+        <td>conditional output</td>
+        <td>conditional serial instancing</td>
+    </tr>
+    <tr>
+        <th>Instanced Source</th>
+        <td>conditional output</td>
+        <td>modified instancing</td>
+    </tr>
+</table>
 
 ### Conditional output
 
