@@ -2197,6 +2197,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             }
             else if (tok->var >= VAR_X) {
+                if (!v_in)
+                    return status;
                 mpr_value v = v_in[tok->var-VAR_X];
                 b = &v->inst[inst_idx % v->num_inst];
                 idx = ((tok->hist_idx + b->pos + v->mlen) % v->mlen);

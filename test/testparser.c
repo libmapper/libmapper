@@ -949,11 +949,20 @@ int run_tests()
         return 1;
     }
 
-    /* 61) Change filter */
+    /* 61) Filter unchanged values */
     snprintf(str, 256, "muted=(x==x{-1});y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, 1))
+        return 1;
+
+    /* 62) Buddy logic */
+    snprintf(str, 256, "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1});y=x0+x1[1:2];");
+    // types[] and lens[] are already defined
+    setup_test_multisource(2, types, lens, MPR_FLT, 2);
+    expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1]);
+    expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2]);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     return 0;
