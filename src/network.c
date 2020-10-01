@@ -813,7 +813,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
 
     if (graph->autosub || mpr_graph_subscribed_by_dev(graph, name)) {
         props = mpr_msg_parse_props(ac-1, &types[1], &av[1]);
-        trace_net("got /device %s + %i arguments\n", name, ac-1);
+        trace_net("received /device %s + %i arguments\n", name, ac-1);
         mpr_dev remote = mpr_graph_add_dev(graph, name, props);
         if (!remote->subscribed && graph->autosub)
             mpr_graph_subscribe(graph, remote, graph->autosub, -1);
@@ -826,7 +826,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     }
     TRACE_DEV_RETURN_UNLESS(i == net->num_devs, 0,
                             "ignoring /device message from self\n");
-    trace_dev(dev, "got /device %s\n", &av[0]->s);
+    trace_dev(dev, "received /device %s\n", &av[0]->s);
 
     // Discover whether the device is linked.
     mpr_dev remote = mpr_graph_get_dev_by_name(graph, name);
@@ -940,7 +940,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
     mpr_dev dev = net->devs ? net->devs[0] : 0;
     RETURN_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac >= 2 && MPR_STR == types[0], 0);
     mpr_msg props = mpr_msg_parse_props(ac, types, av);
-    trace_dev(dev, "got /%s/modify + %d properties.\n", path, props->num_atoms);
+    trace_dev(dev, "received /%s/modify + %d properties.\n", path, props->num_atoms);
     if (mpr_dev_set_from_msg(dev, props)) {
         if (dev->loc->subscribers) {
             trace_dev(dev, "informing subscribers (DEVICE)\n")
@@ -967,9 +967,9 @@ static int handler_logout(const char *path, const char *types, lo_arg **av,
     remote = mpr_graph_get_dev_by_name(gph, name);
 
     if (!dev)
-        {trace_net("got /logout '%s'\n", name);}
+        {trace_net("received /logout '%s'\n", name);}
     else if (dev->loc->ordinal.locked) {
-        trace_dev(dev, "got /logout '%s'\n", name);
+        trace_dev(dev, "received /logout '%s'\n", name);
         // Check if we have any links to this device, if so remove them
         lnk = remote ? mpr_dev_get_link_by_remote(dev, remote) : 0;
         if (lnk) {
@@ -1079,10 +1079,10 @@ static int handler_sig(const char *path, const char *types, lo_arg **av, int ac,
 
 #ifdef DEBUG
     if (net->devs) {
-        trace_dev(net->devs[0], "got /signal %s:%s\n", devname, signamep);
+        trace_dev(net->devs[0], "received /signal %s:%s\n", devname, signamep);
     }
     else {
-        trace_net("got /signal %s:%s\n", devname, signamep);
+        trace_net("received /signal %s:%s\n", devname, signamep);
     }
 #endif
 
@@ -1129,7 +1129,7 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
     TRACE_DEV_RETURN_UNLESS(sig, 0, "no signal found with name '%s'.\n", &av[0]->s);
 
     mpr_msg props = mpr_msg_parse_props(ac-1, &types[1], &av[1]);
-    trace_dev(dev, "got %s '%s' + %d properties.\n", path, sig->name,
+    trace_dev(dev, "received %s '%s' + %d properties.\n", path, sig->name,
               props->num_atoms);
 
     if (mpr_sig_set_from_msg(sig, props)) {
@@ -1160,7 +1160,7 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen]=0;
 
-    trace_net("got /signal/removed %s:%s\n", devname, signamep);
+    trace_net("received /signal/removed %s:%s\n", devname, signamep);
 
     mpr_dev dev = mpr_graph_get_dev_by_name(net->graph, devname);
     if (dev && !dev->loc)
@@ -1188,9 +1188,9 @@ static int handler_name(const char *path, const char *types, lo_arg **av,
 
 #ifdef DEBUG
     if (hint)
-        {trace_dev(dev, "got name %s %i %i\n", name, temp_id, hint);}
+        {trace_dev(dev, "received name %s %i %i\n", name, temp_id, hint);}
     else
-        {trace_dev(dev, "got name %s\n", name);}
+        {trace_dev(dev, "received name %s\n", name);}
 #endif
 
     if (dev->loc->ordinal.locked) {
@@ -1239,7 +1239,7 @@ static int handler_name_probe(const char *path, const char *types, lo_arg **av,
     char *name = &av[0]->s;
     int i, temp_id = av[1]->i;
 
-    trace_dev(dev, "got name probe %s %i \n", name, temp_id);
+    trace_dev(dev, "received name probe %s %i \n", name, temp_id);
 
     mpr_id id = (mpr_id) crc32(0L, (const Bytef *)name, strlen(name)) << 32;
     if (id == dev->obj.id) {
