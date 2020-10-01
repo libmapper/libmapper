@@ -139,17 +139,18 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
     mpr_tbl_link(t, PROP(USE_INST), 1, MPR_BOOL, &s->use_inst, NON_MODIFIABLE);
     mpr_tbl_link(t, PROP(VERSION), 1, MPR_INT32, &s->obj.version, NON_MODIFIABLE);
 
-    int reverse = 0;
     if (min && max) {
         // make sure in the right order
-#define TYPED_CASE(TYPE, CTYPE)                                 \
-case TYPE: {                                                    \
-    CTYPE *min##CTYPE = (CTYPE*)min, *max##CTYPE = (CTYPE*)max; \
-    for (i = 0; i < len; i++) {                                 \
-        if (min##CTYPE > max##CTYPE)                            \
-            reverse = 1;                                        \
-    }                                                           \
-    break;                                                      \
+#define TYPED_CASE(TYPE, CTYPE)                                     \
+case TYPE: {                                                        \
+    for (i = 0; i < len; i++) {                                     \
+        if (((CTYPE*)min)[i] > ((CTYPE*)max)[i]) {                  \
+            CTYPE tmp = ((CTYPE*)min)[i];                           \
+            ((CTYPE*)min)[i] = ((CTYPE*)max)[i];                    \
+            ((CTYPE*)max)[i] = tmp;                                 \
+        }                                                           \
+    }                                                               \
+    break;                                                          \
 }
         switch (type) {
             TYPED_CASE(MPR_INT32, int)
@@ -158,9 +159,9 @@ case TYPE: {                                                    \
         }
     }
     if (min)
-        mpr_tbl_set(t, reverse ? PROP(MAX) : PROP(MIN), NULL, len, type, min, LOCAL_MODIFY);
+        mpr_tbl_set(t, PROP(MIN), NULL, len, type, min, LOCAL_MODIFY);
     if (max)
-        mpr_tbl_set(t, reverse ? PROP(MIN) : PROP(MAX), NULL, len, type, max, LOCAL_MODIFY);
+        mpr_tbl_set(t, PROP(MAX), NULL, len, type, max, LOCAL_MODIFY);
 
     mpr_tbl_set(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &s->loc,
                 LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
