@@ -4,8 +4,8 @@ git:
   depth: 99999
 branches:
   only:
-    - master
-    - v2-devel
+    - main
+    - v1.x
 matrix:
   include:
   - os: linux
