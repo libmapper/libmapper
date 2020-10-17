@@ -66,7 +66,7 @@ struct _mpr_expr
     int8_t offset;
     int8_t len;
     int8_t vec_size;
-    int8_t in_mem;
+    int8_t *in_mem;
     int8_t out_mem;
     int8_t n_vars;
     int8_t inst_ctl;
@@ -418,6 +418,8 @@ fail:
 int run_tests()
 {
     /* 1) Complex string */
+    // TODO: ensure successive constant multiplications are optimized
+    // TODO: ensure split successive constant additions are optimized
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 26*2/2+log10(M_PI)+2.*pow(2,1*(3+7*.1)*1.1+src_flt[0])*3*4+cos(2.0);
@@ -965,6 +967,24 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
+    /* 63) Variable delays */
+    snprintf(str, 256, "y=x{abs(x%%10)-10,10}");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+    /* 64) Variable delay with missing maximum */
+    snprintf(str, 256, "y=x{abs(x%%10)-10}");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
+        return 1;
+
+    /* 65) Calling delay() function explicity */
+    snprintf(str, 256, "y=delay(x, abs(x%%10)-10, 10)");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
+        return 1;
+
     return 0;
 }
 
@@ -1034,9 +1054,8 @@ int main(int argc, char **argv)
 
     result = run_tests();
 
-    for (int i = 0; i < SRC_ARRAY_LEN; i++) {
+    for (int i = 0; i < SRC_ARRAY_LEN; i++)
         mpr_value_free(&inh[i]);
-    }
     mpr_value_free(&outh);
 
     eprintf("**********************************\n");

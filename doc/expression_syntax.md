@@ -226,6 +226,14 @@ y{-1} = uniform(1000);
 
 Any past values that are not explicitly initialized are given the value `0`.
 
+### Variable delays
+
+It is possible to define a variable delay argument instead of using a constant. In this case it is necessary to add a second *maximum delay size* argument to let libmapper know how much signal memory to allocate.
+
+<pre style="width:50%;margin:auto">
+y=y{x,100};
+</pre>
+
 <div id="user-defined-variables"></div>
 ## User-Defined Variables
 
