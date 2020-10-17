@@ -22,6 +22,7 @@ mpr_dev *srcs = 0;
 mpr_dev dst = 0;
 mpr_sig *sendsigs = 0;
 mpr_sig recvsig = 0;
+mpr_map map = 0;
 
 int sent = 0;
 int received = 0;
@@ -110,38 +111,55 @@ void cleanup_dst()
     }
 }
 
-int setup_maps()
+int setup_maps(int mode)
 {
-    mpr_map map = mpr_map_new(num_sources, sendsigs, 1, &recvsig);
+    int i, j = 10;
+
+    if (!map)
+        map = mpr_map_new(num_sources, sendsigs, 1, &recvsig);
     if (!map) {
         eprintf("Failed to create map\n");
         return 1;
     }
 
     // build expression string
-    int i, offset = 2, len = num_sources * 4 + 4;
-    char expr[len];
-    snprintf(expr, 3, "y=");
-    for (i = 0; i < num_sources; i++) {
-        if (i == 0) {
-            snprintf(expr + offset, len - offset, "-x%d",
-                     mpr_map_get_sig_idx(map, sendsigs[i]));
-            offset += 3;
+    switch (mode) {
+        case 0: {
+            int offset = 2, len = num_sources * 4 + 4;
+            char expr[len];
+            snprintf(expr, 3, "y=");
+            for (i = 0; i < num_sources; i++) {
+                if (i == 0) {
+                    // set the first source to trigger evaluation
+                    snprintf(expr + offset, len - offset, "-x%d",
+                             mpr_map_get_sig_idx(map, sendsigs[i]));
+                    offset += 3;
+                }
+                else {
+                    // set the remaining sources to not trigger evaluation
+                    snprintf(expr + offset, len - offset, "-_x%d",
+                             mpr_map_get_sig_idx(map, sendsigs[i]));
+                    offset += 4;
+                }
+            }
+            mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+            break;
         }
-        else {
-            snprintf(expr + offset, len - offset, "-_x%d",
-                     mpr_map_get_sig_idx(map, sendsigs[i]));
-            offset += 4;
-        }
+        case 1:
+            // buddy logic
+            mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
+                             "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1})&&(t_x2>t_y{-1});y=x0+x1+x2;", 1);
+            break;
     }
-    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+
     mpr_obj_push(map);
 
     // wait until mappings have been established
-    while (!done && !mpr_map_get_is_ready(map)) {
+    while (!done && (!mpr_map_get_is_ready(map) || j > 0)) {
         for (i = 0; i < num_sources; i++)
             mpr_dev_poll(srcs[i], 10);
         mpr_dev_poll(dst, 10);
+        --j;
     }
 
     return 0;
@@ -251,8 +269,16 @@ int main(int argc, char **argv)
 
     wait_ready(&done);
 
-    if (autoconnect && setup_maps()) {
-        eprintf("Error setting map.\n");
+    if (autoconnect && setup_maps(0)) {
+        eprintf("Error setting map (1).\n");
+        result = 1;
+        goto done;
+    }
+
+    loop();
+
+    if (autoconnect && setup_maps(1)) {
+        eprintf("Error setting map (2).\n");
         result = 1;
         goto done;
     }
