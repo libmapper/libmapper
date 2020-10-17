@@ -299,8 +299,8 @@ def frequency_handler(sig, id, val, timetag):
     try:
         sine.setFreq(val)
     except:
-        print 'exception'
-        print sig, val
+        print('exception')
+        print(sig, val)
 ~~~
 
 Then our program will look like this:
@@ -317,8 +317,8 @@ def freq_handler(sig, id, val, timetag):
     try:
         sine.setFreq(val)
     except:
-        print 'exception'
-        print sig, val
+        print('exception')
+        print(sig, val)
 
 dev = mapper.device('pyo_example')
 dev.add_input_signal('frequency', 1, 'f', 'Hz', 20, 2000, freq_handler)
