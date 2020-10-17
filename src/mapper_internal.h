@@ -314,7 +314,7 @@ void mpr_map_alloc_values(mpr_map map);
  *  \param map          The mapping process to perform.
  *  \param typestring   Pointer to a string to receive types.
  *  \param time         Timestamp for this update.
- *  \param instance     Index of the signal instance to process.
+ *  \param inst         Index of the signal instance to process.
  *  \return             Zero if the operation was muted, one if performed. */
 int mpr_map_perform(mpr_map map, mpr_type *typestring, mpr_time *time, int inst);
 
