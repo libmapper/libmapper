@@ -41,11 +41,13 @@ CONST_FUNC(ed, double, M_E);
 #define UNARY_FUNC(TYPE, NAME, SUFFIX, CALC)    \
     static TYPE NAME##SUFFIX(TYPE x) { return CALC; }
 #define FLOAT_OR_DOUBLE_UNARY_FUNC(NAME, CALC)  \
-    UNARY_FUNC(float, NAME, f, CALC)                \
+    UNARY_FUNC(float, NAME, f, CALC)            \
     UNARY_FUNC(double, NAME, d, CALC)
 FLOAT_OR_DOUBLE_UNARY_FUNC(midiToHz, 440. * pow(2.0, (x - 69) / 12.0));
 FLOAT_OR_DOUBLE_UNARY_FUNC(hzToMidi, 69. + 12. * log2(x / 440.));
 FLOAT_OR_DOUBLE_UNARY_FUNC(uniform, rand() / (RAND_MAX + 1.0) * x);
+UNARY_FUNC(int, sign, i, x >= 0 ? 1 : -1);
+FLOAT_OR_DOUBLE_UNARY_FUNC(sign, x >= 0 ? 1.0 : -1.0);
 
 #define TEST_VEC(OP, CMP, RET, EL)  \
     for (int i = 0; i < len; i++) { \
@@ -154,6 +156,7 @@ typedef enum {
     FN_POW,
     FN_ROUND,
     FN_SCHMITT,
+    FN_SIGN,
     FN_SIN,
     FN_SINH,
     FN_SQRT,
@@ -204,6 +207,7 @@ static struct {
     { "pow",        2,  0,  0,      powf,       pow         },
     { "round",      1,  0,  0,      roundf,     round       },
     { "schmitt",    4,  1,  0,      schmittf,   schmittd    },
+    { "sign",       1,  0,  signi,  signf,      signd       },
     { "sin",        1,  0,  0,      sinf,       sin         },
     { "sinh",       1,  0,  0,      sinhf,      sinh        },
     { "sqrt",       1,  0,  0,      sqrtf,      sqrt        },
