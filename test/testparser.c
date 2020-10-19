@@ -30,7 +30,7 @@ float src_flt[SRC_ARRAY_LEN], dst_flt[DST_ARRAY_LEN], expect_flt[DST_ARRAY_LEN];
 double src_dbl[SRC_ARRAY_LEN], dst_dbl[DST_ARRAY_LEN], expect_dbl[DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
-mpr_type types[SRC_ARRAY_LEN];
+mpr_type out_types[DST_ARRAY_LEN];
 
 mpr_time time_in = {0, 0}, time_out = {0, 0};
 
@@ -337,7 +337,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     then = current_time();
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types, 0);
+    status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
     if (!status) {
         eprintf("FAILED.\n");
         result = 1;
@@ -372,7 +372,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
             }
             memcpy(mpr_value_get_time(&inh[j], 0), &time_in, sizeof(mpr_time));
         }
-        status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types, 0);
+        status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
         if (!status) {
             result = 1;
             break;
@@ -388,7 +388,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     if (0 == result)
         eprintf("OK\n");
 
-    if (check_result(types, outh.vlen, outh.inst[0].samps, outh.inst[0].pos, check))
+    if (check_result(out_types, outh.vlen, outh.inst[0].samps, outh.inst[0].pos, check))
         result = 1;
 
     eprintf("Recv'd %d updates... ", update_count);

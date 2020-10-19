@@ -1606,8 +1606,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                                         default:
                                             break;
                                     }
-                                    {FAIL_IF(abs(buffer_size) > MAX_HIST_SIZE,
-                                             "History index exceeds maximum size.");}
+                                    {FAIL_IF(buffer_size > 0 || abs(buffer_size) > MAX_HIST_SIZE,
+                                             "Illegal history index.");}
                                 }
                                 if (!buffer_size) {
                                     // remove zero delay
@@ -2139,6 +2139,7 @@ static const char *type_name(const mpr_type type)
     dims[top] = tok->vec_len;                                                       \
     mpr_value_buffer b = &SRC->inst[inst_idx % SRC->num_inst];                      \
     idx = ((b->pos + SRC->mlen + (tok->hist ? stk[top][0].i : 0)) % SRC->mlen);     \
+    if (idx < 0) idx = SRC->mlen + idx;                                             \
     void *a = (b->samps + idx * SRC->vlen * mpr_type_get_size(SRC->type));          \
     switch (SRC->type) {                                                            \
         COPY_TYPED(MPR_INT32, int, i)                                               \
@@ -2534,11 +2535,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 can_advance = 0;
                 if (!v_out)
                     return status;
-                int idx = (b_out->pos + v_out->mlen + (tok->hist ? stk[top-1][0].i : 0));
+                int idx = (b_out->pos + v_out->mlen + (tok->hist ? stk[top-1][0].i : 0)) % v_out->mlen;
                 if (idx < 0)
-                    idx = v_out->mlen - idx;
-                else
-                    idx %= v_out->mlen;
+                    idx = v_out->mlen + idx;
                 void *v = (b_out->samps + idx * v_out->vlen * mpr_type_get_size(v_out->type));
 
                 switch (v_out->type) {
@@ -2619,11 +2618,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             if (!v_out)
                 return status;
-            int idx = (b_out->pos + v_out->mlen + (tok->hist ? stk[top-1][0].i : 0));
+            int idx = (b_out->pos + v_out->mlen + (tok->hist ? stk[top-1][0].i : 0)) % v_out->mlen;
             if (idx < 0)
-                idx = v_out->mlen - idx;
-            else
-                idx %= v_out->mlen;
+                idx = v_out->mlen + idx;
             mpr_time_set_dbl(&b_out->times[idx], stk[top][0].d);
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
