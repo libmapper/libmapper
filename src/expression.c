@@ -365,7 +365,7 @@ typedef struct _token {
     } toktype;
     union {
         mpr_type casttype;
-        size_t offset;
+        uint8_t offset;
     };
     mpr_type datatype;
     uint8_t vec_len;
@@ -382,7 +382,7 @@ typedef struct _var {
     char *name;
     mpr_type datatype;
     mpr_type casttype;
-    size_t vec_len;
+    uint8_t vec_len;
     char vec_len_locked;
     char assigned;
     char public;
@@ -777,11 +777,11 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         case TOK_CLOSE_SQUARE:  snprintf(s, len, "]");                   break;
         case TOK_VAR:
             if (t.var == VAR_Y)
-                snprintf(s, len, "y%s[%zu]", t.hist ? "{N}" : "", t.vec_idx);
+                snprintf(s, len, "y%s[%u]", t.hist ? "{N}" : "", t.vec_idx);
             else if (t.var >= VAR_X)
-                snprintf(s, len, "x%d%s[%zu]", t.var-VAR_X, t.hist ? "{N}" : "", t.vec_idx);
+                snprintf(s, len, "x%d%s[%u]", t.var-VAR_X, t.hist ? "{N}" : "", t.vec_idx);
             else
-                snprintf(s, len, "%s%s[%zu]", vars[t.var].name, t.hist ? "{N}" : "", t.vec_idx);
+                snprintf(s, len, "%s%s[%u]", vars[t.var].name, t.hist ? "{N}" : "", t.vec_idx);
             break;
         case TOK_TT:
             if (t.var == VAR_Y)
@@ -801,15 +801,15 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
             if (t.var == VAR_Y)
-                snprintf(s, len, "ASSIGN_TO:y%s[%zu]->[%zu]%s", t.hist ? "{N}" : "", t.offset,
+                snprintf(s, len, "ASSIGN_TO:y%s[%u]->[%u]%s", t.hist ? "{N}" : "", t.offset,
                          t.vec_idx, t.toktype == TOK_ASSIGN_CONST ? " (const) " : "");
             else
-                snprintf(s, len, "ASSIGN_TO:%s%s[%zu]->[%zu]%s", vars[t.var].name,
+                snprintf(s, len, "ASSIGN_TO:%s%s[%u]->[%u]%s", vars[t.var].name,
                          t.hist ? "{N}" : "", t.offset, t.vec_idx,
                          t.toktype == TOK_ASSIGN_CONST ? " (const) " : "");
             break;
         case TOK_ASSIGN_TT:
-            snprintf(s, len, "ASSIGN_TO:t_y%s->[%zu]", t.hist ? "{N}" : "", t.vec_idx);
+            snprintf(s, len, "ASSIGN_TO:t_y%s->[%u]", t.hist ? "{N}" : "", t.vec_idx);
             break;
         case TOK_END:       printf("END\n");                return;
         default:            printf("(unknown token)\n");    return;
@@ -819,7 +819,7 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
     len = strlen(s);
     for (i = len; i < 40; i++)
         printf(" ");
-    printf("%c[%zu]", t.datatype, t.vec_len);
+    printf("%c[%u]", t.datatype, t.vec_len);
     if (t.toktype < TOK_ASSIGN && t.casttype)
         printf("->%c", t.casttype);
     else
@@ -1016,7 +1016,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     // TODO: allow precomputation of const-only vectors
     int i, arity, can_precompute = 1, optimize = NONE;
     mpr_type type = stk[top].datatype;
-    size_t vec_len = stk[top].vec_len;
+    uint8_t vec_len = stk[top].vec_len;
     switch (stk[top].toktype) {
         case TOK_OP:
             if (stk[top].op == OP_IF)
@@ -1166,11 +1166,11 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                 if (!stk[i].vec_len_locked) {
                     if (stk[i].toktype == TOK_VFN) {
                         if (stk[i].vec_len != vec_len)
-                            PARSE_ERROR(-1, "Vector length mismatch (1) %zu != %zu\n",
+                            PARSE_ERROR(-1, "Vector length mismatch (1) %u != %u\n",
                                         stk[i].vec_len, vec_len);
                     }
                     else if (stk[i].toktype == TOK_VAR && stk[i].var < VAR_Y) {
-                        size_t *vec_len_ptr = &vars[stk[i].var].vec_len;
+                        uint8_t *vec_len_ptr = &vars[stk[i].var].vec_len;
                         *vec_len_ptr = vec_len;
                         stk[i].vec_len = vec_len;
                         stk[i].vec_len_locked = 1;
@@ -1179,7 +1179,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                         stk[i].vec_len = vec_len;
                 }
                 else if (stk[i].vec_len != vec_len)
-                    PARSE_ERROR(-1, "Vector length mismatch (2) %zu != %zu\n",
+                    PARSE_ERROR(-1, "Vector length mismatch (2) %u != %u\n",
                                 stk[i].vec_len, vec_len);
             }
 
@@ -1229,7 +1229,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
                 stk[top].vec_len = vec_len;
         }
         else if (stk[top].vec_len != vec_len)
-            PARSE_ERROR(-1, "Vector length mismatch (3) %zu != %zu\n",
+            PARSE_ERROR(-1, "Vector length mismatch (3) %u != %u\n",
                         stk[top].vec_len, vec_len);
     }
     else
@@ -1244,7 +1244,7 @@ static int check_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
 static int check_assign_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
 {
     int i = top;
-    size_t vec_len = 0;
+    uint8_t vec_len = 0;
     expr_var_t var = stk[top].var;
 
     while (i >= 0 && (stk[i].toktype & TOK_ASSIGN) && (stk[i].var == var)) {
@@ -1254,7 +1254,7 @@ static int check_assign_type_and_len(mpr_token_t *stk, int top, mpr_var_t *vars)
     if (i < 0)
         PARSE_ERROR(-1, "Malformed expression (1)\n");
     if (stk[i].vec_len != vec_len)
-        PARSE_ERROR(-1, "Vector length mismatch (4) %zu != %zu\n",
+        PARSE_ERROR(-1, "Vector length mismatch (4) %u != %u\n",
                     stk[i].vec_len, vec_len);
     promote_token_datatype(&stk[i], stk[top].datatype);
     if (check_type_and_len(stk, i, vars) == -1)
@@ -2229,9 +2229,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                     return status;
 #if TRACING
                 if (tok->hist)
-                    printf("loading variable y{N=%d}[%zu] ", stk[top][0].i, tok->vec_idx);
+                    printf("loading variable y{N=%d}[%u] ", stk[top][0].i, tok->vec_idx);
                 else
-                    printf("loading variable y[%zu] ", tok->vec_idx);
+                    printf("loading variable y[%u] ", tok->vec_idx);
 #endif
                 COPY_TO_STACK(v_out);
 #if TRACING
@@ -2245,10 +2245,10 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 mpr_value v = v_in[tok->var-VAR_X];
 #if TRACING
                 if (tok->hist)
-                    printf("loading variable x%d{N=%d}[%zu] ", tok->var-VAR_X, stk[top][0].i,
+                    printf("loading variable x%d{N=%d}[%u] ", tok->var-VAR_X, stk[top][0].i,
                            tok->vec_idx);
                 else
-                    printf("loading variable x%d[%zu] ", tok->var-VAR_X, tok->vec_idx);
+                    printf("loading variable x%d[%u] ", tok->var-VAR_X, tok->vec_idx);
 #endif
                 COPY_TO_STACK(v);
 #if TRACING
@@ -2259,7 +2259,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             else if (v_vars) {
                 // TODO: allow other data types?
 #if TRACING
-                printf("loading variable %s{%d}[%zu] ", expr->vars[tok->var].name,
+                printf("loading variable %s{%d}[%u] ", expr->vars[tok->var].name,
                        tok->hist ? stk[top][0].i : 0, tok->vec_idx);
 #endif
                 if (!tok->hist)
@@ -2508,7 +2508,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             dims[top] = tok->vec_len;
 #if TRACING
-            printf("built %zu-element vector: ", tok->vec_len);
+            printf("built %u-element vector: ", tok->vec_len);
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf(" \n");
 #endif
@@ -2519,11 +2519,11 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_ASSIGN_CONST:
 #if TRACING
             if (VAR_Y == tok->var)
-                printf("assigning values to y{%d}[%zu] (%s x %zu)\n",
+                printf("assigning values to y{%d}[%u] (%s x %u)\n",
                        tok->hist ? stk[top-1][0].i : 0, tok->vec_idx, type_name(tok->datatype),
                        tok->vec_len);
             else
-                printf("assigning values to %s{%d}[%zu] (%s x %zu)\n", expr->vars[tok->var].name,
+                printf("assigning values to %s{%d}[%u] (%s x %u)\n", expr->vars[tok->var].name,
                        tok->hist ? stk[top-1][0].i : 0, tok->vec_idx, type_name(tok->datatype),
                        tok->vec_len);
 #endif

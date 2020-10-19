@@ -52,7 +52,7 @@ typedef struct _var {
     char *name;
     mpr_type datatype;
     mpr_type casttype;
-    size_t vec_len;
+    uint8_t vec_len;
     char vec_len_locked;
     char assigned;
     char public;
@@ -63,12 +63,12 @@ struct _mpr_expr
     void *tokens;
     void *start;
     mpr_var vars;
-    int8_t offset;
-    int8_t len;
-    int8_t vec_size;
-    int8_t *in_mem;
-    int8_t out_mem;
-    int8_t n_vars;
+    uint8_t offset;
+    uint8_t len;
+    uint8_t vec_size;
+    uint8_t *in_mem;
+    uint8_t out_mem;
+    uint8_t n_vars;
     int8_t inst_ctl;
     int8_t mute_ctl;
 };
