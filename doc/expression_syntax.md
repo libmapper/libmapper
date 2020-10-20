@@ -293,7 +293,7 @@ Note that modifying variables in this way is not intended for automatic (i.e. hi
 <div id="convergent-maps"></div>
 ## Convergent maps
 
-Convergent mapping—in which multiple source signals update a single destination signal are supported by libmapper in five different ways:
+Convergent mapping—in which multiple source signals update a single destination signal–are supported by libmapper in five different ways:
 
 <table style="width:100%">
   <tr>
@@ -334,13 +334,13 @@ Convergent mapping—in which multiple source signals update a single destinatio
     A [fillcolor="#FF000088", style=filled];
     B [fillcolor="#FFFF0088", style=filled];
     C [fillcolor="#0000FF66", style=filled];
-    A -> C:nw [xlabel="y=x  "];
-    B -> C:ne [xlabel="y=x"];
+    A -> C:nw [xlabel="y=x  ", color="black:black"];
+    B -> C:ne [xlabel="y=x", color="black:black"];
 }</code></pre></div>
     </td>
   </tr>
     <tr>
-    <td><strong>destination value references</strong>: including the destination signal value in the expression enables simple "mixing" of multiple sources in an IIR filter. Within the mapping expression, <code>y{-N}</code> represents the Nth past value of the <strong>destination signal</strong> rather than the expression output and will thus reflect updates to this signal caused by other maps or local control. If you wish to use past samples of the expression output instead you will need to cache this output explicitly as explained above in the section <a href="#fir-and-iir-filters">FIR and IIR Filters</a>.</td>
+    <td><strong>destination value references</strong>: including the destination signal value in the expression enables simple "mixing" of multiple sources in an IIR filter. Within the mapping expression, <code>y{-N}</code> represents the Nth past value of the <strong>destination signal</strong> (rather than the expression output) and will thus reflect updates to this signal caused by other maps or local control. If you wish to use past samples of the expression output instead you will need to cache this output explicitly as explained above in the section <a href="#fir-and-iir-filters">FIR and IIR Filters</a>.</td>
     <td>
     <div><pre><code class="language-dot">digraph iir {
     size="1.5";
@@ -354,7 +354,7 @@ Convergent mapping—in which multiple source signals update a single destinatio
   </tr>
   </tr>
     <tr>
-    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x</code>+<code>&lt;source index&gt;</code> as shown in the example to the right.</td>
+    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically.</td>
     <td>
     <div><pre><code class="language-dot">digraph convergent {
     size="1.5";

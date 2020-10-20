@@ -472,14 +472,27 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status);
  *                      mpr_obj_push(). */
 mpr_map mpr_map_new(int num_srcs, mpr_sig *srcs, int num_dsts, mpr_sig *dsts);
 
+/*! Create a map between a set of signals using an expression string containing embedded format
+ *  specifiers that are replaced by mpr_sig values specified in subsequent additional arguments.
+ *  The map will not take effect until it has been added to the distributed graph using
+ *  mpr_obj_push().
+ *  \param expression   A string specifying the map expression to use when mapping source to
+ *                      destination signals. The format specifier %x is used to specify source
+ *                      signals and the %y is used to specify the destination signal.
+ *  \param ...          A sequence of additional mpr_sig arguments, each containing a value to be
+ *                      used to replace a format specifier in the format string
+ *  \return             A map data structure – either loaded from the graph (if the map already
+ *                      existed) or newly created. Changes to the map will not take effect until it
+ *                      has been added to the distributed graph using mpr_obj_push(). */
+mpr_map mpr_map_new_from_str(const char *expression, ...);
+
 /*! Remove a map between a set of signals.
  *  \param map          The map to destroy. */
 void mpr_map_release(mpr_map map);
 
 /*! Retrieve a list of connected signals for a specific map.
  *  \param map          The map to check.
- *  \param loc          The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or
- *                      MPR_LOC_ANY.
+ *  \param loc          The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or MPR_LOC_ANY.
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_map_get_sigs(mpr_map map, mpr_loc loc);
 

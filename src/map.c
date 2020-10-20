@@ -1373,3 +1373,87 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
     mpr_net_add_msg(&m->obj.graph->net, 0, cmd, msg);
     return i-1;
 }
+
+mpr_map mpr_map_new_from_str(const char *expr, ...)
+{
+    RETURN_UNLESS(expr, 0);
+    mpr_sig sig, srcs[MAX_NUM_MAP_SRC];
+    mpr_sig dst = NULL;
+    int i = 0, j, num_src = 0;
+
+    va_list aq;
+    va_start(aq, expr);
+    while (expr[i]) {
+        while (expr[i] && expr[i] != '%')
+            ++i;
+        if (!expr[i])
+            break;
+        switch (expr[i+1]) {
+            case 'y':
+                sig = va_arg(aq, void*);
+                if (!dst)
+                    dst = sig;
+                else if (sig != dst) {
+                    trace("Format string '%s' references more than one output signal.\n", expr);
+                    va_end(aq);
+                    return NULL;
+                }
+                break;
+            case 'x':
+                sig = va_arg(aq, void*);
+                for (j = 0; j < num_src; j++) {
+                    if (sig == srcs[j])
+                        break;
+                }
+                if (j == num_src) {
+                    if (num_src >= MAX_NUM_MAP_SRC) {
+                        trace("Maps cannot have more than %d source signals.\n", MAX_NUM_MAP_SRC);
+                        va_end(aq);
+                        return NULL;
+                    }
+                    srcs[num_src++] = sig;
+                }
+                break;
+            default:
+                trace("Illegal format token '%%%c' in mpr_map_new_from_str().\n", expr[i+1]);
+                va_end(aq);
+                return NULL;
+        }
+        i += 2;
+    }
+    va_end(aq);
+
+    TRACE_RETURN_UNLESS(dst, NULL, "Map format string '%s' has no output signal!\n", expr);
+    TRACE_RETURN_UNLESS(num_src, NULL, "Map format string '%s' has no input signals!\n", expr);
+
+    // create the map
+    mpr_map map = mpr_map_new(num_src, srcs, 1, &dst);
+
+    // edit the expression string in-place
+    i = 0;
+    char *dup = strdup(expr);
+    va_start(aq, expr);
+    while (expr[i]) {
+        while (expr[i] && expr[i] != '%')
+            ++i;
+        if (!expr[i])
+            break;
+        sig = va_arg(aq, void*);
+        if (expr[i+1] == 'y') {
+            // replace the preceding '%' with a space
+            dup[i] = ' ';
+        }
+        else {  // 'x'
+            // retrieve signal index
+            j = mpr_map_get_sig_idx(map, sig);
+            // replace "%x" with "xi" where i is the signal index
+            dup[i] = 'x';
+            dup[i+1] = "0123456789"[j%10];
+        }
+        i += 2;
+    }
+    va_end(aq);
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, dup, 1);
+    free(dup);
+    return map;
+}
