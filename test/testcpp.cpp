@@ -151,13 +151,8 @@ int main(int argc, char ** argv)
     out << "  port: " << dev["port"] << std::endl;
     out << "  num_inputs: " << dev.signals(MPR_DIR_IN).size() << std::endl;
     out << "  num_outputs: " << dev.signals(MPR_DIR_OUT).size() << std::endl;
-    int num_incoming_maps = 0, num_outgoing_maps = 0;
-    for (Signal s : dev.signals()) {
-        num_incoming_maps += s.maps(MPR_DIR_IN).size();
-        num_outgoing_maps += s.maps(MPR_DIR_OUT).size();
-    }
-    out << "  num_incoming_maps: " << num_incoming_maps << std::endl;
-    out << "  num_outgoing_maps: " << num_outgoing_maps << std::endl;
+    out << "  num_incoming_maps: " << dev.maps(MPR_DIR_IN).size() << std::endl;
+    out << "  num_outgoing_maps: " << dev.maps(MPR_DIR_OUT).size() << std::endl;
 
     int value[] = {1,2,3,4,5,6};
     dev.set_prop("foo", 6, value);

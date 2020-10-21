@@ -227,6 +227,13 @@ mpr_id mpr_dev_generate_unique_id(mpr_dev dev);
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir);
 
+/*! Return the list of maps for a given device.
+ *  \param dev          The device to query.
+ *  \param dir          The direction of the maps to return, should be
+ *                      MPR_DIR_IN, MPR_DIR_OUT, or MPR_DIR_ANY.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir);
+
 /*! Poll this device for new messages.  Note, if you have multiple devices, the
  *  right thing to do is call this function for each of them with block_ms=0,
  *  and add your own sleep if necessary.
@@ -490,6 +497,13 @@ mpr_map mpr_map_new_from_str(const char *expression, ...);
  *  \param map          The map to destroy. */
 void mpr_map_release(mpr_map map);
 
+/*! Retrieve a connected signal for a specific map by index.
+ *  \param map          The map to check.
+ *  \param idx          The index of the signal to return.
+ *  \param loc          The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or MPR_LOC_ANY.
+ *  \return             A signal, or NULL if not found. */
+mpr_sig mpr_map_get_sig(mpr_map map, int idx, mpr_loc loc);
+
 /*! Retrieve a list of connected signals for a specific map.
  *  \param map          The map to check.
  *  \param loc          The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or MPR_LOC_ANY.
@@ -499,7 +513,7 @@ mpr_list mpr_map_get_sigs(mpr_map map, mpr_loc loc);
 /*! Retrieve the index for a specific map signal.
  *  \param map          The map to check.
  *  \param sig          The signal to find.
- *  \return             The signal index. */
+ *  \return             The signal index, or -1 if not found. */
 int mpr_map_get_sig_idx(mpr_map map, mpr_sig sig);
 
 /*! Detect whether a map is completely initialized.

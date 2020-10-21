@@ -1637,6 +1637,9 @@ typedef struct _map_list {
         ret->list = mpr_map_get_sigs((mpr_map)$self, loc);
         return ret;
     }
+    signal *signal(int idx, int loc=MPR_LOC_ANY) {
+        return (signal*)mpr_map_get_sig((mpr_map)$self, idx, loc);
+    }
     int index(signal *sig) {
         return mpr_map_get_sig_idx((mpr_map)$self, (mpr_sig)sig);
     }

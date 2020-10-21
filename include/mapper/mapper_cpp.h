@@ -761,6 +761,9 @@ namespace mapper {
         List<Signal> signals(mpr_dir dir=MPR_DIR_ANY) const
             { return List<Signal>(mpr_dev_get_sigs(_obj, dir)); }
 
+        List<Map> maps(mpr_dir dir=MPR_DIR_ANY) const
+            { return List<Map>(mpr_dev_get_maps(_obj, dir)); }
+
         int poll(int block_ms=0) const
             { return mpr_dev_poll(_obj, block_ms); }
 
