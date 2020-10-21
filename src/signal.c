@@ -38,6 +38,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     // For now we only allow adding signals to devices.
     RETURN_UNLESS(dev && dev->loc, 0);
     RETURN_UNLESS(name && !check_sig_length(len) && mpr_type_get_is_num(type), 0);
+    TRACE_RETURN_UNLESS(name[strlen(name)-1] != '/', 0, "trailing slash detected in signal name.\n");
     TRACE_RETURN_UNLESS(dir == MPR_DIR_IN || dir == MPR_DIR_OUT, 0, "signal "
                         "direction must be either input or output.\n")
     mpr_graph g = dev->obj.graph;
