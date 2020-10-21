@@ -6,6 +6,7 @@
 *.so
 *.dylib
 *.dll
+*.exe
 *.pyc
 Makefile.in
 Makefile
@@ -76,6 +77,7 @@ test/testparser
 test/testprops
 test/testrate
 test/testreverse
+test/testsignalhierarchy
 test/testsignals
 test/testspeed
 test/testthread
