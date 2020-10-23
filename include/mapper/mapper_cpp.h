@@ -127,29 +127,17 @@ namespace mapper {
         Time& operator*=(double multiplicand)
             { RETURN_SELF(mpr_time_mul(&_time, multiplicand)); }
         bool operator<(Time& rhs)
-        {
-            return (_time.sec < rhs._time.sec
-                    || (_time.sec == rhs._time.sec && _time.frac < rhs._time.frac));
-        }
+            { return mpr_time_cmp(_time, rhs._time) < 0; }
         bool operator<=(Time& rhs)
-        {
-            return (_time.sec < rhs._time.sec
-                    || (_time.sec == rhs._time.sec && _time.frac <= rhs._time.frac));
-        }
+            { return mpr_time_cmp(_time, rhs._time) <= 0; }
         bool operator==(Time& rhs)
-        {
-            return (_time.sec == rhs._time.sec && _time.frac == rhs._time.frac);
-        }
+            { return mpr_time_cmp(_time, rhs._time) == 0; }
         bool operator>=(Time& rhs)
-        {
-            return (_time.sec > rhs._time.sec
-                    || (_time.sec == rhs._time.sec && _time.frac >= rhs._time.frac));
-        }
+            { return mpr_time_cmp(_time, rhs._time) >= 0; }
         bool operator>(Time& rhs)
-        {
-            return (_time.sec > rhs._time.sec
-                    || (_time.sec == rhs._time.sec && _time.frac > rhs._time.frac));
-        }
+            { return mpr_time_cmp(_time, rhs._time) > 0; }
+        bool operator!=(Time& rhs)
+            { return mpr_time_cmp(_time, rhs._time) != 0; }
     private:
         mpr_time _time;
     };

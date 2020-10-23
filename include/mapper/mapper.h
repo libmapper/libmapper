@@ -484,10 +484,10 @@ mpr_map mpr_map_new(int num_srcs, mpr_sig *srcs, int num_dsts, mpr_sig *dsts);
  *  The map will not take effect until it has been added to the distributed graph using
  *  mpr_obj_push().
  *  \param expression   A string specifying the map expression to use when mapping source to
- *                      destination signals. The format specifier %x is used to specify source
- *                      signals and the %y is used to specify the destination signal.
- *  \param ...          A sequence of additional mpr_sig arguments, each containing a value to be
- *                      used to replace a format specifier in the format string
+ *                      destination signals. The format specifier "%x" is used to specify source
+ *                      signals and the "%y" is used to specify the destination signal.
+ *  \param ...          A sequence of additional mpr_sig arguments, one for each format specifier
+ *                      in the format string
  *  \return             A map data structure – either loaded from the graph (if the map already
  *                      existed) or newly created. Changes to the map will not take effect until it
  *                      has been added to the distributed graph using mpr_obj_push(). */
@@ -739,6 +739,11 @@ mpr_list mpr_graph_get_objs(mpr_graph g, int types);
  *  \param addend       A time to add. */
 void mpr_time_add(mpr_time *augend, mpr_time addend);
 
+/*! Add a time to another given time.
+ *  \param augend       A previously allocated time to augment.
+ *  \param addend       A time to add. */
+void mpr_time_add(mpr_time *augend, mpr_time addend);
+
 /*! Add a double-precision floating point value to another given time.
  *  \param augend       A previously allocated time to augment.
  *  \param addend       A value in seconds to add. */
@@ -768,6 +773,13 @@ void mpr_time_set_dbl(mpr_time *time, double value);
  *  \param timel        The target time for copying.
  *  \param timer        The source time. */
 void mpr_time_set(mpr_time *timel, mpr_time timer);
+
+/*! Compare two timetags, returning zero if they all match or a value
+ *  different from zero representing which is greater if they do not.
+ *  \param time1        A previously allocated time to augment.
+ *  \param time2        A time to add.
+ *  \return             <0 if time1 < time2; 0 if time1 == time2; >0 if time1 > time2. */
+int mpr_time_cmp(mpr_time time1, mpr_time time2);
 
 /** @} */ // end of group Times
 
