@@ -16,6 +16,7 @@
 using namespace mapper;
 
 int received = 0;
+int done = 0;
 
 int verbose = 1;
 int terminate = 0;
@@ -86,6 +87,11 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     printf("\n");
 }
 
+void ctrlc(int sig)
+{
+    done = 1;
+}
+
 int main(int argc, char ** argv)
 {
     int i = 0, j, result = 0;
@@ -120,6 +126,8 @@ int main(int argc, char ** argv)
         }
     }
 
+    signal(SIGINT, ctrlc);
+
     std::ostream& out = verbose ? std::cout : null_out;
 
     Device dev("mydevice");
@@ -138,7 +146,7 @@ int main(int argc, char ** argv)
     sig = dev.add_sig(MPR_DIR_OUT, "out2", 3, MPR_DBL, "meters");
 
     out << "waiting" << std::endl;
-    while (!dev.ready()) {
+    while (!dev.ready() && !done) {
         dev.poll(10);
     }
     out << "ready" << std::endl;
@@ -232,12 +240,12 @@ int main(int argc, char ** argv)
     map.set_prop(MPR_PROP_EXPR, "y=x[0:1]+123");
     map.push();
 
-    while (!map.ready()) {
+    while (!map.ready() && !done) {
         dev.poll(10);
     }
 
     std::vector <double> v(3);
-    while (i++ < 100) {
+    while (i++ < 100 && !done) {
         dev.poll(period);
         graph.poll();
         v[i%3] = i;
@@ -288,11 +296,11 @@ int main(int argc, char ** argv)
     multirecv.set_prop(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
     mapper::Map map2(multisend, multirecv);
     map2.push();
-    while (!map2.ready()) {
+    while (!map2.ready() && !done) {
         dev.poll(10);
     }
     unsigned long id;
-    for (int i = 0; i < 200; i++) {
+    for (int i = 0; i < 200 && !done; i++) {
         dev.poll(period);
         id = (rand() % 10) + 5;
         switch (rand() % 5) {
