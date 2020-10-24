@@ -111,7 +111,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             slot = rs->slots[i];
             map = slot->map;
 
-            if (!map->use_inst || map->status < MPR_STATUS_ACTIVE)
+            if (!map->use_inst || map->status < MPR_STATUS_ACTIVE || !map->loc->expr)
                 continue;
 
             mpr_slot dst_slot = map->dst;
@@ -162,7 +162,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
         mpr_slot slot = rs->slots[i];
         map = slot->map;
 
-        if (map->status < MPR_STATUS_ACTIVE)
+        if (map->status < MPR_STATUS_ACTIVE || !map->loc->expr)
             continue;
 
         int in_scope = _is_map_in_scope(map, sig->loc->idmaps[idmap_idx].map->GID);
