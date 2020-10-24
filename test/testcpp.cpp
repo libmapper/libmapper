@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <array>
+#include <signal.h>
 
 #include "config.h"
 
