@@ -1392,6 +1392,7 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
     RETURN_UNLESS(expr, 0);
     mpr_sig sig, srcs[MAX_NUM_MAP_SRC];
     mpr_sig dst = NULL;
+    mpr_map map = NULL;
     int i = 0, j, num_src = 0;
 
     va_list aq;
@@ -1404,16 +1405,23 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
         switch (expr[i+1]) {
             case 'y':
                 sig = va_arg(aq, void*);
+                if (!sig) {
+                    trace("Format string '%s' is missing output signal.\n", expr);
+                    goto error;
+                }
                 if (!dst)
                     dst = sig;
                 else if (sig != dst) {
                     trace("Format string '%s' references more than one output signal.\n", expr);
-                    va_end(aq);
-                    return NULL;
+                    goto error;
                 }
                 break;
             case 'x':
                 sig = va_arg(aq, void*);
+                if (!sig) {
+                    trace("Format string '%s' is missing input signal.\n", expr);
+                    goto error;
+                }
                 for (j = 0; j < num_src; j++) {
                     if (sig == srcs[j])
                         break;
@@ -1421,16 +1429,14 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
                 if (j == num_src) {
                     if (num_src >= MAX_NUM_MAP_SRC) {
                         trace("Maps cannot have more than %d source signals.\n", MAX_NUM_MAP_SRC);
-                        va_end(aq);
-                        return NULL;
+                        goto error;
                     }
                     srcs[num_src++] = sig;
                 }
                 break;
             default:
                 trace("Illegal format token '%%%c' in mpr_map_new_from_str().\n", expr[i+1]);
-                va_end(aq);
-                return NULL;
+                goto error;
         }
         i += 2;
     }
@@ -1440,7 +1446,7 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
     TRACE_RETURN_UNLESS(num_src, NULL, "Map format string '%s' has no input signals!\n", expr);
 
     // create the map
-    mpr_map map = mpr_map_new(num_src, srcs, 1, &dst);
+    map = mpr_map_new(num_src, srcs, 1, &dst);
 
     // edit the expression string in-place
     i = 0;
@@ -1469,4 +1475,8 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, dup, 1);
     free(dup);
     return map;
+
+error:
+    va_end(aq);
+    return NULL;
 }

@@ -398,6 +398,26 @@ namespace mapper {
      *  processed.*/
     class Map : public Object
     {
+    private:
+        /* This constructor accepts a between 2 and 10 signal object arguments inclusive. It is
+         * delagated to by the variadic template constructor and in turn it calls the vararg
+         * function mpr_map_new_from_str() from the libmapper C API. At least two valid signal
+         * arguments are required to create map, but the remaining 8 are set to default to NULL to
+         * support calling the constructor with fewer than 10 signal arguments. When calling into
+         * the C API we add an extra NULL argument to ensure that it will fail if the format string
+         * contains more than 10 format specifiers. */
+        Map(int dummy, const str_type &expression, signal_type sig0, signal_type sig1,
+            signal_type sig2 = NULL, signal_type sig3 = NULL, signal_type sig4 = NULL,
+            signal_type sig5 = NULL, signal_type sig6 = NULL, signal_type sig7 = NULL,
+            signal_type sig8 = NULL, signal_type sig9 = NULL) : Object(NULL)
+        {
+            _obj = mpr_map_new_from_str(expression, (mpr_sig)sig0, (mpr_sig)sig1,
+                                        sig2 ? (mpr_sig)sig2 : NULL, sig3 ? (mpr_sig)sig3 : NULL,
+                                        sig4 ? (mpr_sig)sig4 : NULL, sig5 ? (mpr_sig)sig5 : NULL,
+                                        sig6 ? (mpr_sig)sig6 : NULL, sig7 ? (mpr_sig)sig7 : NULL,
+                                        sig8 ? (mpr_sig)sig8 : NULL, sig9 ? (mpr_sig)sig9 : NULL,
+                                        NULL);
+        }
     public:
         Map(const Map& orig) : Object(orig._obj) {}
         Map(mpr_map map) : Object(map) {}
@@ -414,6 +434,22 @@ namespace mapper {
             mpr_sig cast_src = src, cast_dst = dst;
             _obj = mpr_map_new(1, &cast_src, 1, &cast_dst);
         }
+
+        /*! Create a map between a set of signals using an expression string containing embedded
+         *  format specifiers that are replaced by mpr_sig values specified in subsequent additional
+         *  arguments.
+         *  \param expression   A string specifying the map expression to use when mapping source to
+         *                      destination signals. The format specifier "%x" is used to specify
+         *                      source signals and the "%y" is used to specify the destination
+         *                      signal.
+         *  \param ...          A sequence of additional Signal arguments, one for each format
+         *                      specifier in the format string
+         *  \return             A map data structure – either loaded from the graph and modified
+         *                      with the new expression (if the map already existed) or newly
+         *                      created. Changes to the map will not take effect until it has been
+         *                      added to the distributed graph using mpr_obj_push(). */
+        template<typename... Args>
+        Map(const str_type &expression, Args ...args) : Map(1, expression, args...) {}
 
         /*! Create a map between a set of Signals.
          *  \param num_srcs The number of source signals in this map.

@@ -1619,6 +1619,14 @@ typedef struct _map_list {
             return (map*)0;
         return (map*)mpr_map_new(srcs->len, srcs->sigs, dsts->len, dsts->sigs);
     }
+    _map(const char *str, signal *sig0, signal *sig1, signal *sig2=NULL, signal *sig3=NULL,
+         signal *sig4=NULL, signal *sig5=NULL, signal *sig6=NULL, signal *sig7=NULL,
+         signal *sig8=NULL, signal *sig9=NULL) {
+        if (!str || !sig0 || !sig1)
+            return (map*)0;
+        return (map*)mpr_map_new_from_str(str, sig0, sig1, sig2, sig3, sig4,
+                                          sig5, sig6, sig7, sig8, sig9);
+    }
     ~_map() {
         ;
     }
