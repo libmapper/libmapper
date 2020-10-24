@@ -1455,7 +1455,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
     mpr_map_set_from_msg(map, props, 1);
     mpr_msg_free(props);
 
-    if (map->loc->is_local_only) {
+    if (map->loc->is_local_only && map->loc->expr) {
         trace_dev(dev, "map references only local signals... activating.\n");
         map->status = MPR_STATUS_ACTIVE;
 
