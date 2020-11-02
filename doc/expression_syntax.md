@@ -3,8 +3,7 @@
 Connections between signals that are maintained by *libmapper* can be configured with
 optional signal processing described in the form of an expression.
 
-<div id="general-syntax"></div>
-## General Syntax
+<h2 id="general-syntax">General Syntax</h2>
 
 Expressions in libmapper must always be presented in the form `y = x`, where `x`
 refers to the updated source value and `y` is the computed value to be forwarded
@@ -13,75 +12,69 @@ generated output.
 
 ## Available operators
 
-<table style="width:100%;">
-  <tbody style="border:0px;padding:0px;margin:0px">
-    <tr style="border:0px;padding:0px;margin:0px">
-      <td style="width:49%;padding:0px;margin:0px;border:none">
-        <table style="width:100%;margin:0px;padding:0px">
-          <tbody>
-            <tr><th colspan="2" style="background:#555555;color:white">Arithmetic operators</th></tr>
-            <tr><td style="width:33px"><code> + </code></td><td>addition</td></tr>
-            <tr><td><code> - </code></td><td>subtraction</td></tr>
-            <tr><td><code> * </code></td><td>multiplication</td></tr>
-            <tr><td><code> / </code></td><td>division</td></tr>
-            <tr><td><code> % </code></td><td>modulo</td></tr>
-          </tbody>
-        </table>
-      </td>
-      <td rowspan=3 style="padding:0px;vertical-align:top;background:white;border:none"></td>
-      <td style="width:49%;padding:0px;border:none">
-        <table style="width:100%">
-          <tbody>
-            <tr><th colspan="2" style="background:#555555;color:white">Bitwise operators</th></tr>
-            <tr><td style="width:33px"><code> << </code></td><td>left bitshift</td></tr>
-            <tr><td><code> >> </code></td><td>right bitshift</td></tr>
-            <tr><td><code> & </code></td><td>bitwise AND</td></tr>
-            <tr><td><code> | </code></td><td>bitwise OR</td></tr>
-            <tr><td><code> ^ </code></td><td>bitwise XOR (exclusive OR)</td></tr>
-          </tbody>
-        </table>
-      </td>
-    </tr>
-    <tr style="border:0px;padding:0px;margin:0px">
-      <td rowspan=2 style="width:49%;padding:0px;vertical-align:top;background:white;border:none">
-        <table style="width:100%">
-          <tbody>
-            <tr><th colspan="2" style="background:#555555;color:white">Comparison operators</th></tr>
-            <tr><td style="width:33px"><code> > </code></td><td>greater than</td></tr>
-            <tr><td><code> >= </code></td><td>greater than or equal</td></tr>
-            <tr><td><code> < </code></td><td>less than</td></tr>
-            <tr><td><code> <= </code></td><td>less than or equal</td></tr>
-            <tr><td><code> == </code></td><td>equal</td></tr>
-            <tr><td><code> != </code></td><td>not equal</td></tr>
-          </tbody>
-        </table>
-      </td>
-      <td style="width:49%;padding:0px;border:none">
-        <table style="width:100%">
-          <tbody>
-<tr><th colspan="2" style="background:#555555;color:white">Logical operators</th></tr>
-            <tr><td style="width:33px"><code> ! </code></td><td>logical NOT</td></tr>
-            <tr><td><code> && </code></td><td>logical AND</td></tr>
-            <tr><td><code> || </code></td><td>logical OR</td></tr>
-          </tbody>
-        </table>
-      </td>
+<div>
+<table style="width:100%;margin:0px;padding:0px;vertical-align:top;border:0px">
+  <tbody>
+    <tr style="border:0px">
+      <th colspan="2" style="background:#555555;color:white;width:49%">Arithmetic operators</th>
+      <th rowspan=12 style="width:0%;border:0px;margin:0px;padding:5px"></th>
+      <th colspan="2" style="background:#555555;color:white;width:49%">Bitwise operators</th>
     </tr>
     <tr>
-      <td style="width:49%;padding:0px;border:none;vertical-align:top">
-        <table style="width:100%">
-          <tbody>
-            <tr><th colspan="2" style="background:#555555;color:white">Conditional operator</th></tr>
-            <tr><td style="width:33px"><code> ?: </code></td><td>if / then / else (ternary operation) used in the form <code>a?b:c</code>. If the second operand is omitted (e.g. <code>a?:c</code>) the first operand will be used in its place.</td></tr>
-          </tbody>
-        </table>
-      </td>
+      <td style="width:33px"><code> + </code></td><td>addition</td>
+      <td style="width:33px"><code> << </code></td><td>left bitshift</td>
     </tr>
-</tbody>
+    <tr>
+      <td><code> - </code></td><td>subtraction</td>
+      <td><code> >> </code></td><td>right bitshift</td>
+    </tr>
+    <tr>
+      <td><code> * </code></td><td>multiplication</td>
+      <td><code> & </code></td><td>bitwise AND</td>
+    </tr>
+    <tr>
+      <td><code> / </code></td><td>division</td>
+      <td><code> | </code></td><td>bitwise OR</td>
+    </tr>
+    <tr>
+      <td><code> % </code></td><td>modulo</td>
+      <td><code> ^ </code></td><td>bitwise XOR (exclusive OR)</td>
+    </tr>
+    <tr>
+      <th colspan="2" style="background:#555555;color:white">Comparison operators</th>
+      <th colspan="2" style="background:#555555;color:white">Logical operators</th>
+    </tr>
+    <tr>
+      <td><code> > </code></td><td>greater than</td>
+      <td><code> ! </code></td><td>logical NOT</td>
+    </tr>
+    <tr>
+      <td><code> >= </code></td><td>greater than or equal</td>
+      <td><code> && </code></td><td>logical AND</td>
+    </tr>
+    <tr>
+      <td><code> < </code></td><td>less than</td>
+      <td><code> || </code></td><td>logical OR</td></tr>
+    </tr>
+    <tr>
+      <td><code> <= </code></td><td>less than or equal</td>
+      <th colspan="2" style="background:#555555;color:white">Conditional operator</th>
+    </tr>
+    <tr>
+      <td><code> == </code></td><td>equal</td>
+      <td rowspan=3><code> ?: </code></td><td rowspan=3>if / then / else (ternary operation) used in the form <code>a?b:c</code>. If the second operand is omitted (e.g. <code>a?:c</code>) the first operand will be used in its place.</td>
+    </tr>
+    <tr>
+      <td><code> != </code></td><td>not equal</td>
+    </tr>
+    <tr style="background:none;border:0px">
+      <td colspan=2 style="background:none;border:0px"></td>
+    </tr>
+  </tbody>
 </table>
+</div>
 
-<div id="function-list"></div>
-## Function List
+<h2 id="function-list">Function List</h2>
 
 ### Absolute value:
 
@@ -136,8 +129,7 @@ generated output.
 ### Filters
 * `ema(x,w)` – a cheap low-pass filter: calculate a running *exponential moving average* with input `x` and a weight `w` applied to the current sample.
 
-<div id="vectors"></div>
-## Vectors
+<h2 id="vectors">Vectors</h2>
 
 Individual elements of variable values can be accessed using the notation
 `<variable>[<index>]`. The index specifies the vector element, and
@@ -166,8 +158,7 @@ There are several special functions that operate across all elements of the vect
 * `max(x)` – output the maximum element in vector `x` (overloaded)
 * `min(x)` – output the minimum element in vector `x` (overloaded)
 
-<div id="fir-and-iir-filters"></div>
-## FIR and IIR Filters
+<h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 
 Past samples of expression input and output can be accessed using the notation
 `<variable>{<index>}`. The index specifies the history index in samples, and must be `<=0` for the input (with `0` representing the present input sample) and `<0` for the expression output ( i.e. it cannot be a value that has not been provided or computed yet ).
@@ -234,8 +225,7 @@ It is possible to define a variable delay argument instead of using a constant. 
 y=y{x,100};
 </pre>
 
-<div id="user-defined-variables"></div>
-## User-Defined Variables
+<h2 id="user-defined-variables">User-Defined Variables</h2>
 
 Up to 8 additional variables can be declared as-needed in the expression. The variable
 names can be any string except for the reserved variable names `x` and `y`.  The values
@@ -290,88 +280,49 @@ map.push()
 
 Note that modifying variables in this way is not intended for automatic (i.e. high-rate) control. If you wish to include a high-rate variable you should declare it as a signal and use convergent maps as explained below.
 
-<div id="convergent-maps"></div>
-## Convergent maps
+<h2 id="convergent-maps">Convergent maps</h2>
 
 Convergent mapping—in which multiple source signals update a single destination signal–are supported by libmapper in five different ways:
 
 <table style="width:100%">
   <tr>
     <th>Method</th>
-    <th>Example</th>
+    <th style="width:35%">Example</th>
   </tr>
   <tr>
     <td><strong>interleaved updates (naïve convergent maps)</strong>: if multiple source signals are connected to the same destination, new updates will simply overwrite the previous value. This is the default for singleton (i.e. non-instanced) signals.</td>
     <td>
-<div><pre><code class="language-dot">digraph naive {
-    size="1.5";
-    A [fillcolor="#FF000088", style=filled];
-    B [fillcolor="#FFFF0088", style=filled];
-    C [fillcolor="#0000FF66", style=filled];
-    A -> C:nw [xlabel="y=x  "];
-    B -> C:ne [xlabel="y=x"];
-}</code></pre></div>
+        <img style="display:block;margin:auto;padding:0px;" src="./images/naive_convergent.png">
     </td>
   </tr>
   <tr>
     <td><strong>partial vector updates</strong>: if the destination signal has a vector value (i.e. a value with a length > 1), individual sources may address different elements of the destination.</td>
     <td>
-    <div><pre><code class="language-dot">digraph vector {
-    size="1.5";
-    A [fillcolor="#FF000088", style=filled];
-    B [fillcolor="#FFFF0088", style=filled];
-    C [fillcolor="#0000FF66", style=filled];
-    A -> C:nw [xlabel="y[0]=x  "];
-    B -> C:ne [xlabel="y[1]=x"];
-}</code></pre></div>
+        <img style="display:block;margin:auto;padding:0px;" src="./images/partial_vector_updates.png">
     </td>
   </tr>
     <tr>
     <td><strong>shared instance pools</strong>: instanced destination signals will automatically assign different instances to different sources.</td>
     <td>
-    <div><pre><code class="language-dot">digraph pooled {
-    size="1.5";
-    A [fillcolor="#FF000088", style=filled];
-    B [fillcolor="#FFFF0088", style=filled];
-    C [fillcolor="#0000FF66", style=filled];
-    A -> C:nw [xlabel="y=x  ", color="black:black"];
-    B -> C:ne [xlabel="y=x", color="black:black"];
-}</code></pre></div>
+        <img style="display:block;margin:auto;padding:0px;" src="./images/shared_instance_pools.png">
     </td>
   </tr>
     <tr>
     <td><strong>destination value references</strong>: including the destination signal value in the expression enables simple "mixing" of multiple sources in an IIR filter. Within the mapping expression, <code>y{-N}</code> represents the Nth past value of the <strong>destination signal</strong> (rather than the expression output) and will thus reflect updates to this signal caused by other maps or local control. If you wish to use past samples of the expression output instead you will need to cache this output explicitly as explained above in the section <a href="#fir-and-iir-filters">FIR and IIR Filters</a>.</td>
     <td>
-    <div><pre><code class="language-dot">digraph iir {
-    size="1.5";
-    A [fillcolor="#FF000088", style=filled];
-    B [fillcolor="#FFFF0088", style=filled];
-    C [fillcolor="#0000FF66", style=filled];
-    A -> C:nw [headlabel="y=\ny{-1}+x     "];
-    B -> C:ne [headlabel="y=\n     y{-1}-x"];
-}</code></pre></div>
+        <img style="display:block;margin:auto;padding:0px;" src="./images/dest_value_reference.png">
     </td>
   </tr>
   </tr>
     <tr>
     <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically.</td>
     <td>
-    <div><pre><code class="language-dot">digraph convergent {
-    size="1.5";
-    A [fillcolor="#FF000088", style=filled];
-    B [fillcolor="#FFFF0088", style=filled];
-    C [fillcolor="#0000FF66", style=filled];
-    map [shape=point];
-    A:se -> map [arrowhead=none];
-    B:sw -> map [arrowhead=none];
-    map -> C [xlabel="   y=x0+x1\n "];
-}</code></pre></div>
+        <img style="display:block;margin:auto;padding:0px;" src="./images/full_convergent.png">
     </td>
   </tr>
 </table>
 
-<div id="instance-management"></div>
-## Instance Management
+<h2 id="instance-management">Instance Management</h2>
 
 Signal instancing can also be managed from within the map expression by manipulating a special variable named `alive` that represents the instance state. The use cases for in-map instancing can be complex, but here are some simple examples:
 
@@ -419,8 +370,7 @@ When mapping a singleton source signal to an instanced destination signal there 
 
 *currently undocumented*
 
-<div id="propagation-management"></div>
-## Propagation Management
+<h2 id="propagation-management">Propagation Management</h2>
 
 By default, convergent maps will trigger expression evaluation when *any* of the source signals are updated. For example, the convergent map `y=x0+x1` will output a new value whenever `x0` *or* `x1` are updated. Evaluation can be disabled for a source signal by inserting an underscore `_` symbol before the source name, e.g. `y=x0+_x1` will be evaluated only when the source `x0` is updated, while updates to source `x1` will be stored but will not trigger evaluation or propagation to the destination signal.
 
@@ -440,8 +390,7 @@ y = x;
 muted = (x == x{-1});
 </pre>
 
-<div id="timetags"></div>
-## Timetags
+<h2 id="timetags">Timetags</h2>
 
 The precise time at which a signal or variable is updated is always tracked by libmapper and communicated with the data value. In the future we plan to use this information in the background for discarding out-of-order packets and jitter mitigation, but it may also be useful in your expressions.
 

@@ -47,11 +47,9 @@ dev = mapper.device("my_device")
 
 ## Polling the device
 
-The device lifecycle looks like this, in terrible ASCII diagram art:
+The device lifecycle looks like this:
 
-    creation --> poll --+--> destruction
-                  |     |
-                  +--<--+
+<img style="display:block;margin:auto;padding:0px;width:75%" src="./images/device_lifecyle.png">
 
 In other words, after a device is created, it must be continuously polled during
 its lifetime.
