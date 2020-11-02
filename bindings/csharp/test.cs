@@ -33,7 +33,8 @@ public class TestCSharp
         }
         Console.WriteLine("Device ready...");
 
-        Map map = new Map(outsig, insig);
+        // Map map = new Map(outsig, insig);
+        Map map = new Map("%y=%x*1000", insig, outsig);
         map.push();
 
         Console.Write("Waiting for map...");

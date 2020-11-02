@@ -52,19 +52,19 @@ namespace Mapper
                              *   that touch only local signals. */
     }
 
-    public enum Status {
-        Undefined    = 0x00,
-        Expired      = 0x01,
-        Staged       = 0x02,
-        Ready        = 0x3E,
-        Active       = 0x7E,
-        Reserved     = 0x80,
-        All          = 0xFF,
-    }
-
     public class Time
     {
-
+        // TODO: port time implementation instead of using unsafe library calls
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        unsafe private static extern int mpr_time_set_dbl(void* obj, double sec);
+        unsafe public Time setDouble(Double seconds)
+        {
+            fixed (void* t = &_time) {
+                mpr_time_set_dbl(t, seconds);
+            }
+            return this;
+        }
+        internal long _time;
     }
 
     public class List
@@ -86,52 +86,62 @@ namespace Mapper
     public class Property
     {
         public enum Id {
-            Unknown         = 0x0000,
-            Calibrating     = 0x0100,
-            Data            = 0x0200,
-            Device          = 0x0300,
-            Direction       = 0x0400,
-            Expression      = 0x0500,
-            Host            = 0x0600,
-            Id              = 0x0700,
-            Instance        = 0x0800,
-            IsLocal         = 0x0900,
-            Jitter          = 0x0A00,
-            Length          = 0x0B00,
-            LibVersion      = 0x0C00,
-            Linked          = 0x0D00,
-            Max             = 0x0E00,
-            Min             = 0x0F00,
-            Muted           = 0x1000,
-            Name            = 0x1100,
-            NumInstances    = 0x1200,
-            NumMaps         = 0x1300,
-            NumMapsIn       = 0x1400,
-            NumMapsOut      = 0x1500,
-            NumSigsIn       = 0x1600,
-            NumSigsOut      = 0x1700,
-            Ordinal         = 0x1800,
-            Period          = 0x1900,
-            Port            = 0x1A00,
-            ProcessLocation = 0x1B00,
-            Protocol        = 0x1C00,
-            Rate            = 0x1D00,
-            Scope           = 0x1E00,
-            Signal          = 0x1F00,
-            Slot            = 0x2000,
-            Status          = 0x2100,
-            StealingMode    = 0x2200,
-            Synced          = 0x2300,
-            Type            = 0x2400,
-            Unit            = 0x2500,
-            UseInstances    = 0x2600,
-            Version         = 0x2700,
-            Extra           = 0x2800,
+            Unknown             = 0x0000,
+            Calibrating         = 0x0100,
+            Data                = 0x0200,
+            Device              = 0x0300,
+            Direction           = 0x0400,
+            Expression          = 0x0500,
+            Host                = 0x0600,
+            Id                  = 0x0700,
+            Instance            = 0x0800,
+            IsLocal             = 0x0900,
+            Jitter              = 0x0A00,
+            Length              = 0x0B00,
+            LibVersion          = 0x0C00,
+            Linked              = 0x0D00,
+            Max                 = 0x0E00,
+            Min                 = 0x0F00,
+            Muted               = 0x1000,
+            Name                = 0x1100,
+            NumInstances        = 0x1200,
+            NumMaps             = 0x1300,
+            NumMapsIn           = 0x1400,
+            NumMapsOut          = 0x1500,
+            NumSigsIn           = 0x1600,
+            NumSigsOut          = 0x1700,
+            Ordinal             = 0x1800,
+            Period              = 0x1900,
+            Port                = 0x1A00,
+            ProcessingLocation  = 0x1B00,
+            Protocol            = 0x1C00,
+            Rate                = 0x1D00,
+            Scope               = 0x1E00,
+            Signal              = 0x1F00,
+            Slot                = 0x2000,
+            Status              = 0x2100,
+            StealingMode        = 0x2200,
+            Synced              = 0x2300,
+            Type                = 0x2400,
+            Unit                = 0x2500,
+            UseInstances        = 0x2600,
+            Version             = 0x2700,
+            Extra               = 0x2800,
         }
     }
 
     public abstract class Object
     {
+        public enum Status {
+            Undefined    = 0x00,
+            Expired      = 0x01,
+            Staged       = 0x02,
+            Ready        = 0x3E,
+            Active       = 0x7E,
+            Reserved     = 0x80,
+            All          = 0xFF,
+        }
+
         // Graph getGraph()
         //     { return new Graph(_obj); }
 
@@ -313,6 +323,25 @@ namespace Mapper
                     this._obj = mpr_map_new(1, s, 1, d);
                 }
             }
+        }
+
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        private static extern IntPtr mpr_map_new_from_str([MarshalAs(UnmanagedType.LPStr)] string expr,
+                                                          IntPtr sig0, IntPtr sig1, IntPtr sig2,
+                                                          IntPtr sig3, IntPtr sig4, IntPtr sig5,
+                                                          IntPtr sig6, IntPtr sig7, IntPtr sig8,
+                                                          IntPtr sig9, IntPtr sig10);
+        public Map([MarshalAs(UnmanagedType.LPStr)] string expr, params Signal[] signals)
+        {
+            IntPtr[] a = new IntPtr[10];
+            for (int i = 0; i < 10; i++) {
+                if (i < signals.Length)
+                    a[i] = signals[i]._obj;
+                else
+                    a[i] = default(IntPtr);
+            }
+            this._obj = mpr_map_new_from_str(expr, a[0], a[1], a[2], a[3], a[4], a[5],
+                                             a[6], a[7], a[8], a[9], default(IntPtr));
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
