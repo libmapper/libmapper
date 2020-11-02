@@ -739,11 +739,6 @@ mpr_list mpr_graph_get_objs(mpr_graph g, int types);
  *  \param addend       A time to add. */
 void mpr_time_add(mpr_time *augend, mpr_time addend);
 
-/*! Add a time to another given time.
- *  \param augend       A previously allocated time to augment.
- *  \param addend       A time to add. */
-void mpr_time_add(mpr_time *augend, mpr_time addend);
-
 /*! Add a double-precision floating point value to another given time.
  *  \param augend       A previously allocated time to augment.
  *  \param addend       A value in seconds to add. */
