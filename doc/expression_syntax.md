@@ -12,17 +12,22 @@ generated output.
 
 ## Available operators
 
-<div>
+
 <table style="width:100%;margin:0px;padding:0px;vertical-align:top;border:0px">
+  <col style="width:10%"></col>
+  <col style="width:39%"></col>
+  <col style="width:2%"></col>
+  <col style="width:10%"></col>
+  <col style="width:39%"></col>
   <tbody>
     <tr style="border:0px">
-      <th colspan="2" style="background:#555555;color:white;width:49%">Arithmetic operators</th>
-      <th rowspan=12 style="width:0%;border:0px;margin:0px;padding:5px"></th>
-      <th colspan="2" style="background:#555555;color:white;width:49%">Bitwise operators</th>
+      <th colspan="2" style="background:#555555;color:white;">Arithmetic operators</th>
+      <th rowspan="14" style="border:0px;margin:0px;padding:5px"></th>
+      <th colspan="2" style="background:#555555;color:white;">Bitwise operators</th>
     </tr>
     <tr>
-      <td style="width:33px"><code> + </code></td><td>addition</td>
-      <td style="width:33px"><code> << </code></td><td>left bitshift</td>
+      <td><code> + </code></td><td>addition</td>
+      <td><code> << </code></td><td>left bitshift</td>
     </tr>
     <tr>
       <td><code> - </code></td><td>subtraction</td>
@@ -72,7 +77,6 @@ generated output.
     </tr>
   </tbody>
 </table>
-</div>
 
 <h2 id="function-list">Function List</h2>
 
