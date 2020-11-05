@@ -41,16 +41,15 @@
 #define MPR_FUNC(OBJ, FUNC) mpr_ ## OBJ ## _ ## FUNC
 
 #define OBJ_METHODS(CLASS_NAME)                                             \
-protected:                                                                  \
-    void set_prop(Property *p)                                              \
-        { Object::set_prop(p); }                                            \
 public:                                                                     \
+    void set_property(const Property& p)                                    \
+        { Object::set_property(p); }                                        \
     template <typename... Values>                                           \
-    CLASS_NAME& set_prop(Values... vals)                                    \
-        { RETURN_SELF(Object::set_prop(vals...)); }                         \
+    CLASS_NAME& set_property(const Values... vals)                          \
+        { RETURN_SELF(Object::set_property(vals...)); }                     \
     template <typename T>                                                   \
-    CLASS_NAME& remove_prop(T prop)                                         \
-        { RETURN_SELF(Object::remove_prop(prop)); }                         \
+    CLASS_NAME& remove_property(const T prop)                               \
+        { RETURN_SELF(Object::remove_property(prop)); }                     \
     const CLASS_NAME& push() const                                          \
         { RETURN_SELF(Object::push()); }                                    \
 
@@ -270,7 +269,7 @@ namespace mapper {
          *  \param vals     The Properties to add of modify.
          *  \return         Self. */
         template <typename... Values>
-        List& set_prop(Values... vals);
+        List& set_property(const Values... vals);
 
         T operator*()
             { return T(*_list); }
@@ -315,7 +314,7 @@ namespace mapper {
         friend class List<Signal>;
         friend class List<Map>;
         friend class Property;
-        void set_prop(Property *p);
+        void set_property(const Property& p);
 
         mpr_obj _obj;
     public:
@@ -337,18 +336,18 @@ namespace mapper {
          *  \param vals     The Properties to add or modify.
          *  \return         Self. */
         template <typename... Values>
-        Object& set_prop(Values... vals);
+        Object& set_property(const Values... vals);
 
         /*! Remove a Property from an Object by symbolic identifier.
          *  \param prop    The Property to remove.
          *  \return        Self. */
-        virtual Object& remove_prop(mpr_prop prop)
+        virtual Object& remove_property(mpr_prop prop)
             { RETURN_SELF(mpr_obj_remove_prop(_obj, prop, NULL)); }
 
         /*! Remove a named Property from an Object.
          *  \param key     Name of the Property to remove.
          *  \return        Self. */
-        virtual Object& remove_prop(const str_type &key)
+        virtual Object& remove_property(const str_type &key)
         {
             if (key)
                 mpr_obj_remove_prop(_obj, MPR_PROP_UNKNOWN, key);
@@ -372,14 +371,13 @@ namespace mapper {
          *  \return         The retrieved Property. */
         Property property(const str_type &key=NULL) const;
 
-        Property operator [] (const str_type &key) const;
-
         /*! Retrieve a Property by index.
          *  \param prop     The index of or symbolic identifier of the Property to retrieve.
          *  \return         The retrieved Property. */
         Property property(mpr_prop prop) const;
 
-        Property operator [] (mpr_prop prop) const;
+        template <typename T>
+        Property operator [] (T prop) const;
     };
 
     class signal_type {
@@ -549,7 +547,7 @@ namespace mapper {
          *                  originating from the specified Device to be
          *                  propagated across the Map.
          *  \return         Self. */
-        inline Map& add_scope(Device& dev);
+        inline Map& add_scope(const Device& dev);
 
         /*! Remove a scope from this Map. Map scopes configure the propagation
          *  of Signal updates across the Map. Changes will not take effect until
@@ -559,7 +557,7 @@ namespace mapper {
          *                  updates originating from the specified Device to be
          *                  blocked from propagating across the Map.
          *  \return         Self. */
-        inline Map& remove_scope(Device& dev);
+        inline Map& remove_scope(const Device& dev);
 
         /*! Get the index of the Map endpoint matching a specific Signal.
          *  \param sig      The Signal to look for.
@@ -732,6 +730,7 @@ namespace mapper {
     class Device : public Object
     {
     public:
+        Device() : Object() {}
         /*! Allocate and initialize a Device.
          *  \param name     A short descriptive string to identify the Device.
          *                  Must not contain spaces or the slash character '/'.
@@ -771,15 +770,15 @@ namespace mapper {
         operator mpr_dev() const
             { return _obj; }
 
-        Signal add_sig(mpr_dir dir, const str_type &name, int len, mpr_type type,
-                       const str_type &unit=0, void *min=0, void *max=0,
-                       int *num_inst=0, mpr_sig_handler h=0,
-                       int events=MPR_SIG_UPDATE)
+        Signal add_signal(mpr_dir dir, const str_type &name, int len, mpr_type type,
+                          const str_type &unit=0, void *min=0, void *max=0,
+                          int *num_inst=0, mpr_sig_handler h=0,
+                          int events=MPR_SIG_UPDATE)
         {
             return Signal(mpr_sig_new(_obj, dir, name, len, type,
                                       unit, min, max, num_inst, h, events));
         }
-        Device& remove_sig(Signal& sig)
+        Device& remove_signal(Signal& sig)
             { RETURN_SELF(mpr_sig_free(sig)); }
 
         List<Signal> signals(mpr_dir dir=MPR_DIR_ANY) const
@@ -1097,6 +1096,10 @@ namespace mapper {
         operator List<Map>() const
             { return (type == MPR_LIST) ? (mpr_list)val : NULL; }
 
+        template <typename... Values>
+        Property& operator = (Values... vals)
+            { RETURN_SELF(_set(vals...)); }
+
         mpr_prop prop;
         const char *key;
         mpr_type type;
@@ -1106,6 +1109,8 @@ namespace mapper {
     protected:
         friend class Graph;
         friend class Object;
+        mpr_obj parent = NULL;
+
         Property(mpr_prop _prop, const str_type &_key, int _len, mpr_type _type,
                  const void *_val, int _pub)
         {
@@ -1145,11 +1150,17 @@ namespace mapper {
                 owned = false;
             }
         }
+        void maybe_update()
+        {
+            if (parent)
+                mpr_obj_set_prop(parent, prop, key, len, type, val, pub);
+        }
         void _set(int _len, mpr_type _type, const void *_val)
         {
             type = _type;
             val = _val;
             len = _len;
+            maybe_update();
         }
         void _set(int _len, bool _val[])
         {
@@ -1164,6 +1175,7 @@ namespace mapper {
             len = _len;
             type = MPR_INT32;
             owned = true;
+            maybe_update();
         }
         void _set(int _len, int _val[])
             { _set(_len, MPR_INT32, _val); }
@@ -1176,10 +1188,10 @@ namespace mapper {
         void _set(int _len, const char *_val[])
             { _set(_len, MPR_STR, (1 == _len) ? (void*)_val[0] : (void*)_val); }
         template <typename T>
-        void _set(T _val)
+        void _set(const T _val)
             { _set(1, (T*)&_val); }
         template <typename T, size_t N>
-        void _set(std::array<T, N>& _val)
+        void _set(const std::array<T, N>& _val)
         {
             if (!_val.empty())
                 _set(N, _val.data());
@@ -1187,9 +1199,10 @@ namespace mapper {
                 val = 0;
                 len = 0;
             }
+            maybe_update();
         }
         template <size_t N>
-        void _set(std::array<const char*, N>& _vals)
+        void _set(const std::array<const char*, N>& _vals)
         {
             len = N;
             type = MPR_STR;
@@ -1204,9 +1217,10 @@ namespace mapper {
             }
             else
                 val = 0;
+            maybe_update();
         }
         template <size_t N>
-        void _set(std::array<std::string, N>& _vals)
+        void _set(const std::array<std::string, N>& _vals)
         {
             len = N;
             type = MPR_STR;
@@ -1221,8 +1235,9 @@ namespace mapper {
             }
             else
                 val = 0;
+            maybe_update();
         }
-        void _set(int _len, std::string _vals[])
+        void _set(int _len, const std::string _vals[])
         {
             len = _len;
             type = MPR_STR;
@@ -1237,11 +1252,12 @@ namespace mapper {
             }
             else
                 val = 0;
+            maybe_update();
         }
         template <typename T>
-        void _set(std::vector<T> _val)
+        void _set(const std::vector<T> _val)
             { _set((int)_val.size(), _val.data()); }
-        void _set(std::vector<const char*>& _val)
+        void _set(const std::vector<const char*>& _val)
         {
             len = (int)_val.size();
             type = MPR_STR;
@@ -1254,8 +1270,9 @@ namespace mapper {
                     ((char**)val)[i] = strdup((char*)_val[i]);
                 owned = true;
             }
+            maybe_update();
         }
-        void _set(std::vector<std::string>& _val)
+        void _set(const std::vector<std::string>& _val)
         {
             len = (int)_val.size();
             type = MPR_STR;
@@ -1270,21 +1287,22 @@ namespace mapper {
             }
             else
                 val = 0;
+            maybe_update();
         }
         void _set(mpr_list _val)
             { _set(1, MPR_LIST, _val); }
     };
 
-    void Object::set_prop(Property *p)
+    void Object::set_property(const Property& p)
     {
-        mpr_obj_set_prop(_obj, p->prop, p->key, p->len, p->type, p->val, p->pub);
+        mpr_obj_set_prop(_obj, p.prop, p.key, p.len, p.type, p.val, p.pub);
     }
 
     template <typename... Values>
-    Object& Object::set_prop(Values... vals)
+    Object& Object::set_property(const Values... vals)
     {
         Property p(vals...);
-        set_prop(&p);
+        set_property(p);
         return (*this);
     }
 
@@ -1295,11 +1313,10 @@ namespace mapper {
         const void *val;
         int len, pub;
         prop = mpr_obj_get_prop_by_key(_obj, key, &len, &type, &val, &pub);
-        return Property(prop, key, len, type, val, pub);
+        Property p(prop, key, len, type, val, pub);
+        p.parent = _obj;
+        return p;
     }
-
-    Property Object::operator [] (const str_type &key) const
-        { return property(key); }
 
     /*! Retrieve a Property by index.
      *  \param prop     The index or symbolic identifier of the Property to retrieve.
@@ -1311,10 +1328,13 @@ namespace mapper {
         const void *val;
         int len, pub;
         prop = mpr_obj_get_prop_by_idx(_obj, prop, &key, &len, &type, &val, &pub);
-        return Property(prop, key, len, type, val, pub);
+        Property p(prop, key, len, type, val, pub);
+        p.parent = _obj;
+        return p;
     }
 
-    Property Object::operator [] (mpr_prop prop) const
+    template <typename T>
+    Property Object::operator [] (const T prop) const
         { return property(prop); }
 
     template <class T>
@@ -1338,7 +1358,7 @@ namespace mapper {
 
     template <class T>
     template <typename... Values>
-    List<T>& List<T>::set_prop(Values... vals)
+    List<T>& List<T>::set_property(const Values... vals)
     {
         Property p(vals...);
         if (!p)
@@ -1365,10 +1385,10 @@ namespace mapper {
     signal_type::signal_type(const Signal& sig)
         { _sig = (mpr_sig)sig; }
 
-    Map& Map::add_scope(Device& dev)
+    Map& Map::add_scope(const Device& dev)
         { RETURN_SELF(mpr_map_add_scope(_obj, mpr_dev(dev))); }
 
-    Map& Map::remove_scope(Device& dev)
+    Map& Map::remove_scope(const Device& dev)
         { RETURN_SELF(mpr_map_remove_scope(_obj, mpr_dev(dev))); }
 
     Device Signal::device() const
