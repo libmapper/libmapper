@@ -405,6 +405,8 @@ mpr_prop mpr_prop_from_str(const char *string)
             end = mid - 1;
         mid = (beg + end) * 0.5;
     }
+    if (strcmp(string, "expression")==0)
+        return MPR_PROP_EXPR;
     if (strcmp(string, "maximum")==0)
         return MPR_PROP_MAX;
     if (strcmp(string, "minimum")==0)
