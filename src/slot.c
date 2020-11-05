@@ -84,6 +84,10 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
         if ((a->prop & ~0xFFFF) != mask)
             continue;
         switch (a->prop & ~mask) {
+            case MPR_PROP_LEN:
+            case MPR_PROP_TYPE:
+                // handled above
+                break;
             case MPR_PROP_NUM_INST:
                 // static prop if slot is associated with a local map
                 if (slot->map->loc)
