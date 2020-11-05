@@ -156,7 +156,7 @@ int mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len, mpr_type *type
     mpr_prop prop = mpr_prop_from_str(key);
     mpr_tbl_record rec = mpr_tbl_get(t, prop, key);
 
-    if (!rec || !rec->val || ((rec->flags & INDIRECT) && !(*rec->val)))
+    if (!rec || rec->prop & PROP_REMOVE)
         found = 0;
     if (len)
         *len = found ? rec->len : 0;
@@ -200,7 +200,7 @@ int mpr_tbl_get_prop_by_idx(mpr_tbl t, mpr_prop prop, const char **key, int *len
         }
     }
 
-    if (!rec || !rec->val || ((rec->flags & INDIRECT) && !(*rec->val)))
+    if (!rec || rec->prop & PROP_REMOVE)
         found = 0;
     if (key)
         *key = found ? (rec->key ? rec->key : mpr_prop_as_str(rec->prop, 1)) : NULL;
@@ -364,6 +364,7 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
         RETURN_UNLESS(rec->flags & MODIFIABLE, 0);
         if (prop & PROP_REMOVE)
             return mpr_tbl_remove(t, prop, key, flags);
+        rec->prop &= ~PROP_REMOVE;
         if (type != rec->type && (rec->flags & INDIRECT)) {
             void *coerced = alloca(mpr_type_get_size(rec->type) * rec->len);
             set_coerced_val(len, type, val, rec->len, rec->type, coerced);
@@ -643,7 +644,9 @@ void mpr_tbl_print_record(mpr_tbl_record rec)
         printf("'%s' ", rec->key);
     else
         printf("(%s) ", mpr_prop_as_str(rec->prop, 1));
-    if (rec->flags & (INDIRECT | PROP_OWNED)) {
+    if (rec->prop & PROP_REMOVE)
+        printf("[REMOVED]");
+    else if (rec->flags & (INDIRECT | PROP_OWNED)) {
         printf("[");
         if (rec->flags & INDIRECT)
             printf("INDIRECT%s", rec->flags & PROP_OWNED ? ", " : "");
