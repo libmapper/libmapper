@@ -56,6 +56,9 @@
 %typemap(freearg) (int num_ids, mpr_id *argv) {
     if ($2) free($2);
 }
+%typemap(typecheck) (signal_array) {
+    $1 = PyList_Check($input) || ($input && strcmp(($input)->ob_type->tp_name, "signal")==0) ? 1 : 0;
+}
 %typemap(in) (signal_array) {
     int i;
     signal *s;
@@ -687,7 +690,7 @@ static void signal_handler_py(mpr_sig sig, mpr_sig_evt e, mpr_id id, int len,
         arglist = Py_BuildValue("(OiLOO)", py_sig, e, id, Py_None, py_tt);
     }
     if (!arglist) {
-        printf("[mpr] Could not build arglist (signal_handler_py).\n");
+        printf("[mapper] Could not build arglist (signal_handler_py).\n");
         return;
     }
     PyObject **callbacks = (PyObject**)sig->obj.data;
@@ -729,13 +732,13 @@ static void graph_handler_py(mpr_graph g, mpr_obj obj, mpr_graph_evt e,
                                         SWIGTYPE_p__map, 0);
             break;
         default:
-            printf("[mpr] Unknown object type (graph_handler_py).\n");
+            printf("[mapper] Unknown object type (graph_handler_py).\n");
             return;
     }
 
     PyObject *arglist = Py_BuildValue("(iOi)", type, py_obj, e);
     if (!arglist) {
-        printf("[mpr] Could not build arglist (graph_handler_py).\n");
+        printf("[mapper] Could not build arglist (graph_handler_py).\n");
         return;
     }
     PyObject *result = PyEval_CallObject((PyObject*)data, arglist);
@@ -832,8 +835,7 @@ static mpr_sig add_signal_internal(mpr_dev dev, mpr_dir dir, const char *name,
     return sig;
 }
 
-static void set_obj_prop(mpr_obj o, mpr_prop p, const char *s, propval v,
-                         booltype pub) {
+static void set_obj_prop(mpr_obj o, mpr_prop p, const char *s, propval v, booltype pub) {
     if (MPR_PROP_DATA == p || (s && !strcmp(s, "data")))
         return;
     if (v)
@@ -848,7 +850,7 @@ static propval get_obj_prop_by_key(mpr_obj obj, const char *key) {
     mpr_type type;
     const void *val;
     prop = mpr_obj_get_prop_by_key(obj, key, &len, &type, &val, &pub);
-    if (MPR_PROP_UNKNOWN == prop)
+    if (MPR_PROP_UNKNOWN == prop || !val)
         return 0;
     if (MPR_PROP_DATA == prop) {
         // don't include user data
