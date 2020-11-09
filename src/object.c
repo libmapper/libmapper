@@ -46,8 +46,7 @@ mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, mpr_prop p, const char **k, int *l,
                                  mpr_type *t, const void **v, int *pub)
 {
     RETURN_UNLESS(o, 0);
-    return mpr_tbl_get_prop_by_idx(o->props.synced, p | o->props.mask, k, l, t,
-                                   v, pub);
+    return mpr_tbl_get_prop_by_idx(o->props.synced, p | o->props.mask, k, l, t, v, pub);
 }
 
 int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
@@ -146,8 +145,7 @@ int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
     if (MPR_PROP_DATA == p || local)
         return mpr_tbl_remove(o->props.synced, p, s, LOCAL_MODIFY);
     else if (MPR_PROP_EXTRA == p)
-        return mpr_tbl_set(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0,
-                           REMOTE_MODIFY);
+        return mpr_tbl_set(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, REMOTE_MODIFY);
     return 0;
 }
 

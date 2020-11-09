@@ -38,9 +38,10 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     // For now we only allow adding signals to devices.
     RETURN_UNLESS(dev && dev->loc, 0);
     RETURN_UNLESS(name && !check_sig_length(len) && mpr_type_get_is_num(type), 0);
-    TRACE_RETURN_UNLESS(name[strlen(name)-1] != '/', 0, "trailing slash detected in signal name.\n");
-    TRACE_RETURN_UNLESS(dir == MPR_DIR_IN || dir == MPR_DIR_OUT, 0, "signal "
-                        "direction must be either input or output.\n")
+    TRACE_RETURN_UNLESS(name[strlen(name)-1] != '/', 0,
+                        "trailing slash detected in signal name.\n");
+    TRACE_RETURN_UNLESS(dir == MPR_DIR_IN || dir == MPR_DIR_OUT, 0,
+                        "signal direction must be either input or output.\n")
     mpr_graph g = dev->obj.graph;
     mpr_sig s;
     if ((s = mpr_dev_get_sig_by_name(dev, name)))
@@ -66,8 +67,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     mpr_dev_add_sig_methods(dev, s);
     if (dev->loc->registered) {
         // Notify subscribers
-        mpr_net_use_subscribers(&g->net, dev,
-                                ((dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT));
+        mpr_net_use_subscribers(&g->net, dev, ((dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT));
         mpr_sig_send_state(s, MSG_SIG);
     }
     return s;
@@ -164,8 +164,7 @@ case TYPE: {                                                        \
     if (max)
         mpr_tbl_set(t, PROP(MAX), NULL, len, type, max, LOCAL_MODIFY);
 
-    mpr_tbl_set(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &s->loc,
-                LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+    mpr_tbl_set(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &s->loc, LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
 }
 
 void mpr_sig_free(mpr_sig sig)
@@ -243,8 +242,7 @@ void mpr_sig_call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
 {
     // abort if signal is already being processed - might be a local loop
     if (sig->loc->locked) {
-        trace_dev(sig->dev, "Mapping loop detected on signal %s! (2)\n",
-                  sig->name);
+        trace_dev(sig->dev, "Mapping loop detected on signal %s! (2)\n", sig->name);
         return;
     }
     // non-instanced signals cannot have a null value
@@ -386,16 +384,14 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
         i = _oldest_inst(s);
         if (i < 0)
             return -1;
-        int evt = (  MPR_SIG_REL_UPSTRM & s->loc->event_flags
-                   ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
+        int evt = (MPR_SIG_REL_UPSTRM & s->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
         h(s, evt, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
     }
     else if (s->steal_mode == MPR_STEAL_NEWEST) {
         i = _newest_inst(s);
         if (i < 0)
             return -1;
-        int evt = (  MPR_SIG_REL_UPSTRM & s->loc->event_flags
-                   ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
+        int evt = (MPR_SIG_REL_UPSTRM & s->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
         h(s, evt, s->loc->idmaps[i].map->LID, 0, s->type, 0, t);
     }
     else
@@ -630,8 +626,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     }
     if (!mpr_type_get_is_num(type)) {
 #ifdef DEBUG
-        trace("called update on signal '%s' with non-number type '%c'\n",
-              sig->name, type);
+        trace("called update on signal '%s' with non-number type '%c'\n", sig->name, type);
 #endif
         return;
     }
@@ -913,8 +908,7 @@ static int _add_idmap(mpr_sig s, mpr_sig_inst si, mpr_id_map map)
         s->loc->idmap_len = s->loc->idmap_len ? s->loc->idmap_len * 2 : 1;
         s->loc->idmaps = realloc(s->loc->idmaps, (s->loc->idmap_len *
                                                   sizeof(struct _mpr_sig_idmap)));
-        memset(s->loc->idmaps + i, 0, ((s->loc->idmap_len - i)
-                                       * sizeof(struct _mpr_sig_idmap)));
+        memset(s->loc->idmaps + i, 0, ((s->loc->idmap_len - i) * sizeof(struct _mpr_sig_idmap)));
     }
     s->loc->idmaps[i].map = map;
     s->loc->idmaps[i].inst = si;
@@ -932,8 +926,7 @@ void mpr_sig_send_state(mpr_sig s, net_msg_t cmd)
         lo_message_add_string(msg, s->name);
 
         /* properties */
-        mpr_tbl_add_to_msg(s->loc ? s->obj.props.synced : 0,
-                           s->obj.props.staged, msg);
+        mpr_tbl_add_to_msg(s->loc ? s->obj.props.synced : 0, s->obj.props.staged, msg);
 
         snprintf(str, 1024, "/%s/signal/modify", s->dev->name);
         mpr_net_add_msg(&s->obj.graph->net, str, 0, msg);
@@ -945,8 +938,7 @@ void mpr_sig_send_state(mpr_sig s, net_msg_t cmd)
         lo_message_add_string(msg, str);
 
         /* properties */
-        mpr_tbl_add_to_msg(s->loc ? s->obj.props.synced : 0,
-                           s->obj.props.staged, msg);
+        mpr_tbl_add_to_msg(s->loc ? s->obj.props.synced : 0, s->obj.props.staged, msg);
 
         mpr_net_add_msg(&s->obj.graph->net, 0, cmd, msg);
     }
@@ -981,8 +973,7 @@ int mpr_sig_set_from_msg(mpr_sig s, mpr_msg msg)
                     dir = MPR_DIR_IN;
                 else
                     break;
-                updated += mpr_tbl_set(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir,
-                                       REMOTE_MODIFY);
+                updated += mpr_tbl_set(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir, REMOTE_MODIFY);
                 break;
             }
             case PROP(ID):
