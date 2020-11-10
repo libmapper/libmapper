@@ -710,8 +710,7 @@ typedef struct _signal_array {
 } signal_array_t, *signal_array;
 
 /* Wrapper for callback back to python when a graph handler is called. */
-static void graph_handler_py(mpr_graph g, mpr_obj obj, mpr_graph_evt e,
-                             const void *data)
+static void graph_handler_py(mpr_graph g, mpr_obj obj, mpr_graph_evt e, const void *data)
 {
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
@@ -720,16 +719,13 @@ static void graph_handler_py(mpr_graph g, mpr_obj obj, mpr_graph_evt e,
     mpr_type type = mpr_obj_get_type(obj);
     switch (type) {
         case MPR_DEV:
-            py_obj = SWIG_NewPointerObj(SWIG_as_voidptr(obj),
-                                        SWIGTYPE_p__device, 0);
+            py_obj = SWIG_NewPointerObj(SWIG_as_voidptr(obj), SWIGTYPE_p__device, 0);
             break;
         case MPR_SIG:
-            py_obj = SWIG_NewPointerObj(SWIG_as_voidptr(obj),
-                                        SWIGTYPE_p__signal, 0);
+            py_obj = SWIG_NewPointerObj(SWIG_as_voidptr(obj), SWIGTYPE_p__signal, 0);
             break;
         case MPR_MAP:
-            py_obj = SWIG_NewPointerObj(SWIG_as_voidptr(obj),
-                                        SWIGTYPE_p__map, 0);
+            py_obj = SWIG_NewPointerObj(SWIG_as_voidptr(obj), SWIGTYPE_p__map, 0);
             break;
         default:
             printf("[mapper] Unknown object type (graph_handler_py).\n");

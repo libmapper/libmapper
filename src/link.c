@@ -22,11 +22,9 @@ void mpr_link_init(mpr_link link)
     link->obj.props.mask = 0;
     if (!link->obj.props.synced) {
         mpr_tbl t = link->obj.props.synced = mpr_tbl_new();
-        mpr_tbl_link(t, MPR_PROP_DEV, 2, MPR_DEV, &link->devs,
-                     NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
+        mpr_tbl_link(t, MPR_PROP_DEV, 2, MPR_DEV, &link->devs, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
         mpr_tbl_link(t, MPR_PROP_ID, 1, MPR_INT64, &link->obj.id, NON_MODIFIABLE);
-        mpr_tbl_link(t, MPR_PROP_NUM_MAPS, 2, MPR_INT32, &link->num_maps,
-                     NON_MODIFIABLE | INDIRECT);
+        mpr_tbl_link(t, MPR_PROP_NUM_MAPS, 2, MPR_INT32, &link->num_maps, NON_MODIFIABLE | INDIRECT);
     }
     if (!link->obj.props.staged)
         link->obj.props.staged = mpr_tbl_new();
@@ -145,8 +143,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
             mpr_rtr_sig rs = link->obj.graph->net.rtr->sigs;
             while (rs) {
                 if (0 == strcmp(path, rs->sig->path)) {
-                    mpr_dev_handler(NULL, lo_message_get_types(m),
-                                    lo_message_get_argv(m),
+                    mpr_dev_handler(NULL, lo_message_get_types(m), lo_message_get_argv(m),
                                     lo_message_get_argc(m), m, (void*)rs->sig);
                     break;
                 }

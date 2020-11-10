@@ -337,8 +337,7 @@ static mpr_id _get_unused_map_id(mpr_dev dev, mpr_rtr rtr)
     return id;
 }
 
-static void _add_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src,
-                            int *max_inst, int *use_inst)
+static void _add_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src, int *max_inst, int *use_inst)
 {
     slot->dir = (is_src ^ (slot->sig->loc ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT;
     slot->loc = (mpr_local_slot)calloc(1, sizeof(struct _mpr_local_slot));

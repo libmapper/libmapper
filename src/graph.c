@@ -101,8 +101,8 @@ static void _autosubscribe(mpr_graph g, int flags)
         mpr_time_set(&t, MPR_NOW);
         mpr_subscription s = g->subscriptions;
         while (s) {
-            trace_graph("adjusting flags for existing autorenewing subscription "
-                        "to %s.\n", mpr_dev_get_name(s->dev));
+            trace_graph("adjusting flags for existing autorenewing subscription to %s.\n",
+                        mpr_dev_get_name(s->dev));
             if (flags & ~s->flags) {
                 send_subscribe_msg(g, s->dev, flags, AUTOSUB_INTERVAL);
                 // leave 10-second buffer for subscription renewal
@@ -262,8 +262,7 @@ mpr_list mpr_graph_get_objs(mpr_graph g, int types)
     return 0;
 }
 
-int mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types,
-                     const void *user)
+int mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types, const void *user)
 {
     fptr_list cb = g->callbacks;
     while (cb) {
@@ -281,6 +280,17 @@ int mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types,
     cb->next = g->callbacks;
     g->callbacks = cb;
     return 1;
+}
+
+void mpr_graph_call_cbs(mpr_graph g, mpr_obj o, mpr_type t, mpr_graph_evt e)
+{
+    fptr_list cb = g->callbacks, temp;
+    while (cb) {
+        temp = cb->next;
+        if (cb->types & t)
+            ((mpr_graph_handler*)cb->f)(g, o, e, cb->ctx);
+        cb = temp;
+    }
 }
 
 int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
@@ -343,17 +353,8 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
             trace_graph("updated %d props for device '%s'.\n", updated, name);
         mpr_time_set(&dev->synced, MPR_NOW);
 
-        if (rc || updated) {
-            fptr_list cb = g->callbacks, temp;
-            while (cb) {
-                temp = cb->next;
-                if (cb->types & MPR_DEV)
-                    ((mpr_graph_handler*)cb->f)(g, (mpr_obj)dev,
-                                                rc ? MPR_OBJ_NEW : MPR_OBJ_MOD,
-                                                cb->ctx);
-                cb = temp;
-            }
-        }
+        if (rc || updated)
+            mpr_graph_call_cbs(g, (mpr_obj)dev, MPR_DEV, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
     }
     return dev;
 }
@@ -376,15 +377,8 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
 
     mpr_list_remove_item((void**)&g->devs, d);
 
-    if (!quiet) {
-        fptr_list cb = g->callbacks, temp;
-        while (cb) {
-            temp = cb->next;
-            if (cb->types & MPR_DEV)
-                ((mpr_graph_handler*)cb->f)(g, (mpr_obj)d, e, cb->ctx);
-            cb = temp;
-        }
-    }
+    if (!quiet)
+        mpr_graph_call_cbs(g, (mpr_obj)d, MPR_DEV, e);
 
     FUNC_IF(mpr_tbl_free, d->obj.props.synced);
     FUNC_IF(mpr_tbl_free, d->obj.props.staged);
@@ -424,11 +418,10 @@ static void _check_dev_status(mpr_graph g, uint32_t time_sec)
 
 /**** Signals ****/
 
-mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name,
-                          mpr_msg msg)
+mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, mpr_msg msg)
 {
     mpr_sig sig = 0;
-    int sig_rc = 0, updated = 0;
+    int rc = 0, updated = 0;
 
     mpr_dev dev = mpr_graph_get_dev_by_name(g, dev_name);
     if (dev) {
@@ -448,26 +441,16 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name,
         sig->obj.graph = g;
 
         mpr_sig_init(sig, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, 0);
-        sig_rc = 1;
+        rc = 1;
     }
 
     if (sig) {
         updated = mpr_sig_set_from_msg(sig, msg);
-        if (!sig_rc)
-            trace_graph("updated %d props for signal '%s:%s'.\n", updated,
-                        dev_name, name);
+        if (!rc)
+            trace_graph("updated %d props for signal '%s:%s'.\n", updated, dev_name, name);
 
-        if (sig_rc || updated) {
-            fptr_list cb = g->callbacks, temp;
-            while (cb) {
-                temp = cb->next;
-                if (cb->types & MPR_SIG)
-                    ((mpr_graph_handler*)cb->f)(g, (mpr_obj)sig,
-                                                sig_rc ? MPR_OBJ_NEW : MPR_OBJ_MOD,
-                                                cb->ctx);
-                cb = temp;
-            }
-        }
+        if (rc || updated)
+            mpr_graph_call_cbs(g, (mpr_obj)sig, MPR_SIG, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
     }
     return sig;
 }
@@ -480,14 +463,7 @@ void mpr_graph_remove_sig(mpr_graph g, mpr_sig s, mpr_graph_evt e)
     _remove_by_qry(g, mpr_sig_get_maps(s, MPR_DIR_ANY), e);
 
     mpr_list_remove_item((void**)&g->sigs, s);
-
-    fptr_list cb = g->callbacks, temp;
-    while (cb) {
-        temp = cb->next;
-        if (cb->types & MPR_SIG)
-            ((mpr_graph_handler*)cb->f)(g, (mpr_obj)s, e, cb->ctx);
-        cb = temp;
-    }
+    mpr_graph_call_cbs(g, (mpr_obj)s, MPR_SIG, e);
 
     if (s->dir & MPR_DIR_IN)
         --s->dev->num_inputs;
@@ -535,8 +511,7 @@ void mpr_graph_remove_link(mpr_graph g, mpr_link l, mpr_graph_evt e)
 
 static int _compare_slot_names(const void *l, const void *r)
 {
-    int result = strcmp((*(mpr_slot*)l)->sig->dev->name,
-                        (*(mpr_slot*)r)->sig->dev->name);
+    int result = strcmp((*(mpr_slot*)l)->sig->dev->name, (*(mpr_slot*)r)->sig->dev->name);
     if (0 == result)
         return strcmp((*(mpr_slot*)l)->sig->name, (*(mpr_slot*)r)->sig->name);
     return result;
@@ -555,8 +530,7 @@ static mpr_sig add_sig_from_whole_name(mpr_graph g, const char* name)
     return mpr_graph_add_sig(g, signame, devname, 0);
 }
 
-mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs,
-                                   const char *dst)
+mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs, const char *dst)
 {
     mpr_map map = 0;
     mpr_list maps = mpr_list_from_data(g->maps);
@@ -722,26 +696,14 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
         if (!rc) {
             trace_graph("updated %d props for map [", updated);
             for (i = 0; i < map->num_src; i++) {
-                printf("%s:%s, ", map->src[i]->sig->dev->name,
-                       map->src[i]->sig->name);
+                printf("%s:%s, ", map->src[i]->sig->dev->name, map->src[i]->sig->name);
             }
-            printf("\b\b] -> [%s:%s]\n", map->dst->sig->dev->name,
-                   map->dst->sig->name);
+            printf("\b\b] -> [%s:%s]\n", map->dst->sig->dev->name, map->dst->sig->name);
         }
 #endif
-
         RETURN_UNLESS(map->status >= MPR_STATUS_ACTIVE, map);
-        if (rc || updated) {
-            fptr_list cb = g->callbacks, temp;
-            while (cb) {
-                temp = cb->next;
-                if (cb->types & MPR_MAP)
-                    ((mpr_graph_handler*)cb->f)(g, (mpr_obj)map,
-                                                rc ? MPR_OBJ_NEW : MPR_OBJ_MOD,
-                                                cb->ctx);
-                cb = temp;
-            }
-        }
+        if (rc || updated)
+            mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
     }
     return map;
 }
@@ -750,15 +712,7 @@ void mpr_graph_remove_map(mpr_graph g, mpr_map m, mpr_graph_evt e)
 {
     RETURN_UNLESS(m);
     mpr_list_remove_item((void**)&g->maps, m);
-
-    fptr_list cb = g->callbacks, temp;
-    while (cb) {
-        temp = cb->next;
-        if (cb->types & MPR_MAP)
-            ((mpr_graph_handler*)cb->f)(g, (mpr_obj)m, e, cb->ctx);
-        cb = temp;
-    }
-
+    mpr_graph_call_cbs(g, (mpr_obj)m, MPR_MAP, e);
     mpr_map_free(m);
     mpr_list_free_item(m);
 }
@@ -817,8 +771,8 @@ static void renew_subscriptions(mpr_graph g, uint32_t time_sec)
     mpr_subscription s = g->subscriptions;
     while (s) {
         if (s->lease_expiration_sec <= time_sec) {
-            trace_graph("Automatically renewing subscription to %s for %d "
-                        "secs.\n", mpr_dev_get_name(s->dev), AUTOSUB_INTERVAL);
+            trace_graph("Automatically renewing subscription to %s for %d secs.\n",
+                        mpr_dev_get_name(s->dev), AUTOSUB_INTERVAL);
             send_subscribe_msg(g, s->dev, s->flags, AUTOSUB_INTERVAL);
             // leave 10-second buffer for subscription renewal
             s->lease_expiration_sec = (time_sec + AUTOSUB_INTERVAL - 10);
@@ -910,8 +864,8 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
     }
     else if (-1 == timeout) {
 #ifdef DEBUG
-        trace_graph("adding %d-second autorenewing subscription to device '%s' "
-                    "with flags ", AUTOSUB_INTERVAL, mpr_dev_get_name(d));
+        trace_graph("adding %d-second autorenewing subscription to device '%s' with flags ",
+                    AUTOSUB_INTERVAL, mpr_dev_get_name(d));
         print_subscription_flags(flags);
 #endif
         // special case: autorenew subscription lease
@@ -943,8 +897,8 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
     }
 #ifdef DEBUG
     else {
-        trace_graph("adding temporary %d-second subscription to device '%s' "
-                    "with flags ", timeout, mpr_dev_get_name(d));
+        trace_graph("adding temporary %d-second subscription to device '%s' with flags ",
+                    timeout, mpr_dev_get_name(d));
         print_subscription_flags(flags);
     }
 #endif

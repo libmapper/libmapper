@@ -42,6 +42,7 @@ void mpr_slot_free(mpr_slot slot)
 {
     FUNC_IF(mpr_tbl_free, slot->obj.props.synced);
     FUNC_IF(mpr_tbl_free, slot->obj.props.staged);
+    free(slot);
 }
 
 void mpr_slot_free_value(mpr_slot slot)

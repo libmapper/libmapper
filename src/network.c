@@ -1004,8 +1004,7 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **av,
 #endif
 
     lo_address addr  = lo_message_get_source(msg);
-    TRACE_DEV_RETURN_UNLESS(addr && ac, 0, "error retrieving subscription "
-                            "source address.\n");
+    TRACE_DEV_RETURN_UNLESS(addr && ac, 0, "error retrieving subscription source address.\n");
 
     int i, flags = 0, timeout_seconds = 0;
     for (i = 0; i < ac; i++) {
@@ -1532,7 +1531,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
     return 0;
 }
 
-/*! Respond to /mapped by storing mapping in graph. Also used by devices to
+/*! Respond to /mapped by storing a map in the graph. Also used by devices to
  *  confirm connection to remote peers, and to share property changes. */
 static int handler_mapped(const char *path, const char *types, lo_arg **av,
                           int ac, lo_message msg, void *user)
@@ -1540,7 +1539,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     mpr_net net = (mpr_net)user;
     mpr_graph graph = net->graph;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    int i;
+    int i, rc = 0;
 
 #ifdef DEBUG
     if (dev)
@@ -1565,8 +1564,10 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
                 ++i;
             }
         }
-        if (store)
+        if (store) {
             map = find_map(net, types, ac, av, 0, 0, 1);
+            rc = 1;
+        }
         RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
     }
     else if (map->loc && map->loc->is_local_only) {
@@ -1576,13 +1577,13 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     mpr_msg props = mpr_msg_parse_props(ac, types, av);
 
     // TODO: if this endpoint is map admin, do not allow overwriting props
-    int rc = 0, updated = mpr_map_set_from_msg(map, props, 0);
+    int updated = mpr_map_set_from_msg(map, props, 0);
     mpr_msg_free(props);
 #ifdef DEBUG
     if (dev)
-        { trace_dev(dev, "updated %d map properties.\n", updated); }
+        { trace_dev(dev, "updated %d map properties. (1)\n", updated); }
     else
-        { trace_graph("updated %d map properties.\n", updated); }
+        { trace_graph("updated %d map properties. (2)\n", updated); }
 #endif
     if (dev) {
         RETURN_UNLESS(map->status >= MPR_STATUS_READY, 0);
@@ -1630,15 +1631,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             mpr_net_use_subscribers(net, dev, dir);
             mpr_map_send_state(map, -1, MSG_MAPPED);
         }
-        fptr_list cb = graph->callbacks, temp;
-        while (cb) {
-            temp = cb->next;
-            if (cb->types & MPR_MAP) {
-                mpr_graph_handler *h = cb->f;
-                h(graph, (mpr_obj)map, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD, cb->ctx);
-            }
-            cb = temp;
-        }
+        mpr_graph_call_cbs(graph, (mpr_obj)map, MPR_MAP, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
     }
     mpr_tbl_clear_empty(map->obj.props.synced);
     return 0;
@@ -1715,7 +1708,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
             mpr_map_send_state(map, -1, MSG_MAPPED);
         }
     }
-    trace_dev(dev, "updated %d map properties.\n", updated);
+    trace_dev(dev, "updated %d map properties. (3)\n", updated);
 
 done:
     mpr_msg_free(props);

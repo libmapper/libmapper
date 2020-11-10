@@ -213,16 +213,12 @@ void mpr_map_free(mpr_map m)
 {
     int i;
     if (m->src) {
-        for (i = 0; i < m->num_src; i++) {
+        for (i = 0; i < m->num_src; i++)
             mpr_slot_free(m->src[i]);
-            free(m->src[i]);
-        }
         free(m->src);
     }
-    if (m->dst) {
+    if (m->dst)
         mpr_slot_free(m->dst);
-        free(m->dst);
-    }
     if (m->num_scopes && m->scopes)
         free(m->scopes);
     FUNC_IF(mpr_tbl_free, m->obj.props.synced);
