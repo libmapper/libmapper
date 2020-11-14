@@ -36,6 +36,9 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 #define BUNDLE_DST_BUS          0
 
 #define MAX_BUNDLE_COUNT 10
+#define FIND 0
+#define UPDATE 1
+#define ADD 2
 
 #if FORCE_COMMS_TO_BUS
     #define NET_SERVER_FUNC(NET, FUNC, ...)                     \
@@ -1336,9 +1339,15 @@ static int parse_sig_names(const char *types, lo_arg **av, int ac, int *src_idx,
 #define MPR_MAP_ERROR (mpr_map)-1
 
 static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
-                        mpr_loc loc, mpr_sig *sig_ptr, int add)
+                        mpr_loc loc, mpr_sig *sig_ptr, int flags)
 {
-    int i;
+    mpr_dev dev = net->devs ? net->devs[0] : 0;
+    RETURN_UNLESS(dev || !loc, MPR_MAP_ERROR);
+    mpr_sig sig = 0;
+    int i, is_loc = 0, src_idx, dst_idx, prop_idx;
+    int num_src = parse_sig_names(types, av, ac, &src_idx, &dst_idx, &prop_idx);
+    RETURN_UNLESS(num_src, MPR_MAP_ERROR);
+    RETURN_UNLESS(is_alphabetical(num_src, &av[src_idx]), MPR_MAP_ERROR);
 
     // first check for an 'id' property
     for (i = 3; i < ac; i++) {
@@ -1351,58 +1360,62 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
         mpr_obj obj = mpr_graph_get_obj(net->graph, MPR_MAP, av[i]->i64);
         trace_graph("%s map with id %"PR_MPR_ID"\n", obj ? "found" : "couldn't find", av[i]->i64);
         if (obj) {
-            int is_loc = mpr_obj_get_prop_as_int32(obj, MPR_PROP_IS_LOCAL, NULL);
-            return loc && !is_loc ? MPR_MAP_ERROR : (mpr_map)obj;
+            is_loc = mpr_obj_get_prop_as_int32(obj, MPR_PROP_IS_LOCAL, NULL);
+            RETURN_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
+            if (((mpr_map)obj)->num_src < num_src && (flags & UPDATE)) {
+                trace_graph("adding %d additional sources to map.\n", num_src);
+                // add additional sources
+                const char *src_names[num_src];
+                for (i = 0; i < num_src; i++)
+                    src_names[i] = &av[src_idx+i]->s;
+                return mpr_graph_add_map(net->graph, num_src, src_names, &av[dst_idx]->s, 0);
+            }
+            return (mpr_map)obj;
         }
+        else if (!flags)
+            return 0;
     }
 
     // try signal names instead
-    mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev || !loc, MPR_MAP_ERROR);
-    mpr_sig sig = 0;
-    int num_src, src_idx, dst_idx, prop_idx;
-    const char *sig_name;
-    num_src = parse_sig_names(types, av, ac, &src_idx, &dst_idx, &prop_idx);
-    RETURN_UNLESS(num_src, MPR_MAP_ERROR);
-    RETURN_UNLESS(is_alphabetical(num_src, &av[src_idx]), MPR_MAP_ERROR);
 
-#ifdef DEBUG
-    trace_graph("looking for map with signals: ");
-    if (src_idx)
-        printf(" %s <-", &av[dst_idx]->s);
-    for (i = 0; i < num_src; i++)
-        printf(" %s", &av[src_idx+i]->s);
-    if (!src_idx)
-        printf(" -> %s", &av[dst_idx]->s);
-    printf("\n");
-#endif
-
-    const char *src_names[num_src];
+    const char *sig_name, *src_names[num_src], *dst_name = &av[dst_idx]->s;
     for (i = 0; i < num_src; i++)
         src_names[i] = &av[src_idx+i]->s;
-    const char *dst_name = &av[dst_idx]->s;
 
     if (MPR_LOC_DST & loc) {
         // check if we are the destination
-        if (   prefix_cmp(&av[dst_idx]->s, mpr_dev_get_name(dev), &sig_name)
-            || !(sig = mpr_dev_get_sig_by_name(dev, sig_name)))
+        if (   !prefix_cmp(&av[dst_idx]->s, mpr_dev_get_name(dev), &sig_name)
+            && (sig = mpr_dev_get_sig_by_name(dev, sig_name)))
+            is_loc = 1;
+        else
             RETURN_UNLESS(MPR_LOC_DST != loc, MPR_MAP_ERROR);
     }
     if (!sig && MPR_LOC_SRC & loc) {
         // check if we are a source – all sources must match!
         for (i = 0; i < num_src; i++) {
-            if (prefix_cmp(src_names[i], mpr_dev_get_name(dev), &sig_name)
-                || !(sig = mpr_dev_get_sig_by_name(dev, sig_name)))
+            if (   !prefix_cmp(src_names[i], mpr_dev_get_name(dev), &sig_name)
+                && (sig = mpr_dev_get_sig_by_name(dev, sig_name)))
+                is_loc = 1;
+            else
                 RETURN_UNLESS(MPR_LOC_SRC != loc, MPR_MAP_ERROR);
         }
     }
+    RETURN_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
     mpr_map map = mpr_graph_get_map_by_names(net->graph, num_src, src_names, dst_name);
-    if (!map && add) {
+#ifdef DEBUG
+    trace_graph("%s map with src name%s", map ? "found" : "cound't find",
+                num_src > 1 ? "s: [" : ": ");
+    for (i = 0; i < num_src; i++)
+        printf("'%s', ", &av[src_idx+i]->s);
+    printf("%s and dst name '%s'\n", num_src > 1 ? "]" : "", &av[dst_idx]->s);
+#endif
+    if (!map && (flags & ADD)) {
         // safety check: make sure we don't have an outgoing map to src (loop)
         if (sig && mpr_rtr_loop_check(net->rtr, sig, num_src, src_names)) {
             trace_dev(dev, "error in /map: potential loop detected.")
             return MPR_MAP_ERROR;
         }
+        trace_graph("adding map\n");
         map = mpr_graph_add_map(net->graph, num_src, src_names, &av[dst_idx]->s, 0);
     }
     if (sig_ptr)
@@ -1427,8 +1440,8 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
     mpr_sig sig = 0;
     int i;
 
-    mpr_map map = find_map(net, types, ac, av, MPR_LOC_DST, &sig, 1);
-    RETURN_UNLESS(map && map != MPR_MAP_ERROR, 0);
+    mpr_map map = find_map(net, types, ac, av, MPR_LOC_DST, &sig, ADD | UPDATE);
+    RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
     if (map->status >= MPR_STATUS_ACTIVE) {
         /* Forward to handler_map_mod() and stop. */
         handler_map_mod(path, types, av, ac, msg, user);
@@ -1497,7 +1510,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
     lo_message_pp(msg);
 #endif
 
-    mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, 1);
+    mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, ADD | UPDATE);
     RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
     mpr_rtr_add_map(net->rtr, map);
 
@@ -1549,7 +1562,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     lo_message_pp(msg);
 #endif
 
-    mpr_map map = find_map(net, types, ac, av, 0, 0, 0);
+    mpr_map map = find_map(net, types, ac, av, 0, 0, UPDATE);
     RETURN_UNLESS(MPR_MAP_ERROR != map, 0);
     if (!map) {
         int store = 0, i = 0;
@@ -1565,7 +1578,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             }
         }
         if (store) {
-            map = find_map(net, types, ac, av, 0, 0, 1);
+            map = find_map(net, types, ac, av, 0, 0, ADD);
             rc = 1;
         }
         RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
@@ -1645,16 +1658,16 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
     RETURN_UNLESS(dev, 0);
-    mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, 0);
+#ifdef DEBUG
+    trace_dev(dev, "received /map/modify ");
+    lo_message_pp(msg);
+#endif
+    mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, FIND);
     RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
     RETURN_UNLESS(map->loc && map->status >= MPR_STATUS_ACTIVE, 0);
 
     mpr_msg props = mpr_msg_parse_props(ac, types, av);
     TRACE_DEV_RETURN_UNLESS(props, 0, "ignoring /map/modify, no properties.\n");
-#ifdef DEBUG
-    trace_dev(dev, "received /map/modify ");
-    lo_message_pp(msg);
-#endif
     mpr_msg_atom a = mpr_msg_get_prop(props, MPR_PROP_PROCESS_LOC);
     mpr_loc loc = MPR_LOC_UNDEFINED;
     if (a) {
@@ -1723,27 +1736,27 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
     RETURN_UNLESS(dev, 0);
-    mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, 0);
-    int i;
-
 #ifdef DEBUG
-    trace_dev(dev, "%s /unmap", map && MPR_MAP_ERROR != map ? "got" : "ignoring");
+    trace_dev(dev, "received /unmap");
     lo_message_pp(msg);
 #endif
-    RETURN_UNLESS(map, 0);
+    mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, FIND);
+    RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
+    int i;
 
     // inform remote peer(s)
     if (!map->dst->loc || !map->dst->loc->rsig) {
-        if (!map->dst->link) {
+        if (map->dst->link && map->dst->link->addr.admin) {
             mpr_net_use_mesh(net, map->dst->link->addr.admin);
             mpr_map_send_state(map, -1, MSG_UNMAP);
         }
     }
     else {
         for (i = 0; i < map->num_src; i++) {
-            if (map->src[i]->loc->rsig)
+            mpr_slot src = map->src[i];
+            if (src->loc->rsig || !src->link || !src->link->addr.admin)
                 continue;
-            mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
+            mpr_net_use_mesh(net, src->link->addr.admin);
             i = mpr_map_send_state(map, i, MSG_UNMAP);
         }
     }
@@ -1782,13 +1795,17 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **av,
                             int ac, lo_message msg, void *user)
 {
     mpr_net net = (mpr_net)user;
-    mpr_map map = find_map(net, types, ac, av, 0, 0, 0);
 #ifdef DEBUG
-    trace_net("%s /unmapped", map ? "got" : "ignoring");
+    mpr_dev dev = net->devs ? net->devs[0] : 0;
+    if (dev)
+        { trace_dev(dev, "received /unmapped"); }
+    else
+        { trace_graph("received /unmapped"); }
     lo_message_pp(msg);
 #endif
-    if (map)
-        mpr_graph_remove_map(net->graph, map, MPR_OBJ_REM);
+    mpr_map map = find_map(net, types, ac, av, 0, 0, FIND);
+    RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
+    mpr_graph_remove_map(net->graph, map, MPR_OBJ_REM);
     return 0;
 }
 
