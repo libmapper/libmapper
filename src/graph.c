@@ -556,8 +556,8 @@ mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs, 
     return map;
 }
 
-mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
-                          const char *dst_name, mpr_msg msg)
+mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_names,
+                          const char *dst_name)
 {
     if (num_src > MAX_NUM_MAP_SRC) {
         trace_graph("error: maximum mapping sources exceeded.\n");
@@ -569,14 +569,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
 
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
-    uint64_t id = 0;
-    if (msg) {
-        mpr_msg_atom atom = mpr_msg_get_prop(msg, MPR_PROP_ID);
-        if (!atom || atom->types[0] != MPR_INT64) {
-            trace_graph("no 'id' prop found in map metadata, aborting.\n");
-            return 0;
-        }
-        id = atom->vals[0]->i64;
+    if (id) {
         map = (mpr_map)_obj_by_id(g, (mpr_obj)g->maps, id);
         if (!map && _obj_by_id(g, (mpr_obj)g->maps, 0)) {
             // may have staged map stored locally
@@ -691,7 +684,6 @@ mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
     }
 
     if (map) {
-        updated += mpr_map_set_from_msg(map, msg, 0);
 #ifdef DEBUG
         if (!rc) {
             trace_graph("updated %d props for map [", updated);

@@ -44,7 +44,7 @@ int main(int argc, char **argv)
     }
 
     lo_message lom;
-    mpr_msg msg;
+    mpr_msg props;
     uint64_t id = 1;
     mpr_graph graph = mpr_graph_new(0);
 
@@ -68,17 +68,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@num_outputs");
     lo_message_add_int32(lom, 2);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_dev(graph, "testgraph.1", msg);
+    mpr_graph_add_dev(graph, "testgraph.1", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -95,17 +95,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@num_outputs");
     lo_message_add_int32(lom, 1);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_dev(graph, "testgraph__.2", msg);
+    mpr_graph_add_dev(graph, "testgraph__.2", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -118,17 +118,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@host");
     lo_message_add_string(lom, "192.168.0.100");
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_dev(graph, "testgraph.3", msg);
+    mpr_graph_add_dev(graph, "testgraph.3", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -141,17 +141,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@host");
     lo_message_add_string(lom, "192.168.0.100");
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_dev(graph, "testgraph__.4", msg);
+    mpr_graph_add_dev(graph, "testgraph__.4", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -166,17 +166,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_sig(graph, "in1", "testgraph.1", msg);
+    mpr_graph_add_sig(graph, "in1", "testgraph.1", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -193,17 +193,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_sig(graph, "in2", "testgraph.1", msg);
+    mpr_graph_add_sig(graph, "in2", "testgraph.1", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -220,17 +220,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_sig(graph, "out1", "testgraph.1", msg);
+    mpr_graph_add_sig(graph, "out1", "testgraph.1", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -247,17 +247,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_sig(graph, "out2", "testgraph.1", msg);
+    mpr_graph_add_sig(graph, "out2", "testgraph.1", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -274,17 +274,17 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
-    mpr_graph_add_sig(graph, "out1", "testgraph__.2", msg);
+    mpr_graph_add_sig(graph, "out1", "testgraph__.2", props);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -301,18 +301,19 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@scope");
     lo_message_add_string(lom, "testgraph__.2");
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
     const char *src_sig_name = "testgraph.1/out2";
-    mpr_graph_add_map(graph, 1, &src_sig_name, "testgraph__.2/in1", msg);
+    mpr_map map = mpr_graph_add_map(graph, id, 1, &src_sig_name, "testgraph__.2/in1");
+    mpr_map_set_from_msg(map, props, 0);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -327,18 +328,19 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
     src_sig_name = "testgraph__.2/out1";
-    mpr_graph_add_map(graph, 1, &src_sig_name, "testgraph.1/in1", msg);
+    map = mpr_graph_add_map(graph, id, 1, &src_sig_name, "testgraph.1/in1");
+    mpr_map_set_from_msg(map, props, 0);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -361,18 +363,19 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
     src_sig_name = "testgraph.1/out1";
-    mpr_graph_add_map(graph, 1, &src_sig_name, "testgraph__.2/in2", msg);
+    map = mpr_graph_add_map(graph, id, 1, &src_sig_name, "testgraph__.2/in2");
+    mpr_map_set_from_msg(map, props, 0);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     lom = lo_message_new();
@@ -395,18 +398,19 @@ int main(int argc, char **argv)
     lo_message_add_string(lom, "@id");
     lo_message_add_int64(lom, id);
 
-    if (!(msg = mpr_msg_parse_props(lo_message_get_argc(lom),
-                                    lo_message_get_types(lom),
-                                    lo_message_get_argv(lom)))) {
+    if (!(props = mpr_msg_parse_props(lo_message_get_argc(lom),
+                                      lo_message_get_types(lom),
+                                      lo_message_get_argv(lom)))) {
         eprintf("1: Error, parsing failed.\n");
         result = 1;
         goto done;
     }
 
     src_sig_name = "testgraph.1/out1";
-    mpr_graph_add_map(graph, 1, &src_sig_name, "testgraph__.2/in1", msg);
+    mpr_graph_add_map(graph, id, 1, &src_sig_name, "testgraph__.2/in1");
+    mpr_map_set_from_msg(map, props, 0);
 
-    mpr_msg_free(msg);
+    mpr_msg_free(props);
     lo_message_free(lom);
 
     /*********/

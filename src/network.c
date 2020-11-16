@@ -1343,11 +1343,12 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
 {
     mpr_dev dev = net->devs ? net->devs[0] : 0;
     RETURN_UNLESS(dev || !loc, MPR_MAP_ERROR);
-    mpr_sig sig = 0;
     int i, is_loc = 0, src_idx, dst_idx, prop_idx;
     int num_src = parse_sig_names(types, av, ac, &src_idx, &dst_idx, &prop_idx);
     RETURN_UNLESS(num_src, MPR_MAP_ERROR);
     RETURN_UNLESS(is_alphabetical(num_src, &av[src_idx]), MPR_MAP_ERROR);
+    mpr_sig sig = 0;
+    mpr_id id = 0;
 
     // first check for an 'id' property
     for (i = 3; i < ac; i++) {
@@ -1356,21 +1357,29 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
         if (0 == strcmp(&av[i]->s, "@id"))
             break;
     }
+
     if (i < ac && MPR_INT64 == types[++i]) {
-        mpr_obj obj = mpr_graph_get_obj(net->graph, MPR_MAP, av[i]->i64);
-        trace_graph("%s map with id %"PR_MPR_ID"\n", obj ? "found" : "couldn't find", av[i]->i64);
-        if (obj) {
-            is_loc = mpr_obj_get_prop_as_int32(obj, MPR_PROP_IS_LOCAL, NULL);
+        id = av[i]->i64;
+        mpr_map map = (mpr_map)mpr_graph_get_obj(net->graph, MPR_MAP, id);
+        trace_graph("%s map with id %"PR_MPR_ID"\n", map ? "found" : "couldn't find", id);
+        if (map) {
+#ifdef DEBUG
+            trace_graph("  %s", map->num_src > 1 ? "[" : "");
+            for (i = 0; i < map->num_src; i++)
+                printf("'%s', ", map->src[i]->sig->name);
+            printf("\b\b%s -> '%s'\n", map->num_src > 1 ? "]" : "", map->dst->sig->name);
+#endif
+            is_loc = mpr_obj_get_prop_as_int32((mpr_obj)map, MPR_PROP_IS_LOCAL, NULL);
             RETURN_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
-            if (((mpr_map)obj)->num_src < num_src && (flags & UPDATE)) {
-                trace_graph("adding %d additional sources to map.\n", num_src);
+            if (map->num_src < num_src && (flags & UPDATE)) {
+                trace_graph("adding additional sources to map.\n");
                 // add additional sources
                 const char *src_names[num_src];
                 for (i = 0; i < num_src; i++)
                     src_names[i] = &av[src_idx+i]->s;
-                return mpr_graph_add_map(net->graph, num_src, src_names, &av[dst_idx]->s, 0);
+                map = mpr_graph_add_map(net->graph, id, num_src, src_names, &av[dst_idx]->s);
             }
-            return (mpr_map)obj;
+            return map;
         }
         else if (!flags)
             return 0;
@@ -1403,11 +1412,11 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
     RETURN_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
     mpr_map map = mpr_graph_get_map_by_names(net->graph, num_src, src_names, dst_name);
 #ifdef DEBUG
-    trace_graph("%s map with src name%s", map ? "found" : "cound't find",
+    trace_graph("%s map with src name%s", map ? "found" : "couldn't find",
                 num_src > 1 ? "s: [" : ": ");
     for (i = 0; i < num_src; i++)
         printf("'%s', ", &av[src_idx+i]->s);
-    printf("%s and dst name '%s'\n", num_src > 1 ? "]" : "", &av[dst_idx]->s);
+    printf("\b\b%s and dst name '%s'\n", num_src > 1 ? "]" : "", &av[dst_idx]->s);
 #endif
     if (!map && (flags & ADD)) {
         // safety check: make sure we don't have an outgoing map to src (loop)
@@ -1415,8 +1424,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
             trace_dev(dev, "error in /map: potential loop detected.")
             return MPR_MAP_ERROR;
         }
-        trace_graph("adding map\n");
-        map = mpr_graph_add_map(net->graph, num_src, src_names, &av[dst_idx]->s, 0);
+        map = mpr_graph_add_map(net->graph, id, num_src, src_names, &av[dst_idx]->s);
     }
     if (sig_ptr)
         *sig_ptr = sig;
