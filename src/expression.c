@@ -2265,7 +2265,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             else if (tok->var >= VAR_X) {
                 printf("loading variable x%d", tok->var-VAR_X);
-                mlen = v_in[tok->var-VAR_X]->mlen;
+                mlen = v_in ? v_in[tok->var-VAR_X]->mlen : 0;
             }
 
             if (tok->hist) {
