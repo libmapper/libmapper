@@ -1625,10 +1625,6 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                                 // TODO: disable non-const assignment to past values of output
                                 out[out_idx].hist = 1;
                                 POP_OPERATOR();
-                                // cast history index to int if necessary
-                                // TODO: consider adding support for interpolation
-                                if (out[out_idx-1].datatype != MPR_INT32)
-                                    out[out_idx-1].casttype = MPR_INT32;
                                 break;
                             default:
                                 {FAIL("Illegal arity for variable delay.");}
@@ -2096,20 +2092,20 @@ static const char *type_name(const mpr_type type)
             stk[top][i].EL = stk[top][i].EL SYM stk[top+1][i].EL;   \
         break;
 
-#define CONDITIONAL_CASES(EL)                                       \
-    case OP_IF_ELSE:                                                \
-        for (i = 0; i < tok->vec_len; i++) {                        \
-            if (!stk[top][i].EL)                                    \
-                stk[top][i].EL = stk[top+1][i].EL;                  \
-        }                                                           \
-        break;                                                      \
-    case OP_IF_THEN_ELSE:                                           \
-        for (i = 0; i < tok->vec_len; i++) {                        \
-            if (stk[top][i].EL)                                     \
-                stk[top][i].EL = stk[top+1][i].EL;                  \
-            else                                                    \
-                stk[top][i].EL = stk[top+2][i].EL;                  \
-        }                                                           \
+#define CONDITIONAL_CASES(EL)                       \
+    case OP_IF_ELSE:                                \
+        for (i = 0; i < tok->vec_len; i++) {        \
+            if (!stk[top][i].EL)                    \
+                stk[top][i].EL = stk[top+1][i].EL;  \
+        }                                           \
+        break;                                      \
+    case OP_IF_THEN_ELSE:                           \
+        for (i = 0; i < tok->vec_len; i++) {        \
+            if (stk[top][i].EL)                     \
+                stk[top][i].EL = stk[top+1][i].EL;  \
+            else                                    \
+                stk[top][i].EL = stk[top+2][i].EL;  \
+        }                                           \
         break;
 
 #define OP_CASES_META(EL)                                   \
@@ -2133,21 +2129,55 @@ static const char *type_name(const mpr_type type)
         for (i = 0; i < tok->vec_len; i++)                  \
             stk[top][i].EL = ((TYPE*)a)[i+tok->vec_idx];    \
         break;
-#define COPY_TO_STACK(SRC)                                                          \
-    if (!tok->hist)                                                                 \
-        ++top;                                                                      \
-    dims[top] = tok->vec_len;                                                       \
-    mpr_value_buffer b = &SRC->inst[inst_idx % SRC->num_inst];                      \
-    idx = ((b->pos + SRC->mlen + (tok->hist ? stk[top][0].i : 0)) % SRC->mlen);     \
-    if (idx < 0) idx = SRC->mlen + idx;                                             \
-    void *a = (b->samps + idx * SRC->vlen * mpr_type_get_size(SRC->type));          \
-    switch (SRC->type) {                                                            \
-        COPY_TYPED(MPR_INT32, int, i)                                               \
-        COPY_TYPED(MPR_FLT, float, f)                                               \
-        COPY_TYPED(MPR_DBL, double, d)                                              \
-        default:                                                                    \
-            goto error;                                                             \
-    }
+#define WEIGHTED_ADD(MTYPE, TYPE, EL)                                                             \
+    case MTYPE:                                                                                   \
+        for (i = 0; i < tok->vec_len; i++)                                                        \
+            stk[top][i].EL = stk[top][i].EL * weight + ((TYPE*)a)[i+tok->vec_idx] * (1 - weight); \
+        break;
+#define COPY_TO_STACK(SRC)                                                  \
+    if (!tok->hist)                                                         \
+        ++top;                                                              \
+    else {                                                                  \
+        switch (last_type) {                                                \
+            case MPR_INT32:                                                 \
+                hidx = stk[top][0].i;                                       \
+                break;                                                      \
+            case MPR_FLT:                                                   \
+                hidx = (int)stk[top][0].f;                                  \
+                weight = fabsf(stk[top][0].f - hidx);                       \
+                break;                                                      \
+            case MPR_DBL:                                                   \
+                hidx = (int)stk[top][0].d;                                  \
+                weight = fabs(stk[top][0].d - hidx);                        \
+                break;                                                      \
+            default:                                                        \
+                goto error;                                                 \
+        }                                                                   \
+    }                                                                       \
+    dims[top] = tok->vec_len;                                               \
+    mpr_value_buffer b = &SRC->inst[inst_idx % SRC->num_inst];              \
+    int idx = ((b->pos + SRC->mlen + hidx) % SRC->mlen);                    \
+    if (idx < 0) idx = SRC->mlen + idx;                                     \
+    void *a = (b->samps + idx * SRC->vlen * mpr_type_get_size(SRC->type));  \
+    switch (SRC->type) {                                                    \
+        COPY_TYPED(MPR_INT32, int, i)                                       \
+        COPY_TYPED(MPR_FLT, float, f)                                       \
+        COPY_TYPED(MPR_DBL, double, d)                                      \
+        default:                                                            \
+            goto error;                                                     \
+    }                                                                       \
+    if (weight) {                                                           \
+        --idx;                \
+        if (idx < 0) idx = SRC->mlen + idx;                                 \
+        a = (b->samps + idx * SRC->vlen * mpr_type_get_size(SRC->type));    \
+        switch (SRC->type) {                                                \
+            WEIGHTED_ADD(MPR_INT32, int, i)                                 \
+            WEIGHTED_ADD(MPR_FLT, float, f)                                 \
+            WEIGHTED_ADD(MPR_DBL, double, d)                                \
+            default:                                                        \
+                goto error;                                                 \
+        }                                                                   \
+    }                                                                       \
 
 int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                   mpr_value v_out, mpr_time *t, mpr_type *types, int inst_idx)
@@ -2187,6 +2217,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     int dims[len];
 
     int i, j, k, top = -1, count = 0, can_advance = 1;
+    mpr_type last_type = 0;
 
     if (v_out) {
         // init types
@@ -2224,45 +2255,49 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             break;
         case TOK_VAR: {
-            int idx;
+            int hidx = 0;
+            float weight = 0.f;
+#if TRACING
+            int mlen = 0;
+            if (tok->var == VAR_Y) {
+                printf("loading variable y");
+                mlen = v_out->mlen;
+            }
+            else if (tok->var >= VAR_X) {
+                printf("loading variable x%d", tok->var-VAR_X);
+                mlen = v_in[tok->var-VAR_X]->mlen;
+            }
+
+            if (tok->hist) {
+                switch (last_type) {
+                    case MPR_INT32:
+                        printf("{N=%d}", mlen ? stk[top][0].i % mlen : stk[top][0].i);
+                        break;
+                    case MPR_FLT:
+                        printf("{N=%f}", mlen ? fmodf(stk[top][0].f, (float)mlen) : stk[top][0].f);
+                        break;
+                    case MPR_DBL:
+                        printf("{N=%f}", mlen ? fmod(stk[top][0].d, (double)mlen) : stk[top][0].d);
+                        break;
+                    default:
+                        goto error;
+                }
+            }
+            printf("[%u] ", tok->vec_idx);
+#endif
             if (tok->var == VAR_Y) {
                 if (!v_out)
                     return status;
-#if TRACING
-                if (tok->hist)
-                    printf("loading variable y{N=%d}[%u] ", stk[top][0].i, tok->vec_idx);
-                else
-                    printf("loading variable y[%u] ", tok->vec_idx);
-#endif
                 COPY_TO_STACK(v_out);
-#if TRACING
-                print_stack_vec(stk[top], tok->datatype, tok->vec_len);
-                printf(" \n");
-#endif
             }
             else if (tok->var >= VAR_X) {
                 if (!v_in)
                     return status;
                 mpr_value v = v_in[tok->var-VAR_X];
-#if TRACING
-                if (tok->hist)
-                    printf("loading variable x%d{N=%d}[%u] ", tok->var-VAR_X, stk[top][0].i,
-                           tok->vec_idx);
-                else
-                    printf("loading variable x%d[%u] ", tok->var-VAR_X, tok->vec_idx);
-#endif
                 COPY_TO_STACK(v);
-#if TRACING
-                print_stack_vec(stk[top], tok->datatype, tok->vec_len);
-                printf(" \n");
-#endif
             }
             else if (v_vars) {
                 // TODO: allow other data types?
-#if TRACING
-                printf("loading variable %s{%d}[%u] ", expr->vars[tok->var].name,
-                       tok->hist ? stk[top][0].i : 0, tok->vec_idx);
-#endif
                 if (!tok->hist)
                     ++top;
                 dims[top] = tok->vec_len;
@@ -2270,52 +2305,90 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 double *d = v->inst[inst_idx].samps;
                 for (i = 0; i < tok->vec_len; i++)
                     stk[top][i].d = d[i+tok->vec_idx];
-#if TRACING
-                print_stack_vec(stk[top], tok->datatype, tok->vec_len);
-                printf(" \n");
-#endif
             }
             else
                 goto error;
+#if TRACING
+            print_stack_vec(stk[top], tok->datatype, tok->vec_len);
+            printf(" \n");
+#endif
             break;
         }
         case TOK_TT: {
-            int idx;
+            int hidx = 0;
+            double weight = 0.0;
+            double t_d;
             if (!tok->hist)
                 ++top;
             dims[top] = tok->vec_len;
             mpr_value_buffer b;
+#if TRACING
+            if (tok->var == VAR_Y)
+                printf("loading timetag t_y");
+            else if (tok->var >= VAR_X)
+                printf("loading timetag t_x%d", tok->var-VAR_X);
+            else if (v_vars)
+                printf("loading timetag t_%s", expr->vars[tok->var].name);
+
+            if (tok->hist) {
+                switch (last_type) {
+                    case MPR_INT32:
+                        printf("{N=%d}", stk[top][0].i);
+                        break;
+                    case MPR_FLT:
+                        printf("{N=%f}", stk[top][0].f);
+                        break;
+                    case MPR_DBL:
+                        printf("{N=%f}", stk[top][0].d);
+                        break;
+                    default:
+                        goto error;
+                }
+            }
+#endif
+            if (tok->hist) {
+                switch (last_type) {
+                    case MPR_INT32:
+                        hidx = stk[top][0].i;
+                        break;
+                    case MPR_FLT:
+                        hidx = (int)stk[top][0].f;
+                        weight = fabsf(stk[top][0].f - hidx);
+                        break;
+                    case MPR_DBL:
+                        hidx = (int)stk[top][0].d;
+                        weight = fabs(stk[top][0].d - hidx);
+                        break;
+                    default:
+                        goto error;
+                }
+            }
             if (tok->var == VAR_Y) {
                 if (!v_out)
                     return status;
                 b = b_out;
-                idx = (b->pos + v_out->mlen + (tok->hist ? stk[top][0].i : 0)) % v_out->mlen;
-#if TRACING
-                printf("loading timetag t_y{%d}", tok->hist ? stk[top][0].i : 0);
-#endif
+                int idx = (b->pos + v_out->mlen + hidx) % v_out->mlen;
+                t_d = mpr_time_as_dbl(b->times[idx]);
+                if (weight)
+                    t_d = t_d * weight + ((b->pos + v_out->mlen + hidx - 1) % v_out->mlen) * (1 - weight);
             }
             else if (tok->var >= VAR_X) {
                 if (!v_in)
                     return status;
                 mpr_value v = v_in[tok->var-VAR_X];
                 b = &v->inst[inst_idx % v->num_inst];
-                idx = (b->pos + v->mlen + (tok->hist ? stk[top][0].i : 0)) % v->mlen;
-#if TRACING
-                printf("loading timetag t_x%d{%d}", tok->var-VAR_X, tok->hist ? stk[top][0].i : 0);
-#endif
+                int idx = (b->pos + v->mlen + hidx) % v->mlen;
+                t_d = mpr_time_as_dbl(b->times[idx]);
+                if (weight)
+                    t_d = t_d * weight + ((b->pos + v->mlen + hidx - 1) % v->mlen) * (1 - weight);
             }
             else if (v_vars) {
                 mpr_value v = *v_vars + tok->var;
                 b = &v->inst[inst_idx];
-                idx = 0;
-#if TRACING
-                printf("loading timetag t_%s{%d}", expr->vars[tok->var].name,
-                       tok->hist ? stk[top][0].i : 0);
-#endif
+                t_d = mpr_time_as_dbl(b->times[0]);
             }
             else
                 goto error;
-            double t_d = mpr_time_as_dbl(b->times[idx]);
 #if TRACING
             printf(" as double %f\n", t_d);
 #endif
@@ -2665,6 +2738,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                     goto error;
             }
         }
+        last_type = tok->datatype;
         ++tok;
         ++count;
     }

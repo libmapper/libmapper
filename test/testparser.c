@@ -985,6 +985,12 @@ int run_tests()
     if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
         return 1;
 
+    /* 66) Fractional delays */
+    snprintf(str, 256, "ratio{-1}=0;y=x{-10+ratio, 10};ratio=(ratio+0.01)%%5;");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
     return 0;
 }
 
