@@ -1126,7 +1126,7 @@ typedef struct _device_list {
     signal *add_signal(int dir, const char *name, int len=1, char type=MPR_FLT,
                        const char *unit=0, propval min=0, propval max=0,
                        propval num_inst=0, PyObject *PyFunc=0,
-                       int events=MPR_SIG_UPDATE)
+                       int events=MPR_SIG_ALL)
     {
         return (signal*)add_signal_internal((mpr_dev)$self, dir, name, len,
                                             type, unit, min, max, num_inst,

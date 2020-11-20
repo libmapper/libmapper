@@ -33,6 +33,7 @@ outsig = src.add_signal(mpr.DIR_OUT, "outsig", 1, mpr.FLT, None, 0, 100, 5)
 outsig.reserve_instances(5)
 
 dest = mpr.device("py.testinstance.dst")
+# reserve 0 instances to start so we can use custom indexes
 insig = dest.add_signal(mpr.DIR_IN, "insig", 1, mpr.FLT, None, 0, 1, 0, h)
 insig.reserve_instances([100, 200, 300])
 insig.set_property(mpr.PROP_STEAL_MODE, mpr.STEAL_OLDEST)
