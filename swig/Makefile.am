@@ -32,7 +32,7 @@ uninstall-hook:
 
 EXTRA_DIST = mapper.i tkgui.py copywhich.sh
 
-test_all_ordered = test testcallbacks testconvergent testinstance testreverse testvector
+test_all_ordered = test testcallbacks testconvergent testinstance testmapfromstr testreverse testvector
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! python ./$$i.py; then exit 1; fi; done
