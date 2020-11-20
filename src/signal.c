@@ -10,6 +10,10 @@
 
 #define MAX_INSTANCES 128
 
+/* TODO: MPR_DEFAULT_INST is actually a valid id - we should use
+ * another method for distinguishing non-instanced updates. */
+#define MPR_DEFAULT_INST -1
+
 /* Function prototypes */
 static int _add_idmap(mpr_sig s, mpr_sig_inst si, mpr_id_map map);
 
@@ -251,7 +255,7 @@ void mpr_sig_call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
     mpr_sig_update_timing_stats(sig, diff);
     mpr_sig_handler *h = sig->loc->handler;
     if (h && (evt & sig->loc->event_flags))
-        h(sig, evt, inst, len, sig->type, val, *time);
+        h(sig, evt, sig->use_inst ? inst : 0, len, sig->type, val, *time);
 }
 
 /**** Instances ****/
@@ -342,6 +346,8 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig)
 int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int activate)
 {
     RETURN_UNLESS(s && s->loc, -1);
+    if (!s->use_inst)
+        LID = MPR_DEFAULT_INST;
     mpr_sig_idmap_t *maps = s->loc->idmaps;
     mpr_sig_handler *h = s->loc->handler;
     mpr_sig_inst si;
@@ -419,6 +425,8 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
 int mpr_sig_get_idmap_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int activate)
 {
     RETURN_UNLESS(s && s->loc, -1);
+    if (!s->use_inst)
+        GID = MPR_DEFAULT_INST;
     mpr_sig_idmap_t *maps = s->loc->idmaps;
     mpr_sig_handler *h = s->loc->handler;
     mpr_sig_inst si;
@@ -599,6 +607,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
 int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id id)
 {
     RETURN_UNLESS(sig, 0);
+    RETURN_UNLESS(sig->use_inst, 1);
     int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, 0, MPR_NOW, 0);
     return (idmap_idx >= 0) ? sig->loc->idmaps[idmap_idx].inst->active : 0;
 }
@@ -803,8 +812,7 @@ mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
 
 int mpr_sig_activate_inst(mpr_sig sig, mpr_id id)
 {
-    RETURN_UNLESS(sig && sig->loc, 0);
-    RETURN_UNLESS(sig->use_inst, 0);
+    RETURN_UNLESS(sig && sig->loc && sig->use_inst, 0);
     mpr_time time = mpr_dev_get_time(sig->dev);
     int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, 0, time, 1);
     return idmap_idx >= 0;
@@ -812,7 +820,7 @@ int mpr_sig_activate_inst(mpr_sig sig, mpr_id id)
 
 void mpr_sig_set_inst_data(mpr_sig sig, mpr_id id, const void *data)
 {
-    RETURN_UNLESS(sig && sig->loc);
+    RETURN_UNLESS(sig && sig->loc && sig->use_inst);
     mpr_sig_inst si = _find_inst_by_id(sig, id);
     if (si)
         si->data = (void*)data;
@@ -820,7 +828,7 @@ void mpr_sig_set_inst_data(mpr_sig sig, mpr_id id, const void *data)
 
 void *mpr_sig_get_inst_data(mpr_sig sig, mpr_id id)
 {
-    RETURN_UNLESS(sig && sig->loc, 0);
+    RETURN_UNLESS(sig && sig->loc && sig->use_inst, 0);
     mpr_sig_inst si = _find_inst_by_id(sig, id);
     return si ? si->data : 0;
 }
