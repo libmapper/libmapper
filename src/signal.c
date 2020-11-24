@@ -425,8 +425,6 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
 int mpr_sig_get_idmap_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int activate)
 {
     RETURN_UNLESS(s && s->loc, -1);
-    if (!s->use_inst)
-        GID = MPR_DEFAULT_INST;
     mpr_sig_idmap_t *maps = s->loc->idmaps;
     mpr_sig_handler *h = s->loc->handler;
     mpr_sig_inst si;
