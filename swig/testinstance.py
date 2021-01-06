@@ -3,7 +3,7 @@
 from __future__ import print_function
 import sys, random, mapper as mpr
 
-def h(sig, event, id, val, timetag):
+def h(sig, event, id, val, time):
     try:
         print('--> destination instance', id, 'got', val)
         if val is None:
@@ -34,7 +34,7 @@ outsig.reserve_instances(5)
 
 dest = mpr.device("py.testinstance.dst")
 # reserve 0 instances to start so we can use custom indexes
-insig = dest.add_signal(mpr.DIR_IN, "insig", 1, mpr.FLT, None, 0, 1, 0, h)
+insig = dest.add_signal(mpr.DIR_IN, "insig", 1, mpr.FLT, None, 0, 1, 0, h, mpr.SIG_UPDATE)
 insig.reserve_instances([100, 200, 300])
 insig.set_property(mpr.PROP_STEAL_MODE, mpr.STEAL_OLDEST)
 

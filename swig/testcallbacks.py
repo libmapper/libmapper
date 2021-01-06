@@ -3,7 +3,7 @@
 from __future__ import print_function
 import sys, mapper as mpr
 
-def sig_h(sig, event, id, val, timetag):
+def sig_h(sig, event, id, val, time):
     try:
         print(sig['name'], val)
     except:

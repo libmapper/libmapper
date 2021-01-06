@@ -3,7 +3,7 @@
 from __future__ import print_function
 import sys, mapper as mpr
 
-start = mpr.timetag()
+start = mpr.time()
 
 def h(sig, event, id, val, time):
     try:
@@ -60,8 +60,10 @@ def setup(d):
 
 #check libmapper version
 print('using libmapper version', mpr.version)
-dev = mpr.device("py.test")
-setup(dev)
+dev1 = mpr.device("py.test1")
+setup(dev1)
+dev2 = mpr.device("py.test2")
+setup(dev2)
 
 def object_name(type):
     if type is mpr.DEV:
@@ -85,16 +87,18 @@ g = mpr.graph(mpr.OBJ)
 
 g.add_callback(graph_cb)
 
-while not dev.ready:
-    dev.poll(10)
+while not dev1.ready or not dev2.ready:
+    dev1.poll(10)
+    dev2.poll(10)
     g.poll()
 
 start.now()
 
-outsig = dev.signals().filter("name", "outsig").next()
-insig = dev.signals().filter("name", "insig").next()
+outsig = dev1.signals().filter("name", "outsig").next()
+insig = dev2.signals().filter("name", "insig").next()
 for i in range(1000):
-    dev.poll(10)
+    dev1.poll(10)
+    dev2.poll(10)
     g.poll()
     outsig.set_value([i+1,i+2,i+3,i+4])
 
@@ -120,7 +124,7 @@ ndevs = g.devices().length()
 nsigs = g.signals().length()
 print(ndevs, 'device' if ndevs is 1 else 'devices', 'and', nsigs, 'signal:' if nsigs is 1 else 'signals:')
 for d in g.devices():
-    print("  ", d['name'], '(synced', mpr.timetag().get_double() - d['synced'].get_double(), 'seconds ago)')
+    print("  ", d['name'], '(synced', mpr.time().get_double() - d['synced'].get_double(), 'seconds ago)')
     for s in d.signals():
         print("    ", s['name'])
 
@@ -140,9 +144,9 @@ q1.join(g.signals().filter("name", "*req"))
 for i in q1:
     print("    ", i['name'])
 
-tt1 = mpr.timetag(0.5)
-tt2 = mpr.timetag(2.5)
+tt1 = mpr.time(0.5)
+tt2 = mpr.time(2.5)
 tt3 = tt1 + 0.5
 print('got tt: ', tt3.get_double())
 print(1.6 + tt1)
-print('current time:', mpr.timetag().get_double())
+print('current time:', mpr.time().get_double())
