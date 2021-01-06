@@ -131,21 +131,26 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
     int flags = local ? LOCAL_MODIFY : REMOTE_MODIFY;
     if (!publish)
         flags |= LOCAL_ACCESS_ONLY;
-    return mpr_tbl_set(local ? o->props.synced : o->props.staged,
-                       p | o->props.mask, s, len, type, val, flags);
+    int updated = mpr_tbl_set(local ? o->props.synced : o->props.staged,
+                              p | o->props.mask, s, len, type, val, flags);
+    if (updated)
+        mpr_obj_increment_version(o);
+    return updated;
 }
 
 int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     // check if object represents local resource
-    int local = o->props.staged ? 0 : 1;
+    int updated = 0, local = o->props.staged ? 0 : 1;
     if (MPR_PROP_UNKNOWN == p)
         p = mpr_prop_from_str(s);
     if (MPR_PROP_DATA == p || local)
-        return mpr_tbl_remove(o->props.synced, p, s, LOCAL_MODIFY);
+        updated = mpr_tbl_remove(o->props.synced, p, s, LOCAL_MODIFY);
     else if (MPR_PROP_EXTRA == p)
-        return mpr_tbl_set(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, REMOTE_MODIFY);
+        updated = mpr_tbl_set(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, REMOTE_MODIFY);
+    if (updated)
+        mpr_obj_increment_version(o);
     return 0;
 }
 

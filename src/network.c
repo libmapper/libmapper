@@ -72,6 +72,15 @@ static int extract_ordinal(char *name) {
     return ordinal;
 }
 
+inline static void inform_device_subscribers(mpr_net net, mpr_dev dev)
+{
+    if (dev->loc->subscribers) {
+        trace_dev(dev, "informing subscribers (DEVICE)\n")
+        mpr_net_use_subscribers(net, dev, MPR_DEV);
+        mpr_dev_send_state(dev, MPR_DEV);
+    }
+}
+
 const char* net_msg_strings[] =
 {
     "/device",                  /* MSG_DEV */
@@ -797,9 +806,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
 {
     RETURN_UNLESS(ac && MPR_STR == types[0], 0);
     mpr_net net = (mpr_net)user;
-#ifdef DEBUG
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-#endif
     mpr_graph graph = net->graph;
     int i, j;
     mpr_msg props = 0;
@@ -808,7 +815,10 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
 
     if (graph->autosub || mpr_graph_subscribed_by_dev(graph, name)) {
         props = mpr_msg_parse_props(ac-1, &types[1], &av[1]);
-        trace_net("received /device %s + %i arguments\n", name, ac-1);
+#ifdef DEBUG
+        trace_net("received /device ");
+        lo_message_pp(msg);
+#endif
         mpr_dev remote = mpr_graph_add_dev(graph, name, props);
         if (!remote->subscribed && graph->autosub)
             mpr_graph_subscribe(graph, remote, graph->autosub, -1);
@@ -867,12 +877,22 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     int data_port = (atom->vals[0])->i;
 
     cpy = mpr_list_get_cpy(links);
+    int found = 0;
     while (cpy) {
         mpr_link link = (mpr_link)*cpy;
         cpy = mpr_list_get_next(cpy);
-        if (mpr_link_get_is_local(link))
+        if (mpr_link_get_is_local(link)) {
             mpr_link_connect(link, host, atoi(admin_port), data_port);
+            found = 1;
+            break;
+        }
     }
+    if (!found)
+        goto done;
+
+    // links property has been updated, inform subscribers
+    if (found)
+        inform_device_subscribers(net, dev);
 
     // check if we have maps waiting for this link
     mpr_rtr_sig rs = net->rtr->sigs;
@@ -935,11 +955,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
     mpr_msg props = mpr_msg_parse_props(ac, types, av);
     trace_dev(dev, "received /%s/modify + %d properties.\n", path, props->num_atoms);
     if (mpr_dev_set_from_msg(dev, props)) {
-        if (dev->loc->subscribers) {
-            trace_dev(dev, "informing subscribers (DEVICE)\n")
-            mpr_net_use_subscribers(net, dev, MPR_DEV);
-            mpr_dev_send_state(dev, MSG_DEV);
-        }
+        inform_device_subscribers(net, dev);
         mpr_tbl_clear_empty(dev->obj.props.synced);
     }
     mpr_msg_free(props);
@@ -1467,9 +1483,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
 
         // Inform subscribers
         if (dev->loc->subscribers) {
-            trace_dev(dev, "informing subscribers (DEVICE)\n")
-            mpr_net_use_subscribers(net, dev, MPR_DEV);
-            mpr_dev_send_state(dev, MSG_DEV);
+            inform_device_subscribers(net, dev);
 
             trace_dev(dev, "informing subscribers (SIGNAL)\n")
             mpr_net_use_subscribers(net, dev, MPR_SIG);
@@ -1626,9 +1640,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             }
 
             if (dev->loc->subscribers) {
-                trace_dev(dev, "informing subscribers (DEVICE)\n");
-                mpr_net_use_subscribers(net, dev, MPR_DEV);
-                mpr_dev_send_state(dev, MSG_DEV);
+                inform_device_subscribers(net, dev);
 
                 trace_dev(dev, "informing subscribers (SIGNAL)\n");
                 mpr_net_use_subscribers(net, dev, MPR_SIG);
@@ -1770,9 +1782,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     }
 
     if (dev->loc->subscribers) {
-        trace_dev(dev, "informing subscribers (DEVICE)\n")
-        mpr_net_use_subscribers(net, dev, MPR_DEV);
-        mpr_dev_send_state(dev, MSG_DEV);
+        inform_device_subscribers(net, dev);
 
         trace_dev(dev, "informing subscribers (SIGNAL)\n")
         mpr_net_use_subscribers(net, dev, MPR_SIG);
