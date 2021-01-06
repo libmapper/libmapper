@@ -1357,9 +1357,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
     int mute_ctl = -1;
     int assign_mask = (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
                        | TOK_OPEN_CURLY | TOK_PUBLIC | TOK_NEGATE | TOK_CONST);
-    int OBJECT_TOKENS = (TOK_VAR | TOK_CONST | TOK_FN | TOK_VFN | TOK_MUTED
-                         | TOK_PUBLIC | TOK_NEGATE | TOK_OPEN_PAREN
-                         | TOK_OPEN_SQUARE | TOK_OP | TOK_TT);
+    int OBJECT_TOKENS = (TOK_VAR | TOK_CONST | TOK_FN | TOK_VFN | TOK_MUTED | TOK_PUBLIC
+                         | TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP | TOK_TT);
     mpr_token_t tok;
 
     // ignoring spaces at start of expression
@@ -2682,6 +2681,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
                 expr->offset = tok - expr->start + 1;
             }
+            else
+                can_advance = 0;
             break;
         case TOK_ASSIGN_TT:
             if (tok->var != VAR_Y || tok->hist == 0)
