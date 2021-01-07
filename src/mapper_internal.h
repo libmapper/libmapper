@@ -122,6 +122,12 @@ mpr_list mpr_dev_get_links(mpr_dev dev, mpr_dir dir);
 
 mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir);
 
+/*! Find information for a registered signal.
+ *  \param dev          The device to query.
+ *  \param sig_name     Name of the signal to find in the graph.
+ *  \return             Information about the signal, or zero if not found. */
+mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name);
+
 mpr_id mpr_dev_get_unused_sig_id(mpr_dev dev);
 
 int mpr_dev_add_link(mpr_dev dev, mpr_dev rem);
@@ -185,16 +191,16 @@ mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_type type, mpr_id id);
  *  \return             Information about the device, or zero if not found. */
 mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name);
 
-mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs,
-                                   const char *dst);
+mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs, const char *dst);
+
+/*! Call registered graph callbacks for a given object type.
+ *  \param g            The graph to query.
+ *  \param o            The object to pass to the callbacks.
+ *  \param t            The object type.
+ *  \param e            The graph event type. */
+void mpr_graph_call_cbs(mpr_graph g, mpr_obj o, mpr_type t, mpr_graph_evt e);
 
 void mpr_graph_cleanup(mpr_graph g);
-
-/*! Find information for a registered signal.
- *  \param dev          The device to query.
- *  \param sig_name     Name of the signal to find in the graph.
- *  \return             Information about the signal, or zero if not found. */
-mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name);
 
 /***** Router *****/
 
@@ -383,8 +389,8 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *sig_name,
  *  \param dst_name     The full name of the destination signal.
  *  \param msg          The parsed message parameters containing new metadata.
  *  \return             Pointer to the map. */
-mpr_map mpr_graph_add_map(mpr_graph g, int num_src, const char **src_names,
-                          const char *dst_name, mpr_msg msg);
+mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_names,
+                          const char *dst_name);
 
 /*! Remove a device from the graph. */
 void mpr_graph_remove_dev(mpr_graph g, mpr_dev dev, mpr_graph_evt evt, int quiet);
@@ -576,12 +582,6 @@ double mpr_get_current_time(void);
  *  \param subtrahend   The subtrahend.
  *  \return             The difference a-b in seconds. */
 double mpr_time_get_diff(mpr_time minuend, mpr_time subtrahend);
-
-/*! Helper to check if a time has the MPR_NOW value */
-inline static int mpr_time_get_is_now(mpr_time *t)
-{
-    return (memcmp(t, &MPR_NOW, sizeof(mpr_time)) == 0);
-}
 
 /**** Properties ****/
 

@@ -213,16 +213,12 @@ void mpr_map_free(mpr_map m)
 {
     int i;
     if (m->src) {
-        for (i = 0; i < m->num_src; i++) {
+        for (i = 0; i < m->num_src; i++)
             mpr_slot_free(m->src[i]);
-            free(m->src[i]);
-        }
         free(m->src);
     }
-    if (m->dst) {
+    if (m->dst)
         mpr_slot_free(m->dst);
-        free(m->dst);
-    }
     if (m->num_scopes && m->scopes)
         free(m->scopes);
     FUNC_IF(mpr_tbl_free, m->obj.props.synced);
@@ -249,6 +245,19 @@ mpr_list mpr_map_get_sigs(mpr_map m, mpr_loc l)
     RETURN_UNLESS(m && m->obj.graph->sigs, 0);
     mpr_list qry = mpr_list_new_query((const void**)&m->obj.graph->sigs, _cmp_qry_sigs, "vi", &m, l);
     return mpr_list_start(qry);
+}
+
+mpr_sig mpr_map_get_sig(mpr_map map, int idx, mpr_loc loc)
+{
+    RETURN_UNLESS(map && map->obj.graph->sigs, 0);
+    if (loc & MPR_LOC_SRC) {
+        int i;
+        for (i = 0; i < map->num_src; i++, idx--) {
+            if (0 == idx)
+                return map->src[i]->sig;
+        }
+    }
+    return ((loc & MPR_LOC_DST) && (0 == idx)) ? map->dst->sig : NULL;
 }
 
 int mpr_map_get_sig_idx(mpr_map m, mpr_sig s)
@@ -1290,7 +1299,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 updated += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
                 break;
             case PROP(PROCESS_LOC): {
-                if (m->loc->is_local_only)
+                if (m->loc && m->loc->is_local_only)
                     break;
                 mpr_loc loc = mpr_loc_from_str(&(a->vals[0])->s);
                 if (loc == m->process_loc)
@@ -1428,6 +1437,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                             if (strcmp(name, a->key+4)!=0)
                                 continue;
                             // found variable
+                            ++updated;
                             // TODO: handle multiple instances
                             int k = 0, l, var_len =  m->loc->vars[j].vlen;
                             double *v = mpr_value_get_samp(&m->loc->vars[j], k);
@@ -1455,6 +1465,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                                     }
                                     break;
                                 default:
+                                    --updated;
                                     break;
                             }
                             break;
@@ -1462,6 +1473,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     }
                     if (m->loc)
                         break;
+                    // otherwise continue to mpr_tbl_set_from_atom() below
                 }
             case PROP(ID):
             case PROP(MUTED):
@@ -1584,4 +1596,98 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
     }
     mpr_net_add_msg(&m->obj.graph->net, 0, cmd, msg);
     return i-1;
+}
+
+mpr_map mpr_map_new_from_str(const char *expr, ...)
+{
+    RETURN_UNLESS(expr, 0);
+    mpr_sig sig, srcs[MAX_NUM_MAP_SRC];
+    mpr_sig dst = NULL;
+    mpr_map map = NULL;
+    int i = 0, j, num_src = 0;
+
+    va_list aq;
+    va_start(aq, expr);
+    while (expr[i]) {
+        while (expr[i] && expr[i] != '%')
+            ++i;
+        if (!expr[i])
+            break;
+        switch (expr[i+1]) {
+            case 'y':
+                sig = va_arg(aq, void*);
+                if (!sig) {
+                    trace("Format string '%s' is missing output signal.\n", expr);
+                    goto error;
+                }
+                if (!dst)
+                    dst = sig;
+                else if (sig != dst) {
+                    trace("Format string '%s' references more than one output signal.\n", expr);
+                    goto error;
+                }
+                break;
+            case 'x':
+                sig = va_arg(aq, void*);
+                if (!sig) {
+                    trace("Format string '%s' is missing input signal.\n", expr);
+                    goto error;
+                }
+                for (j = 0; j < num_src; j++) {
+                    if (sig == srcs[j])
+                        break;
+                }
+                if (j == num_src) {
+                    if (num_src >= MAX_NUM_MAP_SRC) {
+                        trace("Maps cannot have more than %d source signals.\n", MAX_NUM_MAP_SRC);
+                        goto error;
+                    }
+                    srcs[num_src++] = sig;
+                }
+                break;
+            default:
+                trace("Illegal format token '%%%c' in mpr_map_new_from_str().\n", expr[i+1]);
+                goto error;
+        }
+        i += 2;
+    }
+    va_end(aq);
+
+    TRACE_RETURN_UNLESS(dst, NULL, "Map format string '%s' has no output signal!\n", expr);
+    TRACE_RETURN_UNLESS(num_src, NULL, "Map format string '%s' has no input signals!\n", expr);
+
+    // create the map
+    map = mpr_map_new(num_src, srcs, 1, &dst);
+
+    // edit the expression string in-place
+    i = 0;
+    char *dup = strdup(expr);
+    va_start(aq, expr);
+    while (expr[i]) {
+        while (expr[i] && expr[i] != '%')
+            ++i;
+        if (!expr[i])
+            break;
+        sig = va_arg(aq, void*);
+        if (expr[i+1] == 'y') {
+            // replace the preceding '%' with a space
+            dup[i] = ' ';
+        }
+        else {  // 'x'
+            // retrieve signal index
+            j = mpr_map_get_sig_idx(map, sig);
+            // replace "%x" with "xi" where i is the signal index
+            dup[i] = 'x';
+            dup[i+1] = "0123456789"[j%10];
+        }
+        i += 2;
+    }
+    va_end(aq);
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, dup, 1);
+    free(dup);
+    return map;
+
+error:
+    va_end(aq);
+    return NULL;
 }

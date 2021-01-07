@@ -47,11 +47,9 @@ dev = mapper.device("my_device")
 
 ## Polling the device
 
-The device lifecycle looks like this, in terrible ASCII diagram art:
+The device lifecycle looks like this:
 
-    creation --> poll --+--> destruction
-                  |     |
-                  +--<--+
+<img style="display:block;margin:auto;padding:0px;width:75%" src="./images/device_lifecyle.png">
 
 In other words, after a device is created, it must be continuously polled during
 its lifetime.
@@ -290,8 +288,8 @@ def frequency_handler(sig, id, val, timetag):
     try:
         sine.setFreq(val)
     except:
-        print 'exception'
-        print sig, val
+        print('exception')
+        print(sig, val)
 ~~~
 
 Then our program will look like this:
@@ -308,8 +306,8 @@ def freq_handler(sig, id, val, timetag):
     try:
         sine.setFreq(val)
     except:
-        print 'exception'
-        print sig, val
+        print('exception')
+        print(sig, val)
 
 dev = mapper.device('pyo_example')
 dev.add_signal(mpr.DIR_IN, 'frequency', 1, mpr.FLT, 'Hz', 20, 2000, freq_handler)

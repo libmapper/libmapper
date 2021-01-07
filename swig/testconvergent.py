@@ -3,8 +3,8 @@
 from __future__ import print_function
 import sys, random, mapper as mpr
 
-def h(sig, event, id, val, timetag):
-    print('  handler got', sig['name'], '=', val, 'at time', timetag.get_double())
+def h(sig, event, id, val, time):
+    print('  handler got', sig['name'], '=', val, 'at time', time.get_double())
 
 srcs = [mpr.device("py.testconvergent.src"),
         mpr.device("py.testconvergent.src"),

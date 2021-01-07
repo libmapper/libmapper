@@ -53,12 +53,12 @@ int main()
     float max1 = 1;
     float max1000 = 1000;
 
-    dev.add_sig(MPR_DIR_IN, "/freq", 1, MPR_FLT, "Hz", &min0, &max1000, NULL,
-                handler_freq, MPR_SIG_UPDATE);
-    dev.add_sig(MPR_DIR_IN, "/gain", 1, MPR_FLT, "Hz", &min0, &max1, NULL,
-                handler_gain, MPR_SIG_UPDATE);
-    dev.add_sig(MPR_DIR_IN, "/duty", 1, MPR_FLT, "Hz", &min0, &max1, NULL,
-                handler_duty, MPR_SIG_UPDATE);
+    dev.add_signal(MPR_DIR_IN, "/freq", 1, MPR_FLT, "Hz", &min0, &max1000, NULL,
+                   handler_freq, MPR_SIG_UPDATE);
+    dev.add_signal(MPR_DIR_IN, "/gain", 1, MPR_FLT, "Hz", &min0, &max1, NULL,
+                   handler_gain, MPR_SIG_UPDATE);
+    dev.add_signal(MPR_DIR_IN, "/duty", 1, MPR_FLT, "Hz", &min0, &max1, NULL,
+                   handler_duty, MPR_SIG_UPDATE);
 
     run_synth();
 

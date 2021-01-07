@@ -405,6 +405,8 @@ mpr_prop mpr_prop_from_str(const char *string)
             end = mid - 1;
         mid = (beg + end) * 0.5;
     }
+    if (strcmp(string, "expression")==0)
+        return MPR_PROP_EXPR;
     if (strcmp(string, "maximum")==0)
         return MPR_PROP_MAX;
     if (strcmp(string, "minimum")==0)
@@ -637,7 +639,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         }
         case MPR_LIST: {
-            mpr_list list = (mpr_list)val;
+            mpr_list list = mpr_list_start(mpr_list_get_cpy((mpr_list)val));
             if (!list || !*list || !(len = mpr_list_get_size(list))) {
                 printf("[], ");
                 break;

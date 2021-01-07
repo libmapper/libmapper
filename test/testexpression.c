@@ -20,9 +20,11 @@ mpr_dev src = 0;
 mpr_dev dst = 0;
 mpr_sig sendsig = 0;
 mpr_sig recvsig = 0;
+mpr_map map = 0;
 
 int sent = 0;
 int received = 0;
+int addend = 0;
 
 float expected_val;
 double expected_time;
@@ -106,10 +108,8 @@ void cleanup_dst()
 
 int setup_maps()
 {
-    mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
-
-    const char *expr = "y=x*10";
-    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+    map = mpr_map_new(1, &sendsig, 1, &recvsig);
+    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=0;y=x*10+foo", 1);
     mpr_obj_push(map);
 
     // wait until mapping has been established
@@ -136,7 +136,7 @@ void loop()
     mpr_time t;
     while ((!terminate || i < 50) && !done) {
         float val = i * 1.0f;
-        expected_val = val * 10;
+        expected_val = val * 10 + addend;
         t = mpr_dev_get_time(src);
         expected_time = mpr_time_as_dbl(t);
         eprintf("Updating output signal to %f at time %f\n", (i * 1.0f),
@@ -214,6 +214,16 @@ int main(int argc, char **argv)
         result = 1;
         goto done;
     }
+
+    loop();
+
+    eprintf("Modifying expression variable");
+    addend = 1000;
+    mpr_obj_set_prop(map, MPR_PROP_EXTRA, "var@foo", 1, MPR_INT32, &addend, 1);
+    mpr_obj_push(map);
+    // wait for change to take effect
+    mpr_dev_poll(dst, 100);
+    mpr_dev_poll(src, 100);
 
     loop();
 

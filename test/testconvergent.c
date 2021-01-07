@@ -17,14 +17,18 @@ int terminate = 0;
 int autoconnect = 1;
 int done = 0;
 int period = 100;
+int config, num_configs = 3;
 
 mpr_dev *srcs = 0;
 mpr_dev dst = 0;
 mpr_sig *sendsigs = 0;
 mpr_sig recvsig = 0;
+mpr_map map = 0;
 
 int sent = 0;
 int received = 0;
+
+float expected;
 
 int setup_srcs()
 {
@@ -73,12 +77,13 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
-        eprintf("handler: Got %f\n", (*(float*)value));
+        int ok = (*(float*)value) == expected ? 1 : 0;
+        eprintf("handler: Got %f ...%s\n", (*(float*)value), ok ? "OK" : "Error");
+        received += ok;
     }
     else {
         eprintf("handler: Got NULL\n");
     }
-    received++;
 }
 
 int setup_dst()
@@ -114,36 +119,61 @@ void cleanup_dst()
 
 int setup_maps()
 {
-    mpr_map map = mpr_map_new(num_sources, sendsigs, 1, &recvsig);
-    if (!map) {
-        eprintf("Failed to create map\n");
-        return 1;
+    int i, j = 10;
+
+    switch (config) {
+        case 0: {
+            if (!(map = mpr_map_new(num_sources, sendsigs, 1, &recvsig))) {
+                eprintf("Failed to create map\n");
+                return 1;
+            }
+
+            // build expression string with combination function and muted sources
+            int offset = 2, len = num_sources * 4 + 4;
+            char expr[len];
+            snprintf(expr, 3, "y=");
+            for (i = 0; i < num_sources; i++) {
+                if (i == 0) {
+                    // set the first source to trigger evaluation
+                    snprintf(expr + offset, len - offset, "-x%d",
+                             mpr_map_get_sig_idx(map, sendsigs[i]));
+                    offset += 3;
+                }
+                else {
+                    // mute the remaining sources so they don't trigger evaluation
+                    snprintf(expr + offset, len - offset, "-_x%d",
+                             mpr_map_get_sig_idx(map, sendsigs[i]));
+                    offset += 4;
+                }
+            }
+            mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+            break;
+        }
+        case 1:
+            if (!(map = mpr_map_new(num_sources, sendsigs, 1, &recvsig))) {
+                eprintf("Failed to create map\n");
+                return 1;
+            }
+
+            // build expression string with combination function and buddy logic
+            mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
+                             "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1})&&(t_x2>t_y{-1});y=x0+x1+x2;", 1);
+            break;
+        case 2:
+            // create/modify map with format string and signal arguments
+            map = mpr_map_new_from_str("%y=%x-_%x+_%x", recvsig, sendsigs[0],
+                                       sendsigs[1], sendsigs[2]);
+            break;
     }
 
-    // build expression string
-    int i, offset = 2, len = num_sources * 4 + 4;
-    char expr[len];
-    snprintf(expr, 3, "y=");
-    for (i = 0; i < num_sources; i++) {
-//        if (i == 0) {
-            snprintf(expr + offset, len - offset, "-x%d",
-                     mpr_map_get_sig_idx(map, sendsigs[i]));
-            offset += 3;
-//        }
-//        else {
-//            snprintf(expr + offset, len - offset, "-_x%d",
-//                     mpr_map_get_sig_idx(map, sendsigs[i]));
-//            offset += 4;
-//        }
-    }
-    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 
     // wait until mappings have been established
-    while (!done && !mpr_map_get_is_ready(map)) {
+    while (!done && (!mpr_map_get_is_ready(map) || j > 0)) {
         for (i = 0; i < num_sources; i++)
             mpr_dev_poll(srcs[i], 10);
         mpr_dev_poll(dst, 10);
+        --j;
     }
 
     return 0;
@@ -173,12 +203,23 @@ void loop()
     int i = 0, j;
 
     while ((!terminate || i < 50) && !done) {
-        for (j = 0; j < num_sources; j++) {
+        for (j = num_sources-1; j >= 0; j--) {
             eprintf("Updating source %d = %i\n", j, i);
             mpr_sig_set_value(sendsigs[j], 0, 1, MPR_INT32, &i);
 //            mpr_dev_poll(srcs[j], 0);
         }
         mpr_dev_poll(srcs[0], 0);
+        switch (config) {
+            case 0:
+                expected = i * -3.f;
+                break;
+            case 1:
+                expected = i ? ((i - 1) * 2.0f + i) : 0.0f;
+                break;
+            case 2:
+                expected = i;
+                break;
+        }
         sent++;
         mpr_dev_poll(dst, period);
         i++;
@@ -254,13 +295,19 @@ int main(int argc, char **argv)
 
     wait_ready(&done);
 
-    if (autoconnect && setup_maps()) {
-        eprintf("Error setting map.\n");
-        result = 1;
-        goto done;
+    if (autoconnect) {
+        for (i = 0; i < num_configs; i++) {
+            config = i;
+            if (setup_maps()) {
+                eprintf("Error setting map (1).\n");
+                result = 1;
+                goto done;
+            }
+            loop();
+        }
     }
-
-    loop();
+    else
+        loop();
 
     if (sent != received) {
         eprintf("Not all sent messages were received.\n");

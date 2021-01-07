@@ -42,6 +42,7 @@ void mpr_slot_free(mpr_slot slot)
 {
     FUNC_IF(mpr_tbl_free, slot->obj.props.synced);
     FUNC_IF(mpr_tbl_free, slot->obj.props.staged);
+    free(slot);
 }
 
 void mpr_slot_free_value(mpr_slot slot)
@@ -84,6 +85,10 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
         if ((a->prop & ~0xFFFF) != mask)
             continue;
         switch (a->prop & ~mask) {
+            case MPR_PROP_LEN:
+            case MPR_PROP_TYPE:
+                // handled above
+                break;
             case MPR_PROP_NUM_INST:
                 // static prop if slot is associated with a local map
                 if (slot->map->loc)

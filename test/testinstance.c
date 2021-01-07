@@ -505,7 +505,10 @@ int run_test(test_config *config)
 
     release_active_instances(multisend);
 
+    /* Warning: assuming that map has not been released by a peer process is not safe! Do not do
+     * this in non-test code. */
     mpr_map_release(map);
+
     // TODO: we shouldn't have to wait here...
     mpr_dev_poll(src, 100);
     mpr_dev_poll(dst, 100);

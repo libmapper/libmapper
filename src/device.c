@@ -1063,7 +1063,7 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
         a = &m->atoms[i];
         switch (MASK_PROP_BITFLAGS(a->prop)) {
             case PROP(LINKED):
-                if (mpr_type_get_is_str(a->types[0]))
+                if (!dev->loc && mpr_type_get_is_str(a->types[0]))
                     updated += mpr_dev_update_linked(dev, a);
                 break;
             default:

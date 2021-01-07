@@ -41,39 +41,39 @@ MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNA
     test*.class
 
 mapper_%.h: mapper/%.java
-	$(JAVAC) -h . $(<:%.java=%).java
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_device_%.h: mapper/device/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_graph_%.h: mapper/graph/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_map_%.h: mapper/map/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper_signal_%.h: mapper/signal/%.java
-	$(JAVAC) -h . $(<:%.java=%)
+	$(JAVAC) -h . -cp .:@top_srcdir@/jni -d . $<
 	if [ -f $@ ]; then touch $@; fi
 
 mapper/%.class: mapper/%.java
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 test.class: test.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 testinstance.class: testinstance.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 testreverse.class: testreverse.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 testspeed.class: testspeed.java $(JCLASSES)
-	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -d . $<
+	$(JAVAC) $(JFLAGS) -sourcepath @top_srcdir@/jni -cp .:@top_srcdir@/jni -d . $<
 
 libmapper.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)

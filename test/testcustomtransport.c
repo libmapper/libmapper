@@ -94,15 +94,13 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
     }
 
     if (strncmp(a_transport, "tcp", 3) != 0) {
-        eprintf("Unknown transport property `%s', "
-                "was expecting `tcp'.\n", a_transport);
+        eprintf("Unknown transport property `%s', was expecting `tcp'.\n", a_transport);
         return;
     }
 
     // Find the TCP port in the mapping properties
     const int *a_port;
-    if (!mpr_obj_get_prop_by_key((mpr_obj)map, "tcpPort", &length, &type,
-                                 (const void **)&a_port, 0)
+    if (!mpr_obj_get_prop_by_key((mpr_obj)map, "tcpPort", &length, &type, (const void **)&a_port, 0)
         || type != MPR_INT32 || length != 1) {
         eprintf("Couldn't make TCP connection, tcpPort property not found.\n");
         return;
@@ -161,8 +159,7 @@ int setup_src()
 
     mpr_graph_add_cb(mpr_obj_get_graph((mpr_obj)src), on_map, MPR_MAP, NULL);
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, "Hz", &mn, &mx,
-                          NULL, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, "Hz", &mn, &mx, NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
 
@@ -246,13 +243,10 @@ void loop()
 
         // Add custom meta-data specifying a special transport for this map.
         char *str = "tcp";
-        mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "transport", 1, MPR_STR,
-                         str, 1);
+        mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "transport", 1, MPR_STR, str, 1);
 
-        // Add custom meta-data specifying a port to use for this map's
-        // custom transport.
-        mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "tcpPort", 1, MPR_INT32,
-                         &tcp_port, 1);
+        // Add custom meta-data specifying a port to use for this map's custom transport.
+        mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "tcpPort", 1, MPR_INT32, &tcp_port, 1);
         mpr_obj_push((mpr_obj)map);
     }
 
@@ -264,8 +258,7 @@ void loop()
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(tcp_port);
-    if (bind(listen_socket, (struct sockaddr *) &addr,
-             sizeof(addr)) < 0 ) {
+    if (bind(listen_socket, (struct sockaddr *) &addr, sizeof(addr)) < 0 ) {
         perror("bind");
         close(listen_socket);
         exit(1);
@@ -281,8 +274,7 @@ void loop()
         // Instead of
         // mpr_sig_update(sendsig, etc.);
 
-        // We will instead send our data on the custom TCP socket if
-        // it is valid
+        // We will instead send our data on the custom TCP socket if it is valid
         if (send_socket != -1) {
             int m = listen_socket;
             fd_set fdsr, fdss;
@@ -411,7 +403,7 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (autoconnect && received != sent) {
+    if (autoconnect && (!sent || received != sent)) {
         eprintf("sent: %d, recvd: %d\n", sent, received);
         result = 1;
     }
@@ -419,7 +411,6 @@ int main(int argc, char **argv)
   done:
     cleanup_dst();
     cleanup_src();
-    printf("...................Test %s\x1B[0m.\n",
-           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
+    printf("...................Test %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

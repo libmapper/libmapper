@@ -227,6 +227,13 @@ mpr_id mpr_dev_generate_unique_id(mpr_dev dev);
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir);
 
+/*! Return the list of maps for a given device.
+ *  \param dev          The device to query.
+ *  \param dir          The direction of the maps to return, should be
+ *                      MPR_DIR_IN, MPR_DIR_OUT, or MPR_DIR_ANY.
+ *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
+mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir);
+
 /*! Poll this device for new messages.  Note, if you have multiple devices, the
  *  right thing to do is call this function for each of them with block_ms=0,
  *  and add your own sleep if necessary.
@@ -472,21 +479,41 @@ int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status);
  *                      mpr_obj_push(). */
 mpr_map mpr_map_new(int num_srcs, mpr_sig *srcs, int num_dsts, mpr_sig *dsts);
 
+/*! Create a map between a set of signals using an expression string containing embedded format
+ *  specifiers that are replaced by mpr_sig values specified in subsequent additional arguments.
+ *  The map will not take effect until it has been added to the distributed graph using
+ *  mpr_obj_push().
+ *  \param expression   A string specifying the map expression to use when mapping source to
+ *                      destination signals. The format specifier "%x" is used to specify source
+ *                      signals and the "%y" is used to specify the destination signal.
+ *  \param ...          A sequence of additional mpr_sig arguments, one for each format specifier
+ *                      in the format string
+ *  \return             A map data structure – either loaded from the graph (if the map already
+ *                      existed) or newly created. Changes to the map will not take effect until it
+ *                      has been added to the distributed graph using mpr_obj_push(). */
+mpr_map mpr_map_new_from_str(const char *expression, ...);
+
 /*! Remove a map between a set of signals.
  *  \param map          The map to destroy. */
 void mpr_map_release(mpr_map map);
 
+/*! Retrieve a connected signal for a specific map by index.
+ *  \param map          The map to check.
+ *  \param idx          The index of the signal to return.
+ *  \param loc          The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or MPR_LOC_ANY.
+ *  \return             A signal, or NULL if not found. */
+mpr_sig mpr_map_get_sig(mpr_map map, int idx, mpr_loc loc);
+
 /*! Retrieve a list of connected signals for a specific map.
  *  \param map          The map to check.
- *  \param loc          The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or
- *                      MPR_LOC_ANY.
+ *  \param loc          The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or MPR_LOC_ANY.
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_map_get_sigs(mpr_map map, mpr_loc loc);
 
 /*! Retrieve the index for a specific map signal.
  *  \param map          The map to check.
  *  \param sig          The signal to find.
- *  \return             The signal index. */
+ *  \return             The signal index, or -1 if not found. */
 int mpr_map_get_sig_idx(mpr_map map, mpr_sig sig);
 
 /*! Detect whether a map is completely initialized.
@@ -741,6 +768,13 @@ void mpr_time_set_dbl(mpr_time *time, double value);
  *  \param timel        The target time for copying.
  *  \param timer        The source time. */
 void mpr_time_set(mpr_time *timel, mpr_time timer);
+
+/*! Compare two timetags, returning zero if they all match or a value
+ *  different from zero representing which is greater if they do not.
+ *  \param time1        A previously allocated time to augment.
+ *  \param time2        A time to add.
+ *  \return             <0 if time1 < time2; 0 if time1 == time2; >0 if time1 > time2. */
+int mpr_time_cmp(mpr_time time1, mpr_time time2);
 
 /** @} */ // end of group Times
 

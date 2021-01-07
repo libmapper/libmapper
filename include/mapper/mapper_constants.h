@@ -91,7 +91,7 @@ typedef uint64_t mpr_id;
 /*! Possible operations for composing queries. */
 typedef enum {
     MPR_OP_UNDEFINED    = 0x00,
-    MPR_OP_NEX          = 0x01, //!< Property does not exist.
+    MPR_OP_NEX          = 0x01, //!< Property does not exist for this entity.
     MPR_OP_EQ           = 0x02, //!< Property value == query value.
     MPR_OP_EX           = 0x03, //!< Property exists for this entity.
     MPR_OP_GT           = 0x04, //!< Property value > query value.

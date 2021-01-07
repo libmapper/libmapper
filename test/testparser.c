@@ -30,7 +30,7 @@ float src_flt[SRC_ARRAY_LEN], dst_flt[DST_ARRAY_LEN], expect_flt[DST_ARRAY_LEN];
 double src_dbl[SRC_ARRAY_LEN], dst_dbl[DST_ARRAY_LEN], expect_dbl[DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
-mpr_type types[SRC_ARRAY_LEN];
+mpr_type out_types[DST_ARRAY_LEN];
 
 mpr_time time_in = {0, 0}, time_out = {0, 0};
 
@@ -52,7 +52,7 @@ typedef struct _var {
     char *name;
     mpr_type datatype;
     mpr_type casttype;
-    size_t vec_len;
+    uint8_t vec_len;
     char vec_len_locked;
     char assigned;
     char public;
@@ -63,12 +63,12 @@ struct _mpr_expr
     void *tokens;
     void *start;
     mpr_var vars;
-    int8_t offset;
-    int8_t len;
-    int8_t vec_size;
-    int8_t in_mem;
-    int8_t out_mem;
-    int8_t n_vars;
+    uint8_t offset;
+    uint8_t len;
+    uint8_t vec_size;
+    uint8_t *in_mem;
+    uint8_t out_mem;
+    uint8_t n_vars;
     int8_t inst_ctl;
     int8_t mute_ctl;
 };
@@ -337,7 +337,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     then = current_time();
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types, 0);
+    status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
     if (!status) {
         eprintf("FAILED.\n");
         result = 1;
@@ -372,7 +372,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
             }
             memcpy(mpr_value_get_time(&inh[j], 0), &time_in, sizeof(mpr_time));
         }
-        status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, types, 0);
+        status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
         if (!status) {
             result = 1;
             break;
@@ -388,7 +388,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     if (0 == result)
         eprintf("OK\n");
 
-    if (check_result(types, outh.vlen, outh.inst[0].samps, outh.inst[0].pos, check))
+    if (check_result(out_types, outh.vlen, outh.inst[0].samps, outh.inst[0].pos, check))
         result = 1;
 
     eprintf("Recv'd %d updates... ", update_count);
@@ -418,6 +418,8 @@ fail:
 int run_tests()
 {
     /* 1) Complex string */
+    // TODO: ensure successive constant multiplications are optimized
+    // TODO: ensure split successive constant additions are optimized
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 26*2/2+log10(M_PI)+2.*pow(2,1*(3+7*.1)*1.1+src_flt[0])*3*4+cos(2.0);
@@ -949,11 +951,44 @@ int run_tests()
         return 1;
     }
 
-    /* 61) Change filter */
+    /* 61) Filter unchanged values */
     snprintf(str, 256, "muted=(x==x{-1});y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, 1))
+        return 1;
+
+    /* 62) Buddy logic */
+    snprintf(str, 256, "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1});y=x0+x1[1:2];");
+    // types[] and lens[] are already defined
+    setup_test_multisource(2, types, lens, MPR_FLT, 2);
+    expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1]);
+    expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2]);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 63) Variable delays */
+    snprintf(str, 256, "y=x{abs(x%%10)-10,10}");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+    /* 64) Variable delay with missing maximum */
+    snprintf(str, 256, "y=x{abs(x%%10)-10}");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
+        return 1;
+
+    /* 65) Calling delay() function explicity */
+    snprintf(str, 256, "y=delay(x, abs(x%%10)-10, 10)");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
+        return 1;
+
+    /* 66) Fractional delays */
+    snprintf(str, 256, "ratio{-1}=0;y=x{-10+ratio, 10};ratio=(ratio+0.01)%%5;");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
     return 0;
@@ -1025,9 +1060,8 @@ int main(int argc, char **argv)
 
     result = run_tests();
 
-    for (int i = 0; i < SRC_ARRAY_LEN; i++) {
+    for (int i = 0; i < SRC_ARRAY_LEN; i++)
         mpr_value_free(&inh[i]);
-    }
     mpr_value_free(&outh);
 
     eprintf("**********************************\n");
