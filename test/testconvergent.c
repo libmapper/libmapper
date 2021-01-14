@@ -214,7 +214,7 @@ void loop()
                 expected = i * -3.f;
                 break;
             case 1:
-                expected = i ? ((i - 1) * 2.0f + i) : 0.0f;
+                expected = i * 3.f;
                 break;
             case 2:
                 expected = i;

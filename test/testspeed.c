@@ -101,9 +101,8 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
         counter = (counter+1)%10;
         if (++received >= iterations)
             switch_modes();
-        if (use_inst) {
+        if (use_inst)
             mpr_sig_set_value(sendsig, counter, length, type, value);
-        }
         else
             mpr_sig_set_value(sendsig, 0, length, type, value);
     }

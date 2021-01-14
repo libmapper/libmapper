@@ -811,7 +811,7 @@ mpr_id_map mpr_dev_add_idmap(mpr_dev dev, int group, mpr_id LID, mpr_id GID)
 
     mpr_id_map map = dev->loc->idmaps.reserve;
     map->LID = LID;
-    map->GID = GID;
+    map->GID = GID ?: mpr_dev_generate_unique_id(dev);
     map->LID_refcount = 1;
     map->GID_refcount = 0;
     dev->loc->idmaps.reserve = map->next;

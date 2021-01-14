@@ -84,7 +84,8 @@ test_config test_configs[] = {
 
     // instanced ––> singleton; any source instance updates destination
     {  9, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 5., 0. },
-    { 10, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 5., 0. },
+    // ... but when processing @dst only the last instance update will trigger handler
+    { 10, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1., 0. },
 
     // instanced ==> singleton; one src instance updates dst (default)
     // CHECK: if controlling instance is released, move to next updated inst
@@ -94,7 +95,7 @@ test_config test_configs[] = {
     // instanced ––> instanced; any src instance updates all dst instances
     // source signal does not know about active destination instances
     { 13, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15., 0. },
-    { 14, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 15., 0. },
+    { 14, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3., 0. },
 
     // instanced ==> instanced; no stealing
     { 15, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 4., 0. },
@@ -102,38 +103,37 @@ test_config test_configs[] = {
 
     // instanced ==> instanced; steal newest instance
     { 17, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NEW, NULL, 4.25, 0. },
-    { 18, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NEW, NULL, 4.25, 0. },
+    { 18, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NEW, NULL, 4., 0. },
 
     // instanced ==> instanced; steal oldest instance
-    { 19, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, OLD, NULL, 5., 0. },
-    { 20, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, OLD, NULL, 5., 0. },
+    { 19, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, OLD, NULL, 4.6, 0. },
+    { 20, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, OLD, NULL, 4.0, 0. },
 
     // instanced ==> instanced; add instances if needed
     { 21, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, ADD, NULL, 5., 0. },
     { 22, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, ADD, NULL, 5., 0. },
 
     // mixed ––> singleton
-    // for src processing the update count is multiplicative since 5 instances exist at the src
-    { 23, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 10.0, 0. },
-    // for dst processing the update count is additive since the destination has only one instance
+    // for src processing the update count is additive since the destination has only one instance
+    { 23, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 5.0, 0. },
     // TODO: we should default to dst processing for this configuration
-    { 24, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 6.0, 0. },
+    { 24, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1.0, 0. },
 
     // mixed ==> singleton
-    // for src processing we expect one update per signal per iteration
-    { 25, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL, 2.0, 0. },
-    // for dst processing we expect one update per signal per iteration
-    { 26, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL, 2.0, 0. },
+    // for src processing we expect one update per iteration
+    { 25, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1.0, 0. },
+    // for dst processing we expect one update per iteration
+    { 26, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL, 1.0, 0. },
 
     // mixed ––> instanced
-    // for src processing the update count is multiplicative: (5 + 5) src x 3 dst
-    { 27, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 30.0, 0. },
-    // each active instance should receive 6 updates per iteration
-    { 28, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 18.0, 0. },
+    // for src processing the update count is multiplicative: 5 src x 3 dst
+    { 27, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15.0, 0. },
+    // each active instance should receive 1 update per iteration
+    { 28, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3.0, 0. },
 
     // mixed ==> instanced
-    { 29, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 8.0, 0. },
-    { 30, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 8.0, 0. },
+    { 29, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 4.0, 0. },
+    { 30, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 4.0, 0. },
 
     // singleton ––> instanced; in-map instance management
     { 31, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 1.5, 0. },

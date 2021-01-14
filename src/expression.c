@@ -1404,7 +1404,9 @@ static int find_var_by_name(mpr_var_t *vars, int n_vars, const char *str, int le
 #define POP_OPERATOR() ( op_idx-- )
 #define POP_OPERATOR_TO_OUTPUT()                                    \
 {                                                                   \
-{FAIL_IF(op[op_idx].toktype == TOK_IFN && out[out_idx].toktype != TOK_POOL, "Malformed expression (2).");} \
+    {FAIL_IF(op[op_idx].toktype == TOK_IFN                          \
+             && out[out_idx].toktype != TOK_POOL,                   \
+             "Malformed expression (2).");}                         \
     PUSH_TO_OUTPUT(op[op_idx]);                                     \
     out_idx = check_type_and_len(out, out_idx, vars);               \
     {FAIL_IF(out_idx < 0, "Malformed expression (3).");}            \
