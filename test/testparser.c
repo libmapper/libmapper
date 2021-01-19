@@ -243,8 +243,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     int i, j, result = 0;
 
     if (verbose) {
-        printf("***************** Expression %d *****************\n",
-               expression_count++);
+        printf("***************** Expression %d *****************\n", expression_count++);
         printf("Parsing string '%s'\n", str);
     }
     else {
@@ -987,6 +986,36 @@ int run_tests()
 
     /* 66) Fractional delays */
     snprintf(str, 256, "ratio{-1}=0;y=x{-10+ratio, 10};ratio=(ratio+0.01)%%5;");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+    /* 67) Instance function: inst.count() */
+    snprintf(str, 256, "y=inst.count(x);");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+    /* 68) Instance function: inst.mean() */
+    snprintf(str, 256, "y=inst.mean(x);");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+    /* 69) Instance function: inst.sum() */
+    snprintf(str, 256, "y=inst.sum(x);");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+    /* 70) Instance function: inst.max() */
+    snprintf(str, 256, "y=inst.max(x);");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+    /* 71) Instance function: inst.min() */
+    snprintf(str, 256, "y=inst.min(x);");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;

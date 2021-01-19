@@ -162,6 +162,20 @@ There are several special functions that operate across all elements of the vect
 * `max(x)` – output the maximum element in vector `x` (overloaded)
 * `min(x)` – output the minimum element in vector `x` (overloaded)
 
+<h2 id="instances">Instances</h2>
+
+Input and output signals addressed by libmapper may be *instanced* meaning that there a multiple independent instances of the object or phenomenon represented by the signal. For example, a signal representing `/touch/position` on a multitouch display would have an instance corresponding to each active touch.
+
+<h3 id="instance-functions">Instance functions</h3>
+
+There are several special functions that operate across all instances of a signal:
+
+* `count(x)` — output the number of instances of `x` that are currently active
+* `sum(x)` – output the sum of the values of all active instances of `x`
+* `mean(x)` – output the mean of the values of all active instances of `x`
+* `max(x)` – output the maximum value of all active instances of `x`
+* `min(x)` – output the minimum value of all active instances of `x`
+
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 
 Past samples of expression input and output can be accessed using the notation
@@ -326,7 +340,7 @@ Convergent mapping—in which multiple source signals update a single destinatio
   </tr>
 </table>
 
-<h2 id="instance-management">Instance Management</h2>
+<h3 id="instance-management">Instance Management</h3>
 
 Signal instancing can also be managed from within the map expression by manipulating a special variable named `alive` that represents the instance state. The use cases for in-map instancing can be complex, but here are some simple examples:
 
@@ -348,7 +362,7 @@ Signal instancing can also be managed from within the map expression by manipula
     </tr>
 </table>
 
-### Conditional output
+#### Conditional output
 
 In the case of a map with a singleton (non-instanced) destination, in-map
 instance management can be used for conditional updates. For example,
@@ -361,7 +375,7 @@ y = x;
 
 Since in this case the destination signal is not instanced it will not be "released" when `alive` evaluates to False, however any assignments to the output `y` while `alive` is False will not take effect. The statement `alive = x > 10` is evaluated first, and the update `y = x` is only propagated to the destination if `x > 10` evaluates to True (non-zero) **at the time of assignment**. The entire expression is evaluated however, so counters can be incremented etc. even while `alive` is False. There is a more complex example in the section below on Accessing Variable Timetags.
 
-### Conditional serial instancing
+#### Conditional serial instancing
 
 When mapping a singleton source signal to an instanced destination signal there are several possible desired behaviours:
 
@@ -370,7 +384,7 @@ When mapping a singleton source signal to an instanced destination signal there 
     * Example 1: a destination signal named *polyPressure* belongs to a software shim device for interfacing with MIDI. The singleton signal *mouse/position/x* is mapped to *polyPressure*, and the map's `use_inst` property is set to False to enable controlling the poly pressure parameter of all active notes in parallel.
 3. The source signal controls available destination signal instances **serially**. This is accomplished by manipulating the `alive` variable as described above. On each rising edge (transition from 0 to non-zero) of the `alive` variable a new instance id map will be generated
 
-### Modified instancing
+#### Modified instancing
 
 *currently undocumented*
 
