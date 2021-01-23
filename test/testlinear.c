@@ -107,7 +107,6 @@ void cleanup_dst()
 
 int setup_maps()
 {
-    printf("setup_maps()\n");
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
     float sMin, sMax, dMin, dMax;

@@ -162,7 +162,7 @@ static void imean##EL(mpr_expr_val t, mpr_value s)          \
     }                                                       \
     if (count > 1) {                                        \
         for (j = 0; j < s->vlen; j++)                       \
-            t[i].EL /= (TYPE)count;                         \
+            t[j].EL /= (TYPE)count;                         \
     }                                                       \
 }
 TYPED_INST_MEAN(float, f);
@@ -2778,10 +2778,11 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_IFN:
             if (tok->var < VAR_X)
                 goto error;
-//            top -= ifn_tbl[tok->ifn].arity-1;
 #if TRACING
             printf("%s(x%d)", ifn_tbl[tok->ifn].name, tok->var - VAR_X);
 #endif
+            if (!v_in)
+                return status;
             mpr_value v = v_in[tok->var - VAR_X];
             switch (tok->datatype) {
 #define TYPED_CASE(MTYPE, FN, EL)                                               \
