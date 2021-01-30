@@ -151,14 +151,13 @@ static void imean##EL(mpr_expr_val t, mpr_value s)          \
             int *samp = (int*)mpr_value_get_samp(s, i);     \
             for (j = 0; j < s->vlen; j++)                   \
                 t[j].EL += (TYPE)samp[j];                   \
-            ++count;                                        \
         }                                                   \
         else {                                              \
             TYPE *samp = (TYPE*)mpr_value_get_samp(s, i);   \
             for (j = 0; j < s->vlen; j++)                   \
                 t[j].EL += samp[j];                         \
-            ++count;                                        \
         }                                                   \
+        ++count;                                            \
     }                                                       \
     if (count > 1) {                                        \
         for (j = 0; j < s->vlen; j++)                       \

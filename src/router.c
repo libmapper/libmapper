@@ -111,24 +111,12 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             slot = rs->slots[i];
             map = slot->map;
 
-            if (!map->use_inst || map->status < MPR_STATUS_ACTIVE)
+            if (map->status < MPR_STATUS_ACTIVE)
                 continue;
 
             mpr_slot dst_slot = map->dst;
             mpr_local_slot dst_lslot = dst_slot->loc;
             int in_scope = _is_map_in_scope(map, idmap->GID);
-
-            // reset associated output memory
-            mpr_value_reset_inst(&dst_lslot->val, inst_idx);
-
-            // send release to downstream
-            if (slot->dir == MPR_DIR_OUT) {
-                msg = 0;
-                if (!map->use_inst || in_scope) {
-                    msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol, bundle_idx);
-                }
-            }
 
             // send release to upstream
             for (j = 0; j < map->num_src; j++) {
@@ -149,6 +137,22 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
                 if (slot->dir == MPR_DIR_IN) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
                     mpr_link_add_msg(slot->link, slot->sig, msg, t, map->protocol, bundle_idx);
+                }
+            }
+
+            if (!map->use_inst)
+                continue;
+
+            // reset associated output memory
+            mpr_value_reset_inst(&dst_lslot->val, inst_idx);
+
+            // send release to downstream
+            if (slot->dir == MPR_DIR_OUT) {
+                msg = 0;
+                if (in_scope) {
+                    msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
+                    mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol,
+                                     bundle_idx);
                 }
             }
         }
