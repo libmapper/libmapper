@@ -178,9 +178,9 @@ static void NAME(mpr_expr_val t, mpr_value s)           \
         for (j = 0; j < s->vlen; j++) {                 \
             if (!count || samp[j] OP t[j].EL) {         \
                 t[j].EL = samp[j];                      \
-                count = 1;                              \
             }                                           \
         }                                               \
+        count = 1;                                      \
     }                                                   \
 }
 EXTREMA_IFUNC(imaxi, int, i, >);
