@@ -423,9 +423,9 @@ typedef double fn_dbl_arity4(double,double,double,double);
 typedef int vfn_int_arity1(mpr_expr_val, int);
 typedef float vfn_flt_arity1(mpr_expr_val, int);
 typedef double vfn_dbl_arity1(mpr_expr_val, int);
-typedef int ifn_int_arity1(mpr_expr_val, mpr_value);
-typedef float ifn_flt_arity1(mpr_expr_val, mpr_value);
-typedef double ifn_dbl_arity1(mpr_expr_val, mpr_value);
+typedef void ifn_int_arity1(mpr_expr_val, mpr_value);
+typedef void ifn_flt_arity1(mpr_expr_val, mpr_value);
+typedef void ifn_dbl_arity1(mpr_expr_val, mpr_value);
 
 typedef struct _token {
     union {
@@ -2784,6 +2784,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             if (!v_in)
                 return status;
+            ++top;
             mpr_value v = v_in[tok->var - VAR_X];
             switch (tok->datatype) {
 #define TYPED_CASE(MTYPE, FN, EL)                                               \
