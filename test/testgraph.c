@@ -657,8 +657,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_objs(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev,
-                              MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     mpr_list_free(devlist);
 
     count=0;

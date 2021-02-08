@@ -566,8 +566,6 @@ static int const_lookup(mpr_token_t *tok, const char *s, int len)
         tok->d = M_E;
     else
         return 1;
-    s += 2;
-    len -= 2;
     tok->toktype = TOK_CONST;
     tok->datatype = MPR_DBL;
     return 0;

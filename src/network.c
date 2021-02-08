@@ -823,7 +823,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
         if (!remote->subscribed && graph->autosub)
             mpr_graph_subscribe(graph, remote, graph->autosub, -1);
     }
-    if (!net->num_devs)
+    if (!net->devs)
         goto done;
     for (i = 0; i < net->num_devs; i++) {
         if (0 == strcmp(&av[0]->s, mpr_dev_get_name(net->devs[i])))
@@ -1796,7 +1796,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
             mpr_sig_send_state(map->dst->sig, MSG_SIG);
 
         trace_dev(dev, "informing subscribers (UNMAPPED)\n")
-        int dir = map->dst->loc->rsig ? MPR_MAP_IN : MPR_MAP_OUT;
+        int dir = map->dst->loc && map->dst->loc->rsig ? MPR_MAP_IN : MPR_MAP_OUT;
         mpr_net_use_subscribers(net, dev, dir);
         mpr_map_send_state(map, -1, MSG_UNMAPPED);
     }

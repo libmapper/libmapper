@@ -6,8 +6,6 @@
 #include <array>
 #include <signal.h>
 
-#include "config.h"
-
 #include <mapper/mapper_cpp.h>
 
 #ifdef HAVE_ARPA_INET_H

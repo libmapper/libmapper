@@ -452,15 +452,13 @@ void mpr_map_send(mpr_map m, mpr_time time)
         src_vals[i] = &m->src[i]->loc->val;
     mpr_slot dst_slot = m->dst;
 
-    mpr_id_map idmap;
+    mpr_id_map idmap = 0;
     int map_manages_inst = 0;
     if (!src_sig->use_inst) {
         if (mpr_expr_get_manages_inst(m->loc->expr)) {
             map_manages_inst = 1;
             idmap = m->idmap;
         }
-        else
-            idmap = 0;
     }
 
     char types[dst_slot->sig->len];
@@ -646,8 +644,11 @@ void mpr_map_receive(mpr_map m, mpr_time time)
 lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
                              mpr_type *types, mpr_id_map idmap)
 {
-    int i;
-    int len = ((MPR_LOC_SRC == m->process_loc) ? m->dst->sig->len : slot->sig->len);
+    int i, len = 0;
+    if (MPR_LOC_SRC == m->process_loc)
+        len = m->dst->sig->len;
+    else if (slot)
+        len = slot->sig->len;
     NEW_LO_MSG(msg, return 0);
 
     if (val && types) {
@@ -670,7 +671,7 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
         lo_message_add_string(msg, "@in");
         lo_message_add_int64(msg, idmap->GID);
     }
-    if (MPR_LOC_DST == m->process_loc && MPR_DIR_OUT == m->dst->dir) {
+    if (slot && MPR_LOC_DST == m->process_loc && MPR_DIR_OUT == m->dst->dir) {
         // add slot
         lo_message_add_string(msg, "@sl");
         lo_message_add_int32(msg, slot->obj.id);

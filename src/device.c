@@ -468,7 +468,6 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             // check if map instance is active
             if ((si = sig->loc->idmaps[idmap_idx].inst)) {
                 inst_idx = si->idx;
-                idmap = sig->loc->idmaps[idmap_idx].map;
                 mpr_local_slot lslot = slot->loc;
                 mpr_value_set_sample(&lslot->val, inst_idx, argv[0], ts);
                 set_bitflag(map->loc->updated_inst, inst_idx);
@@ -483,7 +482,6 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
         // check if map instance is active
         if ((si = sig->loc->idmaps[idmap_idx].inst)) {
-            inst_idx = si->idx;
             idmap = sig->loc->idmaps[idmap_idx].map;
             for (i = 0; i < sig->len; i++) {
                 if (types[i] == MPR_NULL)
