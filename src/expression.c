@@ -9,9 +9,11 @@
 #define STACK_SIZE 128
 #define N_USER_VARS 16
 #ifdef DEBUG
-    #define TRACING 0 /* Set non-zero to see trace during parse & eval. */
+    #define TRACE_PARSE 0 /* Set non-zero to see trace during parse. */
+    #define TRACE_EVAL 0 /* Set non-zero to see trace during evaluation. */
 #else
-    #define TRACING 0
+    #define TRACE_PARSE 0 /* Set non-zero to see trace during parse. */
+    #define TRACE_EVAL 0 /* Set non-zero to see trace during evaluation. */
 #endif
 
 #define lex_error trace
@@ -1507,7 +1509,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
     assigning = 1;
     allow_toktype = TOK_VAR | TOK_TT | TOK_OPEN_SQUARE | TOK_MUTED | TOK_PUBLIC;
 
-#if TRACING
+#if TRACE_PARSE
     printf("parsing expression '%s'\n", str);
 #endif
 
@@ -1590,7 +1592,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         vars[n_vars].vec_len = 0;
                         vars[n_vars].assigned = 0;
                         vars[n_vars].public = public;
-#if TRACING
+#if TRACE_PARSE
                         printf("Stored new variable '%s' at index %i\n", vars[n_vars].name, n_vars);
 #endif
                         tok.var = n_vars;
@@ -1638,7 +1640,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                         op[op_idx-1].toktype = TOK_IFN;
                         switch (op[op_idx-1].fn) {
                             case VFN_MEAN:
-#if TRACING
+#if TRACE_PARSE
                                 printf("Upgrading vector mean() to instanced mean()\n");
 #endif
                                 op[op_idx-1].ifn = (int)IFN_MEAN;
@@ -2094,7 +2096,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
                 {FAIL("Unknown token type.");}
                 break;
         }
-#if (TRACING && DEBUG)
+#if (TRACE_PARSE && DEBUG)
         printstack("OUTPUT STACK:  ", out, out_idx, vars, 0);
         printstack("OPERATOR STACK:", op, op_idx, vars, 0);
 #endif
@@ -2142,7 +2144,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
     {FAIL_IF(check_assign_type_and_len(out, out_idx, vars) == -1,
              "Malformed expression (10).");}
 
-#if (TRACING && DEBUG)
+#if (TRACE_PARSE && DEBUG)
     printstack("--->OUTPUT STACK:  ", out, out_idx, vars, 0);
     printstack("--->OPERATOR STACK:", op, op_idx, vars, 0);
 #endif
@@ -2177,7 +2179,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins,
         expr->vars = NULL;
 
     expr->n_vars = n_vars;
-#if TRACING
+#if TRACE_PARSE
     printf("expression allocated and initialized\n");
 #endif
     return expr;
@@ -2243,7 +2245,7 @@ int mpr_expr_get_manages_inst(mpr_expr expr)
     return expr ? expr->inst_ctl >= 0 : 0;
 }
 
-#if TRACING
+#if TRACE_EVAL
 static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len)
 {
     int i;
@@ -2269,7 +2271,7 @@ static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len)
 }
 #endif
 
-#if TRACING
+#if TRACE_EVAL
 static const char *type_name(const mpr_type type)
 {
     switch (type) {
@@ -2384,7 +2386,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                   mpr_value v_out, mpr_time *t, mpr_type *types, int inst_idx)
 {
     if (!expr) {
-#if TRACING
+#if TRACE_EVAL
         printf(" no expression to evaluate!\n");
 #endif
         return 0;
@@ -2438,7 +2440,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             if (tok->var < VAR_X)
                 goto error;
             pool = tok->var;
-#if TRACING
+#if TRACE_EVAL
             printf("pooling variable x%d\n", pool-VAR_X);
 #ifdef DEBUG
             mpr_value_print(v_in[pool-VAR_X], -1);
@@ -2462,7 +2464,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 default:
                     goto error;
             }
-#if TRACING
+#if TRACE_EVAL
             printf("loading constant ");
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf("\n");
@@ -2471,7 +2473,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_VAR: {
             int hidx = 0;
             float weight = 0.f;
-#if TRACING
+#if TRACE_EVAL
             int mlen = 0;
             if (tok->var == VAR_Y) {
                 printf("loading variable y");
@@ -2522,7 +2524,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             else
                 goto error;
-#if TRACING
+#if TRACE_EVAL
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf(" \n");
 #endif
@@ -2536,7 +2538,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 ++top;
             dims[top] = tok->vec_len;
             mpr_value_buffer b;
-#if TRACING
+#if TRACE_EVAL
             if (tok->var == VAR_Y)
                 printf("loading timetag t_y");
             else if (tok->var >= VAR_X)
@@ -2603,7 +2605,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             else
                 goto error;
-#if TRACING
+#if TRACE_EVAL
             printf(" as double %f\n", t_d);
 #endif
             for (i = 0; i < tok->vec_len; i++)
@@ -2613,7 +2615,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_OP:
             top -= op_tbl[tok->op].arity-1;
             dims[top] = tok->vec_len;
-#if TRACING
+#if TRACE_EVAL
             if (tok->op == OP_IF_THEN_ELSE || tok->op == OP_IF_ELSE) {
                 printf("IF ");
                 print_stack_vec(stk[top], tok->datatype, tok->vec_len);
@@ -2674,7 +2676,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 default:
                     goto error;
             }
-#if TRACING
+#if TRACE_EVAL
             printf(" = ");
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf(" \n");
@@ -2683,7 +2685,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_FN:
             top -= fn_tbl[tok->fn].arity-1;
             dims[top] = tok->vec_len;
-#if TRACING
+#if TRACE_EVAL
             printf("%s%c(", fn_tbl[tok->fn].name, tok->datatype);
             for (i = 0; i < fn_tbl[tok->fn].arity; i++) {
                 print_stack_vec(stk[top+i], tok->datatype, tok->vec_len);
@@ -2731,7 +2733,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             default:
                 goto error;
             }
-#if TRACING
+#if TRACE_EVAL
             printf(" = ");
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf(" \n");
@@ -2739,7 +2741,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             break;
         case TOK_VFN:
             top -= vfn_tbl[tok->vfn].arity-1;
-#if TRACING
+#if TRACE_EVAL
             printf("%s%c(", vfn_tbl[tok->vfn].name, tok->datatype);
             for (i = 0; i < vfn_tbl[tok->vfn].arity; i++) {
                 print_stack_vec(stk[top], tok->datatype, dims[top]);
@@ -2768,7 +2770,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 break;
             }
             dims[top] = tok->vec_len;
-#if TRACING
+#if TRACE_EVAL
             printf(" = ");
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf(" \n");
@@ -2777,7 +2779,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_IFN:
             if (tok->var < VAR_X)
                 goto error;
-#if TRACING
+#if TRACE_EVAL
             printf("%s(x%d)", ifn_tbl[tok->ifn].name, tok->var - VAR_X);
 #endif
             if (!v_in)
@@ -2801,7 +2803,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 break;
             }
             dims[top] = tok->vec_len;
-#if TRACING
+#if TRACE_EVAL
             printf(" = ");
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf(" \n");
@@ -2827,7 +2829,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                     goto error;
             }
             dims[top] = tok->vec_len;
-#if TRACING
+#if TRACE_EVAL
             printf("built %u-element vector: ", tok->vec_len);
             print_stack_vec(stk[top], tok->datatype, tok->vec_len);
             printf(" \n");
@@ -2837,7 +2839,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_ASSIGN_USE:
             can_advance = 0;
         case TOK_ASSIGN_CONST:
-#if TRACING
+#if TRACE_EVAL
             if (VAR_Y == tok->var)
                 printf("assigning values to y{%d}[%u] (%s x %u)\n",
                        tok->hist ? stk[top-1][0].i : 0, tok->vec_idx, type_name(tok->datatype),
@@ -2923,7 +2925,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
             if (tok->hist || can_advance) {
-#if TRACING
+#if TRACE_EVAL
                 printf("moving expr offset to %ld\n", tok - expr->start + 1);
 #endif
                 expr->offset = tok - expr->start + 1;
@@ -2934,7 +2936,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_ASSIGN_TT:
             if (tok->var != VAR_Y || tok->hist == 0)
                 goto error;
-#if TRACING
+#if TRACE_EVAL
             printf("assigning timetag to t_y{%d}\n", tok->hist ? stk[top-1][0].i : 0);
 #endif
             if (!v_out)
@@ -2946,7 +2948,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
             if (tok->hist || can_advance) {
-#if TRACING
+#if TRACE_EVAL
                 printf("moving expr offset to %ld\n", tok - expr->start + 1);
 #endif
                 expr->offset = tok - expr->start + 1;
@@ -2957,7 +2959,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         default: goto error;
         }
         if (tok->casttype && tok->toktype < TOK_ASSIGN) {
-#if TRACING
+#if TRACE_EVAL
             printf("casting from %s to %s (%c)\n", type_name(tok->datatype),
                    type_name(tok->casttype), tok->casttype);
 #endif
