@@ -763,9 +763,14 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
 const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
 {
     RETURN_UNLESS(sig && sig->loc, 0);
-    int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
-    RETURN_UNLESS(idmap_idx >= 0, 0);
-    mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
+    mpr_sig_inst si;
+    if (!sig->use_inst)
+        si = sig->loc->idmaps[0].inst;
+    else {
+        int idmap_idx = mpr_sig_get_idmap_with_LID(sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
+        RETURN_UNLESS(idmap_idx >= 0, 0);
+        si = sig->loc->idmaps[idmap_idx].inst;
+    }
     RETURN_UNLESS(si && si->has_val, 0)
     if (time) {
         time->sec = si->time.sec;
