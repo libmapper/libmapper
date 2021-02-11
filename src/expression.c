@@ -74,15 +74,13 @@ SUM_FUNC(int, i);
 SUM_FUNC(float, f);
 SUM_FUNC(double, d);
 
-static float meanf(mpr_expr_val val, int len)
-{
-    return sumf(val, len) / (float)len;
+#define MEAN_VFUNC(TYPE, EL)                    \
+static TYPE mean##EL(mpr_expr_val val, int len) \
+{                                               \
+    return sum##EL(val, len) / (TYPE)len;       \
 }
-
-static double meand(mpr_expr_val val, int len)
-{
-    return sumd(val, len) / (double)len;
-}
+MEAN_VFUNC(float, f);
+MEAN_VFUNC(double, d);
 
 #define EXTREMA_VFUNC(NAME, OP, TYPE, EL)   \
 static TYPE NAME(mpr_expr_val val, int len) \
@@ -100,6 +98,19 @@ EXTREMA_VFUNC(vmaxf, >, float, f);
 EXTREMA_VFUNC(vminf, <, float, f);
 EXTREMA_VFUNC(vmaxd, >, double, d);
 EXTREMA_VFUNC(vmind, <, double, d);
+
+#define powd pow
+#define sqrtd sqrt
+#define NORM_VFUNC(TYPE, EL)                    \
+static TYPE norm##EL(mpr_expr_val val, int len) \
+{                                               \
+    TYPE norm = 0;                              \
+    for (int i = 0; i < len; i++)               \
+        norm += pow##EL(val[i].EL, 2);          \
+    return sqrt##EL(norm);                      \
+}
+NORM_VFUNC(float, f);
+NORM_VFUNC(double, d);
 
 #define TYPED_EMA(TYPE, SUFFIX)                             \
 static TYPE ema##SUFFIX(TYPE memory, TYPE val, TYPE weight) \
@@ -300,6 +311,7 @@ typedef enum {
     VFN_SUM,
     VFN_MAX,
     VFN_MIN,
+    VFN_NORM,
     N_VFN
 } expr_vfn_t;
 
@@ -310,12 +322,13 @@ static struct {
     void *fn_flt;
     void *fn_dbl;
 } vfn_tbl[] = {
-    { "all",    1,      alli,       allf,       alld        },
-    { "any",    1,      anyi,       anyf,       anyd        },
-    { "mean",   1,      0,          meanf,      meand       },
-    { "sum",    1,      sumi,       sumf,       sumd        },
-    { "max",    1,      vmaxi,      vmaxf,      vmaxd       },
-    { "min",    1,      vmini,      vminf,      vmind       },
+    { "all",  1, alli,  allf,  alld  },
+    { "any",  1, anyi,  anyf,  anyd  },
+    { "mean", 1, 0,     meanf, meand },
+    { "sum",  1, sumi,  sumf,  sumd  },
+    { "max",  1, vmaxi, vmaxf, vmaxd },
+    { "min",  1, vmini, vminf, vmind },
+    { "norm", 1, 0,     normf, normd },
 };
 
 typedef enum {
@@ -917,7 +930,7 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         case TOK_COLON:     snprintf(s, len, ":");                       break;
         case TOK_VECTORIZE: snprintf(s, len, "VECT(%d)", t.arity);       break;
         case TOK_NEGATE:    snprintf(s, len, "-");                       break;
-        case TOK_VFN:       snprintf(s, len, "vfn.%s()", vfn_tbl[t.vfn].name); break;
+        case TOK_VFN:       snprintf(s, len, "vfn.%s", vfn_tbl[t.vfn].name); break;
         case TOK_POOL:
             if (t.var == VAR_UNKNOWN)
                 snprintf(s, len, "pool(?)");
