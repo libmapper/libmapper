@@ -155,12 +155,12 @@ leave `y[1]` unchanged.
 
 There are several special functions that operate across all elements of the vector:
 
-* `any(x)` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
-* `all(x)` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
-* `sum(x)` – output the sum of the elements in vector `x`
-* `mean(x)` – output the average (mean) of the elements in vector `x`
-* `max(x)` – output the maximum element in vector `x` (overloaded)
-* `min(x)` – output the minimum element in vector `x` (overloaded)
+* `x.any()` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
+* `x.all()` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
+* `x.sum()` – output the sum of the elements in vector `x`
+* `x.mean()` – output the average (mean) of the elements in vector `x`
+* `x.max()` – output the maximum element in vector `x` (overloaded)
+* `x.min()` – output the minimum element in vector `x` (overloaded)
 
 <h2 id="instances">Instances</h2>
 
@@ -170,11 +170,13 @@ Input and output signals addressed by libmapper may be *instanced* meaning that 
 
 There are several special functions that operate across all instances of a signal:
 
-* `count(x)` — output the number of instances of `x` that are currently active
-* `sum(x)` – output the sum of the values of all active instances of `x`
-* `mean(x)` – output the mean of the values of all active instances of `x`
-* `max(x)` – output the maximum value of all active instances of `x`
-* `min(x)` – output the minimum value of all active instances of `x`
+* `x.pool().count()` — output the number of instances of `x` that are currently active
+* `x.pool().sum()` – output the sum of the values of all active instances of `x`
+* `x.pool().mean()` – output the mean of the values of all active instances of `x`
+* `x.pool().max()` – output the maximum value of all active instances of `x`
+* `x.pool().min()` – output the minimum value of all active instances of `x`
+* `x.pool().size()` – output the difference between the maximum and minimum values of all instances, i.e. `x.pool().max()-x.pool().min()`
+* `x.pool().center()` – output the N-dimensional point located at the center of the instance ranges, i.e. `(x.pool().max()+x.pool().min())*0.5`
 
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 

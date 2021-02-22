@@ -30,6 +30,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
             b->samps = calloc(1, mlen * samp_size);
             b->times = calloc(1, mlen * sizeof(mpr_time));
             b->pos = -1;
+            b->full = 0;
         }
     }
 
@@ -41,6 +42,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
             // Initialize entire value to 0
             memset(b->samps, 0, mlen * samp_size);
             b->pos = -1;
+            b->full = 0;
         }
         goto done;
     }
@@ -56,6 +58,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
         tmp.samps = malloc(samp_size * mlen);
         tmp.times = malloc(sizeof(mpr_time) * mlen);
 
+        // TODO: don't bother copying memory if pos is -1
         if (mlen > v->mlen) {
             int npos = v->mlen - b->pos;
             // copy from [v->pos, v->mlen] to [0, v->mlen - v->pos]
@@ -66,6 +69,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
             memcpy(tmp.samps + npos * sizeof(mpr_time), b->samps, b->pos * sizeof(mpr_time));
             // zero remainder
             memset(tmp.samps + v->mlen * samp_size, 0, (mlen - v->mlen) * samp_size);
+            b->full = 0;
         }
         else {
             int len = _min(v->mlen - b->pos, mlen);
@@ -75,6 +79,8 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
                 memcpy(tmp.samps + len * samp_size, b->samps, (mlen - len) * samp_size);
                 memcpy(tmp.times + len * sizeof(mpr_time), b->times, (mlen - len) * sizeof(mpr_time));
             }
+            if (b->pos > mlen)
+                b->full = 1;
         }
         free(b->samps);
         free(b->times);
@@ -113,12 +119,17 @@ void mpr_value_reset_inst(mpr_value v, int idx)
     memset(b->samps, 0, v->mlen * v->vlen * mpr_type_get_size(v->type));
     memset(b->times, 0, v->mlen * sizeof(mpr_time));
     b->pos = -1;
+    b->full = 0;
 }
 
 void mpr_value_set_sample(mpr_value v, int idx, void *s, mpr_time t)
 {
     mpr_value_buffer b = &v->inst[idx];
-    b->pos = ((b->pos + 1) % v->mlen);
+    b->pos += 1;
+    if (b->pos >= v->mlen) {
+        b->pos = 0;
+        b->full = 1;
+    }
     memcpy(mpr_value_get_samp(v, idx), s, v->vlen * mpr_type_get_size(v->type));
     memcpy(mpr_value_get_time(v, idx), &t, sizeof(mpr_time));
 }

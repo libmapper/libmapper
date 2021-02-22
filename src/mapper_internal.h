@@ -387,7 +387,6 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *sig_name,
  *  \param num_src      The number of source slots for this map
  *  \param src_names    The full names of the source signals.
  *  \param dst_name     The full name of the destination signal.
- *  \param msg          The parsed message parameters containing new metadata.
  *  \return             Pointer to the map. */
 mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_names,
                           const char *dst_name);
@@ -635,6 +634,15 @@ inline static void* mpr_value_get_samp(mpr_value v, int idx)
 {
     mpr_value_buffer b = &v->inst[idx];
     return b->samps + b->pos * v->vlen * mpr_type_get_size(v->type);
+}
+
+inline static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int hist_idx)
+{
+    mpr_value_buffer b = &v->inst[inst_idx];
+    int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
+    if (idx < 0)
+        idx += v->mlen;
+    return b->samps + idx * v->vlen * mpr_type_get_size(v->type);
 }
 
 /*! Helper to find the pointer to the current time in a mpr_value_t. */

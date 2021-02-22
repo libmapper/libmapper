@@ -507,7 +507,7 @@ int run_tests()
         return 1;
 
     /* 12) any() */
-    snprintf(str, 256, "y=any(x-1)");
+    snprintf(str, 256, "y=(x-1).any()");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
     expect_int[0] =    ((int)src_dbl[0] - 1) ? 1 : 0
                      | ((int)src_dbl[1] - 1) ? 1 : 0
@@ -516,7 +516,7 @@ int run_tests()
         return 1;
 
     /* 13) all() */
-    snprintf(str, 256, "y=x[2]*all(x-1)");
+    snprintf(str, 256, "y=x[2]*(x-1).all()");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
     expect_int[0] = (int)src_dbl[2] * (  (((int)src_dbl[0] - 1) ? 1 : 0)
                                        & (((int)src_dbl[1] - 1) ? 1 : 0)
@@ -750,14 +750,14 @@ int run_tests()
         return 1;
 
     /* 43) Vector functions mean() and sum() */
-    snprintf(str, 256, "y=mean(x)==(sum(x)/3)");
+    snprintf(str, 256, "y=x.mean()==(x.sum()/3)");
     setup_test(MPR_FLT, 3, MPR_INT32, 1);
     expect_int[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 44) Overloaded vector functions max() and min() */
-    snprintf(str, 256, "y=max(x)-min(x)*max(x[0],1)");
+    snprintf(str, 256, "y=x.max()-x.min()*max(x[0],1)");
     setup_test(MPR_FLT, 3, MPR_INT32, 1);
     expect_int[0] = (  ((src_flt[0] > src_flt[1]) ?
                         (src_flt[0] > src_flt[2] ? src_flt[0] : src_flt[2]) :
@@ -769,27 +769,34 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 45) Optimization: operations by zero */
+    /* 45) Vector function: norm() */
+    snprintf(str, 256, "y=x.norm();");
+    setup_test(MPR_INT32, 2, MPR_FLT, 1);
+    expect_flt[0] = sqrtf(powf((float)src_int[0], 2) + powf((float)src_int[1], 2));
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 46) Optimization: operations by zero */
     snprintf(str, 256, "y=0*sin(x)*200+1.1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 1.1;
     if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
-    /* 46) Optimization: operations by one */
+    /* 47) Optimization: operations by one */
     snprintf(str, 256, "y=x*1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = (float)src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
-    /* 47) Error check: division by zero */
+    /* 48) Error check: division by zero */
     snprintf(str, 256, "y=x/0");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 48) Multiple Inputs */
+    /* 49) Multiple Inputs */
     snprintf(str, 256, "y=x+x1[1:2]+x2");
     mpr_type types[] = {MPR_INT32, MPR_FLT, MPR_DBL};
     int lens[] = {2, 3, 2};
@@ -799,7 +806,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 49) Functions with memory: ema() */
+    /* 50) Functions with memory: ema() */
     snprintf(str, 256, "y=x-ema(x,0.1)+2");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_dbl[0] = 0;
@@ -809,7 +816,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 50) Functions with memory: schmitt() */
+    /* 51) Functions with memory: schmitt() */
     snprintf(str, 256, "y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
     setup_test(MPR_INT32, 3, MPR_FLT, 3);
     if (iterations < 80) {
@@ -824,7 +831,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 51) Multiple output assignment */
+    /* 52) Multiple output assignment */
     snprintf(str, 256, "y=x-10000; y=max(min(y,1),0)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = src_flt[0] - 10000;
@@ -833,7 +840,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 52) Access timetags */
+    /* 53) Access timetags */
     snprintf(str, 256, "y=t_x");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
@@ -842,7 +849,7 @@ int run_tests()
     else
         eprintf("... OK\n");
 
-    /* 53) Access timetags from past samples */
+    /* 54) Access timetags from past samples */
     snprintf(str, 256, "y=t_x-t_y{-1}");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
@@ -856,7 +863,7 @@ int run_tests()
     else
         eprintf("... OK\n");
 
-    /* 54) Moving average of inter-sample period */
+    /* 55) Moving average of inter-sample period */
     /* Tricky - we need to init y{-1}.tt to x.tt or the first calculated
      * difference will be enormous! */
     snprintf(str, 256,
@@ -873,7 +880,7 @@ int run_tests()
     else
         eprintf("... OK\n");
 
-    /* 55) Moving average of inter-sample jitter */
+    /* 56) Moving average of inter-sample jitter */
     /* Tricky - we need to init y{-1}.tt to x.tt or the first calculated
      * difference will be enormous! */
     snprintf(str, 256,
@@ -893,7 +900,7 @@ int run_tests()
     else
         eprintf("... OK\n");
 
-    /* 56) Expression for limiting output rate */
+    /* 57) Expression for limiting output rate */
     snprintf(str, 256,
              "t_y{-1}=t_x;"
              "diff=t_x-t_y{-1};"
@@ -904,7 +911,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
         return 1;
 
-    /* 57) Expression for limiting rate with smoothed output */
+    /* 58) Expression for limiting rate with smoothed output */
     snprintf(str, 256,
              "t_y{-1}=t_x;"
              "alive=(t_x-t_y{-1})>0.1;"
@@ -916,7 +923,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
         return 1;
 
-    /* 58) Manipulate timetag directly. This functionality may be used in the
+    /* 59) Manipulate timetag directly. This functionality may be used in the
      *     future to schedule delays, however it currently will not affect
      *     message timing. Disabled for now. */
     snprintf(str, 256, "y=x[0]{0}; t_y=t_x+10");
@@ -932,13 +939,13 @@ int run_tests()
     //     return 1;
     // }
 
-    /* 59) Faulty timetag syntax */
+    /* 60) Faulty timetag syntax */
     snprintf(str, 256, "y=t_x-y;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 60) Instance management */
+    /* 61) Instance management */
     const char *expr60 = "count{-1}=0;alive=count>=5;y=x;count=(count+1)%10;";
     snprintf(str, 256, "%s", expr60);
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
@@ -950,14 +957,14 @@ int run_tests()
         return 1;
     }
 
-    /* 61) Filter unchanged values */
+    /* 62) Filter unchanged values */
     snprintf(str, 256, "muted=(x==x{-1});y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, 1))
         return 1;
 
-    /* 62) Buddy logic */
+    /* 63) Buddy logic */
     snprintf(str, 256, "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1});y=x0+x1[1:2];");
     // types[] and lens[] are already defined
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
@@ -966,56 +973,53 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 63) Variable delays */
+    /* 64) Variable delays */
     snprintf(str, 256, "y=x{abs(x%%10)-10,10}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
-    /* 64) Variable delay with missing maximum */
+    /* 65) Variable delay with missing maximum */
     snprintf(str, 256, "y=x{abs(x%%10)-10}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
         return 1;
 
-    /* 65) Calling delay() function explicity */
-    snprintf(str, 256, "y=delay(x, abs(x%%10)-10, 10)");
+    /* 66) Calling delay() function explicity */
+    snprintf(str, 256, "y=delay(x, abs(x%%10)-10), 10)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
         return 1;
 
-    /* 66) Fractional delays */
+    /* 67) Fractional delays */
     snprintf(str, 256, "ratio{-1}=0;y=x{-10+ratio, 10};ratio=(ratio+0.01)%%5;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
-    /* 67) Instance function: inst.count() */
-    snprintf(str, 256, "y=inst.count(x);");
+    /* 68) Pooled instance functions: any() and all() */
+    snprintf(str, 256, "y=(x-1).pool().any() + (x+1).pool().all();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+    expect_int[0] = 2;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 68) Instance function: inst.mean() */
-    snprintf(str, 256, "y=inst.mean(x);");
+    /* 68) Pooled instance functions: sum(), count() and mean() */
+    snprintf(str, 256, "y=(x.pool().sum()/x.pool().count())==x.pool().mean();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+    expect_int[0] = 1;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 69) Instance function: inst.sum() */
-    snprintf(str, 256, "y=inst.sum(x);");
+    /* 69) Pooled instance functions: max(), min(), and size() */
+    snprintf(str, 256, "y=(x.pool().max()-x.pool().min())==x.pool().size();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+    expect_int[0] = 1;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 70) Instance function: inst.max() */
-    snprintf(str, 256, "y=inst.max(x);");
-    setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
-        return 1;
-
-    /* 71) Instance function: inst.min() */
-    snprintf(str, 256, "y=inst.min(x);");
+    /* 70) Pooled instance function: center() */
+    snprintf(str, 256, "y=x.pool().center()==(x.pool().max()+x.pool().min())*0.5;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;

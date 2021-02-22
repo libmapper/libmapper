@@ -269,6 +269,7 @@ typedef struct _mpr_value_buffer
     void *samps;                //!< Value for each sample of stored history.
     mpr_time *times;            //!< Time for each sample of stored history.
     int8_t pos;                 //!< Current position in the circular buffer.
+    uint8_t full;               //!< Indicates whether complete buffer contains valid data.
 } mpr_value_buffer_t, *mpr_value_buffer;
 
 typedef struct _mpr_value
