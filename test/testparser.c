@@ -64,7 +64,8 @@ struct _mpr_expr
     void *start;
     mpr_var vars;
     uint8_t offset;
-    uint8_t len;
+    uint8_t n_tokens;
+    uint8_t stack_size;
     uint8_t vec_size;
     uint8_t *in_mem;
     uint8_t out_mem;
@@ -311,8 +312,8 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
     user_vars_p = user_vars;
 
-    eprintf("Parser returned %d tokens...", e->len);
-    if (max_tokens && e->len > max_tokens) {
+    eprintf("Parser returned %d tokens...", e->n_tokens);
+    if (max_tokens && e->n_tokens > max_tokens) {
         eprintf(" (expected %d)\n", max_tokens);
         result = 1;
         goto free;
@@ -329,7 +330,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
 #endif
 
-    token_count += e->len;
+    token_count += e->n_tokens;
 
     int status;
     update_count = 0;
@@ -421,7 +422,7 @@ int run_tests()
     // TODO: ensure split successive constant additions are optimized
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    expect_flt[0] = 26*2/2+log10(M_PI)+2.*pow(2,1*(3+7*.1)*1.1+src_flt[0])*3*4+cos(2.0);
+    expect_flt[0] = 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_flt[0])*3*4+cosf(2.0f);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -460,26 +461,26 @@ int run_tests()
     /* 6) Building vectors with variables, operations inside vector-builder */
     snprintf(str, 256, "y=[-99.4, -x*1.1+x]");
     setup_test(MPR_INT32, 2, MPR_DBL, 3);
-    expect_dbl[0] = atof("-99.4f");
-    expect_dbl[1] = (double)(-src_int[0] * 1.1 + src_int[0]);
-    expect_dbl[2] = (double)(-src_int[1] * 1.1 + src_int[1]);
+    expect_dbl[0] = -99.4f;
+    expect_dbl[1] = -((double)src_int[0]) * 1.1f + ((double)src_int[0]);
+    expect_dbl[2] = -((double)src_int[1]) * 1.1f + ((double)src_int[1]);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 7) Indexing vectors by range */
     snprintf(str, 256, "y=x[1:2]+100");
     setup_test(MPR_DBL, 3, MPR_FLT, 2);
-    expect_flt[0] = (float)src_dbl[1] + 100;
-    expect_flt[1] = (float)src_dbl[2] + 100;
+    expect_flt[0] = (float)(src_dbl[1] + 100);
+    expect_flt[1] = (float)(src_dbl[2] + 100);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 8) Typical linear scaling expression with vectors */
     snprintf(str, 256, "y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    expect_flt[0] = src_flt[0] * 0.1 + 2.;
-    expect_flt[1] = src_flt[1] * 3.7 + 1.3;
-    expect_flt[2] = src_flt[2] * -.1112 + 9000.;
+    expect_flt[0] = src_flt[0] * 0.1f + 2.f;
+    expect_flt[1] = src_flt[1] * 3.7f + 1.3f;
+    expect_flt[2] = src_flt[2] * -.1112f + 9000.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -601,8 +602,8 @@ int run_tests()
     /* 25) Multiple expressions */
     snprintf(str, 256, "y[0]=x*100-23.5; y[2]=100-x*6.7");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    expect_flt[0] = (float)((double)src_int[0] * 100 - 23.5);
-    expect_flt[2] = (float)(100 - (double)src_int[0] * 6.7);
+    expect_flt[0] = src_int[0] * 100.f - 23.5f;
+    expect_flt[2] = 100.f - src_int[0] * 6.7f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -721,25 +722,25 @@ int run_tests()
     /* 39) Variable declaration */
     snprintf(str, 256, "y=x+var; var=[3.5,0]");
     setup_test(MPR_INT32, 2, MPR_FLT, 2);
-    expect_flt[0] = (float)((double)src_int[0] + 3.5);
-    expect_flt[1] = (float)((double)src_int[1]);
+    expect_flt[0] = src_int[0] + 3.5f;
+    expect_flt[1] = src_int[1];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 40) Variable declaration */
     snprintf(str, 256, "ema=ema{-1}*0.9+x*0.1; y=ema*2; ema{-1}=90");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_dbl[0] = 90;
+    expect_flt[0] = 90;
     for (int i = 0; i < iterations; i++)
-        expect_dbl[0] = expect_dbl[0] * 0.9 + src_int[0] * 0.1;
-    expect_flt[0] = expect_dbl[0] * 2;
+        expect_flt[0] = expect_flt[0] * 0.9f + src_int[0] * 0.1f;
+    expect_flt[0] *= 2;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 41) Multiple variable declaration */
     snprintf(str, 256, "a=1.1; b=2.2; c=3.3; y=x+a-b*c");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_flt[0] = (float)((double)src_int[0] + 1.1 - 2.2 * 3.3);
+    expect_flt[0] = (float)src_int[0] + 1.1 - 2.2 * 3.3;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -809,10 +810,10 @@ int run_tests()
     /* 50) Functions with memory: ema() */
     snprintf(str, 256, "y=x-ema(x,0.1)+2");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_dbl[0] = 0;
+    expect_flt[0] = 0;
     for (int i = 0; i < iterations; i++)
-        expect_dbl[0] = expect_dbl[0] * 0.9 + src_int[0] * 0.1;
-    expect_flt[0] = src_int[0] - expect_dbl[0] + 2;
+        expect_flt[0] = expect_flt[0] * 0.9f + src_int[0] * 0.1f;
+    expect_flt[0] = src_int[0] - expect_flt[0] + 2.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -915,9 +916,9 @@ int run_tests()
     snprintf(str, 256,
              "t_y{-1}=t_x;"
              "alive=(t_x-t_y{-1})>0.1;"
-             "y=agg/samps;"
              "agg=!alive*agg+x;"
-             "samps=alive?1:samps+1");
+             "samps=alive?1:samps+1;"
+             "y=agg/samps;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_dbl[0] = (double)src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
@@ -968,8 +969,8 @@ int run_tests()
     snprintf(str, 256, "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1});y=x0+x1[1:2];");
     // types[] and lens[] are already defined
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
-    expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1]);
-    expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2]);
+    expect_flt[0] = src_int[0] + src_flt[1];
+    expect_flt[1] = src_int[1] + src_flt[2];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -1004,25 +1005,49 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 68) Pooled instance functions: sum(), count() and mean() */
+    /* 69) Pooled instance functions: sum(), count() and mean() */
     snprintf(str, 256, "y=(x.pool().sum()/x.pool().count())==x.pool().mean();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 69) Pooled instance functions: max(), min(), and size() */
+    /* 70) Pooled instance functions: max(), min(), and size() */
     snprintf(str, 256, "y=(x.pool().max()-x.pool().min())==x.pool().size();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 70) Pooled instance function: center() */
+    /* 71) Pooled instance function: center() */
     snprintf(str, 256, "y=x.pool().center()==(x.pool().max()+x.pool().min())*0.5;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
+
+    /* 72) Mean pooled length of centered vectors */
+    snprintf(str, 256, "m=x.pool().mean(); y=(x-m).norm().pool().mean()");
+    setup_test(MPR_FLT, 2, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+    /* 73) Mean pooled linear displacement */
+    snprintf(str, 256, "y=(x-x{-1}).pool().mean()");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
+
+//    /* 74) Vector angle */
+//    snprintf(str, 256, "angle(x{-1}, x.pool().mean(), x);");
+//    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+//    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+//        return 1;
+//
+//    /* 75) Mean pooled angular displacement */
+//    snprintf(str, 256, "M=x.pool().mean(); y=angle(x{-1},M,x).pool().mean();");
+//    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+//    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+//        return 1;
 
     return 0;
 }

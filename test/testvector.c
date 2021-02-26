@@ -28,7 +28,7 @@ int sent = 0;
 int received = 0;
 
 float *sMin, *sMax, *dMin, *dMax, *expected;
-double *M, *B;
+float *M, *B;
 
 int setup_src()
 {
@@ -132,11 +132,11 @@ int setup_maps()
 
     // calculate M and B for generated expected values
     for (i = 0; i < vec_len; i++) {
-        double sRange = (double)sMax[i] - (double)sMin[i];
+        float sRange = (float)sMax[i] - (float)sMin[i];
         if (sRange) {
-            M[i] = ((double)dMax[i] - (double)dMin[i]) / sRange;
-            B[i] = (  (double)dMin[i] * (double)sMax[i]
-                    - (double)dMax[i] * (double)sMin[i]) / sRange;
+            M[i] = ((float)dMax[i] - (float)dMin[i]) / sRange;
+            B[i] = (  (float)dMin[i] * (float)sMax[i]
+                    - (float)dMax[i] * (float)sMin[i]) / sRange;
         }
         else {
             M[i] = 0;
@@ -163,7 +163,7 @@ void loop()
     while ((!terminate || i < 50) && !done) {
         for (j = 0; j < vec_len; j++) {
             v[j] = (float)(i + j);
-            expected[j] = (double)v[j] * M[j] + B[j];
+            expected[j] = v[j] * M[j] + B[j];
         }
         eprintf("Updating signal %s to [", sendsig->name);
         for (j = 0; j < vec_len; j++)
@@ -234,8 +234,8 @@ int main(int argc, char **argv)
     sMax = malloc(vec_len * sizeof(float));
     dMin = malloc(vec_len * sizeof(float));
     dMax = malloc(vec_len * sizeof(float));
-    M = malloc(vec_len * sizeof(double));
-    B = malloc(vec_len * sizeof(double));
+    M = malloc(vec_len * sizeof(float));
+    B = malloc(vec_len * sizeof(float));
     expected = malloc(vec_len * sizeof(float));
 
     for (i = 0; i < vec_len; i++) {

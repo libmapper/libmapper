@@ -154,7 +154,7 @@ void loop()
                 sendsig->period, sendsig->jitter);
         period = sendsig->period;
         ++sent;
-        expected = fval * 0.1;
+        expected = fval * 0.1f;
         mpr_dev_poll(src, 0);
         mpr_dev_poll(dst, polltime);
         ++i;

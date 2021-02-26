@@ -742,7 +742,7 @@ void mpr_map_alloc_values(mpr_map m)
             memcpy(&vars[i], &lm->vars[j], sizeof(mpr_value_t));
             lm->vars[j].inst = 0;
         }
-        mpr_value_realloc(&vars[i], vlen, MPR_DBL, 1, num_inst, 0);
+        mpr_value_realloc(&vars[i], vlen, mpr_expr_get_var_type(e, i), 1, num_inst, 0);
         // set position to 0 since we are not currently allowing history on user variables
         for (j = 0; j < num_inst; j++)
             vars[i].inst[j].pos = 0;
@@ -839,14 +839,14 @@ static int _snprint_var(const char *varname, char *str, int max_len, int vec_len
             break;
         case MPR_FLT:
             for (i = 0; i < vec_len; i++) {
-                var_len = snprintf(str+str_len, max_len-str_len, "%f", ((float*)val)[i]);
+                var_len = snprintf(str+str_len, max_len-str_len, "%g", ((float*)val)[i]);
                 str_len += _trim_zeros(str+str_len, var_len);
                 str_len += snprintf(str+str_len, max_len-str_len, ",");
             }
             break;
         case MPR_DBL:
             for (i = 0; i < vec_len; i++) {
-                var_len = snprintf(str+str_len, max_len-str_len, "%f", ((double*)val)[i]);
+                var_len = snprintf(str+str_len, max_len-str_len, "%g", ((double*)val)[i]);
                 str_len += _trim_zeros(str+str_len, var_len);
                 str_len += snprintf(str+str_len, max_len-str_len, ",");
             }
@@ -875,19 +875,8 @@ for (j = 0; j < m->loc->num_vars; j++) {                            \
         trace("expr var '%s' is not yet initialised.\n", VARNAME);  \
         goto abort;                                                 \
     }                                                               \
-    len += snprintf(expr+len, MAX_LEN-len, "%s=", VARNAME);         \
-    double *v = mpr_value_get_samp(&ev[j], k);                      \
-    if (ev[j].vlen > 1)                                             \
-        len += snprintf(expr+len, MAX_LEN-len, "[");                \
-    for (l = 0; l < ev[j].vlen; l++) {                              \
-        val_len = snprintf(expr+len, MAX_LEN-len, "%f", v[l]);      \
-        len += _trim_zeros(expr+len, val_len);                      \
-        len += snprintf(expr+len, MAX_LEN-len, ",");                \
-    }                                                               \
-    --len;                                                          \
-    if (ev[j].vlen > 1)                                             \
-        len += snprintf(expr+len, MAX_LEN-len, "]");                \
-    len += snprintf(expr+len, MAX_LEN-len, ";");                    \
+    len += _snprint_var(VARNAME, expr+len, MAX_LEN-len, ev[j].vlen, \
+                        ev[j].type, mpr_value_get_samp(&ev[j], k)); \
     break;                                                          \
 }                                                                   \
 if (j == m->loc->num_vars) {                                        \
@@ -898,7 +887,7 @@ if (j == m->loc->num_vars) {                                        \
 static const char *_set_linear(mpr_map m, const char *e)
 {
     // if e is NULL, try to fill in ranges from map signals
-    int j, k, l, len = 0, val_len;
+    int j, k, len = 0, val_len;
     char expr[MAX_LEN] = "";
     char *var = "x";
 
@@ -1075,8 +1064,7 @@ static const char *_set_linear(mpr_map m, const char *e)
                     if (1 == dst_vec_len)
                         len += snprintf(expr+len, MAX_LEN-len, "x%d[0]+", i);
                     else
-                        len += snprintf(expr+len, MAX_LEN-len, "x%d[0:%d]+",
-                                        i, dst_vec_len-1);
+                        len += snprintf(expr+len, MAX_LEN-len, "x%d[0:%d]+", i, dst_vec_len-1);
                 }
                 else if (m->src[i]->sig->len < dst_vec_len) {
                     len += snprintf(expr+len, MAX_LEN-len, "[x%d,0", i);
@@ -1441,33 +1429,35 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                             ++updated;
                             // TODO: handle multiple instances
                             int k = 0, l, var_len =  m->loc->vars[j].vlen;
-                            double *v = mpr_value_get_samp(&m->loc->vars[j], k);
+                            mpr_type type = m->loc->vars[j].type;
                             // cast to double if necessary
-                            switch (a->types[0])  {
-                                case MPR_DBL:
-                                    for (k = 0, l = 0; k < var_len; k++, l++) {
-                                        if (l >= a->len)
-                                            l = 0;
-                                        v[k] = a->vals[l]->d;
-                                    }
-                                    break;
-                                case MPR_INT32:
-                                    for (k = 0, l = 0; k < var_len; k++, l++) {
-                                        if (l >= a->len)
-                                            l = 0;
-                                        v[k] = (double)a->vals[l]->i32;
-                                    }
-                                    break;
-                                case MPR_FLT:
-                                    for (k = 0, l = 0; k < var_len; k++, l++) {
-                                        if (l >= a->len)
-                                            l = 0;
-                                        v[k] = (float)a->vals[l]->f;
-                                    }
-                                    break;
+                            switch (type) {
+#define TYPED_CASE(MTYPE, TYPE, MTYPE1, EL1, MTYPE2, EL2)                                   \
+                                case MTYPE: {                                               \
+                                    TYPE *v = mpr_value_get_samp(&m->loc->vars[j], k);      \
+                                    for (k = 0, l = 0; k < var_len; k++, l++) {             \
+                                        if (l >= a->len)                                    \
+                                            l = 0;                                          \
+                                        switch (a->types[l]) {                              \
+                                            case MTYPE1:                                    \
+                                                v[k] = (TYPE)a->vals[l]->EL1;               \
+                                                break;                                      \
+                                            case MTYPE2:                                    \
+                                                v[k] = (TYPE)a->vals[l]->EL2;               \
+                                                break;                                      \
+                                            default:                                        \
+                                                --updated;                                  \
+                                                k = var_len;                                \
+                                        }                                                   \
+                                    }                                                       \
+                                    break;                                                  \
+                                }
+                                TYPED_CASE(MPR_INT32, int, MPR_FLT, f, MPR_DBL, d)
+                                TYPED_CASE(MPR_FLT, float, MPR_INT32, i, MPR_DBL, d)
+                                TYPED_CASE(MPR_DBL, double, MPR_INT32, i, MPR_FLT, f)
+#undef TYPED_CASE
                                 default:
                                     --updated;
-                                    break;
                             }
                             break;
                         }
@@ -1585,9 +1575,28 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
             if (m->loc->vars[j].inst[k].pos >= 0) {
                 snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(m->loc->expr, j));
                 lo_message_add_string(msg, varname);
-                double *v = mpr_value_get_samp(&m->loc->vars[j], k);
-                for (l = 0; l < m->loc->vars[j].vlen; l++)
-                    lo_message_add_double(msg, v[l]);
+                switch (m->loc->vars[j].type) {
+                    case MPR_INT32: {
+                        int *v = mpr_value_get_samp(&m->loc->vars[j], k);
+                        for (l = 0; l < m->loc->vars[j].vlen; l++)
+                            lo_message_add_int32(msg, v[l]);
+                        break;
+                    }
+                    case MPR_FLT: {
+                        float *v = mpr_value_get_samp(&m->loc->vars[j], k);
+                        for (l = 0; l < m->loc->vars[j].vlen; l++)
+                            lo_message_add_float(msg, v[l]);
+                        break;
+                    }
+                    case MPR_DBL: {
+                        double *v = mpr_value_get_samp(&m->loc->vars[j], k);
+                        for (l = 0; l < m->loc->vars[j].vlen; l++)
+                            lo_message_add_double(msg, v[l]);
+                        break;
+                    }
+                    default:
+                        break;
+                }
             }
             else {
                 trace("public expression variable '%s' is not yet initialised.\n",

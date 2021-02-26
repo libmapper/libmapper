@@ -67,21 +67,23 @@ TEST_VEC_TYPED(vanyi, int, !=, 0, 1, i);
 TEST_VEC_TYPED(vanyf, float, !=, 0.f, 1, f);
 TEST_VEC_TYPED(vanyd, double, !=, 0., 1, d);
 
-//#define ANGLE_VFUNC(TYPE, EL)   \
-//static void vangle##EL(mpr_expr_val A, mpr_expr_val B, mpr_expr_val C, int len) \
-//{                                                                               \
-//    TYPE p1[2] = {A[0].EL-B[0].EL, C[0].EL-B[0].EL}, p2[2], *p1p=p1, *p2p=p2;   \
-//    for (int i = 1 ; i < len; i++) {                                            \
-//        p2[0] = A[i].EL-B[i].EL;                                                \
-//        p2[1] = C[0].EL-B[0].EL;                                                \
-//        A[i].EL = atan2(p2p[1],p2p[0]) - atan2(p1p[1], p1p[0]);                 \
-//        TYPE *tmp = p1p;                                                        \
-//        p1p = p2p;                                                              \
-//        p2p = tmp;                                                              \
-//    }                                                                           \
-//}
-//ANGLE_VFUNC(float, f);
-//ANGLE_VFUNC(double, d);
+#define ANGLE_VFUNC(TYPE, EL)   \
+static void vangle##EL(mpr_expr_val A, mpr_expr_val B, mpr_expr_val C, int from, int to)\
+{                                                                                       \
+    /* translate points so that B is located at origin */                               \
+    TYPE p1[2] = {A[0].EL - B[0].EL, C[0].EL - B[0].EL}, *p1p = p1;                     \
+    TYPE p2[2], *p2p = p2;                                                              \
+    for (int i = 1 ; i < from; i++) {                                                    \
+        p2[0] = A[i].EL - B[i].EL;                                                      \
+        p2[1] = C[0].EL - B[0].EL;                                                      \
+        A[i].EL = atan2(p2p[1], p2p[0]) - atan2(p1p[1], p1p[0]);                        \
+        TYPE *tmp = p1p;                                                                \
+        p1p = p2p;                                                                      \
+        p2p = tmp;                                                                      \
+    }                                                                                   \
+}
+ANGLE_VFUNC(float, f);
+ANGLE_VFUNC(double, d);
 
 #define SUM_VFUNC(NAME, TYPE, EL)                   \
 static void NAME(mpr_expr_val val, int from, int to)\
@@ -200,14 +202,14 @@ TYPED_SCHMITT(float, f);
 TYPED_SCHMITT(double, d);
 
 typedef enum {
-    VAR_UNKNOWN=-1,
-    VAR_Y=N_USER_VARS,
+    VAR_UNKNOWN = -1,
+    VAR_Y = N_USER_VARS,
     VAR_X,
     N_VARS
 } expr_var_t;
 
 typedef enum {
-    OP_UNKNOWN=-1,
+    OP_UNKNOWN = -1,
     OP_LOGICAL_NOT,
     OP_MULTIPLY,
     OP_DIVIDE,
@@ -242,7 +244,7 @@ static struct {
     const char *name;
     char arity;
     char precedence;
-    uint16_t optimize_const_operands;
+    uint16_t optimize_const_ops;
 } op_tbl[] = {
 /*                     left==0  | right==0     | left==1      | right==1     */
     { "!",      1, 11, GET_ONE  | GET_ONE  <<4 | GET_ZERO <<8 | GET_ZERO <<12 },
@@ -271,11 +273,10 @@ static struct {
 };
 
 typedef enum {
-    FN_UNKNOWN=-1,
-    FN_ABS=0,
+    FN_UNKNOWN = -1,
+    FN_ABS = 0,
     FN_ACOS,
     FN_ACOSH,
-//    FN_ANGLE,
     FN_ASIN,
     FN_ASINH,
     FN_ATAN,
@@ -325,7 +326,6 @@ static struct {
     { "abs",        1,  0,  abs,    fabsf,      fabs        },
     { "acos",       1,  0,  0,      acosf,      acos        },
     { "acosh",      1,  0,  0,      acoshf,     acosh       },
-//    { "angle",      3,  0,  0,      anglef,     angled      },
     { "asin",       1,  0,  0,      asinf,      asin        },
     { "asinh",      1,  0,  0,      asinhf,     asinh       },
     { "atan",       1,  0,  0,      atanf,      atan        },
@@ -364,8 +364,8 @@ static struct {
 };
 
 typedef enum {
-    VFN_UNKNOWN=-1,
-    VFN_ALL=0,
+    VFN_UNKNOWN = -1,
+    VFN_ALL = 0,
     VFN_ANY,
     VFN_CENTER,
     VFN_MAX,
@@ -376,31 +376,34 @@ typedef enum {
     VFN_NORM,
     VFN_MAXMIN,
     VFN_SUMNUM,
+    FN_ANGLE,
     N_VFN
 } expr_vfn_t;
 
 static struct {
     const char *name;
-    unsigned int arity;
+    uint8_t arity;
+    uint8_t reduce;
     void *fn_int;
     void *fn_flt;
     void *fn_dbl;
 } vfn_tbl[] = {
-    { "all",    1, valli,    vallf,    valld    },
-    { "any",    1, vanyi,    vanyf,    vanyd    },
-    { "center", 1, 0,        vcenterf, vcenterd },
-    { "max",    1, vmaxi,    vmaxf,    vmaxd    },
-    { "mean",   1, 0,        vmeanf,   vmeand   },
-    { "min",    1, vmini,    vminf,    vmind    },
-    { "sum",    1, vsumi,    vsumf,    vsumd    },
-    { "norm",   1, 0,        vnormf,   vnormd   },
-    { "maxmin", 3, vmaxmini, vmaxminf, vmaxmind },
-    { "sumnum", 3, vsumnumi, vsumnumf, vsumnumd },
+    { "all",    1, 1, valli,    vallf,    valld    },
+    { "any",    1, 1, vanyi,    vanyf,    vanyd    },
+    { "center", 1, 1, 0,        vcenterf, vcenterd },
+    { "max",    1, 1, vmaxi,    vmaxf,    vmaxd    },
+    { "mean",   1, 1, 0,        vmeanf,   vmeand   },
+    { "min",    1, 1, vmini,    vminf,    vmind    },
+    { "sum",    1, 1, vsumi,    vsumf,    vsumd    },
+    { "norm",   1, 1, 0,        vnormf,   vnormd   },
+    { "maxmin", 3, 0, vmaxmini, vmaxminf, vmaxmind },
+    { "sumnum", 3, 0, vsumnumi, vsumnumf, vsumnumd },
+    { "angle",  3, 1, 0,        vanglef,  vangled  },
 };
 
 typedef enum {
-    PFN_UNKNOWN=-1,
-    PFN_ALL=0,
+    PFN_UNKNOWN = -1,
+    PFN_ALL = 0,
     PFN_ANY,
     PFN_CENTER,
     PFN_MAX,
@@ -457,6 +460,11 @@ typedef void vfn_dbl_arity1(mpr_expr_val, int, int);
 typedef void vfn_dbl_arity2(mpr_expr_val, mpr_expr_val, int, int);
 typedef void vfn_dbl_arity3(mpr_expr_val, mpr_expr_val, mpr_expr_val, int, int);
 
+#define CONST_MINVAL    0x0001
+#define CONST_MAXVAL    0x0002
+#define CONST_PI        0x0003
+#define CONST_E         0x0004
+
 typedef struct _token {
     union {
         float f;
@@ -469,8 +477,6 @@ typedef struct _token {
         expr_pfn_t pfn; // pooled instance function
     };
     enum {
-        TOK_CONST_MINVAL    = 0x000000,
-        TOK_CONST_MAXVAL    = 0x000001,
         TOK_CONST           = 0x000002,
         TOK_NEGATE          = 0x000004,
         TOK_FN              = 0x000008,
@@ -515,6 +521,8 @@ typedef struct _token {
     int8_t hist;          // TODO switch to bitflags
     char vec_len_locked;  // TODO switch to bitflags
     char muted;           // TODO switch to bitflags
+    char clear_stack;     // TODO switch to bitflags
+    uint8_t const_flags;
 } mpr_token_t, *mpr_token;
 
 typedef struct _var {
@@ -592,13 +600,13 @@ static void var_lookup(mpr_token_t *tok, const char *s, int len)
 static int const_lookup(mpr_token_t *tok, const char *s, int len)
 {
     if (len == 2 && 'p' == *s && 'i' == *(s+1))
-        tok->d = M_PI;
+        tok->const_flags = CONST_PI;
     else if (len == 1 && *s == 'e')
-        tok->d = M_E;
+        tok->const_flags = CONST_E;
     else
         return 1;
     tok->toktype = TOK_CONST;
-    tok->datatype = MPR_DBL;
+    tok->datatype = MPR_FLT;
     return 0;
 }
 
@@ -625,6 +633,12 @@ static int const_tok_is_one(mpr_token_t tok)
 static int tok_arity(mpr_token_t tok)
 {
     switch (tok.toktype) {
+        case TOK_VAR:
+        case TOK_TT:
+        case TOK_ASSIGN:
+        case TOK_ASSIGN_CONST:
+        case TOK_ASSIGN_USE:
+        case TOK_ASSIGN_TT: return tok.hist ? 1 : 0;
         case TOK_OP:        return op_tbl[tok.op].arity;
         case TOK_FN:        return fn_tbl[tok.fn].arity;
         case TOK_PFN:       return pfn_tbl[tok.pfn].arity;
@@ -646,6 +660,8 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
     tok->vec_len = 1;
     tok->vec_idx = 0;
     tok->vec_len_locked = 0;
+    tok->clear_stack = 0;
+    tok->const_flags = 0;
     int n=idx, i=idx;
     char c = str[idx];
     int integer_found = 0;
@@ -675,13 +691,13 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
     switch (c) {
     case '.':
         c = str[++idx];
-        if (!isdigit(c) && c!='e' && integer_found) {
-            tok->toktype = TOK_CONST;
-            tok->f = (float)n;
-            tok->datatype = MPR_FLT;
-            return idx;
-        }
         if (!isdigit(c) && c!='e') {
+            if (integer_found) {
+                tok->toktype = TOK_CONST;
+                tok->f = (float)n;
+                tok->datatype = MPR_FLT;
+                return idx;
+            }
             while (c && (isalpha(c) || c == '.'))
                 c = str[++idx];
             ++i;
@@ -697,11 +713,12 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
             c = str[++idx];
         } while (c && isdigit(c));
         if (c!='e') {
-            tok->d = atof(str+i);
+            tok->f = atof(str+i);
             tok->toktype = TOK_CONST;
-            tok->datatype = MPR_DBL;
+            tok->datatype = MPR_FLT;
             return idx;
         }
+        // continue to next case 'e'
     case 'e':
         if (!integer_found) {
             while (c && (isalpha(c) || isdigit(c) || c == '_'))
@@ -730,7 +747,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         return ++idx;
     case '-':
         // could be either subtraction or negation
-        i = idx-1;
+        i = idx - 1;
         // back up one character
         while (i && strchr(" \t\r\n", str[i]))
            --i;
@@ -887,7 +904,8 @@ struct _mpr_expr
     mpr_token start;
     mpr_var vars;
     uint8_t offset;
-    uint8_t len;
+    uint8_t n_tokens;
+    uint8_t stack_size;
     uint8_t vec_size;
     uint8_t *in_hist_size;
     uint8_t out_hist_size;
@@ -918,13 +936,19 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
     char s[len];
     switch (t.toktype) {
         case TOK_CONST:
-            switch (t.datatype) {
-                case MPR_FLT:   snprintf(s, len, "%g", t.f);                    break;
-                case MPR_DBL:   snprintf(s, len, "%g", t.d);                    break;
-                case MPR_INT32: snprintf(s, len, "%d", t.i);                    break;
-            }                                                                   break;
-        case TOK_CONST_MAXVAL:  snprintf(s, len, "max%c", t.datatype);          break;
-        case TOK_CONST_MINVAL:  snprintf(s, len, "min%c", t.datatype);          break;
+            switch (t.const_flags) {
+                case CONST_MAXVAL:  snprintf(s, len, "max%c", t.datatype);      break;
+                case CONST_MINVAL:  snprintf(s, len, "min%c", t.datatype);      break;
+                case CONST_PI:      snprintf(s, len, "pi%c", t.datatype);       break;
+                case CONST_E:       snprintf(s, len, "e%c", t.datatype);        break;
+                default:
+                    switch (t.datatype) {
+                        case MPR_FLT:   snprintf(s, len, "%g", t.f);            break;
+                        case MPR_DBL:   snprintf(s, len, "%g", t.d);            break;
+                        case MPR_INT32: snprintf(s, len, "%d", t.i);            break;
+                    }                                                           break;
+            }
+                                                                                break;
         case TOK_OP:            snprintf(s, len, "op.%s", op_tbl[t.op].name);   break;
         case TOK_OPEN_CURLY:    snprintf(s, len, "{");                          break;
         case TOK_OPEN_PAREN:    snprintf(s, len, "(");                          break;
@@ -990,6 +1014,8 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         printf("   ");
     if (t.vec_len_locked)
         printf(" locked");
+    if (t.clear_stack)
+        printf(" clear");
     printf("\n");
 }
 
@@ -1048,7 +1074,7 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
 
 void printexpr(const char *s, mpr_expr e)
 {
-    printstack(s, e->tokens, e->len-1, e->vars, 1);
+    printstack(s, e->tokens, e->n_tokens - 1, e->vars, 1);
 }
 
 #endif // DEBUG
@@ -1147,10 +1173,10 @@ static void lock_vec_len(mpr_token_t *stk, int sp)
 
 static int precompute(mpr_token_t *stk, int len, int vec_len)
 {
-    struct _mpr_expr e = {0, stk, 0, 0, len, vec_len, 0, 0, 0, -1, -1};
-    void *s = malloc(mpr_type_get_size(stk[len-1].datatype) * vec_len);
+    struct _mpr_expr e = {0, stk, 0, 0, len, len, vec_len, 0, 0, 0, -1, -1};
+    void *s = malloc(mpr_type_get_size(stk[len - 1].datatype) * vec_len);
     mpr_value_buffer_t b = {s, 0, -1};
-    mpr_value_t v = {&b, vec_len, 1, stk[len-1].datatype, 1};
+    mpr_value_t v = {&b, vec_len, 1, stk[len - 1].datatype, 1};
     if (!(mpr_expr_eval(&e, 0, 0, &v, 0, 0, 0) & 1)) {
         free(s);
         return 0;
@@ -1174,13 +1200,14 @@ static int precompute(mpr_token_t *stk, int len, int vec_len)
     }
     for (i = 0; i < vec_len; i++) {
         stk[i].toktype = TOK_CONST;
-        stk[i].datatype = stk[len-1].datatype;
+        stk[i].const_flags = 0;
+        stk[i].datatype = stk[len - 1].datatype;
     }
     free(s);
-    return len-1;
+    return len - 1;
 }
 
-static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
+static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars, int enable_optimize)
 {
     // TODO: enable precomputation of const-only vectors
     int i, arity, can_precompute = 1, optimize = NONE;
@@ -1220,15 +1247,17 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         int skip = 0;
         int depth = arity;
         int operand = 0;
-        // last arg of op or func is at sp-1
-        type = compare_token_datatype(stk[sp-1], type);
-        if (stk[sp-1].vec_len > vec_len)
-            vec_len = stk[sp-1].vec_len;
+        // last arg of op or func is at (sp - 1)
+        type = compare_token_datatype(stk[sp - 1], type);
+        if (stk[sp - 1].vec_len > vec_len)
+            vec_len = stk[sp - 1].vec_len;
 
         // Walk down stack distance of arity, checking types and vector lengths.
         while (--i >= 0) {
-            if (stk[i].toktype >= TOK_CACHE_INIT_INST)
+            if (stk[i].toktype >= TOK_CACHE_INIT_INST) {
+                can_precompute = enable_optimize = 0;
                 continue;
+            }
 
             if (stk[i].toktype == TOK_FN) {
                 if (fn_tbl[stk[i].fn].arity)
@@ -1238,14 +1267,14 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
                 can_precompute = 0;
 
             if (skip == 0) {
-                if (stk[i].toktype == TOK_CONST && stk[sp].toktype == TOK_OP
+                if (enable_optimize && stk[i].toktype == TOK_CONST && stk[sp].toktype == TOK_OP
                     && depth <= op_tbl[stk[sp].op].arity) {
                     if (const_tok_is_zero(stk[i])) {
                         // mask and bitshift, depth == 1 or 2
-                        optimize = (op_tbl[stk[sp].op].optimize_const_operands>>(depth-1)*4) & 0xF;
+                        optimize = (op_tbl[stk[sp].op].optimize_const_ops >> (depth - 1) * 4) & 0xF;
                     }
                     else if (const_tok_is_one(stk[i])) {
-                        optimize = (op_tbl[stk[sp].op].optimize_const_operands>>(depth+1)*4) & 0xF;
+                        optimize = (op_tbl[stk[sp].op].optimize_const_ops >> (depth + 1) * 4) & 0xF;
                     }
                     if (optimize == GET_OPER) {
                         if (i == sp - 1) {
@@ -1288,7 +1317,7 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         if (depth)
             return -1;
 
-        if (!can_precompute) {
+        if (enable_optimize && !can_precompute) {
             switch (optimize) {
                 case BAD_EXPR:
                     PARSE_ERROR(-1, "Operator '%s' cannot have zero operand.\n",
@@ -1324,7 +1353,6 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         i = sp;
         switch (stk[sp].toktype) {
             case TOK_VECTORIZE:  skip = stk[sp].arity;  depth = 0;      break;
-            case TOK_VFN:
             case TOK_ASSIGN_USE: skip = 1;              depth = 0;      break;
             case TOK_VAR: skip = stk[sp].hist ? 1 : 0;  depth = 0;      break;
             default:             skip = 0;              depth = arity;  break;
@@ -1340,9 +1368,10 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
             }
 
             if (skip <= 0) {
+                --depth;
                 // also check/promote vector length
                 if (!stk[i].vec_len_locked) {
-                    if (stk[i].toktype == TOK_VFN) {
+                    if (stk[i].toktype == TOK_VFN && vfn_tbl[stk[i].vfn].reduce) {
                         if (stk[i].vec_len != vec_len)
                             PARSE_ERROR(-1, "Vector length mismatch (1) %u != %u\n",
                                         stk[i].vec_len, vec_len);
@@ -1395,8 +1424,6 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
 
             if (skip > 0)
                 --skip;
-            else
-                --depth;
             if (depth <= 0 && skip <= 0)
                 break;
         }
@@ -1409,7 +1436,7 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
             PARSE_ERROR(-1, "Vector length mismatch (3) %u != %u\n", stk[sp].vec_len, vec_len);
     }
     // if stack within bounds of arity was only constants, we're ok to compute
-    if (can_precompute)
+    if (enable_optimize && can_precompute)
         return sp - precompute(&stk[sp - arity], arity + 1, vec_len);
     else
         return sp;
@@ -1428,10 +1455,9 @@ static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
     if (i < 0)
         PARSE_ERROR(-1, "Malformed expression (1)\n");
     if (stk[i].vec_len != vec_len)
-        PARSE_ERROR(-1, "Vector length mismatch (4) %u != %u\n",
-                    stk[i].vec_len, vec_len);
+        PARSE_ERROR(-1, "Vector length mismatch (4) %u != %u\n", stk[i].vec_len, vec_len);
     promote_token_datatype(&stk[i], stk[sp].datatype);
-    if (check_type_and_len(stk, i, vars) == -1)
+    if (check_type_and_len(stk, i, vars, 1) == -1)
         return -1;
     promote_token_datatype(&stk[i], stk[sp].datatype);
 
@@ -1472,7 +1498,7 @@ static int _get_num_input_slots(mpr_expr expr)
     // actually need to return highest numbered input slot
     int i, count = -1;
     mpr_token_t *tok = expr->tokens;
-    for (i = 0; i < expr->len; i++) {
+    for (i = 0; i < expr->n_tokens; i++) {
         if (tok[i].toktype == TOK_VAR && tok[i].var > count)
             count = tok[i].var;
     }
@@ -1488,6 +1514,42 @@ static int substack_len(mpr_token_t *stk, int sp)
         arity += tok_arity(stk[idx]);
     }
     return sp - idx + 1;
+}
+
+static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
+{
+    int i = 0, sp = 0, eval_stack_len = 0;
+    mpr_token_t *tok = token_stack;
+    while (i < token_stack_len && tok->toktype != TOK_END) {
+        switch (tok->toktype) {
+            case TOK_CACHE_INIT_INST:
+            case TOK_CONST:
+            case TOK_VAR:
+            case TOK_TT:                if (!tok->hist) ++sp;               break;
+            case TOK_OP:                sp -= op_tbl[tok->op].arity - 1;    break;
+            case TOK_FN:                sp -= fn_tbl[tok->fn].arity - 1;    break;
+            case TOK_VFN:               sp -= vfn_tbl[tok->vfn].arity - 1;  break;
+            case TOK_SP_ADD:            sp += tok->i;                       break;
+            case TOK_BRANCH_NEXT_INST:  --sp;                       break;
+            case TOK_VECTORIZE:         sp -= tok->arity - 1;       break;
+            case TOK_ASSIGN:
+            case TOK_ASSIGN_USE:
+            case TOK_ASSIGN_CONST:
+            case TOK_ASSIGN_TT:
+                if (tok->hist)
+                    --sp;
+                if (tok->toktype != TOK_ASSIGN_USE)
+                    --sp;
+                break;
+            default:
+                return -1;
+        }
+        if (sp > eval_stack_len)
+            eval_stack_len = sp;
+        ++tok;
+        ++i;
+    }
+    return eval_stack_len;
 }
 
 /* Macros to help express stack operations in parser. */
@@ -1522,7 +1584,7 @@ static int substack_len(mpr_token_t *stk, int sp)
 #define POP_OPERATOR_TO_OUTPUT()                                    \
 {                                                                   \
     PUSH_TO_OUTPUT(op[op_idx]);                                     \
-    out_idx = check_type_and_len(out, out_idx, vars);               \
+    out_idx = check_type_and_len(out, out_idx, vars, 1);            \
     {FAIL_IF(out_idx < 0, "Malformed expression (3).");}            \
     POP_OPERATOR();                                                 \
 }
@@ -1570,6 +1632,14 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
 
     assigning = 1;
     allow_toktype = TOK_VAR | TOK_TT | TOK_OPEN_SQUARE | TOK_MUTED | TOK_PUBLIC;
+
+    mpr_type var_type = out_type;
+    for (i = 0; i < n_ins; i++) {
+        if (var_type == in_types[i])
+            continue;
+        if (MPR_INT32 == var_type || MPR_DBL == in_types[i])
+            var_type = in_types[i];
+    }
 
 #if TRACE_PARSE
     printf("parsing expression '%s'\n", str);
@@ -1627,14 +1697,14 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 }
                 else {
                     // get name of variable
-                    int idx = lex_idx-1;
+                    int idx = lex_idx - 1;
                     char c = str[idx];
                     while (idx >= 0 && c && (isalpha(c) || isdigit(c))) {
                         if (--idx >= 0)
                             c = str[idx];
                     }
 
-                    int len = lex_idx-idx-1;
+                    int len = lex_idx-idx - 1;
                     int i = find_var_by_name(vars, n_vars, str+idx+1, len);
                     if (i >= 0) {
                         tok.var = i;
@@ -1650,7 +1720,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                         // need to store new variable
                         vars[n_vars].name = malloc(lex_idx-idx);
                         snprintf(vars[n_vars].name, lex_idx-idx, "%s", str+idx+1);
-                        vars[n_vars].datatype = MPR_DBL;
+                        vars[n_vars].datatype = var_type;
                         vars[n_vars].vec_len = 0;
                         vars[n_vars].assigned = 0;
                         vars[n_vars].public = public;
@@ -1658,17 +1728,19 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                         printf("Stored new variable '%s' at index %i\n", vars[n_vars].name, n_vars);
 #endif
                         tok.var = n_vars;
-                        tok.datatype = MPR_DBL;
+                        tok.datatype = var_type;
                         // special case: 'alive' tracks instance lifetime
                         if (strcmp(vars[n_vars].name, "alive")==0) {
                             inst_ctl = n_vars;
                             tok.vec_len = 1;
                             tok.vec_len_locked = 1;
+                            tok.datatype = MPR_INT32;
                         }
                         else if (strcmp(vars[n_vars].name, "muted")==0) {
                             mute_ctl = n_vars;
                             tok.vec_len = 1;
                             tok.vec_len_locked = 1;
+                            tok.datatype = MPR_INT32;
                         }
                         else
                             tok.vec_len = 0;
@@ -1694,7 +1766,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 public = 0;
                 break;
             case TOK_FN:
-                tok.datatype = fn_tbl[tok.fn].fn_int ? MPR_INT32 : MPR_DBL;
+                tok.datatype = fn_tbl[tok.fn].fn_int ? MPR_INT32 : MPR_FLT;
                 tok.arity = fn_tbl[tok.fn].arity;
                 mpr_token_t newtok;
                 if (fn_tbl[tok.fn].memory) {
@@ -1707,14 +1779,15 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                     } while (find_var_by_name(vars, n_vars, varname, 6) >= 0);
                     // need to store new variable
                     vars[n_vars].name = strdup(varname);
-                    vars[n_vars].datatype = MPR_DBL;
+                    vars[n_vars].datatype = var_type;
                     vars[n_vars].vec_len = 1;
                     vars[n_vars].assigned = 1;
 
                     newtok.toktype = TOK_ASSIGN_USE;
+                    newtok.clear_stack = 0;
                     newtok.var = n_vars;
                     ++n_vars;
-                    newtok.datatype = MPR_DBL;
+                    newtok.datatype = var_type;
                     newtok.vec_len = 1;
                     newtok.vec_len_locked = 0;
                     newtok.hist = 0;
@@ -1767,15 +1840,18 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                     case PFN_MAX:
                     case PFN_SIZE:
                         // some reduce functions need init with the value from first iteration
-                        tok.toktype = TOK_CONST_MINVAL;
+                        tok.toktype = TOK_CONST;
+                        tok.const_flags = CONST_MINVAL;
                         PUSH_TO_OUTPUT(tok);
                         if (PFN_MAX == pfn)
                             break;
-                        tok.toktype = TOK_CONST_MAXVAL;
+                        tok.toktype = TOK_CONST;
+                        tok.const_flags = CONST_MAXVAL;
                         PUSH_TO_OUTPUT(tok);
                         break;
                     case PFN_MIN:
-                        tok.toktype = TOK_CONST_MAXVAL;
+                        tok.toktype = TOK_CONST;
+                        tok.const_flags = CONST_MAXVAL;
                         PUSH_TO_OUTPUT(tok);
                         break;
                     case PFN_ALL:
@@ -1798,7 +1874,10 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 if (OP_UNKNOWN != pfn_tbl[pfn].op) {
                     tok.toktype = TOK_OP;
                     tok.op = pfn_tbl[pfn].op;
+                    // don't use macro here since we don't want to optimise away initialization args
                     PUSH_TO_OUTPUT(tok);
+                    out_idx = check_type_and_len(out, out_idx, vars, 0);
+                    {FAIL_IF(out_idx < 0, "Malformed expression (11).");}
                 }
                 if (VFN_UNKNOWN != pfn_tbl[pfn].vfn) {
                     tok.toktype = TOK_VFN;
@@ -1808,7 +1887,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                         tok.toktype = TOK_FN;
                         tok.fn = (VFN_MAX == tok.vfn) ? FN_MAX : FN_MIN;
                     }
-                    PUSH_TO_OUTPUT(tok);
+                    PUSH_TO_OPERATOR(tok);
+                    POP_OPERATOR_TO_OUTPUT();
                 }
 
                 if (PFN_CENTER == pfn || PFN_MEAN == pfn || PFN_SIZE == pfn) {
@@ -1819,35 +1899,42 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
 
                 // all instance reduce functions require these tokens
                 tok.toktype = TOK_BRANCH_NEXT_INST;
-                tok.i = -2;
-                if (PFN_CENTER == pfn || PFN_MEAN == pfn || PFN_SIZE == pfn)
+                if (PFN_CENTER == pfn || PFN_MEAN == pfn || PFN_SIZE == pfn) {
+                    tok.i = -2 - sslen;
                     tok.inst_cache_pos = 2;
-                else
+                }
+                else {
+                    tok.i = -1 - sslen;
                     tok.inst_cache_pos = 1;
+                }
                 tok.arity = 0;
                 PUSH_TO_OUTPUT(tok);
 
                 if (PFN_CENTER == pfn) {
                     tok.toktype = TOK_OP;
                     tok.op = OP_ADD;
-                    PUSH_TO_OUTPUT(tok);
+                    PUSH_TO_OPERATOR(tok);
+                    POP_OPERATOR_TO_OUTPUT();
                     tok.toktype = TOK_CONST;
                     tok.datatype = MPR_FLT;
                     tok.f = 0.5;
                     PUSH_TO_OUTPUT(tok);
                     tok.toktype = TOK_OP;
                     tok.op = OP_MULTIPLY;
-                    PUSH_TO_OUTPUT(tok);
+                    PUSH_TO_OPERATOR(tok);
+                    POP_OPERATOR_TO_OUTPUT();
                 }
                 else if (PFN_MEAN == pfn) {
                     tok.toktype = TOK_OP;
                     tok.op = OP_DIVIDE;
-                    PUSH_TO_OUTPUT(tok);
+                    PUSH_TO_OPERATOR(tok);
+                    POP_OPERATOR_TO_OUTPUT();
                 }
                 else if (PFN_SIZE == pfn) {
                     tok.toktype = TOK_OP;
                     tok.op = OP_SUBTRACT;
-                    PUSH_TO_OUTPUT(tok);
+                    PUSH_TO_OPERATOR(tok);
+                    POP_OPERATOR_TO_OUTPUT();
                 }
                 allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
                                  | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
@@ -1855,9 +1942,10 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
             case TOK_VFN:
                 tok.datatype = vfn_tbl[tok.vfn].fn_int ? MPR_INT32 : MPR_FLT;
                 tok.vec_len = 1;
-                PUSH_TO_OUTPUT(tok);
+                PUSH_TO_OPERATOR(tok);
+                POP_OPERATOR_TO_OUTPUT();
                 allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
-                                 | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
+                                 | TOK_COMMA | TOK_COLON | TOK_SEMICOLON | TOK_PFN);
                 break;
             case TOK_OPEN_PAREN:
                 tok.arity = 1;
@@ -1912,12 +2000,12 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                                 {FAIL_IF(out[out_idx].toktype != TOK_VAR && out[out_idx].toktype != TOK_TT,
                                          "delay on non-variable token.");}
                                 if (!buffer_size) {
-                                    {FAIL_IF(out[out_idx-1].toktype != TOK_CONST,
+                                    {FAIL_IF(out[out_idx - 1].toktype != TOK_CONST,
                                              "variable history indices must include maximum value.");}
-                                    switch (out[out_idx-1].datatype) {
-#define TYPED_CASE(MTYPE, EL)                                                   \
-                                        case MTYPE:                             \
-                                            buffer_size = (int)out[out_idx-1].EL; \
+                                    switch (out[out_idx - 1].datatype) {
+#define TYPED_CASE(MTYPE, EL)                                                       \
+                                        case MTYPE:                                 \
+                                            buffer_size = (int)out[out_idx - 1].EL; \
                                             break;
                                         TYPED_CASE(MPR_INT32, i)
                                         TYPED_CASE(MPR_FLT, f)
@@ -1931,7 +2019,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                                 }
                                 if (!buffer_size) {
                                     // remove zero delay
-                                    memcpy(&out[out_idx-1], &out[out_idx], sizeof(mpr_token_t));
+                                    memcpy(&out[out_idx - 1], &out[out_idx], sizeof(mpr_token_t));
                                     POP_OUTPUT();
                                     POP_OPERATOR();
                                     break;
@@ -2022,6 +2110,9 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 // check vector length and type
                 if (check_assign_type_and_len(out, out_idx, vars) == -1)
                     {FAIL("Malformed expression (7)");}
+                // mark last assignment token to clear eval stack
+                out[out_idx].clear_stack = 1;
+
                 // start another sub-expression
                 assigning = 1;
                 allow_toktype = TOK_VAR | TOK_TT | TOK_PUBLIC;
@@ -2259,6 +2350,9 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
     {FAIL_IF(check_assign_type_and_len(out, out_idx, vars) == -1,
              "Malformed expression (10).");}
 
+    // mark last assignment token to clear eval stack
+    out[out_idx].clear_stack = 1;
+
 #if (TRACE_PARSE && DEBUG)
     printstack("--->OUTPUT STACK:  ", out, out_idx, vars, 0);
     printstack("--->OPERATOR STACK:", op, op_idx, vars, 0);
@@ -2271,14 +2365,15 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
     }
 
     mpr_expr expr = malloc(sizeof(struct _mpr_expr));
-    expr->len = out_idx + 1;
+    expr->n_tokens = out_idx + 1;
+    expr->stack_size = _eval_stack_size(out, out_idx);
     expr->offset = 0;
     expr->inst_ctl = inst_ctl;
     expr->mute_ctl = mute_ctl;
 
     // copy tokens
-    expr->tokens = malloc(sizeof(struct _token) * expr->len);
-    memcpy(expr->tokens, &out, sizeof(struct _token) * expr->len);
+    expr->tokens = malloc(sizeof(struct _token) * expr->n_tokens);
+    memcpy(expr->tokens, &out, sizeof(struct _token) * expr->n_tokens);
     expr->start = expr->tokens;
     expr->vec_size = max_vector;
     expr->out_hist_size = -oldest_out+1;
@@ -2332,11 +2427,16 @@ int mpr_expr_get_var_vec_len(mpr_expr expr, int idx)
     return (idx >= 0 && idx < expr->n_vars) ? expr->vars[idx].vec_len : 0;
 }
 
+int mpr_expr_get_var_type(mpr_expr expr, int idx)
+{
+    return (idx >= 0 && idx < expr->n_vars) ? expr->vars[idx].datatype : 0;
+}
+
 int mpr_expr_get_src_is_muted(mpr_expr expr, int idx)
 {
     int i, found = 0, muted = 1;
     mpr_token_t *tok = expr->tokens;
-    for (i = 0; i < expr->len; i++) {
+    for (i = 0; i < expr->n_tokens; i++) {
         if (tok[i].toktype == TOK_VAR && tok[i].var == idx + VAR_X) {
             found = 1;
             muted &= tok[i].muted;
@@ -2368,8 +2468,8 @@ static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len)
                 printf(STR, stk[i].EL);     \
             break;
         TYPED_CASE(MPR_INT32, "%d, ", i)
-        TYPED_CASE(MPR_FLT, "%g, ", f)
-        TYPED_CASE(MPR_DBL, "%g, ", d)
+        TYPED_CASE(MPR_FLT, "%f, ", f)
+        TYPED_CASE(MPR_DBL, "%f, ", d)
 #undef TYPED_CASE
         default:
             break;
@@ -2505,26 +2605,26 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     }
 
     mpr_token_t *tok = expr->start;
-    int len = expr->len;
+    int n_tokens = expr->n_tokens;
     int status = 1, alive = 1, muted = 0;
     mpr_value_buffer b_out = v_out ? &v_out->inst[inst_idx] : 0;
     if (v_out && b_out->pos >= 0) {
         tok += expr->offset;
-        len -= expr->offset;
+        n_tokens -= expr->offset;
     }
 
     if (v_vars) {
         if (expr->inst_ctl >= 0) {
             // recover instance state
             mpr_value v = *v_vars + expr->inst_ctl;
-            double *d = v->inst[inst_idx].samps;
-            alive = (0 != d[0]);
+            int *vi = v->inst[inst_idx].samps;
+            alive = (0 != vi[0]);
         }
         if (expr->mute_ctl >= 0) {
             // recover mute state
             mpr_value v = *v_vars + expr->mute_ctl;
-            double *d = v->inst[inst_idx].samps;
-            muted = (0 != d[0]);
+            int *vi = v->inst[inst_idx].samps;
+            muted = (0 != vi[0]);
         }
     }
 
@@ -2532,11 +2632,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     // pro: vectors, commonality with I/O
     // con: timetags wasted
     // option: create version with unallocated timetags
-
-    // TODO: we are allocating way too much memory here - it shouldn't need whole expr stack len
-    // calculate maximum stack memory needed
-    mpr_expr_val_t stk[len][expr->vec_size];
-    int dims[len];
+    mpr_expr_val_t stk[expr->stack_size][expr->vec_size];
+    int dims[expr->stack_size];
 
     int i, j, k, sp = -1, count = 0, can_advance = 1;
     mpr_type last_type = 0;
@@ -2564,70 +2661,70 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     for (i = 0; i < expr->n_vars; i++)
         expr->vars[i].assigned = 0;
 
-    while (count < len && tok->toktype != TOK_END) {
+    while (count < n_tokens && tok->toktype != TOK_END) {
         switch (tok->toktype) {
         case TOK_CONST:
             ++sp;
             dims[sp] = tok->vec_len;
-            switch (tok->datatype) {
-#define TYPED_CASE(MTYPE, EL)                           \
-                case MTYPE:                             \
-                    for (i = 0; i < tok->vec_len; i++)  \
-                        stk[sp][i].EL = tok->EL;        \
+            switch (tok->const_flags) {
+#define TYPED_CASE(MTYPE, EL, VAL)                              \
+                        case MTYPE:                             \
+                            for (i = 0; i < tok->vec_len; i++)  \
+                                stk[sp][i].EL = VAL;            \
+                            break;
+                case CONST_MINVAL:
+                    switch (tok->datatype) {
+                        TYPED_CASE(MPR_INT32, i, INT_MIN)
+                        TYPED_CASE(MPR_FLT, f, FLT_MIN)
+                        TYPED_CASE(MPR_DBL, d, DBL_MIN)
+                        default:
+                            goto error;
+                    }
                     break;
-                TYPED_CASE(MPR_INT32, i)
-                TYPED_CASE(MPR_FLT, f)
-                TYPED_CASE(MPR_DBL, d)
+                case CONST_MAXVAL:
+                    switch (tok->datatype) {
+                        TYPED_CASE(MPR_INT32, i, INT_MAX)
+                        TYPED_CASE(MPR_FLT, f, FLT_MAX)
+                        TYPED_CASE(MPR_DBL, d, DBL_MAX)
+                        default:
+                            goto error;
+                    }
+                    break;
+                case CONST_PI:
+                    switch (tok->datatype) {
+                        TYPED_CASE(MPR_FLT, f, M_PI)
+                        TYPED_CASE(MPR_DBL, d, M_PI)
+                        default:
+                            goto error;
+                    }
+                    break;
+                case CONST_E:
+                    switch (tok->datatype) {
+                        TYPED_CASE(MPR_FLT, f, M_E)
+                        TYPED_CASE(MPR_DBL, d, M_E)
 #undef TYPED_CASE
+                        default:
+                            goto error;
+                    }
+                    break;
                 default:
-                    goto error;
+                    switch (tok->datatype) {
+        #define TYPED_CASE(MTYPE, EL)                           \
+                        case MTYPE:                             \
+                            for (i = 0; i < tok->vec_len; i++)  \
+                                stk[sp][i].EL = tok->EL;        \
+                            break;
+                        TYPED_CASE(MPR_INT32, i)
+                        TYPED_CASE(MPR_FLT, f)
+                        TYPED_CASE(MPR_DBL, d)
+        #undef TYPED_CASE
+                        default:
+                            goto error;
+                    }
+                    break;
             }
 #if TRACE_EVAL
             printf("loading constant ");
-            print_stack_vec(stk[sp], tok->datatype, tok->vec_len);
-            printf("\n");
-#endif
-            break;
-        case TOK_CONST_MAXVAL:
-            ++sp;
-            dims[sp] = tok->vec_len;
-            switch (tok->datatype) {
-#define TYPED_CASE(MTYPE, EL, VAL)                      \
-                case MTYPE:                             \
-                    for (i = 0; i < tok->vec_len; i++)  \
-                        stk[sp][i].EL = VAL;            \
-                    break;
-                TYPED_CASE(MPR_INT32, i, INT_MAX)
-                TYPED_CASE(MPR_FLT, f, FLT_MAX)
-                TYPED_CASE(MPR_DBL, d, DBL_MAX)
-#undef TYPED_CASE
-                default:
-                    goto error;
-            }
-#if TRACE_EVAL
-            printf("loading max constant ");
-            print_stack_vec(stk[sp], tok->datatype, tok->vec_len);
-            printf("\n");
-#endif
-            break;
-        case TOK_CONST_MINVAL:
-            ++sp;
-            dims[sp] = tok->vec_len;
-            switch (tok->datatype) {
-#define TYPED_CASE(MTYPE, EL, VAL)                      \
-                case MTYPE:                             \
-                    for (i = 0; i < tok->vec_len; i++)  \
-                        stk[sp][i].EL = VAL;            \
-                    break;
-                TYPED_CASE(MPR_INT32, i, INT_MIN)
-                TYPED_CASE(MPR_FLT, f, FLT_MIN)
-                TYPED_CASE(MPR_DBL, d, DBL_MIN)
-#undef TYPED_CASE
-                default:
-                    goto error;
-            }
-#if TRACE_EVAL
-            printf("loading min constant ");
             print_stack_vec(stk[sp], tok->datatype, tok->vec_len);
             printf("\n");
 #endif
@@ -2645,6 +2742,10 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 printf("loading variable x%d", tok->var-VAR_X);
                 mlen = v_in ? v_in[tok->var-VAR_X]->mlen : 0;
             }
+            else if (expr->vars)
+                printf("loading variable %s", expr->vars[tok->var].name);
+            else
+                printf("loading variable vars[%d]", tok->var);
 
             if (tok->hist) {
                 switch (last_type) {
@@ -2675,14 +2776,30 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 COPY_TO_STACK(v);
             }
             else if (v_vars) {
-                // TODO: allow other data types?
                 if (!tok->hist)
                     ++sp;
                 dims[sp] = tok->vec_len;
                 mpr_value v = *v_vars + tok->var;
-                double *d = v->inst[inst_idx].samps;
-                for (i = 0; i < tok->vec_len; i++)
-                    stk[sp][i].d = d[i + tok->vec_idx];
+                switch (v->type) {
+                    case MPR_INT32: {
+                        int *vi = v->inst[inst_idx].samps;
+                        for (i = 0; i < tok->vec_len; i++)
+                            stk[sp][i].i = vi[i + tok->vec_idx];
+                        break;
+                    }
+                    case MPR_FLT: {
+                        float *vf = v->inst[inst_idx].samps;
+                        for (i = 0; i < tok->vec_len; i++)
+                            stk[sp][i].f = vf[i + tok->vec_idx];
+                        break;
+                    }
+                    case MPR_DBL: {
+                        double *vd = v->inst[inst_idx].samps;
+                        for (i = 0; i < tok->vec_len; i++)
+                            stk[sp][i].d = vd[i + tok->vec_idx];
+                        break;
+                    }
+                }
             }
             else
                 goto error;
@@ -2768,7 +2885,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             break;
         }
         case TOK_OP:
-            sp -= op_tbl[tok->op].arity-1;
+            sp -= (op_tbl[tok->op].arity - 1);
             dims[sp] = tok->vec_len;
 #if TRACE_EVAL
             if (tok->op == OP_IF_THEN_ELSE || tok->op == OP_IF_ELSE) {
@@ -2838,7 +2955,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             break;
         case TOK_FN:
-            sp -= fn_tbl[tok->fn].arity-1;
+            sp -= (fn_tbl[tok->fn].arity - 1);
             dims[sp] = tok->vec_len;
 #if TRACE_EVAL
             printf("%s%c(", fn_tbl[tok->fn].name, tok->datatype);
@@ -2895,7 +3012,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             break;
         case TOK_VFN:
-            sp -= vfn_tbl[tok->vfn].arity-1;
+            sp -= (vfn_tbl[tok->vfn].arity - 1);
 #if TRACE_EVAL
             printf("%s%c(", vfn_tbl[tok->vfn].name, tok->datatype);
             for (i = 0; i < vfn_tbl[tok->vfn].arity; i++) {
@@ -2933,8 +3050,17 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             dims[sp] = tok->vec_len;
 #if TRACE_EVAL
             printf(" = ");
-            print_stack_vec(stk[sp], tok->datatype, tok->vec_len);
-            printf(" \n");
+            if (VFN_MAXMIN == tok->vfn || VFN_SUMNUM == TOK_VFN) {
+                printf("[");
+                print_stack_vec(stk[sp-1], tok->datatype, tok->vec_len);
+                printf(", ");
+                print_stack_vec(stk[sp], tok->datatype, tok->vec_len);
+                printf("]\n");
+            }
+            else {
+                print_stack_vec(stk[sp], tok->datatype, tok->vec_len);
+                printf(" \n");
+            }
 #endif
             break;
         case TOK_CACHE_INIT_INST:
@@ -2962,7 +3088,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             printf("Adding %d to eval stack pointer.\n", tok->i);
 #endif
             sp += tok->i;
-            break;;
+            break;
         case TOK_BRANCH_NEXT_INST:
             // increment instance idx
             for (i = inst_idx + 1; i < x->num_inst; i++) {
@@ -2990,7 +3116,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             break;
         case TOK_VECTORIZE:
             // don't need to copy vector elements from first token
-            sp -= tok->arity-1;
+            sp -= tok->arity - 1;
             k = dims[sp];
             switch (tok->datatype) {
 #define TYPED_CASE(MTYPE, EL)                                       \
@@ -3041,11 +3167,10 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 void *v = (b_out->samps + idx * v_out->vlen * mpr_type_get_size(v_out->type));
 
                 switch (v_out->type) {
-#define TYPED_CASE(MTYPE, TYPE, EL)                             \
-                    case MTYPE:                                 \
-                        for (i = 0; i < tok->vec_len; i++)      \
-                            ((TYPE*)v)[i + tok->vec_idx]        \
-                                = stk[sp][i + tok->offset].EL; \
+#define TYPED_CASE(MTYPE, TYPE, EL)                                                     \
+                    case MTYPE:                                                         \
+                        for (i = 0; i < tok->vec_len; i++)                              \
+                            ((TYPE*)v)[i + tok->vec_idx] = stk[sp][i + tok->offset].EL; \
                         break;
                     TYPED_CASE(MPR_INT32, int, i)
                     TYPED_CASE(MPR_FLT, float, f)
@@ -3073,9 +3198,26 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 mpr_value v = *v_vars + tok->var;
                 mpr_value_buffer b = &v->inst[inst_idx];
 
-                double *d = b->samps;
-                for (i = 0; i < tok->vec_len; i++)
-                    d[i + tok->vec_idx] = stk[sp][i + tok->offset].d;
+                switch (v->type) {
+                    case MPR_INT32: {
+                        int *vi = b->samps;
+                        for (i = 0; i < tok->vec_len; i++)
+                            vi[i + tok->vec_idx] = stk[sp][i + tok->offset].i;
+                        break;
+                    }
+                    case MPR_FLT: {
+                        float *vf = b->samps;
+                        for (i = 0; i < tok->vec_len; i++)
+                            vf[i + tok->vec_idx] = stk[sp][i + tok->offset].f;
+                        break;
+                    }
+                    case MPR_DBL: {
+                        double *vd = b->samps;
+                        for (i = 0; i < tok->vec_len; i++)
+                            vd[i + tok->vec_idx] = stk[sp][i + tok->offset].d;
+                        break;
+                    }
+                }
 
                 // Also copy time from input
                 if (t)
@@ -3084,17 +3226,17 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 expr->vars[tok->var].assigned = 1;
 
                 if (tok->var == expr->inst_ctl) {
-                    if (alive && stk[sp][0].d == 0) {
+                    if (alive && stk[sp][0].i == 0) {
                         if (status & EXPR_UPDATE)
                             status |= EXPR_RELEASE_AFTER_UPDATE;
                         else
                             status |= EXPR_RELEASE_BEFORE_UPDATE;
                     }
-                    alive = stk[sp][0].d != 0;
+                    alive = stk[sp][0].i != 0;
                     break;
                 }
                 else if (tok->var == expr->mute_ctl) {
-                    muted = stk[sp][0].d != 0;
+                    muted = stk[sp][0].i != 0;
                     break;
                 }
             }
@@ -3111,6 +3253,11 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             else
                 can_advance = 0;
+            if (tok->clear_stack)
+                sp = -1;
+            else if (tok->hist)
+                --sp;
+
             break;
         case TOK_ASSIGN_TT:
             if (tok->var != VAR_Y || tok->hist == 0)
@@ -3134,13 +3281,18 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             else
                 can_advance = 0;
+            if (tok->clear_stack)
+                sp = -1;
+            else if (tok->hist)
+                --sp;
             break;
         default: goto error;
         }
         if (tok->casttype && tok->toktype < TOK_ASSIGN) {
 #if TRACE_EVAL
-            printf("casting from %s to %s (%c)\n", type_name(tok->datatype),
-                   type_name(tok->casttype), tok->casttype);
+            printf("casting sp=%d from %s (%c) to %s (%c)\n", sp, type_name(tok->datatype),
+                   tok->datatype, type_name(tok->casttype), tok->casttype);
+            print_stack_vec(stk[sp], tok->datatype, tok->vec_len);
 #endif
             // need to cast to a different type
             switch (tok->datatype) {
@@ -3163,11 +3315,16 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 TYPED_CASE(MPR_FLT, f, MPR_INT32, int, i, MPR_DBL, double, d)
                 TYPED_CASE(MPR_DBL, d, MPR_INT32, int, i, MPR_FLT, float, f)
 #undef TYPED_CASE
-                default:
-                    goto error;
             }
+#if TRACE_EVAL
+            printf(" -> ");
+            print_stack_vec(stk[sp], tok->casttype, tok->vec_len);
+            printf("\n");
+#endif
+            last_type = tok->casttype;
         }
-        last_type = tok->datatype;
+        else
+            last_type = tok->datatype;
         ++tok;
         ++count;
     }

@@ -151,9 +151,9 @@ signals with different vector lengths.
 * `[y[0], y[2]] = x` — apply update to output vector elements `y[0]` and `y[2]` but
 leave `y[1]` unchanged.
 
-### Vector functions
+### Vector reduce functions
 
-There are several special functions that operate across all elements of the vector:
+There are several special functions that operate across all elements of the vector and output a single value:
 
 * `x.any()` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.all()` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
@@ -161,6 +161,10 @@ There are several special functions that operate across all elements of the vect
 * `x.mean()` – output the average (mean) of the elements in vector `x`
 * `x.max()` – output the maximum element in vector `x` (overloaded)
 * `x.min()` – output the minimum element in vector `x` (overloaded)
+* `x.center()` – output the midpoint between `x.min()` and `x.max()`
+* `x.norm()` – output the length of the vector `x`
+* `angle(a, b, c)` – output the angle between points `a`, `b`, and `c` with `b` as the origin
+* alternative syntax to try: `(x-c).angle(x{-1}-c)` – assumes centered at origin
 
 <h2 id="instances">Instances</h2>
 
@@ -170,6 +174,8 @@ Input and output signals addressed by libmapper may be *instanced* meaning that 
 
 There are several special functions that operate across all instances of a signal:
 
+* `x.pool().any()` – output `1` if any active instance of `x` is non-zero, otherwise output `0` (for each vector element)
+* * `x.pool().all()` – output `1` if all active instance of `x` are non-zero, otherwise output `0` (for each vector element)
 * `x.pool().count()` — output the number of instances of `x` that are currently active
 * `x.pool().sum()` – output the sum of the values of all active instances of `x`
 * `x.pool().mean()` – output the mean of the values of all active instances of `x`
@@ -177,6 +183,14 @@ There are several special functions that operate across all instances of a signa
 * `x.pool().min()` – output the minimum value of all active instances of `x`
 * `x.pool().size()` – output the difference between the maximum and minimum values of all instances, i.e. `x.pool().max()-x.pool().min()`
 * `x.pool().center()` – output the N-dimensional point located at the center of the instance ranges, i.e. `(x.pool().max()+x.pool().min())*0.5`
+
+These instance functions accept subexpressions as arguments. for example, we can calculate the linear displacement of input `x` averaged across all of its active instances with the expression `y=(x-x{-1}).pool().mean()`. Similarly, we can calculate the average angular displacement around the center of a bounding box including all active instances.
+
+* `c=x.pool().center(); y=(angle(x{-1}, c, x)).pool().mean();`
+
+In a scenario where `x` represents the touch coordinates on a multitouch surface, this value gives mean rotation of all touches around their mutual center.
+
+Future work: add filter() and use to produce new expression managed instances for clusters of points.
 
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 
