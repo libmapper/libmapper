@@ -1485,7 +1485,7 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars, int ena
 
 static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
 {
-    int i = sp;
+    int i = sp, optimize = 1;
     uint8_t vec_len = 0;
     expr_var_t var = stk[sp].var;
 
@@ -1493,12 +1493,17 @@ static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         vec_len += stk[i].vec_len;
         --i;
     }
+    // skip branch instruction if any
+    if (i >= 0 && TOK_BRANCH_NEXT_INST == stk[i].toktype) {
+        --i;
+        optimize = 0;
+    }
     if (i < 0)
         PARSE_ERROR(-1, "Malformed expression (1)\n");
     if (stk[i].vec_len != vec_len)
         PARSE_ERROR(-1, "Vector length mismatch (4) %u != %u\n", stk[i].vec_len, vec_len);
     promote_token_datatype(&stk[i], stk[sp].datatype);
-    if (check_type_and_len(stk, i, vars, 1) == -1)
+    if (check_type_and_len(stk, i, vars, optimize) == -1)
         return -1;
     promote_token_datatype(&stk[i], stk[sp].datatype);
 
@@ -1915,7 +1920,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 if (OP_UNKNOWN != pfn_tbl[pfn].op) {
                     tok.toktype = TOK_OP;
                     tok.op = pfn_tbl[pfn].op;
-                    // don't use macro here since we don't want to optimise away initialization args
+                    // don't use macro here since we don't want to optimize away initialization args
                     PUSH_TO_OUTPUT(tok);
                     out_idx = check_type_and_len(out, out_idx, vars, 0);
                     {FAIL_IF(out_idx < 0, "Malformed expression (11).");}
@@ -1942,11 +1947,11 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 // all instance reduce functions require these tokens
                 tok.toktype = TOK_BRANCH_NEXT_INST;
                 if (PFN_CENTER == pfn || PFN_MEAN == pfn || PFN_SIZE == pfn) {
-                    tok.i = -2 - sslen;
+                    tok.i = -3 - sslen;
                     tok.inst_cache_pos = 2;
                 }
                 else {
-                    tok.i = -1 - sslen;
+                    tok.i = -2 - sslen;
                     tok.inst_cache_pos = 1;
                 }
                 tok.arity = 0;
@@ -2668,13 +2673,11 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         return 0;
     }
 
-    mpr_token_t *tok = expr->start;
-    int n_tokens = expr->n_tokens;
+    mpr_token_t *tok = expr->start, *end = expr->start + expr->n_tokens;
     int status = 1, alive = 1, muted = 0;
     mpr_value_buffer b_out = v_out ? &v_out->inst[inst_idx] : 0;
     if (v_out && b_out->pos >= 0) {
         tok += expr->offset;
-        n_tokens -= expr->offset;
     }
 
     if (v_vars) {
@@ -2699,7 +2702,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     mpr_expr_val_t stk[expr->stack_size][expr->vec_size];
     int dims[expr->stack_size];
 
-    int i, j, k, sp = -1, count = 0, can_advance = 1;
+    int i, j, k, sp = -1, can_advance = 1;
     mpr_type last_type = 0;
 
     if (v_out) {
@@ -2725,7 +2728,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     for (i = 0; i < expr->n_vars; i++)
         expr->vars[i].assigned = 0;
 
-    while (count < n_tokens && tok->toktype != TOK_END) {
+    while (tok < end) {
         switch (tok->toktype) {
         case TOK_CONST:
             ++sp;
@@ -3135,14 +3138,16 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             ++sp;
             stk[sp][0].i = inst_idx;
 
-            // find first active instance idx
-            for (i = 0; i < x->num_inst; i++) {
-                if (x->inst[i].pos >= 0)
-                    break;
+            if (x) {
+                // find first active instance idx
+                for (i = 0; i < x->num_inst; i++) {
+                    if (x->inst[i].pos >= 0)
+                        break;
+                }
+                if (i >= x->num_inst)
+                    goto error;
+                inst_idx = i;
             }
-            if (i >= x->num_inst)
-                goto error;
-            inst_idx = i;
 #if TRACE_EVAL
             printf("Starting instance loop with idx %d.\n", inst_idx);
 #endif
@@ -3155,20 +3160,22 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             break;
         case TOK_BRANCH_NEXT_INST:
             // increment instance idx
-            for (i = inst_idx + 1; i < x->num_inst; i++) {
-                if (x->inst[i].pos >= 0)
-                    break;
+            if (x) {
+                for (i = inst_idx + 1; i < x->num_inst; i++) {
+                    if (x->inst[i].pos >= 0)
+                        break;
+                }
             }
-            if (i < x->num_inst) {
+            if (x && i < x->num_inst) {
 #if TRACE_EVAL
-                printf("Incrementing instance idx to %d and branching to %d.\n", i, tok->i);
+                printf("Incrementing instance idx to %d and jumping %d\n", i, tok->i);
 #endif
                 inst_idx = i;
                 tok += tok->i;
             }
             else {
                 inst_idx = stk[sp - tok->inst_cache_pos][0].i;
-                if (inst_idx >= x->num_inst)
+                if (x && inst_idx >= x->num_inst)
                     goto error;
                 memcpy(stk[sp - tok->inst_cache_pos], stk[sp - tok->inst_cache_pos + 1],
                        sizeof(mpr_expr_val_t) * expr->vec_size * tok->inst_cache_pos);
@@ -3390,7 +3397,6 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         else
             last_type = tok->datatype;
         ++tok;
-        ++count;
     }
 
     RETURN_UNLESS(v_out, status);
