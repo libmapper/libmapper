@@ -253,7 +253,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
     e = mpr_expr_new_from_str(str, n_sources, src_types, src_lens, dst_type, dst_len);
     if (!e) {
-        eprintf("Parser FAILED");
+        eprintf("Parser FAILED (expression %d)\n", expression_count - 1);
         goto fail;
     }
     else if (EXPECT_FAILURE == expectation) {
@@ -1037,17 +1037,27 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
-//    /* 74) Vector angle */
-//    snprintf(str, 256, "angle(x{-1}, x.pool().mean(), x);");
-//    setup_test(MPR_INT32, 1, MPR_INT32, 1);
-//    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
-//        return 1;
-//
-//    /* 75) Mean pooled angular displacement */
-//    snprintf(str, 256, "M=x.pool().mean(); y=angle(x{-1},M,x).pool().mean();");
-//    setup_test(MPR_INT32, 1, MPR_INT32, 1);
-//    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
-//        return 1;
+    /* 74) Dot product of two vectors */
+    snprintf(str, 256, "y=dot(x, x1);");
+    lens[0] = 3;
+    setup_test_multisource(2, types, lens, MPR_FLT, 1);
+    expect_flt[0] = src_int[0] * src_flt[0] + src_int[1] * src_flt[1] + src_int[2] * src_flt[2];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 75) 2D Vector angle */
+    snprintf(str, 256, "y=angle([-1,-1], [1,0]);");
+    setup_test(MPR_FLT, 2, MPR_FLT, 1);
+    expect_flt[0] = M_PI * -0.75f;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 76) Mean pooled angular displacement */
+    snprintf(str, 256, "M=x.pool().mean(); y=angle(x{-1}-M,x-M).pool().mean();");
+    setup_test(MPR_FLT, 2, MPR_FLT, 1);
+    expect_flt[0] = 0.f;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
 
     return 0;
 }

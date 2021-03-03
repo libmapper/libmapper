@@ -163,8 +163,11 @@ There are several special functions that operate across all elements of the vect
 * `x.min()` – output the minimum element in vector `x` (overloaded)
 * `x.center()` – output the midpoint between `x.min()` and `x.max()`
 * `x.norm()` – output the length of the vector `x`
-* `angle(a, b, c)` – output the angle between points `a`, `b`, and `c` with `b` as the origin
-* alternative syntax to try: `(x-c).angle(x{-1}-c)` – assumes centered at origin
+* `dot(a, b)` – output the dot product of vectors `a` and `b`
+
+### Non-reducing vector functions
+
+* `angle(a, b)` – output the angle between vectors `a` and `b`
 
 <h2 id="instances">Instances</h2>
 
@@ -190,7 +193,7 @@ These instance functions accept subexpressions as arguments. for example, we can
 
 In a scenario where `x` represents the touch coordinates on a multitouch surface, this value gives mean rotation of all touches around their mutual center.
 
-Future work: add filter() and use to produce new expression managed instances for clusters of points.
+Future work: add filter() and use to produce new expression-managed instances for clusters of points.
 
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 
