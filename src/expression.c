@@ -1963,6 +1963,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                     PUSH_TO_OPERATOR(tok);
                     POP_OPERATOR_TO_OUTPUT();
                     tok.toktype = TOK_CONST;
+                    tok.const_flags = 0;
                     tok.datatype = MPR_FLT;
                     tok.f = 0.5;
                     PUSH_TO_OUTPUT(tok);
