@@ -1928,12 +1928,14 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 if (VFN_UNKNOWN != pfn_tbl[pfn].vfn) {
                     tok.toktype = TOK_VFN;
                     tok.vfn = pfn_tbl[pfn].vfn;
-                    tok.arity = vfn_tbl[tok.vfn].arity;
                     if (VFN_MAX == tok.vfn || VFN_MIN == tok.vfn) {
                         // we don't want vector reduce version here
                         tok.toktype = TOK_FN;
                         tok.fn = (VFN_MAX == tok.vfn) ? FN_MAX : FN_MIN;
+                        tok.arity = fn_tbl[tok.fn].arity;
                     }
+                    else
+                        tok.arity = vfn_tbl[tok.vfn].arity;
                     PUSH_TO_OPERATOR(tok);
                     POP_OPERATOR_TO_OUTPUT();
                 }
@@ -2136,7 +2138,10 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 {FAIL_IF(op_idx < 0, "Malformed expression (4).");}
                 if (op[op_idx].toktype == TOK_VECTORIZE) {
                     ++op[op_idx].vec_idx;
-                    op[op_idx].vec_len += out[out_idx].vec_len;
+                    if (TOK_BRANCH_NEXT_INST == out[out_idx].toktype)
+                        op[op_idx].vec_len += out[out_idx-1].vec_len;
+                    else
+                        op[op_idx].vec_len += out[out_idx].vec_len;
                     lock_vec_len(out, out_idx);
                 }
                 ++op[op_idx].arity;
@@ -2257,7 +2262,10 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 if (op[op_idx].vec_len) {
                     op[op_idx].vec_len_locked = 1;
                     ++op[op_idx].arity;
-                    op[op_idx].vec_len += out[out_idx].vec_len;
+                    if (TOK_BRANCH_NEXT_INST == out[out_idx].toktype)
+                        op[op_idx].vec_len += out[out_idx-1].vec_len;
+                    else
+                        op[op_idx].vec_len += out[out_idx].vec_len;
                     lock_vec_len(out, out_idx);
                     POP_OPERATOR_TO_OUTPUT();
                 }
@@ -3180,6 +3188,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                     goto error;
                 memcpy(stk[sp - tok->inst_cache_pos], stk[sp - tok->inst_cache_pos + 1],
                        sizeof(mpr_expr_val_t) * expr->vec_size * tok->inst_cache_pos);
+                memcpy(dims + sp - tok->inst_cache_pos, dims + sp - tok->inst_cache_pos + 1,
+                       sizeof(int) * tok->inst_cache_pos);
                 --sp;
 #if TRACE_EVAL
                 printf("Instance loop done; retrieved cached instance idx %d.\n", inst_idx);
@@ -3194,7 +3204,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #define TYPED_CASE(MTYPE, EL)                                       \
                 case MTYPE:                                         \
                     for (i = 1; i < tok->arity; i++) {              \
-                        for (j = 0; j < dims[sp + 1]; j++)          \
+                        for (j = 0; j < dims[sp + i]; j++)          \
                             stk[sp][k++].EL = stk[sp + i][j].EL;    \
                     }                                               \
                     break;
