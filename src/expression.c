@@ -1212,8 +1212,60 @@ static void lock_vec_len(mpr_token_t *stk, int sp)
     }
 }
 
+static int replace_special_constants(mpr_token_t *stk, int sp)
+{
+    while (sp-- >= 0) {
+        if (stk[sp].toktype != TOK_CONST || !stk[sp].const_flags)
+            continue;
+        switch (stk[sp].const_flags) {
+            case CONST_MAXVAL:
+                switch (stk[sp].datatype) {
+                    case MPR_INT32: stk[sp].i = INT_MAX;    break;
+                    case MPR_FLT:   stk[sp].f = FLT_MAX;    break;
+                    case MPR_DBL:   stk[sp].d = DBL_MAX;    break;
+                    default:                                goto error;
+                }
+                break;
+            case CONST_MINVAL:
+                switch (stk[sp].datatype) {
+                    case MPR_INT32: stk[sp].i = INT_MIN;    break;
+                    case MPR_FLT:   stk[sp].f = FLT_MIN;    break;
+                    case MPR_DBL:   stk[sp].d = DBL_MIN;    break;
+                    default:                                goto error;
+                }
+                break;
+            case CONST_PI:
+                switch (stk[sp].datatype) {
+                    case MPR_FLT:   stk[sp].f = M_PI;       break;
+                    case MPR_DBL:   stk[sp].d = M_PI;       break;
+                    default:                                goto error;
+                }
+                break;
+            case CONST_E:
+                switch (stk[sp].datatype) {
+                    case MPR_FLT:   stk[sp].f = M_E;        break;
+                    case MPR_DBL:   stk[sp].d = M_E;        break;
+                    default:                                goto error;
+                }
+                break;
+            default:
+                continue;
+        }
+        stk[sp].const_flags = 0;
+    }
+    return 0;
+error:
+#if TRACE_PARSE
+    printf("Illegal type found when replacing special constants.\n");
+#endif
+    return -1;
+}
+
+
 static int precompute(mpr_token_t *stk, int len, int vec_len)
 {
+    if (replace_special_constants(stk, len-1))
+        return 0;
     struct _mpr_expr e = {0, stk, 0, 0, len, len, vec_len, 0, 0, 0, -1, -1};
     void *s = malloc(mpr_type_get_size(stk[len - 1].datatype) * vec_len);
     mpr_value_buffer_t b = {s, 0, -1};
@@ -2431,6 +2483,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
     // mark last assignment token to clear eval stack
     out[out_idx].clear_stack = 1;
 
+    {FAIL_IF(replace_special_constants(out, out_idx), "Error replacing special constants."); }
+
 #if (TRACE_PARSE && DEBUG)
     printstack("--->OUTPUT STACK:  ", out, out_idx, vars, 0);
     printstack("--->OPERATOR STACK:", op, op_idx, vars, 0);
@@ -2742,62 +2796,18 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_CONST:
             ++sp;
             dims[sp] = tok->vec_len;
-            switch (tok->const_flags) {
-#define TYPED_CASE(MTYPE, EL, VAL)                              \
-                        case MTYPE:                             \
-                            for (i = 0; i < tok->vec_len; i++)  \
-                                stk[sp][i].EL = VAL;            \
-                            break;
-                case CONST_MINVAL:
-                    switch (tok->datatype) {
-                        TYPED_CASE(MPR_INT32, i, INT_MIN)
-                        TYPED_CASE(MPR_FLT, f, FLT_MIN)
-                        TYPED_CASE(MPR_DBL, d, DBL_MIN)
-                        default:
-                            goto error;
-                    }
+            switch (tok->datatype) {
+#define TYPED_CASE(MTYPE, EL)                           \
+                case MTYPE:                             \
+                    for (i = 0; i < tok->vec_len; i++)  \
+                        stk[sp][i].EL = tok->EL;        \
                     break;
-                case CONST_MAXVAL:
-                    switch (tok->datatype) {
-                        TYPED_CASE(MPR_INT32, i, INT_MAX)
-                        TYPED_CASE(MPR_FLT, f, FLT_MAX)
-                        TYPED_CASE(MPR_DBL, d, DBL_MAX)
-                        default:
-                            goto error;
-                    }
-                    break;
-                case CONST_PI:
-                    switch (tok->datatype) {
-                        TYPED_CASE(MPR_FLT, f, M_PI)
-                        TYPED_CASE(MPR_DBL, d, M_PI)
-                        default:
-                            goto error;
-                    }
-                    break;
-                case CONST_E:
-                    switch (tok->datatype) {
-                        TYPED_CASE(MPR_FLT, f, M_E)
-                        TYPED_CASE(MPR_DBL, d, M_E)
+                TYPED_CASE(MPR_INT32, i)
+                TYPED_CASE(MPR_FLT, f)
+                TYPED_CASE(MPR_DBL, d)
 #undef TYPED_CASE
-                        default:
-                            goto error;
-                    }
-                    break;
                 default:
-                    switch (tok->datatype) {
-        #define TYPED_CASE(MTYPE, EL)                           \
-                        case MTYPE:                             \
-                            for (i = 0; i < tok->vec_len; i++)  \
-                                stk[sp][i].EL = tok->EL;        \
-                            break;
-                        TYPED_CASE(MPR_INT32, i)
-                        TYPED_CASE(MPR_FLT, f)
-                        TYPED_CASE(MPR_DBL, d)
-        #undef TYPED_CASE
-                        default:
-                            goto error;
-                    }
-                    break;
+                    goto error;
             }
 #if TRACE_EVAL
             printf("loading constant ");
