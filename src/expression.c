@@ -8,7 +8,7 @@
 #include "mapper_internal.h"
 
 #define MAX_HIST_SIZE 100
-#define STACK_SIZE 128
+#define STACK_SIZE 64
 #define N_USER_VARS 16
 #ifdef DEBUG
     #define TRACE_PARSE 0 /* Set non-zero to see trace during parse. */
