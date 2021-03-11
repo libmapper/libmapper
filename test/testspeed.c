@@ -46,7 +46,6 @@ int received = 0;
 int done = 0;
 
 double times[100];
-float value;
 
 void switch_modes();
 void print_results();
@@ -264,7 +263,7 @@ int main(int argc, char **argv)
         }
     }
 
-    value = (float)rand();
+    float value = (float)rand();
 
     signal(SIGINT, ctrlc);
 
@@ -287,7 +286,7 @@ int main(int argc, char **argv)
     // start things off
     eprintf("STARTING TEST...\n");
     times[0] = current_time();
-    mpr_sig_set_value(sendsig, counter++, 1, MPR_FLT, &value);
+    mpr_sig_set_value(sendsig, counter, 1, MPR_FLT, &value);
     while (!done) {
         mpr_dev_poll(src, 0);
         mpr_dev_poll(dst, 0);
