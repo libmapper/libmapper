@@ -1214,9 +1214,11 @@ static void lock_vec_len(mpr_token_t *stk, int sp)
 
 static int replace_special_constants(mpr_token_t *stk, int sp)
 {
-    while (sp-- >= 0) {
-        if (stk[sp].toktype != TOK_CONST || !stk[sp].const_flags)
+    while (sp >= 0) {
+        if (stk[sp].toktype != TOK_CONST || !stk[sp].const_flags) {
+            --sp;
             continue;
+        }
         switch (stk[sp].const_flags) {
             case CONST_MAXVAL:
                 switch (stk[sp].datatype) {
@@ -1252,6 +1254,7 @@ static int replace_special_constants(mpr_token_t *stk, int sp)
                 continue;
         }
         stk[sp].const_flags = 0;
+        --sp;
     }
     return 0;
 error:
@@ -1441,12 +1444,11 @@ static int check_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars, int ena
         // walk down stack distance of arity again, promoting types and lengths
         // this time we will also touch sub-arguments
         i = sp;
-        int vect = 0;
         switch (stk[sp].toktype) {
-            case TOK_VECTORIZE:  skip = stk[sp].arity; depth = 0; vect = 1; break;
-            case TOK_ASSIGN_USE: skip = 1;             depth = 0;           break;
-            case TOK_VAR: skip = stk[sp].hist ? 1 : 0; depth = 0;           break;
-            default:             skip = 0;             depth = arity;       break;
+            case TOK_VECTORIZE:  skip = stk[sp].arity; depth = 0;       break;
+            case TOK_ASSIGN_USE: skip = 1;             depth = 0;       break;
+            case TOK_VAR: skip = stk[sp].hist ? 1 : 0; depth = 0;       break;
+            default:             skip = 0;             depth = arity;   break;
         }
         type = promote_token_datatype(&stk[i], type);
         while (--i >= 0) {
@@ -2052,6 +2054,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
             case TOK_VFN_DOT:
                 tok.toktype = TOK_VFN;
                 tok.datatype = vfn_tbl[tok.vfn].fn_int ? MPR_INT32 : MPR_FLT;
+                tok.arity = vfn_tbl[tok.vfn].arity;
                 tok.vec_len = 1;
                 PUSH_TO_OPERATOR(tok);
                 POP_OPERATOR_TO_OUTPUT();
