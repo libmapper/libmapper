@@ -2730,7 +2730,7 @@ static const char *type_name(const mpr_type type)
     }                                                                       \
 
 int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
-                  mpr_value v_out, mpr_time *t, mpr_type *types, int inst_idx)
+                  mpr_value v_out, mpr_time *time, mpr_type *types, int inst_idx)
 {
     if (!expr) {
 #if TRACE_EVAL
@@ -3284,11 +3284,10 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                     for (i = tok->vec_idx; i < tok->vec_idx + tok->vec_len; i++)
                         types[i] = tok->datatype;
                 }
-
                 // Also copy time from input
-                if (t) {
+                if (time) {
                     mpr_time *tvar = &b_out->times[idx];
-                    memcpy(tvar, t, sizeof(mpr_time));
+                    memcpy(tvar, time, sizeof(mpr_time));
                 }
             }
             else if (tok->var >= 0 && tok->var < N_USER_VARS) {
@@ -3320,8 +3319,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 }
 
                 // Also copy time from input
-                if (t)
-                    memcpy(b->times, t, sizeof(mpr_time));
+                if (time)
+                    memcpy(b->times, time, sizeof(mpr_time));
 
                 expr->vars[tok->var].assigned = 1;
 
