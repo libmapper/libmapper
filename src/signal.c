@@ -99,14 +99,13 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
         s->loc->vec_known = calloc(1, len / 8 + 1);
         for (i = 0; i < len; i++)
             set_bitflag(s->loc->vec_known, i);
+        s->loc->updated_inst = 0;
         if (num_inst) {
             mpr_sig_reserve_inst(s, *num_inst, 0, 0);
             s->use_inst = 1;
-            s->loc->updated_inst = calloc(1, *num_inst / 8 + 1);
         }
         else {
             mpr_sig_reserve_inst(s, 1, 0, 0);
-            s->loc->updated_inst = calloc(1, 1);
         }
 
         // Reserve one instance id map
@@ -580,7 +579,7 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
 int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
 {
     RETURN_UNLESS(sig && sig->loc && num, 0);
-    int i = 0, count = 0, highest = -1, result;
+    int i = 0, count = 0, highest = -1, result, old_num = sig->num_inst;
     if (sig->num_inst == 1 && !sig->loc->inst[0]->id && !sig->loc->inst[0]->data) {
         // we will overwite the default instance first
         if (ids)
@@ -599,6 +598,17 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     }
     if (highest != -1)
         mpr_rtr_num_inst_changed(sig->obj.graph->net.rtr, sig, highest + 1);
+
+    if (old_num > 0 && (sig->num_inst / 8) == (old_num / 8))
+        return count;
+
+    // reallocate instance update bitflags
+    char *updated_inst = calloc(1, sig->num_inst / 8 + 1);
+    if (sig->loc->updated_inst) {
+        memcpy(updated_inst, sig->loc->updated_inst, old_num / 8 + 1);
+        free(sig->loc->updated_inst);
+    }
+    sig->loc->updated_inst = updated_inst;
     return count;
 }
 
