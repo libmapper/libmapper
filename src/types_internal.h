@@ -290,6 +290,7 @@ typedef struct _mpr_value
 #define EXPR_RELEASE_AFTER_UPDATE  0x04
 #define EXPR_MUTED_UPDATE          0x08
 #define EXPR_UPDATE                0x10
+#define EXPR_EVAL_DONE             0x20
 
 /*! A signal is defined as a vector of values, along with some metadata. */
 // plan: remove idx? we shouldn't need it anymore

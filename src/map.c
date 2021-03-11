@@ -486,12 +486,10 @@ void mpr_map_send(mpr_map m, mpr_time time)
             }
         }
 
-        /* send instance release if dst is instanced and either src or map
-         * is also instanced. */
+        /* send instance release if dst is instanced and either src or map is also instanced. */
         if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE && m->use_inst) {
             msg = mpr_map_build_msg(m, 0, 0, 0, idmap);
-            mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, time, m->protocol,
-                             bundle_idx);
+            mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, time, m->protocol, bundle_idx);
             if (map_manages_inst) {
                 mpr_dev_LID_decref(dev, 0, idmap);
                 idmap = m->idmap = 0;
@@ -509,18 +507,17 @@ void mpr_map_send(mpr_map m, mpr_time time)
                              *(mpr_time*)mpr_value_get_time(&dst_slot->loc->val, i),
                              m->protocol, bundle_idx);
         }
-        /* send instance release if dst is instanced and either src or map
-         * is also instanced. */
+        /* send instance release if dst is instanced and either src or map is also instanced. */
         if (idmap && status & EXPR_RELEASE_AFTER_UPDATE && m->use_inst) {
             msg = mpr_map_build_msg(m, 0, 0, 0, idmap);
-            mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, time, m->protocol,
-                             bundle_idx);
+            mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, time, m->protocol, bundle_idx);
             if (map_manages_inst) {
                 mpr_dev_LID_decref(dev, 0, idmap);
                 idmap = m->idmap = 0;
             }
         }
-        // TODO: break if map performs instance reduce
+        if ((status & EXPR_EVAL_DONE) && !m->use_inst)
+            break;
     }
     clear_bitflags(m->loc->updated_inst, m->loc->num_inst);
     m->loc->updated = 0;

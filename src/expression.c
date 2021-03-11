@@ -2740,7 +2740,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     }
 
     mpr_token_t *tok = expr->start, *end = expr->start + expr->n_tokens;
-    int status = 1, alive = 1, muted = 0;
+    int status = 1 | EXPR_EVAL_DONE, alive = 1, muted = 0;   // TODO: make bitflags
+    int cache = 0;
     mpr_value_buffer b_out = v_out ? &v_out->inst[inst_idx] : 0;
     if (v_out && b_out->pos >= 0) {
         tok += expr->offset;
@@ -2863,6 +2864,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                     return status;
                 mpr_value v = v_in[tok->var-VAR_X];
                 COPY_TO_STACK(v);
+                if (!cache)
+                    status &= ~EXPR_EVAL_DONE;
             }
             else if (v_vars) {
                 if (!tok->hist)
@@ -3159,6 +3162,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             // cache previous instance idx
             ++sp;
             stk[sp][0].i = inst_idx;
+            ++cache;
 
             if (x) {
                 // find first active instance idx
@@ -3204,6 +3208,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 memcpy(dims + sp - tok->inst_cache_pos, dims + sp - tok->inst_cache_pos + 1,
                        sizeof(int) * tok->inst_cache_pos);
                 --sp;
+                --cache;
 #if TRACE_EVAL
                 printf("Instance loop done; retrieved cached instance idx %d.\n", inst_idx);
 #endif
