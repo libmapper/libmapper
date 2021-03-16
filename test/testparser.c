@@ -266,20 +266,21 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     for (i = 0; i < n_sources; i++) {
         mlen = mpr_expr_get_in_hist_size(e, i);
         mpr_value_realloc(&inh[i], src_lens[i], src_types[i], mlen, 1, 0);
+        inh[i].inst[0].pos = 0;
+        void *v = mpr_value_get_samp(&inh[i], 0);
         switch (src_types[i]) {
             case MPR_INT32:
-                memcpy(inh[i].inst[0].samps, src_int, sizeof(int) * src_lens[i]);
+                memcpy(v, src_int, sizeof(int) * src_lens[i]);
                 break;
             case MPR_FLT:
-                memcpy(inh[i].inst[0].samps, src_flt, sizeof(float) * src_lens[i]);
+                memcpy(v, src_flt, sizeof(float) * src_lens[i]);
                 break;
             case MPR_DBL:
-                memcpy(inh[i].inst[0].samps, src_dbl, sizeof(double) * src_lens[i]);
+                memcpy(v, src_dbl, sizeof(double) * src_lens[i]);
                 break;
             default:
                 assert(0);
         }
-        inh[i].inst[0].pos = 0;
         memcpy(inh[i].inst[0].times, &time_in, sizeof(mpr_time));
     }
     mlen = mpr_expr_get_out_hist_size(e);
@@ -799,8 +800,8 @@ int run_tests()
 
     /* 49) Multiple Inputs */
     snprintf(str, 256, "y=x+x1[1:2]+x2");
-    mpr_type types[] = {MPR_INT32, MPR_FLT, MPR_DBL};
-    int lens[] = {2, 3, 2};
+    mpr_type types[3] = {MPR_INT32, MPR_FLT, MPR_DBL};
+    int lens[3] = {2, 3, 2};
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
     expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);

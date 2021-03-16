@@ -658,6 +658,7 @@ void mpr_value_free(mpr_value v);
 
 #ifdef DEBUG
 void mpr_value_print(mpr_value v, int inst_idx);
+void mpr_value_print_hist(mpr_value v, int inst_idx);
 #endif
 
 /*! Helper to find the size in bytes of a signal's full vector. */

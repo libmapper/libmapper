@@ -557,7 +557,7 @@ typedef struct _token {
     char vec_len_locked;  // TODO switch to bitflags
     char muted;           // TODO switch to bitflags
     char clear_stack;     // TODO switch to bitflags
-    uint8_t const_flags;
+    uint8_t const_flags;  // TODO add to bitflags
 } mpr_token_t, *mpr_token;
 
 typedef struct _var {
@@ -967,7 +967,7 @@ void mpr_expr_free(mpr_expr expr)
     free(expr);
 }
 
-#ifdef DEBUG
+#ifdef TRACE_PARSE
 
 static void printtoken(mpr_token_t t, mpr_var_t *vars)
 {
@@ -1118,7 +1118,7 @@ void printexpr(const char *s, mpr_expr e)
     printstack(s, e->tokens, e->n_tokens - 1, e->vars, 1);
 }
 
-#endif // DEBUG
+#endif // TRACE_PARSE
 
 static mpr_type compare_token_datatype(mpr_token_t tok, mpr_type type)
 {
@@ -2180,7 +2180,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                     {FAIL_IF(arity != vfn_tbl[op[op_idx].vfn].arity, "VFN arity mismatch.");}
                     POP_OPERATOR_TO_OUTPUT();
                 }
-                // special case: if top of stack is tok_assign, pop to output
+                // special case: if top of stack is tok_assign_use, pop to output
                 if (op_idx >= 0 && op[op_idx].toktype == TOK_ASSIGN_USE)
                     POP_OPERATOR_TO_OUTPUT();
                 break;
@@ -2237,11 +2237,12 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                         {FAIL("Malformed expression (6)");}
                     POP_OPERATOR();
                 }
+                // mark last assignment token to clear eval stack
+                out[out_idx].clear_stack = 1;
+
                 // check vector length and type
                 if (check_assign_type_and_len(out, out_idx, vars) == -1)
                     {FAIL("Malformed expression (7)");}
-                // mark last assignment token to clear eval stack
-                out[out_idx].clear_stack = 1;
 
                 // start another sub-expression
                 assigning = 1;
@@ -2436,7 +2437,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 {FAIL("Unknown token type.");}
                 break;
         }
-#if (TRACE_PARSE && DEBUG)
+#if (TRACE_PARSE)
         printstack("OUTPUT STACK:  ", out, out_idx, vars, 0);
         printstack("OPERATOR STACK:", op, op_idx, vars, 0);
 #endif
@@ -2451,8 +2452,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
 
     // finish popping operators to output, check for unbalanced parentheses
     while (op_idx >= 0 && op[op_idx].toktype < TOK_ASSIGN) {
-        {FAIL_IF(op[op_idx].toktype == TOK_OPEN_PAREN,
-                 "Unmatched parentheses or misplaced comma.");}
+        {FAIL_IF(op[op_idx].toktype == TOK_OPEN_PAREN, "Unmatched parentheses or misplaced comma.");}
         POP_OPERATOR_TO_OUTPUT();
     }
 
@@ -2469,8 +2469,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
 
     // pop assignment operator(s) to output
     while (op_idx >= 0) {
-        {FAIL_IF(!op_idx && op[op_idx].toktype < TOK_ASSIGN,
-                 "Malformed expression (8).");}
+        {FAIL_IF(!op_idx && op[op_idx].toktype < TOK_ASSIGN, "Malformed expression (8).");}
         PUSH_TO_OUTPUT(op[op_idx]);
         // check vector length and type
         {FAIL_IF(out[out_idx].toktype == TOK_ASSIGN_USE
@@ -2479,16 +2478,15 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
         POP_OPERATOR();
     }
 
-    // check vector length and type
-    {FAIL_IF(check_assign_type_and_len(out, out_idx, vars) == -1,
-             "Malformed expression (10).");}
-
     // mark last assignment token to clear eval stack
     out[out_idx].clear_stack = 1;
 
+    // check vector length and type
+    {FAIL_IF(check_assign_type_and_len(out, out_idx, vars) == -1, "Malformed expression (10).");}
+
     {FAIL_IF(replace_special_constants(out, out_idx), "Error replacing special constants."); }
 
-#if (TRACE_PARSE && DEBUG)
+#if (TRACE_PARSE)
     printstack("--->OUTPUT STACK:  ", out, out_idx, vars, 0);
     printstack("--->OPERATOR STACK:", op, op_idx, vars, 0);
 #endif
@@ -2684,7 +2682,7 @@ static const char *type_name(const mpr_type type)
             stk[sp][i].EL = stk[sp][i].EL * weight + ((TYPE*)a)[i+tok->vec_idx] * (1 - weight); \
         break;
 
-#define COPY_TO_STACK(SRC)                                                  \
+#define COPY_TO_STACK(VAL)                                                  \
     if (!tok->hist)                                                         \
         ++sp;                                                               \
     else {                                                                  \
@@ -2705,11 +2703,8 @@ static const char *type_name(const mpr_type type)
         }                                                                   \
     }                                                                       \
     dims[sp] = tok->vec_len;                                                \
-    mpr_value_buffer b = &SRC->inst[inst_idx % SRC->num_inst];              \
-    int idx = ((b->pos + SRC->mlen + hidx) % SRC->mlen);                    \
-    if (idx < 0) idx = SRC->mlen + idx;                                     \
-    void *a = (b->samps + idx * SRC->vlen * mpr_type_get_size(SRC->type));  \
-    switch (SRC->type) {                                                    \
+    void *a = mpr_value_get_samp_hist(VAL, inst_idx % VAL->num_inst, hidx); \
+    switch (VAL->type) {                                                    \
         COPY_TYPED(MPR_INT32, int, i)                                       \
         COPY_TYPED(MPR_FLT, float, f)                                       \
         COPY_TYPED(MPR_DBL, double, d)                                      \
@@ -2717,10 +2712,8 @@ static const char *type_name(const mpr_type type)
             goto error;                                                     \
     }                                                                       \
     if (weight) {                                                           \
-        --idx;                                                              \
-        if (idx < 0) idx = SRC->mlen + idx;                                 \
-        a = (b->samps + idx * SRC->vlen * mpr_type_get_size(SRC->type));    \
-        switch (SRC->type) {                                                \
+        a = mpr_value_get_samp_hist(VAL, inst_idx % VAL->num_inst, hidx-1); \
+        switch (VAL->type) {                                                \
             WEIGHTED_ADD(MPR_INT32, int, i)                                 \
             WEIGHTED_ADD(MPR_FLT, float, f)                                 \
             WEIGHTED_ADD(MPR_DBL, double, d)                                \
@@ -3146,7 +3139,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 printf("[");
                 print_stack_vec(stk[sp], tok->datatype, tok->vec_len);
                 printf(", ");
-                print_stack_vec(stk[sp+1], tok->datatype, tok->vec_len);
+                print_stack_vec(stk[sp + 1], tok->datatype, tok->vec_len);
                 printf("]\n");
             }
             else {
@@ -3243,28 +3236,33 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_ASSIGN:
         case TOK_ASSIGN_USE:
             can_advance = 0;
-        case TOK_ASSIGN_CONST:
+        case TOK_ASSIGN_CONST: {
+            int hidx = tok->hist;
+            if (tok->hist) {
+                // TODO: disallow assignment interpolation & verify parser does this check also
+                hidx = stk[sp - 1][0].i;
+                // var{-1} is the current sample, so we allow hidx range of 0 -> -mlen inclusive
+                if (hidx > 0 || hidx < -v_out->mlen)
+                    goto error;
+            }
 #if TRACE_EVAL
             if (VAR_Y == tok->var)
-                printf("assigning values to y{%d}[%u] (%s x %u)\n",
-                       tok->hist ? stk[sp - 1][0].i : 0, tok->vec_idx, type_name(tok->datatype),
-                       tok->vec_len);
+                printf("assigning values to y{%d}[%u] (%s x %u)\n", hidx, tok->vec_idx,
+                       type_name(tok->datatype), tok->vec_len);
             else
                 printf("assigning values to %s{%d}[%u] (%s x %u)\n", expr->vars[tok->var].name,
-                       tok->hist ? stk[sp - 1][0].i : 0, tok->vec_idx, type_name(tok->datatype),
-                       tok->vec_len);
+                       hidx, tok->vec_idx, type_name(tok->datatype), tok->vec_len);
 #endif
             if (tok->var == VAR_Y) {
                 if (!alive)
                     break;
-                status |=  muted ? EXPR_MUTED_UPDATE : EXPR_UPDATE;
+                status |= muted ? EXPR_MUTED_UPDATE : EXPR_UPDATE;
                 can_advance = 0;
                 if (!v_out)
                     return status;
-                int idx = (b_out->pos + v_out->mlen + (tok->hist ? stk[sp - 1][0].i : 0)) % v_out->mlen;
-                if (idx < 0)
-                    idx = v_out->mlen + idx;
-                void *v = (b_out->samps + idx * v_out->vlen * mpr_type_get_size(v_out->type));
+
+                int idx = (b_out->pos + v_out->mlen + hidx) % v_out->mlen;
+                void *v = b_out->samps + idx * v_out->vlen * mpr_type_get_size(v_out->type);
 
                 switch (v_out->type) {
 #define TYPED_CASE(MTYPE, TYPE, EL)                                                     \
@@ -3280,6 +3278,11 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                         goto error;
                 }
 
+#if TRACE_EVAL
+                v_out->inst[inst_idx].full = 1;
+                mpr_value_print_hist(v_out, inst_idx);
+#endif
+
                 if (types) {
                     for (i = tok->vec_idx; i < tok->vec_idx + tok->vec_len; i++)
                         types[i] = tok->datatype;
@@ -3292,6 +3295,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             else if (tok->var >= 0 && tok->var < N_USER_VARS) {
                 if (!v_vars)
+                    goto error;
+                // var{-1} is the current sample, so we allow hidx of 0 or -1
+                if (hidx < -1)
                     goto error;
                 // passed the address of an array of mpr_value structs
                 mpr_value v = *v_vars + tok->var;
@@ -3358,6 +3364,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 --sp;
 
             break;
+        }
         case TOK_ASSIGN_TT:
             if (tok->var != VAR_Y || tok->hist == 0)
                 goto error;

@@ -35,6 +35,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
     }
 
     if (!is_input || vlen != v->vlen || type != v->type) {
+        // reallocate old instances (v->num_inst has not yet been updated)
         for (i = 0; i < v->num_inst; i++) {
             mpr_value_buffer b = &v->inst[i];
             b->samps = realloc(b->samps, mlen * samp_size);
@@ -148,29 +149,25 @@ void mpr_value_free(mpr_value v) {
 }
 
 #ifdef DEBUG
-void mpr_value_print(mpr_value v, int inst_idx) {
-    int i = inst_idx >= 0 ? inst_idx : 0, j;
+static void _value_print(mpr_value v, int inst_idx, int hist_idx) {
+    RETURN_UNLESS(inst_idx < v->num_inst);
+    int i;
     switch (v->type) {
-#define TYPED_CASE(MTYPE, TYPE, STR)                                \
-        case MTYPE:                                                 \
-            for (i = 0; i < v->num_inst; i++) {                     \
-                printf("%d: ", i);                                  \
-                if (v->inst[i].pos >= 0) {                          \
-                    if (v->vlen > 1)                                \
-                        printf("[");                                \
-                    TYPE *samp = (TYPE*)mpr_value_get_samp(v, i);   \
-                    for (j = 0; j < v->vlen; j++)                   \
-                        printf(STR, samp[j]);                       \
-                    if (v->vlen > 1)                                \
-                        printf("\b\b]\n");                          \
-                    else                                            \
-                        printf("\b\b\n");                           \
-                }                                                   \
-                else                                                \
-                    printf("NULL\n");                               \
-                if (inst_idx < 0)                                   \
-                    break;                                          \
-            }                                                       \
+#define TYPED_CASE(MTYPE, TYPE, STR)                            \
+        case MTYPE:                                             \
+            if (v->inst[inst_idx].pos >= 0) {                       \
+                if (v->vlen > 1)                                \
+                    printf("[");                                \
+                TYPE *samp = (TYPE*)mpr_value_get_samp_hist(v, inst_idx, hist_idx);   \
+                for (i = 0; i < v->vlen; i++)                   \
+                    printf(STR, samp[i]);                       \
+                if (v->vlen > 1)                                \
+                    printf("\b\b] @%p -> %p\n", v->inst[inst_idx].samps, samp);                          \
+                else                                            \
+                    printf("\b\b @%p -> %p\n", v->inst[inst_idx].samps, samp);                           \
+            }                                                   \
+            else                                                \
+                printf("NULL\n");                               \
             break;
         TYPED_CASE(MPR_INT32, int, "%d, ");
         TYPED_CASE(MPR_FLT, float, "%f, ");
@@ -178,4 +175,20 @@ void mpr_value_print(mpr_value v, int inst_idx) {
 #undef TYPED_CASE
     }
 }
+
+void mpr_value_print(mpr_value v, int inst_idx) {
+    _value_print(v, inst_idx, 0);
+}
+
+void mpr_value_print_hist(mpr_value v, int inst_idx) {
+    RETURN_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0);
+
+    // if history is full, print from pos+1 -> pos, else print from 0 -> pos
+    int hidx = -1 * (v->inst[inst_idx].full ? (v->inst[inst_idx].pos + 1) % v->mlen : 0);
+    do {
+        printf("{%d of %d} ", hidx, v->mlen);
+        _value_print(v, inst_idx, hidx);
+    } while (hidx++ < 0);
+}
+
 #endif
