@@ -2658,7 +2658,6 @@ static const char *type_name(const mpr_type type)
     BINARY_OP_CASE(OP_ADD, +, EL);                          \
     BINARY_OP_CASE(OP_SUBTRACT, -, EL);                     \
     BINARY_OP_CASE(OP_MULTIPLY, *, EL);                     \
-    BINARY_OP_CASE(OP_DIVIDE, /, EL);                       \
     BINARY_OP_CASE(OP_IS_EQUAL, ==, EL);                    \
     BINARY_OP_CASE(OP_IS_NOT_EQUAL, !=, EL);                \
     BINARY_OP_CASE(OP_IS_LESS_THAN, <, EL);                 \
@@ -2789,6 +2788,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         expr->vars[i].assigned = 0;
 
     while (tok < end) {
+  repeat:
         switch (tok->toktype) {
         case TOK_CONST:
             ++sp;
@@ -2997,13 +2997,29 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             switch (tok->datatype) {
                 case MPR_INT32: {
                     switch (tok->op) {
-                            OP_CASES_META(i);
-                            BINARY_OP_CASE(OP_MODULO, %, i);
-                            BINARY_OP_CASE(OP_LEFT_BIT_SHIFT, <<, i);
-                            BINARY_OP_CASE(OP_RIGHT_BIT_SHIFT, >>, i);
-                            BINARY_OP_CASE(OP_BITWISE_AND, &, i);
-                            BINARY_OP_CASE(OP_BITWISE_OR, |, i);
-                            BINARY_OP_CASE(OP_BITWISE_XOR, ^, i);
+                        OP_CASES_META(i);
+                        case OP_DIVIDE:
+                            // need to check for divide-by-zero
+                            for (i = 0; i < tok->vec_len; i++) {
+                                if (stk[sp + 1][i].i)
+                                    stk[sp][i].i /= stk[sp + 1][i].i;
+                                else {
+                                    // skip to after this assignment
+                                    while (tok < end && !((++tok)->toktype & TOK_ASSIGN)) {}
+                                    while (tok < end && (++tok)->toktype & TOK_ASSIGN) {}
+                                    if (tok >= end)
+                                        return 0;
+                                    else
+                                        goto repeat;
+                                }
+                            }
+                            break;
+                        BINARY_OP_CASE(OP_MODULO, %, i);
+                        BINARY_OP_CASE(OP_LEFT_BIT_SHIFT, <<, i);
+                        BINARY_OP_CASE(OP_RIGHT_BIT_SHIFT, >>, i);
+                        BINARY_OP_CASE(OP_BITWISE_AND, &, i);
+                        BINARY_OP_CASE(OP_BITWISE_OR, |, i);
+                        BINARY_OP_CASE(OP_BITWISE_XOR, ^, i);
                         default: goto error;
                     }
                     break;
@@ -3011,6 +3027,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 case MPR_FLT: {
                     switch (tok->op) {
                         OP_CASES_META(f);
+                        BINARY_OP_CASE(OP_DIVIDE, /, f);
                         case OP_MODULO:
                             for (i = 0; i < tok->vec_len; i++)
                                 stk[sp][i].f = fmodf(stk[sp][i].f, stk[sp + 1][i].f);
@@ -3022,6 +3039,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 case MPR_DBL: {
                     switch (tok->op) {
                         OP_CASES_META(d);
+                        BINARY_OP_CASE(OP_DIVIDE, /, d);
                         case OP_MODULO:
                             for (i = 0; i < tok->vec_len; i++)
                                 stk[sp][i].d = fmod(stk[sp][i].d, stk[sp + 1][i].d);

@@ -374,10 +374,6 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
             memcpy(mpr_value_get_time(&inh[j], 0), &time_in, sizeof(mpr_time));
         }
         status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
-        if (!status) {
-            result = 1;
-            break;
-        }
         if (status & MPR_SIG_UPDATE)
             ++update_count;
         // sleep here stops compiler from optimizing loop away
@@ -1058,6 +1054,13 @@ int run_tests()
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = 0.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 77) Integer divide-by-zero */
+    snprintf(str, 256, "foo=1; y=x/foo; foo=!foo;");
+    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    // we expect only half of the evaluation attempts to succeed (i.e. when 'foo' == 1)
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, (iterations + 1) / 2))
         return 1;
 
     return 0;
