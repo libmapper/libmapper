@@ -1145,8 +1145,9 @@ static int _set_expr(mpr_map m, const char *expr)
         // evaluate expression to intialise literals
         mpr_time now;
         mpr_time_set(&now, MPR_NOW);
+        char types[m->dst->sig->len];
         for (i = 0; i < m->loc->num_inst; i++)
-            mpr_expr_eval(m->loc->expr, 0, &m->loc->vars, &m->dst->loc->val, &now, 0, i);
+            mpr_expr_eval(m->loc->expr, 0, &m->loc->vars, &m->dst->loc->val, &now, types, i);
     }
     else {
         if (!m->loc->expr && (   (MPR_LOC_DST == m->process_loc && m->dst->sig->loc)
