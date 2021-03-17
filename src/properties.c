@@ -120,15 +120,13 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
     for (i = 0; i < argc; i++) {
         if (types[i] != MPR_STR)
             continue;
-        if  (argv[i]->s == '@' || (strncmp(&argv[i]->s, "-@", 2)==0)
-             || (strncmp(&argv[i]->s, "+@", 2)==0))
+        if (argv[i]->s == '@' || !strncmp(&argv[i]->s, "-@", 2) || !strncmp(&argv[i]->s, "+@", 2))
             ++num_props;
     }
     RETURN_UNLESS(num_props, 0);
 
     mpr_msg msg = (mpr_msg) calloc(1, sizeof(struct _mpr_msg));
-    msg->atoms = ((mpr_msg_atom_t*)
-                  calloc(1, sizeof(struct _mpr_msg_atom) * num_props));
+    msg->atoms = ((mpr_msg_atom_t*) calloc(1, sizeof(struct _mpr_msg_atom) * num_props));
     mpr_msg_atom a = &msg->atoms[0];
     const char *key;
 
@@ -201,8 +199,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
                 break;
             }
             else if (!type_match(types[i], a->types[0])) {
-                trace("Value vector for key '%s' has heterogeneous types.\n",
-                      a->key);
+                trace("Value vector for key '%s' has heterogeneous types.\n", a->key);
                 a->len = a->prop = 0;
                 a->types = 0;
                 break;
@@ -331,8 +328,7 @@ for (i = 0; i < len; i++)                           \
     lo_message_add_##TYPE(MSG, ((CAST*)VAL)[i]);    \
 
 /* helper for mpr_msg_varargs() */
-void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type,
-                           const void *val)
+void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type, const void *val)
 {
     int i;
     if (type && len < 1)
@@ -340,29 +336,15 @@ void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type,
 
     switch (type) {
         case MPR_STR:
-            if (len == 1)
-                lo_message_add_string(msg, (char*)val);
-            else
-                LO_MESSAGE_ADD_VEC(msg, string, char*, val);
-            break;
-        case MPR_FLT:
-            LO_MESSAGE_ADD_VEC(msg, float, float, val);
-            break;
-        case MPR_DBL:
-            LO_MESSAGE_ADD_VEC(msg, double, double, val);
-            break;
-        case MPR_INT32:
-            LO_MESSAGE_ADD_VEC(msg, int32, int, val);
-            break;
-        case MPR_INT64:
-            LO_MESSAGE_ADD_VEC(msg, int64, int64_t, val);
-            break;
-        case MPR_TIME:
-            LO_MESSAGE_ADD_VEC(msg, timetag, mpr_time, val);
-            break;
-        case MPR_TYPE:
-            LO_MESSAGE_ADD_VEC(msg, char, mpr_type, val);
-            break;
+            if (len == 1)   lo_message_add_string(msg, (char*)val);
+            else            LO_MESSAGE_ADD_VEC(msg, string, char*, val);    	break;
+        case MPR_FLT:       LO_MESSAGE_ADD_VEC(msg, float, float, val);         break;
+        case MPR_DBL:       LO_MESSAGE_ADD_VEC(msg, double, double, val);       break;
+        case MPR_INT32:     LO_MESSAGE_ADD_VEC(msg, int32, int, val);           break;
+        case MPR_INT64:     LO_MESSAGE_ADD_VEC(msg, int64, int64_t, val);       break;
+        case MPR_TIME:      LO_MESSAGE_ADD_VEC(msg, timetag, mpr_time, val);    break;
+        case MPR_TYPE:      LO_MESSAGE_ADD_VEC(msg, char, mpr_type, val);       break;
+        case 0:             lo_message_add_nil(msg);                            break;
         case MPR_BOOL:
             for (i = 0; i < len; i++) {
                 if (((int*)val)[i])
@@ -371,10 +353,6 @@ void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type,
                     lo_message_add_false(msg);
             }
             break;
-        case 0: {
-            lo_message_add_nil(msg);
-            break;
-        }
         default:
             break;
     }
@@ -633,8 +611,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             else {
                 mpr_sig *sig = (mpr_sig*)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s:%s', ", mpr_dev_get_name(sig[i]->dev),
-                           sig[i]->name);
+                    printf("'%s:%s', ", mpr_dev_get_name(sig[i]->dev), sig[i]->name);
             }
             break;
         }
