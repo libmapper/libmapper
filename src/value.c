@@ -150,45 +150,52 @@ void mpr_value_free(mpr_value v) {
 
 #ifdef DEBUG
 static void _value_print(mpr_value v, int inst_idx, int hist_idx) {
-    RETURN_UNLESS(inst_idx < v->num_inst);
     int i;
+    if (v->inst[inst_idx].pos < 0) {
+        printf("NULL\n");
+        return;
+    }
+    void *s = mpr_value_get_samp_hist(v, inst_idx, hist_idx);
+    mpr_time *t = mpr_value_get_time_hist(v, inst_idx, hist_idx);
+    printf("%08x.%08x | ", (*t).sec, (*t).frac);
+    if (v->vlen > 1)
+        printf("[");
+
     switch (v->type) {
-#define TYPED_CASE(MTYPE, TYPE, STR)                            \
-        case MTYPE:                                             \
-            if (v->inst[inst_idx].pos >= 0) {                       \
-                if (v->vlen > 1)                                \
-                    printf("[");                                \
-                TYPE *samp = (TYPE*)mpr_value_get_samp_hist(v, inst_idx, hist_idx);   \
-                for (i = 0; i < v->vlen; i++)                   \
-                    printf(STR, samp[i]);                       \
-                if (v->vlen > 1)                                \
-                    printf("\b\b] @%p -> %p\n", v->inst[inst_idx].samps, samp);                          \
-                else                                            \
-                    printf("\b\b @%p -> %p\n", v->inst[inst_idx].samps, samp);                           \
-            }                                                   \
-            else                                                \
-                printf("NULL\n");                               \
+#define TYPED_CASE(MTYPE, TYPE, STR)        \
+        case MTYPE:                         \
+            for (i = 0; i < v->vlen; i++)   \
+                printf(STR, ((TYPE*)s)[i]); \
             break;
         TYPED_CASE(MPR_INT32, int, "%d, ");
         TYPED_CASE(MPR_FLT, float, "%f, ");
         TYPED_CASE(MPR_DBL, double, "%f, ");
 #undef TYPED_CASE
     }
+
+    if (v->vlen > 1)
+        printf("\b\b] @%p -> %p\n", v->inst[inst_idx].samps, s);
+    else
+        printf("\b\b @%p -> %p\n", v->inst[inst_idx].samps, s);
 }
 
 void mpr_value_print(mpr_value v, int inst_idx) {
-    _value_print(v, inst_idx, 0);
+    RETURN_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0);
+    _value_print(v, inst_idx, v->inst[inst_idx].pos);
 }
 
 void mpr_value_print_hist(mpr_value v, int inst_idx) {
     RETURN_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0);
 
     // if history is full, print from pos+1 -> pos, else print from 0 -> pos
-    int hidx = -1 * (v->inst[inst_idx].full ? (v->inst[inst_idx].pos + 1) % v->mlen : 0);
-    do {
-        printf("{%d of %d} ", hidx, v->mlen);
+    int i, hidx = v->inst[inst_idx].pos * -1;
+    for (i = 0; i < v->mlen; i++) {
+        printf("%s {%3d} ", hidx ? "  " : "->", hidx);
         _value_print(v, inst_idx, hidx);
-    } while (hidx++ < 0);
+        ++hidx;
+        if (hidx > 0)
+            hidx -= v->mlen;
+    };
 }
 
 #endif

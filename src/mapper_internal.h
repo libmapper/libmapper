@@ -648,10 +648,19 @@ inline static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int hist_
 }
 
 /*! Helper to find the pointer to the current time in a mpr_value_t. */
-inline static void* mpr_value_get_time(mpr_value v, int idx)
+inline static mpr_time* mpr_value_get_time(mpr_value v, int idx)
 {
     mpr_value_buffer b = &v->inst[idx];
     return &b->times[b->pos];
+}
+
+inline static mpr_time* mpr_value_get_time_hist(mpr_value v, int inst_idx, int hist_idx)
+{
+    mpr_value_buffer b = &v->inst[inst_idx];
+    int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
+    if (idx < 0)
+        idx += v->mlen;
+    return &b->times[idx];
 }
 
 void mpr_value_free(mpr_value v);
