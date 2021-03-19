@@ -791,93 +791,6 @@ static void graph_handler_py(mpr_graph g, mpr_obj obj, mpr_graph_evt e, const vo
     PyGILState_Release(gstate);
 }
 
-static mpr_sig add_signal_internal(mpr_dev dev, mpr_dir dir, const char *name,
-                                   int len, char type, const char *unit,
-                                   propval min, propval max, propval num_inst,
-                                   PyObject *PyFunc, int events)
-{
-    int i;
-    void *h = 0;
-    PyObject **callbacks = 0;
-    if (PyFunc) {
-        h = signal_handler_py;
-        callbacks = malloc(2 * sizeof(PyObject*));
-        callbacks[0] = PyFunc;
-        callbacks[1] = 0;
-        Py_INCREF(PyFunc);
-    }
-    void *pmn=0, *pmx=0;
-    int pmn_coerced=0, pmx_coerced=0;
-    if (type == MPR_FLT)
-    {
-        if (min && min->len == len) {
-            if (min->type == MPR_FLT)
-                pmn = min->val;
-            else if (min->type == MPR_INT32) {
-                float *to = (float*)malloc(len * sizeof(float));
-                int *from = (int*)min->val;
-                for (i=0; i<len; i++) {
-                    to[i] = (float)from[i];
-                }
-                pmn = to;
-                pmn_coerced = 1;
-            }
-        }
-        if (max && max->len == len) {
-            if (max->type == MPR_FLT)
-                pmx = max->val;
-            else if (max->type == MPR_INT32) {
-                float *to = (float*)malloc(len * sizeof(float));
-                int *from = (int*)max->val;
-                for (i=0; i<len; i++) {
-                    to[i] = (float)from[i];
-                }
-                pmx = to;
-                pmx_coerced = 1;
-            }
-        }
-    }
-    else if (type == MPR_INT32)
-    {
-        if (min && min->len == len) {
-            if (min->type == MPR_INT32)
-                pmn = min->val;
-            else if (min->type == MPR_FLT) {
-                int *to = (int*)malloc(len * sizeof(int));
-                float *from = (float*)min->val;
-                for (i=0; i<len; i++) {
-                    to[i] = (int)from[i];
-                }
-                pmn = to;
-                pmn_coerced = 1;
-            }
-        }
-        if (max && max->len == len) {
-            if (max->type == MPR_INT32)
-                pmx = max->val;
-            else if (max->type == MPR_FLT) {
-                int *to = (int*)malloc(len * sizeof(int));
-                float *from = (float*)max->val;
-                for (i=0; i<len; i++) {
-                    to[i] = (int)from[i];
-                }
-                pmx = to;
-                pmx_coerced = 1;
-            }
-        }
-    }
-    int *pnum_inst = num_inst && MPR_INT32 == num_inst->type ? num_inst->val : 0;
-    mpr_sig sig = mpr_sig_new(dev, dir, name, len, type, unit, pmn, pmx,
-                              pnum_inst, h, events);
-    sig->obj.data = callbacks;
-
-    if (pmn_coerced)
-        free(pmn);
-    if (pmx_coerced)
-        free(pmx);
-    return sig;
-}
-
 static void set_obj_prop(mpr_obj o, mpr_prop p, const char *s, propval v, booltype pub) {
     if (MPR_PROP_DATA == p || (s && !strcmp(s, "data")))
         return;
@@ -1175,9 +1088,26 @@ typedef struct _device_list {
                        propval num_inst=0, PyObject *PyFunc=0,
                        int events=MPR_SIG_ALL)
     {
-        return (signal*)add_signal_internal((mpr_dev)$self, dir, name, len,
-                                            type, unit, min, max, num_inst,
-                                            PyFunc, events);
+        void *h = 0;
+        PyObject **callbacks = 0;
+        if (PyFunc) {
+            h = signal_handler_py;
+            callbacks = malloc(2 * sizeof(PyObject*));
+            callbacks[0] = PyFunc;
+            callbacks[1] = 0;
+            Py_INCREF(PyFunc);
+        }
+        int *pnum_inst = num_inst && MPR_INT32 == num_inst->type ? num_inst->val : 0;
+        mpr_sig sig = mpr_sig_new((mpr_dev)$self, dir, name, len, type, unit,
+                                  NULL, NULL, pnum_inst, h, events);
+        if (sig) {
+            sig->obj.data = callbacks;
+            if (max)
+                set_obj_prop((mpr_obj)sig, MPR_PROP_MAX, NULL, max, 1);
+            if (min)
+                set_obj_prop((mpr_obj)sig, MPR_PROP_MIN, NULL, min, 1);
+        }
+        return (signal*)sig;
     }
     device *remove_signal(signal *sig) {
         mpr_sig msig = (mpr_sig)sig;
