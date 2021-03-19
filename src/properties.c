@@ -446,9 +446,10 @@ int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
         do {
             memcpy(dst_val, src_val, size * min_len);
             dst_len -= min_len;
+            dst_val += size * min_len;
             if (dst_len < min_len)
                 min_len = dst_len;
-        } while (dst_len);
+        } while (dst_len > 0);
         return 0;
     }
 
