@@ -432,7 +432,8 @@ void mpr_map_send(mpr_map m, mpr_time time)
 {
     int i, j, status;
     lo_message msg;
-    RETURN_UNLESS(m->loc && m->loc->updated && m->loc->expr && MPR_DIR_OUT == m->src[0]->dir);
+    RETURN_UNLESS(m->loc && m->loc->updated && m->loc->expr
+                  && MPR_DIR_OUT == m->src[0]->dir && !m->muted);
 
     mpr_dev dev = m->loc->rtr->dev;
     uint8_t bundle_idx = dev->loc->bundle_idx % NUM_BUNDLES;
@@ -528,7 +529,7 @@ void mpr_map_send(mpr_map m, mpr_time time)
 void mpr_map_receive(mpr_map m, mpr_time time)
 {
     int i, j, status;
-    RETURN_UNLESS(m->loc && m->loc->updated && m->loc->expr && m->dst->sig->loc);
+    RETURN_UNLESS(m->loc && m->loc->updated && m->loc->expr && m->dst->sig->loc && !m->muted);
 
     // temporary solution: use most multitudinous source signal for idmap
     // permanent solution: move idmaps to map
