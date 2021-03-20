@@ -2193,13 +2193,29 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 {FAIL_IF(op_idx < 0, "Malformed expression (4).");}
                 if (op[op_idx].toktype == TOK_VECTORIZE) {
                     ++op[op_idx].vec_idx;
-                    if (TOK_BRANCH_NEXT_INST == out[out_idx].toktype)
-                        op[op_idx].vec_len += out[out_idx-1].vec_len;
-                    else
-                        op[op_idx].vec_len += out[out_idx].vec_len;
+                    switch (out[out_idx].toktype) {
+                        case TOK_BRANCH_NEXT_INST:
+                            op[op_idx].vec_len += out[out_idx-1].vec_len;
+                            ++op[op_idx].arity;
+                            break;
+                        case TOK_CONST:
+                            if (out_idx >= 1 && TOK_CONST == out[out_idx - 1].toktype
+                                && out[out_idx].datatype == out[out_idx - 1].datatype
+                                && out[out_idx].i == out[out_idx - 1].i) {
+                                trace("Squashing vector. (1)\n");
+                                ++out[out_idx - 1].vec_len;
+                                ++op[op_idx].vec_len;
+                                POP_OUTPUT();
+                                break;
+                            }
+                        default:
+                            op[op_idx].vec_len += out[out_idx].vec_len;
+                            ++op[op_idx].arity;
+                    }
                     lock_vec_len(out, out_idx);
                 }
-                ++op[op_idx].arity;
+                else
+                    ++op[op_idx].arity;
                 allow_toktype = OBJECT_TOKENS;
                 break;
             case TOK_COLON:
@@ -2317,14 +2333,30 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 {FAIL_IF(op_idx < 0, "Unmatched brackets or misplaced comma.");}
                 if (op[op_idx].vec_len) {
                     op[op_idx].vec_len_locked = 1;
-                    ++op[op_idx].arity;
-                    if (TOK_BRANCH_NEXT_INST == out[out_idx].toktype)
-                        op[op_idx].vec_len += out[out_idx-1].vec_len;
-                    else
-                        op[op_idx].vec_len += out[out_idx].vec_len;
+
+                    switch (out[out_idx].toktype) {
+                        case TOK_BRANCH_NEXT_INST:
+                            op[op_idx].vec_len += out[out_idx-1].vec_len;
+                            ++op[op_idx].arity;
+                            break;
+                        case TOK_CONST:
+                            if (out_idx >= 1 && TOK_CONST == out[out_idx - 1].toktype
+                                && out[out_idx].datatype == out[out_idx - 1].datatype
+                                && out[out_idx].i == out[out_idx - 1].i) {
+                                trace("Squashing vector. (2)\n");
+                                ++out[out_idx - 1].vec_len;
+                                ++op[op_idx].vec_len;
+                                POP_OUTPUT();
+                                break;
+                            }
+                        default:
+                            op[op_idx].vec_len += out[out_idx].vec_len;
+                            ++op[op_idx].arity;
+                    }
                     lock_vec_len(out, out_idx);
-                    POP_OPERATOR_TO_OUTPUT();
                 }
+                if (op[op_idx].arity > 1)
+                    { POP_OPERATOR_TO_OUTPUT(); }
                 else {
                     // we do not need vectorizer token if vector length == 1
                     POP_OPERATOR();
