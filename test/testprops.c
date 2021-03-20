@@ -2,8 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
-/* Test to ensure that setting and getting properties of signals and
- * devices is consistent. */
+/* Test to ensure that setting and getting properties of signals and devices is consistent. */
 
 #define SEEN_DIR      0x0001
 #define SEEN_LENGTH   0x0002
@@ -52,8 +51,7 @@ const char *type_name(mpr_type type)
     }
 }
 
-/* Code to return a key's "seen" code, to mark whether we've seen a
- * value. */
+/* Code to return a key's "seen" code, to mark whether we've seen a value. */
 int seen_code(const char *key)
 {
     struct { const char *s; int n; } seenvals[] = {
@@ -116,8 +114,8 @@ int main(int argc, char **argv)
     }
 
     mpr_dev dev = mpr_dev_new("testprops", 0);
-    mpr_sig sig = mpr_sig_new(dev, MPR_DIR_IN, "test", 1, MPR_FLT, "Hz",
-                              NULL, NULL, NULL, NULL, 0);
+    mpr_obj sig = (mpr_obj)mpr_sig_new(dev, MPR_DIR_IN, "test", 3, MPR_FLT,
+                                       "Hz", NULL, NULL, NULL, NULL, 0);
 
     while (!mpr_dev_get_is_ready(dev)) {
         mpr_dev_poll(dev, 100);
@@ -139,8 +137,7 @@ int main(int argc, char **argv)
     float fval = 35.0;
     mpr_obj_set_prop(sig, MPR_PROP_MAX, NULL, 1, MPR_FLT, &fval, 1);
     seen = check_keys(sig);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
-                 | SEEN_MAX)) {
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT | SEEN_MAX)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -148,14 +145,12 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    /* Test that adding an extra parameter causes the extra parameter
-     * to be listed. */
+    /* Test that adding an extra parameter causes the extra parameter to be listed. */
     eprintf("Test 3:  adding extra string property 'test'... ");
     const char *str = "test_value";
     mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_STR, str, 1);
     seen = check_keys(sig);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
-                 | SEEN_MAX | SEEN_TEST)) {
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT | SEEN_MAX | SEEN_TEST)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -219,13 +214,11 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    /* Test that removing an extra parameter causes the extra
-     * parameter to _not_ be listed. */
+    /* Test that removing an extra parameter causes the extra parameter to _not_ be listed. */
     eprintf("Test 6:  removing extra property 'test'... ");
     mpr_obj_remove_prop(sig, MPR_PROP_EXTRA, "test");
     seen = check_keys(sig);
-    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
-                 | SEEN_MAX)) {
+    if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT | SEEN_MAX)) {
         eprintf("ERROR\n");
         result = 1;
         goto cleanup;
@@ -298,8 +291,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    /* Check that there is no value associated with previously-removed
-     * "test". */
+    /* Check that there is no value associated with previously-removed "test". */
     eprintf("Test 10: retrieving removed property 'test': ");
     if (mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
         eprintf("found... ERROR\n");
@@ -309,8 +301,7 @@ int main(int argc, char **argv)
     else
         eprintf("not found... OK\n");
 
-    /* Check that there is an integer value associated with static,
-     * required property "length". */
+    /* Check that there is an integer value associated with static, required property "length". */
     eprintf("Test 11: retrieving static, required property 'length'... ");
     if (!mpr_obj_get_prop_by_key(sig, "length", &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
@@ -339,7 +330,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking value: '%d' ... ", *(int*)val);
-    if (*(int*)val != 1) {
+    if (*(int*)val != 3) {
         eprintf("ERROR (expected %d)\n", 1);
         result = 1;
         goto cleanup;
@@ -347,11 +338,11 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("Test 12: retrieving static, required property 'length' usign int getter...\n");
+    eprintf("Test 12: retrieving static, required property 'length' using int getter...\n");
     int_val = mpr_obj_get_prop_as_int32(sig, MPR_PROP_LEN, NULL);
 
     eprintf("\t checking value: '%d' ... ", int_val);
-    if (int_val != 1) {
+    if (int_val != 3) {
         eprintf("ERROR (expected %d)\n", 1);
         result = 1;
         goto cleanup;
@@ -359,8 +350,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    /* Check that there is a string value associated with static,
-     * required property "name". */
+    /* Check that there is a string value associated with static, required property "name". */
     eprintf("Test 13: retrieving static, required property 'name'... ");
     if (!mpr_obj_get_prop_by_idx(sig, MPR_PROP_NAME, NULL, &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
@@ -416,8 +406,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    /* Check that there is a float value associated with static,
-     * optional property "max". */
+    /* Check that there is a float value associated with static, optional property "max". */
     eprintf("Test 15: retrieving static, optional property 'max'... ");
     if (!mpr_obj_get_prop_by_idx(sig, MPR_PROP_MAX, NULL, &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
@@ -437,7 +426,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking length: %d ... ", length);
-    if (length != 1) {
+    if (length != 3) {
         eprintf("ERROR (expected %d)\n", 1);
         result = 1;
         goto cleanup;
@@ -446,13 +435,14 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking value: '%f' ... ", *(float*)val);
-    if (*(float*)val != 35.0f) {
-        eprintf("ERROR (expected %f)\n", 35.0f);
-        result = 1;
-        goto cleanup;
+    for (i = 0; i < 3; i++) {
+        if (((float*)val)[i] != 35.0f) {
+            eprintf("ERROR (expected %f)\n", 35.0f);
+            result = 1;
+            goto cleanup;
+        }
     }
-    else
-        eprintf("OK\n");
+    eprintf("OK\n");
 
     eprintf("Test 16: retrieving static, optional property 'max' using float getter...\n");
     float flt_val = mpr_obj_get_prop_as_flt(sig, MPR_PROP_MAX, NULL);
@@ -933,7 +923,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 36: retrieving property 'signal'... ");
-    if (!mpr_obj_get_prop_by_key(dev, "signal", &length, &type, &val, 0)) {
+    if (!mpr_obj_get_prop_by_key((mpr_obj)dev, "signal", &length, &type, &val, 0)) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -984,7 +974,7 @@ int main(int argc, char **argv)
     eprintf("OK\n");
 
     eprintf("Test 37: retrieving property 'signal' using list getter... ");
-    read_list = mpr_obj_get_prop_as_list(dev, MPR_PROP_SIG, NULL);
+    read_list = mpr_obj_get_prop_as_list((mpr_obj)dev, MPR_PROP_SIG, NULL);
     if (!read_list) {
         eprintf("not found... ERROR\n");
         result = 1;

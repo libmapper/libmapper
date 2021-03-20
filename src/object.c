@@ -53,7 +53,7 @@ int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && 1 == r->len, 0);
+    RETURN_UNLESS(r && r->val, 0);
     void *v = (r->flags & INDIRECT) ? *r->val : r->val;
     switch(r->type) {
         case MPR_BOOL:
@@ -70,7 +70,7 @@ float mpr_obj_get_prop_as_flt(mpr_obj o, mpr_prop p, const char *s)
 {
     RETURN_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && 1 == r->len, 0);
+    RETURN_UNLESS(r && r->val, 0);
     void *v = (r->flags & INDIRECT) ? *r->val : r->val;
     switch(r->type) {
         case MPR_BOOL:

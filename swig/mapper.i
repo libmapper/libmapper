@@ -1103,9 +1103,9 @@ typedef struct _device_list {
         if (sig) {
             sig->obj.data = callbacks;
             if (max)
-                set_obj_prop((mpr_obj)sig, MPR_PROP_MAX, NULL, max, 1);
+                mpr_obj_set_prop((mpr_obj)sig, MPR_PROP_MAX, NULL, max->len, max->type, max->val, 1);
             if (min)
-                set_obj_prop((mpr_obj)sig, MPR_PROP_MIN, NULL, min, 1);
+                mpr_obj_set_prop((mpr_obj)sig, MPR_PROP_MIN, NULL, min->len, min->type, min->val, 1);
         }
         return (signal*)sig;
     }
