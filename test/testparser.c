@@ -10,7 +10,7 @@
 
 #define SRC_ARRAY_LEN 3
 #define DST_ARRAY_LEN 6
-#define MAX_VARS 3
+#define MAX_VARS 8
 
 #define eprintf(format, ...) do {               \
     if (verbose)                                \
@@ -544,7 +544,8 @@ int run_tests()
     /* 17) Vector length mismatch */
     snprintf(str, 256, "y=x[1:2]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+    expect_int[0] = src_int[1];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 18) Unnecessary vector notation */
@@ -1063,12 +1064,21 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, (iterations + 1) / 2))
         return 1;
 
-    /* 77) Optimization: Vector squashing (8 tokens instead of 12) */
+    /* 78) Optimization: Vector squashing (8 tokens instead of 12) */
     snprintf(str, 256, "y=x*[3,3,3]+[1,1,2.6];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = src_flt[0] * 3.0f + 1.0f;
     expect_flt[1] = src_flt[1] * 3.0f + 1.0f;
     expect_flt[2] = src_flt[2] * 3.0f + 2.6f;
+    if (parse_and_eval(EXPECT_SUCCESS, 8, 1, iterations))
+        return 1;
+
+    /* 79) Wrapping vectors */
+    snprintf(str, 256, "y=x*[3,3,3]+[1.23,4.56];");
+    setup_test(MPR_FLT, 3, MPR_FLT, 3);
+    expect_flt[0] = src_flt[0] * 3.0f + 1.23f;
+    expect_flt[1] = src_flt[1] * 3.0f + 4.56f;
+    expect_flt[2] = src_flt[2] * 3.0f + 1.23f;
     if (parse_and_eval(EXPECT_SUCCESS, 8, 1, iterations))
         return 1;
 
