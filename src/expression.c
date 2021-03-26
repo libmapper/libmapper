@@ -1521,19 +1521,14 @@ static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         return 0;
 
     // Move assignment expression to beginning of stack
-    int j = 0, expr_len = sp - i + (stk[sp].flags & VAR_DELAY ? 2 : 1);
+    int expr_len = sp - i + 2;
     if (stk[i].toktype == TOK_VECTORIZE)
         expr_len += stk[i].arity;
 
     mpr_token_t temp[expr_len];
-    for (i = sp - expr_len + 1; i <= sp; i++)
-        memcpy(&temp[j++], &stk[i], sizeof(mpr_token_t));
-
-    for (i = sp - expr_len; i >= 0; i--)
-        memcpy(&stk[i+expr_len], &stk[i], sizeof(mpr_token_t));
-
-    for (i = 0; i < expr_len; i++)
-        memcpy(&stk[i], &temp[i], sizeof(mpr_token_t));
+    memcpy(temp, stk + sp - expr_len + 1, expr_len * sizeof(mpr_token_t));
+    memcpy(stk + expr_len, stk, (sp - expr_len + 1) * sizeof(mpr_token_t));
+    memcpy(stk, temp, expr_len * sizeof(mpr_token_t));
 
     return 0;
 }
@@ -2752,7 +2747,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     mpr_expr_val_t stk[expr->stack_size][expr->vec_size], *stkp = (mpr_expr_val_t*)stk;
     uint8_t dims[expr->stack_size];
 
-    int i, j, k, sp = -1, can_advance = 1;
+    int i, j, sp = -1, can_advance = 1;
     mpr_type last_type = 0;
 
     if (v_out) {
@@ -2929,8 +2924,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 }
             }
             if (tok->var == VAR_Y) {
-                if (!v_out)
-                    return status;
+                RETURN_UNLESS(v_out, status);
                 b = b_out;
                 int idx = (b->pos + v_out->mlen + hidx) % v_out->mlen;
                 t_d = mpr_time_as_dbl(b->times[idx]);
@@ -2938,8 +2932,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                     t_d = t_d * weight + ((b->pos + v_out->mlen + hidx - 1) % v_out->mlen) * (1 - weight);
             }
             else if (tok->var >= VAR_X) {
-                if (!v_in)
-                    return status;
+                RETURN_UNLESS(v_in, status);
                 mpr_value v = v_in[tok->var-VAR_X];
                 b = &v->inst[inst_idx % v->num_inst];
                 int idx = (b->pos + v->mlen + hidx) % v->mlen;
@@ -2992,7 +2985,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             int diff = maxlen - dims[sp];
             while (diff > 0) {
                 int mindiff = dims[sp] > diff ? diff : dims[sp];
-                memcpy(stk[sp]+dims[sp], stk[sp], mindiff * sizeof(double));
+                memcpy(stk[sp]+dims[sp], stk[sp], mindiff * sizeof(mpr_expr_val_t));
                 dims[sp] += mindiff;
                 diff -= mindiff;
             }
@@ -3080,7 +3073,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             int diff = maxlen - dims[sp];
             while (diff > 0) {
                 int mindiff = dims[sp] > diff ? diff : dims[sp];
-                memcpy(stk[sp]+dims[sp], stk[sp], mindiff * sizeof(double));
+                memcpy(stk[sp]+dims[sp], stk[sp], mindiff * sizeof(mpr_expr_val_t));
                 dims[sp] += mindiff;
                 diff -= mindiff;
             }
@@ -3147,13 +3140,13 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 while (dims[sp] > dims[sp + 1]) {
                     int diff = dims[sp] - dims[sp + 1];
                     diff = diff < dims[sp + 1] ? diff : dims[sp + 1];
-                    memcpy(stk[sp + 1] + dims[sp + 1], stk[sp + 1], diff * sizeof(double));
+                    memcpy(stk[sp + 1] + dims[sp + 1], stk[sp + 1], diff * sizeof(mpr_expr_val_t));
                     dims[sp + 1] += diff;
                 }
                 while (dims[sp] < dims[sp + 1]) {
                     int diff = dims[sp + 1] - dims[sp];
                     diff = diff < dims[sp] ? diff : dims[sp];
-                    memcpy(stk[sp] + dims[sp], stk[sp], diff * sizeof(double));
+                    memcpy(stk[sp] + dims[sp], stk[sp], diff * sizeof(mpr_expr_val_t));
                     dims[sp] += diff;
                 }
             }
@@ -3171,7 +3164,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
 
             if (vfn_tbl[tok->vfn].reduce) {
-                for (int i = 1; i < tok->vec_len; i++)
+                for (i = 1; i < tok->vec_len; i++)
                     stk[sp][i].d = stk[sp][0].d;
             }
             dims[sp] = tok->vec_len;
@@ -3252,23 +3245,12 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         case TOK_VECTORIZE:
             // don't need to copy vector elements from first token
             sp -= tok->arity - 1;
-            k = dims[sp];
-            switch (tok->datatype) {
-#define TYPED_CASE(MTYPE, T)                                        \
-                case MTYPE:                                         \
-                    for (i = 1; i < tok->arity; i++) {              \
-                        for (j = 0; j < dims[sp + i]; j++)          \
-                            stk[sp][k++].T = stk[sp + i][j].T;      \
-                        dims[sp] += dims[sp + 1];                   \
-                    }                                               \
-                    break;
-                TYPED_CASE(MPR_INT32, i)
-                TYPED_CASE(MPR_FLT, f)
-                TYPED_CASE(MPR_DBL, d)
-#undef TYPED_CASE
-                default:
-                    goto error;
+            j = dims[sp];
+            for (i = 1; i < tok->arity; i++) {
+                memcpy(&stk[sp][j], &stk[sp + i][0], dims[sp + i] * sizeof(mpr_expr_val_t));
+                j += dims[sp + i];
             }
+            dims[sp] = j;
 #if TRACE_EVAL
             printf("built %u-element vector: ", dims[sp]);
             print_stack_vec(stk[sp], tok->datatype, dims[sp]);

@@ -680,13 +680,10 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     memcpy(&si->time, &time, sizeof(mpr_time));
 
     // update value
-    void *coerced = (void*)val;
-    size_t n = mpr_sig_get_vector_bytes(sig);
-    if (type != sig->type) {
-        coerced = alloca(n);
-        set_coerced_val(sig->len, type, val, sig->len, sig->type, coerced);
-    }
-    memcpy(si->val, coerced, n);
+    if (type != sig->type)
+        set_coerced_val(sig->len, type, val, sig->len, sig->type, si->val);
+    else
+        memcpy(si->val, (void*)val, mpr_sig_get_vector_bytes(sig));
     si->has_val = 1;
 
     // mark instance as updated

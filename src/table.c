@@ -366,9 +366,10 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
             return mpr_tbl_remove(t, prop, key, flags);
         rec->prop &= ~PROP_REMOVE;
         if ((rec->flags & INDIRECT) && (type != rec->type || len != rec->len)) {
-            void *coerced = alloca(mpr_type_get_size(rec->type) * rec->len);
+            void *coerced = malloc(mpr_type_get_size(rec->type) * rec->len);
             set_coerced_val(len, type, val, rec->len, rec->type, coerced);
             updated = t->dirty = update_elements(rec, rec->len, rec->type, coerced);
+            free(coerced);
         }
         else
             updated = t->dirty = update_elements(rec, len, type, val);
