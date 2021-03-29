@@ -50,7 +50,7 @@ int setup_devs() {
         if (!devices[i])
 			goto error;
 
-        // give each device 10 inputs and 10 outputs
+        /* give each device 10 inputs and 10 outputs */
 		for (int j = 0; j < 10; j++) {
             mn = fmod(rand() * 0.01, 21.f) - 10.f;
             mx = fmod(rand() * 0.01, 21.f) - 10.f;
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
     double now = current_time();
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

@@ -89,7 +89,7 @@ int setup_dst()
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
                           &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
 
-    // This signal is expected to be updated at 100 Hz
+    /* This signal is expected to be updated at 100 Hz */
     float rate = 100.f;
     mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_RATE, NULL, 1, MPR_FLT, &rate, 1);
 
@@ -124,12 +124,12 @@ int setup_maps()
     int i = 0;
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
-    // TODO: set up update bundling as map property
+    /* TODO: set up update bundling as map property */
 
     mpr_obj_push((mpr_obj)map);
 
     i = 0;
-    // wait until mapping has been established
+    /* wait until mapping has been established */
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

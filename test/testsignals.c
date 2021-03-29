@@ -66,7 +66,7 @@ int main(int argc, char ** argv)
 {
     int i, j, result = 0;
 
-    // process flags
+    /* process flags */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

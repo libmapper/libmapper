@@ -128,19 +128,19 @@ int setup_maps()
                 return 1;
             }
 
-            // build expression string with combination function and muted sources
+            /* build expression string with combination function and muted sources */
             int offset = 2, len = num_sources * 4 + 4;
             char expr[len];
             snprintf(expr, 3, "y=");
             for (i = 0; i < num_sources; i++) {
                 if (i == 0) {
-                    // set the first source to trigger evaluation
+                    /* set the first source to trigger evaluation */
                     snprintf(expr + offset, len - offset, "-x%d",
                              mpr_map_get_sig_idx(map, sendsigs[i]));
                     offset += 3;
                 }
                 else {
-                    // mute the remaining sources so they don't trigger evaluation
+                    /* mute the remaining sources so they don't trigger evaluation */
                     snprintf(expr + offset, len - offset, "-_x%d",
                              mpr_map_get_sig_idx(map, sendsigs[i]));
                     offset += 4;
@@ -155,12 +155,12 @@ int setup_maps()
                 return 1;
             }
 
-            // build expression string with combination function and buddy logic
+            /* build expression string with combination function and buddy logic */
             mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
                              "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1})&&(t_x2>t_y{-1});y=x0+x1+x2;", 1);
             break;
         case 2:
-            // create/modify map with format string and signal arguments
+            /* create/modify map with format string and signal arguments */
             map = mpr_map_new_from_str("%y=%x-_%x+_%x", recvsig, sendsigs[0],
                                        sendsigs[1], sendsigs[2]);
             break;
@@ -168,7 +168,7 @@ int setup_maps()
 
     mpr_obj_push(map);
 
-    // wait until mappings have been established
+    /* wait until mappings have been established */
     while (!done && (!mpr_map_get_is_ready(map) || j > 0)) {
         for (i = 0; i < num_sources; i++)
             mpr_dev_poll(srcs[i], 10);
@@ -240,7 +240,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

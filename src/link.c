@@ -39,7 +39,7 @@ void mpr_link_init(mpr_link link)
     mpr_time_set(&t, MPR_NOW);
     link->clock.rcvd.time.sec = t.sec + 10;
 
-    // request missing metadata
+    /* request missing metadata */
     char cmd[256];
     snprintf(cmd, 256, "/%s/subscribe", link->remote_dev->name);
     NEW_LO_MSG(m, return);
@@ -86,24 +86,24 @@ void mpr_link_free(mpr_link link)
     mpr_dev_remove_link(link->local_dev, link->remote_dev);
 }
 
-// note on memory handling of mpr_link_add_msg():
-// message: will be owned, will be freed when done
+/* note on memory handling of mpr_link_add_msg():
+ * message: will be owned, will be freed when done */
 void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t, mpr_proto proto, int idx)
 {
     RETURN_UNLESS(msg);
     if (link->local_dev == link->remote_dev)
         proto = MPR_PROTO_UDP;
 
-    // add message to existing bundles
+    /* add message to existing bundles */
     lo_bundle *b = (proto == MPR_PROTO_UDP) ? &link->bundles[idx].udp : &link->bundles[idx].tcp;
     if (!(*b))
         *b = lo_bundle_new(t);
     lo_bundle_add_message(*b, dst->path, msg);
 }
 
-// TODO: pass in bundle index as argument
-// TODO: interrupt driven signal updates may not be followed by mpr_dev_process_outputs(); in the case
-// where the interrupt has interrupted mpr_dev_poll() these messages will not be dispatched.
+/* TODO: pass in bundle index as argument */
+/* TODO: interrupt driven signal updates may not be followed by mpr_dev_process_outputs(); in the
+ * case where the interrupt has interrupted mpr_dev_poll() these messages will not be dispatched. */
 int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
 {
     RETURN_UNLESS(link, 0);
@@ -132,14 +132,14 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
     }
     else if ((lb = b->udp)) {
         b->udp = 0;
-        // set out-of-band timestamp
+        /* set out-of-band timestamp */
         mpr_dev_bundle_start(lo_bundle_get_timestamp(lb), NULL);
-        // call handler directly instead of sending over the network
+        /* call handler directly instead of sending over the network */
         num = lo_bundle_count(lb);
         const char *path;
         while (i < num) {
             lo_message m = lo_bundle_get_message(lb, i, &path);
-            // need to look up signal by path
+            /* need to look up signal by path */
             mpr_rtr_sig rs = link->obj.graph->net.rtr->sigs;
             while (rs) {
                 if (0 == strcmp(path, rs->sig->path)) {

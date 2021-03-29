@@ -126,7 +126,7 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
         p = mpr_prop_from_str(s);
     }
 
-    // check if object represents local resource
+    /* check if object represents local resource */
     int local = o->props.staged ? 0 : 1;
     int flags = local ? LOCAL_MODIFY : REMOTE_MODIFY;
     if (!publish)
@@ -195,7 +195,7 @@ void mpr_obj_push(mpr_obj o)
         return;
     }
 
-    // clear the staged properties
+    /* clear the staged properties */
     FUNC_IF(mpr_tbl_clear, o->props.staged);
 }
 
@@ -249,16 +249,16 @@ void mpr_obj_print(mpr_obj o, int staged)
         p = mpr_obj_get_prop_by_idx(o, i, &key, &len, &type, &val, 0);
         die_unless(val != 0 || MPR_LIST == type, "returned zero value\n");
 
-        // already printed this
+        /* already printed this */
         if (MPR_PROP_NAME == p)
             continue;
-        // don't print device signals as metadata
+        /* don't print device signals as metadata */
         if (MPR_DEV == o->type && MPR_PROP_SIG == p)
             continue;
 
         printf(", %s=", key);
 
-        // handle pretty-printing a few enum values
+        /* handle pretty-printing a few enum values */
         if (1 == len && MPR_INT32 == type) {
             switch(p) {
                 case MPR_PROP_DIR:
@@ -280,7 +280,7 @@ void mpr_obj_print(mpr_obj o, int staged)
         if (!staged || !o->props.staged)
             continue;
 
-        // check if staged values exist
+        /* check if staged values exist */
         if (MPR_PROP_EXTRA == p)
             p = mpr_tbl_get_prop_by_key(o->props.staged, key, &len, &type, &val, 0);
         else

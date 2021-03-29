@@ -126,7 +126,7 @@ int setup_maps(int calibrate)
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 
-    // Wait until mapping has been established
+    /* Wait until mapping has been established */
     int iter = 4;
     do {
         mpr_dev_poll(src, 10);
@@ -174,7 +174,7 @@ void loop()
                 changed = 1;
             }
             if (changed) {
-                // (re)calculate M and B for checking generated expression
+                /* (re)calculate M and B for checking generated expression */
                 float sRange = sMax - sMin;
                 M = sRange ? (dMax - dMin) / sRange : 0;
                 B = sRange ? (dMin * sMax - dMax * sMin) / sRange : dMin;
@@ -193,7 +193,7 @@ void loop()
             }
         }
 
-        // no calibration
+        /* no calibration */
         setup_maps(0);
         i = 0;
         while (i < 50 && !done) {
@@ -225,7 +225,7 @@ int main(int argc, char **argv)
     int i, j, result = 0;
     char *iface = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

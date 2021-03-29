@@ -701,53 +701,53 @@ inline static int mpr_type_get_is_num(mpr_type type)
 }
 
 /*! Helper to check if type is a boolean. */
-inline static int mpr_type_get_is_bool(mpr_type type)
+MPR_INLINE static int mpr_type_get_is_bool(mpr_type type)
 {
     return 'T' == type || 'F' == type;
 }
 
 /*! Helper to check if type is a string. */
-inline static int mpr_type_get_is_str(mpr_type type)
+MPR_INLINE static int mpr_type_get_is_str(mpr_type type)
 {
     return MPR_STR == type;
 }
 
 /*! Helper to check if type is a string or void* */
-inline static int mpr_type_get_is_ptr(mpr_type type)
+MPR_INLINE static int mpr_type_get_is_ptr(mpr_type type)
 {
     return MPR_PTR == type || MPR_STR == type;
 }
 
 /*! Helper to check if data type matches, but allowing 'T' and 'F' for bool. */
-inline static int type_match(const mpr_type l, const mpr_type r)
+MPR_INLINE static int type_match(const mpr_type l, const mpr_type r)
 {
     return (l == r) || (strchr("bTF", l) && strchr("bTF", r));
 }
 
 /*! Helper to remove a leading slash '/' from a string. */
-inline static const char *skip_slash(const char *string)
+MPR_INLINE static const char *skip_slash(const char *string)
 {
     return string + (string && string[0]=='/');
 }
 
-inline static void set_bitflag(char *bytearray, int idx)
+MPR_INLINE static void set_bitflag(char *bytearray, int idx)
 {
     bytearray[idx / 8] |= 1 << (idx % 8);
 }
 
-inline static int get_bitflag(char *bytearray, int idx)
+MPR_INLINE static int get_bitflag(char *bytearray, int idx)
 {
     return bytearray[idx / 8] & 1 << (idx % 8);
 }
 
-inline static int compare_bitflags(char *l, char *r, int num_flags)
+MPR_INLINE static int compare_bitflags(char *l, char *r, int num_flags)
 {
     return memcmp(l, r, num_flags / 8 + 1);
 }
 
-inline static void clear_bitflags(char *bytearray, int num_flags)
+MPR_INLINE static void clear_bitflags(char *bytearray, int num_flags)
 {
     memset(bytearray, 0, num_flags / 8 + 1);
 }
 
-#endif // __MAPPER_INTERNAL_H__
+#endif /* __MAPPER_INTERNAL_H__ */

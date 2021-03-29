@@ -70,7 +70,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
 
     mpr_dev_add_sig_methods(dev, s);
     if (dev->loc->registered) {
-        // Notify subscribers
+        /* Notify subscribers */
         mpr_net_use_subscribers(&g->net, dev, ((dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT));
         mpr_sig_send_state(s, MSG_SIG);
     }
@@ -108,7 +108,7 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
             mpr_sig_reserve_inst(s, 1, 0, 0);
         }
 
-        // Reserve one instance id map
+        /* Reserve one instance id map */
         s->loc->idmap_len = 1;
         s->loc->idmaps = calloc(1, sizeof(struct _mpr_sig_idmap));
     }
@@ -146,7 +146,7 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
     mpr_tbl_link(t, PROP(VERSION), 1, MPR_INT32, &s->obj.version, NON_MODIFIABLE);
 
     if (min && max) {
-        // make sure in the right order
+        /* make sure in the right order */
 #define TYPED_CASE(TYPE, CTYPE)                                     \
 case TYPE: {                                                        \
     for (i = 0; i < len; i++) {                                     \
@@ -178,13 +178,13 @@ void mpr_sig_free(mpr_sig sig)
     int i;
     mpr_dev dev = sig->dev;
 
-    // release active instances
+    /* release active instances */
     for (i = 0; i < sig->loc->idmap_len; i++) {
         if (sig->loc->idmaps[i].inst)
             mpr_dev_LID_decref(sig->dev, sig->loc->group, sig->loc->idmaps[i].map);
     }
 
-    // release associated OSC methods
+    /* release associated OSC methods */
     mpr_dev_remove_sig_methods(dev, sig);
     mpr_net net = &sig->obj.graph->net;
     mpr_rtr rtr = net->rtr;
@@ -203,7 +203,7 @@ void mpr_sig_free(mpr_sig sig)
         mpr_rtr_remove_sig(rtr, rs);
     }
     if (dev->loc->registered) {
-        // Notify subscribers
+        /* Notify subscribers */
         int dir = (sig->dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT;
         mpr_net_use_subscribers(net, dev, dir);
         mpr_sig_send_removed(sig);
@@ -218,7 +218,7 @@ void mpr_sig_free_internal(mpr_sig s)
     RETURN_UNLESS(s);
     int i;
     if (s->loc) {
-        // Free instances
+        /* Free instances */
         for (i = 0; i < s->loc->idmap_len; i++) {
             if (s->loc->idmaps[i].inst)
                 mpr_sig_release_inst_internal(s, i);
@@ -250,7 +250,7 @@ void mpr_sig_call_handler(mpr_sig sig, int evt, mpr_id inst, int len,
         trace_dev(sig->dev, "Mapping loop detected on signal %s! (2)\n", sig->name);
         return;
     }
-    // non-instanced signals cannot have a null value
+    /* non-instanced signals cannot have a null value */
     if (!val && !sig->use_inst)
         return;
     mpr_sig_update_timing_stats(sig, diff);
@@ -291,7 +291,7 @@ int _oldest_inst(mpr_sig sig)
             break;
     }
     if (i == sig->loc->idmap_len) {
-        // no active instances to steal!
+        /* no active instances to steal! */
         return -1;
     }
     int oldest = i;
@@ -322,7 +322,7 @@ int _newest_inst(mpr_sig sig)
             break;
     }
     if (i == sig->loc->idmap_len) {
-        // no active instances to steal!
+        /* no active instances to steal! */
         return -1;
     }
     int newest = i;
@@ -366,13 +366,13 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
      * create new id map if necessary. */
     if ((si = _find_inst_by_id(s, LID)) || (si = _reserved_inst(s, &LID))) {
         if (!map) {
-            // Claim id map locally
+            /* Claim id map locally */
             map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, 0);
         }
         else
             mpr_dev_LID_incref(s->dev, map);
 
-        // store pointer to device map in a new signal map
+        /* store pointer to device map in a new signal map */
         si->active = 1;
         _init_inst(si);
         i = _add_idmap(s, si, map);
@@ -383,7 +383,7 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
 
     RETURN_UNLESS(h, -1);
     if (s->loc->event_flags & MPR_SIG_INST_OFLW) {
-        // call instance event handler
+        /* call instance event handler */
         h(s, MPR_SIG_INST_OFLW, 0, 0, s->type, NULL, t);
     }
     else if (s->steal_mode == MPR_STEAL_OLDEST) {
@@ -403,10 +403,10 @@ int mpr_sig_get_idmap_with_LID(mpr_sig s, mpr_id LID, int flags, mpr_time t, int
     else
         return -1;
 
-    // try again
+    /* try again */
     if ((si = _find_inst_by_id(s, LID)) || (si = _reserved_inst(s, &LID))) {
         if (!map) {
-            // Claim id map locally
+            /* Claim id map locally */
             map = mpr_dev_add_idmap(s->dev, s->loc->group, LID, 0);
         }
         else
@@ -475,9 +475,9 @@ int mpr_sig_get_idmap_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int
 
     RETURN_UNLESS(h, -1);
 
-    // try releasing instance in use
+    /* try releasing instance in use */
     if (s->loc->event_flags & MPR_SIG_INST_OFLW) {
-        // call instance event handler
+        /* call instance event handler */
         h(s, MPR_SIG_INST_OFLW, 0, 0, s->type, NULL, t);
     }
     else if (s->steal_mode == MPR_STEAL_OLDEST) {
@@ -497,7 +497,7 @@ int mpr_sig_get_idmap_with_GID(mpr_sig s, mpr_id GID, int flags, mpr_time t, int
     else
         return -1;
 
-    // try again
+    /* try again */
     if (!map) {
         if ((si = _reserved_inst(s, NULL))) {
             map = mpr_dev_add_idmap(s->dev, s->loc->group, si->id, GID);
@@ -532,11 +532,11 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
     int i, cont;
     mpr_sig_inst si;
 
-    // check if instance with this id already exists! If so, stop here.
+    /* check if instance with this id already exists! If so, stop here. */
     if (id && _find_inst_by_id(sig, *id))
         return -1;
 
-    // reallocate array of instances
+    /* reallocate array of instances */
     sig->loc->inst = realloc(sig->loc->inst, sizeof(mpr_sig_inst) * (sig->num_inst+1));
     sig->loc->inst[sig->num_inst] = (mpr_sig_inst) calloc(1, sizeof(struct _mpr_sig_inst));
     si = sig->loc->inst[sig->num_inst];
@@ -547,7 +547,7 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
     if (id)
         si->id = *id;
     else {
-        // find lowest unused id
+        /* find lowest unused id */
         mpr_id lowest_id = 0;
         cont = 1;
         while (cont) {
@@ -568,7 +568,7 @@ static int _reserve_inst(mpr_sig sig, mpr_id *id, void *data)
 
     if (++sig->num_inst > 1) {
         if (!sig->use_inst) {
-            // TODO: modify associated maps for instanced signals
+            /* TODO: modify associated maps for instanced signals */
         }
         sig->use_inst = 1;
     }
@@ -581,7 +581,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     RETURN_UNLESS(sig && sig->loc && num, 0);
     int i = 0, count = 0, highest = -1, result, old_num = sig->num_inst;
     if (sig->num_inst == 1 && !sig->loc->inst[0]->id && !sig->loc->inst[0]->data) {
-        // we will overwite the default instance first
+        /* we will overwite the default instance first */
         if (ids)
             sig->loc->inst[0]->id = ids[0];
         if (data)
@@ -622,7 +622,7 @@ int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id id)
 
 void mpr_sig_update_timing_stats(mpr_sig sig, float diff)
 {
-    // make sure time is monotonic
+    /* make sure time is monotonic */
     if (diff < 0)
         diff = 0;
     if (-1 == sig->period)
@@ -658,7 +658,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
         return;
     }
     if (type != MPR_INT32) {
-        // check for NaN
+        /* check for NaN */
         int i;
         if (type == MPR_FLT) {
             for (i = 0; i < len; i++)
@@ -679,14 +679,14 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     mpr_sig_update_timing_stats(sig, diff);
     memcpy(&si->time, &time, sizeof(mpr_time));
 
-    // update value
+    /* update value */
     if (type != sig->type)
         set_coerced_val(sig->len, type, val, sig->len, sig->type, si->val);
     else
         memcpy(si->val, (void*)val, mpr_sig_get_vector_bytes(sig));
     si->has_val = 1;
 
-    // mark instance as updated
+    /* mark instance as updated */
     set_bitflag(sig->loc->updated_inst, si->idx);
     sig->dev->loc->updated = sig->loc->updated = 1;
 
@@ -707,7 +707,7 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx)
     mpr_sig_idmap_t *smap = &sig->loc->idmaps[idmap_idx];
     RETURN_UNLESS(smap->inst);
 
-    // mark instance as updated
+    /* mark instance as updated */
     set_bitflag(sig->loc->updated_inst, smap->inst->idx);
     sig->dev->loc->updated = sig->loc->updated = 1;
 
@@ -717,15 +717,15 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx)
     if (mpr_dev_LID_decref(sig->dev, sig->loc->group, smap->map))
         smap->map = 0;
     else if ((sig->dir & MPR_DIR_OUT) || smap->status & RELEASED_REMOTELY) {
-        // TODO: consider multiple upstream source instances?
+        /* TODO: consider multiple upstream source instances? */
         smap->map = 0;
     }
     else {
-        // mark map as locally-released but do not remove it
+        /* mark map as locally-released but do not remove it */
         smap->status |= RELEASED_LOCALLY;
     }
 
-    // Put instance back in reserve list
+    /* Put instance back in reserve list */
     smap->inst->active = 0;
     smap->inst = 0;
 }
@@ -742,13 +742,13 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
     RETURN_UNLESS(i < sig->num_inst);
 
     if (sig->loc->inst[i]->active) {
-       // First release instance
+       /* First release instance */
        mpr_sig_release_inst_internal(sig, i);
     }
 
     remove_idx = sig->loc->inst[i]->idx;
 
-    // Free value and timetag memory held by instance
+    /* Free value and timetag memory held by instance */
     FUNC_IF(free, sig->loc->inst[i]->val);
     FUNC_IF(free, sig->loc->inst[i]->has_val_flags);
     free(sig->loc->inst[i]);
@@ -758,7 +758,7 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
     --sig->num_inst;
     sig->loc->inst = realloc(sig->loc->inst, sizeof(mpr_sig_inst) * sig->num_inst);
 
-    // Remove instance memory held by map slots
+    /* Remove instance memory held by map slots */
     mpr_rtr_remove_inst(sig->obj.graph->net.rtr, sig, remove_idx);
 
     for (i = 0; i < sig->num_inst; i++) {
@@ -852,11 +852,11 @@ void mpr_sig_set_cb(mpr_sig s, mpr_sig_handler *h, int events)
 {
     RETURN_UNLESS(s && s->loc);
     if (!s->loc->handler && h && events) {
-        // Need to register a new liblo methods
+        /* Need to register a new liblo methods */
         mpr_dev_add_sig_methods(s->dev, s);
     }
     else if (s->loc->handler && !(h || events)) {
-        // Need to remove liblo methods
+        /* Need to remove liblo methods */
         mpr_dev_remove_sig_methods(s->dev, s);
     }
     s->loc->handler = h;
@@ -865,7 +865,7 @@ void mpr_sig_set_cb(mpr_sig s, mpr_sig_handler *h, int events)
 
 /**** Signal Properties ****/
 
-// Internal function only
+/* Internal function only */
 int mpr_sig_full_name(mpr_sig s, char *name, int len)
 {
     const char *dev_name = mpr_dev_get_name(s->dev);
@@ -914,17 +914,17 @@ mpr_list mpr_sig_get_maps(mpr_sig s, mpr_dir dir)
 
 static int _add_idmap(mpr_sig s, mpr_sig_inst si, mpr_id_map map)
 {
-    // find unused signal map
+    /* find unused signal map */
     int i;
     for (i = 0; i < s->loc->idmap_len; i++) {
         if (!s->loc->idmaps[i].map)
             break;
     }
     if (i == s->loc->idmap_len) {
-        // need more memory
+        /* need more memory */
         if (s->loc->idmap_len >= MAX_INSTANCES) {
-            // Arbitrary limit to number of tracked idmaps
-            // TODO: add checks for this return value
+            /* Arbitrary limit to number of tracked idmaps */
+            /* TODO: add checks for this return value */
             return -1;
         }
         s->loc->idmap_len = s->loc->idmap_len ? s->loc->idmap_len * 2 : 1;
@@ -952,7 +952,7 @@ void mpr_sig_send_state(mpr_sig s, net_msg_t cmd)
 
         snprintf(str, 1024, "/%s/signal/modify", s->dev->name);
         mpr_net_add_msg(&s->obj.graph->net, str, 0, msg);
-        // send immediately since path string is not cached
+        /* send immediately since path string is not cached */
         mpr_net_send(&s->obj.graph->net);
     }
     else {

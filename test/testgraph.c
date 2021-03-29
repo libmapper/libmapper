@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -h help
+    /* process flags for -v verbose, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);
@@ -1055,7 +1055,7 @@ int main(int argc, char **argv)
     eprintf("\nFind maps for source device 'testgraph__.2', signal 'out1'"
             "\n          AND dest device 'testgraph.1', signal 'in1':\n");
 
-    // get maps with source signal
+    /* get maps with source signal */
     devlist = mpr_graph_get_objs(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR,
                               "testgraph__.2", MPR_OP_EQ);
@@ -1078,7 +1078,7 @@ int main(int argc, char **argv)
     maplist = mpr_sig_get_maps(sig, MPR_DIR_OUT);
     mpr_list_free(siglist);
 
-    // get maps with destination signal
+    /* get maps with destination signal */
     devlist = mpr_graph_get_objs(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR,
                               "testgraph.1", MPR_OP_EQ);
@@ -1099,7 +1099,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    // intersect map queries
+    /* intersect map queries */
     maplist = mpr_list_get_isect(maplist, mpr_sig_get_maps(sig, MPR_DIR_IN));
 
     count=0;
@@ -1131,7 +1131,7 @@ int main(int argc, char **argv)
     eprintf("\nFind maps for source device 'testgraph__.2', signals matching 'out',"
             "\n          AND dest device 'testgraph.1', all signals:\n");
 
-    // build source query
+    /* build source query */
     devlist = mpr_graph_get_objs(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR,
                               "testgraph__.2", MPR_OP_EQ);
@@ -1155,7 +1155,7 @@ int main(int argc, char **argv)
     }
     mpr_list_free(siglist);
 
-    // build destination query
+    /* build destination query */
     devlist = mpr_graph_get_objs(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR,
                               "testgraph.1", MPR_OP_EQ);
@@ -1174,7 +1174,7 @@ int main(int argc, char **argv)
         siglist = mpr_list_get_next(siglist);
     }
 
-    // intersect queries
+    /* intersect queries */
     maplist = mpr_list_get_isect(maplist, maplist2);
 
     count=0;

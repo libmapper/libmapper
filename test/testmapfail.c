@@ -110,20 +110,20 @@ void cleanup_dst()
 
 int setup_maps()
 {
-    // Here we will deliberately create a map with a faulty expression
+    /* Here we will deliberately create a map with a faulty expression */
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
     const char *e = "a=10";
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, e, 1);
     mpr_obj_push((mpr_obj)map);
 
-    // Wait until mapping has been established
+    /* Wait until mapping has been established */
     int i = 10;
     while (!done && i-- > 0) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
     }
 
-    // release the map
+    /* release the map */
     mpr_map_release(map);
 
     return 0;
@@ -166,7 +166,7 @@ int main(int argc, char **argv)
     int i, j, result = 0;
     char *iface = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

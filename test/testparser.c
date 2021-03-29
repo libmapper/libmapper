@@ -34,7 +34,7 @@ mpr_type out_types[DST_ARRAY_LEN];
 
 mpr_time time_in = {0, 0}, time_out = {0, 0};
 
-// signal_history structures
+/* signal_history structures */
 mpr_value_t inh[SRC_ARRAY_LEN], outh, user_vars[MAX_VARS], *user_vars_p;
 mpr_value inh_p[SRC_ARRAY_LEN];
 mpr_type src_types[SRC_ARRAY_LEN], dst_type;
@@ -112,7 +112,7 @@ float random_flt()
             int random = rand();
             buffer = (buffer << 8) | (random & 0xFF);
         }
-    } while (*f != *f); // exclude NaN
+    } while (*f != *f); /* exclude NaN */
     return *f;
 }
 
@@ -240,7 +240,7 @@ void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
 
 int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
 {
-    // clear output arrays
+    /* clear output arrays */
     int i, j, result = 0;
 
     if (verbose) {
@@ -301,9 +301,9 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         goto fail;
     }
 
-    // reallocate variable value histories
+    /* reallocate variable value histories */
     for (i = 0; i < e->n_vars; i++) {
-        // eprintf("user_var[%d]: %p\n", i, &user_vars[i]);
+        /* eprintf("user_var[%d]: %p\n", i, &user_vars[i]); */
         int vlen = mpr_expr_get_var_vec_len(e, i);
         mpr_value_realloc(&user_vars[i], vlen, MPR_DBL, 1, 1, 0);
 
@@ -352,9 +352,9 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     fflush(stdout);
     i = iterations-1;
     while (i--) {
-        // update timestamp
+        /* update timestamp */
         mpr_time_set(&time_in, MPR_NOW);
-        // copy src values
+        /* copy src values */
         for (j = 0; j < n_sources; j++) {
             inh[j].inst[0].pos = ((inh[j].inst[0].pos + 1) % inh[j].mlen);
             int samp_size = inh[j].vlen * mpr_type_get_size(inh[j].type);
@@ -376,7 +376,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
         if (status & MPR_SIG_UPDATE)
             ++update_count;
-        // sleep here stops compiler from optimizing loop away
+        /* sleep here stops compiler from optimizing loop away */
         usleep(1);
     }
     now = current_time();
@@ -415,8 +415,8 @@ fail:
 int run_tests()
 {
     /* 1) Complex string */
-    // TODO: ensure successive constant multiplications are optimized
-    // TODO: ensure split successive constant additions are optimized
+    /* TODO: ensure successive constant multiplications are optimized */
+    /* TODO: ensure split successive constant additions are optimized */
     snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_flt[0])*3*4+cosf(2.0f);
@@ -852,7 +852,7 @@ int run_tests()
     snprintf(str, 256, "y=t_x-t_y{-1}");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    // results may vary depending on machine but we can perform a sanity check
+    /* results may vary depending on machine but we can perform a sanity check */
     if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.001) {
         eprintf("... error: expected value between %g and %g\n", 0.0, 0.001);
         printf("%g < %g... %d\n", dst_dbl[0], 0.0, dst_dbl[0] < 0.0);
@@ -871,7 +871,7 @@ int run_tests()
              "y=y{-1}*0.9+period*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    // results may vary depending on machine but we can perform a sanity check
+    /* results may vary depending on machine but we can perform a sanity check */
     if (dst_dbl[0] < 0. || dst_dbl[0] > 0.001) {
         eprintf("... error: expected value between %g and %g\n", 0.0, 0.001);
         return 1;
@@ -889,7 +889,7 @@ int run_tests()
              "y=y{-1}*0.9+abs(interval-sr)*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    // results may vary depending on machine but we can perform a sanity check
+    /* results may vary depending on machine but we can perform a sanity check */
     if (dst_dbl[0] < 0. || dst_dbl[0] > 0.0001) {
         eprintf("... error: expected value between %g and %g\n", 0.0, 0.0001);
         printf("%g < %g... %d\n", dst_dbl[0], 0.0, dst_dbl[0] < 0.0);
@@ -930,13 +930,14 @@ int run_tests()
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
-    // mpr_time time = *(mpr_time*)mpr_value_get_time(&outh, 0);
-    // if (mpr_time_as_dbl(time) != mpr_time_as_dbl(time_in) + 10) {
-    //     eprintf("Expected timestamp {%"PRIu32", %"PRIu32"} but got "
-    //             "{%"PRIu32", %"PRIu32"}\n", time_in.sec+10, time_in.frac,
-    //             time.sec, time.frac);
-    //     return 1;
-    // }
+/*     mpr_time time = *(mpr_time*)mpr_value_get_time(&outh, 0);
+     if (mpr_time_as_dbl(time) != mpr_time_as_dbl(time_in) + 10) {
+         eprintf("Expected timestamp {%"PRIu32", %"PRIu32"} but got "
+                 "{%"PRIu32", %"PRIu32"}\n", time_in.sec+10, time_in.frac,
+                 time.sec, time.frac);
+         return 1;
+     }
+ */
 
     /* 60) Faulty timetag syntax */
     snprintf(str, 256, "y=t_x-y;");
@@ -965,7 +966,7 @@ int run_tests()
 
     /* 63) Buddy logic */
     snprintf(str, 256, "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1});y=x0+x1[1:2];");
-    // types[] and lens[] are already defined
+    /* types[] and lens[] are already defined */
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
     expect_flt[0] = src_int[0] + src_flt[1];
     expect_flt[1] = src_int[1] + src_flt[2];
@@ -1060,7 +1061,7 @@ int run_tests()
     /* 77) Integer divide-by-zero */
     snprintf(str, 256, "foo=1; y=x/foo; foo=!foo;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    // we expect only half of the evaluation attempts to succeed (i.e. when 'foo' == 1)
+    /* we expect only half of the evaluation attempts to succeed (i.e. when 'foo' == 1) */
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, (iterations + 1) / 2))
         return 1;
 
@@ -1088,7 +1089,7 @@ int run_tests()
 int main(int argc, char **argv)
 {
     int i, j, result = 0;
-    // process flags for -v verbose, -h help
+    /* process flags for -v verbose, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

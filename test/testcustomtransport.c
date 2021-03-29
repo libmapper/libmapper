@@ -26,7 +26,7 @@
 
 int autoconnect = 1;
 int terminate = 0;
-int iterations = 50; // only matters when terminate==1
+int iterations = 50; /* only matters when terminate==1 */
 int verbose = 1;
 int period = 100;
 
@@ -39,14 +39,14 @@ int sent = 0;
 int received = 0;
 int done = 0;
 
-// Our sending socket for a custom TCP transport
-// We only send on it if it's valid (i.e, != -1)
+/* Our sending socket for a custom TCP transport
+ * We only send on it if it's valid (i.e, != -1) */
 int send_socket = -1;
 
-// Our receiving socket for a custom TCP transport
+/* Our receiving socket for a custom TCP transport */
 int recv_socket = -1;
 
-// Our listening socket for accepting TCP transport connections.
+/* Our listening socket for accepting TCP transport connections. */
 int listen_socket = -1;
 
 int tcp_port = 12000;
@@ -64,7 +64,7 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
     }
     mpr_map map = (mpr_map)o;
 
-    // we are looking for a map with one source (sendsig) and one dest (recvsig)
+    /* we are looking for a map with one source (sendsig) and one dest (recvsig) */
     mpr_list l = mpr_map_get_sigs(map, MPR_LOC_SRC);
     if (mpr_list_get_size(l) > 1 || *(mpr_sig*)l != sendsig) {
         mpr_list_free(l);
@@ -98,7 +98,7 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         return;
     }
 
-    // Find the TCP port in the mapping properties
+    /* Find the TCP port in the mapping properties */
     const int *a_port;
     if (!mpr_obj_get_prop_by_key((mpr_obj)map, "tcpPort", &length, &type, (const void **)&a_port, 0)
         || type != MPR_INT32 || length != 1) {
@@ -111,7 +111,7 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
 
     send_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-    // Set socket to be non-blocking so that accept() is successful
+    /* Set socket to be non-blocking so that accept() is successful */
     if (ioctl(send_socket, FIONBIO, &on) < 0)
     {
         perror("ioctl() failed on FIONBIO");
@@ -241,16 +241,16 @@ void loop()
     if (autoconnect) {
         mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
 
-        // Add custom meta-data specifying a special transport for this map.
+        /* Add custom meta-data specifying a special transport for this map. */
         char *str = "tcp";
         mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "transport", 1, MPR_STR, str, 1);
 
-        // Add custom meta-data specifying a port to use for this map's custom transport.
+        /* Add custom meta-data specifying a port to use for this map's custom transport. */
         mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "tcpPort", 1, MPR_INT32, &tcp_port, 1);
         mpr_obj_push((mpr_obj)map);
     }
 
-    // Set up a mini TCP server for our custom stream
+    /* Set up a mini TCP server for our custom stream */
     listen_socket = socket(AF_INET, SOCK_STREAM, 0);
 
     struct sockaddr_in addr;
@@ -271,10 +271,10 @@ void loop()
     while ((!terminate || received < iterations) && !done) {
         mpr_dev_poll(src, 0);
 
-        // Instead of
-        // mpr_sig_update(sendsig, etc.);
-
-        // We will instead send our data on the custom TCP socket if it is valid
+        /* Instead of
+         * mpr_sig_update(sendsig, etc.);
+         * We will instead send our data on the custom TCP socket if it is valid
+         */
         if (send_socket != -1) {
             int m = listen_socket;
             fd_set fdsr, fdss;
@@ -355,7 +355,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

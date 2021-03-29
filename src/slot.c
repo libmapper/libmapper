@@ -48,7 +48,7 @@ void mpr_slot_free(mpr_slot slot)
 void mpr_slot_free_value(mpr_slot slot)
 {
     RETURN_UNLESS(slot->loc);
-    // TODO: use rtr_sig for holding memory of local slots for effiency
+    /* TODO: use rtr_sig for holding memory of local slots for effiency */
     mpr_value_free(&slot->loc->val);
     free(slot->loc);
     slot->loc = 0;
@@ -87,10 +87,10 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
         switch (a->prop & ~mask) {
             case MPR_PROP_LEN:
             case MPR_PROP_TYPE:
-                // handled above
+                /* handled above */
                 break;
             case MPR_PROP_NUM_INST:
-                // static prop if slot is associated with a local map
+                /* static prop if slot is associated with a local map */
                 if (slot->map->loc)
                     break;
             default:
@@ -113,12 +113,12 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int st
     int len = strlen(temp);
 
     if (!staged && slot->sig->loc) {
-        // include length from associated signal
+        /* include length from associated signal */
         snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_LEN, 0));
         lo_message_add_string(msg, temp);
         lo_message_add_int32(msg, slot->sig->len);
 
-        // include type from associated signal
+        /* include type from associated signal */
         snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_TYPE, 0));
         lo_message_add_string(msg, temp);
         lo_message_add_char(msg, slot->sig->type);
@@ -149,7 +149,7 @@ void mpr_slot_alloc_values(mpr_slot slot, int num_inst, int hist_size)
     if (slot->sig->loc)
         num_inst = slot->sig->num_inst;
 
-    // reallocate memory
+    /* reallocate memory */
     mpr_value_realloc(&slot->loc->val, slot->sig->len, slot->sig->type,
                       hist_size, num_inst, slot == slot->map->dst);
 
@@ -159,6 +159,6 @@ void mpr_slot_alloc_values(mpr_slot slot, int num_inst, int hist_size)
 void mpr_slot_remove_inst(mpr_slot slot, int idx)
 {
     RETURN_UNLESS(slot && idx >= 0 && idx < slot->num_inst);
-    // TODO: remove slot->num_inst property
+    /* TODO: remove slot->num_inst property */
     slot->num_inst = mpr_value_remove_inst(&slot->loc->val, idx);
 }

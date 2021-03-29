@@ -10,8 +10,8 @@ static int match_pattern(const char* s, const char* p)
     RETURN_UNLESS(s && p, 1);
     RETURN_UNLESS(strchr(p, '*'), strcmp(s, p));
 
-        // 1) tokenize pattern using strtok() with delimiter character '*'
-        // 2) use strstr() to check if token exists in offset string
+        /* 1) tokenize pattern using strtok() with delimiter character '*'
+         * 2) use strstr() to check if token exists in offset string */
     char *str = (char*)s, *tok;
     char dup[strlen(p)+1], *pat = dup;
     strcpy(pat, p);
@@ -24,13 +24,13 @@ static int match_pattern(const char* s, const char* p)
             str += strlen(tok);
         else
             return 1;
-            // subsequent calls to strtok() need first argument to be NULL
+            /* subsequent calls to strtok() need first argument to be NULL */
         pat = NULL;
     }
     return 0;
 }
 
-// we will sort so that indexed records come before keyed records
+/* we will sort so that indexed records come before keyed records */
 static int compare_rec(const void *l, const void *r)
 {
     mpr_tbl_record rec_l = (mpr_tbl_record)l;
@@ -181,7 +181,7 @@ int mpr_tbl_get_prop_by_idx(mpr_tbl t, mpr_prop prop, const char **key, int *len
     mpr_tbl_record rec = 0;
 
     if (MASK_PROP_BITFLAGS(prop)) {
-        // use as mpr_prop instead of numerical index
+        /* use as mpr_prop instead of numerical index */
         rec = mpr_tbl_get(t, MASK_PROP_BITFLAGS(prop), NULL);
     }
     else {
@@ -228,7 +228,7 @@ int mpr_tbl_remove(mpr_tbl t, mpr_prop prop, const char *key, int flags)
         RETURN_UNLESS(rec && (rec->flags & MODIFIABLE) && rec->val, ret);
         prop = MASK_PROP_BITFLAGS(prop);
         if (prop != MPR_PROP_EXTRA && prop != MPR_PROP_LINKED) {
-            // set value to null rather than removing
+            /* set value to null rather than removing */
             if (rec->flags & INDIRECT) {
                 if (rec->val && *rec->val) {
                     free(*rec->val);
@@ -289,7 +289,7 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type,
     void *old_val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
     void *new_val = old_val;
     if (old_val && (len != rec->len || type != rec->type)) {
-        // free old values
+        /* free old values */
         if (MPR_STR == rec->type && rec->len > 1) {
             for (i = 0; i < rec->len; i++)
                 free(((char**)old_val)[i]);
@@ -497,7 +497,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
 
     mpr_list list = NULL;
     if (MPR_LIST == rec->type) {
-        // use a copy of the list
+        /* use a copy of the list */
         list = mpr_list_get_cpy((mpr_list)val);
         if (!list) {
             trace("skipping empty list property '%s'\n",
@@ -541,11 +541,11 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
     if (len)
         lo_message_add_string(msg, temp);
     else {
-        // can use static string
+        /* can use static string */
         lo_message_add_string(msg, mpr_prop_as_str(masked, 0));
     }
     DONE_UNLESS(val && rec->len && !(rec->prop & PROP_REMOVE));
-    // add value
+    /* add value */
     switch (masked) {
         case MPR_PROP_DIR: {
             int dir = *(int*)rec->val;
@@ -564,7 +564,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
         case MPR_PROP_DEV:
         case MPR_PROP_SIG:
         case MPR_PROP_SLOT:
-            // do nothing
+            /* do nothing */
             break;
         case MPR_PROP_SCOPE:
         case MPR_PROP_LINKED: {
@@ -593,15 +593,15 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
 void mpr_tbl_add_to_msg(mpr_tbl tbl, mpr_tbl new, lo_message msg)
 {
     int i;
-    // add all the updates
+    /* add all the updates */
     if (new) {
         for (i = 0; i < new->count; i++)
             mpr_record_add_to_msg(&new->rec[i], msg);
     }
     RETURN_UNLESS(tbl);
-    // add remaining records
+    /* add remaining records */
     for (i = 0; i < tbl->count; i++) {
-        // check if updated version exists
+        /* check if updated version exists */
         if (!new || !mpr_tbl_get(new, tbl->rec[i].prop, tbl->rec[i].key))
             mpr_record_add_to_msg(&tbl->rec[i], msg);
     }

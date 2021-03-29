@@ -124,7 +124,7 @@ int setup_maps()
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 
-    // Wait until mapping has been established
+    /* Wait until mapping has been established */
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
@@ -133,7 +133,7 @@ int setup_maps()
     eprintf("map initialized with expression '%s'\n",
             mpr_obj_get_prop_as_str(map, MPR_PROP_EXPR, NULL));
 
-    // calculate M and B for checking generated expression
+    /* calculate M and B for checking generated expression */
     float sRange = sMax - sMin;
     M = sRange ? ((dMax - dMin) / sRange) : 0;
     B = sRange ? ((dMin * sMax - dMax * sMin) / sRange) : 0;
@@ -181,7 +181,7 @@ int main(int argc, char **argv)
     int i, j, result = 0;
     char *iface = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

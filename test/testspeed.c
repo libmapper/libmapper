@@ -164,7 +164,7 @@ void map_sigs()
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push((mpr_obj)map);
 
-    // wait until mapping has been established
+    /* wait until mapping has been established */
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
@@ -241,7 +241,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -h help
+    /* process flags for -v verbose, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);
@@ -283,7 +283,7 @@ int main(int argc, char **argv)
 
     map_sigs();
 
-    // start things off
+    /* start things off */
     eprintf("STARTING TEST...\n");
     times[0] = current_time();
     mpr_sig_set_value(sendsig, counter, 1, MPR_FLT, &value);

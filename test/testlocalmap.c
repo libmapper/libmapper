@@ -101,7 +101,7 @@ int setup_maps()
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 
-    // Wait until mapping has been established
+    /* Wait until mapping has been established */
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(dev, 10);
     }
@@ -109,7 +109,7 @@ int setup_maps()
     eprintf("map initialized with expression '%s'\n",
             mpr_obj_get_prop_as_str(map, MPR_PROP_EXPR, NULL));
 
-    // calculate M and B for checking generated expression
+    /* calculate M and B for checking generated expression */
     M = (dMax - dMin) / (sMax - sMin);
     B = (dMin * sMax - dMax * sMin) / (sMax - sMin);
 
@@ -124,17 +124,17 @@ int setup_loop_test()
                        NULL, handler, MPR_SIG_UPDATE);
     eprintf("Input signal 'sig3' registered.\n");
 
-    // map from sendsig -> recvsig already exists
+    /* map from sendsig -> recvsig already exists */
 
-    // create map from recvsig -> sig3
+    /* create map from recvsig -> sig3 */
     mpr_map map1 = mpr_map_new(1, &recvsig, 1, &sig3);
     mpr_obj_push(map1);
 
-    // create map from sig3 -> sendsig
+    /* create map from sig3 -> sendsig */
     mpr_map map2 = mpr_map_new(1, &sig3, 1, &sendsig);
     mpr_obj_push(map2);
 
-    // Wait until mapping has been established
+    /* Wait until mapping has been established */
     while (!done && !mpr_map_get_is_ready(map1) && !mpr_map_get_is_ready(map2)) {
         mpr_dev_poll(dev, 10);
     }
@@ -183,7 +183,7 @@ int main(int argc, char **argv)
     int i, j, result = 0;
     char *iface = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);
@@ -244,7 +244,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    // try to provoke an update loop
+    /* try to provoke an update loop */
     mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i);
 
     if (autoconnect && (!received || sent != received)) {

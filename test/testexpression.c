@@ -112,7 +112,7 @@ int setup_maps()
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=0;y=x*10+foo", 1);
     mpr_obj_push(map);
 
-    // wait until mapping has been established
+    /* wait until mapping has been established */
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);
@@ -221,7 +221,7 @@ int main(int argc, char **argv)
     addend = 1000;
     mpr_obj_set_prop(map, MPR_PROP_EXTRA, "var@foo", 1, MPR_INT32, &addend, 1);
     mpr_obj_push(map);
-    // wait for change to take effect
+    /* wait for change to take effect */
     mpr_dev_poll(dst, 100);
     mpr_dev_poll(src, 100);
 

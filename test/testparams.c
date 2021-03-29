@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     float r[4] = {1.0, 2.0, -15.0, 25.0};
     int i, j, result = 0;
 
-    // process flags for -v verbose, -h help
+    /* process flags for -v verbose, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

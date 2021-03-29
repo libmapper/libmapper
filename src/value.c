@@ -24,7 +24,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
             v->inst = malloc(sizeof(mpr_value_buffer_t) * num_inst);
             v->num_inst = 0;
         }
-        // initialize new instances
+        /* initialize new instances */
         for (i = v->num_inst; i < num_inst; i++) {
             mpr_value_buffer b = &v->inst[i];
             b->samps = calloc(1, mlen * samp_size);
@@ -35,12 +35,12 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
     }
 
     if (!is_input || vlen != v->vlen || type != v->type) {
-        // reallocate old instances (v->num_inst has not yet been updated)
+        /* reallocate old instances (v->num_inst has not yet been updated) */
         for (i = 0; i < v->num_inst; i++) {
             mpr_value_buffer b = &v->inst[i];
             b->samps = realloc(b->samps, mlen * samp_size);
             b->times = realloc(b->times, mlen * sizeof(mpr_time));
-            // Initialize entire value to 0
+            /* Initialize entire value to 0 */
             memset(b->samps, 0, mlen * samp_size);
             memset(b->times, 0, mlen * sizeof(mpr_time));
             b->pos = -1;
@@ -60,7 +60,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
         tmp.samps = malloc(samp_size * mlen);
         tmp.times = malloc(sizeof(mpr_time) * mlen);
 
-        // TODO: don't bother copying memory if pos is -1
+        /* TODO: don't bother copying memory if pos is -1 */
         if (mlen > v->mlen) {
             int npos = v->mlen - b->pos;
             // copy from [v->pos, v->mlen] to [0, v->mlen - v->pos]
@@ -106,7 +106,7 @@ int mpr_value_remove_inst(mpr_value v, int idx)
     free(v->inst[idx].samps);
     free(v->inst[idx].times);
     for (i = idx + 1; i < v->num_inst; i++) {
-        // shift values down
+        /* shift values down */
         memcpy(&(v->inst[i-1]), &(v->inst[i]), sizeof(mpr_value_buffer_t));
     }
     --v->num_inst;
@@ -187,7 +187,7 @@ void mpr_value_print(mpr_value v, int inst_idx) {
 void mpr_value_print_hist(mpr_value v, int inst_idx) {
     RETURN_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0);
 
-    // if history is full, print from pos+1 -> pos, else print from 0 -> pos
+    /* if history is full, print from pos+1 -> pos, else print from 0 -> pos */
     int i, hidx = v->inst[inst_idx].pos * -1;
     for (i = 0; i < v->mlen; i++) {
         printf("%s {%3d} ", hidx ? "  " : "->", hidx);

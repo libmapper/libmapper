@@ -13,24 +13,24 @@ typedef void *mpr_obj;
 /*! An internal structure defining a device. */
 typedef void *mpr_dev;
 
-//! An internal structure defining a signal.
+/*! An internal structure defining a signal. */
 typedef void *mpr_sig;
 
-//! An internal structure defining a mapping between a set of signals.
+/*! An internal structure defining a mapping between a set of signals. */
 typedef void *mpr_map;
 
 /*! An internal structure defining a list of objects. */
 typedef void **mpr_list;
 
-//! An internal structure representing the distributed mapping graph.
-//! This can be retrieved by calling mpr_obj_graph().
+/*! An internal structure representing the distributed mapping graph. */
+/*! This can be retrieved by calling mpr_obj_graph(). */
 typedef void *mpr_graph;
 
-//! An internal structure defining a grouping of signals.
+/*! An internal structure defining a grouping of signals. */
 typedef int mpr_sig_group;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // __MPR_TYPES_H__
+#endif /* __MPR_TYPES_H__ */

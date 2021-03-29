@@ -116,7 +116,7 @@ int mpr_parse_names(const char *string, char **devnameptr, char **signameptr)
 mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
 {
     int i, slot_idx, num_props=0;
-    // get the number of props
+    /* get the number of props */
     for (i = 0; i < argc; i++) {
         if (types[i] != MPR_STR)
             continue;
@@ -143,7 +143,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
 #if TRACING
         printf("parsing property key '%s'\n", &argv[i]->s);
 #endif
-        // new property
+        /* new property */
         if (a->types || (a->prop & PROP_REMOVE))
             ++msg->num_atoms;
         a = &msg->atoms[msg->num_atoms];
@@ -157,11 +157,11 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
             a->prop = PROP_REMOVE;
             ++key;
         }
-        if (key[0] != '@') // not a property key
+        if (key[0] != '@') /* not a property key */
             continue;
         a->key = key;
 
-        // try to find matching index for static props
+        /* try to find matching index for static props */
         if (strncmp(a->key, "@dst@", 5)==0) {
             a->prop |= DST_SLOT_PROP;
             a->key += 5;
@@ -172,7 +172,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
                 a->key += 5;
             }
             else if (a->key[4] == '.') {
-                // in form 'src.<ordinal>'
+                /* in form 'src.<ordinal>' */
                 slot_idx = atoi(a->key + 5);
                 a->key = strchr(a->key + 5, '@');
                 if (!a->key || !(++a->key)) {
@@ -214,7 +214,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
                 continue;
             }
         }
-        // check type against static props
+        /* check type against static props */
         else if (MASK_PROP_BITFLAGS(a->prop) < MPR_PROP_EXTRA) {
             static_prop_t prop;
             prop = static_props[PROP_TO_INDEX(a->prop)];
@@ -268,7 +268,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
             }
         }
     }
-    // reset last atom if no types unless "remove" flag is set
+    /* reset last atom if no types unless "remove" flag is set */
     if (a->types || a->prop & PROP_REMOVE)
         ++msg->num_atoms;
     else {
@@ -277,7 +277,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
         a->vals = 0;
     }
 #if TRACING
-    // print out parsed properties
+    /* print out parsed properties */
     printf("%d parsed mpr_msgs:\n", msg->num_atoms);
     for (i = 0; i < msg->num_atoms; i++) {
         a = &msg->atoms[i];
@@ -369,7 +369,7 @@ const char *mpr_prop_as_str(mpr_prop p, int skip_slash)
 
 mpr_prop mpr_prop_from_str(const char *string)
 {
-    // property keys are stored alphabetically so we can use a binary search
+    /* property keys are stored alphabetically so we can use a binary search */
     int beg = PROP_TO_INDEX(MPR_PROP_UNKNOWN) + 1;
     int end = PROP_TO_INDEX(MPR_PROP_EXTRA) - 1;
     int mid = (beg + end) * 0.5, cmp;
@@ -435,7 +435,7 @@ const char *mpr_steal_as_str(mpr_steal_type stl)
     return mpr_steal_strings[stl];
 }
 
-// Helper for setting property value from different data types
+/* Helper for setting property value from different data types */
 int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
                     int dst_len, mpr_type dst_type, void *dst_val)
 {
@@ -595,7 +595,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             }
             break;
         case MPR_DEV:
-            // just print device name
+            /* just print device name */
             if (1 == len)
                 printf("'%s', ", mpr_dev_get_name((mpr_dev)val));
             else {
@@ -604,7 +604,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             }
             break;
         case MPR_SIG: {
-            // just print signal name
+            /* just print signal name */
             if (1 == len) {
                 mpr_sig sig = (mpr_sig)val;
                 printf("'%s:%s', ", mpr_dev_get_name(sig->dev), sig->name);

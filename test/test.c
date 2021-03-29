@@ -55,7 +55,7 @@ int setup_src()
 
     eprintf("Output signal 'outsig' registered.\n");
 
-    // Make sure we can add and remove outputs without crashing.
+    /* Make sure we can add and remove outputs without crashing. */
     mpr_sig_free(mpr_sig_new(src, MPR_DIR_OUT, "outsig_5", 1, MPR_FLT, NULL,
                              &mnf, &mxf, NULL, NULL, 0));
 
@@ -131,7 +131,7 @@ int setup_dst()
 
     eprintf("Input signal 'insig' registered.\n");
 
-    // Make sure we can add and remove inputs and inputs within crashing.
+    /* Make sure we can add and remove inputs and inputs within crashing. */
     mpr_sig_free(mpr_sig_new(dst, MPR_DIR_IN, "insig_5", 1, MPR_FLT,
                              NULL, &mnf, &mxf, NULL, NULL, MPR_SIG_UPDATE));
 
@@ -181,7 +181,7 @@ void loop()
             mpr_obj_push(maps[i]);
         }
 
-        // wait until all maps has been established
+        /* wait until all maps has been established */
         int num_maps = 0;
         while (!done && num_maps < 4) {
             mpr_dev_poll(src, 10);
@@ -237,7 +237,7 @@ int main(int argc, char ** argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

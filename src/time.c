@@ -73,7 +73,7 @@ void mpr_time_sub(mpr_time *t, mpr_time subtrahend)
 {
     if (t->sec > subtrahend.sec) {
         t->sec -= subtrahend.sec;
-        if (t->frac < subtrahend.frac) // overflow
+        if (t->frac < subtrahend.frac) /* overflow */
             --t->sec;
         t->frac -= subtrahend.frac;
     }

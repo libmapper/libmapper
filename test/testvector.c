@@ -121,7 +121,7 @@ int setup_maps()
     mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
     mpr_obj_push((mpr_obj)map);
 
-    // wait until mapping has been established
+    /* wait until mapping has been established */
     i = 0;
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
@@ -130,7 +130,7 @@ int setup_maps()
             return 1;
     }
 
-    // calculate M and B for generated expected values
+    /* calculate M and B for generated expected values */
     for (i = 0; i < vec_len; i++) {
         float sRange = (float)sMax[i] - (float)sMin[i];
         if (sRange) {
@@ -192,7 +192,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

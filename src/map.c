@@ -39,13 +39,13 @@ static int _sort_sigs(int num, mpr_sig *s, int *o)
             else if (0 == res1) {
                 res2 = strcmp(s[o[j]]->name, s[o[j+1]]->name);
                 if (0 == res2) {
-                    // abort: identical signal names
+                    /* abort: identical signal names */
                     return 1;
                 }
                 else if (res2 < 0)
                     break;
             }
-            // swap
+            /* swap */
             int temp = o[j];
             o[j] = o[j+1];
             o[j+1] = temp;
@@ -72,7 +72,7 @@ void mpr_map_init(mpr_map m)
     m->obj.props.staged = mpr_tbl_new();
     mpr_tbl t = m->obj.props.synced;
 
-    // these properties need to be added in alphabetical order
+    /* these properties need to be added in alphabetical order */
     mpr_tbl_link(t, PROP(DATA), 1, MPR_PTR, &m->obj.data,
                  MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(t, PROP(EXPR), 1, MPR_STR, &m->expr_str, MODIFIABLE | INDIRECT);
@@ -121,11 +121,11 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
             }
         }
     }
-    // Only 1 destination supported for now
-    RETURN_UNLESS(1 == num_dst, 0);
+    /* Only 1 destination supported for now */
+    RETURN_ARG_UNLESS(1 == num_dst, 0);
     mpr_graph g = (*dst)->obj.graph;
 
-    // check if record of map already exists
+    /* check if record of map already exists */
     mpr_map m;
     mpr_obj o;
     mpr_list temp, maps = mpr_sig_get_maps(*dst, MPR_DIR_IN);
@@ -185,7 +185,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     m->dst = mpr_slot_new(m, *dst, 0);
     m->dst->dir = MPR_DIR_IN;
 
-    // we need to give the map a temporary id – this may be overwritten later
+    /* we need to give the map a temporary id – this may be overwritten later */
     if ((*dst)->dev->loc)
         m->obj.id = mpr_dev_generate_unique_id((*dst)->dev);
 
@@ -345,7 +345,7 @@ static int _add_scope(mpr_map m, const char *name)
         }
     }
 
-    // not found - add a new scope
+    /* not found - add a new scope */
     i = ++m->num_scopes;
     m->scopes = realloc(m->scopes, i * sizeof(mpr_dev));
     m->scopes[i-1] = d;
@@ -368,7 +368,7 @@ static int _remove_scope(mpr_map m, const char *name)
     }
     if (i == m->num_scopes)
         return 0;
-    // found - remove scope at index i
+    /* found - remove scope at index i */
     for (++i; i < m->num_scopes - 1; i++)
         m->scopes[i] = m->scopes[i + 1];
     --m->num_scopes;
@@ -385,7 +385,7 @@ static int _update_scope(mpr_map m, mpr_msg_atom a)
             num = 0;
         const char *name;
 
-        // First remove old scopes that are missing
+        /* First remove old scopes that are missing */
         while (i < m->num_scopes) {
             int found = 0;
             for (j = 0; j < num; j++) {
@@ -407,27 +407,28 @@ static int _update_scope(mpr_map m, mpr_msg_atom a)
             else
                 ++i;
         }
-        // ...then add any new scopes
+        /* ...then add any new scopes */
         for (i = 0; i < num; i++)
             updated += _add_scope(m, &scope_list[i]->s);
     }
     return updated;
 }
 
-// 1) update all signals for this timestep, mark signal instances as "updated"
-// 1b) call rtr_process_sig (immediately?) to update slots.
-// 1c) need to allow for users modifying sigs, maps, etc after updating sig and before processing
-// 2) iterate through all the maps and process, mark map instances as "updated"
-// 2b) if instance of a map has already been updated don't bother doing it again
-// 3) can bundle map output during iteration
+/* 1) update all signals for this timestep, mark signal instances as "updated"
+ * 1b) call rtr_process_sig (immediately?) to update slots.
+ * 1c) need to allow for users modifying sigs, maps, etc after updating sig and before processing
+ * 2) iterate through all the maps and process, mark map instances as "updated"
+ * 2b) if instance of a map has already been updated don't bother doing it again
+ * 3) can bundle map output during iteration
+ *
+ * Plan of change:
+ * 1) move idmaps to maps
+ * 2) on release of local instance, can reuse instance resource and mark idmap as "to release"
+ * 3) map should iterate through active idmaps instead of instances
+ * 4) when it comes to "to release" idmap, send release and decref LID
+ */
 
-// Plan of change:
-// 1) move idmaps to maps
-// 2) on release of local instance, can reuse instance resource and mark idmap as "to release"
-// 3) map should iterate through active idmaps instead of instances
-// 4) when it comes to "to release" idmap, send release and decref LID
-
-// only called for outgoing maps
+/* only called for outgoing maps */
 void mpr_map_send(mpr_map m, mpr_time time)
 {
     int i, j, status;
@@ -438,8 +439,8 @@ void mpr_map_send(mpr_map m, mpr_time time)
     mpr_dev dev = m->loc->rtr->dev;
     uint8_t bundle_idx = dev->loc->bundle_idx % NUM_BUNDLES;
 
-    // temporary solution: use most multitudinous source signal for idmap
-    // permanent solution: move idmaps to map?
+    /* temporary solution: use most multitudinous source signal for idmap
+     * permanent solution: move idmaps to map? */
     mpr_slot src_slot = m->src[0];
     for (i = 1; i < m->num_src; i++) {
         if (m->src[i]->sig->num_inst > src_slot->sig->num_inst)
@@ -473,8 +474,8 @@ void mpr_map_send(mpr_map m, mpr_time time)
             continue;
 
         if (src_sig->use_inst && !map_manages_inst) {
-            // finding idmaps here will be a bit inefficient for now
-            // TODO: optimize storage and lookup
+            /* finding idmaps here will be a bit inefficient for now */
+            /* TODO: optimize storage and lookup */
             for (j = 0; j < src_sig->loc->idmap_len; j++) {
                 if (idmaps[j].inst && idmaps[j].inst->idx == i) {
                     idmap = idmaps[j].map;
@@ -497,10 +498,10 @@ void mpr_map_send(mpr_map m, mpr_time time)
             }
         }
         if (status & EXPR_UPDATE) {
-            // send instance update
+            /* send instance update */
             void *result = mpr_value_get_samp(&dst_slot->loc->val, i);
             if (map_manages_inst && !idmap) {
-                // create an id_map and store it in the map
+                /* create an id_map and store it in the map */
                 idmap = m->idmap = mpr_dev_add_idmap(dev, 0, 0, 0);
             }
             msg = mpr_map_build_msg(m, 0, result, types, idmap);
@@ -524,15 +525,15 @@ void mpr_map_send(mpr_map m, mpr_time time)
     m->loc->updated = 0;
 }
 
-// only called for incoming maps
-// TODO: merge with mpr_map_send()?
+/* only called for incoming maps */
+/* TODO: merge with mpr_map_send()? */
 void mpr_map_receive(mpr_map m, mpr_time time)
 {
     int i, j, status;
     RETURN_UNLESS(m->loc && m->loc->updated && m->loc->expr && m->dst->sig->loc && !m->muted);
 
-    // temporary solution: use most multitudinous source signal for idmap
-    // permanent solution: move idmaps to map
+    /* temporary solution: use most multitudinous source signal for idmap
+     * permanent solution: move idmaps to map */
     mpr_slot src_slot = m->src[0];
     for (i = 1; i < m->num_src; i++) {
         if (m->src[i]->sig->num_inst > src_slot->sig->num_inst)
@@ -570,8 +571,8 @@ void mpr_map_receive(mpr_map m, mpr_time time)
 
         j = 0;
         if (dst_sig->use_inst && !map_manages_inst) {
-            // finding idmaps here will be a bit inefficient for now
-            // TODO: optimize storage and lookup
+            /* finding idmaps here will be a bit inefficient for now */
+            /* TODO: optimize storage and lookup */
             for (j = 0; j < dst_sig->loc->idmap_len; j++) {
                 if (idmaps[j].inst && idmaps[j].inst->idx == i) {
                     idmap = idmaps[j].map;
@@ -590,7 +591,7 @@ void mpr_map_receive(mpr_map m, mpr_time time)
         float diff = mpr_time_get_diff(time, si->time);
 
         if (status & EXPR_RELEASE_BEFORE_UPDATE) {
-            // TODO: release map-tracked instance
+            /* TODO: release map-tracked instance */
             /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
              * know if the local signal instance will actually be released. */
             int evt = MPR_SIG_REL_UPSTRM & dst_sig->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
@@ -599,7 +600,7 @@ void mpr_map_receive(mpr_map m, mpr_time time)
 
         if (status & EXPR_UPDATE) {
             void *result = mpr_value_get_samp(&dst_slot->loc->val, i);
-            // TODO: create new map->idmap
+            /* TODO: create new map->idmap */
 //                if (map_manages_inst) {
 //                    if (!idmap) {
 //                        // create an id_map and store it in the map
@@ -607,17 +608,17 @@ void mpr_map_receive(mpr_map m, mpr_time time)
 //                    }
 //                }
 
-            // copy to signal value
+            /* copy to signal value */
             memcpy(si->val, result, type_size);
             memcpy(&si->time, &time, sizeof(mpr_time));
             si->has_val = 1;
 
             mpr_sig_call_handler(dst_sig, MPR_SIG_UPDATE, idmap ? idmap->LID : 0,
                                  dst_sig->len, si->val, &time, diff);
-            // Pass this update downstream if signal is an input and was not updated in handler.
+            /* Pass this update downstream if signal is an input and was not updated in handler. */
             if (   !(dst_sig->dir & MPR_DIR_OUT)
                 && !get_bitflag(dst_sig->loc->updated_inst, si->idx)) {
-                // mark instance as updated
+                /* mark instance as updated */
                 set_bitflag(dst_sig->loc->updated_inst, si->idx);
                 dst_sig->dev->loc->updated = dst_sig->loc->updated = 1;
                 mpr_rtr_process_sig(m->loc->rtr, dst_sig, i, si->val, time);
@@ -625,14 +626,14 @@ void mpr_map_receive(mpr_map m, mpr_time time)
         }
 
         if (status & EXPR_RELEASE_AFTER_UPDATE) {
-            // TODO: release map-tracked instance
+            /* TODO: release map-tracked instance */
             /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
              * know if the local signal instance will actually be released. */
             int evt = MPR_SIG_REL_UPSTRM & dst_sig->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
             mpr_sig_call_handler(dst_sig, evt, idmap ? idmap->LID : 0, 0, 0, &time, diff);
         }
 
-        // TODO: break if map performs instance reduce
+        /* TODO: break if map performs instance reduce */
     }
     clear_bitflags(m->loc->updated_inst, m->loc->num_inst);
     m->loc->updated = 0;
@@ -650,7 +651,7 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
     NEW_LO_MSG(msg, return 0);
 
     if (val && types) {
-        // value of vector elements can be <type> or NULL
+        /* value of vector elements can be <type> or NULL */
         for (i = 0; i < len; i++) {
             switch (types[i]) {
             case MPR_INT32: lo_message_add_int32(msg, ((int*)val)[i]);     break;
@@ -670,7 +671,7 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
         lo_message_add_int64(msg, idmap->GID);
     }
     if (slot && MPR_LOC_DST == m->process_loc && MPR_DIR_OUT == m->dst->dir) {
-        // add slot
+        /* add slot */
         lo_message_add_string(msg, "@sl");
         lo_message_add_int32(msg, slot->obj.id);
     }
@@ -679,21 +680,22 @@ lo_message mpr_map_build_msg(mpr_map m, mpr_slot slot, const void *val,
 
 void mpr_map_alloc_values(mpr_map m)
 {
-    // If there is no expression or the processing is remote, then no memory needs to be (re)allocated.
+    /* If there is no expression or the processing is remote,
+     * then no memory needs to be (re)allocated. */
     RETURN_UNLESS(m->loc->expr
                   && (m->loc->is_local_only
                       || !((MPR_DIR_OUT == m->dst->dir) ^ (MPR_LOC_SRC == m->process_loc))));
 
-    // TODO: check if this filters non-local processing.
-    // if so we can eliminate process_loc tests below
-    // if not we are allocating variable memory when we don't need to
+    /* TODO: check if this filters non-local processing.
+     * if so we can eliminate process_loc tests below
+     * if not we are allocating variable memory when we don't need to */
 
     int i, j, hist_size, num_inst = 0;
     mpr_expr e = m->loc->expr;
 
-    // HANDLE edge case: if the map is local, then src->dir is OUT and dst->dir is IN
+    /* HANDLE edge case: if the map is local, then src->dir is OUT and dst->dir is IN */
 
-    // check if slot values need to be reallocated
+    /* check if slot values need to be reallocated */
     if (MPR_DIR_OUT == m->dst->dir) {
         int max_num_inst = 0;
         for (i = 0; i < m->num_src; i++) {
@@ -702,12 +704,12 @@ void mpr_map_alloc_values(mpr_map m)
             mpr_slot_alloc_values(m->src[i], m->src[i]->sig->num_inst, hist_size);
         }
         hist_size = mpr_expr_get_out_hist_size(e);
-        // allocate enough dst slot and variable instances for the most multitudinous source signal
+        /* allocate enough dst slot and variable instances for the most multitudinous source signal */
         mpr_slot_alloc_values(m->dst, max_num_inst, hist_size);
         num_inst = max_num_inst;
     }
     else if (MPR_DIR_IN == m->dst->dir) {
-        // allocate enough instances for destination signal
+        /* allocate enough instances for destination signal */
         for (i = 0; i < m->num_src; i++) {
             hist_size = mpr_expr_get_in_hist_size(e, i);
             mpr_slot_alloc_values(m->src[i], m->dst->sig->num_inst, hist_size);
@@ -720,33 +722,33 @@ void mpr_map_alloc_values(mpr_map m)
     mpr_local_map lm = m->loc;
     int num_vars = mpr_expr_get_num_vars(e);
 
-    // TODO: only need to allocate this memory for processing location
+    /* TODO: only need to allocate this memory for processing location */
     mpr_value_t *vars = calloc(1, sizeof(mpr_value_t) * num_vars);
     const char **var_names = malloc(sizeof(char*) * num_vars);
     for (i = 0; i < num_vars; i++) {
         var_names[i] = strdup(mpr_expr_get_var_name(e, i));
         int vlen = mpr_expr_get_var_vec_len(e, i);
-        // check if var already exists
+        /* check if var already exists */
         for (j = 0; j < lm->num_vars; j++) {
             if (!lm->var_names[j] || strcmp(lm->var_names[j], var_names[i]))
                 continue;
             if (lm->vars[i].vlen != vlen)
                 continue;
-            // match found
+            /* match found */
             break;
         }
         if (j < lm->num_vars) {
-            // copy old variable memory
+            /* copy old variable memory */
             memcpy(&vars[i], &lm->vars[j], sizeof(mpr_value_t));
             lm->vars[j].inst = 0;
         }
         mpr_value_realloc(&vars[i], vlen, mpr_expr_get_var_type(e, i), 1, num_inst, 0);
-        // set position to 0 since we are not currently allowing history on user variables
+        /* set position to 0 since we are not currently allowing history on user variables */
         for (j = 0; j < num_inst; j++)
             vars[i].inst[j].pos = 0;
     }
 
-    // free old variables and replace with new
+    /* free old variables and replace with new */
     for (i = 0; i < lm->num_vars; i++) {
         mpr_value_free(&lm->vars[i]);
         FUNC_IF(free, (void*)lm->var_names[i]);
@@ -759,7 +761,7 @@ void mpr_map_alloc_values(mpr_map m)
     lm->num_vars = num_vars;
     lm->num_inst = num_inst;
 
-    // allocate update bitflags
+    /* allocate update bitflags */
     if (lm->updated_inst)
         lm->updated_inst = realloc(lm->updated_inst, num_inst / 8 + 1);
     else
@@ -783,14 +785,14 @@ static int _replace_expr_str(mpr_map m, const char *expr_str)
                                           m->dst->sig->type, m->dst->sig->len);
     RETURN_UNLESS(expr, 1);
 
-    // expression update may force processing location to change
-    // e.g. if expression combines signals from different devices
-    // e.g. if expression refers to current/past value of destination
+    /* expression update may force processing location to change
+     * e.g. if expression combines signals from different devices
+     * e.g. if expression refers to current/past value of destination */
     int out_mem = mpr_expr_get_out_hist_size(expr);
     if (!m->loc->is_local_only && (out_mem > 1 && MPR_LOC_SRC == m->process_loc)) {
         m->process_loc = MPR_LOC_DST;
         if (!m->dst->sig->loc) {
-            // copy expression string but do not execute it
+            /* copy expression string but do not execute it */
             mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, REMOTE_MODIFY);
             mpr_expr_free(expr);
             return 1;
@@ -884,7 +886,7 @@ if (j == m->loc->num_vars) {                                        \
 
 static const char *_set_linear(mpr_map m, const char *e)
 {
-    // if e is NULL, try to fill in ranges from map signals
+    /* if e is NULL, try to fill in ranges from map signals */
     int j, k, len = 0, val_len;
     char expr[MAX_LEN] = "";
     char *var = "x";
@@ -892,28 +894,28 @@ static const char *_set_linear(mpr_map m, const char *e)
     int min_len = _min(m->src[0]->sig->len, m->dst->sig->len);
 
     if (e) {
-        // how many instances of 'linear' appear in the expression string?
+        /* how many instances of 'linear' appear in the expression string? */
         int num_inst = 0;
         char *offset = (char*)e;
         while ((offset = strstr(offset, "linear"))) {
             ++num_inst;
             offset += 6;
         }
-        // for now we will only allow one instance of 'linear' function macro
+        /* for now we will only allow one instance of 'linear' function macro */
         if (num_inst != 1) {
             trace("found %d instances of the string 'linear'\n", num_inst);
             return NULL;
         }
-        // use a copy in case we fail after tokenisation
+        /* use a copy in case we fail after tokenisation */
         e = strdup(e);
         offset = (char*)e;
         // for (i = 0; i < num_inst; i++) {
-            // TODO: copy sections of expression before 'linear('
+            /* TODO: copy sections of expression before 'linear(' */
             offset = strstr(offset, "linear") + 6;
-            // remove any spaces
+            /* remove any spaces */
             while (*offset && *offset == ' ')
                 ++offset;
-            // next character must be '('
+            /* next character must be '(' */
             if (*offset != '(') {
                 goto abort;
             }
@@ -930,13 +932,13 @@ static const char *_set_linear(mpr_map m, const char *e)
                 if (!args[j])
                     goto abort;
             }
-            // we won't check if ranges are numeric since they could be variables
-            // but src extrema are allowed to be "?" to indicate calibration
-            // or '-' to indicate they should not be changed
+            /* we won't check if ranges are numeric since they could be variables but src extrema
+             * are allowed to be "?" to indicate calibration or '-' to indicate they should not
+             * be changed */
             if (0 == strcmp(args[1], "?"))
                 len = snprintf(expr, MAX_LEN, "sMin{-1}=x;sMin=min(%s,sMin);", var);
             else if (0 == strcmp(args[1], "-")) {
-                // try to load sMin variable from existing expression
+                /* try to load sMin variable from existing expression */
                 if (!m->loc || !m->loc->expr) {
                     trace("can't retrieve previous expr var since map is not local\n");
                     len += snprintf(expr+len, MAX_LEN-len, "sMin=0;");
@@ -954,11 +956,11 @@ static const char *_set_linear(mpr_map m, const char *e)
             if (0 == strcmp(args[2], "?"))
                 len += snprintf(expr+len, MAX_LEN-len, "sMax{-1}=x;sMax=max(%s,sMax);", var);
             else if (0 == strcmp(args[2], "-")) {
-                // try to load sMax variable from existing expression
+                /* try to load sMax variable from existing expression */
                 if (!m->loc || !m->loc->expr) {
-                    // TODO: try using signal instead
+                    /* TODO: try using signal instead */
                     trace("can't retrieve previous expr var, using default\n");
-                    // TODO: test with vector signals
+                    /* TODO: test with vector signals */
                     len += snprintf(expr+len, MAX_LEN-len, "sMax=1;");
                 }
                 else {
@@ -972,7 +974,7 @@ static const char *_set_linear(mpr_map m, const char *e)
             }
 
             if (0 == strcmp(args[3], "-")) {
-                // try to load dMin variable from existing expression
+                /* try to load dMin variable from existing expression */
                 if (!m->loc || !m->loc->expr) {
                     trace("can't retrieve previous expr var since map is not local\n");
                     len += snprintf(expr+len, MAX_LEN-len, "dMin=0;");
@@ -988,7 +990,7 @@ static const char *_set_linear(mpr_map m, const char *e)
             }
 
             if (0 == strcmp(args[4], "-")) {
-                // try to load dMin variable from existing expression
+                /* try to load dMin variable from existing expression */
                 if (!m->loc || !m->loc->expr) {
                     trace("can't retrieve previous expr var since map is not local\n");
                     len += snprintf(expr+len, MAX_LEN-len, "dMax=1;");
@@ -1004,7 +1006,7 @@ static const char *_set_linear(mpr_map m, const char *e)
             }
 
             var = args[0];
-            // TODO: copy sections of expression after closing paren ')'
+            /* TODO: copy sections of expression after closing paren ')' */
         // }
     }
     else if (m->src[0]->sig->min && m->src[0]->sig->max && m->dst->sig->min && m->dst->sig->max) {
@@ -1018,26 +1020,26 @@ static const char *_set_linear(mpr_map m, const char *e)
                             m->dst->sig->type, m->dst->sig->max);
     }
     else {
-        // try linear combination of inputs
+        /* try linear combination of inputs */
         if (1 == m->num_src) {
             if (m->src[0]->sig->len == m->dst->sig->len)
                 snprintf(expr, MAX_LEN, "y=x");
             else if (m->src[0]->sig->len > m->dst->sig->len) {
-                // truncate source
+                /* truncate source */
                 if (1 == m->dst->sig->len)
                     snprintf(expr, MAX_LEN, "y=x[0]");
                 else
                     snprintf(expr, MAX_LEN, "y=x[0:%i]", m->dst->sig->len-1);
             }
             else if (1 == m->src[0]->sig->len) {
-                // truncate dst
+                /* truncate dst */
                 snprintf(expr, MAX_LEN, "y[0]=x");
             }
             else
                 snprintf(expr, MAX_LEN, "y[0:%i]=x", m->src[0]->sig->len-1);
         }
         else {
-            // check vector lengths
+            /* check vector lengths */
             int i, j, max_vec_len = 0, min_vec_len = INT_MAX;
             for (i = 0; i < m->num_src; i++) {
                 if (m->src[i]->sig->len > max_vec_len)
@@ -1121,7 +1123,7 @@ static int _set_expr(mpr_map m, const char *expr)
     if (m->loc->is_local_only)
         should_compile = 1;
     else if (MPR_LOC_DST == m->process_loc) {
-        // check if destination is local
+        /* check if destination is local */
         if (m->dst->loc->rsig)
             should_compile = 1;
     }
@@ -1143,7 +1145,7 @@ static int _set_expr(mpr_map m, const char *expr)
 
     if (!_replace_expr_str(m, expr)) {
         mpr_map_alloc_values(m);
-        // evaluate expression to intialise literals
+        /* evaluate expression to intialise literals */
         mpr_time now;
         mpr_time_set(&now, MPR_NOW);
         char types[m->dst->sig->len];
@@ -1153,7 +1155,7 @@ static int _set_expr(mpr_map m, const char *expr)
     else {
         if (!m->loc->expr && (   (MPR_LOC_DST == m->process_loc && m->dst->sig->loc)
                               || (MPR_LOC_SRC == m->process_loc && m->src[0]->sig->loc))) {
-            // no previous expression, abort map
+            /* no previous expression, abort map */
             m->status = MPR_STATUS_EXPIRED;
         }
         goto done;
@@ -1166,14 +1168,14 @@ static int _set_expr(mpr_map m, const char *expr)
         mpr_time now;
         mpr_time_set(&now, MPR_NOW);
 
-        // call handler if it exists
+        /* call handler if it exists */
         mpr_sig sig = m->dst->sig;
         mpr_sig_handler *h = sig->loc->handler;
         if (h)
             h(sig, MPR_SIG_UPDATE, 0, sig->len, sig->type, &m->dst->loc->val.inst[0].samps, now);
     }
 
-    // check whether each source slot causes computation
+    /* check whether each source slot causes computation */
     for (i = 0; i < m->num_src; i++)
         m->src[i]->causes_update = !mpr_expr_get_src_is_muted(m->loc->expr, i);
 done:
@@ -1209,7 +1211,7 @@ static void _check_status(mpr_map m)
         trace("map metadata OK\n");
         mpr_map_alloc_values(m);
         m->status = MPR_STATUS_READY;
-        // update in/out counts for link
+        /* update in/out counts for link */
         if (m->loc->is_local_only) {
             if (m->dst->link)
                 ++m->dst->link->num_maps[0];
@@ -1234,7 +1236,7 @@ static void _check_status(mpr_map m)
     return;
 }
 
-// if 'override' flag is not set, only remote properties can be set
+/* if 'override' flag is not set, only remote properties can be set */
 int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
 {
     int i, j, updated = 0, should_compile = 0;
@@ -1244,14 +1246,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
         goto done;
 
     if (MPR_DIR_OUT == m->dst->dir) {
-        // check if MPR_PROP_SLOT property is defined
+        /* check if MPR_PROP_SLOT property is defined */
         a = mpr_msg_get_prop(msg, PROP(SLOT));
         if (a && a->len == m->num_src) {
             mpr_tbl_record rec;
             for (i = 0; i < m->num_src; i++) {
                 int id = (a->vals[i])->i32;
                 m->src[i]->obj.id = id;
-                // also need to correct slot table indices
+                /* also need to correct slot table indices */
                 tbl = m->src[i]->obj.props.synced;
                 for (j = 0; j < tbl->count; j++) {
                     rec = &tbl->rec[j];
@@ -1266,10 +1268,10 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
         }
     }
 
-    // set destination slot properties
+    /* set destination slot properties */
     updated += mpr_slot_set_from_msg(m->dst, msg);
 
-    // set source slot properties
+    /* set source slot properties */
     for (i = 0; i < m->num_src; i++)
         updated += mpr_slot_set_from_msg(m->src[i], msg);
 
@@ -1279,7 +1281,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
         switch (MASK_PROP_BITFLAGS(a->prop)) {
             case PROP(NUM_SIGS_IN):
             case PROP(NUM_SIGS_OUT):
-                // these properties will be set by signal args
+                /* these properties will be set by signal args */
                 break;
             case PROP(STATUS):
                 if (m->loc)
@@ -1298,7 +1300,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 }
                 if (m->loc) {
                     if (MPR_LOC_ANY == loc) {
-                        // no effect
+                        /* no effect */
                         break;
                     }
                     if (!m->loc->one_src) {
@@ -1307,7 +1309,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         loc = MPR_LOC_DST;
                     }
                     if (MPR_LOC_DST == loc) {
-                        // check if destination is local
+                        /* check if destination is local */
                         if (m->dst->loc->rsig)
                             should_compile = 1;
                     }
@@ -1319,7 +1321,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     }
                     if (should_compile) {
                         if (_set_expr(m, m->expr_str)) {
-                            // do not change process location
+                            /* do not change process location */
                             break;
                         }
                         ++updated;
@@ -1341,7 +1343,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     if (m->loc->is_local_only)
                         should_compile = 1;
                     else if (MPR_LOC_DST == m->process_loc) {
-                        // check if destination is local
+                        /* check if destination is local */
                         if (m->dst->loc->rsig)
                             should_compile = 1;
                     }
@@ -1353,7 +1355,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     }
                     if (should_compile) {
                         if (_set_expr(m, expr_str)) {
-                            // restore original process location
+                            /* restore original process location */
                             m->process_loc = orig_loc;
                             break;
                         }
@@ -1375,7 +1377,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                                            MPR_INT32, &loc, REMOTE_MODIFY);
                 }
                 if (!m->loc) {
-                    // remove any cached expression variables from table
+                    /* remove any cached expression variables from table */
                     mpr_tbl_remove(tbl, MPR_PROP_EXTRA, "var@*", REMOTE_MODIFY);
                 }
                 break;
@@ -1401,7 +1403,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
             case PROP(USE_INST): {
                 int use_inst = a->types[0] == 'T';
                 if (m->loc && m->use_inst && !use_inst) {
-                    // TODO: release map instances
+                    /* TODO: release map instances */
                 }
                 updated += mpr_tbl_set(tbl, PROP(USE_INST), NULL, 1, MPR_BOOL,
                                        &use_inst, REMOTE_MODIFY);
@@ -1410,7 +1412,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
             case PROP(EXTRA):
                 if (strcmp(a->key, "expression")==0) {
                     if (mpr_type_get_is_str(a->types[0])) {
-                        // set property type to expr and repeat
+                        /* set property type to expr and repeat */
                         a->prop = PROP(EXPR);
                         --i;
                     }
@@ -1420,16 +1422,16 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         for (j = 0; j < m->loc->num_vars; j++) {
                             if (!mpr_expr_get_var_is_public(m->loc->expr, j))
                                 continue;
-                            // check if matches existing varname
+                            /* check if matches existing varname */
                             const char *name = mpr_expr_get_var_name(m->loc->expr, j);
                             if (strcmp(name, a->key+4)!=0)
                                 continue;
-                            // found variable
+                            /* found variable */
                             ++updated;
-                            // TODO: handle multiple instances
+                            /* TODO: handle multiple instances */
                             int k = 0, l, var_len =  m->loc->vars[j].vlen;
                             mpr_type type = m->loc->vars[j].type;
-                            // cast to double if necessary
+                            /* cast to double if necessary */
                             switch (type) {
 #define TYPED_CASE(MTYPE, TYPE, MTYPE1, EL1, MTYPE2, EL2)                                   \
                                 case MTYPE: {                                               \
@@ -1463,7 +1465,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     }
                     if (m->loc)
                         break;
-                    // otherwise continue to mpr_tbl_set_from_atom() below
+                    /* otherwise continue to mpr_tbl_set_from_atom() below */
                 }
             case PROP(ID):
             case PROP(MUTED):
@@ -1476,7 +1478,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
     }
 done:
     if (m->loc && m->status < MPR_STATUS_READY) {
-        // check if mapping is now "ready"
+        /* check if mapping is now "ready" */
         _check_status(m);
     }
     return updated;
@@ -1492,12 +1494,12 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
     char dst_name[256], src_names[1024];
     snprintf(dst_name, 256, "%s%s", m->dst->sig->dev->name, m->dst->sig->path);
     if (MPR_DIR_IN == m->dst->dir) {
-        // add mapping destination
+        /* add mapping destination */
         lo_message_add_string(msg, dst_name);
         lo_message_add_string(msg, "<-");
     }
 
-    // add mapping sources
+    /* add mapping sources */
     int i = (slot >= 0) ? slot : 0;
     int len = 0, result;
     mpr_link link = m->src[i]->loc ? m->src[i]->link : 0;
@@ -1516,12 +1518,12 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
     }
 
     if (MPR_DIR_OUT == m->dst->dir || !m->dst->dir) {
-        // add mapping destination
+        /* add mapping destination */
         lo_message_add_string(msg, "->");
         lo_message_add_string(msg, dst_name);
     }
 
-    // Add unique id
+    /* Add unique id */
     if (m->obj.id) {
         lo_message_add_string(msg, mpr_prop_as_str(PROP(ID), 0));
         lo_message_add_int64(msg, *((int64_t*)&m->obj.id));
@@ -1532,11 +1534,11 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
         return i-1;
     }
 
-    // add other properties
+    /* add other properties */
     int staged = (MSG_MAP == cmd) || (MSG_MAP_MOD == cmd);
     mpr_tbl_add_to_msg(0, staged ? m->obj.props.staged : m->obj.props.synced, msg);
 
-    // add slot id
+    /* add slot id */
     if (MPR_DIR_IN == m->dst->dir && m->status <= MPR_STATUS_READY && !staged) {
         lo_message_add_string(msg, mpr_prop_as_str(PROP(SLOT), 0));
         i = (slot >= 0) ? slot : 0;
@@ -1562,14 +1564,14 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
     if (MSG_MAPPED == cmd || (MPR_DIR_IN == m->dst->dir))
         mpr_slot_add_props_to_msg(msg, m->dst, 1, staged);
 
-    // add public expression variables
+    /* add public expression variables */
     int j, k, l;
     char varname[32];
     if (m->loc && m->loc->expr) {
         for (j = 0; j < m->loc->num_vars; j++) {
             if (!mpr_expr_get_var_is_public(m->loc->expr, j))
                 continue;
-            // TODO: handle multiple instances
+            /* TODO: handle multiple instances */
             k = 0;
             if (m->loc->vars[j].inst[k].pos >= 0) {
                 snprintf(varname, 32, "@var@%s", mpr_expr_get_var_name(m->loc->expr, j));
@@ -1665,10 +1667,10 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
     TRACE_RETURN_UNLESS(dst, NULL, "Map format string '%s' has no output signal!\n", expr);
     TRACE_RETURN_UNLESS(num_src, NULL, "Map format string '%s' has no input signals!\n", expr);
 
-    // create the map
+    /* create the map */
     map = mpr_map_new(num_src, srcs, 1, &dst);
 
-    // edit the expression string in-place
+    /* edit the expression string in-place */
     i = 0;
     char *dup = strdup(expr);
     va_start(aq, expr);
@@ -1679,13 +1681,13 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
             break;
         sig = va_arg(aq, void*);
         if (expr[i+1] == 'y') {
-            // replace the preceding '%' with a space
+            /* replace the preceding '%' with a space */
             dup[i] = ' ';
         }
-        else {  // 'x'
-            // retrieve signal index
+        else {  /* 'x' */
+            /* retrieve signal index */
             j = mpr_map_get_sig_idx(map, sig);
-            // replace "%x" with "xi" where i is the signal index
+            /* replace "%x" with "xi" where i is the signal index */
             dup[i] = 'x';
             dup[i+1] = "0123456789"[j%10];
         }

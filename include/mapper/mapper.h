@@ -271,7 +271,7 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time);
  *  \param dev          The device to use. */
 void mpr_dev_process_outputs(mpr_dev dev);
 
-/** @} */ // end of group Devices
+/** @} */ /* end of group Devices */
 
 /*** Signals ***/
 
@@ -453,9 +453,9 @@ void *mpr_sig_get_inst_data(mpr_sig sig, mpr_id inst);
  *  \return             The number of allocated signal instances. */
 int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status);
 
-/** @} */ // end of group Instances
+/** @} */ /* end of group Instances */
 
-/** @} */ // end of group Signals
+/** @} */ /* end of group Signals */
 
 /***** Maps *****/
 
@@ -546,9 +546,9 @@ void mpr_map_add_scope(mpr_map map, mpr_dev dev);
  *                      propagating across the map. */
 void mpr_map_remove_scope(mpr_map map, mpr_dev dev);
 
-/** @} */ // end of group Maps
+/** @} */ /* end of group Maps */
 
-/** @} */ // end of group Objects
+/** @} */ /* end of group Objects */
 
 /*** Lists ***/
 
@@ -615,7 +615,7 @@ void mpr_list_free(mpr_list list);
  *  \return             The number of objects in the list. */
 int mpr_list_get_size(mpr_list list);
 
-/** @} */ // end of group Lists
+/** @} */ /* end of group Lists */
 
 /***** Graph *****/
 
@@ -726,7 +726,7 @@ int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *data);
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_graph_get_objs(mpr_graph g, int types);
 
-/** @} */ // end of group Graphs
+/** @} */ /* end of group Graphs */
 
 /***** Time *****/
 
@@ -776,7 +776,7 @@ void mpr_time_set(mpr_time *timel, mpr_time timer);
  *  \return             <0 if time1 < time2; 0 if time1 == time2; >0 if time1 > time2. */
 int mpr_time_cmp(mpr_time time1, mpr_time time2);
 
-/** @} */ // end of group Times
+/** @} */ /* end of group Times */
 
 /*! Get the version of libmapper.
  *  \return             A string specifying the version of libmapper. */
@@ -786,4 +786,4 @@ const char *mpr_get_version(void);
 }
 #endif
 
-#endif // __MPR_H__
+#endif /* __MPR_H__ */

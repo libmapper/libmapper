@@ -33,12 +33,12 @@ int done = 0;
 
 const char *instance_type_names[] = { "?", "SINGLETON", "INSTANCED", "MIXED" };
 
-// TODO: add all-singleton convergent, all-instanced convergent
+/* TODO: add all-singleton convergent, all-instanced convergent */
 typedef enum {
-    SINGLETON = 0x01,   // singleton
-    INSTANCED = 0x02,   // instanced
-    MIXED_SIG = 0x03,   // mixed convergent, same device
-    MIXED_DEV = 0x07    // mixed convergent, different device
+    SINGLETON = 0x01,   /* singleton */
+    INSTANCED = 0x02,   /* instanced */
+    MIXED_SIG = 0x03,   /* mixed convergent, same device */
+    MIXED_DEV = 0x07    /* mixed convergent, different device */
 } instance_type;
 
 const char *oflw_action_names[] = { "", "steal oldest", "steal newest", "add instance" };
@@ -62,100 +62,102 @@ typedef struct _test_config {
     float           count_epsilon;
 } test_config;
 
-// TODO: test received values
-// TODO: these should work with count_epsilon=0.0
+/* TODO: test received values */
+/* TODO: these should work with count_epsilon=0.0 */
 test_config test_configs[] = {
-    // singleton ––> singleton; shouldn't make a difference if map is instanced
+    /* singleton ––> singleton; shouldn't make a difference if map is instanced */
     {  1, SINGLETON, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 1., 0. },
     {  2, SINGLETON, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1., 0. },
 
-    // singleton ==> singleton; shouldn't make a difference if map is instanced
+    /* singleton ==> singleton; shouldn't make a difference if map is instanced */
     {  3, SINGLETON, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1., 0. },
     {  4, SINGLETON, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL, 1., 0. },
 
-    // singleton ––> instanced; control all active instances
+    /* singleton ––> instanced; control all active instances */
     {  5, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 3., 0. },
     {  6, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3., 0. },
 
-    // singleton ==> instanced; control a single instance (default)
-    // TODO: check that instance is released on map_free()
+    /* singleton ==> instanced; control a single instance (default) */
+    /* TODO: check that instance is released on map_free() */
     {  7, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1., 0. },
     {  8, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 1., 0. },
 
-    // instanced ––> singleton; any source instance updates destination
+    /* instanced ––> singleton; any source instance updates destination */
     {  9, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 5., 0. },
-    // ... but when processing @dst only the last instance update will trigger handler
+    /* ... but when processing @dst only the last instance update will trigger handler */
     { 10, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1., 0. },
 
-    // instanced ==> singleton; one src instance updates dst (default)
-    // CHECK: if controlling instance is released, move to next updated inst
+    /* instanced ==> singleton; one src instance updates dst (default) */
+    /* CHECK: if controlling instance is released, move to next updated inst */
     { 11, INSTANCED, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1., 0. },
     { 12, INSTANCED, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL, 1., 0. },
 
-    // instanced ––> instanced; any src instance updates all dst instances
-    // source signal does not know about active destination instances
+    /* instanced ––> instanced; any src instance updates all dst instances */
+    /* source signal does not know about active destination instances */
     { 13, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15., 0. },
     { 14, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3., 0. },
 
-    // instanced ==> instanced; no stealing
+    /* instanced ==> instanced; no stealing */
     { 15, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 4., 0. },
     { 16, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 4., 0. },
 
-    // instanced ==> instanced; steal newest instance
+    /* instanced ==> instanced; steal newest instance */
     { 17, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NEW, NULL, 4.25, 0. },
     { 18, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NEW, NULL, 4., 0. },
 
-    // instanced ==> instanced; steal oldest instance
+    /* instanced ==> instanced; steal oldest instance */
     { 19, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, OLD, NULL, 4.6, 0. },
     { 20, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, OLD, NULL, 4.0, 0. },
 
-    // instanced ==> instanced; add instances if needed
+    /* instanced ==> instanced; add instances if needed */
     { 21, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, ADD, NULL, 5., 0. },
     { 22, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, ADD, NULL, 5., 0. },
 
-    // mixed ––> singleton
-    // for src processing the update count is additive since the destination has only one instance
+    /* mixed ––> singleton */
+    /* for src processing the update count is additive since the destination has only one instance */
     { 23, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 5.0, 0. },
-    // TODO: we should default to dst processing for this configuration
+    /* TODO: we should default to dst processing for this configuration */
     { 24, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1.0, 0. },
 
-    // mixed ==> singleton
-    // for src processing we expect one update per iteration
+    /* mixed ==> singleton */
+    /* for src processing we expect one update per iteration */
     { 25, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1.0, 0. },
-    // for dst processing we expect one update per iteration
+    /* for dst processing we expect one update per iteration */
     { 26, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL, 1.0, 0. },
 
-    // mixed ––> instanced
-    // for src processing the update count is multiplicative: 5 src x 3 dst
+    /* mixed ––> instanced */
+    /* for src processing the update count is multiplicative: 5 src x 3 dst */
     { 27, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15.0, 0. },
-    // each active instance should receive 1 update per iteration
+    /* each active instance should receive 1 update per iteration */
     { 28, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3.0, 0. },
 
-    // mixed ==> instanced
+    /* mixed ==> instanced */
     { 29, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 4.0, 0. },
     { 30, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 4.0, 0. },
 
-    // singleton ––> instanced; in-map instance management
+    /* singleton ––> instanced; in-map instance management */
     { 31, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 1.5, 0. },
     { 32, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 1.5, 0. },
 
-    // singleton ==> instanced; in-map instance management
+    /* singleton ==> instanced; in-map instance management */
     { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0. },
     { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0. },
 
-    // work in progress:
-    // instanced ––> instanced; in-map instance management (late start, early release, ad hoc)
-    // instanced ==> instanced; in-map instance management (late start, early release, ad hoc)
-    // mixed ––> instanced; in-map instance management (late start, early release, ad hoc)
-    // mixed ==> instanced; in-map instance management (late start, early release, ad hoc)
+    /* work in progress:
+     * instanced ––> instanced; in-map instance management (late start, early release, ad hoc)
+     * instanced ==> instanced; in-map instance management (late start, early release, ad hoc)
+     * mixed ––> instanced; in-map instance management (late start, early release, ad hoc)
+     * mixed ==> instanced; in-map instance management (late start, early release, ad hoc)
+     */
 
-//    { 35, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=count>=3;y=x;count=(count+1)%10;", 0.5, 0. },
-//    { 36, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=count>=3;y=x;count=(count+1)%10;", 0.5, 0. },
+/*    { 35, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=count>=3;y=x;count=(count+1)%10;", 0.5, 0. },
+    { 36, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=count>=3;y=x;count=(count+1)%10;", 0.5, 0. },*/
 
-    // future work:
-    // src instance pooling (convergent maps)
-    // dst instance pooling (divergent maps)
-    // src & dst instance pooling (complex maps)
+    /* future work:
+     * src instance pooling (convergent maps)
+     * dst instance pooling (divergent maps)
+     * src & dst instance pooling (complex maps)
+     */
 };
 const int NUM_TESTS =
     sizeof(test_configs)/sizeof(test_configs[0]);
@@ -230,7 +232,7 @@ int setup_dst()
 
     float mn=0;
 
-    // Specify 0 instances since we wish to use specific ids
+    /* Specify 0 instances since we wish to use specific ids */
     int num_inst = 0;
     multirecv = mpr_sig_new(dst, MPR_DIR_IN, "multirecv", 1, MPR_FLT, NULL,
                             &mn, NULL, &num_inst, handler, MPR_SIG_UPDATE);
@@ -332,24 +334,24 @@ void loop(instance_type src_type, instance_type dst_type)
 
     while (i < iterations && !done) {
         if (src_type & INSTANCED) {
-            // update instanced source signal
+            /* update instanced source signal */
             inst = i % 10;
 
-            // try to destroy an instance
+            /* try to destroy an instance */
             eprintf("--> Retiring multisend instance %"PR_MPR_ID"\n", inst);
             mpr_sig_release_inst(multisend, inst);
 
             for (j = 0; j < num_parallel_inst; j++) {
                 inst = (inst + 1) % 10;
 
-                // try to update an instance
+                /* try to update an instance */
                 valf = inst * 1.0f;
                 eprintf("--> Updating multisend instance %"PR_MPR_ID" to %f\n", inst, valf);
                 mpr_sig_set_value(multisend, inst, 1, MPR_FLT, &valf);
             }
         }
         if (src_type & SINGLETON) {
-            // update singleton source signal
+            /* update singleton source signal */
             eprintf("--> Updating monosend to %d\n", i);
             mpr_sig_set_value(monosend, 0, 1, MPR_INT32, &i);
         }
@@ -482,7 +484,7 @@ int run_test(test_config *config)
     mpr_dev_poll(src, 100);
     mpr_dev_poll(dst, 100);
 
-    // remove any extra destination instances allocated by previous tests
+    /* remove any extra destination instances allocated by previous tests */
     while (5 <= mpr_sig_get_num_inst(multirecv, MPR_STATUS_ALL)) {
         eprintf("removing extra destination instance\n");
         mpr_sig_remove_inst(multirecv, mpr_sig_get_inst_id(multirecv, 4, MPR_STATUS_ALL));
@@ -492,7 +494,7 @@ int run_test(test_config *config)
     mpr_dev_poll(dst, 100);
 
     if (INSTANCED & config->dst_type && SINGLETON == config->map_type) {
-        // activate 3 destination instances
+        /* activate 3 destination instances */
         eprintf("activating 3 destination instances\n");
         mpr_sig_activate_inst(multirecv, 2);
         mpr_sig_activate_inst(multirecv, 4);
@@ -509,7 +511,7 @@ int run_test(test_config *config)
      * this in non-test code. */
     mpr_map_release(map);
 
-    // TODO: we shouldn't have to wait here...
+    /* TODO: we shouldn't have to wait here... */
     mpr_dev_poll(src, 100);
     mpr_dev_poll(dst, 100);
     mpr_dev_poll(src, 100);
@@ -608,7 +610,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

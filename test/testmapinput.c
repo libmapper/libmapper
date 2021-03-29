@@ -107,15 +107,15 @@ void loop()
 
     if (autoconnect) {
         mpr_map maps[2];
-        // map input to another input on same device
+        /* map input to another input on same device */
         maps[0] = mpr_map_new(1, &inputs[0], 1, &inputs[1]);
         mpr_obj_push((mpr_obj)maps[0]);
 
-        // map input to an input on another device
+        /* map input to an input on another device */
         maps[1] = mpr_map_new(1, &inputs[1], 1, &inputs[2]);
         mpr_obj_push((mpr_obj)maps[1]);
 
-        // wait until mapping has been established
+        /* wait until mapping has been established */
         int ready = 0;
         while (!done && !ready) {
             mpr_dev_poll(devices[0], 100);
@@ -155,7 +155,7 @@ int main(int argc, char ** argv)
 {
     int i, j, result = 0;
 
-    // process flags for -v verbose, -t terminate, -h help
+    /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);

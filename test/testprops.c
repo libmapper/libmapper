@@ -91,7 +91,7 @@ int main(int argc, char **argv)
 {
     int i, j, seen, result = 0;
 
-    // process flags for -v verbose, -h help
+    /* process flags for -v verbose, -h help */
     for (i = 1; i < argc; i++) {
         if (argv[i] && argv[i][0] == '-') {
             int len = strlen(argv[i]);
@@ -983,7 +983,7 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    // mpr_obj_get_prop_as_list returns a copy of the list, so we will need to compare the contents
+    /* mpr_obj_get_prop_as_list returns a copy of the list, so we will need to compare the contents */
     eprintf("\t checking value: %p ... ", read_list);
     check_list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (check_list && read_list) {
