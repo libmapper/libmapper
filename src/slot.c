@@ -14,7 +14,7 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, int is_src)
     mpr_slot slot = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
     slot->map = map;
     slot->sig = sig;
-    slot->causes_update = 1; // default
+    slot->causes_update = 1; /* default */
     return slot;
 }
 
@@ -25,9 +25,9 @@ static int slot_mask(mpr_slot slot)
 
 void mpr_slot_init(mpr_slot slot)
 {
+    int mask = slot_mask(slot);
     mpr_tbl t = slot->obj.props.synced = mpr_tbl_new();
     slot->obj.props.staged = mpr_tbl_new();
-    int mask = slot_mask(slot);
 
     if (slot->sig->loc)
         mpr_tbl_link(t, MPR_PROP_NUM_INST | mask, 1, MPR_INT32,
@@ -56,9 +56,11 @@ void mpr_slot_free_value(mpr_slot slot)
 
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
 {
-    RETURN_UNLESS(slot && msg, 0);
-    int i, updated = 0, mask = slot_mask(slot);
+    int i, updated = 0, mask;
     mpr_msg_atom a;
+    mpr_tbl slot_props;
+    RETURN_ARG_UNLESS(slot && msg, 0);
+    mask = slot_mask(slot);
 
     /* type and length belong to parent signal */
     if (!slot->loc || !slot->loc->rsig) {
@@ -79,7 +81,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
             a->prop = prop;
         }
     }
-    mpr_tbl slot_props = slot->obj.props.synced;
+    slot_props = slot->obj.props.synced;
     for (i = 0; i < msg->num_atoms; i++) {
         a = &msg->atoms[i];
         if ((a->prop & ~0xFFFF) != mask)
@@ -103,6 +105,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
 
 void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int staged)
 {
+    int len;
     char temp[16];
     if (is_dst)
         snprintf(temp, 16, "@dst");
@@ -110,7 +113,7 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int st
         snprintf(temp, 16, "@src");
     else
         snprintf(temp, 16, "@src.%d", (int)slot->obj.id);
-    int len = strlen(temp);
+    len = strlen(temp);
 
     if (!staged && slot->sig->loc) {
         /* include length from associated signal */
@@ -126,19 +129,21 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int st
 
     mpr_tbl_add_to_msg(0, (staged ? slot->obj.props.staged : slot->obj.props.synced), msg);
 
-    // clear the staged properties
+    /* clear the staged properties */
     if (staged)
         mpr_tbl_clear(slot->obj.props.staged);
 }
 
 int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
 {
-    RETURN_UNLESS(full_name, 1);
+    int len;
+    const char *sig_name, *dev_name;
+    RETURN_ARG_UNLESS(full_name, 1);
     full_name += (full_name[0]=='/');
-    const char *sig_name = strchr(full_name+1, '/');
-    RETURN_UNLESS(sig_name, 1);
-    int len = sig_name - full_name;
-    const char *dev_name = slot->sig->dev->name;
+    sig_name = strchr(full_name+1, '/');
+    RETURN_ARG_UNLESS(sig_name, 1);
+    len = sig_name - full_name;
+    dev_name = slot->sig->dev->name;
     return (strlen(dev_name) != len || strncmp(full_name, dev_name, len)
             || strcmp(sig_name+1, slot->sig->name)) ? 1 : 0;
 }

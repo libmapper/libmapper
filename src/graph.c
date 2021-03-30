@@ -95,11 +95,10 @@ static void send_subscribe_msg(mpr_graph g, mpr_dev d, int flags, int timeout)
 static void _autosubscribe(mpr_graph g, int flags)
 {
     if (!g->autosub && flags) {
-        mpr_graph_add_cb(g, _on_dev_autosub, MPR_DEV, g);
-            // update flags for existing subscriptions
+        /* update flags for existing subscriptions */
+        mpr_subscription s = g->subscriptions;
         mpr_time t;
         mpr_time_set(&t, MPR_NOW);
-        mpr_subscription s = g->subscriptions;
         while (s) {
             trace_graph("adjusting flags for existing autorenewing subscription to %s.\n",
                         mpr_dev_get_name(s->dev));
@@ -117,6 +116,7 @@ static void _autosubscribe(mpr_graph g, int flags)
             mpr_net_use_bus(&g->net);
             mpr_net_add_msg(&g->net, 0, MSG_WHO, msg);
         }
+        mpr_graph_add_cb(g, _on_dev_autosub, MPR_DEV, g);
     }
     else if (g->autosub && !flags) {
         mpr_graph_remove_cb(g, _on_dev_autosub, g);
@@ -132,11 +132,12 @@ static void _autosubscribe(mpr_graph g, int flags)
 
 void mpr_graph_cleanup(mpr_graph g)
 {
+    int staged = 0;
+    mpr_list maps;
     if (!g->staged_maps)
         return;
-    // check for maps that were staged but never completed
-    int staged = 0;
-    mpr_list maps = mpr_list_from_data(g->maps);
+    /* check for maps that were staged but never completed */
+    maps = mpr_list_from_data(g->maps);
     while (maps) {
         mpr_map map = (mpr_map)*maps;
         maps = mpr_list_get_next(maps);
@@ -157,7 +158,7 @@ void mpr_graph_cleanup(mpr_graph g)
 mpr_graph mpr_graph_new(int subscribe_flags)
 {
     mpr_graph g = (mpr_graph) calloc(1, sizeof(mpr_graph_t));
-    RETURN_UNLESS(g, NULL);
+    RETURN_ARG_UNLESS(g, NULL);
 
     g->net.graph = g;
     g->own = 1;
@@ -169,10 +170,11 @@ mpr_graph mpr_graph_new(int subscribe_flags)
 
 void mpr_graph_free(mpr_graph g)
 {
+    mpr_list list;
+    fptr_list cb;
     RETURN_UNLESS(g);
 
-    // remove callbacks now so they won't be called when removing devices
-    fptr_list cb;
+    /* remove callbacks now so they won't be called when removing devices */
     while ((cb = g->callbacks)) {
         g->callbacks = g->callbacks->next;
         free(cb);
@@ -183,29 +185,29 @@ void mpr_graph_free(mpr_graph g)
         mpr_graph_subscribe(g, g->subscriptions->dev, 0, 0);
 
     /* Remove all non-local maps */
-    mpr_list maps = mpr_list_from_data(g->maps);
-    while (maps) {
-        mpr_map map = (mpr_map)*maps;
-        maps = mpr_list_get_next(maps);
+    list = mpr_list_from_data(g->maps);
+    while (list) {
+        mpr_map map = (mpr_map)*list;
+        list = mpr_list_get_next(list);
         if (!map->loc)
             mpr_graph_remove_map(g, map, MPR_OBJ_REM);
     }
 
     /* Remove all non-local devices and signals from the graph except for
      * those referenced by local maps. */
-    mpr_list devs = mpr_list_from_data(g->devs);
-    while (devs) {
-        mpr_dev dev = (mpr_dev)*devs;
-        devs = mpr_list_get_next(devs);
+    list = mpr_list_from_data(g->devs);
+    while (list) {
+        mpr_dev dev = (mpr_dev)*list;
+        int no_local_dev_maps = 1;
+        mpr_list sigs;
+        list = mpr_list_get_next(list);
         if (dev->loc)
             continue;
 
-        int no_local_dev_maps = 1;
-        mpr_list sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+        sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
         while (sigs) {
-            mpr_sig sig = (mpr_sig)*sigs;
-            sigs = mpr_list_get_next(sigs);
             int no_local_sig_maps = 1;
+            mpr_sig sig = (mpr_sig)*sigs;
             mpr_list maps = mpr_sig_get_maps(sig, MPR_DIR_ANY);
             while (maps) {
                 if (((mpr_map)*maps)->loc) {
@@ -215,6 +217,7 @@ void mpr_graph_free(mpr_graph g)
                 }
                 maps = mpr_list_get_next(maps);
             }
+            sigs = mpr_list_get_next(sigs);
             if (no_local_sig_maps)
                 mpr_graph_remove_sig(g, sig, MPR_OBJ_REM);
         }
@@ -298,12 +301,12 @@ int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
     fptr_list cb = g->callbacks;
     fptr_list prevcb = 0;
     while (cb) {
-        if (cb->f == h && cb->ctx == user)
+        if (cb->f == (void*)h && cb->ctx == user)
             break;
         prevcb = cb;
         cb = cb->next;
     }
-    RETURN_UNLESS(cb, 0);
+    RETURN_ARG_UNLESS(cb, 0);
     if (prevcb)
         prevcb->next = cb->next;
     else
@@ -362,11 +365,12 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
 /* Internal function called by /logout protocol handler */
 void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
 {
+    mpr_list maps;
     RETURN_UNLESS(d);
     _remove_by_qry(g, mpr_dev_get_maps(d, MPR_DIR_ANY), e);
 
-    // remove matching maps scopes
-    mpr_list maps = mpr_graph_get_objs(g, MPR_MAP);
+    /* remove matching maps scopes */
+    maps = mpr_graph_get_objs(g, MPR_MAP);
     while (maps) {
         mpr_map_remove_scope((mpr_map)*maps, d);
         maps = mpr_list_get_next(maps);
@@ -401,8 +405,8 @@ mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name)
 
 static void _check_dev_status(mpr_graph g, uint32_t time_sec)
 {
-    time_sec -= TIMEOUT_SEC;
     mpr_list devs = mpr_list_from_data(g->devs);
+    time_sec -= TIMEOUT_SEC;
     while (devs) {
         mpr_dev dev = (mpr_dev)*devs;
         devs = mpr_list_get_next(devs);
@@ -478,8 +482,9 @@ void mpr_graph_remove_sig(mpr_graph g, mpr_sig s, mpr_graph_evt e)
 
 mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 {
-    RETURN_UNLESS(dev1 && dev2, 0);
-    mpr_link link = mpr_dev_get_link_by_remote(dev1, dev2);
+    mpr_link link;
+    RETURN_ARG_UNLESS(dev1 && dev2, 0);
+    link = mpr_dev_get_link_by_remote(dev1, dev2);
     if (link)
         return link;
 
@@ -536,12 +541,12 @@ mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs, 
     mpr_list maps = mpr_list_from_data(g->maps);
     while (maps) {
         map = (mpr_map)*maps;
-        int i;
         if (map->num_src != num_src)
             map = 0;
         else if (mpr_slot_match_full_name(map->dst, dst))
             map = 0;
         else {
+            int i;
             for (i = 0; i < num_src; i++) {
                 if (mpr_slot_match_full_name(map->src[i], srcs[i])) {
                     map = 0;
@@ -559,13 +564,12 @@ mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs, 
 mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_names,
                           const char *dst_name)
 {
+    mpr_map map = 0;
+    int rc = 0, updated = 0, i, j;
     if (num_src > MAX_NUM_MAP_SRC) {
         trace_graph("error: maximum mapping sources exceeded.\n");
         return 0;
     }
-
-    mpr_map map = 0;
-    int rc = 0, updated = 0, i, j;
 
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
@@ -578,19 +582,20 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
     }
 
     if (!map) {
+        mpr_sig *src_sigs, dst_sig;
 #ifdef DEBUG
         trace_graph("adding map [");
         for (i = 0; i < num_src; i++)
             printf("%s, ", src_names[i]);
         printf("\b\b] -> [%s].\n", dst_name);
 #endif
-        // add signals first in case signal handlers trigger map queries
-        mpr_sig dst_sig = add_sig_from_whole_name(g, dst_name);
-        RETURN_UNLESS(dst_sig, 0);
-        mpr_sig src_sigs[num_src];
+        /* add signals first in case signal handlers trigger map queries */
+        dst_sig = add_sig_from_whole_name(g, dst_name);
+        RETURN_ARG_UNLESS(dst_sig, 0);
+        src_sigs = alloca(num_src * sizeof(mpr_sig));
         for (i = 0; i < num_src; i++) {
             src_sigs[i] = add_sig_from_whole_name(g, src_names[i]);
-            RETURN_UNLESS(src_sigs[i], 0);
+            RETURN_ARG_UNLESS(src_sigs[i], 0);
             mpr_graph_add_link(g, dst_sig->dev, src_sigs[i]->dev);
         }
 
@@ -621,7 +626,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         /* may need to add sources to existing map */
         for (i = 0; i < num_src; i++) {
             mpr_sig src_sig = add_sig_from_whole_name(g, src_names[i]);
-            RETURN_UNLESS(src_sig, 0);
+            RETURN_ARG_UNLESS(src_sig, 0);
             for (j = 0; j < map->num_src; j++) {
                 if (map->src[j]->sig == src_sig)
                     break;
@@ -641,11 +646,12 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
             }
         }
         if (changed) {
-            // slots should be in alphabetical order
-            qsort(map->src, map->num_src, sizeof(mpr_slot), _compare_slot_names);
-            // fix slot ids
             mpr_tbl tab;
             mpr_tbl_record rec;
+            mpr_list maps;
+            /* slots should be in alphabetical order */
+            qsort(map->src, map->num_src, sizeof(mpr_slot), _compare_slot_names);
+            /* fix slot ids */
             for (i = 0; i < num_src; i++) {
                 map->src[i]->obj.id = i;
                 /* also need to correct slot table indices */
@@ -660,11 +666,10 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                     rec->prop = MASK_PROP_BITFLAGS(rec->prop) | SRC_SLOT_PROP(i);
                 }
             }
-            // check again if this mirrors a staged map
-            mpr_list maps = mpr_list_from_data(g->maps);
-            mpr_map map2;
+            /* check again if this mirrors a staged map */
+            maps = mpr_list_from_data(g->maps);
             while (maps) {
-                map2 = (mpr_map)*maps;
+                mpr_map map2 = (mpr_map)*maps;
                 maps = mpr_list_get_next(maps);
                 if (map2->obj.id != 0 || map->num_src != map2->num_src
                     || map->dst->sig != map2->dst->sig)
@@ -693,7 +698,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
             printf("\b\b] -> [%s:%s]\n", map->dst->sig->dev->name, map->dst->sig->name);
         }
 #endif
-        RETURN_UNLESS(map->status >= MPR_STATUS_ACTIVE, map);
+        RETURN_ARG_UNLESS(map->status >= MPR_STATUS_ACTIVE, map);
         if (rc || updated)
             mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
     }
@@ -711,9 +716,10 @@ void mpr_graph_remove_map(mpr_graph g, mpr_map m, mpr_graph_evt e)
 
 void mpr_graph_print(mpr_graph g)
 {
-    printf("-------------------------------\n");
     mpr_list devs = mpr_list_from_data(g->devs);
     mpr_list sigs = mpr_list_from_data(g->sigs);
+    mpr_list maps;
+    printf("-------------------------------\n");
     printf("Registered devices (%d) and signals (%d):\n",
            mpr_list_get_size(devs), mpr_list_get_size(sigs));
     mpr_list_free(sigs);
@@ -731,12 +737,12 @@ void mpr_graph_print(mpr_graph g)
     }
 
     printf("-------------------------------\n");
-    mpr_list maps = mpr_list_from_data(g->maps);
+    maps = mpr_list_from_data(g->maps);
     printf("Registered maps (%d):\n", mpr_list_get_size(maps));
     while (maps) {
-        printf(" └─ ");
-        mpr_obj_print(*maps, 0);
         mpr_map map = (mpr_map)*maps;
+        printf(" └─ ");
+        mpr_obj_print((mpr_obj)map, 0);
         sigs = mpr_map_get_sigs(map, MPR_LOC_SRC);
         while (sigs) {
             mpr_sig sig = (mpr_sig)*sigs;
@@ -776,8 +782,9 @@ static void renew_subscriptions(mpr_graph g, uint32_t time_sec)
 int mpr_graph_poll(mpr_graph g, int block_ms)
 {
     mpr_net n = &g->net;
-    int count = 0, status[2];
+    int count = 0, status[2], left_ms, elapsed, checked_admin = 0;
     mpr_time t;
+    double then;
 
     mpr_net_poll(n);
     mpr_time_set(&t, MPR_NOW);
@@ -792,8 +799,8 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
         return count;
     }
 
-    double then = mpr_get_current_time();
-    int left_ms = block_ms, elapsed, checked_admin = 0;
+    then = mpr_get_current_time();
+    left_ms = block_ms;
     while (left_ms > 0) {
         if (left_ms > 100)
             left_ms = 100;
@@ -840,12 +847,12 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
         return;
     }
     if (0 == flags || 0 == timeout) {
-        mpr_subscription *s = &g->subscriptions;
+        mpr_subscription *s = &g->subscriptions, temp;
         while (*s) {
             if ((*s)->dev == d) {
                 /* remove from subscriber list */
                 (*s)->dev->subscribed = 0;
-                mpr_subscription temp = *s;
+                temp = *s;
                 *s = temp->next;
                 free(temp);
                 send_subscribe_msg(g, d, 0, 0);
@@ -855,6 +862,7 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
         }
     }
     else if (-1 == timeout) {
+        mpr_time t;
 #ifdef DEBUG
         trace_graph("adding %d-second autorenewing subscription to device '%s' with flags ",
                     AUTOSUB_INTERVAL, mpr_dev_get_name(d));
@@ -880,7 +888,6 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
         s->dev->obj.version = -1;
         s->flags = flags;
 
-        mpr_time t;
         mpr_time_set(&t, MPR_NOW);
         /* leave 10-second buffer for subscription lease */
         s->lease_expiration_sec = (t.sec + AUTOSUB_INTERVAL - 10);
@@ -917,7 +924,7 @@ int mpr_graph_subscribed_by_dev(mpr_graph g, const char *name)
 
 int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
 {
-    // name needs to be split
+    mpr_dev dev;
     char *devnamep, *signame, devname[256];
     int devnamelen = mpr_parse_names(name, &devnamep, &signame);
     if (!devnamelen || devnamelen >= 256) {
@@ -926,7 +933,7 @@ int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
     }
     strncpy(devname, devnamep, devnamelen);
     devname[devnamelen] = 0;
-    mpr_dev dev = mpr_graph_get_dev_by_name(g, devname);
+    dev = mpr_graph_get_dev_by_name(g, devname);
     if (dev) {
         mpr_subscription s = _get_subscription(g, dev);
         return s ? s->flags : 0;

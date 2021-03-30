@@ -65,7 +65,7 @@ void mpr_time_add(mpr_time *t, mpr_time addend)
 {
     t->sec += addend.sec;
     t->frac += addend.frac;
-    if (t->frac < addend.frac) // overflow
+    if (t->frac < addend.frac) /* overflow */
         ++t->sec;
 }
 
@@ -105,7 +105,7 @@ void mpr_time_set(mpr_time *l, mpr_time r)
         memcpy(l, &r, sizeof(mpr_time));
 }
 
-inline int mpr_time_cmp(mpr_time l, mpr_time r)
+MPR_INLINE int mpr_time_cmp(mpr_time l, mpr_time r)
 {
     return l.sec == r.sec ? l.frac - r.frac : l.sec - r.sec;
 }

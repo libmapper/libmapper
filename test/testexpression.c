@@ -69,8 +69,6 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
             mpr_time_as_dbl(t));
     if (*(float*)value != expected_val)
         eprintf("  error: expected value %f\n", expected_val);
-    // else if (mpr_time_as_dbl(t) != expected_time)
-    //     eprintf("  error: expected time %f\n", expected_time);
     else
         received++;
 }

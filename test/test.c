@@ -212,8 +212,6 @@ void loop()
         mpr_sig_set_value(sendsig_4, 0, 1, MPR_FLT, val);
         eprintf("outsig_4 value updated to %d -->\n", i % 10);
 
-//        mpr_dev_poll(src, 0);
-
         eprintf("Sent %i messages.\n", 4);
         sent += 4;
         mpr_dev_poll(src, 0);

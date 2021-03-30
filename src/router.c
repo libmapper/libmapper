@@ -81,7 +81,7 @@ static void _update_map_count(mpr_rtr rtr)
 
 void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *val, mpr_time t)
 {
-    // abort if signal is already being processed - might be a local loop
+    /* abort if signal is already being processed - might be a local loop */
     if (sig->loc->locked) {
         trace_dev(rtr->dev, "Mapping loop detected on signal %s! (1)\n", sig->name);
         return;
@@ -95,7 +95,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
 
     int i, j, inst_idx = sig->loc->idmaps[idmap_idx].inst->idx;
     uint8_t bundle_idx = rtr->dev->loc->bundle_idx % NUM_BUNDLES;
-    rtr->dev->loc->updated = 1; // mark as updated
+    rtr->dev->loc->updated = 1; /* mark as updated */
     mpr_map map;
     uint8_t *lock = &sig->loc->locked;
     *lock = 1;
@@ -444,8 +444,8 @@ void mpr_rtr_remove_sig(mpr_rtr rtr, mpr_rtr_sig rs)
 
 int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
 {
-    RETURN_UNLESS(map && map->loc, 1);
-    // do not free local names since they point to signal's copy
+    RETURN_ARG_UNLESS(map && map->loc, 1);
+    /* do not free local names since they point to signal's copy */
     int i, j;
     mpr_time t;
     mpr_time_set(&t, MPR_NOW);
@@ -548,7 +548,7 @@ int mpr_rtr_loop_check(mpr_rtr rtr, mpr_sig local_sig, int num_remotes,
                        const char **remotes)
 {
     mpr_rtr_sig rs = _find_rtr_sig(rtr, local_sig);
-    RETURN_UNLESS(rs, 0);
+    RETURN_ARG_UNLESS(rs, 0);
     int i, j;
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->dir == MPR_DIR_IN)
@@ -569,7 +569,7 @@ mpr_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_sig sig, int slot_id)
 {
     /* only interested in incoming slots */
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
-    RETURN_UNLESS(rs, NULL);
+    RETURN_ARG_UNLESS(rs, NULL);
 
     int i, j;
     mpr_map map;

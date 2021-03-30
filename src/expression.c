@@ -29,30 +29,31 @@ typedef union _mpr_expr_val {
 
 #define EXTREMA_FUNC(NAME, TYPE, OP)    \
     static TYPE NAME(TYPE x, TYPE y) { return (x OP y) ? x : y; }
-EXTREMA_FUNC(maxi, int, >);
-EXTREMA_FUNC(mini, int, <);
-EXTREMA_FUNC(maxf, float, >);
-EXTREMA_FUNC(minf, float, <);
-EXTREMA_FUNC(maxd, double, >);
-EXTREMA_FUNC(mind, double, <);
+EXTREMA_FUNC(maxi, int, >)
+EXTREMA_FUNC(mini, int, <)
+EXTREMA_FUNC(maxf, float, >)
+EXTREMA_FUNC(minf, float, <)
+EXTREMA_FUNC(maxd, double, >)
+EXTREMA_FUNC(mind, double, <)
 
 #define UNARY_FUNC(TYPE, NAME, SUFFIX, CALC)    \
     static TYPE NAME##SUFFIX(TYPE x) { return CALC; }
 #define FLOAT_OR_DOUBLE_UNARY_FUNC(NAME, CALC)  \
     UNARY_FUNC(float, NAME, f, CALC)            \
     UNARY_FUNC(double, NAME, d, CALC)
-FLOAT_OR_DOUBLE_UNARY_FUNC(midiToHz, 440. * pow(2.0, (x - 69) / 12.0));
-FLOAT_OR_DOUBLE_UNARY_FUNC(hzToMidi, 69. + 12. * log2(x / 440.));
-FLOAT_OR_DOUBLE_UNARY_FUNC(uniform, rand() / (RAND_MAX + 1.0) * x);
-UNARY_FUNC(int, sign, i, x >= 0 ? 1 : -1);
-FLOAT_OR_DOUBLE_UNARY_FUNC(sign, x >= 0 ? 1.0 : -1.0);
+FLOAT_OR_DOUBLE_UNARY_FUNC(midiToHz, 440. * pow(2.0, (x - 69) / 12.0))
+FLOAT_OR_DOUBLE_UNARY_FUNC(hzToMidi, 69. + 12. * log2(x / 440.))
+FLOAT_OR_DOUBLE_UNARY_FUNC(uniform, rand() / (RAND_MAX + 1.0) * x)
+UNARY_FUNC(int, sign, i, x >= 0 ? 1 : -1)
+FLOAT_OR_DOUBLE_UNARY_FUNC(sign, x >= 0 ? 1.0 : -1.0)
 
 #define TEST_VEC_TYPED(NAME, TYPE, OP, CMP, RET, T)                 \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
     register TYPE ret = 1 - RET;                                    \
     mpr_expr_val val = stk + idx * inc;                             \
-    for (int i = 0, len = dim[idx]; i < len; i++) {                 \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++) {                                     \
         if (val[i].T OP CMP) {                                      \
             ret = RET;                                              \
             break;                                                  \
@@ -60,44 +61,47 @@ static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
     }                                                               \
     val[0].T = ret;                                                 \
 }
-TEST_VEC_TYPED(valli, int, ==, 0, 0, i);
-TEST_VEC_TYPED(vallf, float, ==, 0.f, 0, f);
-TEST_VEC_TYPED(valld, double, ==, 0., 0, d);
-TEST_VEC_TYPED(vanyi, int, !=, 0, 1, i);
-TEST_VEC_TYPED(vanyf, float, !=, 0.f, 1, f);
-TEST_VEC_TYPED(vanyd, double, !=, 0., 1, d);
+TEST_VEC_TYPED(valli, int, ==, 0, 0, i)
+TEST_VEC_TYPED(vallf, float, ==, 0.f, 0, f)
+TEST_VEC_TYPED(valld, double, ==, 0., 0, d)
+TEST_VEC_TYPED(vanyi, int, !=, 0, 1, i)
+TEST_VEC_TYPED(vanyf, float, !=, 0.f, 1, f)
+TEST_VEC_TYPED(vanyd, double, !=, 0., 1, d)
 
 #define SUM_VFUNC(NAME, TYPE, T)                                    \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
     register TYPE aggregate = 0;                                    \
     mpr_expr_val val = stk + idx * inc;                             \
-    for (int i = 0, len = dim[idx]; i < len; i++)                   \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++)                                       \
         aggregate += val[i].T;                                      \
     val[0].T = aggregate;                                           \
 }
-SUM_VFUNC(vsumi, int, i);
-SUM_VFUNC(vsumf, float, f);
-SUM_VFUNC(vsumd, double, d);
+SUM_VFUNC(vsumi, int, i)
+SUM_VFUNC(vsumf, float, f)
+SUM_VFUNC(vsumd, double, d)
 
 #define MEAN_VFUNC(NAME, TYPE, T)                                   \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
     register TYPE mean = 0;                                         \
     mpr_expr_val val = stk + idx * inc;                             \
-    for (int i = 0, len = dim[idx]; i < len; i++)                   \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++)                                       \
         mean += val[i].T;                                           \
-    val[0].T = mean / dim[idx];                                     \
+    val[0].T = mean / len;                                          \
 }
-MEAN_VFUNC(vmeanf, float, f);
-MEAN_VFUNC(vmeand, double, d);
+MEAN_VFUNC(vmeanf, float, f)
+MEAN_VFUNC(vmeand, double, d)
 
 #define CENTER_VFUNC(NAME, TYPE, T)                                 \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
     mpr_expr_val val = stk + idx * inc;                             \
     register TYPE max = val[0].T, min = max;                        \
-    for (int i = 0, len = dim[idx]; i < len; i++) {                 \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++) {                                     \
         if (val[i].T > max)                                         \
             max = val[i].T;                                         \
         if (val[i].T < min)                                         \
@@ -105,26 +109,27 @@ static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
     }                                                               \
     val[0].T = (max + min) * 0.5;                                   \
 }
-CENTER_VFUNC(vcenterf, float, f);
-CENTER_VFUNC(vcenterd, double, d);
+CENTER_VFUNC(vcenterf, float, f)
+CENTER_VFUNC(vcenterd, double, d)
 
 #define EXTREMA_VFUNC(NAME, OP, TYPE, T)                            \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
     mpr_expr_val val = stk + idx * inc;                             \
     register TYPE extrema = val[0].T;                               \
-    for (int i = 1, len = dim[idx]; i < len; i++) {                 \
+    int i, len = dim[idx];                                          \
+    for (i = 1; i < len; i++) {                                     \
         if (val[i].T OP extrema)                                    \
             extrema = val[i].T;                                     \
     }                                                               \
     val[0].T = extrema;                                             \
 }
-EXTREMA_VFUNC(vmaxi, >, int, i);
-EXTREMA_VFUNC(vmini, <, int, i);
-EXTREMA_VFUNC(vmaxf, >, float, f);
-EXTREMA_VFUNC(vminf, <, float, f);
-EXTREMA_VFUNC(vmaxd, >, double, d);
-EXTREMA_VFUNC(vmind, <, double, d);
+EXTREMA_VFUNC(vmaxi, >, int, i)
+EXTREMA_VFUNC(vmini, <, int, i)
+EXTREMA_VFUNC(vmaxf, >, float, f)
+EXTREMA_VFUNC(vminf, <, float, f)
+EXTREMA_VFUNC(vmaxd, >, double, d)
+EXTREMA_VFUNC(vmind, <, double, d)
 
 #define powd pow
 #define sqrtd sqrt
@@ -135,25 +140,27 @@ static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
     mpr_expr_val val = stk + idx * inc;                             \
     register TYPE tmp = 0;                                          \
-    for (int i = 0, len = dim[idx]; i < len; i++)                   \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++)                                       \
         tmp += pow##T(val[i].T, 2);                                 \
     val[0].T = sqrt##T(tmp);                                        \
 }
-NORM_VFUNC(vnormf, float, f);
-NORM_VFUNC(vnormd, double, d);
+NORM_VFUNC(vnormf, float, f)
+NORM_VFUNC(vnormd, double, d)
 
 #define DOT_VFUNC(NAME, TYPE, T)                                    \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
     register TYPE dot = 0;                                          \
     mpr_expr_val a = stk + idx * inc, b = a + inc;                  \
-    for (int i = 0, len = dim[idx]; i < len; i++)                   \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++)                                       \
         dot += a[i].T * b[i].T;                                     \
     a[0].T = dot;                                                   \
 }
-DOT_VFUNC(vdoti, int, i);
-DOT_VFUNC(vdotf, float, f);
-DOT_VFUNC(vdotd, double, d);
+DOT_VFUNC(vdoti, int, i)
+DOT_VFUNC(vdotf, float, f)
+DOT_VFUNC(vdotd, double, d)
 
 /* TODO: should we handle multidimensional angles as well? Problem with sign...
  * should probably have separate function for signed and unsigned: angle vs. rotation */
@@ -168,36 +175,38 @@ static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
     theta = atan2##T(a[1].T, a[0].T) - atan2##T(b[1].T, b[0].T);    \
     a[0].T = theta;                                                 \
 }
-ANGLE_VFUNC(vanglef, float, f);
-ANGLE_VFUNC(vangled, double, d);
+ANGLE_VFUNC(vanglef, float, f)
+ANGLE_VFUNC(vangled, double, d)
 
 #define MAXMIN_VFUNC(NAME, TYPE, T)                                 \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
-    mpr_expr_val max = stk + idx * inc, min = max + inc, new = min + inc;\
-    for (int i = 0, len = dim[idx]; i < len; i++) {                 \
+    mpr_expr_val max = stk+idx*inc, min = max+inc, new = min+inc;   \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++) {                                     \
         if (new[i].T > max[i].T)                                    \
             max[i].T = new[i].T;                                    \
         if (new[i].T < min[i].T)                                    \
             min[i].T = new[i].T;                                    \
     }                                                               \
 }
-MAXMIN_VFUNC(vmaxmini, int, i);
-MAXMIN_VFUNC(vmaxminf, float, f);
-MAXMIN_VFUNC(vmaxmind, double, d);
+MAXMIN_VFUNC(vmaxmini, int, i)
+MAXMIN_VFUNC(vmaxminf, float, f)
+MAXMIN_VFUNC(vmaxmind, double, d)
 
 #define SUMNUM_VFUNC(NAME, TYPE, T)                                 \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
-    mpr_expr_val sum = stk + idx * inc, num = sum + inc, new = num + inc;\
-    for (int i = 0, len = dim[idx]; i < len; i++) {                 \
+    mpr_expr_val sum = stk+idx*inc, num = sum+inc, new = num+inc;   \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++) {                                     \
         sum[i].T += new[i].T;                                       \
         num[i].T += 1;                                              \
     }                                                               \
 }
-SUMNUM_VFUNC(vsumnumi, int, i);
-SUMNUM_VFUNC(vsumnumf, float, f);
-SUMNUM_VFUNC(vsumnumd, double, d);
+SUMNUM_VFUNC(vsumnumi, int, i)
+SUMNUM_VFUNC(vsumnumf, float, f)
+SUMNUM_VFUNC(vsumnumd, double, d)
 
 #define TYPED_EMA(TYPE, T)                              \
 static TYPE ema##T(TYPE memory, TYPE val, TYPE weight)  \
@@ -208,8 +217,8 @@ TYPED_EMA(double, d);
 #define TYPED_SCHMITT(TYPE, T)                                      \
 static TYPE schmitt##T(TYPE memory, TYPE val, TYPE low, TYPE high)  \
     { return memory ? val > low : val >= high; }
-TYPED_SCHMITT(float, f);
-TYPED_SCHMITT(double, d);
+TYPED_SCHMITT(float, f)
+TYPED_SCHMITT(double, d)
 
 typedef enum {
     VAR_UNKNOWN = -1,
@@ -553,7 +562,7 @@ static int strncmp_lc(const char *a, const char *b, int len)
     int i;
     for (i = 0; i < len; i++) {
         int diff = tolower(a[i]) - tolower(b[i]);
-        RETURN_UNLESS(0 == diff, diff);
+        RETURN_ARG_UNLESS(0 == diff, diff);
     }
     return 0;
 }
@@ -668,14 +677,14 @@ static int tok_arity(mpr_token_t tok)
 
 static int expr_lex(const char *str, int idx, mpr_token_t *tok)
 {
+    int n=idx, i=idx;
+    char c = str[idx];
+    int integer_found = 0;
     tok->datatype = MPR_INT32;
     tok->casttype = 0;
     tok->vec_len = 1;
     tok->vec_idx = 0;
     tok->flags = 0;
-    int n=idx, i=idx;
-    char c = str[idx];
-    int integer_found = 0;
 
     if (c==0) {
         tok->toktype = TOK_END;
@@ -1243,6 +1252,7 @@ error:
 
 static int precompute(mpr_token_t *stk, int len, int vec_len)
 {
+    int i;
     if (replace_special_constants(stk, len-1))
         return 0;
     struct _mpr_expr e = {0, stk, 0, 0, len, len, vec_len, 0, 0, 0, -1, -1};
@@ -1254,7 +1264,6 @@ static int precompute(mpr_token_t *stk, int len, int vec_len)
         return 0;
     }
 
-    int i;
     switch (v.type) {
 #define TYPED_CASE(MTYPE, TYPE, T)          \
         case MTYPE:                         \
@@ -1314,11 +1323,11 @@ static int check_type(mpr_token_t *stk, int sp, mpr_var_t *vars, int enable_opti
             return sp;
     }
     if (arity) {
-        // find operator or function inputs
-        i = sp;
+        /* find operator or function inputs */
         int skip = 0;
         int depth = arity;
         int operand = 0;
+        i = sp;
 
         /* Walk down stack distance of arity, checking types. */
         while (--i >= 0) {
@@ -1497,7 +1506,7 @@ static int check_type(mpr_token_t *stk, int sp, mpr_var_t *vars, int enable_opti
 
 static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
 {
-    int i = sp, optimize = 1;
+    int i = sp, optimize = 1, expr_len;
     uint8_t vec_len = 0;
     expr_var_t var = stk[sp].var;
 
@@ -1520,8 +1529,8 @@ static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
     if (!(stk[sp].flags & VAR_DELAY) || i == 0)
         return 0;
 
-    // Move assignment expression to beginning of stack
-    int expr_len = sp - i + 2;
+    /* Move assignment expression to beginning of stack */
+    expr_len = sp - i + 2;
     if (stk[i].toktype == TOK_VECTORIZE)
         expr_len += stk[i].arity;
 
@@ -1649,7 +1658,7 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
 mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_types,
                                const int *in_vec_lens, mpr_type out_type, int out_vec_len)
 {
-    RETURN_UNLESS(str && n_ins && in_types && in_vec_lens, 0);
+    RETURN_ARG_UNLESS(str && n_ins && in_types && in_vec_lens, 0);
     mpr_token_t out[STACK_SIZE];
     mpr_token_t op[STACK_SIZE];
     int i, lex_idx = 0, out_idx = -1, op_idx = -1;
@@ -1748,16 +1757,16 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                     tok.flags |= VEC_LEN_LOCKED;
                 }
                 else {
-                    // get name of variable
-                    int idx = lex_idx - 1;
+                    /* get name of variable */
+                    int len, idx = lex_idx - 1;
                     char c = str[idx];
                     while (idx >= 0 && c && (isalpha(c) || isdigit(c))) {
                         if (--idx >= 0)
                             c = str[idx];
                     }
 
-                    int len = lex_idx-idx - 1;
-                    int i = find_var_by_name(vars, n_vars, str+idx+1, len);
+                    len = lex_idx-idx - 1;
+                    i = find_var_by_name(vars, n_vars, str+idx+1, len);
                     if (i >= 0) {
                         tok.var = i;
                         tok.datatype = vars[i].datatype;
@@ -1822,10 +1831,10 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 tok.arity = fn_tbl[tok.fn].arity;
                 mpr_token_t newtok;
                 if (fn_tbl[tok.fn].memory) {
-                    // add assignment token
-                    {FAIL_IF(n_vars >= N_USER_VARS, "Maximum number of variables exceeded.");}
+                    /* add assignment token */
                     char varname[6];
                     int varidx = n_vars;
+                    {FAIL_IF(n_vars >= N_USER_VARS, "Maximum number of variables exceeded.");}
                     do {
                         snprintf(varname, 6, "var%d", varidx++);
                     } while (find_var_by_name(vars, n_vars, varname, 6) >= 0);
@@ -2703,7 +2712,7 @@ static const char *type_name(const mpr_type type)
         }                                                                   \
     }                                                                       \
 
-static inline int _max(int a, int b)
+MPR_INLINE static int _max(int a, int b)
 {
     return a > b ? a : b;
 }
@@ -2711,6 +2720,11 @@ static inline int _max(int a, int b)
 int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                   mpr_value v_out, mpr_time *time, mpr_type *types, int inst_idx)
 {
+    mpr_token_t *tok, *end;
+    int status = 1 | EXPR_EVAL_DONE, alive = 1, muted = 0;   /* TODO: make bitflags */
+    int cache = 0;
+    mpr_value_buffer b_out;
+
     if (!expr) {
 #if TRACE_EVAL
         printf(" no expression to evaluate!\n");
@@ -2718,10 +2732,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         return 0;
     }
 
-    mpr_token_t *tok = expr->start, *end = expr->start + expr->n_tokens;
-    int status = 1 | EXPR_EVAL_DONE, alive = 1, muted = 0;   // TODO: make bitflags
-    int cache = 0;
-    mpr_value_buffer b_out = v_out ? &v_out->inst[inst_idx] : 0;
+    tok = expr->start;
+    end = expr->start + expr->n_tokens;
+    b_out = v_out ? &v_out->inst[inst_idx] : 0;
     if (v_out && b_out->pos >= 0) {
         tok += expr->offset;
     }
@@ -2841,18 +2854,19 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 COPY_TO_STACK(v_out);
             }
             else if (tok->var >= VAR_X) {
+                mpr_value v;
                 if (!v_in)
                     return status;
-                mpr_value v = v_in[tok->var-VAR_X];
+                v = v_in[tok->var-VAR_X];
                 COPY_TO_STACK(v);
                 if (!cache)
                     status &= ~EXPR_EVAL_DONE;
             }
             else if (v_vars) {
+                mpr_value v = *v_vars + tok->var;
                 if (!(tok->flags & VAR_DELAY))
                     ++sp;
                 dims[sp] = tok->vec_len;
-                mpr_value v = *v_vars + tok->var;
                 switch (v->type) {
                     case MPR_INT32: {
                         int *vi = v->inst[inst_idx].samps;
@@ -2925,7 +2939,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 }
             }
             if (tok->var == VAR_Y) {
-                RETURN_UNLESS(v_out, status);
+                RETURN_ARG_UNLESS(v_out, status);
                 b = b_out;
                 int idx = (b->pos + v_out->mlen + hidx) % v_out->mlen;
                 t_d = mpr_time_as_dbl(b->times[idx]);
@@ -2933,8 +2947,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                     t_d = t_d * weight + ((b->pos + v_out->mlen + hidx - 1) % v_out->mlen) * (1 - weight);
             }
             else if (tok->var >= VAR_X) {
-                RETURN_UNLESS(v_in, status);
-                mpr_value v = v_in[tok->var-VAR_X];
+                mpr_value v;
+                RETURN_ARG_UNLESS(v_in, status);
+                v = v_in[tok->var-VAR_X];
                 b = &v->inst[inst_idx % v->num_inst];
                 int idx = (b->pos + v->mlen + hidx) % v->mlen;
                 t_d = mpr_time_as_dbl(b->times[idx]);
@@ -3279,6 +3294,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                        hidx, tok->vec_idx, type_name(tok->datatype), tok->vec_len);
 #endif
             if (tok->var == VAR_Y) {
+                int idx;
+                void *v;
                 if (!alive)
                     break;
                 status |= muted ? EXPR_MUTED_UPDATE : EXPR_UPDATE;
@@ -3286,8 +3303,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 if (!v_out)
                     return status;
 
-                int idx = (b_out->pos + v_out->mlen + hidx) % v_out->mlen;
-                void *v = b_out->samps + idx * v_out->vlen * mpr_type_get_size(v_out->type);
+                idx = (b_out->pos + v_out->mlen + hidx) % v_out->mlen;
+                v = (char*)b_out->samps + idx * v_out->vlen * mpr_type_get_size(v_out->type);
 
                 switch (v_out->type) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                                  \
@@ -3399,7 +3416,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 
             break;
         }
-        case TOK_ASSIGN_TT:
+        case TOK_ASSIGN_TT: {
+            int idx, hist;
             if (tok->var != VAR_Y || !(tok->flags & VAR_DELAY))
                 goto error;
 #if TRACE_EVAL
@@ -3407,8 +3425,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             if (!v_out)
                 return status;
-            int hist = tok->flags & VAR_DELAY;
-            int idx = (b_out->pos + v_out->mlen + (hist ? stk[sp - 1][0].i : 0)) % v_out->mlen;
+            hist = tok->flags & VAR_DELAY;
+            idx = (b_out->pos + v_out->mlen + (hist ? stk[sp - 1][0].i : 0)) % v_out->mlen;
             if (idx < 0)
                 idx = v_out->mlen + idx;
             mpr_time_set_dbl(&b_out->times[idx], stk[sp][0].d);
@@ -3427,6 +3445,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             else if (hist)
                 --sp;
             break;
+        }
         default: goto error;
         }
         if (tok->casttype && tok->toktype != TOK_CONST && tok->toktype < TOK_ASSIGN) {
@@ -3469,15 +3488,16 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
         ++tok;
     }
 
-    RETURN_UNLESS(v_out, status);
+    RETURN_ARG_UNLESS(v_out, status);
 
     if (!types) {
+        void *v;
         /* Internal evaluation during parsing doesn't contain assignment token,
          * so we need to copy to output here. */
 
         /* Increment index position of output data structure. */
         b_out->pos = (b_out->pos + 1) % v_out->mlen;
-        void *v = mpr_value_get_samp(v_out, inst_idx);
+        v = mpr_value_get_samp(v_out, inst_idx);
         switch (v_out->type) {
 #define TYPED_CASE(MTYPE, TYPE, T)                  \
             case MTYPE:                             \

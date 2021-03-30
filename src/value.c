@@ -10,12 +10,14 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-static inline int _min(int a, int b) { return a < b ? a : b; }
+MPR_INLINE static int _min(int a, int b) { return a < b ? a : b; }
 
 void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_inst, int is_input)
 {
+    int i, samp_size;
+    mpr_value_buffer_t *b, tmp;
     RETURN_UNLESS(v && mlen && num_inst >= v->num_inst);
-    int i, samp_size = vlen * mpr_type_get_size(type);
+    samp_size = vlen * mpr_type_get_size(type);
 
     if (!v->inst || num_inst > v->num_inst) {
         if (v->inst)
@@ -26,7 +28,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
         }
         /* initialize new instances */
         for (i = v->num_inst; i < num_inst; i++) {
-            mpr_value_buffer b = &v->inst[i];
+            b = &v->inst[i];
             b->samps = calloc(1, mlen * samp_size);
             b->times = calloc(1, mlen * sizeof(mpr_time));
             b->pos = -1;
@@ -37,7 +39,7 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
     if (!is_input || vlen != v->vlen || type != v->type) {
         /* reallocate old instances (v->num_inst has not yet been updated) */
         for (i = 0; i < v->num_inst; i++) {
-            mpr_value_buffer b = &v->inst[i];
+            b = &v->inst[i];
             b->samps = realloc(b->samps, mlen * samp_size);
             b->times = realloc(b->times, mlen * sizeof(mpr_time));
             /* Initialize entire value to 0 */
@@ -52,35 +54,34 @@ void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_i
     if (mlen == v->mlen)
         goto done;
 
-    // only the memory size is different
-    mpr_value_buffer_t tmp;
+    /* only the memory size is different */
 
     for (i = 0; i < v->num_inst; i++) {
-        mpr_value_buffer b = &v->inst[i];
+        b = &v->inst[i];
         tmp.samps = malloc(samp_size * mlen);
         tmp.times = malloc(sizeof(mpr_time) * mlen);
 
         /* TODO: don't bother copying memory if pos is -1 */
         if (mlen > v->mlen) {
             int npos = v->mlen - b->pos;
-            // copy from [v->pos, v->mlen] to [0, v->mlen - v->pos]
-            memcpy(tmp.samps, b->samps + b->pos * samp_size, npos * samp_size);
+            /* copy from [v->pos, v->mlen] to [0, v->mlen - v->pos] */
+            memcpy(tmp.samps, (char*)b->samps + b->pos * samp_size, npos * samp_size);
             memcpy(tmp.times, &b->times[b->pos], npos * sizeof(mpr_time));
-            // copy from [0, v->pos] to [v->mlen - v->pos, v->mlen]
-            memcpy(tmp.samps + npos * samp_size, b->samps, b->pos * samp_size);
+            /* copy from [0, v->pos] to [v->mlen - v->pos, v->mlen] */
+            memcpy((char*)tmp.samps + npos * samp_size, b->samps, b->pos * samp_size);
             memcpy(&tmp.times[npos], b->times, b->pos * sizeof(mpr_time));
-            // zero remainder
-            memset(tmp.samps + v->mlen * samp_size, 0, (mlen - v->mlen) * samp_size);
+            /* zero remainder */
+            memset((char*)tmp.samps + v->mlen * samp_size, 0, (mlen - v->mlen) * samp_size);
             memset(&tmp.times[v->mlen], 0, (mlen - v->mlen) * sizeof(mpr_time));
             b->pos = v->mlen;
             b->full = 0;
         }
         else {
             int len = _min(v->mlen - b->pos, mlen);
-            memcpy(tmp.samps, b->samps + b->pos * samp_size, len * samp_size);
+            memcpy(tmp.samps, (char*)b->samps + b->pos * samp_size, len * samp_size);
             memcpy(tmp.times, &b->times[b->pos], len * sizeof(mpr_time));
             if (mlen > len) {
-                memcpy(tmp.samps + len * samp_size, b->samps, (mlen - len) * samp_size);
+                memcpy((char*)tmp.samps + len * samp_size, b->samps, (mlen - len) * samp_size);
                 memcpy(&tmp.times[len], b->times, (mlen - len) * sizeof(mpr_time));
             }
             b->pos = len;
@@ -102,7 +103,7 @@ done:
 int mpr_value_remove_inst(mpr_value v, int idx)
 {
     int i;
-    RETURN_UNLESS(idx >= 0 && idx < v->num_inst, v->num_inst);
+    RETURN_ARG_UNLESS(idx >= 0 && idx < v->num_inst, v->num_inst);
     free(v->inst[idx].samps);
     free(v->inst[idx].times);
     for (i = idx + 1; i < v->num_inst; i++) {
@@ -117,8 +118,9 @@ int mpr_value_remove_inst(mpr_value v, int idx)
 
 void mpr_value_reset_inst(mpr_value v, int idx)
 {
+    mpr_value_buffer b;
     RETURN_UNLESS(v->inst);
-    mpr_value_buffer b = &v->inst[idx];
+    b = &v->inst[idx];
     memset(b->samps, 0, v->mlen * v->vlen * mpr_type_get_size(v->type));
     memset(b->times, 0, v->mlen * sizeof(mpr_time));
     b->pos = -1;

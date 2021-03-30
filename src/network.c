@@ -55,7 +55,7 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 
 static int is_alphabetical(int num, lo_arg **names)
 {
-    RETURN_UNLESS(num > 1, 1);
+    RETURN_ARG_UNLESS(num > 1, 1);
     int i;
     for (i = 1; i < num; i++)
         TRACE_RETURN_UNLESS(strcmp(&names[i-1]->s, &names[i]->s)<0, 0,
@@ -66,13 +66,13 @@ static int is_alphabetical(int num, lo_arg **names)
 /* Extract the ordinal from a device name in the format: <name>.<n> */
 static int extract_ordinal(char *name) {
     char *s = name;
-    RETURN_UNLESS(s = strrchr(s, '.'), -1);
+    RETURN_ARG_UNLESS(s = strrchr(s, '.'), -1);
     int ordinal = atoi(s+1);
     *s = 0;
     return ordinal;
 }
 
-inline static void inform_device_subscribers(mpr_net net, mpr_dev dev)
+MPR_INLINE static void inform_device_subscribers(mpr_net net, mpr_dev dev)
 {
     if (dev->loc->subscribers) {
         trace_dev(dev, "informing subscribers (DEVICE)\n")
@@ -186,7 +186,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
     struct ifaddrs *ifaphead;
     struct ifaddrs *ifap;
     struct ifaddrs *iflo=0, *ifchosen=0;
-    RETURN_UNLESS(0 == getifaddrs(&ifaphead), 1);
+    RETURN_ARG_UNLESS(0 == getifaddrs(&ifaphead), 1);
 
     ifap = ifaphead;
     while (ifap) {
@@ -240,7 +240,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
         paa = realloc(paa, size);
         rc = GetAdaptersAddresses(AF_INET, 0, 0, paa, &size);
     }
-    RETURN_UNLESS(ERROR_SUCCESS == rc, 2);
+    RETURN_ARG_UNLESS(ERROR_SUCCESS == rc, 2);
 
     PIP_ADAPTER_ADDRESSES loaa=0, aa = paa;
     PIP_ADAPTER_UNICAST_ADDRESS lopua=0;
@@ -747,14 +747,14 @@ void mpr_net_poll(mpr_net net)
 /*! Algorithm for checking collisions and allocating resources. */
 static int check_collisions(mpr_net net, mpr_allocated resource)
 {
-    RETURN_UNLESS(!resource->locked, 0);
+    RETURN_ARG_UNLESS(!resource->locked, 0);
     double current_time = mpr_get_current_time();
     double timediff = current_time - resource->count_time;
     int i;
 
     if (!resource->online) {
         if (timediff >= 5.0) {
-            // reprobe with the same value
+            /* reprobe with the same value */
             resource->count_time = current_time;
             return 1;
         }
@@ -794,7 +794,7 @@ static int handler_who(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
     mpr_net net = (mpr_net)user;
-    RETURN_UNLESS(net->devs, 0);
+    RETURN_ARG_UNLESS(net->devs, 0);
     trace_dev(net->devs[0], "received /who\n");
     mpr_net_maybe_send_ping(net, 1);
     return 0;
@@ -804,7 +804,7 @@ static int handler_who(const char *path, const char *types, lo_arg **av, int ac,
 static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac && MPR_STR == types[0], 0);
+    RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
     mpr_graph graph = net->graph;
@@ -951,7 +951,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac >= 2 && MPR_STR == types[0], 0);
+    RETURN_ARG_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac >= 2 && MPR_STR == types[0], 0);
     mpr_msg props = mpr_msg_parse_props(ac, types, av);
     trace_dev(dev, "received /%s/modify + %d properties.\n", path, props->num_atoms);
     if (mpr_dev_set_from_msg(dev, props)) {
@@ -966,7 +966,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
 static int handler_logout(const char *path, const char *types, lo_arg **av,
                           int ac, lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac && MPR_STR == types[0], 0);
+    RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0, remote;
     mpr_graph gph = net->graph;
@@ -1074,12 +1074,12 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **av,
 static int handler_sig(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac >= 2 && MPR_STR == types[0], 1);
+    RETURN_ARG_UNLESS(ac >= 2 && MPR_STR == types[0], 1);
     mpr_net net = (mpr_net)user;
     const char *full_sig_name = &av[0]->s;
     char *signamep, *devnamep;
     int devnamelen = mpr_parse_names(full_sig_name, &devnamep, &signamep);
-    RETURN_UNLESS(devnamep && signamep && devnamelen < 1024, 0);
+    RETURN_ARG_UNLESS(devnamep && signamep && devnamelen < 1024, 0);
 
     char devname[1024];
     strncpy(devname, devnamep, devnamelen);
@@ -1130,7 +1130,7 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac > 1 && MPR_STR == types[0], 0);
+    RETURN_ARG_UNLESS(dev && mpr_dev_get_is_ready(dev) && ac > 1 && MPR_STR == types[0], 0);
 
     /* retrieve signal */
     mpr_sig sig = mpr_dev_get_sig_by_name(dev, &av[0]->s);
@@ -1156,12 +1156,12 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
 static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
                                int ac, lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac && MPR_STR == types[0], 1);
+    RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 1);
     mpr_net net = (mpr_net)user;
     const char *full_sig_name = &av[0]->s;
     char *signamep, *devnamep;
     int devnamelen = mpr_parse_names(full_sig_name, &devnamep, &signamep);
-    RETURN_UNLESS(devnamep && signamep && devnamelen < 1024, 0);
+    RETURN_ARG_UNLESS(devnamep && signamep && devnamelen < 1024, 0);
 
     char devname[1024];
     strncpy(devname, devnamep, devnamelen);
@@ -1179,10 +1179,10 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
 static int handler_name(const char *path, const char *types, lo_arg **av,
                         int ac, lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac && MPR_STR == types[0], 0);
+    RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev, 0);
+    RETURN_ARG_UNLESS(dev, 0);
     int ordinal, diff, temp_id = -1, hint = 0;
     char *name = &av[0]->s;
     if (ac > 1) {
@@ -1201,7 +1201,7 @@ static int handler_name(const char *path, const char *types, lo_arg **av,
 
     if (dev->loc->ordinal.locked) {
         ordinal = extract_ordinal(name);
-        RETURN_UNLESS(ordinal >= 0, 0);
+        RETURN_ARG_UNLESS(ordinal >= 0, 0);
 
         /* If device name matches */
         if (0 == strcmp(name, dev->prefix)) {
@@ -1240,7 +1240,7 @@ static int handler_name_probe(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev, 0);
+    RETURN_ARG_UNLESS(dev, 0);
     char *name = &av[0]->s;
     int i, temp_id = av[1]->i;
 
@@ -1298,8 +1298,8 @@ static int handler_name_probe(const char *path, const char *types, lo_arg **av,
 static int parse_sig_names(const char *types, lo_arg **av, int ac, int *src_idx,
                            int *dst_idx, int *prop_idx)
 {
-    // protocol: /map src1 ... srcN -> dst OR /map dst <- src1 ... srcN
-    RETURN_UNLESS(!strncmp(types, "sss", 3), 0);
+    /* protocol: /map src1 ... srcN -> dst OR /map dst <- src1 ... srcN */
+    RETURN_ARG_UNLESS(!strncmp(types, "sss", 3), 0);
     int i, num_src = 0;
     if (0 == strcmp(&av[1]->s, "<-")) {
         *src_idx = 2;
@@ -1358,11 +1358,11 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
                         mpr_loc loc, mpr_sig *sig_ptr, int flags)
 {
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev || !loc, MPR_MAP_ERROR);
+    RETURN_ARG_UNLESS(dev || !loc, MPR_MAP_ERROR);
     int i, is_loc = 0, src_idx, dst_idx, prop_idx;
     int num_src = parse_sig_names(types, av, ac, &src_idx, &dst_idx, &prop_idx);
-    RETURN_UNLESS(num_src, MPR_MAP_ERROR);
-    RETURN_UNLESS(is_alphabetical(num_src, &av[src_idx]), MPR_MAP_ERROR);
+    RETURN_ARG_UNLESS(num_src, MPR_MAP_ERROR);
+    RETURN_ARG_UNLESS(is_alphabetical(num_src, &av[src_idx]), MPR_MAP_ERROR);
     mpr_sig sig = 0;
     mpr_id id = 0;
 
@@ -1386,7 +1386,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
             printf("\b\b%s -> '%s'\n", map->num_src > 1 ? "]" : "", map->dst->sig->name);
 #endif
             is_loc = mpr_obj_get_prop_as_int32((mpr_obj)map, MPR_PROP_IS_LOCAL, NULL);
-            RETURN_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
+            RETURN_ARG_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
             if (map->num_src < num_src && (flags & UPDATE)) {
                 trace_graph("adding additional sources to map.\n");
                 /* add additional sources */
@@ -1413,7 +1413,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
             && (sig = mpr_dev_get_sig_by_name(dev, sig_name)))
             is_loc = 1;
         else
-            RETURN_UNLESS(MPR_LOC_DST != loc, MPR_MAP_ERROR);
+            RETURN_ARG_UNLESS(MPR_LOC_DST != loc, MPR_MAP_ERROR);
     }
     if (!sig && MPR_LOC_SRC & loc) {
         /* check if we are a source – all sources must match! */
@@ -1422,10 +1422,10 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
                 && (sig = mpr_dev_get_sig_by_name(dev, sig_name)))
                 is_loc = 1;
             else
-                RETURN_UNLESS(MPR_LOC_SRC != loc, MPR_MAP_ERROR);
+                RETURN_ARG_UNLESS(MPR_LOC_SRC != loc, MPR_MAP_ERROR);
         }
     }
-    RETURN_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
+    RETURN_ARG_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
     mpr_map map = mpr_graph_get_map_by_names(net->graph, num_src, src_names, dst_name);
 #ifdef DEBUG
     trace_graph("%s map with src name%s", map ? "found" : "couldn't find",
@@ -1456,7 +1456,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev, 0);
+    RETURN_ARG_UNLESS(dev, 0);
 #ifdef DEBUG
     trace_dev(dev, "received /map ");
     lo_message_pp(msg);
@@ -1465,7 +1465,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
     int i;
 
     mpr_map map = find_map(net, types, ac, av, MPR_LOC_DST, &sig, ADD | UPDATE);
-    RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
+    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
     if (map->status >= MPR_STATUS_ACTIVE) {
         /* Forward to handler_map_mod() and stop. */
         handler_map_mod(path, types, av, ac, msg, user);
@@ -1533,7 +1533,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
 #endif
 
     mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, ADD | UPDATE);
-    RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
+    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
     mpr_rtr_add_map(net->rtr, map);
 
     if (map->status < MPR_STATUS_ACTIVE) {
@@ -1585,7 +1585,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
 #endif
 
     mpr_map map = find_map(net, types, ac, av, 0, 0, UPDATE);
-    RETURN_UNLESS(MPR_MAP_ERROR != map, 0);
+    RETURN_ARG_UNLESS(MPR_MAP_ERROR != map, 0);
     if (!map) {
         int store = 0, i = 0;
         if (graph->autosub & MPR_MAP)
@@ -1603,7 +1603,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             map = find_map(net, types, ac, av, 0, 0, ADD);
             rc = 1;
         }
-        RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
+        RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
     }
     else if (map->loc && map->loc->is_local_only) {
         /* no need to update since all properties are local */
@@ -1621,7 +1621,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         { trace_graph("updated %d map properties. (2)\n", updated); }
 #endif
     if (dev) {
-        RETURN_UNLESS(map->status >= MPR_STATUS_READY, 0);
+        RETURN_ARG_UNLESS(map->status >= MPR_STATUS_READY, 0);
         if (MPR_STATUS_READY == map->status) {
             map->status = MPR_STATUS_ACTIVE;
             rc = 1;
@@ -1674,17 +1674,17 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
 static int handler_map_mod(const char *path, const char *types, lo_arg **av,
                            int ac, lo_message msg, void *user)
 {
-    RETURN_UNLESS(ac >= 4, 0);
+    RETURN_ARG_UNLESS(ac >= 4, 0);
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev, 0);
+    RETURN_ARG_UNLESS(dev, 0);
 #ifdef DEBUG
     trace_dev(dev, "received /map/modify ");
     lo_message_pp(msg);
 #endif
     mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, FIND);
-    RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
-    RETURN_UNLESS(map->loc && map->status >= MPR_STATUS_ACTIVE, 0);
+    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
+    RETURN_ARG_UNLESS(map->loc && map->status >= MPR_STATUS_ACTIVE, 0);
 
     mpr_msg props = mpr_msg_parse_props(ac, types, av);
     TRACE_DEV_RETURN_UNLESS(props, 0, "ignoring /map/modify, no properties.\n");
@@ -1755,13 +1755,13 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs ? net->devs[0] : 0;
-    RETURN_UNLESS(dev, 0);
+    RETURN_ARG_UNLESS(dev, 0);
 #ifdef DEBUG
     trace_dev(dev, "received /unmap");
     lo_message_pp(msg);
 #endif
     mpr_map map = find_map(net, types, ac, av, MPR_LOC_ANY, 0, FIND);
-    RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
+    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
     int i;
 
     /* inform remote peer(s) */
@@ -1822,7 +1822,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **av,
     lo_message_pp(msg);
 #endif
     mpr_map map = find_map(net, types, ac, av, 0, 0, FIND);
-    RETURN_UNLESS(map && MPR_MAP_ERROR != map, 0);
+    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
     mpr_graph_remove_map(net->graph, map, MPR_OBJ_REM);
     return 0;
 }
@@ -1832,7 +1832,7 @@ static int handler_ping(const char *path, const char *types, lo_arg **av,
 {
     mpr_net net = (mpr_net)user;
     mpr_dev dev = net->devs[0], remote;
-    RETURN_UNLESS(dev, 0);
+    RETURN_ARG_UNLESS(dev, 0);
     mpr_link lnk;
     mpr_time now;
     mpr_time_set(&now, MPR_NOW);
@@ -1887,11 +1887,11 @@ static int handler_sync(const char *path, const char *types, lo_arg **av,
                         int ac, lo_message msg, void *user)
 {
     mpr_net net = (mpr_net)user;
-    RETURN_UNLESS(net && ac && MPR_STR == types[0], 0);
+    RETURN_ARG_UNLESS(net && ac && MPR_STR == types[0], 0);
     mpr_graph graph = net->graph;
     mpr_dev dev = mpr_graph_get_dev_by_name(graph, &av[0]->s);
     if (dev) {
-        RETURN_UNLESS(!dev->loc, 0);
+        RETURN_ARG_UNLESS(!dev->loc, 0);
         trace_graph("updating sync record for device '%s'\n", dev->name);
         mpr_time_set(&dev->synced, MPR_NOW);
 

@@ -38,22 +38,22 @@ int mpr_obj_get_num_props(mpr_obj o, int staged)
 mpr_prop mpr_obj_get_prop_by_key(mpr_obj o, const char *s, int *l, mpr_type *t,
                                  const void **v, int *p)
 {
-    RETURN_UNLESS(o && s, 0);
+    RETURN_ARG_UNLESS(o && s, 0);
     return mpr_tbl_get_prop_by_key(o->props.synced, s, l, t, v, p);
 }
 
 mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, mpr_prop p, const char **k, int *l,
                                  mpr_type *t, const void **v, int *pub)
 {
-    RETURN_UNLESS(o, 0);
+    RETURN_ARG_UNLESS(o, 0);
     return mpr_tbl_get_prop_by_idx(o->props.synced, p | o->props.mask, k, l, t, v, pub);
 }
 
 int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
 {
-    RETURN_UNLESS(o, 0);
+    RETURN_ARG_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val, 0);
+    RETURN_ARG_UNLESS(r && r->val, 0);
     void *v = (r->flags & INDIRECT) ? *r->val : r->val;
     switch(r->type) {
         case MPR_BOOL:
@@ -68,9 +68,9 @@ int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
 
 float mpr_obj_get_prop_as_flt(mpr_obj o, mpr_prop p, const char *s)
 {
-    RETURN_UNLESS(o, 0);
+    RETURN_ARG_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val, 0);
+    RETURN_ARG_UNLESS(r && r->val, 0);
     void *v = (r->flags & INDIRECT) ? *r->val : r->val;
     switch(r->type) {
         case MPR_BOOL:
@@ -84,33 +84,33 @@ float mpr_obj_get_prop_as_flt(mpr_obj o, mpr_prop p, const char *s)
 
 const char *mpr_obj_get_prop_as_str(mpr_obj o, mpr_prop p, const char *s)
 {
-    RETURN_UNLESS(o, 0);
+    RETURN_ARG_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && MPR_STR == r->type && 1 == r->len, 0);
+    RETURN_ARG_UNLESS(r && r->val && MPR_STR == r->type && 1 == r->len, 0);
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
 const void *mpr_obj_get_prop_as_ptr(mpr_obj o, mpr_prop p, const char *s)
 {
-    RETURN_UNLESS(o, 0);
+    RETURN_ARG_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && MPR_PTR == r->type && 1 == r->len, 0);
+    RETURN_ARG_UNLESS(r && r->val && MPR_PTR == r->type && 1 == r->len, 0);
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
 mpr_obj mpr_obj_get_prop_as_obj(mpr_obj o, mpr_prop p, const char *s)
 {
-    RETURN_UNLESS(o, 0);
+    RETURN_ARG_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && MPR_OBJ >= r->type && 1 == r->len, 0);
+    RETURN_ARG_UNLESS(r && r->val && MPR_OBJ >= r->type && 1 == r->len, 0);
     return r->flags & INDIRECT ? *r->val : r->val;
 }
 
 mpr_list mpr_obj_get_prop_as_list(mpr_obj o, mpr_prop p, const char *s)
 {
-    RETURN_UNLESS(o, 0);
+    RETURN_ARG_UNLESS(o, 0);
     mpr_tbl_record r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_UNLESS(r && r->val && MPR_LIST == r->type && 1 == r->len, 0);
+    RETURN_ARG_UNLESS(r && r->val && MPR_LIST == r->type && 1 == r->len, 0);
     mpr_list l = r->flags & INDIRECT ? *r->val : r->val;
     return l ? mpr_list_start(mpr_list_get_cpy(l)) : 0;
 }
@@ -118,8 +118,8 @@ mpr_list mpr_obj_get_prop_as_list(mpr_obj o, mpr_prop p, const char *s)
 mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
                           mpr_type type, const void *val, int publish)
 {
-    RETURN_UNLESS(o, 0);
-    // TODO: ensure ID property can't be changed by user code
+    RETURN_ARG_UNLESS(o, 0);
+    /* TODO: ensure ID property can't be changed by user code */
     if (MPR_PROP_UNKNOWN == p || !MASK_PROP_BITFLAGS(p)) {
         if (!s || '@' == s[0])
             return MPR_PROP_UNKNOWN;
@@ -140,8 +140,8 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
 
 int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
 {
-    RETURN_UNLESS(o, 0);
-    // check if object represents local resource
+    RETURN_ARG_UNLESS(o, 0);
+    /* check if object represents local resource */
     int updated = 0, local = o->props.staged ? 0 : 1;
     if (MPR_PROP_UNKNOWN == p)
         p = mpr_prop_from_str(s);

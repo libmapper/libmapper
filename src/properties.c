@@ -92,9 +92,9 @@ const char *mpr_steal_strings[] =
 
 int mpr_parse_names(const char *string, char **devnameptr, char **signameptr)
 {
-    RETURN_UNLESS(string, 0);
+    RETURN_ARG_UNLESS(string, 0);
     const char *devname = skip_slash(string);
-    RETURN_UNLESS(devname && devname[0] != '/', 0);
+    RETURN_ARG_UNLESS(devname && devname[0] != '/', 0);
     if (devnameptr)
         *devnameptr = (char*) devname;
     char *signame = strchr(devname+1, '/');
@@ -123,7 +123,7 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
         if (argv[i]->s == '@' || !strncmp(&argv[i]->s, "-@", 2) || !strncmp(&argv[i]->s, "+@", 2))
             ++num_props;
     }
-    RETURN_UNLESS(num_props, 0);
+    RETURN_ARG_UNLESS(num_props, 0);
 
     mpr_msg msg = (mpr_msg) calloc(1, sizeof(struct _mpr_msg));
     msg->atoms = ((mpr_msg_atom_t*) calloc(1, sizeof(struct _mpr_msg_atom) * num_props));
@@ -316,7 +316,7 @@ mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, mpr_prop prop)
     int i;
     for (i = 0; i < msg->num_atoms; i++) {
         if (msg->atoms[i].prop == prop) {
-            RETURN_UNLESS(msg->atoms[i].len && msg->atoms[i].types, 0);
+            RETURN_ARG_UNLESS(msg->atoms[i].len && msg->atoms[i].types, 0);
             return &msg->atoms[i];
         }
     }
@@ -401,7 +401,7 @@ const char *mpr_loc_as_str(mpr_loc loc)
 
 mpr_loc mpr_loc_from_str(const char *str)
 {
-    RETURN_UNLESS(str, MPR_LOC_UNDEFINED);
+    RETURN_ARG_UNLESS(str, MPR_LOC_UNDEFINED);
     int i;
     for (i = MPR_LOC_UNDEFINED+1; i < 3; i++) {
         if (strcmp(str, mpr_loc_strings[i])==0)
@@ -419,7 +419,7 @@ const char *mpr_protocol_as_str(mpr_proto p)
 
 mpr_proto mpr_protocol_from_str(const char *str)
 {
-    RETURN_UNLESS(str, MPR_PROTO_UNDEFINED);
+    RETURN_ARG_UNLESS(str, MPR_PROTO_UNDEFINED);
     int i;
     for (i = MPR_PROTO_UNDEFINED+1; i < MPR_NUM_PROTO; i++) {
         if (strcmp(str, mpr_protocol_strings[i])==0)

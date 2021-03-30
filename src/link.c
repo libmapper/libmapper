@@ -106,7 +106,7 @@ void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t, mp
  * case where the interrupt has interrupted mpr_dev_poll() these messages will not be dispatched. */
 int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
 {
-    RETURN_UNLESS(link, 0);
+    RETURN_ARG_UNLESS(link, 0);
     int i = 0, num = 0, tmp;
 
     mpr_bundle b = &link->bundles[idx];
@@ -171,7 +171,7 @@ static int cmp_qry_link_maps(const void *context_data, mpr_map map)
 
 mpr_list mpr_link_get_maps(mpr_link link)
 {
-    RETURN_UNLESS(link && link->devs[0]->obj.graph->maps, 0);
+    RETURN_ARG_UNLESS(link && link->devs[0]->obj.graph->maps, 0);
     mpr_list q = mpr_list_new_query((const void**)&link->devs[0]->obj.graph->maps,
                                     cmp_qry_link_maps, "h", link->obj.id);
     return mpr_list_start(q);

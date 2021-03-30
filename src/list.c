@@ -76,7 +76,7 @@ static mpr_list_header_t* mpr_list_new_item(size_t size)
 
     size += LIST_HEADER_SIZE;
     lh = calloc(1, size);
-    RETURN_UNLESS(lh, 0);
+    RETURN_ARG_UNLESS(lh, 0);
     lh->self = &lh->data;
     lh->start = &lh->self;
     lh->query_type = QUERY_STATIC;
@@ -99,7 +99,7 @@ static mpr_list_header_t* mpr_list_header_by_self(void *self)
 
 void *mpr_list_from_data(const void *data)
 {
-    RETURN_UNLESS(data, 0);
+    RETURN_ARG_UNLESS(data, 0);
     mpr_list_header_t* lh = mpr_list_header_by_data(data);
     die_unless(lh->self == &lh->data, "bad self pointer in list structure");
     return &lh->self;
@@ -210,7 +210,7 @@ size += num_args * sizeof(TYPE);
 
 static int get_query_size(const char *types, va_list aq)
 {
-    RETURN_UNLESS(types, 0);
+    RETURN_ARG_UNLESS(types, 0);
     int i = 0, j, size = 0, num_args;
     while (types[i]) {
         switch (types[i]) {
@@ -264,7 +264,7 @@ offset += sizeof(TYPE) * num_args;
 static void **new_query_internal(const void **list, int size, const void *func,
                                  const char *types, va_list aq)
 {
-    RETURN_UNLESS(list && size && func && types, 0);
+    RETURN_ARG_UNLESS(list && size && func && types, 0);
     mpr_list_header_t *lh = (mpr_list_header_t*)malloc(LIST_HEADER_SIZE);
     lh->next = mpr_list_query_continuation;
     lh->query_type = QUERY_DYNAMIC;
@@ -342,7 +342,7 @@ mpr_list mpr_list_new_query(const void **list, const void *func,
 
 mpr_list mpr_list_start(mpr_list list)
 {
-    RETURN_UNLESS(list, 0);
+    RETURN_ARG_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
     lh->self = *lh->start;
     if (QUERY_DYNAMIC == lh->query_type) {
@@ -368,7 +368,7 @@ mpr_list mpr_list_get_next(mpr_list list)
     }
 
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
-    RETURN_UNLESS(lh->next, 0);
+    RETURN_ARG_UNLESS(lh->next, 0);
 
     if (QUERY_STATIC == lh->query_type)
         return (mpr_list)mpr_list_from_data(lh->next);
@@ -393,7 +393,7 @@ void mpr_list_free(mpr_list list)
 
 mpr_obj mpr_list_get_idx(mpr_list list, unsigned int idx)
 {
-    RETURN_UNLESS(list, 0);
+    RETURN_ARG_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
 
     if (0 == idx && *lh->start)
@@ -433,7 +433,7 @@ static mpr_list_header_t *mpr_list_header_cpy(mpr_list_header_t *lh)
 {
     mpr_list_header_t *cpy = (mpr_list_header_t*)malloc(LIST_HEADER_SIZE);
     memcpy(cpy, lh, LIST_HEADER_SIZE);
-    RETURN_UNLESS(lh->query_ctx, cpy);
+    RETURN_ARG_UNLESS(lh->query_ctx, cpy);
 
     cpy->query_ctx = (query_info_t*)malloc(lh->query_ctx->size);
     memcpy(cpy->query_ctx, lh->query_ctx, lh->query_ctx->size);
@@ -455,7 +455,7 @@ static mpr_list_header_t *mpr_list_header_cpy(mpr_list_header_t *lh)
 
 mpr_list mpr_list_get_cpy(mpr_list list)
 {
-    RETURN_UNLESS(list, 0);
+    RETURN_ARG_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
     mpr_list_header_t *cpy = mpr_list_header_cpy(lh);
     return (mpr_list)&cpy->self;
@@ -463,8 +463,8 @@ mpr_list mpr_list_get_cpy(mpr_list list)
 
 mpr_list mpr_list_get_union(mpr_list list1, mpr_list list2)
 {
-    RETURN_UNLESS(list1, list2);
-    RETURN_UNLESS(list2, list1);
+    RETURN_ARG_UNLESS(list1, list2);
+    RETURN_ARG_UNLESS(list2, list1);
     mpr_list_header_t *lh1 = mpr_list_header_by_self(list1);
     mpr_list_header_t *lh2 = mpr_list_header_by_self(list2);
     mpr_list q = mpr_list_new_query((const void **)lh1->start, cmp_parallel_query,
@@ -474,7 +474,7 @@ mpr_list mpr_list_get_union(mpr_list list1, mpr_list list2)
 
 mpr_list mpr_list_get_isect(mpr_list list1, mpr_list list2)
 {
-    RETURN_UNLESS(list1 && list2, 0);
+    RETURN_ARG_UNLESS(list1 && list2, 0);
     mpr_list_header_t *lh1 = mpr_list_header_by_self(list1);
     mpr_list_header_t *lh2 = mpr_list_header_by_self(list2);
     mpr_list q = mpr_list_new_query((const void **)lh1->start, cmp_parallel_query,
@@ -485,7 +485,7 @@ mpr_list mpr_list_get_isect(mpr_list list1, mpr_list list2)
 static mpr_list mpr_list_filter_internal(mpr_list list, const void *func,
                                          const char *types, ...)
 {
-    RETURN_UNLESS(list, 0);
+    RETURN_ARG_UNLESS(list, 0);
     va_list aq;
     va_start(aq, types);
     int size = get_query_size(types, aq);
@@ -509,8 +509,8 @@ static mpr_list mpr_list_filter_internal(mpr_list list, const void *func,
 
 static int match_pattern(const char* s, const char* p)
 {
-    RETURN_UNLESS(s && p, 1);
-    RETURN_UNLESS(strchr(p, '*'), strcmp(s, p));
+    RETURN_ARG_UNLESS(s && p, 1);
+    RETURN_ARG_UNLESS(strchr(p, '*'), strcmp(s, p));
 
     /* 1) tokenize pattern using strtok() with delimiter character '*'
      * 2) use strstr() to check if token exists in offset string */
@@ -520,7 +520,7 @@ static int match_pattern(const char* s, const char* p)
     int ends_wild = ('*' == p[strlen(p)-1]);
     while (str && *str) {
         tok = strtok(pat, "*");
-        RETURN_UNLESS(tok, !ends_wild);
+        RETURN_ARG_UNLESS(tok, !ends_wild);
         str = strstr(str, tok);
         if (str && *str)
             str += strlen(tok);
@@ -651,8 +651,8 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop p, const char *key, int len,
 
 mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2)
 {
-    RETURN_UNLESS(list1, 0);
-    RETURN_UNLESS(list2, list1);
+    RETURN_ARG_UNLESS(list1, 0);
+    RETURN_ARG_UNLESS(list2, list1);
     mpr_list_header_t *lh1 = mpr_list_header_by_self(list1);
     mpr_list_header_t *lh2 = mpr_list_header_by_self(list2);
     mpr_list q = mpr_list_new_query((const void **)lh1->start, cmp_parallel_query,
@@ -662,9 +662,9 @@ mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2)
 
 int mpr_list_get_size(mpr_list list)
 {
-    RETURN_UNLESS(list, 0);
+    RETURN_ARG_UNLESS(list, 0);
     mpr_list_header_t *lh = mpr_list_header_by_self(list);
-    RETURN_UNLESS(lh->start && *lh->start, 0);
+    RETURN_ARG_UNLESS(lh->start && *lh->start, 0);
     int count = 1;
     if (QUERY_DYNAMIC == lh->query_type) {
         /* use a copy */

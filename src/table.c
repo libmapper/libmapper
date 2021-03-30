@@ -7,8 +7,8 @@
 
 static int match_pattern(const char* s, const char* p)
 {
-    RETURN_UNLESS(s && p, 1);
-    RETURN_UNLESS(strchr(p, '*'), strcmp(s, p));
+    RETURN_ARG_UNLESS(s && p, 1);
+    RETURN_ARG_UNLESS(strchr(p, '*'), strcmp(s, p));
 
         /* 1) tokenize pattern using strtok() with delimiter character '*'
          * 2) use strstr() to check if token exists in offset string */
@@ -18,7 +18,7 @@ static int match_pattern(const char* s, const char* p)
     int ends_wild = ('*' == p[strlen(p)-1]);
     while (str && *str) {
         tok = strtok(pat, "*");
-        RETURN_UNLESS(tok, !ends_wild);
+        RETURN_ARG_UNLESS(tok, !ends_wild);
         str = strstr(str, tok);
         if (str && *str)
             str += strlen(tok);
@@ -55,7 +55,7 @@ static int compare_rec(const void *l, const void *r)
 mpr_tbl mpr_tbl_new()
 {
     mpr_tbl t = (mpr_tbl)calloc(1, sizeof(mpr_tbl_t));
-    RETURN_UNLESS(t, 0);
+    RETURN_ARG_UNLESS(t, 0);
     t->count = 0;
     t->alloced = 1;
     t->rec = (mpr_tbl_record)calloc(1, sizeof(mpr_tbl_record_t));
@@ -139,7 +139,7 @@ int mpr_tbl_get_size(mpr_tbl t)
 
 mpr_tbl_record mpr_tbl_get(mpr_tbl t, mpr_prop prop, const char *key)
 {
-    RETURN_UNLESS(key || (MPR_PROP_UNKNOWN != prop && MPR_PROP_EXTRA != prop), 0);
+    RETURN_ARG_UNLESS(key || (MPR_PROP_UNKNOWN != prop && MPR_PROP_EXTRA != prop), 0);
     mpr_tbl_record_t tmp;
     tmp.prop = prop;
     tmp.key = key;
@@ -225,7 +225,7 @@ int mpr_tbl_remove(mpr_tbl t, mpr_prop prop, const char *key, int flags)
 
     do {
         mpr_tbl_record rec = mpr_tbl_get(t, prop, key);
-        RETURN_UNLESS(rec && (rec->flags & MODIFIABLE) && rec->val, ret);
+        RETURN_ARG_UNLESS(rec && (rec->flags & MODIFIABLE) && rec->val, ret);
         prop = MASK_PROP_BITFLAGS(prop);
         if (prop != MPR_PROP_EXTRA && prop != MPR_PROP_LINKED) {
             /* set value to null rather than removing */
@@ -284,7 +284,7 @@ void mpr_tbl_clear_empty(mpr_tbl t)
 static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type,
                            const void *val)
 {
-    RETURN_UNLESS(len && (rec->val || !(rec->flags & INDIRECT)), 0);
+    RETURN_ARG_UNLESS(len && (rec->val || !(rec->flags & INDIRECT)), 0);
     int i, updated = 0;
     void *old_val = (rec->flags & INDIRECT) ? *rec->val : rec->val;
     void *new_val = old_val;
@@ -361,7 +361,7 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
     int updated = 0;
     mpr_tbl_record rec = mpr_tbl_get(t, prop, key);
     if (rec) {
-        RETURN_UNLESS(rec->flags & MODIFIABLE, 0);
+        RETURN_ARG_UNLESS(rec->flags & MODIFIABLE, 0);
         if (prop & PROP_REMOVE)
             return mpr_tbl_remove(t, prop, key, flags);
         rec->prop &= ~PROP_REMOVE;
@@ -406,7 +406,7 @@ void mpr_tbl_link(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val,
 static int update_elements_osc(mpr_tbl_record rec, unsigned int len,
                                const mpr_type *types, lo_arg **args)
 {
-    RETURN_UNLESS(len, 0);
+    RETURN_ARG_UNLESS(len, 0);
     if (MPR_STR == types[0] && 1 == len)
         return update_elements(rec, 1, MPR_STR, &args[0]->s);
 

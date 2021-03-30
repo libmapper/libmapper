@@ -9,7 +9,8 @@
 /* Structs that refer to things defined in mapper.h are declared here instead
    of in types_internal.h */
 
-#define RETURN_UNLESS(a, ...) { if (!(a)) { return __VA_ARGS__; }}
+#define RETURN_UNLESS(a) { if (!(a)) { return; }}
+#define RETURN_ARG_UNLESS(a, ...) { if (!(a)) { return __VA_ARGS__; }}
 #define DONE_UNLESS(a) { if (!(a)) { goto done; }}
 #define FUNC_IF(a, b) { if (b) { a(b); }}
 #define PROP(NAME) MPR_PROP_##NAME
@@ -22,6 +23,12 @@ if (!(a)) { trace_dev(dev, __VA_ARGS__); return ret; }
 #else
 #define TRACE_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
 #define TRACE_DEV_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
+#endif
+
+#if defined(WIN32) || defined(_MSC_VER)
+#define MPR_INLINE __inline
+#else
+#define MPR_INLINE inline
 #endif
 
 /**** Debug macros ****/
@@ -138,12 +145,12 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
 int mpr_dev_bundle_start(lo_timetag t, void *data);
 
-inline static void mpr_dev_LID_incref(mpr_dev dev, mpr_id_map map)
+MPR_INLINE static void mpr_dev_LID_incref(mpr_dev dev, mpr_id_map map)
 {
     ++map->LID_refcount;
 }
 
-inline static void mpr_dev_GID_incref(mpr_dev dev, mpr_id_map map)
+MPR_INLINE static void mpr_dev_GID_incref(mpr_dev dev, mpr_id_map map)
 {
     ++map->GID_refcount;
 }
@@ -599,7 +606,7 @@ const char *mpr_prop_as_str(mpr_prop prop, int skip_slash);
 /**** Types ****/
 
 /*! Helper to find size of signal value types. */
-inline static int mpr_type_get_size(mpr_type type)
+MPR_INLINE static int mpr_type_get_size(mpr_type type)
 {
     if (type <= MPR_LIST)   return sizeof(void*);
     switch (type) {
@@ -632,29 +639,29 @@ int mpr_value_remove_inst(mpr_value v, int idx);
 void mpr_value_set_sample(mpr_value v, int idx, void *s, mpr_time t);
 
 /*! Helper to find the pointer to the current value in a mpr_value_t. */
-inline static void* mpr_value_get_samp(mpr_value v, int idx)
+MPR_INLINE static void* mpr_value_get_samp(mpr_value v, int idx)
 {
     mpr_value_buffer b = &v->inst[idx];
-    return b->samps + b->pos * v->vlen * mpr_type_get_size(v->type);
+    return (char*)b->samps + b->pos * v->vlen * mpr_type_get_size(v->type);
 }
 
-inline static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int hist_idx)
+MPR_INLINE static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int hist_idx)
 {
     mpr_value_buffer b = &v->inst[inst_idx];
     int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
     if (idx < 0)
         idx += v->mlen;
-    return b->samps + idx * v->vlen * mpr_type_get_size(v->type);
+    return (char*)b->samps + idx * v->vlen * mpr_type_get_size(v->type);
 }
 
 /*! Helper to find the pointer to the current time in a mpr_value_t. */
-inline static mpr_time* mpr_value_get_time(mpr_value v, int idx)
+MPR_INLINE static mpr_time* mpr_value_get_time(mpr_value v, int idx)
 {
     mpr_value_buffer b = &v->inst[idx];
     return &b->times[b->pos];
 }
 
-inline static mpr_time* mpr_value_get_time_hist(mpr_value v, int inst_idx, int hist_idx)
+MPR_INLINE static mpr_time* mpr_value_get_time_hist(mpr_value v, int inst_idx, int hist_idx)
 {
     mpr_value_buffer b = &v->inst[inst_idx];
     int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
@@ -671,25 +678,25 @@ void mpr_value_print_hist(mpr_value v, int inst_idx);
 #endif
 
 /*! Helper to find the size in bytes of a signal's full vector. */
-inline static size_t mpr_sig_get_vector_bytes(mpr_sig sig)
+MPR_INLINE static size_t mpr_sig_get_vector_bytes(mpr_sig sig)
 {
     return mpr_type_get_size(sig->type) * sig->len;
 }
 
 /*! Helper to check if a type character is valid. */
-inline static int check_sig_length(int length)
+MPR_INLINE static int check_sig_length(int length)
 {
     return (length < 1 || length > MPR_MAX_VECTOR_LEN);
 }
 
 /*! Helper to check if bitfields match completely. */
-inline static int bitmatch(unsigned int a, unsigned int b)
+MPR_INLINE static int bitmatch(unsigned int a, unsigned int b)
 {
     return (a & b) == b;
 }
 
 /*! Helper to check if type is a number. */
-inline static int mpr_type_get_is_num(mpr_type type)
+MPR_INLINE static int mpr_type_get_is_num(mpr_type type)
 {
     switch (type) {
         case MPR_INT32:

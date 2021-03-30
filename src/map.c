@@ -15,12 +15,12 @@
 #define MPR_STATUS_LINK_KNOWN   0x10
 #define METADATA_OK             0x1C
 
-static inline int _max(int a, int b)
+MPR_INLINE static int _max(int a, int b)
 {
     return a > b ? a : b;
 }
 
-static inline int _min(int a, int b)
+MPR_INLINE static int _min(int a, int b)
 {
     return a < b ? a : b;
 }
@@ -108,8 +108,8 @@ void mpr_map_init(mpr_map m)
 
 mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
 {
-    RETURN_UNLESS(src && *src && dst && *dst, 0);
-    RETURN_UNLESS(num_src > 0 && num_src <= MAX_NUM_MAP_SRC, 0);
+    RETURN_ARG_UNLESS(src && *src && dst && *dst, 0);
+    RETURN_ARG_UNLESS(num_src > 0 && num_src <= MAX_NUM_MAP_SRC, 0);
     int i, j;
     for (i = 0; i < num_src; i++) {
         for (j = 0; j < num_dst; j++) {
@@ -242,14 +242,14 @@ static int _cmp_qry_sigs(const void *ctx, mpr_sig s)
 
 mpr_list mpr_map_get_sigs(mpr_map m, mpr_loc l)
 {
-    RETURN_UNLESS(m && m->obj.graph->sigs, 0);
+    RETURN_ARG_UNLESS(m && m->obj.graph->sigs, 0);
     mpr_list qry = mpr_list_new_query((const void**)&m->obj.graph->sigs, _cmp_qry_sigs, "vi", &m, l);
     return mpr_list_start(qry);
 }
 
 mpr_sig mpr_map_get_sig(mpr_map map, int idx, mpr_loc loc)
 {
-    RETURN_UNLESS(map && map->obj.graph->sigs, 0);
+    RETURN_ARG_UNLESS(map && map->obj.graph->sigs, 0);
     if (loc & MPR_LOC_SRC) {
         int i;
         for (i = 0; i < map->num_src; i++, idx--) {
@@ -327,7 +327,7 @@ void mpr_map_remove_scope(mpr_map m, mpr_dev d)
 
 static int _add_scope(mpr_map m, const char *name)
 {
-    RETURN_UNLESS(m && name, 0);
+    RETURN_ARG_UNLESS(m && name, 0);
     int i;
     mpr_dev d = 0;
 
@@ -354,7 +354,7 @@ static int _add_scope(mpr_map m, const char *name)
 
 static int _remove_scope(mpr_map m, const char *name)
 {
-    RETURN_UNLESS(m && name, 0);
+    RETURN_ARG_UNLESS(m && name, 0);
     int i;
     if (strcmp(name, "all")==0)
         name = 0;
@@ -783,7 +783,7 @@ static int _replace_expr_str(mpr_map m, const char *expr_str)
     }
     mpr_expr expr = mpr_expr_new_from_str(expr_str, m->num_src, src_types, src_lens,
                                           m->dst->sig->type, m->dst->sig->len);
-    RETURN_UNLESS(expr, 1);
+    RETURN_ARG_UNLESS(expr, 1);
 
     /* expression update may force processing location to change
      * e.g. if expression combines signals from different devices
@@ -808,7 +808,7 @@ static int _replace_expr_str(mpr_map m, const char *expr_str)
     return 0;
 }
 
-static inline int _trim_zeros(char *str, int len)
+MPR_INLINE static int _trim_zeros(char *str, int len)
 {
     if (!strchr(str, '.'))
         return len;
@@ -1113,7 +1113,7 @@ abort:
 
 static int _set_expr(mpr_map m, const char *expr)
 {
-    RETURN_UNLESS(m->loc && m->num_src > 0, 0);
+    RETURN_ARG_UNLESS(m->loc && m->num_src > 0, 0);
 
     if (m->idmap)
         mpr_dev_LID_decref(m->loc->rtr->dev, 0, m->idmap);
@@ -1141,7 +1141,7 @@ static int _set_expr(mpr_map m, const char *expr)
     }
     if (!expr || strstr(expr, "linear"))
         expr = new_expr = _set_linear(m, expr);
-    RETURN_UNLESS(expr, 1);
+    RETURN_ARG_UNLESS(expr, 1);
 
     if (!_replace_expr_str(m, expr)) {
         mpr_map_alloc_values(m);
@@ -1611,7 +1611,7 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
 
 mpr_map mpr_map_new_from_str(const char *expr, ...)
 {
-    RETURN_UNLESS(expr, 0);
+    RETURN_ARG_UNLESS(expr, 0);
     mpr_sig sig, srcs[MAX_NUM_MAP_SRC];
     mpr_sig dst = NULL;
     mpr_map map = NULL;

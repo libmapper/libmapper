@@ -1132,7 +1132,6 @@ int main(int argc, char **argv)
     }
     eprintf("\b\b]\n");
 
-    // mpr_time t;
     eprintf("  flt: [");
     for (int i = 0; i < SRC_ARRAY_LEN; i++) {
         src_flt[i] = random_flt();

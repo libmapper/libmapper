@@ -28,7 +28,7 @@ extern const char* net_msg_strings[NUM_MSG_STRINGS];
 /* prototypes */
 void mpr_dev_start_servers(mpr_dev dev);
 static void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map rem);
-static inline int mpr_dev_process_outputs_internal(mpr_dev dev);
+MPR_INLINE static int mpr_dev_process_outputs_internal(mpr_dev dev);
 
 mpr_time ts = {0,1};
 
@@ -90,7 +90,7 @@ void init_dev_prop_tbl(mpr_dev dev)
  *  mpr_dev, not to create a representation of remote devices. */
 mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
 {
-    RETURN_UNLESS(name_prefix, 0);
+    RETURN_ARG_UNLESS(name_prefix, 0);
     if (name_prefix[0] == '/')
         ++name_prefix;
     TRACE_RETURN_UNLESS(!strchr(name_prefix, '/'), NULL, "error: character '/' "
@@ -252,11 +252,10 @@ void mpr_dev_on_registered(mpr_dev dev)
     dev->status = MPR_STATUS_READY;
 }
 
-static inline int check_types(const mpr_type *types, int len, mpr_type type,
-                              int vector_len)
+MPR_INLINE static int check_types(const mpr_type *types, int len, mpr_type type, int vector_len)
 {
     int i, vals = 0;
-    RETURN_UNLESS(len >= vector_len, -1);
+    RETURN_ARG_UNLESS(len >= vector_len, -1);
     for (i = 0; i < len; i++) {
         if (types[i] == type)
             ++vals;
@@ -304,7 +303,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     TRACE_RETURN_UNLESS(sig && (dev = sig->dev), 0, "error in mpr_dev_handler, "
                         "cannot retrieve user data\n");
     TRACE_DEV_RETURN_UNLESS(sig->num_inst, 0, "signal '%s' has no instances.\n", sig->name);
-    RETURN_UNLESS(argc, 0);
+    RETURN_ARG_UNLESS(argc, 0);
 
     /* We need to consider that there may be properties appended to the msg
      * check length and find properties if any */
@@ -355,7 +354,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     }
     else
         vals = check_types(types, val_len, sig->type, sig->len);
-    RETURN_UNLESS(vals >= 0, 0);
+    RETURN_ARG_UNLESS(vals >= 0, 0);
 
     /* TODO: optionally discard out-of-order messages
      * requires timebase sync for many-to-one mappings or local updates
@@ -366,9 +365,8 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     if (GID) {
         idmap_idx = mpr_sig_get_idmap_with_GID(sig, GID, RELEASED_LOCALLY, ts, 0);
         if (idmap_idx < 0) {
-            // no instance found with this map
-            // Don't activate instance just to release it again
-            RETURN_UNLESS(vals, 0);
+            /* No instance found with this map – don't activate instance just to release it again */
+            RETURN_ARG_UNLESS(vals, 0);
 
             if (map_manages_inst && vals == slot->sig->len) {
                 /* special case: do a dry-run to check whether this map will
@@ -406,7 +404,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         idmap_idx = 0;
         if (!sig->loc->idmaps[0].inst)
             idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->loc->inst[0]->id, 1, ts, 1);
-        RETURN_UNLESS(idmap_idx >= 0, 0);
+        RETURN_ARG_UNLESS(idmap_idx >= 0, 0);
     }
     mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
     int inst_idx = si->idx;
@@ -429,14 +427,14 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 return 0;
             }
         }
-        RETURN_UNLESS(sig->use_inst && (!map || map->use_inst), 0);
+        RETURN_ARG_UNLESS(sig->use_inst && (!map || map->use_inst), 0);
 
         /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
          * know if the local signal instance will actually be released. */
         int evt = MPR_SIG_REL_UPSTRM & sig->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
         mpr_sig_call_handler(sig, evt, idmap->LID, 0, 0, &ts, diff);
 
-        RETURN_UNLESS(map && MPR_LOC_DST == map->process_loc, 0);
+        RETURN_ARG_UNLESS(map && MPR_LOC_DST == map->process_loc, 0);
 
         /* Reset memory for corresponding source slot. */
         mpr_local_slot lslot = slot->loc;
@@ -532,18 +530,21 @@ mpr_id mpr_dev_get_unused_sig_id(mpr_dev dev)
 
 void mpr_dev_add_sig_methods(mpr_dev dev, mpr_sig sig)
 {
+    mpr_net net;
     RETURN_UNLESS(sig && sig->loc);
-    mpr_net net = &dev->obj.graph->net;
+    net = &dev->obj.graph->net;
     DEV_SERVER_FUNC(add_method, sig->path, NULL, mpr_dev_handler, (void*)sig);
     ++dev->loc->n_output_callbacks;
 }
 
 void mpr_dev_remove_sig_methods(mpr_dev dev, mpr_sig sig)
 {
-    RETURN_UNLESS(sig && sig->loc);
-    mpr_net net = &dev->obj.graph->net;
+    mpr_net net;
     char *path = 0;
-    int len = (int)strlen(sig->path) + 5;
+    int len;
+    RETURN_UNLESS(sig && sig->loc);
+    net = &dev->obj.graph->net;
+    len = (int)strlen(sig->path) + 5;
     path = (char*)realloc(path, len);
     snprintf(path, len, "%s%s", sig->path, "/get");
     DEV_SERVER_FUNC(del_method, path, NULL);
@@ -554,15 +555,16 @@ void mpr_dev_remove_sig_methods(mpr_dev dev, mpr_sig sig)
 
 mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir)
 {
-    RETURN_UNLESS(dev && dev->obj.graph->sigs, 0);
-    mpr_list qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs,
-                                      cmp_qry_dev_sigs, "hi", dev->obj.id, dir);
+    mpr_list qry;
+    RETURN_ARG_UNLESS(dev && dev->obj.graph->sigs, 0);
+    qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs,
+                             (void*)cmp_qry_dev_sigs, "hi", dev->obj.id, dir);
     return mpr_list_start(qry);
 }
 
 mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
 {
-    RETURN_UNLESS(dev, 0);
+    RETURN_ARG_UNLESS(dev, 0);
     mpr_list sigs = mpr_list_from_data(dev->obj.graph->sigs);
     while (sigs) {
         mpr_sig sig = (mpr_sig)*sigs;
@@ -576,35 +578,36 @@ mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
 static int cmp_qry_dev_maps(const void *context_data, mpr_map map)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
-    mpr_dir dir = *(int*)(context_data + sizeof(mpr_id));
+    mpr_dir dir = *(int*)((char*)context_data + sizeof(mpr_id));
     int i;
     if (dir == MPR_DIR_BOTH) {
-        RETURN_UNLESS(map->dst->sig->dev->obj.id == dev_id, 0);
+        RETURN_ARG_UNLESS(map->dst->sig->dev->obj.id == dev_id, 0);
         for (i = 0; i < map->num_src; i++)
-            RETURN_UNLESS(map->src[i]->sig->dev->obj.id == dev_id, 0);
+            RETURN_ARG_UNLESS(map->src[i]->sig->dev->obj.id == dev_id, 0);
         return 1;
     }
     if (dir & MPR_DIR_OUT) {
         for (i = 0; i < map->num_src; i++)
-            RETURN_UNLESS(map->src[i]->sig->dev->obj.id != dev_id, 1);
+            RETURN_ARG_UNLESS(map->src[i]->sig->dev->obj.id != dev_id, 1);
     }
     if (dir & MPR_DIR_IN)
-        RETURN_UNLESS(map->dst->sig->dev->obj.id != dev_id, 1);
+        RETURN_ARG_UNLESS(map->dst->sig->dev->obj.id != dev_id, 1);
     return 0;
 }
 
 mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir)
 {
-    RETURN_UNLESS(dev && dev->obj.graph->maps, 0);
-    mpr_list qry = mpr_list_new_query((const void**)&dev->obj.graph->maps,
-                                      cmp_qry_dev_maps, "hi", dev->obj.id, dir);
+    mpr_list qry;
+    RETURN_ARG_UNLESS(dev && dev->obj.graph->maps, 0);
+    qry = mpr_list_new_query((const void**)&dev->obj.graph->maps,
+                             (void*)cmp_qry_dev_maps, "hi", dev->obj.id, dir);
     return mpr_list_start(qry);
 }
 
 static int cmp_qry_dev_links(const void *context_data, mpr_link link)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
-    mpr_dir dir = *(int*)(context_data + sizeof(mpr_id));
+    mpr_dir dir = *(int*)((char*)context_data + sizeof(mpr_id));
     if (link->devs[0]->obj.id == dev_id) {
         switch (dir) {
             case MPR_DIR_BOTH:  return link->num_maps[0] && link->num_maps[1];
@@ -626,16 +629,18 @@ static int cmp_qry_dev_links(const void *context_data, mpr_link link)
 
 mpr_list mpr_dev_get_links(mpr_dev dev, mpr_dir dir)
 {
-    RETURN_UNLESS(dev && dev->obj.graph->links, 0);
-    mpr_list qry = mpr_list_new_query((const void**)&dev->obj.graph->links,
-                                      cmp_qry_dev_links, "hi", dev->obj.id, dir);
+    mpr_list qry;
+    RETURN_ARG_UNLESS(dev && dev->obj.graph->links, 0);
+    qry = mpr_list_new_query((const void**)&dev->obj.graph->links,
+                             (void*)cmp_qry_dev_links, "hi", dev->obj.id, dir);
     return mpr_list_start(qry);
 }
 
 mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 {
-    RETURN_UNLESS(dev, 0);
-    mpr_list links = mpr_list_from_data(dev->obj.graph->links);
+    mpr_list links;
+    RETURN_ARG_UNLESS(dev, 0);
+    links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
         mpr_link link = (mpr_link)*links;
         if (link->devs[0] == dev && link->devs[1] == remote)
@@ -650,7 +655,7 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 /* TODO: handle interrupt-driven updates that omit call to this function */
 MPR_INLINE static void mpr_dev_process_inputs_internal(mpr_dev dev)
 {
-//    RETURN_UNLESS(dev->loc->updated, 0);
+//    RETURN_ARG_UNLESS(dev->loc->updated, 0);
     mpr_graph graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
@@ -660,20 +665,14 @@ MPR_INLINE static void mpr_dev_process_inputs_internal(mpr_dev dev)
         maps = mpr_list_get_next(maps);
         mpr_map_receive(map, dev->loc->time);
     }
-//    mpr_list links = mpr_list_from_data(graph->links);
-//    int msgs = 0;
-//    while (links) {
-//        msgs += mpr_link_process_bundles((mpr_link)*links, dev->loc->time, idx);
-//        links = mpr_list_get_next(links);
-//    }
-//    dev->loc->updated = 0;
-//    return msgs ? 1 : 0;
 }
 
 /* TODO: handle interrupt-driven updates that omit call to this function */
 MPR_INLINE static int mpr_dev_process_outputs_internal(mpr_dev dev)
 {
-//    RETURN_UNLESS(dev->loc->updated, 0);
+    RETURN_ARG_UNLESS(dev->loc->updated, 0);
+    int msgs = 0;
+    mpr_list links;
     mpr_graph graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
@@ -683,13 +682,12 @@ MPR_INLINE static int mpr_dev_process_outputs_internal(mpr_dev dev)
         maps = mpr_list_get_next(maps);
         mpr_map_send(map, dev->loc->time);
     }
-    mpr_list links = mpr_list_from_data(graph->links);
-    int msgs = 0;
+    dev->loc->updated = 0;
+    links = mpr_list_from_data(graph->links);
     while (links) {
         msgs += mpr_link_process_bundles((mpr_link)*links, dev->loc->time, 0);
         links = mpr_list_get_next(links);
     }
-    dev->loc->updated = 0;
     return msgs ? 1 : 0;
 }
 
@@ -702,10 +700,10 @@ void mpr_dev_process_outputs(mpr_dev dev) {
 
 int mpr_dev_poll(mpr_dev dev, int block_ms)
 {
-    RETURN_UNLESS(dev && dev->loc, 0);
-
     int admin_count = 0, device_count = 0, status[4];
-    mpr_net net = &dev->obj.graph->net;
+    mpr_net net;
+    RETURN_ARG_UNLESS(dev && dev->loc, 0);
+    net = &dev->obj.graph->net;
     mpr_net_poll(net);
 
     if (!dev->loc->registered) {
@@ -763,7 +761,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
            && (lo_servers_recv_noblock(net->server.dev, &status[2], 2, 0)))
         device_count += (status[2] > 0) + (status[3] > 0);
 
-    // process incoming maps
+    /* process incoming maps */
     dev->loc->polling = 1;
     mpr_dev_process_inputs_internal(dev);
     dev->loc->polling = 0;
@@ -780,7 +778,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
 
 mpr_time mpr_dev_get_time(mpr_dev dev)
 {
-    RETURN_UNLESS(dev && dev->loc, MPR_NOW);
+    RETURN_ARG_UNLESS(dev && dev->loc, MPR_NOW);
     if (dev->loc->time_is_stale)
         mpr_dev_set_time(dev, MPR_NOW);
     return dev->loc->time;
@@ -805,12 +803,12 @@ void mpr_dev_reserve_idmap(mpr_dev dev)
 
 mpr_id_map mpr_dev_add_idmap(mpr_dev dev, int group, mpr_id LID, mpr_id GID)
 {
+    mpr_id_map map;
     if (!dev->loc->idmaps.reserve)
         mpr_dev_reserve_idmap(dev);
-
-    mpr_id_map map = dev->loc->idmaps.reserve;
+    map = dev->loc->idmaps.reserve;
     map->LID = LID;
-    map->GID = GID ?: mpr_dev_generate_unique_id(dev);
+    map->GID = GID ? GID : mpr_dev_generate_unique_id(dev);
     map->LID_refcount = 1;
     map->GID_refcount = 0;
     dev->loc->idmaps.reserve = map->next;
@@ -889,10 +887,11 @@ static void handler_error(int num, const char *msg, const char *where)
 
 void mpr_dev_start_servers(mpr_dev dev)
 {
+    int portnum;
+    char port[16], *pport = 0, *url, *host;
     mpr_net net = &dev->obj.graph->net;
+    mpr_list sigs;
     RETURN_UNLESS(!net->server.udp && !net->server.tcp);
-
-    char port[16], *pport = 0;
     while (!(net->server.udp = lo_server_new(pport, handler_error)))
         pport = 0;
     snprintf(port, 16, "%d", lo_server_get_port(net->server.udp));
@@ -906,22 +905,20 @@ void mpr_dev_start_servers(mpr_dev dev)
     /* Add bundle handlers */
     DEV_SERVER_FUNC(add_bundle_handlers, mpr_dev_bundle_start, NULL, (void*)dev);
 
-    int portnum = lo_server_get_port(net->server.udp);
-    mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum,
-                NON_MODIFIABLE);
+    portnum = lo_server_get_port(net->server.udp);
+    mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, NON_MODIFIABLE);
 
     trace_dev(dev, "bound to UDP port %i\n", portnum);
     trace_dev(dev, "bound to TCP port %i\n", lo_server_get_port(net->server.tcp));
 
-    char *url = lo_server_get_url(net->server.udp);
-    char *host = lo_url_get_hostname(url);
-    mpr_tbl_set(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host,
-                NON_MODIFIABLE);
+    url = lo_server_get_url(net->server.udp);
+    host = lo_url_get_hostname(url);
+    mpr_tbl_set(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, NON_MODIFIABLE);
     free(host);
     free(url);
 
-    // add signal methods
-    mpr_list sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+    /* add signal methods */
+    sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (sigs) {
         mpr_sig sig = (mpr_sig)*sigs;
         sigs = mpr_list_get_next(sigs);
@@ -933,10 +930,11 @@ void mpr_dev_start_servers(mpr_dev dev)
 
 const char *mpr_dev_get_name(mpr_dev dev)
 {
-    RETURN_UNLESS(!dev->loc || (dev->loc->registered && dev->loc->ordinal.locked), 0);
+    unsigned int len;
+    RETURN_ARG_UNLESS(!dev->loc || (dev->loc->registered && dev->loc->ordinal.locked), 0);
     if (dev->name)
         return dev->name;
-    unsigned int len = strlen(dev->prefix) + 6;
+    len = strlen(dev->prefix) + 6;
     dev->name = (char*)malloc(len);
     dev->name[0] = 0;
     snprintf(dev->name, len, "%s.%d", dev->prefix, dev->loc->ordinal.val);
@@ -950,8 +948,9 @@ int mpr_dev_get_is_ready(mpr_dev dev)
 
 mpr_id mpr_dev_generate_unique_id(mpr_dev dev)
 {
-    RETURN_UNLESS(dev, 0);
-    mpr_id id = ++dev->obj.graph->resource_counter;
+    mpr_id id;
+    RETURN_ARG_UNLESS(dev, 0);
+    id = ++dev->obj.graph->resource_counter;
     if (dev->loc && dev->loc->registered)
         id |= dev->obj.id;
     return id;
@@ -1016,15 +1015,15 @@ static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom a)
     int i, j, updated = 0, num = a->len;
     lo_arg **link_list = a->vals;
     if (link_list && *link_list) {
+        const char *name;
         if (num == 1 && strcmp(&link_list[0]->s, "none")==0)
             num = 0;
-        const char *name;
 
         /* Remove any old links that are missing */
         for (i = 0; ; i++) {
+            int found = 0;
             if (i >= dev->num_linked)
                 break;
-            int found = 0;
             for (j = 0; j < num; j++) {
                 name = &link_list[j]->s;
                 name = name[0] == '/' ? name + 1 : name;
@@ -1042,9 +1041,9 @@ static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom a)
         }
         if (updated)
             dev->linked = realloc(dev->linked, dev->num_linked * sizeof(mpr_dev));
-        // Add any new links
-        mpr_dev rem;
+        /* Add any new links */
         for (i = 0; i < num; i++) {
+            mpr_dev rem;
             if ((rem = mpr_graph_add_dev(dev->obj.graph, &link_list[i]->s, 0)))
                 updated += mpr_dev_add_link(dev, rem);
         }
@@ -1055,11 +1054,10 @@ static int mpr_dev_update_linked(mpr_dev dev, mpr_msg_atom a)
 /*! Update information about a device record based on message properties. */
 int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
 {
-    RETURN_UNLESS(m, 0);
     int i, updated = 0;
-    mpr_msg_atom a;
+    RETURN_ARG_UNLESS(m, 0);
     for (i = 0; i < m->num_atoms; i++) {
-        a = &m->atoms[i];
+        mpr_msg_atom a = &m->atoms[i];
         switch (MASK_PROP_BITFLAGS(a->prop)) {
             case PROP(LINKED):
                 if (!dev->loc && mpr_type_get_is_str(a->types[0]))
@@ -1097,12 +1095,12 @@ static int mpr_dev_send_maps(mpr_dev dev, mpr_dir dir)
 void mpr_dev_manage_subscriber(mpr_dev dev, lo_address addr, int flags,
                                int timeout_sec, int revision)
 {
+    mpr_time t;
+    mpr_net net;
     mpr_subscriber *s = &dev->loc->subscribers;
     const char *ip = lo_address_get_hostname(addr);
     const char *port = lo_address_get_port(addr);
     RETURN_UNLESS(ip && port);
-
-    mpr_time t;
     mpr_time_set(&t, MPR_NOW);
 
     while (*s) {
@@ -1121,14 +1119,14 @@ void mpr_dev_manage_subscriber(mpr_dev dev, lo_address addr, int flags,
                 RETURN_UNLESS(flags && (flags &= ~prev_flags));
             }
             else {
-                // reset timeout
+                /* reset timeout */
+                int temp = flags;
 #ifdef DEBUG
                 trace_dev(dev, "renewing subscription from %s:%s for %d seconds"
                           "with flags ", s_ip, s_port, timeout_sec);
                 print_subscription_flags(flags);
 #endif
                 (*s)->lease_exp = t.sec + timeout_sec;
-                int temp = flags;
                 flags &= ~(*s)->flags;
                 (*s)->flags = temp;
             }
@@ -1153,8 +1151,8 @@ void mpr_dev_manage_subscriber(mpr_dev dev, lo_address addr, int flags,
         dev->loc->subscribers = sub;
     }
 
-    // bring new subscriber up to date
-    mpr_net net = &dev->obj.graph->net;
+    /* bring new subscriber up to date */
+    net = &dev->obj.graph->net;
     mpr_net_use_mesh(net, addr);
     mpr_dev_send_state(dev, MSG_DEV);
     mpr_net_send(net);
