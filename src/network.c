@@ -30,8 +30,6 @@
 
 extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 
-/* set to 1 to force mesh comms to use multicast bus instead for debugging */
-#define FORCE_COMMS_TO_BUS      0
 #define BUNDLE_DST_SUBSCRIBERS (void*)-1
 #define BUNDLE_DST_BUS          0
 
@@ -40,18 +38,11 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 #define UPDATE 1
 #define ADD 2
 
-#if FORCE_COMMS_TO_BUS
-    #define NET_SERVER_FUNC(NET, FUNC, ...)                     \
-    {                                                           \
-        lo_server_ ## FUNC((NET)->server.bus, __VA_ARGS__);     \
-    }
-#else
-    #define NET_SERVER_FUNC(NET, FUNC, ...)                     \
-    {                                                           \
-        lo_server_ ## FUNC((NET)->server.bus, __VA_ARGS__);     \
-        lo_server_ ## FUNC((NET)->server.mesh, __VA_ARGS__);    \
-    }
-#endif
+#define NET_SERVER_FUNC(NET, FUNC, ...)                             \
+{                                                                   \
+    lo_server_ ## FUNC((NET)->servers[SERVER_BUS], __VA_ARGS__);    \
+    lo_server_ ## FUNC((NET)->servers[SERVER_MESH], __VA_ARGS__);   \
+}
 
 static int is_alphabetical(int num, lo_arg **names)
 {
@@ -377,8 +368,8 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 
     /* Remove existing structures if necessary */
     FUNC_IF(lo_address_free, net->addr.bus);
-    FUNC_IF(lo_server_free, net->server.bus);
-    FUNC_IF(lo_server_free, net->server.mesh);
+    FUNC_IF(lo_server_free, net->servers[SERVER_BUS]);
+    FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
 
     /* Open address */
     net->addr.bus = lo_address_new(net->multicast.group, s_port);
@@ -394,10 +385,10 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     lo_address_set_iface(net->addr.bus, net->iface.name, 0);
 
     /* Open server for multicast */
-    net->server.bus = lo_server_new_multicast_iface(net->multicast.group, s_port, net->iface.name,
-                                                    0, handler_error);
+    net->servers[SERVER_BUS] = lo_server_new_multicast_iface(net->multicast.group, s_port,
+                                                             net->iface.name, 0, handler_error);
 
-    if (!net->server.bus) {
+    if (!net->servers[SERVER_BUS]) {
         lo_address_free(net->addr.bus);
         trace_net("problem allocating bus server.\n");
         return;
@@ -407,7 +398,7 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 
     /* Also open address/server for mesh-style communications */
     /* TODO: use TCP instead? */
-    while (!(net->server.mesh = lo_server_new(0, handler_error))) {}
+    while (!(net->servers[SERVER_MESH] = lo_server_new(0, handler_error))) {}
 
     /* Disable liblo message queueing. */
     NET_SERVER_FUNC(net, enable_queue, 0, 1);
@@ -428,9 +419,6 @@ void mpr_net_send(mpr_net net)
 {
     RETURN_UNLESS(net->bundle);
 
-#if FORCE_COMMS_TO_BUS
-    lo_send_bundle_from(net->addr.bus, net->server.mesh, net->bundle);
-#else
     if (BUNDLE_DST_SUBSCRIBERS == net->addr.dst) {
         mpr_subscriber *sub = &net->addr.dev->loc->subscribers;
         mpr_time t;
@@ -452,15 +440,15 @@ void mpr_net_send(mpr_net net)
                 continue;
             }
             if ((*sub)->flags & net->msg_type)
-                lo_send_bundle_from((*sub)->addr, net->server.mesh, net->bundle);
+                lo_send_bundle_from((*sub)->addr, net->servers[SERVER_MESH], net->bundle);
             sub = &(*sub)->next;
         }
     }
     else if (BUNDLE_DST_BUS == net->addr.dst)
-        lo_send_bundle_from(net->addr.bus, net->server.mesh, net->bundle);
+        lo_send_bundle_from(net->addr.bus, net->servers[SERVER_MESH], net->bundle);
     else
-        lo_send_bundle_from(net->addr.dst, net->server.mesh, net->bundle);
-#endif
+        lo_send_bundle_from(net->addr.dst, net->servers[SERVER_MESH], net->bundle);
+
     lo_bundle_free_recursive(net->bundle);
     net->bundle = 0;
 }
@@ -532,8 +520,8 @@ void mpr_net_free(mpr_net net)
     mpr_net_send(net);
     FUNC_IF(free, net->iface.name);
     FUNC_IF(free, net->multicast.group);
-    FUNC_IF(lo_server_free, net->server.bus);
-    FUNC_IF(lo_server_free, net->server.mesh);
+    FUNC_IF(lo_server_free, net->servers[SERVER_BUS]);
+    FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
     FUNC_IF(lo_address_free, net->addr.bus);
     FUNC_IF(free, net->addr.url);
 }
@@ -593,9 +581,9 @@ void mpr_net_add_dev(mpr_net net, mpr_dev dev)
 
     /* Add allocation methods for bus communications. Further methods are added
      * when the device is registered. */
-    lo_server_add_method(net->server.bus, net_msg_strings[MSG_NAME_PROBE], "si",
+    lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_PROBE], "si",
                          handler_name_probe, net);
-    lo_server_add_method(net->server.bus, net_msg_strings[MSG_NAME_REG], NULL, handler_name, net);
+    lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_REG], NULL, handler_name, net);
 
     /* Probe potential name. */
     mpr_net_probe_dev_name(net, dev);
@@ -644,44 +632,45 @@ static void mpr_net_maybe_send_ping(mpr_net net, int force)
     /* housekeeping #2: periodically check if our links are still active */
     mpr_list list = mpr_list_from_data(gph->links);
     while (list) {
+        int num_maps;
         mpr_link lnk = (mpr_link)*list;
         list = mpr_list_get_next(list);
-        if (lnk->remote_dev->loc)
+        if (lnk->devs[REMOTE_DEV]->loc)
             continue;
-        int num_maps = lnk->num_maps[0] + lnk->num_maps[1];
+        num_maps = lnk->num_maps[0] + lnk->num_maps[1];
         mpr_sync_clock clk = &lnk->clock;
         double elapsed = (clk->rcvd.time.sec ? mpr_time_get_diff(now, clk->rcvd.time) : 0);
         if (elapsed > TIMEOUT_SEC) {
             if (clk->rcvd.msg_id > 0) {
                 if (num_maps)
-                    trace_dev(lnk->local_dev, "Lost contact with linked device '%s' (%g seconds "
-                              "since sync).\n", lnk->remote_dev->name, elapsed);
+                    trace_dev(lnk->devs[LOCAL_DEV], "Lost contact with linked device '%s' "
+                              "(%g seconds since sync).\n", lnk->devs[REMOTE_DEV]->name, elapsed);
                 /* tentatively mark link as expired */
                 clk->rcvd.msg_id = -1;
                 clk->rcvd.time.sec = now.sec;
             }
             else {
                 if (num_maps) {
-                    trace_dev(lnk->local_dev, "Removing link to unresponsive device '%s' (%g "
-                              "seconds since warning).\n", lnk->remote_dev->name, elapsed);
+                    trace_dev(lnk->devs[LOCAL_DEV], "Removing link to unresponsive device '%s' "
+                              "(%g seconds since warning).\n", lnk->devs[REMOTE_DEV]->name, elapsed);
                     /* TODO: release related maps, call local handlers
                      * and inform subscribers. */
                 }
                 else
-                    trace_dev(lnk->local_dev, "Removing link to device '%s'.\n",
-                              lnk->remote_dev->name);
+                    trace_dev(lnk->devs[LOCAL_DEV], "Removing link to device '%s'.\n",
+                              lnk->devs[REMOTE_DEV]->name);
                 /* remove related data structures */
                 mpr_rtr_remove_link(net->rtr, lnk);
                 mpr_graph_remove_link(gph, lnk, num_maps ? MPR_OBJ_EXP : MPR_OBJ_REM);
                 continue;
             }
         }
-        if (num_maps && mpr_obj_get_prop_as_str(&lnk->remote_dev->obj, MPR_PROP_HOST, 0)) {
+        if (num_maps && mpr_obj_get_prop_as_str(&lnk->devs[REMOTE_DEV]->obj, MPR_PROP_HOST, 0)) {
             /* Only send pings if this link has associated maps, ensuring empty
              * links are removed after the ping timeout. */
             lo_bundle bun = lo_bundle_new(now);
             NEW_LO_MSG(msg, ;);
-            lo_message_add_int64(msg, lnk->local_dev->obj.id);
+            lo_message_add_int64(msg, lnk->devs[LOCAL_DEV]->obj.id);
             if (++clk->sent.msg_id < 0)
                 clk->sent.msg_id = 0;
             lo_message_add_int32(msg, clk->sent.msg_id);
@@ -689,11 +678,7 @@ static void mpr_net_maybe_send_ping(mpr_net net, int force)
             lo_message_add_double(msg, elapsed);
             /* need to send immediately */
             lo_bundle_add_message(bun, net_msg_strings[MSG_PING], msg);
-#if FORCE_COMMS_TO_BUS
-            lo_send_bundle_from(net->addr.bus, net->server.mesh, bun);
-#else
-            lo_send_bundle_from(lnk->addr.admin, net->server.mesh, bun);
-#endif
+            lo_send_bundle_from(lnk->addr.admin, net->servers[SERVER_MESH], bun);
             mpr_time_set(&clk->sent.time, lo_bundle_get_timestamp(bun));
             lo_bundle_free_recursive(bun);
         }
@@ -1842,7 +1827,7 @@ static int handler_ping(const char *path, const char *types, lo_arg **av,
     lnk = remote ? mpr_dev_get_link_by_remote(dev, remote) : 0;
     if (lnk) {
         mpr_sync_clock clk = &lnk->clock;
-        trace_dev(dev, "ping received from linked device '%s'\n", lnk->remote_dev->name);
+        trace_dev(dev, "ping received from linked device '%s'\n", lnk->devs[REMOTE_DEV]->name);
         if (av[2]->i == clk->sent.msg_id) {
             /* total elapsed time since ping sent */
             double elapsed = mpr_time_get_diff(now, clk->sent.time);

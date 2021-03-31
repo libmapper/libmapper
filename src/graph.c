@@ -490,12 +490,12 @@ mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 
     link = (mpr_link)mpr_list_add_item((void**)&g->links, sizeof(mpr_link_t));
     if (dev2->loc) {
-        link->local_dev = dev2;
-        link->remote_dev = dev1;
+        link->devs[LOCAL_DEV] = dev2;
+        link->devs[REMOTE_DEV] = dev1;
     }
     else {
-        link->local_dev = dev1;
-        link->remote_dev = dev2;
+        link->devs[LOCAL_DEV] = dev1;
+        link->devs[REMOTE_DEV] = dev2;
     }
     link->obj.type = MPR_LINK;
     link->obj.graph = g;
@@ -792,7 +792,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
     _check_dev_status(g, t.sec);
 
     if (!block_ms) {
-        if (lo_servers_recv_noblock(n->server.admin, status, 2, 0)) {
+        if (lo_servers_recv_noblock(&n->servers[SERVER_ADMIN], status, 2, 0)) {
             count = (status[0] > 0) + (status[1] > 0);
             n->msgs_recvd |= count;
         }
@@ -805,7 +805,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
         if (left_ms > 100)
             left_ms = 100;
 
-        if (lo_servers_recv_noblock(n->server.admin, status, 2, left_ms))
+        if (lo_servers_recv_noblock(&n->servers[SERVER_ADMIN], status, 2, left_ms))
             count += (status[0] > 0) + (status[1] > 0);
 
         elapsed = (mpr_get_current_time() - then) * 1000;

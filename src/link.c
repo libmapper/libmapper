@@ -29,8 +29,8 @@ void mpr_link_init(mpr_link link)
     if (!link->obj.props.staged)
         link->obj.props.staged = mpr_tbl_new();
 
-    if (!link->obj.id && link->local_dev->loc)
-        link->obj.id = mpr_dev_generate_unique_id(link->local_dev);
+    if (!link->obj.id && link->devs[LOCAL_DEV]->loc)
+        link->obj.id = mpr_dev_generate_unique_id(link->devs[LOCAL_DEV]);
 
     link->clock.new = 1;
     link->clock.sent.msg_id = 0;
@@ -41,7 +41,7 @@ void mpr_link_init(mpr_link link)
 
     /* request missing metadata */
     char cmd[256];
-    snprintf(cmd, 256, "/%s/subscribe", link->remote_dev->name);
+    snprintf(cmd, 256, "/%s/subscribe", link->devs[REMOTE_DEV]->name);
     NEW_LO_MSG(m, return);
     lo_message_add_string(m, "device");
     mpr_net_use_bus(net);
@@ -53,19 +53,19 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port,
                       int data_port)
 {
     char str[16];
-    mpr_tbl_set(link->remote_dev->obj.props.synced, MPR_PROP_HOST, NULL, 1,
+    mpr_tbl_set(link->devs[REMOTE_DEV]->obj.props.synced, MPR_PROP_HOST, NULL, 1,
                 MPR_STR, host, REMOTE_MODIFY);
-    mpr_tbl_set(link->remote_dev->obj.props.synced, MPR_PROP_PORT, NULL, 1,
+    mpr_tbl_set(link->devs[REMOTE_DEV]->obj.props.synced, MPR_PROP_PORT, NULL, 1,
                 MPR_INT32, &data_port, REMOTE_MODIFY);
     sprintf(str, "%d", data_port);
     link->addr.udp = lo_address_new(host, str);
     link->addr.tcp = lo_address_new_with_proto(LO_TCP, host, str);
     sprintf(str, "%d", admin_port);
     link->addr.admin = lo_address_new(host, str);
-    trace_dev(link->local_dev, "activated router to device '%s' at %s:%d\n",
-              link->remote_dev->name, host, data_port);
+    trace_dev(link->devs[LOCAL_DEV], "activated router to device '%s' at %s:%d\n",
+              link->devs[REMOTE_DEV]->name, host, data_port);
     memset(link->bundles, 0, sizeof(mpr_bundle_t) * NUM_BUNDLES);
-    mpr_dev_add_link(link->local_dev, link->remote_dev);
+    mpr_dev_add_link(link->devs[LOCAL_DEV], link->devs[REMOTE_DEV]);
 }
 
 void mpr_link_free(mpr_link link)
@@ -73,7 +73,7 @@ void mpr_link_free(mpr_link link)
     FUNC_IF(mpr_tbl_free, link->obj.props.synced);
     FUNC_IF(mpr_tbl_free, link->obj.props.staged);
     FUNC_IF(free, link->num_maps);
-    if (!link->local_dev->loc)
+    if (!link->devs[LOCAL_DEV]->loc)
         return;
     FUNC_IF(lo_address_free, link->addr.admin);
     FUNC_IF(lo_address_free, link->addr.udp);
@@ -83,7 +83,7 @@ void mpr_link_free(mpr_link link)
         FUNC_IF(lo_bundle_free_recursive, link->bundles[i].udp);
         FUNC_IF(lo_bundle_free_recursive, link->bundles[i].tcp);
     }
-    mpr_dev_remove_link(link->local_dev, link->remote_dev);
+    mpr_dev_remove_link(link->devs[LOCAL_DEV], link->devs[REMOTE_DEV]);
 }
 
 /* note on memory handling of mpr_link_add_msg():
@@ -91,7 +91,7 @@ void mpr_link_free(mpr_link link)
 void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t, mpr_proto proto, int idx)
 {
     RETURN_UNLESS(msg);
-    if (link->local_dev == link->remote_dev)
+    if (link->devs[0] == link->devs[1])
         proto = MPR_PROTO_UDP;
 
     /* add message to existing bundles */
@@ -112,12 +112,12 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
     mpr_bundle b = &link->bundles[idx];
     lo_bundle lb;
 
-    if (link->local_dev != link->remote_dev) {
+    if (link->devs[0] != link->devs[1]) {
         mpr_net n = &link->obj.graph->net;
         if ((lb = b->udp)) {
             b->udp = 0;
             if ((num = lo_bundle_count(lb))) {
-                lo_send_bundle_from(link->addr.udp, n->server.udp, lb);
+                lo_send_bundle_from(link->addr.udp, n->servers[SERVER_UDP], lb);
             }
             lo_bundle_free_recursive(lb);
         }
@@ -125,7 +125,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
             b->tcp = 0;
             if ((tmp = lo_bundle_count(lb))) {
                 num += tmp;
-                lo_send_bundle_from(link->addr.tcp, n->server.tcp, lb);
+                lo_send_bundle_from(link->addr.tcp, n->servers[SERVER_TCP], lb);
             }
             lo_bundle_free_recursive(lb);
         }
@@ -206,5 +206,5 @@ void mpr_link_send(mpr_link link, net_msg_t cmd)
 
 int mpr_link_get_is_local(mpr_link link)
 {
-    return link->local_dev->loc || link->remote_dev->loc;
+    return link->devs[0]->loc || link->devs[1]->loc;
 }

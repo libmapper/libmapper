@@ -19,10 +19,10 @@
 
 extern const char* net_msg_strings[NUM_MSG_STRINGS];
 
-#define DEV_SERVER_FUNC(FUNC, ...)                      \
-{                                                       \
-    lo_server_ ## FUNC(net->server.udp, __VA_ARGS__);   \
-    lo_server_ ## FUNC(net->server.tcp, __VA_ARGS__);   \
+#define DEV_SERVER_FUNC(FUNC, ...)                              \
+{                                                               \
+    lo_server_ ## FUNC(net->servers[SERVER_UDP], __VA_ARGS__);  \
+    lo_server_ ## FUNC(net->servers[SERVER_TCP], __VA_ARGS__);  \
 }
 
 /* prototypes */
@@ -110,7 +110,7 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     dev->prefix = strdup(name_prefix);
     mpr_dev_start_servers(dev);
 
-    if (!g->net.server.udp || !g->net.server.tcp) {
+    if (!g->net.servers[SERVER_UDP] || !g->net.servers[SERVER_TCP]) {
         mpr_dev_free(dev);
         return NULL;
     }
@@ -216,8 +216,8 @@ void mpr_dev_free(mpr_dev dev)
         free(net->rtr);
     }
 
-    FUNC_IF(lo_server_free, net->server.udp);
-    FUNC_IF(lo_server_free, net->server.tcp);
+    FUNC_IF(lo_server_free, net->servers[SERVER_UDP]);
+    FUNC_IF(lo_server_free, net->servers[SERVER_TCP]);
     FUNC_IF(free, dev->prefix);
     free(dev->loc);
 
@@ -707,7 +707,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     mpr_net_poll(net);
 
     if (!dev->loc->registered) {
-        if (lo_servers_recv_noblock(net->server.admin, status, 2, block_ms)) {
+        if (lo_servers_recv_noblock(&net->servers[SERVER_ADMIN], status, 2, block_ms)) {
             admin_count = (status[0] > 0) + (status[1] > 0);
             net->msgs_recvd |= admin_count;
         }
@@ -721,7 +721,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     dev->loc->polling = 0;
 
     if (!block_ms) {
-        if (lo_servers_recv_noblock(net->server.all, status, 4, 0)) {
+        if (lo_servers_recv_noblock(net->servers, status, 4, 0)) {
             admin_count = (status[0] > 0) + (status[1] > 0);
             device_count = (status[2] > 0) + (status[3] > 0);
             net->msgs_recvd |= admin_count;
@@ -735,7 +735,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
             if (left_ms > 100)
                 left_ms = 100;
             dev->loc->polling = 1;
-            if (lo_servers_recv_noblock(net->server.all, status, 4, left_ms)) {
+            if (lo_servers_recv_noblock(net->servers, status, 4, left_ms)) {
                 admin_count += (status[0] > 0) + (status[1] > 0);
                 device_count += (status[2] > 0) + (status[3] > 0);
             }
@@ -758,7 +758,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
      * now, but perhaps could be a heuristic based on a recent number of
      * messages per channel per poll. */
     while (device_count < (dev->num_inputs + dev->loc->n_output_callbacks)*1
-           && (lo_servers_recv_noblock(net->server.dev, &status[2], 2, 0)))
+           && (lo_servers_recv_noblock(&net->servers[SERVER_DEVICE], &status[2], 2, 0)))
         device_count += (status[2] > 0) + (status[3] > 0);
 
     /* process incoming maps */
@@ -891,12 +891,12 @@ void mpr_dev_start_servers(mpr_dev dev)
     char port[16], *pport = 0, *url, *host;
     mpr_net net = &dev->obj.graph->net;
     mpr_list sigs;
-    RETURN_UNLESS(!net->server.udp && !net->server.tcp);
-    while (!(net->server.udp = lo_server_new(pport, handler_error)))
+    RETURN_UNLESS(!net->servers[SERVER_UDP] && !net->servers[SERVER_TCP]);
+    while (!(net->servers[SERVER_UDP] = lo_server_new(pport, handler_error)))
         pport = 0;
-    snprintf(port, 16, "%d", lo_server_get_port(net->server.udp));
+    snprintf(port, 16, "%d", lo_server_get_port(net->servers[SERVER_UDP]));
     pport = port;
-    while (!(net->server.tcp = lo_server_new_with_proto(pport, LO_TCP, handler_error)))
+    while (!(net->servers[SERVER_TCP] = lo_server_new_with_proto(pport, LO_TCP, handler_error)))
         pport = 0;
 
     /* Disable liblo message queueing */
@@ -905,13 +905,13 @@ void mpr_dev_start_servers(mpr_dev dev)
     /* Add bundle handlers */
     DEV_SERVER_FUNC(add_bundle_handlers, mpr_dev_bundle_start, NULL, (void*)dev);
 
-    portnum = lo_server_get_port(net->server.udp);
+    portnum = lo_server_get_port(net->servers[SERVER_UDP]);
     mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, NON_MODIFIABLE);
 
     trace_dev(dev, "bound to UDP port %i\n", portnum);
-    trace_dev(dev, "bound to TCP port %i\n", lo_server_get_port(net->server.tcp));
+    trace_dev(dev, "bound to TCP port %i\n", lo_server_get_port(net->servers[SERVER_TCP]));
 
-    url = lo_server_get_url(net->server.udp);
+    url = lo_server_get_url(net->servers[SERVER_UDP]);
     host = lo_url_get_hostname(url);
     mpr_tbl_set(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, NON_MODIFIABLE);
     free(host);
@@ -923,8 +923,7 @@ void mpr_dev_start_servers(mpr_dev dev)
         mpr_sig sig = (mpr_sig)*sigs;
         sigs = mpr_list_get_next(sigs);
         if (sig->loc->handler)
-            DEV_SERVER_FUNC(add_method, sig->path, NULL, mpr_dev_handler,
-                            (void*)sig);
+            DEV_SERVER_FUNC(add_method, sig->path, NULL, mpr_dev_handler, (void*)sig);
     }
 }
 

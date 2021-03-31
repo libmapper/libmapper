@@ -98,26 +98,19 @@ typedef struct _mpr_subscription {
     uint32_t lease_expiration_sec;
 } *mpr_subscription;
 
+#define SERVER_ADMIN    0
+#define SERVER_BUS      0   /* Multicast comms. */
+#define SERVER_MESH     1   /* Mesh comms. */
+
+#define SERVER_DEVICE   2
+#define SERVER_UDP      2
+#define SERVER_TCP      3
+
 /*! A structure that keeps information about network communications. */
 typedef struct _mpr_net {
     struct _mpr_graph *graph;
-    struct {
-        union {
-            lo_server all[4];
-            struct {
-                lo_server admin[2];
-                lo_server dev[2];
-            };
-            struct {
-                lo_server bus;      /*!< LibLo server for the multicast. */
-                lo_server mesh;     /*!< LibLo server for mesh comms. */
 
-                /*! Servers used to handle incoming signal messages. */
-                lo_server udp;
-                lo_server tcp;
-            };
-        };
-    } server;
+    lo_server servers[4];
 
     struct {
         lo_address bus;             /*!< LibLo address for the multicast bus. */
@@ -371,16 +364,12 @@ typedef struct _mpr_bundle {
 } mpr_bundle_t, *mpr_bundle;
 
 #define NUM_BUNDLES 1
+#define LOCAL_DEV   0
+#define REMOTE_DEV  1
 
 typedef struct _mpr_link {
     mpr_obj_t obj;                  /* always first */
-    union {
-        mpr_dev devs[2];
-        struct {
-            mpr_dev local_dev;
-            mpr_dev remote_dev;
-        };
-    };
+    mpr_dev devs[2];
     int *num_maps;
 
     struct {
