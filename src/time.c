@@ -10,7 +10,7 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-static double multiplier = 1.0/((double)(1LL<<32));
+static double multiplier = 0.00000000023283064365;
 
 /*! Internal function to get the current time. */
 double mpr_get_current_time()
@@ -45,7 +45,7 @@ void mpr_time_add_dbl(mpr_time *t, double d)
             --t->sec;
             d = 1.0 - d;
         }
-        t->frac = (uint32_t) (((double)d) * (double)(1LL<<32));
+        t->frac = (uint32_t) (((double)d) * 4294967296.);
     }
 }
 
@@ -55,7 +55,7 @@ void mpr_time_mul(mpr_time *t, double d)
         d *= mpr_time_as_dbl(*t);
         t->sec = floor(d);
         d -= t->sec;
-        t->frac = (uint32_t) (d * (double)(1LL<<32));
+        t->frac = (uint32_t) (d * 4294967296.);
     }
     else
         t->sec = t->frac = 0;
@@ -91,7 +91,7 @@ void mpr_time_set_dbl(mpr_time *t, double value)
     if (value > 0.) {
         t->sec = floor(value);
         value -= t->sec;
-        t->frac = (uint32_t) (((double)value) * (double)(1LL<<32));
+        t->frac = (uint32_t) (((double)value) * 4294967296.);
     }
     else
         t->sec = t->frac = 0;
@@ -99,7 +99,7 @@ void mpr_time_set_dbl(mpr_time *t, double value)
 
 void mpr_time_set(mpr_time *l, mpr_time r)
 {
-    if (memcmp(&r, &MPR_NOW, sizeof(mpr_time)) == 0)
+    if (r.sec == 0 && r.frac == 1) /* MPR_NOW */
         lo_timetag_now((lo_timetag*)l);
     else
         memcpy(l, &r, sizeof(mpr_time));

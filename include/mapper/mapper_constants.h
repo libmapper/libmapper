@@ -9,7 +9,9 @@ extern "C" {
 
 #include <lo/lo.h>
 
-#define MPR_NOW ((mpr_time){0L,1L})
+/*! A 64-bit data structure containing an NTP-compatible time tag, as used by OSC. */
+typedef lo_timetag mpr_time;
+#define MPR_NOW LO_TT_IMMEDIATE
 
 enum {
     MPR_DEV             = 0x01,             /*!< Devices only. */
@@ -79,9 +81,6 @@ typedef enum {
     MPR_PROP_VERSION        = 0x2700,
     MPR_PROP_EXTRA          = 0x2800
 } mpr_prop;
-
-/*! A 64-bit data structure containing an NTP-compatible time tag, as used by OSC. */
-typedef lo_timetag mpr_time;
 
 /*! This data structure must be large enough to hold a system pointer or a uin64_t */
 typedef uint64_t mpr_id;
