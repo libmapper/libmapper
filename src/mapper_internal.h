@@ -9,10 +9,10 @@
 /* Structs that refer to things defined in mapper.h are declared here instead
    of in types_internal.h */
 
-#define RETURN_UNLESS(a) { if (!(a)) { return; }}
-#define RETURN_ARG_UNLESS(a, ...) { if (!(a)) { return __VA_ARGS__; }}
-#define DONE_UNLESS(a) { if (!(a)) { goto done; }}
-#define FUNC_IF(a, b) { if (b) { a(b); }}
+#define RETURN_UNLESS(condition) { if (!(condition)) { return; }}
+#define RETURN_ARG_UNLESS(condition, arg) { if (!(condition)) { return arg; }}
+#define DONE_UNLESS(condition) { if (!(condition)) { goto done; }}
+#define FUNC_IF(func, arg) { if (arg) { func(arg); }}
 #define PROP(NAME) MPR_PROP_##NAME
 
 #if DEBUG
@@ -28,14 +28,14 @@ if (!(a)) { trace_dev(dev, __VA_ARGS__); return ret; }
 #if defined(WIN32) || defined(_MSC_VER)
 #define MPR_INLINE __inline
 #else
-#define MPR_INLINE inline
+#define MPR_INLINE __inline
 #endif
 
 /**** Debug macros ****/
 
 /*! Debug tracer */
-#ifdef DEBUG
 #ifdef __GNUC__
+#ifdef DEBUG
 #include <stdio.h>
 #include <assert.h>
 #define trace(...) { printf("-- " __VA_ARGS__); }
@@ -52,26 +52,20 @@ if (!(a)) { trace_dev(dev, __VA_ARGS__); return ret; }
 }
 #define trace_net(...)  { printf("\x1B[33m-- <network>\x1B[0m  " __VA_ARGS__);}
 #define die_unless(a, ...) { if (!(a)) { printf("-- " __VA_ARGS__); assert(a); } }
-#else
-static void trace(...)
-{
-};
-static void die_unless(...) {};
-#endif
-#else
-#ifdef __GNUC__
+#else /* !DEBUG */
 #define trace(...) {}
 #define trace_graph(...) {}
 #define trace_dev(...) {}
 #define trace_net(...) {}
 #define die_unless(...) {}
-#else
-static void trace(...)
-{
-};
+#endif /* DEBUG */
+#else /* !__GNUC__ */
+static void trace(...) {};
+static void trace_graph(...) {};
+static void trace_dev(...) {};
+static void trace_net(...) {};
 static void die_unless(...) {};
-#endif
-#endif
+#endif /* __GNUC__ */
 
 /**** Subscriptions ****/
 #ifdef DEBUG

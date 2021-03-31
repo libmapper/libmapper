@@ -34,8 +34,9 @@ mpr_time ts = {0,1};
 
 static int cmp_qry_linked(const void *ctx, mpr_dev dev)
 {
+    int i;
     mpr_dev self = *(mpr_dev*)ctx;
-    for (int i = 0; i < self->num_linked; i++) {
+    for (i = 0; i < self->num_linked; i++) {
         if (!self->linked[i] || self->linked[i]->obj.id == dev->obj.id)
             return 1;
     }
@@ -45,25 +46,27 @@ static int cmp_qry_linked(const void *ctx, mpr_dev dev)
 static int cmp_qry_dev_sigs(const void *context_data, mpr_sig sig)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
-    int dir = *(int*)(context_data + sizeof(mpr_id));
+    int dir = *(int*)((char*)context_data + sizeof(mpr_id));
     return ((dir & sig->dir) && (dev_id == sig->dev->obj.id));
 }
 
 void init_dev_prop_tbl(mpr_dev dev)
 {
+    int mod = dev->loc ? NON_MODIFIABLE : MODIFIABLE;
+    mpr_tbl tbl;
+    mpr_list qry;
+
     dev->obj.props.mask = 0;
     dev->obj.props.synced = mpr_tbl_new();
     if (!dev->loc)
         dev->obj.props.staged = mpr_tbl_new();
-    int mod = dev->loc ? NON_MODIFIABLE : MODIFIABLE;
-    mpr_tbl tbl = dev->obj.props.synced;
+    tbl = dev->obj.props.synced;
 
     /* these properties need to be added in alphabetical order */
     mpr_tbl_link(tbl, PROP(DATA), 1, MPR_PTR, &dev->obj.data,
                  LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, mod);
-    mpr_list qry = mpr_list_new_query((const void**)&dev->obj.graph->devs,
-                                      cmp_qry_linked, "v", &dev);
+    qry = mpr_list_new_query((const void**)&dev->obj.graph->devs, (void*)cmp_qry_linked, "v", &dev);
     mpr_tbl_link(tbl, PROP(LINKED), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
     mpr_tbl_link(tbl, PROP(NAME), 1, MPR_STR, &dev->name, mod | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, mod);
@@ -72,8 +75,8 @@ void init_dev_prop_tbl(mpr_dev dev)
     mpr_tbl_link(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, mod);
     mpr_tbl_link(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, mod);
     if (!dev->loc) {
-        qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs,
-                                 cmp_qry_dev_sigs, "hi", dev->obj.id, MPR_DIR_ANY);
+        qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs, (void*)cmp_qry_dev_sigs,
+                                 "hi", dev->obj.id, MPR_DIR_ANY);
         mpr_tbl_link(tbl, PROP(SIG), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
     }
     mpr_tbl_link(tbl, PROP(STATUS), 1, MPR_INT32, &dev->status, mod | LOCAL_ACCESS_ONLY);
@@ -90,6 +93,7 @@ void init_dev_prop_tbl(mpr_dev dev)
  *  mpr_dev, not to create a representation of remote devices. */
 mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
 {
+    mpr_dev dev;
     RETURN_ARG_UNLESS(name_prefix, 0);
     if (name_prefix[0] == '/')
         ++name_prefix;
@@ -100,7 +104,7 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
         g->own = 0;
     }
 
-    mpr_dev dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, sizeof(mpr_dev_t));
+    dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, sizeof(mpr_dev_t));
     dev->obj.type = MPR_DEV;
     dev->obj.graph = g;
     dev->loc = (mpr_local_dev)calloc(1, sizeof(mpr_local_dev_t));
@@ -132,13 +136,17 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
 /*! Free resources used by a mpr device. */
 void mpr_dev_free(mpr_dev dev)
 {
+    mpr_graph gph;
+    mpr_net net;
+    mpr_list list;
+    int i;
     RETURN_UNLESS(dev && dev->loc);
     if (!dev->obj.graph) {
         free(dev);
         return;
     }
-    mpr_graph gph = dev->obj.graph;
-    mpr_net net = &gph->net;
+    gph = dev->obj.graph;
+    net = &gph->net;
 
     /* free any queued graph messages without sending */
     mpr_net_free_msgs(net);
@@ -147,19 +155,17 @@ void mpr_dev_free(mpr_dev dev)
     mpr_net_remove_dev_methods(net, dev);
 
     /* remove subscribers */
-    mpr_subscriber sub;
     while (dev->loc->subscribers) {
-        sub = dev->loc->subscribers;
+        mpr_subscriber sub = dev->loc->subscribers;
         FUNC_IF(lo_address_free, sub->addr);
         dev->loc->subscribers = sub->next;
         free(sub);
     }
 
-    int i;
-    mpr_list sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
-    while (sigs) {
-        mpr_sig sig = (mpr_sig)*sigs;
-        sigs = mpr_list_get_next(sigs);
+    list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+    while (list) {
+        mpr_sig sig = (mpr_sig)*list;
+        list = mpr_list_get_next(list);
         if (sig->loc) {
             /* release active instances */
             for (i = 0; i < sig->loc->idmap_len; i++) {
@@ -182,19 +188,18 @@ void mpr_dev_free(mpr_dev dev)
     }
 
     /* Release links to other devices */
-    mpr_list links = mpr_dev_get_links(dev, MPR_DIR_ANY);
-    while (links) {
-        mpr_link link = (mpr_link)*links;
-        links = mpr_list_get_next(links);
+    list = mpr_dev_get_links(dev, MPR_DIR_ANY);
+    while (list) {
+        mpr_link link = (mpr_link)*list;
+        list = mpr_list_get_next(list);
         mpr_dev_process_outputs_internal(dev);
         mpr_graph_remove_link(gph, link, MPR_OBJ_REM);
     }
 
     /* Release device id maps */
-    mpr_id_map map;
     for (i = 0; i < dev->loc->num_sig_groups; i++) {
         while (dev->loc->idmaps.active[i]) {
-            map = dev->loc->idmaps.active[i];
+            mpr_id_map map = dev->loc->idmaps.active[i];
             dev->loc->idmaps.active[i] = map->next;
             free(map);
         }
@@ -202,7 +207,7 @@ void mpr_dev_free(mpr_dev dev)
     free(dev->loc->idmaps.active);
 
     while (dev->loc->idmaps.reserve) {
-        map = dev->loc->idmaps.reserve;
+        mpr_id_map map = dev->loc->idmaps.reserve;
         dev->loc->idmaps.reserve = map->next;
         free(map);
     }
@@ -229,6 +234,7 @@ void mpr_dev_free(mpr_dev dev)
 void mpr_dev_on_registered(mpr_dev dev)
 {
     int i;
+    mpr_list qry;
     /* Add unique device id to locally-activated signal instances. */
     mpr_list sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (sigs) {
@@ -243,8 +249,8 @@ void mpr_dev_on_registered(mpr_dev dev)
             sig->obj.id |= dev->obj.id;
         }
     }
-    mpr_list qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs,
-                                      cmp_qry_dev_sigs, "hi", dev->obj.id, MPR_DIR_ANY);
+    qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs, (void*)cmp_qry_dev_sigs,
+                             "hi", dev->obj.id, MPR_DIR_ANY);
     mpr_tbl_set(dev->obj.props.synced, PROP(SIG), NULL, 1, MPR_LIST, qry,
                 NON_MODIFIABLE | PROP_OWNED);
     dev->loc->registered = 1;
@@ -292,13 +298,15 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 {
     mpr_sig sig = (mpr_sig)data;
     mpr_dev dev;
+    mpr_sig_inst si;
     mpr_rtr rtr = sig->obj.graph->net.rtr;
-    int i, val_len = 0, vals;
-    int idmap_idx, slot_idx = -1, map_manages_inst = 0;
+    int i, val_len = 0, vals, size, all;
+    int idmap_idx, inst_idx, slot_idx = -1, map_manages_inst = 0;
     mpr_id GID = 0;
     mpr_id_map idmap;
     mpr_map map = 0;
     mpr_slot slot = 0;
+    float diff;
 
     TRACE_RETURN_UNLESS(sig && (dev = sig->dev), 0, "error in mpr_dev_handler, "
                         "cannot retrieve user data\n");
@@ -373,18 +381,17 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                  * cause a release. If so, don't bother stealing an instance. */
                 mpr_value_buffer_t b = {argv[0], 0, -1};
                 mpr_value_t v = {&b, val_len, 1, slot->sig->type, 1};
-                mpr_value src[map->num_src];
+                mpr_value *src = alloca(map->num_src * sizeof(mpr_value));
                 for (i = 0; i < map->num_src; i++)
                     src[i] = (i == slot->obj.id) ? &v : 0;
-                int status = mpr_expr_eval(map->loc->expr, src, 0, 0, &ts, 0, 0);
-                if (status & EXPR_RELEASE_BEFORE_UPDATE)
+                if (mpr_expr_eval(map->loc->expr, src, 0, 0, &ts, 0, 0) & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
             }
 
             /* otherwise try to init reserved/stolen instance with device map */
             idmap_idx = mpr_sig_get_idmap_with_GID(sig, GID, 0, ts, 1);
-            TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0, "no instances available"
-                                    " for GUID %"PR_MPR_ID" (1)\n", GID);
+            TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0,
+                                    "no instances available for GUID %"PR_MPR_ID" (1)\n", GID);
         }
         else if (sig->loc->idmaps[idmap_idx].status & RELEASED_LOCALLY) {
             /* map was already released locally, we are only interested in release messages */
@@ -396,8 +403,8 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             }
             return 0;
         }
-        TRACE_DEV_RETURN_UNLESS(sig->loc->idmaps[idmap_idx].inst, 0, "error in mpr_dev_handler: "
-                                "missing instance!\n");
+        TRACE_DEV_RETURN_UNLESS(sig->loc->idmaps[idmap_idx].inst, 0,
+                                "error in mpr_dev_handler: missing instance!\n");
     }
     else {
         /* use the first available instance */
@@ -406,14 +413,15 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->loc->inst[0]->id, 1, ts, 1);
         RETURN_ARG_UNLESS(idmap_idx >= 0, 0);
     }
-    mpr_sig_inst si = sig->loc->idmaps[idmap_idx].inst;
-    int inst_idx = si->idx;
-    float diff = mpr_time_get_diff(ts, si->time);
+    si = sig->loc->idmaps[idmap_idx].inst;
+    inst_idx = si->idx;
+    diff = mpr_time_get_diff(ts, si->time);
     idmap = sig->loc->idmaps[idmap_idx].map;
 
-    int size = mpr_type_get_size(slot ? slot->sig->type : sig->type);
+    size = mpr_type_get_size(slot ? slot->sig->type : sig->type);
 
     if (vals == 0) {
+        int evt;
         if (GID) {
             /* TODO: mark SLOT status as remotely released rather than map */
             sig->loc->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
@@ -431,15 +439,14 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
         /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
          * know if the local signal instance will actually be released. */
-        int evt = MPR_SIG_REL_UPSTRM & sig->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
+        evt = MPR_SIG_REL_UPSTRM & sig->loc->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
         mpr_sig_call_handler(sig, evt, idmap->LID, 0, 0, &ts, diff);
 
         RETURN_ARG_UNLESS(map && MPR_LOC_DST == map->process_loc, 0);
 
         /* Reset memory for corresponding source slot. */
-        mpr_local_slot lslot = slot->loc;
         /* TODO: make a function (reset) */
-        mpr_value_reset_inst(&lslot->val, inst_idx);
+        mpr_value_reset_inst(&slot->loc->val, inst_idx);
         return 0;
     }
 
@@ -453,7 +460,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         return 0;
     }
 
-    int all = !GID;
+    all = !GID;
     if (map) {
         /* Or if this signal slot is non-instanced but the map has other instanced
          * sources we will need to update all of the map instances. */
@@ -466,8 +473,8 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
             /* check if map instance is active */
             if ((si = sig->loc->idmaps[idmap_idx].inst)) {
-                inst_idx = si->idx;
                 mpr_local_slot lslot = slot->loc;
+                inst_idx = si->idx;
                 mpr_value_set_sample(&lslot->val, inst_idx, argv[0], ts);
                 set_bitflag(map->loc->updated_inst, inst_idx);
                 map->loc->updated = 1;
@@ -485,7 +492,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             for (i = 0; i < sig->len; i++) {
                 if (types[i] == MPR_NULL)
                     continue;
-                memcpy(si->val + i * size, argv[i], size);
+                memcpy((char*)si->val + i * size, argv[i], size);
                 set_bitflag(si->has_val_flags, i);
             }
             if (!compare_bitflags(si->has_val_flags, sig->loc->vec_known, sig->len))
@@ -512,10 +519,10 @@ mpr_id mpr_dev_get_unused_sig_id(mpr_dev dev)
     int done = 0;
     mpr_id id;
     while (!done) {
-        done = 1;
+        mpr_list l = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
         id = mpr_dev_generate_unique_id(dev);
         /* check if input signal exists with this id */
-        mpr_list l = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+        done = 1;
         while (l) {
             if ((*l)->id == id) {
                 done = 0;
@@ -564,8 +571,9 @@ mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir)
 
 mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
 {
+    mpr_list sigs;
     RETURN_ARG_UNLESS(dev, 0);
-    mpr_list sigs = mpr_list_from_data(dev->obj.graph->sigs);
+    sigs = mpr_list_from_data(dev->obj.graph->sigs);
     while (sigs) {
         mpr_sig sig = (mpr_sig)*sigs;
         if ((sig->dev == dev) && strcmp(sig->name, skip_slash(sig_name))==0)
@@ -655,7 +663,8 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 /* TODO: handle interrupt-driven updates that omit call to this function */
 MPR_INLINE static void mpr_dev_process_inputs_internal(mpr_dev dev)
 {
-//    RETURN_ARG_UNLESS(dev->loc->updated, 0);
+    /* TODO: reenable update filtering with separate I/O */
+    /*    RETURN_ARG_UNLESS(dev->loc->updated, 0); */
     mpr_graph graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
@@ -670,23 +679,25 @@ MPR_INLINE static void mpr_dev_process_inputs_internal(mpr_dev dev)
 /* TODO: handle interrupt-driven updates that omit call to this function */
 MPR_INLINE static int mpr_dev_process_outputs_internal(mpr_dev dev)
 {
-    RETURN_ARG_UNLESS(dev->loc->updated, 0);
     int msgs = 0;
-    mpr_list links;
-    mpr_graph graph = dev->obj.graph;
+    mpr_list list;
+    mpr_graph graph;
+    RETURN_ARG_UNLESS(dev->loc->updated, 0);
+
+    graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
-    mpr_list maps = mpr_list_from_data(graph->maps);
-    while (maps) {
-        mpr_map map = *(mpr_map*)maps;
-        maps = mpr_list_get_next(maps);
+    list = mpr_list_from_data(graph->maps);
+    while (list) {
+        mpr_map map = *(mpr_map*)list;
+        list = mpr_list_get_next(list);
         mpr_map_send(map, dev->loc->time);
     }
     dev->loc->updated = 0;
-    links = mpr_list_from_data(graph->links);
-    while (links) {
-        msgs += mpr_link_process_bundles((mpr_link)*links, dev->loc->time, 0);
-        links = mpr_list_get_next(links);
+    list = mpr_list_from_data(graph->links);
+    while (list) {
+        msgs += mpr_link_process_bundles((mpr_link)*list, dev->loc->time, 0);
+        list = mpr_list_get_next(list);
     }
     return msgs ? 1 : 0;
 }
@@ -957,7 +968,7 @@ mpr_id mpr_dev_generate_unique_id(mpr_dev dev)
 
 void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd)
 {
-    RETURN_UNLESS(dev);
+    mpr_net net = &dev->obj.graph->net;
     NEW_LO_MSG(msg, return);
 
     /* device name */
@@ -966,7 +977,6 @@ void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd)
     /* properties */
     mpr_tbl_add_to_msg(dev->loc ? dev->obj.props.synced : 0, dev->obj.props.staged, msg);
 
-    mpr_net net = &dev->obj.graph->net;
     if (cmd == MSG_DEV_MOD) {
         char str[1024];
         snprintf(str, 1024, "/%s/modify", dev->name);

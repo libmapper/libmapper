@@ -56,10 +56,10 @@ static void set_net_dst(mpr_graph g, mpr_dev d)
 static void send_subscribe_msg(mpr_graph g, mpr_dev d, int flags, int timeout)
 {
     char cmd[1024];
+    NEW_LO_MSG(msg, return);
     snprintf(cmd, 1024, "/%s/subscribe", d->name);
 
     set_net_dst(g, d);
-    NEW_LO_MSG(msg, return);
     if (MPR_OBJ == flags)
         lo_message_add_string(msg, "all");
     else {
@@ -98,6 +98,7 @@ static void _autosubscribe(mpr_graph g, int flags)
         /* update flags for existing subscriptions */
         mpr_subscription s = g->subscriptions;
         mpr_time t;
+        NEW_LO_MSG(msg, ;);
         mpr_time_set(&t, MPR_NOW);
         while (s) {
             trace_graph("adjusting flags for existing autorenewing subscription to %s.\n",
@@ -110,7 +111,6 @@ static void _autosubscribe(mpr_graph g, int flags)
             s->flags = flags;
             s = s->next;
         }
-        NEW_LO_MSG(msg, ;);
         if (msg) {
             trace_graph("pinging all devices.\n");
             mpr_net_use_bus(&g->net);
@@ -269,7 +269,7 @@ int mpr_graph_add_cb(mpr_graph g, mpr_graph_handler *h, int types, const void *u
 {
     fptr_list cb = g->callbacks;
     while (cb) {
-        if (cb->f == h && cb->ctx == user) {
+        if (cb->f == (void*)h && cb->ctx == user) {
             cb->types |= types;
             return 0;
         }

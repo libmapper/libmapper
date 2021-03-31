@@ -58,9 +58,9 @@ static void _update_map_count(mpr_rtr rtr)
     int i, dev_maps_in = 0, dev_maps_out = 0;
     mpr_dev dev = 0;
     while (rs) {
+        int sig_maps_in = 0, sig_maps_out = 0;
         if (!dev)
             dev = rs->sig->dev;
-        int sig_maps_in = 0, sig_maps_out = 0;
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i] || rs->slots[i]->map->status < MPR_STATUS_ACTIVE)
                 continue;
@@ -403,13 +403,14 @@ static void _check_link(mpr_rtr rtr, mpr_link link)
 void mpr_rtr_remove_link(mpr_rtr rtr, mpr_link link)
 {
     int i, j;
+    mpr_map map;
     /* check if any maps use this link */
     mpr_rtr_sig rs = rtr->sigs;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i])
                 continue;
-            mpr_map map = rs->slots[i]->map;
+            map = rs->slots[i]->map;
             if (map->dst->link == link) {
                 mpr_rtr_remove_map(rtr, map);
                 continue;
@@ -444,10 +445,11 @@ void mpr_rtr_remove_sig(mpr_rtr rtr, mpr_rtr_sig rs)
 
 int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
 {
-    RETURN_ARG_UNLESS(map && map->loc, 1);
     /* do not free local names since they point to signal's copy */
+
     int i, j;
     mpr_time t;
+    RETURN_ARG_UNLESS(map && map->loc, 1);
     mpr_time_set(&t, MPR_NOW);
 
     if (map->idmap) {
@@ -547,14 +549,16 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_map map)
 int mpr_rtr_loop_check(mpr_rtr rtr, mpr_sig local_sig, int num_remotes,
                        const char **remotes)
 {
+    int i, j;
+    mpr_map map;
+    mpr_slot slot;
     mpr_rtr_sig rs = _find_rtr_sig(rtr, local_sig);
     RETURN_ARG_UNLESS(rs, 0);
-    int i, j;
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->dir == MPR_DIR_IN)
             continue;
-        mpr_slot slot = rs->slots[i];
-        mpr_map map = slot->map;
+        slot = rs->slots[i];
+        map = slot->map;
 
         /* check destination */
         for (j = 0; j < num_remotes; j++) {
@@ -567,12 +571,12 @@ int mpr_rtr_loop_check(mpr_rtr rtr, mpr_sig local_sig, int num_remotes,
 
 mpr_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_sig sig, int slot_id)
 {
+    int i, j;
+    mpr_map map;
     /* only interested in incoming slots */
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_ARG_UNLESS(rs, NULL);
 
-    int i, j;
-    mpr_map map;
     for (i = 0; i < rs->num_slots; i++) {
         if (!rs->slots[i] || rs->slots[i]->dir == MPR_DIR_OUT)
             continue;

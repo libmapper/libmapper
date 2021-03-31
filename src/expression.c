@@ -342,44 +342,44 @@ static struct {
     void *fn_flt;
     void *fn_dbl;
 } fn_tbl[] = {
-    { "abs",        1,  0,  abs,    fabsf,      fabs        },
-    { "acos",       1,  0,  0,      acosf,      acos        },
-    { "acosh",      1,  0,  0,      acoshf,     acosh       },
-    { "asin",       1,  0,  0,      asinf,      asin        },
-    { "asinh",      1,  0,  0,      asinhf,     asinh       },
-    { "atan",       1,  0,  0,      atanf,      atan        },
-    { "atan2",      2,  0,  0,      atan2f,     atan2       },
-    { "atanh",      1,  0,  0,      atanhf,     atanh       },
-    { "cbrt",       1,  0,  0,      cbrtf,      cbrt        },
-    { "ceil",       1,  0,  0,      ceilf,      ceil        },
-    { "cos",        1,  0,  0,      cosf,       cos         },
-    { "cosh",       1,  0,  0,      coshf,      cosh        },
-    { "ema",        3,  1,  0,      emaf,       emad        },
-    { "exp",        1,  0,  0,      expf,       exp         },
-    { "exp2",       1,  0,  0,      exp2f,      exp2        },
-    { "floor",      1,  0,  0,      floorf,     floor       },
-    { "hypot",      2,  0,  0,      hypotf,     hypot       },
-    { "hzToMidi",   1,  0,  0,      hzToMidif,  hzToMidid   },
-    { "log",        1,  0,  0,      logf,       log         },
-    { "log10",      1,  0,  0,      log10f,     log10       },
-    { "log2",       1,  0,  0,      log2f,      log2        },
-    { "logb",       1,  0,  0,      logbf,      logb        },
-    { "max",        2,  0,  maxi,   maxf,       maxd        },
-    { "midiToHz",   1,  0,  0,      midiToHzf,  midiToHzd   },
-    { "min",        2,  0,  mini,   minf,       mind        },
-    { "pow",        2,  0,  0,      powf,       pow         },
-    { "round",      1,  0,  0,      roundf,     round       },
-    { "schmitt",    4,  1,  0,      schmittf,   schmittd    },
-    { "sign",       1,  0,  signi,  signf,      signd       },
-    { "sin",        1,  0,  0,      sinf,       sin         },
-    { "sinh",       1,  0,  0,      sinhf,      sinh        },
-    { "sqrt",       1,  0,  0,      sqrtf,      sqrt        },
-    { "tan",        1,  0,  0,      tanf,       tan         },
-    { "tanh",       1,  0,  0,      tanhf,      tanh        },
-    { "trunc",      1,  0,  0,      truncf,     trunc       },
+    { "abs",      1, 0, abs,          (void*)fabsf,     (void*)fabs      },
+    { "acos",     1, 0, 0,            (void*)acosf,     (void*)acos      },
+    { "acosh",    1, 0, 0,            (void*)acoshf,    (void*)acosh     },
+    { "asin",     1, 0, 0,            (void*)asinf,     (void*)asin      },
+    { "asinh",    1, 0, 0,            (void*)asinhf,    (void*)asinh     },
+    { "atan",     1, 0, 0,            (void*)atanf,     (void*)atan      },
+    { "atan2",    2, 0, 0,            (void*)atan2f,    (void*)atan2     },
+    { "atanh",    1, 0, 0,            (void*)atanhf,    (void*)atanh     },
+    { "cbrt",     1, 0, 0,            (void*)cbrtf,     (void*)cbrt      },
+    { "ceil",     1, 0, 0,            (void*)ceilf,     (void*)ceil      },
+    { "cos",      1, 0, 0,            (void*)cosf,      (void*)cos       },
+    { "cosh",     1, 0, 0,            (void*)coshf,     (void*)cosh      },
+    { "ema",      3, 1, 0,            (void*)emaf,      (void*)emad      },
+    { "exp",      1, 0, 0,            (void*)expf,      (void*)exp       },
+    { "exp2",     1, 0, 0,            (void*)exp2f,     (void*)exp2      },
+    { "floor",    1, 0, 0,            (void*)floorf,    (void*)floor     },
+    { "hypot",    2, 0, 0,            (void*)hypotf,    (void*)hypot     },
+    { "hzToMidi", 1, 0, 0,            (void*)hzToMidif, (void*)hzToMidid },
+    { "log",      1, 0, 0,            (void*)logf,      (void*)log       },
+    { "log10",    1, 0, 0,            (void*)log10f,    (void*)log10     },
+    { "log2",     1, 0, 0,            (void*)log2f,     (void*)log2      },
+    { "logb",     1, 0, 0,            (void*)logbf,     (void*)logb      },
+    { "max",      2, 0, (void*)maxi,  (void*)maxf,      (void*)maxd      },
+    { "midiToHz", 1, 0, 0,            (void*)midiToHzf, (void*)midiToHzd },
+    { "min",      2, 0, (void*)mini,  (void*)minf,      (void*)mind      },
+    { "pow",      2, 0, 0,            (void*)powf,      (void*)pow       },
+    { "round",    1, 0, 0,            (void*)roundf,    (void*)round     },
+    { "schmitt",  4, 1, 0,            (void*)schmittf,  (void*)schmittd  },
+    { "sign",     1, 0, (void*)signi, (void*)signf,     (void*)signd     },
+    { "sin",      1, 0, 0,            (void*)sinf,      (void*)sin       },
+    { "sinh",     1, 0, 0,            (void*)sinhf,     (void*)sinh      },
+    { "sqrt",     1, 0, 0,            (void*)sqrtf,     (void*)sqrt      },
+    { "tan",      1, 0, 0,            (void*)tanf,      (void*)tan       },
+    { "tanh",     1, 0, 0,            (void*)tanhf,     (void*)tanh      },
+    { "trunc",    1, 0, 0,            (void*)truncf,    (void*)trunc     },
     /* place functions which should never be precomputed below this point */
-    { "delay",      1,  0,  (void*)1,      0,          0,          },
-    { "uniform",    1,  0,  0,      uniformf,   uniformd    },
+    { "delay",    1, 0, (void*)1,     0,                0,               },
+    { "uniform",  1, 0, 0,            (void*)uniformf,  (void*)uniformd  },
 };
 
 typedef enum {
@@ -405,9 +405,9 @@ static struct {
     uint8_t arity;
     uint8_t reduce; /* TODO: use bitflags */
     uint8_t dot_notation;
-    void *fn_int;
-    void *fn_flt;
-    void *fn_dbl;
+    void (*fn_int)(mpr_expr_val, uint8_t*, int, int);
+    void (*fn_flt)(mpr_expr_val, uint8_t*, int, int);
+    void (*fn_dbl)(mpr_expr_val, uint8_t*, int, int);
 } vfn_tbl[] = {
     { "all",    1, 1, 1, valli,    vallf,    valld    },
     { "any",    1, 1, 1, vanyi,    vanyf,    vanyd    },
@@ -1826,10 +1826,10 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 muted = 0;
                 public = 0;
                 break;
-            case TOK_FN:
+            case TOK_FN: {
+                mpr_token_t newtok;
                 tok.datatype = fn_tbl[tok.fn].fn_int ? MPR_INT32 : MPR_FLT;
                 tok.arity = fn_tbl[tok.fn].arity;
-                mpr_token_t newtok;
                 if (fn_tbl[tok.fn].memory) {
                     /* add assignment token */
                     char varname[6];
@@ -1871,6 +1871,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                     PUSH_TO_OUTPUT(newtok);
                 }
                 break;
+            }
             case TOK_PFN:
                 {FAIL_IF(PFN_POOL != tok.pfn, "Instance reduce functions must start with 'pool()'.");}
                 GET_NEXT_TOKEN(tok);
@@ -2723,6 +2724,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     mpr_token_t *tok, *end;
     int status = 1 | EXPR_EVAL_DONE, alive = 1, muted = 0;   /* TODO: make bitflags */
     int cache = 0;
+    int i, j, sp = -1, can_advance = 1;
+    mpr_type last_type = 0;
     mpr_value_buffer b_out;
 
     if (!expr) {
@@ -2760,9 +2763,6 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
      * option: create version with unallocated timetags */
     mpr_expr_val_t stk[expr->stack_size][expr->vec_size], *stkp = (mpr_expr_val_t*)stk;
     uint8_t dims[expr->stack_size];
-
-    int i, j, sp = -1, can_advance = 1;
-    mpr_type last_type = 0;
 
     if (v_out) {
         /* init types */
@@ -2903,7 +2903,6 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             if (!(tok->flags & VAR_DELAY))
                 ++sp;
             dims[sp] = tok->vec_len;
-            mpr_value_buffer b;
 #if TRACE_EVAL
             if (tok->var == VAR_Y)
                 printf("loading timetag t_y");
@@ -2939,6 +2938,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                 }
             }
             if (tok->var == VAR_Y) {
+                mpr_value_buffer b;
                 RETURN_ARG_UNLESS(v_out, status);
                 b = b_out;
                 int idx = (b->pos + v_out->mlen + hidx) % v_out->mlen;
@@ -2948,17 +2948,18 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
             else if (tok->var >= VAR_X) {
                 mpr_value v;
+                mpr_value_buffer b;
                 RETURN_ARG_UNLESS(v_in, status);
                 v = v_in[tok->var-VAR_X];
                 b = &v->inst[inst_idx % v->num_inst];
-                int idx = (b->pos + v->mlen + hidx) % v->mlen;
-                t_d = mpr_time_as_dbl(b->times[idx]);
+                /* TODO: ensure buffer overrun is not possible here amd similar */
+                t_d = mpr_time_as_dbl(b->times[(b->pos + v->mlen + hidx) % v->mlen]);
                 if (weight)
                     t_d = t_d * weight + ((b->pos + v->mlen + hidx - 1) % v->mlen) * (1 - weight);
             }
             else if (v_vars) {
                 mpr_value v = *v_vars + tok->var;
-                b = &v->inst[inst_idx];
+                mpr_value_buffer b = &v->inst[inst_idx];
                 t_d = mpr_time_as_dbl(b->times[0]);
             }
             else
@@ -2971,6 +2972,8 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             break;
         }
         case TOK_OP: {
+            int maxlen, diff;
+            unsigned int rdim;
             sp -= (op_tbl[tok->op].arity - 1);
 #if TRACE_EVAL
             if (tok->op == OP_IF_THEN_ELSE || tok->op == OP_IF_ELSE) {
@@ -2995,17 +2998,17 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             }
 #endif
             /* first copy stk[sp] elements if necessary */
-            int maxlen = dims[sp];
+            maxlen = dims[sp];
             for (i = 1; i < op_tbl[tok->op].arity; i++)
                 maxlen = _max(maxlen, dims[sp + i]);
-            int diff = maxlen - dims[sp];
+            diff = maxlen - dims[sp];
             while (diff > 0) {
                 int mindiff = dims[sp] > diff ? diff : dims[sp];
                 memcpy(stk[sp]+dims[sp], stk[sp], mindiff * sizeof(mpr_expr_val_t));
                 dims[sp] += mindiff;
                 diff -= mindiff;
             }
-            unsigned int rdim = dims[sp + 1];
+            rdim = dims[sp + 1];
             switch (tok->datatype) {
                 case MPR_INT32: {
                     switch (tok->op) {
@@ -3071,7 +3074,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             break;
         }
-        case TOK_FN:
+        case TOK_FN: {
+            int maxlen, diff;
+            unsigned int ldim, rdim;
             sp -= (fn_tbl[tok->fn].arity - 1);
 #if TRACE_EVAL
             printf("%s%c(", fn_tbl[tok->fn].name, tok->datatype);
@@ -3083,17 +3088,18 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
 #endif
             /* TODO: use preprocessor macro or inline func here */
             /* first copy stk[sp] elements if necessary */
-            int maxlen = dims[sp];
+            maxlen = dims[sp];
             for (i = 1; i < fn_tbl[tok->fn].arity; i++)
                 maxlen = _max(maxlen, dims[sp + i]);
-            int diff = maxlen - dims[sp];
+            diff = maxlen - dims[sp];
             while (diff > 0) {
                 int mindiff = dims[sp] > diff ? diff : dims[sp];
                 memcpy(stk[sp]+dims[sp], stk[sp], mindiff * sizeof(mpr_expr_val_t));
                 dims[sp] += mindiff;
                 diff -= mindiff;
             }
-            unsigned int ldim = dims[sp], rdim = dims[sp + 1];
+            ldim = dims[sp];
+            rdim = dims[sp + 1];
             switch (tok->datatype) {
 #define TYPED_CASE(MTYPE, FN, T)                                                    \
             case MTYPE:                                                             \
@@ -3141,6 +3147,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             printf(" \n");
 #endif
             break;
+        }
         case TOK_VFN:
             sp -= (vfn_tbl[tok->vfn].arity - 1);
 #if TRACE_EVAL
