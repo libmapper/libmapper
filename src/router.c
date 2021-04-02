@@ -81,30 +81,36 @@ static void _update_map_count(mpr_rtr rtr)
 
 void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *val, mpr_time t)
 {
+    mpr_id_map idmap;
+    lo_message msg;
+    mpr_rtr_sig rs;
+    mpr_map map;
+    int i, j, inst_idx;
+    uint8_t bundle_idx, *lock;
+
     /* abort if signal is already being processed - might be a local loop */
     if (sig->loc->locked) {
         trace_dev(rtr->dev, "Mapping loop detected on signal %s! (1)\n", sig->name);
         return;
     }
-    mpr_id_map idmap = sig->loc->idmaps[idmap_idx].map;
-    lo_message msg;
+    idmap = sig->loc->idmaps[idmap_idx].map;
 
     /* find the router signal */
-    mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
+    rs = _find_rtr_sig(rtr, sig);
     RETURN_UNLESS(rs);
 
-    int i, j, inst_idx = sig->loc->idmaps[idmap_idx].inst->idx;
-    uint8_t bundle_idx = rtr->dev->loc->bundle_idx % NUM_BUNDLES;
+    inst_idx = sig->loc->idmaps[idmap_idx].inst->idx;
+    bundle_idx = rtr->dev->loc->bundle_idx % NUM_BUNDLES;
     rtr->dev->loc->updated = 1; /* mark as updated */
-    mpr_map map;
-    uint8_t *lock = &sig->loc->locked;
+    lock = &sig->loc->locked;
     *lock = 1;
 
     if (!val) {
-        mpr_local_slot lslot;
-        mpr_slot slot;
+        mpr_local_slot lslot, dst_lslot;
+        mpr_slot slot, dst_slot;
 
         for (i = 0; i < rs->num_slots; i++) {
+            int in_scope;
             if (!rs->slots[i])
                 continue;
 
@@ -114,9 +120,9 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             if (map->status < MPR_STATUS_ACTIVE)
                 continue;
 
-            mpr_slot dst_slot = map->dst;
-            mpr_local_slot dst_lslot = dst_slot->loc;
-            int in_scope = _is_map_in_scope(map, idmap->GID);
+            dst_slot = map->dst;
+            dst_lslot = dst_slot->loc;
+            in_scope = _is_map_in_scope(map, idmap->GID);
 
             /* send release to upstream */
             for (j = 0; j < map->num_src; j++) {
@@ -160,16 +166,20 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
         return;
     }
     for (i = 0; i < rs->num_slots; i++) {
+        mpr_slot slot;
+        mpr_local_slot lslot;
+        struct _mpr_sig_idmap *idmaps;
+        int in_scope, all;
         if (!rs->slots[i])
             continue;
 
-        mpr_slot slot = rs->slots[i];
+        slot = rs->slots[i];
         map = slot->map;
 
         if (map->status < MPR_STATUS_ACTIVE)
             continue;
 
-        int in_scope = _is_map_in_scope(map, sig->loc->idmaps[idmap_idx].map->GID);
+        in_scope = _is_map_in_scope(map, sig->loc->idmaps[idmap_idx].map->GID);
         /* TODO: should we continue for out-of-scope local destination updates? */
         if (map->use_inst && !in_scope)
             continue;
@@ -179,11 +189,11 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
 
         /* If this signal is non-instanced but the map has other instanced
          * sources we will need to update all of the active map instances. */
-        int all = (!sig->use_inst && map->num_src > 1 && map->loc->num_inst > 1);
+        all = (!sig->use_inst && map->num_src > 1 && map->loc->num_inst > 1);
 
         if (MPR_LOC_DST == map->process_loc) {
             /* bypass map processing and bundle value without type coercion */
-            char types[sig->len];
+            char *types = alloca(sig->len * sizeof(char));
             memset(types, sig->type, sig->len);
             msg = mpr_map_build_msg(map, slot, val, types, sig->use_inst ? idmap : 0);
             mpr_link_add_msg(map->dst->link, map->dst->sig, msg, t, map->protocol, bundle_idx);
@@ -191,7 +201,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
         }
 
         /* copy input value */
-        mpr_local_slot lslot = slot->loc;
+        lslot = slot->loc;
         mpr_value_set_sample(&lslot->val, inst_idx, (void*)val, t);
 
         if (!slot->causes_update)
@@ -205,7 +215,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
             idmap_idx = 0;
         }
 
-        struct _mpr_sig_idmap *idmaps = sig->loc->idmaps;
+        idmaps = sig->loc->idmaps;
         for (; idmap_idx < sig->loc->idmap_len; idmap_idx++) {
             /* check if map instance is active */
             if ((all || sig->use_inst) && !idmaps[idmap_idx].inst)
@@ -262,11 +272,12 @@ static mpr_id _get_unused_map_id(mpr_dev dev, mpr_rtr rtr)
 {
     int i, done = 0;
     mpr_id id;
+    mpr_rtr_sig rs;
     while (!done) {
         done = 1;
         id = mpr_dev_generate_unique_id(dev);
         /* check if map exists with this id */
-        mpr_rtr_sig rs = rtr->sigs;
+        rs = rtr->sigs;
         while (rs) {
             for (i = 0; i < rs->num_slots; i++) {
                 if (!rs->slots[i])
@@ -306,14 +317,16 @@ static void _add_local_slot(mpr_rtr rtr, mpr_slot slot, int is_src, int *max_ins
 
 void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
 {
+    int i, local_src = 0, local_dst, max_num_inst = 0, use_inst = 0, scope_count;
+    mpr_local_map lmap;
     RETURN_UNLESS(!map->loc);
-    int i, local_src = 0, local_dst = map->dst->sig->loc ? 1 : 0;
     for (i = 0; i < map->num_src; i++) {
         if (map->src[i]->sig->loc)
             ++local_src;
     }
+    local_dst = map->dst->sig->loc ? 1 : 0;
 
-    mpr_local_map lmap = (mpr_local_map)calloc(1, sizeof(struct _mpr_local_map));
+    lmap = (mpr_local_map)calloc(1, sizeof(struct _mpr_local_map));
     map->loc = lmap;
     lmap->rtr = rtr;
 
@@ -321,7 +334,6 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
     lmap->num_inst = 0;
 
     /* Add local slot structures */
-    int max_num_inst = 0, use_inst = 0;
     for (i = 0; i < map->num_src; i++)
         _add_local_slot(rtr, map->src[i], 1, &max_num_inst, &use_inst);
     _add_local_slot(rtr, map->dst, 0, &max_num_inst, &use_inst);
@@ -346,7 +358,7 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_map map)
     }
 
     /* add scopes */
-    int scope_count = 0;
+    scope_count = 0;
     map->num_scopes = map->num_src;
     map->scopes = (mpr_dev *) malloc(sizeof(mpr_dev) * map->num_scopes);
 

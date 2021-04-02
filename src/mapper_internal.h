@@ -559,6 +559,8 @@ void mpr_tbl_add_to_msg(mpr_tbl tab, mpr_tbl updates, lo_message msg);
  *  removal to propagate to subscribed graph instances and peer devices. */
 void mpr_tbl_clear_empty(mpr_tbl tab);
 
+int match_pattern(const char* s, const char* p);
+
 /**** Lists ****/
 
 void *mpr_list_from_data(const void *data);

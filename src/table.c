@@ -5,33 +5,6 @@
 
 #include "mapper_internal.h"
 
-static int match_pattern(const char* s, const char* p)
-{
-    int ends_wild;
-    char *str, *tok, *pat;
-    RETURN_ARG_UNLESS(s && p, 1);
-    RETURN_ARG_UNLESS(strchr(p, '*'), strcmp(s, p));
-
-    /* 1) tokenize pattern using strtok() with delimiter character '*'
-     * 2) use strstr() to check if token exists in offset string */
-    str = (char*)s;
-    pat = alloca((strlen(p) + 1) * sizeof(char));
-    strcpy(pat, p);
-    ends_wild = ('*' == p[strlen(p)-1]);
-    while (str && *str) {
-        tok = strtok(pat, "*");
-        RETURN_ARG_UNLESS(tok, !ends_wild);
-        str = strstr(str, tok);
-        if (str && *str)
-            str += strlen(tok);
-        else
-            return 1;
-            /* subsequent calls to strtok() need first argument to be NULL */
-        pat = NULL;
-    }
-    return 0;
-}
-
 /* we will sort so that indexed records come before keyed records */
 static int compare_rec(const void *l, const void *r)
 {

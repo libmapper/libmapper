@@ -19,12 +19,6 @@
 
 extern const char* net_msg_strings[NUM_MSG_STRINGS];
 
-#define DEV_SERVER_FUNC(FUNC, ...)                              \
-{                                                               \
-    lo_server_ ## FUNC(net->servers[SERVER_UDP], __VA_ARGS__);  \
-    lo_server_ ## FUNC(net->servers[SERVER_TCP], __VA_ARGS__);  \
-}
-
 /* prototypes */
 void mpr_dev_start_servers(mpr_dev dev);
 static void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map rem);
@@ -379,9 +373,14 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             if (map_manages_inst && vals == slot->sig->len) {
                 /* special case: do a dry-run to check whether this map will
                  * cause a release. If so, don't bother stealing an instance. */
-                mpr_value_buffer_t b = {argv[0], 0, -1};
-                mpr_value_t v = {&b, val_len, 1, slot->sig->type, 1};
-                mpr_value *src = alloca(map->num_src * sizeof(mpr_value));
+                mpr_value *src;
+                mpr_value_t v = {0, 0, 1, 0, 1};
+                mpr_value_buffer_t b = {0, 0, -1};
+                b.samps = argv[0];
+                v.inst = &b;
+                v.vlen = val_len;
+                v.type = slot->sig->type;
+                src = alloca(map->num_src * sizeof(mpr_value));
                 for (i = 0; i < map->num_src; i++)
                     src[i] = (i == slot->obj.id) ? &v : 0;
                 if (mpr_expr_eval(map->loc->expr, src, 0, 0, &ts, 0, 0) & EXPR_RELEASE_BEFORE_UPDATE)
@@ -540,7 +539,8 @@ void mpr_dev_add_sig_methods(mpr_dev dev, mpr_sig sig)
     mpr_net net;
     RETURN_UNLESS(sig && sig->loc);
     net = &dev->obj.graph->net;
-    DEV_SERVER_FUNC(add_method, sig->path, NULL, mpr_dev_handler, (void*)sig);
+    lo_server_add_method(net->servers[SERVER_UDP], sig->path, NULL, mpr_dev_handler, (void*)sig);
+    lo_server_add_method(net->servers[SERVER_TCP], sig->path, NULL, mpr_dev_handler, (void*)sig);
     ++dev->loc->n_output_callbacks;
 }
 
@@ -554,9 +554,11 @@ void mpr_dev_remove_sig_methods(mpr_dev dev, mpr_sig sig)
     len = (int)strlen(sig->path) + 5;
     path = (char*)realloc(path, len);
     snprintf(path, len, "%s%s", sig->path, "/get");
-    DEV_SERVER_FUNC(del_method, path, NULL);
+    lo_server_del_method(net->servers[SERVER_UDP], path, NULL);
+    lo_server_del_method(net->servers[SERVER_TCP], path, NULL);
     free(path);
-    DEV_SERVER_FUNC(del_method, sig->path, NULL);
+    lo_server_del_method(net->servers[SERVER_UDP], sig->path, NULL);
+    lo_server_del_method(net->servers[SERVER_TCP], sig->path, NULL);
     --dev->loc->n_output_callbacks;
 }
 
@@ -911,10 +913,12 @@ void mpr_dev_start_servers(mpr_dev dev)
         pport = 0;
 
     /* Disable liblo message queueing */
-    DEV_SERVER_FUNC(enable_queue, 0, 1);
+    lo_server_enable_queue(net->servers[SERVER_UDP], 0, 1);
+    lo_server_enable_queue(net->servers[SERVER_TCP], 0, 1);
 
     /* Add bundle handlers */
-    DEV_SERVER_FUNC(add_bundle_handlers, mpr_dev_bundle_start, NULL, (void*)dev);
+    lo_server_add_bundle_handlers(net->servers[SERVER_UDP], mpr_dev_bundle_start, NULL, (void*)dev);
+    lo_server_add_bundle_handlers(net->servers[SERVER_TCP], mpr_dev_bundle_start, NULL, (void*)dev);
 
     portnum = lo_server_get_port(net->servers[SERVER_UDP]);
     mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, NON_MODIFIABLE);
@@ -933,8 +937,10 @@ void mpr_dev_start_servers(mpr_dev dev)
     while (sigs) {
         mpr_sig sig = (mpr_sig)*sigs;
         sigs = mpr_list_get_next(sigs);
-        if (sig->loc->handler)
-            DEV_SERVER_FUNC(add_method, sig->path, NULL, mpr_dev_handler, (void*)sig);
+        if (sig->loc->handler) {
+            lo_server_add_method(net->servers[SERVER_UDP], sig->path, NULL, mpr_dev_handler, (void*)sig);
+            lo_server_add_method(net->servers[SERVER_TCP], sig->path, NULL, mpr_dev_handler, (void*)sig);
+        }
     }
 }
 

@@ -92,12 +92,13 @@ const char *mpr_steal_strings[] =
 
 int mpr_parse_names(const char *string, char **devnameptr, char **signameptr)
 {
+    char *devname, *signame;
     RETURN_ARG_UNLESS(string, 0);
-    const char *devname = skip_slash(string);
+    devname = (char*)skip_slash(string);
     RETURN_ARG_UNLESS(devname && devname[0] != '/', 0);
     if (devnameptr)
         *devnameptr = (char*) devname;
-    char *signame = strchr(devname+1, '/');
+    signame = strchr(devname+1, '/');
     if (!signame) {
         if (signameptr)
             *signameptr = 0;
@@ -116,6 +117,10 @@ int mpr_parse_names(const char *string, char **devnameptr, char **signameptr)
 mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
 {
     int i, slot_idx, num_props=0;
+    mpr_msg msg;
+    mpr_msg_atom a;
+    const char *key;
+
     /* get the number of props */
     for (i = 0; i < argc; i++) {
         if (types[i] != MPR_STR)
@@ -125,10 +130,9 @@ mpr_msg mpr_msg_parse_props(int argc, const mpr_type *types, lo_arg **argv)
     }
     RETURN_ARG_UNLESS(num_props, 0);
 
-    mpr_msg msg = (mpr_msg) calloc(1, sizeof(struct _mpr_msg));
+    msg = (mpr_msg) calloc(1, sizeof(struct _mpr_msg));
     msg->atoms = ((mpr_msg_atom_t*) calloc(1, sizeof(struct _mpr_msg_atom) * num_props));
-    mpr_msg_atom a = &msg->atoms[0];
-    const char *key;
+    a = &msg->atoms[0];
 
     for (i = 0; i < argc; i++) {
         if (!mpr_type_get_is_str(types[i])) {
@@ -360,10 +364,11 @@ void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type, const void *v
 
 const char *mpr_prop_as_str(mpr_prop p, int skip_slash)
 {
+    const char *s;
     p = MASK_PROP_BITFLAGS(p);
     die_unless(p > MPR_PROP_UNKNOWN && p <= MPR_PROP_EXTRA,
                "called mpr_prop_as_str() with bad index %d.\n", p);
-    const char *s = static_props[PROP_TO_INDEX(p)].key;
+    s = static_props[PROP_TO_INDEX(p)].key;
     return skip_slash ? s + 1 : s;
 }
 
@@ -401,8 +406,8 @@ const char *mpr_loc_as_str(mpr_loc loc)
 
 mpr_loc mpr_loc_from_str(const char *str)
 {
-    RETURN_ARG_UNLESS(str, MPR_LOC_UNDEFINED);
     int i;
+    RETURN_ARG_UNLESS(str, MPR_LOC_UNDEFINED);
     for (i = MPR_LOC_UNDEFINED+1; i < 3; i++) {
         if (strcmp(str, mpr_loc_strings[i])==0)
             return i;
@@ -419,8 +424,8 @@ const char *mpr_protocol_as_str(mpr_proto p)
 
 mpr_proto mpr_protocol_from_str(const char *str)
 {
-    RETURN_ARG_UNLESS(str, MPR_PROTO_UNDEFINED);
     int i;
+    RETURN_ARG_UNLESS(str, MPR_PROTO_UNDEFINED);
     for (i = MPR_PROTO_UNDEFINED+1; i < MPR_NUM_PROTO; i++) {
         if (strcmp(str, mpr_protocol_strings[i])==0)
             return i;
@@ -446,7 +451,7 @@ int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
         do {
             memcpy(dst_val, src_val, size * min_len);
             dst_len -= min_len;
-            dst_val += size * min_len;
+            dst_val = (void*)((char*)dst_val + size * min_len);
             if (dst_len < min_len)
                 min_len = dst_len;
         } while (dst_len > 0);
@@ -538,6 +543,33 @@ int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
     return 0;
 }
 
+int match_pattern(const char* s, const char* p)
+{
+    int ends_wild;
+    char *str, *tok, *pat;
+    RETURN_ARG_UNLESS(s && p, 1);
+    RETURN_ARG_UNLESS(strchr(p, '*'), strcmp(s, p));
+
+    /* 1) tokenize pattern using strtok() with delimiter character '*'
+     * 2) use strstr() to check if token exists in offset string */
+    str = (char*)s;
+    pat = alloca((strlen(p) + 1) * sizeof(char));
+    strcpy(pat, p);
+    ends_wild = ('*' == p[strlen(p)-1]);
+    while (str && *str) {
+        tok = strtok(pat, "*");
+        RETURN_ARG_UNLESS(tok, !ends_wild);
+        str = strstr(str, tok);
+        if (str && *str)
+            str += strlen(tok);
+        else
+            return 1;
+            /* subsequent calls to strtok() need first argument to be NULL */
+        pat = NULL;
+    }
+    return 0;
+}
+
 void mpr_prop_print(int len, mpr_type type, const void *val)
 {
     int i;
@@ -576,7 +608,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         case MPR_INT64:
             for (i = 0; i < len; i++)
-                printf("%" PRINTF_LL "d, ", (long long)((int64_t*)val)[i]);
+                printf("%" PRINTF_LL "d, ", ((int64_t*)val)[i]);
             break;
         case MPR_TIME:
             for (i = 0; i < len; i++)
