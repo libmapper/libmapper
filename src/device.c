@@ -223,6 +223,8 @@ void mpr_dev_free(mpr_dev dev)
     mpr_graph_remove_dev(gph, dev, MPR_OBJ_REM, 1);
     if (!gph->own)
         mpr_graph_free(gph);
+
+    mpr_expr_free_buffers();
 }
 
 void mpr_dev_on_registered(mpr_dev dev)

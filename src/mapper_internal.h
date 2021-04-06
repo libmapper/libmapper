@@ -490,6 +490,8 @@ int mpr_expr_get_num_input_slots(mpr_expr expr);
 
 void mpr_expr_free(mpr_expr expr);
 
+void mpr_expr_free_buffers();
+
 /**** String tables ****/
 
 /*! Create a new string table. */
