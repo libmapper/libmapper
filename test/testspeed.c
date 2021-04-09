@@ -110,7 +110,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
             mpr_sig_set_value(sendsig, counter, length, type, value);
         else
             mpr_sig_set_value(sendsig, 0, length, type, value);
-        mpr_dev_process_outputs(mpr_sig_get_dev(sig));
+        mpr_dev_update_maps(mpr_sig_get_dev(sig));
     }
     else {
         const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);

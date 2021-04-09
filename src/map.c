@@ -556,8 +556,6 @@ void mpr_map_receive(mpr_map m, mpr_time time)
     mpr_id_map idmap = 0;
     char *types;
 
-    RETURN_UNLESS(m->loc && m->loc->updated && m->loc->expr && m->dst->sig->loc && !m->muted);
-
     /* temporary solution: use most multitudinous source signal for idmap
      * permanent solution: move idmaps to map */
     src_slot = m->src[0];
@@ -648,7 +646,7 @@ void mpr_map_receive(mpr_map m, mpr_time time)
                 && !get_bitflag(dst_sig->loc->updated_inst, si->idx)) {
                 /* mark instance as updated */
                 set_bitflag(dst_sig->loc->updated_inst, si->idx);
-                dst_sig->dev->loc->updated = dst_sig->loc->updated = 1;
+                dst_sig->dev->loc->sending = dst_sig->loc->updated = 1;
                 mpr_rtr_process_sig(m->loc->rtr, dst_sig, i, si->val, time);
             }
         }

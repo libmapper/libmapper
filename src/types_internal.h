@@ -502,7 +502,8 @@ typedef struct _mpr_local_dev {
     uint8_t time_is_stale;
     uint8_t polling;
     uint8_t bundle_idx;
-    uint8_t updated;
+    uint8_t sending;
+    uint8_t receiving;
 } mpr_local_dev_t, *mpr_local_dev;
 
 

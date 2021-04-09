@@ -101,7 +101,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_sig sig, int idmap_idx, const void *va
 
     inst_idx = sig->loc->idmaps[idmap_idx].inst->idx;
     bundle_idx = rtr->dev->loc->bundle_idx % NUM_BUNDLES;
-    rtr->dev->loc->updated = 1; /* mark as updated */
+    /* TODO: remove duplicate flag set */
+    rtr->dev->loc->sending = 1; /* mark as updated */
     lock = &sig->loc->locked;
     *lock = 1;
 

@@ -1121,6 +1121,11 @@ typedef struct _device_list {
         return $self;
     }
 
+    device *update_maps() {
+        mpr_dev_update_maps((mpr_dev)$self);
+        return $self;
+    }
+
     int poll(int timeout=0) {
         _save = PyEval_SaveThread();
         int rc = mpr_dev_poll((mpr_dev)$self, timeout);

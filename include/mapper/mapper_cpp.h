@@ -796,8 +796,8 @@ namespace mapper {
             { return mpr_dev_get_time(_obj); }
         Device& set_time(Time time)
             { RETURN_SELF(mpr_dev_set_time(_obj, *time)); }
-        Device& process_outputs()
-            { RETURN_SELF(mpr_dev_process_outputs(_obj)); }
+        Device& update_maps()
+            { RETURN_SELF(mpr_dev_update_maps(_obj)); }
 
         OBJ_METHODS(Device);
     };

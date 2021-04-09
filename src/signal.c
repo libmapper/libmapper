@@ -713,7 +713,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
 
     /* mark instance as updated */
     set_bitflag(sig->loc->updated_inst, si->idx);
-    sig->dev->loc->updated = sig->loc->updated = 1;
+    sig->dev->loc->sending = sig->loc->updated = 1;
 
     mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, si->has_val ? si->val : 0, si->time);
 }
@@ -734,7 +734,7 @@ void mpr_sig_release_inst_internal(mpr_sig sig, int idmap_idx)
 
     /* mark instance as updated */
     set_bitflag(sig->loc->updated_inst, smap->inst->idx);
-    sig->dev->loc->updated = sig->loc->updated = 1;
+    sig->dev->loc->sending = sig->loc->updated = 1;
 
     mpr_rtr_process_sig(sig->obj.graph->net.rtr, sig, idmap_idx, 0, smap->inst->time);
 

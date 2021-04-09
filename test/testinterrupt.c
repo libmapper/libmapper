@@ -157,7 +157,7 @@ void interrupt (int sig)
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
         expected = sent;
         ++sent;
-        mpr_dev_process_outputs(src);
+        mpr_dev_update_maps(src);
         signal (sig, interrupt);
     }
     else

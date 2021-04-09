@@ -168,7 +168,7 @@ void *update_thread(void *context)
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
         expected = sent;
         sent++;
-        mpr_dev_process_outputs(src);
+        mpr_dev_update_maps(src);
         SLEEP_MS(period);
     }
     keep_going = 0;

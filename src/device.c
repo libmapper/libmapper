@@ -22,7 +22,7 @@ extern const char* net_msg_strings[NUM_MSG_STRINGS];
 /* prototypes */
 void mpr_dev_start_servers(mpr_dev dev);
 static void mpr_dev_remove_idmap(mpr_dev dev, int group, mpr_id_map rem);
-MPR_INLINE static int mpr_dev_process_outputs_internal(mpr_dev dev);
+MPR_INLINE static int _process_outgoing_maps(mpr_dev dev);
 
 mpr_time ts = {0,1};
 
@@ -186,7 +186,7 @@ void mpr_dev_free(mpr_dev dev)
     while (list) {
         mpr_link link = (mpr_link)*list;
         list = mpr_list_get_next(list);
-        mpr_dev_process_outputs_internal(dev);
+        _process_outgoing_maps(dev);
         mpr_graph_remove_link(gph, link, MPR_OBJ_REM);
     }
 
@@ -385,7 +385,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 src = alloca(map->num_src * sizeof(mpr_value));
                 for (i = 0; i < map->num_src; i++)
                     src[i] = (i == slot->obj.id) ? &v : 0;
-                if (mpr_expr_eval(map->loc->expr, src, 0, 0, &ts, 0, 0) & EXPR_RELEASE_BEFORE_UPDATE)
+                if (mpr_expr_eval(map->loc->expr, src, 0, 0, 0, 0, 0) & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
             }
 
@@ -476,9 +476,12 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             if ((si = sig->loc->idmaps[idmap_idx].inst)) {
                 mpr_local_slot lslot = slot->loc;
                 inst_idx = si->idx;
-                mpr_value_set_sample(&lslot->val, inst_idx, argv[0], ts);
+                /* Setting to local timestamp here */
+                /* TODO: jitter mitigation etc. */
+                mpr_value_set_sample(&lslot->val, inst_idx, argv[0], dev->loc->time);
                 set_bitflag(map->loc->updated_inst, inst_idx);
                 map->loc->updated = 1;
+                dev->loc->receiving = 1;
             }
             if (!all)
                 break;
@@ -665,28 +668,29 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 }
 
 /* TODO: handle interrupt-driven updates that omit call to this function */
-MPR_INLINE static void mpr_dev_process_inputs_internal(mpr_dev dev)
+MPR_INLINE static void _process_incoming_maps(mpr_dev dev)
 {
-    /* TODO: reenable update filtering with separate I/O */
-    /*    RETURN_ARG_UNLESS(dev->loc->updated, 0); */
+    RETURN_UNLESS(dev->loc->receiving);
     mpr_graph graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
+    dev->loc->receiving = 0;
     mpr_list maps = mpr_list_from_data(graph->maps);
     while (maps) {
         mpr_map map = *(mpr_map*)maps;
         maps = mpr_list_get_next(maps);
-        mpr_map_receive(map, dev->loc->time);
+        if (map->loc && map->loc->updated && map->loc->expr && !map->muted)
+            mpr_map_receive(map, dev->loc->time);
     }
 }
 
 /* TODO: handle interrupt-driven updates that omit call to this function */
-MPR_INLINE static int mpr_dev_process_outputs_internal(mpr_dev dev)
+MPR_INLINE static int _process_outgoing_maps(mpr_dev dev)
 {
     int msgs = 0;
     mpr_list list;
     mpr_graph graph;
-    RETURN_ARG_UNLESS(dev->loc->updated, 0);
+    RETURN_ARG_UNLESS(dev->loc->sending, 0);
 
     graph = dev->obj.graph;
     /* process and send updated maps */
@@ -695,9 +699,10 @@ MPR_INLINE static int mpr_dev_process_outputs_internal(mpr_dev dev)
     while (list) {
         mpr_map map = *(mpr_map*)list;
         list = mpr_list_get_next(list);
-        mpr_map_send(map, dev->loc->time);
+        if (map->loc && map->loc->updated && map->loc->expr && !map->muted)
+            mpr_map_send(map, dev->loc->time);
     }
-    dev->loc->updated = 0;
+    dev->loc->sending = 0;
     list = mpr_list_from_data(graph->links);
     while (list) {
         msgs += mpr_link_process_bundles((mpr_link)*list, dev->loc->time, 0);
@@ -706,11 +711,11 @@ MPR_INLINE static int mpr_dev_process_outputs_internal(mpr_dev dev)
     return msgs ? 1 : 0;
 }
 
-void mpr_dev_process_outputs(mpr_dev dev) {
+void mpr_dev_update_maps(mpr_dev dev) {
     RETURN_UNLESS(dev && dev->loc);
     dev->loc->time_is_stale = 1;
     if (!dev->loc->polling)
-        mpr_dev_process_outputs_internal(dev);
+        _process_outgoing_maps(dev);
 }
 
 int mpr_dev_poll(mpr_dev dev, int block_ms)
@@ -732,7 +737,8 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
 
     dev->loc->polling = 1;
     dev->loc->time_is_stale = 1;
-    mpr_dev_process_outputs_internal(dev);
+    mpr_dev_get_time(dev);
+    _process_outgoing_maps(dev);
     dev->loc->polling = 0;
 
     if (!block_ms) {
@@ -755,8 +761,8 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
                 device_count += (status[2] > 0) + (status[3] > 0);
             }
             /* check if any signal update bundles need to be sent */
-            mpr_dev_process_inputs_internal(dev);
-            mpr_dev_process_outputs_internal(dev);
+            _process_incoming_maps(dev);
+            _process_outgoing_maps(dev);
             dev->loc->polling = 0;
 
             elapsed = (mpr_get_current_time() - then) * 1000;
@@ -778,7 +784,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
 
     /* process incoming maps */
     dev->loc->polling = 1;
-    mpr_dev_process_inputs_internal(dev);
+    _process_incoming_maps(dev);
     dev->loc->polling = 0;
 
     if (dev->obj.props.synced->dirty && mpr_dev_get_is_ready(dev) && dev->loc->subscribers) {
@@ -805,7 +811,7 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
     mpr_time_set(&dev->loc->time, time);
     dev->loc->time_is_stale = 0;
     if (!dev->loc->polling)
-        mpr_dev_process_outputs_internal(dev);
+        _process_outgoing_maps(dev);
 }
 
 void mpr_dev_reserve_idmap(mpr_dev dev)
