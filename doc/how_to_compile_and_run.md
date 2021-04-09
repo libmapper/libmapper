@@ -5,7 +5,7 @@ This file documents the build process for libmapper for various
 operating systems, and will be updated as the libmapper core project
 progresses.
 
-Linux and OS X
+Linux and MacOS
 --------------
 
 ### Dependencies
@@ -16,7 +16,7 @@ Please consult the [LibLo project page][liblo] for details.
 [liblo]: http://liblo.sourceforge.net
 
 The GNU configure step detects liblo using the "pkg-config" program.
-This is usually already installed in Linux systems, but on OS X, we
+This is usually already installed in Linux systems, but on MacOS, we
 recommend installing it via [MacPorts][ports] or [HomeBrew][brew]. In
 the future libmapper packages for MacPorts and HomeBrew will be
 directly provided, but this is not yet the case.
@@ -45,7 +45,7 @@ correctly configured.  You may install `swig` and `doxygen` packages
 using your preferred package manager.
 
 The `examples` folder also contains an audio example, which binds to
-`libasound` on Linux, and CoreAudio on Mac OS X.  On Ubuntu, you may
+`libasound` on Linux, and CoreAudio on MacOS.  On Ubuntu, you may
 wish to installed `libasound-dev` package, or the corresponding
 package on other Linux distributions.
 
@@ -66,10 +66,10 @@ optionally specify an install location with,
     ./configure --prefix=<location>
 
 It is recommended to either use `/usr/local/` or a directory in your
-home directory such as `$HOME/.local`.  Users of HomeBrew on OS X
+home directory such as `$HOME/.local`.  Users of HomeBrew on MacOS
 should always use `/usr/local`.
 
-If you will be hacking on libmapper or which to have verbose output
+If you will be hacking on libmapper or wish to have verbose output
 while it is running, we recommended enabling debug mode:
 
     ./configure --enable-debug
@@ -88,7 +88,7 @@ Once the build is configured, build it with,
 
     make
 
-Should any errors occur, please inform the libmapper mailing list.
+Should any errors occur, please inform the [libmapper mailing list][list].
 
 To verify that the library runs without errors, you may run the main
 test program, available in the test directory:
@@ -145,11 +145,10 @@ see that the devices and signals are discovered correctly.  You can
 use the GUI to modify the connection properties, and observe that the
 received values are changed.
 
-[webmapper]: http://github.com/radarsat1/webmapper
+[webmapper]: https://github.com/libmapper/webmapper
 
-You should also test the Python and Java bindings, if you plan to use
-these.  Some other programs, such as webmapper, may depend on them, so
-it is recommended to do so.
+You should also test the Python and Java bindings if you plan to use
+them.  Some other programs may depend on them – for example webmapper uses the Python bindings.
 
 To test that the Python module is working, it is generally enough to
 run the following command,
@@ -185,7 +184,7 @@ Cross-compiling for Windows under Linux
 ---------------------------------------
 
 Since libmapper was developed on Unix-like systems (Linux and Apple's
-OS X), building libmapper uses GNU command-line tools.  However, it is
+MacOS), building libmapper uses GNU command-line tools.  However, it is
 possible to build it for the Microsoft Windows operating system using
 the MingW cross-compiler under Linux, or by using MingW from Windows.
 
@@ -234,14 +233,14 @@ core libmapper library.
 
 ### Architecture issues
 
-We have found that in some cases, especially on Mac OS X, there are
+We have found that in some cases, especially on MacOS, there are
 programs that do not use the computer's native architecture.  For
-example, Processing.org and Cycling 74's Max/MSP are 32-bit
-applications, even if you are running a 64-bit version of OS X.
+example, Processing.org and Cycling 74's Max/MSP prior to v8 are 32-bit
+applications, even if you are running a 64-bit version of MacOS.
 Therefore after building libmapper, it _will not work_ with these
 programs.
 
-We recommend that on OS X you build a universal binary, since we have
+We recommend that on MacOS you build a universal binary, since we have
 found it saves a lot of trouble later on.  Note that you must build
 universal binaries of liblo as well as libmapper.
 
@@ -255,9 +254,9 @@ To do so, for both liblo and libmapper, you must perform the
 
 The `file` command should list both 32- and 64-bit architectures.
 
-    file src/.libs/libmapper.6.dylib
+    file src/.libs/libmapper.8.dylib
 
-(Of course, replace ".6" with the current libmapper version.)
+(Of course, replace ".8" with the current libmapper version.)
 
 Although we do not explicitly list them here, similar steps should be
 performed for liblo, as well as for the native portions of the Python
@@ -279,7 +278,7 @@ From the libmapper directory, create a directory called
 Now copy the JNI bindings to this directory, renaming the jar file to
 match the name of the directory:
 
-    cp jni/.libs/libmapperjni.6.dylib <sketchbook>/libraries/libmapper/library/libmapperjni.dylib
+    cp jni/.libs/libmapperjni.8.dylib <sketchbook>/libraries/libmapper/library/libmapperjni.dylib
     cp jni/libmapper.jar <sketchbook>/libraries/libmapper/library/libmapper.jar
 
 Create a file `export.txt`:
