@@ -670,12 +670,14 @@ mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 /* TODO: handle interrupt-driven updates that omit call to this function */
 MPR_INLINE static void _process_incoming_maps(mpr_dev dev)
 {
+    mpr_graph graph;
+    mpr_list maps;
     RETURN_UNLESS(dev->loc->receiving);
-    mpr_graph graph = dev->obj.graph;
+    graph = dev->obj.graph;
     /* process and send updated maps */
     /* TODO: speed this up! */
     dev->loc->receiving = 0;
-    mpr_list maps = mpr_list_from_data(graph->maps);
+    maps = mpr_list_from_data(graph->maps);
     while (maps) {
         mpr_map map = *(mpr_map*)maps;
         maps = mpr_list_get_next(maps);

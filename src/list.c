@@ -56,7 +56,7 @@ typedef struct _query_info {
     unsigned int size;
     query_compare_func_t *query_compare;
     query_free_func_t *query_free;
-    int data[0]; /* stub */
+    int *data; /* stub */
 } query_info_t;
 
 #define LIST_HEADER_SIZE (sizeof(mpr_list_header_t)-sizeof(int[1]))
