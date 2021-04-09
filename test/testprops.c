@@ -1,6 +1,7 @@
 #include <mapper/mapper.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 /* Test to ensure that setting and getting properties of signals and devices is consistent. */
 
@@ -20,10 +21,15 @@
 
 int verbose = 1;
 
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
 
 const char *type_name(mpr_type type)
 {
@@ -68,7 +74,7 @@ int seen_code(const char *key)
         { "test",        SEEN_TEST },
     };
     int i, len = sizeof(seenvals)/sizeof(seenvals[0]);
-    for (i=0; i<len; i++) {
+    for (i = 0; i < len; i++) {
         if (strcmp(seenvals[i].s, key)==0)
             return seenvals[i].n;
     }
@@ -80,7 +86,7 @@ int check_keys(mpr_obj obj)
     const char *key;
     const void *val;
     mpr_type type;
-    int i=0, seen=0, length;
+    int i = 0, seen = 0, length;
     while (mpr_obj_get_prop_by_idx(obj, i++, &key, &length, &type, &val, 0)) {
         seen |= seen_code(key);
     }
@@ -89,7 +95,17 @@ int check_keys(mpr_obj obj)
 
 int main(int argc, char **argv)
 {
-    int i, j, seen, result = 0;
+    int i, j, int_val, seen, length, result = 0;
+    int int_array[] = {1, 2, 3, 4, 5};
+    mpr_dev dev;
+    mpr_sig sig;
+    float flt_val, flt_array[] = {10., 20., 30., 40., 50.};
+    const char *str = "test_value", *str_val, *str_array[] = {"foo", "bar"};
+    mpr_type type;
+    const void *val, *ptr_val = (const void*)0x9813;
+    const void *ptr_array[] = {(const void*)0x1111, (const void*)0x2222};
+    mpr_obj read_obj;
+    mpr_list read_list, check_list;
 
     /* process flags for -v verbose, -h help */
     for (i = 1; i < argc; i++) {
@@ -113,9 +129,9 @@ int main(int argc, char **argv)
         }
     }
 
-    mpr_dev dev = mpr_dev_new("testprops", 0);
-    mpr_obj sig = (mpr_obj)mpr_sig_new(dev, MPR_DIR_IN, "test", 3, MPR_FLT,
-                                       "Hz", NULL, NULL, NULL, NULL, 0);
+    dev = mpr_dev_new("testprops", 0);
+    sig = (mpr_obj)mpr_sig_new(dev, MPR_DIR_IN, "test", 3, MPR_FLT,
+                               "Hz", NULL, NULL, NULL, NULL, 0);
 
     while (!mpr_dev_get_is_ready(dev)) {
         mpr_dev_poll(dev, 100);
@@ -134,8 +150,8 @@ int main(int argc, char **argv)
 
     /* Test that adding maximum causes it to be listed. */
     eprintf("Test 2:  adding static property 'maximum'... ");
-    float fval = 35.0;
-    mpr_obj_set_prop(sig, MPR_PROP_MAX, NULL, 1, MPR_FLT, &fval, 1);
+    flt_val = 35.0;
+    mpr_obj_set_prop(sig, MPR_PROP_MAX, NULL, 1, MPR_FLT, &flt_val, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT | SEEN_MAX)) {
         eprintf("ERROR\n");
@@ -147,7 +163,6 @@ int main(int argc, char **argv)
 
     /* Test that adding an extra parameter causes the extra parameter to be listed. */
     eprintf("Test 3:  adding extra string property 'test'... ");
-    const char *str = "test_value";
     mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_STR, str, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT | SEEN_MAX | SEEN_TEST)) {
@@ -159,9 +174,6 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 4:  retrieving property 'test'... ");
-    mpr_type type;
-    const void *val;
-    int length;
     if (!mpr_obj_get_prop_by_key(sig, "test", &length, &type, &val, 0)) {
         eprintf("ERROR\n");
         result = 1;
@@ -197,7 +209,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 5:  retrieving property 'test' using string getter... ");
-    const char *str_val = mpr_obj_get_prop_as_str(sig, MPR_PROP_EXTRA, "test");
+    str_val = mpr_obj_get_prop_as_str(sig, MPR_PROP_EXTRA, "test");
     if (!str_val) {
         eprintf("ERROR\n");
         result = 1;
@@ -228,10 +240,10 @@ int main(int argc, char **argv)
 
     /* Test that adding two more properties works as expected. */
     eprintf("Test 7:  adding extra integer properties 'x' and 'y'... ");
-    int x = 123;
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "x", 1, MPR_INT32, &x, 1);
-    int y = 234;
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "y", 1, MPR_INT32, &y, 1);
+    int_val = 123;
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "x", 1, MPR_INT32, &int_val, 1);
+    int_val = 234;
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "y", 1, MPR_INT32, &int_val, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_MAX | SEEN_X | SEEN_Y)) {
@@ -280,7 +292,7 @@ int main(int argc, char **argv)
 
     /* Test the type and value associated with "x". */
     eprintf("Test 9:  retrieving property 'x' using int getter...");
-    int int_val = mpr_obj_get_prop_as_int32(sig, MPR_PROP_EXTRA, "x");
+    int_val = mpr_obj_get_prop_as_int32(sig, MPR_PROP_EXTRA, "x");
 
     eprintf("\t checking value: %i ... ", int_val);
     if (int_val != 123) {
@@ -445,7 +457,7 @@ int main(int argc, char **argv)
     eprintf("OK\n");
 
     eprintf("Test 16: retrieving static, optional property 'max' using float getter...\n");
-    float flt_val = mpr_obj_get_prop_as_flt(sig, MPR_PROP_MAX, NULL);
+    flt_val = mpr_obj_get_prop_as_flt(sig, MPR_PROP_MAX, NULL);
 
     eprintf("\t checking value: '%f' ... ", flt_val);
     if (flt_val != 35.0f) {
@@ -480,8 +492,7 @@ int main(int argc, char **argv)
 
     /* Test adding and retrieving an integer vector property. */
     eprintf("Test 19: adding an extra integer vector property 'test'... ");
-    int set_int[] = {1, 2, 3, 4, 5};
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 5, MPR_INT32, &set_int, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 5, MPR_INT32, &int_array, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -520,27 +531,20 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    int *read_int = (int*)val;
-    int matched = 0;
-    eprintf("\t checking value: [%i,%i,%i,%i,%i] ... ", read_int[0],
-           read_int[1], read_int[2], read_int[3], read_int[4]);
+    eprintf("\t checking value: [%i,%i,%i,%i,%i] ... ", ((int*)val)[0],
+            ((int*)val)[1], ((int*)val)[2], ((int*)val)[3], ((int*)val)[4]);
     for (i = 0; i < 5; i++) {
-        if (read_int[i] == set_int[i])
-            matched++;
+        if (((int*)val)[i] != int_array[i]) {
+            eprintf("ERROR (expected %i at index %d)\n", int_array[i], i);
+            result = 1;
+            goto cleanup;
+        }
     }
-    if (matched != 5) {
-        eprintf("ERROR (expected [%i,%i,%i,%i,%i])\n", set_int[0],
-               set_int[1], set_int[2], set_int[3], set_int[4]);
-        result = 1;
-        goto cleanup;
-    }
-    else
-        eprintf("OK\n");
+    eprintf("OK\n");
 
     /* Test rewriting 'test' as float vector property. */
     eprintf("Test 21: rewriting 'test' as vector float property... ");
-    float set_float[] = {10., 20., 30., 40., 50.};
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 5, MPR_FLT, &set_float, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 5, MPR_FLT, &flt_array, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -579,27 +583,20 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    float *read_float = (float*)val;
-    eprintf("\t checking value: [%f,%f,%f,%f,%f] ... ", read_float[0],
-           read_float[1], read_float[2], read_float[3], read_float[4]);
-    matched = 0;
+    eprintf("\t checking value: [%f,%f,%f,%f,%f] ... ", ((float*)val)[0],
+            ((float*)val)[1], ((float*)val)[2], ((float*)val)[3], ((float*)val)[4]);
     for (i = 0; i < 5; i++) {
-        if (read_float[i] == set_float[i])
-            matched++;
+        if (((float*)val)[i] != flt_array[i]) {
+            eprintf("ERROR (expected %f at index %d)\n", flt_array[i], i);
+            result = 1;
+            goto cleanup;
+        }
     }
-    if (matched != 5) {
-        eprintf("ERROR (expected [%f,%f,%f,%f,%f]\n", set_float[0],
-               set_float[1], set_float[2], set_float[3], set_float[4]);
-        result = 1;
-        goto cleanup;
-    }
-    else
-        eprintf("OK\n");
+    eprintf("OK\n");
 
     /* Test rewriting property 'test' as string vector property. */
     eprintf("Test 23: rewriting 'test' as vector string property... ");
-    char *set_string[] = {"foo", "bar"};
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_STR, set_string, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_STR, str_array, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -638,26 +635,19 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    char **read_string = (char**)val;
-    eprintf("\t checking value: ['%s','%s'] ... ",
-           read_string[0], read_string[1]);
-    matched = 0;
+    eprintf("\t checking value: ['%s','%s'] ... ", ((char**)val)[0], ((char**)val)[1]);
     for (i = 0; i < 2; i++) {
-        if (read_string[i] && strcmp(read_string[i], set_string[i]) == 0)
-            matched++;
+        if (!((char**)val)[i] || strcmp(((char**)val)[i], str_array[i])) {
+            eprintf("ERROR (expected '%s' at index %d)\n", str_array[i], i);
+            result = 1;
+            goto cleanup;
+        }
     }
-    if (matched != 2) {
-        eprintf("ERROR (expected ['%s','%s'])\n", set_string[0], set_string[1]);
-        result = 1;
-        goto cleanup;
-    }
-    else
-        eprintf("OK\n");
+    eprintf("OK\n");
 
     /* Test rewriting property 'test' as void* property. */
     eprintf("Test 25: rewriting 'test' as void* property... ");
-    const void *set_ptr = (const void*)0x9813;
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_PTR, set_ptr, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 1, MPR_PTR, ptr_val, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -696,10 +686,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    const void *read_ptr = (const void*)val;
-    eprintf("\t checking value: %p ... ", read_ptr);
-    if (read_ptr != set_ptr) {
-        eprintf("ERROR (expected %p)\n", set_ptr);
+    eprintf("\t checking value: %p ... ", (const void*)val);
+    if ((const void*)val != ptr_val) {
+        eprintf("ERROR (expected %p)\n", ptr_val);
         result = 1;
         goto cleanup;
     }
@@ -707,8 +696,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 27: retrieving property 'test' using ptr getter... ");
-    read_ptr = mpr_obj_get_prop_as_ptr(sig, MPR_PROP_EXTRA, "test");
-    if (!read_ptr) {
+    val = mpr_obj_get_prop_as_ptr(sig, MPR_PROP_EXTRA, "test");
+    if (!val) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -716,9 +705,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("\t checking value: %p ... ", read_ptr);
-    if (read_ptr != set_ptr) {
-        eprintf("ERROR (expected %p)\n", set_ptr);
+    eprintf("\t checking value: %p ... ", val);
+    if (val != ptr_val) {
+        eprintf("ERROR (expected %p)\n", ptr_val);
         result = 1;
         goto cleanup;
     }
@@ -727,7 +716,7 @@ int main(int argc, char **argv)
 
     /* Test rewriting property 'test' as void* property to MPR_PROP_DATA. */
     eprintf("Test 28: writing MPR_PROP_DATA as void* property... ");
-    mpr_obj_set_prop(sig, MPR_PROP_DATA, NULL, 1, MPR_PTR, set_ptr, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_DATA, NULL, 1, MPR_PTR, ptr_val, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -766,10 +755,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    read_ptr = (const void*)val;
-    eprintf("\t checking value: %p ... ", read_ptr);
-    if (read_ptr != set_ptr) {
-        eprintf("ERROR (expected %p)\n", set_ptr);
+    eprintf("\t checking value: %p ... ", val);
+    if (val != ptr_val) {
+        eprintf("ERROR (expected %p)\n", ptr_val);
         result = 1;
         goto cleanup;
     }
@@ -777,8 +765,8 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("Test 30: retrieving property MPR_PROP_DATA using ptr getter... ");
-    read_ptr = mpr_obj_get_prop_as_ptr(sig, MPR_PROP_DATA, NULL);
-    if (!read_ptr) {
+    val = mpr_obj_get_prop_as_ptr(sig, MPR_PROP_DATA, NULL);
+    if (!val) {
         eprintf("not found... ERROR\n");
         result = 1;
         goto cleanup;
@@ -786,9 +774,9 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    eprintf("\t checking value: %p ... ", read_ptr);
-    if (read_ptr != set_ptr) {
-        eprintf("ERROR (expected %p)\n", set_ptr);
+    eprintf("\t checking value: %p ... ", val);
+    if (val != ptr_val) {
+        eprintf("ERROR (expected %p)\n", ptr_val);
         result = 1;
         goto cleanup;
     }
@@ -797,8 +785,7 @@ int main(int argc, char **argv)
 
     /* Test rewriting property 'test' as void* vector property. */
     eprintf("Test 31: rewriting 'test' as vector void* property... ");
-    const void *set_ptrs[] = {(const void*)0x1111, (const void*)0x2222};
-    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_PTR, set_ptrs, 1);
+    mpr_obj_set_prop(sig, MPR_PROP_EXTRA, "test", 2, MPR_PTR, ptr_array, 1);
     seen = check_keys(sig);
     if (seen != (SEEN_DIR | SEEN_LENGTH | SEEN_NAME | SEEN_TYPE | SEEN_UNIT
                  | SEEN_X | SEEN_Y | SEEN_TEST))
@@ -837,20 +824,15 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    const void **read_ptrs = (const void**)val;
-    eprintf("\t checking value: [%p,%p] ... ", read_ptrs[0], read_ptrs[1]);
-    matched = 0;
+    eprintf("\t checking value: [%p,%p] ... ", ((const void**)val)[0], ((const void**)val)[1]);
     for (i = 0; i < 2; i++) {
-        if (read_ptrs[i] == set_ptrs[i])
-            ++matched;
+        if (((const void**)val)[i] != ptr_array[i]) {
+            eprintf("ERROR (expected %p at index %d)\n", ((const void**)val)[i], i);
+            result = 1;
+            goto cleanup;
+        }
     }
-    if (matched != 2) {
-        eprintf("ERROR (expected [%p, %p])\n", set_ptrs[0], set_ptrs[1]);
-        result = 1;
-        goto cleanup;
-    }
-    else
-        eprintf("OK\n");
+    eprintf("OK\n");
 
     /* Test rewriting property 'test' as mpr_obj property. */
     eprintf("Test 33: rewriting 'test' as mpr_obj property... ");
@@ -893,9 +875,8 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    mpr_obj read_obj = (mpr_obj)val;
-    eprintf("\t checking value: %p ... ", read_obj);
-    if (read_obj != sig) {
+    eprintf("\t checking value: %p ... ", (mpr_obj)val);
+    if ((mpr_obj)val != sig) {
         eprintf("ERROR (expected %p)\n", sig);
         result = 1;
         goto cleanup;
@@ -949,8 +930,8 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
-    mpr_list read_list = (mpr_list)val;
-    mpr_list check_list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+    read_list = (mpr_list)val;
+    check_list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     eprintf("\t checking value: %p ... ", read_list);
     if (read_list == check_list) {
         eprintf("ERROR (expected copy)\n");

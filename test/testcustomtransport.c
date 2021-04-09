@@ -1,6 +1,7 @@
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -18,11 +19,6 @@
  #include <sys/ioctl.h>
  #include <unistd.h>
 #endif
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 int autoconnect = 1;
 int terminate = 0;
@@ -51,8 +47,29 @@ int listen_socket = -1;
 
 int tcp_port = 12000;
 
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
+
 void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
 {
+    mpr_map map;
+    mpr_list l;
+    const char *a_transport, *host;
+    const int *a_port;
+    mpr_type type;
+    int length, port;
+    unsigned long on = 1;
+    mpr_sig dstsig;
+    mpr_dev dstdev;
+    struct sockaddr_in addr;
+
     if (MPR_MAP != mpr_obj_get_type(o)) {
         printf("Error in map handler!\n");
         return;
@@ -62,10 +79,10 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         printf("Map: ");
         mpr_obj_print(o, 0);
     }
-    mpr_map map = (mpr_map)o;
+    map = (mpr_map)o;
 
     /* we are looking for a map with one source (sendsig) and one dest (recvsig) */
-    mpr_list l = mpr_map_get_sigs(map, MPR_LOC_SRC);
+    l = mpr_map_get_sigs(map, MPR_LOC_SRC);
     if (mpr_list_get_size(l) > 1 || *(mpr_sig*)l != sendsig) {
         mpr_list_free(l);
         return;
@@ -83,9 +100,6 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         return;
     }
 
-    const char *a_transport;
-    mpr_type type;
-    int length;
     if (!mpr_obj_get_prop_by_key((mpr_obj)map, "transport", &length, &type,
                                  (const void **)&a_transport, 0)
         || type != MPR_STR || length != 1) {
@@ -99,15 +113,13 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
     }
 
     /* Find the TCP port in the mapping properties */
-    const int *a_port;
     if (!mpr_obj_get_prop_by_key((mpr_obj)map, "tcpPort", &length, &type, (const void **)&a_port, 0)
         || type != MPR_INT32 || length != 1) {
         eprintf("Couldn't make TCP connection, tcpPort property not found.\n");
         return;
     }
 
-    int port = *a_port;
-    unsigned long on = 1;
+    port = *a_port;
 
     send_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -120,14 +132,13 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
     }
 
     l = mpr_map_get_sigs(map, MPR_LOC_DST);
-    mpr_sig dstsig = *(mpr_sig*)l;
+    dstsig = *(mpr_sig*)l;
     mpr_list_free(l);
-    mpr_dev dstdev = mpr_sig_get_dev(dstsig);
-    const char *host = mpr_obj_get_prop_as_str((mpr_obj)dstdev, MPR_PROP_HOST, NULL);
+    dstdev = mpr_sig_get_dev(dstsig);
+    host = mpr_obj_get_prop_as_str((mpr_obj)dstdev, MPR_PROP_HOST, NULL);
 
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
-    struct sockaddr_in addr;
     memset((char *) &addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr(host);
@@ -150,12 +161,12 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
 /*! Creation of a local source. */
 int setup_src()
 {
+    float mn=0, mx=10;
+
     src = mpr_dev_new("testcustomtransport-send", 0);
     if (!src)
         goto error;
     eprintf("source created.\n");
-
-    float mn=0, mx=10;
 
     mpr_graph_add_cb(mpr_obj_get_graph((mpr_obj)src), on_map, MPR_MAP, NULL);
 
@@ -184,9 +195,10 @@ void insig_handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 {
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     if (value) {
-        eprintf("--> destination got %s", name);
+        int i;
         float *v = (float*)value;
-        for (int i = 0; i < length; i++) {
+        eprintf("--> destination got %s", name);
+        for (i = 0; i < length; i++) {
             eprintf(" %f", v[i]);
         }
         eprintf("\n");
@@ -197,12 +209,12 @@ void insig_handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 /*! Creation of a local destination. */
 int setup_dst()
 {
+    float mn=0, mx=1;
+
     dst = mpr_dev_new("testcustomtransport-recv", 0);
     if (!dst)
         goto error;
     eprintf("destination created.\n");
-
-    float mn=0, mx=1;
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL, &mn, &mx,
                           NULL, insig_handler, MPR_SIG_UPDATE);
@@ -235,8 +247,10 @@ void wait_local_devs()
 
 void loop()
 {
-    eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
+    struct sockaddr_in addr;
+
+    eprintf("-------------------- GO ! --------------------\n");
 
     if (autoconnect) {
         mpr_map map = mpr_map_new(1, &sendsig, 1, &recvsig);
@@ -253,7 +267,6 @@ void loop()
     /* Set up a mini TCP server for our custom stream */
     listen_socket = socket(AF_INET, SOCK_STREAM, 0);
 
-    struct sockaddr_in addr;
     memset((char *) &addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -277,6 +290,7 @@ void loop()
          */
         if (send_socket != -1) {
             int m = listen_socket;
+            struct timeval timeout = { .tv_sec = 0, .tv_usec = 0 };
             fd_set fdsr, fdss;
             FD_ZERO(&fdsr);
             FD_ZERO(&fdss);
@@ -289,8 +303,6 @@ void loop()
                 FD_SET(send_socket, &fdss);
                 if (send_socket > m) m = send_socket;
             }
-
-            struct timeval timeout = { .tv_sec = 0, .tv_usec = 0 };
 
             if (select(m+1, &fdsr, &fdss, 0, &timeout) > 0) {
 

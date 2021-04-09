@@ -2,16 +2,12 @@
 #include <mapper/mapper.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <lo/lo.h>
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 int verbose = 1;
 int terminate = 0;
@@ -30,6 +26,16 @@ mpr_sig monorecv = 0;
 int test_counter = 0;
 int received = 0;
 int done = 0;
+
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
 
 const char *instance_type_names[] = { "?", "SINGLETON", "INSTANCED", "MIXED" };
 
@@ -165,12 +171,12 @@ const int NUM_TESTS =
 /*! Creation of a local source. */
 int setup_src()
 {
+    float mn=0, mx=10;
+    int num_inst = 10, stl = MPR_STEAL_OLDEST;
+
     src = mpr_dev_new("testinstance-send", 0);
     if (!src)
         goto error;
-
-    float mn=0, mx=10;
-    int num_inst = 10, stl = MPR_STEAL_OLDEST;
 
     multisend = mpr_sig_new(src, MPR_DIR_OUT, "multisend", 1, MPR_FLT, NULL,
                             &mn, &mx, &num_inst, NULL, 0);
@@ -226,14 +232,15 @@ void handler(mpr_sig sig, mpr_sig_evt e, mpr_id inst, int len, mpr_type type,
 /*! Creation of a local destination. */
 int setup_dst()
 {
+    float mn=0;
+    int i, num_inst;
+
     dst = mpr_dev_new("testinstance-recv", 0);
     if (!dst)
         goto error;
 
-    float mn=0;
-
     /* Specify 0 instances since we wish to use specific ids */
-    int num_inst = 0;
+    num_inst = 0;
     multirecv = mpr_sig_new(dst, MPR_DIR_IN, "multirecv", 1, MPR_FLT, NULL,
                             &mn, NULL, &num_inst, handler, MPR_SIG_UPDATE);
     monorecv = mpr_sig_new(dst, MPR_DIR_IN, "monorecv", 1, MPR_FLT, NULL,
@@ -241,8 +248,7 @@ int setup_dst()
     if (!multirecv)
         goto error;
 
-    int i;
-    for (i=2; i<10; i+=2) {
+    for (i = 2; i < 10; i += 2) {
         mpr_sig_reserve_inst(multirecv, 1, (mpr_id*)&i, 0);
     }
 
@@ -291,7 +297,7 @@ void print_instance_idx(mpr_sig sig)
     int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
-    for (i=0; i<n; i++) {
+    for (i = 0; i < n; i++) {
         eprintf("%2i, ", sig->loc->inst[i]->idx);
     }
     if (i)
@@ -304,7 +310,7 @@ void print_instance_vals(mpr_sig sig)
     int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
-    for (i=0; i<n; i++) {
+    for (i = 0; i < n; i++) {
         mpr_id id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL);
         float *val = (float*)mpr_sig_get_value(sig, id, 0);
         if (val)
@@ -326,11 +332,12 @@ void release_active_instances(mpr_sig sig)
 
 void loop(instance_type src_type, instance_type dst_type)
 {
-    eprintf("-------------------- GO ! --------------------\n");
     int i = 0, j, num_parallel_inst = 5;
     float valf = 0;
     mpr_id inst;
     received = 0;
+
+    eprintf("-------------------- GO ! --------------------\n");
 
     while (i < iterations && !done) {
         if (src_type & INSTANCED) {
@@ -409,8 +416,14 @@ void ctrlc(int sig)
 int run_test(test_config *config)
 {
     mpr_sig *src_ptr, *dst_ptr;
-    mpr_sig both_src[] = {monosend, multisend};
+    mpr_sig both_src[2];
+    int num_src = 1, stl, evt = MPR_SIG_UPDATE, use_inst, compare_count;
+    int result = 0, active_count = 0, reserve_count = 0, count_epsilon;
+    mpr_map map;
+    mpr_id_map *id_map;
 
+    both_src[0] = monosend;
+    both_src[1] = multisend;
 
     printf("Configuration %d: %s%s %s> %s%s%s%s%s%s\n",
            config->test_id,
@@ -422,9 +435,8 @@ int run_test(test_config *config)
            config->oflw_action ? "; overflow: " : "",
            oflw_action_names[config->oflw_action],
            config->expr ? "; expression: " : "",
-           config->expr ?: "");
+           config->expr ? config->expr : "");
 
-    int num_src = 1;
     switch (config->src_type) {
         case SINGLETON:
             src_ptr = &monosend;
@@ -453,7 +465,6 @@ int run_test(test_config *config)
             return 1;
     }
 
-    int stl, evt = MPR_SIG_UPDATE;
     switch(config->oflw_action) {
         case NEW:
             stl = MPR_STEAL_NEWEST;
@@ -469,12 +480,12 @@ int run_test(test_config *config)
     mpr_obj_set_prop((mpr_obj)multirecv, MPR_PROP_STEAL_MODE, NULL, 1, MPR_INT32, &stl, 1);
     mpr_sig_set_cb(multirecv, handler, evt);
 
-    mpr_map map = mpr_map_new(num_src, src_ptr, 1, dst_ptr);
+    map = mpr_map_new(num_src, src_ptr, 1, dst_ptr);
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROCESS_LOC, NULL, 1, MPR_INT32, &config->process_loc, 1);
     if (config->expr)
         mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, config->expr, 1);
 
-    int use_inst = config->map_type == INSTANCED;
+    use_inst = config->map_type == INSTANCED;
     mpr_obj_set_prop((mpr_obj)map, MPR_PROP_USE_INST, NULL, 1, MPR_BOOL, &use_inst, 1);
     mpr_obj_push((mpr_obj)map);
     while (!done && !mpr_map_get_is_ready(map)) {
@@ -503,7 +514,7 @@ int run_test(test_config *config)
 
     loop(config->src_type, config->dst_type);
 
-    int compare_count = ((float)iterations * config->count_multiplier);
+    compare_count = ((float)iterations * config->count_multiplier);
 
     release_active_instances(multisend);
 
@@ -519,8 +530,6 @@ int run_test(test_config *config)
 
     release_active_instances(multirecv);
 
-    int result = 0;
-
     if (multisend->loc->idmap_len > 8) {
         printf("Error: multisend using %d id maps (should be %d)\n", multisend->loc->idmap_len, 8);
         ++result;
@@ -530,8 +539,7 @@ int run_test(test_config *config)
         ++result;
     }
 
-    int active_count = 0, reserve_count = 0;
-    mpr_id_map *id_map = &src->loc->idmaps.active[0];
+    id_map = &src->loc->idmaps.active[0];
     while (*id_map) {
         ++active_count;
         id_map = &(*id_map)->next;
@@ -576,7 +584,7 @@ int run_test(test_config *config)
         ++result;
     }
 
-    int count_epsilon = ceil((float)compare_count * config->count_epsilon);
+    count_epsilon = ceil((float)compare_count * config->count_epsilon);
 
     eprintf("Received %d of %d +/- %d updates\n", received, compare_count, count_epsilon);
 
@@ -593,7 +601,7 @@ int run_test(test_config *config)
             config->oflw_action ? "; overflow: " : "",
             oflw_action_names[config->oflw_action],
             config->expr ? "; expression: " : "",
-            config->expr ?: "");
+            config->expr ? config->expr : "");
 
     if (!verbose) {
         if (result)

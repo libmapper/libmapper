@@ -1,6 +1,7 @@
 #include "../src/mapper_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
@@ -10,11 +11,6 @@
 #include <signal.h>
 #include <math.h>
 
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
-
 int verbose = 1;
 int terminate = 0;
 int done = 0;
@@ -23,6 +19,16 @@ int num_devs = 5;
 mpr_dev *devices = 0;
 int sent = 0;
 int received = 0;
+
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
 
 /*! Internal function to get the current time. */
 static double current_time()
@@ -36,6 +42,7 @@ static double current_time()
 static void seed_srand()
 {
     unsigned int s;
+    double d;
 
 #ifndef WIN32
     FILE *f = fopen("/dev/urandom", "rb");
@@ -49,8 +56,8 @@ static void seed_srand()
     }
 #endif
 
-    double d = mpr_get_current_time();
-    s = (unsigned int)((d-(unsigned long)d)*100000);
+    d = mpr_get_current_time();
+    s = (unsigned int)((d - (unsigned long)d) * 100000);
     srand(s);
 }
 
@@ -65,26 +72,28 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 
 void generate_name(char *str, int len)
 {
-    int i, num = rand() % (len / 2) ?: 1;
+    int i, num = rand() % (len / 2);
+    num = num ? num : 1;
     for (i = 0; i < num; i++) {
-        str[i*2] = "ABCDEF"[rand() % 3];
-        str[i*2+1] = (i + 1) < num ? '/' : 0;
+        str[i * 2] = "ABCDEF"[rand() % 3];
+        str[i * 2 + 1] = (i + 1) < num ? '/' : 0;
     }
 }
 
 int setup_devs() {
 	char str[20];
-	float mn=0, mx=1;
+	float mn = 0, mx = 1;
+    int i, j;
 
     seed_srand();
 
-	for (int i = 0; i < num_devs; i++) {
+	for (i = 0; i < num_devs; i++) {
 		devices[i] = mpr_dev_new("testmany", 0);
         if (!devices[i])
 			goto error;
 
         /* give each device N inputs and N outputs */
-		for (int j = 0; j < 10; j++) {
+		for (j = 0; j < 10; j++) {
             mn = fmod(rand() * 0.01, 21.f) - 10.f;
             mx = fmod(rand() * 0.01, 21.f) - 10.f;
             generate_name(str, 20);
@@ -109,9 +118,10 @@ int setup_devs() {
 
 void cleanup_devs() {
 	mpr_dev dest;
+    int i;
 
     eprintf("Freeing devices");
-	for (int i = 0; i < num_devs; i++) {
+	for (i = 0; i < num_devs; i++) {
 		dest = devices[i];
 
 		if (dest) {
@@ -123,7 +133,7 @@ void cleanup_devs() {
 }
 
 void wait_local_devs(int *cancel) {
-	int i, j = 0, k = 0, keep_waiting = 1;
+    int i, j = 0, k = 0, keep_waiting = 1, ordinal, highest = 0;
 
 	while ( keep_waiting && !*cancel ) {
 		keep_waiting = 0;
@@ -147,7 +157,6 @@ void wait_local_devs(int *cancel) {
         }
 	}
     eprintf("\nRegistered devices:\n");
-    int ordinal, highest = 0;
     for (i = 0; i < num_devs; i++) {
         ordinal = mpr_obj_get_prop_as_int32((mpr_obj)devices[i], MPR_PROP_ORDINAL,
                                              NULL);
@@ -174,12 +183,11 @@ void wait_local_devs(int *cancel) {
 }
 
 void loop() {
+    int i = 0, j;
     eprintf("-------------------- GO ! --------------------\n");
-    int i = 0;
-
     while (i >= 0 && !done) {
-		for (int i = 0; i < num_devs; i++) {
-			mpr_dev_poll(devices[i], 10);
+		for (j = 0; j < num_devs; j++) {
+			mpr_dev_poll(devices[j], 10);
 		}
         i++;
     }

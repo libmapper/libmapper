@@ -1,6 +1,7 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
@@ -8,11 +9,6 @@
 #include <lo/lo.h>
 #include <unistd.h>
 #include <signal.h>
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 int verbose = 1;
 int terminate = 0;
@@ -22,6 +18,16 @@ int num_devs = 5;
 mpr_dev *devices = 0;
 int sent = 0;
 int received = 0;
+
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
 
 /*! Internal function to get the current time. */
 static double current_time()
@@ -44,23 +50,23 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 int setup_devs() {
 	char str[20];
 	float mn=0, mx=1;
+    int i, j;
 
-	for (int i = 0; i < num_devs; i++) {
+	for (i = 0; i < num_devs; i++) {
 		devices[i] = mpr_dev_new("testmany", 0);
         if (!devices[i])
 			goto error;
 
         /* give each device 10 inputs and 10 outputs */
-		for (int j = 0; j < 10; j++) {
+		for (j = 0; j < 10; j++) {
             mn = fmod(rand() * 0.01, 21.f) - 10.f;
             mx = fmod(rand() * 0.01, 21.f) - 10.f;
 			sprintf(str, "in%d", j);
-			mpr_sig_new(devices[i], MPR_DIR_IN, str, 1, MPR_FLT, NULL,
-                        &mn, &mx, NULL, NULL, 0);
+			mpr_sig_new(devices[i], MPR_DIR_IN, str, 1, MPR_FLT, NULL, &mn, &mx, NULL, NULL, 0);
             mn = fmod(rand() * 0.01, 21.f) - 10.f;
             mx = fmod(rand() * 0.01, 21.f) - 10.f;
             sprintf(str, "out%d", j);
-            if (j%2==0)
+            if (j % 2 == 0)
                 mpr_sig_new(devices[i], MPR_DIR_OUT, str, 1, MPR_FLT, NULL,
                             &mn, &mx, NULL, NULL, 0);
             else
@@ -75,10 +81,11 @@ int setup_devs() {
 }
 
 void cleanup_devs() {
+    int i;
 	mpr_dev dest;
 
     eprintf("Freeing devices");
-	for (int i = 0; i < num_devs; i++) {
+	for (i = 0; i < num_devs; i++) {
 		dest = devices[i];
 
 		if (dest) {
@@ -90,7 +97,7 @@ void cleanup_devs() {
 }
 
 void wait_local_devs(int *cancel) {
-	int i, j = 0, k = 0, keep_waiting = 1;
+    int i, j = 0, k = 0, keep_waiting = 1, ordinal, highest = 0;
 
 	while ( keep_waiting && !*cancel ) {
 		keep_waiting = 0;
@@ -114,7 +121,6 @@ void wait_local_devs(int *cancel) {
         }
 	}
     eprintf("\nRegistered devices:\n");
-    int ordinal, highest = 0;
     for (i = 0; i < num_devs; i++) {
         ordinal = mpr_obj_get_prop_as_int32((mpr_obj)devices[i], MPR_PROP_ORDINAL,
                                              NULL);
@@ -141,12 +147,12 @@ void wait_local_devs(int *cancel) {
 }
 
 void loop() {
+    int i = 0, j;
     eprintf("-------------------- GO ! --------------------\n");
-    int i = 0;
 
     while (i >= 0 && !done) {
-		for (int i = 0; i < num_devs; i++) {
-			mpr_dev_poll(devices[i], 10);
+		for (j = 0; j < num_devs; j++) {
+			mpr_dev_poll(devices[j], 10);
 		}
         i++;
     }

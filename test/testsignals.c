@@ -1,16 +1,12 @@
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <lo/lo.h>
 
 #include <unistd.h>
 #include <signal.h>
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 #define num_inputs 100
 #define num_outputs 100
@@ -25,17 +21,31 @@ mpr_dev dev = 0;
 mpr_sig inputs[num_inputs];
 mpr_sig outputs[num_outputs];
 
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
+
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int len,
              mpr_type type, const void *val, mpr_time t)
 {
+    const char *name;
+    float *fval;
+    int i;
+
     if (!val)
         return;
 
-    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
+    name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("--> destination got %s", name);
-    float *v = (float*)val;
-    for (int i = 0; i < sig->len; i++) {
-        eprintf(" %f", v[i]);
+    fval = (float*)val;
+    for (i = 0; i < sig->len; i++) {
+        eprintf(" %f", fval[i]);
     }
     eprintf("\n");
 }
@@ -64,7 +74,8 @@ void ctrlc(int sig)
 
 int main(int argc, char ** argv)
 {
-    int i, j, result = 0;
+    int i, j, result = 0, max;
+    char signame[32];
 
     /* process flags */
     for (i = 1; i < argc; i++) {
@@ -97,8 +108,6 @@ int main(int argc, char ** argv)
 
     signal(SIGINT, ctrlc);
 
-    char signame[32];
-
     eprintf("Creating device... ");
     fflush(stdout);
     dev = mpr_dev_new("testsignals", 0);
@@ -112,7 +121,7 @@ int main(int argc, char ** argv)
 
     eprintf("Adding %d signals... ", num_inputs + num_outputs);
     fflush(stdout);
-    int max = num_inputs > num_outputs ? num_inputs : num_outputs;
+    max = num_inputs > num_outputs ? num_inputs : num_outputs;
     for (i = 0; i < max && !done; i++) {
         mpr_dev_poll(dev, 100);
         if (i < num_inputs) {

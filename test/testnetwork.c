@@ -1,23 +1,31 @@
 #include "../src/mapper_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <string.h>
 #include <unistd.h>
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 mpr_graph graph = NULL;
 mpr_dev dev = NULL;
 
 int verbose = 1;
 
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
+
 int test_network()
 {
-    int error = 0, wait;
+    int error = 0, wait, len;
+    mpr_type type;
+    const void *val;
 
     graph = mpr_graph_new(0);
     if (!graph) {
@@ -45,9 +53,6 @@ int test_network()
         mpr_dev_poll(dev, 100);
     }
 
-    int len;
-    mpr_type type;
-    const void *val;
     mpr_obj_get_prop_by_idx((mpr_obj)dev, MPR_PROP_PORT, NULL, &len, &type, &val, 0);
     if (1 != len || MPR_INT32 != type) {
         eprintf("Error retrieving port.\n");

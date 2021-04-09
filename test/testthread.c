@@ -1,6 +1,7 @@
 #include <mapper/mapper.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <unistd.h>
 #include <signal.h>
@@ -13,11 +14,6 @@
 #else
 #define SLEEP_MS(x) usleep((x)*1000)
 #endif
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 int verbose = 1;
 int terminate = 0;
@@ -37,8 +33,21 @@ float expected;
 
 volatile sig_atomic_t keep_going = 1;
 
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
+
 int setup_src(char *iface)
 {
+    int mn = 0, mx = 1;
+    mpr_list l;
+
     src = mpr_dev_new("testthread-send", 0);
     if (!src)
         goto error;
@@ -46,12 +55,11 @@ int setup_src(char *iface)
         mpr_graph_set_interface(mpr_obj_get_graph(src), iface);
     eprintf("source created.\n");
 
-    int mn=0, mx=1;
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_INT32, NULL,
                           &mn, &mx, NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
-    mpr_list l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
+    l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
     eprintf("Number of outputs: %d\n", mpr_list_get_size(l));
     mpr_list_free(l);
     return 0;
@@ -84,6 +92,9 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 
 int setup_dst(char *iface)
 {
+    float mn = 0, mx = 1;
+    mpr_list l;
+
     dst = mpr_dev_new("testthread-recv", 0);
     if (!dst)
         goto error;
@@ -91,12 +102,11 @@ int setup_dst(char *iface)
         mpr_graph_set_interface(mpr_obj_get_graph(dst), iface);
     eprintf("destination created.\n");
 
-    float mn=0, mx=1;
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
                           &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
-    mpr_list l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
+    l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
     eprintf("Number of inputs: %d\n", mpr_list_get_size(l));
     mpr_list_free(l);
     return 0;

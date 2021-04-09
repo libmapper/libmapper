@@ -1,15 +1,11 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <lo/lo.h>
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 int verbose = 1;
 int terminate = 0;
@@ -24,6 +20,16 @@ mpr_sig recvsig;
 
 int sent = 0;
 int received = 0;
+
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
 
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
              mpr_type type, const void *val, mpr_time t)
@@ -54,19 +60,20 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
 /*! Creation of a local source. */
 int setup_src()
 {
+    float mn[] = {0.f, 0.f}, mx[] = {10.f, 10.f};
+    mpr_list l;
+
     src = mpr_dev_new("testreverse-send", 0);
     if (!src)
         goto error;
     eprintf("source created.\n");
-
-    float mn[]={0.f,0.f}, mx[]={10.f,10.f};
 
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 2, MPR_FLT, NULL,
                           mn, mx, NULL, NULL, 0);
     mpr_sig_set_cb(sendsig, handler, MPR_SIG_UPDATE);
 
     eprintf("Output signals registered.\n");
-    mpr_list l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
+    l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
     eprintf("Number of outputs: %d\n", mpr_list_get_size(l));
     mpr_list_free(l);
 
@@ -89,18 +96,19 @@ void cleanup_src()
 /*! Creation of a local destination. */
 int setup_dst()
 {
+    float mn = 0, mx = 1;
+    mpr_list l;
+
     dst = mpr_dev_new("testreverse-recv", 0);
     if (!dst)
         goto error;
     eprintf("destination created.\n");
 
-    float mn=0, mx=1;
-
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
                           &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal insig registered.\n");
-    mpr_list l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
+    l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
     eprintf("Number of inputs: %d\n", mpr_list_get_size(l));
     mpr_list_free(l);
 
@@ -135,7 +143,6 @@ int setup_maps()
     mpr_map map = mpr_map_new(1, &recvsig, 1, &sendsig);
     mpr_obj_push(map);
 
-    i = 0;
     /* wait until mapping has been established */
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
@@ -149,9 +156,11 @@ int setup_maps()
 
 void loop()
 {
-    eprintf("-------------------- GO ! --------------------\n");
     int i = 0;
     float val[] = {0, 0};
+
+    eprintf("-------------------- GO ! --------------------\n");
+
     mpr_sig_set_value(sendsig, 0, 2, MPR_FLT, val);
 
     while ((!terminate || i < 50) && !done) {

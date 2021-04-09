@@ -2,15 +2,11 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <math.h>
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 int verbose = 1;
 int terminate = 0;
@@ -30,8 +26,20 @@ int received = 0;
 float *sMin, *sMax, *dMin, *dMax, *expected;
 float *M, *B;
 
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
+
 int setup_src()
 {
+    mpr_list l;
+
     src = mpr_dev_new("testvector-send", 0);
     if (!src)
         goto error;
@@ -41,7 +49,7 @@ int setup_src()
                           sMin, sMax, NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
-    mpr_list l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
+    l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
     eprintf("Number of outputs: %d\n", mpr_list_get_size(l));
     mpr_list_free(l);
     return 0;
@@ -64,9 +72,11 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     int i;
+    float *f;
+
     if (!value || length != vec_len)
         return;
-    float *f = (float*)value;
+    f = (float*)value;
     eprintf("handler: Got [");
     for (i = 0; i < length; i++) {
         eprintf("%f, ", f[i]);
@@ -86,6 +96,8 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 
 int setup_dst()
 {
+    mpr_list l;
+
     dst = mpr_dev_new("testvector-recv", 0);
     if (!dst)
         goto error;
@@ -95,7 +107,7 @@ int setup_dst()
                           dMin, dMax, NULL, handler, MPR_SIG_UPDATE);
 
     eprintf("Input signal 'insig' registered.\n");
-    mpr_list l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
+    l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
     eprintf("Number of inputs: %d\n", mpr_list_get_size(l));
     mpr_list_free(l);
     return 0;
@@ -122,7 +134,6 @@ int setup_maps()
     mpr_obj_push((mpr_obj)map);
 
     /* wait until mapping has been established */
-    i = 0;
     while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
@@ -157,9 +168,10 @@ void wait_ready()
 
 void loop()
 {
-    eprintf("Polling device..\n");
     int i = 0, j = 0;
     float *v = malloc(vec_len * sizeof(float));
+
+    eprintf("Polling device..\n");
     while ((!terminate || i < 50) && !done) {
         for (j = 0; j < vec_len; j++) {
             v[j] = (float)(i + j);

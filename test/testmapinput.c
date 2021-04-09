@@ -1,16 +1,12 @@
 #include <mapper/mapper.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <lo/lo.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 mpr_dev devices[2];
 mpr_sig inputs[4];
@@ -24,22 +20,33 @@ int terminate = 0;
 int autoconnect = 1;
 int period = 50;
 
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
+
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
+        int i;
         const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
         eprintf("--> received %s", name);
 
         if (type == MPR_FLT) {
             float *v = (float*)value;
-            for (int i = 0; i < length; i++) {
+            for (i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
             }
         }
         else if (type == MPR_DBL) {
             double *v = (double*)value;
-            for (int i = 0; i < length; i++) {
+            for (i = 0; i < length; i++) {
                 eprintf(" %f", v[i]);
             }
         }
@@ -50,15 +57,15 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
 
 int setup_devs()
 {
+    float mnf1[] = {0, 0, 0}, mxf1[] = {1, 1, 1};
+    float mnf2[] = {3.2, 2, 0}, mxf2[] = {-2, 13, 100};
+    double mnd = 0, mxd = 10;
+
     devices[0] = mpr_dev_new("testmapinput", 0);
     devices[1] = mpr_dev_new("testmapinput", 0);
     if (!devices[0] || !devices[1])
         goto error;
     eprintf("devices created.\n");
-
-    float mnf1[]={0,0,0}, mxf1[]={1,1,1};
-    float mnf2[]={3.2,2,0}, mxf2[]={-2,13,100};
-    double mnd=0, mxd=10;
 
     inputs[0] = mpr_sig_new(devices[0], MPR_DIR_IN, "insig_1", 1, MPR_FLT,
                             NULL, mnf1, mxf1, NULL, handler, MPR_SIG_UPDATE);
@@ -82,7 +89,8 @@ int setup_devs()
 
 void cleanup_devs()
 {
-    for (int i = 0; i < 2; i++) {
+    int i;
+    for (i = 0; i < 2; i++) {
         if (devices[i]) {
             eprintf("Freeing device.. ");
             fflush(stdout);
@@ -102,8 +110,10 @@ void wait_local_devs()
 
 void loop()
 {
+    int i = 0, recvd, ready = 0;
+    float val;
+
     eprintf("-------------------- GO ! --------------------\n");
-    int i = 0, recvd;
 
     if (autoconnect) {
         mpr_map maps[2];
@@ -116,7 +126,6 @@ void loop()
         mpr_obj_push((mpr_obj)maps[1]);
 
         /* wait until mapping has been established */
-        int ready = 0;
         while (!done && !ready) {
             mpr_dev_poll(devices[0], 100);
             mpr_dev_poll(devices[1], 100);
@@ -125,7 +134,6 @@ void loop()
     }
 
     i = 0;
-    float val;
     while ((!terminate || i < 50) && !done) {
         val = (i % 10) * 1.0f;
         mpr_sig_set_value(inputs[0], 0, 1, MPR_FLT, &val);

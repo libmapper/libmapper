@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>
@@ -11,11 +12,6 @@
 #define SRC_ARRAY_LEN 3
 #define DST_ARRAY_LEN 6
 #define MAX_VARS 8
-
-#define eprintf(format, ...) do {               \
-    if (verbose)                                \
-        fprintf(stdout, format, ##__VA_ARGS__); \
-} while(0)
 
 int verbose = 1;
 char str[256];
@@ -39,6 +35,16 @@ mpr_value_t inh[SRC_ARRAY_LEN], outh, user_vars[MAX_VARS], *user_vars_p;
 mpr_value inh_p[SRC_ARRAY_LEN];
 mpr_type src_types[SRC_ARRAY_LEN], dst_type;
 int src_lens[SRC_ARRAY_LEN], n_sources, dst_len;
+
+static void eprintf(const char *format, ...)
+{
+    va_list args;
+    if (!verbose)
+        return;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
 
 /*! Internal function to get the current time. */
 static double current_time()
@@ -78,6 +84,7 @@ struct _mpr_expr
 static void seed_srand()
 {
     unsigned int s;
+    double d;
 
 #ifndef WIN32
     FILE *f = fopen("/dev/urandom", "rb");
@@ -91,8 +98,8 @@ static void seed_srand()
     }
 #endif
 
-    double d = mpr_get_current_time();
-    s = (unsigned int)((d-(unsigned long)d)*100000);
+    d = mpr_get_current_time();
+    s = (unsigned int)((d - (unsigned long)d) * 100000);
     srand(s);
 }
 
@@ -108,7 +115,8 @@ float random_flt()
     uint32_t buffer = 0;
     float *f = (float*)&buffer;
     do {
-        for (int i = 0; i < 4; i++) {
+        int i;
+        for (i = 0; i < 4; i++) {
             int random = rand();
             buffer = (buffer << 8) | (random & 0xFF);
         }
@@ -123,7 +131,8 @@ double random_dbl()
     uint64_t buffer = 0;
     double *d = (double*)&buffer;
     do {
-        for (int i = 0; i < 8; i++) {
+        int i;
+        for (i = 0; i < 8; i++) {
             int random = rand();
             buffer = (buffer << 8) | (random & 0xFF);
         }
@@ -133,6 +142,7 @@ double random_dbl()
 
 int check_result(mpr_type *types, int len, const void *val, int pos, int check)
 {
+    int i, offset = pos * len, error = -1;
     if (!val || !types || len < 1)
         return 1;
 
@@ -153,7 +163,6 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
     if (len > 1)
         eprintf("[");
 
-    int i, offset = pos * len, error = -1;
     for (i = 0; i < len; i++) {
         switch (types[i]) {
             case MPR_NULL:
@@ -220,8 +229,8 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
 void setup_test_multisource(int _n_sources, mpr_type *_src_types, int *_src_lens,
                             mpr_type _dst_type, int _dst_len)
 {
-    n_sources = _n_sources;
     int i;
+    n_sources = _n_sources;
     for (i = 0; i < _n_sources; i++) {
         src_types[i] = _src_types[i];
         src_lens[i] = _src_lens[i];
@@ -241,7 +250,7 @@ void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
 int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
 {
     /* clear output arrays */
-    int i, j, result = 0;
+    int i, j, result = 0, mlen, status;
 
     if (verbose) {
         printf("***************** Expression %d *****************\n", expression_count++);
@@ -261,13 +270,13 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         result = 1;
         goto free;
     }
-    int mlen;
     mpr_time_set(&time_in, MPR_NOW);
     for (i = 0; i < n_sources; i++) {
+        void *v;
         mlen = mpr_expr_get_in_hist_size(e, i);
         mpr_value_realloc(&inh[i], src_lens[i], src_types[i], mlen, 1, 0);
         inh[i].inst[0].pos = 0;
-        void *v = mpr_value_get_samp(&inh[i], 0);
+        v = mpr_value_get_samp(&inh[i], 0);
         switch (src_types[i]) {
             case MPR_INT32:
                 memcpy(v, src_int, sizeof(int) * src_lens[i]);
@@ -289,10 +298,11 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     /* mpr_value_realloc will not initialize memory if history size is unchanged
      * so we will explicitly initialise it here. */
     for (i = 0; i < n_sources; i++) {
+        int samp_size;
         if (inh[i].mlen <= 1)
             continue;
-        int samp_size = inh[i].vlen * mpr_type_get_size(inh[i].type);
-        memset(inh[i].inst[0].samps + samp_size, 0, (inh[i].mlen - 1) * samp_size);
+        samp_size = inh[i].vlen * mpr_type_get_size(inh[i].type);
+        memset((char*)inh[i].inst[0].samps + samp_size, 0, (inh[i].mlen - 1) * samp_size);
     }
     memset(outh.inst[0].samps, 0, outh.mlen * outh.vlen * mpr_type_get_size(outh.type));
 
@@ -333,7 +343,6 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
 
     token_count += e->n_tokens;
 
-    int status;
     update_count = 0;
     then = current_time();
 
@@ -356,8 +365,8 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         mpr_time_set(&time_in, MPR_NOW);
         /* copy src values */
         for (j = 0; j < n_sources; j++) {
-            inh[j].inst[0].pos = ((inh[j].inst[0].pos + 1) % inh[j].mlen);
             int samp_size = inh[j].vlen * mpr_type_get_size(inh[j].type);
+            inh[j].inst[0].pos = ((inh[j].inst[0].pos + 1) % inh[j].mlen);
             switch (inh[j].type) {
                 case MPR_INT32:
                     memcpy(mpr_value_get_samp(&inh[j], 0), src_int, samp_size);
@@ -414,6 +423,10 @@ fail:
 
 int run_tests()
 {
+    int i;
+    mpr_type types[3] = {MPR_INT32, MPR_FLT, MPR_DBL};
+    int lens[3] = {2, 3, 2};
+
     /* 1) Complex string */
     /* TODO: ensure successive constant multiplications are optimized */
     /* TODO: ensure split successive constant additions are optimized */
@@ -729,7 +742,7 @@ int run_tests()
     snprintf(str, 256, "ema=ema{-1}*0.9+x*0.1; y=ema*2; ema{-1}=90");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 90;
-    for (int i = 0; i < iterations; i++)
+    for (i = 0; i < iterations; i++)
         expect_flt[0] = expect_flt[0] * 0.9f + src_int[0] * 0.1f;
     expect_flt[0] *= 2;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
@@ -797,8 +810,6 @@ int run_tests()
 
     /* 49) Multiple Inputs */
     snprintf(str, 256, "y=x+x1[1:2]+x2");
-    mpr_type types[3] = {MPR_INT32, MPR_FLT, MPR_DBL};
-    int lens[3] = {2, 3, 2};
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
     expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);
@@ -809,7 +820,7 @@ int run_tests()
     snprintf(str, 256, "y=x-ema(x,0.1)+2");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 0;
-    for (int i = 0; i < iterations; i++)
+    for (i = 0; i < iterations; i++)
         expect_flt[0] = expect_flt[0] * 0.9f + src_int[0] * 0.1f;
     expect_flt[0] = src_int[0] - expect_flt[0] + 2.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
@@ -946,8 +957,7 @@ int run_tests()
         return 1;
 
     /* 61) Instance management */
-    const char *expr60 = "count{-1}=0;alive=count>=5;y=x;count=(count+1)%10;";
-    snprintf(str, 256, "%s", expr60);
+    snprintf(str, 256, "%s", "count{-1}=0;alive=count>=5;y=x;count=(count+1)%10;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
@@ -1118,7 +1128,7 @@ int main(int argc, char **argv)
         }
     }
 
-    for (int i = 0; i < SRC_ARRAY_LEN; i++)
+    for (i = 0; i < SRC_ARRAY_LEN; i++)
         inh[i].inst = 0;
     outh.inst = 0;
 
@@ -1126,32 +1136,32 @@ int main(int argc, char **argv)
     seed_srand();
     eprintf("Generating random inputs:\n");
     eprintf("  int: [");
-    for (int i = 0; i < SRC_ARRAY_LEN; i++) {
+    for (i = 0; i < SRC_ARRAY_LEN; i++) {
         src_int[i] = random_int();
         eprintf("%i, ", src_int[i]);
     }
     eprintf("\b\b]\n");
 
     eprintf("  flt: [");
-    for (int i = 0; i < SRC_ARRAY_LEN; i++) {
+    for (i = 0; i < SRC_ARRAY_LEN; i++) {
         src_flt[i] = random_flt();
         eprintf("%g, ", src_flt[i]);
     }
     eprintf("\b\b]\n");
 
     eprintf("  dbl: [");
-    for (int i = 0; i < SRC_ARRAY_LEN; i++) {
+    for (i = 0; i < SRC_ARRAY_LEN; i++) {
         src_dbl[i] = random_dbl();
         eprintf("%g, ", src_dbl[i]);
     }
     eprintf("\b\b]\n");
 
-    for (int i = 0; i < SRC_ARRAY_LEN; i++)
+    for (i = 0; i < SRC_ARRAY_LEN; i++)
         inh_p[i] = &inh[i];
 
     result = run_tests();
 
-    for (int i = 0; i < SRC_ARRAY_LEN; i++)
+    for (i = 0; i < SRC_ARRAY_LEN; i++)
         mpr_value_free(&inh[i]);
     mpr_value_free(&outh);
 
