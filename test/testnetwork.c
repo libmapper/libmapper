@@ -49,7 +49,7 @@ int test_network()
     eprintf("Found interface %s has IP %s\n", graph->net.iface.name,
            inet_ntoa(graph->net.iface.addr));
 
-    while (!dev->loc->registered) {
+    while (!((mpr_local_dev)dev)->registered) {
         mpr_dev_poll(dev, 100);
     }
 
@@ -59,7 +59,7 @@ int test_network()
         return 1;
     }
     eprintf("Using port %d.\n", *(int*)val);
-    eprintf("Allocated ordinal %d.\n", dev->loc->ordinal.val);
+    eprintf("Allocated ordinal %d.\n", ((mpr_local_dev)dev)->ordinal_allocator.val);
 
     eprintf("Delaying for 5 seconds..\n");
     wait = 50;

@@ -9,9 +9,9 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-mpr_link mpr_link_new(mpr_dev local_dev, mpr_dev remote_dev)
+mpr_link mpr_link_new(mpr_local_dev local_dev, mpr_dev remote_dev)
 {
-    return mpr_graph_add_link(local_dev->obj.graph, local_dev, remote_dev);
+    return mpr_graph_add_link(local_dev->obj.graph, (mpr_dev)local_dev, remote_dev);
 }
 
 void mpr_link_init(mpr_link link)
@@ -32,7 +32,7 @@ void mpr_link_init(mpr_link link)
     if (!link->obj.props.staged)
         link->obj.props.staged = mpr_tbl_new();
 
-    if (!link->obj.id && link->devs[LOCAL_DEV]->loc)
+    if (!link->obj.id && link->devs[LOCAL_DEV]->is_local)
         link->obj.id = mpr_dev_generate_unique_id(link->devs[LOCAL_DEV]);
 
     link->clock.new = 1;
@@ -81,7 +81,7 @@ void mpr_link_free(mpr_link link)
     FUNC_IF(mpr_tbl_free, link->obj.props.synced);
     FUNC_IF(mpr_tbl_free, link->obj.props.staged);
     FUNC_IF(free, link->num_maps);
-    if (!link->devs[LOCAL_DEV]->loc)
+    if (!link->devs[LOCAL_DEV]->is_local)
         return;
     FUNC_IF(lo_address_free, link->addr.admin);
     FUNC_IF(lo_address_free, link->addr.udp);
@@ -187,16 +187,16 @@ mpr_list mpr_link_get_maps(mpr_link link)
     return mpr_list_start(q);
 }
 
-void mpr_link_remove_map(mpr_link link, mpr_map rem)
+void mpr_link_remove_map(mpr_link link, mpr_local_map rem)
 {
-    int in = 0, out = 0, rev = link->devs[0]->loc ? 0 : 1;
+    int in = 0, out = 0, rev = link->devs[0]->is_local ? 0 : 1;
     mpr_list list = mpr_link_get_maps(link);
     while (list) {
-        mpr_map map = *(mpr_map*)list;
+        mpr_local_map map = *(mpr_local_map*)list;
         list = mpr_list_get_next(list);
         if (map == rem)
             continue;
-        if (map->dst->loc && map->dst->loc->rsig)
+        if (map->dst->is_local && map->dst->rsig)
             ++in;
         else
             ++out;
@@ -216,5 +216,5 @@ void mpr_link_send(mpr_link link, net_msg_t cmd)
 
 int mpr_link_get_is_local(mpr_link link)
 {
-    return link->devs[0]->loc || link->devs[1]->loc;
+    return link->devs[0]->is_local || link->devs[1]->is_local;
 }

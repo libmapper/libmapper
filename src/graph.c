@@ -143,7 +143,7 @@ void mpr_graph_cleanup(mpr_graph g)
         maps = mpr_list_get_next(maps);
         if (map->status <= MPR_STATUS_STAGED) {
             if (map->status <= MPR_STATUS_EXPIRED) {
-                mpr_rtr_remove_map(g->net.rtr, map);
+                mpr_rtr_remove_map(g->net.rtr, (mpr_local_map)map);
                 mpr_graph_remove_map(g, map, MPR_OBJ_REM);
             }
             else {
@@ -189,7 +189,7 @@ void mpr_graph_free(mpr_graph g)
     while (list) {
         mpr_map map = (mpr_map)*list;
         list = mpr_list_get_next(list);
-        if (!map->loc)
+        if (!map->is_local)
             mpr_graph_remove_map(g, map, MPR_OBJ_REM);
     }
 
@@ -201,7 +201,7 @@ void mpr_graph_free(mpr_graph g)
         int no_local_dev_maps = 1;
         mpr_list sigs;
         list = mpr_list_get_next(list);
-        if (dev->loc)
+        if (dev->is_local)
             continue;
 
         sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
@@ -210,7 +210,7 @@ void mpr_graph_free(mpr_graph g)
             mpr_sig sig = (mpr_sig)*sigs;
             mpr_list maps = mpr_sig_get_maps(sig, MPR_DIR_ANY);
             while (maps) {
-                if (((mpr_map)*maps)->loc) {
+                if (((mpr_map)*maps)->is_local) {
                     no_local_dev_maps = no_local_sig_maps = 0;
                     mpr_list_free(maps);
                     break;
@@ -346,6 +346,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
         dev->obj.id <<= 32;
         dev->obj.type = MPR_DEV;
         dev->obj.graph = g;
+        dev->is_local = 0;
         init_dev_prop_tbl(dev);
         rc = 1;
     }
@@ -430,7 +431,7 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
     mpr_dev dev = mpr_graph_get_dev_by_name(g, dev_name);
     if (dev) {
         sig = mpr_dev_get_sig_by_name(dev, name);
-        if (sig && sig->loc)
+        if (sig && sig->is_local)
             return sig;
     }
     else
@@ -443,6 +444,7 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
         /* also add device record if necessary */
         sig->dev = dev;
         sig->obj.graph = g;
+        sig->is_local = 0;
 
         mpr_sig_init(sig, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, 0);
         rc = 1;
@@ -484,12 +486,12 @@ mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 {
     mpr_link link;
     RETURN_ARG_UNLESS(dev1 && dev2, 0);
-    link = mpr_dev_get_link_by_remote(dev1, dev2);
+    link = mpr_dev_get_link_by_remote((mpr_local_dev)dev1, dev2);
     if (link)
         return link;
 
     link = (mpr_link)mpr_list_add_item((void**)&g->links, sizeof(mpr_link_t));
-    if (dev2->loc) {
+    if (dev2->is_local) {
         link->devs[LOCAL_DEV] = dev2;
         link->devs[REMOTE_DEV] = dev1;
     }
@@ -565,7 +567,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                           const char *dst_name)
 {
     mpr_map map = 0;
-    int rc = 0, updated = 0, i, j;
+    int rc = 0, updated = 0, i, j, is_local = 0;
     if (num_src > MAX_NUM_MAP_SRC) {
         trace_graph("error: maximum mapping sources exceeded.\n");
         return 0;
@@ -597,27 +599,26 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
             src_sigs[i] = add_sig_from_whole_name(g, src_names[i]);
             RETURN_ARG_UNLESS(src_sigs[i], 0);
             mpr_graph_add_link(g, dst_sig->dev, src_sigs[i]->dev);
+            is_local += src_sigs[i]->is_local;
         }
+        is_local += dst_sig->is_local;
 
-        map = (mpr_map)mpr_list_add_item((void**)&g->maps, sizeof(mpr_map_t));
+        map = (mpr_map)mpr_list_add_item((void**)&g->maps,
+                                         is_local ? sizeof(mpr_local_map_t) : sizeof(mpr_map_t));
         map->obj.type = MPR_MAP;
         map->obj.graph = g;
         map->obj.id = id;
         map->num_src = num_src;
+        map->is_local = 0;
         map->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
         for (i = 0; i < num_src; i++) {
-            map->src[i] = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
-            map->src[i]->sig = src_sigs[i];
+            map->src[i] = mpr_slot_new(map, src_sigs[i], is_local);
+            /* TODO: do we need to init these here and in slot.c? */
             map->src[i]->obj.id = i;
             map->src[i]->obj.graph = g;
-            map->src[i]->causes_update = 1;
-            map->src[i]->map = map;
         }
-        map->dst = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
-        map->dst->sig = dst_sig;
+        map->dst = mpr_slot_new(map, dst_sig, is_local);
         map->dst->obj.graph = g;
-        map->dst->causes_update = 1;
-        map->dst->map = map;
         mpr_map_init(map);
         rc = 1;
     }
@@ -626,6 +627,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         /* may need to add sources to existing map */
         for (i = 0; i < num_src; i++) {
             mpr_sig src_sig = add_sig_from_whole_name(g, src_names[i]);
+            is_local += src_sig->is_local;
+            /* TODO: check if we might need to 'upgrade' existing map to local */
             RETURN_ARG_UNLESS(src_sig, 0);
             for (j = 0; j < map->num_src; j++) {
                 if (map->src[j]->sig == src_sig)
@@ -635,12 +638,9 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                 ++changed;
                 ++map->num_src;
                 map->src = realloc(map->src, sizeof(mpr_slot) * map->num_src);
-                map->src[j] = (mpr_slot) calloc(1, sizeof(struct _mpr_slot));
+                map->src[j] = mpr_slot_new(map, src_sig, is_local);
                 map->src[j]->dir = MPR_DIR_OUT;
-                map->src[j]->sig = src_sig;
                 map->src[j]->obj.graph = g;
-                map->src[j]->causes_update = 1;
-                map->src[j]->map = map;
                 mpr_slot_init(map->src[j]);
                 ++updated;
             }
@@ -841,7 +841,7 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
         _autosubscribe(g, flags);
         return;
     }
-    else if (d->loc) {
+    else if (d->is_local) {
         /* don't bother subscribing to local device */
         trace_graph("aborting subscription, device is local.\n");
         return;

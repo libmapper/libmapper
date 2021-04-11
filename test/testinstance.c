@@ -298,7 +298,7 @@ void print_instance_idx(mpr_sig sig)
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i = 0; i < n; i++) {
-        eprintf("%2i, ", sig->loc->inst[i]->idx);
+        eprintf("%2i, ", ((mpr_local_sig)sig)->inst[i]->idx);
     }
     if (i)
         eprintf("\b\b ");
@@ -530,21 +530,23 @@ int run_test(test_config *config)
 
     release_active_instances(multirecv);
 
-    if (multisend->loc->idmap_len > 8) {
-        printf("Error: multisend using %d id maps (should be %d)\n", multisend->loc->idmap_len, 8);
+    if (((mpr_local_sig)multisend)->idmap_len > 8) {
+        printf("Error: multisend using %d id maps (should be %d)\n",
+               ((mpr_local_sig)multisend)->idmap_len, 8);
         ++result;
     }
-    if (multirecv->loc->idmap_len > 8) {
-        printf("Error: multirecv using %d id maps (should be %d)\n", multirecv->loc->idmap_len, 8);
+    if (((mpr_local_sig)multirecv)->idmap_len > 8) {
+        printf("Error: multirecv using %d id maps (should be %d)\n",
+               ((mpr_local_sig)multirecv)->idmap_len, 8);
         ++result;
     }
 
-    id_map = &src->loc->idmaps.active[0];
+    id_map = &((mpr_local_dev)src)->idmaps.active[0];
     while (*id_map) {
         ++active_count;
         id_map = &(*id_map)->next;
     }
-    id_map = &src->loc->idmaps.reserve;
+    id_map = &((mpr_local_dev)src)->idmaps.reserve;
     while (*id_map) {
         ++reserve_count;
         id_map = &(*id_map)->next;
@@ -552,7 +554,7 @@ int run_test(test_config *config)
     if (active_count > 1 || reserve_count > 5) {
         printf("Error: src device using %d active and %d reserve id maps (should be 0 and <=10)\n",
                active_count, reserve_count);
-        id_map = &src->loc->idmaps.active[0];
+        id_map = &((mpr_local_dev)src)->idmaps.active[0];
         while (*id_map) {
             printf("  LID*%d: %"PR_MPR_ID", GID*%d: %"PR_MPR_ID"\n", (*id_map)->LID_refcount,
                    (*id_map)->LID, (*id_map)->GID_refcount, (*id_map)->GID);
@@ -562,12 +564,12 @@ int run_test(test_config *config)
     }
 
     active_count = reserve_count = 0;
-    id_map = &dst->loc->idmaps.active[0];
+    id_map = &((mpr_local_dev)dst)->idmaps.active[0];
     while (*id_map) {
         ++active_count;
         id_map = &(*id_map)->next;
     }
-    id_map = &dst->loc->idmaps.reserve;
+    id_map = &((mpr_local_dev)dst)->idmaps.reserve;
     while (*id_map) {
         ++reserve_count;
         id_map = &(*id_map)->next;
@@ -575,7 +577,7 @@ int run_test(test_config *config)
     if (active_count > 1 || reserve_count >= 10) {
         printf("Error: dst device using %d active and %d reserve id maps (should be 0 and <10)\n",
                active_count, reserve_count);
-        id_map = &dst->loc->idmaps.active[0];
+        id_map = &((mpr_local_dev)dst)->idmaps.active[0];
         while (*id_map) {
             printf("  LID*%d: %"PR_MPR_ID", GID*%d: %"PR_MPR_ID"\n", (*id_map)->LID_refcount,
                    (*id_map)->LID, (*id_map)->GID_refcount, (*id_map)->GID);

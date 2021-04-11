@@ -174,8 +174,8 @@ void mpr_obj_push(mpr_obj o)
 
     if (MPR_DEV == o->type) {
         mpr_dev d = (mpr_dev)o;
-        if (d->loc) {
-            mpr_net_use_subscribers(n, d, o->type);
+        if (d->is_local) {
+            mpr_net_use_subscribers(n, (mpr_local_dev)d, o->type);
             mpr_dev_send_state(d, MSG_DEV);
         }
         else {
@@ -185,9 +185,9 @@ void mpr_obj_push(mpr_obj o)
     }
     else if (o->type & MPR_SIG) {
         mpr_sig s = (mpr_sig)o;
-        if (s->loc) {
+        if (s->is_local) {
             mpr_type type = ((s->dir == MPR_DIR_OUT) ? MPR_SIG_OUT : MPR_SIG_IN);
-            mpr_net_use_subscribers(n, s->dev, type);
+            mpr_net_use_subscribers(n, (mpr_local_dev)s->dev, type);
             mpr_sig_send_state(s, MSG_SIG);
         }
         else {

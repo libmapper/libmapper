@@ -9,11 +9,13 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, int is_src)
+mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, int is_local)
 {
-    mpr_slot slot = (mpr_slot)calloc(1, sizeof(struct _mpr_slot));
+    size_t size = is_local ? sizeof(struct _mpr_local_slot) : sizeof(struct _mpr_slot);
+    mpr_slot slot = (mpr_slot)calloc(1, size);
     slot->map = map;
     slot->sig = sig;
+    slot->is_local = is_local;
     slot->causes_update = 1; /* default */
     return slot;
 }
@@ -29,7 +31,7 @@ void mpr_slot_init(mpr_slot slot)
     mpr_tbl t = slot->obj.props.synced = mpr_tbl_new();
     slot->obj.props.staged = mpr_tbl_new();
 
-    if (slot->sig->loc)
+    if (slot->sig->is_local)
         mpr_tbl_link(t, MPR_PROP_NUM_INST | mask, 1, MPR_INT32,
                      &slot->sig->num_inst, NON_MODIFIABLE);
     mpr_tbl_link(t, MPR_PROP_SIG | mask, 1, MPR_SIG, &slot->sig,
@@ -45,13 +47,10 @@ void mpr_slot_free(mpr_slot slot)
     free(slot);
 }
 
-void mpr_slot_free_value(mpr_slot slot)
+void mpr_slot_free_value(mpr_local_slot slot)
 {
-    RETURN_UNLESS(slot->loc);
     /* TODO: use rtr_sig for holding memory of local slots for effiency */
-    mpr_value_free(&slot->loc->val);
-    free(slot->loc);
-    slot->loc = 0;
+    mpr_value_free(&slot->val);
 }
 
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
@@ -63,7 +62,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     mask = slot_mask(slot);
 
     /* type and length belong to parent signal */
-    if (!slot->loc || !slot->loc->rsig) {
+    if (!slot->is_local || !((mpr_local_slot)slot)->rsig) {
         a = mpr_msg_get_prop(msg, MPR_PROP_LEN | mask);
         if (a) {
             mpr_prop prop = a->prop;
@@ -93,7 +92,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
                 break;
             case MPR_PROP_NUM_INST:
                 /* static prop if slot is associated with a local map */
-                if (slot->map->loc)
+                if (slot->map->is_local)
                     break;
             default:
                 updated += mpr_tbl_set_from_atom(slot_props, a, REMOTE_MODIFY);
@@ -115,7 +114,7 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int st
         snprintf(temp, 16, "@src.%d", (int)slot->obj.id);
     len = strlen(temp);
 
-    if (!staged && slot->sig->loc) {
+    if (!staged && slot->sig->is_local) {
         /* include length from associated signal */
         snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_LEN, 0));
         lo_message_add_string(msg, temp);
@@ -148,22 +147,22 @@ int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
             || strcmp(sig_name+1, slot->sig->name)) ? 1 : 0;
 }
 
-void mpr_slot_alloc_values(mpr_slot slot, int num_inst, int hist_size)
+void mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size)
 {
     RETURN_UNLESS(num_inst && hist_size && slot->sig->type && slot->sig->len);
-    if (slot->sig->loc)
+    if (slot->sig->is_local)
         num_inst = slot->sig->num_inst;
 
     /* reallocate memory */
-    mpr_value_realloc(&slot->loc->val, slot->sig->len, slot->sig->type,
+    mpr_value_realloc(&slot->val, slot->sig->len, slot->sig->type,
                       hist_size, num_inst, slot == slot->map->dst);
 
     slot->num_inst = num_inst;
 }
 
-void mpr_slot_remove_inst(mpr_slot slot, int idx)
+void mpr_slot_remove_inst(mpr_local_slot slot, int idx)
 {
     RETURN_UNLESS(slot && idx >= 0 && idx < slot->num_inst);
     /* TODO: remove slot->num_inst property */
-    slot->num_inst = mpr_value_remove_inst(&slot->loc->val, idx);
+    slot->num_inst = mpr_value_remove_inst(&slot->val, idx);
 }
