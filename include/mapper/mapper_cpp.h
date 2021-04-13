@@ -17,19 +17,6 @@
 #include <cstring>
 #include <iostream>
 
-//signal_update_handler(Signal sig, instance_id, val, len, Time)
-//- optional: instance_id, time, len
-//
-//possible forms:
-//(Signal sig, void *val)
-//(Signal sig, void *val, Time time)
-//(Signal sig, int instance_id, void *val)
-//(Signal sig, int instance_id, void *val, Time time)
-//(Signal sig, void *val, int len)
-//(Signal sig, void *val, int len, Time time)
-//(Signal sig, int instance_id, void *val, int len)
-//(Signal sig, int instance_id, void *val, int len, Time time)
-
 #ifdef interface
 #undef interface
 #endif
@@ -393,10 +380,9 @@ namespace mapper {
         mpr_sig _sig;
     };
 
-    /*! Maps define dataflow connections between sets of Signals. A Map consists
-     *  of one or more source Signals, one or more destination Signal (currently),
-     *  restricted to one) and properties which determine how the source data is
-     *  processed.*/
+    /*! Maps define dataflow connections between sets of Signals. A Map consists of one or more
+     *  source Signals, one or more destination Signal (currently), restricted to one) and
+     *  properties which determine how the source data is processed. */
     class Map : public Object
     {
     private:
@@ -426,10 +412,9 @@ namespace mapper {
         /*! Create a map between a pair of Signals.
          *  \param src  Source Signal.
          *  \param dst  Destination Signal object.
-         *  \return     A new Map object – either loaded from the Graph (if the
-         *              Map already exists) or newly created. In the latter case
-         *              the Map will not take effect until it has been added to
-         *              the distributed graph using push(). */
+         *  \return     A new Map object – either loaded from the Graph (if the Map already exists)
+         *              or newly created. In the latter case the Map will not take effect until it
+         *              has been added to the distributed graph using push(). */
         Map(signal_type src, signal_type dst) : Object(NULL)
         {
             mpr_sig cast_src = src, cast_dst = dst;
@@ -455,13 +440,11 @@ namespace mapper {
         /*! Create a map between a set of Signals.
          *  \param num_srcs The number of source signals in this map.
          *  \param srcs     Array of source Signal objects.
-         *  \param num_dsts The number of destination signals in this map.
-         *                  Currently restricted to 1.
+         *  \param num_dsts The number of destination signals in this map, currently restricted to 1.
          *  \param dsts     Array of destination Signal objects.
-         *  \return         A new Map object – either loaded from the Graph (if
-         *                  the Map already exists) or newly created. In the
-         *                  latter case the Map will not take effect until it
-         *                  has been added to the graph using push(). */
+         *  \return         A new Map object – either loaded from the Graph (if the Map already
+         *                  exists) or newly created. In the latter case the Map will not take
+         *                  effect until it has been added to the graph using push(). */
         Map(int num_srcs, signal_type srcs[], int num_dsts, signal_type dsts[]) : Object(NULL)
         {
             mpr_sig cast_src[num_srcs], cast_dst = dsts[0];
@@ -473,10 +456,9 @@ namespace mapper {
         /*! Create a map between a set of Signals.
          *  \param srcs std::array of source Signal objects.
          *  \param dsts std::array of destination Signal objects.
-         *  \return     A new Map object – either loaded from the Graph (if the
-         *              Map already exists) or newly created. In the latter case
-         *              the Map will not take effect until it has been added to
-         *              the distributed graph using push(). */
+         *  \return     A new Map object – either loaded from the Graph (if the Map already exists)
+         *              or newly created. In the latter case the Map will not take effect until it
+         *              has been added to the distributed graph using push(). */
         template <size_t N, size_t M>
         Map(std::array<signal_type, N>& srcs,
             std::array<signal_type, M>& dsts) : Object(NULL)
@@ -494,10 +476,9 @@ namespace mapper {
         /*! Create a map between a set of Signals.
          *  \param srcs std::vector of source Signal objects.
          *  \param dsts std::vector of destination Signal objects.
-         *  \return     A new Map object – either loaded from the Graph (if the
-         *              Map already exists) or newly created. In the latter case
-         *              the Map will not take effect until it has been added to
-         *              the distributed graph using push(). */
+         *  \return     A new Map object – either loaded from the Graph (if the Map already exists)
+         *              or newly created. In the latter case the Map will not take effect until it
+         *              has been added to the distributed graph using push(). */
         Map(std::vector<signal_type>& srcs, std::vector<signal_type>& dsts) : Object(NULL)
         {
             if (!srcs.size() || (dsts.size() != 1)) {
@@ -542,23 +523,21 @@ namespace mapper {
 //        List<Device> scopes() const
 //            { return List<Device>((void**)mpr_map_scopes(_obj)); }
 
-        /*! Add a scope to this Map. Map scopes configure the propagation of
-         *  Signal updates across the Map. Changes will not take effect until
-         *  synchronized with the distributed graph using push().
-         *  \param dev      Device to add as a scope for this Map. After taking
-         *                  effect, this setting will cause instance updates
-         *                  originating from the specified Device to be
-         *                  propagated across the Map.
+        /*! Add a scope to this Map. Map scopes configure the propagation of Signal updates across
+         *  the Map. Changes will not take effect until synchronized with the distributed graph
+         *  using push().
+         *  \param dev      Device to add as a scope for this Map. After taking effect, this
+         *                  setting will cause instance updates originating from the specified
+         *                  Device to be propagated across the Map.
          *  \return         Self. */
         inline Map& add_scope(const Device& dev);
 
-        /*! Remove a scope from this Map. Map scopes configure the propagation
-         *  of Signal updates across the Map. Changes will not take effect until
-         *  synchronized with the distributed graph using push().
-         *  \param dev      Device to remove as a scope for this Map. After
-         *                  taking effect, this setting will cause instance
-         *                  updates originating from the specified Device to be
-         *                  blocked from propagating across the Map.
+        /*! Remove a scope from this Map. Map scopes configure the propagation of Signal updates
+         *  across the Map. Changes will not take effect until synchronized with the distributed
+         *  graph using push().
+         *  \param dev      Device to remove as a scope for this Map. After taking effect, this
+         *                  setting will cause instance updates originating from the specified
+         *                  Device to be blocked from propagating across the Map.
          *  \return         Self. */
         inline Map& remove_scope(const Device& dev);
 
@@ -581,12 +560,11 @@ namespace mapper {
         friend class Graph;
     };
 
-    /*! Signals define inputs or outputs for Devices.  A Signal consists of a
-     *  scalar or vector value of some integer or floating-point type.  A Signal
-     *  is created by adding an input or output to a Device.  It can optionally
-     *  be provided with some metadata such as a range, unit, or other
-     *  properties.  Signals can be mapped by creating Maps using remote
-     *  requests on the network, usually generated by a standalone GUI. */
+    /*! Signals define inputs or outputs for Devices.  A Signal consists of a scalar or vector
+     *  value of some integer or floating-point type.  A Signal is created by adding an input or
+     *  output to a Device.  It can optionally be provided with some metadata such as a range,
+     *  unit, or other properties.  Signals can be mapped by creating Maps using remote requests
+     *  on the network, usually generated by a standalone GUI. */
     class Signal : public Object
     {
     protected:
@@ -634,10 +612,10 @@ namespace mapper {
         const void *value(Time time) const
             { return mpr_sig_get_value(_obj, 0, (mpr_time*)time); }
 
-        /*! Signal Instances can be used to describe the multiplicity and/or ephemerality
-        of phenomena associated with Signals. A signal describes the phenomena, e.g.
-        the position of a 'blob' in computer vision, and the signal's instances will
-        describe the positions of actual detected blobs. */
+        /*! Signal Instances can be used to describe the multiplicity and/or ephemerality of
+         *  phenomena associated with Signals. A signal describes the phenomena, e.g. the position
+         *  of a 'blob' in computer vision, and the signal's instances will describe the positions
+         *  of actual detected blobs. */
         class Instance {
         public:
             Instance(mpr_sig sig, mpr_id id)
@@ -716,7 +694,6 @@ namespace mapper {
                 void (*standard)(Signal&&, mpr_sig_evt, mpr_id, int, mpr_type, const void*, mpr_time);
                 void (*simple)(Signal&&, int, mpr_type, const void*, mpr_time);
                 void (*instance)(Signal::Instance&&, mpr_sig_evt, int, mpr_type, const void*, mpr_time);
-            //                std::function<void(Signal::Instance&, mpr_sig_evt, int, mpr_type, const void*, mpr_time)> instance;
             } handler;
             int type;
         } *handler_data;
@@ -813,11 +790,10 @@ namespace mapper {
         OBJ_METHODS(Signal);
     };
 
-    /*! A Device is an entity on the network which has input and/or output
-     *  Signals.  The Device is the primary interface through which a program
-     *  uses libmapper.  A Device must have a name, to which a unique ordinal is
-     *  subsequently appended.  It can also be given other user-specified
-     *  metadata.  Signals can be mapped using local code or messages over the
+    /*! A Device is an entity on the network which has input and/or output Signals.  The Device is
+     *  the primary interface through which a program uses libmapper.  A Device must have a name,
+     *  to which a unique ordinal is subsequently appended.  It can also be given other
+     *  user-specified metadata.  Signals can be mapped using local code or messages over the
      *  network, usually sent from an external GUI. */
     class Device : public Object
     {
@@ -903,10 +879,9 @@ namespace mapper {
         mpr_dev _dev;
     };
 
-    /*! Graphs are the primary interface through which a program may observe
-     *  the network and store information about Devices and Signals that are
-     *  present.  Each Graph stores records of Devices, Signals, and Maps,
-     *  which can be queried. */
+    /*! Graphs are the primary interface through which a program may observe the network and store
+     *  information about Devices and Signals that are present. Each Graph stores records of
+     *  Devices, Signals, and Maps, which can be queried. */
     class Graph
     {
     private:
@@ -931,9 +906,8 @@ namespace mapper {
         }
     public:
         /*! Create a peer in the libmapper distributed graph.
-         *  \param flags    Sets whether the graph should automatically
-         *                  subscribe to information about Signals and Maps when
-         *                  it encounters a previously-unseen Device.
+         *  \param flags    Sets whether the graph should automatically subscribe to information
+         *                  about Signals and Maps when it encounters a previously-unseen Device.
          *  \return         The new Graph. */
         Graph(int flags = MPR_OBJ)
         {
@@ -967,8 +941,7 @@ namespace mapper {
             { return _graph; }
 
         /*! Specify the network interface to use.
-         *  \param iface        A string specifying the name of the network
-         *                      interface to use.
+         *  \param iface        A string specifying the name of the network interface to use.
          *  \return             Self. */
         Graph& set_iface(const str_type &iface)
             { mpr_graph_set_interface(_graph, iface); RETURN_SELF }
@@ -994,8 +967,7 @@ namespace mapper {
             { return std::string(mpr_graph_get_address(_graph)); }
 
         /*! Update a Graph.
-         *  \param block_ms     The number of milliseconds to block, or 0 for
-         *                      non-blocking behaviour.
+         *  \param block_ms     The number of milliseconds to block, or 0 for non-blocking behavior.
          *  \return             The number of handled messages. */
         int poll(int block_ms=0) const
             { return mpr_graph_poll(_graph, block_ms); }
@@ -1003,23 +975,20 @@ namespace mapper {
         // subscriptions
         /*! Subscribe to information about a specific Device.
          *  \param dev      The Device of interest.
-         *  \param flags    Bitflags setting the type of information of interest.
-         *                  Can be a combination of MPR_DEV, MPR_SIG_IN,
-         *                  MPR_SIG_OUT, MPR_SIG, MPR_MAP_IN, MPR_MAP_OUT,
-         *                  MPR_MAP, or simply MPR_OBJ for all information.
-         *  \param timeout  The desired duration in seconds for this
-         *                  subscription. If set to -1, the graph will
-         *                  automatically renew the subscription until it is
+         *  \param flags    Bitflags setting the type of information of interest. Can be a
+         *                  combination of MPR_DEV, MPR_SIG_IN, MPR_SIG_OUT, MPR_SIG, MPR_MAP_IN,
+         *                  MPR_MAP_OUT, MPR_MAP, or simply MPR_OBJ for all information.
+         *  \param timeout  The desired duration in seconds for this subscription. If set to -1,
+         *                  the graph will automatically renew the subscription until it is
          *                  freed or this function is called again.
          *  \return         Self. */
         const Graph& subscribe(const device_type& dev, int flags, int timeout)
             { mpr_graph_subscribe(_graph, dev, flags, timeout); RETURN_SELF }
 
         /*! Subscribe to information about all discovered Devices.
-         *  \param flags    Bitflags setting the type of information of interest.
-         *                  Can be a combination of MPR_DEV, MPR_SIG_IN,
-         *                  MPR_SIG_OUT, MPR_SIG, MPR_MAP_IN, MPR_MAP_OUT,
-         *                  MPR_MAP, or simply MPR_OBJ for all information.
+         *  \param flags    Bitflags setting the type of information of interest. Can be a
+         *                  combination of MPR_DEV, MPR_SIG_IN, MPR_SIG_OUT, MPR_SIG, MPR_MAP_IN,
+         *                  MPR_MAP_OUT, MPR_MAP, or simply MPR_OBJ for all information.
          *  \return         Self. */
         const Graph& subscribe(int flags)
             { mpr_graph_subscribe(_graph, 0, flags, -1); RETURN_SELF }
@@ -1036,8 +1005,7 @@ namespace mapper {
             { mpr_graph_unsubscribe(_graph, 0); RETURN_SELF }
 
         // graph signals
-        /*! Register a callback for when an Object record is added, updated, or
-         *  removed.
+        /*! Register a callback for when an Object record is added, updated, or removed.
          *  \param h        Callback function.
          *  \param types    Bitflags setting the type of information of interest.
          *                  Can be a combination of mpr_type values.
@@ -1048,8 +1016,7 @@ namespace mapper {
             RETURN_SELF
         }
 
-        /*! Register a C callback for when an Object record is added, updated, or
-         *  removed.
+        /*! Register a C callback for when an Object record is added, updated, or removed.
          *  \param h        Callback function.
          *  \param types    Bitflags setting the type of information of interest.
          *                  Can be a combination of mpr_type values.
