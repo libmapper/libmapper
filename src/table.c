@@ -205,7 +205,7 @@ int mpr_tbl_remove(mpr_tbl t, mpr_prop prop, const char *key, int flags)
         if (prop != MPR_PROP_EXTRA && prop != MPR_PROP_LINKED) {
             /* set value to null rather than removing */
             if (rec->flags & INDIRECT) {
-                if (rec->val && *rec->val) {
+                if (rec->val && *rec->val && rec->type != MPR_PTR) {
                     free(*rec->val);
                     *rec->val = 0;
                 }
@@ -220,7 +220,7 @@ int mpr_tbl_remove(mpr_tbl t, mpr_prop prop, const char *key, int flags)
         }
 
         /* Calculate its key in the records. */
-        if (rec->val) {
+        if (rec->val && rec->type != MPR_PTR) {
             if ((rec->type == MPR_STR) && rec->len > 1) {
                 char **vals = (char**)rec->val;
                 for (i = 0; i < rec->len; i++)

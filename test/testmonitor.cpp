@@ -26,7 +26,7 @@ void monitor_pause()
     // sleep(1);
 }
 
-void on_object(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
+void on_object(Graph&& g, Object&& o, mpr_graph_evt e)
 {
     switch (e) {
     case MPR_OBJ_NEW:
@@ -43,7 +43,7 @@ void on_object(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         break;
     }
     if (verbose)
-        mpr_obj_print(o, 0);
+        o.print();
     monitor_pause();
     update = 1;
 }
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
     }
     if (iface)
         graph.set_iface(iface);
-    graph.add_callback(on_object, MPR_OBJ, 0);
+    graph.add_callback(on_object, MPR_OBJ);
 
     i = 0;
     while ((!terminate || i++ < 250) && !done) {
