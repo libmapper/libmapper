@@ -20,7 +20,7 @@ EXPORTS
     mpr_dev_new                                 @18
     mpr_dev_poll                                @19
     mpr_dev_get_is_ready                        @20
-    mpr_dev_process_outputs                     @21
+    mpr_dev_update_maps                         @21
     mpr_dev_get_time                            @22
     mpr_dev_set_time                            @23
     mpr_list_get_cpy                            @24
