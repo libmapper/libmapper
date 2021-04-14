@@ -35,7 +35,7 @@ matrix:
       - MINGW_ON_LINUX="1"
       - MATRIX_EVAL="unset CC && unset CXX && curl -L -O http://www.zlib.net/zlib-1.2.11.tar.gz && tar -xzf zlib-1.2.11.tar.gz && cp -v zlib-1.2.11/crc32.c src/ && echo libmapper_la_SOURCES += crc32.c >>src/Makefile.am && echo libmapper_la_CFLAGS += -I\$\(top_srcdir\)/zlib-1.2.11 >>src/Makefile.am && sed -e 's,\(AC_CHECK_LIB(\[z\]\),dnl \1,' -i configure.ac && sed -e 's,\(\./\$\$i\),wine \1.exe,' -i test/Makefile.am"
   - os: osx
-    osx_image: xcode11.3
+    osx_image: xcode12.2
     env: HOST="" MATRIX_EVAL="brew install autoconf-archive"
     compiler: clang
 before_install:
