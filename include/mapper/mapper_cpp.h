@@ -1,4 +1,3 @@
-
 #ifndef _MPR_CPP_H_
 #define _MPR_CPP_H_
 
@@ -73,7 +72,7 @@ namespace mapper {
     };
 
     /*! The set of possible directions for a signal. */
-    enum class Direction
+    enum class Direction : int
     {
         IN      = MPR_DIR_IN,   /*!< Incoming */
         OUT     = MPR_DIR_OUT,  /*!< Outgoing */
