@@ -759,17 +759,25 @@ namespace mapper {
             mpr_sig _sig;
         };
     private:
-#define HANDLER_NONE        -1
-#define HANDLER_STANDARD    0
-#define HANDLER_SIMPLE      1
-#define HANDLER_INSTANCE    2
+        enum handler_type {
+            NONE = -1,
+            STANDARD,
+            SIMPLE,
+            INSTANCE,
+            SCALAR_INT,
+            SCALAR_FLT,
+            SCALAR_DBL
+        };
         typedef struct _handler_data {
             union {
                 void (*standard)(Signal&&, Signal::Event, mpr_id, int, Type, const void*, Time&&);
                 void (*simple)(Signal&&, int, Type, const void*, Time&&);
                 void (*instance)(Signal::Instance&&, Signal::Event, int, Type, const void*, Time&&);
+                void (*scalar_int)(Signal&&, int, Time&&);
+                void (*scalar_flt)(Signal&&, float, Time&&);
+                void (*scalar_dbl)(Signal&&, double, Time&&);
             } handler;
-            int type;
+            enum handler_type type;
         } *handler_data;
         static void _generic_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst, int len,
                                      mpr_type type, const void *val, mpr_time time)
@@ -779,39 +787,80 @@ namespace mapper {
             if (!data)
                 return;
             switch (data->type) {
-                case HANDLER_STANDARD: {
+                case STANDARD: {
                     data->handler.standard(Signal(sig), Signal::Event(evt), inst, len, Type(type),
                                            val, Time(time));
                     break;
                 }
-                case HANDLER_SIMPLE: {
+                case SIMPLE: {
                     data->handler.simple(Signal(sig), len, Type(type), val, Time(time));
                     break;
                 }
-                case HANDLER_INSTANCE:
+                case INSTANCE:
                     data->handler.instance(Signal::Instance(sig, inst), Signal::Event(evt), len,
                                            Type(type), val, Time(time));
                     break;
+                case SCALAR_INT:
+                    data->handler.scalar_int(Signal(sig), *(int*)val, Time(time));
+                case SCALAR_FLT:
+                    data->handler.scalar_flt(Signal(sig), *(float*)val, Time(time));
+                case SCALAR_DBL:
+                    data->handler.scalar_dbl(Signal(sig), *(double*)val, Time(time));
+                default:
+                    return;
             }
         }
         void _set_callback(handler_data data,
                            void (*h)(Signal&&, Signal::Event, mpr_id, int,
                                      Type, const void*, Time&&))
         {
-            data->type = HANDLER_STANDARD;
+            data->type = STANDARD;
             data->handler.standard = h;
         }
         void _set_callback(handler_data data, void (*h)(Signal&&, int, Type, const void*, Time&&))
         {
-            data->type = HANDLER_SIMPLE;
+            data->type = SIMPLE;
             data->handler.simple = h;
         }
         void _set_callback(handler_data data,
                            void (*h)(Signal::Instance&&, Signal::Event, int,
                                      Type, const void*, Time&&))
         {
-            data->type = HANDLER_INSTANCE;
+            data->type = INSTANCE;
             data->handler.instance = h;
+        }
+        void _set_callback(handler_data data, void (*h)(Signal&&, int, Time&&))
+        {
+            if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_INT32
+                || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
+                printf("wrong type 'i' in handler definition\n");
+                data->type = NONE;
+                return;
+            }
+            data->type = SCALAR_INT;
+            data->handler.scalar_int = h;
+        }
+        void _set_callback(handler_data data, void (*h)(Signal&&, float, Time&&))
+        {
+            if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_FLT
+                || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
+                printf("wrong type 'q' in handler definition\n");
+                data->type = NONE;
+                return;
+            }
+            data->type = SCALAR_FLT;
+            data->handler.scalar_flt = h;
+        }
+        void _set_callback(handler_data data, void (*h)(Signal&&, double, Time&&))
+        {
+            if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_DBL
+                || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
+                printf("wrong type 'd' in handler definition\n");
+                data->type = NONE;
+                return;
+            }
+            data->type = SCALAR_DBL;
+            data->handler.scalar_dbl = h;
         }
     public:
         template <typename H>

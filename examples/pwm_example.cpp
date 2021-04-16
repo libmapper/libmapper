@@ -16,12 +16,10 @@ void ctrlc(int)
     done = 1;
 }
 
-void handler_freq(Signal&& sig, int length, Type type, const void *value, Time&& time)
+// use simple scalar handler
+void handler_freq(Signal&& sig, float value, Time&& time)
 {
-    if (value) {
-        float *pfreq = (float*)value;
-        set_freq(*pfreq);
-    }
+    set_freq(value);
 }
 
 void handler_gain(Signal&& sig, int length, Type type, const void *value, Time&& time)
