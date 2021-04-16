@@ -49,6 +49,7 @@ namespace mapper {
     class Property;
     class Graph;
 
+    /*! The set of possible datatypes. */
     enum class Type : char
     {
         DEVICE      = MPR_DEV,      /*!< Devices only. */
@@ -68,8 +69,10 @@ namespace mapper {
         INT32       = MPR_INT32,    /*!< 32-bit integer. */
         STRING      = MPR_STR,      /*!< String. */
         TIME        = MPR_TIME,     /*!< 64-bit NTP timestamp. */
-        POINTER     = MPR_PTR,      /*!< pointer. */
+        POINTER     = MPR_PTR       /*!< pointer. */
     };
+
+    /*! The set of possible directions for a signal. */
     enum class Direction
     {
         IN      = MPR_DIR_IN,   /*!< Incoming */
@@ -79,6 +82,8 @@ namespace mapper {
                                  * inputs and outputs, so this value is only used for querying
                                  * device maps that touch only local signals. */
     };
+
+    /*! Possible operations for composing queries. */
     enum class Operator
     {
         NEX     = MPR_OP_NEX,   /*!< Property does not exist for this entity. */
@@ -193,7 +198,6 @@ namespace mapper {
         ~List()
             { mpr_list_free(_list); }
 
-        virtual operator std::vector<Object>() const;
         operator mpr_list() { return _list; }
 
         bool operator==(const List& rhs)
@@ -431,17 +435,22 @@ namespace mapper {
     class Map : public Object
     {
     public:
+        /*! Describes the possible endpoints of a map. */
         enum class Location
         {
             SRC = MPR_LOC_SRC,              /*!< Source signal(s) for this map. */
             DST = MPR_LOC_DST,              /*!< Destination signal(s) for this map. */
             ANY = MPR_LOC_ANY               /*!< Either source or destination signals. */
         };
+
+        /*! Describes the possible network protocols for map communication. */
         enum class Protocol
         {
             UDP         = MPR_PROTO_UDP,    /*!< Map updates are sent using UDP. */
-            TCP         = MPR_PROTO_TCP,    /*!< Map updates are sent using TCP. */
-        } mpr_proto;
+            TCP         = MPR_PROTO_TCP     /*!< Map updates are sent using TCP. */
+        };
+
+        /*! the set of possible voice-stealing modes for instances. */
         enum class Stealing
         {
             NONE    = MPR_STEAL_NONE,       /*!< No stealing will take place. */
@@ -491,7 +500,7 @@ namespace mapper {
          *                      destination signals. The format specifier "%x" is used to specify
          *                      source signals and the "%y" is used to specify the destination
          *                      signal.
-         *  \param ...          A sequence of additional Signal arguments, one for each format
+         *  \param args         A sequence of additional Signal arguments, one for each format
          *                      specifier in the format string
          *  \return             A map data structure – either loaded from the graph and modified
          *                      with the new expression (if the map already existed) or newly
@@ -631,6 +640,7 @@ namespace mapper {
     class Signal : public Object
     {
     public:
+        /*! The set of possible signal events, used to register and inform callbacks. */
         enum class Event
         {
             NONE        = 0,
@@ -869,7 +879,7 @@ namespace mapper {
             handler_data data = (handler_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
             if (data)
                 free(data);
-            if (h && events > Signal::Event::NONE) {
+            if (events > Signal::Event::NONE) {
                 data = (handler_data)malloc(sizeof(struct _handler_data));
                 _set_callback(data, h);
                 mpr_sig_set_cb(_obj, _generic_handler, static_cast<int>(events));
@@ -1012,6 +1022,7 @@ namespace mapper {
     class Graph
     {
     public:
+        /*! The set of possible graph events, used to inform callbacks. */
         enum class Event
         {
             OBJ_NEW = MPR_OBJ_NEW,  /*!< New record has been added to the graph. */
@@ -1041,9 +1052,9 @@ namespace mapper {
          *  \param types    Sets whether the graph should automatically subscribe to information
          *                  about Signals and Maps when it encounters a previously-unseen Device.
          *  \return         The new Graph. */
-        Graph(Type autosubscribe_types = Type::OBJECT)
+        Graph(Type types = Type::OBJECT)
         {
-            _graph = mpr_graph_new(static_cast<mpr_type>(autosubscribe_types));
+            _graph = mpr_graph_new(static_cast<mpr_type>(types));
             _owned = true;
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
@@ -1151,8 +1162,6 @@ namespace mapper {
 
         /*! Remove an Object record callback from the Graph service.
          *  \param h        Callback function.
-         *  \param data     The user context pointer that was originally
-         *                  specified when adding the callback
          *  \return         Self. */
         const Graph& remove_callback(void (*h)(Graph&&, Object&&, Graph::Event)) const
         {
@@ -1556,18 +1565,6 @@ namespace mapper {
     template <typename T>
     Property Object::operator [] (const T prop) const
         { return property(prop); }
-
-    template <class T>
-    List<T>::operator std::vector<Object>() const
-    {
-        std::vector<Object> vec;
-        mpr_list cpy = mpr_list_get_cpy(_list);
-        while (cpy) {
-            vec.push_back(Object(*cpy));
-            cpy = mpr_list_get_next(cpy);
-        }
-        return vec;
-    }
 
     template <class T>
     List<T>& List<T>::filter(const Property& p, mpr_op op)

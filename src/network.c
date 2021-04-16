@@ -163,11 +163,11 @@ static int check_collisions(mpr_net net, mpr_allocated resource);
 /*! Local function to get the IP address of a network interface. */
 static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
 {
-    struct in_addr zero;
     struct sockaddr_in *sa;
 
 #ifdef HAVE_GETIFADDRS
 
+    struct in_addr zero;
     struct ifaddrs *ifaphead;
     struct ifaddrs *ifap;
     struct ifaddrs *iflo=0, *ifchosen=0;

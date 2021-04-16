@@ -142,7 +142,7 @@ mpr_list mpr_obj_get_prop_as_list(mpr_obj object, mpr_prop property, const char 
  *  Properties can be specified by setting the 'property' argument to one of the symbolic
  *  identifiers listed in mpr_constants.h; if 'property' is set to MPR_PROP_UNKNOWN or
  *  MPR_PROP_EXTRA the 'name' argument will be used instead.
- *  \param objerty      The object to operate on.
+ *  \param object       The object to operate on.
  *  \param property     Symbolic identifier of the property to add.
  *  \param key          The name of the property to add.
  *  \param length       The length of value array.
@@ -407,7 +407,7 @@ void mpr_sig_set_inst_data(mpr_sig signal, mpr_id instance, const void *data);
 
 /*! Retrieve the arbitrary pointer associated with a signal instance.
  *  \param signal       The signal to operate on.
- *  \param inst         The identifier of the instance to operate on.
+ *  \param instance     The identifier of the instance to operate on.
  *  \return             A pointer associated with this instance. */
 void *mpr_sig_get_inst_data(mpr_sig signal, mpr_id instance);
 
@@ -416,7 +416,7 @@ void *mpr_sig_get_inst_data(mpr_sig signal, mpr_id instance);
  *  \param status       The status of the instances to searchl should be set to MPR_STATUS_ACTIVE,
  *                      MPR_STATUS_RESERVED, or both (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED).
  *  \return             The number of allocated signal instances. */
-int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status);
+int mpr_sig_get_num_inst(mpr_sig signal, mpr_status status);
 
 /** @} */ /* end of group Instances */
 
@@ -637,7 +637,7 @@ void mpr_graph_print(mpr_graph graph);
  *  \param timeout      The length in seconds for this subscription. If set to -1, the graph will
  *                      automatically renew the subscription until it is freed or this function is
  *                      called again. */
-void mpr_graph_subscribe(mpr_graph graph, mpr_dev dev, int types, int timeout);
+void mpr_graph_subscribe(mpr_graph graph, mpr_dev device, int types, int timeout);
 
 /*! Unsubscribe from information about a specific device.
  *  \param graph        The graph to use.
