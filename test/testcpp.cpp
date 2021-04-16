@@ -39,7 +39,7 @@ private:
 };
 out_stream null_out;
 
-void simple_handler(Signal&& sig, int length, mpr_type type, const void *value, mpr_time t)
+void simple_handler(Signal&& sig, int length, Type type, const void *value, Time&& t)
 {
     ++received;
     if (verbose) {
@@ -55,21 +55,21 @@ void simple_handler(Signal&& sig, int length, mpr_type type, const void *value, 
         return;
 
     switch (type) {
-        case MPR_INT32: {
+        case Type::INT32: {
             int *v = (int*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
             }
             break;
         }
-        case MPR_FLT: {
+        case Type::FLOAT: {
             float *v = (float*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
             }
             break;
         }
-        case MPR_DBL: {
+        case Type::DOUBLE: {
             double *v = (double*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
@@ -82,8 +82,8 @@ void simple_handler(Signal&& sig, int length, mpr_type type, const void *value, 
     std::cout << std::endl;
 }
 
-void standard_handler(Signal&& sig, mpr_sig_evt event, mpr_id instance, int length,
-                      mpr_type type, const void *value, mpr_time t)
+void standard_handler(Signal&& sig, Signal::Event event, mpr_id instance, int length,
+                      Type type, const void *value, Time&& t)
 {
     ++received;
     if (verbose) {
@@ -101,21 +101,21 @@ void standard_handler(Signal&& sig, mpr_sig_evt event, mpr_id instance, int leng
         return;
 
     switch (type) {
-        case MPR_INT32: {
+        case Type::INT32: {
             int *v = (int*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
             }
             break;
         }
-        case MPR_FLT: {
+        case Type::FLOAT: {
             float *v = (float*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
             }
             break;
         }
-        case MPR_DBL: {
+        case Type::DOUBLE: {
             double *v = (double*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
@@ -128,8 +128,8 @@ void standard_handler(Signal&& sig, mpr_sig_evt event, mpr_id instance, int leng
     std::cout << std::endl;
 }
 
-void instance_handler(Signal::Instance&& si, mpr_sig_evt event, int length,
-                      mpr_type type, const void *value, mpr_time t)
+void instance_handler(Signal::Instance&& si, Signal::Event event, int length,
+                      Type type, const void *value, Time&& t)
 {
     ++received;
     if (verbose) {
@@ -146,21 +146,21 @@ void instance_handler(Signal::Instance&& si, mpr_sig_evt event, int length,
         return;
 
     switch (type) {
-        case MPR_INT32: {
+        case Type::INT32: {
             int *v = (int*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
             }
             break;
         }
-        case MPR_FLT: {
+        case Type::FLOAT: {
             float *v = (float*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
             }
             break;
         }
-        case MPR_DBL: {
+        case Type::DOUBLE: {
             double *v = (double*)value;
             for (int i = 0; i < length; i++) {
                 std::cout << " " << v[i];
@@ -221,16 +221,16 @@ int main(int argc, char ** argv)
     // make a copy of the device to check reference counting
     Device devcopy(dev);
 
-    Signal sig = dev.add_signal(MPR_DIR_IN, "in1", 1, MPR_FLT, "meters")
+    Signal sig = dev.add_signal(Direction::IN, "in1", 1, Type::FLOAT, "meters")
                     .set_callback(standard_handler);
     dev.remove_signal(sig);
-    dev.add_signal(MPR_DIR_IN, "in2", 2, MPR_INT32).set_callback(standard_handler);
-    dev.add_signal(MPR_DIR_IN, "in3", 2, MPR_INT32).set_callback(standard_handler);
-    dev.add_signal(MPR_DIR_IN, "in4", 2, MPR_INT32).set_callback(simple_handler);
+    dev.add_signal(Direction::IN, "in2", 2, Type::INT32).set_callback(standard_handler);
+    dev.add_signal(Direction::IN, "in3", 2, Type::INT32).set_callback(standard_handler);
+    dev.add_signal(Direction::IN, "in4", 2, Type::INT32).set_callback(simple_handler);
 
-    sig = dev.add_signal(MPR_DIR_OUT, "out1", 1, MPR_FLT, "na");
+    sig = dev.add_signal(Direction::OUT, "out1", 1, Type::FLOAT, "na");
     dev.remove_signal(sig);
-    sig = dev.add_signal(MPR_DIR_OUT, "out2", 3, MPR_DBL, "meters");
+    sig = dev.add_signal(Direction::OUT, "out2", 3, Type::DOUBLE, "meters");
 
     out << "waiting" << std::endl;
     while (!dev.ready() && !done) {
@@ -244,10 +244,10 @@ int main(int argc, char ** argv)
     out << "  interface: " << dev.graph().iface() << std::endl;
     out << "  bus url: " << dev.graph().address() << std::endl;
     out << "  port: " << dev["port"] << std::endl;
-    out << "  num_inputs: " << dev.signals(MPR_DIR_IN).size() << std::endl;
-    out << "  num_outputs: " << dev.signals(MPR_DIR_OUT).size() << std::endl;
-    out << "  num_incoming_maps: " << dev.maps(MPR_DIR_IN).size() << std::endl;
-    out << "  num_outgoing_maps: " << dev.maps(MPR_DIR_OUT).size() << std::endl;
+    out << "  num_inputs: " << dev.signals(Direction::IN).size() << std::endl;
+    out << "  num_outputs: " << dev.signals(Direction::OUT).size() << std::endl;
+    out << "  num_incoming_maps: " << dev.maps(Direction::IN).size() << std::endl;
+    out << "  num_outgoing_maps: " << dev.maps(Direction::OUT).size() << std::endl;
 
     int value[] = {1,2,3,4,5,6};
     dev.set_property("foo", 6, value);
@@ -319,14 +319,14 @@ int main(int argc, char ** argv)
 
     out << "signal: " << sig << std::endl;
 
-    List<Signal> qsig = dev.signals(MPR_DIR_IN);
+    List<Signal> qsig = dev.signals(Direction::IN);
     qsig.begin();
     for (; qsig != qsig.end(); ++qsig) {
         out << "  input: " << *qsig << std::endl;
     }
 
-    Graph graph(MPR_OBJ);
-    Map map(dev.signals(MPR_DIR_OUT)[0], dev.signals(MPR_DIR_IN)[1]);
+    Graph graph;
+    Map map(dev.signals(Direction::OUT)[0], dev.signals(Direction::IN)[1]);
     map[MPR_PROP_EXPR] = "y=x[0:1]+123";
 
     map.push();
@@ -368,10 +368,10 @@ int main(int argc, char ** argv)
     out << "graph records:" << std::endl;
     for (const Device d : graph.devices()) {
         out << "  device: " << d << std::endl;
-        for (Signal s : d.signals(MPR_DIR_IN)) {
+        for (Signal s : d.signals(Direction::IN)) {
             out << "    input: " << s << std::endl;
         }
-        for (Signal s : d.signals(MPR_DIR_OUT)) {
+        for (Signal s : d.signals(Direction::OUT)) {
             out << "    output: " << s << std::endl;
         }
     }
@@ -383,11 +383,11 @@ int main(int argc, char ** argv)
     out << "testing instances API" << std::endl;
 
     int num_inst = 10;
-    mapper::Signal multisend = dev.add_signal(MPR_DIR_OUT, "multisend", 1, MPR_FLT,
+    mapper::Signal multisend = dev.add_signal(Direction::OUT, "multisend", 1, Type::FLOAT,
                                               0, 0, 0, &num_inst);
-    mapper::Signal multirecv = dev.add_signal(MPR_DIR_IN, "multirecv", 1, MPR_FLT,
+    mapper::Signal multirecv = dev.add_signal(Direction::IN, "multirecv", 1, Type::FLOAT,
                                               0, 0, 0, &num_inst)
-                                  .set_callback(instance_handler, MPR_SIG_UPDATE);
+                                  .set_callback(instance_handler, Signal::Event::UPDATE);
     multisend.set_property(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
     multirecv.set_property(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
     mapper::Map map2(multisend, multirecv);

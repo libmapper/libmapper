@@ -585,11 +585,11 @@ int mpr_list_get_size(mpr_list list);
        of devices, signals, and maps, which can be queried. */
 
 /*! Create a peer in the distributed graph.
- *  \param autosubscribe_flags  A combination of mpr_type values controlling whether the graph
+ *  \param autosubscribe_types  A combination of mpr_type values controlling whether the graph
  *                              should automatically subscribe to information about devices,
  *                              signals and/or maps when it encounters a previously-unseen device.
  *  \return                     The new graph. */
-mpr_graph mpr_graph_new(int autosubscribe_flags);
+mpr_graph mpr_graph_new(int autosubscribe_types);
 
 /*! Specify network interface to use.
  *  \param graph        The graph structure to use.

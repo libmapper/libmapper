@@ -26,21 +26,21 @@ void monitor_pause()
     // sleep(1);
 }
 
-void on_object(Graph&& g, Object&& o, mpr_graph_evt e)
+void on_object(Graph&& g, Object&& o, Graph::Event e)
 {
     switch (e) {
-    case MPR_OBJ_NEW:
-        eprintf("Added: ");
-        break;
-    case MPR_OBJ_MOD:
-        eprintf("Modified: ");
-        break;
-    case MPR_OBJ_REM:
-        eprintf("Removed: ");
-        break;
-    case MPR_OBJ_EXP:
-        eprintf("Unresponsive: ");
-        break;
+        case Graph::Event::OBJ_NEW:
+            eprintf("Added: ");
+            break;
+        case Graph::Event::OBJ_MOD:
+            eprintf("Modified: ");
+            break;
+        case Graph::Event::OBJ_REM:
+            eprintf("Removed: ");
+            break;
+        case Graph::Event::OBJ_EXP:
+            eprintf("Unresponsive: ");
+            break;
     }
     if (verbose)
         o.print();
@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    Graph graph(MPR_OBJ);
+    Graph graph;
     if (!graph) {
         eprintf("Error initializing graph.\n");
         result = 1;
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
     }
     if (iface)
         graph.set_iface(iface);
-    graph.add_callback(on_object, MPR_OBJ);
+    graph.add_callback(on_object, Type::OBJECT);
 
     i = 0;
     while ((!terminate || i++ < 250) && !done) {
