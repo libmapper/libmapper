@@ -146,27 +146,6 @@ typedef struct _mpr_net {
     uint8_t graph_methods_added;
 } mpr_net_t, *mpr_net;
 
-typedef struct _mpr_graph {
-    mpr_net_t net;
-    mpr_list devs;                   /*!< List of devices. */
-    mpr_list sigs;                   /*!< List of signals. */
-    mpr_list maps;                   /*!< List of maps. */
-    mpr_list links;                  /*!< List of links. */
-    fptr_list callbacks;             /*!< List of object record callbacks. */
-
-    /*! Linked-list of autorenewing device subscriptions. */
-    mpr_subscription subscriptions;
-
-    /*! Flags indicating whether information on signals and mappings should
-     *  be automatically subscribed to when a new device is seen.*/
-    int autosub;
-
-    int own;
-    int staged_maps;
-
-    uint32_t resource_counter;
-} mpr_graph_t, *mpr_graph;
-
 /**** Messages ****/
 
 /*! Some useful strings for sending administrative messages. */
@@ -245,13 +224,35 @@ typedef struct _mpr_subscriber {
 
 typedef struct _mpr_obj
 {
-    mpr_graph graph;                /*!< Pointer back to the graph. */
+    struct _mpr_graph *graph;       /*!< Pointer back to the graph. */
     mpr_id id;                      /*!< Unique id for this object. */
     void *data;                     /*!< User context pointer. */
     struct _mpr_dict props;         /*!< Properties associated with this signal. */
     int version;                    /*!< Version number. */
     mpr_type type;                  /*!< Object type. */
 } mpr_obj_t, *mpr_obj;
+
+typedef struct _mpr_graph {
+    mpr_obj_t obj;                  /* always first */
+    mpr_net_t net;
+    mpr_list devs;                  /*!< List of devices. */
+    mpr_list sigs;                  /*!< List of signals. */
+    mpr_list maps;                  /*!< List of maps. */
+    mpr_list links;                 /*!< List of links. */
+    fptr_list callbacks;            /*!< List of object record callbacks. */
+
+    /*! Linked-list of autorenewing device subscriptions. */
+    mpr_subscription subscriptions;
+
+    /*! Flags indicating whether information on signals and mappings should
+     *  be automatically subscribed to when a new device is seen.*/
+    int autosub;
+
+    int own;
+    int staged_maps;
+
+    uint32_t resource_counter;
+} mpr_graph_t, *mpr_graph;
 
 /**** Signal ****/
 

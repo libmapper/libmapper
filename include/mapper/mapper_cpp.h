@@ -1018,7 +1018,7 @@ namespace mapper {
     /*! Graphs are the primary interface through which a program may observe the network and store
      *  information about Devices and Signals that are present. Each Graph stores records of
      *  Devices, Signals, and Maps, which can be queried. */
-    class Graph
+    class Graph : public Object
     {
     public:
         /*! The set of possible graph events, used to inform callbacks. */
