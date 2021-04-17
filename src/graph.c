@@ -308,10 +308,11 @@ void mpr_graph_call_cbs(mpr_graph g, mpr_obj o, mpr_type t, mpr_graph_evt e)
     }
 }
 
-int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
+void *mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
 {
     fptr_list cb = g->callbacks;
     fptr_list prevcb = 0;
+    void *ctx;
     while (cb) {
         if (cb->f == (void*)h && cb->ctx == user)
             break;
@@ -323,8 +324,9 @@ int mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
         prevcb->next = cb->next;
     else
         g->callbacks = cb->next;
+    ctx = cb->ctx;
     free(cb);
-    return 1;
+    return ctx;
 }
 
 static void _remove_by_qry(mpr_graph g, mpr_list l, mpr_graph_evt e)

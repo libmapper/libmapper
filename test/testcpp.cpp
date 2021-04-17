@@ -43,7 +43,7 @@ void simple_handler(Signal&& sig, int length, Type type, const void *value, Time
 {
     ++received;
     if (verbose) {
-        std::cout << "signal update:" << sig[MPR_PROP_NAME];
+        std::cout << "signal update:" << sig[Property::NAME];
     }
 
     if (!value) {
@@ -88,7 +88,7 @@ void standard_handler(Signal&& sig, Signal::Event event, mpr_id instance, int le
     ++received;
     if (verbose) {
         std::cout << "\t\t\t\t\t   | --> signal update:"
-                  << sig[MPR_PROP_NAME] << "." << instance;
+                  << sig[Property::NAME] << "." << instance;
     }
 
     if (!value) {
@@ -133,7 +133,7 @@ void instance_handler(Signal::Instance&& si, Signal::Event event, int length,
 {
     ++received;
     if (verbose) {
-        std::cout << "\t\t\t\t\t   | --> signal update:" << si.signal()[MPR_PROP_NAME] << "." << si.id();
+        std::cout << "\t\t\t\t\t   | --> signal update:" << si.signal()[Property::NAME] << "." << si.id();
     }
 
     if (!value) {
@@ -238,9 +238,9 @@ int main(int argc, char ** argv)
     }
     out << "ready" << std::endl;
 
-    out << "device " << dev[MPR_PROP_NAME] << " ready..." << std::endl;
+    out << "device " << dev[Property::NAME] << " ready..." << std::endl;
     out << "  ordinal: " << dev["ordinal"] << std::endl;
-    out << "  id: " << dev[MPR_PROP_ID] << std::endl;
+    out << "  id: " << dev[Property::ID] << std::endl;
     out << "  interface: " << dev.graph().iface() << std::endl;
     out << "  bus url: " << dev.graph().address() << std::endl;
     out << "  port: " << dev["port"] << std::endl;
@@ -310,10 +310,6 @@ int main(int argc, char ** argv)
         out << *it << " ";
     out << std::endl;
 
-    Property p("temp", "tempstring");
-    dev.set_property(p);
-    out << p.key << ": " << p << std::endl;
-
     dev.remove_property("foo");
     out << "foo: " << dev["foo"] << " (should be 0x0)" << std::endl;
 
@@ -327,7 +323,7 @@ int main(int argc, char ** argv)
 
     Graph graph;
     Map map(dev.signals(Direction::OUT)[0], dev.signals(Direction::IN)[1]);
-    map[MPR_PROP_EXPR] = "y=x[0:1]+123";
+    map[Property::EXPR] = "y=x[0:1]+123";
 
     map.push();
 
@@ -340,7 +336,7 @@ int main(int argc, char ** argv)
         graph.poll();
         v[i%3] = i;
         if (i == 50) {
-            Signal s = *dev.signals().filter(Property(MPR_PROP_NAME, "in4"), MPR_OP_EQ);
+            Signal s = *dev.signals().filter(Property::NAME, "in4", Operator::EQ);
             s.set_callback(standard_handler);
         }
         sig.set_value(v);
@@ -349,7 +345,7 @@ int main(int argc, char ** argv)
 
     // try retrieving linked devices
     out << "devices linked to " << dev << ":" << std::endl;
-    List<Device> foo = dev[MPR_PROP_LINKED];
+    List<Device> foo = dev[Property::LINKED];
     for (; foo != foo.end(); foo++) {
         out << "  " << *foo << std::endl;
     }
@@ -357,11 +353,10 @@ int main(int argc, char ** argv)
     // try combining queries
     out << "devices with name matching 'my*' AND >=0 inputs" << std::endl;
     List<Device> qdev = graph.devices();
-    qdev.filter(Property(MPR_PROP_NAME, "my*"), MPR_OP_EQ);
-    qdev.filter(Property(MPR_PROP_NUM_SIGS_IN, 0), MPR_OP_GTE);
+    qdev.filter(Property::NAME, "my*", Operator::EQ);
+    qdev.filter(Property::NUM_SIGS_IN, 0, Operator::GTE);
     for (; qdev != qdev.end(); qdev++) {
-        out << "  " << *qdev << " (" << (*qdev)[MPR_PROP_NUM_SIGS_IN]
-            << " inputs)" << std::endl;
+        out << "  " << *qdev << " (" << (*qdev)[Property::NUM_SIGS_IN] << " inputs)" << std::endl;
     }
 
     // check graph records
@@ -388,8 +383,8 @@ int main(int argc, char ** argv)
     mapper::Signal multirecv = dev.add_signal(Direction::IN, "multirecv", 1, Type::FLOAT,
                                               0, 0, 0, &num_inst)
                                   .set_callback(instance_handler, Signal::Event::UPDATE);
-    multisend.set_property(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
-    multirecv.set_property(MPR_PROP_STEAL_MODE, (int)MPR_STEAL_OLDEST);
+    multisend.set_property(Property::STEAL_MODE, (int)MPR_STEAL_OLDEST);
+    multirecv.set_property(Property::STEAL_MODE, (int)MPR_STEAL_OLDEST);
     mapper::Map map2(multisend, multirecv);
     map2.push();
     while (!map2.ready() && !done) {

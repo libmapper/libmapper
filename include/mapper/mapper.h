@@ -669,8 +669,8 @@ int mpr_graph_add_cb(mpr_graph graph, mpr_graph_handler *handler, int types, con
  *  \param handler      Callback function.
  *  \param data         The user context pointer that was originally specified
  *                      when adding the callback.
- *  \return             One if a callback was removed, otherwise zero. */
-int mpr_graph_remove_cb(mpr_graph graph, mpr_graph_handler *handler, const void *data);
+ *  \return             User data pointer associated with this callback (if any). */
+void *mpr_graph_remove_cb(mpr_graph graph, mpr_graph_handler *handler, const void *data);
 
 /*! Return a list of objects.
  *  \param graph        The graph to query.
