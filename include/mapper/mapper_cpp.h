@@ -98,47 +98,46 @@ namespace mapper {
 
     enum class Property
     {
-        UNKNOWN         = MPR_PROP_UNKNOWN,
-        CALIB           = MPR_PROP_CALIB,
-        DATA            = MPR_PROP_DATA,
-        DEV             = MPR_PROP_DEV,
-        DIR             = MPR_PROP_DIR,
-        EXPR            = MPR_PROP_EXPR,
-        HOST            = MPR_PROP_HOST,
-        ID              = MPR_PROP_ID,
-        INST            = MPR_PROP_INST,
-        IS_LOCAL        = MPR_PROP_IS_LOCAL,
-        JITTER          = MPR_PROP_JITTER,
-        LEN             = MPR_PROP_LEN,
-        LIBVER          = MPR_PROP_LIBVER,
-        LINKED          = MPR_PROP_LINKED,
-        MAX             = MPR_PROP_MAX,
-        MIN             = MPR_PROP_MIN,
-        MUTED           = MPR_PROP_MUTED,
-        NAME            = MPR_PROP_NAME,
-        NUM_INST        = MPR_PROP_NUM_INST,
-        NUM_MAPS        = MPR_PROP_NUM_MAPS,
-        NUM_MAPS_IN     = MPR_PROP_NUM_MAPS_IN,
-        NUM_MAPS_OUT    = MPR_PROP_NUM_MAPS_OUT,
-        NUM_SIGS_IN     = MPR_PROP_NUM_SIGS_IN,
-        NUM_SIGS_OUT    = MPR_PROP_NUM_SIGS_OUT,
-        ORDINAL         = MPR_PROP_ORDINAL,
-        PERIOD          = MPR_PROP_PERIOD,
-        PORT            = MPR_PROP_PORT,
-        PROCESS_LOC     = MPR_PROP_PROCESS_LOC,
-        PROTOCOL        = MPR_PROP_PROTOCOL,
-        RATE            = MPR_PROP_RATE,
-        SCOPE           = MPR_PROP_SCOPE,
-        SIG             = MPR_PROP_SIG,
-        STATUS          = MPR_PROP_STATUS,
-        STEAL_MODE      = MPR_PROP_STEAL_MODE,
-        SYNCED          = MPR_PROP_SYNCED,
-        TYPE            = MPR_PROP_TYPE,
-        UNIT            = MPR_PROP_UNIT,
-        USE_INST        = MPR_PROP_USE_INST,
-        VERSION         = MPR_PROP_VERSION,
-        EXTRA           = MPR_PROP_EXTRA
+        CALIBRATING         = MPR_PROP_CALIB,
+        DATA                = MPR_PROP_DATA,
+        DEVICE              = MPR_PROP_DEV,
+        DIRECTION           = MPR_PROP_DIR,
+        EXPRESSION          = MPR_PROP_EXPR,
+        HOST                = MPR_PROP_HOST,
+        ID                  = MPR_PROP_ID,
+        IS_LOCAL            = MPR_PROP_IS_LOCAL,
+        JITTER              = MPR_PROP_JITTER,
+        LENGTH              = MPR_PROP_LEN,
+        LIBVERSION          = MPR_PROP_LIBVER,
+        LINKED              = MPR_PROP_LINKED,
+        MAX                 = MPR_PROP_MAX,
+        MIN                 = MPR_PROP_MIN,
+        MUTED               = MPR_PROP_MUTED,
+        NAME                = MPR_PROP_NAME,
+        NUM_INSTANCES       = MPR_PROP_NUM_INST,
+        NUM_MAPS            = MPR_PROP_NUM_MAPS,
+        NUM_MAPS_IN         = MPR_PROP_NUM_MAPS_IN,
+        NUM_MAPS_OUT        = MPR_PROP_NUM_MAPS_OUT,
+        NUM_SIGNALS_IN      = MPR_PROP_NUM_SIGS_IN,
+        NUM_SIGNALS_OUT     = MPR_PROP_NUM_SIGS_OUT,
+        ORDINAL             = MPR_PROP_ORDINAL,
+        PERIOD              = MPR_PROP_PERIOD,
+        PORT                = MPR_PROP_PORT,
+        PROCESS_LOCATION    = MPR_PROP_PROCESS_LOC,
+        PROTOCOL            = MPR_PROP_PROTOCOL,
+        RATE                = MPR_PROP_RATE,
+        SCOPE               = MPR_PROP_SCOPE,
+        SIGNALS             = MPR_PROP_SIG,
+        STATUS              = MPR_PROP_STATUS,
+        STEAL_MODE          = MPR_PROP_STEAL_MODE,
+        SYNCED              = MPR_PROP_SYNCED,
+        TYPE                = MPR_PROP_TYPE,
+        UNIT                = MPR_PROP_UNIT,
+        USE_INSTANCES       = MPR_PROP_USE_INST,
+        VERSION             = MPR_PROP_VERSION,
     };
+
+    typedef mpr_id Id;
 
     // Helper class to allow polymorphism on "const char *" and "std::string".
     class str_type {
@@ -750,11 +749,11 @@ namespace mapper {
          *  of actual detected blobs. */
         class Instance {
         public:
-            Instance(mpr_sig sig, mpr_id id)
+            Instance(mpr_sig sig, Id id)
                 { _sig = sig; _id = id; }
             bool operator == (Instance i)
                 { return (_id == i._id); }
-            operator mpr_id() const
+            operator Id() const
                 { return _id; }
             int is_active() const
                 { return mpr_sig_get_inst_is_active(_sig, _id); }
@@ -793,7 +792,7 @@ namespace mapper {
             Instance& set_value(std::vector<T> val)
                 { return set_value(&val[0], val.size()); }
 
-            mpr_id id() const
+            Id id() const
                 { return _id; }
 
             Instance& set_data(void *data)
@@ -822,19 +821,25 @@ namespace mapper {
             NONE = -1,
             STANDARD,
             SIMPLE,
-            INSTANCE,
-            SCALAR_INT,
-            SCALAR_FLT,
-            SCALAR_DBL
+            INST,
+            SIG_INT,
+            SIG_FLT,
+            SIG_DBL,
+            INST_INT,
+            INST_FLT,
+            INST_DBL
         };
         typedef struct _handler_data {
             union {
-                void (*standard)(Signal&&, Signal::Event, mpr_id, int, Type, const void*, Time&&);
+                void (*standard)(Signal&&, Signal::Event, Id, int, Type, const void*, Time&&);
                 void (*simple)(Signal&&, int, Type, const void*, Time&&);
-                void (*instance)(Signal::Instance&&, Signal::Event, int, Type, const void*, Time&&);
-                void (*scalar_int)(Signal&&, int, Time&&);
-                void (*scalar_flt)(Signal&&, float, Time&&);
-                void (*scalar_dbl)(Signal&&, double, Time&&);
+                void (*inst)(Signal::Instance&&, Signal::Event, int, Type, const void*, Time&&);
+                void (*sig_int)(Signal&&, int, Time&&);
+                void (*sig_flt)(Signal&&, float, Time&&);
+                void (*sig_dbl)(Signal&&, double, Time&&);
+                void (*inst_int)(Signal::Instance&&, Signal::Event, int, Time&&);
+                void (*inst_flt)(Signal::Instance&&, Signal::Event, float, Time&&);
+                void (*inst_dbl)(Signal::Instance&&, Signal::Event, double, Time&&);
             } handler;
             enum handler_type type;
         } *handler_data;
@@ -855,22 +860,31 @@ namespace mapper {
                     data->handler.simple(Signal(sig), len, Type(type), val, Time(time));
                     break;
                 }
-                case INSTANCE:
-                    data->handler.instance(Signal::Instance(sig, inst), Signal::Event(evt), len,
-                                           Type(type), val, Time(time));
+                case INST:
+                    data->handler.inst(Signal::Instance(sig, inst), Signal::Event(evt), len,
+                                       Type(type), val, Time(time));
                     break;
-                case SCALAR_INT:
-                    data->handler.scalar_int(Signal(sig), *(int*)val, Time(time));
-                case SCALAR_FLT:
-                    data->handler.scalar_flt(Signal(sig), *(float*)val, Time(time));
-                case SCALAR_DBL:
-                    data->handler.scalar_dbl(Signal(sig), *(double*)val, Time(time));
+                case SIG_INT:
+                    data->handler.sig_int(Signal(sig), *(int*)val, Time(time));
+                case SIG_FLT:
+                    data->handler.sig_flt(Signal(sig), *(float*)val, Time(time));
+                case SIG_DBL:
+                    data->handler.sig_dbl(Signal(sig), *(double*)val, Time(time));
+                case INST_INT:
+                    data->handler.inst_int(Signal::Instance(sig, inst), Signal::Event(evt),
+                                           *(int*)val, Time(time));
+                case INST_FLT:
+                    data->handler.inst_flt(Signal::Instance(sig, inst), Signal::Event(evt),
+                                           *(float*)val, Time(time));
+                case INST_DBL:
+                    data->handler.inst_dbl(Signal::Instance(sig, inst), Signal::Event(evt),
+                                           *(double*)val, Time(time));
                 default:
                     return;
             }
         }
         void _set_callback(handler_data data,
-                           void (*h)(Signal&&, Signal::Event, mpr_id, int,
+                           void (*h)(Signal&&, Signal::Event, Id, int,
                                      Type, const void*, Time&&))
         {
             data->type = STANDARD;
@@ -885,8 +899,8 @@ namespace mapper {
                            void (*h)(Signal::Instance&&, Signal::Event, int,
                                      Type, const void*, Time&&))
         {
-            data->type = INSTANCE;
-            data->handler.instance = h;
+            data->type = INST;
+            data->handler.inst = h;
         }
         void _set_callback(handler_data data, void (*h)(Signal&&, int, Time&&))
         {
@@ -896,8 +910,8 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->type = SCALAR_INT;
-            data->handler.scalar_int = h;
+            data->type = SIG_INT;
+            data->handler.sig_int = h;
         }
         void _set_callback(handler_data data, void (*h)(Signal&&, float, Time&&))
         {
@@ -907,8 +921,8 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->type = SCALAR_FLT;
-            data->handler.scalar_flt = h;
+            data->type = SIG_FLT;
+            data->handler.sig_flt = h;
         }
         void _set_callback(handler_data data, void (*h)(Signal&&, double, Time&&))
         {
@@ -918,8 +932,41 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->type = SCALAR_DBL;
-            data->handler.scalar_dbl = h;
+            data->type = SIG_DBL;
+            data->handler.sig_dbl = h;
+        }
+        void _set_callback(handler_data data, void (*h)(Signal::Instance&&, Signal::Event, int, Time&&))
+        {
+            if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_INT32
+                || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
+                printf("wrong type 'i' in handler definition\n");
+                data->type = NONE;
+                return;
+            }
+            data->type = INST_INT;
+            data->handler.inst_int = h;
+        }
+        void _set_callback(handler_data data, void (*h)(Signal::Instance&&, Signal::Event, float, Time&&))
+        {
+            if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_FLT
+                || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
+                printf("wrong type 'q' in handler definition\n");
+                data->type = NONE;
+                return;
+            }
+            data->type = INST_FLT;
+            data->handler.inst_flt = h;
+        }
+        void _set_callback(handler_data data, void (*h)(Signal::Instance&&, Signal::Event, double, Time&&))
+        {
+            if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_DBL
+                || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
+                printf("wrong type 'd' in handler definition\n");
+                data->type = NONE;
+                return;
+            }
+            data->type = INST_DBL;
+            data->handler.inst_dbl = h;
         }
     public:
         template <typename H>
@@ -955,11 +1002,11 @@ namespace mapper {
             mpr_id id = mpr_dev_generate_unique_id(mpr_sig_get_dev(_obj));
             return Instance(_obj, id);
         }
-        Instance instance(mpr_id id)
+        Instance instance(Id id)
             { return Instance(_obj, id); }
         Signal& reserve_instances(int num, mpr_id *ids = 0)
             { mpr_sig_reserve_inst(_obj, num, ids, 0); RETURN_SELF }
-        Signal& reserve_instances(int num, mpr_id *ids, void **data)
+        Signal& reserve_instances(int num, Id *ids, void **data)
             { mpr_sig_reserve_inst(_obj, num, ids, data); RETURN_SELF }
         Instance instance(int idx, mpr_status status) const
             { return Instance(_obj, mpr_sig_get_inst_id(_obj, idx, status)); }
@@ -1504,6 +1551,8 @@ namespace mapper {
             owned = true;
             maybe_update();
         }
+        void _set(int _len, void* _val[])
+            { _set(_len, MPR_PTR, (1 == _len) ? (void*)_val[0] : _val); }
         void _set(int _len, int _val[])
             { _set(_len, MPR_INT32, _val); }
         void _set(int _len, float _val[])
@@ -1517,6 +1566,9 @@ namespace mapper {
         template <typename T>
         void _set(const T _val)
             { _set(1, (T*)&_val); }
+        template <typename T>
+        void _set(const T* _val)
+            { _set(1, (const T**)&_val); }
         template <typename T, size_t N>
         void _set(const std::array<T, N>& _val)
         {
@@ -1618,6 +1670,16 @@ namespace mapper {
         }
         void _set(mpr_list _val)
             { _set(1, MPR_LIST, _val); }
+
+        // handle some enum classes
+        void _set(Direction dir)
+            { _set(static_cast<int>(dir)); }
+        void _set(Map::Location loc)
+            { _set(static_cast<int>(loc)); }
+        void _set(Map::Protocol proto)
+            { _set(static_cast<int>(proto)); }
+        void _set(Map::Stealing stl)
+            { _set(static_cast<int>(stl)); }
     };
 
     void Object::set_property(const PropVal& p)

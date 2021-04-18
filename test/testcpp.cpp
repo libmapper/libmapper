@@ -82,7 +82,7 @@ void simple_handler(Signal&& sig, int length, Type type, const void *value, Time
     std::cout << std::endl;
 }
 
-void standard_handler(Signal&& sig, Signal::Event event, mpr_id instance, int length,
+void standard_handler(Signal&& sig, Signal::Event event, Id instance, int length,
                       Type type, const void *value, Time&& t)
 {
     ++received;
@@ -323,7 +323,7 @@ int main(int argc, char ** argv)
 
     Graph graph;
     Map map(dev.signals(Direction::OUT)[0], dev.signals(Direction::IN)[1]);
-    map[Property::EXPR] = "y=x[0:1]+123";
+    map[Property::EXPRESSION] = "y=x[0:1]+123";
 
     map.push();
 
@@ -354,9 +354,9 @@ int main(int argc, char ** argv)
     out << "devices with name matching 'my*' AND >=0 inputs" << std::endl;
     List<Device> qdev = graph.devices();
     qdev.filter(Property::NAME, "my*", Operator::EQ);
-    qdev.filter(Property::NUM_SIGS_IN, 0, Operator::GTE);
+    qdev.filter(Property::NUM_SIGNALS_IN, 0, Operator::GTE);
     for (; qdev != qdev.end(); qdev++) {
-        out << "  " << *qdev << " (" << (*qdev)[Property::NUM_SIGS_IN] << " inputs)" << std::endl;
+        out << "  " << *qdev << " (" << (*qdev)[Property::NUM_SIGNALS_IN] << " inputs)" << std::endl;
     }
 
     // check graph records
