@@ -15,6 +15,7 @@ namespace Mapper
         Map       = 0x18,               //!< All maps.
         Object    = 0x1F,             //!< All objects: devices, signale, and maps
         List      = 0x40,             //!< object query.
+        Graph     = 0x41,             //!< Graph.
         Boolean   = 'b',  /* 0x62 */  //!< Boolean value.
         Type      = 'c',  /* 0x63 */  //!< libmapper data type.
         Double    = 'd',  /* 0x64 */  //!< 64-bit float.
@@ -28,7 +29,6 @@ namespace Mapper
     }
 
     public enum Operator {
-        Undefined               = 0x00,
         DoesNotExist            = 0x01, //!< Property does not exist.
         IsEqual                 = 0x02, //!< Property value == query value.
         Exists                  = 0x03, //!< Property exists for this entity.
@@ -38,16 +38,14 @@ namespace Mapper
         IsLessThanOrEqual       = 0x07, //!< Property value <= query value
         IsNotEqual              = 0x08, //!< Property value != query value
         All                     = 0x10, //!< Applies to all elements of value
-        Any                     = 0x20, //!< Applies to any element of value
-        None                    = 0x40
+        Any                     = 0x20  //!< Applies to any element of value
     }
 
     public enum Direction {
-        Undefined   = 0x00, //!< Not yet defined.
         Incoming    = 0x01, //!< Signal is an input
         Outgoing    = 0x02, //!< Signal is an output
         Any         = 0x03, //!< Either incoming or outgoing
-        Both        = 0x04, /*!< Both directions apply.  Currently signals cannot be both inputs
+        Both        = 0x04  /*!< Both directions apply.  Currently signals cannot be both inputs
                              *   and outputs, so this value is only used for querying device maps
                              *   that touch only local signals. */
     }
@@ -83,63 +81,55 @@ namespace Mapper
         // public subtract();
     }
 
-    public class Property
+    public enum Property
     {
-        public enum Id {
-            Unknown             = 0x0000,
-            Calibrating         = 0x0100,
-            Data                = 0x0200,
-            Device              = 0x0300,
-            Direction           = 0x0400,
-            Expression          = 0x0500,
-            Host                = 0x0600,
-            Id                  = 0x0700,
-            Instance            = 0x0800,
-            IsLocal             = 0x0900,
-            Jitter              = 0x0A00,
-            Length              = 0x0B00,
-            LibVersion          = 0x0C00,
-            Linked              = 0x0D00,
-            Max                 = 0x0E00,
-            Min                 = 0x0F00,
-            Muted               = 0x1000,
-            Name                = 0x1100,
-            NumInstances        = 0x1200,
-            NumMaps             = 0x1300,
-            NumMapsIn           = 0x1400,
-            NumMapsOut          = 0x1500,
-            NumSigsIn           = 0x1600,
-            NumSigsOut          = 0x1700,
-            Ordinal             = 0x1800,
-            Period              = 0x1900,
-            Port                = 0x1A00,
-            ProcessingLocation  = 0x1B00,
-            Protocol            = 0x1C00,
-            Rate                = 0x1D00,
-            Scope               = 0x1E00,
-            Signal              = 0x1F00,
-            Slot                = 0x2000,
-            Status              = 0x2100,
-            StealingMode        = 0x2200,
-            Synced              = 0x2300,
-            Type                = 0x2400,
-            Unit                = 0x2500,
-            UseInstances        = 0x2600,
-            Version             = 0x2700,
-            Extra               = 0x2800,
-        }
+        Data                = 0x0200,
+        Device              = 0x0300,
+        Direction           = 0x0400,
+        Expression          = 0x0500,
+        Host                = 0x0600,
+        Id                  = 0x0700,
+        Instance            = 0x0800,
+        IsLocal             = 0x0900,
+        Jitter              = 0x0A00,
+        Length              = 0x0B00,
+        LibVersion          = 0x0C00,
+        Linked              = 0x0D00,
+        Max                 = 0x0E00,
+        Min                 = 0x0F00,
+        Muted               = 0x1000,
+        Name                = 0x1100,
+        NumInstances        = 0x1200,
+        NumMaps             = 0x1300,
+        NumMapsIn           = 0x1400,
+        NumMapsOut          = 0x1500,
+        NumSigsIn           = 0x1600,
+        NumSigsOut          = 0x1700,
+        Ordinal             = 0x1800,
+        Period              = 0x1900,
+        Port                = 0x1A00,
+        ProcessingLocation  = 0x1B00,
+        Protocol            = 0x1C00,
+        Rate                = 0x1D00,
+        Scope               = 0x1E00,
+        Signal              = 0x1F00,
+        Status              = 0x2100,
+        StealingMode        = 0x2200,
+        Synced              = 0x2300,
+        Type                = 0x2400,
+        Unit                = 0x2500,
+        UseInstances        = 0x2600,
+        Version             = 0x2700
     }
 
     public abstract class Object
     {
         public enum Status {
-            Undefined    = 0x00,
             Expired      = 0x01,
             Staged       = 0x02,
             Ready        = 0x3E,
             Active       = 0x7E,
-            Reserved     = 0x80,
-            All          = 0xFF,
+            Reserved     = 0x80
         }
 
         // Graph getGraph()
@@ -152,7 +142,7 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_obj_get_num_props(IntPtr obj);
-        public int getNumProps()
+        public int getNumProperties()
             { return mpr_obj_get_num_props(_obj); }
 
         // public Property getProperty(int idx) {}
@@ -176,13 +166,13 @@ namespace Mapper
         internal IntPtr _obj;
     }
 
-    public class Graph
+    public class Graph : Object
     {
         public enum Event {
             New,            //!< New record has been added to the graph.
             Modified,       //!< The existing record has been modified.
             Removed,        //!< The existing record has been removed.
-            Expired,        //!< The graph has lost contact with the remote entity.
+            Expired         //!< The graph has lost contact with the remote entity.
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -205,13 +195,13 @@ namespace Mapper
             DownstreamRelease   = 0x04, //!< Instance was released downstream.
             Overflow            = 0x08, //!< No local instances left.
             Update              = 0x10, //!< Instance value has been updated.
-            All                 = 0x1F,
+            All                 = 0x1F
         }
 
-        public enum StealingMode {
-            None,           //!< No stealing will take place.
-            StealOldest,    //!< Steal the oldest instance.
-            StealNewest,    //!< Steal the newest instance.
+        public enum Stealing {
+            None,       //!< No stealing will take place.
+            Oldest,     //!< Steal the oldest instance.
+            Newest,     //!< Steal the newest instance.
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -244,10 +234,52 @@ namespace Mapper
         ~Signal()
             {}
 
+        public Signal setCallback(Action<Signal, Signal.Event, UInt64, int, Type, IntPtr, IntPtr> h = null,
+                                int events = 0)
+        {
+            if (h != null && events != 0) {
+                _handler = h;
+
+                mpr_sig_set_cb(this._obj,
+                               Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(handler)),
+                               events);
+            }
+            return this;
+        }
+
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         unsafe private static extern void mpr_sig_set_value(IntPtr sig, UInt64 id, int len, int type, void* val);
-        unsafe public void setValue(float value) {
+        unsafe private void _setValue(int value) {
+            mpr_sig_set_value(this._obj, 0, 1, (int)Type.Int32, (void*)&value);
+        }
+        unsafe private void _setValue(float value) {
             mpr_sig_set_value(this._obj, 0, 1, (int)Type.Float, (void*)&value);
+        }
+        unsafe private void _setValue(double value) {
+            mpr_sig_set_value(this._obj, 0, 1, (int)Type.Double, (void*)&value);
+        }
+        unsafe private void _setValue(int[] value) {
+            fixed(int* temp = &value[0]) {
+                IntPtr intPtr = new IntPtr((void*)temp);
+                mpr_sig_set_value(this._obj, 0, value.Length, (int)Type.Int32, (void*)intPtr);
+            }
+        }
+        unsafe private void _setValue(float[] value) {
+            fixed(float* temp = &value[0]) {
+                IntPtr intPtr = new IntPtr((void*)temp);
+                mpr_sig_set_value(this._obj, 0, value.Length, (int)Type.Float, (void*)intPtr);
+            }
+        }
+        unsafe private void _setValue(double[] value) {
+            fixed(double* temp = &value[0]) {
+                IntPtr intPtr = new IntPtr((void*)temp);
+                mpr_sig_set_value(this._obj, 0, value.Length, (int)Type.Double, (void*)intPtr);
+            }
+        }
+        public Signal setValue<T>(T value) {
+            dynamic temp = value;
+            _setValue(temp);
+            return this;
         }
 
         Action<Signal, Signal.Event, UInt64, int, Type, IntPtr, IntPtr> _handler = null;
@@ -302,16 +334,14 @@ namespace Mapper
     public class Map : Object
     {
         public enum Location {
-            Undefined   = 0x00, //!< Not yet defined
             Source      = 0x01, //!< Source signal(s) for this map.
             Destination = 0x02, //!< Destination signal(s) for this map.
             Any         = 0x03  //!< Either source or destination signals.
         }
 
         public enum Protocol {
-            Undefined,        //!< Not yet defined
             UDP,              //!< Map updates are sent using UDP.
-            TCP,              //!< Map updates are sent using TCP.
+            TCP               //!< Map updates are sent using TCP.
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]

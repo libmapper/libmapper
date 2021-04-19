@@ -19,12 +19,14 @@ public class TestCSharp
         Device dev = new Device("CSmapper");
         Console.WriteLine("created dev CSmapper");
 
-        Signal outsig = dev.addSignal(Direction.Outgoing, "outsig", 1, Mapper.Type.Float);
+        int[] min = {1,2,3,4};
+        int[] max = {10,11,12,13};
+        Mapper.Signal outsig = dev.addSignal(Direction.Outgoing, "outsig", 1, Mapper.Type.Float);
         Console.WriteLine("created signal outsig");
 
         Signal insig = dev.addSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float, null,
-                                     IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, handler,
-                                     (int)Mapper.Signal.Event.Update);
+                                     IntPtr.Zero, IntPtr.Zero, IntPtr.Zero)
+                          .setCallback(handler, (int)Mapper.Signal.Event.Update);
         Console.WriteLine("created signal insig");
 
         Console.Write("Waiting for device");
