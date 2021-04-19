@@ -116,10 +116,10 @@ We'll start with creating a "sender", so we will first talk about how to update
 output signals.  A signal requires a bit more information than a device, much of
 which is optional:
 
-1. the direction of the signal: either `MPR_DIR_IN` or `MPR_DIR_OUT`
+1. the direction of the signal: either `Direction::IN` or `Direction::OUT`
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
-* the signal's data type, one of `MPR_INT32`, `MPR_FLT`, or `MPR_DBL`
+* the signal's data type, one of `Type::INT32`, `Type::FLOAT`, or `Type::DOUBLE`
 * the signal's unit (optional)
 * the signal's minimum value (optional, type and length should match previous args)
 * the signal's maximum value (optional, type and length should match previous args)
@@ -130,21 +130,22 @@ which is optional:
 examples:
 
 ~~~c++
-mapper::Signal input;
-input = dev.add_sig(MPR_DIR_IN, "my_input", 1, MPR_FLT, "m/s", 0, 0, 0, h,
-                    MPR_SIG_UPDATE);
+using namespace mapper;
+Signal input;
+input = dev.add_sig(Direction::IN, "my_input", 1, Type::FLOAT,
+                    "m/s").set_callback(h, Signal::Event::UPDATE);
 
 int min[4] = {1,2,3,4};
 int max[4] = {10,11,12,13};
-mapper::Signal output;
-output = dev.add_sig(MPR_DIR_OUT, "my_output", 4, MPR_INT32, 0, min, max);
+Signal output;
+output = dev.add_sig(Direction::OUT, "my_output", 4, Type::INT32, 0, min, max);
 ~~~
 
-The only _required_ parameters here are the signal "length", its name, and data
-type.  Signals are assumed to be vectors of values, so for usual single-valued
-signals, a length of 1 should be specified.  Finally, supported types are
-currently `MPR_INT32`, `MPR_FLT`, or `MPR_DBL`, for `int`, `float`, or `double`
-values, respectively.
+The only _required_ parameters here are the signal "direction" (IN or OUT),
+"length", its name, and data type.  Signals are assumed to be vectors of values,
+so for usual single-valued signals, a length of 1 should be specified.  Finally,
+supported types are currently `Type::INT32`, `Type::FLOAT`, or `Type::DOUBLE`,
+for `int`, `float`, or `double` values, respectively.
 
 The other parameters are not strictly required, but the more information you
 provide, the more _libmapper_ can do some things automatically.  For example, if
@@ -171,7 +172,7 @@ minimum, or maximum information:
 
 ~~~c++
 mapper::Signal sig;
-sig = dev.add_sig(MPR_DIR_OUT, "outA", 1, MPR_INT32);
+sig = dev.add_signal(mapper::Direction::OUT, "outA", 1, mapper::Type::INT32);
 ~~~
 
 An example of a `float` signal where some more information is provided:
@@ -180,7 +181,8 @@ An example of a `float` signal where some more information is provided:
 float min = 0.0f;
 float max = 5.0f;
 mapper::Signal sig;
-sig = dev.add_sig(MPR_DIR_OUT, "sensor1", 1, MPR_FLT, "V", &min, &max);
+sig = dev.add_signal(mapper::Direction::OUT, "sensor1", 1,
+                     mapper::Type::FLOAT, "V", &min, &max);
 ~~~
 
 So far we know how to create a device and to specify an output signal
@@ -191,7 +193,8 @@ mapper::Device dev("test_sender");
 mapper::Signal sig;
 float min = 0.0f;
 float max = 5.0f;
-sig = dev.add_sig(MPR_DIR_OUT, "sensor1", 1, MPR_FLT, "V", &min, &max);
+sig = dev.add_signal(mapper::Direction::OUT, "sensor1", 1,
+                     mapper::Type::FLOAT, "V", &min, &max);
     
 while (!done) {
     dev.poll(10);
@@ -200,14 +203,15 @@ while (!done) {
 }
 ~~~
 
-It is possible to retrieve a device's signals at a later time using the function `dev.signals()`. This function returns an object of type `mapper::Signal::List`
-which can be used to retrieve all of the signals belonging to a particular
-device:
+It is possible to retrieve a device's signals at a later time using the function
+`dev.signals()`. This function returns an object of type
+`mapper::List<mapper::Signal>` which can be used to retrieve all of the signals
+belonging to a particular device:
 
 ~~~c++
-std::cout << "Signals belonging to " << dev.name() << std::endl;
+std::cout << "Signals belonging to " << dev[Property::NAME] << std::endl;
 
-mapper::Signal::List list = dev.signals(MPR_DIR_IN).begin();
+mapper::List<mapper::Signal> list = dev.signals(mapper::Direction::IN).begin();
 for (; list != list.end(); ++list) {
     std::cout << "signal: " << *list << std::endl;
 }
@@ -227,10 +231,10 @@ However it's getting the data, it must provide it to _libmapper_ so that it will
 be sent to other devices if that signal is mapped.
 
 This is accomplished by the function `set_value()`, which is overloaded to
-accept a wide variety of argument types (std::vector, std::array, etc.). Check
-the API documentation for more information. The data passed to set_value() is not
-required to match the length and type of the signal itself—libmapper will perform
-type coercion if necessary. More than one 'sample' of signal update may be
+accept a wide variety of argument types (scalars, std::vector, std::array, etc.).
+Check the API documentation for more information. The data passed to set_value()
+is not required to match the length and type of the signal itself—libmapper will
+perform type coercion if necessary. More than one 'sample' of signal update may be
 applied at once by e.g. updating a signal with length 5 using a 20-element
 array.
 
@@ -292,24 +296,36 @@ be retrieved at any time by calling the function `value()` on your signal
 object, however for event-driven applications you may want to be informed of new
 values as they are received or generated.
 
-As mentioned above, the `add_input_signal()` function takes an optional
-`handler` and `user_data`.  This is a function that will be called whenever the
-value of that signal changes.  To create a receiver for a synthesizer parameter
-"pulse width" (given as a ratio between 0 and 1), specify a handler when calling
-`add_input_signal()`.  We'll imagine there is some C++ synthesizer implemented
-as a class `Synthesizer` which has functions `setPulseWidth()` which sets the
-pulse width in a thread-safe manner, and `startAudioInBackground()` which sets
-up the audio thread.
+As mentioned above, the `add_signal()` function takes an optional `handler` and
+`user_data`.  This is a function that will be called whenever the value of that
+signal changes.  To create a receiver for a synthesizer parameter "pulse width"
+(given as a ratio between 0 and 1), specify a handler when calling `add_signal()`.
+We'll imagine there is some C++ synthesizer implemented as a class `Synthesizer`
+which has functions `setPulseWidth()` which sets the pulse width in a thread-safe
+manner, and `startAudioInBackground()` which sets up the audio thread.
 
-Create the handler function, which is fairly simple,
+Create the handler function, which is fairly simple as it has been overloaded to
+accept different scalar datatypes and other functionality. The full version of
+the handler is:
 
 ~~~c++
-void pulsewidth_handler(mpr_sig sig, mpr_id instance,
-                        void *value, int count,
-                        mpr::Timetag tt)
+void handler(mapper::Signal signal, mapper::Signal::Event event,
+             mapper::Id instance, int length, mapper::Type type,
+             const void *value, mapper::Time time)
 {
-    Synthesizer *s = (Synthesizer*) sig.user_data();
-    s->setPulseWidth(*(float*)v);
+    ...
+}
+~~~
+
+Please refer to the API documentation for more detail on acceptable handler
+definitions.  For our example we will use a simpler handler since we know our
+signal type is scalar float:
+
+~~~c++
+void pulsewidth_handler(mapper::Signal signal, float value, mapper::Time time)
+{
+    Synthesizer *synth = (Synthesizer*) signal[mapper::Property::DATA];
+    synth->setPulseWidth(value);
 }
 ~~~
 
@@ -331,8 +347,9 @@ void main()
     mapper::Device dev("synth");
     
     mapper::Signal pulsewidth =
-        dev.add_sig(MPR_DIR_IN, "pulsewidth", 1, MPR_FLT, 0, &min_pw,
-                    &max_pw, 0, pulsewidth_handler, MPR_SIG_UPDATE);
+        dev.add_signal(mapper::Direction::IN, "pulsewidth", 1,
+                       mapper::Type::FLOAT, 0, &min_pw, &max_pw)
+           .set_callback(pulsewidth_handler);
     
     while (!done)
         dev.poll(50);
@@ -341,15 +358,15 @@ void main()
 
 ## Working with timetags
 
-_libmapper_ uses the `Timetag` data structure to store
+_libmapper_ uses the `Time` class to store
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps).
 For example, the handler function called when a signal update is received
-contains a `timetag` argument.  This argument indicates the time at which the
+contains a `time` argument.  This argument indicates the time at which the
 source signal was _sampled_ (in the case of sensor signals) or _generated_ (in
 the case of sequenced or algorithimically-generated signals).
 
 _libmapper_ provides helper functions for getting the current device-time,
-setting the value of a `Timetag` from other representations, and comparing or
+setting the value of a `Time` instance from other representations, and comparing or
 copying timetags.  Check the API documentation for more information.
 
 ## Working with signal instances
@@ -378,37 +395,49 @@ instances you can use:
 
 ~~~c++
 sig.reserve_instances(int num)
-sig.reserve_instances(int num, mpr_id *ids)
-sig.reserve_instances(int num, mpr_id *ids, void **data)
+sig.reserve_instances(int num, mapper::Id *ids)
+sig.reserve_instances(int num, mapper::Id *ids, void **data)
 ~~~
 
 After reserving instances you can update a specific instance, for example:
 
 ~~~c++
+Signal::Instance si = sig.instance(id);
+si.set_value(value);
+
+// or simply:
 sig.instance(id).set_value(value)
 ~~~
 
-All of the arguments except one should be familiar from the documentation of
-`set_value()` presented earlier.  The `instance` argument does not have to be
-considered as an array index - it can be any integer that is convenient for
-labelling your instance. _libmapper_ will internally create a map from your id
-label to one of the preallocated instance structures.
+The `instance` argument is of type `mapper::Id` does not have to be considered as
+an array index - it can be any 64-bit vbalue that is convenient for labelling your
+instance. _libmapper_ will internally create a map from your id label to one of the
+preallocated instance structures.
 
 ### Receiving instances
 
-You might have noticed earlier that the handler function called when a signal
+You might have noticed earlier that the full handler function called when a signal
 update is received has a argument called `instance`. Here is the function
 prototype again:
 
 ~~~c++
-void mpr_sig_handler(mpr_sig sig, mpr_inst_evt evt, mpr_id inst,
-                     int len, mpr_type type, void *value, mpr_time tt);
+void handler(mapper::Signal signal, mapper::Signal::Event event,
+             mapper::Id instance, int len, mapper::Type type,
+             const void *value, mapper::Type time);
 ~~~
 
-Under normal usage, this argument will have a value (0 <= n <= num_instances)
-and can be used as an array index. Remember that you will need to reserve
-instances for your input signal using `sig.reserve_instances()` if you want to
-receive instance updates.
+For convenience the handler is also available in a form with the signal instance
+pre-fetched:
+
+~~~c++
+void handler(mapper::Signal::Instance sigInst, mapper::Signal::Event event,
+             int len, mapper::Type type, const void *value, mapper::Type time);
+~~~
+
+Under normal usage, the `instance` argument in the first handler example will have
+a value (0 <= n <= num_instances) and can be used as an array index. Remember that
+you will need to reserve instances for your input signal when calling
+`Device::add_signal()` or using `sig.reserve_instances()` if you want to receive instance updates.
 
 ### Instance Stealing
 
@@ -418,36 +447,41 @@ to set an action to take in case all allocated instances are in use and a
 previously unseen instance id is received. Use the function:
 
 ~~~c++
-sig.set_prop(MPR_PROP_STEAL_MODE, mpr_steal_type type);
+sig.set_property(mapper::Property::STEAL_MODE, mapper::Map::Stealing type);
 ~~~
 
 The argument `mode` can have one of the following values:
 
-* `MPR_STEAL_NONE` Default value, in which no stealing of instances will occur;
-* `MPR_STEAL_OLDEST` Release the oldest active instance and reallocate its
+* `Stealing::NONE` Default value, in which no stealing of instances will occur;
+* `Stealing::OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `MPR_STEAL_NEWEST` Release the newest active instance and reallocate its
+* `Stealing::NEWEST` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
-release (e.g. the sound with the lowest volume), you can create a `mpr_sig_handler` for the signal and write the method yourself:
+release (e.g. the sound with the lowest volume), you can create a `handler` for
+the signal and write the method yourself:
 
 ~~~c++
-void my_handler(mpr_sig sig, mpr_inst_evt evt, mpr_id inst, int len,
-                mpr_type type, const void *val, mpr_time tt)
+void my_handler(mapper::Signal signal, mapper::Signal::Event event,
+                mapper::Id instance, int len, mapper::Type type, const void *val,
+                mapper::Time time)
 {
-    // user code chooses which instance to release
-    mpr_id release_me = choose_instance_to_release(sig);
+    if (event == mapper::Signal::Event::OFLW) {
+        // user code chooses which instance to release
+        mapper::Id release_me = choose_instance_to_release(sig);
 
-    sig.instance(release_me).release(tt);
+        sig.instance(release_me).release(tt);
+        return;
+    }
 }
 ~~~
 
 For this function to be called when instance stealing is necessary, we need to
-register it for `IN_OVERFLOW` events:
+register it for `Signal::Event::OFLW` events:
 
 ~~~c++
-sig.set_cb(my_handler, MPR_INST_OFLW);
+sig.set_callback(my_handler, Signal::Event::UPDATE | Signal::Event::OFLW);
 ~~~
 
 ## Publishing metadata
@@ -468,21 +502,40 @@ Any time there may be extra knowledge about a signal or device, it is a good
 idea to represent it by adding such properties, which can be of any
 OSC-compatible type.  (So, numbers and strings, etc.)
 
-The property interface is through the functions,
+The property can be set using the functions below, using either a name (C string
+or std::string) or a value from the `Property` enum if available. The getter and
+setter functions are also overloaded with the subscript operator.
 
 ~~~c++
-void <object>.set_prop(<name>, <value>);
+void <object>.set_property(<name>, <value>);
+void <object>.set_property(Property, <value>);
+
+// or
+<object>[<name>] = <value>;
+<object>[Property] = <value>;
 ~~~
 
 The `<value>` arguments can be a scalar, array or std::vector of type `int`,
-`float`, `double`, or `char*`.
+`float`, `double`, `char*`, or `void*`.
 
 For example, to store a `float` indicating the X position of a device, you can
 call it like this:
 
 ~~~c++
-dev.set_prop("x", 12.5f);
-sig.set_prop("sensingMethod", "resistive");
+dev.set_property("x", 12.5f);
+sig.set_property("sensingMethod", "resistive");
+~~~
+
+Retrieving a property is also quite simple, returning a PropVal object that can be
+cast to the appropriate type.
+
+~~~c++
+<type> var = obj.property(<name>);
+<type> var = obj.property(Property);
+
+// or
+<type> var = obj[<name>];
+<type> var = obj[Property];
 ~~~
 
 ### Reserved keys
