@@ -701,7 +701,7 @@ namespace mapper {
             INST_NEW    = MPR_SIG_INST_NEW,     /*!< New instance has been created. */
             REL_UPSTRM  = MPR_SIG_REL_UPSTRM,   /*!< Instance was released upstream. */
             REL_DNSTRM  = MPR_SIG_REL_DNSTRM,   /*!< Instance was released downstream. */
-            OFLW        = MPR_SIG_INST_OFLW,    /*!< No local instances left. */
+            INST_OFLW   = MPR_SIG_INST_OFLW,    /*!< No local instances left. */
             UPDATE      = MPR_SIG_UPDATE,       /*!< Instance value has been updated. */
             ALL         = MPR_SIG_ALL
         };
