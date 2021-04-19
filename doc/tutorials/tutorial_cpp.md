@@ -11,7 +11,7 @@ If you take a look at the API documentation, there is a section called
 * [Maps](../html/classmapper_1_1Map.html)
 * [Lists](../html/classmapper_1_1List.html)
 
-For this tutorial, the only sections to pay attention to are **Devices** and **Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
+For this tutorial, the only sections to pay attention to are **Devices** and **Signals**. **Graphs**, and **Maps** are mostly used when building
 user interfaces for designing mapping configurations.
 
 ## Devices
@@ -124,8 +124,6 @@ which is optional:
 * the signal's minimum value (optional, type and length should match previous args)
 * the signal's maximum value (optional, type and length should match previous args)
 * the signal's instance count (pass `NULL` for singleton signals)
-* a function to be called when the signal is updated (optional)
-* flags indicating which events should trigger a call to the function
 
 examples:
 
@@ -550,15 +548,11 @@ You can use any property name not already reserved by _libmapper_.
 
 #### Reserved keys for signals
 
-`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`, `maximum`,
-`min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`, `period`, `steal`,
-`type`, `unit`, `use_inst`, `version`
+`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`,
+`maximum`, `min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`,
+`period`, `steal`, `type`, `unit`, `use_inst`, `version`
 
 #### Reserved keys for maps
 
-`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`, `protocol`,
-`scope`, `status`, `version`
-
-#### Reserved keys for map slots
-
-`calib`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `use_inst`
+`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`,
+`protocol`, `scope`, `status`, `use_inst`, `version`

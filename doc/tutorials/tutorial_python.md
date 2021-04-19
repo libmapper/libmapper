@@ -23,7 +23,7 @@ The libmapper API is is divided into the following sections:
 * Maps
 
 For this tutorial, the only sections to pay attention to are **Devices** and
-**Signals**. **Graphs**, **Maps** and **Slots** are mostly used when building
+**Signals**. **Graphs** and **Maps** are mostly used when building
 user interfaces for designing mapping configurations.
 
 ## Devices
@@ -501,11 +501,11 @@ You can use any property name not already reserved by _libmapper_.
 
 #### Reserved keys for signals
 
-`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`, `maximum`,
-`min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`, `period`, `steal`,
-`type`, `unit`, `use_inst`, `version`
+`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`,
+`maximum`, `min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`,
+`period`, `steal`, `type`, `unit`, `use_inst`, `version`
 
 #### Reserved keys for maps
 
-`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`, `protocol`,
-`scope`, `status`, `use_inst`, `version`
+`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`,
+`protocol`, `scope`, `status`, `use_inst`, `version`

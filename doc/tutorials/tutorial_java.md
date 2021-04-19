@@ -520,15 +520,11 @@ You can use any property name not already reserved by _libmapper_.
 
 #### Reserved keys for signals
 
-`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`, `maximum`,
-`min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`, `period`, `steal`,
-`type`, `unit`, `use_inst`, `version`
+`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`,
+`maximum`, `min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`,
+`period`, `steal`, `type`, `unit`, `use_inst`, `version`
 
 #### Reserved keys for maps
 
-`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`, `protocol`,
-`scope`, `status`, `version`
-
-#### Reserved keys for map slots
-
-`calib`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `use_inst`
+`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`,
+`protocol`, `scope`, `status`, `use_inst`, `version`
