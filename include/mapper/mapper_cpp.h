@@ -99,7 +99,6 @@ namespace mapper {
     enum class Property
     {
         CALIBRATING         = MPR_PROP_CALIB,
-        DATA                = MPR_PROP_DATA,
         DEVICE              = MPR_PROP_DEV,
         DIRECTION           = MPR_PROP_DIR,
         EXPRESSION          = MPR_PROP_EXPR,
@@ -865,20 +864,23 @@ namespace mapper {
                                        Type(type), val, Time(time));
                     break;
                 case SIG_INT:
-                    data->handler.sig_int(Signal(sig), *(int*)val, Time(time));
+                    if (val)
+                        data->handler.sig_int(Signal(sig), *(int*)val, Time(time));
                 case SIG_FLT:
-                    data->handler.sig_flt(Signal(sig), *(float*)val, Time(time));
+                    if (val)
+                        data->handler.sig_flt(Signal(sig), *(float*)val, Time(time));
                 case SIG_DBL:
-                    data->handler.sig_dbl(Signal(sig), *(double*)val, Time(time));
+                    if (val)
+                        data->handler.sig_dbl(Signal(sig), *(double*)val, Time(time));
                 case INST_INT:
                     data->handler.inst_int(Signal::Instance(sig, inst), Signal::Event(evt),
-                                           *(int*)val, Time(time));
+                                           val ? *(int*)val : 0, Time(time));
                 case INST_FLT:
                     data->handler.inst_flt(Signal::Instance(sig, inst), Signal::Event(evt),
-                                           *(float*)val, Time(time));
+                                           val ? *(float*)val : 0, Time(time));
                 case INST_DBL:
                     data->handler.inst_dbl(Signal::Instance(sig, inst), Signal::Event(evt),
-                                           *(double*)val, Time(time));
+                                           val ? *(double*)val : 0, Time(time));
                 default:
                     return;
             }
