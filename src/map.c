@@ -479,11 +479,9 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         src_vals[i] = &m->src[i]->val;
     dst_slot = m->dst;
 
-    if (!src_sig->use_inst) {
-        if (mpr_expr_get_manages_inst(m->expr)) {
-            map_manages_inst = 1;
-            idmap = m->idmap;
-        }
+    if (m->use_inst && !src_sig->use_inst) {
+        map_manages_inst = 1;
+        idmap = m->idmap;
     }
 
     types = alloca(dst_slot->sig->len * sizeof(char));
