@@ -1,40 +1,41 @@
-# Getting started with libmapper and C++
+# Getting started with libmapper and C\#
 
-## Overview of the C++ API
+Once you have libmapper installed, it can be imported into your program:
+
+~~~python
+using Mapper;
+~~~
+
+## Overview of the C\# API
 
 If you take a look at the API documentation, there is a section called
 "modules".  This is divided into the following sections:
 
-* [Graphs](../html/classmapper_1_1Graph.html)
-* [Devices](../html/classmapper_1_1Device.html)
-* [Signals](../html/classmapper_1_1Signal.html)
-* [Maps](../html/classmapper_1_1Map.html)
-* [Lists](../html/classmapper_1_1List.html)
+* Graphs
+* Devices
+* Signals
+* Maps
 
-For this tutorial, the only sections to pay attention to are **Devices** and **Signals**. **Graphs**, and **Maps** are mostly used when building
+For this tutorial, the only sections to pay attention to are **Devices** and **Signals**. **Graphs** and **Maps** are mostly used when building
 user interfaces for designing mapping configurations.
 
 ## Devices
 
 ### Creating a device
 
-To create a _libmapper_ device, it is necessary to provide a few parameters the
-constructor, which is overloaded to accept either arguments of either
-`const char*` or C++ `std::string`:
+To create a _libmapper_ device, it is necessary to provide a device name to the
+constructor.  There is an initialization period after a device is created where
+a unique ordinal is chosen to append to the device name.  This allows multiple
+devices with the same name to exist on the network.
 
-~~~c++
-mapper::Device dev(const char *name, mapper.Graph graph = 0);
-mapper::Device dev(std::string name, mapper.Graph graph = 0);
-~~~
-
-In regular usage only the first argument is needed. The optional `Graph`
-argument can be used to specify different networking parameters, such as
-specifying the name of the network interface to use.
+A second optional parameter of the constructor is a Graph object.  It is not
+necessary to provide this, but can be used to specify different networking
+parameters, such as specifying the name of the network interface to use.
 
 An example of creating a device:
 
-~~~c++
-mapper::Device dev("test");
+~~~csharp
+Device dev = new Device("my_device");
 ~~~
 
 ### Polling the device
@@ -57,13 +58,13 @@ The `poll()` function can be blocking or non-blocking, depending on how you want
 your application to behave.  It takes an optional number of milliseconds during
 which it should do some work before returning:
 
-~~~c++
+~~~csharp
 int dev.poll(int block_ms);
 ~~~
 
 An example of calling it with non-blocking behaviour:
 
-~~~c++
+~~~csharp
 dev.poll();
 ~~~
 
@@ -86,8 +87,8 @@ queued up until you can call poll(); stated differently, it will
 should be aware of this effect.
 
 Since there is a delay before the device is completely initialized, it is
-sometimes useful to be able to determine this using `ready()`.  Only when
-`dev.ready()` returns non-zero is it valid to use the device's name.
+sometimes useful to be able to determine this using `getIsReady()`.  Only when
+`dev.getIsReady()` returns non-zero is it valid to use the device's name.
 
 ## Signals
 
@@ -116,34 +117,36 @@ We'll start with creating a "sender", so we will first talk about how to update
 output signals.  A signal requires a bit more information than a device, much of
 which is optional:
 
-1. the direction of the signal: either `Direction::IN` or `Direction::OUT`
+1. the direction of the signal: either `Direction.Outgoing` or `Direction.Incoming`
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
-* the signal's data type, one of `Type::INT32`, `Type::FLOAT`, or `Type::DOUBLE`
+* the signal's data type, one of `Type.Int32`, `Type.Float`, or `Type.Double`
 * the signal's unit (optional)
 * the signal's minimum value (optional, type and length should match previous args)
 * the signal's maximum value (optional, type and length should match previous args)
 * the signal's instance count (pass `NULL` for singleton signals)
+* a function to be called when the signal is updated (optional)
+* flags indicating which events should trigger a call to the function
 
 examples:
 
-~~~c++
-using namespace mapper;
-Signal input;
-input = dev.add_sig(Direction::IN, "my_input", 1, Type::FLOAT,
-                    "m/s").set_callback(h, Signal::Event::UPDATE);
+~~~csharp
+Mapper.Signal input = dev.addSignal(Direction.Incoming, "myInput", 1,
+                                    Mapper.Type.Float, "m/s", IntPtr.Zero,
+                                    IntPtr.Zero, IntPtr.Zero, h,
+                                    (int)Mapper.Signal.Event.Update);
 
 int min[4] = {1,2,3,4};
 int max[4] = {10,11,12,13};
-Signal output;
-output = dev.add_sig(Direction::OUT, "my_output", 4, Type::INT32, 0, min, max);
+Mapper.Signal output = dev.addSignal(Direction.Outgoing, "myOutput", 4,
+                                     Mapper.Type.Int32, 0, min, max);
 ~~~
 
-The only _required_ parameters here are the signal "direction" (IN or OUT),
-"length", its name, and data type.  Signals are assumed to be vectors of values,
-so for usual single-valued signals, a length of 1 should be specified.  Finally,
-supported types are currently `Type::INT32`, `Type::FLOAT`, or `Type::DOUBLE`,
-for `int`, `float`, or `double` values, respectively.
+The only _required_ parameters here are the signal "length", its name, and data
+type.  Signals are assumed to be vectors of values, so for usual single-valued
+signals, a length of 1 should be specified.  Finally, supported types are
+currently `Type.Int32`, `Type.Float`, or `Type.Double`, for `int`, `float`, or `double`
+values, respectively.
 
 The other parameters are not strictly required, but the more information you
 provide, the more _libmapper_ can do some things automatically.  For example, if
@@ -167,31 +170,31 @@ by an incoming message.  It is passed in the `handler` parameter.
 An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
-~~~c++
-mapper::Signal sig;
-sig = dev.add_signal(mapper::Direction::OUT, "outA", 1, mapper::Type::INT32);
+~~~csharp
+Mapper.Signal sig;
+sig = dev.addSignal(Mapper.Direction.Outgoing, "outA", 1, Mapper.Type.Int32);
 ~~~
 
 An example of a `float` signal where some more information is provided:
 
-~~~c++
+~~~csharp
 float min = 0.0f;
 float max = 5.0f;
-mapper::Signal sig;
-sig = dev.add_signal(mapper::Direction::OUT, "sensor1", 1,
-                     mapper::Type::FLOAT, "V", &min, &max);
+Mapper.Signal sig;
+sig = dev.addSignal(Mapper.Direction.Outgoing, "sensor1", 1,
+                    Mapper.Type.Float, "V", min, max);
 ~~~
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
 
-~~~c++
-mapper::Device dev("test_sender");
-mapper::Signal sig;
+~~~csharp
+Mapper.Device dev("test_sender");
+Mapper.Signal sig;
 float min = 0.0f;
 float max = 5.0f;
-sig = dev.add_signal(mapper::Direction::OUT, "sensor1", 1,
-                     mapper::Type::FLOAT, "V", &min, &max);
+sig = dev.addSignal(Mapper.Direction.Outgoing, "sensor1", 1,
+                    Mapper.Type.Float, "V", min, max);
     
 while (!done) {
     dev.poll(10);
@@ -200,22 +203,21 @@ while (!done) {
 }
 ~~~
 
-It is possible to retrieve a device's signals at a later time using the function
-`dev.signals()`. This function returns an object of type
-`mapper::List<mapper::Signal>` which can be used to retrieve all of the signals
-belonging to a particular device:
+It is possible to retrieve a device's signals at a later time using the function `dev.signals()`. This function returns an object of type `mapper.List`
+which can be used to retrieve all of the signals belonging to a particular
+device:
 
-~~~c++
-std::cout << "Signals belonging to " << dev[Property::NAME] << std::endl;
+~~~csharp
+Console.WriteLine("Signals belonging to " + dev.getProperty(Property.Name));
 
-mapper::List<mapper::Signal> list = dev.signals(mapper::Direction::IN).begin();
+Mapper.List list = dev.signals(Direction.Incoming).begin();
 for (; list != list.end(); ++list) {
-    std::cout << "signal: " << *list << std::endl;
+    Console.WriteLine("signal: " + *list);
 }
 
 // or more simply:
-for (mapper::Signal sig : dev.signals())
-    std::cout << "signal: " << sig << std::endl;
+for (Mapper.Signal sig : dev.signals())
+    Console.WriteLine("signal: " + sig);
 ~~~
 
 ### Updating signals
@@ -227,24 +229,24 @@ over a USB serial port, or it could just be a mouse-controlled GUI slider.
 However it's getting the data, it must provide it to _libmapper_ so that it will
 be sent to other devices if that signal is mapped.
 
-This is accomplished by the function `set_value()`, which is overloaded to
-accept a wide variety of argument types (scalars, std::vector, std::array, etc.).
-Check the API documentation for more information. The data passed to set_value()
-is not required to match the length and type of the signal itself—libmapper will
-perform type coercion if necessary. More than one 'sample' of signal update may be
+This is accomplished by the function `setValue()`, which is overloaded to
+accept a wide variety of argument types (scalars and arrays of int, float, or
+double). Check the API documentation for more information. The data passed to set_value() is not
+required to match the length and type of the signal itself—libmapper will perform
+type coercion if necessary. More than one 'sample' of signal update may be
 applied at once by e.g. updating a signal with length 5 using a 20-element
 array.
 
-So in the "sensor 1" example, assuming in `do_stuff()` we have some code which
+So in the "sensor 1" example, assuming in `doStuff()` we have some code which
 reads sensor 1's value into a float variable called `v1`, the loop becomes:
 
-~~~c++
+~~~csharp
 while (!done) {
     dev.poll(50);
     
     // call a hypothetical user function that reads a sensor
-    float v1 = do_stuff();
-    sensor1.set_value(v1);
+    float v1 = doStuff();
+    sensor1.setValue(v1);
 }
 ~~~
 
@@ -293,42 +295,30 @@ be retrieved at any time by calling the function `value()` on your signal
 object, however for event-driven applications you may want to be informed of new
 values as they are received or generated.
 
-As mentioned above, the `add_signal()` function takes an optional `handler`
-argument.  This is a function that will be called whenever the value of that
-signal changes.  To create a receiver for a synthesizer parameter "pulse width"
-(given as a ratio between 0 and 1), specify a handler when calling `add_signal()`.
-We'll imagine there is some C++ synthesizer implemented as a class `Synthesizer`
-which has functions `setPulseWidth()` which sets the pulse width in a thread-safe
-manner, and `startAudioInBackground()` which sets up the audio thread.
+As mentioned above, the `addSignal()` function takes an optional
+`handler` argument.  This is a function that will be called whenever the
+value of that signal changes.  To create a receiver for a synthesizer parameter
+"pulse width" (given as a ratio between 0 and 1), specify a handler when calling
+`addSignal()`.  We'll imagine there is some C\# synthesizer implemented
+as a class `Synthesizer` which has functions `setPulseWidth()` which sets the
+pulse width in a thread-safe manner, and `startAudioInBackground()` which sets
+up the audio thread.
 
-Create the handler function, which is fairly simple as it has been overloaded to
-accept different scalar datatypes and other functionality. The full version of
-the handler is:
+Create the handler function, which is fairly simple,
 
-~~~c++
-void handler(mapper::Signal signal, mapper::Signal::Event event,
-             mapper::Id instance, int length, mapper::Type type,
-             const void *value, mapper::Time time)
+~~~csharp
+void pulsewidthHandler(Signal sig, mpr_id instance,
+                       void *value, int count,
+                       Mapper.Time time)
 {
-    ...
+    Synthesizer *s = (Synthesizer*) sig[];
+    s->setPulseWidth(*(float*)v);
 }
 ~~~
 
-Please refer to the API documentation for more detail on acceptable handler
-definitions.  For our example we will use a simpler handler since we know our
-signal type is scalar float:
-
-~~~c++
-void pulsewidth_handler(mapper::Signal signal, float value, mapper::Time time)
-{
-    Synthesizer *synth = (Synthesizer*)(void*)signal["synthptr"];
-    synth->setPulseWidth(value);
-}
-~~~
-
-First, the pointer to the `Synthesizer` instance is extracted from the stored
-`synthptr` property, then it is dereferenced to set the pulse width according to
-the value pointed to by `value`.
+First, the pointer to the `Synthesizer` instance is extracted from the
+`user_data` pointer, then it is dereferenced to set the pulse width according to
+the value pointed to by `v`.
 
 Then `main()` will look like,
 
@@ -341,13 +331,12 @@ void main()
     float min_pw = 0.0f;
     float max_pw = 1.0f;
     
-    mapper::Device dev("synth");
+    Mapper.Device dev("synth");
     
-    mapper::Signal pulsewidth =
-        dev.add_signal(mapper::Direction::IN, "pulsewidth", 1,
-                       mapper::Type::FLOAT, 0, &min_pw, &max_pw)
-           .set_property("synthptr", &synth)
-           .set_callback(pulsewidth_handler);
+    Mapper.Signal pulsewidth =
+        dev.addSignal(Mapper.Direction.Incoming, "pulsewidth", 1,
+                      Mapper.Type.Float, 0, min_pw, max_pw, 0,
+                      pulsewidth_handler, Mapper.Signal.Event.Update);
     
     while (!done)
         dev.poll(50);
@@ -364,7 +353,7 @@ source signal was _sampled_ (in the case of sensor signals) or _generated_ (in
 the case of sequenced or algorithimically-generated signals).
 
 _libmapper_ provides helper functions for getting the current device-time,
-setting the value of a `Time` instance from other representations, and comparing or
+setting the value of a `Timetag` from other representations, and comparing or
 copying timetags.  Check the API documentation for more information.
 
 ## Working with signal instances
@@ -392,50 +381,38 @@ All signals possess one instance by default. If you would like to reserve more
 instances you can use:
 
 ~~~c++
-sig.reserve_instances(int num)
-sig.reserve_instances(int num, mapper::Id *ids)
-sig.reserve_instances(int num, mapper::Id *ids, void **data)
+sig.reserveInstances(int num)
+sig.reserveInstances(int num, mpr_id *ids)
+sig.reserveInstances(int num, mpr_id *ids, void **data)
 ~~~
 
 After reserving instances you can update a specific instance, for example:
 
 ~~~c++
-Signal::Instance si = sig.instance(id);
-si.set_value(value);
-
-// or simply:
-sig.instance(id).set_value(value)
+sig.instance(id).setValue(value)
 ~~~
 
-The `instance` argument is of type `mapper::Id` does not have to be considered as
-an array index - it can be any 64-bit vbalue that is convenient for labelling your
-instance. _libmapper_ will internally create a map from your id label to one of the
-preallocated instance structures.
+All of the arguments except one should be familiar from the documentation of
+`set_value()` presented earlier.  The `instance` argument does not have to be
+considered as an array index - it can be any integer that is convenient for
+labelling your instance. _libmapper_ will internally create a map from your id
+label to one of the preallocated instance structures.
 
 ### Receiving instances
 
-You might have noticed earlier that the full handler function called when a signal
+You might have noticed earlier that the handler function called when a signal
 update is received has a argument called `instance`. Here is the function
 prototype again:
 
-~~~c++
-void handler(mapper::Signal signal, mapper::Signal::Event event,
-             mapper::Id instance, int len, mapper::Type type,
-             const void *value, mapper::Type time);
+~~~csharp
+void handler(Mapper.Signal sig, Mapper.Signal.Event evt, mpr_id inst,
+             int len, mpr_type type, void *value, Mapper.Time time);
 ~~~
 
-For convenience the handler is also available in a form with the signal instance
-pre-fetched:
-
-~~~c++
-void handler(mapper::Signal::Instance sigInst, mapper::Signal::Event event,
-             int len, mapper::Type type, const void *value, mapper::Type time);
-~~~
-
-Under normal usage, the `instance` argument in the first handler example will have
-a value (0 <= n <= num_instances) and can be used as an array index. Remember that
-you will need to reserve instances for your input signal when calling
-`Device::add_signal()` or using `sig.reserve_instances()` if you want to receive instance updates.
+Under normal usage, this argument will have a value (0 <= n <= num_instances)
+and can be used as an array index. Remember that you will need to reserve
+instances for your input signal using `sig.reserve_instances()` if you want to
+receive instance updates.
 
 ### Instance Stealing
 
@@ -444,42 +421,39 @@ receiver signal, the _instance allocation mode_ can be set for an input signal
 to set an action to take in case all allocated instances are in use and a
 previously unseen instance id is received. Use the function:
 
-~~~c++
-sig.set_property(mapper::Property::STEAL_MODE, mapper::Map::Stealing type);
+~~~csharp
+sig.setProperty(Mapper.Property.StealingMode, mode);
 ~~~
 
 The argument `mode` can have one of the following values:
 
-* `Stealing::NONE` Default value, in which no stealing of instances will occur;
-* `Stealing::OLDEST` Release the oldest active instance and reallocate its
+* `Stealing.None` Default value, in which no stealing of instances will occur;
+* `Stealing.Oldest` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `Stealing::NEWEST` Release the newest active instance and reallocate its
+* `Stealing.Newest` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
-release (e.g. the sound with the lowest volume), you can create a `handler` for
-the signal and write the method yourself:
+release (e.g. the sound with the lowest volume), you can create a `mpr_sig_handler` for the signal and write the method yourself:
 
-~~~c++
-void my_handler(mapper::Signal signal, mapper::Signal::Event event,
-                mapper::Id instance, int len, mapper::Type type, const void *val,
-                mapper::Time time)
+~~~csharp
+void my_handler(Mapper.Signal sig, Mapper.Signal.Event evt, UInt64 inst,
+                int len, Mapper.Type type, IntPtr val, IntPtr time)
 {
-    if (event == mapper::Signal::Event::OFLW) {
+    if (evt == Mapper.Signal.Event.Overflow) {
         // user code chooses which instance to release
-        mapper::Id release_me = choose_instance_to_release(sig);
-
-        sig.instance(release_me).release(tt);
-        return;
+        mpr_id release_me = choose_instance_to_release(sig);
+    
+        sig.instance(release_me).release(time);
     }
 }
 ~~~
 
 For this function to be called when instance stealing is necessary, we need to
-register it for `Signal::Event::OFLW` events:
+register it for `IN_OVERFLOW` events:
 
-~~~c++
-sig.set_callback(my_handler, Signal::Event::UPDATE | Signal::Event::OFLW);
+~~~csharp
+sig.setCallback(my_handler, Signal.Event.Overflow);
 ~~~
 
 ## Publishing metadata
@@ -500,40 +474,21 @@ Any time there may be extra knowledge about a signal or device, it is a good
 idea to represent it by adding such properties, which can be of any
 OSC-compatible type.  (So, numbers and strings, etc.)
 
-The property can be set using the functions below, using either a name (C string
-or std::string) or a value from the `Property` enum if available. The getter and
-setter functions are also overloaded with the subscript operator.
+The property interface is through the functions,
 
-~~~c++
-void <object>.set_property(<name>, <value>);
-void <object>.set_property(Property, <value>);
-
-// or
-<object>[<name>] = <value>;
-<object>[Property] = <value>;
+~~~csharp
+void <object>.setProperty(<name>, <value>);
 ~~~
 
-The `<value>` arguments can be a scalar, array or std::vector of type `int`,
-`float`, `double`, `char*`, or `void*`.
+The `<value>` arguments can be a scalar, or array of type `int`,
+`float`, `double`, or `char*`.
 
 For example, to store a `float` indicating the X position of a device, you can
 call it like this:
 
-~~~c++
-dev.set_property("x", 12.5f);
-sig.set_property("sensingMethod", "resistive");
-~~~
-
-Retrieving a property is also quite simple, returning a PropVal object that can be
-cast to the appropriate type.
-
-~~~c++
-<type> var = obj.property(<name>);
-<type> var = obj.property(Property);
-
-// or
-<type> var = obj[<name>];
-<type> var = obj[Property];
+~~~csharp
+dev.setProperty("x", 12.5f);
+sig.setProperty("sensingMethod", "resistive");
 ~~~
 
 ### Reserved keys

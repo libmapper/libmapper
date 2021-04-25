@@ -40,4 +40,5 @@ You may need to copy the libmapper dynamic library into the same directory (depe
     * object properties
     * graphs
     * signal instances
+* interact with C# Events
 * add more tests
