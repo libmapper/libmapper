@@ -142,12 +142,12 @@ test_config test_configs[] = {
     { 30, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 4.0, 0. },
 
     /* singleton ––> instanced; in-map instance management */
-    { 31, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 1.5, 0. },
-    { 32, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 1.5, 0. },
+    { 31, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, "alive=n>=5;y=x;n=(n+1)%10;", 1.5, 0. },
+    { 32, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, "alive=n>=5;y=x;n=(n+1)%10;", 1.5, 0. },
 
     /* singleton ==> instanced; in-map instance management */
-    { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0. },
-    { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=count>=5;y=x;count=(count+1)%10;", 0.5, 0. },
+    { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=n>=5;y=x;n=(n+1)%10;", 0.5, 0. },
+    { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=n>=5;y=x;n=(n+1)%10;", 0.5, 0. },
 
     /* work in progress:
      * instanced ––> instanced; in-map instance management (late start, early release, ad hoc)
@@ -156,8 +156,8 @@ test_config test_configs[] = {
      * mixed ==> instanced; in-map instance management (late start, early release, ad hoc)
      */
 
-/*    { 35, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=count>=3;y=x;count=(count+1)%10;", 0.5, 0. },
-    { 36, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=count>=3;y=x;count=(count+1)%10;", 0.5, 0. },*/
+/*    { 35, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=n>=3;y=x;n=(n+1)%10;", 0.5, 0. },
+    { 36, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=n>=3;y=x;n=(n+1)%10;", 0.5, 0. },*/
 
     /* future work:
      * src instance pooling (convergent maps)
@@ -607,8 +607,7 @@ int run_test(test_config *config)
 
     if (!verbose) {
         if (result)
-            printf(" (expected %4d ± %2d) \x1B[31mFAILED\x1B[0m.\n", compare_count,
-                   count_epsilon);
+            printf(" (expected %4d ± %2d) \x1B[31mFAILED\x1B[0m.\n", compare_count, count_epsilon);
         else
             printf(" (expected) ......... \x1B[32mPASSED\x1B[0m.\n");
     }

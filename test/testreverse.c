@@ -172,6 +172,13 @@ void loop()
         mpr_dev_poll(src, period);
         i++;
 
+        if (i == 25) {
+            eprintf("setting sendsig direction to INPUT\n");
+            int dir = MPR_DIR_IN;
+            mpr_obj_set_prop(sendsig, MPR_PROP_DIR, NULL, 1, MPR_INT32, &dir, 1);
+            mpr_obj_push(sendsig);
+        }
+
         if (!verbose) {
             printf("\r  Sent: %4i, Received: %4i   ", sent, received);
             fflush(stdout);
@@ -242,7 +249,7 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (sent != received) {
+    if ((sent - 25) != received) {
         eprintf("Not all sent messages were received.\n");
         eprintf("Updated value %d time%s, but received %d of them.\n",
                 sent, sent == 1 ? "" : "s", received);

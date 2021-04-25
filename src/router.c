@@ -573,6 +573,7 @@ int mpr_rtr_loop_check(mpr_rtr rtr, mpr_local_sig sig, int num_remotes, const ch
     return 0;
 }
 
+/* TODO: speed this up with sorted slots and binary search */
 mpr_local_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_local_sig sig, int slot_id)
 {
     int i, j;
@@ -580,9 +581,8 @@ mpr_local_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_local_sig sig, int slot_id)
     /* only interested in incoming slots */
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_ARG_UNLESS(rs, NULL);
-
     for (i = 0; i < rs->num_slots; i++) {
-        if (!rs->slots[i] || rs->slots[i]->dir == MPR_DIR_OUT)
+        if (!rs->slots[i] || sig->dir != rs->slots[i]->dir)
             continue;
         map = rs->slots[i]->map;
         /* check incoming slots for this map */

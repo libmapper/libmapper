@@ -83,7 +83,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
 void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type type,
                   const char *unit, const void *min, const void *max, int *num_inst)
 {
-    int i, str_len, loc_mod, rem_mod;
+    int i, str_len, loc_mod;
     mpr_tbl tbl;
     RETURN_UNLESS(name);
 
@@ -127,17 +127,16 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
 
     tbl = sig->obj.props.synced;
     loc_mod = sig->is_local ? MODIFIABLE : NON_MODIFIABLE;
-    rem_mod = sig->is_local ? NON_MODIFIABLE : MODIFIABLE;
 
     /* these properties need to be added in alphabetical order */
     mpr_tbl_link(tbl, PROP(DATA), 1, MPR_PTR, &sig->obj.data,
                  LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(DEV), 1, MPR_DEV, &sig->dev,
                  NON_MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(tbl, PROP(DIR), 1, MPR_INT32, &sig->dir, rem_mod);
-    mpr_tbl_link(tbl, PROP(ID), 1, MPR_INT64, &sig->obj.id, rem_mod);
+    mpr_tbl_link(tbl, PROP(DIR), 1, MPR_INT32, &sig->dir, loc_mod);
+    mpr_tbl_link(tbl, PROP(ID), 1, MPR_INT64, &sig->obj.id, loc_mod);
     mpr_tbl_link(tbl, PROP(JITTER), 1, MPR_FLT, &sig->jitter, NON_MODIFIABLE);
-    mpr_tbl_link(tbl, PROP(LEN), 1, MPR_INT32, &sig->len, rem_mod);
+    mpr_tbl_link(tbl, PROP(LEN), 1, MPR_INT32, &sig->len, loc_mod);
     mpr_tbl_link(tbl, PROP(MAX), sig->len, sig->type, &sig->max, MODIFIABLE | INDIRECT);
     mpr_tbl_link(tbl, PROP(MIN), sig->len, sig->type, &sig->min, MODIFIABLE | INDIRECT);
     mpr_tbl_link(tbl, PROP(NAME), 1, MPR_STR, &sig->name, NON_MODIFIABLE | INDIRECT);

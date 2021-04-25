@@ -582,7 +582,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                           const char *dst_name)
 {
     mpr_map map = 0;
-    int rc = 0, updated = 0, i, j, is_local = 0;
+    unsigned char rc = 0, updated = 0, i, j, is_local = 0;
     if (num_src > MAX_NUM_MAP_SRC) {
         trace_graph("error: maximum mapping sources exceeded.\n");
         return 0;
@@ -627,12 +627,11 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         map->is_local = 0;
         map->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
         for (i = 0; i < num_src; i++) {
-            map->src[i] = mpr_slot_new(map, src_sigs[i], is_local);
+            map->src[i] = mpr_slot_new(map, src_sigs[i], is_local, 1);
             /* TODO: do we need to init these here and in slot.c? */
-            map->src[i]->obj.id = i;
             map->src[i]->obj.graph = g;
         }
-        map->dst = mpr_slot_new(map, dst_sig, is_local);
+        map->dst = mpr_slot_new(map, dst_sig, is_local, 0);
         map->dst->obj.graph = g;
         mpr_map_init(map);
         rc = 1;
@@ -653,8 +652,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                 ++changed;
                 ++map->num_src;
                 map->src = realloc(map->src, sizeof(mpr_slot) * map->num_src);
-                map->src[j] = mpr_slot_new(map, src_sig, is_local);
-                map->src[j]->dir = MPR_DIR_OUT;
+                map->src[j] = mpr_slot_new(map, src_sig, is_local, 1);
                 map->src[j]->obj.graph = g;
                 mpr_slot_init(map->src[j]);
                 ++updated;

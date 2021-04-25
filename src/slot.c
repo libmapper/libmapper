@@ -9,13 +9,14 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, int is_local)
+mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned char is_src)
 {
     size_t size = is_local ? sizeof(struct _mpr_local_slot) : sizeof(struct _mpr_slot);
     mpr_slot slot = (mpr_slot)calloc(1, size);
     slot->map = map;
     slot->sig = sig;
     slot->is_local = is_local;
+    slot->dir = (is_src == sig->is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
     slot->causes_update = 1; /* default */
     return slot;
 }

@@ -25,7 +25,7 @@ MPR_INLINE static int _min(int a, int b)
     return a < b ? a : b;
 }
 
-static int _sort_sigs(int num, mpr_sig *s, int *o)
+static int _sort_sigs(int num, mpr_sig *s, unsigned char *o)
 {
     int i, j, res1 = 1, res2 = 1, temp;
     for (i = 0; i < num; i++)
@@ -112,7 +112,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     mpr_map m;
     mpr_obj o;
     mpr_list maps;
-    int i, j, is_local = 0, order[MAX_NUM_MAP_SRC];
+    unsigned char i, j, is_local = 0, order[MAX_NUM_MAP_SRC];
 
     RETURN_ARG_UNLESS(src && *src && dst && *dst, 0);
     RETURN_ARG_UNLESS(num_src > 0 && num_src <= MAX_NUM_MAP_SRC, 0);
@@ -171,7 +171,6 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     m->is_local = 0;
     m->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
     for (i = 0; i < num_src; i++) {
-        m->src[i] = mpr_slot_new(m, NULL, is_local);
         if (src[order[i]]->dev->obj.graph == g)
             o = (mpr_obj)src[order[i]];
         else if (!(o = mpr_graph_get_obj(g, MPR_SIG, src[order[i]]->obj.id))) {
@@ -187,10 +186,10 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
             if (!dev->obj.id)
                 dev->obj.id = src[order[i]]->dev->obj.id;
         }
-        m->src[i]->sig = (mpr_sig)o;
+        m->src[i] = mpr_slot_new(m, (mpr_sig)o, is_local, 1);
         m->src[i]->obj.id = i;
     }
-    m->dst = mpr_slot_new(m, *dst, is_local);
+    m->dst = mpr_slot_new(m, *dst, is_local, 0);
     m->dst->dir = MPR_DIR_IN;
 
     /* we need to give the map a temporary id – this may be overwritten later */
@@ -524,7 +523,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
                 /* create an id_map and store it in the map */
                 idmap = m->idmap = mpr_dev_add_idmap(dev, 0, 0, 0);
             }
-            msg = mpr_map_build_msg(m, 0, result, types, idmap);
+            msg = mpr_map_build_msg(m, src_slot, result, types, idmap);
             mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg,
                              *(mpr_time*)mpr_value_get_time(&dst_slot->val, i),
                              m->protocol, bundle_idx);
@@ -697,7 +696,7 @@ lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *v
         lo_message_add_string(msg, "@in");
         lo_message_add_int64(msg, idmap->GID);
     }
-    if (slot && MPR_LOC_DST == m->process_loc && MPR_DIR_OUT == m->dst->dir) {
+    if (slot) {
         /* add slot */
         lo_message_add_string(msg, "@sl");
         lo_message_add_int32(msg, slot->obj.id);
