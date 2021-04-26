@@ -50,11 +50,11 @@ int main()
     float max1 = 1;
     float max1000 = 1000;
 
-    dev.add_signal(Direction::IN, "/freq", 1, Type::FLOAT, "Hz", &min0, &max1000, NULL)
+    dev.add_signal(Direction::INCOMING, "/freq", 1, Type::FLOAT, "Hz", &min0, &max1000, NULL)
        .set_callback(handler_freq, Signal::Event::UPDATE);
-    dev.add_signal(Direction::IN, "/gain", 1, Type::FLOAT, "Hz", &min0, &max1, NULL)
+    dev.add_signal(Direction::INCOMING, "/gain", 1, Type::FLOAT, "Hz", &min0, &max1, NULL)
        .set_callback(handler_gain, Signal::Event::UPDATE);
-    dev.add_signal(Direction::IN, "/duty", 1, Type::FLOAT, "Hz", &min0, &max1, NULL)
+    dev.add_signal(Direction::INCOMING, "/duty", 1, Type::FLOAT, "Hz", &min0, &max1, NULL)
        .set_callback(handler_duty, Signal::Event::UPDATE);
 
     run_synth();

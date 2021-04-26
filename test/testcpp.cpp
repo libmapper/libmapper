@@ -221,16 +221,16 @@ int main(int argc, char ** argv)
     // make a copy of the device to check reference counting
     Device devcopy(dev);
 
-    Signal sig = dev.add_signal(Direction::IN, "in1", 1, Type::FLOAT, "meters")
+    Signal sig = dev.add_signal(Direction::INCOMING, "in1", 1, Type::FLOAT, "meters")
                     .set_callback(standard_handler);
     dev.remove_signal(sig);
-    dev.add_signal(Direction::IN, "in2", 2, Type::INT32).set_callback(standard_handler);
-    dev.add_signal(Direction::IN, "in3", 2, Type::INT32).set_callback(standard_handler);
-    dev.add_signal(Direction::IN, "in4", 2, Type::INT32).set_callback(simple_handler);
+    dev.add_signal(Direction::INCOMING, "in2", 2, Type::INT32).set_callback(standard_handler);
+    dev.add_signal(Direction::INCOMING, "in3", 2, Type::INT32).set_callback(standard_handler);
+    dev.add_signal(Direction::INCOMING, "in4", 2, Type::INT32).set_callback(simple_handler);
 
-    sig = dev.add_signal(Direction::OUT, "out1", 1, Type::FLOAT, "na");
+    sig = dev.add_signal(Direction::OUTGOING, "out1", 1, Type::FLOAT, "na");
     dev.remove_signal(sig);
-    sig = dev.add_signal(Direction::OUT, "out2", 3, Type::DOUBLE, "meters");
+    sig = dev.add_signal(Direction::OUTGOING, "out2", 3, Type::DOUBLE, "meters");
 
     out << "waiting" << std::endl;
     while (!dev.ready() && !done) {
@@ -244,10 +244,10 @@ int main(int argc, char ** argv)
     out << "  interface: " << dev.graph().iface() << std::endl;
     out << "  bus url: " << dev.graph().address() << std::endl;
     out << "  port: " << dev["port"] << std::endl;
-    out << "  num_inputs: " << dev.signals(Direction::IN).size() << std::endl;
-    out << "  num_outputs: " << dev.signals(Direction::OUT).size() << std::endl;
-    out << "  num_incoming_maps: " << dev.maps(Direction::IN).size() << std::endl;
-    out << "  num_outgoing_maps: " << dev.maps(Direction::OUT).size() << std::endl;
+    out << "  num_inputs: " << dev.signals(Direction::INCOMING).size() << std::endl;
+    out << "  num_outputs: " << dev.signals(Direction::OUTGOING).size() << std::endl;
+    out << "  num_incoming_maps: " << dev.maps(Direction::INCOMING).size() << std::endl;
+    out << "  num_outgoing_maps: " << dev.maps(Direction::OUTGOING).size() << std::endl;
 
     int value[] = {1,2,3,4,5,6};
     dev.set_property("foo", 6, value);
@@ -315,14 +315,14 @@ int main(int argc, char ** argv)
 
     out << "signal: " << sig << std::endl;
 
-    List<Signal> qsig = dev.signals(Direction::IN);
+    List<Signal> qsig = dev.signals(Direction::INCOMING);
     qsig.begin();
     for (; qsig != qsig.end(); ++qsig) {
         out << "  input: " << *qsig << std::endl;
     }
 
     Graph graph;
-    Map map(dev.signals(Direction::OUT)[0], dev.signals(Direction::IN)[1]);
+    Map map(dev.signals(Direction::OUTGOING)[0], dev.signals(Direction::INCOMING)[1]);
     map[Property::EXPRESSION] = "y=x[0:1]+123";
 
     map.push();
@@ -336,7 +336,7 @@ int main(int argc, char ** argv)
         graph.poll();
         v[i%3] = i;
         if (i == 50) {
-            Signal s = *dev.signals().filter(Property::NAME, "in4", Operator::EQ);
+            Signal s = *dev.signals().filter(Property::NAME, "in4", Operator::EQUAL);
             s.set_callback(standard_handler);
         }
         sig.set_value(v);
@@ -353,8 +353,8 @@ int main(int argc, char ** argv)
     // try combining queries
     out << "devices with name matching 'my*' AND >=0 inputs" << std::endl;
     List<Device> qdev = graph.devices();
-    qdev.filter(Property::NAME, "my*", Operator::EQ);
-    qdev.filter(Property::NUM_SIGNALS_IN, 0, Operator::GTE);
+    qdev.filter(Property::NAME, "my*", Operator::EQUAL);
+    qdev.filter(Property::NUM_SIGNALS_IN, 0, Operator::GREATER_THAN_OR_EQUAL);
     for (; qdev != qdev.end(); qdev++) {
         out << "  " << *qdev << " (" << (*qdev)[Property::NUM_SIGNALS_IN] << " inputs)" << std::endl;
     }
@@ -363,10 +363,10 @@ int main(int argc, char ** argv)
     out << "graph records:" << std::endl;
     for (const Device d : graph.devices()) {
         out << "  device: " << d << std::endl;
-        for (Signal s : d.signals(Direction::IN)) {
+        for (Signal s : d.signals(Direction::INCOMING)) {
             out << "    input: " << s << std::endl;
         }
-        for (Signal s : d.signals(Direction::OUT)) {
+        for (Signal s : d.signals(Direction::OUTGOING)) {
             out << "    output: " << s << std::endl;
         }
     }
@@ -378,9 +378,9 @@ int main(int argc, char ** argv)
     out << "testing instances API" << std::endl;
 
     int num_inst = 10;
-    mapper::Signal multisend = dev.add_signal(Direction::OUT, "multisend", 1, Type::FLOAT,
+    mapper::Signal multisend = dev.add_signal(Direction::OUTGOING, "multisend", 1, Type::FLOAT,
                                               0, 0, 0, &num_inst);
-    mapper::Signal multirecv = dev.add_signal(Direction::IN, "multirecv", 1, Type::FLOAT,
+    mapper::Signal multirecv = dev.add_signal(Direction::INCOMING, "multirecv", 1, Type::FLOAT,
                                               0, 0, 0, &num_inst)
                                   .set_callback(instance_handler, Signal::Event::UPDATE);
     multisend.set_property(Property::STEAL_MODE, (int)MPR_STEAL_OLDEST);

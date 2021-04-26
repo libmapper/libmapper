@@ -72,28 +72,28 @@ namespace mapper {
     /*! The set of possible directions for a signal. */
     enum class Direction : int
     {
-        IN      = MPR_DIR_IN,   /*!< Incoming */
-        OUT     = MPR_DIR_OUT,  /*!< Outgoing */
-        ANY     = MPR_DIR_ANY,  /*!< Either incoming or outgoing */
-        BOTH    = MPR_DIR_BOTH  /*!< Both directions apply.  Currently signals cannot be both
-                                 * inputs and outputs, so this value is only used for querying
-                                 * device maps that touch only local signals. */
+        INCOMING    = MPR_DIR_IN,   /*!< Incoming */
+        OUTGOING    = MPR_DIR_OUT,  /*!< Outgoing */
+        ANY         = MPR_DIR_ANY,  /*!< Either incoming or outgoing */
+        BOTH        = MPR_DIR_BOTH  /*!< Both directions apply.  Currently signals cannot be both
+                                     * inputs and outputs, so this value is only used for querying
+                                     * device maps that touch only local signals. */
     };
 
     /*! Possible operations for composing queries. */
     enum class Operator
     {
-        NEX     = MPR_OP_NEX,   /*!< Property does not exist for this entity. */
-        EQ      = MPR_OP_EQ,    /*!< Property value == query value. */
-        EX      = MPR_OP_EX,    /*!< Property exists for this entity. */
-        GT      = MPR_OP_GT,    /*!< Property value > query value. */
-        GTE     = MPR_OP_GTE,   /*!< Property value >= query value */
-        LT      = MPR_OP_LT,    /*!< Property value < query value */
-        LTE     = MPR_OP_LTE,   /*!< Property value <= query value */
-        NEQ     = MPR_OP_NEQ,   /*!< Property value != query value */
-        ALL     = MPR_OP_ALL,   /*!< Applies to all elements of value */
-        ANY     = MPR_OP_ANY,   /*!< Applies to any element of value */
-        NONE    = MPR_OP_NONE
+        DOES_NOT_EXIST          = MPR_OP_NEX,   /*!< Property does not exist for this entity. */
+        EQUAL                   = MPR_OP_EQ,    /*!< Property value == query value. */
+        EXISTS                  = MPR_OP_EX,    /*!< Property exists for this entity. */
+        GREATER_THAN            = MPR_OP_GT,    /*!< Property value > query value. */
+        GREATER_THAN_OR_EQUAL   = MPR_OP_GTE,   /*!< Property value >= query value */
+        LESS_THAN               = MPR_OP_LT,    /*!< Property value < query value */
+        LESS_THAN_OR_EQUAL      = MPR_OP_LTE,   /*!< Property value <= query value */
+        NOT_EQUAL               = MPR_OP_NEQ,   /*!< Property value != query value */
+        ALL                     = MPR_OP_ALL,   /*!< Applies to all elements of value */
+        ANY                     = MPR_OP_ANY,   /*!< Applies to any element of value */
+        NONE                    = MPR_OP_NONE
     };
 
     enum class Property
