@@ -1538,8 +1538,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
         return 0;
     }
 
-    if (map->one_src && !map->src[0]->rsig
-        && map->src[0]->link && map->src[0]->link->addr.admin) {
+    if (map->one_src && !map->src[0]->rsig && map->src[0]->link && map->src[0]->link->addr.admin) {
         mpr_net_use_mesh(net, map->src[0]->link->addr.admin);
         mpr_map_send_state((mpr_map)map, -1, MSG_MAP_TO);
         mpr_sig_send_state(sig, MSG_SIG);

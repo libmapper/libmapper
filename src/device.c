@@ -417,7 +417,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     diff = mpr_time_get_diff(ts, si->time);
     idmap = sig->idmaps[idmap_idx].map;
 
-    size = mpr_type_get_size(slot ? slot->sig->type : sig->type);
+    size = mpr_type_get_size(map ? slot->sig->type : sig->type);
     if (vals == 0) {
         if (GID) {
             /* TODO: mark SLOT status as remotely released rather than map */
@@ -491,7 +491,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     }
 
     for (; idmap_idx < sig->idmap_len; idmap_idx++) {
-        /* check if map instance is active */
+        /* check if instance is active */
         if ((si = sig->idmaps[idmap_idx].inst)) {
             idmap = sig->idmaps[idmap_idx].map;
             for (i = 0; i < sig->len; i++) {

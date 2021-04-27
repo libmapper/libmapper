@@ -1063,6 +1063,13 @@ namespace mapper {
         ~Device()
         {
             if (_owned && _obj && decr_refcount() <= 0) {
+                mpr_list sigs = mpr_dev_get_sigs(_obj, MPR_DIR_ANY);
+                while (sigs) {
+                    const void *data = mpr_obj_get_prop_as_ptr((mpr_sig)*sigs, MPR_PROP_DATA, NULL);
+                    if (data)
+                        free((void*)data);
+                    sigs = mpr_list_get_next(sigs);
+                }
                 mpr_dev_free(_obj);
                 free(_refcount_ptr);
             }

@@ -973,8 +973,10 @@ static int _add_idmap(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map map)
 void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
 {
     char str[BUFFSIZE];
-    NEW_LO_MSG(msg, return);
+    lo_message msg;
     RETURN_UNLESS(sig);
+    msg = lo_message_new();
+    RETURN_UNLESS(msg);
 
     if (cmd == MSG_SIG_MOD) {
         lo_message_add_string(msg, sig->name);
@@ -993,7 +995,6 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
 
         /* properties */
         mpr_tbl_add_to_msg(sig->is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
-
         mpr_net_add_msg(&sig->obj.graph->net, 0, cmd, msg);
     }
 }
