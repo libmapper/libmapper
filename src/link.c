@@ -22,7 +22,6 @@ void mpr_link_init(mpr_link link)
     char cmd[256];
     if (!link->num_maps)
         link->num_maps = (int*)calloc(1, sizeof(int) * 2);
-    link->obj.props.mask = 0;
     if (!link->obj.props.synced) {
         mpr_tbl t = link->obj.props.synced = mpr_tbl_new();
         mpr_tbl_link(t, MPR_PROP_DEV, 2, MPR_DEV, &link->devs, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);

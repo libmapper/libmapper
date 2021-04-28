@@ -80,7 +80,6 @@ typedef struct _mpr_tbl {
 typedef struct _mpr_dict {
     struct _mpr_tbl *synced;
     struct _mpr_tbl *staged;
-    int mask;
 } mpr_dict_t, *mpr_dict;
 
 /**** Graph ****/
@@ -272,7 +271,7 @@ typedef struct _mpr_value
 {
     mpr_value_buffer inst;      /*!< Array of value histories for each signal instance. */
     int vlen;                   /*!< Vector length. */
-    int num_inst;               /*!< Number of instances. */
+    uint8_t num_inst;           /*!< Number of instances. */
     mpr_type type;              /*!< The type of this signal. */
     int8_t mlen;                /*!< History size of the buffer. */
 } mpr_value_t, *mpr_value;
@@ -397,11 +396,11 @@ typedef struct _mpr_link {
 #define MPR_SLOT_STRUCT_ITEMS                                                   \
     mpr_sig sig;                    /*!< Pointer to parent signal */            \
     mpr_link link;                                                              \
-    int num_inst;                                                               \
-    int dir;                        /*!< DI_INCOMING or DI_OUTGOING */          \
-    int causes_update;              /*!< 1 if causes update, 0 otherwise. */    \
-    int is_local;                                                               \
-    int id;
+    int id;                                                                     \
+    uint8_t num_inst;                                                           \
+    char dir;                       /*!< DI_INCOMING or DI_OUTGOING */          \
+    char causes_update;             /*!< 1 if causes update, 0 otherwise. */    \
+    char is_local;                                                              \
 
 typedef struct _mpr_slot {
     MPR_SLOT_STRUCT_ITEMS

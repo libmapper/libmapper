@@ -46,7 +46,7 @@ mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, mpr_prop p, const char **k, int *l,
                                  mpr_type *t, const void **v, int *pub)
 {
     RETURN_ARG_UNLESS(o, 0);
-    return mpr_tbl_get_prop_by_idx(o->props.synced, p | o->props.mask, k, l, t, v, pub);
+    return mpr_tbl_get_prop_by_idx(o->props.synced, p, k, l, t, v, pub);
 }
 
 int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
@@ -141,8 +141,7 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
     flags = local ? LOCAL_MODIFY : REMOTE_MODIFY;
     if (!publish)
         flags |= LOCAL_ACCESS_ONLY;
-    updated = mpr_tbl_set(local ? o->props.synced : o->props.staged,
-                          p | o->props.mask, s, len, type, val, flags);
+    updated = mpr_tbl_set(local ? o->props.synced : o->props.staged, p, s, len, type, val, flags);
     if (updated)
         mpr_obj_increment_version(o);
     return updated;

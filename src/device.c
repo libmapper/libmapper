@@ -50,7 +50,6 @@ void init_dev_prop_tbl(mpr_dev dev)
     mpr_tbl tbl;
     mpr_list qry;
 
-    dev->obj.props.mask = 0;
     dev->obj.props.synced = mpr_tbl_new();
     if (!dev->is_local)
         dev->obj.props.staged = mpr_tbl_new();

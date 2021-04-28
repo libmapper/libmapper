@@ -124,8 +124,8 @@ mpr_tbl_record mpr_tbl_get(mpr_tbl t, mpr_prop prop, const char *key)
     return rec;
 }
 
-int mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len, mpr_type *type,
-                            const void **val, int *pub)
+mpr_prop mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len, mpr_type *type,
+                                 const void **val, int *pub)
 {
     int found = 1;
     mpr_prop prop = mpr_prop_from_str(key);
@@ -148,8 +148,8 @@ int mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len, mpr_type *type
     return found ? rec->prop : MPR_PROP_UNKNOWN;
 }
 
-int mpr_tbl_get_prop_by_idx(mpr_tbl t, mpr_prop prop, const char **key, int *len,
-                            mpr_type *type, const void **val, int *pub)
+mpr_prop mpr_tbl_get_prop_by_idx(mpr_tbl t, mpr_prop prop, const char **key, int *len,
+                                 mpr_type *type, const void **val, int *pub)
 {
     int found = 1;
     int i, j = 0;

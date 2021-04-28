@@ -123,7 +123,6 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
 
     sig->obj.type = MPR_SIG;
     sig->obj.props.synced = mpr_tbl_new();
-    sig->obj.props.mask = 0;
 
     tbl = sig->obj.props.synced;
     loc_mod = sig->is_local ? MODIFIABLE : NON_MODIFIABLE;

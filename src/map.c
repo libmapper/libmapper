@@ -73,7 +73,6 @@ void mpr_map_init(mpr_map m)
     mpr_list q = mpr_list_new_query((const void**)&m->obj.graph->devs,
                                     (void*)_cmp_qry_scopes, "v", &m);
     m->obj.props.staged = mpr_tbl_new();
-    m->obj.props.mask = 0;
 
     /* these properties need to be added in alphabetical order */
     mpr_tbl_link(t, PROP(DATA), 1, MPR_PTR, &m->obj.data,

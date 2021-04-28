@@ -507,11 +507,11 @@ int mpr_tbl_get_size(mpr_tbl tab);
  *  and fills in value if found. */
 mpr_tbl_record mpr_tbl_get(mpr_tbl tab, mpr_prop prop, const char *key);
 
-int mpr_tbl_get_prop_by_key(mpr_tbl tab, const char *key, int *len,
-                            mpr_type *type, const void **val, int *pub);
+mpr_prop mpr_tbl_get_prop_by_key(mpr_tbl tab, const char *key, int *len,
+                                 mpr_type *type, const void **val, int *pub);
 
-int mpr_tbl_get_prop_by_idx(mpr_tbl tab, mpr_prop prop, const char **key,
-                            int *len, mpr_type *type, const void **val, int *pub);
+mpr_prop mpr_tbl_get_prop_by_idx(mpr_tbl tab, mpr_prop prop, const char **key,
+                                 int *len, mpr_type *type, const void **val, int *pub);
 
 /*! Remove a key-value pair from a table (by index or name). */
 int mpr_tbl_remove(mpr_tbl tab, mpr_prop prop, const char *key, int flags);
