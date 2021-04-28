@@ -342,12 +342,12 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
     /* assign indices to source slots */
     if (local_dst) {
         for (i = 0; i < map->num_src; i++)
-            map->src[i]->obj.id = map->dst->rsig->id_counter++;
+            map->src[i]->id = map->dst->rsig->id_counter++;
     }
     else {
         /* may be overwritten later by message */
         for (i = 0; i < map->num_src; i++)
-            map->src[i]->obj.id = i;
+            map->src[i]->id = i;
     }
 
     /* add scopes */
@@ -587,7 +587,7 @@ mpr_local_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_local_sig sig, int slot_id)
         map = rs->slots[i]->map;
         /* check incoming slots for this map */
         for (j = 0; j < map->num_src; j++) {
-            if ((int)map->src[j]->obj.id == slot_id)
+            if ((int)map->src[j]->id == slot_id)
                 return map->src[j];
         }
     }

@@ -23,28 +23,11 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned
 
 static int slot_mask(mpr_slot slot)
 {
-    return slot == slot->map->dst ? DST_SLOT_PROP : SRC_SLOT_PROP(slot->obj.id);
-}
-
-void mpr_slot_init(mpr_slot slot)
-{
-    int mask = slot_mask(slot);
-    mpr_tbl t = slot->obj.props.synced = mpr_tbl_new();
-    slot->obj.props.staged = mpr_tbl_new();
-
-    if (slot->sig->is_local)
-        mpr_tbl_link(t, MPR_PROP_NUM_INST | mask, 1, MPR_INT32,
-                     &slot->sig->num_inst, NON_MODIFIABLE);
-    mpr_tbl_link(t, MPR_PROP_SIG | mask, 1, MPR_SIG, &slot->sig,
-                 NON_MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
-
-    slot->obj.props.mask = mask;
+    return slot == slot->map->dst ? DST_SLOT_PROP : SRC_SLOT_PROP(slot->id);
 }
 
 void mpr_slot_free(mpr_slot slot)
 {
-    FUNC_IF(mpr_tbl_free, slot->obj.props.synced);
-    FUNC_IF(mpr_tbl_free, slot->obj.props.staged);
     free(slot);
 }
 
@@ -58,7 +41,6 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
 {
     int i, updated = 0, mask;
     mpr_msg_atom a;
-    mpr_tbl slot_props;
     RETURN_ARG_UNLESS(slot && msg, 0);
     mask = slot_mask(slot);
 
@@ -81,7 +63,6 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
             a->prop = prop;
         }
     }
-    slot_props = slot->obj.props.synced;
     for (i = 0; i < msg->num_atoms; i++) {
         a = &msg->atoms[i];
         if ((a->prop & ~0xFFFF) != mask)
@@ -93,10 +74,9 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
                 break;
             case MPR_PROP_NUM_INST:
                 /* static prop if slot is associated with a local map */
-                if (slot->map->is_local)
-                    break;
+                if (!slot->map->is_local)
+                    slot->num_inst = a->vals[0]->i;
             default:
-                updated += mpr_tbl_set_from_atom(slot_props, a, REMOTE_MODIFY);
                 break;
         }
     }
@@ -109,10 +89,10 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int st
     char temp[16];
     if (is_dst)
         snprintf(temp, 16, "@dst");
-    else if (0 == (int)slot->obj.id)
+    else if (0 == (int)slot->id)
         snprintf(temp, 16, "@src");
     else
-        snprintf(temp, 16, "@src.%d", (int)slot->obj.id);
+        snprintf(temp, 16, "@src.%d", (int)slot->id);
     len = strlen(temp);
 
     if (!staged && slot->sig->is_local) {
@@ -126,12 +106,6 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int st
         lo_message_add_string(msg, temp);
         lo_message_add_char(msg, slot->sig->type);
     }
-
-    mpr_tbl_add_to_msg(0, (staged ? slot->obj.props.staged : slot->obj.props.synced), msg);
-
-    /* clear the staged properties */
-    if (staged)
-        mpr_tbl_clear(slot->obj.props.staged);
 }
 
 int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)

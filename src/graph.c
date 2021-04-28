@@ -626,13 +626,9 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         map->num_src = num_src;
         map->is_local = 0;
         map->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
-        for (i = 0; i < num_src; i++) {
+        for (i = 0; i < num_src; i++)
             map->src[i] = mpr_slot_new(map, src_sigs[i], is_local, 1);
-            /* TODO: do we need to init these here and in slot.c? */
-            map->src[i]->obj.graph = g;
-        }
         map->dst = mpr_slot_new(map, dst_sig, is_local, 0);
-        map->dst->obj.graph = g;
         mpr_map_init(map);
         rc = 1;
     }
@@ -653,32 +649,16 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                 ++map->num_src;
                 map->src = realloc(map->src, sizeof(mpr_slot) * map->num_src);
                 map->src[j] = mpr_slot_new(map, src_sig, is_local, 1);
-                map->src[j]->obj.graph = g;
-                mpr_slot_init(map->src[j]);
                 ++updated;
             }
         }
         if (changed) {
-            mpr_tbl tab;
-            mpr_tbl_record rec;
             mpr_list maps;
             /* slots should be in alphabetical order */
             qsort(map->src, map->num_src, sizeof(mpr_slot), _compare_slot_names);
             /* fix slot ids */
-            for (i = 0; i < num_src; i++) {
-                map->src[i]->obj.id = i;
-                /* also need to correct slot table indices */
-                tab = map->src[i]->obj.props.synced;
-                for (j = 0; j < tab->count; j++) {
-                    rec = &tab->rec[j];
-                    rec->prop = MASK_PROP_BITFLAGS(rec->prop) | SRC_SLOT_PROP(i);
-                }
-                tab = map->src[i]->obj.props.staged;
-                for (j = 0; j < tab->count; j++) {
-                    rec = &tab->rec[j];
-                    rec->prop = MASK_PROP_BITFLAGS(rec->prop) | SRC_SLOT_PROP(i);
-                }
-            }
+            for (i = 0; i < num_src; i++)
+                map->src[i]->id = i;
             /* check again if this mirrors a staged map */
             maps = mpr_list_from_data(g->maps);
             while (maps) {

@@ -346,8 +346,6 @@ void mpr_map_free(mpr_map map);
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned char is_src);
 
-void mpr_slot_init(mpr_slot slot);
-
 void mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size);
 
 void mpr_slot_free(mpr_slot slot);

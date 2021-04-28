@@ -395,13 +395,13 @@ typedef struct _mpr_link {
 #define MAX_NUM_MAP_DST     8       /* arbitrary */
 
 #define MPR_SLOT_STRUCT_ITEMS                                                   \
-    mpr_obj_t obj;                  /* always first */                          \
     mpr_sig sig;                    /*!< Pointer to parent signal */            \
     mpr_link link;                                                              \
     int num_inst;                                                               \
     int dir;                        /*!< DI_INCOMING or DI_OUTGOING */          \
     int causes_update;              /*!< 1 if causes update, 0 otherwise. */    \
-    int is_local;
+    int is_local;                                                               \
+    int id;
 
 typedef struct _mpr_slot {
     MPR_SLOT_STRUCT_ITEMS

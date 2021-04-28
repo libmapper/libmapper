@@ -382,7 +382,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 v.type = slot->sig->type;
                 src = alloca(map->num_src * sizeof(mpr_value));
                 for (i = 0; i < map->num_src; i++)
-                    src[i] = (i == slot->obj.id) ? &v : 0;
+                    src[i] = (i == slot->id) ? &v : 0;
                 if (mpr_expr_eval(map->expr, src, 0, 0, 0, 0, 0) & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
             }

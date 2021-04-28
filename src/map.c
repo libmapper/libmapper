@@ -101,9 +101,6 @@ void mpr_map_init(mpr_map m)
     }
     mpr_tbl_set(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local,
                 LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
-    for (i = 0; i < m->num_src; i++)
-        mpr_slot_init(m->src[i]);
-    mpr_slot_init(m->dst);
 }
 
 mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
@@ -187,7 +184,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
                 dev->obj.id = src[order[i]]->dev->obj.id;
         }
         m->src[i] = mpr_slot_new(m, (mpr_sig)o, is_local, 1);
-        m->src[i]->obj.id = i;
+        m->src[i]->id = i;
     }
     m->dst = mpr_slot_new(m, *dst, is_local, 0);
     m->dst->dir = MPR_DIR_IN;
@@ -699,7 +696,7 @@ lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *v
     if (slot) {
         /* add slot */
         lo_message_add_string(msg, "@sl");
-        lo_message_add_int32(msg, slot->obj.id);
+        lo_message_add_int32(msg, slot->id);
     }
     return msg;
 }
@@ -1275,21 +1272,9 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
         /* check if MPR_PROP_SLOT property is defined */
         a = mpr_msg_get_prop(msg, PROP(SLOT));
         if (a && a->len == m->num_src) {
-            mpr_tbl_record rec;
             for (i = 0; i < m->num_src; i++) {
                 int id = (a->vals[i])->i32;
-                m->src[i]->obj.id = id;
-                /* also need to correct slot table indices */
-                tbl = m->src[i]->obj.props.synced;
-                for (j = 0; j < tbl->count; j++) {
-                    rec = &tbl->rec[j];
-                    rec->prop = MASK_PROP_BITFLAGS(rec->prop) | SRC_SLOT_PROP(id);
-                }
-                tbl = m->src[i]->obj.props.staged;
-                for (j = 0; j < tbl->count; j++) {
-                    rec = &tbl->rec[j];
-                    rec->prop = MASK_PROP_BITFLAGS(rec->prop) | SRC_SLOT_PROP(id);
-                }
+                m->src[i]->id = id;
             }
         }
     }
@@ -1584,7 +1569,7 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
         for (; i < m->num_src; i++) {
             if ((slot >= 0) && link && (link != m->src[i]->link))
                 break;
-            lo_message_add_int32(msg, m->src[i]->obj.id);
+            lo_message_add_int32(msg, m->src[i]->id);
         }
     }
 
