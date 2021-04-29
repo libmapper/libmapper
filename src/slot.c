@@ -39,46 +39,42 @@ void mpr_slot_free_value(mpr_local_slot slot)
 
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
 {
-    int i, updated = 0, mask;
+    int updated = 0, mask;
     mpr_msg_atom a;
-    RETURN_ARG_UNLESS(slot && msg, 0);
+    RETURN_ARG_UNLESS(slot && (!slot->is_local || !((mpr_local_slot)slot)->rsig), 0);
     mask = slot_mask(slot);
 
-    /* type and length belong to parent signal */
-    if (!slot->is_local || !((mpr_local_slot)slot)->rsig) {
-        a = mpr_msg_get_prop(msg, MPR_PROP_LEN | mask);
-        if (a) {
-            mpr_prop prop = a->prop;
-            a->prop &= ~mask;
-            if (mpr_tbl_set_from_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
-                ++updated;
-            a->prop = prop;
-        }
-        a = mpr_msg_get_prop(msg, MPR_PROP_TYPE | mask);
-        if (a) {
-            mpr_prop prop = a->prop;
-            a->prop &= ~mask;
-            if (mpr_tbl_set_from_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
-                ++updated;
-            a->prop = prop;
-        }
+    a = mpr_msg_get_prop(msg, MPR_PROP_LEN | mask);
+    if (a) {
+        mpr_prop prop = a->prop;
+        a->prop &= ~mask;
+        if (mpr_tbl_set_from_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
+            ++updated;
+        a->prop = prop;
     }
-    for (i = 0; i < msg->num_atoms; i++) {
-        a = &msg->atoms[i];
-        if ((a->prop & ~0xFFFF) != mask)
-            continue;
-        switch (a->prop & ~mask) {
-            case MPR_PROP_LEN:
-            case MPR_PROP_TYPE:
-                /* handled above */
-                break;
-            case MPR_PROP_NUM_INST:
-                /* static prop if slot is associated with a local map */
-                if (!slot->map->is_local)
-                    slot->num_inst = a->vals[0]->i;
-            default:
-                break;
-        }
+    a = mpr_msg_get_prop(msg, MPR_PROP_TYPE | mask);
+    if (a) {
+        mpr_prop prop = a->prop;
+        a->prop &= ~mask;
+        if (mpr_tbl_set_from_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
+            ++updated;
+        a->prop = prop;
+    }
+    RETURN_ARG_UNLESS(!slot->is_local, 0);
+    a = mpr_msg_get_prop(msg, MPR_PROP_DIR | mask);
+    if (a && mpr_type_get_is_str(a->types[0])) {
+        int dir = 0;
+        if (strcmp(&(*a->vals)->s, "output")==0)
+            dir = MPR_DIR_OUT;
+        else if (strcmp(&(*a->vals)->s, "input")==0)
+            dir = MPR_DIR_IN;
+        if (dir)
+            updated += mpr_tbl_set(slot->sig->obj.props.synced, PROP(DIR), NULL, 1, MPR_INT32,
+                                   &dir, REMOTE_MODIFY);
+    }
+    a = mpr_msg_get_prop(msg, MPR_PROP_NUM_INST | mask);
+    if (a) {
+        slot->num_inst = a->vals[0]->i;
     }
     return updated;
 }
@@ -105,6 +101,11 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int st
         snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_TYPE, 0));
         lo_message_add_string(msg, temp);
         lo_message_add_char(msg, slot->sig->type);
+
+        /* include direction from associated signal */
+        snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_DIR, 0));
+        lo_message_add_string(msg, temp);
+        lo_message_add_string(msg, slot->sig->dir == MPR_DIR_OUT ? "output" : "input");
     }
 }
 
