@@ -866,21 +866,27 @@ namespace mapper {
                 case SIG_INT:
                     if (val)
                         data->handler.sig_int(Signal(sig), *(int*)val, Time(time));
+                    break;
                 case SIG_FLT:
                     if (val)
                         data->handler.sig_flt(Signal(sig), *(float*)val, Time(time));
+                    break;
                 case SIG_DBL:
                     if (val)
                         data->handler.sig_dbl(Signal(sig), *(double*)val, Time(time));
+                    break;
                 case INST_INT:
                     data->handler.inst_int(Signal::Instance(sig, inst), Signal::Event(evt),
                                            val ? *(int*)val : 0, Time(time));
+                    break;
                 case INST_FLT:
                     data->handler.inst_flt(Signal::Instance(sig, inst), Signal::Event(evt),
                                            val ? *(float*)val : 0, Time(time));
+                    break;
                 case INST_DBL:
                     data->handler.inst_dbl(Signal::Instance(sig, inst), Signal::Event(evt),
                                            val ? *(double*)val : 0, Time(time));
+                    break;
                 default:
                     return;
             }
