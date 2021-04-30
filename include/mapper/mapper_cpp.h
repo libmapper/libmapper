@@ -449,7 +449,7 @@ namespace mapper {
         /*! Retrieve a Property by name.
          *  \param key      The name of the Property to retrieve.
          *  \return         The retrieved PropVal. */
-        PropVal property(const str_type &key=NULL) const;
+        inline PropVal property(const str_type &key=NULL) const;
 
         /*! Retrieve a Property by index.
          *  \param prop     The index of or symbolic identifier of the Property to retrieve.
@@ -1185,7 +1185,8 @@ namespace mapper {
                     break;
             }
         }
-        int _set_callback(handler_data data, int types, void (*h)(Graph&&, Object&&, Graph::Event))
+        int _set_callback(handler_data data, mpr_type types,
+                          void (*h)(Graph&&, Object&&, Graph::Event))
         {
             data->type = OBJECT;
             data->handler.object = h;
@@ -1445,7 +1446,7 @@ namespace mapper {
         operator const std::vector<T>() const
         {
             std::vector<T> temp_v;
-            for (int i = 0; i < len; i++)
+            for (unsigned int i = 0; i < len; i++)
                 temp_v.push_back(((T*)val)[i]);
             return temp_v;
         }
@@ -1698,7 +1699,7 @@ namespace mapper {
             { _set(static_cast<int>(stl)); }
     };
 
-    void Object::set_property(const PropVal& p)
+    inline void Object::set_property(const PropVal& p)
     {
         if (p.prop == MPR_PROP_DATA || (p.key && !strcmp(p.key, "data")))
             return;
@@ -1706,14 +1707,14 @@ namespace mapper {
     }
 
     template <typename... Values>
-    Object& Object::set_property(const Values... vals)
+    inline Object& Object::set_property(const Values... vals)
     {
         PropVal p(vals...);
         set_property(p);
         return (*this);
     }
 
-    PropVal Object::property(const str_type &key) const
+    inline PropVal Object::property(const str_type &key) const
     {
         mpr_prop prop;
         mpr_type type;
@@ -1728,7 +1729,7 @@ namespace mapper {
     /*! Retrieve a PropVal by index.
      *  \param prop     The index or symbolic identifier of the PropVal to retrieve.
      *  \return         The retrieved PropVal. */
-    PropVal Object::property(Property prop) const
+    inline PropVal Object::property(Property prop) const
     {
         const char *key;
         mpr_type type;
@@ -1742,12 +1743,12 @@ namespace mapper {
     }
 
     template <typename T>
-    PropVal Object::operator [] (const T prop) const
+    inline PropVal Object::operator [] (const T prop) const
         { return property(prop); }
 
     template <class T>
     template <typename P, typename V>
-    List<T>& List<T>::filter(P&& property, V&& value, Operator op)
+    inline List<T>& List<T>::filter(P&& property, V&& value, Operator op)
     {
         PropVal p(property, value);
         _list = mpr_list_filter(_list, p.prop, p.key, p.len, p.type, p.val, static_cast<mpr_op>(op));
@@ -1756,7 +1757,7 @@ namespace mapper {
 
     template <class T>
     template <typename... Values>
-    List<T>& List<T>::set_property(const Values... vals)
+    inline List<T>& List<T>::set_property(const Values... vals)
     {
         PropVal p(vals...);
         if (!p || p.prop == MPR_PROP_DATA || (p.key && !strcmp(p.key, "data")))
@@ -1769,10 +1770,10 @@ namespace mapper {
         return (*this);
     }
 
-    Graph Object::graph() const
+    inline Graph Object::graph() const
         { return Graph(mpr_obj_get_graph(_obj)); }
 
-    Device::Device(const str_type &name, const Graph& graph) : Object(NULL)
+    inline Device::Device(const str_type &name, const Graph& graph) : Object(NULL)
     {
         _obj = mpr_dev_new(name, graph);
         _owned = true;
@@ -1780,16 +1781,16 @@ namespace mapper {
         *_refcount_ptr = 1;
     }
 
-    signal_type::signal_type(const Signal& sig)
+    inline signal_type::signal_type(const Signal& sig)
         { _sig = (mpr_sig)sig; }
 
-    Map& Map::add_scope(const Device& dev)
+    inline Map& Map::add_scope(const Device& dev)
         { mpr_map_add_scope(_obj, mpr_dev(dev)); RETURN_SELF }
 
-    Map& Map::remove_scope(const Device& dev)
+    inline Map& Map::remove_scope(const Device& dev)
         { mpr_map_remove_scope(_obj, mpr_dev(dev)); RETURN_SELF }
 
-    Device Signal::device() const
+    inline Device Signal::device() const
         { return Device(mpr_sig_get_dev(_obj)); }
 
     inline std::string version()
@@ -1815,7 +1816,7 @@ namespace mapper {
         os << "\b\b]";                          \
     }
 
-    std::ostream& operator<<(std::ostream& os, const PropVal& p)
+    inline std::ostream& operator<<(std::ostream& os, const PropVal& p)
     {
         if (p.len <= 0 || p.type == MPR_NULL)
             return os << "NULL";
@@ -1841,18 +1842,18 @@ namespace mapper {
         return os;
     }
 
-    std::ostream& operator<<(std::ostream& os, const Device& dev)
+    inline std::ostream& operator<<(std::ostream& os, const Device& dev)
     {
         return os << "<mapper::Device '" << dev[Property::NAME] << "'>";
     }
 
-    std::ostream& operator<<(std::ostream& os, const Signal& sig)
+    inline std::ostream& operator<<(std::ostream& os, const Signal& sig)
     {
         os << "<mapper::Signal '" << sig.device()[Property::NAME] << ":" << sig[Property::NAME] << "'>";
         return os;
     }
 
-    std::ostream& operator<<(std::ostream& os, const Map& map)
+    inline std::ostream& operator<<(std::ostream& os, const Map& map)
     {
         os << "<mapper::Map ";
 
@@ -1872,7 +1873,7 @@ namespace mapper {
         return os;
     }
 
-    std::ostream& operator<<(std::ostream& os, const Object& o)
+    inline std::ostream& operator<<(std::ostream& os, const Object& o)
     {
         mpr_obj obj = (mpr_obj)o;
         switch (mpr_obj_get_type(obj)) {
