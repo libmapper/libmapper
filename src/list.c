@@ -401,21 +401,19 @@ void mpr_list_free(mpr_list list)
 
 mpr_obj mpr_list_get_idx(mpr_list list, unsigned int idx)
 {
-    int i;
+    int i = 0;
     mpr_list_header_t *lh;
     RETURN_ARG_UNLESS(list, 0);
     lh = mpr_list_header_by_self(list);
 
-    if (0 == idx && *lh->start)
-        return *lh->start;
-
     /* Reset to beginning of list */
     lh->self = *lh->start;
+    mpr_list_start(list);
 
-    i = 1;
-    while ((list = mpr_list_get_next(list))) {
+    while (list) {
         if (i == idx)
             return *list;
+        list = mpr_list_get_next(list);
         ++i;
     }
     return 0;
