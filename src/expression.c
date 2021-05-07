@@ -441,7 +441,7 @@ typedef enum {
     PFN_SUM,
     /* function names above this line are also found in vfn_table */
     PFN_COUNT,
-    PFN_POOL,
+    PFN_INSTANCES,
     PFN_SIZE,
     N_PFN
 } expr_pfn_t;
@@ -460,7 +460,7 @@ static struct {
     { "min",      2, OP_UNKNOWN,     VFN_MIN     },
     { "sum",      2, OP_ADD,         VFN_UNKNOWN },
     { "count",    0, OP_ADD,         VFN_UNKNOWN },
-    { "pool",     0, OP_UNKNOWN,     VFN_UNKNOWN }, /* replaced during parsing */
+    { "instances",0, OP_UNKNOWN,     VFN_UNKNOWN }, /* replaced during parsing */
     { "size",     0, OP_UNKNOWN,     VFN_MAXMIN  },
 };
 
@@ -512,7 +512,7 @@ enum toktype {
     TOK_COLON           = 0x020000,
     TOK_SEMICOLON       = 0x040000,
     TOK_VECTORIZE       = 0x080000,
-    TOK_POOL            = 0x100000,
+    TOK_INSTANCES       = 0x100000,
     TOK_ASSIGN          = 0x200000,
     TOK_ASSIGN_USE,
     TOK_ASSIGN_CONST,
@@ -1050,12 +1050,12 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         case TOK_FN:        snprintf(s, len, "fn.%s(arity %d)", fn_tbl[t.fn.idx].name, t.fn.arity); break;
         case TOK_COMMA:     snprintf(s, len, ",");                              break;
         case TOK_COLON:     snprintf(s, len, ":");                              break;
-        case TOK_VECTORIZE: snprintf(s, len, "VECT(%d)", t.fn.arity);              break;
+        case TOK_VECTORIZE: snprintf(s, len, "VECT(%d)", t.fn.arity);           break;
         case TOK_NEGATE:    snprintf(s, len, "-");                              break;
         case TOK_VFN:
         case TOK_VFN_DOT:   snprintf(s, len, "vfn.%s(arity %d)", vfn_tbl[t.fn.idx].name, t.fn.arity); break;
         case TOK_PFN:       snprintf(s, len, "pfn.%s(arity %d)", pfn_tbl[t.fn.idx].name, t.fn.arity); break;
-        case TOK_POOL:      snprintf(s, len, "pool()");                         break;
+        case TOK_INSTANCES: snprintf(s, len, "instances()");                    break;
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
@@ -1956,10 +1956,11 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
             case TOK_PFN: {
                 int pre, sslen;
                 expr_pfn_t pfn;
-                {FAIL_IF(PFN_POOL != tok.fn.idx, "Instance reduce functions must start with 'pool()'.");}
+                {FAIL_IF(PFN_INSTANCES != tok.fn.idx,
+                         "Instance reduce functions must start with 'instances()'.");}
                 GET_NEXT_TOKEN(tok);
                 {FAIL_IF(TOK_PFN != tok.toktype && TOK_VFN_DOT != tok.toktype,
-                         "pool() must be followed by a reduce function.");}
+                         "instances() must be followed by a reduce function.");}
                 /* get compound arity of last token */
                 sslen = substack_len(out, out_idx);
                 pfn = tok.fn.idx;

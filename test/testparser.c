@@ -1008,40 +1008,40 @@ int run_tests()
         return 1;
 
     /* 68) Pooled instance functions: any() and all() */
-    snprintf(str, 256, "y=(x-1).pool().any() + (x+1).pool().all();");
+    snprintf(str, 256, "y=(x-1).instances().any() + (x+1).instances().all();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 2;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 69) Pooled instance functions: sum(), count() and mean() */
-    snprintf(str, 256, "y=(x.pool().sum()/x.pool().count())==x.pool().mean();");
+    snprintf(str, 256, "y=(x.instances().sum()/x.instances().count())==x.instances().mean();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 70) Pooled instance functions: max(), min(), and size() */
-    snprintf(str, 256, "y=(x.pool().max()-x.pool().min())==x.pool().size();");
+    snprintf(str, 256, "y=(x.instances().max()-x.instances().min())==x.instances().size();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 71) Pooled instance function: center() */
-    snprintf(str, 256, "y=x.pool().center()==(x.pool().max()+x.pool().min())*0.5;");
+    snprintf(str, 256, "y=x.instances().center()==(x.instances().max()+x.instances().min())*0.5;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
-    /* 72) Mean pooled length of centered vectors */
-    snprintf(str, 256, "m=x.pool().mean(); y=(x-m).norm().pool().mean()");
+    /* 72) Pooled instance mean length of centered vectors */
+    snprintf(str, 256, "m=x.instances().mean(); y=(x-m).norm().instances().mean()");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
-    /* 73) Mean pooled linear displacement */
-    snprintf(str, 256, "y=(x-x{-1}).pool().mean()");
+    /* 73) Pooled instance mean linear displacement */
+    snprintf(str, 256, "y=(x-x{-1}).instances().mean()");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
@@ -1061,8 +1061,8 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 76) Mean pooled angular displacement */
-    snprintf(str, 256, "M=x.pool().mean(); y=angle(x{-1}-M,x-M).pool().mean();");
+    /* 76) Pooled instance mean angular displacement */
+    snprintf(str, 256, "M=x.instances().mean(); y=angle(x{-1}-M,x-M).instances().mean();");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = 0.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
