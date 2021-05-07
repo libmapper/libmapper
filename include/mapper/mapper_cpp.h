@@ -391,7 +391,6 @@ namespace mapper {
         friend class List<Signal>;
         friend class List<Map>;
         friend class PropVal;
-        void set_property(const PropVal& p);
 
         mpr_obj _obj;
     public:
@@ -399,6 +398,8 @@ namespace mapper {
         virtual ~Object() {}
         operator mpr_obj() const
             { return _obj; }
+        bool operator == (Object o) const
+            { return _obj == o._obj; }
 
         /*! Get the specific type of an Object.
          *  \return         Object type. */
@@ -449,7 +450,7 @@ namespace mapper {
         /*! Retrieve a Property by name.
          *  \param key      The name of the Property to retrieve.
          *  \return         The retrieved PropVal. */
-        inline PropVal property(const str_type &key=NULL) const;
+        PropVal property(const str_type &key=NULL) const;
 
         /*! Retrieve a Property by index.
          *  \param prop     The index of or symbolic identifier of the Property to retrieve.
@@ -750,7 +751,7 @@ namespace mapper {
         public:
             Instance(mpr_sig sig, Id id)
                 { _sig = sig; _id = id; }
-            bool operator == (Instance i)
+            bool operator == (Instance i) const
                 { return (_id == i._id); }
             operator Id() const
                 { return _id; }
@@ -1220,14 +1221,14 @@ namespace mapper {
          *  \return         The new Graph. */
         Graph(Type types = Type::OBJECT)
         {
-            _graph = mpr_graph_new(static_cast<mpr_type>(types));
+            _obj = mpr_graph_new(static_cast<mpr_type>(types));
             _owned = true;
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
         Graph(const Graph& orig)
         {
-            _graph = orig._graph;
+            _obj = orig._obj;
             _owned = orig._owned;
             _refcount_ptr = orig._refcount_ptr;
             if (_owned)
@@ -1235,31 +1236,31 @@ namespace mapper {
         }
         Graph(mpr_graph graph)
         {
-            _graph = graph;
+            _obj = graph;
             _owned = false;
             _refcount_ptr = 0;
         }
         ~Graph()
         {
-            if (_owned && _graph && decr_refcount() <= 0) {
-                mpr_graph_free(_graph);
+            if (_owned && _obj && decr_refcount() <= 0) {
+                mpr_graph_free(_obj);
                 free(_refcount_ptr);
             }
         }
         operator mpr_graph() const
-            { return _graph; }
+            { return _obj; }
 
         /*! Specify the network interface to use.
          *  \param iface        A string specifying the name of the network interface to use.
          *  \return             Self. */
         Graph& set_iface(const str_type &iface)
-            { mpr_graph_set_interface(_graph, iface); RETURN_SELF }
+            { mpr_graph_set_interface(_obj, iface); RETURN_SELF }
 
         /*! Return a string indicating the name of the network interface in use.
          *  \return     A string containing the name of the network interface.*/
         std::string iface() const
         {
-            const char *iface = mpr_graph_get_interface(_graph);
+            const char *iface = mpr_graph_get_interface(_obj);
             return iface ? std::string(iface) : 0;
         }
 
@@ -1268,18 +1269,18 @@ namespace mapper {
          *  \param port     The multicast port to use.
          *  \return         Self. */
         Graph& set_address(const str_type &group, int port)
-            { mpr_graph_set_address(_graph, group, port); RETURN_SELF }
+            { mpr_graph_set_address(_obj, group, port); RETURN_SELF }
 
         /*! Retrieve the multicast url currently in use.
          *  \return     A string specifying the multicast url in use. */
         std::string address() const
-            { return std::string(mpr_graph_get_address(_graph)); }
+            { return std::string(mpr_graph_get_address(_obj)); }
 
         /*! Update a Graph.
          *  \param block_ms     The number of milliseconds to block, or 0 for non-blocking behavior.
          *  \return             The number of handled messages. */
         int poll(int block_ms=0) const
-            { return mpr_graph_poll(_graph, block_ms); }
+            { return mpr_graph_poll(_obj, block_ms); }
 
         // subscriptions
         /*! Subscribe to information about a specific Device.
@@ -1292,7 +1293,7 @@ namespace mapper {
          *                  freed or this function is called again.
          *  \return         Self. */
         const Graph& subscribe(const device_type& dev, Type types, int timeout)
-            { mpr_graph_subscribe(_graph, dev, static_cast<mpr_type>(types), timeout); RETURN_SELF }
+            { mpr_graph_subscribe(_obj, dev, static_cast<mpr_type>(types), timeout); RETURN_SELF }
 
         /*! Subscribe to information about all discovered Devices.
          *  \param types    Bitflags setting the type of information of interest. Can be a
@@ -1300,18 +1301,18 @@ namespace mapper {
          *                  MPR_MAP_OUT, MPR_MAP, or simply MPR_OBJ for all information.
          *  \return         Self. */
         const Graph& subscribe(Type types)
-            { mpr_graph_subscribe(_graph, 0, static_cast<mpr_type>(types), -1); RETURN_SELF }
+            { mpr_graph_subscribe(_obj, 0, static_cast<mpr_type>(types), -1); RETURN_SELF }
 
         /*! Unsubscribe from information about a specific Device.
          *  \param dev      The Device of interest.
          *  \return         Self. */
         const Graph& unsubscribe(const device_type& dev)
-            { mpr_graph_unsubscribe(_graph, dev); RETURN_SELF }
+            { mpr_graph_unsubscribe(_obj, dev); RETURN_SELF }
 
         /*! Cancel all subscriptions.
          *  \return         Self. */
         const Graph& unsubscribe()
-            { mpr_graph_unsubscribe(_graph, 0); RETURN_SELF }
+            { mpr_graph_unsubscribe(_obj, 0); RETURN_SELF }
 
         /*! Register a callback for when an Object record is added, updated, or removed.
          *  \param h        Callback function.
@@ -1324,7 +1325,7 @@ namespace mapper {
         {
             handler_data data = (handler_data)malloc(sizeof(struct _handler_data));
             int mtypes = _set_callback(data, static_cast<mpr_type>(types), h);
-            mpr_graph_add_cb(_graph, _generic_handler, mtypes, data);
+            mpr_graph_add_cb(_obj, _generic_handler, mtypes, data);
             RETURN_SELF
         }
 
@@ -1334,37 +1335,28 @@ namespace mapper {
         const Graph& remove_callback(void (*h)(Graph&&, Object&&, Graph::Event))
         {
             // need to recover and free data
-            void *data = mpr_graph_remove_cb(_graph, _generic_handler, reinterpret_cast<void*>(h));
+            void *data = mpr_graph_remove_cb(_obj, _generic_handler, reinterpret_cast<void*>(h));
             if (data)
                 free(data);
             RETURN_SELF
         }
 
         const Graph& print() const
-            { mpr_graph_print(_graph); RETURN_SELF }
+            { mpr_graph_print(_obj); RETURN_SELF }
 
         // graph devices
         List<Device> devices() const
-            { return List<Device>(mpr_graph_get_objs(_graph, MPR_DEV)); }
+            { return List<Device>(mpr_graph_get_objs(_obj, MPR_DEV)); }
 
         // graph signals
         List<Signal> signals() const
-            { return List<Signal>(mpr_graph_get_objs(_graph, MPR_SIG)); }
+            { return List<Signal>(mpr_graph_get_objs(_obj, MPR_SIG)); }
 
         // graph maps
         List<Map> maps() const
-            { return List<Map>(mpr_graph_get_objs(_graph, MPR_MAP)); }
+            { return List<Map>(mpr_graph_get_objs(_obj, MPR_MAP)); }
 
         OBJ_METHODS(Graph);
-
-    private:
-        mpr_graph _graph;
-        int* _refcount_ptr;
-        int incr_refcount()
-            { return _refcount_ptr ? ++(*_refcount_ptr) : 0; }
-        int decr_refcount()
-            { return _refcount_ptr ? --(*_refcount_ptr) : 0; }
-        bool _owned;
     };
 
     class PropVal
@@ -1405,9 +1397,30 @@ namespace mapper {
         }
         template <typename T>
         operator const T*() const
-            { return (const T*)val; }
+            { return (const T*)(len > 1 ? val : &val); }
+        operator const char*() const
+        {
+            if (!val || !len || type != MPR_STR)
+                return NULL;
+            return len > 1 ? ((const char**)val)[0] : (const char*)val;
+        }
         operator const char**() const
-            { return (const char**)val; }
+        {
+            if (!val || !len || type != MPR_STR)
+                return NULL;
+            return (const char**)(len > 1 ? val : &val);
+        }
+        operator std::string() const
+        {
+            if (!val || !len || type != MPR_STR)
+                return NULL;
+            return std::string(len > 1 ? *(const char**)val : (const char*)val);
+        }
+        operator void*() const
+        {
+            if (MPR_PTR != type) return 0;
+            return (void*)val;
+        }
         template <typename T, size_t N>
         operator const std::array<T, N>() const
         {
@@ -1699,18 +1712,12 @@ namespace mapper {
             { _set(static_cast<int>(stl)); }
     };
 
-    inline void Object::set_property(const PropVal& p)
-    {
-        if (p.prop == MPR_PROP_DATA || (p.key && !strcmp(p.key, "data")))
-            return;
-        mpr_obj_set_prop(_obj, p.prop, p.key, p.len, p.type, p.val, p.pub);
-    }
-
     template <typename... Values>
     inline Object& Object::set_property(const Values... vals)
     {
         PropVal p(vals...);
-        set_property(p);
+        if (p.prop != MPR_PROP_DATA && (!p.key || strcmp(p.key, "data")))
+            mpr_obj_set_prop(_obj, p.prop, p.key, p.len, p.type, p.val, p.pub);
         return (*this);
     }
 
