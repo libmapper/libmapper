@@ -1563,7 +1563,7 @@ namespace mapper {
             type = _type;
             val = _val;
             len = _len;
-            pub = (MPR_PTR == _type);
+            pub = (MPR_PTR != _type);
             maybe_update();
         }
         void _set(int _len, bool _val[])
