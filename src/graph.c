@@ -3,8 +3,11 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <zlib.h>
+#ifndef _MSC_VER
 #include <sys/time.h>
+#else
 
+#endif
 #include "mapper_internal.h"
 
 #define AUTOSUB_INTERVAL 60

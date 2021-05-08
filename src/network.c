@@ -8,6 +8,7 @@
 #include <zlib.h>
 #include <math.h>
 
+
 #ifdef HAVE_GETIFADDRS
  #include <ifaddrs.h>
  #include <net/if.h>
@@ -20,6 +21,7 @@
   #include <winsock2.h>
   #include <ws2tcpip.h>
   #include <iphlpapi.h>
+  #define HAVE_LIBIPHLPAPI
  #endif
 #endif
 
