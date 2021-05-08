@@ -350,6 +350,8 @@ namespace mapper {
 
         T operator*()
             { return _list ? T(*_list) : T(NULL); }
+        operator T()
+            { return _list ? T(*_list) : T(NULL); }
 
         /*! Retrieve an indexed item in the List.
          *  \param idx           The index of the element to retrieve.
@@ -1093,7 +1095,7 @@ namespace mapper {
         Device& remove_signal(Signal& sig)
         {
             sig.set_callback();
-            mpr_sig_free(sig);
+            mpr_sig_free(sig._obj);
             RETURN_SELF
         }
 
@@ -1381,9 +1383,6 @@ namespace mapper {
         ~PropVal()
             { maybe_free(); }
 
-        template <typename T>
-        operator const T() const
-            { return *(const T*)val; }
         operator const bool() const
         {
             if (!len || !type || !val)
@@ -1396,8 +1395,11 @@ namespace mapper {
             }
         }
         template <typename T>
-        operator const T*() const
-            { return (const T*)(len > 1 ? val : &val); }
+        operator T*() const
+            { return (T*)(len > 1 ? val : &val); }
+        template <typename T>
+        operator T() const
+            { return *(T*)val; }
         operator const char*() const
         {
             if (!val || !len || type != MPR_STR)
