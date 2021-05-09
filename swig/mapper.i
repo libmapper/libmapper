@@ -1051,6 +1051,12 @@ typedef struct _device_list {
     int length() {
         return mpr_list_get_size($self->list);
     }
+    device *__getitem__(int index) {
+        // python lists allow negative indexes
+        if (index < 0)
+            index += mpr_list_get_size($self->list);
+        return (device*)mpr_list_get_idx($self->list, index);
+    }
     %pythoncode {
         def __next__(self):
             return self.next()
@@ -1314,6 +1320,12 @@ typedef struct _signal_list {
     int length() {
         return mpr_list_get_size($self->list);
     }
+    signal *__getitem__(int index) {
+        // python lists allow negative indexes
+        if (index < 0)
+            index += mpr_list_get_size($self->list);
+        return (signal*)mpr_list_get_idx($self->list, index);
+    }
     %pythoncode {
         def __next__(self):
             return self.next()
@@ -1575,6 +1587,12 @@ typedef struct _map_list {
     }
     int length() {
         return mpr_list_get_size($self->list);
+    }
+    map *__getitem__(int index) {
+        // python lists allow negative indexes
+        if (index < 0)
+            index += mpr_list_get_size($self->list);
+        return (map*)mpr_list_get_idx($self->list, index);
     }
     map_list *release() {
         // need to use a copy of query

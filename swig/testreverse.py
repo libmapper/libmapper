@@ -30,5 +30,7 @@ while not map.ready:
 for i in range(100):
     print('updating destination to', i, '-->')
     insig.set_value(i)
+    if i == 50:
+        outsig[mpr.PROP_DIR] = mpr.DIR_IN;
     src.poll(10)
     dest.poll(10)

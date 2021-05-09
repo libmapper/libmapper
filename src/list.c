@@ -403,7 +403,7 @@ mpr_obj mpr_list_get_idx(mpr_list list, unsigned int idx)
 {
     int i = 0;
     mpr_list_header_t *lh;
-    RETURN_ARG_UNLESS(list, 0);
+    RETURN_ARG_UNLESS(list && idx >= 0, 0);
     lh = mpr_list_header_by_self(list);
 
     /* Reset to beginning of list */
