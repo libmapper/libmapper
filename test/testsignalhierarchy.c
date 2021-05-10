@@ -80,7 +80,7 @@ void generate_name(char *str, int len)
     }
 }
 
-int setup_devs() {
+int setup_devs(const char *iface) {
 	char str[20];
 	float mn = 0, mx = 1;
     int i, j;
@@ -91,6 +91,10 @@ int setup_devs() {
 		devices[i] = mpr_dev_new("testmany", 0);
         if (!devices[i])
 			goto error;
+        if (iface)
+            mpr_graph_set_interface(mpr_obj_get_graph((mpr_obj)devices[i]), iface);
+        eprintf("device %d created using interface %s.\n", i,
+                mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)devices[i])));
 
         /* give each device N inputs and N outputs */
 		for (j = 0; j < 10; j++) {
@@ -201,6 +205,7 @@ int main(int argc, char *argv[])
 {
     double now = current_time();
     int i, j, result = 0;
+    char *iface = 0;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -213,7 +218,8 @@ int main(int argc, char *argv[])
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-h help, "
-                               "--devices number of devices\n");
+                               "--devices number of devices, "
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'q':
@@ -226,6 +232,11 @@ int main(int argc, char *argv[])
                         if (strcmp(argv[i], "--devices")==0 && argc>i+1) {
                             i++;
                             num_devs = atoi(argv[i]);
+                            j = 1;
+                        }
+                        else if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
+                            i++;
+                            iface = argv[i];
                             j = 1;
                         }
                         break;
@@ -241,7 +252,7 @@ int main(int argc, char *argv[])
     signal(SIGINT, ctrlc);
 	srand( time(NULL) );
 
-    if (setup_devs()) {
+    if (setup_devs(iface)) {
         eprintf("Error initializing devices.\n");
         result = 1;
         goto done;

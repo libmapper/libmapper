@@ -55,7 +55,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     received++;
 }
 
-int setup_devs()
+int setup_devs(const char *iface)
 {
     float mnf1[] = {0, 0, 0}, mxf1[] = {1, 1, 1};
     float mnf2[] = {3.2, 2, 0}, mxf2[] = {-2, 13, 100};
@@ -65,7 +65,13 @@ int setup_devs()
     devices[1] = mpr_dev_new("testmapinput", 0);
     if (!devices[0] || !devices[1])
         goto error;
-    eprintf("devices created.\n");
+    if (iface) {
+        mpr_graph_set_interface(mpr_obj_get_graph(devices[0]), iface);
+        mpr_graph_set_interface(mpr_obj_get_graph(devices[1]), iface);
+    }
+    eprintf("devices created using interfaces %s and %s.\n",
+            mpr_graph_get_interface(mpr_obj_get_graph(devices[0])),
+            mpr_graph_get_interface(mpr_obj_get_graph(devices[0])));
 
     inputs[0] = mpr_sig_new(devices[0], MPR_DIR_IN, "insig_1", 1, MPR_FLT,
                             NULL, mnf1, mxf1, NULL, handler, MPR_SIG_UPDATE);
@@ -162,6 +168,7 @@ void ctrlc(int sig)
 int main(int argc, char ** argv)
 {
     int i, j, result = 0;
+    char *iface = 0;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -174,7 +181,8 @@ int main(int argc, char ** argv)
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
-                               "-h help\n");
+                               "-h help, "
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'f':
@@ -186,6 +194,13 @@ int main(int argc, char ** argv)
                     case 't':
                         terminate = 1;
                         break;
+                    case '-':
+                        if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
+                            i++;
+                            iface = argv[i];
+                            j = 1;
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -195,7 +210,7 @@ int main(int argc, char ** argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_devs()) {
+    if (setup_devs(iface)) {
         eprintf("Error initializing devices.\n");
         result = 1;
         goto done;

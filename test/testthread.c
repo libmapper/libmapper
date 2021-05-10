@@ -43,7 +43,7 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int setup_src(char *iface)
+int setup_src(const char *iface)
 {
     int mn = 0, mx = 1;
     mpr_list l;
@@ -52,8 +52,9 @@ int setup_src(char *iface)
     if (!src)
         goto error;
     if (iface)
-        mpr_graph_set_interface(mpr_obj_get_graph(src), iface);
-    eprintf("source created.\n");
+        mpr_graph_set_interface(mpr_obj_get_graph((mpr_obj)src), iface);
+    eprintf("source created using interface %s.\n",
+            mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)src)));
 
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_INT32, NULL,
                           &mn, &mx, NULL, NULL, 0);
@@ -90,7 +91,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     }
 }
 
-int setup_dst(char *iface)
+int setup_dst(const char *iface)
 {
     float mn = 0, mx = 1;
     mpr_list l;
@@ -99,8 +100,9 @@ int setup_dst(char *iface)
     if (!dst)
         goto error;
     if (iface)
-        mpr_graph_set_interface(mpr_obj_get_graph(dst), iface);
-    eprintf("destination created.\n");
+        mpr_graph_set_interface(mpr_obj_get_graph((mpr_obj)dst), iface);
+    eprintf("destination created using interface %s.\n",
+            mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
                           &mn, &mx, NULL, handler, MPR_SIG_UPDATE);

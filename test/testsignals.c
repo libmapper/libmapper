@@ -76,6 +76,7 @@ int main(int argc, char ** argv)
 {
     int i, j, result = 0, max;
     char signame[32];
+    char *iface = 0;
 
     /* process flags */
     for (i = 1; i < argc; i++) {
@@ -87,7 +88,8 @@ int main(int argc, char ** argv)
                         printf("test.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-f fast (execute quickly), "
-                               "-h help\n");
+                               "-h help, "
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'q':
@@ -98,6 +100,13 @@ int main(int argc, char ** argv)
                         break;
                     case 'f':
                         period = 1;
+                        break;
+                    case '-':
+                        if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
+                            i++;
+                            iface = argv[i];
+                            j = 1;
+                        }
                         break;
                     default:
                         break;
@@ -115,6 +124,10 @@ int main(int argc, char ** argv)
         result = 1;
         goto done;
     }
+    if (iface)
+        mpr_graph_set_interface(mpr_obj_get_graph((mpr_obj)dev), iface);
+    eprintf("device created using interface %s.\n",
+            mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)dev)));
     while (!mpr_dev_get_is_ready(dev)) {
         mpr_dev_poll(dev, 100);
     }

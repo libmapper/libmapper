@@ -36,7 +36,7 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int setup_srcs()
+int setup_srcs(const char *iface)
 {
     int i, mni=0, mxi=1;
     char tmpname[16];
@@ -48,6 +48,10 @@ int setup_srcs()
         srcs[i] = mpr_dev_new("testconvergent-send", 0);
         if (!srcs[i])
             goto error;
+        if (iface)
+            mpr_graph_set_interface(mpr_obj_get_graph(srcs[i]), iface);
+        eprintf("sources[%d] created using interface %s.\n", i,
+                mpr_graph_get_interface(mpr_obj_get_graph(srcs[i])));
         snprintf(tmpname, 16, "sendsig%d", i);
         sendsigs[i] = mpr_sig_new(srcs[0], MPR_DIR_OUT, tmpname, 1,
                                   MPR_INT32, NULL, &mni, &mxi, NULL, NULL, 0);
@@ -93,7 +97,7 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id instance, int length,
     }
 }
 
-int setup_dst()
+int setup_dst(const char *iface)
 {
     float mn=0, mx=1;
     mpr_list l;
@@ -101,7 +105,10 @@ int setup_dst()
     dst = mpr_dev_new("testconvergent-recv", 0);
     if (!dst)
         goto error;
-    eprintf("destination created.\n");
+    if (iface)
+        mpr_graph_set_interface(mpr_obj_get_graph(dst), iface);
+    eprintf("destination created using interface %s.\n",
+            mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "recvsig", 1, MPR_FLT, NULL,
                           &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
@@ -251,6 +258,7 @@ void ctrlc(int sig)
 int main(int argc, char **argv)
 {
     int i, j, result = 0;
+    char *iface = 0;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -263,7 +271,8 @@ int main(int argc, char **argv)
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-f fast (execute quickly), "
-                               "-h help\n");
+                               "-h help, "
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'f':
@@ -283,6 +292,11 @@ int main(int argc, char **argv)
                                 num_sources = 1;
                             j = 1;
                         }
+                        else if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
+                            i++;
+                            iface = argv[i];
+                            j = 1;
+                        }
                         break;
                     default:
                         break;
@@ -293,13 +307,13 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_dst()) {
+    if (setup_dst(iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_srcs()) {
+    if (setup_srcs(iface)) {
         eprintf("Done initializing %d sources.\n", num_sources);
         result = 1;
         goto done;

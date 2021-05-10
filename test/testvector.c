@@ -36,14 +36,17 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int setup_src()
+int setup_src(const char *iface)
 {
     mpr_list l;
 
     src = mpr_dev_new("testvector-send", 0);
     if (!src)
         goto error;
-    eprintf("source created.\n");
+    if (iface)
+        mpr_graph_set_interface(mpr_obj_get_graph((mpr_obj)src), iface);
+    eprintf("source created using interface %s.\n",
+            mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)src)));
 
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", vec_len, MPR_FLT, NULL,
                           sMin, sMax, NULL, NULL, 0);
@@ -94,14 +97,17 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     }
 }
 
-int setup_dst()
+int setup_dst(const char *iface)
 {
     mpr_list l;
 
     dst = mpr_dev_new("testvector-recv", 0);
     if (!dst)
         goto error;
-    eprintf("destination created.\n");
+    if (iface)
+        mpr_graph_set_interface(mpr_obj_get_graph((mpr_obj)dst), iface);
+    eprintf("destination created using interface %s.\n",
+            mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", vec_len, MPR_FLT, NULL,
                           dMin, dMax, NULL, handler, MPR_SIG_UPDATE);
@@ -203,6 +209,7 @@ void ctrlc(int sig)
 int main(int argc, char **argv)
 {
     int i, j, result = 0;
+    char *iface = 0;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -216,7 +223,8 @@ int main(int argc, char **argv)
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-h help, "
-                               "--vec_len vector length (default 3)\n");
+                               "--vec_len vector length (default 3), "
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'f':
@@ -232,6 +240,11 @@ int main(int argc, char **argv)
                         if (strcmp(argv[i], "--vec_len")==0 && argc>i+1) {
                             i++;
                             vec_len = atoi(argv[i]);
+                            j = 1;
+                        }
+                        else if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
+                            i++;
+                            iface = argv[i];
                             j = 1;
                         }
                         break;
@@ -263,13 +276,13 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_dst()) {
+    if (setup_dst(iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_src()) {
+    if (setup_src(iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;

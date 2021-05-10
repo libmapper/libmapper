@@ -35,7 +35,7 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int setup_src(char *iface)
+int setup_src(const char *iface)
 {
     int mn=0, mx=1;
     mpr_list l;
@@ -46,7 +46,7 @@ int setup_src(char *iface)
     srcgraph = mpr_obj_get_graph((mpr_obj)src);
     if (iface)
         mpr_graph_set_interface(srcgraph, iface);
-    eprintf("source created.\n");
+    eprintf("source created using interface %s.\n", mpr_graph_get_interface(srcgraph));
 
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_INT32, NULL,
                           &mn, &mx, NULL, NULL, 0);
@@ -81,7 +81,7 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id instance, int len,
     received++;
 }
 
-int setup_dst(char *iface)
+int setup_dst(const char *iface)
 {
     float mn=0, mx=1;
     mpr_list l;
@@ -92,7 +92,7 @@ int setup_dst(char *iface)
     dstgraph = mpr_obj_get_graph((mpr_obj)dst);
     if (iface)
         mpr_graph_set_interface(dstgraph, iface);
-    eprintf("destination created.\n");
+    eprintf("destination created using interface %s.\n", mpr_graph_get_interface(dstgraph));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
                           &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
@@ -186,7 +186,8 @@ int main(int argc, char **argv)
                         printf("testmapfail.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
-                               "-h help\n");
+                               "-h help, "
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'q':

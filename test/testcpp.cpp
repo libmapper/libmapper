@@ -181,6 +181,7 @@ void ctrlc(int sig)
 int main(int argc, char ** argv)
 {
     int i = 0, j, result = 0;
+    char *iface = 0;
 
     // process flags for -v verbose, -t terminate, -h help
     for (i = 1; i < argc; i++) {
@@ -193,7 +194,8 @@ int main(int argc, char ** argv)
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-f fast (execute quickly), "
-                               "-h help\n");
+                               "-h help,"
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'q':
@@ -204,6 +206,13 @@ int main(int argc, char ** argv)
                         break;
                     case 't':
                         terminate = 1;
+                        break;
+                    case '-':
+                        if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
+                            i++;
+                            iface = argv[i];
+                            j = 1;
+                        }
                         break;
                     default:
                         break;
@@ -217,6 +226,9 @@ int main(int argc, char ** argv)
     std::ostream& out = verbose ? std::cout : null_out;
 
     Device dev("mydevice");
+    if (iface)
+        dev.graph().set_iface(iface);
+    std::cout << "Created device with interface " << dev.graph().iface() << std::endl;
 
     // make a copy of the device to check reference counting
     Device devcopy(dev);

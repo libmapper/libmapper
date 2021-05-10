@@ -47,7 +47,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
         eprintf(" expected %f\n", expected);
 }
 
-int setup(char *iface)
+int setup(const char *iface)
 {
     int mni=0, mxi=1;
     float mnf=0, mxf=1;
@@ -58,7 +58,8 @@ int setup(char *iface)
         goto error;
     if (iface)
         mpr_graph_set_interface(mpr_obj_get_graph(dev), iface);
-    eprintf("device created.\n");
+    eprintf("device created using interface %s.\n",
+            mpr_graph_get_interface(mpr_obj_get_graph(dev)));
 
     sendsig = mpr_sig_new(dev, MPR_DIR_IN, "outsig", 1, MPR_INT32, NULL,
                           &mni, &mxi, NULL, NULL, 0);
@@ -207,7 +208,8 @@ int main(int argc, char **argv)
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
-                               "-h help\n");
+                               "-h help, "
+                               "--iface network interface\n");
                         return 1;
                         break;
                     case 'f':
