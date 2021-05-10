@@ -831,6 +831,8 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     if (!net->devs)
         goto done;
     for (i = 0; i < net->num_devs; i++) {
+        if (!mpr_dev_get_is_ready((mpr_dev)net->devs[i]))
+            continue;
         if (0 == strcmp(&av[0]->s, mpr_dev_get_name((mpr_dev)net->devs[i])))
             break;
     }
@@ -1376,11 +1378,11 @@ static int parse_sig_names(const char *types, lo_arg **av, int ac, int *src_idx,
     /* Check that all signal names are well formed, and that no signal names
      * appear in both source and destination lists. */
     for (i = 0; i < num_src; i++) {
-        TRACE_RETURN_UNLESS(strchr((&av[*src_idx+i]->s)+1, '/'), 0, "malformed "
-                            "source signal name '%s'.\n", &av[*src_idx+i]->s);
+        TRACE_RETURN_UNLESS(strchr((&av[*src_idx+i]->s)+1, '/'), 0,
+                            "malformed source signal name '%s'.\n", &av[*src_idx+i]->s);
         TRACE_RETURN_UNLESS(strcmp(&av[*src_idx+i]->s, &av[*dst_idx]->s), 0,
-                            "prevented attempt to connect signal '%s' to "
-                            "itself.\n", &av[*dst_idx]->s);
+                            "prevented attempt to connect signal '%s' to itself.\n",
+                            &av[*dst_idx]->s);
     }
     TRACE_RETURN_UNLESS(strchr((&av[*dst_idx]->s)+1, '/'), 0, "malformed "
                         "destination signal name '%s'.\n", &av[*dst_idx]->s)
