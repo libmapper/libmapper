@@ -99,25 +99,26 @@ class testinstance {
         out1.reserveInstances(4);
 //        int[] foo = new int[]{1,2,3,4};
 //        Signal.Instance instance1 = out1.instance(foo);
+        Signal.Instance instance1 = out1.instance();
         Signal.Instance instance2 = out1.instance();
 
         System.out.println("Reserving 4 instances for signal "
                            +inp1.properties().get("name"));
         inp1.reserveInstances(4);
 
-//        while (i++ <= 100) {
-//            if ((i % 3) > 0) {
-//                instance1.setValue(i);
-//                System.out.println("Updated instance1 value to: " + instance1.getValue());
-//            }
-//            else {
-//                instance2.setValue(i);
-//                System.out.println("Updated instance2 value to: " + instance2.getValue());
-//            }
-//
-//            dev1.poll(50);
-//            dev2.poll(50);
-//        }
+        while (i++ <= 100) {
+            if ((i % 3) > 0) {
+                instance1.setValue(i);
+                System.out.println("Updated instance1 value to: " + instance1.getValue());
+            }
+            else {
+                instance2.setValue(i);
+                System.out.println("Updated instance2 value to: " + instance2.getValue());
+            }
+
+            dev1.poll(50);
+            dev2.poll(50);
+        }
 
 //        System.out.println(inp1.properties().get("name") + " oldest instance is "
 //                           + inp1.oldestActiveInstance());

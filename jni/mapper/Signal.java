@@ -25,8 +25,7 @@ public class Signal extends AbstractObject
     public native Device device();
 
     /* callbacks */
-    private native void mapperSignalSetCB(long sig, Listener l, String methodSig,
-                                          int flags);
+    private native void mapperSignalSetCB(long sig, Listener l, String methodSig, int flags);
     private void _setListener(Listener l, int flags) {
         if (l == null) {
             mapperSignalSetCB(_obj, null, null, 0);
@@ -76,13 +75,13 @@ public class Signal extends AbstractObject
     }
 
     public Instance instance(long id) {
-        return new Instance(this, id);
+        return new Instance(id);
     }
     public Instance instance() {
-        return new Instance(this);
+        return new Instance();
     }
     public Instance instance(java.lang.Object obj) {
-        return new Instance(this, obj);
+        return new Instance(obj);
     }
 
     /* instance management */
@@ -105,47 +104,53 @@ public class Signal extends AbstractObject
     public native Object getValue(long id);
     public Object getValue() { return getValue(0); }
 
-    public class Instance
+    public native Signal releaseInstance(long id);
+    public native Signal removeInstance(long id);
+
+    public class Instance extends AbstractObject
     {
-        private native long mapperInstance(boolean hasId, long id,
-                                           java.lang.Object obj);
-        private Instance(Signal sig, long id) {
-            _sigobj = sig;
-            _sigptr = sig._obj;
+        /* constructors */
+        private native long mapperInstance(boolean hasId, long id, java.lang.Object obj);
+        private Instance(long id) {
+            super(Signal.this._obj);
             _id = mapperInstance(true, id, null);
         }
-        private Instance(Signal sig, java.lang.Object obj) {
-            _sigobj = sig;
-            _sigptr = sig._obj;
+        private Instance(java.lang.Object obj) {
+            super(Signal.this._obj);
             _id = mapperInstance(false, 0, obj);
         }
-        private Instance(Signal sig) {
-            _sigobj = sig;
-            _sigptr = sig._obj;
+        private Instance() {
+            super(Signal.this._obj);
             _id = mapperInstance(false, 0, null);
         }
 
+        /* self */
+        @Override
+        public Instance self() {
+            return this;
+        }
+
         /* release */
-        public native void release();
+        public void release() { Signal.this.releaseInstance(_id); }
 
         /* remove instances */
-        public native void free();
+        public void free() { Signal.this.removeInstance(_id); }
 
-        public Signal signal() { return _sigobj; }
+        public Signal signal() { return Signal.this; }
 
         public native int isActive();
         public long id() { return _id; }
 
-        public boolean hasValue() { return _sigobj.hasValue(_id); }
+        public boolean hasValue() { return Signal.this.hasValue(_id); }
 
         /* update */
         public Instance setValue(Object value) {
-            _sigobj.setValue(_id, value);
+            Signal.this.setValue(_id, value);
             return this;
         }
 
         /* value */
-        public Object getValue() { return _sigobj.getValue(_id); }
+        public Object getValue() { return Signal.this.getValue(_id); }
 
         /* userObject */
         public native java.lang.Object userReference();
@@ -153,11 +158,7 @@ public class Signal extends AbstractObject
 
         /* properties */
         // TODO: filter for instance-specific properties like id, value, time
-        public Signal.Properties properties()
-            { return _sigobj.properties(); }
 
-        private Signal _sigobj;
-        private long _sigptr;
         private long _id;
     }
 

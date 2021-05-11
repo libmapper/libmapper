@@ -119,8 +119,7 @@ static void throwIllegalArgumentSignal(JNIEnv *env)
     jclass newExcCls =
         (*env)->FindClass(env, "java/lang/IllegalArgumentException");
     if (newExcCls) {
-        (*env)->ThrowNew(env, newExcCls,
-                         "Signal object is not associated with a mpr_sig.");
+        (*env)->ThrowNew(env, newExcCls, "Signal object is not associated with a mpr_sig.");
     }
 }
 
@@ -163,7 +162,7 @@ static mpr_sig get_inst_from_jobject(JNIEnv *env, jobject obj, mpr_id *id)
     jclass cls = (*env)->GetObjectClass(env, obj);
     if (cls) {
         mpr_sig sig = 0;
-        jfieldID val = (*env)->GetFieldID(env, cls, "_sigptr", "J");
+        jfieldID val = (*env)->GetFieldID(env, cls, "_obj", "J");
         if (val) {
             jlong s = (*env)->GetLongField(env, obj, val);
             sig = (mpr_sig)ptr_jlong(s);
@@ -263,8 +262,7 @@ static jobject get_jobject_from_signal_evt(JNIEnv *env, mpr_sig_evt evt)
             exit(1);
     }
     if (cls) {
-        jfieldID fid = (*env)->GetStaticFieldID(env, cls, evt_str,
-                                                "Lmapper/signal/Event;");
+        jfieldID fid = (*env)->GetStaticFieldID(env, cls, evt_str, "Lmapper/signal/Event;");
         if (fid) {
             obj = (*env)->GetStaticObjectField(env, cls, fid);
         }
@@ -388,9 +386,8 @@ static jobject build_value_object(JNIEnv *env, const int len, mpr_type type, con
     return ret;
 }
 
-static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id,
-                                  int len, mpr_type type, const void *val,
-                                  mpr_time time)
+static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int len,
+                                  mpr_type type, const void *val, mpr_time time)
 {
     if (bailing)
         return;
@@ -427,19 +424,18 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id,
                 // printf("error finding Signal class\n");
                 return;
             }
-            mid = (*genv)->GetMethodID(genv, cls, "<init>", "(Lmapper/Signal;)V");
+            mid = (*genv)->GetMethodID(genv, cls, "<init>", "(Lmapper/Signal;J)V");
             // mid = (*genv)->GetMethodID(genv, cls, "instance", "()Lmapper/Signal$Instance;");
             if (!mid) {
                 printf("error finding Instance constructor method id\n");
                 return;
             }
             // jobject obj = (*genv)->CallObjectMethod(genv, ctx->signal, mid);
-            jobject obj = (*genv)->NewObject(genv, cls, mid, ctx->signal);
+            jobject obj = (*genv)->NewObject(genv, cls, mid, ctx->signal, id);
             if (!obj) {
                 printf("error instantiating Signal.Instance object\n");
                 return;
             }
-            printf("");
             ictx->inst = (*genv)->NewGlobalRef(genv, obj);
         }
         sig_ptr = ictx->inst;
@@ -1674,32 +1670,6 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
     return id;
 }
 
-JNIEXPORT void JNICALL Java_mapper_Signal_00024Instance_release
-  (JNIEnv *env, jobject obj)
-{
-    mpr_id id;
-    mpr_sig sig = get_inst_from_jobject(env, obj, &id);
-    if (sig)
-        mpr_sig_release_inst(sig, id);
-}
-
-JNIEXPORT void JNICALL Java_mapper_Signal_00024Instance_free
-  (JNIEnv *env, jobject obj)
-{
-    mpr_id id;
-    mpr_sig sig = get_inst_from_jobject(env, obj, &id);
-    if (!sig)
-        return;
-    inst_jni_context ictx = mpr_sig_get_inst_data(sig, id);
-    if (ictx) {
-        if (ictx->inst)
-            (*env)->DeleteGlobalRef(env, ictx->inst);
-        if (ictx->user_ref)
-            (*env)->DeleteGlobalRef(env, ictx->user_ref);
-    }
-    mpr_sig_release_inst(sig, id);
-}
-
 JNIEXPORT jint JNICALL Java_mapper_Signal_00024Instance_isActive
   (JNIEnv *env, jobject obj)
 {
@@ -1955,6 +1925,32 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_getValue
         val = mpr_sig_get_value(sig, id, NULL);
     }
     return build_value_object(env, len, type, val);
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Signal_releaseInstance
+  (JNIEnv *env, jobject obj, jlong id)
+{
+    mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, obj);
+    if (sig)
+        mpr_sig_release_inst(sig, id);
+    return obj;
+}
+
+JNIEXPORT jobject JNICALL Java_mapper_Signal_removeInstance
+  (JNIEnv *env, jobject obj, jlong id)
+{
+    mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, obj);
+    if (!sig)
+        return obj;
+    inst_jni_context ictx = mpr_sig_get_inst_data(sig, id);
+    if (ictx) {
+        if (ictx->inst)
+            (*env)->DeleteGlobalRef(env, ictx->inst);
+        if (ictx->user_ref)
+            (*env)->DeleteGlobalRef(env, ictx->user_ref);
+    }
+    mpr_sig_release_inst(sig, id);
+    return obj;
 }
 
 JNIEXPORT jlong JNICALL Java_mapper_Signal_maps

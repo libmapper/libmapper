@@ -103,6 +103,16 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
         private native Object _put(long obj, int idx, String key, Object value);
         public Object put(Object key, Object value)
         {
+            // translate some enum objects to their int form
+            if (value instanceof mapper.Direction)
+                value = ((mapper.Direction)value).value();
+            else if (value instanceof mapper.map.Location)
+                value = ((mapper.map.Location)value).value();
+            else if (value instanceof mapper.signal.StealMode)
+                value = ((mapper.signal.StealMode)value).value();
+            else if (value instanceof mapper.Type)
+                value = ((mapper.Type)value).value();
+
             if (key instanceof Integer)
                 return _put(_obj, (int)key, null, value);
             else if (key instanceof String)
