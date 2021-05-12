@@ -403,6 +403,11 @@ namespace mapper {
         bool operator == (Object o) const
             { return _obj == o._obj; }
 
+        /*! Cast to a boolean value based on whether the underlying C object exists.
+         *  \return         True if object exists, otherwise false. */
+        operator bool() const
+            { return _obj ? true : false; }
+
         /*! Get the specific type of an Object.
          *  \return         Object type. */
         Type type() const
@@ -615,11 +620,6 @@ namespace mapper {
         operator mpr_map() const
             { return _obj; }
 
-        /*! Cast to a boolean value based on whether the underlying C map exists.
-         *  \return         True if mpr_map exists, otherwise false. */
-        operator bool() const
-            { return _obj; }
-
         /*! Re-create stale map if necessary.
          *  \return         Self. */
         const Map& refresh() const
@@ -712,8 +712,6 @@ namespace mapper {
         Signal(mpr_sig sig) : Object(sig) {}
         operator mpr_sig() const
             { return _obj; }
-        operator bool() const
-            { return _obj ? true : false; }
         inline Device device() const;
         List<Map> maps(Direction dir = Direction::ANY) const
             { return List<Map>(mpr_sig_get_maps(_obj, static_cast<mpr_dir>(dir))); }
@@ -1383,11 +1381,14 @@ namespace mapper {
         ~PropVal()
             { maybe_free(); }
 
-        operator const bool() const
+        operator bool() const
         {
             if (!len || !type || !val)
                 return false;
+            if (len > 1)
+                return true;
             switch (type) {
+                case MPR_BOOL:
                 case MPR_INT32: return *(int*)val != 0;
                 case MPR_FLT:   return *(float*)val != 0.f;
                 case MPR_DBL:   return *(double*)val != 0.;
