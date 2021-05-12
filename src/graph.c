@@ -183,11 +183,11 @@ mpr_graph mpr_graph_new(int subscribe_flags)
 void mpr_graph_free(mpr_graph g)
 {
     mpr_list list;
-    fptr_list cb;
     RETURN_UNLESS(g);
 
     /* remove callbacks now so they won't be called when removing devices */
-    while ((cb = g->callbacks)) {
+    while (g->callbacks) {
+        fptr_list cb = g->callbacks;
         g->callbacks = g->callbacks->next;
         free(cb);
     }

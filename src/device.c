@@ -149,6 +149,13 @@ void mpr_dev_free(mpr_dev dev)
     /* remove OSC handlers associated with this device */
     mpr_net_remove_dev_methods(net, ldev);
 
+    /* also remove any graph handlers registered locally */
+    while (gph->callbacks) {
+        fptr_list cb = gph->callbacks;
+        gph->callbacks = gph->callbacks->next;
+        free(cb);
+    }
+
     /* remove subscribers */
     while (ldev->subscribers) {
         mpr_subscriber sub = ldev->subscribers;
