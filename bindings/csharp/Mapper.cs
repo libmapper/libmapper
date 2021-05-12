@@ -204,46 +204,86 @@ namespace Mapper
             Newest,     //!< Steal the newest instance.
         }
 
+        private enum HandlerType {
+            None,
+            SingleInt,
+            SingleFloat,
+            SingleDouble,
+            InstanceInt,
+            InstanceFloat,
+            InstanceDouble
+        }
+
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_sig_set_cb(IntPtr sig, IntPtr handler, int events);
 
         // construct from mpr_sig pointer
-        internal Signal(IntPtr sig,
-                        Action<Signal, Signal.Event, UInt64, int, Type, IntPtr, IntPtr> h = null,
-                        int events = 0)
+        internal Signal(IntPtr sig)
         {
             this._obj = sig;
-
-            if (h != null && events != 0) {
-                _handler = h;
-
-                mpr_sig_set_cb(this._obj,
-                               Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(handler)),
-                               events);
-            }
         }
 
-        private void handler(IntPtr sig, int evt, UInt64 instance, int length,
-                             int type, IntPtr value, IntPtr time) {
+        private void _handler(IntPtr sig, int evt, UInt64 instance, int length,
+                              int type, IntPtr value, IntPtr time) {
             // recover signal object
-            if (this._handler != null) {
-                this._handler(new Signal(sig), (Event)evt, instance, length, (Type)type, value, time);
+            switch (this.handlerType) {
+                case HandlerType.SingleInt:
+                    unsafe {
+                        // need to actually check if signal type is int
+                        int ivalue = *(int*)value;
+                        this.handlers.singleInt(new Signal(sig), (Event)evt, ivalue);
+                    }
+                    break;
+                case HandlerType.SingleFloat:
+                    unsafe {
+                        // need to actually check if signal type is int
+                        float fvalue = *(float*)value;
+                        this.handlers.singleFloat(new Signal(sig), (Event)evt, fvalue);
+                    }
+                    break;
+                case HandlerType.SingleDouble:
+                    unsafe {
+                        // need to actually check if signal type is int
+                        double dvalue = *(double*)value;
+                        this.handlers.singleDouble(new Signal(sig), (Event)evt, dvalue);
+                    }
+                    break;
+                default:
+                break;
             }
         }
 
         ~Signal()
             {}
 
-        public Signal setCallback(Action<Signal, Signal.Event, UInt64, int, Type, IntPtr, IntPtr> h = null,
-                                int events = 0)
+        private void _setCallback(Action<Signal, Signal.Event, int> h)
         {
-            if (h != null && events != 0) {
-                _handler = h;
+            handlerType = HandlerType.SingleInt;
+            handlers.singleInt = h;
+        }
 
-                mpr_sig_set_cb(this._obj,
-                               Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(handler)),
-                               events);
-            }
+        private void _setCallback(Action<Signal, Signal.Event, float> h)
+        {
+            handlerType = HandlerType.SingleFloat;
+            handlers.singleFloat = h;
+        }
+
+        private void _setCallback(Action<Signal, Signal.Event, double> h)
+        {
+            handlerType = HandlerType.SingleDouble;
+            handlers.singleDouble = h;
+        }
+
+        // TODO: add vector or array handlers
+        // TODO: add instance handlers
+
+        public Signal setCallback<T>(T handler, int events = 0)
+        {
+            dynamic temp = handler;
+            _setCallback(temp);
+            mpr_sig_set_cb(this._obj,
+                           Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
+                           events);
             return this;
         }
 
@@ -282,7 +322,18 @@ namespace Mapper
             return this;
         }
 
-        Action<Signal, Signal.Event, UInt64, int, Type, IntPtr, IntPtr> _handler = null;
+        [StructLayout(LayoutKind.Explicit)]
+        struct Handlers
+        {
+            [FieldOffset(0)]
+            internal Action<Signal, Signal.Event, int> singleInt;
+            [FieldOffset(0)]
+            internal Action<Signal, Signal.Event, float> singleFloat;
+            [FieldOffset(0)]
+            internal Action<Signal, Signal.Event, double> singleDouble;
+        }
+        private Handlers handlers;
+        private HandlerType handlerType = HandlerType.None;
     }
 
     public class Device : Object
@@ -315,19 +366,16 @@ namespace Mapper
                                                  int length, int type,
                                                  [MarshalAs(UnmanagedType.LPStr)] string unit,
                                                  IntPtr min, IntPtr max, IntPtr num_inst,
-                                                 Action<Signal, Signal.Event, UInt64, int, Type, IntPtr, IntPtr> handler,
-                                                 int events);
+                                                 IntPtr handler, int events);
         public Signal addSignal(Direction dir, [MarshalAs(UnmanagedType.LPStr)] string name,
                                 int length, Type type,
                                 [MarshalAs(UnmanagedType.LPStr)] string unit = null,
                                 IntPtr min = default(IntPtr), IntPtr max = default(IntPtr),
-                                IntPtr num_inst = default(IntPtr),
-                                Action<Signal, Signal.Event, UInt64, int, Type, IntPtr, IntPtr> handler = null,
-                                int events = 0)
+                                IntPtr num_inst = default(IntPtr))
         {
             IntPtr sigptr = mpr_sig_new(this._obj, (int) dir, name, length, (int) type, unit,
-                                        min, max, num_inst, null, 0);
-            return new Signal(sigptr, handler, events);
+                                        min, max, num_inst, default(IntPtr), 0);
+            return new Signal(sigptr);
         }
     }
 

@@ -4,12 +4,8 @@ using Mapper;
 
 public class TestCSharp
 {
-    private static void handler(Signal sig, Mapper.Signal.Event evt, UInt64 instance, int length,
-                                Mapper.Type type, IntPtr value, IntPtr time) {
-        unsafe {
-            float fvalue = *(float*)value;
-            Console.WriteLine("received value " + fvalue);
-        }
+    private static void handler(Signal sig, Mapper.Signal.Event evt, float value) {
+        Console.WriteLine("received value " + value);
     }
 
     public static void Main(string[] args) {
@@ -26,7 +22,7 @@ public class TestCSharp
 
         Signal insig = dev.addSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float, null,
                                      IntPtr.Zero, IntPtr.Zero, IntPtr.Zero)
-                          .setCallback(handler, (int)Mapper.Signal.Event.Update);
+                          .setCallback((Action<Signal, Signal.Event, float>)handler, (int)Mapper.Signal.Event.Update);
         Console.WriteLine("created signal insig");
 
         Console.Write("Waiting for device");
