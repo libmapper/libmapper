@@ -12,7 +12,7 @@ namespace Mapper
         Signal    = 0x06,             //!< All signals.
         MapIn     = 0x08,             //!< Incoming maps.
         MapOut    = 0x10,             //!< Outgoing maps.
-        Map       = 0x18,               //!< All maps.
+        Map       = 0x18,             //!< All maps.
         Object    = 0x1F,             //!< All objects: devices, signale, and maps
         List      = 0x40,             //!< object query.
         Graph     = 0x41,             //!< Graph.
@@ -132,8 +132,58 @@ namespace Mapper
             Reserved     = 0x80
         }
 
-        // Graph getGraph()
-        //     { return new Graph(_obj); }
+        internal class PropVal<P, T>
+        {
+            private void _setProp(int prop)
+            {
+                _prop = prop;
+                _key = "";
+            }
+            private void _setProp(string key)
+            {
+                _prop = 0;
+                _key = key;
+            }
+
+            internal PropVal(P prop, T value)
+            {
+                dynamic temp = prop;
+                _setProp(temp);
+                switch (value) {
+                    case int i:     _len = 1; _type = Type.Int32; _value.Int32 = i;    break;
+                    case float f:   _len = 1; _type = Type.Float; _value.Float = f;    break;
+                    case double d:  _len = 1; _type = Type.Double; _value.Double = d;  break;
+                    // case string s:      _len = 1;           _type = Type.String;    break;
+                    // case int[] i:   _len = i.Length; _type = Type.Int32; _value.Int32a = i; break;
+                    // case float[] f:     _len = f.Length;    _type = Type.Float;     break;
+                    // case double[] d:    _len = d.Length;    _type = Type.Double;    break;
+                    // case string[] s:    _len = s.Length;    _type = Type.String;    break;
+                    default:                                                        break;
+                }
+            }
+
+            internal int _prop;
+            internal string _key;
+            internal int _len;
+            internal Type _type;
+            internal int _publish = 0;
+
+            [StructLayout(LayoutKind.Explicit)]
+            internal struct Value
+            {
+                [FieldOffset(0)]
+                internal int Int32;
+                [FieldOffset(0)]
+                internal float Float;
+                [FieldOffset(0)]
+                internal double Double;
+            }
+            internal Value _value;
+        }
+
+        protected Object() {}
+        protected Object(IntPtr obj)
+            { _obj = obj; }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_obj_get_type(IntPtr obj);
@@ -145,15 +195,92 @@ namespace Mapper
         public int getNumProperties()
             { return mpr_obj_get_num_props(_obj); }
 
-        // public Property getProperty(int idx) {}
-        // public Property getProperty([MarshalAs(UnmanagedType.LPStr)] string name) {}
-        // public Property getProperty() {}
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        unsafe internal static extern int mpr_obj_get_prop_by_idx(IntPtr obj, out char **key,
+                                                                  out int *len, out int *type,
+                                                                  out void *value, out int *publish);
+
+        // unsafe public dynamic getProperty(int idx)
+        // {
+        //     char *key;
+        //     char **pkey = &key;
+        //     int *len;
+        //     int *type;
+        //     void *value;
+        //     int *publish;
+        //     int prop = mpr_obj_get_prop_by_idx(this._obj, out pkey, out len, out type,
+        //                                        out value, out publish);
+        //     if (0 == prop || 0 == *len)
+        //         return null;
+        //     switch (*type) {
+        //         case (int)Type.Int32:
+        //         if (*len == 1)
+        //             return new PropVal<string, int>(key, *(int*)value);
+        //         else {
+        //             int[] arr = new int[*len];
+        //             Marshal.Copy(value, arr, 0, *len);
+        //             return new PropVal<string, int[]>(key, arr);
+        //         }
+        //         break;
+        //     }
+        // }
+        // public dynamic getProperty(Property prop)
+        // {
+        //     return getProperty((int)prop);
+        // }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        internal static extern int mpr_obj_set_prop(IntPtr obj, int prop,
-                                                    [MarshalAs(UnmanagedType.LPStr)] string key,
-                                                    int len, int type, IntPtr value, int publish);
-        // public Object setProperty() {}
+        unsafe internal static extern
+        int mpr_obj_get_prop_as_int32(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string key);
+
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        unsafe internal static extern
+        int mpr_obj_set_prop(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string key,
+                             int len, int type, void* value, int publish);
+        unsafe public Object setProperty<P, T>(P prop, T value)
+        {
+            int _prop = 0;
+            string _key = null;
+
+            switch (prop) {
+                case Property p:    _prop = (int)p; break;
+                case string s:      _key = s;       break;
+                default:
+                    Console.WriteLine("unknown property specifier in method setProperty().");
+                    return this;
+            }
+
+            switch (value) {
+                case int i:
+                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Int32, (void*)&i, 1);
+                    break;
+                case float f:
+                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Float, (void*)&f, 1);
+                    break;
+                case double d:
+                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Double, (void*)&d, 1);
+                    break;
+                case int[] i:
+                    fixed(int *temp = &i[0]) {
+                        IntPtr intPtr = new IntPtr((void*)temp);
+                        mpr_obj_set_prop(_obj, _prop, _key, i.Length, (int)Type.Int32, (void*)temp, 1);
+                    }
+                    break;
+                case float[] f:
+                    fixed(float *temp = &f[0]) {
+                        IntPtr intPtr = new IntPtr((void*)temp);
+                        mpr_obj_set_prop(_obj, _prop, _key, f.Length, (int)Type.Float, (void*)temp, 1);
+                    }
+                    break;
+                case double[] d:
+                    fixed(double *temp = &d[0]) {
+                        IntPtr intPtr = new IntPtr((void*)temp);
+                        mpr_obj_set_prop(_obj, _prop, _key, d.Length, (int)Type.Double, (void*)temp, 1);
+                    }
+                    break;
+            }
+            return this;
+        }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_obj_push(IntPtr obj);
@@ -161,6 +288,13 @@ namespace Mapper
         {
             mpr_obj_push(_obj);
             return this;
+        }
+
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        private static extern IntPtr mpr_obj_get_graph(IntPtr obj);
+        public Graph graph()
+        {
+            return new Graph(mpr_obj_get_graph(_obj));
         }
 
         internal IntPtr _obj;
@@ -175,14 +309,12 @@ namespace Mapper
             Expired         //!< The graph has lost contact with the remote entity.
         }
 
+        public Graph(IntPtr obj) : base(obj) {}
+
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_graph_new(int flags);
-        public Graph(int flags)
-            { _graph = mpr_graph_new(flags); }
-        public Graph()
-            { _graph = mpr_graph_new(0); }
-
-        IntPtr _graph;
+        public Graph(int flags) : base(mpr_graph_new(flags)) {}
+        public Graph() : base(mpr_graph_new(0)) {}
     }
 
     public class Signal : Object
@@ -218,32 +350,25 @@ namespace Mapper
         private static extern void mpr_sig_set_cb(IntPtr sig, IntPtr handler, int events);
 
         // construct from mpr_sig pointer
-        internal Signal(IntPtr sig)
-        {
-            this._obj = sig;
-        }
+        internal Signal(IntPtr sig) : base(sig) {}
 
         private void _handler(IntPtr sig, int evt, UInt64 instance, int length,
                               int type, IntPtr value, IntPtr time) {
-            // recover signal object
             switch (this.handlerType) {
                 case HandlerType.SingleInt:
                     unsafe {
-                        // need to actually check if signal type is int
                         int ivalue = *(int*)value;
                         this.handlers.singleInt(new Signal(sig), (Event)evt, ivalue);
                     }
                     break;
                 case HandlerType.SingleFloat:
                     unsafe {
-                        // need to actually check if signal type is int
                         float fvalue = *(float*)value;
                         this.handlers.singleFloat(new Signal(sig), (Event)evt, fvalue);
                     }
                     break;
                 case HandlerType.SingleDouble:
                     unsafe {
-                        // need to actually check if signal type is int
                         double dvalue = *(double*)value;
                         this.handlers.singleDouble(new Signal(sig), (Event)evt, dvalue);
                     }
@@ -256,22 +381,31 @@ namespace Mapper
         ~Signal()
             {}
 
-        private void _setCallback(Action<Signal, Signal.Event, int> h)
+        private Boolean _setCallback(Action<Signal, Signal.Event, int> h, int type)
         {
+            if (type != (int)Type.Int32)
+                return false;
             handlerType = HandlerType.SingleInt;
             handlers.singleInt = h;
+            return true;
         }
 
-        private void _setCallback(Action<Signal, Signal.Event, float> h)
+        private Boolean _setCallback(Action<Signal, Signal.Event, float> h, int type)
         {
+            if (type != (int)Type.Float)
+                return false;
             handlerType = HandlerType.SingleFloat;
             handlers.singleFloat = h;
+            return true;
         }
 
-        private void _setCallback(Action<Signal, Signal.Event, double> h)
+        private Boolean _setCallback(Action<Signal, Signal.Event, double> h, int type)
         {
+            if (type != (int)Type.Double)
+                return false;
             handlerType = HandlerType.SingleDouble;
             handlers.singleDouble = h;
+            return true;
         }
 
         // TODO: add vector or array handlers
@@ -280,7 +414,11 @@ namespace Mapper
         public Signal setCallback<T>(T handler, int events = 0)
         {
             dynamic temp = handler;
-            _setCallback(temp);
+            int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
+            if (!_setCallback(temp, type)) {
+                Console.WriteLine("error: wrong data type in signal handler.");
+                return this;
+            }
             mpr_sig_set_cb(this._obj,
                            Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
                            events);
@@ -341,7 +479,7 @@ namespace Mapper
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_new([MarshalAs(UnmanagedType.LPStr)] string devname, IntPtr graph);
         public Device([MarshalAs(UnmanagedType.LPStr)] string name)
-            { this._obj = mpr_dev_new(name, IntPtr.Zero); }
+            : base(mpr_dev_new(name, IntPtr.Zero)) {}
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_free(IntPtr dev);

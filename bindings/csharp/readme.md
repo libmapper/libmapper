@@ -16,7 +16,7 @@ This should produce a file named `Mapper.dll`
 Run the following command from within the bindings/csharp directory:
 
 ~~~
-csc /unsafe /r:Mapper.dll test.cs
+csc /r:Mapper.dll test.cs
 ~~~
 
 This should produce a file named `test.exe`

@@ -20,8 +20,7 @@ public class TestCSharp
         Mapper.Signal outsig = dev.addSignal(Direction.Outgoing, "outsig", 1, Mapper.Type.Float);
         Console.WriteLine("created signal outsig");
 
-        Signal insig = dev.addSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float, null,
-                                     IntPtr.Zero, IntPtr.Zero, IntPtr.Zero)
+        Signal insig = dev.addSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float)
                           .setCallback((Action<Signal, Signal.Event, float>)handler, (int)Mapper.Signal.Event.Update);
         Console.WriteLine("created signal insig");
 
@@ -30,6 +29,8 @@ public class TestCSharp
             dev.poll(25);
         }
         Console.WriteLine("Device ready...");
+
+        dev.setProperty("foo", 1000);
 
         // Map map = new Map(outsig, insig);
         Map map = new Map("%y=%x*1000", insig, outsig);
@@ -47,7 +48,7 @@ public class TestCSharp
             dev.poll(100);
             sig_val += 0.1F;
             if (sig_val > 100)
-              sig_val = 0F;
+                sig_val = 0.0F;
             Console.Write("Sig updated to ");
             Console.WriteLine(sig_val.ToString());
         }
