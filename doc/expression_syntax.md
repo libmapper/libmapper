@@ -189,7 +189,7 @@ There are several special functions that operate across all instances of a signa
 
 These instance functions accept subexpressions as arguments. for example, we can calculate the linear displacement of input `x` averaged across all of its active instances with the expression `y=(x-x{-1}).instances().mean()`. Similarly, we can calculate the average angular displacement around the center of a bounding box including all active instances.
 
-* `c=x.instances().center(); y=(angle(x{-1}, c, x)).instances().mean();`
+* `c=x.instances().center(); y=(angle(x{-1}-c, x-c)).instances().mean();`
 
 In a scenario where `x` represents the touch coordinates on a multitouch surface, this value gives mean rotation of all touches around their mutual center.
 

@@ -225,7 +225,7 @@ int main(int argc, char ** argv)
 
     std::ostream& out = verbose ? std::cout : null_out;
 
-    Device dev("mydevice");
+    Device dev("testcpp");
     if (iface)
         dev.graph().set_iface(iface);
     std::cout << "Created device with interface " << dev.graph().iface() << std::endl;
