@@ -485,8 +485,9 @@ typedef void vfn_template(mpr_expr_val, uint8_t*, int, int);
 #define CONST_MAXVAL    0x0002
 #define CONST_PI        0x0003
 #define CONST_E         0x0004
-#define CONST_SPECIAL   0x000F
-#define CLEAR_STACK     0x0010
+#define CONST_SPECIAL   0x0007
+#define CLEAR_STACK     0x0008
+#define TYPE_LOCKED     0x0010
 #define VAR_MUTED       0x0020
 #define VAR_DELAY       0x0040
 #define VEC_LEN_LOCKED  0x0080
@@ -1089,7 +1090,9 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
     else
         printf("   ");
     if (t.gen.flags & VEC_LEN_LOCKED)
-        printf(" locked");
+        printf(" vec_lock");
+    if (t.gen.flags & TYPE_LOCKED)
+        printf(" type_lock");
     if (t.gen.flags & CLEAR_STACK)
         printf(" clear");
     printf("\n");
@@ -1191,6 +1194,8 @@ static mpr_type promote_token_datatype(mpr_token_t *tok, mpr_type type)
     }
 
     if (tok->toktype == TOK_LITERAL) {
+        if (tok->gen.flags & TYPE_LOCKED)
+            return tok->var.datatype;
         /* constants can be cast immediately */
         if (tok->lit.datatype == MPR_INT32) {
             if (type == MPR_FLT) {
@@ -1584,22 +1589,32 @@ static int check_type(mpr_token_t *stk, int sp, mpr_var_t *vars, int enable_opti
         return sp;
 }
 
+static int substack_len(mpr_token_t *stk, int sp)
+{
+    int idx = sp, arity = tok_arity(stk[sp]);
+    while (arity > 0 && idx > 0) {
+        --idx;
+        if (TOK_BRANCH_NEXT_INST != stk[idx].toktype && TOK_SP_ADD != stk[idx].toktype)
+            --arity;
+        arity += tok_arity(stk[idx]);
+    }
+    return sp - idx + 1;
+}
+
 static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
 {
-    int i = sp, optimize = 1, expr_len;
+    int i = sp, optimize = 1, expr_len = 0;
     uint8_t vec_len = 0;
     expr_var_t var = stk[sp].var.idx;
 
     while (i >= 0 && (stk[i].toktype & TOK_ASSIGN) && (stk[i].var.idx == var)) {
         vec_len += stk[i].gen.vec_len;
         --i;
+        ++expr_len;
     }
-    /* skip branch instruction if any */
-    if (i >= 0 && TOK_BRANCH_NEXT_INST == stk[i].toktype) {
-        --i;
-        optimize = 0;
-    }
-    if (i < 0) {
+    expr_len += substack_len(stk, sp);
+
+    if (expr_len > sp + 1) {
         trace("Malformed expression (1)\n");
         return -1;
     }
@@ -1608,14 +1623,14 @@ static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         return -1;
     promote_token_datatype(&stk[i], stk[sp].gen.datatype);
 
+    if (expr_len == sp + 1) {
+        /* This statement is already at the start of the expression stack. */
+        return 0;
+    }
+
     if (i > 0 && (stk[sp].gen.flags & VAR_DELAY)) {
         /* Move assignment expression to beginning of stack */
-        mpr_token_t *temp;
-        expr_len = sp - i + 2;
-        if (stk[i].toktype == TOK_VECTORIZE)
-            expr_len += stk[i].fn.arity;
-
-        temp = alloca(expr_len * sizeof(mpr_token_t));
+        mpr_token_t *temp = alloca(expr_len * sizeof(mpr_token_t));
         memcpy(temp, stk + sp - expr_len + 1, expr_len * sizeof(mpr_token_t));
         memcpy(stk + expr_len, stk, (sp - expr_len + 1) * sizeof(mpr_token_t));
         memcpy(stk, temp, expr_len * sizeof(mpr_token_t));
@@ -1644,17 +1659,6 @@ static int _get_num_input_slots(mpr_expr expr)
             count = tok[i].var.idx;
     }
     return count >= VAR_X ? count - VAR_X + 1 : 0;
-}
-
-static int substack_len(mpr_token_t *stk, int sp)
-{
-    int idx = sp, arity = tok_arity(stk[sp]);
-    while (arity > 0 && idx > 0) {
-        --idx;
-        --arity;
-        arity += tok_arity(stk[idx]);
-    }
-    return sp - idx + 1;
 }
 
 static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
@@ -2127,11 +2131,9 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 POP_OPERATOR();
 
                 allow_toktype = (TOK_OP | TOK_COLON | TOK_SEMICOLON | TOK_COMMA | TOK_CLOSE_PAREN
-                                 | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY);
+                                 | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_VFN_DOT | TOK_PFN);
                 if (tok.toktype == TOK_CLOSE_CURLY)
                     allow_toktype |= TOK_OPEN_SQUARE;
-                else
-                    allow_toktype |= (TOK_VFN_DOT | TOK_PFN);
 
                 if (op_idx < 0)
                     break;
@@ -2196,6 +2198,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                                 }
                                 /* TODO: disable non-const assignment to past values of output */
                                 out[out_idx].gen.flags |= VAR_DELAY;
+                                if (assigning)
+                                    out[out_idx - 1].gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                                 POP_OPERATOR();
                                 break;
                             default:

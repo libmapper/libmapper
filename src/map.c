@@ -655,7 +655,8 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             mpr_sig_call_handler(dst_sig, evt, idmap ? idmap->LID : 0, 0, 0, &time, diff);
         }
 
-        /* TODO: break if map performs instance reduce */
+        if ((status & EXPR_EVAL_DONE) && !m->use_inst)
+            break;
     }
     clear_bitflags(m->updated_inst, m->num_inst);
     m->updated = 0;

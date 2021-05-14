@@ -1062,7 +1062,10 @@ int run_tests()
         return 1;
 
     /* 76) Pooled instance mean angular displacement */
-    snprintf(str, 256, "M=x.instances().mean(); y=angle(x{-1}-M,x-M).instances().mean();");
+    snprintf(str, 256, "c0{-1}=x.instances().center();"
+                       "c1=x.instances().center();"
+                       "y=angle(x{-1}-c0,x-c1).instances().mean();"
+                       "c0=c1;");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = 0.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
