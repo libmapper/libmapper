@@ -1623,18 +1623,33 @@ static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         return -1;
     promote_token_datatype(&stk[i], stk[sp].gen.datatype);
 
+    if (!(stk[sp].gen.flags & VAR_DELAY))
+        return 0;
+
+    /* Need to move assignment statements to beginning of stack. */
+
     if (expr_len == sp + 1) {
         /* This statement is already at the start of the expression stack. */
         return 0;
     }
 
-    if (i > 0 && (stk[sp].gen.flags & VAR_DELAY)) {
-        /* Move assignment expression to beginning of stack */
-        mpr_token_t *temp = alloca(expr_len * sizeof(mpr_token_t));
-        memcpy(temp, stk + sp - expr_len + 1, expr_len * sizeof(mpr_token_t));
-        memcpy(stk + expr_len, stk, (sp - expr_len + 1) * sizeof(mpr_token_t));
-        memcpy(stk, temp, expr_len * sizeof(mpr_token_t));
+    for (i = sp - expr_len; i > 0; i--) {
+        if (stk[i].toktype & TOK_ASSIGN && (stk[i].gen.flags & VAR_DELAY)) {
+            ++i;
+            break;
+        }
     }
+
+    if (i == sp - expr_len + 1) {
+        /* This statement is already at the correct position. */
+        return 0;
+    }
+
+    mpr_token_t *temp = alloca(expr_len * sizeof(mpr_token_t));
+    memcpy(temp, stk + sp - expr_len + 1, expr_len * sizeof(mpr_token_t));
+    memcpy(stk + i + expr_len, stk + i, (sp - expr_len - i + 1) * sizeof(mpr_token_t));
+    memcpy(stk + i, temp, expr_len * sizeof(mpr_token_t));
+
     return 0;
 }
 
