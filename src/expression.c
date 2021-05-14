@@ -1845,7 +1845,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                     /* get name of variable */
                     int len, idx = lex_idx - 1;
                     char c = str[idx];
-                    while (idx >= 0 && c && (isalpha(c) || isdigit(c))) {
+                    while (idx >= 0 && c && (isalpha(c) || isdigit(c) || '_' == c)) {
                         if (--idx >= 0)
                             c = str[idx];
                     }
