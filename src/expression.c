@@ -179,7 +179,7 @@ static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
     register TYPE theta;                                            \
     mpr_expr_val a = stk + idx * inc, b = a + inc;                  \
-    theta = atan2##T(a[1].T, a[0].T) - atan2##T(b[1].T, b[0].T);    \
+    theta = atan2##T(b[1].T, b[0].T) - atan2##T(a[1].T, a[0].T);    \
     a[0].T = theta;                                                 \
 }
 ANGLE_VFUNC(vanglef, float, f)
@@ -2111,7 +2111,12 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 tok.toktype = TOK_VFN;
                 tok.gen.datatype = vfn_tbl[tok.fn.idx].fn_int ? MPR_INT32 : MPR_FLT;
                 tok.fn.arity = vfn_tbl[tok.fn.idx].arity;
-                tok.gen.vec_len = 1;
+                if (VFN_ANGLE == tok.fn.idx) {
+                    tok.gen.vec_len = 2;
+                    tok.gen.flags |= VEC_LEN_LOCKED;
+                }
+                else
+                    tok.gen.vec_len = 1;
                 PUSH_TO_OPERATOR(tok);
                 allow_toktype = TOK_OPEN_PAREN;
                 break;

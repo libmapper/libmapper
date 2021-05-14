@@ -1057,7 +1057,7 @@ int run_tests()
     /* 75) 2D Vector angle */
     snprintf(str, 256, "y=angle([-1,-1], [1,0]);");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
-    expect_flt[0] = M_PI * -0.75f;
+    expect_flt[0] = M_PI * 0.75f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
