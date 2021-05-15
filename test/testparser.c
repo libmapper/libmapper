@@ -272,39 +272,26 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     }
     mpr_time_set(&time_in, MPR_NOW);
     for (i = 0; i < n_sources; i++) {
-        void *v;
+        mpr_value_reset_inst(&inh[i], 0);
         mlen = mpr_expr_get_in_hist_size(e, i);
         mpr_value_realloc(&inh[i], src_lens[i], src_types[i], mlen, 1, 0);
-        inh[i].inst[0].pos = 0;
-        v = mpr_value_get_samp(&inh[i], 0);
         switch (src_types[i]) {
             case MPR_INT32:
-                memcpy(v, src_int, sizeof(int) * src_lens[i]);
+                mpr_value_set_samp(&inh[i], 0, src_int, time_in);
                 break;
             case MPR_FLT:
-                memcpy(v, src_flt, sizeof(float) * src_lens[i]);
+                mpr_value_set_samp(&inh[i], 0, src_flt, time_in);
                 break;
             case MPR_DBL:
-                memcpy(v, src_dbl, sizeof(double) * src_lens[i]);
+                mpr_value_set_samp(&inh[i], 0, src_dbl, time_in);
                 break;
             default:
                 assert(0);
         }
-        memcpy(inh[i].inst[0].times, &time_in, sizeof(mpr_time));
     }
+    mpr_value_reset_inst(&outh, 0);
     mlen = mpr_expr_get_out_hist_size(e);
     mpr_value_realloc(&outh, dst_len, dst_type, mlen, 1, 1);
-
-    /* mpr_value_realloc will not initialize memory if history size is unchanged
-     * so we will explicitly initialise it here. */
-    for (i = 0; i < n_sources; i++) {
-        int samp_size;
-        if (inh[i].mlen <= 1)
-            continue;
-        samp_size = inh[i].vlen * mpr_type_get_size(inh[i].type);
-        memset((char*)inh[i].inst[0].samps + samp_size, 0, (inh[i].mlen - 1) * samp_size);
-    }
-    memset(outh.inst[0].samps, 0, outh.mlen * outh.vlen * mpr_type_get_size(outh.type));
 
     if (mpr_expr_get_num_vars(e) > MAX_VARS) {
         eprintf("Maximum variables exceeded.\n");
@@ -313,13 +300,9 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
 
     /* reallocate variable value histories */
     for (i = 0; i < e->n_vars; i++) {
-        /* eprintf("user_var[%d]: %p\n", i, &user_vars[i]); */
         int vlen = mpr_expr_get_var_vec_len(e, i);
+        mpr_value_reset_inst(&user_vars[i], 0);
         mpr_value_realloc(&user_vars[i], vlen, MPR_DBL, 1, 1, 0);
-
-        /* mpr_value_realloc will not initialize memory if history size is
-         * unchanged so we will explicitly initialise it here. */
-        memset(user_vars[i].inst[0].samps, 0, vlen * mpr_type_get_size(MPR_DBL));
     }
     user_vars_p = user_vars;
 
@@ -365,22 +348,19 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         mpr_time_set(&time_in, MPR_NOW);
         /* copy src values */
         for (j = 0; j < n_sources; j++) {
-            int samp_size = inh[j].vlen * mpr_type_get_size(inh[j].type);
-            inh[j].inst[0].pos = ((inh[j].inst[0].pos + 1) % inh[j].mlen);
             switch (inh[j].type) {
                 case MPR_INT32:
-                    memcpy(mpr_value_get_samp(&inh[j], 0), src_int, samp_size);
+                    mpr_value_set_samp(&inh[j], 0, src_int, time_in);
                     break;
                 case MPR_FLT:
-                    memcpy(mpr_value_get_samp(&inh[j], 0), src_flt, samp_size);
+                    mpr_value_set_samp(&inh[j], 0, src_flt, time_in);
                     break;
                 case MPR_DBL:
-                    memcpy(mpr_value_get_samp(&inh[j], 0), src_dbl, samp_size);
+                    mpr_value_set_samp(&inh[j], 0, src_dbl, time_in);
                     break;
                 default:
                     assert(0);
             }
-            memcpy(mpr_value_get_time(&inh[j], 0), &time_in, sizeof(mpr_time));
         }
         status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
         if (status & MPR_SIG_UPDATE)
