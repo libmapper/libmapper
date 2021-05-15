@@ -485,7 +485,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 inst_idx = si->idx;
                 /* Setting to local timestamp here */
                 /* TODO: jitter mitigation etc. */
-                mpr_value_set_sample(&slot->val, inst_idx, argv[0], dev->time);
+                mpr_value_set_samp(&slot->val, inst_idx, argv[0], dev->time);
                 set_bitflag(map->updated_inst, inst_idx);
                 map->updated = 1;
                 dev->receiving = 1;

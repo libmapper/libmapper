@@ -629,7 +629,7 @@ void mpr_value_reset_inst(mpr_value v, int idx);
 
 int mpr_value_remove_inst(mpr_value v, int idx);
 
-void mpr_value_set_sample(mpr_value v, int idx, void *s, mpr_time t);
+void mpr_value_set_samp(mpr_value v, int idx, void *s, mpr_time t);
 
 /*! Helper to find the pointer to the current value in a mpr_value_t. */
 MPR_INLINE static void* mpr_value_get_samp(mpr_value v, int idx)

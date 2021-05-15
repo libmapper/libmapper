@@ -198,7 +198,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
         }
 
         /* copy input value */
-        mpr_value_set_sample(&slot->val, inst_idx, (void*)val, t);
+        mpr_value_set_samp(&slot->val, inst_idx, (void*)val, t);
 
         if (!slot->causes_update)
             continue;
