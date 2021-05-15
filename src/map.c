@@ -482,8 +482,10 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     types = alloca(dst_slot->sig->len * sizeof(char));
 
     for (i = 0; i < m->num_inst; i++) {
+        /* Check if this instance has been updated */
         if (!get_bitflag(m->updated_inst, i))
             continue;
+        /* TODO: Check if this instance has enough history to process the expression */
         status = mpr_expr_eval(m->expr, src_vals, &m->vars, &dst_slot->val, &time, types, i);
         if (!status)
             continue;

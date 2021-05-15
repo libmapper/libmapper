@@ -976,6 +976,7 @@ struct _mpr_expr
     int8_t inst_ctl;
     int8_t mute_ctl;
     int8_t n_ins;
+    uint8_t max_in_hist_size;
 };
 
 void mpr_expr_free(mpr_expr expr)
@@ -2620,8 +2621,13 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
     expr->vec_len = max_vector;
     expr->out_hist_size = -oldest_out+1;
     expr->in_hist_size = malloc(sizeof(uint8_t) * n_ins);
-    for (i = 0; i < n_ins; i++)
-        expr->in_hist_size[i] = -oldest_in[i] + 1;
+    expr->max_in_hist_size = 0;
+    for (i = 0; i < n_ins; i++) {
+        register int hist_size = -oldest_in[i] + 1;
+        if (hist_size > expr->max_in_hist_size)
+            expr->max_in_hist_size = hist_size;
+        expr->in_hist_size[i] = hist_size;
+    }
     if (n_vars) {
         /* copy user-defined variables */
         expr->vars = malloc(sizeof(mpr_var_t) * n_vars);
@@ -3343,11 +3349,11 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             if (x) {
                 /* find first active instance idx */
                 for (i = 0; i < x->num_inst; i++) {
-                    if (x->inst[i].pos >= 0)
+                    if (x->inst[i].full || x->inst[i].pos >= (expr->max_in_hist_size - 1))
                         break;
                 }
                 if (i >= x->num_inst)
-                    goto error;
+                    return status;
                 inst_idx = i;
             }
 #if TRACE_EVAL
@@ -3365,7 +3371,7 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
             /* increment instance idx */
             if (x) {
                 for (i = inst_idx + 1; i < x->num_inst; i++) {
-                    if (x->inst[i].pos >= 0)
+                    if (x->inst[i].full || x->inst[i].pos >= (expr->max_in_hist_size - 1))
                         break;
                 }
             }

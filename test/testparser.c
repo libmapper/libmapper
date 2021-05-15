@@ -1023,7 +1023,7 @@ int run_tests()
     /* 73) Pooled instance mean linear displacement */
     snprintf(str, 256, "y=(x-x{-1}).instances().mean()");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations-1))
         return 1;
 
     /* 74) Dot product of two vectors */
@@ -1048,7 +1048,7 @@ int run_tests()
                        "c0=c1;");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = 0.f;
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations-1))
         return 1;
 
     /* 77) Integer divide-by-zero */
