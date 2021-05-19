@@ -426,8 +426,7 @@ static void _check_dev_status(mpr_graph g, uint32_t time_sec)
     while (devs) {
         mpr_dev dev = (mpr_dev)*devs;
         devs = mpr_list_get_next(devs);
-        /* check if device has "checked in" recently
-         * this could be /sync ping or any sent metadata */
+        /* check if device has "checked in" recently – could be /sync ping or any sent metadata */
         if (dev->synced.sec && (dev->synced.sec < time_sec)) {
             /* remove subscription */
             mpr_graph_subscribe(g, dev, 0, 0);
@@ -630,6 +629,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
             map->src[i] = mpr_slot_new(map, src_sigs[i], is_local, 1);
         map->dst = mpr_slot_new(map, dst_sig, is_local, 0);
         mpr_map_init(map);
+        ++g->staged_maps;
         rc = 1;
     }
     else {

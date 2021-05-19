@@ -100,6 +100,7 @@ void mpr_map_init(mpr_map m)
     }
     mpr_tbl_set(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local,
                 LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+    m->status = MPR_STATUS_STAGED;
 }
 
 mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
@@ -193,7 +194,6 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         m->obj.id = mpr_dev_generate_unique_id((*dst)->dev);
 
     mpr_map_init(m);
-    m->status = MPR_STATUS_STAGED;
     m->protocol = MPR_PROTO_UDP;
     ++g->staged_maps;
     return m;
