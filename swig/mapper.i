@@ -1035,14 +1035,14 @@ typedef struct _device_list {
         return $self;
     }
     device_list *filter(const char *key, propval val=0, mpr_op op=MPR_OP_EQ) {
-        if (key && val) {
+        if (key && val && $self->list) {
             $self->list = mpr_list_filter($self->list, MPR_PROP_UNKNOWN, key,
                                           val->len, val->type, val->val, op);
         }
         return $self;
     }
     device_list *filter(int prop, propval val=0, mpr_op op=MPR_OP_EQ) {
-        if (val) {
+        if (prop && val && $self->list) {
             $self->list = mpr_list_filter($self->list, prop, NULL, val->len,
                                           val->type, val->val, op);
         }
@@ -1304,14 +1304,14 @@ typedef struct _signal_list {
         return $self;
     }
     signal_list *filter(const char *key, propval val=0, mpr_op op=MPR_OP_EQ) {
-        if (key && val) {
+        if (key && val && $self->list) {
             $self->list = mpr_list_filter($self->list, MPR_PROP_UNKNOWN, key,
                                           val->len, val->type, val->val, op);
         }
         return $self;
     }
     signal_list *filter(int prop, propval val=0, mpr_op op=MPR_OP_EQ) {
-        if (val) {
+        if (prop && val && $self->list) {
             $self->list = mpr_list_filter($self->list, prop, NULL, val->len,
                                           val->type, val->val, op);
         }
@@ -1572,14 +1572,14 @@ typedef struct _map_list {
         return $self;
     }
     map_list *filter(const char *key, propval val=0, mpr_op op=MPR_OP_EQ) {
-        if (key && val) {
+        if (key && val && $self->list) {
             $self->list = mpr_list_filter($self->list, MPR_PROP_UNKNOWN, key,
                                           val->len, val->type, val->val, op);
         }
         return $self;
     }
     map_list *filter(int prop, propval val=0, mpr_op op=MPR_OP_EQ) {
-        if (val) {
+        if (prop && val && $self->list) {
             $self->list = mpr_list_filter($self->list, prop, NULL, val->len,
                                           val->type, val->val, op);
         }
