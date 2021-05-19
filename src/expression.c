@@ -1641,15 +1641,13 @@ static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         }
     }
 
-    if (i == sp - expr_len + 1) {
-        /* This statement is already at the correct position. */
-        return 0;
+    if (i != (sp - expr_len + 1)) {
+        /* This statement needs to be moved. */
+        mpr_token_t *temp = alloca(expr_len * sizeof(mpr_token_t));
+        memcpy(temp, stk + sp - expr_len + 1, expr_len * sizeof(mpr_token_t));
+        memcpy(stk + i + expr_len, stk + i, (sp - expr_len - i + 1) * sizeof(mpr_token_t));
+        memcpy(stk + i, temp, expr_len * sizeof(mpr_token_t));
     }
-
-    mpr_token_t *temp = alloca(expr_len * sizeof(mpr_token_t));
-    memcpy(temp, stk + sp - expr_len + 1, expr_len * sizeof(mpr_token_t));
-    memcpy(stk + i + expr_len, stk + i, (sp - expr_len - i + 1) * sizeof(mpr_token_t));
-    memcpy(stk + i, temp, expr_len * sizeof(mpr_token_t));
 
     return 0;
 }
