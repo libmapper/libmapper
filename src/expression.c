@@ -30,9 +30,42 @@ typedef union _mpr_expr_val {
  * pro: vectors, commonality with I/O
  * con: timetags wasted
  * option: create version with unallocated timetags */
-mpr_expr_val stk = 0;
-uint8_t *dims = 0;
-int stk_size = 0;
+struct _mpr_expr_stack {
+    mpr_expr_val stk;
+    uint8_t *dims;
+    int size;
+};
+
+mpr_expr_stack mpr_expr_stack_new() {
+    mpr_expr_stack stk = malloc(sizeof(struct _mpr_expr_stack));
+    stk->stk = 0;
+    stk->dims = 0;
+    stk->size = 0;
+    return stk;
+}
+
+static void expr_stack_realloc(mpr_expr_stack stk, int num_samps) {
+    /* Reallocate evaluation stack if necessary. */
+    if (num_samps > stk->size) {
+        stk->size = num_samps;
+        if (stk->stk)
+            stk->stk = realloc(stk->stk, stk->size * sizeof(mpr_expr_val_t));
+        else
+            stk->stk = malloc(stk->size * sizeof(mpr_expr_val_t));
+        if (stk->dims)
+            stk->dims = realloc(stk->dims, stk->size * sizeof(uint8_t));
+        else
+            stk->dims = malloc(stk->size * sizeof(uint8_t));
+    }
+}
+
+void mpr_expr_stack_free(mpr_expr_stack stk) {
+    if (stk->stk)
+        free(stk->stk);
+    if (stk->dims)
+        free(stk->dims);
+    free(stk);
+}
 
 #define EXTREMA_FUNC(NAME, TYPE, OP)    \
     static TYPE NAME(TYPE x, TYPE y) { return (x OP y) ? x : y; }
@@ -992,18 +1025,6 @@ void mpr_expr_free(mpr_expr expr)
     free(expr);
 }
 
-void mpr_expr_free_buffers()
-{
-    if (stk) {
-        free(stk);
-        stk = 0;
-    }
-    if (dims) {
-        free(dims);
-        dims = 0;
-    }
-}
-
 #ifdef TRACE_PARSE
 
 static void printtoken(mpr_token_t t, mpr_var_t *vars)
@@ -1305,22 +1326,7 @@ error:
     return -1;
 }
 
-static void expr_stack_realloc(int num_samps) {
-    /* Reallocate evaluation stack if necessary. */
-    if (num_samps > stk_size) {
-        stk_size = num_samps;
-        if (stk)
-            stk = realloc(stk, stk_size * sizeof(mpr_expr_val_t));
-        else
-            stk = malloc(stk_size * sizeof(mpr_expr_val_t));
-        if (dims)
-            dims = realloc(dims, stk_size * sizeof(uint8_t));
-        else
-            dims = malloc(stk_size * sizeof(uint8_t));
-    }
-}
-
-static int precompute(mpr_token_t *stk, int len, int vec_len)
+static int precompute(mpr_expr_stack eval_stk, mpr_token_t *stk, int len, int vec_len)
 {
     int i;
     struct _mpr_expr e = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1};
@@ -1340,9 +1346,9 @@ static int precompute(mpr_token_t *stk, int len, int vec_len)
     v.vlen = vec_len;
     v.type = stk[len - 1].gen.datatype;
 
-    expr_stack_realloc(len * vec_len);
+    expr_stack_realloc(eval_stk, len * vec_len);
 
-    if (!(mpr_expr_eval(&e, 0, 0, &v, 0, 0, 0) & 1)) {
+    if (!(mpr_expr_eval(eval_stk, &e, 0, 0, &v, 0, 0, 0) & 1)) {
         free(s);
         return 0;
     }
@@ -1371,7 +1377,8 @@ static int precompute(mpr_token_t *stk, int len, int vec_len)
     return len - 1;
 }
 
-static int check_type(mpr_token_t *stk, int sp, mpr_var_t *vars, int enable_optimize)
+static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var_t *vars,
+                      int enable_optimize)
 {
     /* TODO: enable precomputation of const-only vectors */
     int i, arity, can_precompute = 1, optimize = NONE;
@@ -1585,7 +1592,7 @@ static int check_type(mpr_token_t *stk, int sp, mpr_var_t *vars, int enable_opti
     }
     /* if stack within bounds of arity was only constants, we're ok to compute */
     if (enable_optimize && can_precompute)
-        return sp - precompute(&stk[sp - arity], arity + 1, vec_len);
+        return sp - precompute(eval_stk, &stk[sp - arity], arity + 1, vec_len);
     else
         return sp;
 }
@@ -1602,7 +1609,8 @@ static int substack_len(mpr_token_t *stk, int sp)
     return sp - idx + 1;
 }
 
-static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
+static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp,
+                                     mpr_var_t *vars)
 {
     int i = sp, optimize = 1, expr_len = 0;
     uint8_t vec_len = 0;
@@ -1620,7 +1628,7 @@ static int check_assign_type_and_len(mpr_token_t *stk, int sp, mpr_var_t *vars)
         return -1;
     }
     promote_token_datatype(&stk[i], stk[sp].gen.datatype);
-    if (check_type(stk, i, vars, optimize) == -1)
+    if (check_type(eval_stk, stk, i, vars, optimize) == -1)
         return -1;
     promote_token_datatype(&stk[i], stk[sp].gen.datatype);
 
@@ -1744,7 +1752,7 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
 #define POP_OPERATOR_TO_OUTPUT()                                    \
 {                                                                   \
     PUSH_TO_OUTPUT(op[op_idx]);                                     \
-    out_idx = check_type(out, out_idx, vars, 1);                    \
+    out_idx = check_type(eval_stk, out, out_idx, vars, 1);          \
     {FAIL_IF(out_idx < 0, "Malformed expression (3).");}            \
     POP_OPERATOR();                                                 \
 }
@@ -1760,8 +1768,9 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
                        | TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP | TOK_TT)
 
 /*! Use Dijkstra's shunting-yard algorithm to parse expression into RPN stack. */
-mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_types,
-                               const int *in_vec_lens, mpr_type out_type, int out_vec_len)
+mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_ins,
+                               const mpr_type *in_types, const int *in_vec_lens, mpr_type out_type,
+                               int out_vec_len)
 {
     mpr_token_t out[STACK_SIZE];
     mpr_token_t op[STACK_SIZE];
@@ -2038,7 +2047,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                     tok.op.idx = pfn_tbl[pfn].op;
                     /* don't use macro here since we don't want to optimize away initialization args */
                     PUSH_TO_OUTPUT(tok);
-                    out_idx = check_type(out, out_idx, vars, 0);
+                    out_idx = check_type(eval_stk, out, out_idx, vars, 0);
                     {FAIL_IF(out_idx < 0, "Malformed expression (11).");}
                 }
                 if (VFN_UNKNOWN != pfn_tbl[pfn].vfn) {
@@ -2321,7 +2330,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                         {FAIL("Malformed expression (5)");}
                     PUSH_TO_OUTPUT(op[op_idx]);
                     if (out[out_idx].toktype == TOK_ASSIGN_USE
-                        && check_assign_type_and_len(out, out_idx, vars) == -1)
+                        && check_assign_type_and_len(eval_stk, out, out_idx, vars) == -1)
                         {FAIL("Malformed expression (6)");}
                     POP_OPERATOR();
                 }
@@ -2329,7 +2338,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
                 out[out_idx].gen.flags |= CLEAR_STACK;
 
                 /* check vector length and type */
-                if (check_assign_type_and_len(out, out_idx, vars) == -1)
+                if (check_assign_type_and_len(eval_stk, out, out_idx, vars) == -1)
                     {FAIL("Malformed expression (7)");}
 
                 /* start another sub-expression */
@@ -2574,7 +2583,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
         PUSH_TO_OUTPUT(op[op_idx]);
         /* check vector length and type */
         {FAIL_IF(out[out_idx].toktype == TOK_ASSIGN_USE
-                 && check_assign_type_and_len(out, out_idx, vars) == -1,
+                 && check_assign_type_and_len(eval_stk, out, out_idx, vars) == -1,
                  "Malformed expression (9).");}
         POP_OPERATOR();
     }
@@ -2590,7 +2599,8 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
     }
 
     /* check vector length and type */
-    {FAIL_IF(check_assign_type_and_len(out, out_idx, vars) == -1, "Malformed expression (10).");}
+    {FAIL_IF(check_assign_type_and_len(eval_stk, out, out_idx, vars) == -1,
+             "Malformed expression (10).");}
 
     {FAIL_IF(replace_special_constants(out, out_idx), "Error replacing special constants."); }
 
@@ -2638,7 +2648,7 @@ mpr_expr mpr_expr_new_from_str(const char *str, int n_ins, const mpr_type *in_ty
     /* TODO: is this the same as n_ins arg passed to this function? */
     expr->n_ins = _get_num_input_slots(expr);
 
-    expr_stack_realloc(expr->stack_size * expr->vec_len);
+    expr_stack_realloc(eval_stk, expr->stack_size * expr->vec_len);
 
 #if TRACE_PARSE
     printf("expression allocated and initialized\n");
@@ -2844,7 +2854,7 @@ MPR_INLINE static int _max(int a, int b)
     return a > b ? a : b;
 }
 
-int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
+int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                   mpr_value v_out, mpr_time *time, mpr_type *types, int inst_idx)
 {
     mpr_token_t *tok, *end;
@@ -2854,6 +2864,9 @@ int mpr_expr_eval(mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
     mpr_type last_type = 0;
     mpr_value_buffer b_out;
     mpr_value x = NULL;
+
+    mpr_expr_val stk = expr_stk->stk;
+    uint8_t *dims = expr_stk->dims;
 
     if (!expr) {
 #if TRACE_EVAL

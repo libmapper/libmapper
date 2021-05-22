@@ -115,6 +115,8 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     g->net.rtr = (mpr_rtr)calloc(1, sizeof(mpr_rtr_t));
     g->net.rtr->dev = dev;
 
+    dev->expr_stack = mpr_expr_stack_new();
+
     dev->ordinal_allocator.val = 1;
     dev->idmaps.active = (mpr_id_map*) malloc(sizeof(mpr_id_map));
     dev->idmaps.active[0] = 0;
@@ -227,11 +229,11 @@ void mpr_dev_free(mpr_dev dev)
     FUNC_IF(lo_server_free, net->servers[SERVER_TCP]);
     FUNC_IF(free, dev->prefix);
 
+    mpr_expr_stack_free(ldev->expr_stack);
+
     mpr_graph_remove_dev(gph, dev, MPR_OBJ_REM, 1);
     if (!gph->own)
         mpr_graph_free(gph);
-
-    mpr_expr_free_buffers();
 }
 
 void mpr_dev_on_registered(mpr_local_dev dev)
@@ -389,7 +391,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 src = alloca(map->num_src * sizeof(mpr_value));
                 for (i = 0; i < map->num_src; i++)
                     src[i] = (i == slot->id) ? &v : 0;
-                if (mpr_expr_eval(map->expr, src, 0, 0, 0, 0, 0) & EXPR_RELEASE_BEFORE_UPDATE)
+                if (mpr_expr_eval(dev->expr_stack, map->expr, src, 0, 0, 0, 0, 0) & EXPR_RELEASE_BEFORE_UPDATE)
                     return 0;
             }
 
@@ -586,7 +588,7 @@ mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir)
 mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
 {
     mpr_list sigs;
-    RETURN_ARG_UNLESS(dev, 0);
+    RETURN_ARG_UNLESS(dev && sig_name, 0);
     sigs = mpr_list_from_data(dev->obj.graph->sigs);
     while (sigs) {
         mpr_sig sig = (mpr_sig)*sigs;

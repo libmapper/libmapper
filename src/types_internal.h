@@ -30,6 +30,7 @@
  * be repeated, therefore they are refered to by struct name. */
 
 typedef struct _mpr_expr *mpr_expr;
+typedef struct _mpr_expr_stack *mpr_expr_stack;
 
 /* Forward declarations for this file. */
 
@@ -527,6 +528,8 @@ struct _mpr_local_dev {
         struct _mpr_id_map **active;    /*!< The list of active instance id maps. */
         struct _mpr_id_map *reserve;    /*!< The list of reserve instance id maps. */
     } idmaps;
+
+    mpr_expr_stack expr_stack;
 
     mpr_time time;
     int num_sig_groups;

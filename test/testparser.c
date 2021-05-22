@@ -30,6 +30,9 @@ mpr_type out_types[DST_ARRAY_LEN];
 
 mpr_time time_in = {0, 0}, time_out = {0, 0};
 
+/* evaluation stack */
+mpr_expr_stack eval_stk = 0;
+
 /* signal_history structures */
 mpr_value_t inh[SRC_ARRAY_LEN], outh, user_vars[MAX_VARS], *user_vars_p;
 mpr_value inh_p[SRC_ARRAY_LEN];
@@ -260,7 +263,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         printf("\rExpression %d", expression_count++);
         fflush(stdout);
     }
-    e = mpr_expr_new_from_str(str, n_sources, src_types, src_lens, dst_type, dst_len);
+    e = mpr_expr_new_from_str(eval_stk, str, n_sources, src_types, src_lens, dst_type, dst_len);
     if (!e) {
         eprintf("Parser FAILED (expression %d)\n", expression_count - 1);
         goto fail;
@@ -330,7 +333,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     then = current_time();
 
     eprintf("Try evaluation once... ");
-    status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
+    status = mpr_expr_eval(eval_stk, e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
     if (!status) {
         eprintf("FAILED.\n");
         result = 1;
@@ -362,7 +365,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
                     assert(0);
             }
         }
-        status = mpr_expr_eval(e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
+        status = mpr_expr_eval(eval_stk, e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
         if (status & MPR_SIG_UPDATE)
             ++update_count;
         /* sleep here stops compiler from optimizing loop away */
@@ -1142,7 +1145,9 @@ int main(int argc, char **argv)
     for (i = 0; i < SRC_ARRAY_LEN; i++)
         inh_p[i] = &inh[i];
 
+    eval_stk = mpr_expr_stack_new();
     result = run_tests();
+    mpr_expr_stack_free(eval_stk);
 
     for (i = 0; i < SRC_ARRAY_LEN; i++)
         mpr_value_free(&inh[i]);

@@ -486,7 +486,8 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         if (!get_bitflag(m->updated_inst, i))
             continue;
         /* TODO: Check if this instance has enough history to process the expression */
-        status = mpr_expr_eval(m->expr, src_vals, &m->vars, &dst_slot->val, &time, types, i);
+        status = mpr_expr_eval(dev->expr_stack, m->expr, src_vals, &m->vars,
+                               &dst_slot->val, &time, types, i);
         if (!status)
             continue;
 
@@ -587,7 +588,8 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
 
         if (!get_bitflag(m->updated_inst, i))
             continue;
-        status = mpr_expr_eval(m->expr, src_vals, &m->vars, &dst_slot->val, &time, types, i);
+        status = mpr_expr_eval(m->rtr->dev->expr_stack, m->expr, src_vals,
+                               &m->vars, &dst_slot->val, &time, types, i);
         if (!status)
             continue;
 
@@ -807,8 +809,8 @@ static int _replace_expr_str(mpr_local_map m, const char *expr_str)
         src_types[i] = m->src[i]->sig->type;
         src_lens[i] = m->src[i]->sig->len;
     }
-    expr = mpr_expr_new_from_str(expr_str, m->num_src, src_types, src_lens,
-                                 m->dst->sig->type, m->dst->sig->len);
+    expr = mpr_expr_new_from_str(m->rtr->dev->expr_stack, expr_str, m->num_src, src_types,
+                                 src_lens, m->dst->sig->type, m->dst->sig->len);
     RETURN_ARG_UNLESS(expr, 1);
 
     /* expression update may force processing location to change
@@ -1176,7 +1178,8 @@ static int _set_expr(mpr_local_map m, const char *expr)
         /* evaluate expression to intialise literals */
         mpr_time_set(&now, MPR_NOW);
         for (i = 0; i < m->num_inst; i++)
-            mpr_expr_eval(m->expr, 0, &m->vars, &m->dst->val, &now, types, i);
+            mpr_expr_eval(m->rtr->dev->expr_stack, m->expr, 0, &m->vars,
+                          &m->dst->val, &now, types, i);
     }
     else {
         if (!m->expr && (   (MPR_LOC_DST == m->process_loc && m->dst->sig->is_local)

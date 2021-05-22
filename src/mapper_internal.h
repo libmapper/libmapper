@@ -437,8 +437,9 @@ int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
 
 /**** Expression parser/evaluator ****/
 
-mpr_expr mpr_expr_new_from_str(const char *str, int num_in, const mpr_type *in_types,
-                               const int *in_vec_lens, mpr_type out_type, int out_vec_len);
+mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int num_in,
+                               const mpr_type *in_types, const int *in_vec_lens, mpr_type out_type,
+                               int out_vec_len);
 
 int mpr_expr_get_in_hist_size(mpr_expr expr, int idx);
 
@@ -463,6 +464,7 @@ void printexpr(const char*, mpr_expr);
 #endif
 
 /*! Evaluate the given inputs using the compiled expression.
+ *  \param stk          A preallocated expression eval stack.
  *  \param expr         The expression to use.
  *  \param srcs         An array of mpr_value structures for sources.
  *  \param expr_vars    An array of mpr_value structures for user variables.
@@ -478,14 +480,15 @@ void printexpr(const char*, mpr_expr);
  *                      generated an instance release before the update), and
  *                      MPR_SIG_REL_DNSRTM (if the expression generated an
  *                      instance release after an update). */
-int mpr_expr_eval(mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
+int mpr_expr_eval(mpr_expr_stack stk, mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
                   mpr_value result, mpr_time *t, mpr_type *types, int inst_idx);
 
 int mpr_expr_get_num_input_slots(mpr_expr expr);
 
 void mpr_expr_free(mpr_expr expr);
 
-void mpr_expr_free_buffers();
+mpr_expr_stack mpr_expr_stack_new();
+void mpr_expr_stack_free(mpr_expr_stack stk);
 
 /**** String tables ****/
 
