@@ -387,14 +387,18 @@ All signals possess one instance by default. If you would like to reserve more
 instances you can use:
 
 ~~~c
-mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data);
+int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data);
 ~~~
 
 If the `ids` argument is null _libmapper_ will automatically assign unique ids to
 the reserved instances.
 
-After reserving instances you can update a specific instance using
-`mpr_sig_set_value()`.
+After reserving instances you can update a specific instance using:
+
+~~~c
+void mpr_sig_set_value(mpr_sig signal, mpr_id instance, int length,
+                       mpr_type type, const void *value);
+~~~
 
 The `instance` argument does not have to be considered as an array index - it
 can be any value that is convenient for labelling your instance. _libmapper_

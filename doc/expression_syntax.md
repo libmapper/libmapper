@@ -153,21 +153,21 @@ leave `y[1]` unchanged.
 
 ### Vector reduce functions
 
-There are several special functions that operate across all elements of the vector and output a single value:
+There are several special functions that operate across all elements of the vector and output a scalar value:
 
 * `x.any()` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.all()` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.sum()` – output the sum of the elements in vector `x`
 * `x.mean()` – output the average (mean) of the elements in vector `x`
-* `x.max()` – output the maximum element in vector `x` (overloaded)
-* `x.min()` – output the minimum element in vector `x` (overloaded)
+* `x.max()` – output the maximum element in vector `x`
+* `x.min()` – output the minimum element in vector `x`
 * `x.center()` – output the midpoint between `x.min()` and `x.max()`
 * `x.norm()` – output the length of the vector `x`
-* `dot(a, b)` – output the dot product of vectors `a` and `b`
 
-### Non-reducing vector functions
+### Other vector functions
 
 * `angle(a, b)` – output the angle between vectors `a` and `b`
+* `dot(a, b)` – output the dot product of vectors `a` and `b`
 
 <h2 id="instances">Instances</h2>
 
@@ -178,7 +178,7 @@ Input and output signals addressed by libmapper may be *instanced* meaning that 
 There are several special functions that operate across all instances of a signal:
 
 * `x.instances().any()` – output `1` if any active instance of `x` is non-zero, otherwise output `0` (for each vector element)
-* * `x.instances().all()` – output `1` if all active instance of `x` are non-zero, otherwise output `0` (for each vector element)
+* `x.instances().all()` – output `1` if all active instance of `x` are non-zero, otherwise output `0` (for each vector element)
 * `x.instances().count()` — output the number of instances of `x` that are currently active
 * `x.instances().sum()` – output the sum of the values of all active instances of `x`
 * `x.instances().mean()` – output the mean of the values of all active instances of `x`

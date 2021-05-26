@@ -636,8 +636,7 @@ namespace mapper {
             { return mpr_map_get_is_ready(_obj); }
 
 //        /*! Get the scopes property for a this map.
-//         *  \return       A List containing the list of results.  Use
-//         *                List::next() to iterate. */
+//         *  \return       A List containing the list of results.  Use List::next() to iterate. */
 //        List<Device> scopes() const
 //            { return List<Device>((void**)mpr_map_scopes(_obj)); }
 

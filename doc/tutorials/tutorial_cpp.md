@@ -18,8 +18,8 @@ user interfaces for designing mapping configurations.
 
 ### Creating a device
 
-To create a _libmapper_ device, it is necessary to provide a few parameters the
-constructor, which is overloaded to accept either arguments of either
+To create a _libmapper_ device, it is necessary to provide a `name` to the
+constructor, which is overloaded to accept arguments of either
 `const char*` or C++ `std::string`:
 
 ~~~c++
@@ -244,7 +244,7 @@ while (!done) {
     
     // call a hypothetical user function that reads a sensor
     float v1 = do_stuff();
-    sensor1.set_value(v1);
+    sig.set_value(v1);
 }
 ~~~
 
@@ -404,7 +404,7 @@ Signal::Instance si = sig.instance(id);
 si.set_value(value);
 
 // or simply:
-sig.instance(id).set_value(value)
+sig.instance(id).set_value(value);
 ~~~
 
 The `instance` argument is of type `mapper::Id` does not have to be considered as
@@ -469,7 +469,7 @@ void my_handler(mapper::Signal signal, mapper::Signal::Event event,
         // user code chooses which instance to release
         mapper::Id release_me = choose_instance_to_release(sig);
 
-        sig.instance(release_me).release(tt);
+        sig.instance(release_me).release();
         return;
     }
 }
@@ -540,19 +540,22 @@ cast to the appropriate type.
 
 You can use any property name not already reserved by _libmapper_.
 
-#### Reserved keys for devices
+#### Reserved keys for all objects
 
-`data`, `id`, `is_local`, `lib_version`, `linked`, `name`, `num_maps_in`,
-`num_maps_out`, `num_sigs_in`, `num_sigs_out`, `ordinal`, `status`, `synced`,
-`version`
+`data`, `id`, `is_local`, `lib_version`, `version`
 
-#### Reserved keys for signals
+#### Additional reserved keys for devices
 
-`data`, `device`, `direction`, `id`, `is_local`, `jitter`, `length`, `max`,
-`maximum`, `min`, `minimum`, `name`, `num_inst`, `num_maps_in`, `num_maps_out`,
-`period`, `steal`, `type`, `unit`, `use_inst`, `version`
+`linked`, `name`, `num_maps_in`, `num_maps_out`, `num_sigs_in`, `num_sigs_out`,
+`ordinal`, `status`, `synced`
 
-#### Reserved keys for maps
+#### Additional reserved keys for signals
 
-`data`, `expr`, `id`, `is_local`, `muted`, `num_sigs_in`, `process_loc`,
-`protocol`, `scope`, `status`, `use_inst`, `version`
+`device`, `direction`, `jitter`, `length`, `max`, `maximum`, `min`, `minimum`,
+`name`, `num_inst`, `num_maps_in`, `num_maps_out`, `period`, `steal`, `type`,
+`unit`, `use_inst`
+
+#### Additional reserved keys for maps
+
+`expr`, `muted`, `num_sigs_in`, `process_loc`, `protocol`, `scope`, `status`,
+`use_inst`
