@@ -9,7 +9,7 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-#define MAX_LEN 512
+#define MAX_LEN 1024
 #define MPR_STATUS_LENGTH_KNOWN 0x04
 #define MPR_STATUS_TYPE_KNOWN   0x08
 #define MPR_STATUS_LINK_KNOWN   0x10

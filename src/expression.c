@@ -1037,8 +1037,8 @@ void mpr_expr_free(mpr_expr expr)
 
 static void printtoken(mpr_token_t t, mpr_var_t *vars)
 {
-    int i, len = 64, offset = 0, delay = t.gen.flags & VAR_DELAY;
-    char s[64];
+    int i, len = 128, offset = 0, delay = t.gen.flags & VAR_DELAY;
+    char s[len];
     switch (t.toktype) {
         case TOK_LITERAL:
             switch (t.gen.flags & CONST_SPECIAL) {
