@@ -246,7 +246,7 @@ while (!done) {
     
     // call a hypothetical user function that reads a sensor
     float v1 = doStuff();
-    sensor1.setValue(v1);
+    sig.setValue(v1);
 }
 ~~~
 

@@ -201,8 +201,8 @@ To recap, let's review the code so far:
 
 ~~~c
 mpr_dev dev = mpr_dev_new("my_device", 0, 0);
-mpr_sig s1 = mpr_sig_new(dev, MPR_DIR_OUT, "sensor1", 1, MPR_FLT,
-                         "V", &min, &max, 0, 0, 0);
+mpr_sig sig = mpr_sig_new(dev, MPR_DIR_OUT, "sensor1", 1, MPR_FLT,
+                          "V", &min, &max, 0, 0, 0);
     
 while (!done) {
     mpr_dev_poll(dev, 50);
@@ -250,7 +250,7 @@ while (!done) {
     
     // call hypothetical user function that reads a sensor
     float v1 = do_stuff();
-    mpr_sig_set_value(sensor1, 0, 1, MPR_FLT, &v1);
+    mpr_sig_set_value(sig, 0, 1, MPR_FLT, &v1);
 }
 ~~~
 

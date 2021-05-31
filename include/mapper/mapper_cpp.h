@@ -1735,9 +1735,6 @@ namespace mapper {
         return p;
     }
 
-    /*! Retrieve a PropVal by index.
-     *  \param prop     The index or symbolic identifier of the PropVal to retrieve.
-     *  \return         The retrieved PropVal. */
     inline PropVal Object::property(Property prop) const
     {
         const char *key;
