@@ -526,36 +526,37 @@ typedef void vfn_template(mpr_expr_val, uint8_t*, int, int);
 #define VEC_LEN_LOCKED  0x0080
 
 enum toktype {
-    TOK_LITERAL         = 0x000001,
-    TOK_NEGATE          = 0x000002,
-    TOK_FN              = 0x000004,
-    TOK_VFN             = 0x000008,
-    TOK_VFN_DOT         = 0x000010,
-    TOK_PFN             = 0x000020,
-    TOK_OPEN_PAREN      = 0x000040,
-    TOK_MUTED           = 0x000080,
-    TOK_PUBLIC          = 0x000100,
-    TOK_OPEN_SQUARE     = 0x000200,
-    TOK_OPEN_CURLY      = 0x000400,
-    TOK_CLOSE_PAREN     = 0x000800,
-    TOK_CLOSE_SQUARE    = 0x001000,
-    TOK_CLOSE_CURLY     = 0x002000,
-    TOK_VAR             = 0x004000,
-    TOK_OP              = 0x008000,
-    TOK_COMMA           = 0x010000,
-    TOK_COLON           = 0x020000,
-    TOK_SEMICOLON       = 0x040000,
-    TOK_VECTORIZE       = 0x080000,
-    TOK_INSTANCES       = 0x100000,
-    TOK_ASSIGN          = 0x200000,
+    TOK_LITERAL         = 0x0000001,
+    TOK_VLITERAL        = 0x0000002,
+    TOK_NEGATE          = 0x0000004,
+    TOK_FN              = 0x0000008,
+    TOK_VFN             = 0x0000010,
+    TOK_VFN_DOT         = 0x0000020,
+    TOK_PFN             = 0x0000040,
+    TOK_OPEN_PAREN      = 0x0000080,
+    TOK_MUTED           = 0x0000100,
+    TOK_PUBLIC          = 0x0000200,
+    TOK_OPEN_SQUARE     = 0x0000400,
+    TOK_OPEN_CURLY      = 0x0000800,
+    TOK_CLOSE_PAREN     = 0x0001000,
+    TOK_CLOSE_SQUARE    = 0x0002000,
+    TOK_CLOSE_CURLY     = 0x0004000,
+    TOK_VAR             = 0x0008000,
+    TOK_OP              = 0x0010000,
+    TOK_COMMA           = 0x0020000,
+    TOK_COLON           = 0x0040000,
+    TOK_SEMICOLON       = 0x0080000,
+    TOK_VECTORIZE       = 0x0100000,
+    TOK_INSTANCES       = 0x0200000,
+    TOK_ASSIGN          = 0x0400000,
     TOK_ASSIGN_USE,
     TOK_ASSIGN_CONST,
     TOK_ASSIGN_TT,
-    TOK_TT              = 0x400000,
+    TOK_TT              = 0x0800000,
     TOK_CACHE_INIT_INST,
     TOK_BRANCH_NEXT_INST,
     TOK_SP_ADD,
-    TOK_END             = 0x800000
+    TOK_END             = 0x1000000
 };
 
 struct generic_type {
@@ -576,6 +577,9 @@ struct literal_type {
         float f;
         int i;
         double d;
+        float *fp;
+        int *ip;
+        double *dp;
     } val;
 };
 
@@ -1016,6 +1020,10 @@ void mpr_expr_free(mpr_expr expr)
 {
     int i;
     FUNC_IF(free, expr->in_hist_size);
+    for (i = 0; i < expr->n_tokens; i++) {
+        if (TOK_VLITERAL == expr->tokens[i].toktype && expr->tokens[i].lit.val.ip)
+            free(expr->tokens[i].lit.val.ip);
+    }
     FUNC_IF(free, expr->tokens);
     if (expr->n_vars && expr->vars) {
         for (i = 0; i < expr->n_vars; i++)
@@ -1029,7 +1037,7 @@ void mpr_expr_free(mpr_expr expr)
 
 static void printtoken(mpr_token_t t, mpr_var_t *vars)
 {
-    int i, len = 64, delay = t.gen.flags & VAR_DELAY;
+    int i, len = 64, offset = 0, delay = t.gen.flags & VAR_DELAY;
     char s[64];
     switch (t.toktype) {
         case TOK_LITERAL:
@@ -1046,6 +1054,24 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
                     }                                                           break;
             }
                                                                                 break;
+        case TOK_VLITERAL:
+            offset = snprintf(s, len, "[");
+            switch (t.gen.datatype) {
+                case MPR_FLT:
+                    for (i = 0; i < t.lit.vec_len; i++)
+                        offset += snprintf(s + offset, len - offset, "%g,", t.lit.val.fp[i]);
+                    break;
+                case MPR_DBL:
+                    for (i = 0; i < t.lit.vec_len; i++)
+                        offset += snprintf(s + offset, len - offset, "%g,", t.lit.val.dp[i]);
+                    break;
+                case MPR_INT32:
+                    for (i = 0; i < t.lit.vec_len; i++)
+                        offset += snprintf(s + offset, len - offset, "%d,", t.lit.val.ip[i]);
+                    break;
+            }
+            snprintf(s + offset, len - offset, "\b] @%p", t.lit.val.ip);
+            break;
         case TOK_OP:            snprintf(s, len, "op.%s", op_tbl[t.op.idx].name); break;
         case TOK_OPEN_CURLY:    snprintf(s, len, "{");                          break;
         case TOK_OPEN_PAREN:    snprintf(s, len, "( arity %d", t.fn.arity);     break;
@@ -1215,39 +1241,76 @@ static mpr_type promote_token_datatype(mpr_token_t *tok, mpr_type type)
         }
     }
 
-    if (tok->toktype == TOK_LITERAL) {
+    if (TOK_LITERAL == tok->toktype) {
         if (tok->gen.flags & TYPE_LOCKED)
             return tok->var.datatype;
         /* constants can be cast immediately */
-        if (tok->lit.datatype == MPR_INT32) {
-            if (type == MPR_FLT) {
+        if (MPR_INT32 == tok->lit.datatype) {
+            if (MPR_FLT == type) {
                 tok->lit.val.f = (float)tok->lit.val.i;
                 tok->lit.datatype = type;
             }
-            else if (type == MPR_DBL) {
+            else if (MPR_DBL == type) {
                 tok->lit.val.d = (double)tok->lit.val.i;
                 tok->lit.datatype = type;
             }
         }
-        else if (tok->lit.datatype == MPR_FLT) {
-            if (type == MPR_DBL) {
+        else if (MPR_FLT == tok->lit.datatype) {
+            if (MPR_DBL == type) {
                 tok->lit.val.d = (double)tok->lit.val.f;
                 tok->lit.datatype = type;
             }
-            else if (type == MPR_INT32)
+            else if (MPR_INT32 == type)
                 tok->lit.casttype = type;
         }
         else
             tok->lit.casttype = type;
         return type;
     }
-    else if (tok->toktype == TOK_VAR || tok->toktype == TOK_PFN) {
+    else if (TOK_VLITERAL == tok->toktype) {
+        int i;
+        if (tok->gen.flags & TYPE_LOCKED)
+            return tok->var.datatype;
+        /* constants can be cast immediately */
+        if (MPR_INT32 == tok->lit.datatype) {
+            if (MPR_FLT == type) {
+                float *tmp = malloc(tok->lit.vec_len * sizeof(float));
+                for (i = 0; i < tok->lit.vec_len; i++)
+                    tmp[i] = (float)tok->lit.val.ip[i];
+                free(tok->lit.val.ip);
+                tok->lit.val.fp = tmp;
+                tok->lit.datatype = type;
+            }
+            else if (MPR_DBL == type) {
+                double *tmp = malloc(tok->lit.vec_len * sizeof(double));
+                for (i = 0; i < tok->lit.vec_len; i++)
+                    tmp[i] = (double)tok->lit.val.ip[i];
+                free(tok->lit.val.ip);
+                tok->lit.val.dp = tmp;
+                tok->lit.datatype = type;
+            }
+        }
+        else if (MPR_FLT == tok->lit.datatype) {
+            if (MPR_DBL == type) {
+                double *tmp = malloc(tok->lit.vec_len * sizeof(double));
+                for (i = 0; i < tok->lit.vec_len; i++)
+                    tmp[i] = (double)tok->lit.val.fp[i];
+                free(tok->lit.val.fp);
+                tok->lit.val.dp = tmp;
+                tok->lit.datatype = type;
+            }
+        }
+        else
+            tok->lit.casttype = type;
+        return type;
+    }
+    else if (TOK_VAR == tok->toktype || TOK_PFN == tok->toktype) {
         /* we need to cast at runtime */
         tok->gen.casttype = type;
         return type;
     }
     else {
-        if (tok->gen.datatype == MPR_INT32 || type == MPR_DBL) {
+        if (MPR_INT32 == tok->gen.datatype || MPR_DBL == type) {
             tok->gen.datatype = type;
             return type;
         }
@@ -1540,8 +1603,6 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                     vars[stk[i].var.idx].vec_len = stk[i].var.vec_len = vec_len;
                     stk[i].gen.flags |= VEC_LEN_LOCKED;
                 }
-                else
-                    stk[i].gen.vec_len = vec_len;
             }
 
             switch (stk[i].toktype) {
@@ -1762,6 +1823,101 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
     {FAIL_IF(!lex_idx, "Error in lexer.");}                         \
 }
 
+int _squash_to_vector(mpr_token_t *stk, int idx)
+{
+    mpr_token_t *a = stk + idx, *b = a - 1;
+    if (idx < 1 || b->gen.flags & VEC_LEN_LOCKED)
+        return 0;
+    if (TOK_LITERAL == b->toktype) {
+
+        int i;
+        void *tmp;
+        mpr_type type = compare_token_datatype(*a, b->lit.datatype);
+        switch (type) {
+            case MPR_INT32:
+                tmp = malloc(2 * sizeof(int));
+                ((int*)tmp)[0] = b->lit.val.i;
+                ((int*)tmp)[1] = a->lit.val.i;
+                break;
+            case MPR_FLT:
+                tmp = malloc(2 * sizeof(float));
+                for (i = 0; i < 2; i++) {
+                    switch (b[i].lit.datatype) {
+                        case MPR_INT32: ((float*)tmp)[i] = (float)b[i].lit.val.i;   break;
+                        default:        ((float*)tmp)[i] = b[i].lit.val.f;          break;
+                    }
+                }
+                break;
+            default:
+                tmp = malloc(2 * sizeof(double));
+                for (i = 0; i < 2; i++) {
+                    switch (b[i].lit.datatype) {
+                        case MPR_INT32: ((double*)tmp)[i] = (double)b[i].lit.val.i; break;
+                        case MPR_FLT:   ((double*)tmp)[i] = (double)b[i].lit.val.f; break;
+                        default:        ((double*)tmp)[i] = b[i].lit.val.d;         break;
+                    }
+                }
+                break;
+        }
+        b->toktype = TOK_VLITERAL;
+        b->gen.flags &= ~VEC_LEN_LOCKED;
+        b->lit.val.ip = tmp;
+        b->lit.datatype = type;
+        b->lit.vec_len = 2;
+        return 1;
+    }
+    else if (TOK_VLITERAL == b->toktype && !(b->gen.flags & VEC_LEN_LOCKED)) {
+        int i, vec_len = b->lit.vec_len;
+        void *tmp;
+        mpr_type type = compare_token_datatype(*a, b->lit.datatype);
+        ++b->lit.vec_len;
+        switch (type) {
+            case MPR_INT32:
+                /* both vector and new scalar are type MPR_INT32 */
+                tmp = malloc(b->lit.vec_len * sizeof(int));
+                for (i = 0; i < vec_len; i++)
+                    ((int*)tmp)[i] = b->lit.val.ip[i];
+                ((int*)tmp)[vec_len] = a->lit.val.i;
+                break;
+            case MPR_FLT:
+                tmp = malloc(b->lit.vec_len * sizeof(float));
+                for (i = 0; i < vec_len; i++) {
+                    switch (b->lit.datatype) {
+                        case MPR_INT32: ((float*)tmp)[i] = (float)b->lit.val.ip[i];     break;
+                        default:        ((float*)tmp)[i] = b->lit.val.fp[i];            break;
+                    }
+                }
+                switch (a->lit.datatype) {
+                    case MPR_INT32:     ((float*)tmp)[vec_len] = (float)a->lit.val.i;   break;
+                    default:            ((float*)tmp)[vec_len] = a->lit.val.f;          break;
+                }
+                break;
+            case MPR_DBL:
+                tmp = malloc(b->lit.vec_len * sizeof(double));
+                for (i = 0; i < vec_len; i++) {
+                    switch (b->lit.datatype) {
+                        case MPR_INT32: ((double*)tmp)[i] = (double)b->lit.val.ip[i];   break;
+                        case MPR_FLT:   ((double*)tmp)[i] = (double)b->lit.val.fp[i];   break;
+                        default:        ((double*)tmp)[i] = b->lit.val.dp[i];           break;
+                    }
+                }
+                switch (a->lit.datatype) {
+                    case MPR_INT32:     ((double*)tmp)[vec_len] = (double)a->lit.val.i; break;
+                    case MPR_FLT:       ((double*)tmp)[vec_len] = (double)a->lit.val.f; break;
+                    default:            ((double*)tmp)[vec_len] = a->lit.val.d;         break;
+                }
+                break;
+        }
+        if (tmp != b->lit.val.ip) {
+            free(b->lit.val.ip);
+            b->lit.val.ip = tmp;
+        }
+        b->lit.datatype = type;
+        return 1;
+    }
+    return 0;
+}
+
 #define ASSIGN_MASK (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY \
                      | TOK_OPEN_CURLY | TOK_PUBLIC | TOK_NEGATE | TOK_LITERAL)
 #define OBJECT_TOKENS (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_MUTED | TOK_PUBLIC  \
@@ -1956,6 +2112,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     newtok.var.idx = n_vars;
                     ++n_vars;
                     newtok.gen.datatype = var_type;
+                    newtok.gen.casttype = 0;
                     newtok.gen.vec_len = 1;
                     newtok.gen.flags = 0;
                     newtok.var.vec_idx = 0;
@@ -2278,14 +2435,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             ++op[op_idx].fn.arity;
                             break;
                         case TOK_LITERAL:
-                            if (out_idx >= 1 && TOK_LITERAL == out[out_idx - 1].toktype
-                                && out[out_idx].gen.datatype == out[out_idx - 1].gen.datatype
-                                && out[out_idx].lit.val.i == out[out_idx - 1].lit.val.i) {
-#if TRACE_EVAL
-                                printf("Squashing vector. (1)\n");
-#endif
-                                ++out[out_idx - 1].gen.vec_len;
-                                ++op[op_idx].gen.vec_len;
+                            if (vectorizing && _squash_to_vector(out, out_idx)) {
                                 POP_OUTPUT();
                                 break;
                             }
@@ -2293,7 +2443,6 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             op[op_idx].gen.vec_len += out[out_idx].gen.vec_len;
                             ++op[op_idx].fn.arity;
                     }
-                    lock_vec_len(out, out_idx);
                 }
                 else
                     ++op[op_idx].fn.arity;
@@ -2403,8 +2552,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 break;
             case TOK_CLOSE_SQUARE:
                 /* pop from operator stack to output until TOK_VECTORIZE found */
-                while (op_idx >= 0 &&
-                       op[op_idx].toktype != TOK_VECTORIZE) {
+                while (op_idx >= 0 && op[op_idx].toktype != TOK_VECTORIZE) {
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 {FAIL_IF(op_idx < 0, "Unmatched brackets or misplaced comma.");}
@@ -2417,12 +2565,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             ++op[op_idx].fn.arity;
                             break;
                         case TOK_LITERAL:
-                            if (out_idx >= 1 && TOK_LITERAL == out[out_idx - 1].toktype
-                                && out[out_idx].gen.datatype == out[out_idx - 1].gen.datatype
-                                && out[out_idx].lit.val.i == out[out_idx - 1].lit.val.i) {
-                                trace("Squashing vector. (2)\n");
-                                ++out[out_idx - 1].gen.vec_len;
-                                ++op[op_idx].gen.vec_len;
+                            if (vectorizing && _squash_to_vector(out, out_idx)) {
                                 POP_OUTPUT();
                                 break;
                             }
@@ -2925,15 +3068,22 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
   repeat:
         switch (tok->toktype) {
         case TOK_LITERAL:
+        case TOK_VLITERAL:
             sp += vlen;
             ++dp;
             dims[dp] = tok->gen.vec_len;
                 /* TODO: remove vector building? */
             switch (tok->gen.datatype) {
-#define TYPED_CASE(MTYPE, T)                                    \
-                case MTYPE:                                     \
-                    for (i = sp; i < sp + tok->gen.vec_len; i++)\
-                        stk[i].T = tok->lit.val.T;              \
+#define TYPED_CASE(MTYPE, T)                                                    \
+                case MTYPE:                                                     \
+                    if (TOK_LITERAL == tok->toktype) {                          \
+                        for (i = sp; i < sp + tok->gen.vec_len; i++)            \
+                            stk[i].T = tok->lit.val.T;                          \
+                    }                                                           \
+                    else {                                                      \
+                        for (i = sp, j = 0; i < sp + tok->gen.vec_len; i++, j++)\
+                            stk[i].T = tok->lit.val.T##p[j];                    \
+                    }                                                           \
                     break;
                 TYPED_CASE(MPR_INT32, i)
                 TYPED_CASE(MPR_FLT, f)
