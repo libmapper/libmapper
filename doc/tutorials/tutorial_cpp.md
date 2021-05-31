@@ -5,11 +5,20 @@
 If you take a look at the API documentation, there is a section called
 "modules".  This is divided into the following sections:
 
-* [Graphs](../html/classmapper_1_1Graph.html)
-* [Devices](../html/classmapper_1_1Device.html)
-* [Signals](../html/classmapper_1_1Signal.html)
-* [Maps](../html/classmapper_1_1Map.html)
-* [Lists](../html/classmapper_1_1List.html)
+- [Devices](#devices)
+  - [Creating a device](#creating-a-device)
+  - [Polling the device](#polling-the-device)
+- [Signals](#signals)
+  - [Creating a signal](#creating-a-signal)
+  - [Updating signals](#updating-signals)
+  - [Signal conditioning](#signal-conditioning)
+  - [Receiving signals](#receiving-signals)
+- [Working with timetags](#working-with-timetags)
+- [Working with signal instances](#working-with-signal-instances)
+  - [Receiving instances](#receiving-instances)
+  - [Instance Stealing](#instance-tealing)
+- [Publishing metadata](#publishing-metadata)
+  - [Reserved keys](#reserved-keys)
 
 For this tutorial, the only sections to pay attention to are **Devices** and **Signals**. **Graphs**, and **Maps** are mostly used when building
 user interfaces for designing mapping configurations.
@@ -42,6 +51,8 @@ mapper::Device dev("test");
 The device lifecycle looks like this:
 
 <img style="display:block;margin:auto;padding:0px;width:75%" src="./images/device_lifecyle.png">
+
+MISSING: device_lifecyle.png
 
 In other words, after a device is created, it must be continuously polled during
 its lifetime.
@@ -116,7 +127,7 @@ We'll start with creating a "sender", so we will first talk about how to update
 output signals.  A signal requires a bit more information than a device, much of
 which is optional:
 
-1. the direction of the signal: either `Direction::IN` or `Direction::OUT`
+1. the direction of the signal: either `Direction::INCOMING` or `Direction::OUTGOING`
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
 * the signal's data type, one of `Type::INT32`, `Type::FLOAT`, or `Type::DOUBLE`
