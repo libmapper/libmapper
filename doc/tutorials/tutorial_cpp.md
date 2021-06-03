@@ -2,8 +2,8 @@
 
 ## Overview of the C++ API
 
-If you take a look at the API documentation, there is a section called
-"modules".  This is divided into the following sections:
+If you take a look at the [API documentation](../html/index.html), there is
+a section called "modules".  This is divided into the following sections:
 
 * [Graphs](../html/classmapper_1_1Graph.html)
 * [Devices](../html/classmapper_1_1Device.html)
@@ -116,7 +116,7 @@ We'll start with creating a "sender", so we will first talk about how to update
 output signals.  A signal requires a bit more information than a device, much of
 which is optional:
 
-1. the direction of the signal: either `Direction::IN` or `Direction::OUT`
+1. the direction of the signal: either `Direction::INCOMING` or `Direction::OUTGOING`
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
 * the signal's data type, one of `Type::INT32`, `Type::FLOAT`, or `Type::DOUBLE`
@@ -130,13 +130,13 @@ examples:
 ~~~c++
 using namespace mapper;
 Signal input;
-input = dev.add_sig(Direction::IN, "my_input", 1, Type::FLOAT,
+input = dev.add_sig(Direction::INCOMING, "my_input", 1, Type::FLOAT,
                     "m/s").set_callback(h, Signal::Event::UPDATE);
 
 int min[4] = {1,2,3,4};
 int max[4] = {10,11,12,13};
 Signal output;
-output = dev.add_sig(Direction::OUT, "my_output", 4, Type::INT32, 0, min, max);
+output = dev.add_sig(Direction::OUTGOING, "my_output", 4, Type::INT32, 0, min, max);
 ~~~
 
 The only _required_ parameters here are the signal "direction" (IN or OUT),
@@ -169,7 +169,7 @@ minimum, or maximum information:
 
 ~~~c++
 mapper::Signal sig;
-sig = dev.add_signal(mapper::Direction::OUT, "outA", 1, mapper::Type::INT32);
+sig = dev.add_signal(mapper::Direction::OUTGOING, "outA", 1, mapper::Type::INT32);
 ~~~
 
 An example of a `float` signal where some more information is provided:
@@ -178,7 +178,7 @@ An example of a `float` signal where some more information is provided:
 float min = 0.0f;
 float max = 5.0f;
 mapper::Signal sig;
-sig = dev.add_signal(mapper::Direction::OUT, "sensor1", 1,
+sig = dev.add_signal(mapper::Direction::OUTGOING, "sensor1", 1,
                      mapper::Type::FLOAT, "V", &min, &max);
 ~~~
 
@@ -190,7 +190,7 @@ mapper::Device dev("test_sender");
 mapper::Signal sig;
 float min = 0.0f;
 float max = 5.0f;
-sig = dev.add_signal(mapper::Direction::OUT, "sensor1", 1,
+sig = dev.add_signal(mapper::Direction::OUTGOING, "sensor1", 1,
                      mapper::Type::FLOAT, "V", &min, &max);
     
 while (!done) {
@@ -208,7 +208,7 @@ belonging to a particular device:
 ~~~c++
 std::cout << "Signals belonging to " << dev[Property::NAME] << std::endl;
 
-mapper::List<mapper::Signal> list = dev.signals(mapper::Direction::IN).begin();
+mapper::List<mapper::Signal> list = dev.signals(mapper::Direction::INCOMING).begin();
 for (; list != list.end(); ++list) {
     std::cout << "signal: " << *list << std::endl;
 }
@@ -344,7 +344,7 @@ void main()
     mapper::Device dev("synth");
     
     mapper::Signal pulsewidth =
-        dev.add_signal(mapper::Direction::IN, "pulsewidth", 1,
+        dev.add_signal(mapper::Direction::INCOMING, "pulsewidth", 1,
                        mapper::Type::FLOAT, 0, &min_pw, &max_pw)
            .set_property("synthptr", &synth)
            .set_callback(pulsewidth_handler);

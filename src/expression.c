@@ -1495,7 +1495,7 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                 if (fn_tbl[stk[i].fn.idx].arity)
                     can_precompute = 0;
             }
-            else if (stk[i].toktype > TOK_LITERAL)
+            else if (stk[i].toktype > TOK_VLITERAL)
                 can_precompute = 0;
 
             if (skip == 0) {
@@ -1652,8 +1652,14 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
             stk[sp].gen.vec_len = vec_len;
     }
     /* if stack within bounds of arity was only constants, we're ok to compute */
-    if (enable_optimize && can_precompute)
-        return sp - precompute(eval_stk, &stk[sp - arity], arity + 1, vec_len);
+    if (enable_optimize && can_precompute) {
+        int len = precompute(eval_stk, &stk[sp - arity], arity + 1, vec_len);
+        for (i = sp; i > sp - len; i--) {
+            if (TOK_VLITERAL == stk[i].toktype && stk[i].lit.val.ip)
+                free(stk[i].lit.val.ip);
+        }
+        return sp - len;
+    }
     else
         return sp;
 }
@@ -3749,7 +3755,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         }
         default: goto error;
         }
-        if (tok->gen.casttype && tok->toktype != TOK_LITERAL && tok->toktype < TOK_ASSIGN) {
+        if (tok->gen.casttype && tok->toktype > TOK_VLITERAL && tok->toktype < TOK_ASSIGN) {
 #if TRACE_EVAL
             printf("casting sp=%d from %s (%c) to %s (%c)\n", dp, type_name(tok->gen.datatype),
                    tok->gen.datatype, type_name(tok->gen.casttype), tok->gen.casttype);

@@ -9,8 +9,8 @@ project.
 
 ## Overview of the API structure
 
-If you take a look at the API documentation, there is a section called
-"modules".  This is divided into the following main sections:
+If you take a look at the [API documentation](../html/index.html), there is a
+section called "modules".  This is divided into the following main sections:
 
 * [Graphs](../html/group__graphs.html)
 * [Objects](../html/group__objects.html)
