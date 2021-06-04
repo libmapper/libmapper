@@ -999,8 +999,10 @@ int run_tests()
 
     /* 69) Pooled instance functions: sum(), count() and mean() */
     snprintf(str, 256, "y=(x.instances().sum()/x.instances().count())==x.instances().mean();");
-    setup_test(MPR_INT32, 1, MPR_INT32, 1);
+    setup_test(MPR_INT32, 3, MPR_INT32, 3);
     expect_int[0] = 1;
+    expect_int[1] = 1;
+    expect_int[2] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -1013,8 +1015,10 @@ int run_tests()
 
     /* 71) Pooled instance function: center() */
     snprintf(str, 256, "y=x.instances().center()==(x.instances().max()+x.instances().min())*0.5;");
-    setup_test(MPR_INT32, 1, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+    setup_test(MPR_INT32, 2, MPR_INT32, 2);
+    expect_int[0] = 1;
+    expect_int[1] = 1;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 72) Pooled instance mean length of centered vectors */

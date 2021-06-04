@@ -1070,7 +1070,8 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
                         offset += snprintf(s + offset, len - offset, "%d,", t.lit.val.ip[i]);
                     break;
             }
-            snprintf(s + offset, len - offset, "\b] @%p", t.lit.val.ip);
+            --offset;
+            offset += snprintf(s + offset, len - offset, "]");
             break;
         case TOK_OP:            snprintf(s, len, "op.%s", op_tbl[t.op.idx].name); break;
         case TOK_OPEN_CURLY:    snprintf(s, len, "{");                          break;
@@ -1598,10 +1599,10 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
 
             if (skip <= 0) {
                 --depth;
-                if (!(stk[i].gen.flags & VEC_LEN_LOCKED) && stk[i].toktype == TOK_VAR
-                    && stk[i].var.idx < VAR_Y) {
-                    vars[stk[i].var.idx].vec_len = stk[i].var.vec_len = vec_len;
-                    stk[i].gen.flags |= VEC_LEN_LOCKED;
+                if (!(stk[i].gen.flags & VEC_LEN_LOCKED)) {
+                    stk[i].var.vec_len = vec_len;
+                    if (TOK_VAR == stk[i].toktype && stk[i].var.idx < N_USER_VARS)
+                        vars[stk[i].var.idx].vec_len = vec_len;
                 }
             }
 
@@ -1717,7 +1718,7 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
     }
 
     if (i != (sp - expr_len + 1)) {
-        /* This statement needs to be moved. */
+        /* This expression statement needs to be moved. */
         mpr_token_t *temp = alloca(expr_len * sizeof(mpr_token_t));
         memcpy(temp, stk + sp - expr_len + 1, expr_len * sizeof(mpr_token_t));
         memcpy(stk + i + expr_len, stk + i, (sp - expr_len - i + 1) * sizeof(mpr_token_t));
@@ -2472,7 +2473,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 var_idx = op[op_idx].var.idx;
-                if (var_idx < VAR_Y) {
+                if (var_idx < N_USER_VARS) {
                     if (!vars[var_idx].vec_len)
                         vars[var_idx].vec_len = out[out_idx].gen.vec_len;
                     /* update and lock vector length of assigned variable */
@@ -2717,7 +2718,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
     if (op_idx >= 0) {
         int var_idx = op[op_idx].var.idx;
-        if (var_idx < VAR_Y) {
+        if (var_idx < N_USER_VARS) {
             if (!vars[var_idx].vec_len)
                 vars[var_idx].vec_len = out[out_idx].gen.vec_len;
             /* update and lock vector length of assigned variable */
@@ -2744,7 +2745,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
     for (i = 0; i < out_idx; i++) {
         if (TOK_VAR == out[i].toktype && out[i].var.idx < N_USER_VARS
             && !(out[i].gen.flags & VEC_LEN_LOCKED))
-            out[i].gen.vec_len = vars[tok.var.idx].vec_len;
+            out[i].gen.vec_len = vars[out[i].var.idx].vec_len;
     }
 
     /* check vector length and type */
@@ -3455,19 +3456,17 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             printf("\b\b)");
 #endif
             if (vfn_tbl[tok->fn.idx].arity > 1 || VFN_DOT == tok->fn.idx) {
-                /* we need to ensure the vector lengths are equal */
-                while (dims[dp] > dims[dp + 1]) {
-                    int diff = dims[dp] - dims[dp + 1];
-                    diff = diff < dims[dp + 1] ? diff : dims[dp + 1];
-                    memcpy(&stk[sp + vlen + dims[dp + 1]], &stk[sp + vlen],
-                           diff * sizeof(mpr_expr_val_t));
-                    dims[dp + 1] += diff;
-                }
-                while (dims[dp] < dims[dp + 1]) {
-                    int diff = dims[dp + 1] - dims[dp];
-                    diff = diff < dims[dp] ? diff : dims[dp];
-                    memcpy(&stk[sp + dims[dp]], &stk[sp], diff * sizeof(mpr_expr_val_t));
-                    dims[dp] += diff;
+                int maxdim = dims[dp];
+                for (i = 1; i < vfn_tbl[tok->fn.idx].arity; i++)
+                    maxdim = maxdim > dims[dp + i] ? maxdim : dims[dp + i];
+                for (i = 0; i < vfn_tbl[tok->fn.idx].arity; i++) {
+                    /* we need to ensure the vector lengths are equal */
+                    while (dims[dp + i] < maxdim) {
+                        int diff = maxdim - dims[dp + i];
+                        diff = diff < dims[dp + i] ? diff : dims[dp + i];
+                        memcpy(&stk[sp + dims[dp + i]], &stk[sp], diff * sizeof(mpr_expr_val_t));
+                        dims[dp + i] += diff;
+                    }
                 }
             }
             switch (tok->gen.datatype) {
