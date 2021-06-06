@@ -1038,7 +1038,7 @@ void mpr_expr_free(mpr_expr expr)
 static void printtoken(mpr_token_t t, mpr_var_t *vars)
 {
     int i, len = 128, offset = 0, delay = t.gen.flags & VAR_DELAY;
-    char s[len];
+    char s[128];
     switch (t.toktype) {
         case TOK_LITERAL:
             switch (t.gen.flags & CONST_SPECIAL) {
@@ -1417,11 +1417,25 @@ static int precompute(mpr_expr_stack eval_stk, mpr_token_t *stk, int len, int ve
         return 0;
     }
 
+    /* free token vector memory if necessary */
+    for (i = 0; i < len; i++) {
+        if (TOK_VLITERAL == stk[i].toktype && stk[i].lit.val.ip)
+            free(stk[i].lit.val.ip);
+    }
+
     switch (v.type) {
-#define TYPED_CASE(MTYPE, TYPE, T)                  \
-        case MTYPE:                                 \
-            for (i = 0; i < vec_len; i++)           \
-                stk[i].lit.val.T = ((TYPE*)s)[i];   \
+#define TYPED_CASE(MTYPE, TYPE, T)                                      \
+        case MTYPE:                                                     \
+            if (vec_len > 1) {                                          \
+                stk[0].toktype = TOK_VLITERAL;                          \
+                stk[0].lit.val.T##p = malloc(vec_len * sizeof(TYPE));   \
+                for (i = 0; i < vec_len; i++)                           \
+                    stk[0].lit.val.T##p[i] = ((TYPE*)s)[i];             \
+            }                                                           \
+            else {                                                      \
+                stk[0].toktype = TOK_LITERAL;                           \
+                stk[0].lit.val.T = ((TYPE*)s)[0];                       \
+            }                                                           \
             break;
         TYPED_CASE(MPR_INT32, int, i)
         TYPED_CASE(MPR_FLT, float, f)
@@ -1430,13 +1444,9 @@ static int precompute(mpr_expr_stack eval_stk, mpr_token_t *stk, int len, int ve
         default:
             free(s);
             return 0;
-        break;
     }
-    for (i = 0; i < vec_len; i++) {
-        stk[i].toktype = TOK_LITERAL;
-        stk[i].gen.flags &= ~CONST_SPECIAL;
-        stk[i].gen.datatype = stk[len - 1].gen.datatype;
-    }
+    stk[0].gen.flags &= ~CONST_SPECIAL;
+    stk[0].gen.datatype = v.type;
     free(s);
     return len - 1;
 }
@@ -1655,10 +1665,6 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
     /* if stack within bounds of arity was only constants, we're ok to compute */
     if (enable_optimize && can_precompute) {
         int len = precompute(eval_stk, &stk[sp - arity], arity + 1, vec_len);
-        for (i = sp; i > sp - len; i--) {
-            if (TOK_VLITERAL == stk[i].toktype && stk[i].lit.val.ip)
-                free(stk[i].lit.val.ip);
-        }
         return sp - len;
     }
     else
@@ -1875,7 +1881,7 @@ int _squash_to_vector(mpr_token_t *stk, int idx)
     }
     else if (TOK_VLITERAL == b->toktype && !(b->gen.flags & VEC_LEN_LOCKED)) {
         int i, vec_len = b->lit.vec_len;
-        void *tmp;
+        void *tmp = 0;
         mpr_type type = compare_token_datatype(*a, b->lit.datatype);
         ++b->lit.vec_len;
         switch (type) {
@@ -1915,7 +1921,7 @@ int _squash_to_vector(mpr_token_t *stk, int idx)
                 }
                 break;
         }
-        if (tmp != b->lit.val.ip) {
+        if (tmp && tmp != b->lit.val.ip) {
             free(b->lit.val.ip);
             b->lit.val.ip = tmp;
         }
