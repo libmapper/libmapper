@@ -62,9 +62,7 @@ typedef struct _var {
     mpr_type datatype;
     mpr_type casttype;
     uint8_t vec_len;
-    char vec_len_locked;
-    char assigned;
-    char public;
+    uint8_t flags;
 } mpr_var_t, *mpr_var;
 
 struct _mpr_expr

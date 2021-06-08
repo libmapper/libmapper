@@ -894,8 +894,6 @@ static int _snprint_var(const char *varname, char *str, int max_len, int vec_len
 #define INSERT_VAL(VARNAME)                                         \
 mpr_value_t *ev = m->vars;                                          \
 for (j = 0; j < m->num_vars; j++) {                                 \
-    if (!mpr_expr_get_var_is_public(m->expr, j))                    \
-        continue;                                                   \
     /* TODO: handle multiple instances */                           \
     k = 0;                                                          \
     if (strcmp(VARNAME, mpr_expr_get_var_name(m->expr, j)))         \
@@ -1442,8 +1440,6 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         const char *name;
                         int k = 0, l, var_len;
                         for (j = 0; j < lm->num_vars; j++) {
-                            if (!mpr_expr_get_var_is_public(lm->expr, j))
-                                continue;
                             /* check if matches existing varname */
                             name = mpr_expr_get_var_name(lm->expr, j);
                             if (strcmp(name, a->key+4)!=0)
@@ -1598,8 +1594,6 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
         int j, k, l;
         char varname[32];
         for (j = 0; j < lm->num_vars; j++) {
-            if (!mpr_expr_get_var_is_public(lm->expr, j))
-                continue;
             /* TODO: handle multiple instances */
             k = 0;
             if (lm->vars[j].inst[k].pos >= 0) {

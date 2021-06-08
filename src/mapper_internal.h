@@ -455,8 +455,6 @@ int mpr_expr_get_src_is_muted(mpr_expr expr, int idx);
 
 const char *mpr_expr_get_var_name(mpr_expr expr, int idx);
 
-int mpr_expr_get_var_is_public(mpr_expr expr, int idx);
-
 int mpr_expr_get_manages_inst(mpr_expr expr);
 
 #ifdef DEBUG
