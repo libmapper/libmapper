@@ -213,6 +213,10 @@ static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
     register TYPE theta;                                            \
     mpr_expr_val a = stk + idx * inc, b = a + inc;                  \
     theta = atan2##T(b[1].T, b[0].T) - atan2##T(a[1].T, a[0].T);    \
+    if (theta > M_PI)                                               \
+        theta -= 2 * M_PI;                                          \
+    else if (theta < -M_PI)                                         \
+        theta += 2 * M_PI;                                          \
     a[0].T = theta;                                                 \
 }
 ANGLE_VFUNC(vanglef, float, f)
