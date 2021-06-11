@@ -1063,22 +1063,30 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, (iterations + 1) / 2))
         return 1;
 
-    /* 78) Optimization: Vector squashing (8 tokens instead of 12) */
-    snprintf(str, 256, "y=x*[3,3,3]+[1,1,2.6];");
+    /* 78) Optimization: Vector squashing (10 tokens instead of 12) */
+    snprintf(str, 256, "y=x*[3,3,x[1]]+[x[0],1,1];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    expect_flt[0] = src_flt[0] * 3.0f + 1.0f;
+    expect_flt[0] = src_flt[0] * 3.0f + src_flt[0];
     expect_flt[1] = src_flt[1] * 3.0f + 1.0f;
-    expect_flt[2] = src_flt[2] * 3.0f + 2.6f;
-    if (parse_and_eval(EXPECT_SUCCESS, 8, 1, iterations))
+    expect_flt[2] = src_flt[2] * src_flt[1] + 1.0f;
+    if (parse_and_eval(EXPECT_SUCCESS, 10, 1, iterations))
         return 1;
 
-    /* 79) Wrapping vectors */
+    /* 79) Wrapping vectors, vector variables (6 tokens instead of 11) */
     snprintf(str, 256, "y=x*[3,3,3]+[1.23,4.56];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = src_flt[0] * 3.0f + 1.23f;
     expect_flt[1] = src_flt[1] * 3.0f + 4.56f;
     expect_flt[2] = src_flt[2] * 3.0f + 1.23f;
-    if (parse_and_eval(EXPECT_SUCCESS, 8, 1, iterations))
+    if (parse_and_eval(EXPECT_SUCCESS, 6, 1, iterations))
+        return 1;
+
+    /* 80) Just instance count */
+    snprintf(str, 256, "y=x.instances().count();");
+    setup_test(MPR_FLT, 3, MPR_FLT, 2);
+    expect_flt[0] = 1;
+    expect_flt[1] = 1;
+    if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
     return 0;

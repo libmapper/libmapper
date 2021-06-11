@@ -109,6 +109,8 @@ int mpr_value_remove_inst(mpr_value v, int idx)
     RETURN_ARG_UNLESS(idx >= 0 && idx < v->num_inst, v->num_inst);
     free(v->inst[idx].samps);
     free(v->inst[idx].times);
+    if (v->inst[idx].pos >= 0)
+        --v->num_active_inst;
     for (i = idx + 1; i < v->num_inst; i++) {
         /* shift values down */
         memcpy(&(v->inst[i-1]), &(v->inst[i]), sizeof(mpr_value_buffer_t));
@@ -126,6 +128,8 @@ void mpr_value_reset_inst(mpr_value v, int idx)
     b = &v->inst[idx];
     memset(b->samps, 0, v->mlen * v->vlen * mpr_type_get_size(v->type));
     memset(b->times, 0, v->mlen * sizeof(mpr_time));
+    if (b->pos >= 0)
+        --v->num_active_inst;
     b->pos = -1;
     b->full = 0;
 }
@@ -133,6 +137,8 @@ void mpr_value_reset_inst(mpr_value v, int idx)
 void mpr_value_set_samp(mpr_value v, int idx, void *s, mpr_time t)
 {
     mpr_value_buffer b = &v->inst[idx];
+    if (b->pos < 0)
+        ++v->num_active_inst;
     b->pos += 1;
     if (b->pos >= v->mlen) {
         b->pos = 0;

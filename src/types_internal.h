@@ -273,6 +273,7 @@ typedef struct _mpr_value
     mpr_value_buffer inst;      /*!< Array of value histories for each signal instance. */
     int vlen;                   /*!< Vector length. */
     uint8_t num_inst;           /*!< Number of instances. */
+    uint8_t num_active_inst;    /*!< Number of active instances. */
     mpr_type type;              /*!< The type of this signal. */
     int8_t mlen;                /*!< History size of the buffer. */
 } mpr_value_t, *mpr_value;

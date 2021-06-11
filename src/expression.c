@@ -545,21 +545,22 @@ enum toktype {
     TOK_CLOSE_SQUARE    = 0x0001000,
     TOK_CLOSE_CURLY     = 0x0002000,
     TOK_VAR             = 0x0004000,
-    TOK_OP              = 0x0008000,
-    TOK_COMMA           = 0x0010000,
-    TOK_COLON           = 0x0020000,
-    TOK_SEMICOLON       = 0x0040000,
-    TOK_VECTORIZE       = 0x0080000,
-    TOK_INSTANCES       = 0x0100000,
-    TOK_ASSIGN          = 0x0200000,
+    TOK_VAR_NUM_INST    = 0x0008000,
+    TOK_OP              = 0x0010000,
+    TOK_COMMA           = 0x0020000,
+    TOK_COLON           = 0x0040000,
+    TOK_SEMICOLON       = 0x0080000,
+    TOK_VECTORIZE       = 0x0100000,
+    TOK_INSTANCES       = 0x0200000,
+    TOK_ASSIGN          = 0x0400000,
     TOK_ASSIGN_USE,
     TOK_ASSIGN_CONST,
     TOK_ASSIGN_TT,
-    TOK_TT              = 0x0400000,
+    TOK_TT              = 0x0800000,
     TOK_CACHE_INIT_INST,
     TOK_BRANCH_NEXT_INST,
     TOK_SP_ADD,
-    TOK_END             = 0x0800000
+    TOK_END             = 0x1000000
 };
 
 struct generic_type {
@@ -1092,6 +1093,15 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
                          vars ? (vars[t.var.idx].flags & VAR_INSTANCED) ? ".N" : ".0" : ".?",
                          delay ? "{N}" : "", t.var.vec_idx, vars ? vars[t.var.idx].vec_len : 0);
             break;
+        case TOK_VAR_NUM_INST:
+            if (t.var.idx == VAR_Y)
+                snprintf(s, len, "var.y.count()");
+            else if (t.var.idx >= VAR_X)
+                snprintf(s, len, "var.x%d.count()", t.var.idx - VAR_X);
+            else
+                snprintf(s, len, "var.%s%s.count()", vars ? vars[t.var.idx].name : "?",
+                         vars ? (vars[t.var.idx].flags & VAR_INSTANCED) ? ".N" : ".0" : ".?");
+            break;
         case TOK_TT:
             if (t.var.idx == VAR_Y)
                 snprintf(s, len, "tt.y%s", delay ? "{N}" : "");
@@ -1309,7 +1319,7 @@ static mpr_type promote_token_datatype(mpr_token_t *tok, mpr_type type)
             tok->lit.casttype = type;
         return type;
     }
-    else if (TOK_VAR == tok->toktype || TOK_PFN == tok->toktype) {
+    else if (TOK_VAR == tok->toktype || TOK_VAR_NUM_INST == tok->toktype || TOK_PFN == tok->toktype) {
         /* we need to cast at runtime */
         tok->gen.casttype = type;
         return type;
@@ -1398,7 +1408,7 @@ static int precompute(mpr_expr_stack eval_stk, mpr_token_t *stk, int len, int ve
 {
     int i;
     struct _mpr_expr e = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1};
-    mpr_value_t v = {0, 0, 1, 0, 1};
+    mpr_value_t v = {0, 0, 1, 1, 0, 1};
     mpr_value_buffer_t b = {0, 0, -1};
     void *s;
 
@@ -2180,9 +2190,16 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 GET_NEXT_TOKEN(tok);
                 {FAIL_IF(TOK_PFN != tok.toktype && TOK_VFN_DOT != tok.toktype,
                          "instances() must be followed by a reduce function.");}
+                pfn = tok.fn.idx;
+                if (PFN_COUNT == pfn && TOK_VAR == out[out_idx].toktype) {
+                    /* Special case: count() can be represented by single token */
+                    out[out_idx].toktype = TOK_VAR_NUM_INST;
+                    out[out_idx].gen.datatype = MPR_INT32;
+                    break;
+                }
+
                 /* get compound arity of last token */
                 sslen = substack_len(out, out_idx);
-                pfn = tok.fn.idx;
                 switch (pfn) {
                     case PFN_MEAN: case PFN_CENTER: case PFN_SIZE:  pre = 3; break;
                     default:                                        pre = 2; break;
@@ -3030,6 +3047,9 @@ MPR_INLINE static int _max(int a, int b)
 int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_value *v_vars,
                   mpr_value v_out, mpr_time *time, mpr_type *types, int inst_idx)
 {
+#if TRACE_EVAL
+    printf("evaluating expression...\n");
+#endif
     mpr_token_t *tok, *end;
     int status = 1 | EXPR_EVAL_DONE, cache = 0, vlen;
     int i, j, sp, dp = -1;
@@ -3202,6 +3222,38 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 goto error;
 #if TRACE_EVAL
             print_stack_vec(stk + sp, tok->gen.datatype, tok->gen.vec_len);
+            printf(" \n");
+#endif
+            break;
+        }
+        case TOK_VAR_NUM_INST: {
+            ++dp;
+            sp += vlen;
+            dims[dp] = tok->gen.vec_len;
+#if TRACE_EVAL
+            if (tok->var.idx == VAR_Y)
+                printf("loading y.count%c()", tok->gen.datatype);
+            else if (tok->var.idx >= VAR_X)
+                printf("loading x%d.count%c()", tok->var.idx - VAR_X, tok->gen.datatype);
+            else if (v_vars)
+                printf("loading vars[%d].count%c()", tok->var.idx, tok->gen.datatype);
+#endif
+            if (tok->var.idx == VAR_Y)
+                stk[sp].i = v_out->num_active_inst;
+            else if (tok->var.idx >= VAR_X) {
+                if (!v_in)
+                    return status;
+                stk[sp].i = v_in[tok->var.idx - VAR_X]->num_active_inst;
+            }
+            else if (v_vars)
+                stk[sp].i = (*v_vars + tok->var.idx)->num_active_inst;
+            else
+                goto error;
+            for (i = 1; i < tok->gen.vec_len; i++)
+                stk[sp + i].i = stk[sp].i;
+#if TRACE_EVAL
+            printf(" = ");
+            print_stack_vec(stk + sp, tok->gen.datatype, dims[dp]);
             printf(" \n");
 #endif
             break;
@@ -3585,7 +3637,6 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 --cache;
 #if TRACE_EVAL
                 printf("Instance loop done; retrieved cached instance idx %d.\n", inst_idx);
-                print_stack_vec(stk + sp, tok->gen.datatype, dims[dp]);
 #endif
             }
             break;
