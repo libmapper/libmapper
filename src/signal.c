@@ -112,6 +112,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
         }
         else {
             mpr_sig_reserve_inst((mpr_sig)lsig, 1, 0, 0);
+            lsig->use_inst = 0;
         }
 
         /* Reserve one instance id map */
@@ -584,12 +585,7 @@ static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
     _init_inst(si);
     si->data = data;
 
-    if (++lsig->num_inst > 1) {
-        if (!lsig->use_inst) {
-            /* TODO: modify associated maps for instanced signals */
-        }
-        lsig->use_inst = 1;
-    }
+    ++lsig->num_inst;
     qsort(lsig->inst, lsig->num_inst, sizeof(mpr_sig_inst), _compare_inst_ids);
     return lsig->num_inst - 1;;
 }
@@ -616,6 +612,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
         highest = result;
         ++count;
     }
+    sig->use_inst = 1;
     if (highest != -1)
         mpr_rtr_num_inst_changed(lsig->obj.graph->net.rtr, lsig, highest + 1);
 
