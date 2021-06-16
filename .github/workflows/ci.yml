@@ -48,7 +48,7 @@ jobs:
     - name: install zlib
       run: unset CC && unset CXX && curl -L -O http://www.zlib.net/zlib-1.2.11.tar.gz && tar -xzf zlib-1.2.11.tar.gz && cp -v zlib-1.2.11/crc32.c src/ && echo libmapper_la_SOURCES += crc32.c >>src/Makefile.am && echo libmapper_la_CFLAGS += -I\$\(top_srcdir\)/zlib-1.2.11 >>src/Makefile.am && sed -e 's,\(AC_CHECK_LIB(\[z\]\),dnl \1,' -i configure.ac && sed -e 's,\(\./\$\$i\),wine \1.exe,' -i test/Makefile.am
     - name: autogen
-      run: pwd && mkdir $PWD/inst && (./autogen.sh --host="x86_64-w64-mingw32" --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+      run: pwd && mkdir $PWD/inst && (./autogen.sh --host="x86_64-w64-mingw32" --enable-static --disable-swig --disable-jni --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
     - name: make
       run: make && make install && find inst
       
