@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: install dependencies
-      run: sudo apt-get g++-8 autoconf-archive curl zlib1g-dev
+      run: sudo apt-get install g++-8 autoconf-archive curl zlib1g-dev
     - name: install liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
     - name: autogen
