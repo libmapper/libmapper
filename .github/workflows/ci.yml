@@ -16,9 +16,9 @@ jobs:
     - name: install liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
     - name: autogen
-      run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false)) && make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false))
+      run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
     - name: make
-      run: make && make install && find inst
+      run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
     - name: make tests
       run: cd test && make tests
 
@@ -33,7 +33,7 @@ jobs:
     - name: autogen
       run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
     - name: make
-      run: make && make install && find inst
+      run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
     - name: make tests
       run: cd test && make tests
   
