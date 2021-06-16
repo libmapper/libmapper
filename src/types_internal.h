@@ -275,7 +275,7 @@ typedef struct _mpr_value
     uint8_t num_inst;           /*!< Number of instances. */
     uint8_t num_active_inst;    /*!< Number of active instances. */
     mpr_type type;              /*!< The type of this signal. */
-    int8_t mlen;                /*!< History size of the buffer. */
+    int16_t mlen;               /*!< History size of the buffer. */
 } mpr_value_t, *mpr_value;
 
 /*! Bit flags for indicating instance id_map status. */

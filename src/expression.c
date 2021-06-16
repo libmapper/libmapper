@@ -1010,13 +1010,13 @@ struct _mpr_expr
     uint8_t n_tokens;
     uint8_t stack_size;
     uint8_t vec_len;
-    uint8_t *in_hist_size;
-    uint8_t out_hist_size;
+    uint16_t *in_hist_size;
+    uint16_t out_hist_size;
     uint8_t n_vars;
     int8_t inst_ctl;
     int8_t mute_ctl;
     int8_t n_ins;
-    uint8_t max_in_hist_size;
+    uint16_t max_in_hist_size;
 };
 
 void mpr_expr_free(mpr_expr expr)
@@ -2822,8 +2822,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
     memcpy(expr->tokens, &out, sizeof(union _token) * expr->n_tokens);
     expr->start = expr->tokens;
     expr->vec_len = max_vector;
-    expr->out_hist_size = -oldest_out+1;
-    expr->in_hist_size = malloc(sizeof(uint8_t) * n_ins);
+    expr->out_hist_size = -oldest_out + 1;
+    expr->in_hist_size = malloc(sizeof(uint16_t) * n_ins);
     expr->max_in_hist_size = 0;
     for (i = 0; i < n_ins; i++) {
         register int hist_size = -oldest_in[i] + 1;

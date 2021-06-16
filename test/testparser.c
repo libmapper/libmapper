@@ -74,11 +74,13 @@ struct _mpr_expr
     uint8_t n_tokens;
     uint8_t stack_size;
     uint8_t vec_size;
-    uint8_t *in_mem;
-    uint8_t out_mem;
+    uint16_t *in_mem;
+    uint16_t out_mem;
     uint8_t n_vars;
     int8_t inst_ctl;
     int8_t mute_ctl;
+    int8_t n_ins;
+    uint16_t max_in_mem;
 };
 
 /*! A helper function to seed the random number generator. */
