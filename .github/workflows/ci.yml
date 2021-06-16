@@ -24,12 +24,12 @@ jobs:
     - name: make tests
       run: cd test && make tests
 
-  MaxOS:
+  MacOS:
     runs-on: macOS-latest
     steps:
     - uses: actions/checkout@v2
     - name: install dependencies
-      run: brew install autoconf-archive
+      run: brew install autoconf-archive automake
     - name: install liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
     - name: autogen
