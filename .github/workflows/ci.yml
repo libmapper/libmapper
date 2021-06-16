@@ -1,0 +1,54 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  Linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: install dependencies
+      run: sudo apt-get install g++-8 autoconf-archive curl zlib1g-dev
+    - name: install liblo
+      run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
+    - name: autogen
+      run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+    - name: make
+      run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
+    - name: make tests
+      run: cd test && make tests
+
+  MacOS:
+    runs-on: macOS-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: install dependencies
+      run: brew install autoconf-archive automake
+    - name: install liblo
+      run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
+    - name: autogen
+      run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+    - name: make
+      run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
+    - name: make tests
+      run: cd test && make tests
+  
+  MinGW:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: install dependencies
+      run: sudo apt-get install g++-mingw-w64 autoconf-archive curl
+    - name: install liblo
+      run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host="x86_64-w64-mingw32" --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
+    - name: install zlib
+      run: unset CC && unset CXX && curl -L -O http://www.zlib.net/zlib-1.2.11.tar.gz && tar -xzf zlib-1.2.11.tar.gz && cp -v zlib-1.2.11/crc32.c src/ && echo libmapper_la_SOURCES += crc32.c >>src/Makefile.am && echo libmapper_la_CFLAGS += -I\$\(top_srcdir\)/zlib-1.2.11 >>src/Makefile.am && sed -e 's,\(AC_CHECK_LIB(\[z\]\),dnl \1,' -i configure.ac && sed -e 's,\(\./\$\$i\),wine \1.exe,' -i test/Makefile.am
+    - name: autogen
+      run: pwd && mkdir $PWD/inst && (./autogen.sh --host="x86_64-w64-mingw32" --enable-static --disable-swig --disable-jni --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+    - name: make
+      run: make && make install && find inst
+      
