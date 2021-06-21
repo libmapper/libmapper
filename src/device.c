@@ -415,9 +415,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     }
     else {
         /* use the first available instance */
-        idmap_idx = 0;
-        if (!sig->idmaps[0].inst)
-            idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->inst[0]->id, 1, ts, 1);
+        idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->inst[0]->id, 1, ts, 1);
         RETURN_ARG_UNLESS(idmap_idx >= 0, 0);
     }
     si = sig->idmaps[idmap_idx].inst;

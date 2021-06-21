@@ -495,8 +495,6 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
                 else {
                     mpr_dev_LID_decref(rtr->dev, sig->group, maps[i].map);
                     maps[i].map = 0;
-                    maps[i].inst->active = 0;
-                    maps[i].inst = 0;
                 }
             }
         }

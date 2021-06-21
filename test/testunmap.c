@@ -48,8 +48,7 @@ int setup_src(const char *iface)
         mpr_graph_set_interface(srcgraph, iface);
     eprintf("source created using interface %s.\n", mpr_graph_get_interface(srcgraph));
 
-    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_INT32, NULL,
-                          &mn, &mx, NULL, NULL, 0);
+    sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_INT32, NULL, &mn, &mx, NULL, NULL, 0);
 
     eprintf("Output signal 'outsig' registered.\n");
     l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
@@ -72,15 +71,6 @@ void cleanup_src()
     }
 }
 
-void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id instance, int len,
-             mpr_type type, const void *val, mpr_time t)
-{
-    if (val) {
-        eprintf("handler: Got %f\n", (*(float*)val));
-    }
-    received++;
-}
-
 int setup_dst(const char *iface)
 {
     float mn = 0, mx = 1;
@@ -94,8 +84,8 @@ int setup_dst(const char *iface)
         mpr_graph_set_interface(dstgraph, iface);
     eprintf("destination created using interface %s.\n", mpr_graph_get_interface(dstgraph));
 
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
-                          &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL, &mn, &mx, NULL, NULL, 0);
+    mpr_sig_set_value(recvsig, 0, 1, MPR_FLT, &mn);
 
     eprintf("Input signal 'insig' registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
@@ -147,6 +137,7 @@ void wait_ready()
 void loop()
 {
     int i = 0;
+    float dst_val, last_dst_val = -1;
     eprintf("Polling device..\n");
     while ((!terminate || srcgraph->links || dstgraph->links) && !done) {
         eprintf("Updating signal %s to %d\n",
@@ -155,6 +146,13 @@ void loop()
         sent++;
         mpr_dev_poll(src, 0);
         mpr_dev_poll(dst, 100);
+        dst_val = *(float*)mpr_sig_get_value(recvsig, 0, 0);
+        if (dst_val != last_dst_val) {
+            ++received;
+            last_dst_val = dst_val;
+        }
+        /* test if we can still set value for the destination signal */
+        mpr_sig_set_value(recvsig, 0, 1, MPR_FLT, &dst_val);
         i++;
 
         if (!verbose) {
