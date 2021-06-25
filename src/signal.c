@@ -287,13 +287,23 @@ static void _init_inst(mpr_sig_inst si)
 static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
 {
     int i;
+    mpr_sig_inst si;
     for (i = 0; i < lsig->num_inst; i++) {
-        if (!lsig->inst[i]->active) {
-            if (id)
-                lsig->inst[i]->id = *id;
-            qsort(lsig->inst, lsig->num_inst, sizeof(mpr_sig_inst), _compare_inst_ids);
-            return lsig->inst[i];
+        si = lsig->inst[i];
+        if (si->active) {
+            if (lsig->use_inst)
+                continue;
+            if (lsig->idmaps[si->idx].map) {
+                if (lsig->idmaps[si->idx].map->GID >> 32 != lsig->dev->obj.id >> 32)
+                    continue;
+                /* locally claimed instance, allow replacing idmap */
+                mpr_dev_LID_decref((mpr_local_dev)lsig->dev, lsig->group, lsig->idmaps[si->idx].map);
+            }
         }
+        if (id)
+            si->id = *id;
+        qsort(lsig->inst, lsig->num_inst, sizeof(mpr_sig_inst), _compare_inst_ids);
+        return si;
     }
     return 0;
 }
@@ -457,12 +467,11 @@ int mpr_sig_get_idmap_with_GID(mpr_local_sig lsig, mpr_id GID, int flags, mpr_ti
     /* check if the device already has a map for this global id */
     map = mpr_dev_get_idmap_by_GID((mpr_local_dev)lsig->dev, lsig->group, GID);
     if (!map) {
-        /* Here we still risk creating conflicting maps if two signals are
-         * updated asynchronously.  This is easy to avoid by not allowing a
-         * local id to be used with multiple active remote maps, however users
-         * may wish to create devices with multiple object classes which do not
-         * require mutual instance id synchronization - e.g. instance 1 of
-         * object class A is not related to instance 1 of object B. */
+        /* Here we still risk creating conflicting maps if two signals are updated asynchronously.
+         * This is easy to avoid by not allowing a local id to be used with multiple active remote
+         * maps, however users may wish to create devices with multiple object classes which do not
+         * require mutual instance id synchronization - e.g. instance 1 of object class A is not
+         * related to instance 1 of object B. */
         if ((si = _reserved_inst(lsig, NULL))) {
             map = mpr_dev_add_idmap((mpr_local_dev)lsig->dev, lsig->group, si->id, GID);
             map->GID_refcount = 1;
@@ -733,8 +742,9 @@ void mpr_sig_release_inst_internal(mpr_local_sig lsig, int idmap_idx)
 
     mpr_rtr_process_sig(lsig->obj.graph->net.rtr, lsig, idmap_idx, 0, smap->inst->time);
 
-    if (smap->map && mpr_dev_LID_decref((mpr_local_dev)lsig->dev, lsig->group, smap->map))
+    if (smap->map && mpr_dev_LID_decref((mpr_local_dev)lsig->dev, lsig->group, smap->map)) {
         smap->map = 0;
+    }
     else if ((lsig->dir & MPR_DIR_OUT) || smap->status & RELEASED_REMOTELY) {
         /* TODO: consider multiple upstream source instances? */
         smap->map = 0;

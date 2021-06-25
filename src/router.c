@@ -171,17 +171,16 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
             continue;
 
         slot = rs->slots[i];
-        map = slot->map;
+        if (MPR_DIR_IN == slot->dir)
+            continue;
 
+        map = slot->map;
         if (map->status < MPR_STATUS_ACTIVE)
             continue;
 
         in_scope = _is_map_in_scope(map, sig->idmaps[idmap_idx].map->GID);
         /* TODO: should we continue for out-of-scope local destination updates? */
         if (map->use_inst && !in_scope)
-            continue;
-
-        if (slot->dir == MPR_DIR_IN)
             continue;
 
         /* If this signal is non-instanced but the map has other instanced

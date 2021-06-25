@@ -415,7 +415,13 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     }
     else {
         /* use the first available instance */
-        idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->inst[0]->id, 1, ts, 1);
+        for (i = 0; i < sig->num_inst; i++) {
+            if (sig->inst[i]->active)
+                break;
+        }
+        if (i >= sig->num_inst)
+            i = 0;
+        idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->inst[i]->id, 1, ts, 1);
         RETURN_ARG_UNLESS(idmap_idx >= 0, 0);
     }
     si = sig->idmaps[idmap_idx].inst;
@@ -426,15 +432,13 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     size = mpr_type_get_size(map ? slot->sig->type : sig->type);
     if (vals == 0) {
         if (GID) {
-            /* TODO: mark SLOT status as remotely released rather than map */
+            /* TODO: mark SLOT status as remotely released rather than idmap? */
             sig->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
             mpr_dev_GID_decref(dev, sig->group, idmap);
             if (!sig->use_inst) {
                 /* clear signal's reference to idmap */
                 mpr_dev_LID_decref(dev, sig->group, idmap);
                 sig->idmaps[idmap_idx].map = 0;
-                sig->idmaps[idmap_idx].inst->active = 0;
-                sig->idmaps[idmap_idx].inst = 0;
                 return 0;
             }
         }
@@ -481,7 +485,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     if (map) {
         for (; idmap_idx < sig->idmap_len; idmap_idx++) {
             /* check if map instance is active */
-            if ((si = sig->idmaps[idmap_idx].inst)) {
+            if ((si = sig->idmaps[idmap_idx].inst) && si->active) {
                 inst_idx = si->idx;
                 /* Setting to local timestamp here */
                 /* TODO: jitter mitigation etc. */
@@ -498,7 +502,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
 
     for (; idmap_idx < sig->idmap_len; idmap_idx++) {
         /* check if instance is active */
-        if ((si = sig->idmaps[idmap_idx].inst)) {
+        if ((si = sig->idmaps[idmap_idx].inst) && si->active) {
             idmap = sig->idmaps[idmap_idx].map;
             for (i = 0; i < sig->len; i++) {
                 if (types[i] == MPR_NULL)
@@ -833,6 +837,19 @@ void mpr_dev_reserve_idmap(mpr_local_dev dev)
     dev->idmaps.reserve = map;
 }
 
+#ifdef DEBUG
+static void print_idmaps(mpr_local_dev dev)
+{
+    printf("ID MAPS for %s:\n", dev->name);
+    mpr_id_map *map = &dev->idmaps.active[0];
+    while (*map) {
+        mpr_id_map m = *map;
+        printf("  %p: %llu (%d) -> %llu (%d)\n", m, m->LID, m->LID_refcount, m->GID, m->GID_refcount);
+        map = &(*map)->next;
+    }
+}
+#endif
+
 mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GID)
 {
     mpr_id_map map;
@@ -841,16 +858,21 @@ mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GI
     map = dev->idmaps.reserve;
     map->LID = LID;
     map->GID = GID ? GID : mpr_dev_generate_unique_id((mpr_dev)dev);
+    trace_dev(dev, "mpr_dev_add_idmap(%s) %llu -> %llu\n", dev->name, LID, map->GID);
     map->LID_refcount = 1;
     map->GID_refcount = 0;
     dev->idmaps.reserve = map->next;
     map->next = dev->idmaps.active[group];
     dev->idmaps.active[group] = map;
+#ifdef DEBUG
+    print_idmaps(dev);
+#endif
     return map;
 }
 
 static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem)
 {
+    trace_dev(dev, "mpr_dev_remove_idmap(%s) %llu -> %llu\n", dev->name, rem->LID, rem->GID);
     mpr_id_map *map = &dev->idmaps.active[group];
     while (*map) {
         if ((*map) == rem) {
@@ -861,11 +883,16 @@ static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem)
         }
         map = &(*map)->next;
     }
+#ifdef DEBUG
+    print_idmaps(dev);
+#endif
 }
 
 int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map map)
 {
+    trace_dev(dev, "mpr_dev_LID_decref(%s) %llu -> %llu\n", dev->name, map->LID, map->GID);
     --map->LID_refcount;
+    trace_dev(dev, "  refcounts: {LID:%d, GID:%d}\n", map->LID_refcount, map->GID_refcount);
     if (map->LID_refcount <= 0) {
         map->LID_refcount = 0;
         if (map->GID_refcount <= 0) {
@@ -878,7 +905,9 @@ int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map map)
 
 int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map map)
 {
+    trace_dev(dev, "mpr_dev_GID_decref(%s) %llu -> %llu\n", dev->name, map->LID, map->GID);
     --map->GID_refcount;
+    trace_dev(dev, "  refcounts: {LID:%d, GID:%d}\n", map->LID_refcount, map->GID_refcount);
     if (map->GID_refcount <= 0) {
         map->GID_refcount = 0;
         if (map->LID_refcount <= 0) {
