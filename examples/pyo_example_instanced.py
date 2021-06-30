@@ -28,7 +28,7 @@ s.start()
 
 numInst = 10
 freq = [SigTo(value=200, time=0.05, init=200) for i in range(numInst)]
-amp = [SigTo(value=0, time=0.05, init=0.0) for i in range(numInst)]
+amp = [SigTo(value=0.0, time=0.05, init=0.0) for i in range(numInst)]
 duty = [SigTo(value=0.5, time=0.05, init=0.5, add=-0.5) for i in range(numInst)]
 
 mm = Mixer(outs=2, chnls=numInst, time=.025).out()
@@ -39,32 +39,39 @@ for i in range(numInst):
     mm.setAmp(i,0,1/numInst)
     mm.setAmp(i,1,1/numInst)
 
+freqSig = None
+ampSig = None
+dutySig = None
+
+def release_instance(i):
+    amp[i].setValue(0)
+    freqSig.release_instance(i)
+    ampSig.release_instance(i)
+    dutySig.release_instance(i)
+
 def freqHandler(s, e, i, v, t):
-    print('FREQHANDLER')
     if e == mpr.SIG_UPDATE:
         freq[i].setValue(v)
     elif e == mpr.SIG_REL_UPSTRM or e == mpr.SIG_INST_OFLW:
-        s.release_instance(i)
+        release_instance(i)
 
 def ampHandler(s, e, i, v, t):
     if e == mpr.SIG_UPDATE:
         amp[i].setValue(v)
     elif e == mpr.SIG_REL_UPSTRM or e == mpr.SIG_INST_OFLW:
-        amp[i].setValue(0)
-        s.release_instance(i)
+        release_instance(i)
 
 def dutyHandler(s, e, i, v, t):
     if e == mpr.SIG_UPDATE:
-        amp[i].setValue(v)
-    elif e == mpr.SIG_REL_UPSTRM or e == mpr.SIG_INST_OFLW:
-        amp[i].setValue(0.5)
         duty[i].setValue(v)
+    elif e == mpr.SIG_REL_UPSTRM or e == mpr.SIG_INST_OFLW:
+        release_instance(i)
 
 try:
     dev = mpr.device("pyo_pwm_example")
-    dev.add_signal(mpr.DIR_IN, "frequency", 1, mpr.FLT, "Hz", 0, 1000, numInst, freqHandler)
-    dev.add_signal(mpr.DIR_IN, "amplitude", 1, mpr.FLT, "normalized", 0, 1, numInst, ampHandler)
-    dev.add_signal(mpr.DIR_IN, "duty", 1, mpr.FLT, "normalized", 0, 1, numInst, dutyHandler)
+    freqSig = dev.add_signal(mpr.DIR_IN, "frequency", 1, mpr.FLT, "Hz", 0, 1000, numInst, freqHandler)
+    ampSig = dev.add_signal(mpr.DIR_IN, "amplitude", 1, mpr.FLT, "normalized", 0, 1, numInst, ampHandler)
+    dutySig = dev.add_signal(mpr.DIR_IN, "duty", 1, mpr.FLT, "normalized", 0, 1, numInst, dutyHandler)
 
     while True:
         dev.poll(5)
