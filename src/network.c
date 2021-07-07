@@ -110,6 +110,9 @@ static int handler_unmap(HANDLER_ARGS);
 static int handler_unmapped(HANDLER_ARGS);
 static int handler_who(HANDLER_ARGS);
 
+static int _device_handler_logout(HANDLER_ARGS);
+static int _graph_handler_logout(HANDLER_ARGS);
+
 /* Handler <-> Message relationships */
 struct handler_method_assoc {
     int str_idx;
@@ -971,18 +974,34 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
 static int handler_logout(const char *path, const char *types, lo_arg **av,
                           int ac, lo_message msg, void *user)
 {
+    mpr_obj obj;
+    RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
+    obj = (mpr_obj)user;
+    switch (obj->type)
+    {
+    case MPR_DEV:
+        return _device_handler_logout(path, types, av, ac, msg, obj);
+    case MPR_GRAPH:
+        return _graph_handler_logout(path, types, av, ac, msg, obj);
+    default:
+        trace("Unexpected object type in handler_logout\n");
+        return 0;
+    }
+}
+
+static int _device_handler_logout(const char *path, const char *types, lo_arg **av,
+                          int ac, lo_message msg, void * vdev)
+{
     mpr_net net;
     mpr_graph gph;
-    mpr_local_dev dev;
     mpr_dev remote;
     mpr_link lnk;
     int diff, ordinal;
     char *s, *name;
+    mpr_local_dev dev = vdev;
 
-    RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
-    net = (mpr_net)user;
-    dev = net->devs ? net->devs[0] : 0;
-    gph = net->graph;
+    gph = dev->obj.graph;
+    net = &gph->net;
 
     name = &av[0]->s;
     remote = mpr_graph_get_dev_by_name(gph, name);
@@ -1014,6 +1033,17 @@ static int handler_logout(const char *path, const char *types, lo_arg **av,
                 dev->ordinal_allocator.hints[diff] = 0;
         }
     }
+    return 0;
+}
+
+static int _graph_handler_logout(const char *path, const char *types, lo_arg **av,
+                          int ac, lo_message msg, void * vgph)
+{
+    mpr_dev remote;
+    char *name;
+    mpr_graph gph = vgph;
+    name = &av[0]->s;
+    remote = mpr_graph_get_dev_by_name(gph, name);
     if (remote) {
         mpr_graph_unsubscribe(gph, remote);
         mpr_graph_remove_dev(gph, remote, MPR_OBJ_REM, 0);
