@@ -20,6 +20,8 @@
 if (!(a)) { trace(__VA_ARGS__); return ret; }
 #define TRACE_DEV_RETURN_UNLESS(a, ret, ...) \
 if (!(a)) { trace_dev(dev, __VA_ARGS__); return ret; }
+#define TRACE_NET_RETURN_UNLESS(a, ret, ...) \
+if (!(a)) { trace_net(__VA_ARGS__); return ret; }
 #else
 #define TRACE_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
 #define TRACE_DEV_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }

@@ -119,7 +119,6 @@ struct handler_method_assoc {
 
 /* handlers needed by devices */
 static struct handler_method_assoc device_handlers[] = {
-    {MSG_DEV,                   NULL,       handler_dev},
     {MSG_DEV_MOD,               NULL,       handler_dev_mod},
     {MSG_LOGOUT,                NULL,       handler_logout},
     {MSG_MAP,                   NULL,       handler_map},
@@ -800,7 +799,6 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
     mpr_net net;
-    mpr_local_dev dev;
     mpr_dev remote;
     mpr_graph graph;
     int i, j, data_port, found;
@@ -813,7 +811,6 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
 
     RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
     net = (mpr_net)user;
-    dev = net->devs ? net->devs[0] : 0;
     graph = net->graph;
     name = &av[0]->s;
 
@@ -836,7 +833,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
             break;
     }
     TRACE_DEV_RETURN_UNLESS(i == net->num_devs, 0, "ignoring /device message from self\n");
-    trace_dev(dev, "received /device %s\n", &av[0]->s);
+    trace_net("received /device %s\n", &av[0]->s);
 
     /* Discover whether the device is linked. */
     remote = mpr_graph_get_dev_by_name(graph, name);
@@ -888,7 +885,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
         mpr_link link = (mpr_link)*cpy;
         cpy = mpr_list_get_next(cpy);
         if (mpr_link_get_is_local(link)) {
-            trace_dev(dev, "establishing link to %s.\n", name)
+            trace_net("establishing link to %s.\n", name)
             mpr_link_connect(link, host, atoi(admin_port), data_port);
             found = 1;
             break;
@@ -897,12 +894,8 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     if (!found)
         goto done;
 
-    /* links property has been updated, inform subscribers */
-    if (found)
-        inform_device_subscribers(net, dev);
-
     /* check if we have maps waiting for this link */
-    trace_dev(dev, "checking for waiting maps.\n");
+    trace_net("checking for waiting maps.\n");
     rs = net->rtr->sigs;
     while (rs) {
         for (i = 0; i < rs->num_slots; i++) {
