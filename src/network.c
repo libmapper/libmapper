@@ -134,7 +134,6 @@ static struct handler_method_assoc device_handlers[] = {
     {MSG_SIG_REM,               "s",        handler_sig_removed},
     {MSG_SUBSCRIBE,             NULL,       handler_subscribe},
     {MSG_UNMAP,                 NULL,       handler_unmap},
-    {MSG_WHO,                   NULL,       handler_who},
 };
 const int NUM_DEV_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
@@ -148,6 +147,7 @@ static struct handler_method_assoc graph_handlers[] = {
     {MSG_SIG_REM,               "s",        handler_sig_removed},
     {MSG_SYNC,                  NULL,       handler_sync},
     {MSG_UNMAPPED,              NULL,       handler_unmapped},
+    {MSG_WHO,                   NULL,       handler_who},
 };
 const int NUM_GRAPH_HANDLERS =
     sizeof(graph_handlers)/sizeof(graph_handlers[0]);
@@ -790,9 +790,10 @@ static int check_collisions(mpr_net net, mpr_allocated resource)
 static int handler_who(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
-    mpr_net net = (mpr_net)user;
+    mpr_graph gph = (mpr_gph)user;
+    mpr_net net = &gph->net;
     RETURN_ARG_UNLESS(net->devs, 0);
-    trace_dev(net->devs[0], "received /who\n");
+    trace_net("received /who\n");
     mpr_net_maybe_send_ping(net, 1);
     return 0;
 }
