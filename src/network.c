@@ -963,7 +963,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
     props = mpr_msg_parse_props(ac, types, av);
     trace_dev(dev, "received /%s/modify + %d properties.\n", path, props->num_atoms);
     if (mpr_dev_set_from_msg((mpr_dev)dev, props)) {
-        inform_device_subscribers(&dev->graph.net, dev);
+        inform_device_subscribers(&dev->obj.graph->net, dev);
         mpr_tbl_clear_empty(dev->obj.props.synced);
     }
     mpr_msg_free(props);
@@ -1055,8 +1055,7 @@ static int _graph_handler_logout(const char *path, const char *types, lo_arg **a
 static int handler_subscribe(const char *path, const char *types, lo_arg **av,
                              int ac, lo_message msg, void *user)
 {
-    mpr_net net = (mpr_net)user;
-    mpr_local_dev dev = net->devs ? net->devs[0] : 0;
+    mpr_local_dev dev = (mpr_local_dev)user;
     int i, version = -1, flags = 0, timeout_seconds = 0;
 
 #ifdef DEBUG
@@ -1177,8 +1176,8 @@ static int prefix_cmp(const char *str1, const char *str2, const char **rest)
 static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
                            int ac, lo_message msg, void *user)
 {
-    mpr_net net = (mpr_net)user;
-    mpr_local_dev dev = net->devs ? net->devs[0] : 0;
+    mpr_local_dev dev = (mpr_local_dev)dev;
+    mpr_net net = &dev->obj.graph->net;
     mpr_sig sig;
     mpr_msg props;
     RETURN_ARG_UNLESS(dev && mpr_dev_get_is_ready((mpr_dev)dev) && ac > 1 && MPR_STR == types[0], 0);
@@ -1518,7 +1517,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
     mpr_local_dev dev = (mpr_local_dev)user;
-    mpr_net net = &dev->graph.net;
+    mpr_net net = &dev->obj.graph->net;
     mpr_sig sig = 0;
     mpr_local_map map;
     mpr_msg props;
@@ -1746,8 +1745,8 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     int updated;
 
     RETURN_ARG_UNLESS(ac >= 4, 0);
-    net = (mpr_net)user;
-    dev = net->devs ? net->devs[0] : 0;
+    dev = (mpr_local_dev)user;
+    net = &dev->obj.graph->net;
     RETURN_ARG_UNLESS(dev, 0);
 #ifdef DEBUG
     trace_dev(dev, "received /map/modify ");
