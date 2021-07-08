@@ -14,6 +14,7 @@
 int count = 0;
 
 int verbose = 1;
+int shared_graph = 0;
 
 mpr_dev src = 0;
 mpr_dev dst = 0;
@@ -64,10 +65,10 @@ static double current_time()
 }
 
 /*! Creation of a local source. */
-int setup_src(const char *iface)
+int setup_src(mpr_graph g, const char *iface)
 {
     mpr_list l;
-    src = mpr_dev_new("testspeed-send", 0);
+    src = mpr_dev_new("testspeed-send", g);
     if (!src)
         goto error;
     if (iface)
@@ -122,10 +123,10 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
 }
 
 /*! Creation of a local destination. */
-int setup_dst(const char *iface)
+int setup_dst(mpr_graph g, const char *iface)
 {
     mpr_list l;
-    dst = mpr_dev_new("testspeed-recv", 0);
+    dst = mpr_dev_new("testspeed-recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -258,6 +259,7 @@ int main(int argc, char **argv)
     int i, j, result = 0;
     float value = (float)rand();
     char *iface = 0;
+    mpr_graph g;
 
     /* process flags for -v verbose, -h help */
     for (i = 1; i < argc; i++) {
@@ -268,9 +270,13 @@ int main(int argc, char **argv)
                     case 'h':
                         printf("testspeed.c: possible arguments "
                                "-q quiet (suppress output), "
+                               "-s shared (use one mpr_graph only), "
                                "-h help, "
                                "--iface network interface\n");
                         return 1;
+                        break;
+                    case 's':
+                        shared_graph = 0;
                         break;
                     case 'q':
                         verbose = 0;
@@ -291,13 +297,15 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_dst(iface)) {
+    g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+
+    if (setup_dst(g, iface)) {
         printf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_src(iface)) {
+    if (setup_src(g, iface)) {
         eprintf("Error initializing source.\n");
         result = 1;
         goto done;

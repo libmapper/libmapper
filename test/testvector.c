@@ -10,6 +10,7 @@
 
 int verbose = 1;
 int terminate = 0;
+int shared_graph = 0;
 int autoconnect = 1;
 int done = 0;
 int period = 100;
@@ -36,11 +37,11 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int setup_src(const char *iface)
+int setup_src(mpr_graph g, const char *iface)
 {
     mpr_list l;
 
-    src = mpr_dev_new("testvector-send", 0);
+    src = mpr_dev_new("testvector-send", g);
     if (!src)
         goto error;
     if (iface)
@@ -97,11 +98,11 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     }
 }
 
-int setup_dst(const char *iface)
+int setup_dst(mpr_graph g, const char *iface)
 {
     mpr_list l;
 
-    dst = mpr_dev_new("testvector-recv", 0);
+    dst = mpr_dev_new("testvector-recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -210,6 +211,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
     char *iface = 0;
+    mpr_graph g;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -222,6 +224,7 @@ int main(int argc, char **argv)
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-s shared (use one mpr_graph only), "
                                "-h help, "
                                "--vec_len vector length (default 3), "
                                "--iface network interface\n");
@@ -235,6 +238,9 @@ int main(int argc, char **argv)
                         break;
                     case 't':
                         terminate = 1;
+                        break;
+                    case 's':
+                        shared_graph = 1;
                         break;
                     case '-':
                         if (strcmp(argv[i], "--vec_len")==0 && argc>i+1) {
@@ -263,6 +269,8 @@ int main(int argc, char **argv)
     B = malloc(vec_len * sizeof(float));
     expected = malloc(vec_len * sizeof(float));
 
+    g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+
     for (i = 0; i < vec_len; i++) {
         sMin[i] = rand() % 100;
         do {
@@ -276,13 +284,13 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_dst(iface)) {
+    if (setup_dst(g, iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_src(iface)) {
+    if (setup_src(g, iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;

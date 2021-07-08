@@ -11,6 +11,7 @@
 
 int verbose = 1;
 int terminate = 0;
+int shared_graph = 0;
 int iterations = 100;
 int autoconnect = 1;
 int period = 100;
@@ -169,12 +170,12 @@ const int NUM_TESTS =
     sizeof(test_configs)/sizeof(test_configs[0]);
 
 /*! Creation of a local source. */
-int setup_src(const char *iface)
+int setup_src(mpr_graph g, const char *iface)
 {
     float mn=0, mx=10;
     int num_inst = 10, stl = MPR_STEAL_OLDEST;
 
-    src = mpr_dev_new("testinstance-send", 0);
+    src = mpr_dev_new("testinstance-send", g);
     if (!src)
         goto error;
     if (iface)
@@ -234,12 +235,12 @@ void handler(mpr_sig sig, mpr_sig_evt e, mpr_id inst, int len, mpr_type type,
 }
 
 /*! Creation of a local destination. */
-int setup_dst(const char *iface)
+int setup_dst(mpr_graph g, const char *iface)
 {
     float mn=0;
     int i, num_inst;
 
-    dst = mpr_dev_new("testinstance-recv", 0);
+    dst = mpr_dev_new("testinstance-recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -627,6 +628,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
     char *iface = 0;
+    mpr_graph g;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -639,6 +641,7 @@ int main(int argc, char **argv)
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-s shared (use one mpr_graph only), "
                                "-h help, "
                                "--iface network interface\n");
                         return 1;
@@ -651,6 +654,9 @@ int main(int argc, char **argv)
                         break;
                     case 't':
                         terminate = 1;
+                        break;
+                    case 's':
+                        shared_graph = 1;
                         break;
                     case '-':
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
@@ -668,12 +674,14 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_dst(iface)) {
+    g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+
+    if (setup_dst(g, iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
-    if (setup_src(iface)) {
+    if (setup_src(g, iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;

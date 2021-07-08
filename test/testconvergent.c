@@ -10,6 +10,7 @@
 int num_sources = 3;
 int verbose = 1;
 int terminate = 0;
+int shared_graph = 0;
 int autoconnect = 1;
 int done = 0;
 int period = 100;
@@ -36,23 +37,24 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int setup_srcs(const char *iface)
+int setup_srcs(mpr_graph g, const char *iface)
 {
     int i, mni=0, mxi=1;
     char tmpname[16];
 
+    if (g && iface) mpr_graph_set_interface(g, iface);
     srcs = (mpr_dev*)calloc(1, num_sources * sizeof(mpr_dev));
     sendsigs = (mpr_sig*)calloc(1, num_sources * sizeof(mpr_sig));
 
     for (i = 0; i < num_sources; i++) {
-        srcs[i] = mpr_dev_new("testconvergent-send", 0);
+        srcs[i] = mpr_dev_new("testconvergent-send", g);
         if (!srcs[i])
             goto error;
-        if (iface)
+        if (!g && iface)
             mpr_graph_set_interface(mpr_obj_get_graph(srcs[i]), iface);
         eprintf("sources[%d] created using interface %s.\n", i,
                 mpr_graph_get_interface(mpr_obj_get_graph(srcs[i])));
-        snprintf(tmpname, 16, "sendsig%d", i);
+        snprintf(tmpname, 18, "sendsig%d", i);
         sendsigs[i] = mpr_sig_new(srcs[0], MPR_DIR_OUT, tmpname, 1,
                                   MPR_INT32, NULL, &mni, &mxi, NULL, NULL, 0);
         if (!sendsigs[i])
@@ -97,12 +99,12 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id instance, int length,
     }
 }
 
-int setup_dst(const char *iface)
+int setup_dst(mpr_graph g, const char *iface)
 {
     float mn=0, mx=1;
     mpr_list l;
 
-    dst = mpr_dev_new("testconvergent-recv", 0);
+    dst = mpr_dev_new("testconvergent-recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -149,7 +151,7 @@ int setup_maps()
 
             /* build expression string with combination function and muted sources */
 
-            expr = malloc(len * sizeof(char));
+            expr = (char*)malloc(len * sizeof(char));
             snprintf(expr, 3, "y=");
             for (i = 0; i < num_sources; i++) {
                 if (i == 0) {
@@ -259,6 +261,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
     char *iface = 0;
+    mpr_graph g;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -271,6 +274,7 @@ int main(int argc, char **argv)
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-f fast (execute quickly), "
+                               "-s share (use one mpr_graph only), "
                                "-h help, "
                                "--iface network interface\n");
                         return 1;
@@ -283,6 +287,9 @@ int main(int argc, char **argv)
                         break;
                     case 't':
                         terminate = 1;
+                        break;
+                    case 's':
+                        shared_graph = 1;
                         break;
                     case '-':
                         if (strcmp(argv[i], "--sources")==0 && argc>i+1) {
@@ -307,13 +314,15 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    if (setup_dst(iface)) {
+    g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+
+    if (setup_dst(g, iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_srcs(iface)) {
+    if (setup_srcs(g, iface)) {
         eprintf("Done initializing %d sources.\n", num_sources);
         result = 1;
         goto done;
