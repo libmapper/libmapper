@@ -182,6 +182,12 @@ void loop (void)
     mpr_dev_poll(dst, period);
 }
 
+void segv(int sig)
+{
+    printf("\x1B[31m(SEGV)\n\x1B[0m");
+    exit(1);
+}
+
 void ctrlc(int signal)
 {
     done = 1;
@@ -237,6 +243,7 @@ int main (int argc, char **argv)
 
     /* Establish a handler for SIGALRM signals. */
     signal(SIGALRM, interrupt);
+    signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 
     g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
@@ -275,6 +282,7 @@ int main (int argc, char **argv)
   done:
     cleanup_dst();
     cleanup_src();
+    if (g) mpr_graph_free(g);
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
