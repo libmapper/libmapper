@@ -1517,8 +1517,8 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
 static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
-    mpr_net net = (mpr_net)user;
-    mpr_local_dev dev = net->devs ? net->devs[0] : 0;
+    mpr_local_dev dev = (mpr_local_dev)user;
+    mpr_net net = &dev->graph.net;
     mpr_sig sig = 0;
     mpr_local_map map;
     mpr_msg props;
@@ -1564,12 +1564,6 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
         return 0;
     }
 
-    if (map->one_src && !map->src[0]->rsig && map->src[0]->link && map->src[0]->link->addr.admin) {
-        mpr_net_use_mesh(net, map->src[0]->link->addr.admin);
-        mpr_map_send_state((mpr_map)map, -1, MSG_MAP_TO);
-        mpr_sig_send_state(sig, MSG_SIG);
-    }
-    else {
         for (i = 0; i < map->num_src; i++) {
             /* do not send if is local mapping */
             if (map->src[i]->rsig)
@@ -1580,10 +1574,9 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
                 continue;
             }
             mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
-            i = mpr_map_send_state((mpr_map)map, i, MSG_MAP_TO);
+            i = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : i, MSG_MAP_TO);
             mpr_sig_send_state(sig, MSG_SIG);
         }
-    }
     ++net->graph->staged_maps;
     return 0;
 }
