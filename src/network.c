@@ -110,6 +110,8 @@ static int handler_unmap(HANDLER_ARGS);
 static int handler_unmapped(HANDLER_ARGS);
 static int handler_who(HANDLER_ARGS);
 
+static int _handler_name_probe(HANDLER_ARGS);
+static int _handler_name(HANDLER_ARGS);
 static int _device_handler_logout(HANDLER_ARGS);
 static int _graph_handler_logout(HANDLER_ARGS);
 
@@ -131,8 +133,6 @@ static struct handler_method_assoc device_handlers[] = {
     {MSG_SIG_MOD,               NULL,       handler_sig_mod},
     {MSG_SUBSCRIBE,             NULL,       handler_subscribe},
     {MSG_UNMAP,                 NULL,       handler_unmap},
-    /* MSG_NAME_REG and MSG_NAME_PROBE are also device handlers,
-     * but they get registered early, separate from the rest */
 };
 const int NUM_DEV_HANDLERS =
     sizeof(device_handlers)/sizeof(device_handlers[0]);
@@ -147,6 +147,8 @@ static struct handler_method_assoc graph_handlers[] = {
     {MSG_SYNC,                  NULL,       handler_sync},
     {MSG_UNMAPPED,              NULL,       handler_unmapped},
     {MSG_WHO,                   NULL,       handler_who},
+    {MSG_NAME_REG,              NULL,       handler_name},
+    {MSG_NAME_PROBE,            "si",       handler_name_probe},
 };
 const int NUM_GRAPH_HANDLERS =
     sizeof(graph_handlers)/sizeof(graph_handlers[0]);
@@ -584,12 +586,6 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
     /* Choose a random ID for allocation speedup */
     net->random_id = rand();
 
-    /* Add allocation methods for bus communications. Further methods are added
-     * when the device is registered. */
-    lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_PROBE], "si",
-                         handler_name_probe, net);
-    lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_REG], NULL, handler_name, net);
-
     /* Probe potential name. */
     mpr_net_probe_dev_name(net, dev);
 }
@@ -632,7 +628,8 @@ static void mpr_net_maybe_send_ping(mpr_net net, int force)
 
     mpr_net_use_bus(net);
     for (i = 0; i < net->num_devs; i++) {
-        _send_device_sync(net, net->devs[i]);
+        if (net->devs[i]->registered)
+            _send_device_sync(net, net->devs[i]);
     }
 
     /* housekeeping #2: periodically check if our links are still active */
@@ -1225,6 +1222,22 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
 static int handler_name(const char *path, const char *types, lo_arg **av,
                         int ac, lo_message msg, void *user)
 {
+    mpr_graph graph = (mpr_graph)user;
+    mpr_local_dev dev;
+    int i;
+
+    for (i = 0, dev = graph->net.devs[i]; i < graph->net.num_devs; dev = graph->net.devs[++i])
+        _handler_name(path, types, av, ac, msg, dev);
+
+    return 0;
+}
+
+/* hander_name and handler_name_probe are actually device callbacks,
+ * but because all devices need to receive these messages on the same OSC
+ * address, we have to dispatch manually */
+static int _handler_name(const char *path, const char *types, lo_arg **av,
+                        int ac, lo_message msg, void *user)
+{
     mpr_local_dev dev = (mpr_local_dev)user;
     mpr_net net = &dev->obj.graph->net;
     int ordinal, diff, temp_id = -1, hint = 0;
@@ -1282,8 +1295,21 @@ static int handler_name(const char *path, const char *types, lo_arg **av,
     return 0;
 }
 
-/*! Repond to name probes during allocation, help suggest names once allocated. */
+/*! Respond to name probes during allocation, help suggest names once allocated. */
 static int handler_name_probe(const char *path, const char *types, lo_arg **av,
+                              int ac, lo_message msg, void *user)
+{
+    mpr_graph graph = (mpr_graph)user;
+    mpr_local_dev dev;
+    int i;
+
+    for (i = 0, dev = graph->net.devs[i]; i < graph->net.num_devs; dev = graph->net.devs[++i])
+        _handler_name_probe(path, types, av, ac, msg, dev);
+
+    return 0;
+}
+
+static int _handler_name_probe(const char *path, const char *types, lo_arg **av,
                               int ac, lo_message msg, void *user)
 {
     mpr_local_dev dev = (mpr_local_dev)user;
@@ -1317,7 +1343,7 @@ static int handler_name_probe(const char *path, const char *types, lo_arg **av,
         else if (temp_id == net->random_id)
             dev->ordinal_allocator.online = 1;
         else {
-            ++dev->ordinal_allocator.collision_count;
+            dev->ordinal_allocator.collision_count += 1;
             dev->ordinal_allocator.count_time = current_time;
         }
     }
