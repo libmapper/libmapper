@@ -1564,19 +1564,19 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
         return 0;
     }
 
-        for (i = 0; i < map->num_src; i++) {
-            /* do not send if is local mapping */
-            if (map->src[i]->rsig)
-                continue;
-            /* do not send if device host/port not yet known */
-            if (!map->src[i]->link || !map->src[i]->link->addr.admin) {
-                trace_dev(dev, "delaying map handshake while waiting for network link.\n");
-                continue;
-            }
-            mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
-            i = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : i, MSG_MAP_TO);
-            mpr_sig_send_state(sig, MSG_SIG);
+    for (i = 0; i < map->num_src; i++) {
+        /* do not send if is local mapping */
+        if (map->src[i]->rsig)
+            continue;
+        /* do not send if device host/port not yet known */
+        if (!map->src[i]->link || !map->src[i]->link->addr.admin) {
+            trace_dev(dev, "delaying map handshake while waiting for network link.\n");
+            continue;
         }
+        mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
+        i = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : i, MSG_MAP_TO);
+        mpr_sig_send_state(sig, MSG_SIG);
+    }
     ++net->graph->staged_maps;
     return 0;
 }
