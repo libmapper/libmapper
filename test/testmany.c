@@ -169,6 +169,11 @@ void ctrlc(int sig) {
     done = 1;
 }
 
+void segv(int sig) {
+    printf("\x1B[31m(SEGV)\n\x1B[0m");
+    exit(1);
+}
+
 int main(int argc, char *argv[])
 {
     double now = current_time();
@@ -221,6 +226,7 @@ int main(int argc, char *argv[])
 
     devices = (mpr_dev*)malloc(sizeof(mpr_dev)*num_devs);
 
+    signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 	srand( time(NULL) );
 
@@ -238,9 +244,12 @@ int main(int argc, char *argv[])
         loop();
 
   done:
-    cleanup_devs();
-
-    free(devices);
+    {
+        mpr_graph g = mpr_obj_get_graph(devices[0]);
+        cleanup_devs();
+        free(devices);
+        if (shared_graph) mpr_graph_free(g);
+    }
     printf("\r..................................................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

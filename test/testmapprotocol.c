@@ -5,6 +5,7 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 int verbose = 1;
 int shared_graph = 0;
@@ -186,6 +187,12 @@ void loop()
     }
 }
 
+void segv(int sig)
+{
+    printf("\x1B[31m(SEGV)\n\x1B[0m");
+    exit(1);
+}
+
 void ctrlc(int sig)
 {
     done = 1;
@@ -239,6 +246,7 @@ int main(int argc, char **argv)
         }
     }
 
+    signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 
     g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
@@ -283,6 +291,7 @@ int main(int argc, char **argv)
 done:
     cleanup_dst();
     cleanup_src();
+    if (g) mpr_graph_free(g);
     printf("\r..................................................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

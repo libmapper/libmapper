@@ -171,6 +171,11 @@ void ctrlc(int sig)
     done = 1;
 }
 
+void segv(int sig) {
+    printf("\x1B[31m(SEGV)\n\x1B[0m");
+    exit(1);
+}
+
 int main(int argc, char ** argv)
 {
     int i, j, result = 0;
@@ -218,6 +223,7 @@ int main(int argc, char ** argv)
         }
     }
 
+    signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 
     if (setup_devs(iface)) {
@@ -236,7 +242,11 @@ int main(int argc, char ** argv)
     }
 
   done:
-    cleanup_devs();
+    {
+        mpr_graph g = mpr_obj_get_graph(devices[0]);
+        cleanup_devs();
+        if (shared_graph) mpr_graph_free(g);
+    }
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
