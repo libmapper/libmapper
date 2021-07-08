@@ -57,7 +57,7 @@ static void send_subscribe_msg(mpr_graph g, mpr_dev d, int flags, int timeout)
 {
     char cmd[1024];
     NEW_LO_MSG(msg, return);
-    snprintf(cmd, 1024, "/%s/subscribe", d->name);
+    snprintf(cmd, 1024, "/%s/subscribe", d->name); /* MSG_SUBSCRIBE */
 
     set_net_dst(g, d);
     if (MPR_OBJ == flags)

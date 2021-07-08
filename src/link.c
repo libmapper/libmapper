@@ -41,7 +41,7 @@ void mpr_link_init(mpr_link link)
     link->clock.rcvd.time.sec = t.sec + 10;
 
     /* request missing metadata */
-    snprintf(cmd, 256, "/%s/subscribe", link->devs[REMOTE_DEV]->name);
+    snprintf(cmd, 256, "/%s/subscribe", link->devs[REMOTE_DEV]->name); /* MSG_SUBSCRIBE */
 
     msg = lo_message_new();
     if (!msg) {
