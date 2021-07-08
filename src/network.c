@@ -142,7 +142,6 @@ static struct handler_method_assoc graph_handlers[] = {
     {MSG_DEV,                   NULL,       handler_dev},
     {MSG_LOGOUT,                NULL,       handler_logout},
     {MSG_MAP_TO,                NULL,       handler_map_to},
-    {MSG_MAPPED,                NULL,       handler_mapped},
     {MSG_SIG,                   NULL,       handler_sig},
     {MSG_SIG_REM,               "s",        handler_sig_removed},
     {MSG_SYNC,                  NULL,       handler_sync},
@@ -1631,21 +1630,19 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
 static int handler_mapped(const char *path, const char *types, lo_arg **av,
                           int ac, lo_message msg, void *user)
 {
-    mpr_net net = (mpr_net)user;
+    mpr_local_dev dev = user;
+    mpr_net net = &dev->obj.graph->net;
     mpr_graph graph = net->graph;
-    mpr_local_dev dev = net->devs ? net->devs[0] : 0;
     mpr_map map;
     mpr_msg props;
     int i, rc = 0, updated;
 
 #ifdef DEBUG
-    if (dev)
-        { trace_dev(dev, "received /mapped "); }
-    else
-        { trace_graph("received /mapped "); }
+    trace_dev(dev, "received /mapped ");
     lo_message_pp(msg);
 #endif
 
+    /* TODO: check if the device doing the handling is even involved in the map? */
     map = find_map(net, types, ac, av, 0, 0, UPDATE);
     RETURN_ARG_UNLESS(MPR_MAP_ERROR != map, 0);
     if (!map) {
@@ -1677,10 +1674,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     updated = mpr_map_set_from_msg(map, props, 0);
     mpr_msg_free(props);
 #ifdef DEBUG
-    if (dev)
-        { trace_dev(dev, "updated %d map properties. (1)\n", updated); }
-    else
-        { trace_graph("updated %d map properties. (2)\n", updated); }
+    trace_dev(dev, "updated %d map properties. (1)\n", updated);
 #endif
     if (dev) {
         RETURN_ARG_UNLESS(map->status >= MPR_STATUS_READY, 0);
