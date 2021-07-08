@@ -955,8 +955,7 @@ done:
 static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
                            int ac, lo_message msg, void *user)
 {
-    mpr_net net = (mpr_net)user;
-    mpr_local_dev dev = net->devs ? net->devs[0] : 0;
+    mpr_local_dev dev = (mpr_local_dev)user;
     mpr_msg props;
 
     RETURN_ARG_UNLESS(dev && mpr_dev_get_is_ready((mpr_dev)dev)
@@ -964,7 +963,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
     props = mpr_msg_parse_props(ac, types, av);
     trace_dev(dev, "received /%s/modify + %d properties.\n", path, props->num_atoms);
     if (mpr_dev_set_from_msg((mpr_dev)dev, props)) {
-        inform_device_subscribers(net, dev);
+        inform_device_subscribers(&dev->graph.net, dev);
         mpr_tbl_clear_empty(dev->obj.props.synced);
     }
     mpr_msg_free(props);
