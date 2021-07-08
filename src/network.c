@@ -125,7 +125,6 @@ static struct handler_method_assoc device_handlers[] = {
     {MSG_DEV_MOD,               NULL,       handler_dev_mod},
     {MSG_LOGOUT,                NULL,       handler_logout},
     {MSG_MAP,                   NULL,       handler_map},
-    {MSG_MAP_TO,                NULL,       handler_map_to},
     {MSG_MAPPED,                NULL,       handler_mapped},
     {MSG_MAP_MOD,               NULL,       handler_map_mod},
     {MSG_PING,                  "hiid",     handler_ping},
@@ -142,6 +141,7 @@ const int NUM_DEV_HANDLERS =
 static struct handler_method_assoc graph_handlers[] = {
     {MSG_DEV,                   NULL,       handler_dev},
     {MSG_LOGOUT,                NULL,       handler_logout},
+    {MSG_MAP_TO,                NULL,       handler_map_to},
     {MSG_MAPPED,                NULL,       handler_mapped},
     {MSG_SIG,                   NULL,       handler_sig},
     {MSG_SIG_REM,               "s",        handler_sig_removed},
@@ -1586,9 +1586,10 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
 static int handler_map_to(const char *path, const char *types, lo_arg **av,
                           int ac, lo_message msg, void *user)
 {
-    mpr_net net = (mpr_net)user;
+    mpr_graph gph = (mpr_graph)user;
+    mpr_net net = &gph->net;
 #ifdef DEBUG
-    trace_dev(net->devs[0], "received /map_to ");
+    trace_net("received /map_to ");
     lo_message_pp(msg);
 #endif
 
