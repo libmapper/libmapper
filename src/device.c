@@ -563,16 +563,8 @@ void mpr_dev_add_sig_methods(mpr_local_dev dev, mpr_local_sig sig)
 void mpr_dev_remove_sig_methods(mpr_local_dev dev, mpr_local_sig sig)
 {
     mpr_net net;
-    char *path = 0;
-    int len;
     RETURN_UNLESS(sig && sig->is_local);
     net = &dev->obj.graph->net;
-    len = (int)strlen(sig->path) + 5;
-    path = (char*)realloc(path, len);
-    snprintf(path, len, "%s%s", sig->path, "/get");
-    lo_server_del_method(net->servers[SERVER_UDP], path, NULL);
-    lo_server_del_method(net->servers[SERVER_TCP], path, NULL);
-    free(path);
     lo_server_del_method(net->servers[SERVER_UDP], sig->path, NULL);
     lo_server_del_method(net->servers[SERVER_TCP], sig->path, NULL);
     --dev->n_output_callbacks;
