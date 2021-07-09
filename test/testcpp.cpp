@@ -395,8 +395,8 @@ int main(int argc, char ** argv)
     mapper::Signal multirecv = dev.add_signal(Direction::INCOMING, "multirecv", 1, Type::FLOAT,
                                               0, 0, 0, &num_inst)
                                   .set_callback(instance_handler, Signal::Event::UPDATE);
-    multisend.set_property(Property::STEAL_MODE, (int)MPR_STEAL_OLDEST);
-    multirecv.set_property(Property::STEAL_MODE, (int)MPR_STEAL_OLDEST);
+    multisend.set_property(Property::STEAL_MODE, Signal::Stealing::OLDEST);
+    multirecv.set_property(Property::STEAL_MODE, Signal::Stealing::OLDEST);
     mapper::Map map2(multisend, multirecv);
     map2.push();
     while (!map2.ready() && !done) {

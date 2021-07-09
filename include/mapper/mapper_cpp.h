@@ -500,14 +500,6 @@ namespace mapper {
             UDP         = MPR_PROTO_UDP,    /*!< Map updates are sent using UDP. */
             TCP         = MPR_PROTO_TCP     /*!< Map updates are sent using TCP. */
         };
-
-        /*! the set of possible voice-stealing modes for instances. */
-        enum class Stealing
-        {
-            NONE    = MPR_STEAL_NONE,       /*!< No stealing will take place. */
-            OLDEST  = MPR_STEAL_OLDEST,     /*!< Steal the oldest instance. */
-            NEWEST  = MPR_STEAL_NEWEST      /*!< Steal the newest instance. */
-        };
     private:
         /* This constructor accepts a between 2 and 10 signal object arguments inclusive. It is
          * delagated to by the variadic template constructor and in turn it calls the vararg
@@ -707,6 +699,14 @@ namespace mapper {
             ALL         = MPR_SIG_ALL
         };
 
+        /*! the set of possible voice-stealing modes for instances. */
+        enum class Stealing
+        {
+            NONE    = MPR_STEAL_NONE,       /*!< No stealing will take place. */
+            OLDEST  = MPR_STEAL_OLDEST,     /*!< Steal the oldest instance. */
+            NEWEST  = MPR_STEAL_NEWEST      /*!< Steal the newest instance. */
+        };
+
         Signal() : Object() {}
         Signal(mpr_sig sig) : Object(sig) {}
         operator mpr_sig() const
@@ -826,7 +826,8 @@ namespace mapper {
             SIG_DBL,
             INST_INT,
             INST_FLT,
-            INST_DBL
+            INST_DBL,
+            INST_EVT
         };
         typedef struct _handler_data {
             union {
@@ -839,6 +840,7 @@ namespace mapper {
                 void (*inst_int)(Signal::Instance&&, Signal::Event, int, Time&&);
                 void (*inst_flt)(Signal::Instance&&, Signal::Event, float, Time&&);
                 void (*inst_dbl)(Signal::Instance&&, Signal::Event, double, Time&&);
+                void (*inst_evt)(Signal::Instance&&, Signal::Event, Time&&);
             } handler;
             enum handler_type type;
         } *handler_data;
@@ -886,6 +888,9 @@ namespace mapper {
                 case INST_DBL:
                     data->handler.inst_dbl(Signal::Instance(sig, inst), Signal::Event(evt),
                                            val ? *(double*)val : 0, Time(time));
+                case INST_EVT:
+                    data->handler.inst_evt(Signal::Instance(sig, inst), Signal::Event(evt),
+                                           Time(time));
                     break;
                 default:
                     return;
@@ -976,6 +981,11 @@ namespace mapper {
             data->type = INST_DBL;
             data->handler.inst_dbl = h;
         }
+        void _set_callback(handler_data data, void (*h)(Signal::Instance&&, Signal::Event, Time&&))
+        {
+            data->type = INST_EVT;
+            data->handler.inst_evt = h;
+        }
     public:
         template <typename H>
         Signal& set_callback(H& h, Signal::Event events = Signal::Event::UPDATE)
@@ -1012,8 +1022,10 @@ namespace mapper {
         }
         Instance instance(Id id)
             { return Instance(_obj, id); }
-        Signal& reserve_instances(int num, mpr_id *ids = 0)
-            { mpr_sig_reserve_inst(_obj, num, ids, 0); RETURN_SELF }
+        Signal& reserve_instances(int num)
+            { mpr_sig_reserve_inst(_obj, num, NULL, NULL); RETURN_SELF }
+        Signal& reserve_instances(int num, mpr_id *ids)
+            { mpr_sig_reserve_inst(_obj, num, ids, NULL); RETURN_SELF }
         Signal& reserve_instances(int num, Id *ids, void **data)
             { mpr_sig_reserve_inst(_obj, num, ids, data); RETURN_SELF }
         Instance instance(int idx, mpr_status status) const
@@ -1710,7 +1722,7 @@ namespace mapper {
             { _set(static_cast<int>(loc)); }
         void _set(Map::Protocol proto)
             { _set(static_cast<int>(proto)); }
-        void _set(Map::Stealing stl)
+        void _set(Signal::Stealing stl)
             { _set(static_cast<int>(stl)); }
     };
 
