@@ -832,7 +832,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
         if (0 == strcmp(&av[0]->s, mpr_dev_get_name((mpr_dev)net->devs[i])))
             break;
     }
-    TRACE_DEV_RETURN_UNLESS(i == net->num_devs, 0, "ignoring /device message from self\n");
+    TRACE_NET_RETURN_UNLESS(i == net->num_devs, 0, "ignoring /device message from self\n");
     trace_net("received /device %s\n", &av[0]->s);
 
     /* Discover whether the device is linked. */
@@ -1167,7 +1167,7 @@ static int prefix_cmp(const char *str1, const char *str2, const char **rest)
 static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
                            int ac, lo_message msg, void *user)
 {
-    mpr_local_dev dev = dev;
+    mpr_local_dev dev = user;
     mpr_net net = &dev->obj.graph->net;
     mpr_sig sig;
     mpr_msg props;

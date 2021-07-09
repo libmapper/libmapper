@@ -54,7 +54,7 @@ int setup_srcs(mpr_graph g, const char *iface)
             mpr_graph_set_interface(mpr_obj_get_graph(srcs[i]), iface);
         eprintf("sources[%d] created using interface %s.\n", i,
                 mpr_graph_get_interface(mpr_obj_get_graph(srcs[i])));
-        snprintf(tmpname, 18, "sendsig%d", i);
+        snprintf(tmpname, 16, "sendsig%d", i);
         sendsigs[i] = mpr_sig_new(srcs[0], MPR_DIR_OUT, tmpname, 1,
                                   MPR_INT32, NULL, &mni, &mxi, NULL, NULL, 0);
         if (!sendsigs[i])
