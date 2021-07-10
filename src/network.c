@@ -147,8 +147,6 @@ static struct handler_method_assoc graph_handlers[] = {
     {MSG_SYNC,                  NULL,       handler_sync},
     {MSG_UNMAPPED,              NULL,       handler_unmapped},
     {MSG_WHO,                   NULL,       handler_who},
-    {MSG_NAME_REG,              NULL,       handler_name},
-    {MSG_NAME_PROBE,            "si",       handler_name_probe},
 };
 const int NUM_GRAPH_HANDLERS =
     sizeof(graph_handlers)/sizeof(graph_handlers[0]);
@@ -580,11 +578,20 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
         ++net->num_devs;
     }
 
-    /* Seed the random number generator. */
-    seed_srand();
+    if (1 == net->num_devs) {
+        /* Seed the random number generator. */
+        seed_srand();
 
-    /* Choose a random ID for allocation speedup */
-    net->random_id = rand();
+        /* Choose a random ID for allocation speedup */
+        net->random_id = rand();
+
+        /* Add allocation methods for bus communications. Further methods are added
+         * when the device is registered. */
+        lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_PROBE], "si",
+                             handler_name_probe, net);
+        lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_REG], NULL,
+                             handler_name, net);
+    }
 
     /* Probe potential name. */
     mpr_net_probe_dev_name(net, dev);
@@ -1222,12 +1229,13 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
 static int handler_name(const char *path, const char *types, lo_arg **av,
                         int ac, lo_message msg, void *user)
 {
-    mpr_graph graph = (mpr_graph)user;
-    mpr_local_dev dev;
+    mpr_net net = (mpr_net)user;
     int i;
 
-    for (i = 0, dev = graph->net.devs[i]; i < graph->net.num_devs; dev = graph->net.devs[++i])
-        _handler_name(path, types, av, ac, msg, dev);
+    RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
+
+    for (i = 0; i < net->num_devs; i++)
+        _handler_name(path, types, av, ac, msg, net->devs[i]);
 
     return 0;
 }
@@ -1243,8 +1251,6 @@ static int _handler_name(const char *path, const char *types, lo_arg **av,
     int ordinal, diff, temp_id = -1, hint = 0;
     char *name;
 
-    RETURN_ARG_UNLESS(dev, 0);
-    RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
     name = &av[0]->s;
     if (ac > 1) {
         if (MPR_INT32 == types[1])
@@ -1299,12 +1305,11 @@ static int _handler_name(const char *path, const char *types, lo_arg **av,
 static int handler_name_probe(const char *path, const char *types, lo_arg **av,
                               int ac, lo_message msg, void *user)
 {
-    mpr_graph graph = (mpr_graph)user;
-    mpr_local_dev dev;
+    mpr_net net = (mpr_net)user;
     int i;
 
-    for (i = 0, dev = graph->net.devs[i]; i < graph->net.num_devs; dev = graph->net.devs[++i])
-        _handler_name_probe(path, types, av, ac, msg, dev);
+    for (i = 0; i < net->num_devs; i++)
+        _handler_name_probe(path, types, av, ac, msg, net->devs[i]);
 
     return 0;
 }
@@ -1318,7 +1323,6 @@ static int _handler_name_probe(const char *path, const char *types, lo_arg **av,
     char *name;
     int i, temp_id;
 
-    RETURN_ARG_UNLESS(dev, 0);
     name = &av[0]->s;
     temp_id = av[1]->i;
 
