@@ -145,18 +145,8 @@ void mpr_dev_free(mpr_dev dev)
     gph = dev->obj.graph;
     net = &gph->net;
 
-    /* free any queued graph messages without sending */
-    mpr_net_free_msgs(net);
-
     /* remove OSC handlers associated with this device */
     mpr_net_remove_dev_methods(net, ldev);
-
-    /* also remove any graph handlers registered locally */
-    while (gph->callbacks) {
-        fptr_list cb = gph->callbacks;
-        gph->callbacks = gph->callbacks->next;
-        free(cb);
-    }
 
     /* remove subscribers */
     while (ldev->subscribers) {
@@ -166,6 +156,7 @@ void mpr_dev_free(mpr_dev dev)
         free(sub);
     }
 
+    /* free signals owned by this device */
     list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (list) {
         mpr_local_sig sig = (mpr_local_sig)*list;
@@ -216,22 +207,18 @@ void mpr_dev_free(mpr_dev dev)
         free(map);
     }
 
-    if (net->rtr) {
-        while (net->rtr->sigs) {
-            mpr_rtr_sig rs = net->rtr->sigs;
-            net->rtr->sigs = net->rtr->sigs->next;
-            free(rs);
-        }
-        free(net->rtr);
-    }
-
-    FUNC_IF(lo_server_free, net->servers[SERVER_UDP]);
-    FUNC_IF(lo_server_free, net->servers[SERVER_TCP]);
     FUNC_IF(free, dev->prefix);
 
     mpr_expr_stack_free(ldev->expr_stack);
 
     mpr_graph_remove_dev(gph, dev, MPR_OBJ_REM, 1);
+
+    for (i = 0; net->devs[i] != ldev && i < net->num_devs; ++i) {} /* get index of dev in net->devs */
+    assert(i != net->num_devs);
+    net->devs[i] = net->devs[net->num_devs - 1]; /* overwrite dev with last dev in net->devs */
+    net->devs[net->num_devs - 1] = NULL;
+    net->num_devs -= 1;
+
     if (!gph->own)
         mpr_graph_free(gph);
 }
