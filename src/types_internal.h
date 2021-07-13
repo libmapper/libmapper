@@ -385,6 +385,8 @@ typedef struct _mpr_link {
         lo_address tcp;                 /*!< Network address of remote endpoint */
     } addr;
 
+    int is_local_only;
+
     mpr_bundle_t bundles[NUM_BUNDLES];  /*!< Circular buffer to handle interrupts during poll() */
 
     mpr_sync_clock_t clock;

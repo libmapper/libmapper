@@ -508,6 +508,10 @@ mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2)
     if (dev2->is_local) {
         link->devs[LOCAL_DEV] = dev2;
         link->devs[REMOTE_DEV] = dev1;
+        if (dev1->is_local)
+            link->is_local_only = 1;
+        else
+            link->is_local_only = 0;
     }
     else {
         link->devs[LOCAL_DEV] = dev1;
