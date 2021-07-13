@@ -40,8 +40,14 @@ void mpr_link_init(mpr_link link)
     mpr_time_set(&t, MPR_NOW);
     link->clock.rcvd.time.sec = t.sec + 10;
 
+    if (link->is_local_only)
+    {
+        mpr_link_connect(link, "127.0.0.1", net->multicast.port,
+                         lo_server_thread_get_port(net->servers[SERVER_MESH]));
+        return;
+    }
     /* request missing metadata */
-    snprintf(cmd, 256, "/%s/subscribe", link->devs[REMOTE_DEV]->name);
+    snprintf(cmd, 256, "/%s/subscribe", link->devs[REMOTE_DEV]->name); /* MSG_SUBSCRIBE */
 
     msg = lo_message_new();
     if (!msg) {
@@ -120,7 +126,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
 
     b = &link->bundles[idx];
 
-    if (link->devs[0] != link->devs[1]) {
+    if (!link->is_local_only) {
         mpr_net n = &link->obj.graph->net;
         if ((lb = b->udp)) {
             b->udp = 0;

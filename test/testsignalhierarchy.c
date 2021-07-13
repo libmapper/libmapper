@@ -13,6 +13,7 @@
 
 int verbose = 1;
 int terminate = 0;
+int shared_graph = 0;
 int done = 0;
 
 int num_devs = 5;
@@ -87,11 +88,14 @@ int setup_devs(const char *iface) {
 
     seed_srand();
 
+    mpr_graph g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+    if (g && iface) mpr_graph_set_interface(g, iface);
+
 	for (i = 0; i < num_devs; i++) {
-		devices[i] = mpr_dev_new("testmany", 0);
+		devices[i] = mpr_dev_new("testmany", g);
         if (!devices[i])
 			goto error;
-        if (iface)
+        if (!g && iface)
             mpr_graph_set_interface(mpr_obj_get_graph((mpr_obj)devices[i]), iface);
         eprintf("device %d created using interface %s.\n", i,
                 mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)devices[i])));
@@ -201,6 +205,11 @@ void ctrlc(int sig) {
     done = 1;
 }
 
+void segv(int sig) {
+    printf("\x1B[31m(SEGV)\n\x1B[0m");
+    exit(1);
+}
+
 int main(int argc, char *argv[])
 {
     double now = current_time();
@@ -249,6 +258,7 @@ int main(int argc, char *argv[])
 
     devices = (mpr_dev*)malloc(sizeof(mpr_dev)*num_devs);
 
+    signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 	srand( time(NULL) );
 
@@ -266,9 +276,12 @@ int main(int argc, char *argv[])
         loop();
 
   done:
-    cleanup_devs();
-
-    free(devices);
+    {
+        mpr_graph g = mpr_obj_get_graph((mpr_obj)devices[0]);
+        cleanup_devs();
+        free(devices);
+        if (shared_graph) mpr_graph_free(g);
+    }
     printf("\r..................................................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

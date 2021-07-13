@@ -5,8 +5,10 @@
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 int verbose = 1;
+int shared_graph = 0;
 int period = 100;
 int col = 0;
 
@@ -38,12 +40,12 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int setup_src(const char *iface)
+int setup_src(mpr_graph g, const char *iface)
 {
     float mn=0, mx=1;
     mpr_list l;
 
-    src = mpr_dev_new("testmapprotocol-send", 0);
+    src = mpr_dev_new("testmapprotocol-send", g);
     if (!src)
         goto error;
     if (iface)
@@ -83,12 +85,12 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     received++;
 }
 
-int setup_dst(const char *iface)
+int setup_dst(mpr_graph g, const char *iface)
 {
     float mn=0, mx=1;
     mpr_list l;
 
-    dst = mpr_dev_new("testmapprotocol-recv", 0);
+    dst = mpr_dev_new("testmapprotocol-recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -185,6 +187,12 @@ void loop()
     }
 }
 
+void segv(int sig)
+{
+    printf("\x1B[31m(SEGV)\n\x1B[0m");
+    exit(1);
+}
+
 void ctrlc(int sig)
 {
     done = 1;
@@ -194,6 +202,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
     char *iface = 0;
+    mpr_graph g;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -205,6 +214,7 @@ int main(int argc, char **argv)
                         printf("testmapprotocol.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-s shared (use one mpr_graph only), "
                                "-f fast (execute quickly), "
                                "-h help, "
                                "--iface network interface\n");
@@ -218,6 +228,9 @@ int main(int argc, char **argv)
                         break;
                     case 't':
                         terminate = 1;
+                        break;
+                    case 's':
+                        shared_graph = 1;
                         break;
                     case '-':
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
@@ -233,15 +246,18 @@ int main(int argc, char **argv)
         }
     }
 
+    signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 
-    if (setup_dst(iface)) {
+    g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+
+    if (setup_dst(g, iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_src(iface)) {
+    if (setup_src(g, iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
@@ -275,6 +291,7 @@ int main(int argc, char **argv)
 done:
     cleanup_dst();
     cleanup_src();
+    if (g) mpr_graph_free(g);
     printf("\r..................................................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
