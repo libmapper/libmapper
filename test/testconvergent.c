@@ -179,7 +179,7 @@ int setup_maps()
 
             /* build expression string with combination function and buddy logic */
             mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
-                             "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1})&&(t_x2>t_y{-1});y=x0+x1+x2;", 1);
+                             "alive=(t_x0>=t_y{-1})&&(t_x1>=t_y{-1})&&(t_x2>=t_y{-1});y=x0+x1+x2;", 1);
             break;
         case 2:
             /* create/modify map with format string and signal arguments */
@@ -225,11 +225,6 @@ void loop()
     eprintf("Polling device..\n");
 
     while ((!terminate || i < 50) && !done) {
-        for (j = num_sources-1; j >= 0; j--) {
-            eprintf("Updating source %d = %i\n", j, i);
-            mpr_sig_set_value(sendsigs[j], 0, 1, MPR_INT32, &i);
-        }
-        mpr_dev_poll(srcs[0], 0);
         switch (config) {
             case 0:
                 expected = i * -3.f;
@@ -241,6 +236,13 @@ void loop()
                 expected = i;
                 break;
         }
+
+        for (j = num_sources-1; j >= 0; j--) {
+            eprintf("Updating source %d = %i\n", j, i);
+            mpr_sig_set_value(sendsigs[j], 0, 1, MPR_INT32, &i);
+        }
+
+        mpr_dev_poll(srcs[0], 0);
         sent++;
         mpr_dev_poll(dst, period);
         i++;
