@@ -55,8 +55,7 @@ void mpr_link_init(mpr_link link)
     mpr_net_send(net);
 }
 
-void mpr_link_connect(mpr_link link, const char *host, int admin_port,
-                      int data_port)
+void mpr_link_connect(mpr_link link, const char *host, int admin_port, int data_port)
 {
     char str[16];
     mpr_tbl_set(link->devs[REMOTE_DEV]->obj.props.synced, MPR_PROP_HOST, NULL, 1,

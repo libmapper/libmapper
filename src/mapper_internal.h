@@ -25,6 +25,7 @@ if (!(a)) { trace_net(__VA_ARGS__); return ret; }
 #else
 #define TRACE_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
 #define TRACE_DEV_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
+#define TRACE_NET_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
 #endif
 
 #if defined(WIN32) || defined(_MSC_VER)
@@ -83,7 +84,7 @@ void mpr_obj_increment_version(mpr_obj obj);
 
 void mpr_net_add_dev(mpr_net n, mpr_local_dev d);
 
-void mpr_net_remove_dev_methods(mpr_net n, mpr_local_dev d);
+void mpr_net_remove_dev(mpr_net n, mpr_local_dev d);
 
 void mpr_net_poll(mpr_net n);
 

@@ -149,7 +149,7 @@ void mpr_dev_free(mpr_dev dev)
     mpr_net_free_msgs(net);
 
     /* remove OSC handlers associated with this device */
-    mpr_net_remove_dev_methods(net, ldev);
+    mpr_net_remove_dev(net, ldev);
 
     /* also remove any graph handlers registered locally */
     while (gph->callbacks) {
@@ -1186,8 +1186,8 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
                 /* reset timeout */
                 int temp = flags;
 #ifdef DEBUG
-                trace_dev(dev, "renewing subscription from %s:%s for %d seconds"
-                          "with flags ", s_ip, s_port, timeout_sec);
+                trace_dev(dev, "renewing subscription from %s:%s for %d seconds with flags ",
+                          s_ip, s_port, timeout_sec);
                 print_subscription_flags(flags);
 #endif
                 (*s)->lease_exp = t.sec + timeout_sec;

@@ -143,7 +143,7 @@ typedef struct _mpr_net {
     int num_devs;
     uint32_t next_bus_ping;
     uint32_t next_sub_ping;
-    uint8_t graph_methods_added;
+    uint8_t generic_dev_methods_added;
 } mpr_net_t, *mpr_net;
 
 /**** Messages ****/
