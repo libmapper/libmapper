@@ -151,11 +151,13 @@ void mpr_dev_free(mpr_dev dev)
     /* remove OSC handlers associated with this device */
     mpr_net_remove_dev(net, ldev);
 
-    /* also remove any graph handlers registered locally */
-    while (gph->callbacks) {
-        fptr_list cb = gph->callbacks;
-        gph->callbacks = gph->callbacks->next;
-        free(cb);
+    /* remove local graph handlers here so they are not called when child objects are freed */
+    if (!gph->own) {
+        while (gph->callbacks) {
+            fptr_list cb = gph->callbacks;
+            gph->callbacks = gph->callbacks->next;
+            free(cb);
+        }
     }
 
     /* remove subscribers */
@@ -166,6 +168,7 @@ void mpr_dev_free(mpr_dev dev)
         free(sub);
     }
 
+    /* free signals owned by this device */
     list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (list) {
         mpr_local_sig sig = (mpr_local_sig)*list;
@@ -216,17 +219,6 @@ void mpr_dev_free(mpr_dev dev)
         free(map);
     }
 
-    if (net->rtr) {
-        while (net->rtr->sigs) {
-            mpr_rtr_sig rs = net->rtr->sigs;
-            net->rtr->sigs = net->rtr->sigs->next;
-            free(rs);
-        }
-        free(net->rtr);
-    }
-
-    FUNC_IF(lo_server_free, net->servers[SERVER_UDP]);
-    FUNC_IF(lo_server_free, net->servers[SERVER_TCP]);
     FUNC_IF(free, dev->prefix);
 
     mpr_expr_stack_free(ldev->expr_stack);

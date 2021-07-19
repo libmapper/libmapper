@@ -330,13 +330,27 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
 {
     int i, j;
     char path[256];
+
+    for (i = 0; i < net->num_devs; i++) {
+        if (dev == net->devs[i])
+            break;
+    }
+    if (i == net->num_devs) {
+        trace_net("error in mpr_net_remove_device: device not found in local list\n");
+        return;
+    }
+    --net->num_devs;
+    for (; i < net->num_devs; i++)
+        net->devs[i] = net->devs[i + 1];
+    net->devs = realloc(net->devs, net->num_devs * sizeof(mpr_dev));
+
     for (i = 0; i < NUM_DEV_HANDLERS_SPECIFIC; i++) {
         snprintf(path, 256, net_msg_strings[dev_handlers_specific[i].str_idx],
                  mpr_dev_get_name((mpr_dev)dev));
         lo_server_del_method((net)->servers[SERVER_BUS], path, dev_handlers_specific[i].types);
         lo_server_del_method((net)->servers[SERVER_MESH], path, dev_handlers_specific[i].types);
     }
-    if (net->num_devs == 1) {
+    if (net->num_devs == 0) {
         /* Also remove generic device handlers. */
         for (i = 0; i < NUM_DEV_HANDLERS_GENERIC; i++) {
             /* make sure method isn't also used by graph */
@@ -539,7 +553,6 @@ void mpr_net_add_msg(mpr_net net, const char *s, net_msg_t c, lo_message m)
 
 void mpr_net_free_msgs(mpr_net net)
 {
-    FUNC_IF(free, net->devs);
     FUNC_IF(lo_bundle_free_recursive, net->bundle);
     net->bundle = 0;
 }
@@ -554,8 +567,11 @@ void mpr_net_free(mpr_net net)
     FUNC_IF(free, net->multicast.group);
     FUNC_IF(lo_server_free, net->servers[SERVER_BUS]);
     FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
+    FUNC_IF(lo_server_free, net->servers[SERVER_UDP]);
+    FUNC_IF(lo_server_free, net->servers[SERVER_TCP]);
     FUNC_IF(lo_address_free, net->addr.bus);
     FUNC_IF(free, net->addr.url);
+    FUNC_IF(free, net->rtr);
 }
 
 /*! Probe the network to see if a device's proposed name.ordinal is available. */
@@ -600,7 +616,7 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
     }
     else {
         /* Initialize data structures */
-        net->devs = realloc(net->devs, (net->num_devs+1)*sizeof(mpr_dev));
+        net->devs = realloc(net->devs, (net->num_devs + 1) * sizeof(mpr_dev));
         net->devs[net->num_devs] = dev;
         ++net->num_devs;
     }
