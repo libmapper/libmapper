@@ -10,7 +10,7 @@ project.
 Once you have libmapper installed, it can be imported into your program:
 
 ~~~python
-import mapper
+import mapper as mpr
 ~~~
 
 ## Overview of the API organization
@@ -42,7 +42,7 @@ parameters, such as specifying the name of the network interface to use.
 An example of creating a device:
 
 ~~~python
-dev = mapper.device("my_device")
+dev = mpr.device("my_device")
 ~~~
 
 ## Polling the device
@@ -126,7 +126,7 @@ which is optional:
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
-* the signal's data type: `mapper.INT32`, `mapper.FLT`, `mapper.DBL`
+* the signal's data type: `mpr.INT32`, `mpr.FLT`, `mpr.DBL`
 * the signal's unit (optional)
 * the signal's minimum value (optional)
 * the signal's maximum value (optional)
@@ -138,9 +138,9 @@ for input signals there is an additional argument:
 examples:
 
 ~~~python
-sig_in = dev.add_signal(mapper.DIR_IN, "my_input", 1, mpr.FLT, "m/s", -10, 10, h)
+sig_in = dev.add_signal(mpr.DIR_IN, "my_input", 1, mpr.FLT, "m/s", -10, 10, h)
 
-sig_out = dev.add_signal(mapper.DIR_OUT, "my_output", 4, mpr.INT32, None, 0, 1000)
+sig_out = dev.add_signal(mpr.DIR_OUT, "my_output", 4, mpr.INT32, None, 0, 1000)
 ~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
@@ -166,13 +166,13 @@ An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
 ~~~python
-outA = dev.add_signal(mapper.DIR_OUT, "outA", 1, mapper.INT32, None, None, None)
+outA = dev.add_signal(mpr.DIR_OUT, "outA", 1, mpr.INT32, None, None, None)
 ~~~
 
 or omitting some arguments:
 
 ~~~python
-outA = dev.add_signal(mapper.DIR_OUT, "outA", 1, mapper.INT32)
+outA = dev.add_signal(mpr.DIR_OUT, "outA", 1, mpr.INT32)
 ~~~
 
 An example of a `float` signal where some more information is provided:
@@ -187,7 +187,7 @@ To recap, let's review the code so far:
 ~~~python
 import mapper as mpr
 
-dev = mapper.device("test_sender")
+dev = mpr.device("test_sender")
 sensor1 = dev.add_signal(mpr.DIR_OUT, "sensor1", 1, mpr.FLT, "V", 0.0, 5.0)
     
 while 1:
@@ -296,7 +296,7 @@ Then our program will look like this:
 
 ~~~python
 from pyo import *
-import mapper
+import mapper as mpr
 
 # Some pyo stuff
 synth = Server().boot().start()
@@ -309,7 +309,7 @@ def freq_handler(sig, id, val, timetag):
         print('exception')
         print(sig, val)
 
-dev = mapper.device('pyo_example')
+dev = mpr.device('pyo_example')
 dev.add_signal(mpr.DIR_IN, 'frequency', 1, mpr.FLT, 'Hz', 20, 2000, freq_handler)
 
 while True:
@@ -329,7 +329,7 @@ import mapper as mpr
 synth = Server().boot().start()
 sine = Sine(freq=200, mul=0.5).out()
 
-dev = mapper.device('pyo_example')
+dev = mpr.device('pyo_example')
 dev.add_signal(mpr.DIR_IN, 'frequency', 1, mpr.FLT, "Hz", 20, 2000,
               lambda s, i, f, t: sine.setFreq(f))
 
@@ -353,7 +353,7 @@ Creating a new `timetag` without arguments causes it to be initialized with the
 current system time:
 
 ~~~python
-now = mapper.timetag()
+now = mpr.timetag()
 ~~~
 
 ## Working with signal instances
@@ -423,11 +423,11 @@ previously unseen instance id is received. Use the function:
 
 The argument `mode` can have one of the following values:
 
-* `mapper.STEAL_NONE` Default value, in which no stealing of instances will
+* `mpr.STEAL_NONE` Default value, in which no stealing of instances will
 occur;
-* `mapper.STEAL_OLDEST` Release the oldest active instance and reallocate its
+* `mpr.STEAL_OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `mapper.STEAL_NEWEST` Release the newest active instance and reallocate its
+* `mpr.STEAL_NEWEST` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
@@ -443,10 +443,10 @@ def my_handler(sig, id, event, timetag):
 ~~~
 
 For this function to be called when instance stealing is necessary, we need to
-register it for `mapper.SIG_INST_OFLW` events:
+register it for `mpr.SIG_INST_OFLW` events:
 
 ~~~python
-<sig>.set_cb(my_handler, mapper.SIG_UPDATE | mapper.SIG_INST_OFLW)
+<sig>.set_cb(my_handler, mpr.SIG_UPDATE | mpr.SIG_INST_OFLW)
 ~~~
 
 ## Publishing metadata
