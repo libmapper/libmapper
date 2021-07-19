@@ -144,7 +144,7 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
     updated = mpr_tbl_set(local ? o->props.synced : o->props.staged, p, s, len, type, val, flags);
     if (updated)
         mpr_obj_increment_version(o);
-    return updated;
+    return updated ? p : MPR_PROP_UNKNOWN;
 }
 
 int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
