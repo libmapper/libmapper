@@ -986,6 +986,16 @@ typedef struct _device_list {
     }
 }
 
+%exception _device_list::__getitem__ {
+    assert(!my_error);
+    $action
+    if (my_error) {
+        my_error = 0;
+        PyErr_SetString(PyExc_IndexError, "Index out of bounds");
+        return NULL;
+    }
+}
+
 %extend _device_list {
     _device_list(const device_list *orig) {
         struct _device_list *d = malloc(sizeof(struct _device_list));
@@ -1055,7 +1065,13 @@ typedef struct _device_list {
         // python lists allow negative indexes
         if (index < 0)
             index += mpr_list_get_size($self->list);
-        return (device*)mpr_list_get_idx($self->list, index);
+        if (index > 0) {
+            mpr_obj obj = mpr_list_get_idx($self->list, index);
+            if (obj)
+                return (device*)obj;
+        }
+        my_error = 1;
+        return NULL;
     }
     %pythoncode {
         def __next__(self):
@@ -1255,6 +1271,16 @@ typedef struct _signal_list {
     }
 }
 
+%exception _signal_list::__getitem__ {
+    assert(!my_error);
+    $action
+    if (my_error) {
+        my_error = 0;
+        PyErr_SetString(PyExc_IndexError, "Index out of bounds");
+        return NULL;
+    }
+}
+
 %extend _signal_list {
     _signal_list(const signal_list *orig) {
         struct _signal_list *s = malloc(sizeof(struct _signal_list));
@@ -1324,7 +1350,13 @@ typedef struct _signal_list {
         // python lists allow negative indexes
         if (index < 0)
             index += mpr_list_get_size($self->list);
-        return (signal*)mpr_list_get_idx($self->list, index);
+        if (index > 0) {
+            mpr_obj obj = mpr_list_get_idx($self->list, index);
+            if (obj)
+                return (signal*)obj;
+        }
+        my_error = 1;
+        return NULL;
     }
     %pythoncode {
         def __next__(self):
@@ -1523,6 +1555,16 @@ typedef struct _map_list {
     }
 }
 
+%exception _map_list::__getitem__ {
+    assert(!my_error);
+    $action
+    if (my_error) {
+        my_error = 0;
+        PyErr_SetString(PyExc_IndexError, "Index out of bounds");
+        return NULL;
+    }
+}
+
 %extend _map_list {
     _map_list(const map_list *orig) {
         struct _map_list *mq = malloc(sizeof(struct _map_list));
@@ -1592,7 +1634,13 @@ typedef struct _map_list {
         // python lists allow negative indexes
         if (index < 0)
             index += mpr_list_get_size($self->list);
-        return (map*)mpr_list_get_idx($self->list, index);
+        if (index > 0) {
+            mpr_obj obj = mpr_list_get_idx($self->list, index);
+            if (obj)
+                return (map*)obj;
+        }
+        my_error = 1;
+        return NULL;
     }
     map_list *release() {
         // need to use a copy of query
