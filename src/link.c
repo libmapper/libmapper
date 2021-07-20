@@ -42,8 +42,7 @@ void mpr_link_init(mpr_link link)
 
     if (link->is_local_only)
     {
-        mpr_link_connect(link, "127.0.0.1", net->multicast.port,
-                         lo_server_thread_get_port(net->servers[SERVER_MESH]));
+        mpr_link_connect(link, 0, 0, 0);
         return;
     }
     /* request missing metadata */
@@ -63,18 +62,24 @@ void mpr_link_init(mpr_link link)
 
 void mpr_link_connect(mpr_link link, const char *host, int admin_port, int data_port)
 {
-    char str[16];
-    mpr_tbl_set(link->devs[REMOTE_DEV]->obj.props.synced, MPR_PROP_HOST, NULL, 1,
-                MPR_STR, host, REMOTE_MODIFY);
-    mpr_tbl_set(link->devs[REMOTE_DEV]->obj.props.synced, MPR_PROP_PORT, NULL, 1,
-                MPR_INT32, &data_port, REMOTE_MODIFY);
-    sprintf(str, "%d", data_port);
-    link->addr.udp = lo_address_new(host, str);
-    link->addr.tcp = lo_address_new_with_proto(LO_TCP, host, str);
-    sprintf(str, "%d", admin_port);
-    link->addr.admin = lo_address_new(host, str);
-    trace_dev(link->devs[LOCAL_DEV], "activated router to device '%s' at %s:%d\n",
-              link->devs[REMOTE_DEV]->name, host, data_port);
+    if (!link->is_local_only) {
+        char str[16];
+        mpr_tbl_set(link->devs[REMOTE_DEV]->obj.props.synced, MPR_PROP_HOST, NULL, 1,
+                    MPR_STR, host, REMOTE_MODIFY);
+        mpr_tbl_set(link->devs[REMOTE_DEV]->obj.props.synced, MPR_PROP_PORT, NULL, 1,
+                    MPR_INT32, &data_port, REMOTE_MODIFY);
+        sprintf(str, "%d", data_port);
+        link->addr.udp = lo_address_new(host, str);
+        link->addr.tcp = lo_address_new_with_proto(LO_TCP, host, str);
+        sprintf(str, "%d", admin_port);
+        link->addr.admin = lo_address_new(host, str);
+        trace_dev(link->devs[LOCAL_DEV], "activated link to device '%s' at %s:%d\n",
+                  link->devs[REMOTE_DEV]->name, host, data_port);
+    }
+    else {
+        trace_dev(link->devs[LOCAL_DEV], "activating link to local device '%s'\n",
+                  link->devs[REMOTE_DEV]->name);
+    }
     memset(link->bundles, 0, sizeof(mpr_bundle_t) * NUM_BUNDLES);
     mpr_dev_add_link(link->devs[LOCAL_DEV], link->devs[REMOTE_DEV]);
 }
@@ -207,6 +212,10 @@ void mpr_link_remove_map(mpr_link link, mpr_local_map rem)
     }
     link->num_maps[0] = rev ? out : in;
     link->num_maps[1] = rev ? in : out;
+
+    if (link->is_local_only && !in && !out) {
+        mpr_time_set(&link->clock.sent.time, MPR_NOW);
+    }
 }
 
 void mpr_link_send(mpr_link link, net_msg_t cmd)

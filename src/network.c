@@ -690,8 +690,6 @@ static void mpr_net_maybe_send_ping(mpr_net net, int force)
         double elapsed;
         mpr_link lnk = (mpr_link)*list;
         list = mpr_list_get_next(list);
-        if (lnk->devs[REMOTE_DEV]->is_local)
-            continue;
         num_maps = lnk->num_maps[0] + lnk->num_maps[1];
         clk = &lnk->clock;
         elapsed = (clk->rcvd.time.sec ? mpr_time_get_diff(now, clk->rcvd.time) : 0);
@@ -720,6 +718,8 @@ static void mpr_net_maybe_send_ping(mpr_net net, int force)
                 continue;
             }
         }
+        if (lnk->is_local_only)
+            continue;
         if (num_maps && mpr_obj_get_prop_as_str(&lnk->devs[REMOTE_DEV]->obj, MPR_PROP_HOST, 0)) {
             /* Only send pings if this link has associated maps, ensuring empty
              * links are removed after the ping timeout. */
