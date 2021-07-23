@@ -640,13 +640,13 @@ void mpr_value_set_samp(mpr_value v, int idx, void *s, mpr_time t);
 /*! Helper to find the pointer to the current value in a mpr_value_t. */
 MPR_INLINE static void* mpr_value_get_samp(mpr_value v, int idx)
 {
-    mpr_value_buffer b = &v->inst[idx];
+    mpr_value_buffer b = &v->inst[idx % v->num_inst];
     return (char*)b->samps + b->pos * v->vlen * mpr_type_get_size(v->type);
 }
 
 MPR_INLINE static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int hist_idx)
 {
-    mpr_value_buffer b = &v->inst[inst_idx];
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
     int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
     if (idx < 0)
         idx += v->mlen;
@@ -656,13 +656,13 @@ MPR_INLINE static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int h
 /*! Helper to find the pointer to the current time in a mpr_value_t. */
 MPR_INLINE static mpr_time* mpr_value_get_time(mpr_value v, int idx)
 {
-    mpr_value_buffer b = &v->inst[idx];
+    mpr_value_buffer b = &v->inst[idx % v->num_inst];
     return &b->times[b->pos];
 }
 
 MPR_INLINE static mpr_time* mpr_value_get_time_hist(mpr_value v, int inst_idx, int hist_idx)
 {
-    mpr_value_buffer b = &v->inst[inst_idx];
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
     int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
     if (idx < 0)
         idx += v->mlen;

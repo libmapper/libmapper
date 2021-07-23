@@ -125,7 +125,7 @@ void mpr_value_reset_inst(mpr_value v, int idx)
 {
     mpr_value_buffer b;
     RETURN_UNLESS(v->inst);
-    b = &v->inst[idx];
+    b = &v->inst[idx % v->num_inst];
     memset(b->samps, 0, v->mlen * v->vlen * mpr_type_get_size(v->type));
     memset(b->times, 0, v->mlen * sizeof(mpr_time));
     if (b->pos >= 0)
@@ -136,7 +136,7 @@ void mpr_value_reset_inst(mpr_value v, int idx)
 
 void mpr_value_set_samp(mpr_value v, int idx, void *s, mpr_time t)
 {
-    mpr_value_buffer b = &v->inst[idx];
+    mpr_value_buffer b = &v->inst[(idx = idx % v->num_inst)];
     if (b->pos < 0)
         ++v->num_active_inst;
     b->pos += 1;
