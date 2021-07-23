@@ -112,7 +112,10 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
         return NULL;
     }
 
-    g->net.rtr = (mpr_rtr)calloc(1, sizeof(mpr_rtr_t));
+    if (!g->net.rtr) {
+        g->net.rtr = (mpr_rtr)calloc(1, sizeof(mpr_rtr_t));
+        g->net.rtr->net = &g->net;
+    }
     g->net.rtr->dev = dev;
 
     dev->expr_stack = mpr_expr_stack_new();
@@ -936,21 +939,22 @@ void mpr_dev_start_servers(mpr_local_dev dev)
     char port[16], *pport = 0, *url, *host;
     mpr_net net = &dev->obj.graph->net;
     mpr_list sigs;
-    RETURN_UNLESS(!net->servers[SERVER_UDP] && !net->servers[SERVER_TCP]);
-    while (!(net->servers[SERVER_UDP] = lo_server_new(pport, handler_error)))
-        pport = 0;
-    snprintf(port, 16, "%d", lo_server_get_port(net->servers[SERVER_UDP]));
-    pport = port;
-    while (!(net->servers[SERVER_TCP] = lo_server_new_with_proto(pport, LO_TCP, handler_error)))
-        pport = 0;
+    if (!net->servers[SERVER_UDP] && !net->servers[SERVER_TCP]) {
+        while (!(net->servers[SERVER_UDP] = lo_server_new(pport, handler_error)))
+            pport = 0;
+        snprintf(port, 16, "%d", lo_server_get_port(net->servers[SERVER_UDP]));
+        pport = port;
+        while (!(net->servers[SERVER_TCP] = lo_server_new_with_proto(pport, LO_TCP, handler_error)))
+            pport = 0;
 
-    /* Disable liblo message queueing */
-    lo_server_enable_queue(net->servers[SERVER_UDP], 0, 1);
-    lo_server_enable_queue(net->servers[SERVER_TCP], 0, 1);
+        /* Disable liblo message queueing */
+        lo_server_enable_queue(net->servers[SERVER_UDP], 0, 1);
+        lo_server_enable_queue(net->servers[SERVER_TCP], 0, 1);
 
-    /* Add bundle handlers */
-    lo_server_add_bundle_handlers(net->servers[SERVER_UDP], mpr_dev_bundle_start, NULL, (void*)dev);
-    lo_server_add_bundle_handlers(net->servers[SERVER_TCP], mpr_dev_bundle_start, NULL, (void*)dev);
+        /* Add bundle handlers */
+        lo_server_add_bundle_handlers(net->servers[SERVER_UDP], mpr_dev_bundle_start, NULL, (void*)dev);
+        lo_server_add_bundle_handlers(net->servers[SERVER_TCP], mpr_dev_bundle_start, NULL, (void*)dev);
+    }
 
     portnum = lo_server_get_port(net->servers[SERVER_UDP]);
     mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, NON_MODIFIABLE);

@@ -479,6 +479,8 @@ typedef struct _mpr_rtr_sig {
 
 /*! The router structure. */
 typedef struct _mpr_rtr {
+    mpr_net net;
+    /* TODO: rtr should either be stored in local_dev or shared */
     struct _mpr_local_dev *dev;     /*!< The device associated with this link. */
     mpr_rtr_sig sigs;               /*!< The list of mappings for each signal. */
 } mpr_rtr_t, *mpr_rtr;
