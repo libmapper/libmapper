@@ -162,12 +162,14 @@ void mpr_value_free(mpr_value v) {
 #ifdef DEBUG
 static void _value_print(mpr_value v, int inst_idx, int hist_idx) {
     int i;
+    void *s;
+    mpr_time *t;
     if (v->inst[inst_idx].pos < 0) {
         printf("NULL\n");
         return;
     }
-    void *s = mpr_value_get_samp_hist(v, inst_idx, hist_idx);
-    mpr_time *t = mpr_value_get_time_hist(v, inst_idx, hist_idx);
+    s = mpr_value_get_samp_hist(v, inst_idx, hist_idx);
+    t = mpr_value_get_time_hist(v, inst_idx, hist_idx);
     printf("%08x.%08x | ", (*t).sec, (*t).frac);
     if (v->vlen > 1)
         printf("[");
@@ -196,10 +198,11 @@ void mpr_value_print(mpr_value v, int inst_idx) {
 }
 
 void mpr_value_print_hist(mpr_value v, int inst_idx) {
+    int i, hidx;
     RETURN_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0);
 
     /* if history is full, print from pos+1 -> pos, else print from 0 -> pos */
-    int i, hidx = v->inst[inst_idx].pos * -1;
+    hidx = v->inst[inst_idx].pos * -1;
     for (i = 0; i < v->mlen; i++) {
         printf("%s {%3d} ", hidx ? "  " : "->", hidx);
         _value_print(v, inst_idx, hidx);
