@@ -16,6 +16,7 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned
     slot->map = map;
     slot->sig = sig;
     slot->is_local = is_local;
+    slot->num_inst = 1;
     slot->dir = (is_src == sig->is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
     slot->causes_update = 1; /* default */
     return slot;
@@ -73,39 +74,60 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
                                    &dir, REMOTE_MODIFY);
     }
     a = mpr_msg_get_prop(msg, MPR_PROP_NUM_INST | mask);
-    if (a) {
-        slot->num_inst = a->vals[0]->i;
+    if (a && MPR_INT32 == a->types[0]) {
+        int num_inst = a->vals[0]->i;
+        if (slot->is_local && !slot->sig->is_local && ((mpr_local_map)slot->map)->expr) {
+            mpr_local_map map = (mpr_local_map)slot->map;
+            int hist_size = 0;
+            if (map->dst == (mpr_local_slot)slot)
+                hist_size = mpr_expr_get_out_hist_size(map->expr);
+            else {
+                int i;
+                for (i = 0; i < map->num_src; i++) {
+                    if (map->src[i] == (mpr_local_slot)slot)
+                        hist_size = mpr_expr_get_in_hist_size(map->expr, i);
+                }
+            }
+            mpr_slot_alloc_values((mpr_local_slot)slot, num_inst, hist_size);
+        }
+        else
+            slot->num_inst = num_inst;
     }
     return updated;
 }
 
-void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int staged)
+void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst)
 {
     int len;
     char temp[32];
     if (is_dst)
-        snprintf(temp, 16, "@dst");
+        snprintf(temp, 32, "@dst");
     else if (0 == (int)slot->id)
-        snprintf(temp, 16, "@src");
+        snprintf(temp, 32, "@src");
     else
-        snprintf(temp, 16, "@src.%d", (int)slot->id);
+        snprintf(temp, 32, "@src.%d", (int)slot->id);
     len = strlen(temp);
 
-    if (!staged && slot->sig->is_local) {
+    if (slot->sig->is_local) {
         /* include length from associated signal */
-        snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_LEN, 0));
+        snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_LEN, 0));
         lo_message_add_string(msg, temp);
         lo_message_add_int32(msg, slot->sig->len);
 
         /* include type from associated signal */
-        snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_TYPE, 0));
+        snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_TYPE, 0));
         lo_message_add_string(msg, temp);
         lo_message_add_char(msg, slot->sig->type);
 
         /* include direction from associated signal */
-        snprintf(temp+len, 16-len, "%s", mpr_prop_as_str(MPR_PROP_DIR, 0));
+        snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_DIR, 0));
         lo_message_add_string(msg, temp);
         lo_message_add_string(msg, slot->sig->dir == MPR_DIR_OUT ? "output" : "input");
+
+        /* include num_inst property */
+        snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_NUM_INST, 0));
+        lo_message_add_string(msg, temp);
+        lo_message_add_int32(msg, slot->num_inst);
     }
 }
 

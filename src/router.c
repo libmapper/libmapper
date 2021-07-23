@@ -288,18 +288,13 @@ static mpr_id _get_unused_map_id(mpr_local_dev dev, mpr_rtr rtr)
     return id;
 }
 
-static void _add_local_slot(mpr_rtr rtr, mpr_local_slot slot, int is_src, int *max_inst,
-                            int *use_inst)
+static void _add_local_slot(mpr_rtr rtr, mpr_local_slot slot, int is_src, int *use_inst)
 {
     slot->dir = (is_src ^ (slot->sig->is_local ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT;
     if (slot->sig->is_local) {
         slot->rsig = _add_rtr_sig(rtr, (mpr_local_sig)slot->sig);
         _store_slot(slot->rsig, slot);
 
-        if (slot->sig->num_inst > *max_inst)
-            *max_inst = slot->sig->num_inst;
-        if (slot->num_inst > *max_inst)
-            *max_inst = slot->num_inst;
         if (slot->sig->use_inst)
             *use_inst = 1;
     }
@@ -312,7 +307,7 @@ static void _add_local_slot(mpr_rtr rtr, mpr_local_slot slot, int is_src, int *m
 
 void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
 {
-    int i, local_src = 0, local_dst, max_num_inst = 0, use_inst = 0, scope_count;
+    int i, local_src = 0, local_dst, use_inst = 0, scope_count;
     RETURN_UNLESS(!map->is_local);
     for (i = 0; i < map->num_src; i++) {
         if (map->src[i]->sig->is_local)
@@ -327,8 +322,8 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
 
     /* Add local slot structures */
     for (i = 0; i < map->num_src; i++)
-        _add_local_slot(rtr, map->src[i], 1, &max_num_inst, &use_inst);
-    _add_local_slot(rtr, map->dst, 0, &max_num_inst, &use_inst);
+        _add_local_slot(rtr, map->src[i], 1, &use_inst);
+    _add_local_slot(rtr, map->dst, 0, &use_inst);
 
     /* default to using instanced maps if any of the contributing signals are instanced */
     map->use_inst = use_inst;
@@ -463,8 +458,9 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
             mpr_dev_bundle_start(t, NULL);
             mpr_dev_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
                             lo_message_get_argc(msg), msg, (void*)map->dst->sig);
+            lo_message_free(msg);
         }
-        else
+        if (map->dst->dir == MPR_DIR_OUT || map->is_local_only)
             mpr_dev_LID_decref(rtr->dev, 0, map->idmap);
     }
 
