@@ -1132,25 +1132,25 @@ static int handler_sig(const char *path, const char *types, lo_arg **av, int ac,
                        lo_message msg, void *user)
 {
     mpr_graph gph = (mpr_graph)user;
-    char *full_sig_name, *signamep, *devnamep, devname[1024];
+    char *full_sig_name, *signamep, *devnamep;
     int devnamelen;
     mpr_msg props;
 
     RETURN_ARG_UNLESS(ac >= 2 && MPR_STR == types[0], 1);
     full_sig_name = &av[0]->s;
     devnamelen = mpr_parse_names(full_sig_name, &devnamep, &signamep);
-    RETURN_ARG_UNLESS(devnamep && signamep && devnamelen < 1024, 0);
-
-    strncpy(devname, devnamep, devnamelen);
-    devname[devnamelen]=0;
+    RETURN_ARG_UNLESS(devnamep && signamep, 0);
+    devnamep[devnamelen] = 0;
 
 #ifdef DEBUG
-    trace_graph("received /signal %s:%s\n", devname, signamep);
+    trace_graph("received /signal %s:%s\n", devnamep, signamep);
+    lo_message_pp(msg);
 #endif
 
     props = mpr_msg_parse_props(ac-1, &types[1], &av[1]);
-    mpr_graph_add_sig(gph, signamep, devname, props);
+    mpr_graph_add_sig(gph, signamep, devnamep, props);
     mpr_msg_free(props);
+    devnamep[devnamelen] = '/';
     return 0;
 }
 
