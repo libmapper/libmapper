@@ -32,7 +32,7 @@ const static_prop_t static_props[] = {
     { "@expr",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_EXPR */
     { "@host",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_HOST */
     { "@id",            1, MPR_INT64, MPR_INT64 }, /* MPR_PROP_ID */
-    { "@instance",      1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_INST */
+    { "@inst",          1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_INST */
     { "@is_local",      1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_IS_LOCAL */
     { "@jitter",        1, MPR_FLT,   MPR_FLT },   /* MPR_PROP_JITTER */
     { "@length",        1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_LEN */
@@ -42,7 +42,7 @@ const static_prop_t static_props[] = {
     { "@min",           0, 'n',       'n' },       /* MPR_PROP_MIN */
     { "@muted",         1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_MUTED */
     { "@name",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_NAME */
-    { "@num_instances", 1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_INSTANCES */
+    { "@num_inst",      1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_INST */
     { "@num_maps",      2, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS */
     { "@num_maps_in",   1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_IN */
     { "@num_maps_out",  1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_OUT */
