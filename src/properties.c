@@ -628,23 +628,28 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         case MPR_DEV:
             /* just print device name */
-            if (1 == len)
-                printf("'%s', ", mpr_dev_get_name((mpr_dev)val));
+            if (1 == len) {
+                mpr_dev dev = (mpr_dev)val;
+                printf("'%s%s', ", mpr_dev_get_name(dev), dev->is_local ? "*" : "");
+            }
             else {
+                mpr_dev *dev = (mpr_dev*)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s', ", mpr_dev_get_name(((mpr_dev*)val)[i]));
+                    printf("'%s%s', ", mpr_dev_get_name(dev[i]), dev[i]->is_local ? "*" : "");
             }
             break;
         case MPR_SIG: {
             /* just print signal name */
             if (1 == len) {
                 mpr_sig sig = (mpr_sig)val;
-                printf("'%s:%s', ", mpr_dev_get_name(sig->dev), sig->name);
+                printf("'%s:%s%s', ", mpr_dev_get_name(sig->dev), sig->name,
+                       sig->is_local ? "*" : "");
             }
             else {
                 mpr_sig *sig = (mpr_sig*)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s:%s', ", mpr_dev_get_name(sig[i]->dev), sig[i]->name);
+                    printf("'%s:%s%s', ", mpr_dev_get_name(sig[i]->dev), sig[i]->name,
+                           sig[i]->is_local ? "*" : "");
             }
             break;
         }
