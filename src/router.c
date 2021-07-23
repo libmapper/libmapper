@@ -46,8 +46,25 @@ void mpr_rtr_num_inst_changed(mpr_rtr rtr, mpr_local_sig sig, int size)
     /* for array of slots, may need to reallocate destination instances */
     for (i = 0; i < rs->num_slots; i++) {
         mpr_local_slot slot = rs->slots[i];
-        if (slot)
-            mpr_map_alloc_values(slot->map);
+        mpr_local_map map;
+        if (!slot)
+            continue;
+        map = slot->map;
+        mpr_map_alloc_values(map);
+
+        if (MPR_DIR_OUT == map->dst->dir) {
+            /* Inform remote destination */
+            mpr_net_use_mesh(rtr->net, map->dst->link->addr.admin);
+            mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+        }
+        else {
+            /* Inform remote sources */
+            for (i = 0; i < map->num_src; i++) {
+                mpr_net_use_mesh(rtr->net, map->src[i]->link->addr.admin);
+                i = mpr_map_send_state((mpr_map)map, ((mpr_local_map)map)->one_src ? -1 : i,
+                                       MSG_MAPPED);
+            }
+        }
     }
 }
 
