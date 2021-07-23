@@ -542,7 +542,7 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
     if (map->is_local_only) {
         mpr_link link = mpr_dev_get_link_by_remote(rtr->dev, (mpr_dev)rtr->dev);
         if (link)
-            --link->num_maps[0];
+            mpr_link_remove_map(link, map);
     }
 
     /* free buffers associated with user-defined expression variables */

@@ -377,7 +377,7 @@ typedef struct _mpr_bundle {
 typedef struct _mpr_link {
     mpr_obj_t obj;                  /* always first */
     mpr_dev devs[2];
-    int *num_maps;
+    int num_maps[2];
 
     struct {
         lo_address admin;               /*!< Network address of remote endpoint */

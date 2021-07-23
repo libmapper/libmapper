@@ -20,8 +20,6 @@ void mpr_link_init(mpr_link link)
     mpr_time t;
     lo_message msg;
     char cmd[256];
-    if (!link->num_maps)
-        link->num_maps = (int*)calloc(1, sizeof(int) * 2);
     if (!link->obj.props.synced) {
         mpr_tbl t = link->obj.props.synced = mpr_tbl_new();
         mpr_tbl_link(t, MPR_PROP_DEV, 2, MPR_DEV, &link->devs, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
@@ -89,7 +87,6 @@ void mpr_link_free(mpr_link link)
     int i;
     FUNC_IF(mpr_tbl_free, link->obj.props.synced);
     FUNC_IF(mpr_tbl_free, link->obj.props.staged);
-    FUNC_IF(free, link->num_maps);
     if (!link->devs[LOCAL_DEV]->is_local)
         return;
     FUNC_IF(lo_address_free, link->addr.admin);
@@ -196,6 +193,13 @@ mpr_list mpr_link_get_maps(mpr_link link)
     return mpr_list_start(q);
 }
 
+void mpr_link_add_map(mpr_link link, int is_src)
+{
+    ++link->num_maps[is_src];
+    if (link->is_local_only)
+        link->clock.rcvd.time.sec = 0;
+}
+
 void mpr_link_remove_map(mpr_link link, mpr_local_map rem)
 {
     int in = 0, out = 0, rev = link->devs[0]->is_local ? 0 : 1;
@@ -213,9 +217,8 @@ void mpr_link_remove_map(mpr_link link, mpr_local_map rem)
     link->num_maps[0] = rev ? out : in;
     link->num_maps[1] = rev ? in : out;
 
-    if (link->is_local_only && !in && !out) {
-        mpr_time_set(&link->clock.sent.time, MPR_NOW);
-    }
+    if (link->is_local_only && !in && !out)
+        mpr_time_set(&link->clock.rcvd.time, MPR_NOW);
 }
 
 void mpr_link_send(mpr_link link, net_msg_t cmd)

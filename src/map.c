@@ -1228,18 +1228,18 @@ static void _check_status(mpr_local_map m)
         /* update in/out counts for link */
         if (m->is_local_only) {
             if (m->dst->link)
-                ++m->dst->link->num_maps[0];
+                mpr_link_add_map(m->dst->link, 0);
         }
         else {
             mpr_link last = 0, link;
             if (m->dst->link) {
-                ++m->dst->link->num_maps[0];
+                mpr_link_add_map(m->dst->link, 0);
                 m->dst->link->obj.props.synced->dirty = 1;
             }
             for (i = 0; i < m->num_src; i++) {
                 link = m->src[i]->link;
                 if (link && link != last) {
-                    ++m->src[i]->link->num_maps[1];
+                    mpr_link_add_map(m->src[i]->link, 1);
                     m->src[i]->link->obj.props.synced->dirty = 1;
                     last = link;
                 }
