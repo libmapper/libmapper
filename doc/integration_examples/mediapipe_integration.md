@@ -447,7 +447,7 @@ You first need to **build IOmapper** by following the instructions found [here](
 
 The code required to create a libmapper device in godot is in `pong.gd` and is as follows:
 
-```python
+```GDscript
 extends Node2D
 
 onready var height = get_viewport_rect().size.y
