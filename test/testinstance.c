@@ -92,6 +92,7 @@ test_config test_configs[] = {
     /* instanced ––> singleton; any source instance updates destination */
     {  9, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 5., 0. },
     /* ... but when processing @dst only the last instance update will trigger handler */
+    /* Shared graph case will change the count_multiplier value to 5. */
     { 10, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1., 0. },
 
     /* instanced ==> singleton; one src instance updates dst (default) */
@@ -102,6 +103,7 @@ test_config test_configs[] = {
     /* instanced ––> instanced; any src instance updates all dst instances */
     /* source signal does not know about active destination instances */
     { 13, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15., 0. },
+    /* Shared graph case will change the count_multiplier value to 15. */
     { 14, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3., 0. },
 
     /* instanced ==> instanced; no stealing */
@@ -109,11 +111,14 @@ test_config test_configs[] = {
     { 16, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 4., 0. },
 
     /* instanced ==> instanced; steal newest instance */
+    /* Shared graph case will change the count_multiplier value to 5. */
     { 17, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NEW, NULL, 4.25, 0. },
+    /* Shared graph case will change the count_multiplier value to 5. */
     { 18, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NEW, NULL, 4., 0. },
 
     /* instanced ==> instanced; steal oldest instance */
     { 19, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, OLD, NULL, 4.6, 0. },
+    /* Shared graph case will change the count_multiplier value to 4.6. */
     { 20, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, OLD, NULL, 4.0, 0. },
 
     /* instanced ==> instanced; add instances if needed */
@@ -124,6 +129,7 @@ test_config test_configs[] = {
     /* for src processing the update count is additive since the destination has only one instance */
     { 23, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 5.0, 0. },
     /* TODO: we should default to dst processing for this configuration */
+    /* Shared graph case will change the count_multiplier value to 5. */
     { 24, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1.0, 0. },
 
     /* mixed ==> singleton */
@@ -136,6 +142,7 @@ test_config test_configs[] = {
     /* for src processing the update count is multiplicative: 5 src x 3 dst */
     { 27, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15.0, 0. },
     /* each active instance should receive 1 update per iteration */
+    /* Shared graph case will change the count_multiplier value to 15. */
     { 28, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3.0, 0. },
 
     /* mixed ==> instanced */
@@ -632,7 +639,7 @@ int run_test(test_config *config)
 
 int main(int argc, char **argv)
 {
-    int i, j, result = 0;
+    int i, j, k, result = 0;
     char *iface = 0;
     mpr_graph g;
 
@@ -663,6 +670,24 @@ int main(int argc, char **argv)
                         break;
                     case 's':
                         shared_graph = 1;
+                        for (k = 0; k < sizeof(test_configs) / sizeof(test_configs[0]); k++) {
+                            switch (test_configs[k].test_id) {
+                                case 10:
+                                case 17:
+                                    /* TODO: check if this behaviour is correct */
+                                case 18:
+                                case 24:
+                                    test_configs[k].count_multiplier = 5;
+                                    break;
+                                case 14:
+                                case 28:
+                                    test_configs[k].count_multiplier = 15;
+                                    break;
+                                case 20:
+                                    test_configs[k].count_multiplier = 4.6;
+                                    break;
+                            }
+                        }
                         break;
                     case '-':
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
