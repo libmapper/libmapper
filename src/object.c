@@ -305,5 +305,12 @@ void mpr_obj_print(mpr_obj o, int staged)
             printf(")");
         }
     }
+    if (MPR_MAP == o->type) {
+        /* also print slot props */
+        mpr_map map = (mpr_map)o;
+        for (i = 0; i < map->num_src; i++)
+            mpr_slot_print(map->src[i], 0);
+        mpr_slot_print(map->dst, 1);
+    }
     printf("\n");
 }

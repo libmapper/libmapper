@@ -109,6 +109,21 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst, int st
     }
 }
 
+void mpr_slot_print(mpr_slot slot, int is_dst)
+{
+    char temp[16];
+    if (is_dst)
+        snprintf(temp, 16, "@dst");
+    else if (0 == (int)slot->id)
+        snprintf(temp, 16, "@src");
+    else
+        snprintf(temp, 16, "@src.%d", (int)slot->id);
+
+    printf(", %s%s=%d", temp, mpr_prop_as_str(MPR_PROP_LEN, 0), slot->sig->type);
+    printf(", %s%s=%c", temp, mpr_prop_as_str(MPR_PROP_TYPE, 0), slot->sig->type);
+    printf(", %s%s=%d", temp, mpr_prop_as_str(MPR_PROP_NUM_INST, 0), slot->num_inst);
+}
+
 int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
 {
     int len;

@@ -359,6 +359,8 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg);
 
 void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dest, int staged);
 
+void mpr_slot_print(mpr_slot slot, int is_dest);
+
 int mpr_slot_match_full_name(mpr_slot slot, const char *full_name);
 
 void mpr_slot_remove_inst(mpr_local_slot slot, int idx);
