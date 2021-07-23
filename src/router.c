@@ -575,10 +575,12 @@ mpr_local_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_local_sig sig, int slot_id)
 {
     int i, j;
     mpr_local_map map;
-    /* only interested in incoming slots */
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_ARG_UNLESS(rs, NULL);
     for (i = 0; i < rs->num_slots; i++) {
+        /* Check if signal direction matches the slot direction. This handles both 'incoming'
+         * destination slots (for processing map updates) and outgoing source slots (for
+         * processing 'downstream instance release' events). */
         if (!rs->slots[i] || sig->dir != rs->slots[i]->dir)
             continue;
         map = rs->slots[i]->map;

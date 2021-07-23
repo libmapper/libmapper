@@ -283,10 +283,10 @@ int mpr_dev_bundle_start(lo_timetag t, void *data)
  * - A vector consisting completely of nulls indicates a signal instance release
  *   TODO: use more specific message for release?
  * - Updates to a specific signal instance are indicated using the label
- *   "@instance" followed by a 64bit integer which uniquely identifies this
+ *   "@in" followed by a 64bit integer which uniquely identifies this
  *   instance within the network of libmapper devices
  * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
- *   are indicated using the label "@slot" followed by a single integer slot #
+ *   are indicated using the label "@sl" followed by a single integer slot #
  * - Instance creation and release may also be triggered by expression
  *   evaluation. Refer to the document "Using Instanced Signals with Libmapper"
  *   for more information.
@@ -511,8 +511,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 memcpy(&si->time, &ts, sizeof(mpr_time));
                 mpr_sig_call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, &ts, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
-                if (   !(sig->dir & MPR_DIR_OUT)
-                    && !get_bitflag(sig->updated_inst, si->idx)) {
+                if (!(sig->dir & MPR_DIR_OUT) && !get_bitflag(sig->updated_inst, si->idx)) {
                     mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);
                     /* TODO: ensure update is propagated within this poll cycle */
                 }
