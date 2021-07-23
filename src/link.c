@@ -34,16 +34,16 @@ void mpr_link_init(mpr_link link)
     if (!link->obj.id && link->devs[LOCAL_DEV]->is_local)
         link->obj.id = mpr_dev_generate_unique_id(link->devs[LOCAL_DEV]);
 
-    link->clock.new = 1;
-    link->clock.sent.msg_id = 0;
-    link->clock.rcvd.msg_id = -1;
-    mpr_time_set(&t, MPR_NOW);
-    link->clock.rcvd.time.sec = t.sec + 10;
-
-    if (link->is_local_only)
-    {
+    if (link->is_local_only) {
         mpr_link_connect(link, 0, 0, 0);
         return;
+    }
+    else {
+        link->clock.new = 1;
+        link->clock.sent.msg_id = 0;
+        link->clock.rcvd.msg_id = -1;
+        mpr_time_set(&t, MPR_NOW);
+        link->clock.rcvd.time.sec = t.sec + 10;
     }
     /* request missing metadata */
     snprintf(cmd, 256, "/%s/subscribe", link->devs[REMOTE_DEV]->name); /* MSG_SUBSCRIBE */

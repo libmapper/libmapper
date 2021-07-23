@@ -2025,6 +2025,8 @@ static int handler_ping(const char *path, const char *types, lo_arg **av,
         }
 
         /* update sync status */
+        if (lnk->is_local_only)
+            continue;
         mpr_time_set(&clk->rcvd.time, now);
         clk->rcvd.msg_id = av[1]->i;
     }
