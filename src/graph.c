@@ -452,6 +452,7 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
         dev = mpr_graph_add_dev(g, dev_name, 0);
 
     if (!sig) {
+        int num_inst = 1;
         trace_graph("adding signal '%s:%s'.\n", dev_name, name);
         sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, sizeof(mpr_sig_t));
 
@@ -460,7 +461,7 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
         sig->obj.graph = g;
         sig->is_local = 0;
 
-        mpr_sig_init(sig, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, 0);
+        mpr_sig_init(sig, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, &num_inst);
         rc = 1;
     }
 

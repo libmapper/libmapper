@@ -98,10 +98,10 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     sig->dir = dir ? dir : MPR_DIR_OUT;
     sig->unit = unit ? strdup(unit) : strdup("unknown");
     sig->min = sig->max = 0;
-    sig->num_inst = 0;
     sig->use_inst = 0;
 
     if (sig->is_local) {
+        sig->num_inst = 0;
         mpr_local_sig lsig = (mpr_local_sig)sig;
         lsig->vec_known = calloc(1, len / 8 + 1);
         for (i = 0; i < len; i++)
@@ -120,8 +120,10 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
         lsig->idmap_len = 1;
         lsig->idmaps = calloc(1, sizeof(struct _mpr_sig_idmap));
     }
-    else
+    else {
+        sig->num_inst = 1;
         sig->obj.props.staged = mpr_tbl_new();
+    }
 
     sig->obj.type = MPR_SIG;
     sig->obj.props.synced = mpr_tbl_new();
