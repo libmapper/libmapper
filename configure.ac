@@ -236,14 +236,10 @@ if test x$enable_jni = xyes; then
    fi
 
    AC_PATH_PROG([JAVAC], [javac], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
-   AC_PATH_PROG([JAVAH], [javah], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
    AC_PATH_PROG([JAR],   [jar],   [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
    if test x$JAVAC = x; then
      enable_jni=no
      jni_explain="(javac not found)"
-   elif test x$JAVAH = x; then
-     jni_enabled=no
-     jni_explain="(javah not found)"
    elif test x$JAR = x; then
      enable_jni=no
      jni_explain="(jar not found)"
