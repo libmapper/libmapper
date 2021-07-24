@@ -144,34 +144,32 @@ CFLAGS="$_CFLAGS"
 # Check options
 AC_ARG_ENABLE(debug,
    [AS_HELP_STRING([--enable-debug],[compile with debug flags])],
-   enable_debug=yes)
+   enable_debug=$enableval)
 
 AC_ARG_ENABLE(tests,
    [  --disable-tests         don't build test programs.],,
-   enable_tests=yes)
+   enable_tests=$enableval, enable_tests=yes)
 
 AC_ARG_ENABLE(docs,
    [  --disable-docs          don't build the documentation.],,
-   enable_docs=yes)
+   enable_docs=$enableval, enable_docs=yes)
 
 AC_ARG_ENABLE(audio,
    [  --disable-audio         don't build the audio examples.],,
-   enable_audio=yes)
+   enable_audio=$enableval, enable_audio=yes)
 
-swig_enabled=yes
 AC_ARG_ENABLE(swig,
    [  --disable-swig          don't build the SWIG bindings.],
-   swig_enabled=$enableval)
+   enable_swig=$enableval=$enableval, enable_swig=yes)
 
-jni_enabled=yes
 AC_ARG_ENABLE(jni,
    [  --disable-jni          don't build the Java JNI bindings.],
-   jni_enabled=$enableval)
+   enable_jni=$enableval, enable_jni=yes)
 
-if test x$swig_enabled = xyes; then
+if test x$enable_swig = xyes; then
    AC_CHECK_PROG([SWIG], [swig], [swig])
    if test x$SWIG = x; then
-     swig_enabled=no
+     enable_swig=no
      swig_explain="(swig not found)"
    else
      AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
@@ -185,14 +183,14 @@ if test x$swig_enabled = xyes; then
        esac
        swig_explain="($(basename $PYTHON)$PY3SWIG)"
      else
-       swig_enabled=no
+       enable_swig=no
        swig_explain="(python not found)"
      fi
    fi
 fi
 
 # Check for JNI
-if test x$jni_enabled = xyes; then
+if test x$enable_jni = xyes; then
    AC_MSG_CHECKING([JDK path])
    if test x"$JAVA_HOME" == "x"; then
       JAVA_HOME="$(dirname $(dirname $(readlink /etc/alternatives/javac 2>/dev/null)))"
@@ -241,22 +239,22 @@ if test x$jni_enabled = xyes; then
    AC_PATH_PROG([JAVAH], [javah], [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
    AC_PATH_PROG([JAR],   [jar],   [], ["$JDKBINPATH"$PATH_SEPARATOR$PATH])
    if test x$JAVAC = x; then
-     jni_enabled=no
+     enable_jni=no
      jni_explain="(javac not found)"
    elif test x$JAVAH = x; then
      jni_enabled=no
      jni_explain="(javah not found)"
    elif test x$JAR = x; then
-     jni_enabled=no
+     enable_jni=no
      jni_explain="(jar not found)"
    else
      CFLAGS_revert="$CFLAGS"
      CFLAGS="$CFLAGS $JNIFLAGS"
      AC_CHECK_HEADER([jni.h],
-       [jni_enabled=yes],
-       [jni_enabled=no; jni_explain="(jni.h not found)"])
+       [enable_jni=yes],
+       [enable_jni=no; jni_explain="(jni.h not found)"])
      CFLAGS="$CFLAGS_revert"
-     if test x$jni_enabled = xyes; then
+     if test x$enable_jni = xyes; then
        JNI=jni
        AC_SUBST(JNIFLAGS)
        AC_SUBST(JNI)
@@ -344,7 +342,7 @@ CXXFLAGS="-I. $CXXFLAGS"
 AM_CONDITIONAL(TESTS, test "x$enable_tests" = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
-AM_CONDITIONAL(HAVE_SWIG, test "x$swig_enabled" = xyes)
+AM_CONDITIONAL(HAVE_SWIG, test "x$enable_swig" = xyes)
 AM_CONDITIONAL(HAVE_AUDIO, test "x$enable_audio" = xyes)
 
 AC_CONFIG_FILES([
@@ -374,8 +372,8 @@ echo libmapper configured:
 echo --------------------------------------------------
 echo "building documention...    " $enable_docs $docs_explain
 echo "building tests...          " $enable_tests
-echo "building SWIG bindings...  " $swig_enabled $swig_explain
-echo "building Java bindings...  " $jni_enabled $jni_explain
+echo "building SWIG bindings...  " $enable_swig $swig_explain
+echo "building Java bindings...  " $enable_jni $jni_explain
 echo "building audio examples... " $enable_audio $audio_explain
 AS_IF([test x$enable_debug = xyes],
       [echo "Debug flags enabled."])
