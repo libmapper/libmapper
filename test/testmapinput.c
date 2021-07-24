@@ -17,6 +17,7 @@ int done = 0;
 
 int verbose = 1;
 int terminate = 0;
+int shared_graph = 0;
 int autoconnect = 1;
 int period = 50;
 
@@ -61,13 +62,18 @@ int setup_devs(const char *iface)
     float mnf2[] = {3.2, 2, 0}, mxf2[] = {-2, 13, 100};
     double mnd = 0, mxd = 10;
 
-    devices[0] = mpr_dev_new("testmapinput", 0);
-    devices[1] = mpr_dev_new("testmapinput", 0);
+    mpr_graph g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+    devices[0] = mpr_dev_new("testmapinput", g);
+    devices[1] = mpr_dev_new("testmapinput", g);
     if (!devices[0] || !devices[1])
         goto error;
     if (iface) {
-        mpr_graph_set_interface(mpr_obj_get_graph(devices[0]), iface);
-        mpr_graph_set_interface(mpr_obj_get_graph(devices[1]), iface);
+        if (g) mpr_graph_set_interface(g, iface);
+        else
+        {
+            mpr_graph_set_interface(mpr_obj_get_graph(devices[0]), iface);
+            mpr_graph_set_interface(mpr_obj_get_graph(devices[1]), iface);
+        }
     }
     eprintf("devices created using interfaces %s and %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph(devices[0])),
@@ -165,6 +171,11 @@ void ctrlc(int sig)
     done = 1;
 }
 
+void segv(int sig) {
+    printf("\x1B[31m(SEGV)\n\x1B[0m");
+    exit(1);
+}
+
 int main(int argc, char ** argv)
 {
     int i, j, result = 0;
@@ -181,6 +192,7 @@ int main(int argc, char ** argv)
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-s shared (use one mpr_graph only), "
                                "-h help, "
                                "--iface network interface\n");
                         return 1;
@@ -193,6 +205,9 @@ int main(int argc, char ** argv)
                         break;
                     case 't':
                         terminate = 1;
+                        break;
+                    case 's':
+                        shared_graph = 1;
                         break;
                     case '-':
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
@@ -208,6 +223,7 @@ int main(int argc, char ** argv)
         }
     }
 
+    signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 
     if (setup_devs(iface)) {
@@ -226,7 +242,11 @@ int main(int argc, char ** argv)
     }
 
   done:
-    cleanup_devs();
+    {
+        mpr_graph g = mpr_obj_get_graph(devices[0]);
+        cleanup_devs();
+        if (shared_graph) mpr_graph_free(g);
+    }
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

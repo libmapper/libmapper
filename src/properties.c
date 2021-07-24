@@ -32,7 +32,7 @@ const static_prop_t static_props[] = {
     { "@expr",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_EXPR */
     { "@host",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_HOST */
     { "@id",            1, MPR_INT64, MPR_INT64 }, /* MPR_PROP_ID */
-    { "@instance",      1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_INST */
+    { "@inst",          1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_INST */
     { "@is_local",      1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_IS_LOCAL */
     { "@jitter",        1, MPR_FLT,   MPR_FLT },   /* MPR_PROP_JITTER */
     { "@length",        1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_LEN */
@@ -42,7 +42,7 @@ const static_prop_t static_props[] = {
     { "@min",           0, 'n',       'n' },       /* MPR_PROP_MIN */
     { "@muted",         1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_MUTED */
     { "@name",          1, MPR_STR,   MPR_STR },   /* MPR_PROP_NAME */
-    { "@num_instances", 1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_INSTANCES */
+    { "@num_inst",      1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_INST */
     { "@num_maps",      2, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS */
     { "@num_maps_in",   1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_IN */
     { "@num_maps_out",  1, MPR_INT32, MPR_INT32 }, /* MPR_PROP_NUM_MAPS_OUT */
@@ -628,23 +628,28 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         case MPR_DEV:
             /* just print device name */
-            if (1 == len)
-                printf("'%s', ", mpr_dev_get_name((mpr_dev)val));
+            if (1 == len) {
+                mpr_dev dev = (mpr_dev)val;
+                printf("'%s%s', ", mpr_dev_get_name(dev), dev->is_local ? "*" : "");
+            }
             else {
+                mpr_dev *dev = (mpr_dev*)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s', ", mpr_dev_get_name(((mpr_dev*)val)[i]));
+                    printf("'%s%s', ", mpr_dev_get_name(dev[i]), dev[i]->is_local ? "*" : "");
             }
             break;
         case MPR_SIG: {
             /* just print signal name */
             if (1 == len) {
                 mpr_sig sig = (mpr_sig)val;
-                printf("'%s:%s', ", mpr_dev_get_name(sig->dev), sig->name);
+                printf("'%s:%s%s', ", mpr_dev_get_name(sig->dev), sig->name,
+                       sig->is_local ? "*" : "");
             }
             else {
                 mpr_sig *sig = (mpr_sig*)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s:%s', ", mpr_dev_get_name(sig[i]->dev), sig[i]->name);
+                    printf("'%s:%s%s', ", mpr_dev_get_name(sig[i]->dev), sig[i]->name,
+                           sig[i]->is_local ? "*" : "");
             }
             break;
         }

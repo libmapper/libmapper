@@ -18,6 +18,7 @@
 int verbose = 1;
 int terminate = 0;
 int autoconnect = 1;
+int shared_graph = 0;
 int done = 0;
 int period = 100;
 
@@ -43,12 +44,12 @@ static void eprintf(const char *format, ...)
     va_end(args);
 }
 
-int setup_src(const char *iface)
+int setup_src(mpr_graph g, const char *iface)
 {
     int mn = 0, mx = 1;
     mpr_list l;
 
-    src = mpr_dev_new("testthread-send", 0);
+    src = mpr_dev_new("testthread-send", g);
     if (!src)
         goto error;
     if (iface)
@@ -91,12 +92,12 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     }
 }
 
-int setup_dst(const char *iface)
+int setup_dst(mpr_graph g, const char *iface)
 {
     float mn = 0, mx = 1;
     mpr_list l;
 
-    dst = mpr_dev_new("testthread-recv", 0);
+    dst = mpr_dev_new("testthread-recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -215,6 +216,12 @@ void loop()
 #endif
 }
 
+void segv(int sig)
+{
+    printf("\x1B[31m(SEGV)\n\x1B[0m");
+    exit(1);
+}
+
 void ctrlc(int signal)
 {
     done = 1;
@@ -224,6 +231,7 @@ int main(int argc, char **argv)
 {
     int i, j, result = 0;
     char *iface = 0;
+    mpr_graph g;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -236,6 +244,7 @@ int main(int argc, char **argv)
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
+                               "-s shared (use one mpr_graph only), "
                                "-h help, "
                                "--iface network interface\n");
                         return 1;
@@ -248,6 +257,9 @@ int main(int argc, char **argv)
                         break;
                     case 't':
                         terminate = 1;
+                        break;
+                    case 's':
+                        shared_graph = 1;
                         break;
                     case '-':
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
@@ -263,15 +275,18 @@ int main(int argc, char **argv)
         }
     }
 
+    signal(SIGSEGV, segv);
     signal(SIGINT, ctrlc);
 
-    if (setup_dst(iface)) {
+    g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+
+    if (setup_dst(g, iface)) {
         eprintf("Error initializing destination.\n");
         result = 1;
         goto done;
     }
 
-    if (setup_src(iface)) {
+    if (setup_src(g, iface)) {
         eprintf("Done initializing source.\n");
         result = 1;
         goto done;
@@ -297,6 +312,7 @@ int main(int argc, char **argv)
   done:
     cleanup_dst();
     cleanup_src();
+    if (g) mpr_graph_free(g);
     printf("...................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;

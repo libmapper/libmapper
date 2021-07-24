@@ -20,9 +20,12 @@
 if (!(a)) { trace(__VA_ARGS__); return ret; }
 #define TRACE_DEV_RETURN_UNLESS(a, ret, ...) \
 if (!(a)) { trace_dev(dev, __VA_ARGS__); return ret; }
+#define TRACE_NET_RETURN_UNLESS(a, ret, ...) \
+if (!(a)) { trace_net(__VA_ARGS__); return ret; }
 #else
 #define TRACE_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
 #define TRACE_DEV_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
+#define TRACE_NET_RETURN_UNLESS(a, ret, ...) if (!(a)) { return ret; }
 #endif
 
 #if defined(WIN32) || defined(_MSC_VER)
@@ -81,7 +84,7 @@ void mpr_obj_increment_version(mpr_obj obj);
 
 void mpr_net_add_dev(mpr_net n, mpr_local_dev d);
 
-void mpr_net_remove_dev_methods(mpr_net n, mpr_local_dev d);
+void mpr_net_remove_dev(mpr_net n, mpr_local_dev d);
 
 void mpr_net_poll(mpr_net n);
 
@@ -297,6 +300,8 @@ mpr_link mpr_link_new(mpr_local_dev local_dev, mpr_dev remote_dev);
  *  \return             The list of results.  Use mpr_list_next() to iterate. */
 mpr_list mpr_link_get_maps(mpr_link link);
 
+void mpr_link_add_map(mpr_link link, int is_src);
+
 void mpr_link_remove_map(mpr_link link, mpr_local_map rem);
 
 void mpr_link_init(mpr_link link);
@@ -354,7 +359,9 @@ void mpr_slot_free_value(mpr_local_slot slot);
 
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg);
 
-void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dest, int staged);
+void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dest);
+
+void mpr_slot_print(mpr_slot slot, int is_dest);
 
 int mpr_slot_match_full_name(mpr_slot slot, const char *full_name);
 
@@ -635,13 +642,13 @@ void mpr_value_set_samp(mpr_value v, int idx, void *s, mpr_time t);
 /*! Helper to find the pointer to the current value in a mpr_value_t. */
 MPR_INLINE static void* mpr_value_get_samp(mpr_value v, int idx)
 {
-    mpr_value_buffer b = &v->inst[idx];
+    mpr_value_buffer b = &v->inst[idx % v->num_inst];
     return (char*)b->samps + b->pos * v->vlen * mpr_type_get_size(v->type);
 }
 
 MPR_INLINE static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int hist_idx)
 {
-    mpr_value_buffer b = &v->inst[inst_idx];
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
     int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
     if (idx < 0)
         idx += v->mlen;
@@ -651,13 +658,13 @@ MPR_INLINE static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int h
 /*! Helper to find the pointer to the current time in a mpr_value_t. */
 MPR_INLINE static mpr_time* mpr_value_get_time(mpr_value v, int idx)
 {
-    mpr_value_buffer b = &v->inst[idx];
+    mpr_value_buffer b = &v->inst[idx % v->num_inst];
     return &b->times[b->pos];
 }
 
 MPR_INLINE static mpr_time* mpr_value_get_time_hist(mpr_value v, int inst_idx, int hist_idx)
 {
-    mpr_value_buffer b = &v->inst[inst_idx];
+    mpr_value_buffer b = &v->inst[inst_idx % v->num_inst];
     int idx = (b->pos + v->mlen + hist_idx) % v->mlen;
     if (idx < 0)
         idx += v->mlen;

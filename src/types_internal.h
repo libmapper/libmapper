@@ -143,7 +143,7 @@ typedef struct _mpr_net {
     int num_devs;
     uint32_t next_bus_ping;
     uint32_t next_sub_ping;
-    uint8_t graph_methods_added;
+    uint8_t generic_dev_methods_added;
 } mpr_net_t, *mpr_net;
 
 /**** Messages ****/
@@ -377,13 +377,15 @@ typedef struct _mpr_bundle {
 typedef struct _mpr_link {
     mpr_obj_t obj;                  /* always first */
     mpr_dev devs[2];
-    int *num_maps;
+    int num_maps[2];
 
     struct {
         lo_address admin;               /*!< Network address of remote endpoint */
         lo_address udp;                 /*!< Network address of remote endpoint */
         lo_address tcp;                 /*!< Network address of remote endpoint */
     } addr;
+
+    int is_local_only;
 
     mpr_bundle_t bundles[NUM_BUNDLES];  /*!< Circular buffer to handle interrupts during poll() */
 
@@ -477,6 +479,8 @@ typedef struct _mpr_rtr_sig {
 
 /*! The router structure. */
 typedef struct _mpr_rtr {
+    mpr_net net;
+    /* TODO: rtr should either be stored in local_dev or shared */
     struct _mpr_local_dev *dev;     /*!< The device associated with this link. */
     mpr_rtr_sig sigs;               /*!< The list of mappings for each signal. */
 } mpr_rtr_t, *mpr_rtr;

@@ -46,8 +46,25 @@ void mpr_rtr_num_inst_changed(mpr_rtr rtr, mpr_local_sig sig, int size)
     /* for array of slots, may need to reallocate destination instances */
     for (i = 0; i < rs->num_slots; i++) {
         mpr_local_slot slot = rs->slots[i];
-        if (slot)
-            mpr_map_alloc_values(slot->map);
+        mpr_local_map map;
+        if (!slot)
+            continue;
+        map = slot->map;
+        mpr_map_alloc_values(map);
+
+        if (MPR_DIR_OUT == map->dst->dir) {
+            /* Inform remote destination */
+            mpr_net_use_mesh(rtr->net, map->dst->link->addr.admin);
+            mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+        }
+        else {
+            /* Inform remote sources */
+            for (i = 0; i < map->num_src; i++) {
+                mpr_net_use_mesh(rtr->net, map->src[i]->link->addr.admin);
+                i = mpr_map_send_state((mpr_map)map, ((mpr_local_map)map)->one_src ? -1 : i,
+                                       MSG_MAPPED);
+            }
+        }
     }
 }
 
@@ -288,18 +305,13 @@ static mpr_id _get_unused_map_id(mpr_local_dev dev, mpr_rtr rtr)
     return id;
 }
 
-static void _add_local_slot(mpr_rtr rtr, mpr_local_slot slot, int is_src, int *max_inst,
-                            int *use_inst)
+static void _add_local_slot(mpr_rtr rtr, mpr_local_slot slot, int is_src, int *use_inst)
 {
     slot->dir = (is_src ^ (slot->sig->is_local ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT;
     if (slot->sig->is_local) {
         slot->rsig = _add_rtr_sig(rtr, (mpr_local_sig)slot->sig);
         _store_slot(slot->rsig, slot);
 
-        if (slot->sig->num_inst > *max_inst)
-            *max_inst = slot->sig->num_inst;
-        if (slot->num_inst > *max_inst)
-            *max_inst = slot->num_inst;
         if (slot->sig->use_inst)
             *use_inst = 1;
     }
@@ -312,7 +324,7 @@ static void _add_local_slot(mpr_rtr rtr, mpr_local_slot slot, int is_src, int *m
 
 void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
 {
-    int i, local_src = 0, local_dst, max_num_inst = 0, use_inst = 0, scope_count;
+    int i, local_src = 0, local_dst, use_inst = 0, scope_count;
     RETURN_UNLESS(!map->is_local);
     for (i = 0; i < map->num_src; i++) {
         if (map->src[i]->sig->is_local)
@@ -327,8 +339,8 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
 
     /* Add local slot structures */
     for (i = 0; i < map->num_src; i++)
-        _add_local_slot(rtr, map->src[i], 1, &max_num_inst, &use_inst);
-    _add_local_slot(rtr, map->dst, 0, &max_num_inst, &use_inst);
+        _add_local_slot(rtr, map->src[i], 1, &use_inst);
+    _add_local_slot(rtr, map->dst, 0, &use_inst);
 
     /* default to using instanced maps if any of the contributing signals are instanced */
     map->use_inst = use_inst;
@@ -463,8 +475,9 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
             mpr_dev_bundle_start(t, NULL);
             mpr_dev_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
                             lo_message_get_argc(msg), msg, (void*)map->dst->sig);
+            lo_message_free(msg);
         }
-        else
+        if (map->dst->dir == MPR_DIR_OUT || map->is_local_only)
             mpr_dev_LID_decref(rtr->dev, 0, map->idmap);
     }
 
@@ -529,7 +542,7 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
     if (map->is_local_only) {
         mpr_link link = mpr_dev_get_link_by_remote(rtr->dev, (mpr_dev)rtr->dev);
         if (link)
-            --link->num_maps[0];
+            mpr_link_remove_map(link, map);
     }
 
     /* free buffers associated with user-defined expression variables */
@@ -575,10 +588,12 @@ mpr_local_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_local_sig sig, int slot_id)
 {
     int i, j;
     mpr_local_map map;
-    /* only interested in incoming slots */
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_ARG_UNLESS(rs, NULL);
     for (i = 0; i < rs->num_slots; i++) {
+        /* Check if signal direction matches the slot direction. This handles both 'incoming'
+         * destination slots (for processing map updates) and outgoing source slots (for
+         * processing 'downstream instance release' events). */
         if (!rs->slots[i] || sig->dir != rs->slots[i]->dir)
             continue;
         map = rs->slots[i]->map;

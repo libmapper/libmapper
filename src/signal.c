@@ -8,7 +8,7 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
-#define MAX_INSTANCES 128
+#define MAX_INST 128
 #define BUFFSIZE 512
 
 /* TODO: MPR_DEFAULT_INST is actually a valid id - we should use
@@ -98,10 +98,10 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     sig->dir = dir ? dir : MPR_DIR_OUT;
     sig->unit = unit ? strdup(unit) : strdup("unknown");
     sig->min = sig->max = 0;
-    sig->num_inst = 0;
     sig->use_inst = 0;
 
     if (sig->is_local) {
+        sig->num_inst = 0;
         mpr_local_sig lsig = (mpr_local_sig)sig;
         lsig->vec_known = calloc(1, len / 8 + 1);
         for (i = 0; i < len; i++)
@@ -120,8 +120,10 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
         lsig->idmap_len = 1;
         lsig->idmaps = calloc(1, sizeof(struct _mpr_sig_idmap));
     }
-    else
+    else {
+        sig->num_inst = 1;
         sig->obj.props.staged = mpr_tbl_new();
+    }
 
     sig->obj.type = MPR_SIG;
     sig->obj.props.synced = mpr_tbl_new();
@@ -555,7 +557,7 @@ static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
 {
     int i, cont;
     mpr_sig_inst si;
-    RETURN_ARG_UNLESS(lsig->num_inst < MAX_INSTANCES, -1);
+    RETURN_ARG_UNLESS(lsig->num_inst < MAX_INST, -1);
 
     /* check if instance with this id already exists! If so, stop here. */
     if (id && _find_inst_by_id(lsig, *id))
@@ -959,7 +961,7 @@ static int _add_idmap(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map map)
     }
     if (i == lsig->idmap_len) {
         /* need more memory */
-        if (lsig->idmap_len >= MAX_INSTANCES) {
+        if (lsig->idmap_len >= MAX_INST) {
             /* Arbitrary limit to number of tracked idmaps */
             /* TODO: add checks for this return value */
             return -1;

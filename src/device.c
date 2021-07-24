@@ -112,7 +112,10 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
         return NULL;
     }
 
-    g->net.rtr = (mpr_rtr)calloc(1, sizeof(mpr_rtr_t));
+    if (!g->net.rtr) {
+        g->net.rtr = (mpr_rtr)calloc(1, sizeof(mpr_rtr_t));
+        g->net.rtr->net = &g->net;
+    }
     g->net.rtr->dev = dev;
 
     dev->expr_stack = mpr_expr_stack_new();
@@ -149,13 +152,15 @@ void mpr_dev_free(mpr_dev dev)
     mpr_net_free_msgs(net);
 
     /* remove OSC handlers associated with this device */
-    mpr_net_remove_dev_methods(net, ldev);
+    mpr_net_remove_dev(net, ldev);
 
-    /* also remove any graph handlers registered locally */
-    while (gph->callbacks) {
-        fptr_list cb = gph->callbacks;
-        gph->callbacks = gph->callbacks->next;
-        free(cb);
+    /* remove local graph handlers here so they are not called when child objects are freed */
+    if (!gph->own) {
+        while (gph->callbacks) {
+            fptr_list cb = gph->callbacks;
+            gph->callbacks = gph->callbacks->next;
+            free(cb);
+        }
     }
 
     /* remove subscribers */
@@ -166,6 +171,7 @@ void mpr_dev_free(mpr_dev dev)
         free(sub);
     }
 
+    /* free signals owned by this device */
     list = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
     while (list) {
         mpr_local_sig sig = (mpr_local_sig)*list;
@@ -216,17 +222,6 @@ void mpr_dev_free(mpr_dev dev)
         free(map);
     }
 
-    if (net->rtr) {
-        while (net->rtr->sigs) {
-            mpr_rtr_sig rs = net->rtr->sigs;
-            net->rtr->sigs = net->rtr->sigs->next;
-            free(rs);
-        }
-        free(net->rtr);
-    }
-
-    FUNC_IF(lo_server_free, net->servers[SERVER_UDP]);
-    FUNC_IF(lo_server_free, net->servers[SERVER_TCP]);
     FUNC_IF(free, dev->prefix);
 
     mpr_expr_stack_free(ldev->expr_stack);
@@ -288,10 +283,10 @@ int mpr_dev_bundle_start(lo_timetag t, void *data)
  * - A vector consisting completely of nulls indicates a signal instance release
  *   TODO: use more specific message for release?
  * - Updates to a specific signal instance are indicated using the label
- *   "@instance" followed by a 64bit integer which uniquely identifies this
+ *   "@in" followed by a 64bit integer which uniquely identifies this
  *   instance within the network of libmapper devices
  * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
- *   are indicated using the label "@slot" followed by a single integer slot #
+ *   are indicated using the label "@sl" followed by a single integer slot #
  * - Instance creation and release may also be triggered by expression
  *   evaluation. Refer to the document "Using Instanced Signals with Libmapper"
  *   for more information.
@@ -516,8 +511,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 memcpy(&si->time, &ts, sizeof(mpr_time));
                 mpr_sig_call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, &ts, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
-                if (   !(sig->dir & MPR_DIR_OUT)
-                    && !get_bitflag(sig->updated_inst, si->idx)) {
+                if (!(sig->dir & MPR_DIR_OUT) && !get_bitflag(sig->updated_inst, si->idx)) {
                     mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);
                     /* TODO: ensure update is propagated within this poll cycle */
                 }
@@ -563,16 +557,8 @@ void mpr_dev_add_sig_methods(mpr_local_dev dev, mpr_local_sig sig)
 void mpr_dev_remove_sig_methods(mpr_local_dev dev, mpr_local_sig sig)
 {
     mpr_net net;
-    char *path = 0;
-    int len;
     RETURN_UNLESS(sig && sig->is_local);
     net = &dev->obj.graph->net;
-    len = (int)strlen(sig->path) + 5;
-    path = (char*)realloc(path, len);
-    snprintf(path, len, "%s%s", sig->path, "/get");
-    lo_server_del_method(net->servers[SERVER_UDP], path, NULL);
-    lo_server_del_method(net->servers[SERVER_TCP], path, NULL);
-    free(path);
     lo_server_del_method(net->servers[SERVER_UDP], sig->path, NULL);
     lo_server_del_method(net->servers[SERVER_TCP], sig->path, NULL);
     --dev->n_output_callbacks;
@@ -952,21 +938,22 @@ void mpr_dev_start_servers(mpr_local_dev dev)
     char port[16], *pport = 0, *url, *host;
     mpr_net net = &dev->obj.graph->net;
     mpr_list sigs;
-    RETURN_UNLESS(!net->servers[SERVER_UDP] && !net->servers[SERVER_TCP]);
-    while (!(net->servers[SERVER_UDP] = lo_server_new(pport, handler_error)))
-        pport = 0;
-    snprintf(port, 16, "%d", lo_server_get_port(net->servers[SERVER_UDP]));
-    pport = port;
-    while (!(net->servers[SERVER_TCP] = lo_server_new_with_proto(pport, LO_TCP, handler_error)))
-        pport = 0;
+    if (!net->servers[SERVER_UDP] && !net->servers[SERVER_TCP]) {
+        while (!(net->servers[SERVER_UDP] = lo_server_new(pport, handler_error)))
+            pport = 0;
+        snprintf(port, 16, "%d", lo_server_get_port(net->servers[SERVER_UDP]));
+        pport = port;
+        while (!(net->servers[SERVER_TCP] = lo_server_new_with_proto(pport, LO_TCP, handler_error)))
+            pport = 0;
 
-    /* Disable liblo message queueing */
-    lo_server_enable_queue(net->servers[SERVER_UDP], 0, 1);
-    lo_server_enable_queue(net->servers[SERVER_TCP], 0, 1);
+        /* Disable liblo message queueing */
+        lo_server_enable_queue(net->servers[SERVER_UDP], 0, 1);
+        lo_server_enable_queue(net->servers[SERVER_TCP], 0, 1);
 
-    /* Add bundle handlers */
-    lo_server_add_bundle_handlers(net->servers[SERVER_UDP], mpr_dev_bundle_start, NULL, (void*)dev);
-    lo_server_add_bundle_handlers(net->servers[SERVER_TCP], mpr_dev_bundle_start, NULL, (void*)dev);
+        /* Add bundle handlers */
+        lo_server_add_bundle_handlers(net->servers[SERVER_UDP], mpr_dev_bundle_start, NULL, (void*)dev);
+        lo_server_add_bundle_handlers(net->servers[SERVER_TCP], mpr_dev_bundle_start, NULL, (void*)dev);
+    }
 
     portnum = lo_server_get_port(net->servers[SERVER_UDP]);
     mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, NON_MODIFIABLE);
@@ -1186,8 +1173,8 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
                 /* reset timeout */
                 int temp = flags;
 #ifdef DEBUG
-                trace_dev(dev, "renewing subscription from %s:%s for %d seconds"
-                          "with flags ", s_ip, s_port, timeout_sec);
+                trace_dev(dev, "renewing subscription from %s:%s for %d seconds with flags ",
+                          s_ip, s_port, timeout_sec);
                 print_subscription_flags(flags);
 #endif
                 (*s)->lease_exp = t.sec + timeout_sec;

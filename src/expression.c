@@ -3072,7 +3072,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
     vlen = expr->vec_len;
     tok = expr->start;
     end = expr->start + expr->n_tokens;
-    b_out = v_out ? &v_out->inst[inst_idx] : 0;
+    b_out = v_out ? &v_out->inst[inst_idx % v_out->num_inst] : 0;
     if (v_out && b_out->pos >= 0) {
         tok += expr->offset;
     }
@@ -3716,7 +3716,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     memcpy(tvar, time, sizeof(mpr_time));
                 }
 #if TRACE_EVAL
-                mpr_value_print_hist(v_out, inst_idx);
+                mpr_value_print_hist(v_out, inst_idx % v_out->num_inst);
 #endif
             }
             else if (tok->var.idx >= 0 && tok->var.idx < N_USER_VARS) {

@@ -87,7 +87,7 @@ int check_keys(mpr_obj obj)
     const void *val;
     mpr_type type;
     int i = 0, seen = 0, length;
-    while (mpr_obj_get_prop_by_idx(obj, i++, &key, &length, &type, &val, 0)) {
+    while (mpr_obj_get_prop_by_idx(obj, (mpr_prop)i++, &key, &length, &type, &val, 0)) {
         seen |= seen_code(key);
     }
     return seen;

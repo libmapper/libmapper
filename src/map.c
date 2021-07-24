@@ -724,32 +724,20 @@ void mpr_map_alloc_values(mpr_local_map m)
     /* HANDLE edge case: if the map is local, then src->dir is OUT and dst->dir is IN */
 
     /* check if slot values need to be reallocated */
-    if (MPR_DIR_OUT == m->dst->dir) {
-        int max_num_inst = 0;
-        for (i = 0; i < m->num_src; i++) {
-            hist_size = mpr_expr_get_in_hist_size(e, i);
-            max_num_inst = _max(m->src[i]->sig->num_inst, max_num_inst);
-            mpr_slot_alloc_values(m->src[i], m->src[i]->sig->num_inst, hist_size);
-        }
-        hist_size = mpr_expr_get_out_hist_size(e);
-        /* allocate enough dst slot and variable instances for the most multitudinous source signal */
-        mpr_slot_alloc_values(m->dst, max_num_inst, hist_size);
-        num_inst = max_num_inst;
+    for (i = 0; i < m->num_src; i++) {
+        hist_size = mpr_expr_get_in_hist_size(e, i);
+        mpr_slot_alloc_values(m->src[i], m->src[i]->num_inst, hist_size);
+        num_inst = _max(m->src[i]->sig->num_inst, num_inst);
     }
-    else if (MPR_DIR_IN == m->dst->dir) {
-        /* allocate enough instances for destination signal */
-        for (i = 0; i < m->num_src; i++) {
-            hist_size = mpr_expr_get_in_hist_size(e, i);
-            mpr_slot_alloc_values(m->src[i], m->dst->sig->num_inst, hist_size);
-        }
-        hist_size = mpr_expr_get_out_hist_size(e);
-        mpr_slot_alloc_values(m->dst, m->dst->sig->num_inst, hist_size);
-        num_inst = m->dst->sig->num_inst;
-    }
+    num_inst = _max(m->dst->sig->num_inst, num_inst);
+    hist_size = mpr_expr_get_out_hist_size(e);
+
+    /* If the dst slot is remote, we need to allocate enough dst slot and variable instances for
+     * the most multitudinous source signal. In the case where the dst slot is associated with a
+     * local signal the call below will default to using the signal's instance count. */
+    mpr_slot_alloc_values(m->dst, num_inst, hist_size);
 
     num_vars = mpr_expr_get_num_vars(e);
-
-    /* TODO: only need to allocate this memory for processing location */
     vars = calloc(1, sizeof(mpr_value_t) * num_vars);
     var_names = malloc(sizeof(char*) * num_vars);
     for (i = 0; i < num_vars; i++) {
@@ -1240,18 +1228,18 @@ static void _check_status(mpr_local_map m)
         /* update in/out counts for link */
         if (m->is_local_only) {
             if (m->dst->link)
-                ++m->dst->link->num_maps[0];
+                mpr_link_add_map(m->dst->link, 0);
         }
         else {
             mpr_link last = 0, link;
             if (m->dst->link) {
-                ++m->dst->link->num_maps[0];
+                mpr_link_add_map(m->dst->link, 0);
                 m->dst->link->obj.props.synced->dirty = 1;
             }
             for (i = 0; i < m->num_src; i++) {
                 link = m->src[i]->link;
                 if (link && link != last) {
-                    ++m->src[i]->link->num_maps[1];
+                    mpr_link_add_map(m->src[i]->link, 1);
                     m->src[i]->link->obj.props.synced->dirty = 1;
                     last = link;
                 }
@@ -1581,12 +1569,12 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
         if ((slot >= 0) && link && (link != m->src[i]->link))
             break;
         if (MSG_MAPPED == cmd || (MPR_DIR_OUT == m->dst->dir))
-            mpr_slot_add_props_to_msg(msg, m->src[i], 0, staged);
+            mpr_slot_add_props_to_msg(msg, m->src[i], 0);
     }
 
     /* destination properties */
     if (MSG_MAPPED == cmd || (MPR_DIR_IN == m->dst->dir))
-        mpr_slot_add_props_to_msg(msg, m->dst, 1, staged);
+        mpr_slot_add_props_to_msg(msg, m->dst, 1);
 
     /* add public expression variables */
     if (m->is_local && ((mpr_local_map)m)->expr) {
