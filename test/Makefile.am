@@ -8,8 +8,8 @@ noinst_PROGRAMS = test testcalibrate testconvergent testcpp testcustomtransport\
                   testexpression testgraph testinstance testlinear testlocalmap\
                   testmany testmapfail testmapinput testmapprotocol testmonitor\
                   testnetwork testparams testparser testprops testrate         \
-                  testreverse testsignals testspeed testunmap testvector       \
-                  testsignalhierarchy
+                  testreverse testsignalhierarchy testsignals testspeed        \
+                  testunmap testvector
 
 test_all_ordered = testparams testprops testgraph testparser testnetwork       \
                    testmany test testlinear testexpression testrate            \
@@ -23,8 +23,8 @@ noinst_PROGRAMS = test testcalibrate testconvergent testcpp testcustomtransport\
                   testexpression testgraph testinstance testinterrupt          \
                   testlinear testlocalmap testmany testmapfail testmapinput    \
                   testmapprotocol testmonitor testnetwork testparams testparser\
-                  testprops testrate testreverse testsignals testspeed         \
-                  testthread testunmap testvector testsignalhierarchy
+                  testprops testrate testreverse testsignalhierarchy           \
+                  testsignals testspeed testthread testunmap testvector
 
 test_all_ordered = testparams testprops testgraph testparser testnetwork       \
                    testmany test testlinear testexpression testrate            \
