@@ -1095,12 +1095,31 @@ namespace mapper {
         operator mpr_dev() const
             { return _obj; }
 
+        /*! Add a Signal to this Device.
+         *  \param dir      Directionality of the signal to create. Must be either
+         *                  Direction::INCOMING or Direction::OUTGOING.
+         *  \param name     A descriptive name for the signal.
+         *  \param len      Vector length for the signal.
+         *  \param type     Data type for the signal (INT32, FLOAT, or DOUBLE).
+         *  \param unit     Descriptive unit for the signal (optional).
+         *  \param min      Minimum value for the signal (optional). Must point to an array of
+         *                  length and type specified by the len and type arguments.
+         *  \param max      maximum value for the signal (optional). Must point to an array of
+         *                  length and type specified by the len and type arguments.
+         *  \param num_inst The number of instances to be allocated for the signal. For singleton
+         *                  (non-instanced) signals pass NULL for this argument, otherwise provide
+         *                  the number of instances to pre-allocate. Additional instances may be
+         *                  allocated later using Signal::reserve_instances().
+         *  \return         A newly allocated Signal. */
         Signal add_signal(Direction dir, const str_type &name, int len, Type type,
                           const str_type &unit=0, void *min=0, void *max=0, int *num_inst=0)
         {
             return Signal(_obj, static_cast<mpr_dir>(dir), name, len, static_cast<mpr_type>(type),
                           unit, min, max, num_inst);
         }
+        /*! Remove and destroy a Signal from this Device.
+         *  \param sig      The signal to remove.
+         *  \return         Self. */
         Device& remove_signal(Signal& sig)
         {
             sig.set_callback();
@@ -1108,21 +1127,49 @@ namespace mapper {
             RETURN_SELF
         }
 
+        /*! Get a list of Signals belonging to this Device.
+         *  \param dir      The directionality of the Signals to include in the list. Use
+         *                  Direction::ANY to include all Signals.
+         *  \return         A List of Signals. */
         List<Signal> signals(Direction dir = Direction::ANY) const
             { return List<Signal>(mpr_dev_get_sigs(_obj, static_cast<mpr_dir>(dir))); }
 
+        /*! Get a list of Maps involving this Device.
+         *  \param dir      The directionality of the Maps (with reference to the Device) to
+         *                  include in the list. Use Direction::ANY to include all Maps.
+         *  \return         A List of Maps. */
         List<Map> maps(Direction dir = Direction::ANY) const
             { return List<Map>(mpr_dev_get_maps(_obj, static_cast<mpr_dir>(dir))); }
 
+        /*! Poll this device for new messages.  Note, if you have multiple devices, the right thing
+         *  to do is call this function for each of them with block_ms=0, and add your own sleep if
+         *  necessary.
+         *  \return     The number of handled messages. May be zero if there was nothing to do. */
         int poll(int block_ms=0) const
             { return mpr_dev_poll(_obj, block_ms); }
 
+        /*! Detect whether a device is completely initialized.
+         *  \return         Non-zero if device is completely initialized, i.e., has an allocated
+         *                  receiving port and unique identifier. Zero otherwise. */
         bool ready() const
             { return mpr_dev_get_is_ready(_obj); }
+
+        /*! Get the current time for a device.
+         *  \return         The current time. */
         Time get_time()
             { return mpr_dev_get_time(_obj); }
+
+        /*! Set the time for a device. Use only if user code has access to a more accurate
+         *  timestamp than the operating system.
+         *  \param time     The time to set. This time will be used for tagging signal updates until
+         *                  the next occurrence mpr_dev_set_time() or mpr_dev_poll(). */
         Device& set_time(Time time)
             { mpr_dev_set_time(_obj, *time); RETURN_SELF }
+
+        /*! Indicate that all signal values have been updated for a given timestep. This function
+         *  can be omitted if poll() is called each sampling timestep, however calling poll() at a
+         *  lower rate may be more performant.
+         *  \param return   Self. */
         Device& update_maps()
             { mpr_dev_update_maps(_obj); RETURN_SELF }
 

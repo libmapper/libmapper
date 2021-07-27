@@ -238,7 +238,7 @@ mpr_time mpr_dev_get_time(mpr_dev device);
  *                      the next occurrence mpr_dev_set_time() or mpr_dev_poll(). */
 void mpr_dev_set_time(mpr_dev device, mpr_time time);
 
-/*! Indicates that all signal values have been updated for a given timestep. This function can be
+/*! Indicate that all signal values have been updated for a given timestep. This function can be
  *  omitted if mpr_dev_poll() is called each sampling timestep instead, however calling
  *  mpr_dev_poll() at a lower rate may be more performant.
  *  \param device       The device to use. */
