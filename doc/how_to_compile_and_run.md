@@ -93,8 +93,9 @@ Should any errors occur, please inform the [libmapper mailing list][list].
 To verify that the library runs without errors, you may run the main
 test program, available in the test directory:
 
-    cd test
-    ./test
+    ./test/test -t
+
+This program creates devices and signals and tests sending data between them using maps. The `-t` flag will cause the test program to automatically terminate after sending 200 messages, so omit it if you want to keep the test running indefinately.
 
 Note that the programs in the test directory are _not_ examples of
 library usage, as they additionally test some internal functions in
@@ -105,7 +106,7 @@ to use the library.
 
 The software may be installed with,
 
-    make install
+    sudo make install
 
 This should place headers in `<prefix>/include/mapper`, the library
 in `<prefix>/lib`, Python bindings in
