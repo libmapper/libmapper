@@ -9,15 +9,15 @@ project.
 
 ## Overview of the API structure
 
-If you take a look at the [API documentation](../html/index.html), there is a
+If you take a look at the [API documentation](http://libmapper.github.io/api/index.html), there is a
 section called "modules".  This is divided into the following main sections:
 
-* [Graphs](../html/group__graphs.html)
-* [Objects](../html/group__objects.html)
-    * [Devices](../html/group__devices.html)
-    * [Signals](../html/group__signals.html) and [Signal Instances](../html/group__instances.html)
-    * [Maps](../html/group__maps.html)
-* [Lists](../html/group__lists.html)
+* [Graphs](http://libmapper.github.io/api/group__graphs.html)
+* [Objects](http://libmapper.github.io/api/group__objects.html)
+    * [Devices](http://libmapper.github.io/api/group__devices.html)
+    * [Signals](http://libmapper.github.io/api/group__signals.html) and [Signal Instances](http://libmapper.github.io/api/group__instances.html)
+    * [Maps](http://libmapper.github.io/api/group__maps.html)
+* [Lists](http://libmapper.github.io/api/group__lists.html)
 
 For this tutorial, the only sections to pay attention to are **Devices** and
 **Signals**. The other sections are mostly used when building user interfaces for

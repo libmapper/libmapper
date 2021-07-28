@@ -2,14 +2,14 @@
 
 ## Overview of the C++ API
 
-If you take a look at the [API documentation](../html/index.html), there is
+If you take a look at the [API documentation](http://libmapper.github.io/api/index.html), there is
 a section called "modules".  This is divided into the following sections:
 
-* [Graphs](../html/classmapper_1_1Graph.html)
-* [Devices](../html/classmapper_1_1Device.html)
-* [Signals](../html/classmapper_1_1Signal.html)
-* [Maps](../html/classmapper_1_1Map.html)
-* [Lists](../html/classmapper_1_1List.html)
+* [Graphs](http://libmapper.github.io/api/classmapper_1_1Graph.html)
+* [Devices](http://libmapper.github.io/api/classmapper_1_1Device.html)
+* [Signals](http://libmapper.github.io/api/classmapper_1_1Signal.html)
+* [Maps](http://libmapper.github.io/api/classmapper_1_1Map.html)
+* [Lists](http://libmapper.github.io/api/classmapper_1_1List.html)
 
 For this tutorial, the only sections to pay attention to are **Devices** and **Signals**. **Graphs**, and **Maps** are mostly used when building
 user interfaces for designing mapping configurations.
