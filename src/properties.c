@@ -25,7 +25,6 @@ typedef struct {
  * found in mpr_constants.h */
 const static_prop_t static_props[] = {
     { 0,                0, 0,         0 },         /* MPR_PROP_UNKNOWN */
-    { "@calib",         1, MPR_BOOL,  MPR_BOOL },  /* MPR_PROP_CALIB */
     { "@data",          1, MPR_PTR,   0  },        /* MPR_PROP_DATA */
     { "@device",        1, MPR_DEV,   MPR_STR },   /* MPR_PROP_DEVICE */
     { "@direction",     1, MPR_INT32, MPR_STR },   /* MPR_PROP_DIR */

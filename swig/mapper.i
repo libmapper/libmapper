@@ -870,7 +870,6 @@ static named_prop get_obj_prop_by_idx(mpr_obj obj, int idx) {
 
 /*! Symbolic representation of recognized properties. */
 %constant int PROP_UNKNOWN              = MPR_PROP_UNKNOWN;
-%constant int PROP_CALIB                = MPR_PROP_CALIB;
 %constant int PROP_DEV                  = MPR_PROP_DEV;
 %constant int PROP_DIR                  = MPR_PROP_DIR;
 %constant int PROP_EXPR                 = MPR_PROP_EXPR;

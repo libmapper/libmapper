@@ -96,9 +96,9 @@ namespace mapper {
         NONE                    = MPR_OP_NONE
     };
 
+    /*! Symbolic identifiers for core object properties. */
     enum class Property
     {
-        CALIBRATING         = MPR_PROP_CALIB,
         DEVICE              = MPR_PROP_DEV,
         DIRECTION           = MPR_PROP_DIR,
         EXPRESSION          = MPR_PROP_EXPR,
