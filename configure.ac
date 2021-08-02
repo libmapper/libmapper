@@ -2,7 +2,7 @@ AC_PREREQ(2.61)
 
 m4_define([LIBMAPPER_VERSION],[2.0b])
 AC_INIT([libmapper],
-  [m4_esyscmd_s([test -d .git && git describe --always || echo LIBMAPPER_VERSION])],
+  m4_esyscmd_s([test -d .git && (git describe --tags | sed 's/\([^\-]*\)-\([^\-]*\)-\([^\-]*\)/\1.\2+\3/g') || echo LIBMAPPER_VERSION]),
   [dot_mapper@googlegroups.com],[],[http://libmapper.org])
 
 # libtool version: current:revision:age
@@ -373,4 +373,5 @@ echo "building Java bindings...  " $enable_jni $jni_explain
 echo "building audio examples... " $enable_audio $audio_explain
 AS_IF([test x$enable_debug = xyes],
       [echo "Debug flags enabled."])
+echo "version                    " $PACKAGE_VERSION
 echo --------------------------------------------------
