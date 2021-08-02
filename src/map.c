@@ -1388,16 +1388,20 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 break;
             }
             case PROP(SCOPE):
-                if (mpr_type_get_is_str(a->types[0]))
+                if (a->types && mpr_type_get_is_str(a->types[0]))
                     updated += _update_scope(m, a);
                 break;
             case PROP(SCOPE) | PROP_ADD:
-                for (j = 0; j < a->len; j++)
-                    updated += _add_scope(m, &(a->vals[j])->s);
+                for (j = 0; j < a->len; j++) {
+                    if (a->types && MPR_STR == a->types[j])
+                        updated += _add_scope(m, &(a->vals[j])->s);
+                }
                 break;
             case PROP(SCOPE) | PROP_REMOVE:
-                for (j = 0; j < a->len; j++)
-                    updated += _remove_scope(m, &(a->vals[j])->s);
+                for (j = 0; j < a->len; j++) {
+                    if (a->types && MPR_STR == a->types[j])
+                        updated += _remove_scope(m, &(a->vals[j])->s);
+                }
                 break;
             case PROP(PROTOCOL): {
                 mpr_proto pro = mpr_protocol_from_str(&(a->vals[0])->s);
