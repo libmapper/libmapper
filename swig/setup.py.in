@@ -15,7 +15,7 @@ LO_INCDIRS = [x[2:] for x in LO_CFLAGS.split() if x[0:2]=='-I']
 
 EXTRA_LIBS = [@EXTRA_LIBS_BINDINGS@]
 
-mapper_module = Extension('_mapper',
+mapper_module = Extension('_libmapper',
                           sources=['mapper_wrap.c'],
                           include_dirs=['@top_srcdir@/src',
                                         '@top_builddir@/src',
@@ -24,7 +24,7 @@ mapper_module = Extension('_mapper',
                           libraries=['mapper'] + LO_LDLIBS + EXTRA_LIBS,
                           )
 
-setup (name = 'mapper',
+setup (name = 'libmapper',
        version = '@PACKAGE_VERSION@',
        author      = "libmapper.org",
        author_email = "dot_mapper@googlegroups.com",
@@ -32,5 +32,5 @@ setup (name = 'mapper',
        description = """A library for mapping controllers and synthesizers.""",
        license = "GNU LGPL version 2.1 or later",
        ext_modules = [mapper_module],
-       py_modules = ["mapper"],
+       py_modules = ["libmapper"],
        )

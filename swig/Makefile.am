@@ -1,14 +1,14 @@
 
 _CXX =  $(filter-out ccache,$(CXX))
 
-all-local: _mapper.$(PYEXT)
+all-local: _libmapper.$(PYEXT)
 
 $(builddir)/%_wrap.c %.py: %.i
 	$(SWIG) -I$(top_srcdir)/include -python -py3 -modern -o $(builddir)/mapper_wrap.c \
 		$(srcdir)/mapper.i
 
 # Don't interfere with distutils CFLAGS
-_%.$(PYEXT): $(builddir)/%_wrap.c
+_libmapper.$(PYEXT): $(builddir)/mapper_wrap.c
 	env CFLAGS="" CXX="$(_CXX)" $(PYTHON) setup.py build_ext
 	cp -v `@top_srcdir@/swig/copywhich.sh $(PYTHON) $(@:.so=)` .
 
@@ -17,7 +17,7 @@ clean-local:
 	-@rm -vfr build __pycache__
 	$(PYTHON) setup.py clean --all
 
-MOSTLYCLEANFILES = _mapper.$(PYEXT) _mapper.*.$(PYEXT) mapper.py mapper_wrap.c installed_files.log
+MOSTLYCLEANFILES = _libmapper.$(PYEXT) _libmapper.*.$(PYEXT) mapper.py mapper_wrap.c installed_files.log
 
 install-exec-hook: $(builddir)/mapper_wrap.c
 	if test -n "$(DESTDIR)"; then\
