@@ -11,21 +11,40 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: install dependencies
       run: sudo apt-get install g++-8 autoconf-archive curl zlib1g-dev
     - name: install liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
     - name: autogen
-      run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+      run: pwd && mkdir $PWD/inst && env NOCONFIGURE=1 ./autogen.sh && (./configure --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
     - name: make
       run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
     - name: make tests
       run: cd test && make tests
+    - name: python wheels
+      run:
+        sudo apt-get -y install python3-pip python3-setuptools python3-venv
+        && python3 -m pip install git+https://github.com/henryiii/cibuildwheel@henryiii/chore/intreebuild
+        && make clean
+        && rm -rf inst liblo-0.31 && tar -xzf liblo-0.31.tar.gz
+        && python3 -m cibuildwheel --output-dir wheelhouse ./swig
+        && ls wheelhouse
+      env:
+        CIBW_BUILD: "cp3*"
+        CIBW_BEFORE_ALL: "yum install -y libtool automake autoconf zlib-devel swig"
+        CIBW_BEFORE_BUILD: "cd {package}; for package in $(pwd); do cd $package/../liblo-0.31 && ./configure --prefix=$package/../inst --disable-shared --enable-static --disable-tests --disable-tools --disable-debug --disable-examples CFLAGS=-fPIC && make clean && make install && cd $package/.. && env NOCONFIGURE=1 ./autogen.sh && ./configure PKG_CONFIG_PATH=$package/../inst/lib/pkgconfig --enable-static --disable-shared --disable-tests --disable-jni --disable-docs --disable-audio --disable-debug CFLAGS=-fPIC && make clean && make -C src && make -C swig mapper_wrap.c; done"
+    - uses: actions/upload-artifact@v2
+      with:
+        path: ./wheelhouse/*.whl
 
   MacOS:
     runs-on: macOS-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: install dependencies
       run: brew install autoconf-archive automake
     - name: install liblo
@@ -36,11 +55,26 @@ jobs:
       run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
     - name: make tests
       run: cd test && make tests
+    - name: python wheels
+      run:
+        python3 -m pip install git+https://github.com/henryiii/cibuildwheel@henryiii/chore/intreebuild
+        && make clean
+        && rm -rf inst liblo-0.31 && tar -xzf liblo-0.31.tar.gz
+        && python3 -m cibuildwheel --output-dir wheelhouse ./swig
+        && ls wheelhouse
+      env:
+        CIBW_BUILD: "cp3*"
+        CIBW_BEFORE_BUILD: "cd {package}; for package in $(pwd); do cd $package/../liblo-0.31 && ./configure --prefix=$package/../inst --disable-shared --enable-static --disable-tests --disable-tools --disable-debug --disable-examples CFLAGS=-fPIC && make clean && make install && cd $package/.. && env NOCONFIGURE=1 ./autogen.sh && ./configure PKG_CONFIG_PATH=$package/../inst/lib/pkgconfig --enable-static --disable-shared --disable-tests --disable-jni --disable-docs --disable-audio --disable-debug CFLAGS=-fPIC && make clean && make -C src && make -C swig mapper_wrap.c; done"
+    - uses: actions/upload-artifact@v2
+      with:
+        path: ./wheelhouse/*.whl
   
   MinGW:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     - name: install dependencies
       run: sudo apt-get install g++-mingw-w64 autoconf-archive curl
     - name: install liblo
