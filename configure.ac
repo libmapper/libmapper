@@ -324,6 +324,12 @@ AS_IF([test x$with_liblo != xno],[
   LIBS="$tmpLIBS"
 ])
 
+# If shared is disabled, need to link bindings directly to zlib
+if test x$enable_shared != xyes; then
+  EXTRA_LIBS_BINDINGS=\"z\"
+fi
+AC_SUBST(EXTRA_LIBS_BINDINGS)
+
 # Debug mode
 AS_IF([test x$enable_debug = xyes],
       [CFLAGS="-g -O0 -Wall -Werror -DDEBUG `echo $CFLAGS | sed 's/-O2//'`"
