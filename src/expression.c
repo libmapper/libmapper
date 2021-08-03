@@ -653,14 +653,16 @@ static int strncmp_lc(const char *a, const char *b, int len)
 static expr_##LC##_t LC##_lookup(const char *s, int len)        \
 {                                                               \
     int i, j;                                                   \
-    for (i=0; i<N_##UC; i++) {                                  \
-        if (LC##_tbl[i].name && strlen(LC##_tbl[i].name)==len   \
+    for (i = 0; i < N_##UC; i++) {                              \
+        if (LC##_tbl[i].name && strlen(LC##_tbl[i].name) == len \
             && strncmp_lc(s, LC##_tbl[i].name, len)==0) {       \
-            /* check for parentheses */                         \
             j = strlen(LC##_tbl[i].name);                       \
+            if (CLOSE && i == PFN_INSTANCES)                    \
+                return s[j] == '.' ? i : UC##_UNKNOWN;          \
+            /* check for parentheses */                         \
             if (s[j] != '(')                                    \
                 return UC##_UNKNOWN;                            \
-            else if (CLOSE && s[j] && s[j+1] != ')')            \
+            else if (CLOSE && s[j] && s[j + 1] != ')')          \
                 return UC##_UNKNOWN;                            \
             return i;                                           \
         }                                                       \
@@ -800,16 +802,19 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
                 tok->lit.datatype = MPR_FLT;
                 return idx;
             }
-            while (c && (isalpha(c) || c == '.'))
+            while (c && (isalpha(c)))
                 c = str[++idx];
             ++i;
-            if ((tok->fn.idx = vfn_lookup(str+i, idx-i)) != VFN_UNKNOWN)
+            if ((tok->fn.idx = vfn_lookup(str+i, idx-i)) != VFN_UNKNOWN) {
                 tok->toktype = TOK_VFN_DOT;
-            else if ((tok->fn.idx = pfn_lookup(str+i, idx-i)) != PFN_UNKNOWN)
+                return idx + 2;
+            }
+            else if ((tok->fn.idx = pfn_lookup(str+i, idx-i)) != PFN_UNKNOWN) {
                 tok->toktype = TOK_PFN;
+                return PFN_INSTANCES == tok->fn.idx ? idx : idx + 2;
+            }
             else
                 break;
-            return idx+2;
         }
         do {
             c = str[++idx];
@@ -1118,7 +1123,7 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         case TOK_VFN:
         case TOK_VFN_DOT:   snprintf(s, len, "vfn.%s(arity %d)", vfn_tbl[t.fn.idx].name, t.fn.arity); break;
         case TOK_PFN:       snprintf(s, len, "pfn.%s(arity %d)", pfn_tbl[t.fn.idx].name, t.fn.arity); break;
-        case TOK_INSTANCES: snprintf(s, len, "instances()");                    break;
+        case TOK_INSTANCES: snprintf(s, len, "instances");                      break;
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
@@ -2186,10 +2191,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 int pre, sslen;
                 expr_pfn_t pfn;
                 {FAIL_IF(PFN_INSTANCES != tok.fn.idx,
-                         "Instance reduce functions must start with 'instances()'.");}
+                         "Instance reduce functions must start with 'instances'.");}
                 GET_NEXT_TOKEN(tok);
                 {FAIL_IF(TOK_PFN != tok.toktype && TOK_VFN_DOT != tok.toktype,
-                         "instances() must be followed by a reduce function.");}
+                         "instances must be followed by a reduce function.");}
                 pfn = tok.fn.idx;
                 if (PFN_COUNT == pfn && TOK_VAR == out[out_idx].toktype) {
                     /* Special case: count() can be represented by single token */
@@ -2361,7 +2366,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 /* pop from operator stack to output until left parenthesis found */
                 while (op_idx >= 0 && op[op_idx].toktype != TOK_OPEN_PAREN)
                     POP_OPERATOR_TO_OUTPUT();
-                {FAIL_IF(op_idx < 0, "Unmatched parentheses or misplaced comma.");}
+                {FAIL_IF(op_idx < 0, "Unmatched parentheses or misplaced comma. (1)");}
 
                 arity = op[op_idx].fn.arity;
                 /* remove left parenthesis from operator stack */
@@ -2514,7 +2519,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 /* finish popping operators to output, check for unbalanced parentheses */
                 while (op_idx >= 0 && op[op_idx].toktype < TOK_ASSIGN) {
                     if (op[op_idx].toktype == TOK_OPEN_PAREN)
-                        {FAIL("Unmatched parentheses or misplaced comma.");}
+                        {FAIL("Unmatched parentheses or misplaced comma. (2)");}
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 var_idx = op[op_idx].var.idx;
@@ -2607,7 +2612,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 while (op_idx >= 0 && op[op_idx].toktype != TOK_VECTORIZE) {
                     POP_OPERATOR_TO_OUTPUT();
                 }
-                {FAIL_IF(op_idx < 0, "Unmatched brackets or misplaced comma.");}
+                {FAIL_IF(op_idx < 0, "Unmatched brackets or misplaced comma. (3)");}
                 if (op[op_idx].gen.vec_len) {
                     op[op_idx].gen.flags |= VEC_LEN_LOCKED;
 
@@ -2757,7 +2762,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
     /* finish popping operators to output, check for unbalanced parentheses */
     while (op_idx >= 0 && op[op_idx].toktype < TOK_ASSIGN) {
-        {FAIL_IF(op[op_idx].toktype == TOK_OPEN_PAREN, "Unmatched parentheses or misplaced comma.");}
+        {FAIL_IF(op[op_idx].toktype == TOK_OPEN_PAREN, "Unmatched parentheses or misplaced comma. (4)");}
         POP_OPERATOR_TO_OUTPUT();
     }
 
