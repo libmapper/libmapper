@@ -1,4 +1,4 @@
-%module mapper
+%module libmapper
 %include "typemaps.i"
 %typemap(in) PyObject *PyFunc {
     if ($input!=Py_None && !PyCallable_Check($input)) {
