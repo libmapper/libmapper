@@ -435,12 +435,13 @@ typedef enum {
     VFN_MEAN,
     VFN_MIN,
     VFN_SUM,
-    /* function names above this line are also found in pfn_table */
+    /* function names above this line are also found in rfn_table */
     VFN_NORM,
     VFN_MAXMIN,
     VFN_SUMNUM,
     VFN_ANGLE,
     VFN_DOT,
+    VFN_REDUCE,
     N_VFN
 } expr_vfn_t;
 
@@ -465,30 +466,31 @@ static struct {
     { "sumnum", 3, 0, 0, vsumnumi, vsumnumf, vsumnumd },
     { "angle",  2, 1, 0, 0,        vanglef,  vangled  },
     { "dot",    2, 1, 0, vdoti,    vdotf,    vdotd    },
+    { "reduce", 2, 0, 1, 0,        0,        0        }, /* replaced during parsing */
 };
 
 typedef enum {
-    PFN_UNKNOWN = -1,
-    PFN_ALL = 0,
-    PFN_ANY,
-    PFN_CENTER,
-    PFN_MAX,
-    PFN_MEAN,
-    PFN_MIN,
-    PFN_SUM,
+    RFN_UNKNOWN = -1,
+    RFN_ALL = 0,
+    RFN_ANY,
+    RFN_CENTER,
+    RFN_MAX,
+    RFN_MEAN,
+    RFN_MIN,
+    RFN_SUM,
     /* function names above this line are also found in vfn_table */
-    PFN_COUNT,
-    PFN_INSTANCES,
-    PFN_SIZE,
-    N_PFN
-} expr_pfn_t;
+    RFN_COUNT,
+    RFN_INSTANCES,
+    RFN_SIZE,
+    N_RFN
+} expr_rfn_t;
 
 static struct {
     const char *name;
     unsigned int arity;
     expr_op_t op;
     expr_vfn_t vfn;
-} pfn_tbl[] = {
+} rfn_tbl[] = {
     { "all",      2, OP_LOGICAL_AND, VFN_UNKNOWN },
     { "any",      2, OP_LOGICAL_OR,  VFN_UNKNOWN },
     { "center",   0, OP_UNKNOWN,     VFN_MAXMIN  },
@@ -530,13 +532,14 @@ typedef void vfn_template(mpr_expr_val, uint8_t*, int, int);
 #define VEC_LEN_LOCKED  0x0080
 
 enum toktype {
+    TOK_UNKNOWN         = 0x0000000,
     TOK_LITERAL         = 0x0000001,
     TOK_VLITERAL        = 0x0000002,
     TOK_NEGATE          = 0x0000004,
     TOK_FN              = 0x0000008,
     TOK_VFN             = 0x0000010,
     TOK_VFN_DOT         = 0x0000020,
-    TOK_PFN             = 0x0000040,
+    TOK_RFN             = 0x0000040,
     TOK_OPEN_PAREN      = 0x0000080,
     TOK_MUTED           = 0x0000100,
     TOK_OPEN_SQUARE     = 0x0000200,
@@ -557,8 +560,8 @@ enum toktype {
     TOK_ASSIGN_CONST,
     TOK_ASSIGN_TT,
     TOK_TT              = 0x0800000,
-    TOK_CACHE_INIT_INST,
-    TOK_BRANCH_NEXT_INST,
+    TOK_CACHE_INIT,
+    TOK_BRANCH_OR_NEXT,
     TOK_SP_ADD,
     TOK_END             = 0x1000000
 };
@@ -577,6 +580,7 @@ struct literal_type {
     mpr_type casttype;
     uint8_t vec_len;
     uint8_t flags;
+    /* end of generic_type */
     union {
         float f;
         int i;
@@ -593,6 +597,7 @@ struct operator_type {
     mpr_type casttype;
     uint8_t vec_len;
     uint8_t flags;
+    /* end of generic_type */
     expr_op_t idx;
 };
 
@@ -602,6 +607,7 @@ struct variable_type {
     mpr_type casttype;
     uint8_t vec_len;
     uint8_t flags;
+    /* end of generic_type */
     expr_var_t idx;
     uint8_t offset;         /* only used by TOK_ASSIGN* */
     uint8_t vec_idx;        /* only used by TOK_VAR and TOK_ASSIGN* */
@@ -613,9 +619,30 @@ struct function_type {
     mpr_type casttype;
     uint8_t vec_len;
     uint8_t flags;
+    /* end of generic_type */
     int idx;
     uint8_t arity;          /* used by TOK_FN, TOK_VFN, TOK_VECTORIZE */
-    uint8_t inst_cache_pos; /* only used by TOK_BRANCH* */
+//    uint8_t cache_pos;      /* only used by TOK_BRANCH_OR_NEXT */
+};
+
+enum reduce_type {
+    RT_UNKNOWN  = 0x00,
+    RT_HISTORY  = 0x01,
+    RT_INSTANCE = 0x02,
+    RT_SIGNAL   = 0x03,
+    RT_VECTOR   = 0x04
+};
+
+struct control_type {
+    enum toktype toktype;
+    mpr_type datatype;
+    mpr_type casttype;
+    uint8_t vec_len;
+    uint8_t flags;
+    /* end of generic_type */
+    uint8_t branch_offset;
+    uint8_t cache_pos;
+    enum reduce_type reduce;
 };
 
 typedef union _token {
@@ -625,6 +652,7 @@ typedef union _token {
     struct operator_type op;
     struct variable_type var;
     struct function_type fn;
+    struct control_type con;
 } mpr_token_t, *mpr_token;
 
 #define VAR_ASSIGNED    0x0001
@@ -657,7 +685,7 @@ static expr_##LC##_t LC##_lookup(const char *s, int len)        \
         if (LC##_tbl[i].name && strlen(LC##_tbl[i].name) == len \
             && strncmp_lc(s, LC##_tbl[i].name, len)==0) {       \
             j = strlen(LC##_tbl[i].name);                       \
-            if (CLOSE && i == PFN_INSTANCES)                    \
+            if (CLOSE && i == RFN_INSTANCES)                    \
                 return s[j] == '.' ? i : UC##_UNKNOWN;          \
             /* check for parentheses */                         \
             if (s[j] != '(')                                    \
@@ -671,7 +699,7 @@ static expr_##LC##_t LC##_lookup(const char *s, int len)        \
 }
 FN_LOOKUP(fn, FN, 0)
 FN_LOOKUP(vfn, VFN, 0)
-FN_LOOKUP(pfn, PFN, 1)
+FN_LOOKUP(rfn, RFN, 1)
 
 static void var_lookup(mpr_token_t *tok, const char *s, int len)
 {
@@ -747,7 +775,7 @@ static int tok_arity(mpr_token_t tok)
         case TOK_ASSIGN_TT: return tok.gen.flags & VAR_DELAY ? 1 : 0;
         case TOK_OP:        return op_tbl[tok.op.idx].arity;
         case TOK_FN:        return fn_tbl[tok.fn.idx].arity;
-        case TOK_PFN:       return pfn_tbl[tok.fn.idx].arity;
+        case TOK_RFN:       return rfn_tbl[tok.fn.idx].arity;
         case TOK_VFN:       return vfn_tbl[tok.fn.idx].arity;
         case TOK_VECTORIZE: return tok.fn.arity;
         default:            return 0;
@@ -809,9 +837,9 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
                 tok->toktype = TOK_VFN_DOT;
                 return idx + 2;
             }
-            else if ((tok->fn.idx = pfn_lookup(str+i, idx-i)) != PFN_UNKNOWN) {
-                tok->toktype = TOK_PFN;
-                return PFN_INSTANCES == tok->fn.idx ? idx : idx + 2;
+            else if ((tok->fn.idx = rfn_lookup(str+i, idx-i)) != RFN_UNKNOWN) {
+                tok->toktype = TOK_RFN;
+                return RFN_INSTANCES == tok->fn.idx ? idx : idx + 2;
             }
             else
                 break;
@@ -1047,6 +1075,7 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
 {
     int i, len = 128, offset = 0, delay = t.gen.flags & VAR_DELAY;
     char s[128];
+    char *dims[] = {"history", "instance", "signal", "vector"};
     switch (t.toktype) {
         case TOK_LITERAL:
             switch (t.gen.flags & CONST_SPECIAL) {
@@ -1122,7 +1151,7 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         case TOK_NEGATE:    snprintf(s, len, "-");                              break;
         case TOK_VFN:
         case TOK_VFN_DOT:   snprintf(s, len, "vfn.%s(arity %d)", vfn_tbl[t.fn.idx].name, t.fn.arity); break;
-        case TOK_PFN:       snprintf(s, len, "pfn.%s(arity %d)", pfn_tbl[t.fn.idx].name, t.fn.arity); break;
+        case TOK_RFN:       snprintf(s, len, "rfn.%s(arity %d)", rfn_tbl[t.fn.idx].name, t.fn.arity); break;
         case TOK_INSTANCES: snprintf(s, len, "instances");                      break;
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
@@ -1139,9 +1168,10 @@ static void printtoken(mpr_token_t t, mpr_var_t *vars)
         case TOK_ASSIGN_TT:
             snprintf(s, len, "ASSIGN_TO:t_y%s->[%u]", delay ? "{N}" : "", t.var.vec_idx);
             break;
-        case TOK_CACHE_INIT_INST:   snprintf(s, len, "<cache instance>");       break;
-        case TOK_BRANCH_NEXT_INST:  snprintf(s, len, "<branch next instance %d, inst cache %d>",
-                                             t.lit.val.i, t.fn.inst_cache_pos); break;
+        case TOK_CACHE_INIT:        snprintf(s, len, "<cache %s>", dims[t.con.reduce]); break;
+        case TOK_BRANCH_OR_NEXT:    snprintf(s, len, "<branch next %s idx %d, cache %d>",
+                                             dims[t.con.reduce], t.con.branch_offset,
+                                             t.con.cache_pos);                  break;
         case TOK_SP_ADD:            snprintf(s, len, "<sp add %d>", t.lit.val.i); break;
         case TOK_SEMICOLON:         snprintf(s, len, "semicolon");              break;
         case TOK_END:               printf("END\n");                            return;
@@ -1205,7 +1235,7 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
                         break;
                     }
                     break;
-                case TOK_PFN:
+                case TOK_RFN:
                 case TOK_VAR:
                     if (stk[i].var.idx >= VAR_X)
                         can_advance = 0;
@@ -1228,7 +1258,7 @@ void printexpr(const char *s, mpr_expr e)
 
 static mpr_type compare_token_datatype(mpr_token_t tok, mpr_type type)
 {
-    if (tok.toktype >= TOK_CACHE_INIT_INST)
+    if (tok.toktype >= TOK_CACHE_INIT)
         return type;
     /* return the higher datatype */
     if (tok.gen.datatype == MPR_DBL || type == MPR_DBL)
@@ -1241,7 +1271,7 @@ static mpr_type compare_token_datatype(mpr_token_t tok, mpr_type type)
 
 static mpr_type promote_token_datatype(mpr_token_t *tok, mpr_type type)
 {
-    if (tok->toktype >= TOK_CACHE_INIT_INST)
+    if (tok->toktype >= TOK_CACHE_INIT)
         return type;
 
     tok->gen.casttype = 0;
@@ -1324,7 +1354,7 @@ static mpr_type promote_token_datatype(mpr_token_t *tok, mpr_type type)
             tok->lit.casttype = type;
         return type;
     }
-    else if (TOK_VAR == tok->toktype || TOK_VAR_NUM_INST == tok->toktype || TOK_PFN == tok->toktype) {
+    else if (TOK_VAR == tok->toktype || TOK_VAR_NUM_INST == tok->toktype || TOK_RFN == tok->toktype) {
         /* we need to cast at runtime */
         tok->gen.casttype = type;
         return type;
@@ -1516,7 +1546,7 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
 
         /* Walk down stack distance of arity, checking types. */
         while (--i >= 0) {
-            if (stk[i].toktype >= TOK_CACHE_INIT_INST) {
+            if (stk[i].toktype >= TOK_CACHE_INIT) {
                 can_precompute = enable_optimize = 0;
                 continue;
             }
@@ -1617,7 +1647,7 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
         }
         type = promote_token_datatype(&stk[i], type);
         while (--i >= 0) {
-            if (stk[i].toktype >= TOK_CACHE_INIT_INST)
+            if (stk[i].toktype >= TOK_CACHE_INIT)
                 continue;
             /* we will promote types within range of compound arity */
             if ((stk[i+1].toktype != TOK_VAR && stk[i+1].toktype != TOK_TT)
@@ -1694,7 +1724,7 @@ static int substack_len(mpr_token_t *stk, int sp)
 {
     int idx = sp, arity = 0;
     do {
-        if (TOK_BRANCH_NEXT_INST != stk[idx].toktype && TOK_SP_ADD != stk[idx].toktype)
+        if (TOK_BRANCH_OR_NEXT != stk[idx].toktype && TOK_SP_ADD != stk[idx].toktype)
             --arity;
         arity += tok_arity(stk[idx]);
         if (TOK_ASSIGN & stk[idx].toktype)
@@ -1732,11 +1762,11 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
         int reducing = 1, skipping = 0;
         for (i = 0; i < expr_len; i++) {
             switch (stk[sp - i].toktype) {
-                case TOK_BRANCH_NEXT_INST:
+                case TOK_BRANCH_OR_NEXT:
                     skipping = 1;
                     reducing *= 2;
                     break;
-                case TOK_CACHE_INIT_INST:
+                case TOK_CACHE_INIT:
                     skipping = 0;
                     break;
                 case TOK_VAR:
@@ -1808,7 +1838,7 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
     mpr_token_t *tok = token_stack;
     while (i < token_stack_len && tok->toktype != TOK_END) {
         switch (tok->toktype) {
-            case TOK_CACHE_INIT_INST:
+            case TOK_CACHE_INIT:
             case TOK_LITERAL:
             case TOK_VAR:
             case TOK_TT:                if (!(tok->gen.flags & VAR_DELAY)) ++sp; break;
@@ -1816,7 +1846,7 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
             case TOK_FN:                sp -= fn_tbl[tok->fn.idx].arity - 1;    break;
             case TOK_VFN:               sp -= vfn_tbl[tok->fn.idx].arity - 1;   break;
             case TOK_SP_ADD:            sp += tok->lit.val.i;                   break;
-            case TOK_BRANCH_NEXT_INST:  --sp;                                   break;
+            case TOK_BRANCH_OR_NEXT:    --sp;                                   break;
             case TOK_VECTORIZE:         sp -= tok->fn.arity - 1;                break;
             case TOK_ASSIGN:
             case TOK_ASSIGN_USE:
@@ -1877,6 +1907,7 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
 }
 #define GET_NEXT_TOKEN(x)                                           \
 {                                                                   \
+    x.toktype = TOK_UNKNOWN;                                        \
     lex_idx = expr_lex(str, lex_idx, &x);                           \
     {FAIL_IF(!lex_idx, "Error in lexer.");}                         \
 }
@@ -2134,7 +2165,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 var_flags = TOK_OPEN_SQUARE | TOK_OPEN_CURLY;
                 allow_toktype = (var_flags | (assigning ? TOK_ASSIGN | TOK_ASSIGN_TT : 0));
                 if (TOK_VAR == tok.toktype)
-                    allow_toktype |= TOK_VFN_DOT | TOK_PFN;
+                    allow_toktype |= TOK_VFN_DOT | TOK_RFN;
                 if (tok.var.idx != VAR_Y || out_assigned > 1)
                     allow_toktype |= (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
                                       | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
@@ -2187,16 +2218,16 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 }
                 break;
             }
-            case TOK_PFN: {
+            case TOK_RFN: {
                 int pre, sslen;
-                expr_pfn_t pfn;
-                {FAIL_IF(PFN_INSTANCES != tok.fn.idx,
+                expr_rfn_t rfn;
+                {FAIL_IF(RFN_INSTANCES != tok.fn.idx,
                          "Instance reduce functions must start with 'instances'.");}
                 GET_NEXT_TOKEN(tok);
-                {FAIL_IF(TOK_PFN != tok.toktype && TOK_VFN_DOT != tok.toktype,
+                {FAIL_IF(TOK_RFN != tok.toktype && TOK_VFN_DOT != tok.toktype,
                          "instances must be followed by a reduce function.");}
-                pfn = tok.fn.idx;
-                if (PFN_COUNT == pfn && TOK_VAR == out[out_idx].toktype) {
+                rfn = tok.fn.idx;
+                if (RFN_COUNT == rfn && TOK_VAR == out[out_idx].toktype) {
                     /* Special case: count() can be represented by single token */
                     out[out_idx].toktype = TOK_VAR_NUM_INST;
                     out[out_idx].gen.datatype = MPR_INT32;
@@ -2205,8 +2236,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
                 /* get compound arity of last token */
                 sslen = substack_len(out, out_idx);
-                switch (pfn) {
-                    case PFN_MEAN: case PFN_CENTER: case PFN_SIZE:  pre = 3; break;
+                switch (rfn) {
+                    case RFN_MEAN: case RFN_CENTER: case RFN_SIZE:  pre = 3; break;
                     default:                                        pre = 2; break;
                 }
 
@@ -2217,56 +2248,56 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 --out_idx;
 
                 /* all instance reduce functions require this token */
-                tok.toktype = TOK_CACHE_INIT_INST;
+                tok.toktype = TOK_CACHE_INIT;
                 PUSH_TO_OUTPUT(tok);
 
-                switch (pfn) {
-                    case PFN_CENTER:
-                    case PFN_MAX:
-                    case PFN_SIZE:
+                switch (rfn) {
+                    case RFN_CENTER:
+                    case RFN_MAX:
+                    case RFN_SIZE:
                         /* some reduce functions need init with the value from first iteration */
                         tok.toktype = TOK_LITERAL;
                         tok.gen.flags = CONST_MINVAL;
                         PUSH_TO_OUTPUT(tok);
-                        if (PFN_MAX == pfn)
+                        if (RFN_MAX == rfn)
                             break;
                         tok.toktype = TOK_LITERAL;
                         tok.gen.flags = CONST_MAXVAL;
                         PUSH_TO_OUTPUT(tok);
                         break;
-                    case PFN_MIN:
+                    case RFN_MIN:
                         tok.toktype = TOK_LITERAL;
                         tok.gen.flags = CONST_MAXVAL;
                         PUSH_TO_OUTPUT(tok);
                         break;
-                    case PFN_ALL:
-                    case PFN_ANY:
-                    case PFN_COUNT:
-                    case PFN_MEAN:
-                    case PFN_SUM:
-                        PUSH_INT_TO_OUTPUT(PFN_ALL == pfn);
-                        if (PFN_COUNT == pfn || PFN_MEAN == pfn)
-                            PUSH_INT_TO_OUTPUT(PFN_COUNT == pfn);
+                    case RFN_ALL:
+                    case RFN_ANY:
+                    case RFN_COUNT:
+                    case RFN_MEAN:
+                    case RFN_SUM:
+                        PUSH_INT_TO_OUTPUT(RFN_ALL == rfn);
+                        if (RFN_COUNT == rfn || RFN_MEAN == rfn)
+                            PUSH_INT_TO_OUTPUT(RFN_COUNT == rfn);
                         break;
                     default:
                         break;
                 }
 
                 /* skip to after substack */
-                if (PFN_COUNT != pfn)
+                if (RFN_COUNT != rfn)
                     out_idx += sslen;
 
-                if (OP_UNKNOWN != pfn_tbl[pfn].op) {
+                if (OP_UNKNOWN != rfn_tbl[rfn].op) {
                     tok.toktype = TOK_OP;
-                    tok.op.idx = pfn_tbl[pfn].op;
+                    tok.op.idx = rfn_tbl[rfn].op;
                     /* don't use macro here since we don't want to optimize away initialization args */
                     PUSH_TO_OUTPUT(tok);
                     out_idx = check_type(eval_stk, out, out_idx, vars, 0);
                     {FAIL_IF(out_idx < 0, "Malformed expression (11).");}
                 }
-                if (VFN_UNKNOWN != pfn_tbl[pfn].vfn) {
+                if (VFN_UNKNOWN != rfn_tbl[rfn].vfn) {
                     tok.toktype = TOK_VFN;
-                    tok.fn.idx = pfn_tbl[pfn].vfn;
+                    tok.fn.idx = rfn_tbl[rfn].vfn;
                     if (VFN_MAX == tok.fn.idx || VFN_MIN == tok.fn.idx) {
                         /* we don't want vector reduce version here */
                         tok.toktype = TOK_FN;
@@ -2279,26 +2310,26 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     POP_OPERATOR_TO_OUTPUT();
                 }
 
-                if (PFN_CENTER == pfn || PFN_MEAN == pfn || PFN_SIZE == pfn) {
+                if (RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn) {
                     tok.toktype = TOK_SP_ADD;
                     tok.lit.val.i = 1;
                     PUSH_TO_OUTPUT(tok);
                 }
 
                 /* all instance reduce functions require these tokens */
-                tok.toktype = TOK_BRANCH_NEXT_INST;
-                if (PFN_CENTER == pfn || PFN_MEAN == pfn || PFN_SIZE == pfn) {
-                    tok.lit.val.i = -3 - sslen;
-                    tok.fn.inst_cache_pos = 2;
+                tok.toktype = TOK_BRANCH_OR_NEXT;
+                if (RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn) {
+                    tok.con.branch_offset = -3 - sslen;
+                    tok.con.cache_pos = 2;
                 }
                 else {
-                    tok.lit.val.i = -2 - sslen;
-                    tok.fn.inst_cache_pos = 1;
+                    tok.con.branch_offset = -2 - sslen;
+                    tok.con.cache_pos = 1;
                 }
                 tok.fn.arity = 0;
                 PUSH_TO_OUTPUT(tok);
 
-                if (PFN_CENTER == pfn) {
+                if (RFN_CENTER == rfn) {
                     tok.toktype = TOK_OP;
                     tok.op.idx = OP_ADD;
                     PUSH_TO_OPERATOR(tok);
@@ -2313,13 +2344,13 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     PUSH_TO_OPERATOR(tok);
                     POP_OPERATOR_TO_OUTPUT();
                 }
-                else if (PFN_MEAN == pfn) {
+                else if (RFN_MEAN == rfn) {
                     tok.toktype = TOK_OP;
                     tok.op.idx = OP_DIVIDE;
                     PUSH_TO_OPERATOR(tok);
                     POP_OPERATOR_TO_OUTPUT();
                 }
-                else if (PFN_SIZE == pfn) {
+                else if (RFN_SIZE == rfn) {
                     tok.toktype = TOK_OP;
                     tok.op.idx = OP_SUBTRACT;
                     PUSH_TO_OPERATOR(tok);
@@ -2350,7 +2381,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 PUSH_TO_OPERATOR(tok);
                 POP_OPERATOR_TO_OUTPUT();
                 allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
-                                 | TOK_COMMA | TOK_COLON | TOK_SEMICOLON | TOK_PFN);
+                                 | TOK_COMMA | TOK_COLON | TOK_SEMICOLON | TOK_RFN);
                 break;
             case TOK_OPEN_PAREN:
                 if (TOK_FN == op[op_idx].toktype && fn_tbl[op[op_idx].fn.idx].memory)
@@ -2373,7 +2404,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 POP_OPERATOR();
 
                 allow_toktype = (TOK_OP | TOK_COLON | TOK_SEMICOLON | TOK_COMMA | TOK_CLOSE_PAREN
-                                 | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_VFN_DOT | TOK_PFN);
+                                 | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_VFN_DOT | TOK_RFN);
                 if (tok.toktype == TOK_CLOSE_CURLY)
                     allow_toktype |= TOK_OPEN_SQUARE;
 
@@ -2487,7 +2518,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 {FAIL_IF(op_idx < 0, "Malformed expression (4).");}
                 if (op[op_idx].toktype == TOK_VECTORIZE) {
                     switch (out[out_idx].toktype) {
-                        case TOK_BRANCH_NEXT_INST:
+                        case TOK_BRANCH_OR_NEXT:
                             op[op_idx].gen.vec_len += out[out_idx-1].gen.vec_len;
                             ++op[op_idx].fn.arity;
                             break;
@@ -2617,7 +2648,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     op[op_idx].gen.flags |= VEC_LEN_LOCKED;
 
                     switch (out[out_idx].toktype) {
-                        case TOK_BRANCH_NEXT_INST:
+                        case TOK_BRANCH_OR_NEXT:
                             op[op_idx].gen.vec_len += out[out_idx-1].gen.vec_len;
                             ++op[op_idx].fn.arity;
                             break;
@@ -3582,7 +3613,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
 #endif
             break;
-        case TOK_CACHE_INIT_INST:
+        case TOK_CACHE_INIT:
 #if TRACE_EVAL
             printf("Caching instance idx %d on the eval stack.\n", inst_idx);
 #endif
@@ -3613,7 +3644,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dp += tok->lit.val.i;
             sp = dp * vlen;
             break;
-        case TOK_BRANCH_NEXT_INST:
+        case TOK_BRANCH_OR_NEXT:
             /* increment instance idx */
             if (x) {
                 for (i = inst_idx + 1; i < x->num_inst; i++) {
@@ -3623,20 +3654,20 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
             if (x && i < x->num_inst) {
 #if TRACE_EVAL
-                printf("Incrementing instance idx to %d and jumping %d\n", i, tok->lit.val.i);
+                printf("Incrementing instance idx to %d and jumping %d\n", i, tok->con.branch_offset);
 #endif
                 inst_idx = i;
-                tok += tok->lit.val.i;
+                tok += tok->con.branch_offset;
             }
             else {
-                inst_idx = stk[sp - tok->fn.inst_cache_pos * vlen].i;
+                inst_idx = stk[sp - tok->con.cache_pos * vlen].i;
                 if (x && inst_idx >= x->num_inst)
                     goto error;
-                memcpy(stk + sp - tok->fn.inst_cache_pos * vlen,
-                       stk + sp - (tok->fn.inst_cache_pos - 1) * vlen,
-                       sizeof(mpr_expr_val_t) * vlen * tok->fn.inst_cache_pos);
-                memcpy(dims + dp - tok->fn.inst_cache_pos, dims + dp - tok->fn.inst_cache_pos + 1,
-                       sizeof(int) * tok->fn.inst_cache_pos);
+                memcpy(stk + sp - tok->con.cache_pos * vlen,
+                       stk + sp - (tok->con.cache_pos - 1) * vlen,
+                       sizeof(mpr_expr_val_t) * vlen * tok->con.cache_pos);
+                memcpy(dims + dp - tok->con.cache_pos, dims + dp - tok->con.cache_pos + 1,
+                       sizeof(int) * tok->con.cache_pos);
                 sp -= vlen;
                 --dp;
                 --cache;
