@@ -101,7 +101,8 @@ void mpr_link_free(mpr_link link)
 
 /* note on memory handling of mpr_link_add_msg():
  * message: will be owned, will be freed when done */
-void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t, mpr_proto proto, int idx)
+void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
+                      mpr_proto proto, int idx)
 {
     lo_bundle *b;
     RETURN_UNLESS(msg);
