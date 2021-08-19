@@ -324,6 +324,7 @@ void poll(void*)
  while(!Bela_stopRequested())
  {
    dev->poll();
+   usleep(gTaskSleepTime);
  }
 }
 
