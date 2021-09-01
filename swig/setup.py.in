@@ -30,7 +30,13 @@ setup (name = 'libmapper',
        author_email = "dot_mapper@googlegroups.com",
        url = "http://libmapper.org",
        description = """A library for mapping controllers and synthesizers.""",
+       long_description = open('../README', 'r').read(),
+       long_description_content_type = 'text/markdown',
        license = "GNU LGPL version 2.1 or later",
+       project_urls = {
+           'Documentation': 'http://libmapper.org/api/index.html',
+           'Source': 'https://github.com/libmapper/libmapper/',
+       },
        ext_modules = [mapper_module],
        py_modules = ["libmapper"],
        )
