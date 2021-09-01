@@ -83,43 +83,43 @@ namespace Mapper
 
     public enum Property
     {
-        Data                = 0x0200,
-        Device              = 0x0300,
-        Direction           = 0x0400,
-        Expression          = 0x0500,
-        Host                = 0x0600,
-        Id                  = 0x0700,
-        Instance            = 0x0800,
-        IsLocal             = 0x0900,
-        Jitter              = 0x0A00,
-        Length              = 0x0B00,
-        LibVersion          = 0x0C00,
-        Linked              = 0x0D00,
-        Max                 = 0x0E00,
-        Min                 = 0x0F00,
-        Muted               = 0x1000,
-        Name                = 0x1100,
-        NumInstances        = 0x1200,
-        NumMaps             = 0x1300,
-        NumMapsIn           = 0x1400,
-        NumMapsOut          = 0x1500,
-        NumSigsIn           = 0x1600,
-        NumSigsOut          = 0x1700,
-        Ordinal             = 0x1800,
-        Period              = 0x1900,
-        Port                = 0x1A00,
-        ProcessingLocation  = 0x1B00,
-        Protocol            = 0x1C00,
-        Rate                = 0x1D00,
-        Scope               = 0x1E00,
-        Signal              = 0x1F00,
-        Status              = 0x2100,
-        StealingMode        = 0x2200,
-        Synced              = 0x2300,
-        Type                = 0x2400,
-        Unit                = 0x2500,
-        UseInstances        = 0x2600,
-        Version             = 0x2700
+        Data                = 0x0100,
+        Device              = 0x0200,
+        Direction           = 0x0300,
+        Expression          = 0x0400,
+        Host                = 0x0500,
+        Id                  = 0x0600,
+        Instance            = 0x0700,
+        IsLocal             = 0x0800,
+        Jitter              = 0x0900,
+        Length              = 0x0A00,
+        LibVersion          = 0x0B00,
+        Linked              = 0x0C00,
+        Max                 = 0x0D00,
+        Min                 = 0x0E00,
+        Muted               = 0x0F00,
+        Name                = 0x1000,
+        NumInstances        = 0x1100,
+        NumMaps             = 0x1200,
+        NumMapsIn           = 0x1300,
+        NumMapsOut          = 0x1400,
+        NumSigsIn           = 0x1500,
+        NumSigsOut          = 0x1600,
+        Ordinal             = 0x1700,
+        Period              = 0x1800,
+        Port                = 0x1900,
+        ProcessingLocation  = 0x1A00,
+        Protocol            = 0x1B00,
+        Rate                = 0x1C00,
+        Scope               = 0x1D00,
+        Signal              = 0x1E00,
+        Status              = 0x2000,
+        StealingMode        = 0x2100,
+        Synced              = 0x2200,
+        Type                = 0x2300,
+        Unit                = 0x2400,
+        UseInstances        = 0x2500,
+        Version             = 0x2600
     }
 
     public abstract class Object
@@ -315,6 +315,11 @@ namespace Mapper
         private static extern IntPtr mpr_graph_new(int flags);
         public Graph(int flags) : base(mpr_graph_new(flags)) {}
         public Graph() : base(mpr_graph_new(0)) {}
+
+        public new Graph setProperty<P, T>(P prop, T value) {
+            base.setProperty(prop, value);
+            return this;
+        }
     }
 
     public class Signal : Object
@@ -352,7 +357,64 @@ namespace Mapper
         // construct from mpr_sig pointer
         internal Signal(IntPtr sig) : base(sig) {}
 
-        private void _handler(IntPtr sig, int evt, UInt64 instance, int length,
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        unsafe private static extern void mpr_sig_set_value(IntPtr sig, UInt64 id, int len, int type, void* val);
+        unsafe private void _setValue(int value, UInt64 inst) {
+            mpr_sig_set_value(this._obj, inst, 1, (int)Type.Int32, (void*)&value);
+        }
+        unsafe private void _setValue(float value, UInt64 inst) {
+            mpr_sig_set_value(this._obj, inst, 1, (int)Type.Float, (void*)&value);
+        }
+        unsafe private void _setValue(double value, UInt64 inst) {
+            mpr_sig_set_value(this._obj, inst, 1, (int)Type.Double, (void*)&value);
+        }
+        unsafe private void _setValue(int[] value, UInt64 inst) {
+            fixed(int* temp = &value[0]) {
+                IntPtr intPtr = new IntPtr((void*)temp);
+                mpr_sig_set_value(this._obj, inst, value.Length, (int)Type.Int32, (void*)intPtr);
+            }
+        }
+        unsafe private void _setValue(float[] value, UInt64 inst) {
+            fixed(float* temp = &value[0]) {
+                IntPtr intPtr = new IntPtr((void*)temp);
+                mpr_sig_set_value(this._obj, inst, value.Length, (int)Type.Float, (void*)intPtr);
+            }
+        }
+        unsafe private void _setValue(double[] value, UInt64 inst) {
+            fixed(double* temp = &value[0]) {
+                IntPtr intPtr = new IntPtr((void*)temp);
+                mpr_sig_set_value(this._obj, inst, value.Length, (int)Type.Double, (void*)intPtr);
+            }
+        }
+        public Signal setValue<T>(T value) {
+            dynamic temp = value;
+            _setValue(temp, 0);
+            return this;
+        }
+
+        public class Instance : Signal
+        {
+            internal Instance(IntPtr sig, UInt64 inst) : base(sig) {
+                this.id = inst;
+            }
+
+            public new Instance setValue<T>(T value) {
+                dynamic temp = value;
+                _setValue(temp, id);
+                return this;
+            }
+
+            public readonly UInt64 id;
+        }
+
+        public Instance instance(UInt64 id) {
+            return new Instance(this._obj, id);
+        }
+        public Instance instance(int id) {
+            return new Instance(this._obj, (UInt64)id);
+        }
+
+        private void _handler(IntPtr sig, int evt, UInt64 inst, int length,
                               int type, IntPtr value, IntPtr time) {
             switch (this.handlerType) {
                 case HandlerType.SingleInt:
@@ -371,6 +433,24 @@ namespace Mapper
                     unsafe {
                         double dvalue = *(double*)value;
                         this.handlers.singleDouble(new Signal(sig), (Event)evt, dvalue);
+                    }
+                    break;
+                case HandlerType.InstanceInt:
+                    unsafe {
+                        int ivalue = *(int*)value;
+                        this.handlers.instanceInt(new Signal.Instance(sig, inst), (Event)evt, ivalue);
+                    }
+                    break;
+                case HandlerType.InstanceFloat:
+                    unsafe {
+                        float fvalue = *(float*)value;
+                        this.handlers.instanceFloat(new Signal.Instance(sig, inst), (Event)evt, fvalue);
+                    }
+                    break;
+                case HandlerType.InstanceDouble:
+                    unsafe {
+                        double dvalue = *(double*)value;
+                        this.handlers.instanceDouble(new Signal.Instance(sig, inst), (Event)evt, dvalue);
                     }
                     break;
                 default:
@@ -408,6 +488,33 @@ namespace Mapper
             return true;
         }
 
+        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, int> h, int type)
+        {
+            if (type != (int)Type.Int32)
+                return false;
+            handlerType = HandlerType.InstanceInt;
+            handlers.instanceInt = h;
+            return true;
+        }
+
+        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, float> h, int type)
+        {
+            if (type != (int)Type.Float)
+                return false;
+            handlerType = HandlerType.InstanceFloat;
+            handlers.instanceFloat = h;
+            return true;
+        }
+
+        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, double> h, int type)
+        {
+            if (type != (int)Type.Double)
+                return false;
+            handlerType = HandlerType.InstanceDouble;
+            handlers.instanceDouble = h;
+            return true;
+        }
+
         // TODO: add vector or array handlers
         // TODO: add instance handlers
 
@@ -425,38 +532,12 @@ namespace Mapper
             return this;
         }
 
-        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        unsafe private static extern void mpr_sig_set_value(IntPtr sig, UInt64 id, int len, int type, void* val);
-        unsafe private void _setValue(int value) {
-            mpr_sig_set_value(this._obj, 0, 1, (int)Type.Int32, (void*)&value);
+        public new Signal setProperty<P, T>(P prop, T value) {
+            base.setProperty(prop, value);
+            return this;
         }
-        unsafe private void _setValue(float value) {
-            mpr_sig_set_value(this._obj, 0, 1, (int)Type.Float, (void*)&value);
-        }
-        unsafe private void _setValue(double value) {
-            mpr_sig_set_value(this._obj, 0, 1, (int)Type.Double, (void*)&value);
-        }
-        unsafe private void _setValue(int[] value) {
-            fixed(int* temp = &value[0]) {
-                IntPtr intPtr = new IntPtr((void*)temp);
-                mpr_sig_set_value(this._obj, 0, value.Length, (int)Type.Int32, (void*)intPtr);
-            }
-        }
-        unsafe private void _setValue(float[] value) {
-            fixed(float* temp = &value[0]) {
-                IntPtr intPtr = new IntPtr((void*)temp);
-                mpr_sig_set_value(this._obj, 0, value.Length, (int)Type.Float, (void*)intPtr);
-            }
-        }
-        unsafe private void _setValue(double[] value) {
-            fixed(double* temp = &value[0]) {
-                IntPtr intPtr = new IntPtr((void*)temp);
-                mpr_sig_set_value(this._obj, 0, value.Length, (int)Type.Double, (void*)intPtr);
-            }
-        }
-        public Signal setValue<T>(T value) {
-            dynamic temp = value;
-            _setValue(temp);
+        public new Signal push() {
+            base.push();
             return this;
         }
 
@@ -469,6 +550,12 @@ namespace Mapper
             internal Action<Signal, Signal.Event, float> singleFloat;
             [FieldOffset(0)]
             internal Action<Signal, Signal.Event, double> singleDouble;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, int> instanceInt;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, float> instanceFloat;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, double> instanceDouble;
         }
         private Handlers handlers;
         private HandlerType handlerType = HandlerType.None;
@@ -508,12 +595,26 @@ namespace Mapper
         public Signal addSignal(Direction dir, [MarshalAs(UnmanagedType.LPStr)] string name,
                                 int length, Type type,
                                 [MarshalAs(UnmanagedType.LPStr)] string unit = null,
-                                IntPtr min = default(IntPtr), IntPtr max = default(IntPtr),
-                                IntPtr num_inst = default(IntPtr))
+                                int numInstances = -1)
         {
+            IntPtr instPtr = IntPtr.Zero;
+            if (numInstances != -1) {
+                unsafe {
+                    instPtr = new IntPtr(&numInstances);
+                }
+            }
             IntPtr sigptr = mpr_sig_new(this._obj, (int) dir, name, length, (int) type, unit,
-                                        min, max, num_inst, default(IntPtr), 0);
+                                        IntPtr.Zero, IntPtr.Zero, instPtr, IntPtr.Zero, 0);
             return new Signal(sigptr);
+        }
+
+        public new Device setProperty<P, T>(P prop, T value) {
+            base.setProperty(prop, value);
+            return this;
+        }
+        public new Device push() {
+            base.push();
+            return this;
         }
     }
 
@@ -564,6 +665,15 @@ namespace Mapper
         private static extern int mpr_map_get_is_ready(IntPtr map);
         public int getIsReady()
             { return mpr_map_get_is_ready(this._obj); }
+
+        public new Map setProperty<P, T>(P prop, T value) {
+            base.setProperty(prop, value);
+            return this;
+        }
+        public new Map push() {
+            base.push();
+            return this;
+        }
     }
 
     // [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
