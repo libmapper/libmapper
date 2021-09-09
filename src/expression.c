@@ -787,14 +787,16 @@ static int tok_arity(mpr_token_t tok)
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
-        case TOK_ASSIGN_TT: return tok.gen.flags & VAR_DELAY ? 1 : 0;
-        case TOK_OP:        return op_tbl[tok.op.idx].arity;
-        case TOK_FN:        return fn_tbl[tok.fn.idx].arity;
-        case TOK_RFN:       return rfn_tbl[tok.fn.idx].arity;
-        case TOK_VFN:       return vfn_tbl[tok.fn.idx].arity;
-        case TOK_VECTORIZE: return tok.fn.arity;
-        case TOK_MOVE:      return tok.con.cache_offset + 1;
-        default:            return 0;
+        case TOK_ASSIGN_TT:     return tok.gen.flags & VAR_DELAY ? 1 : 0;
+        case TOK_OP:            return op_tbl[tok.op.idx].arity;
+        case TOK_FN:            return fn_tbl[tok.fn.idx].arity;
+        case TOK_RFN:           return rfn_tbl[tok.fn.idx].arity;
+        case TOK_VFN:           return vfn_tbl[tok.fn.idx].arity;
+        case TOK_VECTORIZE:     return tok.fn.arity;
+        case TOK_MOVE:          return tok.con.cache_offset + 1;
+        case TOK_SP_ADD:        return -tok.lit.val.i;
+        case TOK_LOOP_START:    return tok.con.flags & RT_INSTANCE ? 1 : 0;
+        default:                return 0;
     }
     return 0;
 }
@@ -1336,7 +1338,14 @@ static mpr_type promote_token(mpr_token_t *stk, int sp, mpr_type type, int vec_l
             stk[sp].gen.vec_len = vec_len;
         while (offset > 0 && sp > 0) {
             --sp;
-            if (stk[sp].toktype <= TOK_MOVE)
+            /* TODO: merge TOK_SP_ADD into tok_arity fn */
+            if (TOK_SP_ADD == stk[sp].toktype)
+                offset -= stk[sp].lit.val.i;
+            else if (TOK_LOOP_START == stk[sp].toktype && stk[sp].con.flags & RT_INSTANCE)
+                --offset;
+            else if (TOK_LOOP_END == stk[sp].toktype && stk[sp].con.flags & RT_INSTANCE)
+                ++offset;
+            else if (stk[sp].toktype <= TOK_MOVE)
                 offset += tok_arity(stk[sp]) - 1;
         }
         assert(sp > 0);
@@ -1675,7 +1684,13 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                         int offset = stk[j].con.cache_offset + 1;
                         while (offset > 0 && j > 0) {
                             --j;
-                            if (stk[j].toktype <= TOK_MOVE)
+                            if (TOK_SP_ADD == stk[j].toktype)
+                                offset -= stk[j].lit.val.i;
+                            else if (TOK_LOOP_START == stk[j].toktype && stk[j].con.flags & RT_INSTANCE)
+                                --offset;
+                            else if (TOK_LOOP_END == stk[j].toktype && stk[j].con.flags & RT_INSTANCE)
+                                ++offset;
+                            else if (stk[j].toktype <= TOK_MOVE)
                                 offset += tok_arity(stk[j]) - 1;
                             type = compare_token_datatype(stk[j], type);
                             if (stk[j].gen.vec_len > vec_len)
@@ -1771,7 +1786,13 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                     int offset = stk[j].con.cache_offset + 1;
                     while (offset > 0 && j > 0) {
                         --j;
-                        if (stk[j].toktype <= TOK_MOVE)
+                        if (TOK_SP_ADD == stk[j].toktype)
+                            offset -= stk[j].lit.val.i;
+                        else if (TOK_LOOP_START == stk[j].toktype && stk[j].con.flags & RT_INSTANCE)
+                            --offset;
+                        else if (TOK_LOOP_END == stk[j].toktype && stk[j].con.flags & RT_INSTANCE)
+                            ++offset;
+                        else if (stk[j].toktype <= TOK_MOVE)
                             offset += tok_arity(stk[j]) - 1;
                         promote_token(stk, j, type, 0, 0);
                     }
@@ -2294,6 +2315,14 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             && out[pos].con.cache_offset == stack_offset) {
                             stack_offset = 0;
                         }
+                        if (TOK_SP_ADD == out[pos].toktype)
+                            stack_offset += out[pos].lit.val.i;
+                        else if (TOK_LOOP_START == out[pos].toktype
+                                 && out[pos].con.flags & RT_INSTANCE)
+                            ++stack_offset;
+                        else if (TOK_LOOP_END == out[pos].toktype
+                                 && out[pos].con.flags & RT_INSTANCE)
+                            --stack_offset;
                         else if (out[pos].toktype < TOK_LAMBDA)
                             stack_offset += 1 - tok_arity(out[pos]);
                         ++pos;
@@ -2457,6 +2486,9 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 expr_rfn_t rfn;
                 mpr_token_t newtok;
                 if (tok.fn.idx >= RFN_HISTORY) {
+                    /* fail if input is another reduce function */
+                    {FAIL_IF(TOK_LOOP_END == out[out_idx].toktype,
+                             "Reduce functions may be nested but not chained.");}
                     /* fail if same-type reduction already on the stack */
                     /* TODO: only check substack, allow multiple (non-nested) reduces in expr */
                     for (i = op_idx; i >= 0; i--) {
@@ -2486,7 +2518,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                 int idx = out_idx - i;
                                 tok = out[idx];
                                 while (TOK_COPY_FROM == tok.toktype) {
-                                    idx -= tok.con.cache_offset;
+                                    idx -= tok.con.cache_offset + 1;
                                     assert(idx > 0 && idx <= out_idx);
                                     tok = out[idx];
                                 }
@@ -2533,9 +2565,16 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         case RFN_INSTANCE: {
                             /* TODO: fail if var has instance indexes (once instance indexes are
                              * implemented) */
-                            int v_ref = 0;
-                            for (i = 0; i < sslen; i++) {
-                                tok = out[out_idx - i];
+                            int v_ref = 0, len = sslen;
+                            for (i = 0; i < len; i++) {
+                                int idx = out_idx - i;
+                                tok = out[idx];
+                                while (TOK_COPY_FROM == tok.toktype) {
+                                    idx -= tok.con.cache_offset + 1;
+                                    assert(idx > 0 && idx <= out_idx);
+                                    tok = out[idx];
+                                }
+                                len += tok_arity(tok);
                                 if (tok.toktype != TOK_VAR)
                                     continue;
                                 if (tok.var.idx >= VAR_Y) {
@@ -2593,8 +2632,6 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                 tok = out[out_idx - i];
                                 if (tok.toktype != TOK_VAR && tok.toktype != TOK_COPY_FROM)
                                     continue;
-                                {FAIL_IF(tok.var.vec_idx != 0,
-                                         "Vector indexes not allowed within vector reduce function.");}
                                 if (out[out_idx - i].gen.vec_len > vec_len)
                                     vec_len = out[out_idx - i].gen.vec_len;
                                 /* Set token dim to 1 since we will be iterating over elements */
@@ -2618,14 +2655,22 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 POP_OPERATOR();
                 /* TODO: check if there is possible conflict here between vfn and rfn */
                 rfn = tok.fn.idx;
-                if (RFN_COUNT == rfn && TOK_VAR == out[out_idx].toktype) {
+                if (RFN_COUNT == rfn) {
                     {FAIL_IF(rt != RT_INSTANCE, "count() requires 'instance' prefix");}
-                    /* Special case: count() can be represented by single token */
-                    out[out_idx].toktype = TOK_VAR_NUM_INST;
-                    out[out_idx].gen.datatype = MPR_INT32;
-                    allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_COMMA
-                                     | TOK_COLON | TOK_SEMICOLON);
-                    break;
+                    int idx = out_idx;
+                    while (TOK_COPY_FROM == out[idx].toktype) {
+                        idx -= out[idx].con.cache_offset + 1;
+                        assert(idx > 0 && idx <= out_idx);
+                    }
+                    if (TOK_VAR == out[idx].toktype) {
+                        /* Special case: count() can be represented by single token */
+                        memcpy(&out[out_idx], &out[idx], sizeof(mpr_token_t));
+                        out[out_idx].toktype = TOK_VAR_NUM_INST;
+                        out[out_idx].gen.datatype = MPR_INT32;
+                        allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_COMMA
+                                         | TOK_COLON | TOK_SEMICOLON);
+                        break;
+                    }
                 }
 
                 /* get compound arity of last token */
@@ -2652,13 +2697,18 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     memcpy(&out[out_idx + pre], &out[idx - sslen + 1], sslen * sizeof(mpr_token_t));
                 }
                 else {
+                    int ar = RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn ? 2 : 1;
+                    if (RT_INSTANCE == rt) {
+                        /* instance loops cache the starting instance idx */
+                        ++ar;
+                    }
                     /* copy substack to after prefix */
                     out_idx = out_idx - sslen + 1;
                     memcpy(out + out_idx + pre, out + out_idx, sizeof(mpr_token_t) * sslen);
                     /* adjust any copy tokens */
                     for (i = 0; i < sslen; i++) {
                         if (TOK_COPY_FROM == out[out_idx + pre + i].toktype)
-                            ++out[out_idx + pre + i].con.cache_offset;
+                            out[out_idx + pre + i].con.cache_offset += ar;
                     }
                 }
                 --out_idx;
@@ -2701,21 +2751,34 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 #if TRACE_PARSE
                     printf("using name '%s' for reduce accumulator\n", accum_name);
 #endif
-
                     GET_NEXT_TOKEN(tok);
-                    if (tok.toktype != TOK_LAMBDA) {
+                    if (TOK_ASSIGN == tok.toktype) {
+                        /* assignment to local accumulator variable*/
+                        GET_NEXT_TOKEN(tok);
+                        /* TODO: allow vectorizer, variable, function tokens */
+                        if (TOK_LITERAL != tok.toktype) {
+                            free(in_name);
+                            free(accum_name);
+                            {FAIL("'reduce()' accumulator initialization only accepts constant.");}
+                        }
+                        PUSH_TO_OUTPUT(tok);
+                        GET_NEXT_TOKEN(tok);
+                    }
+
+                    if (TOK_LAMBDA != tok.toktype) {
                         free(in_name);
                         free(accum_name);
                         {FAIL("'reduce()' missing lambda operator '->'.");}
                     }
 
-                    /* TODO: enable initializing accumulator variable with TOK_ASSIGN */
-
-                    tok.toktype = TOK_LITERAL;
-                    tok.lit.datatype = MPR_INT32;
-                    tok.lit.vec_len = 1;
-                    tok.lit.val.i = 0;
-                    PUSH_TO_OUTPUT(tok);
+                    if (TOK_LITERAL != out[out_idx].toktype) {
+                        /* default to zero for accumulator initialization */
+                        tok.toktype = TOK_LITERAL;
+                        tok.lit.datatype = MPR_INT32;
+                        tok.lit.vec_len = 1;
+                        tok.lit.val.i = 0;
+                        PUSH_TO_OUTPUT(tok);
+                    }
 
                     /* temporarily store variable names so we can look them up later */
                     temp_var_cache var_cache = calloc(1, sizeof(temp_var_cache_t));
@@ -3136,8 +3199,9 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     /* vector index set */
                     var_flags &= ~TOK_OPEN_SQUARE;
                     allow_toktype = (TOK_OP | TOK_COMMA | TOK_CLOSE_PAREN | TOK_CLOSE_CURLY
-                                     | TOK_CLOSE_SQUARE | TOK_COLON | TOK_SEMICOLON
-                                     | var_flags | (assigning ? TOK_ASSIGN | TOK_ASSIGN_TT : 0));
+                                     | TOK_CLOSE_SQUARE | TOK_COLON | TOK_SEMICOLON | TOK_VFN_DOT
+                                     | TOK_RFN | var_flags
+                                     | (assigning ? TOK_ASSIGN | TOK_ASSIGN_TT : 0));
                 }
                 else {
                     {FAIL_IF(vectorizing, "Nested (multidimensional) vectors not allowed.");}

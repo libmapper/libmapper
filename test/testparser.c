@@ -1115,17 +1115,16 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 84) History mean() */
+    /* 84) History mean() - windowed running mean */
     snprintf(str, 256, "y=x.history(5).mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
-    if (iterations >= 5) {
-        expect_flt[0] = src_flt[0];
-        expect_flt[1] = src_flt[1];
+    expect_flt[0] = expect_flt[1] = 0.f;
+    for (i = 0; i < iterations && i < 5; i++) {
+        expect_flt[0] += src_flt[0];
+        expect_flt[1] += src_flt[1];
     }
-    else {
-        expect_flt[0] = src_flt[0] * iterations * 0.2;
-        expect_flt[1] = src_flt[1] * iterations * 0.2;
-    }
+    expect_flt[0] /= 5.f;
+    expect_flt[1] /= 5.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -1138,14 +1137,15 @@ int run_tests()
         return 1;
 
     /* 86) history.reduce() with accumulator initialisation */
-    /*
-    snprintf(str, 256, "y=x.history(5).reduce(x, a = 1 -> x + a);");
+    snprintf(str, 256, "y=x.history(5).reduce(x, a = 100 -> x + a);");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
-    expect_flt[0] = src_flt[0] * 5;
-    expect_flt[1] = src_flt[1] * 5;
-    if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
+    expect_flt[0] = expect_flt[1] = 100;
+    for (i = 0; i < iterations && i < 5; i++) {
+        expect_flt[0] += src_flt[0];
+        expect_flt[1] += src_flt[1];
+    }
+    if (parse_and_eval(EXPECT_SUCCESS, 9, 1, iterations))
         return 1;
-     */
 
     /* 87) vector.mean() */
     snprintf(str, 256, "y=x.vector.mean();");
@@ -1191,7 +1191,92 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 91) nested reduce(): sum of all vector elements of all input signals */
+    /* 91) nested reduce(): sum of last 3 samples of all input signals with extra input reference */
+    snprintf(str, 256, "y=(x+1).signal.reduce(a,b->b+a.history(3).reduce(c,d->c+d)+a);");
+    types[0] = MPR_INT32;
+    types[1] = MPR_FLT;
+    types[2] = MPR_DBL;
+    lens[0] = 2;
+    lens[1] = 3;
+    lens[2] = 1;
+    setup_test_multisource(3, types, lens, MPR_FLT, 1);
+    expect_flt[0] = (float)(((double)src_int[0] + (double)src_flt[0] + src_dbl[0] + 3.0) * 4.0);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 92) mean() nested with reduce() using sequential dot syntax - not currently allowed */
+    snprintf(str, 256, "y=x.vector.reduce(x, a -> x + a).signal.mean();");
+    types[0] = MPR_INT32;
+    types[1] = MPR_FLT;
+    types[2] = MPR_DBL;
+    lens[0] = 2;
+    lens[1] = 3;
+    lens[2] = 1;
+    setup_test_multisource(3, types, lens, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 93) vector.reduce() on specific signal */
+    snprintf(str, 256, "y=x1.vector.reduce(x,a -> x+a);");
+    types[0] = MPR_INT32;
+    types[1] = MPR_FLT;
+    types[2] = MPR_DBL;
+    lens[0] = 2;
+    lens[1] = 3;
+    lens[2] = 1;
+    setup_test_multisource(3, types, lens, MPR_FLT, 1);
+    expect_flt[0] = src_flt[0] + src_flt[1] + src_flt[2];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 94) instance.count() on specific signal */
+    snprintf(str, 256, "y=x1.instance.count();");
+    types[0] = MPR_INT32;
+    types[1] = MPR_FLT;
+    types[2] = MPR_DBL;
+    lens[0] = 2;
+    lens[1] = 3;
+    lens[2] = 1;
+    setup_test_multisource(3, types, lens, MPR_FLT, 1);
+    expect_flt[0] = 1;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 95) vector.reduce() with vector subset */
+    snprintf(str, 256, "y=x[1:2].vector.reduce(x,a -> x+a);");
+    setup_test(MPR_FLT, 3, MPR_FLT, 2);
+    expect_flt[0] = src_flt[1] + src_flt[2];
+    expect_flt[1] = expect_flt[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 96) signal reduce() nested with instance count() */
+    snprintf(str, 256, "y=x.signal.reduce(x, a -> x.instance.count() + a);");
+    types[0] = MPR_INT32;
+    types[1] = MPR_FLT;
+    types[2] = MPR_DBL;
+    lens[0] = 2;
+    lens[1] = 3;
+    lens[2] = 1;
+    setup_test_multisource(3, types, lens, MPR_FLT, 1);
+    expect_flt[0] = 3;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 97) signal reduce() nested with instance mean() */
+    snprintf(str, 256, "y=x.signal.reduce(x, a -> x.instance.mean() + a);");
+    types[0] = MPR_INT32;
+    types[1] = MPR_FLT;
+    types[2] = MPR_DBL;
+    lens[0] = 2;
+    lens[1] = 3;
+    lens[2] = 1;
+    setup_test_multisource(3, types, lens, MPR_FLT, 1);
+    expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[0] + src_dbl[0]);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 98) nested reduce(): sum of all vector elements of all input signals */
     /* TODO: need to modify tokens to allow variable vector length (per signal) */
     /*
     snprintf(str, 256, "y=x.signal.reduce(a, b -> a.vector.reduce(c, d -> c + d) + b);");
@@ -1207,20 +1292,9 @@ int run_tests()
         return 1;
      */
 
-    /* 92) nested reduce(): sum of last 3 samples of all input signals with extra input reference */
-    snprintf(str, 256, "y=(x+1).signal.reduce(a,b->b+a.history(3).reduce(c,d->c+d)+a);");
-    types[0] = MPR_INT32;
-    types[1] = MPR_FLT;
-    types[2] = MPR_DBL;
-    lens[0] = 2;
-    lens[1] = 3;
-    lens[2] = 1;
-    setup_test_multisource(3, types, lens, MPR_FLT, 1);
-    expect_flt[0] = (float)(((double)src_int[0] + (double)src_flt[0] + src_dbl[0] + 3.0) * 3.0 + (double)src_int[0] + 1.0);
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
-        return 1;
-
-    /* 92) reduce() nested with mean() */
+    /* 99) reduce() nested with mean() */
+    /* TODO: need to modify tokens to allow variable vector length (per signal) */
+    /*
     snprintf(str, 256, "y=x.signal.reduce(x, a -> x.vector.mean() + a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1232,10 +1306,11 @@ int run_tests()
     expect_flt[0] = src_int[0] + src_int[1] + src_flt[0] + src_flt[1] + src_flt[2] + src_dbl[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
+     */
 
-    return 0;
-
-    /* 93) reduce() nested with mean(), accum ref before input ref */
+    /* 100) reduce() nested with mean(), accum ref before input ref */
+    /* TODO: need to modify tokens to allow variable vector length (per signal) */
+    /*
     snprintf(str, 256, "y=x.signal.reduce(x, a -> a - x.vector.mean());");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1247,40 +1322,7 @@ int run_tests()
     expect_flt[0] = src_int[0] + src_int[1] + src_flt[0] + src_flt[1] + src_flt[2] + src_dbl[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
-
-    /* 94) reduce() nested with count() */
-    snprintf(str, 256, "y=x.signal.reduce(x, a -> x.vector.count() + a);");
-    types[0] = MPR_INT32;
-    types[1] = MPR_FLT;
-    types[2] = MPR_DBL;
-    lens[0] = 2;
-    lens[1] = 3;
-    lens[2] = 1;
-    setup_test_multisource(3, types, lens, MPR_FLT, 1);
-    expect_flt[0] = src_int[0] + src_int[1] + src_flt[0] + src_flt[1] + src_flt[2] + src_dbl[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
-        return 1;
-
-    /* 95) mean() nested with reduce() */
-    snprintf(str, 256, "y=x.vector.reduce(x, a -> x + a).signal.mean();");
-    types[0] = MPR_INT32;
-    types[1] = MPR_FLT;
-    types[2] = MPR_DBL;
-    lens[0] = 2;
-    lens[1] = 3;
-    lens[2] = 1;
-    setup_test_multisource(3, types, lens, MPR_FLT, 1);
-    expect_flt[0] = src_int[0] + src_int[1] + src_flt[0] + src_flt[1] + src_flt[2] + src_dbl[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
-        return 1;
-
-    /* 96) vector.reduce() with vector subset */
-    snprintf(str, 256, "y=x[1:2].vector.reduce(x,a -> x+a);");
-    setup_test(MPR_FLT, 3, MPR_FLT, 2);
-    expect_flt[0] = src_flt[0] + src_flt[1] + src_flt[2];
-    expect_flt[1] = expect_flt[0];
-    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
-        return 1;
+     */
 
     return 0;
 }
