@@ -71,6 +71,6 @@ These diagrams are used in the [expression documentation](../expression_syntax.m
     map [shape=point];
     A:se -> map [arrowhead=none];
     B:sw -> map [arrowhead=none];
-    map -> C [xlabel="   y=x0+x1\n "];
+    map -> C [xlabel="   y=x$0+x$1\n "];
 }</code></pre></div>
 

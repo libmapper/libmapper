@@ -141,7 +141,7 @@ int setup_maps()
 
     switch (config) {
         case 0: {
-            int offset = 2, len = num_sources * 4 + 4;
+            int offset = 2, len = num_sources * 5 + 5;
             char *expr;
 
             if (!(map = mpr_map_new(num_sources, sendsigs, 1, &recvsig))) {
@@ -156,15 +156,15 @@ int setup_maps()
             for (i = 0; i < num_sources; i++) {
                 if (i == 0) {
                     /* set the first source to trigger evaluation */
-                    snprintf(expr + offset, len - offset, "-x%d",
+                    snprintf(expr + offset, len - offset, "-x$%d",
                              mpr_map_get_sig_idx(map, sendsigs[i]));
-                    offset += 3;
+                    offset += 4;
                 }
                 else {
                     /* mute the remaining sources so they don't trigger evaluation */
-                    snprintf(expr + offset, len - offset, "-_x%d",
+                    snprintf(expr + offset, len - offset, "-_x$%d",
                              mpr_map_get_sig_idx(map, sendsigs[i]));
-                    offset += 4;
+                    offset += 5;
                 }
             }
             mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
@@ -179,7 +179,8 @@ int setup_maps()
 
             /* build expression string with combination function and buddy logic */
             mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
-                             "alive=(t_x0>=t_y{-1})&&(t_x1>=t_y{-1})&&(t_x2>=t_y{-1});y=x0+x1+x2;", 1);
+                             "alive=(t_x$0>=t_y{-1})&&(t_x$1>=t_y{-1})&&(t_x$2>=t_y{-1});"
+                             "y=x$0+x$1+x$2;", 1);
             break;
         case 2:
             /* create/modify map with format string and signal arguments */

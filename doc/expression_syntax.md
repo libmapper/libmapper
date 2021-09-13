@@ -352,7 +352,7 @@ Convergent mapping—in which multiple source signals update a single destinatio
   </tr>
   </tr>
     <tr>
-    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically.</td>
+    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x$</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically.</td>
     <td>
         <img style="display:block;margin:auto;padding:0px;" src="./images/full_convergent.png">
     </td>
@@ -409,7 +409,7 @@ When mapping a singleton source signal to an instanced destination signal there 
 
 <h2 id="propagation-management">Propagation Management</h2>
 
-By default, convergent maps will trigger expression evaluation when *any* of the source signals are updated. For example, the convergent map `y=x0+x1` will output a new value whenever `x0` *or* `x1` are updated. Evaluation can be disabled for a source signal by inserting an underscore `_` symbol before the source name, e.g. `y=x0+_x1` will be evaluated only when the source `x0` is updated, while updates to source `x1` will be stored but will not trigger evaluation or propagation to the destination signal.
+By default, convergent maps will trigger expression evaluation when *any* of the source signals are updated. For example, the convergent map `y=x$0+x$1` will output a new value whenever `x$0` *or* `x$1` are updated. Evaluation can be disabled for a source signal by inserting an underscore `_` symbol before the source name, e.g. `y=x$0+_x$1` will be evaluated only when the source `x$0` is updated, while updates to source `x$1` will be stored but will not trigger evaluation or propagation to the destination signal.
 
 If desired, the entire expression can be evaluated "silently" so that updates do not propagate to the destination. This is accomplished by manipulating a special variable named `muted`. For maps with singleton destination signals this has an identical effect to manipulating the `alive` variable, but for instanced destinations it enables filtering updates without releasing the associated instance.
 

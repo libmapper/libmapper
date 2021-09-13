@@ -792,7 +792,7 @@ int run_tests()
         return 1;
 
     /* 49) Multiple Inputs */
-    snprintf(str, 256, "y=x+x1[1:2]+x2");
+    snprintf(str, 256, "y=x+x$1[1:2]+x$2");
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
     expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);
@@ -958,7 +958,7 @@ int run_tests()
         return 1;
 
     /* 63) Buddy logic */
-    snprintf(str, 256, "alive=(t_x0>t_y{-1})&&(t_x1>t_y{-1});y=x0+x1[1:2];");
+    snprintf(str, 256, "alive=(t_x$0>t_y{-1})&&(t_x$1>t_y{-1});y=x$0+x$1[1:2];");
     /* types[] and lens[] are already defined */
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
     expect_flt[0] = src_int[0] + src_flt[1];
@@ -1034,7 +1034,7 @@ int run_tests()
         return 1;
 
     /* 74) Dot product of two vectors */
-    snprintf(str, 256, "y=dot(x, x1);");
+    snprintf(str, 256, "y=dot(x, x$1);");
     lens[0] = 3;
     setup_test_multisource(2, types, lens, MPR_FLT, 1);
     expect_flt[0] = src_int[0] * src_flt[0] + src_int[1] * src_flt[1] + src_int[2] * src_flt[2];
@@ -1217,7 +1217,7 @@ int run_tests()
         return 1;
 
     /* 93) vector.reduce() on specific signal */
-    snprintf(str, 256, "y=x1.vector.reduce(x,a -> x+a);");
+    snprintf(str, 256, "y=x$1.vector.reduce(x,a -> x+a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1230,7 +1230,7 @@ int run_tests()
         return 1;
 
     /* 94) instance.count() on specific signal */
-    snprintf(str, 256, "y=x1.instance.count();");
+    snprintf(str, 256, "y=x$1.instance.count();");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;

@@ -1076,18 +1076,18 @@ static const char *_set_linear(mpr_local_map m, const char *e)
             for (i = 0; i < m->num_src; i++) {
                 if (m->src[i]->sig->len > dst_vec_len) {
                     if (1 == dst_vec_len)
-                        len += snprintf(expr+len, MAX_LEN-len, "x%d[0]+", i);
+                        len += snprintf(expr+len, MAX_LEN-len, "x$%d[0]+", i);
                     else
-                        len += snprintf(expr+len, MAX_LEN-len, "x%d[0:%d]+", i, dst_vec_len-1);
+                        len += snprintf(expr+len, MAX_LEN-len, "x$%d[0:%d]+", i, dst_vec_len-1);
                 }
                 else if (m->src[i]->sig->len < dst_vec_len) {
-                    len += snprintf(expr+len, MAX_LEN-len, "[x%d,0", i);
+                    len += snprintf(expr+len, MAX_LEN-len, "[x$%d,0", i);
                     for (j = 1; j < dst_vec_len - m->src[0]->sig->len; j++)
                         len += snprintf(expr+len, MAX_LEN-len, ",0");
                     len += snprintf(expr+len, MAX_LEN-len, "]+");
                 }
                 else
-                    len += snprintf(expr+len, MAX_LEN-len, "x%d+", i);
+                    len += snprintf(expr+len, MAX_LEN-len, "x$%d+", i);
             }
             --len;
             snprintf(expr+len, MAX_LEN-len, ")/%d", m->num_src);
@@ -1629,8 +1629,8 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
     mpr_sig sig, srcs[MAX_NUM_MAP_SRC];
     mpr_sig dst = NULL;
     mpr_map map = NULL;
-    int i = 0, j, num_src = 0;
-    char *dup;
+    int i = 0, j, num_src = 0, in_refs = 0;
+    char *new_expr;
     va_list aq;
     RETURN_ARG_UNLESS(expr, 0);
     va_start(aq, expr);
@@ -1670,6 +1670,7 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
                     }
                     srcs[num_src++] = sig;
                 }
+                ++in_refs;
                 break;
             default:
                 trace("Illegal format token '%%%c' in mpr_map_new_from_str().\n", expr[i+1]);
@@ -1686,31 +1687,30 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
     map = mpr_map_new(num_src, srcs, 1, &dst);
 
     /* edit the expression string in-place */
-    i = 0;
-    dup = strdup(expr);
+    i = j = 0;
+    new_expr = calloc(1, strlen(expr) + in_refs + 1);
     va_start(aq, expr);
     while (expr[i]) {
         while (expr[i] && expr[i] != '%')
-            ++i;
+            new_expr[j++] = expr[i++];
         if (!expr[i])
             break;
         sig = va_arg(aq, void*);
         if (expr[i+1] == 'y') {
             /* replace the preceding '%' with a space */
-            dup[i] = ' ';
+            new_expr[j++] = 'y';
         }
         else {  /* 'x' */
-            /* retrieve signal index */
-            j = mpr_map_get_sig_idx(map, sig);
-            /* replace "%x" with "xi" where i is the signal index */
-            dup[i] = 'x';
-            dup[i+1] = "0123456789"[j%10];
+            /* replace "%x" with "x$i" where i is the signal index */
+            new_expr[j++] = 'x';
+            new_expr[j++] = '$';
+            new_expr[j++] = "0123456789"[mpr_map_get_sig_idx(map, sig) % 10];
         }
         i += 2;
     }
     va_end(aq);
-    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, dup, 1);
-    free(dup);
+    mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR, new_expr, 1);
+    free(new_expr);
     return map;
 
 error:

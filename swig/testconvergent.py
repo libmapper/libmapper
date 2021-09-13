@@ -26,7 +26,7 @@ map = mpr.map(outsigs, insig)
 if not map:
     print('error: map not created')
 else:
-    map['expr'] = "y=x0+_x1+_x2"
+    map['expr'] = "y=x$0+_x$1+_x$2"
     map.push()
 
     while not map.ready:

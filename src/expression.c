@@ -732,15 +732,15 @@ static void var_lookup(mpr_token_t *tok, const char *s, int len)
     else if ('x' == *s) {
         if (1 == len)
             tok->var.idx = VAR_X;
-        else {
+        else if ('$' == *(s+1)) {
             int i, ordinal = 1;
-            for (i = 1; i < len; i++) {
+            for (i = 2; i < len; i++) {
                 if (!isdigit(*(s+i))) {
                     ordinal = 0;
                     break;
                 }
             }
-            tok->var.idx = ordinal ? VAR_X + atoi(s+1) : VAR_UNKNOWN;
+            tok->var.idx = ordinal ? VAR_X + atoi(s+2) : VAR_UNKNOWN;
         }
     }
     else
@@ -876,7 +876,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
         /* continue to next case 'e' */
     case 'e':
         if (!integer_found) {
-            while (c && (isalpha(c) || isdigit(c) || c == '_'))
+            while (c && (isalpha(c) || isdigit(c) || c == '_' || c == '$'))
                 c = str[++idx];
             if ((tok->fn.idx = fn_lookup(str+i, idx-i)) != FN_UNKNOWN)
                 tok->toktype = TOK_FN;
@@ -1046,7 +1046,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
             lex_error("unknown character '%c' in lexer\n", c);
             break;
         }
-        while (c && (isalpha(c) || isdigit(c) || c == '_'))
+        while (c && (isalpha(c) || isdigit(c) || c == '_' || c == '$'))
             c = str[++idx];
         if ((tok->fn.idx = fn_lookup(str+i, idx-i)) != FN_UNKNOWN)
             tok->toktype = TOK_FN;
