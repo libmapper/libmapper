@@ -1305,7 +1305,7 @@ int run_tests()
         return 1;
 
     /* 100) reduce() nested with mean() */
-    snprintf(str, 256, "y=x.signal.reduce(x, a -> x.vector.mean() + a);");
+    snprintf(str, 256, "y=x.signal.reduce(x, aLongerName -> x.vector.mean() + aLongerName);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;

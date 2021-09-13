@@ -2404,7 +2404,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     else {
                         {FAIL_IF(n_vars >= N_USER_VARS, "Maximum number of variables exceeded.");}
                         /* need to store new variable */
-                        vars[n_vars].name = strndup(varname, len);
+                        vars[n_vars].name = malloc(len + 1);
+                        snprintf(vars[n_vars].name, len + 1, "%s", varname);
                         vars[n_vars].datatype = var_type;
                         vars[n_vars].vec_len = 0;
                         vars[n_vars].flags = VAR_INSTANCED;
@@ -2791,7 +2792,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
                     /* cache variable arg used for representing input */
                     temp = (char*)_get_var_str_and_len(str, lex_idx - 1, &len);
-                    in_name = strndup(temp, len);
+                    in_name = malloc(len + 1);
+                    snprintf(in_name, len + 1, "%s", temp);
 #if TRACE_PARSE
                     printf("using name '%s' for reduce input\n", in_name);
 #endif
@@ -2809,7 +2811,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
                     /* cache variable arg used for representing accumulator */
                     temp = (char*)_get_var_str_and_len(str, lex_idx - 1, &len);
-                    accum_name = strndup(temp, len);
+                    accum_name = malloc(len + 1);
+                    snprintf(accum_name, len + 1, "%s", temp);
 #if TRACE_PARSE
                     printf("using name '%s' for reduce accumulator\n", accum_name);
 #endif
