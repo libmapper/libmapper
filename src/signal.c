@@ -137,7 +137,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
                  LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(DEV), 1, MPR_DEV, &sig->dev,
                  NON_MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(tbl, PROP(DIR), 1, MPR_INT32, &sig->dir, MODIFIABLE);
+    mpr_tbl_link(tbl, PROP(DIR), 1, MPR_INT32, &sig->dir, loc_mod);
     mpr_tbl_link(tbl, PROP(ID), 1, MPR_INT64, &sig->obj.id, rem_mod);
     mpr_tbl_link(tbl, PROP(JITTER), 1, MPR_FLT, &sig->jitter, NON_MODIFIABLE);
     mpr_tbl_link(tbl, PROP(LEN), 1, MPR_INT32, &sig->len, rem_mod);
