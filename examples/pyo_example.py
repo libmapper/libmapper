@@ -18,7 +18,7 @@ except:
                         os.path.join(os.path.join(os.getcwd(),
                                                   os.path.dirname(sys.argv[0])),
                                      '../swig'))
-        import mapper as mpr
+        import libmapper as mpr
     except:
         print('Error importing libmapper module.')
         sys.exit(1)

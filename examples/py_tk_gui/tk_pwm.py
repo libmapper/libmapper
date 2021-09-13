@@ -11,7 +11,7 @@ except:
 import sys, os
 
 try:
-    import mapper as mpr
+    import libmapper as mpr
 except:
     try:
         # Try the "swig" directory, relative to the location of this

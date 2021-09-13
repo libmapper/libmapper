@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
-import sys, mapper as mpr
+import sys, libmapper as mpr
 
 def sig_h(sig, event, id, val, time):
     try:
