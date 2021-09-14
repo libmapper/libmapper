@@ -151,7 +151,7 @@ signals with different vector lengths.
 * `[y[0], y[2]] = x` — apply update to output vector elements `y[0]` and `y[2]` but
 leave `y[1]` unchanged.
 
-### Vector reduce functions
+### Vector reducing functions
 
 There are several special functions that operate across all elements of the vector and output a scalar value:
 
@@ -168,32 +168,6 @@ There are several special functions that operate across all elements of the vect
 
 * `angle(a, b)` – output the angle between vectors `a` and `b`
 * `dot(a, b)` – output the dot product of vectors `a` and `b`
-
-<h2 id="instances">Instances</h2>
-
-Input and output signals addressed by libmapper may be *instanced* meaning that there a multiple independent instances of the object or phenomenon represented by the signal. For example, a signal representing `/touch/position` on a multitouch display would have an instance corresponding to each active touch.
-
-<h3 id="instance-functions">Instance functions</h3>
-
-There are several special functions that operate across all instances of a signal:
-
-* `x.instances().any()` – output `1` if any active instance of `x` is non-zero, otherwise output `0` (for each vector element)
-* `x.instances().all()` – output `1` if all active instance of `x` are non-zero, otherwise output `0` (for each vector element)
-* `x.instances().count()` — output the number of instances of `x` that are currently active
-* `x.instances().sum()` – output the sum of the values of all active instances of `x`
-* `x.instances().mean()` – output the mean of the values of all active instances of `x`
-* `x.instances().max()` – output the maximum value of all active instances of `x`
-* `x.instances().min()` – output the minimum value of all active instances of `x`
-* `x.instances().size()` – output the difference between the maximum and minimum values of all instances, i.e. `x.instances().max()-x.instances().min()`
-* `x.instances().center()` – output the N-dimensional point located at the center of the instance ranges, i.e. `(x.instances().max()+x.instances().min())*0.5`
-
-These instance functions accept subexpressions as arguments. for example, we can calculate the linear displacement of input `x` averaged across all of its active instances with the expression `y=(x-x{-1}).instances().mean()`. Similarly, we can calculate the average angular displacement around the center of a bounding box including all active instances.
-
-* `c0{-1}=x.instances().center(); c1=x.instances().center(); y=(angle(x{-1}-c0, x-c1)).instances().mean(); c0=c1`
-
-In a scenario where `x` represents the touch coordinates on a multitouch surface, this value gives mean rotation of all touches around their mutual center.
-
-Future work: add filter() and use to produce new expression-managed instances for clusters of points.
 
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 
@@ -473,3 +447,72 @@ order | step           | expression clause         | description
 2 | conditional output | `y = B / C`               | Output the average `B/C` (if `alive` is true)
 3 | update accumulator | `B = !alive * B + x`      | reset accumulator `B` to 0 if `alive` is true, add `x`
 4 | update count       | `C = alive ? 1 : C + 1`   | increment `C`, reset if `alive` is true
+
+<h2 id="instances">Instances</h2>
+
+Input and output signals addressed by libmapper may be *instanced* meaning that there a multiple independent instances of the object or phenomenon represented by the signal. For example, a signal representing `/touch/position` on a multitouch display would have an instance corresponding to each active touch. This means that a signal value `x` can have up to four dimensions:
+
+dimension        | syntax  | application
+-----------------|---------|-------------
+vector elements  | `x[n]`  | representation of signals that are naturally multidimensional, e.g. 3D position
+input signals    | `x$n`   | [convergent maps](#convergent-maps)
+signal history   | `x{-n}` | DSP (e.g. smoothing filters); [live looping](https://nime.pubpub.org/pub/2pqbusk7/release/1)
+signal instances | TBA     | representation of signals that are [naturally multiplex and/or ephemeral](https://ieeexplore.ieee.org/document/8259406), e.g. multitouch
+
+<h2 id="reduce-functions">Reducing functions</h2>
+
+There are several special functions that operate across all elements of a signal dimension. Use the table below and simply replace `<dim>` with the dimension name: *instance*, *history*, *signal*, or *vector*. 
+
+* `x.<dim>.any()` – output `1` if any element of `x` is non-zero, otherwise output `0` (for each vector element)
+* `x.<dim>.all()` – output `1` if all elements of `x` are non-zero, otherwise output `0` (for each vector element)
+* `x.<dim>.count()` — output the number of elements of `x`, e.g. `x.instance.count()` to get the number of active instances.
+* `x.<dim>.sum()` – output the sum of the values of all elements of `x`
+* `x.<dim>.mean()` – output the mean of the values of all elements of `x`
+* `x.<dim>.max()` – output the maximum value of all elements of `x`
+* `x.<dim>.min()` – output the minimum value of all elements of `x`
+* `x.<dim>.size()` – output the difference between the maximum and minimum values of all elements, i.e. `x.<dim>.max()-x.<dim>.min()`
+* `x.<dim>.center()` – output the N-dimensional point located at the center of the element ranges, i.e. `(x.<dim>.max()+x.<dim>.min())*0.5`
+
+Note that the `history` type of reduce function requires an integer argument after `.history` specifying the number of samples to reduce, e.g. `x.history(5).mean()`. The `instance` dimension reduce functions operate over all *currently active* instances of the signal.
+
+These functions accept subexpressions as arguments. For example, we can calculate the linear displacement of input `x` averaged across all of its active instances with the expression `y=(x-x{-1}).instance.mean()`. Similarly, we can calculate the average angular displacement around the center of a bounding box including all active instances:
+
+<pre style="width:50%;margin:auto">
+c0{-1}=x.instance.center();
+c1=x.instance.center();
+y=(angle(x{-1}-c0, x-c1)).instance.mean();
+c0=c1
+</pre>
+
+In a scenario where `x` represents the touch coordinates on a multitouch surface, this value gives mean rotation of all touches around their mutual center.
+
+<h3 id="reduce">Reduce() with arrow expressions</h3>
+
+In addition to the specialised reducing functions mentioned above, map expression can also include the function `reduce()` with a user-defined arrow function that operates over any of the four signal dimensions:
+
+dimension        | syntax
+-----------------|---------------------------
+vector elements  | x.vector.reduce(a, b *[= initialValue]* -> ...)
+input signals    | x.signal.reduce(a, b *[= initialValue]* -> ...)
+signal instances | x.instance.reduce(a, b *[= initialValue]* -> ...)
+signal history   | x.history(*len*).reduce(a, b *[= initialValue]* -> ...)
+
+Note that the `history` type of reduce function requires an integer argument after `.history` specifying the number of samples to reduce. The `reduce()` function requires arguments specifying the `input` and `accumulator` variable names, followed by the arrow symbol `->` and an expression describing how to process each element. The `input` and `accumulator` variable names are user-defined, and have only local scope, i.e. if reduce functions are nested using the same variable names no variable collisions will occur. The `accumulator` variable can be initialised is needed; otherwise it will default to zero.
+
+For example, the following expression will calculate the mean signal value over the last 10 samples:
+
+<pre style="width:50%;margin:auto">
+y = x.history(10).reduce(a, b -> a + b) / 10;
+</pre>
+
+Note: this expression could also be implemented as:
+
+<pre style="width:50%;margin:auto">
+y = x.history(10).mean();
+</pre>
+
+As mentioned above, reduce functions can be nested to reduce across multiple dimensions within a single expression. Obviously the nested reduce functions must operate across *different* dimensions in order for the expression to work. The expression below calculates the sum of all vector elements of all input signals:
+
+<pre style="margin:auto">
+y = x.signal.reduce(a, b -> a.vector.reduce(c, d -> c + d) + b);
+</pre>
