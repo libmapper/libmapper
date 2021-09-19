@@ -830,7 +830,7 @@ static void print_idmaps(mpr_local_dev dev)
     mpr_id_map *map = &dev->idmaps.active[0];
     while (*map) {
         mpr_id_map m = *map;
-        printf("  %p: %llu (%d) -> %llu (%d)\n", m, m->LID, m->LID_refcount, m->GID, m->GID_refcount);
+        printf("  %p: %" PRIu64 " (%d) -> %" PRIu64 " (%d)\n", m, m->LID, m->LID_refcount, m->GID, m->GID_refcount);
         map = &(*map)->next;
     }
 }
@@ -844,7 +844,7 @@ mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GI
     map = dev->idmaps.reserve;
     map->LID = LID;
     map->GID = GID ? GID : mpr_dev_generate_unique_id((mpr_dev)dev);
-    trace_dev(dev, "mpr_dev_add_idmap(%s) %llu -> %llu\n", dev->name, LID, map->GID);
+    trace_dev(dev, "mpr_dev_add_idmap(%s) %" PRIu64 " -> %" PRIu64 "\n", dev->name, LID, map->GID);
     map->LID_refcount = 1;
     map->GID_refcount = 0;
     dev->idmaps.reserve = map->next;
@@ -858,7 +858,7 @@ mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GI
 
 static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem)
 {
-    trace_dev(dev, "mpr_dev_remove_idmap(%s) %llu -> %llu\n", dev->name, rem->LID, rem->GID);
+    trace_dev(dev, "mpr_dev_remove_idmap(%s) %" PRIu64 " -> %" PRIu64 "\n", dev->name, rem->LID, rem->GID);
     mpr_id_map *map = &dev->idmaps.active[group];
     while (*map) {
         if ((*map) == rem) {
@@ -876,7 +876,7 @@ static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem)
 
 int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map map)
 {
-    trace_dev(dev, "mpr_dev_LID_decref(%s) %llu -> %llu\n", dev->name, map->LID, map->GID);
+    trace_dev(dev, "mpr_dev_LID_decref(%s) %" PRIu64 " -> %" PRIu64 "\n", dev->name, map->LID, map->GID);
     --map->LID_refcount;
     trace_dev(dev, "  refcounts: {LID:%d, GID:%d}\n", map->LID_refcount, map->GID_refcount);
     if (map->LID_refcount <= 0) {
@@ -891,7 +891,7 @@ int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map map)
 
 int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map map)
 {
-    trace_dev(dev, "mpr_dev_GID_decref(%s) %llu -> %llu\n", dev->name, map->LID, map->GID);
+    trace_dev(dev, "mpr_dev_GID_decref(%s) %" PRIu64 " -> %" PRIu64 "\n", dev->name, map->LID, map->GID);
     --map->GID_refcount;
     trace_dev(dev, "  refcounts: {LID:%d, GID:%d}\n", map->LID_refcount, map->GID_refcount);
     if (map->GID_refcount <= 0) {
