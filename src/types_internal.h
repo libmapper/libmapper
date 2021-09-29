@@ -326,8 +326,9 @@ typedef struct _mpr_sig_idmap
     float jitter;               /*!< Estimate of the timing jitter of this signal. */   \
     int dir;                    /*!< DIR_OUTGOING / DIR_INCOMING / DIR_BOTH */          \
     int len;                    /*!< Length of the signal vector, or 1 for scalars. */  \
+    int use_inst;               /*!< 1 if signal uses instances, 0 otherwise. */        \
     int num_inst;               /*!< Number of instances. */                            \
-    int use_inst;               /*!< 1 if using instances, 0 otherwise. */              \
+    int ephemeral;              /*!< 1 if signal is ephemeral, 0 otherwise. */          \
     int num_maps_in;            /* TODO: use dynamic query instead? */                  \
     int num_maps_out;           /* TODO: use dynamic query instead? */                  \
     mpr_steal_type steal_mode;  /*!< Type of voice stealing to perform. */              \

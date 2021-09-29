@@ -872,6 +872,7 @@ static named_prop get_obj_prop_by_idx(mpr_obj obj, int idx) {
 %constant int PROP_UNKNOWN              = MPR_PROP_UNKNOWN;
 %constant int PROP_DEV                  = MPR_PROP_DEV;
 %constant int PROP_DIR                  = MPR_PROP_DIR;
+%constant int PROP_EPHEM                = MPR_PROP_EPHEM;
 %constant int PROP_EXPR                 = MPR_PROP_EXPR;
 %constant int PROP_HOST                 = MPR_PROP_HOST;
 %constant int PROP_ID                   = MPR_PROP_ID;

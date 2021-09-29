@@ -391,7 +391,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             }
 
             /* otherwise try to init reserved/stolen instance with device map */
-            idmap_idx = mpr_sig_get_idmap_with_GID(sig, GID, 0, ts, 1);
+            idmap_idx = mpr_sig_get_idmap_with_GID(sig, GID, RELEASED_REMOTELY, ts, 1);
             TRACE_DEV_RETURN_UNLESS(idmap_idx >= 0, 0,
                                     "no instances available for GUID %"PR_MPR_ID" (1)\n", GID);
         }
@@ -416,7 +416,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         }
         if (i >= sig->num_inst)
             i = 0;
-        idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->inst[i]->id, 1, ts, 1);
+        idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->inst[i]->id, RELEASED_REMOTELY, ts, 1);
         RETURN_ARG_UNLESS(idmap_idx >= 0, 0);
     }
     si = sig->idmaps[idmap_idx].inst;
@@ -430,22 +430,20 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             /* TODO: mark SLOT status as remotely released rather than idmap? */
             sig->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
             mpr_dev_GID_decref(dev, sig->group, idmap);
-            if (!sig->use_inst) {
+            if (!sig->ephemeral) {
                 /* clear signal's reference to idmap */
                 mpr_dev_LID_decref(dev, sig->group, idmap);
                 sig->idmaps[idmap_idx].map = 0;
                 return 0;
             }
         }
-        RETURN_ARG_UNLESS(sig->use_inst && (!map || map->use_inst), 0);
+        RETURN_ARG_UNLESS(sig->ephemeral && (!map || map->use_inst), 0);
 
         /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
          * know if the local signal instance will actually be released. */
-        if (sig->dir == MPR_DIR_IN) {
-            int evt = (MPR_SIG_REL_UPSTRM & sig->event_flags) ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(sig, evt, idmap->LID, 0, 0, &ts, diff);
-        }
-        else if (MPR_SIG_REL_DNSTRM & sig->event_flags)
+        if (sig->dir == MPR_DIR_IN)
+            mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &ts, diff);
+        else
             mpr_sig_call_handler(sig, MPR_SIG_REL_DNSTRM, idmap->LID, 0, 0, &ts, diff);
 
         RETURN_ARG_UNLESS(map && MPR_LOC_DST == map->process_loc && sig->dir == MPR_DIR_IN, 0);
@@ -472,7 +470,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
     if (map) {
         /* Or if this signal slot is non-instanced but the map has other instanced
          * sources we will need to update all of the map instances. */
-        all |= !map->use_inst || (!slot->sig->use_inst && map->num_src > 1 && map->num_inst > 1);
+        all |= !map->use_inst || (map->num_src > 1 && map->num_inst > slot->sig->num_inst);
     }
     if (all)
         idmap_idx = 0;

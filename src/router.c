@@ -202,7 +202,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
 
         /* If this signal is non-instanced but the map has other instanced
          * sources we will need to update all of the active map instances. */
-        all = (!sig->use_inst && map->num_src > 1 && map->num_inst > 1);
+        all = (map->num_src > 1 && map->num_inst > sig->num_inst);
 
         if (MPR_LOC_DST == map->process_loc) {
             /* bypass map processing and bundle value without type coercion */
@@ -500,9 +500,7 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
                 maps[i].status |= RELEASED_REMOTELY;
                 mpr_dev_GID_decref(rtr->dev, sig->group, maps[i].map);
                 if (sig->use_inst) {
-                    int evt = (  MPR_SIG_REL_UPSTRM & sig->event_flags
-                               ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE);
-                    mpr_sig_call_handler(sig, evt, maps[i].map->LID, 0, 0, &t, 0);
+                    mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, maps[i].map->LID, 0, 0, &t, 0);
                 }
                 else {
                     mpr_dev_LID_decref(rtr->dev, sig->group, maps[i].map);

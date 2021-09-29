@@ -258,10 +258,10 @@ int setup_dst(mpr_graph g, const char *iface)
     /* Specify 0 instances since we wish to use specific ids */
     num_inst = 0;
     multirecv = mpr_sig_new(dst, MPR_DIR_IN, "multirecv", 1, MPR_FLT, NULL,
-                            &mn, NULL, &num_inst, handler, MPR_SIG_UPDATE);
+                            &mn, NULL, &num_inst, handler, MPR_SIG_ALL);
     monorecv = mpr_sig_new(dst, MPR_DIR_IN, "monorecv", 1, MPR_FLT, NULL,
                            &mn, NULL, 0, handler, MPR_SIG_UPDATE);
-    if (!multirecv)
+    if (!multirecv || !monorecv)
         goto error;
 
     for (i = 2; i < 10; i += 2) {
@@ -439,7 +439,7 @@ int run_test(test_config *config)
 {
     mpr_sig *src_ptr, *dst_ptr;
     mpr_sig both_src[2];
-    int num_src = 1, stl, evt = MPR_SIG_UPDATE, use_inst, compare_count;
+    int num_src = 1, stl, evt = MPR_SIG_UPDATE | MPR_SIG_REL_UPSTRM, use_inst, compare_count;
     int result = 0, active_count = 0, reserve_count = 0, count_epsilon;
     mpr_map map;
     mpr_id_map *id_map;
