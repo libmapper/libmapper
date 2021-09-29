@@ -608,7 +608,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             break;
         case MPR_INT64:
             for (i = 0; i < len; i++)
-                printf("%" PRINTF_LL "d, ", ((int64_t*)val)[i]);
+                printf("%" PR_MPR_INT64 ", ", ((int64_t*)val)[i]);
             break;
         case MPR_TIME:
             for (i = 0; i < len; i++)

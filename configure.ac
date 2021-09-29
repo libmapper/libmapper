@@ -124,23 +124,6 @@ AC_COMPILE_IFELSE(
    CXXFLAGS="$_CXXFLAGS"])
 AC_LANG_POP([C++])
 
-# Since we don't require C99, format code for long long int can vary
-# in some compilers.  (In particular, MingW seems to require "I64"
-# instead of "ll")
-AC_MSG_CHECKING([how to print long long int])
-_CFLAGS="$CFLAGS"
-CFLAGS="$_CFLAGS -Werror -Wall"
-AC_COMPILE_IFELSE(
-  [AC_LANG_PROGRAM([#include <stdio.h>],[printf("%lld", (long long int)0);])],
-    [printf_ll=\"ll\"],
-    [AC_COMPILE_IFELSE(
-      [AC_LANG_PROGRAM([#include <stdio.h>],[printf("%I64d", (long long int)0);])],
-        [printf_ll=\"I64\"],
-        AC_MSG_ERROR([printf doesn't support long long int]))])
-AC_MSG_RESULT([$printf_ll])
-AC_DEFINE_UNQUOTED([PRINTF_LL],[$printf_ll],[printf code for type long long int])
-CFLAGS="$_CFLAGS"
-
 # Check options
 AC_ARG_ENABLE(debug,
    [AS_HELP_STRING([--enable-debug],[compile with debug flags])],

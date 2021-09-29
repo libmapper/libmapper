@@ -273,7 +273,7 @@ static int _store_slot(mpr_rtr_sig rs, mpr_local_slot slot)
     /* all indices occupied, allocate more */
     rs->slots = realloc(rs->slots, sizeof(mpr_local_slot) * rs->num_slots * 2);
     rs->slots[rs->num_slots] = slot;
-    for (i = rs->num_slots+1; i < rs->num_slots * 2; i++)
+    for (i = rs->num_slots + 1; i < rs->num_slots * 2; i++)
         rs->slots[i] = 0;
     i = rs->num_slots;
     rs->num_slots *= 2;
