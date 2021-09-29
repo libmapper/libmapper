@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdarg.h>
 #include <unistd.h>
-#include <assert.h>
 #include <sys/time.h>
 #include <stddef.h>
 
