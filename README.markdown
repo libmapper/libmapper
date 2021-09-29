@@ -25,16 +25,10 @@
       src="https://img.shields.io/github/downloads/libmapper/libmapper/total.svg?style=flat-square"
     />
   </a>
-  <a href="https://travis-ci.org/libmapper/libmapper">
+  <a href="https://github.com/libmapper/libmapper/actions/workflows/ci.yml">
     <img
-      alt="build:?"
-      src="https://img.shields.io/travis/libmapper/libmapper/master.svg?style=flat-square"
-    />
-  </a>
-  <a href="https://codecov.io/gh/libmapper/libmapper">
-    <img
-      alt="coverage:?"
-      src="https://img.shields.io/codecov/c/github/libmapper/libmapper.svg?style=flat-square"
+      alt="status:?"
+      src="https://github.com/libmapper/libmapper/actions/workflows/ci.yml/badge.svg"
     />
   </a>
   <br/>
@@ -116,8 +110,8 @@ publish namespaces, and handles a direct need that we experience in our daily
 work.  We evaluated the use of ZeroConf early on in this work, but we eventually
 decided that sending OSC messages over multicast was just as easy and required
 the integration of fewer dependencies.  With the addition of being able to
-control message routing and to dynamically specify signal conditioning
-equations, we feel this work represents a significant enough effort that it is
+control message routing and to dynamically specify [signal conditioning
+equations](./doc/expression_syntax.md), we feel this work represents a significant enough effort that it is
 worth making available to the general public.
 
 It can also be seen as an open source alternative to some commercial products
@@ -230,9 +224,9 @@ or from the libmapper page on the IDMIL website,
 Building and using libmapper
 ----------------------------
 
-Please see the separate documentation for building libmapper, tutorials on using
-its API in C, C++, Python, Java, MaxMSP and Pure Data, and doxygen-generated API
-documentation, in the "doc" directory.
+Please see the separate [documentation for building libmapper](./doc/how_to_compile_and_run.md), [tutorials](./doc/tutorials) on using
+its API in C, C++, Python, Java, MaxMSP and Pure Data, and doxygen-generated [API
+documentation](./doc/html/index.html), in the "doc" directory.
 
 License
 -------
