@@ -3353,6 +3353,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             ++out_assigned;
                         else
                             vars[var].flags |= VAR_ASSIGNED;
+                        if (is_const)
+                            vars[var].flags &= ~VAR_INSTANCED;
                     }
                     /* nothing extraordinary, continue as normal */
                     out[out_idx].toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
