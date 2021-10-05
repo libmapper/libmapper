@@ -946,17 +946,19 @@ static const char *_set_linear(mpr_local_map m, const char *e)
                 arg_str = NULL;
                 if (!args[j])
                     goto abort;
+                while (*args[j] == ' ')
+                    ++args[j];
             }
             /* we won't check if ranges are numeric since they could be variables but src extrema
              * are allowed to be "?" to indicate calibration or '-' to indicate they should not
              * be changed */
-            if (0 == strcmp(args[1], "?"))
+            if (0 == strcmp(args[1], "?") || 0 == strcmp(args[1], "? "))
                 len = snprintf(expr, MAX_LEN, "sMin{-1}=x;sMin=min(%s,sMin);", var);
-            else if (0 == strcmp(args[1], "-")) {
+            else if (0 == strcmp(args[1], "-") || 0 == strcmp(args[1], "- ")) {
                 /* try to load sMin variable from existing expression */
                 if (!m->expr) {
                     trace("can't retrieve previous expr variable\n");
-                    len += snprintf(expr+len, MAX_LEN-len, "sMin=0;");
+                    len += snprintf(expr + len, MAX_LEN-len, "sMin=0;");
                 }
                 else {
                     INSERT_VAL("sMin");
@@ -965,30 +967,30 @@ static const char *_set_linear(mpr_local_map m, const char *e)
             else {
                 val_len = snprintf(expr, MAX_LEN, "sMin=%s", args[1]);
                 len += _trim_zeros(expr, val_len);
-                len += snprintf(expr+len, MAX_LEN-len, ";");
+                len += snprintf(expr + len, MAX_LEN - len, ";");
             }
 
-            if (0 == strcmp(args[2], "?"))
-                len += snprintf(expr+len, MAX_LEN-len, "sMax{-1}=x;sMax=max(%s,sMax);", var);
-            else if (0 == strcmp(args[2], "-")) {
+            if (0 == strcmp(args[2], "?") || 0 == strcmp(args[2], "? "))
+                len += snprintf(expr + len, MAX_LEN - len, "sMax{-1}=x;sMax=max(%s,sMax);", var);
+            else if (0 == strcmp(args[2], "-") || 0 == strcmp(args[2], "- ")) {
                 /* try to load sMax variable from existing expression */
                 if (!m->expr) {
                     /* TODO: try using signal instead */
                     trace("can't retrieve previous expr var, using default\n");
                     /* TODO: test with vector signals */
-                    len += snprintf(expr+len, MAX_LEN-len, "sMax=1;");
+                    len += snprintf(expr + len, MAX_LEN - len, "sMax=1;");
                 }
                 else {
                     INSERT_VAL("sMax");
                 }
             }
             else {
-                val_len = snprintf(expr+len, MAX_LEN-len, "sMax=%s", args[2]);
-                len += _trim_zeros(expr+len, val_len);
-                len += snprintf(expr+len, MAX_LEN-len, ";");
+                val_len = snprintf(expr + len, MAX_LEN - len, "sMax=%s", args[2]);
+                len += _trim_zeros(expr + len, val_len);
+                len += snprintf(expr + len, MAX_LEN - len, ";");
             }
 
-            if (0 == strcmp(args[3], "-")) {
+            if (0 == strcmp(args[3], "-") || 0 == strcmp(args[3], "- ")) {
                 /* try to load dMin variable from existing expression */
                 if (!m->expr) {
                     trace("can't retrieve previous expr variable\n");
@@ -999,12 +1001,12 @@ static const char *_set_linear(mpr_local_map m, const char *e)
                 }
             }
             else {
-                val_len = snprintf(expr+len, MAX_LEN-len, "dMin=%s", args[3]);
-                len += _trim_zeros(expr+len, val_len);
-                len += snprintf(expr+len, MAX_LEN-len, ";");
+                val_len = snprintf(expr + len, MAX_LEN - len, "dMin=%s", args[3]);
+                len += _trim_zeros(expr + len, val_len);
+                len += snprintf(expr + len, MAX_LEN - len, ";");
             }
 
-            if (0 == strcmp(args[4], "-")) {
+            if (0 == strcmp(args[4], "-") || 0 == strcmp(args[4], "- ")) {
                 /* try to load dMin variable from existing expression */
                 if (!m->expr) {
                     trace("can't retrieve previous expr variable\n");
@@ -1015,9 +1017,9 @@ static const char *_set_linear(mpr_local_map m, const char *e)
                 }
             }
             else {
-                val_len = snprintf(expr+len, MAX_LEN-len, "dMax=%s", args[4]);
-                len += _trim_zeros(expr+len, val_len);
-                len += snprintf(expr+len, MAX_LEN-len, ";");
+                val_len = snprintf(expr + len, MAX_LEN - len, "dMax=%s", args[4]);
+                len += _trim_zeros(expr + len, val_len);
+                len += snprintf(expr + len, MAX_LEN - len, ";");
             }
 
             var = args[0];

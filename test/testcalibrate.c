@@ -134,10 +134,13 @@ int setup_maps(int calibrate)
             dMin = rand() % 100;
             dMax = rand() % 100;
         } while (dMax <= dMin);
-        snprintf(expr, 128, "y=linear(x,?,?,%f,%f)", dMin, dMax);
+        /* Include some random spaces to test 'linear' macro parsing */
+        snprintf(expr, 128, "y=linear( x, ?,? ,%f,%f)", dMin, dMax);
     }
-    else
-        snprintf(expr, 128, "y=linear(x,-,-,-,-)");
+    else {
+        /* Include some random spaces to test 'linear' macro parsing */
+        snprintf(expr, 128, "y=linear(x,-, -,  -,    - )");
+    }
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 
