@@ -1442,7 +1442,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                             ++updated;
                             /* TODO: handle multiple instances */
                             var_len = lm->vars[j].vlen;
-                            /* cast to double if necessary */
+                            /* cast if necessary */
                             switch (lm->vars[j].type) {
 #define TYPED_CASE(MTYPE, TYPE, MTYPE1, EL1, MTYPE2, EL2)                           \
                                 case MTYPE: {                                       \
@@ -1471,6 +1471,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                                 default:
                                     --updated;
                             }
+                            mpr_expr_var_updated(lm->expr, j);
                             break;
                         }
                     }

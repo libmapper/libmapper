@@ -674,6 +674,7 @@ typedef union _token {
 #define VAR_ASSIGNED    0x0001
 #define VAR_INSTANCED   0x0002
 #define VAR_LEN_LOCKED  0x0004
+#define VAR_SET_EXTERN  0x0008
 
 typedef struct _var {
     char *name;
@@ -3576,6 +3577,16 @@ int mpr_expr_get_manages_inst(mpr_expr expr)
     return expr ? expr->inst_ctl >= 0 : 0;
 }
 
+void mpr_expr_var_updated(mpr_expr expr, int var_idx)
+{
+    RETURN_UNLESS(expr && var_idx >= 0 && var_idx < expr->n_vars);
+    RETURN_UNLESS(var_idx != expr->inst_ctl && var_idx != expr->mute_ctl);
+    expr->vars[var_idx].flags |= VAR_SET_EXTERN;
+    /* Reset expression offset to 0 in case other variables are initialised from this one. */
+    expr->offset = 0;
+    return;
+}
+
 #if TRACE_EVAL
 static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len)
 {
@@ -4506,6 +4517,9 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             if (VAR_Y == tok->var.idx)
                 printf("assigning values to y{%d}[%u] (%s x %u)\n", hidx, tok->var.vec_idx,
                        type_name(datatype), tok->gen.vec_len);
+            else if (expr->vars[tok->var.idx].flags & VAR_SET_EXTERN)
+                printf("skipping assignment to %s{%d}[%u] (set externally)\n",
+                       expr->vars[tok->var.idx].name, hidx, tok->var.vec_idx);
             else
                 printf("assigning values to %s{%d}[%u] (%s x %u)\n", expr->vars[tok->var.idx].name,
                        hidx, tok->var.vec_idx, type_name(datatype), tok->gen.vec_len);
@@ -4554,6 +4568,8 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else if (tok->var.idx >= 0 && tok->var.idx < N_USER_VARS) {
                 mpr_value v;
                 mpr_value_buffer b;
+                if (expr->vars[tok->var.idx].flags & VAR_SET_EXTERN)
+                    goto assign_done;
                 if (!v_vars)
                     goto error;
                 /* var{-1} is the current sample, so we allow hidx of 0 or -1 */

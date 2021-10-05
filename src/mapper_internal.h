@@ -464,6 +464,8 @@ const char *mpr_expr_get_var_name(mpr_expr expr, int idx);
 
 int mpr_expr_get_manages_inst(mpr_expr expr);
 
+void mpr_expr_var_updated(mpr_expr expr, int var_idx);
+
 #ifdef DEBUG
 void printexpr(const char*, mpr_expr);
 #endif
