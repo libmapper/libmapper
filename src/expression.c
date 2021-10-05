@@ -1286,8 +1286,6 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
         if (show_init_line && can_advance) {
             switch (stk[i].toktype) {
                 case TOK_ASSIGN_CONST:
-                    if (stk[i].var.idx != VAR_Y)
-                        break;
                 case TOK_ASSIGN:
                 case TOK_ASSIGN_USE:
                 case TOK_ASSIGN_TT:
@@ -1301,7 +1299,6 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
                             break;
                         for (j = 0; j < indent; j++)
                             printf(" ");
-                        printf("--- <INITIALISATION DONE> ---\n");
                         can_advance = 0;
                         break;
                     }
@@ -1314,6 +1311,8 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
                 default:
                     break;
             }
+            if (!can_advance)
+                printf("--- <INITIALISATION DONE> ---\n");
         }
     }
     if (!i)
