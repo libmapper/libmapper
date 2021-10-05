@@ -213,6 +213,11 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
             continue;
         }
 
+        if (!map->expr) {
+            trace("error: missing expression!\n");
+            continue;
+        }
+
         /* copy input value */
         mpr_value_set_samp(&slot->val, inst_idx, (void*)val, t);
 
