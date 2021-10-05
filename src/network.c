@@ -1474,8 +1474,10 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
 #ifdef DEBUG
             trace_graph("  %s", map->num_src > 1 ? "[" : "");
             for (i = 0; i < map->num_src; i++)
-                printf("'%s', ", map->src[i]->sig->name);
-            printf("\b\b%s -> '%s'\n", map->num_src > 1 ? "]" : "", map->dst->sig->name);
+                printf("'%s:%s'%s, ", map->src[i]->sig->dev->name, map->src[i]->sig->name,
+                       map->src[i]->sig->is_local ? "*" : "");
+            printf("\b\b%s -> '%s:%s'%s\n", map->num_src > 1 ? "]" : "", map->dst->sig->dev->name,
+                   map->dst->sig->name, map->dst->sig->is_local ? "*" : "");
 #endif
             is_loc = mpr_obj_get_prop_as_int32((mpr_obj)map, MPR_PROP_IS_LOCAL, NULL);
             RETURN_ARG_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
