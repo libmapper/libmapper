@@ -1404,15 +1404,15 @@ namespace mapper {
 
         // graph devices
         List<Device> devices() const
-            { return List<Device>(mpr_graph_get_objs(_obj, MPR_DEV)); }
+            { return List<Device>(mpr_graph_get_list(_obj, MPR_DEV)); }
 
         // graph signals
         List<Signal> signals() const
-            { return List<Signal>(mpr_graph_get_objs(_obj, MPR_SIG)); }
+            { return List<Signal>(mpr_graph_get_list(_obj, MPR_SIG)); }
 
         // graph maps
         List<Map> maps() const
-            { return List<Map>(mpr_graph_get_objs(_obj, MPR_MAP)); }
+            { return List<Map>(mpr_graph_get_list(_obj, MPR_MAP)); }
 
         OBJ_METHODS(Graph);
     };

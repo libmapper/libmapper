@@ -1222,21 +1222,21 @@ JNIEXPORT jlong JNICALL Java_mapper_Graph_devices
   (JNIEnv *env, jobject obj, jlong jgraph)
 {
     mpr_graph g = (mpr_graph) ptr_jlong(jgraph);
-    return g ? jlong_ptr(mpr_graph_get_objs(g, MPR_DEV)) : 0;
+    return g ? jlong_ptr(mpr_graph_get_list(g, MPR_DEV)) : 0;
 }
 
 JNIEXPORT jlong JNICALL Java_mapper_Graph_signals
   (JNIEnv *env, jobject obj, jlong jgraph)
 {
     mpr_graph g = (mpr_graph) ptr_jlong(jgraph);
-    return g ? jlong_ptr(mpr_graph_get_objs(g, MPR_SIG)) : 0;
+    return g ? jlong_ptr(mpr_graph_get_list(g, MPR_SIG)) : 0;
 }
 
 JNIEXPORT jlong JNICALL Java_mapper_Graph_maps
   (JNIEnv *env, jobject obj, jlong jgraph)
 {
     mpr_graph g = (mpr_graph) ptr_jlong(jgraph);
-    return g ? jlong_ptr(mpr_graph_get_objs(g, MPR_MAP)) : 0;
+    return g ? jlong_ptr(mpr_graph_get_list(g, MPR_MAP)) : 0;
 }
 
 /**** mapper_Device.h ****/

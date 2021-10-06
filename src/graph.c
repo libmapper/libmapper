@@ -267,7 +267,7 @@ mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_type type, mpr_id id)
 }
 
 /* TODO: support queries over multiple object types. */
-mpr_list mpr_graph_get_objs(mpr_graph g, int types)
+mpr_list mpr_graph_get_list(mpr_graph g, int types)
 {
     if (types & MPR_DEV)
         return mpr_list_from_data(g->devs);
@@ -386,7 +386,7 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
     _remove_by_qry(g, mpr_dev_get_maps(d, MPR_DIR_ANY), e);
 
     /* remove matching maps scopes */
-    maps = mpr_graph_get_objs(g, MPR_MAP);
+    maps = mpr_graph_get_list(g, MPR_MAP);
     while (maps) {
         mpr_map_remove_scope((mpr_map)*maps, d);
         maps = mpr_list_get_next(maps);

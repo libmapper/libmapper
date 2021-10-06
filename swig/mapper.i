@@ -1832,17 +1832,17 @@ typedef struct _map_list {
     }
     device_list *devices() {
         device_list *ret = malloc(sizeof(struct _device_list));
-        ret->list = mpr_graph_get_objs((mpr_graph)$self, MPR_DEV);
+        ret->list = mpr_graph_get_list((mpr_graph)$self, MPR_DEV);
         return ret;
     }
     signal_list *signals() {
         signal_list *ret = malloc(sizeof(struct _signal_list));
-        ret->list = mpr_graph_get_objs((mpr_graph)$self, MPR_SIG);
+        ret->list = mpr_graph_get_list((mpr_graph)$self, MPR_SIG);
         return ret;
     }
     map_list *maps() {
         map_list *ret = malloc(sizeof(struct _map_list));
-        ret->list = mpr_graph_get_objs((mpr_graph)$self, MPR_MAP);
+        ret->list = mpr_graph_get_list((mpr_graph)$self, MPR_MAP);
         return ret;
     }
     %pythoncode {

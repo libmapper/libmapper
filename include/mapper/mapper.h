@@ -674,10 +674,10 @@ void *mpr_graph_remove_cb(mpr_graph graph, mpr_graph_handler *handler, const voi
 
 /*! Return a list of objects.
  *  \param graph        The graph to query.
- *  \param types        Bitflags setting the type of information of interest.
- *                      Can be a combination of mpr_type values.
+ *  \param types        Bitflags setting the type of information of interest. Currently restricted
+ *                      to a single object type.
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
-mpr_list mpr_graph_get_objs(mpr_graph graph, int types);
+mpr_list mpr_graph_get_list(mpr_graph graph, int types);
 
 /** @} */ /* end of group Graphs */
 

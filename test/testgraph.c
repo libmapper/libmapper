@@ -432,7 +432,7 @@ int main(int argc, char **argv)
     eprintf("\n--- Devices ---\n");
 
     eprintf("\nWalk the whole graph:\n");
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     count = 0;
     if (!devlist) {
         eprintf("query returned 0.\n");
@@ -456,7 +456,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind device named 'testgraph.3':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.3", MPR_OP_EQ);
     if (!devlist) {
         eprintf("Not found.\n");
@@ -478,7 +478,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind device named 'dummy':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "dummy", MPR_OP_EQ);
     if (mpr_list_get_size(devlist)) {
         eprintf("unexpectedly found 'dummy': %p\n", *devlist);
@@ -492,7 +492,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices matching '__':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*__*", MPR_OP_EQ);
 
     count=0;
@@ -518,7 +518,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'host'=='192.168.0.100':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_HOST, NULL, 1, MPR_STR, "192.168.0.100", MPR_OP_EQ);
 
     count=0;
@@ -550,7 +550,7 @@ int main(int argc, char **argv)
     eprintf("\nFind devices with property 'port'<5678:\n");
 
     intval = 5678;
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_PORT, NULL, 1, MPR_INT32, &intval, MPR_OP_LT);
 
     count=0;
@@ -581,7 +581,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind devices with property 'num_outputs'==2:\n");
     intval = 2;
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_UNKNOWN, "num_outputs", 1,
                               MPR_INT32, &intval, MPR_OP_EQ);
 
@@ -614,7 +614,7 @@ int main(int argc, char **argv)
     eprintf("\nFind devices with properties 'host'!='localhost' AND 'port'>=4000:\n");
 
     intval = 4000;
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_HOST, NULL, 1, MPR_STR, "localhost", MPR_OP_NEQ);
     devlist = mpr_list_filter(devlist, MPR_PROP_PORT, NULL, 1, MPR_INT32, &intval, MPR_OP_GTE);
 
@@ -648,14 +648,14 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all signals for device 'testgraph.1':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     mpr_list_free(devlist);
 
@@ -687,7 +687,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all signals for device 'testgraph__xx.2':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph__xx.2", MPR_OP_EQ);
     if (devlist && (dev = (mpr_dev)*devlist)) {
         eprintf("device query  incorrectly found something.\n");
@@ -702,7 +702,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind all outputs for device 'testgraph__.2':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph__.2", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
@@ -742,14 +742,14 @@ int main(int argc, char **argv)
 
     eprintf("\nFind signal matching 'in' for device 'testgraph.1':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*in*", MPR_OP_EQ);
     mpr_list_free(devlist);
@@ -782,14 +782,14 @@ int main(int argc, char **argv)
 
     eprintf("\nFind signal matching 'out' for device 'testgraph.1':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*", MPR_OP_EQ);
     mpr_list_free(devlist);
@@ -822,14 +822,14 @@ int main(int argc, char **argv)
 
     eprintf("\nFind signal matching 'out' for device 'testgraph__.2':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph__.2", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*", MPR_OP_EQ);
     mpr_list_free(devlist);
@@ -864,7 +864,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps with source 'out1':\n");
 
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "out1", MPR_OP_EQ);
     maplist = 0;
     while (siglist) {
@@ -900,14 +900,14 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps for device 'testgraph.1', source 'out1':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "out1", MPR_OP_EQ);
     mpr_list_free(devlist);
@@ -947,7 +947,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps with destination signal named 'in2':\n");
 
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "in2", MPR_OP_EQ);
     maplist = 0;
     while (siglist) {
@@ -982,14 +982,14 @@ int main(int argc, char **argv)
     /*********/
 
     eprintf("\nFind maps for device 'testgraph__.2', destination 'in1':\n");
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph__.2", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "in1", MPR_OP_EQ);
     mpr_list_free(devlist);
@@ -1033,14 +1033,14 @@ int main(int argc, char **argv)
             "\n          AND dest device 'testgraph.1', signal 'in1':\n");
 
     /* get maps with source signal */
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph__.2", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "out1", MPR_OP_EQ);
     mpr_list_free(devlist);
@@ -1053,14 +1053,14 @@ int main(int argc, char **argv)
     mpr_list_free(siglist);
 
     /* get maps with destination signal */
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "in1", MPR_OP_EQ);
     mpr_list_free(devlist);
@@ -1103,14 +1103,14 @@ int main(int argc, char **argv)
             "\n          AND dest device 'testgraph.1', all signals:\n");
 
     /* build source query */
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph__.2", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*", MPR_OP_EQ);
     mpr_list_free(devlist);
@@ -1123,14 +1123,14 @@ int main(int argc, char **argv)
     mpr_list_free(siglist);
 
     /* build destination query */
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph.1", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("device query returned 0.\n");
         result = 1;
         goto done;
     }
-    siglist = mpr_graph_get_objs(graph, MPR_SIG);
+    siglist = mpr_graph_get_list(graph, MPR_SIG);
     siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
     maplist2 = 0;
     while (siglist) {
@@ -1169,7 +1169,7 @@ int main(int argc, char **argv)
 
     eprintf("\nFind maps with scope 'testgraph__.2':\n");
 
-    devlist = mpr_graph_get_objs(graph, MPR_DEV);
+    devlist = mpr_graph_get_list(graph, MPR_DEV);
     devlist = mpr_list_filter(devlist, MPR_PROP_NAME, NULL, 1, MPR_STR, "testgraph__.2", MPR_OP_EQ);
     if (!devlist || !(dev = (mpr_dev)*devlist)) {
         eprintf("failed to find device 'testgraph__.2'.\n");
@@ -1177,7 +1177,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    maplist = mpr_graph_get_objs(graph, MPR_MAP);
+    maplist = mpr_graph_get_list(graph, MPR_MAP);
     maplist = mpr_list_filter(maplist, MPR_PROP_SCOPE, NULL, 1, MPR_DEV, dev, MPR_OP_ANY);
     mpr_list_free(devlist);
 
