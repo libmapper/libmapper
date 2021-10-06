@@ -266,6 +266,16 @@ int main(int argc, char **argv)
 
     loop();
 
+    eprintf("Modifying expression to check that variable is overwritten");
+    addend = 20;
+    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=20;y=x*10+foo", 1);
+    mpr_obj_push(map);
+    /* wait for change to take effect */
+    mpr_dev_poll(dst, 100);
+    mpr_dev_poll(src, 100);
+
+    loop();
+
     if (sent != received) {
         eprintf("Not all sent messages were received.\n");
         eprintf("Updated value %d time%s, but received %d of them.\n",
