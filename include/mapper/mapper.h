@@ -553,8 +553,7 @@ mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2);
  *  \return             A pointer to the object record, or zero if it doesn't exist. */
 mpr_obj mpr_list_get_idx(mpr_list list, unsigned int index);
 
-/*! Given a object record pointer returned from a previous object query, get the
- *  next item in the list.
+/*! Given an object list returned from a previous object query, get the next item.
  *  \param list         The previous object record pointer.
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_list_get_next(mpr_list list);
@@ -564,7 +563,7 @@ mpr_list mpr_list_get_next(mpr_list list);
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_list_get_cpy(mpr_list list);
 
-/*! Given a object record pointer returned from a previous object query,
+/*! Given an object list returned from a previous object query,
  *  indicate that we are done iterating.
  *  \param list         The previous object record pointer. */
 void mpr_list_free(mpr_list list);
