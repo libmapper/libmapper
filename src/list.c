@@ -526,8 +526,7 @@ for (i = 0; i < len; i++) {                     \
     diff += abs(comp);                          \
 }
 
-static int compare_val(mpr_op op, int len, mpr_type type,
-                       const void *v1, const void *v2)
+static int compare_val(mpr_op op, int len, mpr_type type, const void *v1, const void *v2)
 {
     int i, comp = 0, diff = 0;
     switch (type) {
@@ -539,6 +538,13 @@ static int compare_val(mpr_op op, int len, mpr_type type,
                     comp += match_pattern(((const char**)v1)[i], ((const char**)v2)[i]);
                     diff += abs(comp);
                 }
+            }
+            break;
+        case MPR_BOOL:
+            for (i = 0; i < len; i++) {
+                int j = ((int*)v1)[i] != 0, k = ((int*)v2)[i] != 0;
+                comp += j - k;
+                diff += abs(comp);
             }
             break;
         case MPR_INT32:
@@ -631,8 +637,8 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop p, const char *key, int len,
     int mask = MPR_OP_ALL | MPR_OP_ANY;
     if (!list || op <= MPR_OP_UNDEFINED || (op | mask) > (MPR_OP_NEQ | mask))
         return list;
-    return mpr_list_start(mpr_list_filter_internal(list, (void*)filter_by_prop, "iiicvs", p, op,
-                                                   len, type, &val, key));
+    return mpr_list_start(mpr_list_filter_internal(list, (void*)filter_by_prop, "iiicvs",
+                                                   p, op, len, type, &val, key));
 }
 
 mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2)
