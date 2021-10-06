@@ -103,8 +103,8 @@ void cleanup_devs() {
     eprintf("\n");
 }
 
-void wait_local_devs(int *cancel) {
-    int i, j = 0, k = 0, keep_waiting = 1, ordinal, highest = 0;
+int wait_local_devs(int *cancel) {
+    int i, j = 0, k = 0, keep_waiting = 1, highest = 0, result = 0;
 
 	while ( keep_waiting && !*cancel ) {
 		keep_waiting = 0;
@@ -129,8 +129,7 @@ void wait_local_devs(int *cancel) {
 	}
     eprintf("\nRegistered devices:\n");
     for (i = 0; i < num_devs; i++) {
-        ordinal = mpr_obj_get_prop_as_int32((mpr_obj)devices[i], MPR_PROP_ORDINAL,
-                                             NULL);
+        int ordinal = mpr_obj_get_prop_as_int32((mpr_obj)devices[i], MPR_PROP_ORDINAL, NULL);
         if (ordinal > highest)
             highest = ordinal;
     }
@@ -138,19 +137,19 @@ void wait_local_devs(int *cancel) {
         int count = 0;
         const char *name = 0;
         for (j = 0; j < num_devs; j++) {
-            ordinal = mpr_obj_get_prop_as_int32((mpr_obj)devices[j], MPR_PROP_ORDINAL,
-                                                 NULL);
+            int ordinal = mpr_obj_get_prop_as_int32((mpr_obj)devices[j], MPR_PROP_ORDINAL, NULL);
             if (ordinal == i) {
-                name = mpr_obj_get_prop_as_str((mpr_obj)devices[j], MPR_PROP_NAME,
-                                               NULL);
+                name = mpr_obj_get_prop_as_str((mpr_obj)devices[j], MPR_PROP_NAME, NULL);
                 ++count;
             }
         }
         if (count && name) {
-            eprintf("%s  %s\t\tx %i\n\x1B[0m",
-                    count > 1 ? "\x1B[31m" : "\x1B[32m", name, count);
+            eprintf("%s  %s\t\tx %i\n\x1B[0m", count > 1 ? "\x1B[31m" : "\x1B[32m", name, count);
         }
+        if (count > 1)
+            result = 1;
     }
+    return result;
 }
 
 void loop() {
@@ -177,8 +176,10 @@ void segv(int sig) {
 int main(int argc, char *argv[])
 {
     double now = current_time();
-    int i, j, result = 0;
+    int i, j, T = 1, result = 0;
     char *iface = 0;
+    mpr_graph g;
+    mpr_list l;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -236,9 +237,25 @@ int main(int argc, char *argv[])
         goto done;
     }
 
-    wait_local_devs(&done);
+    if (wait_local_devs(&done))
+        result = 1;
     now = current_time() - now;
     eprintf("Allocated %d devices in %f seconds.\n", num_devs, now);
+    if (result)
+        goto done;
+
+    /* Check graph local devices */
+    g = mpr_obj_get_graph((mpr_obj)devices[0]);
+    l = mpr_graph_get_list(g, MPR_DEV);
+    l = mpr_list_filter(l, MPR_PROP_IS_LOCAL, NULL, 1, MPR_BOOL, &T, MPR_OP_EQ);
+    i = mpr_list_get_size(l);
+    eprintf("Checking local device count for graph %p... %d\n", g, i);
+    mpr_list_free(l);
+    if ((shared_graph && i != num_devs) || (!shared_graph && i != 1)) {
+        printf("ERROR! Should be %d\n", shared_graph ? num_devs : 1);
+        result = 1;
+        goto done;
+    }
 
     if (!terminate)
         loop();
