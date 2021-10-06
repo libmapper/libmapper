@@ -670,3 +670,30 @@ int mpr_list_get_size(mpr_list list)
     }
     return count;
 }
+
+void mpr_list_print(mpr_list list)
+{
+    mpr_list_header_t *lh;
+    RETURN_UNLESS(list);
+    lh = mpr_list_header_by_self(list);
+    RETURN_UNLESS(lh->start && *lh->start);
+    if (QUERY_DYNAMIC == lh->query_type) {
+        /* use a copy */
+        list = mpr_list_get_cpy(list);
+        while (list) {
+            mpr_obj_print(*list, 0);
+            list = mpr_list_get_next(list);
+        }
+    }
+    else {
+        /* cache list position */
+        void *idx = lh->self;
+        lh->self = *lh->start;
+        while (list) {
+            mpr_obj_print(*list, 0);
+            list = mpr_list_get_next(list);
+        }
+        /* restore list position */
+        lh->self = idx;
+    }
+}

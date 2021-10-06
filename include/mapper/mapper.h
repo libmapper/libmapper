@@ -574,6 +574,10 @@ void mpr_list_free(mpr_list list);
  *  \return             The number of objects in the list. */
 int mpr_list_get_size(mpr_list list);
 
+/*! Print an object list returned from a previous object query.
+ *  \param list         The previous object record pointer. */
+void mpr_list_print(mpr_list list);
+
 /** @} */ /* end of group Lists */
 
 /***** Graph *****/
