@@ -5,7 +5,7 @@ EXPORTS
     mpr_graph_free                              @3
     mpr_graph_get_address                       @4
     mpr_graph_get_interface                     @5
-    mpr_graph_get_objs                          @6
+    mpr_graph_get_list                          @6
     mpr_graph_new                               @7
     mpr_graph_poll                              @8
     mpr_graph_print                             @9
