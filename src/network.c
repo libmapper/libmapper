@@ -612,13 +612,14 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
     if (i < net->num_devs) {
         /* reset registered flag */
         dev->registered = 0;
-        dev->ordinal_allocator.val = 0;
+        dev->ordinal_allocator.val = i;
     }
     else {
         /* Initialize data structures */
         net->devs = realloc(net->devs, (net->num_devs + 1) * sizeof(mpr_dev));
         net->devs[net->num_devs] = dev;
         ++net->num_devs;
+        dev->ordinal_allocator.val = net->num_devs;
     }
 
     if (1 == net->num_devs) {
@@ -803,18 +804,18 @@ static int check_collisions(mpr_net net, mpr_allocated resource)
         }
         return 0;
     }
-    else if (timediff >= 2.0 && resource->collision_count < 1) {
+    else if (timediff >= 2.0 && resource->collision_count < 2) {
         resource->locked = 1;
         if (resource->on_lock)
             resource->on_lock(resource);
         return 2;
     }
-    else if (timediff >= 0.5 && resource->collision_count > 0) {
+    else if (timediff >= 0.5 && resource->collision_count > 1) {
         for (i = 0; i < 8; i++) {
             if (!resource->hints[i])
                 break;
         }
-        resource->val += i + 1;
+        resource->val += i + (rand() % net->num_devs);
 
         /* Prepare for causing new resource collisions. */
         resource->collision_count = 0;
@@ -1336,11 +1337,11 @@ static int _handler_name_probe(mpr_net net, mpr_local_dev dev, char *name, int t
         lo_send(net->addr.bus, net_msg_strings[MSG_NAME_REG], "sii", name,
                 temp_id, dev->ordinal_allocator.val + i + 1);
     }
-    else if (temp_id == net->random_id)
-        dev->ordinal_allocator.online = 1;
     else {
         dev->ordinal_allocator.collision_count += 1;
         dev->ordinal_allocator.count_time = current_time;
+        if (temp_id == net->random_id)
+            dev->ordinal_allocator.online = 1;
     }
     return 0;
 }
