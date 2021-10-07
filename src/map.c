@@ -15,12 +15,12 @@
 #define MPR_STATUS_LINK_KNOWN   0x10
 #define METADATA_OK             0x1C
 
-MPR_INLINE static int _max(int a, int b)
+MPR_INLINE static int mpr_max(int a, int b)
 {
     return a > b ? a : b;
 }
 
-MPR_INLINE static int _min(int a, int b)
+MPR_INLINE static int mpr_min(int a, int b)
 {
     return a < b ? a : b;
 }
@@ -199,6 +199,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     return m;
 }
 
+/* TODO: if map is local handle locally and don't send unmap to network bus */
 void mpr_map_release(mpr_map m)
 {
     mpr_net_use_bus(&m->obj.graph->net);
@@ -727,9 +728,9 @@ void mpr_map_alloc_values(mpr_local_map m)
     for (i = 0; i < m->num_src; i++) {
         hist_size = mpr_expr_get_in_hist_size(e, i);
         mpr_slot_alloc_values(m->src[i], m->src[i]->num_inst, hist_size);
-        num_inst = _max(m->src[i]->sig->num_inst, num_inst);
+        num_inst = mpr_max(m->src[i]->sig->num_inst, num_inst);
     }
-    num_inst = _max(m->dst->sig->num_inst, num_inst);
+    num_inst = mpr_max(m->dst->sig->num_inst, num_inst);
     hist_size = mpr_expr_get_out_hist_size(e);
 
     /* If the dst slot is remote, we need to allocate enough dst slot and variable instances for
@@ -906,7 +907,7 @@ static const char *_set_linear(mpr_local_map m, const char *e)
     char expr[MAX_LEN] = "";
     char *var = "x";
 
-    int min_len = _min(m->src[0]->sig->len, m->dst->sig->len);
+    int min_len = mpr_min(m->src[0]->sig->len, m->dst->sig->len);
 
     if (e) {
         /* how many instances of 'linear' appear in the expression string? */
