@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 
 # Replace with local paths before building
+set(BUILD_DIR "C:/Users/brady/Documents/GitHub/McGill/libmapper/build")
 set(LIBLO_DIR "C:/Users/brady/Documents/GitHub/McGill/liblo")
 set(LIBLO_BUILD_DIR "${LIBLO_DIR}/cmake/build/Debug")
 set(ZLIB_DIR "C:/Users/brady/Documents/GitHub/McGill/zlib-msvc14-x64.1.2.11.7795")
@@ -37,8 +38,8 @@ endif ()
 
 project(libmapper)
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_CURRENT_SOURCE_DIR}/Debug")
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_CURRENT_SOURCE_DIR}/Release")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${BUILD_DIR}/Debug")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${BUILD_DIR}/Release")
 
 if (WIN32)
   set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pdb/$<CONFIG>")
