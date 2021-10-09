@@ -3,7 +3,7 @@ Building libmapper
 
 This file documents the build process for libmapper for various
 operating systems, and will be updated as the libmapper core project
-progresses.
+progresses. Supports Linux, MacOS and Windows platforms.
 
 Linux and MacOS
 --------------
@@ -180,6 +180,47 @@ folder and running `test` with the correct class and library paths:
 
     cd jni
     java -cp libmapper.jar -Djava.library.path=.libs test
+
+Building on Windows
+-------------------
+
+### Dependencies
+
+libmapper depends on version 0.30 of liblo or later.
+Please clone the [LibLo repository][liblo] and consult its documentation to build for Windows.
+
+[liblo]: https://github.com/radarsat1/liblo
+
+Cmake is also required to generate visual studio solutions, and can be installed [here][cmake]. Add it to the environment path when prompted for terminal access later on.
+
+[cmake]: https://cmake.org/download/
+
+Zlib is required as well, which you can pick up [from nuget][zlib].
+
+[zlib]: https://www.nuget.org/packages/zlib-msvc14-x64/
+
+Finally, you'll need Visual Studio 2017 or 2019, which you can grab [here][visual_studio]. Be sure to install the C++ developer tools when installing if you don't already have them.
+
+[visual_studio]: https://visualstudio.microsoft.com/vs/
+
+### Configuring
+
+Once libmapper is downloaded, open a terminal in its root folder.
+
+Create a build directory and cd into it
+
+    mkdir ./build
+    cd build
+
+Modify the CMakeLists.txt file in the root folder, replacing the paths near the top with your local paths.
+
+Run the following to generate a solution, replacing your version's details:
+
+    cmake -G "Visual Studio 16 2019" ..
+
+### Building
+
+By now, you should have a Visual Studio solution in the ./build directory. Open the .sln and build the libmapper project.
 
 Cross-compiling for Windows under Linux
 ---------------------------------------
