@@ -222,44 +222,6 @@ Run the following to generate a solution, replacing your version's details:
 
 By now, you should have a Visual Studio solution in the ./build directory. Open the .sln and build the libmapper project.
 
-Cross-compiling for Windows under Linux
----------------------------------------
-
-Since libmapper was developed on Unix-like systems (Linux and Apple's
-MacOS), building libmapper uses GNU command-line tools.  However, it is
-possible to build it for the Microsoft Windows operating system using
-the MingW cross-compiler under Linux, or by using MingW from Windows.
-
-Please see the file `windows.md` for instructions on how to set up
-your MingW environment and extra dependencies before compiling
-libmapper.
-
-Briefly, the secret sauce for compiling liblo and libmapper for
-Windows under an Ubuntu Linux environment is to install the
-`gcc-mingw32` package, and then provide the following arguments to
-`configure`:
-
-    ./configure --host i586-mingw32msvc --prefix=$HOME/.win \
-        CFLAGS="-DWIN32 -D_WIN32_WINNT=0x501" \
-        LDFLAGS="-L$HOME/.win/lib" \
-        LIBS="-lws2_32 -liphlpapi -lpthread"
-
-For libmapper, also add the following flags:
-
-    --disable-examples --disable-audio --disable-jni --disable-docs
-
-You should have a Windows version of Python installed, and specify the
-path to it in CFLAGS, if you want to build the Python bindings,
-otherwise also provide `--disable-swig`.
-
-Note that the above makes a local folder for the install location for
-Windows targets called `$HOME/.win`, which helps avoid mixing Windows
-and Linux binaries.  LibLo requires that the ["win32" port of
-pthreads][pthreadwin32] is found in your prefix location, so you
-should compile and install that before proceeding.
-
-[pthreadwin32]: http://sourceware.org/pthreads-win32
-
 Problems areas and topics
 -------------------------
 
