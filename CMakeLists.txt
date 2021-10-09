@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.19)
 
-# Replace with local paths before building
-set(BUILD_DIR "C:/Users/brady/Documents/GitHub/McGill/libmapper/build")
-set(LIBLO_DIR "C:/Users/brady/Documents/GitHub/McGill/liblo")
+# Replace with local paths before building and modify build directories if different from below
+set(BUILD_DIR "<your_libmapper_root>/build")
+set(LIBLO_DIR "<your_liblo_root>")
 set(LIBLO_BUILD_DIR "${LIBLO_DIR}/cmake/build/Debug")
-set(ZLIB_DIR "C:/Users/brady/Documents/GitHub/McGill/zlib-msvc14-x64.1.2.11.7795")
+set(ZLIB_DIR "<your_zlib_root>")
 set(ZLIB_BUILD_DIR "${ZLIB_DIR}/build/native/lib_debug")
 set(LIBLO_INCLUDES "${LIBLO_DIR}/cmake/build;${LIBLO_DIR}")
-set(LIBMAPPER_INCLUDES "C:/Users/brady/Documents/GitHub/McGill/libmapper/include")
+set(LIBMAPPER_INCLUDES "<your_libmapper_root>/include")
 
 if (WIN32)
   # These must be prior to the "project" command
