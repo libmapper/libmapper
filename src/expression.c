@@ -2988,6 +2988,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     tok.fn.arity = 2;
                 else
                     tok.fn.arity = 1;
+                tok.fn.idx = (   TOK_FN == op[op_idx].toktype
+                              || TOK_VFN == op[op_idx].toktype) ? op[op_idx].fn.idx : FN_UNKNOWN;
                 PUSH_TO_OPERATOR(tok);
                 allow_toktype = OBJECT_TOKENS;
                 break;
@@ -3162,8 +3164,11 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             ++op[op_idx].fn.arity;
                     }
                 }
-                else
+                else {
+                    /* check if paren is attached to a function */
+                    {FAIL_IF(FN_UNKNOWN == op[op_idx].fn.idx, "Misplaced comma.");}
                     ++op[op_idx].fn.arity;
+                }
                 allow_toktype = OBJECT_TOKENS;
                 break;
             case TOK_COLON:

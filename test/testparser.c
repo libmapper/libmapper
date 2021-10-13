@@ -1334,6 +1334,16 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
+    /* 102) misplaced commas */
+    snprintf(str, 256, "y=(0.00417,0.00719*x$0+0.0025*x$1+0,0)*[990,750]/2");
+    types[0] = MPR_INT32;
+    types[1] = MPR_FLT;
+    lens[0] = 2;
+    lens[1] = 3;
+    setup_test_multisource(2, types, lens, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+        return 1;
+
     return 0;
 }
 
