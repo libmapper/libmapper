@@ -195,7 +195,7 @@ Cmake is also required to generate visual studio solutions, and can be installed
 
 [cmake]: https://cmake.org/download/
 
-Zlib is required as well, which you can pick up [from nuget][zlib].
+Zlib is required as well, which you can pick up [from nuget][zlib]. You can use the Visual Studio Tools->NuGet Package Manager Console to install it easily.
 
 [zlib]: https://www.nuget.org/packages/zlib-msvc14-x64/
 
@@ -213,6 +213,14 @@ Create a build directory and cd into it
     cd build
 
 Modify the CMakeLists.txt file in the root folder, replacing the paths near the top with your local paths.
+
+Open <your-zlib-root>/build/native/include/zconf.h and search for the line:
+
+    #ifndef Z_SOLO
+
+which should be around line 476. Add the following line above it and save to avoid a common build error:
+
+    #undef Z_HAVE_UNISTD_H
 
 Run the following to generate a solution, replacing your version's details:
 
