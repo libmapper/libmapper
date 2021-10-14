@@ -743,6 +743,7 @@ void mpr_map_alloc_values(mpr_local_map m)
     var_names = malloc(sizeof(char*) * num_vars);
     for (i = 0; i < num_vars; i++) {
         int vlen = mpr_expr_get_var_vec_len(e, i);
+        int var_num_inst = mpr_expr_get_var_is_instanced(e, i) ? num_inst : 1;
         var_names[i] = strdup(mpr_expr_get_var_name(e, i));
         /* check if var already exists */
         for (j = 0; j < m->num_vars; j++) {
@@ -758,9 +759,9 @@ void mpr_map_alloc_values(mpr_local_map m)
             memcpy(&vars[i], &m->vars[j], sizeof(mpr_value_t));
             m->vars[j].inst = 0;
         }
-        mpr_value_realloc(&vars[i], vlen, mpr_expr_get_var_type(e, i), 1, num_inst, 0);
+        mpr_value_realloc(&vars[i], vlen, mpr_expr_get_var_type(e, i), 1, var_num_inst, 0);
         /* set position to 0 since we are not currently allowing history on user variables */
-        for (j = 0; j < num_inst; j++)
+        for (j = 0; j < var_num_inst; j++)
             vars[i].inst[j].pos = 0;
     }
 

@@ -2417,6 +2417,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         /* special case: 'alive' tracks instance lifetime */
                         if (strcmp(vars[n_vars].name, "alive")==0) {
                             inst_ctl = n_vars;
+                            is_const = 0;
                             tok.gen.vec_len = 1;
                             tok.gen.flags |= VEC_LEN_LOCKED;
                             tok.gen.datatype = MPR_INT32;
@@ -2431,6 +2432,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             tok.gen.vec_len = 0;
                         ++n_vars;
                     }
+                    if (!assigning)
+                        is_const = 0;
                 }
                 tok.var.vec_idx = 0;
                 if (muted)
@@ -3195,6 +3198,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     /* update and lock vector length of assigned variable */
                     op[op_idx].gen.vec_len = vars[var_idx].vec_len;
                     op[op_idx].gen.flags |= VEC_LEN_LOCKED;
+                    if (is_const)
+                        vars[var_idx].flags &= ~VAR_INSTANCED;
                 }
                 /* pop assignment operators to output */
                 while (op_idx >= 0) {
@@ -3214,7 +3219,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     {FAIL("Malformed expression (7)");}
 
                 /* start another sub-expression */
-                assigning = 1;
+                assigning = is_const = 1;
                 allow_toktype = TOK_VAR | TOK_TT;
                 break;
             }
@@ -3358,8 +3363,6 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             ++out_assigned;
                         else
                             vars[var].flags |= VAR_ASSIGNED;
-                        if (is_const)
-                            vars[var].flags &= ~VAR_INSTANCED;
                     }
                     /* nothing extraordinary, continue as normal */
                     out[out_idx].toktype = is_const ? TOK_ASSIGN_CONST : TOK_ASSIGN;
@@ -3552,6 +3555,11 @@ const char *mpr_expr_get_var_name(mpr_expr expr, int idx)
 int mpr_expr_get_var_vec_len(mpr_expr expr, int idx)
 {
     return (idx >= 0 && idx < expr->n_vars) ? expr->vars[idx].vec_len : 0;
+}
+
+int mpr_expr_get_var_is_instanced(mpr_expr expr, int idx)
+{
+    return (idx >= 0 && idx < expr->n_vars) ? expr->vars[idx].flags & VAR_INSTANCED : 0;
 }
 
 int mpr_expr_get_var_type(mpr_expr expr, int idx)
