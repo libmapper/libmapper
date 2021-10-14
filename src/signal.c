@@ -198,7 +198,7 @@ void mpr_sig_free(mpr_sig sig)
 
     /* release active instances */
     for (i = 0; i < lsig->idmap_len; i++) {
-        if (lsig->idmaps[i].inst)
+        if (lsig->idmaps[i].map)
             mpr_dev_LID_decref(ldev, lsig->group, lsig->idmaps[i].map);
     }
 
