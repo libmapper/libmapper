@@ -4579,9 +4579,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 #endif
             }
             else if (tok->var.idx >= 0 && tok->var.idx < N_USER_VARS) {
+                uint8_t flags = expr->vars[tok->var.idx].flags;
                 mpr_value v;
                 mpr_value_buffer b;
-                if (expr->vars[tok->var.idx].flags & VAR_SET_EXTERN)
+                if (flags & VAR_SET_EXTERN)
                     goto assign_done;
                 if (!v_vars)
                     goto error;
@@ -4590,7 +4591,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     goto error;
                 /* passed the address of an array of mpr_value structs */
                 v = *v_vars + tok->var.idx;
-                b = &v->inst[inst_idx];
+                b = &v->inst[flags & VAR_INSTANCED ? inst_idx : 0];
 
                 switch (v->type) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                                          \
