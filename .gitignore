@@ -39,6 +39,7 @@ jni/mapper/NativeLib.java
 jni/*.h
 jni/*.log
 jni/libmapper.jar
+jni/TestInstances/code/
 libmapper.tar.gz
 libmapper.pc
 m4/libtool.m4
@@ -53,6 +54,7 @@ src/stamp-h1
 swig/build/
 swig/installed_files.log
 swig/mapper.py
+swig/libmapper.py
 swig/mapper_wrap.c
 swig/setup.py
 test/test

@@ -1,1 +1,1 @@
-SUBDIRS=osx
+SUBDIRS=macOS
