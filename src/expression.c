@@ -4075,7 +4075,8 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else {
                 print_stack_vec(stk + sp, datatype, dims[dp]);
                 printf(" %s%c ", op_tbl[tok->op.idx].name, datatype);
-                print_stack_vec(stk + sp + vlen, datatype, dims[dp + 1]);
+                if (2 == op_tbl[tok->op.idx].arity)
+                    print_stack_vec(stk + sp + vlen, datatype, dims[dp + 1]);
             }
 #endif
             /* first copy stk[sp] elements if necessary */
@@ -4100,9 +4101,18 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                                 if (stk[sp + vlen + j].i)
                                     stk[sp + i].i /= stk[sp + vlen + j].i;
                                 else {
+#if TRACE_EVAL
+                                    printf("... integer divide-by-zero detected, skipping assignment.\n");
+#endif
                                     /* skip to after this assignment */
                                     while (tok < end && !((++tok)->toktype & TOK_ASSIGN)) {}
-                                    while (tok < end && (++tok)->toktype & TOK_ASSIGN) {}
+                                    while (tok < end && (tok)->toktype & TOK_ASSIGN) {
+                                        if (tok->gen.flags & CLEAR_STACK) {
+                                            dp = -1;
+                                            sp = dp * vlen;
+                                        }
+                                        ++tok;
+                                    }
                                     if (tok >= end)
                                         return 0;
                                     else
