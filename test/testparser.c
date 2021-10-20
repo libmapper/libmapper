@@ -304,8 +304,9 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     /* reallocate variable value histories */
     for (i = 0; i < e->n_vars; i++) {
         int vlen = mpr_expr_get_var_vec_len(e, i);
+        mpr_type type = mpr_expr_get_var_type(e, i);
         mpr_value_reset_inst(&user_vars[i], 0);
-        mpr_value_realloc(&user_vars[i], vlen, MPR_DBL, 1, 1, 0);
+        mpr_value_realloc(&user_vars[i], vlen, type, 1, 1, 0);
     }
     user_vars_p = user_vars;
 
