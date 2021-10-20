@@ -240,7 +240,7 @@ y=y{x,100};
 
 Up to 8 additional variables can be declared as-needed in the expression. The variable
 names can be any string except for the reserved variable names `x` and `y`.  The values
-of these variables are stored per-instance with the map context and can be accessed in
+of these variables are stored per-instance (if assigned from an instanced signal) or per-signal with the map context and can be accessed in
 subsequent calls to the evaluator. In the following example, the user-defined variable
 `ema` is used to keep track of the `exponential moving average` of the input signal
 value `x`, *independent* of the output value `y` which is set to give the difference
@@ -366,7 +366,7 @@ alive = x > 10;
 y = x;
 </pre>
 
-Since in this case the destination signal is not instanced it will not be "released" when `alive` evaluates to False, however any assignments to the output `y` while `alive` is False will not take effect. The statement `alive = x > 10` is evaluated first, and the update `y = x` is only propagated to the destination if `x > 10` evaluates to True (non-zero) **at the time of assignment**. The entire expression is evaluated however, so counters can be incremented etc. even while `alive` is False. There is a more complex example in the section below on Accessing Variable Timetags.
+Since in this case the destination signal is not instanced it will not be "released" when `alive` evaluates to False, however any assignments to the output `y` while `alive` is False will not take effect. The statement `alive = x > 10` is evaluated first, and the update `y = x` is only propagated to the destination if `x > 10` evaluates to True (non-zero) **at the time of assignment**. The entire expression is evaluated however, so counters can be incremented etc. even while `alive` is False. There is a more complex example in the section below on [Variable Timetags](#timetags).
 
 #### Conditional serial instancing
 
