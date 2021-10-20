@@ -1041,42 +1041,20 @@ static const char *_set_linear(mpr_local_map m, const char *e)
     else {
         /* try linear combination of inputs */
         if (1 == m->num_src) {
-            if (m->src[0]->sig->len == m->dst->sig->len)
+            if (m->dst->sig->len >= m->src[0]->sig->len)
                 snprintf(expr, MAX_LEN, "y=x");
-            else if (m->src[0]->sig->len > m->dst->sig->len) {
+            else {
                 /* truncate source */
                 if (1 == m->dst->sig->len)
                     snprintf(expr, MAX_LEN, "y=x[0]");
                 else
                     snprintf(expr, MAX_LEN, "y=x[0:%i]", m->dst->sig->len-1);
             }
-            else if (1 == m->src[0]->sig->len) {
-                /* truncate dst */
-                snprintf(expr, MAX_LEN, "y[0]=x");
-            }
-            else
-                snprintf(expr, MAX_LEN, "y[0:%i]=x", m->src[0]->sig->len-1);
         }
         else {
             /* check vector lengths */
-            int i, j, max_vec_len = 0, min_vec_len = INT_MAX, dst_vec_len;
-            for (i = 0; i < m->num_src; i++) {
-                if (m->src[i]->sig->len > max_vec_len)
-                    max_vec_len = m->src[i]->sig->len;
-                if (m->src[i]->sig->len < min_vec_len)
-                    min_vec_len = m->src[i]->sig->len;
-            }
-            if (max_vec_len < m->dst->sig->len) {
-                if (1 == max_vec_len)
-                    len = snprintf(expr, MAX_LEN, "y[0]=(");
-                else
-                    len = snprintf(expr, MAX_LEN, "y[0:%d]=(", max_vec_len-1);
-                dst_vec_len = max_vec_len;
-            }
-            else {
-                len = snprintf(expr, MAX_LEN, "y=(");
-                dst_vec_len = m->dst->sig->len;
-            }
+            int i, j, dst_vec_len = m->dst->sig->len;
+            len = snprintf(expr, MAX_LEN, "y=(");
             for (i = 0; i < m->num_src; i++) {
                 if (m->src[i]->sig->len > dst_vec_len) {
                     if (1 == dst_vec_len)
@@ -1107,14 +1085,8 @@ static const char *_set_linear(mpr_local_map m, const char *e)
 
     len = strlen(expr);
 
-    if (m->dst->sig->len == m->src[0]->sig->len)
+    if (m->dst->sig->len >= m->src[0]->sig->len)
         snprintf(expr+len, MAX_LEN-len, "y=m*%s+b;", var);
-    else if (m->dst->sig->len > m->src[0]->sig->len) {
-        if (min_len == 1)
-            snprintf(expr+len, MAX_LEN-len, "y[0]=m*%s+b;", var);
-        else
-            snprintf(expr+len, MAX_LEN-len, "y[0:%i]=m*%s+b;", min_len-1, var);
-    }
     else if (min_len == 1)
         snprintf(expr+len, MAX_LEN-len, "y=m*%s[0]+b;", var);
     else
