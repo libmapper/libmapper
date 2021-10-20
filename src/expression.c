@@ -1426,7 +1426,7 @@ static mpr_type promote_token(mpr_token_t *stk, int sp, mpr_type type, int vec_l
         /* constants can be cast immediately */
         if (MPR_INT32 == tok->lit.datatype) {
             if (MPR_FLT == type) {
-                float *tmp = malloc(tok->lit.vec_len * sizeof(float));
+                float *tmp = malloc((int)tok->lit.vec_len * sizeof(float));
                 for (i = 0; i < tok->lit.vec_len; i++)
                     tmp[i] = (float)tok->lit.val.ip[i];
                 free(tok->lit.val.ip);
@@ -1434,7 +1434,7 @@ static mpr_type promote_token(mpr_token_t *stk, int sp, mpr_type type, int vec_l
                 tok->lit.datatype = type;
             }
             else if (MPR_DBL == type) {
-                double *tmp = malloc(tok->lit.vec_len * sizeof(double));
+                double *tmp = malloc((int)tok->lit.vec_len * sizeof(double));
                 for (i = 0; i < tok->lit.vec_len; i++)
                     tmp[i] = (double)tok->lit.val.ip[i];
                 free(tok->lit.val.ip);
@@ -1444,7 +1444,7 @@ static mpr_type promote_token(mpr_token_t *stk, int sp, mpr_type type, int vec_l
         }
         else if (MPR_FLT == tok->lit.datatype) {
             if (MPR_DBL == type) {
-                double *tmp = malloc(tok->lit.vec_len * sizeof(double));
+                double *tmp = malloc((int)tok->lit.vec_len * sizeof(double));
                 for (i = 0; i < tok->lit.vec_len; i++)
                     tmp[i] = (double)tok->lit.val.fp[i];
                 free(tok->lit.val.fp);
@@ -1609,7 +1609,6 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
     int i, arity, can_precompute = 1, optimize = NONE;
     mpr_type type = stk[sp].gen.datatype;
     uint8_t vec_len = stk[sp].gen.vec_len;
-    arity = tok_arity(stk[sp]);
     switch (stk[sp].toktype) {
         case TOK_OP:
             if (stk[sp].op.idx == OP_IF) {
@@ -4057,11 +4056,11 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             assert(dp >= 0);
             sp = dp * vlen;
 #if TRACE_EVAL
-            if (tok->op.idx == OP_IF_THEN_ELSE || tok->op.idx == OP_IF_ELSE) {
+            if (OP_IF_THEN_ELSE == tok->op.idx || OP_IF_ELSE == tok->op.idx) {
                 printf("IF ");
                 print_stack_vec(stk + sp, datatype, dims[dp]);
                 printf(" THEN ");
-                if (tok->op.idx == OP_IF_ELSE) {
+                if (OP_IF_ELSE == tok->op.idx) {
                     print_stack_vec(stk + sp, datatype, dims[dp]);
                     printf(" ELSE ");
                     print_stack_vec(stk + sp + vlen, datatype, dims[dp + 1]);

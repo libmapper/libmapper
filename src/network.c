@@ -7,6 +7,7 @@
 #include <stdarg.h>
 #include <zlib.h>
 #include <math.h>
+#include <ctype.h>
 
 #ifdef HAVE_GETIFADDRS
  #include <ifaddrs.h>
@@ -342,7 +343,7 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
     --net->num_devs;
     for (; i < net->num_devs; i++)
         net->devs[i] = net->devs[i + 1];
-    net->devs = realloc(net->devs, net->num_devs * sizeof(mpr_dev));
+    net->devs = realloc(net->devs, net->num_devs * sizeof(mpr_local_dev));
 
     for (i = 0; i < NUM_DEV_HANDLERS_SPECIFIC; i++) {
         snprintf(path, 256, net_msg_strings[dev_handlers_specific[i].str_idx],
@@ -616,7 +617,7 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
     }
     else {
         /* Initialize data structures */
-        net->devs = realloc(net->devs, (net->num_devs + 1) * sizeof(mpr_dev));
+        net->devs = realloc(net->devs, (net->num_devs + 1) * sizeof(mpr_local_dev));
         net->devs[net->num_devs] = dev;
         ++net->num_devs;
         dev->ordinal_allocator.val = net->num_devs;
@@ -1025,37 +1026,32 @@ static int handler_logout(const char *path, const char *types, lo_arg **av,
     mpr_local_dev dev;
     mpr_dev remote;
     mpr_link lnk;
-    int i, diff, ordinal;
-    char *s, *name;
+    int i = 0, diff, ordinal;
+    char *prefix_str, *ordinal_str;
 
     RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
 
-    name = &av[0]->s;
-    remote = mpr_graph_get_dev_by_name(gph, name);
-
-    trace_net("received /logout '%s'\n", name);
+    remote = mpr_graph_get_dev_by_name(gph, &av[0]->s);
+    trace_net("received /logout '%s'\n", &av[0]->s);
 
     /* Parse the ordinal from name in the format: <name>.<n> */
-    s = name;
-    while (*s != '.' && *s++) {}
-    ordinal = atoi(++s);
-
-    strtok(name, ".");
-    ++name;
+    prefix_str = strtok(&av[0]->s, ".");
+    ordinal_str = strtok(NULL, ".");
+    RETURN_ARG_UNLESS(ordinal_str && isdigit(ordinal_str[0]), 0);
+    ordinal = atoi(ordinal_str);
 
     for (i = 0; i < net->num_devs; i++) {
         dev = net->devs[i];
         if (!dev->ordinal_allocator.locked)
             continue;
         /* Check if we have any links to this device, if so remove them */
-        lnk = remote ? mpr_dev_get_link_by_remote(dev, remote) : 0;
-        if (lnk) {
+        if (remote && (lnk = mpr_dev_get_link_by_remote(dev, remote))) {
             /* TODO: release maps, call local handlers and inform subscribers */
-            trace_dev(dev, "removing link to expired device '%s'.\n", name);
+            trace_dev(dev, "removing link to expired device '%s'.\n", remote->name);
             mpr_rtr_remove_link(net->rtr, lnk);
             mpr_graph_remove_link(gph, lnk, MPR_OBJ_REM);
         }
-        if (0 == strcmp(name, dev->prefix)) {
+        if (0 == strcmp(prefix_str, dev->prefix)) {
             /* If device name matches and ordinal is within my block, free it */
             diff = ordinal - dev->ordinal_allocator.val - 1;
             if (diff >= 0 && diff < 8)

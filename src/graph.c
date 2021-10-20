@@ -595,8 +595,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
     if (id) {
-        map = (mpr_map)_obj_by_id(g, (mpr_obj)g->maps, id);
-        if (!map && _obj_by_id(g, (mpr_obj)g->maps, 0)) {
+        map = (mpr_map)_obj_by_id(g, g->maps, id);
+        if (!map && _obj_by_id(g, g->maps, 0)) {
             /* may have staged map stored locally */
             map = mpr_graph_get_map_by_names(g, num_src, src_names, dst_name);
         }

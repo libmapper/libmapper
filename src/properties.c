@@ -315,7 +315,7 @@ void mpr_msg_free(mpr_msg msg)
     free(msg);
 }
 
-mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, mpr_prop prop)
+mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, int prop)
 {
     int i;
     for (i = 0; i < msg->num_atoms; i++) {

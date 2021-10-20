@@ -148,7 +148,7 @@ mpr_prop mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len, mpr_type 
     return found ? rec->prop : MPR_PROP_UNKNOWN;
 }
 
-mpr_prop mpr_tbl_get_prop_by_idx(mpr_tbl t, mpr_prop prop, const char **key, int *len,
+mpr_prop mpr_tbl_get_prop_by_idx(mpr_tbl t, int prop, const char **key, int *len,
                                  mpr_type *type, const void **val, int *pub)
 {
     int found = 1;
@@ -365,7 +365,7 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
 
 /* Higher-level interface, where table stores arbitrary arguments along
  * with their type. */
-int mpr_tbl_set(mpr_tbl t, mpr_prop prop, const char *key, int len,
+int mpr_tbl_set(mpr_tbl t, int prop, const char *key, int len,
                 mpr_type type, const void *args, int flags)
 {
     if (!args && !(flags & REMOTE_MODIFY))
@@ -429,6 +429,8 @@ static int update_elements_osc(mpr_tbl_record rec, unsigned int len,
             type = MPR_BOOL;
             break;
         default:
+            free(val);
+            return 0;
             break;
     }
 

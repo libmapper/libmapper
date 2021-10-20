@@ -42,7 +42,7 @@ mpr_prop mpr_obj_get_prop_by_key(mpr_obj o, const char *s, int *l, mpr_type *t,
     return mpr_tbl_get_prop_by_key(o->props.synced, s, l, t, v, p);
 }
 
-mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, mpr_prop p, const char **k, int *l,
+mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, int p, const char **k, int *l,
                                  mpr_type *t, const void **v, int *pub)
 {
     RETURN_ARG_UNLESS(o, 0);

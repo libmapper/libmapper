@@ -198,8 +198,10 @@ void mpr_sig_free(mpr_sig sig)
 
     /* release active instances */
     for (i = 0; i < lsig->idmap_len; i++) {
-        if (lsig->idmaps[i].map)
+        if (lsig->idmaps[i].map) {
             mpr_dev_LID_decref(ldev, lsig->group, lsig->idmaps[i].map);
+            lsig->idmaps[i].map = NULL;
+        }
     }
 
     /* release associated OSC methods */
@@ -1011,7 +1013,7 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
         mpr_net_send(&sig->obj.graph->net);
     }
     else {
-        mpr_sig_full_name(sig, str, BUFFSIZE);
+        RETURN_UNLESS(mpr_sig_full_name(sig, str, BUFFSIZE));
         lo_message_add_string(msg, str);
 
         /* properties */
@@ -1024,7 +1026,7 @@ void mpr_sig_send_removed(mpr_local_sig lsig)
 {
     char sig_name[BUFFSIZE];
     NEW_LO_MSG(msg, return);
-    mpr_sig_full_name((mpr_sig)lsig, sig_name, BUFFSIZE);
+    RETURN_UNLESS(mpr_sig_full_name((mpr_sig)lsig, sig_name, BUFFSIZE));
     lo_message_add_string(msg, sig_name);
     mpr_net_add_msg(&lsig->obj.graph->net, 0, MSG_SIG_REM, msg);
 }

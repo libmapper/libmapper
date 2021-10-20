@@ -431,7 +431,7 @@ void mpr_msg_free(mpr_msg msg);
  *  \param msg      Structure containing parameter info.
  *  \param prop     Symbolic identifier of the property to look for.
  *  \return         Pointer to mpr_msg_atom, or zero if not found. */
-mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, mpr_prop prop);
+mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, int prop);
 
 void mpr_msg_add_typed_val(lo_message msg, int len, mpr_type type, const void *val);
 
@@ -522,8 +522,8 @@ mpr_tbl_record mpr_tbl_get(mpr_tbl tab, mpr_prop prop, const char *key);
 mpr_prop mpr_tbl_get_prop_by_key(mpr_tbl tab, const char *key, int *len,
                                  mpr_type *type, const void **val, int *pub);
 
-mpr_prop mpr_tbl_get_prop_by_idx(mpr_tbl tab, mpr_prop prop, const char **key,
-                                 int *len, mpr_type *type, const void **val, int *pub);
+mpr_prop mpr_tbl_get_prop_by_idx(mpr_tbl tab, int prop, const char **key, int *len,
+                                 mpr_type *type, const void **val, int *pub);
 
 /*! Remove a key-value pair from a table (by index or name). */
 int mpr_tbl_remove(mpr_tbl tab, mpr_prop prop, const char *key, int flags);
@@ -536,9 +536,9 @@ int mpr_tbl_remove(mpr_tbl tab, mpr_prop prop, const char *key, int flags);
  *  \param type         OSC type of value to add.
  *  \param args         Value(s) to add
  *  \param len          Number of OSC argument in array
- *  \param flags        MPR_LOCAL_MODIFY, MPR_REMOTE_MODIFY, MPR_NON_MODIFABLE.
+ *  \param flags        LOCAL_MODIFY, REMOTE_MODIFY, NON_MODIFABLE.
  *  \return             The number of table values added or modified. */
-int mpr_tbl_set(mpr_tbl tab, mpr_prop prop, const char *key, int len,
+int mpr_tbl_set(mpr_tbl tab, int prop, const char *key, int len,
                 mpr_type type, const void *args, int flags);
 
 /*! Sync an existing value with a table. Records added using this method must

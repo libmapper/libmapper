@@ -52,7 +52,7 @@ int mpr_obj_get_num_props(mpr_obj object, int staged);
  *  \param publish      1 to publish to the distributed graph, 0 for local-only.
  *  \return             Symbolic identifier of the retrieved property, or
  *                      MPR_PROP_UNKNOWN if not found. */
-mpr_prop mpr_obj_get_prop_by_idx(mpr_obj object, mpr_prop property, const char **key, int *length,
+mpr_prop mpr_obj_get_prop_by_idx(mpr_obj object, int property, const char **key, int *length,
                                  mpr_type *type, const void **value, int *publish);
 
 /*! Look up a property by name.

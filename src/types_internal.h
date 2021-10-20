@@ -576,7 +576,7 @@ typedef struct _mpr_msg_atom
     lo_arg **vals;
     const char *types;
     int len;
-    mpr_prop prop;
+    int prop;
 } mpr_msg_atom_t, *mpr_msg_atom;
 
 typedef struct _mpr_msg
