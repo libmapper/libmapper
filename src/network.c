@@ -337,7 +337,7 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
             break;
     }
     if (i == net->num_devs) {
-        trace_net("error in mpr_net_remove_device: device not found in local list\n");
+        trace_net("error in mpr_net_remove_dev: device not found in local list\n");
         return;
     }
     --net->num_devs;
@@ -610,7 +610,7 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
         if (net->devs[i] == dev)
             break;
     }
-    if (i < net->num_devs) {
+    if (i && i < net->num_devs) {
         /* reset registered flag */
         dev->registered = 0;
         dev->ordinal_allocator.val = i;

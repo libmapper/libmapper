@@ -856,9 +856,9 @@ mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GI
 
 static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem)
 {
+    mpr_id_map *map = &dev->idmaps.active[group];
     trace_dev(dev, "mpr_dev_remove_idmap(%s) %"PR_MPR_ID" -> %"PR_MPR_ID"\n",
               dev->name, rem->LID, rem->GID);
-    mpr_id_map *map = &dev->idmaps.active[group];
     while (*map) {
         if ((*map) == rem) {
             *map = (*map)->next;
