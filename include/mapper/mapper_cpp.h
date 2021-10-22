@@ -1049,6 +1049,20 @@ namespace mapper {
      *  network, usually sent from an external GUI. */
     class Device : public Object
     {
+    private:
+        void maybe_free() {
+            if (_owned && _obj && decr_refcount() <= 0) {
+                mpr_list sigs = mpr_dev_get_sigs(_obj, MPR_DIR_ANY);
+                while (sigs) {
+                    const void *data = mpr_obj_get_prop_as_ptr((mpr_sig)*sigs, MPR_PROP_DATA, NULL);
+                    if (data)
+                        free((void*)data);
+                    sigs = mpr_list_get_next(sigs);
+                }
+                mpr_dev_free(_obj);
+                free(_refcount_ptr);
+            }
+        }
     public:
         Device() : Object() {}
         /*! Allocate and initialize a Device.
@@ -1069,29 +1083,49 @@ namespace mapper {
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
-        Device(const Device& orig) : Object(orig)
+        /* Copy constructor */
+        Device(const Device& orig) : Object(orig._obj)
         {
             _owned = orig._owned;
             _refcount_ptr = orig._refcount_ptr;
             if (_owned)
                 incr_refcount();
         }
+        /* Move constructor */
+        Device(Device&& orig) noexcept : Object(orig._obj)
+        {
+            _owned = orig._owned;
+            _refcount_ptr = orig._refcount_ptr;
+            orig._obj = NULL;
+            orig._owned = 0;
+            /* do not modify refcount */
+        }
+        /* Copy assignment operator */
+        Device& operator=(const Device& orig) noexcept
+        {
+            maybe_free();
+            _obj = orig._obj;
+            _owned = orig._owned;
+            _refcount_ptr = orig._refcount_ptr;
+            if (_owned)
+                incr_refcount();
+            return *this;
+        }
+        /* Move assignment operator */
+        Device& operator=(Device&& orig) noexcept
+        {
+            maybe_free();
+            _obj = orig._obj;
+            _owned = orig._owned;
+            _refcount_ptr = orig._refcount_ptr;
+            orig._obj = 0;
+            orig._owned = 0;
+            return *this;
+        }
         Device(mpr_dev dev) : Object(dev)
             { _owned = false; }
         ~Device()
-        {
-            if (_owned && _obj && decr_refcount() <= 0) {
-                mpr_list sigs = mpr_dev_get_sigs(_obj, MPR_DIR_ANY);
-                while (sigs) {
-                    const void *data = mpr_obj_get_prop_as_ptr((mpr_sig)*sigs, MPR_PROP_DATA, NULL);
-                    if (data)
-                        free((void*)data);
-                    sigs = mpr_list_get_next(sigs);
-                }
-                mpr_dev_free(_obj);
-                free(_refcount_ptr);
-            }
-        }
+            { maybe_free(); }
         operator mpr_dev() const
             { return _obj; }
 
@@ -1272,6 +1306,12 @@ namespace mapper {
             data->handler.map = h;
             return MPR_MAP;
         }
+        void maybe_free() {
+            if (_owned && _obj && decr_refcount() <= 0) {
+                mpr_graph_free(_obj);
+                free(_refcount_ptr);
+            }
+        }
     public:
         /*! Create a peer in the libmapper distributed graph.
          *  \param types    Sets whether the graph should automatically subscribe to information
@@ -1284,13 +1324,43 @@ namespace mapper {
             _refcount_ptr = (int*)malloc(sizeof(int));
             *_refcount_ptr = 1;
         }
-        Graph(const Graph& orig)
+        Graph(const Graph& orig) : Object(orig._obj)
         {
+            _owned = orig._owned;
+            _refcount_ptr = orig._refcount_ptr;
+            if (_owned)
+                incr_refcount();
+        }
+        /* Move constructor */
+        Graph(Graph&& orig) noexcept : Object(orig._obj)
+        {
+            _owned = orig._owned;
+            _refcount_ptr = orig._refcount_ptr;
+            orig._obj = NULL;
+            orig._owned = 0;
+            /* do not modify refcount */
+        }
+        /* Copy assignment operator */
+        Graph& operator=(const Graph& orig) noexcept
+        {
+            maybe_free();
             _obj = orig._obj;
             _owned = orig._owned;
             _refcount_ptr = orig._refcount_ptr;
             if (_owned)
                 incr_refcount();
+            return *this;
+        }
+        /* Move assignment operator */
+        Graph& operator=(Graph&& orig) noexcept
+        {
+            maybe_free();
+            _obj = orig._obj;
+            _owned = orig._owned;
+            _refcount_ptr = orig._refcount_ptr;
+            orig._obj = 0;
+            orig._owned = 0;
+            return *this;
         }
         Graph(mpr_graph graph)
         {
@@ -1299,12 +1369,7 @@ namespace mapper {
             _refcount_ptr = 0;
         }
         ~Graph()
-        {
-            if (_owned && _obj && decr_refcount() <= 0) {
-                mpr_graph_free(_obj);
-                free(_refcount_ptr);
-            }
-        }
+            { maybe_free(); }
         operator mpr_graph() const
             { return _obj; }
 
