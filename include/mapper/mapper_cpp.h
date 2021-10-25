@@ -231,9 +231,19 @@ namespace mapper {
 
         List(mpr_list list)
             { _list = list; }
-        /* override copy constructor */
+        /* Copy constructor */
         List(const List& orig)
             { _list = mpr_list_get_cpy(orig._list); }
+        /* Move constructor */
+        List(List&& orig) noexcept
+            { _list = orig._list; orig._list = NULL; }
+        /* Copy assignment operator */
+        List& operator=(const List& orig) noexcept
+            { _list = mpr_list_get_cpy(orig._list); return *this; }
+        /* Move assignment operator */
+        List& operator=(List&& orig) noexcept
+            { _list = orig._list; orig._list = NULL; return *this; }
+
         ~List()
             { mpr_list_free(_list); }
 

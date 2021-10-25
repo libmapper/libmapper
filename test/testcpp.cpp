@@ -228,7 +228,7 @@ int main(int argc, char ** argv)
     Device dev("testcpp");
     if (iface)
         dev.graph().set_iface(iface);
-    std::cout << "Created device with interface " << dev.graph().iface() << std::endl;
+    std::cout << "Created Device with interface " << dev.graph().iface() << std::endl;
 
     // make a copy of the device to check reference counting
     Device devcopy(dev);
@@ -334,6 +334,9 @@ int main(int argc, char ** argv)
     }
 
     Graph graph;
+    if (iface)
+        graph.set_iface(iface);
+    std::cout << "Created Graph with interface " << graph.iface() << std::endl;
     Map map(dev.signals(Direction::OUTGOING)[0], dev.signals(Direction::INCOMING)[1]);
     map[Property::EXPRESSION] = "y=x[0:1]+123";
 
