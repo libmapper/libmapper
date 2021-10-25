@@ -205,6 +205,15 @@ void mpr_graph_free(mpr_graph g)
             mpr_graph_remove_map(g, map, MPR_OBJ_REM);
     }
 
+    /* Remove all non-local links */
+    list = mpr_list_from_data(g->links);
+    while (list) {
+        mpr_link link = (mpr_link)*list;
+        list = mpr_list_get_next(list);
+        if (!link->devs[0]->is_local && !link->devs[1]->is_local)
+            mpr_graph_remove_link(g, link, MPR_OBJ_REM);
+    }
+
     /* Remove all non-local devices and signals from the graph except for
      * those referenced by local maps. */
     list = mpr_list_from_data(g->devs);
@@ -402,6 +411,7 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
 
     FUNC_IF(mpr_tbl_free, d->obj.props.synced);
     FUNC_IF(mpr_tbl_free, d->obj.props.staged);
+    FUNC_IF(free, d->linked);
     FUNC_IF(free, d->name);
     mpr_list_free_item(d);
 }

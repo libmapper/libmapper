@@ -255,8 +255,7 @@ void mpr_tbl_clear_empty(mpr_tbl t)
 
 /* For unknown reasons, strcpy crashes here with -O2, so we'll use memcpy
  * instead, which does not crash. */
-static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type,
-                           const void *val)
+static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, const void *val)
 {
     int i, updated = 0;
     void *old_val, *new_val;
@@ -275,7 +274,7 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type,
         updated = 1;
     }
     switch (type) {
-            case MPR_STR:
+        case MPR_STR:
             if (1 == len) {
                 if (old_val) {
                     if (strcmp((char*)old_val, (char*)val)) {
