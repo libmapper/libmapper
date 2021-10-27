@@ -1616,8 +1616,8 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
             continue;
         }
         mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
-        i = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : i, MSG_MAP_TO);
         mpr_sig_send_state(sig, MSG_SIG);
+        i = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : i, MSG_MAP_TO);
     }
     ++net->graph->staged_maps;
     return 0;
