@@ -901,7 +901,6 @@ static named_prop get_obj_prop_by_idx(mpr_obj obj, int idx) {
 %constant int PROP_RATE                 = MPR_PROP_RATE;
 %constant int PROP_SCOPE                = MPR_PROP_SCOPE;
 %constant int PROP_SIG                  = MPR_PROP_SIG;
-%constant int PROP_SLOT                 = MPR_PROP_SLOT;
 %constant int PROP_STATUS               = MPR_PROP_STATUS;
 %constant int PROP_STEAL_MODE           = MPR_PROP_STEAL_MODE;
 %constant int PROP_SYNCED               = MPR_PROP_SYNCED;
@@ -910,7 +909,6 @@ static named_prop get_obj_prop_by_idx(mpr_obj obj, int idx) {
 %constant int PROP_USE_INST             = MPR_PROP_USE_INST;
 %constant int PROP_DATA                 = MPR_PROP_DATA;
 %constant int PROP_VERSION              = MPR_PROP_VERSION;
-%constant int PROP_EXTRA                = MPR_PROP_EXTRA;
 
 /*! Possible operations for composing graph queries. */
 %constant int OP_NEX                    = MPR_OP_NEX;
