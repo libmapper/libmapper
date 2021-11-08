@@ -6,6 +6,10 @@
 #include <mapper/mapper.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
+
 /* Structs that refer to things defined in mapper.h are declared here instead
    of in types_internal.h */
 
@@ -63,11 +67,11 @@ if (!(a)) { trace_net(__VA_ARGS__); return ret; }
 #define die_unless(...) {}
 #endif /* DEBUG */
 #else /* !__GNUC__ */
-static void trace(...) {};
-static void trace_graph(...) {};
-static void trace_dev(...) {};
-static void trace_net(...) {};
-static void die_unless(...) {};
+#define trace(...) {};
+#define trace_graph(...) {};
+#define trace_dev(...) {};
+#define trace_net(...) {};
+#define die_unless(...) {};
 #endif /* __GNUC__ */
 
 /**** Subscriptions ****/

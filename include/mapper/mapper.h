@@ -8,6 +8,10 @@ extern "C" {
 #include <mapper/mapper_constants.h>
 #include <mapper/mapper_types.h>
 
+#ifdef WIN32
+#define strdup _strdup
+#endif
+
 /*! \mainpage libmapper
 
 This is the API documentation for libmapper, a distributed signal mapping framework.

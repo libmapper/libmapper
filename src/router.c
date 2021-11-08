@@ -8,6 +8,10 @@
 #include "types_internal.h"
 #include <mapper/mapper.h>
 
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
+
 static int _is_map_in_scope(mpr_local_map map, mpr_id id)
 {
     int i;
