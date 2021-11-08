@@ -160,9 +160,11 @@ int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
         updated = mpr_tbl_remove(o->props.synced, p, s, LOCAL_MODIFY);
     else if (MPR_PROP_EXTRA == p)
         updated = mpr_tbl_set(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, REMOTE_MODIFY);
+    else
+        trace("Cannot remove static property [%d] '%s'\n", p, s ? s : mpr_prop_as_str(p, 1));
     if (updated)
         mpr_obj_increment_version(o);
-    return 0;
+    return updated ? 1 : 0;
 }
 
 void mpr_obj_push(mpr_obj o)

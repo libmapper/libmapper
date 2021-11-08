@@ -372,8 +372,7 @@ int mpr_tbl_set(mpr_tbl t, int prop, const char *key, int len,
     return set_internal(t, prop, key, len, type, args, flags);
 }
 
-void mpr_tbl_link(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val,
-                  int flags)
+void mpr_tbl_link(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val, int flags)
 {
     mpr_tbl_add(t, prop, NULL, len, type, val, flags);
 }
@@ -639,9 +638,11 @@ void mpr_tbl_print_record(mpr_tbl_record rec)
 
 void mpr_tbl_print(mpr_tbl t)
 {
+    printf("<table %p with %d records>\n", t, t->count);
     mpr_tbl_record rec = t->rec;
     int i;
     for (i = 0; i < t->count; i++) {
+        printf("  ");
         mpr_tbl_print_record(rec);
         printf("\n");
         ++rec;
