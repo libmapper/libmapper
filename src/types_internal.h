@@ -436,7 +436,8 @@ typedef struct _mpr_local_slot {
     int status;                                                                 \
     int protocol;                   /*!< Data transport protocol. */            \
     int use_inst;                   /*!< 1 if using instances, 0 otherwise. */  \
-    int is_local;
+    int is_local;                                                               \
+    int bundle;
 
 /*! A record that describes the properties of a mapping.
  *  @ingroup map */

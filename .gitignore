@@ -58,6 +58,7 @@ swig/libmapper.py
 swig/mapper_wrap.c
 swig/setup.py
 test/test
+test/testbundle
 test/testcalibrate
 test/testconvergent
 test/testcpp

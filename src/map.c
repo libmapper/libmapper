@@ -75,6 +75,7 @@ void mpr_map_init(mpr_map m)
     m->obj.props.staged = mpr_tbl_new();
 
     /* these properties need to be added in alphabetical order */
+    mpr_tbl_link(t, PROP(BUNDLE), 1, MPR_INT32, &m->bundle, MODIFIABLE);
     mpr_tbl_link(t, PROP(DATA), 1, MPR_PTR, &m->obj.data,
                  MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(t, PROP(EXPR), 1, MPR_STR, &m->expr_str, MODIFIABLE | INDIRECT);
@@ -166,6 +167,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     m->obj.graph = g;
     m->num_src = num_src;
     m->is_local = 0;
+    m->bundle = 1;
     m->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
     for (i = 0; i < num_src; i++) {
         if (src[order[i]]->dev->obj.graph == g)
