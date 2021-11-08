@@ -1,5 +1,188 @@
-
 # libmapper NEWS
+
+Version 2.1
+-----------
+
+Released 8 Nov 2021
+
+We are pleased to annouce the release of version 2.1 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release builds on the large scale changes introduced in version 2.0 while fixing bugs and improving memory use, testing, and documentation. Version 2.1 is also now compliant with the C90 standard (ISO/IEC 9899:1990). This change along with other modificationss now enables CMake Visual Studio solution generation for quick compiling on Windows. Refer to the updated Windows build instructions for more information.
+
+## Memory Improvements
+
+Stack memory used by libmapper was reduced through profiling and many small modifications, including a switch to preallocated memory for the expression evaluation stack and optimizing the expression stack size. Tests on ESP32-based embedded platforms found an increase from a maximum of 6 signals under version 2.0 to around 150 signals before encountering memory issues.
+
+## Shared Graphs
+
+Multiple devices can now share a graph and network data structure. Currently each device needs to be polled individually in order to process incoming signal updates on device-specific servers, which inefficiently polls the shared graph and network resources multiple times. This optimization is left to a future release.
+
+## Multithreading
+
+To better support multithreaded devices with interrupt-driven signal updates, we now use a circular buffer for outgoing OSC bundles. This ensures that devices are not trying to add update messages to the bundle during a call to `mpr_dev_poll()`.
+
+## Expression Engine Improvements
+
+This release includes many improvements to the expression parser and evaluator, including more efficient expression representations, new functions, differentiatiation between instanced and global variables, delay interpolation, variable delays, dot syntax support, extension of reduce functions to operate across instances, historical samples, and input signals, and user-defined reduce functions.
+
+### Delay Interpolation & Variable Delays
+
+We now support delay interpolation (using a float for the delay length) and variable length delays. For variable delays a second argument must be included to indicate the maximum delay and allow buffer allocation. The current syntax is summarized in the table below:
+
+Description           | Expression
+----------------------|-------------
+simple unit delay     | `y = x + y{-5};`
+interpolated delay    | `y = x + y{-5.3};`
+variable length delay | `y = x + y{x/10, 50};`
+
+### Dot Syntax
+
+Optional dot syntax was enabled for functions that operate across elements of vectors
+
+`()`notation | `.`notation | description
+-------------|-------------|------------
+any(x)       | x.any()     | output 1 if any of the elements of vector x are non-zero, otherwise output 0
+all(x)       | x.all()     | output 1 if all of the elements of vector x are non-zero, otherwise output 0
+sum(x)       | x.sum()     | output the sum of the elements in vector x
+mean(x)      | x.mean()    | output the average (mean) of the elements in vector x
+max(x)       | x.max       | output the maximum element in vector x
+min(x)       | x.min()     | output the minimum element in vector x
+center(x)    | x.center()  | output the midpoint between x.min() and x.max()
+norm(x)      | x.norm()    | output the length of the vector x
+angle(a, b)  |             | output the angle between vectors a and b
+dot(a, b)    |             | output the dot product of vectors a and b
+
+### Convergent map syntax
+
+The syntax for indicating input signal indexes for convergent maps has been modified from `xN` to `x$N` for consistency with other indices.
+
+### Reduce Functions
+
+The vector 'reduce' functionality mentioned above has been extended to allow reduction across any of four different dimensions:
+
+* vector elements
+* historical samples
+* signal instances
+* input signals (convergent mapping)
+
+This reduction can be accomplished either by using the convenience functions listed above (e.g. `mean()`) or by writing a custom `reduce()` function. These reduce expressions can be nested for reduction across multiple dimensions. Please refer to the expression syntax documentation for more information and examples.
+
+## Instance Management
+
+Since version 0.3, signal *instances* can be used to represent, map, and process signals that correspond to phenomena that are [naturally multiplex and/or ephemeral](https://ieeexplore.ieee.org/document/8259406). This release separates `multiplicity` and `ephemerality` into independent signal properties in order to control proper behaviour under some edge scenarios such as "ephemeral singleton" and "static multiplex" signals. Default behaviour should not change but the properties can now be modified separately using `mpr_obj_set_prop()`
+
+## C# Bindings
+
+This release introduces functional C# bindings. While they are not yet feature-complete, they are sufficient for many scenarios.
+
+## Testing Suite
+
+Expression parser/evaluator testing has been increased to test 102 expressions in order to cover new features and bugfixes mentioned above including fractional delays, reduce functions, vector optimisation, integer divide-by-zero within reduction loops, and extraneous commas.
+
+Version 2.0
+-----------
+
+Released 5 November 2020
+
+We are pleased to annouce the release of version 2.0 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release includes large scale simplification and reorganisation of the libmapper C API, making it smaller, more consistent, and easier to use. In brief, this release:
+
+* reduces public high-level object types from 8 to 6 (-25%)
+* reduces public functions from 261 to 78 (-70%)
+* reduces lines of code (LoC) from ~19.5K to ~14K (-28%)
+* reduces handler typedefs from 8 to 2 (-75%)
+
+The release also includes improvements to cleanup of partially-constructed maps and fixes for various small memory leaks.
+
+### Data structures:
+
+Two first-class data structures (`Links` and `Map Slots`) were removed, and the Database and Network data structures were combined to form a new `Graph` data structure. All of the first-class data structures may be safely cast to the new generic type `mpr_obj` for the purpose of property management (described below).
+
+<table style="width:100%;">
+<tr><th>v1.2</th><th>v2.0</th></tr>
+<tr><td>Network</td><td rowspan=2>Graph</td></tr>
+<tr><td>Database</td></tr>
+<tr><td>Device</td><td>Device</td></tr>
+<tr><td>Signal</td><td>Signal</td></tr>
+<tr><td>Link</td><td style="background:red">removed</td></tr>
+<tr><td>Map</td><td>Map</td></tr>
+<tr><td>Slot</td><td style="background:red">removed</td></tr>
+</table>
+
+### Unified Handlers:
+
+This release eliminates three handler typedefs and merges the remaining 5 previous typedefs into onyl 2 handler types as shown in the table below:
+
+<table style="width:100%;">
+<tr><th>v1.2</th><th>v2.0</th></tr>
+<tr><td> mapper_signal_update_handler</td><td rowspan=2>mpr_sig_handler</td></tr>
+<tr><td> mapper_instance_event_handler</td></tr>
+<tr><td>mapper_database_device_handler</td><td rowspan=3>mpr_graph_handler</td></tr>
+<tr><td>mapper_database_signal_handler</td></tr>
+<tr><td>mapper_database_map_handler</td></tr>
+<tr><td>mapper_database_link_handler</td><td style="background:red">removed</td></tr>
+<tr><td>mapper_device_link_handler</td><td style="background:red">removed</td></tr>
+<tr><td>mapper_device_map_handler</td><td style="background:red">removed</td></tr>
+</table>
+
+### Property setters and getters:
+
+Many object/property-specific setters and getters were removed and replaced with generic setters and getters applied to the `mpr_obj` data structure which is inherited by `mpr_dev`, `mpr_sig`, `mpr_map` and `mpr_graph`. Properties can be retrieved by name, numeric identifier, or index, and new convenience functions were added for retrieving specific data types, e.g. `mpr_obj_get_prop_as_int32()`.
+
+### Protocol changes:
+
+The under-used multi-count signal update feature has been removed from the signal update function in order to simplify signal updaters and handlers. This functionality will be handled in the future by making update bundling a modifiable map property and buffering signal updates as necessary.
+
+User-defined expression variables are now included as map properties using the syntax `@var@<variable_name>`. The values of these variables can be modified without recompiling the map expression by editing the property.
+
+## Calibration and Linear Scaling
+
+The map `mode` property was completely removed in this update; basically all maps are now permanently in `expression` mode. In order to support simple linear scaling and calibration we have added a `linear` macro to the expression parser. This macro accepts 5 arguments, the first being the name of the input variable (e.g. `x`) and the others providing the min and max values for the input and output, respectively, e.g.
+
+~~~ c
+linear(<src>, <srcMin>, <srcMax>, <dstMin>, <dstMax>)
+~~~
+
+Replacing either or both of the source extrema arguments with the `?` character will cause this value to be calibrated live from the input values; replacing any of the extrema values (source or destination) with the character `-` will attempt to use the previously stored extrema values for the associated signal.
+
+~~~ c
+// apply a linear expression to a map
+snprintf(expr, len, "y=linear(x,%f,%f,%f,%f)", sMn, sMx, dMn, dMx);
+mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
+
+// enable calibration
+snprintf(expr, len, "y=linear(x,?,?,%f,%f)", dMn, dMx);
+...
+
+// keep linear scaling but disable calibration
+snprintf(expr, len, "y=linear(x,-,-,-,-)");
+...
+~~~
+
+## New Feature: Efficient Local Mapping
+
+This release introduces more efficient processing of "local" maps which connect a source signal to a destination signal belonging to the same device. These maps previously used the local loopback network interface. With the new improvements, internal device handlers are called directly without involving the network. These device handler deal with some fairly complex instance logic, so we don’t call user-defined signal handlers directly. The old networked approach served to mitigate some potential issues such as infinite map loops and even fork bombs since it throttled the number of messages processed per timestep. Since direct function calls don't provide this mitigation, map loops are now detected using signal locks.
+
+## Signal Instancing Improvements
+
+This release includes improvements to signal instance stealing logic and adds new support for convergent maps with heterogeneous instancing. The property `use_inst` was added to the `map` data structure. In-map instance management functionality was also added, enabling managing instances from a singleton source signal using conditionals (e.g. jabs, trajectories, segmentations), and overriding default instance lifetimes. The special expression variables `alive` and `muted` were added to enable this control.
+
+### Testing Suite
+
+`testquery.c` was removed since the signal update bunding functionality was removed in favour of a future configurable map property. `testselect.c` was removed due to API changes, internal use of `select()` for waiting on device servers, and planned future shared-graph functionality. `testdatabase.c` was renamed to `testgraph.c` for consistency with the data structure renaming described earlier.
+
+Two new tests were added to the suite:
+
+* `testcalibrate.c` tests the new linear calibration expression syntax in this release.
+* `testlocalmap.c` tests the efficient local mapping feature described above, including a test of update loop detection and avoidance.
+
+Other tests were updated and improved:
+
+* `testinstance.c` now tests 32 different configurations of signal instancing, map topology, processing location, and overflow handling.
+* `testparser.c` now includes 61 tests (up from 51), randomizes inputs & tests results of expression evaluation
+
+Value checking was added to: `testexpression.c`, `testlinear.c`, `testparser.c`, `testrate.c`, and `testvector.c`.
 
 Version 1.2
 -----------
@@ -424,46 +607,29 @@ New features:
 
 - State queries from inputs to outputs.  Allows for "learning" devices
   to know the state of their destinations.
-
 - Element-wise vector mapping.
-
 - Removal of misleading "mapper_signal_value_t" union.  Replaced
   everywhere with void*.
-
 - Allow setting the multicasting interface.
-
 - Launcher to allow multiple copies of Python Slider example on OS X.
-
 - SWIG/Python "monitor" and "db" bindings.
-
 - JNI/Java bindings for "device" and "signal".
-
 - Representation of "null" signal values.  (Signals are "off", or
   value is "unknown".)
-
 - Windows support.
-
 - Functions "midiToHz" and "hzToMidi".
-
 - API stubs for timetag support.  Not yet implemented.
 
 Bug fixes:
 
 - Crash on uninitialized expressions.
-
 - Set device name property of existing signals after initialization.
-
 - Add input signal handlers added after initialization.
-
 - Small memory leak in mdev_add_input.
-
 - Remove liblo server method when signal is removed.
-
 - Set the multicasting interface to loopback as last resort, making it
   work on Linux if not connected to network.
-
 - Fix erroneous calculation of blocking time in mapper_monitor_poll.
-
 - Crash when non-existant signal receives /disconnect.
 
 Initial release 0.1 
