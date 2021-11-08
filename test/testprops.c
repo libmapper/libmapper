@@ -984,6 +984,15 @@ int main(int argc, char **argv)
     else
         eprintf("OK\n");
 
+    eprintf("Test 38: trying to remove static property 'length'... ");
+    if (mpr_obj_remove_prop((mpr_obj)sig, MPR_PROP_LEN, NULL)) {
+        eprintf("removed... ERROR\n");
+        result = 1;
+        goto cleanup;
+    }
+    else
+        eprintf("OK\n");
+
   cleanup:
     if (dev) mpr_dev_free(dev);
     if (!verbose)
