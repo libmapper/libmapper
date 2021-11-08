@@ -412,7 +412,7 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     /* Initialize interface information. */
     if (!net->iface.name || (iface && strcmp(iface, net->iface.name)))
         get_iface_addr(iface, &net->iface.addr, &net->iface.name);
-    trace_net("found interface: %s\n", net->iface.name ?: "none");
+    trace_net("found interface: %s\n", net->iface.name ? net->iface.name : "none");
 
     /* Remove existing structures if necessary */
     FUNC_IF(lo_address_free, net->addr.bus);

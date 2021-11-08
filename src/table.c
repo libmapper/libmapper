@@ -214,7 +214,7 @@ int mpr_tbl_remove(mpr_tbl t, mpr_prop prop, const char *key, int flags)
             }
             else {
                 trace("Cannot remove static property [%d] '%s'\n", prop,
-                      key ?: mpr_prop_as_str(prop, 1));
+                      key ? key : mpr_prop_as_str(prop, 1));
             }
             return 0;
         }
@@ -481,7 +481,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
         list = mpr_list_get_cpy((mpr_list)val);
         if (!list) {
             trace("skipping empty list property '%s'\n",
-                  rec->key ?: mpr_prop_as_str(masked, 1));
+                  rec->key ? rec->key : mpr_prop_as_str(masked, 1));
             return;
         }
         list = mpr_list_start(list);
