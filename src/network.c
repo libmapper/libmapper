@@ -36,7 +36,7 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 #define BUNDLE_DST_SUBSCRIBERS (void*)-1
 #define BUNDLE_DST_BUS          0
 
-#define MAX_BUNDLE_LEN 65535
+#define MAX_BUNDLE_LEN 8192
 #define FIND 0
 #define UPDATE 1
 #define ADD 2
