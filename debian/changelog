@@ -1,0 +1,5 @@
+libmapper (2.1.1+g953628d5-1) focal; urgency=low
+
+  * Initial release for ubuntu focal 20.04. 
+
+ -- Christian Frisson <christian.frisson@gmail.com>  Fri, 26 Nov 2021 17:52:34 -0500
