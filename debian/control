@@ -7,8 +7,11 @@ Build-Depends: debhelper (>=11~),
                dh-python,
                javahelper,
                liblo-dev,
+               libpython3-dev,
+               pkg-config,
                python3-all,
-               swig
+               swig,
+               zlib1g-dev
 Standards-Version: 4.1.4
 Homepage: https://gitlab.com/sat-metalab/forks/libmapper
 X-Python3-Version: >= 3.2
