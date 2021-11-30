@@ -45,7 +45,7 @@ Package: libmapper-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: libmapper (= ${binary:Version}), ${misc:Depends}
+Depends: liblo-dev, libmapper (= ${binary:Version}), ${misc:Depends}
 Description: auto-generated package by debmake: dev
  This package contains the development files.
  .
