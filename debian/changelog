@@ -1,3 +1,9 @@
+libmapper (2.1.1+g953628d5-4) focal; urgency=medium
+
+  * Add liblo-dev to libmapper-dev dependencies
+
+ -- Christian Frisson <christian.frisson@gmail.com>  Tue, 30 Nov 2021 12:51:35 -0500
+
 libmapper (2.1.1+g953628d5-3) focal; urgency=medium
 
   * Fix debian package installation destination
