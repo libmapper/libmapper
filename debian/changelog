@@ -1,3 +1,9 @@
+libmapper (2.1.1+g953628d5-3) focal; urgency=medium
+
+  * Fix debian package installation destination
+
+ -- Christian Frisson <christian.frisson@gmail.com>  Mon, 29 Nov 2021 22:47:11 -0500
+
 libmapper (2.1.1+g953628d5-2) focal; urgency=medium
 
   * Fix debian package dependencies and installed files
