@@ -112,7 +112,7 @@ Two first-class data structures (`Links` and `Map Slots`) were removed, and the 
 
 ### Unified Handlers:
 
-This release eliminates three handler typedefs and merges the remaining 5 previous typedefs into onyl 2 handler types as shown in the table below:
+This release eliminates three handler typedefs and merges the remaining 5 previous typedefs into only 2 handler types as shown in the table below:
 
 <table style="width:100%;">
 <tr><th>v1.2</th><th>v2.0</th></tr>

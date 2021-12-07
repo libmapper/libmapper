@@ -44,7 +44,7 @@ int mpr_obj_get_num_props(mpr_obj object, int staged);
 
 /*! Look up a property by index or one of the symbolic identifiers listed in mpr_constants.h.
  *  \param object       The object to check.
- *  \param property     Index or symbolic identifier of the property to retrieve.
+ *  \param index        Index or symbolic identifier of the property to retrieve.
  *  \param key          A pointer to a location to receive the name of the
  *                      property value (Optional, pass 0 to ignore).
  *  \param length       A pointer to a location to receive the vector length of
@@ -56,7 +56,7 @@ int mpr_obj_get_num_props(mpr_obj object, int staged);
  *  \param publish      1 to publish to the distributed graph, 0 for local-only.
  *  \return             Symbolic identifier of the retrieved property, or
  *                      MPR_PROP_UNKNOWN if not found. */
-mpr_prop mpr_obj_get_prop_by_idx(mpr_obj object, int property, const char **key, int *length,
+mpr_prop mpr_obj_get_prop_by_idx(mpr_obj object, int index, const char **key, int *length,
                                  mpr_type *type, const void **value, int *publish);
 
 /*! Look up a property by name.
