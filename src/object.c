@@ -176,6 +176,7 @@ void mpr_obj_push(mpr_obj o)
     if (MPR_DEV == o->type) {
         mpr_dev d = (mpr_dev)o;
         if (d->is_local) {
+            RETURN_UNLESS(((mpr_local_dev)d)->registered)
             mpr_net_use_subscribers(n, (mpr_local_dev)d, o->type);
             mpr_dev_send_state(d, MSG_DEV);
         }
@@ -187,6 +188,7 @@ void mpr_obj_push(mpr_obj o)
     else if (o->type & MPR_SIG) {
         mpr_sig s = (mpr_sig)o;
         if (s->is_local) {
+            RETURN_UNLESS(((mpr_local_dev)s->dev)->registered)
             mpr_type type = ((s->dir == MPR_DIR_OUT) ? MPR_SIG_OUT : MPR_SIG_IN);
             mpr_net_use_subscribers(n, (mpr_local_dev)s->dev, type);
             mpr_sig_send_state(s, MSG_SIG);
@@ -201,8 +203,16 @@ void mpr_obj_push(mpr_obj o)
         mpr_net_use_bus(n);
         if (m->status >= MPR_STATUS_ACTIVE)
             mpr_map_send_state(m, -1, MSG_MAP_MOD);
-        else
+        else {
+            int i;
+            mpr_sig s = m->dst->sig;
+            RETURN_UNLESS(!s->is_local || ((mpr_local_dev)s->dev)->registered);
+            for (i = 0; i < m->num_src; i++) {
+                s = m->src[i]->sig;
+                RETURN_UNLESS(!s->is_local || ((mpr_local_dev)s->dev)->registered);
+            }
             mpr_map_send_state(m, -1, MSG_MAP);
+        }
     }
     else {
         trace("mpr_obj_push(): unknown object type %d\n", o->type);

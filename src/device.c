@@ -261,6 +261,8 @@ void mpr_dev_on_registered(mpr_local_dev dev)
     dev->registered = 1;
     dev->ordinal = dev->ordinal_allocator.val;
     dev->status = MPR_STATUS_READY;
+
+    mpr_dev_get_name((mpr_dev)dev);
 }
 
 MPR_INLINE static int check_types(const mpr_type *types, int len, mpr_type type, int vector_len)
@@ -1141,11 +1143,11 @@ static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir)
     return 0;
 }
 
-static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir)
+int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
 {
     mpr_list l = mpr_dev_get_maps((mpr_dev)dev, dir);
     while (l) {
-        mpr_map_send_state((mpr_map)*l, -1, MSG_MAPPED);
+        mpr_map_send_state((mpr_map)*l, -1, msg);
         l = mpr_list_get_next(l);
     }
     return 0;
@@ -1234,7 +1236,7 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
         if (flags & MPR_MAP_OUT)
             dir |= MPR_DIR_OUT;
         mpr_net_use_mesh(net, addr);
-        mpr_dev_send_maps(dev, dir);
+        mpr_dev_send_maps(dev, dir, MSG_MAPPED);
         mpr_net_send(net);
     }
 }

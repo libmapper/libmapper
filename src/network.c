@@ -778,6 +778,11 @@ void mpr_net_poll(mpr_net net)
                 mpr_net_add_dev_methods(net, dev);
                 mpr_net_maybe_send_ping(net, 1);
                 trace_dev(dev, "registered.\n");
+
+                /* Send out any cached maps. */
+                mpr_net_use_bus(&dev->obj.graph->net);
+                mpr_dev_send_maps(dev, MPR_DIR_ANY, MSG_MAP);
+                mpr_net_send(&dev->obj.graph->net);
             }
         }
         else

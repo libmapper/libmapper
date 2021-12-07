@@ -115,8 +115,9 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     RETURN_ARG_UNLESS(src && *src && dst && *dst, 0);
     RETURN_ARG_UNLESS(num_src > 0 && num_src <= MAX_NUM_MAP_SRC, 0);
     for (i = 0; i < num_src; i++) {
+        TRACE_RETURN_UNLESS(src[i]->dev->name, NULL, "Cannot map from uninitialized device.\n");
         for (j = 0; j < num_dst; j++) {
-            if (   strcmp(src[i]->name, dst[j]->name)==0
+            if (   strcmp(src[i]->name, dst[j]->name)==0 && dst[j]->dev->name
                 && strcmp(src[i]->dev->name, dst[j]->dev->name)==0) {
                 trace("Cannot connect signal '%s:%s' to itself.\n",
                       mpr_dev_get_name(src[i]->dev), src[i]->name);

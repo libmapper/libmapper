@@ -178,6 +178,8 @@ const char *mpr_dev_get_name(mpr_dev dev);
 
 void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd);
 
+int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg);
+
 /*! Find information for a registered link.
  *  \param dev          Device record to query.
  *  \param remote       Remote device.
