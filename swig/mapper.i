@@ -1711,7 +1711,7 @@ typedef struct _map_list {
     int get_num_properties() {
         return mpr_obj_get_num_props((mpr_obj)$self, 0);
     }
-    booltype get_ready() {
+    booltype get_is_ready() {
         return mpr_map_get_is_ready((mpr_map)$self);
     }
     propval get_property(const char *key) {
@@ -1935,7 +1935,7 @@ typedef struct _map_list {
         return $self;
     }
     double __rmul__(double val) {
-        return val + mpr_time_as_dbl(*(mpr_time*)$self);
+        return val * mpr_time_as_dbl(*(mpr_time*)$self);
     }
     time *__div__(double divisor) {
         mpr_time *tt = malloc(sizeof(mpr_time));
