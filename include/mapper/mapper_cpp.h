@@ -99,8 +99,10 @@ namespace mapper {
     /*! Symbolic identifiers for core object properties. */
     enum class Property
     {
+        BUNDLE              = MPR_PROP_BUNDLE,
         DEVICE              = MPR_PROP_DEV,
         DIRECTION           = MPR_PROP_DIR,
+        EPHEMERAL           = MPR_PROP_EPHEM,
         EXPRESSION          = MPR_PROP_EXPR,
         HOST                = MPR_PROP_HOST,
         ID                  = MPR_PROP_ID,
@@ -126,7 +128,7 @@ namespace mapper {
         PROTOCOL            = MPR_PROP_PROTOCOL,
         RATE                = MPR_PROP_RATE,
         SCOPE               = MPR_PROP_SCOPE,
-        SIGNALS             = MPR_PROP_SIG,
+        SIGNAL              = MPR_PROP_SIG,
         STATUS              = MPR_PROP_STATUS,
         STEAL_MODE          = MPR_PROP_STEAL_MODE,
         SYNCED              = MPR_PROP_SYNCED,
