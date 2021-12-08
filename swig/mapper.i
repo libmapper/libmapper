@@ -1747,7 +1747,7 @@ typedef struct _map_list {
 
     %pythoncode {
         num_properties = property(get_num_properties)
-        ready = property(get_ready)
+        ready = property(get_is_ready)
         def get_properties(self):
             props = {}
             for i in range(self.num_properties):
