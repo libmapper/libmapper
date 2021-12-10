@@ -927,12 +927,13 @@ class graph(mprobject):
     def set_interface(self, iface):
         mpr.mpr_graph_set_interface.argtypes = [c_void_p, c_char_p]
         if type(iface) is str:
-            mpr.mpr_graph_set_interface(self._obj, interface)
+            mpr.mpr_graph_set_interface(self._obj, interface.encode('utf-8'))
         return self
     def get_interface(self):
         mpr.mpr_graph_get_interface.argtypes = [c_void_p]
         mpr.mpr_graph_get_interface.restype = c_char_p
-        return mpr.mpr_graph_get_interface(self._obj)
+        iface = mpr.mpr_graph_get_interface(self._obj)
+        return string_at(iface).decode('utf-8')
     interface = property(get_interface, set_interface)
 
     def set_address(self, address, port):
