@@ -604,15 +604,17 @@ static void mpr_net_probe_dev_name(mpr_net net, mpr_local_dev dev)
 /*! Add an uninitialized device to this network. */
 void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
 {
-    int i;
+    int i, found = 0;
     RETURN_UNLESS(dev);
 
     /* Check if device was already added. */
     for (i = 0; i < net->num_devs; i++) {
-        if (net->devs[i] == dev)
+        if (net->devs[i] == dev) {
+            found = 1;
             break;
+        }
     }
-    if (i && i < net->num_devs) {
+    if (found) {
         /* reset registered flag */
         dev->registered = 0;
         dev->ordinal_allocator.val = i;
