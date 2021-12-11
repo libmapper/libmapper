@@ -39,7 +39,7 @@ int setup_src(mpr_graph g, const char *iface)
     int mn=0, mx=1;
     mpr_list l;
 
-    src = mpr_dev_new("testlinear-send", g);
+    src = mpr_dev_new("testlinear.send", g);
     if (!src)
         goto error;
     if (iface)
@@ -87,7 +87,7 @@ int setup_dst(mpr_graph g, const char *iface)
     float mn=0, mx=1;
     mpr_list l;
 
-    dst = mpr_dev_new("testlinear-recv", g);
+    dst = mpr_dev_new("testlinear.recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -161,7 +161,7 @@ void wait_ready()
         mpr_dev_poll(dst, 25);
     }
     mpr_dev_poll(src, 25);
-        mpr_dev_poll(dst, 25);
+    mpr_dev_poll(dst, 25);
 }
 
 void loop()
