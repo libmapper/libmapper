@@ -927,7 +927,7 @@ class graph(mprobject):
     def set_interface(self, iface):
         mpr.mpr_graph_set_interface.argtypes = [c_void_p, c_char_p]
         if type(iface) is str:
-            mpr.mpr_graph_set_interface(self._obj, interface.encode('utf-8'))
+            mpr.mpr_graph_set_interface(self._obj, iface.encode('utf-8'))
         return self
     def get_interface(self):
         mpr.mpr_graph_get_interface.argtypes = [c_void_p]
