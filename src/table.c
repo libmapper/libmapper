@@ -145,7 +145,7 @@ mpr_prop mpr_tbl_get_prop_by_key(mpr_tbl t, const char *key, int *len, mpr_type 
     if (pub)
         *pub = found ? rec->flags ^ LOCAL_ACCESS_ONLY : 0;
 
-    return found ? rec->prop : MPR_PROP_UNKNOWN;
+    return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
 
 mpr_prop mpr_tbl_get_prop_by_idx(mpr_tbl t, int prop, const char **key, int *len,
@@ -191,7 +191,7 @@ mpr_prop mpr_tbl_get_prop_by_idx(mpr_tbl t, int prop, const char **key, int *len
     if (pub)
         *pub = found ? rec->flags ^ LOCAL_ACCESS_ONLY : 0;
 
-    return found ? rec->prop : MPR_PROP_UNKNOWN;
+    return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
 
 int mpr_tbl_remove(mpr_tbl t, mpr_prop prop, const char *key, int flags)

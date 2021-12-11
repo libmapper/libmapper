@@ -931,7 +931,7 @@ int mpr_sig_full_name(mpr_sig sig, char *name, int len)
 
 mpr_dev mpr_sig_get_dev(mpr_sig sig)
 {
-    return sig->dev;
+    return sig ? sig->dev : NULL;
 }
 
 static int cmp_qry_sig_maps(const void *context_data, mpr_map map)
