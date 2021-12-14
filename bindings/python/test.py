@@ -151,24 +151,10 @@ for m in g.maps():
 
 # combining queries
 print('signals matching \'out*\' or \'*req\':')
-
-print('signals matching \'out*\':')
 q1 = g.signals().filter("name", "out*")
-print(">>>>>>")
-q1.print()
-print("<<<<<<")
-
-#q1.join(g.signals().filter("name", "*req"))
-
-print('signals matching \'*req\':')
-q2 = g.signals().filter("name", "*req")
-#q2.print()
-
-print('signals matching \'out*\' or \'*req\':')
-q1.join(q2)
-q1.print()
-#for i in q1:
-#    print("    ", i['name'])
+q1.join(g.signals().filter("name", "*req"))
+for i in q1:
+    print("    ", i['name'])
 
 tt1 = mpr.time(0.5)
 tt2 = mpr.time(2.5)
