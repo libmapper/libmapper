@@ -21,7 +21,7 @@ static int _init_and_add_idmap(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map m
 
 static int _compare_inst_ids(const void *l, const void *r)
 {
-    return memcmp(&(*(mpr_sig_inst*)l)->id, &(*(mpr_sig_inst*)r)->id, sizeof(mpr_id));
+    return (*(mpr_sig_inst*)l)->id - (*(mpr_sig_inst*)r)->id;
 }
 
 static mpr_sig_inst _find_inst_by_id(mpr_local_sig lsig, mpr_id id)
@@ -605,7 +605,7 @@ static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
 
     ++lsig->num_inst;
     qsort(lsig->inst, lsig->num_inst, sizeof(mpr_sig_inst), _compare_inst_ids);
-    return lsig->num_inst - 1;;
+    return lsig->num_inst - 1;
 }
 
 int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
@@ -613,6 +613,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     int i = 0, count = 0, highest = -1, result, old_num = sig->num_inst;
     mpr_local_sig lsig = (mpr_local_sig)sig;
     RETURN_ARG_UNLESS(sig && sig->is_local && num, 0);
+    sig->use_inst = 1;
 
     if (lsig->num_inst == 1 && !lsig->inst[0]->id && !lsig->inst[0]->data) {
         /* we will overwite the default instance first */
@@ -630,7 +631,6 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
         highest = result;
         ++count;
     }
-    sig->use_inst = 1;
     if (highest != -1)
         mpr_rtr_num_inst_changed(lsig->obj.graph->net.rtr, lsig, highest + 1);
 
