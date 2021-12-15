@@ -197,21 +197,13 @@ static void free_query_single_ctx(mpr_list_header_t *lh)
     free(lh);
 }
 
-#define GET_TYPE_SIZE(TYPE)                 \
-if (types[i+1] && isdigit(types[i+1])) {    \
-    num_args = atoi(types+i+1);             \
-    va_arg(aq, TYPE*);                      \
-    ++i;                                    \
-}                                           \
-else {                                      \
-    num_args = 1;                           \
-    va_arg(aq, TYPE);                       \
-}                                           \
-size += num_args * sizeof(TYPE);
+#define GET_TYPE_SIZE(TYPE) \
+va_arg(aq, TYPE);           \
+size += sizeof(TYPE);
 
 static int get_query_size(const char *types, va_list aq)
 {
-    int i = 0, j, size = 0, num_args;
+    int i = 0, size = 0;
     RETURN_ARG_UNLESS(types, 0);
     while (types[i]) {
         switch (types[i]) {
@@ -225,19 +217,11 @@ static int get_query_size(const char *types, va_list aq)
             case MPR_PTR:
                 GET_TYPE_SIZE(void*);
                 break;
-            case MPR_STR: /* special case */
-                if (types[i+1] && isdigit(types[i+1])) {
-                    const char **val = va_arg(aq, const char**);
-                    num_args = atoi(types+i+1);
-                    for (j = 0; j < num_args; j++)
-                        size += strlen(val[j]) + 1;
-                    ++i;
-                }
-                else {
-                    const char *val = va_arg(aq, const char*);
-                    size += (val ? strlen(val) : 0) + 1;
-                }
+            case MPR_STR: {
+                const char *val = va_arg(aq, const char*);
+                size += (val ? strlen(val) : 0) + 1;
                 break;
+            }
             default:
                 return 0;
         }
@@ -246,19 +230,12 @@ static int get_query_size(const char *types, va_list aq)
     return size;
 }
 
-#define COPY_TYPE(TYPE)                                 \
-if (types[i+1] && isdigit(types[i + 1])) {              \
-    TYPE *val = (TYPE*)va_arg(aq, TYPE*);               \
-    num_args = atoi(types + i + 1);                     \
-    memcpy(data + offset, val, sizeof(TYPE) * num_args);\
-    ++i;                                                \
-}                                                       \
-else {                                                  \
-    TYPE val = (TYPE)va_arg(aq, TYPE);                  \
-    num_args = 1;                                       \
-    memcpy(data + offset, &val, sizeof(TYPE));          \
-}                                                       \
-offset += sizeof(TYPE) * num_args;
+#define COPY_TYPE(TYPE)                         \
+{                                               \
+    TYPE val = (TYPE)va_arg(aq, TYPE);          \
+    memcpy(data + offset, &val, sizeof(TYPE));  \
+    offset += sizeof(TYPE);                     \
+}
 
 /* We need to be careful of memory alignment here - for now we will just ensure
  * that string arguments are always passed last. */
@@ -266,7 +243,7 @@ static void **new_query_internal(const void **list, int size, const void *func,
                                  const char *types, va_list aq)
 {
     mpr_list_header_t *lh;
-    int offset = 0, i = 0, j, num_args;
+    int offset = 0, i = 0;
     char *data;
     RETURN_ARG_UNLESS(list && size && func && types, 0);
     lh = (mpr_list_header_t*)malloc(LIST_HEADER_SIZE);
@@ -286,34 +263,16 @@ static void **new_query_internal(const void **list, int size, const void *func,
                 break;
             case MPR_PTR: {
                 void *val = va_arg(aq, void**);
-                if (types[i+1] && isdigit(types[i + 1])) {
-                    /* is array */
-                    num_args = atoi(types + i + 1);
-                    ++i;
-                }
-                else
-                    num_args = 1;
-                memcpy(data + offset, val, sizeof(void*) * num_args);
-                offset += sizeof(void**) * num_args;
+                memcpy(data + offset, val, sizeof(void*));
+                offset += sizeof(void**);
                 break;
             }
-            case MPR_STR: /* special case */
-                if (types[i+1] && isdigit(types[i + 1])) {
-                    /* is array */
-                    const char **val = (const char**)va_arg(aq, const char**);
-                    num_args = atoi(types + i + 1);
-                    for (j = 0; j < num_args; j++) {
-                        snprintf(data + offset, size - offset, "%s", val[j]);
-                        offset += strlen(val[j]) + 1;
-                    }
-                    ++i;
-                }
-                else {
-                    const char *val = (const char*)va_arg(aq, const char*);
-                    snprintf(data + offset, size - offset, "%s", val);
-                    offset += (val ? strlen(val) : 0) + 1;
-                }
+            case MPR_STR: {
+                const char *val = (const char*)va_arg(aq, const char*);
+                snprintf(data + offset, size - offset, "%s", val);
+                offset += (val ? strlen(val) : 0) + 1;
                 break;
+            }
             default:
                 free(lh->query_ctx);
                 free(lh);
