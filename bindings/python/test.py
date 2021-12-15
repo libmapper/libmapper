@@ -3,7 +3,7 @@
 from __future__ import print_function
 import sys, libmapper as mpr
 
-start = mpr.time()
+start = mpr.Time()
 
 def h(sig, event, id, val, time):
     try:
@@ -66,9 +66,9 @@ def setup(d):
 
 #check libmapper version
 #print('using libmapper version', mpr.version)
-dev1 = mpr.device("py.test1")
+dev1 = mpr.Device("py.test1")
 setup(dev1)
-dev2 = mpr.device("py.test2")
+dev2 = mpr.Device("py.test2")
 setup(dev2)
 
 def object_name(type):
@@ -89,7 +89,7 @@ def graph_cb(type, object, event):
         for s in object.signals(mpr.Location.DESTINATION):
             print("  dst: ", s.device()['name'], ':', s['name'])
 
-g = mpr.graph(mpr.Type.OBJECT)
+g = mpr.Graph(mpr.Type.OBJECT)
 g.add_callback(graph_cb)
 
 start.now()
@@ -111,12 +111,12 @@ for i in range(100):
     outsig.set_value([i+1,i+2,i+3,i+4])
 
     if i==0:
-        map = mpr.map(outsig, insig)
+        map = mpr.Map(outsig, insig)
         map['expr'] = 'y=y{-1}+x'
         map.push()
 
 #        # test creating multi-source map
-#        map = mpr.map([sig1, sig2], sig3)
+#        map = mpr.Map([sig1, sig2], sig3)
 #        map.expr = 'y=x0-x1'
 #        map.push()
 
@@ -136,7 +136,7 @@ ndevs = len(g.devices())
 nsigs = len(g.signals())
 print(ndevs, 'device' if ndevs is 1 else 'devices', 'and', nsigs, 'signal:' if nsigs is 1 else 'signals:')
 for d in g.devices():
-    print("  DEVICE:", d['name'], '(synced', mpr.time().get_double() - d['synced'].get_double(), 'seconds ago)')
+    print("  DEVICE:", d['name'], '(synced', mpr.Time().get_double() - d['synced'].get_double(), 'seconds ago)')
     for s in d.signals():
         print("    SIGNAL:", s['name'])
 
@@ -156,9 +156,13 @@ q1.join(g.signals().filter("name", "*req"))
 for i in q1:
     print("    ", i['name'])
 
-tt1 = mpr.time(0.5)
-tt2 = mpr.time(2.5)
+tt1 = mpr.Time(0.5)
+tt2 = mpr.Time(2.5)
+tt3 = mpr.Time(2.5)
+print("tt1 != tt2") if tt1 != tt2 else print("timetag error")
+print("tt1 < tt2") if tt1 < tt2 else print("timetag error")
+print("tt2 == tt3") if tt2 == tt3 else print("timetag error")
 tt3 = tt1 + 0.5
 print('got tt: ', tt3.get_double())
 print(1.6 + tt1)
-print('current time:', mpr.time().get_double())
+print('current time:', mpr.Time().get_double())

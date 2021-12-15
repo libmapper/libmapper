@@ -10,18 +10,18 @@ def h(sig, event, id, val, time):
         print('exception')
         print(sig, val)
 
-src = mpr.device("py.testreverse.src")
+src = mpr.Device("py.testreverse.src")
 outsig = src.add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.FLOAT, None, 0, 1000)
 outsig.set_callback(h)
 
-dest = mpr.device("py.testreverse.dst")
+dest = mpr.Device("py.testreverse.dst")
 insig = dest.add_signal(mpr.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT, None, 0, 1)
 
 while not src.ready or not dest.ready:
     src.poll(10)
     dest.poll(10)
 
-map = mpr.map(insig, outsig).push()
+map = mpr.Map(insig, outsig).push()
 
 while not map.ready:
     src.poll(10)
