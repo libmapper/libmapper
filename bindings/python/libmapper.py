@@ -1,10 +1,16 @@
 from ctypes import *
 from enum import IntFlag, Enum
 import weakref, sys
+import platform
 
-# need different library extensions for Linux, Windows
-cdll.LoadLibrary("libmapper.dylib")
-mpr = CDLL("libmapper.dylib")
+# need different library extensions for Linux, Windows, MacOS
+if platform.uname()[0] == "Windows":
+    name = "libmapper.dll"
+elif platform.uname()[0] == "Linux":
+    name = "libmapper.so"
+else:
+    name = "libmapper.dylib"
+mpr = cdll.LoadLibrary(name)
 
 # configuration of Py_IncRef and Py_DecRef
 _c_inc_ref = pythonapi.Py_IncRef
