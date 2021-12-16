@@ -293,7 +293,7 @@ class MprObjectList:
         elif _type == Type.SIGNAL:
             return Signal(ptr)
         elif _type == Type.MAP:
-            return Map(None, None, ptr)
+            return Map(ptr)
         else:
             print("list error: object is not a Device, Signal, or Map")
             return None
@@ -862,35 +862,53 @@ class SignalInstance(Signal):
 py_sig_cb_type = CFUNCTYPE(None, py_object, py_object, c_longlong, py_object, py_object)
 
 class Map(MprObject):
-    def __init__(self, sources, destination, map_ptr=None):
+    def __init__(self, *args):
         mpr.mpr_map_new.argtypes = [c_int, c_void_p, c_int, c_void_p]
         mpr.mpr_map_new.restype = c_void_p
 
         # initialize from preallocated mpr_obj
-        if sources == None and destination == None and map_ptr != None:
-            self._obj = map_ptr
+        if args and isinstance(args[0], int):
+            self._obj = args[0]
+            return
+
+        if len(args) < 2 or len(args) > 11:
+            print("Map: wrong number of arguments", len(args))
             return
 
         self._obj = None
-        if not isinstance(destination, Signal):
-            print("bad destination type")
-            return
-        if isinstance(sources, list):
-            num_srcs = len(sources)
-            array_type = c_void_p * num_srcs
-            src_array = array_type()
-            for i in range(num_srcs):
-                if not isinstance(sources[i], Signal):
-                    print("bad source type at array index", i)
+        if isinstance(args[0], str):
+            expr = args[0].encode('utf-8')
+            sigs = (c_void_p * 10)() # initialized to NULL
+            for i in range(len(args) - 1):
+                if not isinstance(args[i+1], Signal):
+                    print("error: Map() argument", i, "is not a Signal object")
                     return
-                src_array[i] = sources[i]._obj
-            self._obj = mpr.mpr_map_new(num_srcs, src_array, 1, byref(c_void_p(destination._obj)))
-        elif isinstance(sources, Signal):
-            num_srcs = 1
-            self._obj = mpr.mpr_map_new(1, byref(c_void_p(sources._obj)), 1, byref(c_void_p(destination._obj)))
+                sigs[i] = args[i+1]._obj
+            mpr.mpr_map_new_from_str.argtypes = [c_char_p, c_void_p, c_void_p, c_void_p, c_void_p,
+                                                 c_void_p, c_void_p, c_void_p, c_void_p, c_void_p,
+                                                 c_void_p]
+            mpr.mpr_map_new_from_str.restype = c_void_p
+            self._obj = mpr.mpr_map_new_from_str(expr, sigs[0], sigs[1], sigs[2], sigs[3], sigs[4],
+                                                 sigs[5], sigs[6], sigs[7], sigs[8], sigs[9])
         else:
-            print("bad source type")
-            self._obj = None
+            if not isinstance(args[1], Signal):
+                print("error: Map() destination is not a Signal object")
+                return
+            if isinstance(args[0], list):
+                num_srcs = len(args[0])
+                array_type = c_void_p * num_srcs
+                src_array = array_type()
+                for i in range(num_srcs):
+                    if not isinstance(args[0][i], Signal):
+                        print("error: Map() source", i, "is not a Signal object")
+                        return
+                    src_array[i] = args[0][i]._obj
+                self._obj = mpr.mpr_map_new(num_srcs, src_array, 1, byref(c_void_p(args[1]._obj)))
+            elif isinstance(args[0], Signal):
+                num_srcs = 1
+                self._obj = mpr.mpr_map_new(1, byref(c_void_p(args[0]._obj)), 1, byref(c_void_p(args[1]._obj)))
+            else:
+                print("error: Map() source is not a Signal object")
 
     def release(self):
         mpr.mpr_map_release.argtypes = [c_void_p]
@@ -956,7 +974,7 @@ def graph_cb_py(_graph, c_obj, evt, user):
             f(Type.SIGNAL, Signal(c_obj), Graph.Event(evt))
     elif _type == Type.MAP:
         for f in graph_map_cbs:
-            f(Type.MAP, Map(None, None, c_obj), Graph.Event(evt))
+            f(Type.MAP, Map(c_obj), Graph.Event(evt))
 
 class Graph(MprObject):
     mpr.mpr_graph_get_list.argtypes = [c_void_p, c_int]
