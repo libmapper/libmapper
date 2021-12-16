@@ -12,24 +12,13 @@ _c_inc_ref.argtypes = [py_object]
 _c_dec_ref = pythonapi.Py_DecRef
 _c_dec_ref.argtypes = [py_object]
 
-mpr.mpr_obj_get_prop_by_idx.argtypes = [c_void_p, c_int, c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
-mpr.mpr_obj_get_prop_by_idx.restype = c_int
-
-mpr.mpr_obj_get_prop_as_int32.argtypes = [c_void_p, c_int, c_char_p]
-mpr.mpr_obj_get_prop_as_int32.restype = c_int
-mpr.mpr_obj_get_prop_as_flt.argtypes = [c_void_p, c_int, c_char_p]
-mpr.mpr_obj_get_prop_as_flt.restype = c_float
+mpr.mpr_obj_get_prop_as_ptr.argtypes = [c_void_p, c_int, c_char_p]
+mpr.mpr_obj_get_prop_as_ptr.restype = c_void_p
 mpr.mpr_obj_get_prop_as_str.argtypes = [c_void_p, c_int, c_char_p]
 mpr.mpr_obj_get_prop_as_str.restype = c_char_p
 
 mpr.mpr_obj_set_prop.argtypes = [c_void_p, c_int, c_char_p, c_int, c_char, c_void_p, c_int]
 mpr.mpr_obj_set_prop.restype = c_int
-
-mpr.mpr_list_filter.argtypes = [c_void_p, c_int, c_char_p, c_int, c_char, c_void_p, c_int]
-mpr.mpr_list_filter.restype = c_void_p
-
-mpr.mpr_dev_get_sigs.argtypes = [c_void_p, c_int]
-mpr.mpr_dev_get_sigs.restype = c_void_p
 
 SIG_HANDLER = CFUNCTYPE(None, c_void_p, c_int, c_longlong, c_int, c_char, c_void_p, c_void_p)
 
@@ -140,10 +129,22 @@ class Type(IntFlag):
     NULL       = 0x4E
 
 class Time:
+    mpr.mpr_time_add.argtypes = [c_void_p, c_longlong]
+    mpr.mpr_time_add.restype = None
+    mpr.mpr_time_add_dbl.argtypes = [c_void_p, c_double]
+    mpr.mpr_time_add_dbl.restype = None
+    mpr.mpr_time_as_dbl.argtypes = [c_longlong]
+    mpr.mpr_time_as_dbl.restype = c_double
+    mpr.mpr_time_mul.argtypes = [c_void_p, c_double]
+    mpr.mpr_time_mul.restype = None
     mpr.mpr_time_set.argtypes = [c_void_p, c_longlong]
     mpr.mpr_time_set.restype = None
+    mpr.mpr_time_set_dbl.argtypes = [c_void_p, c_double]
+    mpr.mpr_time_set_dbl.restype = None
+    mpr.mpr_time_sub.argtypes = [c_void_p, c_longlong]
+    mpr.mpr_time_sub.restype = None
 
-    def __init__(self, ref = None):
+    def __init__(self, ref=None):
         self.value = c_longlong()
         if ref == None:
             # 1 << 32 == MPR_NOW
@@ -153,12 +154,8 @@ class Time:
 
     def set(self, val):
         if isinstance(val, float):
-            mpr.mpr_time_set_dbl.argtypes = [c_void_p, c_double]
-            mpr.mpr_time_set_dbl.restype = None
             mpr.mpr_time_set_dbl(byref(self.value), val)
         else:
-            mpr.mpr_time_set.argtypes = [c_void_p, c_longlong]
-            mpr.mpr_time_set.restype = None
             if isinstance(val, Time):
                 mpr.mpr_time_set(byref(self.value), val.value)
             else:
@@ -170,19 +167,13 @@ class Time:
         return self.set(1 << 32)
 
     def get_double(self):
-        mpr.mpr_time_as_dbl.argtypes = [c_longlong]
-        mpr.mpr_time_as_dbl.restype = c_double
         return mpr.mpr_time_as_dbl(self.value)
 
     def __add__(self, addend):
         result = Time(self)
         if isinstance(addend, Time):
-            mpr.mpr_time_add.argtypes = [c_void_p, c_longlong]
-            mpr.mpr_time_add.restype = None
             mpr.mpr_time_add(byref(result.value), addend.value)
         elif isinstance(addend, float):
-            mpr.mpr_time_add_dbl.argtypes = [c_void_p, c_double]
-            mpr.mpr_time_add_dbl.restype = None
             mpr.mpr_time_add_dbl(byref(result.value), addend)
         else:
             print("Time.add() : incompatible type:", type(addend))
@@ -190,12 +181,8 @@ class Time:
 
     def __iadd__(self, addend):
         if isinstance(addend, int):
-            mpr.mpr_time_add.argtypes = [c_void_p, c_longlong]
-            mpr.mpr_time_add.restype = None
             mpr.mpr_time_add(byref(self.value), addend)
         elif isinstance(addend, float):
-            mpr.mpr_time_add_dbl.argtypes = [c_void_p, c_double]
-            mpr.mpr_time_add_dbl.restype = None
             mpr.mpr_time_add_dbl(byref(self.value), addend)
         else:
             print("Time.iadd() : incompatible type:", type(addend))
@@ -207,23 +194,15 @@ class Time:
     def __sub__(self, subtrahend):
         result = Time(self)
         if isinstance(subtrahend, Time):
-            mpr.mpr_time_sub.argtypes = [c_void_p, c_longlong]
-            mpr.mpr_time_sub.restype = None
             mpr.mpr_time_sub(byref(result.value), subtrahend.value)
         else:
-            mpr.mpr_time_add_dbl.argtypes = [c_void_p, c_double]
-            mpr.mpr_time_add_dbl.restype = None
             mpr.mpr_time_add_dbl(byref(result.value), -subtrahend)
         return result
 
     def __isub__(self, subtrahend):
         if isinstance(subtrahend, Time):
-            mpr.mpr_time_sub.argtypes = [c_void_p, c_longlong]
-            mpr.mpr_time_sub.restype = None
             mpr.mpr_time_sub(byref(self.value), subtrahend)
         else:
-            mpr.mpr_time_add_dbl.argtypes = [c_void_p, c_double]
-            mpr.mpr_time_add_dbl.restype = None
             mpr.mpr_time_add_dbl(byref(self.value), -subtrahend)
         return self
 
@@ -232,14 +211,10 @@ class Time:
 
     def __mul__(self, multiplicand):
         result = Time(self)
-        mpr.mpr_time_mul.argtypes = [c_void_p, c_double]
-        mpr.mpr_time_mul.restype = None
         mpr.mpr_time_mul(byref(result.value), multiplicand)
         return result
 
     def __imul__(self, multiplicand):
-        mpr.mpr_time_mul.argtypes = [c_void_p, c_double]
-        mpr.mpr_time_mul.restype = None
         mpr.mpr_time_mul(byref(self.value), multiplicand)
         return self
 
@@ -248,14 +223,10 @@ class Time:
 
     def __div__(self, divisor):
         result = Time(self)
-        mpr.mpr_time_mul.argtypes = [c_void_p, c_double]
-        mpr.mpr_time_mul.restype = None
         mpr.mpr_time_mul(byref(result.value), 1/divisor)
         return result
 
     def __idiv__(self, divisor):
-        mpr.mpr_time_mul.argtypes = [c_void_p, c_double]
-        mpr.mpr_time_mul.restype = None
         mpr.mpr_time_mul(byref(self.value), 1/divisor)
         return self
 
@@ -338,7 +309,7 @@ class MprObjectList:
         else:
             raise StopIteration
 
-    def filter(self, key_or_idx, val, op = Operator.EQUAL):
+    def filter(self, key_or_idx, val, op=Operator.EQUAL):
         key, idx = c_char_p(), c_int()
         _type = type(key_or_idx)
         if _type is str:
@@ -361,6 +332,8 @@ class MprObjectList:
             print("list.filter() : bad operator type", _type)
             return self
 
+        mpr.mpr_list_filter.argtypes = [c_void_p, c_int, c_char_p, c_int, c_char, c_void_p, c_int]
+        mpr.mpr_list_filter.restype = c_void_p
         _type = type(val)
         if _type is int:
             self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.INT32, byref(val), op)
@@ -534,6 +507,8 @@ class MprObject:
             else:
                 _idx = c_int(key_or_idx)
             _key = c_char_p()
+            mpr.mpr_obj_get_prop_by_idx.argtypes = [c_void_p, c_int, c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
+            mpr.mpr_obj_get_prop_by_idx.restype = c_int
             prop = mpr.mpr_obj_get_prop_by_idx(self._obj, _idx, byref(_key), byref(_len),
                                                byref(_type), byref(_val), byref(_pub))
         else:
@@ -698,7 +673,7 @@ class MprObject:
         _type = int(mpr.mpr_obj_get_type(self._obj))
         return Type(_type)
 
-    def print(self, staged = 0):
+    def print(self, staged=0):
         mpr.mpr_obj_print.argtypes = [c_void_p, c_int]
         mpr.mpr_obj_print(self._obj, staged)
         return self
@@ -718,9 +693,6 @@ class InstanceId(c_longlong):
         return str(self.value)
 
 c_sig_cb_type = CFUNCTYPE(None, c_void_p, c_int, c_longlong, c_int, c_char, c_void_p, c_longlong)
-
-mpr.mpr_obj_get_prop_as_ptr.argtypes = [c_void_p, c_int, c_char_p]
-mpr.mpr_obj_get_prop_as_ptr.restype = c_void_p
 
 @CFUNCTYPE(None, c_void_p, c_int, c_longlong, c_int, c_char, c_void_p, c_longlong)
 def signal_cb_py(_sig, _evt, _inst, _len, _type, _val, _time):
@@ -769,7 +741,7 @@ class Signal(MprObject):
         UPDATE      = 0x10
         ALL         = 0x1F
 
-    def __init__(self, sigptr = None):
+    def __init__(self, sigptr=None):
         self._obj = sigptr
         self.id = 0
         self.callback = None
@@ -778,7 +750,6 @@ class Signal(MprObject):
 #        return 'Signal: {}'.format(self[Property.NAME])
 
     def set_callback(self, callback, events=Event.ALL):
-
         if callback:
             _c_inc_ref(callback)
 
@@ -822,6 +793,8 @@ class Signal(MprObject):
         mpr.mpr_sig_get_value.restype = c_void_p
         _time = Time()
         _val = mpr.mpr_sig_get_value(self._obj, self.id, byref(_time.value))
+        mpr.mpr_obj_get_prop_as_int32.argtypes = [c_void_p, c_int, c_char_p]
+        mpr.mpr_obj_get_prop_as_int32.restype = c_int
         _type = mpr.mpr_obj_get_prop_as_int32(self._obj, Property.TYPE.value, None)
         _len = mpr.mpr_obj_get_prop_as_int32(self._obj, Property.LENGTH.value, None)
 
@@ -852,19 +825,18 @@ class Signal(MprObject):
     def instance(self, id):
         return SignalInstance(self._obj, id)
 
-    def num_instances(self, status = Status.ALL):
+    def num_instances(self, status=Status.ALL):
         mpr.mpr_sig_get_num_inst.argtypes = [c_void_p, c_int]
         if not isinstance(status, Status):
             status = Status(status)
         return mpr.mpr_sig_get_num_inst(self._obj, status.value)
 
-    def instance_id(self, idx, status = Status.ALL):
+    def instance_id(self, idx, status=Status.ALL):
         mpr.mpr_sig_get_inst_id.argtypes = [c_void_p, c_int, c_int]
         mpr.mpr_sig_get_inst_id.restype = c_longlong # InstanceId
         if not isinstance(status, Status):
             status = Status(status)
-        foo = mpr.mpr_sig_get_inst_id(self._obj, idx, status.value)
-        return foo
+        return mpr.mpr_sig_get_inst_id(self._obj, idx, status.value)
 
     def device(self):
         mpr.mpr_sig_get_dev.argtypes = [c_void_p]
@@ -872,7 +844,7 @@ class Signal(MprObject):
         device = mpr.mpr_sig_get_dev(self._obj)
         return Device(None, None, device)
 
-    def maps(self, direction = Direction.ANY):
+    def maps(self, direction=Direction.ANY):
         mpr.mpr_sig_get_maps.argtypes = [c_void_p, c_int]
         mpr.mpr_sig_get_maps.restype = c_void_p
         return MprObjectList(mpr.mpr_sig_get_maps(self._obj, direction))
@@ -890,13 +862,15 @@ class SignalInstance(Signal):
 py_sig_cb_type = CFUNCTYPE(None, py_object, py_object, c_longlong, py_object, py_object)
 
 class Map(MprObject):
-    def __init__(self, sources, destination, map_ptr = None):
+    def __init__(self, sources, destination, map_ptr=None):
         mpr.mpr_map_new.argtypes = [c_int, c_void_p, c_int, c_void_p]
         mpr.mpr_map_new.restype = c_void_p
 
+        # initialize from preallocated mpr_obj
         if sources == None and destination == None and map_ptr != None:
             self._obj = map_ptr
             return
+
         self._obj = None
         if not isinstance(destination, Signal):
             print("bad destination type")
@@ -928,7 +902,7 @@ class Map(MprObject):
         mpr.mpr_map_get_sig.restype = c_void_p
         return Signal(mpr.mpr_map_get_sig(self._obj, index, location))
 
-    def signals(self, location = Location.ANY):
+    def signals(self, location=Location.ANY):
         mpr.mpr_map_get_sigs.argtypes = [c_void_p, c_int]
         mpr.mpr_map_get_sigs.restype = c_void_p
         return MprObjectList(mpr.mpr_map_get_sigs(self._obj, location))
@@ -985,13 +959,16 @@ def graph_cb_py(_graph, c_obj, evt, user):
             f(Type.MAP, Map(None, None, c_obj), Graph.Event(evt))
 
 class Graph(MprObject):
+    mpr.mpr_graph_get_list.argtypes = [c_void_p, c_int]
+    mpr.mpr_graph_get_list.restype = c_void_p
+
     class Event(Enum):
         NEW      = 0
         MODIFIED = 1
         REMOVED  = 2
         EXPIRED  = 3
 
-    def __init__(self, subscribe_flags = Type.OBJECT, ptr = None):
+    def __init__(self, subscribe_flags=Type.OBJECT, ptr=None):
         if ptr != None:
             self._obj = ptr
         else:
@@ -1008,6 +985,7 @@ class Graph(MprObject):
         if isinstance(iface, str):
             mpr.mpr_graph_set_interface(self._obj, iface.encode('utf-8'))
         return self
+
     def get_interface(self):
         mpr.mpr_graph_get_interface.argtypes = [c_void_p]
         mpr.mpr_graph_get_interface.restype = c_char_p
@@ -1021,6 +999,7 @@ class Graph(MprObject):
             mpr.mpr_graph_set_address.restype = None
             mpr.mpr_graph_set_address(self._obj, address.encode('utf-8'), port)
         return self
+
     def get_address(self):
         mpr.mpr_graph_get_address.argtypes = [c_void_p]
         mpr.mpr_graph_get_address.restype = c_char_p
@@ -1028,7 +1007,7 @@ class Graph(MprObject):
         return string_at(address).decode('utf-8')
     address = property(get_address, set_address)
 
-    def poll(self, timeout = 0):
+    def poll(self, timeout=0):
         mpr.mpr_graph_poll.argtypes = [c_void_p, c_int]
         mpr.mpr_graph_poll(self._obj, timeout)
         return self
@@ -1052,9 +1031,20 @@ class Graph(MprObject):
         return self
 
     def remove_callback(self, func):
-        pass
+        updated = False
+        if func in graph_dev_cbs:
+            graph_dev_cbs.pop(func)
+            updated = True
+        if func in graph_sig_cbs:
+            graph_sig_cbs.pop(func)
+            updated = True
+        if func in graph_map_cbs:
+            graph_map_cbs.pop(func)
+            updated = True
+        if updated:
+            _c_dec_ref(func)
 
-    def subscribe(self, device, flags, timeout):
+    def subscribe(self, device, flags, timeout=-1):
         mpr.mpr_graph_subscribe.argtypes = [c_void_p, c_void_p, c_int, c_int]
         mpr.mpr_graph_subscribe.restype = None
         if device == None:
@@ -1071,28 +1061,22 @@ class Graph(MprObject):
         return self
 
     def devices(self):
-        mpr.mpr_graph_get_list.argtypes = [c_void_p, c_int]
-        mpr.mpr_graph_get_list.restype = c_void_p
         list = mpr.mpr_graph_get_list(self._obj, Type.DEVICE)
         return MprObjectList(list)
 
     def signals(self):
-        mpr.mpr_graph_get_list.argtypes = [c_void_p, c_int]
-        mpr.mpr_graph_get_list.restype = c_void_p
         return MprObjectList(mpr.mpr_graph_get_list(self._obj, Type.SIGNAL))
 
     def maps(self):
-        mpr.mpr_graph_get_list.argtypes = [c_void_p, c_int]
-        mpr.mpr_graph_get_list.restype = c_void_p
         return MprObjectList(mpr.mpr_graph_get_list(self._obj, Type.MAP))
 
-    def print(self, staged = 0):
+    def print(self, staged=0):
         mpr.mpr_graph_print.argtypes = [c_void_p]
         mpr.mpr_graph_print(self._obj)
         return self
 
 class Device(MprObject):
-    def __init__(self, name, graph = None, devptr = None):
+    def __init__(self, name, graph=None, devptr=None):
         mpr.mpr_dev_new.argtypes = [c_char_p, c_void_p]
         mpr.mpr_dev_new.restype = c_void_p
 
@@ -1114,7 +1098,7 @@ class Device(MprObject):
 #    def __repr__(self):
 #        return 'Device: {}'.format(self[Property.NAME])
 
-    def poll(self, timeout = 0):
+    def poll(self, timeout=0):
         mpr.mpr_dev_poll.argtypes = [c_void_p, c_int]
         mpr.mpr_dev_poll.restype = c_int
         return mpr.mpr_dev_poll(self._obj, timeout)
@@ -1133,25 +1117,24 @@ class Device(MprObject):
             signal.set_callback(callback, events)
 
         # TODO: set min, max, unit, instances
-        _c_inc_ref(signal)
         return signal
 
     def remove_signal(self, signal):
         if isinstance(signal, Signal):
-            data = mpr.mpr_obj_get_prop_as_ptr(self._obj, 0x0200, None) # MPR_PROP_DATA
-            _c_dec_ref(data)
-            if data.callback:
-                _c_dec_ref(data.callback)
-
+            callback = mpr.mpr_obj_get_prop_as_ptr(self._obj, 0x0200, None) # MPR_PROP_DATA
+            if callback:
+                _c_dec_ref(callback)
             mpr.mpr_sig_free.argtypes = [c_void_p]
             mpr.mpr_sig_free.restype = None
             mpr.mpr_sig_free(signal._obj)
         return self
 
-    def signals(self, direction = Direction.ANY):
+    def signals(self, direction=Direction.ANY):
+        mpr.mpr_dev_get_sigs.argtypes = [c_void_p, c_int]
+        mpr.mpr_dev_get_sigs.restype = c_void_p
         return MprObjectList(mpr.mpr_dev_get_sigs(self._obj, direction))
 
-    def maps(self, direction = Direction.ANY):
+    def maps(self, direction=Direction.ANY):
         mpr.mpr_dev_get_maps.argtypes = [c_void_p, c_int]
         mpr.mpr_dev_get_maps.restype = c_void_p
         return MprObjectList(mpr.mpr_dev_get_maps(self._obj, direction))
