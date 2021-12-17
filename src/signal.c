@@ -421,7 +421,7 @@ int mpr_sig_get_idmap_with_LID(mpr_local_sig lsig, mpr_id LID, int flags, mpr_ti
 
         /* store pointer to device map in a new signal map */
         i = _init_and_add_idmap(lsig, si, map);
-        if (h && (lsig->event_flags & MPR_SIG_INST_NEW))
+        if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
             h((mpr_sig)lsig, MPR_SIG_INST_NEW, LID, 0, lsig->type, NULL, t);
         return i;
     }
@@ -457,7 +457,7 @@ int mpr_sig_get_idmap_with_LID(mpr_local_sig lsig, mpr_id LID, int flags, mpr_ti
         else
             mpr_dev_LID_incref((mpr_local_dev)lsig->dev, map);
         i = _init_and_add_idmap(lsig, si, map);
-        if (h && (lsig->event_flags & MPR_SIG_INST_NEW))
+        if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
             h((mpr_sig)lsig, MPR_SIG_INST_NEW, LID, 0, lsig->type, NULL, t);
         return i;
     }
@@ -492,7 +492,7 @@ int mpr_sig_get_idmap_with_GID(mpr_local_sig lsig, mpr_id GID, int flags, mpr_ti
             map = mpr_dev_add_idmap((mpr_local_dev)lsig->dev, lsig->group, si->id, GID);
             map->GID_refcount = 1;
             i = _init_and_add_idmap(lsig, si, map);
-            if (h && (lsig->event_flags & MPR_SIG_INST_NEW))
+            if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
                 h((mpr_sig)lsig, MPR_SIG_INST_NEW, si->id, 0, lsig->type, NULL, t);
             return i;
         }
@@ -502,7 +502,7 @@ int mpr_sig_get_idmap_with_GID(mpr_local_sig lsig, mpr_id GID, int flags, mpr_ti
             i = _init_and_add_idmap(lsig, si, map);
             mpr_dev_LID_incref((mpr_local_dev)lsig->dev, map);
             mpr_dev_GID_incref((mpr_local_dev)lsig->dev, map);
-            if (h && (lsig->event_flags & MPR_SIG_INST_NEW))
+            if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
                 h((mpr_sig)lsig, MPR_SIG_INST_NEW, si->id, 0, lsig->type, NULL, t);
             return i;
         }
@@ -544,7 +544,7 @@ int mpr_sig_get_idmap_with_GID(mpr_local_sig lsig, mpr_id GID, int flags, mpr_ti
             map = mpr_dev_add_idmap((mpr_local_dev)lsig->dev, lsig->group, si->id, GID);
             map->GID_refcount = 1;
             i = _init_and_add_idmap(lsig, si, map);
-            if (h && (lsig->event_flags & MPR_SIG_INST_NEW))
+            if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
                 h((mpr_sig)lsig, MPR_SIG_INST_NEW, si->id, 0, lsig->type, NULL, t);
             return i;
         }
@@ -556,7 +556,7 @@ int mpr_sig_get_idmap_with_GID(mpr_local_sig lsig, mpr_id GID, int flags, mpr_ti
         i = _init_and_add_idmap(lsig, si, map);
         mpr_dev_LID_incref((mpr_local_dev)lsig->dev, map);
         mpr_dev_GID_incref((mpr_local_dev)lsig->dev, map);
-        if (h && (lsig->event_flags & MPR_SIG_INST_NEW))
+        if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
             h((mpr_sig)lsig, MPR_SIG_INST_NEW, si->id, 0, lsig->type, NULL, t);
         return i;
     }
