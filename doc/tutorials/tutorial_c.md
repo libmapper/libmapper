@@ -2,9 +2,8 @@
 
 Since _libmapper_ uses GNU autoconf, getting started with the library is the
 same as any other library on Linux; use `./configure` and then `make` to compile
-it.  You'll need `swig` available if you want to compile the Python bindings.
-On Mac OS X, we provide a precompiled Framework bundle for 32- and 64-bit Intel
-platforms, so using it with XCode should be a matter of including it in your
+it.  On Mac OS X, we provide a precompiled Framework bundle for 32- and 64-bit
+Intel platforms, so using it with XCode should be a matter of including it in your
 project.
 
 ## Overview of the API structure

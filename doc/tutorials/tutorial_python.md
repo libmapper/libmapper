@@ -2,15 +2,13 @@
 
 Since _libmapper_ uses GNU autoconf, getting started with the library is the
 same as any other library on Linux; use `./configure` and then `make` to compile
-it.  You'll need `swig` available if you want to compile the Python bindings.
-On Mac OS X, we provide a precompiled Framework bundle for 32- and 64-bit Intel
-platforms, so using it with XCode should be a matter of including it in your
-project.
+it.  There is a file named `libmapper.py` in the directory `/bindings/python/`
+that you will need to copy into your project.
 
 Once you have libmapper installed, it can be imported into your program:
 
 ~~~python
-import mapper as mpr
+import libmapper as mpr
 ~~~
 
 ## Overview of the API organization
@@ -42,7 +40,7 @@ parameters, such as specifying the name of the network interface to use.
 An example of creating a device:
 
 ~~~python
-dev = mpr.device("my_device")
+dev = mpr.Device("my_device")
 ~~~
 
 ## Polling the device
@@ -126,7 +124,7 @@ which is optional:
 
 * a name for the signal (must be unique within a devices inputs or outputs)
 * the signal's vector length
-* the signal's data type: `mpr.INT32`, `mpr.FLT`, `mpr.DBL`
+* the signal's data type: `mpr.Type.INT32`, `mpr.Type.FLOAT`, `mpr.Type.DOUBLE`
 * the signal's unit (optional)
 * the signal's minimum value (optional)
 * the signal's maximum value (optional)
@@ -138,15 +136,17 @@ for input signals there is an additional argument:
 examples:
 
 ~~~python
-sig_in = dev.add_signal(mpr.DIR_IN, "my_input", 1, mpr.FLT, "m/s", -10, 10, h)
+sig_in = dev.add_signal(mpr.Direction.INCOMING, "my_input", 1,
+                        mpr.Type.FLOAT, "m/s", -10, 10, h)
 
-sig_out = dev.add_signal(mpr.DIR_OUT, "my_output", 4, mpr.INT32, None, 0, 1000)
+sig_out = dev.add_signal(mpr.Direction.OUTGOING, "my_output", 4,
+                         mpr.Type.INT32, None, 0, 1000)
 ~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
 type.  Signals are assumed to be vectors of values, so for usual single-valued
 signals, a length of 1 should be specified.  Finally, supported types are
-currently 'i' or 'f' for `int` or `float` values, respectively.
+currently `INT32`, `FLOAT`, or `DOUBLE`.
 
 The other parameters are not strictly required, but the more information you
 provide, the more _libmapper_ can do some things automatically.  For example, if
@@ -166,34 +166,37 @@ An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
 ~~~python
-outA = dev.add_signal(mpr.DIR_OUT, "outA", 1, mpr.INT32, None, None, None)
+outA = dev.add_signal(mpr.Direction.OUTGOING, "outA", 1, mpr.Type.INT32,
+                      None, None, None)
 ~~~
 
 or omitting some arguments:
 
 ~~~python
-outA = dev.add_signal(mpr.DIR_OUT, "outA", 1, mpr.INT32)
+outA = dev.add_signal(mpr.Direction.OUTGOING, "outA", 1, mpr.Type.INT32)
 ~~~
 
 An example of a `float` signal where some more information is provided:
 
 ~~~python
-sensor1 = dev.add_signal(mpr.DIR_OUT, "sensor1", 1, mpr.FLT, "V", 0.0, 5.0)
+sensor1 = dev.add_signal(mpr.Direction.OUTGOING, "sensor1", 1, mpr.Type.FLOAT,
+                         "V", 0.0, 5.0)
 ~~~
 
 So far we know how to create a device and to specify an output signal for it.
 To recap, let's review the code so far:
 
 ~~~python
-import mapper as mpr
+import libmapper as mpr
 
-dev = mpr.device("test_sender")
-sensor1 = dev.add_signal(mpr.DIR_OUT, "sensor1", 1, mpr.FLT, "V", 0.0, 5.0)
+dev = mpr.Device("test_sender")
+sensor1 = dev.add_signal(mpr.Direction.OUTGOING, "sensor1", 1, mpr.Type.FLOAT,
+                         "V", 0.0, 5.0)
     
 while 1:
     dev.poll(50)
-    ... do stuff ...
-    ... update signals ...
+    # ... do stuff ...
+    # ... update signals ...
 ~~~
 
 It is possible to retrieve a device's inputs or outputs by name or by index at a
@@ -284,9 +287,10 @@ one parameter: the frequency of the sine.
 We need to create a handler function for libmapper to update the pyo synth:
 
 ~~~python
-def frequency_handler(sig, id, val, timetag):
+def frequency_handler(sig, event, inst, val, time):
     try:
-        sine.setFreq(val)
+        if event == mpr.Signal.Event.UPDATE:
+            sine.setFreq(val)
     except:
         print('exception')
         print(sig, val)
@@ -296,21 +300,23 @@ Then our program will look like this:
 
 ~~~python
 from pyo import *
-import mapper as mpr
+import libmapper as mpr
 
 # Some pyo stuff
 synth = Server().boot().start()
 sine = Sine(freq=200, mul=0.5).out()
 
-def freq_handler(sig, id, val, timetag):
+def freq_handler(sig, event, id, val, timetag):
     try:
-        sine.setFreq(val)
+        if event == mpr.Signal.Event.UPDATE:
+            sine.setFreq(val)
     except:
         print('exception')
         print(sig, val)
 
-dev = mpr.device('pyo_example')
-dev.add_signal(mpr.DIR_IN, 'frequency', 1, mpr.FLT, 'Hz', 20, 2000, freq_handler)
+dev = mpr.Device('pyo_example')
+dev.add_signal(mpr.Direction.INCOMING, 'frequency', 1, mpr.Type.FLOAT,
+               'Hz', 20, 2000, freq_handler)
 
 while True:
     dev.poll( 100 )
@@ -323,15 +329,16 @@ separate handler:
 
 ~~~python
 from pyo import *
-import mapper as mpr
+import libmapper as mpr
 
 # Some pyo stuff
 synth = Server().boot().start()
 sine = Sine(freq=200, mul=0.5).out()
 
-dev = mpr.device('pyo_example')
-dev.add_signal(mpr.DIR_IN, 'frequency', 1, mpr.FLT, "Hz", 20, 2000,
-              lambda s, i, f, t: sine.setFreq(f))
+dev = mpr.Device('pyo_example')
+dev.add_signal(mpr.Direction.INCOMING, 'frequency', 1, mpr.Type.FLOAT, "Hz",
+               20, 2000, lambda s, e, i, f, t: sine.setFreq(f),
+               mpr.Signal.Event.UPDATE)
 
 while True:
     dev.poll(100)
@@ -339,21 +346,22 @@ while True:
 synth.stop()
 ~~~
 
+
 ## Working with timetags
 
 _libmapper_ uses the `mpr_time_t` data structure internally to store
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps),
-but this value is represented using the `timetag` type in the python bindings.
+but this value is represented using the `Time` class in the python bindings.
 For example, the handler function called when a signal update is received
-contains a `timetag` argument.  This argument indicates the time at which the
+contains a `time` argument.  This argument indicates the time at which the
 source signal was _sampled_ (in the case of sensor signals) or _generated_ (in
 the case of sequenced or algorithimically-generated signals).
 
-Creating a new `timetag` without arguments causes it to be initialized with the
+Creating a new `Time` without arguments causes it to be initialized with the
 current system time:
 
 ~~~python
-now = mpr.timetag()
+now = mpr.Time()
 ~~~
 
 ## Working with signal instances
@@ -386,14 +394,13 @@ instances you can use:
 After reserving instances you can update a specific instance:
 
 ~~~python
-<sig>.set_value(id, value)
+<sig>.instance(id).set_value(value)
 ~~~
 
-All of the arguments except one should be familiar from the documentation of
-`set_value()` presented earlier.  The `instance_id` argument does not have to be
-considered as an array index - it can be any integer that is convenient for
-labelling your instance.  _libmapper_ will internally create a map from your id
-label to one of the preallocated instance structures.
+The `id` argument does not have to be considered as an array index - it can be
+any integer that is convenient for labelling your instance.  _libmapper_ will
+internally create a map from your id label to one of the preallocated instance
+structures.
 
 ### Receiving instances
 
@@ -402,7 +409,7 @@ update is received has a argument called `id`. Here is the function prototype
 again:
 
 ~~~python
-def frequency_handler(signal, id, value, timetag):
+def frequency_handler(signal, event, id, value, time):
 ~~~
 
 Under normal usage, the `id` argument will have a value (0 <= n <=
@@ -418,35 +425,39 @@ to set an action to take in case all allocated instances are in use and a
 previously unseen instance id is received. Use the function:
 
 ~~~python
-<sig>.set_instance_stealing_mode(mode);
+<sig>.set_property(mpr.Property.STEALING, mode);
 ~~~
 
 The argument `mode` can have one of the following values:
 
-* `mpr.STEAL_NONE` Default value, in which no stealing of instances will
+* `mpr.STEALING.NONE` Default value, in which no stealing of instances will
 occur;
-* `mpr.STEAL_OLDEST` Release the oldest active instance and reallocate its
+* `mpr.STEALING.OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `mpr.STEAL_NEWEST` Release the newest active instance and reallocate its
+* `mpr.STEALING.NEWEST` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
-release (e.g. the sound with the lowest volume), you can create an
-`instance_event_handler` for the signal and write the method yourself:
+release (e.g. the sound with the lowest volume), you can subscribe to "instance
+overflow" events and insert your own logic in the signal callback handler:
 
 ~~~python
-def my_handler(sig, id, event, timetag):
-    # user code chooses which instance to release
-    id = choose_instance_to_release(sig)
+import random
 
-    sig.release_instance(id)
+def my_handler(sig, event, id, event, timetag):
+    if event == mpr.Signal.Event.INST_OFLW:
+        # user code chooses which instance to release, in this case randomly
+        id = random.randint(0, sig.num_instances())
+
+        # release the chosen instance
+        sig.instance(id).release()
 ~~~
 
 For this function to be called when instance stealing is necessary, we need to
-register it for `mpr.SIG_INST_OFLW` events:
+register it for `mpr.Signal.Event.INST_OFLW` events:
 
 ~~~python
-<sig>.set_cb(my_handler, mpr.SIG_UPDATE | mpr.SIG_INST_OFLW)
+<sig>.set_cb(my_handler, mpr.Signal.Event.UPDATE | mpr.Signal.Event.INST_OFLW)
 ~~~
 
 ## Publishing metadata
@@ -473,8 +484,9 @@ The property interface is through the functions,
 <object>.set_property(key, value)
 ~~~
 
-where the value can any OSC-compatible type. This function can be called for
-devices or signals.
+where the `key` can be either a member of the Property enum class or a string
+specifying the name of the property, and the value can any OSC-compatible type.
+This function can be called for devices or signals.
 
 For example, to store a `float` indicating the X position of a device `dev`, you
 can call it like this:

@@ -134,7 +134,7 @@ g.print()
 
 ndevs = len(g.devices())
 nsigs = len(g.signals())
-print(ndevs, 'device' if ndevs is 1 else 'devices', 'and', nsigs, 'signal:' if nsigs is 1 else 'signals:')
+print(ndevs, 'device' if ndevs == 1 else 'devices', 'and', nsigs, 'signal:' if nsigs == 1 else 'signals:')
 for d in g.devices():
     print("  DEVICE:", d['name'], '(synced', mpr.Time().get_double() - d['synced'].get_double(), 'seconds ago)')
     for s in d.signals():
@@ -142,7 +142,7 @@ for d in g.devices():
 
 maps = g.maps()
 nmaps = len(maps)
-print(nmaps, 'map:' if nmaps is 1 else 'maps:')
+print(nmaps, 'map:' if nmaps == 1 else 'maps:')
 for m in g.maps():
     for s in m.signals(mpr.Location.SOURCE):
         print("  src: ", s.device()['name'], ':', s['name'])

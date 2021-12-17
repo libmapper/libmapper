@@ -4,7 +4,7 @@ from __future__ import print_function
 import sys, random, libmapper as mpr
 
 def h(sig, event, id, val, time):
-    print('  handler got', sig['name'], '=', val, 'at time', time.get_double())
+    print('  handler got', sig['name'], '=', val, 'at', time)
 
 srcs = [mpr.Device("py.testconvergent.src"),
         mpr.Device("py.testconvergent.src"),
