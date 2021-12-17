@@ -1003,9 +1003,9 @@ class Map(Object):
 class Graph(Object):
     pass
 
-graph_dev_cbs = []
-graph_sig_cbs = []
-graph_map_cbs = []
+graph_dev_cbs = set()
+graph_sig_cbs = set()
+graph_map_cbs = set()
 
 @CFUNCTYPE(None, c_void_p, c_void_p, c_int, c_void_p)
 def graph_cb_py(_graph, c_obj, evt, user):
@@ -1083,15 +1083,15 @@ class Graph(Object):
         updated = False
         if types & Type.DEVICE:
             if func not in graph_dev_cbs:
-                graph_dev_cbs.append(func)
+                graph_dev_cbs.add(func)
                 updated = True
         if types & Type.SIGNAL:
             if func not in graph_sig_cbs:
-                graph_sig_cbs.append(func)
+                graph_sig_cbs.add(func)
                 updated = True
         if types & Type.MAP:
             if func not in graph_map_cbs:
-                graph_map_cbs.append(func)
+                graph_map_cbs.add(func)
                 updated = True
         if updated:
             _c_inc_ref(func)
@@ -1100,13 +1100,13 @@ class Graph(Object):
     def remove_callback(self, func):
         updated = False
         if func in graph_dev_cbs:
-            graph_dev_cbs.pop(func)
+            graph_dev_cbs.remove(func)
             updated = True
         if func in graph_sig_cbs:
-            graph_sig_cbs.pop(func)
+            graph_sig_cbs.remove(func)
             updated = True
         if func in graph_map_cbs:
-            graph_map_cbs.pop(func)
+            graph_map_cbs.remove(func)
             updated = True
         if updated:
 #            print("decrementing refcount for graph cb", cb)
