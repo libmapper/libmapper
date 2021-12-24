@@ -65,9 +65,6 @@ AM_CONDITIONAL(WINDOWS_DLL, test x$is_windows = xyes && test x$enable_shared = x
 AC_C_CONST
 AC_TYPE_SIZE_T
 
-# pthreads
-AX_PTHREAD
-
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
@@ -146,8 +143,42 @@ AC_ARG_ENABLE(swig,
    enable_swig=$enableval=$enableval, enable_swig=yes)
 
 AC_ARG_ENABLE(jni,
-   [  --disable-jni          don't build the Java JNI bindings.],
+   [  --disable-jni           don't build the Java JNI bindings.],
    enable_jni=$enableval, enable_jni=yes)
+
+AC_ARG_ENABLE(threads,
+   [  --disable-threads       don't build with threading support.],
+   enable_threads=$enableval, enable_threads=yes)
+
+# Check if win32 threads are wanted
+AC_ARG_WITH(win32-threads,
+   [  --with-win32-threads    Use win32 threads], [], [with_win32_threads=yes])
+if test "x$enable_threads" = xyes; then
+   AC_CHECK_HEADER([winsock2.h], [HAVE_WINSOCK2_H=yes])
+   if test "x$HAVE_WINSOCK2_H" = xyes; then
+     if test "x$with_win32_threads" = xyes; then
+       have_threads="yes"
+     fi
+   fi
+fi
+
+# Check for whether threads are wanted, and if so, did we find libpthread.
+if test "x$enable_threads" = "xyes"; then
+  if test "x$with_win32_threads" = "xyes" && test "x$have_threads" = "xyes"; then
+    AC_DEFINE([HAVE_WIN32_THREADS],[1],[Define to use the win32 library for threading.])
+    threads_explain="(win32 threads)"
+  else
+  AC_SEARCH_LIBS([pthread_create], [c pthread],
+    [AS_IF([! test x"$ac_res" = x"-lc" && ! test x"$ac_res" = x"none required"],
+           [LIBPTHREAD="$ac_res"])
+     have_threads=yes;
+     HAVE_LIBPTHREAD=1;
+     threads_explain="(pthread)"
+     AC_DEFINE([HAVE_LIBPTHREAD],[1],[Define to use the pthread library for threading.])],
+     AC_MSG_ERROR([pthread not found. Try option --disable-threads.]))
+  fi
+  AC_DEFINE(ENABLE_THREADS, [1], [Define this to enable threads.])
+fi
 
 if test x$enable_swig = xyes; then
    AC_CHECK_PROG([SWIG], [swig], [swig])
@@ -329,6 +360,7 @@ AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
 AM_CONDITIONAL(HAVE_SWIG, test "x$enable_swig" = xyes)
 AM_CONDITIONAL(HAVE_AUDIO, test "x$enable_audio" = xyes)
+AM_CONDITIONAL(ENABLE_THREADS, test "x$enable_threads" = xyes)
 
 AC_CONFIG_FILES([
     Makefile
@@ -357,6 +389,7 @@ echo libmapper configured:
 echo --------------------------------------------------
 echo "building documention...    " $enable_docs $docs_explain
 echo "building tests...          " $enable_tests
+echo "threading support...       " $enable_threads $threads_explain
 echo "building SWIG bindings...  " $enable_swig $swig_explain
 echo "building Java bindings...  " $enable_jni $jni_explain
 echo "building audio examples... " $enable_audio $audio_explain

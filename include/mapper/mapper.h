@@ -224,6 +224,16 @@ mpr_list mpr_dev_get_maps(mpr_dev device, mpr_dir direction);
  *  \return             The number of handled messages. May be zero if there was nothing to do. */
 int mpr_dev_poll(mpr_dev device, int block_ms);
 
+/*! Start automatically polling this device for new messages in a separate thread.
+ *  \param device       The device to check messages for.
+ *  \return             Zero if successful, less than zero otherwise. */
+int mpr_dev_start_polling(mpr_dev device);
+
+/*! Stop automatically polling this device for new messages in a separate thread.
+ *  \param device       The device to check messages for.
+ *  \return             Zero if successful, less than zero otherwise. */
+int mpr_dev_stop_polling(mpr_dev device);
+
 /*! Detect whether a device is completely initialized.
  *  \param device       The device to query.
  *  \return             Non-zero if device is completely initialized, i.e., has an allocated
@@ -626,6 +636,16 @@ const char *mpr_graph_get_address(mpr_graph graph);
  *  \param block_ms     The number of milliseconds to block, or 0 for non-blocking behaviour.
  *  \return             The number of handled messages. */
 int mpr_graph_poll(mpr_graph graph, int block_ms);
+
+/*! Start automatically synchonizing a local graph copy in a separate thread.
+ *  \param graph        The graph to update.
+ *  \return             Zero if successful, less than zero otherwise. */
+int mpr_graph_start_polling(mpr_graph graph);
+
+/*! Stop automatically synchonizing a local graph copy in a separate thread.
+ *  \param graph        The graph to update.
+ *  \return             Zero if successful, less than zero otherwise. */
+int mpr_graph_stop_polling(mpr_graph graph);
 
 /*! Free a graph.
  *  \param graph        The graph to free. */

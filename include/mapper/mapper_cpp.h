@@ -1194,6 +1194,16 @@ namespace mapper {
         int poll(int block_ms=0) const
             { return mpr_dev_poll(_obj, block_ms); }
 
+        /*! Start automatically polling this Device for new messages in a separate thread.
+         *  \param return   Self. */
+        Device& start()
+            { mpr_dev_start_polling(_obj); RETURN_SELF }
+
+        /*! Stop automatically polling this Device for new messages in a separate thread.
+         *  \param return   Self. */
+        Device& stop()
+            { mpr_dev_stop_polling(_obj); RETURN_SELF }
+
         /*! Detect whether a device is completely initialized.
          *  \return         Non-zero if device is completely initialized, i.e., has an allocated
          *                  receiving port and unique identifier. Zero otherwise. */
@@ -1411,11 +1421,21 @@ namespace mapper {
         std::string address() const
             { return std::string(mpr_graph_get_address(_obj)); }
 
-        /*! Update a Graph.
+        /*! Synchonize a Graph object with the distributed graph.
          *  \param block_ms     The number of milliseconds to block, or 0 for non-blocking behavior.
          *  \return             The number of handled messages. */
         int poll(int block_ms=0) const
             { return mpr_graph_poll(_obj, block_ms); }
+
+        /*! Start automatically synchonizing a Graph object in a separate thread.
+         *  \param return   Self. */
+        Graph& start()
+            { mpr_graph_start_polling(_obj); RETURN_SELF }
+
+        /*! Stop automatically synchonizing a Graph object in a separate thread.
+         *  \param return   Self. */
+        Graph& stop()
+            { mpr_graph_stop_polling(_obj); RETURN_SELF }
 
         // subscriptions
         /*! Subscribe to information about a specific Device.

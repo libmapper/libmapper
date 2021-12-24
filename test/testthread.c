@@ -7,11 +7,11 @@
 #include <signal.h>
 #include <string.h>
 
-#include <pthread.h>
-
 #if defined(WIN32) || defined(_MSC_VER)
+#define HAVE_WIN32_THREADS 1
 #define SLEEP_MS(x) Sleep(x)
 #else
+#include <pthread.h>
 #define SLEEP_MS(x) usleep((x)*1000)
 #endif
 
@@ -178,21 +178,23 @@ void *update_thread(void *context)
     return 0;
 }
 
-void loop()
+void loop1()
 {
 #ifdef HAVE_WIN32_THREADS
     unsigned retval;
     HANDLE thread;
-    if (!(thread=(HANDLE)_beginthreadex(NULL, 0, &update_thread, 0, 0, NULL)))
+    if (!(thread=(HANDLE)_beginthreadex(NULL, 0, &update_thread, 0, 0, NULL))) {
+        printf("Error creating thread (_beginthreadex)\n");
+        exit(1);
+    }
 #else
     void *retval;
     pthread_t thread;
-    if (pthread_create(&thread, 0, update_thread, 0))
-#endif
-    {
-        perror("pthread_create");
+    if (pthread_create(&thread, 0, update_thread, 0)) {
+        perror("error: pthread_create");
         exit(1);
     }
+#endif /* HAVE_WIN32_THREADS */
 
     while (keep_going) {
         mpr_dev_poll(src, 0);
@@ -207,13 +209,40 @@ void loop()
     mpr_dev_poll(dst, period);
 
 #ifdef HAVE_WIN32_THREADS
-    WaitForSingleObject(thread, INFINITE);
+    if (WaitForSingleObject(thread, INFINITE))
+        printf("Error closing thread (WaitForSingleObject)\n");
+    else
+        printf("Thread joined, retval=%u\n", retval);
     CloseHandle(thread);
-    printf("Thread joined, retval=%u\n", retval);
 #else
-    pthread_join(thread, &retval);
-    printf("Thread joined, retval=%p\n", retval);
-#endif
+    if (pthread_join(thread, &retval))
+        printf("Error closing thread (pthread_join)\n");
+    else
+        printf("Thread joined, retval=%p\n", retval);
+#endif /* HAVE_WIN32_THREADS */
+}
+
+void loop2()
+{
+    mpr_dev_start_polling(dst);
+
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
+    while ((!terminate || sent < 100) && !done) {
+        eprintf("Updating signal %s to %d\n", name, sent);
+        mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
+        expected = sent;
+        sent++;
+        mpr_dev_poll(src, period);
+
+        if (!verbose) {
+            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            fflush(stdout);
+        }
+
+        SLEEP_MS(period);
+    }
+
+    mpr_dev_stop_polling(dst);
 }
 
 void segv(int sig)
@@ -300,7 +329,11 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    loop();
+    // update signals in another thread
+    loop1();
+
+    // poll device in another thread
+    loop2();
 
     if (autoconnect && (!received || sent > received)) {
         eprintf("Not all sent messages were received.\n");

@@ -20,14 +20,19 @@
 #include "config.h"
 #include <mapper/mapper.h>
 
-#ifdef HAVE_PTHREAD
+#ifdef HAVE_LIBPTHREAD
 #include <pthread.h>
+static void* device_thread_func(void *data);
+#endif
+
+#ifdef HAVE_WIN32_THREADS
+static unsigned __stdcall device_thread_func(void *data);
 #endif
 
 extern const char* net_msg_strings[NUM_MSG_STRINGS];
 
 /* prototypes */
-void mpr_dev_start_servers(mpr_local_dev dev);
+static void mpr_dev_start_servers(mpr_local_dev dev);
 static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem);
 MPR_INLINE static int _process_outgoing_maps(mpr_local_dev dev);
 
@@ -806,6 +811,102 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     return admin_count + device_count;
 }
 
+#ifdef HAVE_LIBPTHREAD
+static void *device_thread_func(void *data)
+{
+    mpr_thread_data td = (mpr_thread_data)data;
+    while (td->is_active) {
+        mpr_dev_poll((mpr_dev)td->object, 100);
+    }
+    td->is_done = 1;
+    pthread_exit(NULL);
+    return 0;
+}
+#endif
+
+#ifdef HAVE_WIN32_THREADS
+static void *device_thread_func(void *data)
+{
+    mpr_thread_data td = (mpr_thread_data)data;
+    while (td->is_active) {
+        mpr_dev_poll((mpr_dev)td->object, 100);
+    }
+    td->is_done = 1;
+    _endthread();
+    return 0;
+}
+#endif
+
+int mpr_dev_start_polling(mpr_dev dev)
+{
+    mpr_thread_data td;
+    int result = 0;
+    RETURN_ARG_UNLESS(dev && dev->is_local, 0);
+    if (((mpr_local_dev)dev)->thread_data)
+        return 0;
+
+    td = (mpr_thread_data)malloc(sizeof(mpr_thread_data_t));
+    td->object = (mpr_obj)dev;
+    td->is_active = 1;
+
+
+#ifdef HAVE_LIBPTHREAD
+    result = -pthread_create(&(td->thread), 0, device_thread_func, td);
+#else
+#ifdef HAVE_WIN32_THREADS
+    if (!(td->thread = (HANDLE)_beginthreadex(NULL, 0, &device_thread_func, td, 0, NULL)))
+        result = -1;
+#else
+    printf("error: threading is not available.\n");
+#endif /* HAVE_WIN32_THREADS */
+#endif /* HAVE_LIBPTHREAD */
+
+    if (result) {
+        printf("Device error: couldn't create thread.\n");
+        free(td);
+    }
+    else {
+        ((mpr_local_dev)dev)->thread_data = td;
+    }
+    return result;
+}
+
+int mpr_dev_stop_polling(mpr_dev dev)
+{
+    mpr_thread_data td;
+    int result = 0;
+    RETURN_ARG_UNLESS(dev && dev->is_local, 0);
+    td = ((mpr_local_dev)dev)->thread_data;
+    if (!td || !td->is_active)
+        return 0;
+    td->is_active = 0;
+
+#ifdef HAVE_LIBPTHREAD
+    result = pthread_join(td->thread, NULL);
+    if (result) {
+        printf("Device error: failed to stop thread (pthread_join).\n");
+        return -result;
+    }
+#else
+#ifdef HAVE_WIN32_THREADS
+    result = WaitForSingleObject(td->thread, INFINITE);
+    CloseHandle(td->thread);
+    td->thread = NULL;
+
+    if (0 != result) {
+        printf("Device error: failed to join thread (WaitForSingleObject).\n");
+        return -1;
+    }
+#else
+    printf("error: threading is not available.\n");
+#endif /* HAVE_WIN32_THREADS */
+#endif /* HAVE_LIBPTHREAD */
+
+    free(((mpr_local_dev)dev)->thread_data);
+    ((mpr_local_dev)dev)->thread_data = 0;
+    return result;
+}
+
 mpr_time mpr_dev_get_time(mpr_dev dev)
 {
     RETURN_ARG_UNLESS(dev && dev->is_local, MPR_NOW);
@@ -945,7 +1046,7 @@ static void handler_error(int num, const char *msg, const char *where)
     trace_net("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
 }
 
-void mpr_dev_start_servers(mpr_local_dev dev)
+static void mpr_dev_start_servers(mpr_local_dev dev)
 {
     int portnum;
     char port[16], *pport = 0, *url, *host;

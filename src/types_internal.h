@@ -222,6 +222,21 @@ typedef struct _mpr_subscriber {
 
 #define TIMEOUT_SEC 10              /* timeout after 10 seconds without ping */
 
+/**** Thread handling ****/
+
+typedef struct _mpr_thread_data {
+    void *object;
+#ifdef HAVE_LIBPTHREAD
+    pthread_t thread;
+#else
+#ifdef HAVE_WIN32_THREADS
+    HANDLE thread;
+#endif
+#endif
+    volatile int is_active;
+    volatile int is_done;
+} mpr_thread_data_t, *mpr_thread_data;
+
 /**** Object ****/
 
 typedef struct _mpr_obj
@@ -245,6 +260,8 @@ typedef struct _mpr_graph {
 
     /*! Linked-list of autorenewing device subscriptions. */
     mpr_subscription subscriptions;
+
+    mpr_thread_data thread_data;
 
     /*! Flags indicating whether information on signals and mappings should
      *  be automatically subscribed to when a new device is seen.*/
@@ -539,6 +556,7 @@ struct _mpr_local_dev {
     } idmaps;
 
     mpr_expr_stack expr_stack;
+    mpr_thread_data thread_data;
 
     mpr_time time;
     int num_sig_groups;

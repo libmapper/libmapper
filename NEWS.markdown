@@ -7,7 +7,7 @@ Released 8 Nov 2021
 
 We are pleased to annouce the release of version 2.1 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
-This release builds on the large scale changes introduced in version 2.0 while fixing bugs and improving memory use, testing, and documentation. Version 2.1 is also now compliant with the C90 standard (ISO/IEC 9899:1990). This change along with other modificationss now enables CMake Visual Studio solution generation for quick compiling on Windows. Refer to the updated Windows build instructions for more information.
+This release builds on the large scale changes introduced in version 2.0 while fixing bugs and improving memory use, testing, and documentation. Version 2.1 is also now compliant with the C90 standard (ISO/IEC 9899:1990). This change along with other modifications now enables CMake Visual Studio solution generation for quick compiling on Windows. Refer to the updated Windows build instructions for more information.
 
 ## Memory Improvements
 
@@ -19,7 +19,7 @@ Multiple devices can now share a graph and network data structure. Currently eac
 
 ## Multithreading
 
-To better support multithreaded devices with interrupt-driven signal updates, we now use a circular buffer for outgoing OSC bundles. This ensures that devices are not trying to add update messages to the bundle during a call to `mpr_dev_poll()`.
+To better support multithreaded devices with interrupt-driven signal updates, we now use a circular buffer for outgoing OSC bundles. This ensures that devices are not trying to add messages to the bundle during a call to `mpr_dev_poll()`.
 
 ## Expression Engine Improvements
 
