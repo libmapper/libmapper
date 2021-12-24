@@ -825,7 +825,7 @@ static void *device_thread_func(void *data)
 #endif
 
 #ifdef HAVE_WIN32_THREADS
-static unsigned __stdcall device_thread_func(void *data);
+static unsigned __stdcall device_thread_func(void *data)
 {
     mpr_thread_data td = (mpr_thread_data)data;
     while (td->is_active) {
