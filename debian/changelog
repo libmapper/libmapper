@@ -1,3 +1,9 @@
+libmapper (2.1.1+g953628d5-5) focal; urgency=medium
+
+  * Install .egg-info files for discovery by pip install
+
+ -- Christian Frisson <christian.frisson@gmail.com>  Tue, 28 Dec 2021 16:15:29 -0500
+
 libmapper (2.1.1+g953628d5-4) focal; urgency=medium
 
   * Add liblo-dev to libmapper-dev dependencies
