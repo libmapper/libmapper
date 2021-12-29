@@ -351,18 +351,15 @@ int main(int argc, char ** argv)
 
     std::vector <double> v(3);
     i = 0;
-    out << "check1:" << i << ", " << done << std::endl;
     while (i++ < 100 && !done) {
         v[i%3] = i;
         if (i == 50) {
             Signal s = *dev.signals().filter(Property::NAME, "in4", Operator::EQUAL);
             s.set_callback(standard_handler);
         }
-        out << "setting output value to " << v[0] << v[1] << v[2] << std::endl;
         sig.set_value(v);
         graph.poll(period);
     }
-    out << "check2" << std::endl;
     dev.stop();
 
     // try retrieving linked devices

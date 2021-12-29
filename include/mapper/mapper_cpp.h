@@ -639,11 +639,6 @@ namespace mapper {
         bool ready() const
             { return mpr_map_get_is_ready(_obj); }
 
-//        /*! Get the scopes property for a this map.
-//         *  \return       A List containing the list of results.  Use List::next() to iterate. */
-//        List<Device> scopes() const
-//            { return List<Device>((void**)mpr_map_scopes(_obj)); }
-
         /*! Add a scope to this Map. Map scopes configure the propagation of Signal updates across
          *  the Map. Changes will not take effect until synchronized with the distributed graph
          *  using push().
@@ -1190,17 +1185,18 @@ namespace mapper {
         /*! Poll this device for new messages.  Note, if you have multiple devices, the right thing
          *  to do is call this function for each of them with block_ms=0, and add your own sleep if
          *  necessary.
-         *  \return     The number of handled messages. May be zero if there was nothing to do. */
+         *  \param block_ms     The number of milliseconds to block, or 0 for non-blocking behavior.
+         *  \return             The number of handled messages. */
         int poll(int block_ms=0) const
             { return mpr_dev_poll(_obj, block_ms); }
 
         /*! Start automatically polling this Device for new messages in a separate thread.
-         *  \param return   Self. */
+         *  \return   Self. */
         Device& start()
             { mpr_dev_start_polling(_obj); RETURN_SELF }
 
         /*! Stop automatically polling this Device for new messages in a separate thread.
-         *  \param return   Self. */
+         *  \return   Self. */
         Device& stop()
             { mpr_dev_stop_polling(_obj); RETURN_SELF }
 
@@ -1218,14 +1214,15 @@ namespace mapper {
         /*! Set the time for a device. Use only if user code has access to a more accurate
          *  timestamp than the operating system.
          *  \param time     The time to set. This time will be used for tagging signal updates until
-         *                  the next occurrence mpr_dev_set_time() or mpr_dev_poll(). */
+         *                  the next occurrence mpr_dev_set_time() or mpr_dev_poll().
+         *  \return   Self. */
         Device& set_time(Time time)
             { mpr_dev_set_time(_obj, *time); RETURN_SELF }
 
         /*! Indicate that all signal values have been updated for a given timestep. This function
          *  can be omitted if poll() is called each sampling timestep, however calling poll() at a
          *  lower rate may be more performant.
-         *  \param return   Self. */
+         *  \return   Self. */
         Device& update_maps()
             { mpr_dev_update_maps(_obj); RETURN_SELF }
 
@@ -1428,12 +1425,12 @@ namespace mapper {
             { return mpr_graph_poll(_obj, block_ms); }
 
         /*! Start automatically synchonizing a Graph object in a separate thread.
-         *  \param return   Self. */
+         *  \return   Self. */
         Graph& start()
             { mpr_graph_start_polling(_obj); RETURN_SELF }
 
         /*! Stop automatically synchonizing a Graph object in a separate thread.
-         *  \param return   Self. */
+         *  \return   Self. */
         Graph& stop()
             { mpr_graph_stop_polling(_obj); RETURN_SELF }
 
