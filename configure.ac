@@ -389,6 +389,7 @@ AC_CONFIG_FILES([
     bindings/Makefile
     bindings/csharp/Makefile
     bindings/python/Makefile
+    bindings/python/setup.py
     examples/Makefile
     examples/pwm_synth/Makefile
     examples/py_tk_gui/Makefile
