@@ -146,6 +146,10 @@ AC_ARG_ENABLE(jni,
    [  --disable-jni           don't build the Java JNI bindings.],
    enable_jni=$enableval, enable_jni=yes)
 
+AC_ARG_ENABLE(csharp,
+   [  --disable-csharp        don't build the C# bindings.],
+   enable_csharp=$enableval, enable_csharp=yes)
+
 AC_ARG_ENABLE(threads,
    [  --disable-threads       don't build with threading support.],
    enable_threads=$enableval, enable_threads=yes)
@@ -272,6 +276,14 @@ if test x$enable_jni = xyes; then
    fi
 fi
 
+if test x$enable_csharp = xyes; then
+   AC_CHECK_PROG([CSC], [csc], [csc])
+   if test x$CSC = x; then
+     enable_csharp=no
+     csharp_explain="(csc not found)"
+   fi
+fi
+
 # Check for audio libraries supported by RtAudio
 if test x$enable_audio = xyes; then
 
@@ -359,6 +371,7 @@ AM_CONDITIONAL(TESTS, test "x$enable_tests" = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
 AM_CONDITIONAL(HAVE_SWIG, test "x$enable_swig" = xyes)
+AM_CONDITIONAL(HAVE_CSHARP, test "x$enable_csharp" = xyes)
 AM_CONDITIONAL(HAVE_AUDIO, test "x$enable_audio" = xyes)
 AM_CONDITIONAL(ENABLE_THREADS, test "x$enable_threads" = xyes)
 
@@ -373,6 +386,9 @@ AC_CONFIG_FILES([
     swig/setup.py
     jni/Makefile
     jni/mapper/NativeLib.java
+    bindings/Makefile
+    bindings/csharp/Makefile
+    bindings/python/Makefile
     examples/Makefile
     examples/pwm_synth/Makefile
     examples/py_tk_gui/Makefile
@@ -392,6 +408,7 @@ echo "building tests...          " $enable_tests
 echo "threading support...       " $enable_threads $threads_explain
 echo "building SWIG bindings...  " $enable_swig $swig_explain
 echo "building Java bindings...  " $enable_jni $jni_explain
+echo "building C# bindings...    " $enable_csharp $csharp_explain
 echo "building audio examples... " $enable_audio $audio_explain
 AS_IF([test x$enable_debug = xyes],
       [echo "Debug flags enabled."])
