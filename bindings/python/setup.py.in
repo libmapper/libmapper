@@ -4,6 +4,8 @@
 setup.py file for python mapper
 """
 
+from distutils.core import setup
+
 setup (name = 'libmapper',
        version = '@PACKAGE_VERSION@',
        author      = "libmapper.org",
