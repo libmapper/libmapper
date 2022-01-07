@@ -80,7 +80,7 @@ headers and the JDK available.
 
 You should have a Windows version of Python installed, and specify the
 path to it in CFLAGS, if you want to build the Python bindings,
-otherwise also provide `--disable-swig`.
+otherwise also provide `--disable-python`.
 
 Note that the above makes a local folder for the install location for
 Windows targets called `$HOME/.win`, which helps avoid mixing Windows

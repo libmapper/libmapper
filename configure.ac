@@ -138,9 +138,9 @@ AC_ARG_ENABLE(audio,
    [  --disable-audio         don't build the audio examples.],,
    enable_audio=$enableval, enable_audio=yes)
 
-AC_ARG_ENABLE(swig,
-   [  --disable-swig          don't build the SWIG bindings.],
-   enable_swig=$enableval=$enableval, enable_swig=yes)
+AC_ARG_ENABLE(python,
+   [  --disable-python        don't build the Python bindings.],
+   enable_python=$enableval=$enableval, enable_python=yes)
 
 AC_ARG_ENABLE(jni,
    [  --disable-jni           don't build the Java JNI bindings.],
@@ -184,26 +184,18 @@ if test "x$enable_threads" = "xyes"; then
   AC_DEFINE(ENABLE_THREADS, [1], [Define this to enable threads.])
 fi
 
-if test x$enable_swig = xyes; then
-   AC_CHECK_PROG([SWIG], [swig], [swig])
-   if test x$SWIG = x; then
-     enable_swig=no
-     swig_explain="(swig not found)"
+if test x$enable_python = xyes; then
+   AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
+   if test x$have_python = xyes; then
+     PYEXT=$($PYTHON -c "import sys; print({'win32':'pyd','darwin':'so','linux':'so','linux2':'so'}[[sys.platform]])")
+     AC_SUBST(PYEXT)
+     case "$PYTHON_VERSION" in
+     3*) PY3=" -py3"; AC_SUBST(PY3)
+     esac
+     python_explain="($(basename $PYTHON)$PY3)"
    else
-     AM_PATH_PYTHON(2.3, [have_python="yes"], [have_python="no"])
-     if test x$have_python = xyes; then
-       SWIGDIR=swig
-       AC_SUBST(SWIGDIR)
-       PYEXT=$($PYTHON -c "import sys; print({'win32':'pyd','darwin':'so','linux':'so','linux2':'so'}[[sys.platform]])")
-       AC_SUBST(PYEXT)
-       case "$PYTHON_VERSION" in
-       3*) PY3SWIG=" -py3"; AC_SUBST(PY3SWIG)
-       esac
-       swig_explain="($(basename $PYTHON)$PY3SWIG)"
-     else
-       enable_swig=no
-       swig_explain="(python not found)"
-     fi
+     enable_python=no
+     python_explain="(python not found)"
    fi
 fi
 
@@ -369,8 +361,7 @@ CXXFLAGS="-I. $CXXFLAGS"
 
 AM_CONDITIONAL(TESTS, test "x$enable_tests" = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
-AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = xyes)
-AM_CONDITIONAL(HAVE_SWIG, test "x$enable_swig" = xyes)
+AM_CONDITIONAL(HAVE_PYTHON, test "x$enable_python" = xyes)
 AM_CONDITIONAL(HAVE_CSHARP, test "x$enable_csharp" = xyes)
 AM_CONDITIONAL(HAVE_AUDIO, test "x$enable_audio" = xyes)
 AM_CONDITIONAL(ENABLE_THREADS, test "x$enable_threads" = xyes)
@@ -382,8 +373,6 @@ AC_CONFIG_FILES([
     test/Makefile
     doc/Makefile
     doc/libmapper.doxyfile
-    swig/Makefile
-    swig/setup.py
     jni/Makefile
     jni/mapper/NativeLib.java
     bindings/Makefile
@@ -392,8 +381,6 @@ AC_CONFIG_FILES([
     bindings/python/setup.py
     examples/Makefile
     examples/pwm_synth/Makefile
-    examples/py_tk_gui/Makefile
-    examples/py_tk_gui/setup.py
     extra/Makefile
     extra/macOS/Makefile
     libmapper.pc
@@ -404,14 +391,14 @@ AC_OUTPUT
 echo
 echo libmapper configured:
 echo --------------------------------------------------
-echo "building documention...    " $enable_docs $docs_explain
-echo "building tests...          " $enable_tests
-echo "threading support...       " $enable_threads $threads_explain
-echo "building SWIG bindings...  " $enable_swig $swig_explain
-echo "building Java bindings...  " $enable_jni $jni_explain
-echo "building C# bindings...    " $enable_csharp $csharp_explain
-echo "building audio examples... " $enable_audio $audio_explain
+echo "building documention...     " $enable_docs $docs_explain
+echo "building tests...           " $enable_tests
+echo "threading support...        " $enable_threads $threads_explain
+echo "building Python bindings... " $enable_python $python_explain
+echo "building Java bindings...   " $enable_jni $jni_explain
+echo "building C# bindings...     " $enable_csharp $csharp_explain
+echo "building audio examples...  " $enable_audio $audio_explain
 AS_IF([test x$enable_debug = xyes],
       [echo "Debug flags enabled."])
-echo "version                    " $PACKAGE_VERSION
+echo "version                     " $PACKAGE_VERSION
 echo --------------------------------------------------

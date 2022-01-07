@@ -93,29 +93,6 @@ function make_arches()
         $LIBMAPPER_DYLIB || exit 1
 }
 
-function rebuild_python_extentions()
-{
-    ARCH=$1
-    cd $ARCH
-    PREFIX=`pwd`/install
-
-    cd libmapper-$LIBMAPPER_VERSION/swig
-    make mapper_wrap.c
-
-    gcc -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../src -I../include -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.7/include/python2.7 -c mapper_wrap.c -o mapper_wrap.o
-
-    gcc -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD mapper_wrap.o $PREFIX/lib/liblo.a $PREFIX/lib/libmapper.a -lpthread -o _mapper.so
-
-    cd ../examples/py_tk_gui
-    make pwm_wrap.cxx
-
-    gcc -DNDEBUG -g -fwrapv -Os -Wall -Wstrict-prototypes -arch $ARCH -pipe -I../../src -I../../include -I../pwm_synth -I$PREFIX/include -I/System/Library/Frameworks/Python.framework/Versions/2.7/include/python2.7 -c pwm_wrap.cxx -o pwm_wrap.o
-
-    gcc -Wl,-F. -bundle -undefined dynamic_lookup -arch $ARCH $SDKC $SDKLD pwm_wrap.o ../pwm_synth/.libs/libpwm.a -lpthread -o _pwm.so -framework CoreAudio -framework CoreFoundation
-
-    cd ../../../..
-}
-
 function info_plist()
 {
     FILENAME=$1
@@ -162,13 +139,10 @@ function make_bundles()
     mkdir -v $APP/Contents
     mkdir -v $APP/Contents/MacOS
     mkdir -v $APP/Contents/Resources
-    cp -v libmapper-$LIBMAPPER_VERSION/swig/_mapper.so $APP/Contents/MacOS/
-    cp -v libmapper-$LIBMAPPER_VERSION/swig/mapper.py $APP/Contents/MacOS/
-    cp -v libmapper-$LIBMAPPER_VERSION/examples/py_tk_gui/_pwm.so $APP/Contents/MacOS/
-    cp -v libmapper-$LIBMAPPER_VERSION/examples/py_tk_gui/pwm.py $APP/Contents/MacOS/
-    cp -v libmapper-$LIBMAPPER_VERSION/examples/py_tk_gui/tk_pwm.py $APP/Contents/MacOS/
+    cp -v libmapper-$LIBMAPPER_VERSION/src/.libs/libmapper.*.dylib $APP/Contents/MacOS/libmapper.dylib
+    cp -v libmapper-$LIBMAPPER_VERSION/examples/pwm_example $APP/Contents/MacOS/
     echo 'APPL????' >$APP/Contents/PkgInfo
-    info_plist $APP/Contents/Info.plist libmapper_PWM_Example tk_pwm.py
+    info_plist $APP/Contents/Info.plist libmapper_PWM_Example pwm_example
     cp -v ../icons/libmapper.icns $APP/Contents/Resources/
 
     APP=bundles/libmapper_Slider_Example.app
@@ -176,9 +150,9 @@ function make_bundles()
     mkdir -v $APP/Contents
     mkdir -v $APP/Contents/MacOS
     mkdir -v $APP/Contents/Resources
-    cp -v libmapper-$LIBMAPPER_VERSION/swig/_mapper.so $APP/Contents/MacOS/
-    cp -v libmapper-$LIBMAPPER_VERSION/swig/mapper.py $APP/Contents/MacOS/
-    cp -v libmapper-$LIBMAPPER_VERSION/swig/tkgui.py $APP/Contents/MacOS/
+    cp -v libmapper-$LIBMAPPER_VERSION/src/.libs/libmapper.*.dylib $APP/Contents/MacOS/libmapper.dylib
+    cp -v libmapper-$LIBMAPPER_VERSION/bindings/python/libmapper.py $APP/Contents/MacOS/
+    cp -v libmapper-$LIBMAPPER_VERSION/bindings/python/tkgui.py $APP/Contents/MacOS/
     echo 'APPL????' >$APP/Contents/PkgInfo
     info_plist $APP/Contents/Info.plist libmapper_Slider_Example tkgui.py
     cp -v ../icons/libmapper.icns $APP/Contents/Resources/

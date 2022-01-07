@@ -1,13 +1,9 @@
 
-SUBDIRS = pwm_synth
-
-if HAVE_SWIG
-if HAVE_AUDIO
-SUBDIRS += py_tk_gui
-endif
-endif
+SUBDIRS =
 
 if HAVE_AUDIO
+SUBDIRS += pwm_synth
+
 bin_PROGRAMS = pwm_example
 pwm_example_CXXFLAGS = -Wall -I$(top_srcdir)/include $(liblo_CFLAGS)
 pwm_example_SOURCES = pwm_example.cpp

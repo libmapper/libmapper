@@ -4,26 +4,25 @@ import sys, os
 from PySide2.QtCore import Qt, QBasicTimer
 from PySide2.QtWidgets import QApplication, QMainWindow, QSlider, QLabel
 try:
-    import mapper as mpr
+    import libmapper as mpr
 except:
     try:
-        # Try the "swig" directory, relative to the location of this
-        # program, which is where it should be if the module has been
-        # compiled but not installed.
+        # Try the "bindings/python" directory, relative to the location of this
+        # program, which is where it should be if the module has not been installed.
         sys.path.append(
                         os.path.join(os.path.join(os.getcwd(),
                                                   os.path.dirname(sys.argv[0])),
-                                     '../swig'))
+                                     '../bindings/python'))
         import libmapper as mpr
     except:
         print('Error importing libmapper module.')
         sys.exit(1)
 
 numsliders = 3
-dev = mpr.device("pysideGUI")
+dev = mpr.Device("pysideGUI")
 sigs = []
 for i in range(numsliders):
-    sigs.append(dev.add_signal(mpr.DIR_OUT, 'slider%i' %i, 1, 'f', None, 0, 1))
+    sigs.append(dev.add_signal(mpr.Direction.OUTGOING, 'slider%i' %i, 1, mpr.Type.FLOAT, None, 0, 1))
 
 class gui(QMainWindow):
     def __init__(self):
@@ -65,19 +64,19 @@ class gui(QMainWindow):
 
 def h(type, map, event):
     try:
-        src = map.signals(mpr.LOC_SRC).next()
+        src = map.signals(mpr.Location.SOURCE).next()
         id = sigs.index(src)
         if id < 0:
             return
-        if event == mpr.OBJ_NEW:
-            dst = map.signals(mpr.LOC_DST).next()
+        if event == mpr.Graph.Event.NEW:
+            dst = map.signals(mpr.Location.DESTINATION).next()
             gui.setLabel(id, dst['name'])
-        elif event == mpr.OBJ_REM or event == mpr.OBJ_EXP:
+        elif event == mpr.Graph.Event.REMOVED or event == mpr.Graph.Event.EXPIRED:
             gui.setLabel(id, 'slider%i' %id)
     except Exception as e:
         raise e
 
-dev.graph().add_callback(h, mpr.MAP)
+dev.graph().add_callback(h, mpr.Type.MAP)
 
 def remove_dev():
     print('called remove_dev')

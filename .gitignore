@@ -17,6 +17,9 @@ ChangeLog
 README
 aclocal.m4
 autom4te.cache
+bindings/python/build/
+bindings/python/dist
+bindings/python/libmapper.egg-info
 bindings/python/setup.py
 compile
 config.guess
@@ -24,6 +27,7 @@ config.log
 config.status
 config.sub
 configure
+configure~
 depcomp
 install-sh
 libtool
@@ -34,8 +38,6 @@ doc/html/
 doc/latex/
 doc/libmapper.doxyfile
 examples/pwm_example
-examples/py_tk_gui/pwm.py
-examples/py_tk_gui/setup.py
 jni/mapper/NativeLib.java
 jni/*.h
 jni/*.log
@@ -52,12 +54,6 @@ NEWS
 src/config.h
 src/config.h.in
 src/stamp-h1
-swig/build/
-swig/installed_files.log
-swig/mapper.py
-swig/libmapper.py
-swig/mapper_wrap.c
-swig/setup.py
 test/test
 test/testbundle
 test/testcalibrate

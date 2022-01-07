@@ -32,16 +32,15 @@ detected, by running,
 If the path to liblo is not correct, please set up the
 `PKG_CONFIG_PATH` environment variable appropriately and try again.
 
-libmapper also has optional dependencies on the Java SDK as well as
-SWIG and Doxygen, for Java and Python bindings, and documentation,
-respectively.  The Java SDK may be installed according to your
-standard operating system procedure, and you can check if it is
-already installed by running,
+libmapper also has optional dependencies on the Java SDK and Doxygen,
+for Java bindings, and documentation, respectively.  The Java SDK may
+be installed according to your standard operating system procedure,
+and you can check if it is already installed by running,
 
     javac -version
 
 These should print the installed version numbers of these programs if
-correctly configured.  You may install `swig` and `doxygen` packages
+correctly configured.  You may install the `doxygen` package
 using your preferred package manager.
 
 The `examples` folder also contains an audio example, which binds to
@@ -75,7 +74,7 @@ while it is running, we recommended enabling debug mode:
     ./configure --enable-debug
 
 Additionally, Java and Python bindings, and audio examples, may be
-disabled with options `--disable-jni`, `--disable-swig`, and
+disabled with options `--disable-jni`, `--disable-python`, and
 `--disable-audio` respectively.
 
 After `configure` runs successfully, the configuration options will be
@@ -161,10 +160,10 @@ This will import the `mapper` module, which will fail if either
 may need to adjust your `PYTHONPATH` variable to ensure these can be
 found.
 
-You can test running programs by `cd`'ing to the `swig` folder and
-running,
+You can test running programs by `cd`'ing to the `bindings/python`
+folder and running,
 
-    cd swig
+    cd bindings/python
     python test.py
 
 or,
@@ -271,10 +270,7 @@ The `file` command should list both 32- and 64-bit architectures.
 (Of course, replace ".8" with the current libmapper version.)
 
 Although we do not explicitly list them here, similar steps should be
-performed for liblo, as well as for the native portions of the Python
-bindings:
-
-    file swig/.libs/_mapper.so
+performed for liblo.
 
 ### Processing.org
 

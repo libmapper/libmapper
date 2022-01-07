@@ -22,7 +22,7 @@ checksums           rmd160  a4beff52bebb820f8457c39b5a9bcfa5ab385e6f \
 depends_lib         port:liblo \
                     port:zlib
 
-configure.args      --disable-swig \
+configure.args      --disable-python \
                     --disable-jni \
                     --disable-audio \
                     --disable-docs
@@ -36,7 +36,7 @@ variant universal {
 }
 
 variant python requires python {
-    configure.args_append  --enable-swig
+    configure.args_append  --enable-python
 }
 
 variant java requires java {

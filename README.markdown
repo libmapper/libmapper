@@ -127,8 +127,8 @@ machine learning techniques to "learn" mappings automatically.
 A major difference in libmapper's approach to handling devices is the idea that
 each "driver" can be a separate process, on the same or different machines in
 the network.  By creating a C library with a basic interface and by providing
-SWIG and Java bindings, we hope to enable a very wide variety of programming
-language bindings.^[At this time, the SWIG bindings only work for Python.]
+Python and Java bindings, we hope to enable a very wide variety of programming
+language bindings.
 Another advantage of a C library is portability: we have demonstrated libmapper
 working on a Gumstix device, an ethernet-enabled ARM-based microcomputer running
 Linux that can be easily embedded directly into an instrument.
@@ -246,8 +246,6 @@ Dependencies of libmapper are:
 * [liblo](http://liblo.sourceforge.net), LGPL
 
 Optional dependencies for the Python bindings:
-
-* [SWIG](http://www.swig.org), GPL3, LGPL-compatible for generated code
 
 * [Python](http://www.python.org), Python license, LGPL-compatible
 
