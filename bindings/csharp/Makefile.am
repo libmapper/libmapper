@@ -17,7 +17,7 @@ testinstance.exe: testinstance.cs
 
 MOSTLYCLEANFILES = *.dll *.exe *.dylib
 
-EXTRA_DIST = test.exe testinstance.exe
+EXTRA_DIST = Mapper.cs README.md test.cs testinstance.cs
 
 test_all_ordered = test.exe testinstance.exe
 

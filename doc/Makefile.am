@@ -5,9 +5,19 @@ CLEANFILES=doxygen-build.stamp
 
 DOX=libmapper.doxyfile
 
-EXTRA_DIST=expression_syntax.md how_to_compile_and_run.md windows_mingw.md \
-           tutorials/tutorial_c.md tutorials/tutorial_introduction.md      \
-           tutorials/tutorial_python.md tutorials/tutorial_java.md
+EXTRA_DIST=bela_installation.md expression_syntax.md how_to_compile_and_run.md \
+           windows_mingw.md \
+           images/diagrams.md \
+           images/dest_value_reference.png images/full_convergent.png \
+           images/naive_convergent.png images/partial_vector_updates.png \
+           images/shared_instance_pools.png \
+           integration_examples/mediapipe_integration.md \
+           integration_examples/images/landmarks_model.jpg \
+           integration_examples/images/pong_scene.png \
+           tutorials/tutorial_c.md tutorials/tutorial_cpp.md \
+           tutorials/tutorial_csharp.md tutorials/tutorial_introduction.md \
+           tutorials/tutorial_java.md tutorials/tutorial_python.md \
+           tutorials/images/device_lifecycle.png tutorials/images/network_diagram.png
 
 INSTIMAGES=html/doxygen.png
 
