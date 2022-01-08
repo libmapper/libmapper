@@ -41,7 +41,7 @@ mapper::Device dev("test");
 
 The device lifecycle looks like this:
 
-<img style="display:block;margin:auto;padding:0px;width:75%" src="./images/device_lifecyle.png">
+<img style="display:block;margin:auto;padding:0px;width:75%" src="./images/device_lifecycle.png">
 
 In other words, after a device is created, it must be continuously polled during
 its lifetime.

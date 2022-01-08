@@ -72,13 +72,16 @@ cap.release()
 Next, we will set up a libmapper device and associated signals.
 
 ```python
-import mapper as mpr
+import libmapper as mpr
 
 # libmapper producer device
-dev = mpr.device("hand_tracker")
+dev = mpr.Device("hand_tracker")
 
-# add a libmapper signal to device defined above. This signal will be transmitting a vector with len=2 to efficiently send x & y position data.
-index_tip = dev.add_signal(mpr.DIR_OUT, "index_tip", 2, mpr.FLT, None, None, None)
+# add a libmapper signal to device defined above. This signal will
+# be transmitting a vector with len=2 to efficiently send x & y
+# position data.
+index_tip = dev.add_signal(mpr.Direction.OUTGOING, "index_tip",
+                           2, mpr.Type.FLOAT)
 ```
 
 ### Poll device and update signal
@@ -90,7 +93,8 @@ The next step is to poll the libmapper device in **the main video loop** and upd
 dev.poll()
 
 # Set signal value to the x & y coordinates of the index_tip landmark. Refer to diagram below for all landmark indices.
-index_tip.set_value([hand_landmarks.landmark[8].x, hand_landmarks.landmark[8].y])
+index_tip.set_value([hand_landmarks.landmark[8].x,
+                     hand_landmarks.landmark[8].y])
 ```
 
 #### Mediapipe Landmarks
@@ -107,16 +111,16 @@ The code for this producer device example is stored in the file `hand_tracking.p
 #!/usr/bin/python3
 import cv2
 import mediapipe as mp
-import mapper as mpr
+import libmapper as mpr
 import math
 
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 
-dev = mpr.device("hand_tracker")
+dev = mpr.Device("hand_tracker")
 
-index_tip = dev.add_signal(mpr.DIR_OUT, "index_tip", 2,
-                            mpr.FLT, None, None, None)
+index_tip = dev.add_signal(mpr.Direction.OUTGOING, "index_tip",
+                           2, mpr.Type.FLOAT, None, None, None)
 
 # Begin webcam input for hand tracking:
 hands = mp_hands.Hands(min_detection_confidence=0.7,
@@ -202,19 +206,19 @@ We will create a **very** minimal data consumer python script called `consumer.p
 
 ```python
 #!/usr/bin/python3
-import mapper as mpr
+import libmapper as mpr
 
 # This handler function will simply print the value of the signal it is associated with
 def handler(s, e, i, v, t):
     print(v)
 
 # Initialize a libmapper device
-dev = mpr.device("consumer")
+dev = mpr.Device("consumer")
 
 
 # Initialize a libmapper signal
-sig = dev.add_signal(mpr.DIR_IN, "input_signal", 1, mpr.FLT,
-                        None, None, None, None, handler)
+sig = dev.add_signal(mpr.Direction.INCOMING, "input_signal", 1,
+                     mpr.Type.FLOAT, None, None, None, None, handler)
 
 # Poll the Consumer device forever
 while True:
@@ -311,15 +315,15 @@ In order to use convergent maps, we need to have more than one signal setup in o
 ```python
 ... # in the setup section
 
-thumb_tip = dev.add_signal(mpr.DIR_OUT, "thumb_tip", 2,
-                            mpr.FLT, None, None, None)
+thumb_tip = dev.add_signal(mpr.Direction.OUTGOING, "thumb_tip",
+                           2, mpr.Type.FLOAT)
 
 
 ... # in the main loop
 
 # Thumb landmark index given by diagram found earlier in this tutorial
 index_tip.set_value([hand_landmarks.landmark[4].x,
-                        hand_landmarks.landmark[4].y])
+                     hand_landmarks.landmark[4].y])
 
 ...
 ```
@@ -331,21 +335,21 @@ While this will work for a single hand, to use the PONG example effectively we n
 
 import cv2
 import mediapipe as mp
-import mapper as mpr
+import libmapper as mpr
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
 
 
-hand_dev = mpr.device("hand_tracker")
+hand_dev = mpr.Device("hand_tracker")
 
-one_index = hand_dev.add_signal(mpr.DIR_OUT, "one_index", 2,
-                              mpr.FLT, None, None, None)
-one_thumb = hand_dev.add_signal(mpr.DIR_OUT, "one_thumb", 2,
-                              mpr.FLT, None, None, None)
-two_index = hand_dev.add_signal(mpr.DIR_OUT, "two_index", 2,
-                              mpr.FLT, None, None, None)
-two_thumb = hand_dev.add_signal(mpr.DIR_OUT, "two_thumb", 2,
-                              mpr.FLT, None, None, None)                              
+one_index = hand_dev.add_signal(mpr.Direction.OUTGOING, "one_index",
+                                2, mpr.Type.FLOAT)
+one_thumb = hand_dev.add_signal(mpr.Direction.OUTGOING, "one_thumb",
+                                2, mpr.Type.FLOAT)
+two_index = hand_dev.add_signal(mpr.Direction.OUTGOING, "two_index",
+                                2, mpr.Type.FLOAT)
+two_thumb = hand_dev.add_signal(mpr.Direction.OUTGOING, "two_thumb",
+                                2, mpr.Type.FLOAT)
 
 # Begin webcam input for hand tracking:
 hands = mp_hands.Hands(min_detection_confidence=0.8,
@@ -386,8 +390,10 @@ while cap.isOpened():
                 # ----------------------------------------
 
                 if (results.multi_handedness[results.multi_hand_landmarks.index(hand)].classification[0].label == "Left"):
-                    one_index.set_value([hand.landmark[8].x, hand.landmark[8].y])
-                    one_thumb.set_value([hand.landmark[4].x, hand.landmark[4].y])
+                    one_index.set_value([hand.landmark[8].x,
+                                         hand.landmark[8].y])
+                    one_thumb.set_value([hand.landmark[4].x,
+                                         hand.landmark[4].y])
                     
                     mp_drawing.draw_landmarks(
                     image, hand, mp_hands.HAND_CONNECTIONS,
