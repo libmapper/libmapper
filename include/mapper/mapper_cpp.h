@@ -129,6 +129,7 @@ namespace mapper {
         RATE                = MPR_PROP_RATE,
         SCOPE               = MPR_PROP_SCOPE,
         SIGNAL              = MPR_PROP_SIG,
+        /* MPR_PROP_SLOT DELIBERATELY OMITTED */
         STATUS              = MPR_PROP_STATUS,
         STEAL_MODE          = MPR_PROP_STEAL_MODE,
         SYNCED              = MPR_PROP_SYNCED,
