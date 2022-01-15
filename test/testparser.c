@@ -9,12 +9,13 @@
 #include <unistd.h>
 #include <assert.h>
 
+#define MAX_STR_LEN 256
 #define SRC_ARRAY_LEN 3
 #define DST_ARRAY_LEN 6
 #define MAX_VARS 8
 
 int verbose = 1;
-char str[256];
+char str[MAX_STR_LEN];
 mpr_expr e;
 int iterations = 20000;
 int expression_count = 1;
@@ -229,6 +230,11 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
     return 0;
 }
 
+void set_expr_str(const char *expr_str)
+{
+    snprintf(str, MAX_STR_LEN, "%s", expr_str);
+}
+
 void setup_test_multisource(int _n_sources, mpr_type *_src_types, int *_src_lens,
                             mpr_type _dst_type, int _dst_len)
 {
@@ -414,14 +420,14 @@ int run_tests()
     /* 1) Complex string */
     /* TODO: ensure successive constant multiplications are optimized */
     /* TODO: ensure split successive constant additions are optimized */
-    snprintf(str, 256, "y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
+    set_expr_str("y=26*2/2+log10(pi)+2.*pow(2,1*(3+7*.1)*1.1+x{0}[0])*3*4+cos(2.)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 26*2/2+log10f(M_PI)+2.f*powf(2,1*(3+7*.1f)*1.1f+src_flt[0])*3*4+cosf(2.0f);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 2) Building vectors, conditionals */
-    snprintf(str, 256, "y=(x>1)?[1,2,3]:[2,4,6]");
+    set_expr_str("y=(x>1)?[1,2,3]:[2,4,6]");
     setup_test(MPR_FLT, 3, MPR_INT32, 3);
     expect_int[0] = src_flt[0] > 1 ? 1 : 2;
     expect_int[1] = src_flt[1] > 1 ? 2 : 4;
@@ -430,21 +436,21 @@ int run_tests()
         return 1;
 
     /* 3) Conditionals with shortened syntax */
-    snprintf(str, 256, "y=x?:123");
+    set_expr_str("y=x?:123");
     setup_test(MPR_FLT, 1, MPR_INT32, 1);
     expect_int[0] = (int)(src_flt[0] ? src_flt[0] : 123);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 4) Conditional that should be optimized */
-    snprintf(str, 256, "y=1?2:123");
+    set_expr_str("y=1?2:123");
     setup_test(MPR_FLT, 1, MPR_INT32, 1);
     expect_int[0] = 2;
     if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
     /* 5) Building vectors with variables, operations inside vector-builder */
-    snprintf(str, 256, "y=[x*-2+1,0]");
+    set_expr_str("y=[x*-2+1,0]");
     setup_test(MPR_INT32, 2, MPR_DBL, 3);
     expect_dbl[0] = (double)src_int[0] * -2 + 1;
     expect_dbl[1] = (double)src_int[1] * -2 + 1;
@@ -453,7 +459,7 @@ int run_tests()
         return 1;
 
     /* 6) Building vectors with variables, operations inside vector-builder */
-    snprintf(str, 256, "y=[-99.4, -x*1.1+x]");
+    set_expr_str("y=[-99.4, -x*1.1+x]");
     setup_test(MPR_INT32, 2, MPR_DBL, 3);
     expect_dbl[0] = -99.4f;
     expect_dbl[1] = -((double)src_int[0]) * 1.1f + ((double)src_int[0]);
@@ -462,7 +468,7 @@ int run_tests()
         return 1;
 
     /* 7) Indexing vectors by range */
-    snprintf(str, 256, "y=x[1:2]+100");
+    set_expr_str("y=x[1:2]+100");
     setup_test(MPR_DBL, 3, MPR_FLT, 2);
     expect_flt[0] = (float)(src_dbl[1] + 100);
     expect_flt[1] = (float)(src_dbl[2] + 100);
@@ -470,7 +476,7 @@ int run_tests()
         return 1;
 
     /* 8) Typical linear scaling expression with vectors */
-    snprintf(str, 256, "y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
+    set_expr_str("y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = src_flt[0] * 0.1f + 2.f;
     expect_flt[1] = src_flt[1] * 3.7f + 1.3f;
@@ -479,7 +485,7 @@ int run_tests()
         return 1;
 
     /* 9) Check type and vector length promotion of operation sequences */
-    snprintf(str, 256, "y=1+2*3-4*x");
+    set_expr_str("y=1+2*3-4*x");
     setup_test(MPR_FLT, 2, MPR_FLT, 2);
     expect_flt[0] = 1. + 2. * 3. - 4. * src_flt[0];
     expect_flt[1] = 1. + 2. * 3. - 4. * src_flt[1];
@@ -487,7 +493,7 @@ int run_tests()
         return 1;
 
     /* 10) Swizzling, more pre-computation */
-    snprintf(str, 256, "y=[x[2],x[0]]*0+1+12");
+    set_expr_str("y=[x[2],x[0]]*0+1+12");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[2] * 0. + 1. + 12.;
     expect_flt[1] = src_flt[0] * 0. + 1. + 12.;
@@ -495,14 +501,14 @@ int run_tests()
         return 1;
 
     /* 11) Logical negation */
-    snprintf(str, 256, "y=!(x[1]*0)");
+    set_expr_str("y=!(x[1]*0)");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
     expect_int[0] = (int)!(src_dbl[1] && 0);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 12) any() */
-    snprintf(str, 256, "y=(x-1).any()");
+    set_expr_str("y=(x-1).any()");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
     expect_int[0] =    ((int)src_dbl[0] - 1) ? 1 : 0
                      | ((int)src_dbl[1] - 1) ? 1 : 0
@@ -511,7 +517,7 @@ int run_tests()
         return 1;
 
     /* 13) all() */
-    snprintf(str, 256, "y=x[2]*(x-1).all()");
+    set_expr_str("y=x[2]*(x-1).all()");
     setup_test(MPR_DBL, 3, MPR_INT32, 1);
     expect_int[0] = (int)src_dbl[2] * (  (((int)src_dbl[0] - 1) ? 1 : 0)
                                        & (((int)src_dbl[1] - 1) ? 1 : 0)
@@ -520,66 +526,66 @@ int run_tests()
         return 1;
 
     /* 14) pi and e, extra spaces */
-    snprintf(str, 256, "y=x + pi -     e");
+    set_expr_str("y=x + pi -     e");
     setup_test(MPR_DBL, 1, MPR_FLT, 1);
     expect_flt[0] = (float)(src_dbl[0] + M_PI - M_E);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 15) Bad vector notation */
-    snprintf(str, 256, "y=(x-2)[1]");
+    set_expr_str("y=(x-2)[1]");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 16) Vector index outside bounds */
-    snprintf(str, 256, "y=x[3]");
+    set_expr_str("y=x[3]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 17) Vector length mismatch */
-    snprintf(str, 256, "y=x[1:2]");
+    set_expr_str("y=x[1:2]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
     expect_int[0] = src_int[1];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 18) Unnecessary vector notation */
-    snprintf(str, 256, "y=x+[1]");
+    set_expr_str("y=x+[1]");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0] + 1;
     if (parse_and_eval(EXPECT_SUCCESS, 4, 1, iterations))
         return 1;
 
     /* 19) Invalid history index */
-    snprintf(str, 256, "y=x{-101}");
+    set_expr_str("y=x{-101}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 20) Invalid history index */
-    snprintf(str, 256, "y=x-y{-101}");
+    set_expr_str("y=x-y{-101}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 21) Scientific notation */
-    snprintf(str, 256, "y=x[1]*1.23e-20");
+    set_expr_str("y=x[1]*1.23e-20");
     setup_test(MPR_INT32, 2, MPR_DBL, 1);
     expect_dbl[0] = (double)src_int[1] * 1.23e-20;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 22) Vector assignment */
-    snprintf(str, 256, "y[1]=x[1]");
+    set_expr_str("y[1]=x[1]");
     setup_test(MPR_DBL, 3, MPR_INT32, 3);
     expect_int[1] = (int)src_dbl[1];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 23) Vector assignment */
-    snprintf(str, 256, "y[1:2]=[x[1],10]");
+    set_expr_str("y[1:2]=[x[1],10]");
     setup_test(MPR_DBL, 3, MPR_INT32, 3);
     expect_int[1] = (int)src_dbl[1];
     expect_int[2] = 10;
@@ -587,7 +593,7 @@ int run_tests()
         return 1;
 
     /* 24) Output vector swizzling */
-    snprintf(str, 256, "[y[0],y[2]]=x[1:2]");
+    set_expr_str("[y[0],y[2]]=x[1:2]");
     setup_test(MPR_FLT, 3, MPR_DBL, 3);
     expect_dbl[0] = (double)src_flt[1];
     expect_dbl[2] = (double)src_flt[2];
@@ -595,7 +601,7 @@ int run_tests()
         return 1;
 
     /* 25) Multiple expressions */
-    snprintf(str, 256, "y[0]=x*100-23.5; y[2]=100-x*6.7");
+    set_expr_str("y[0]=x*100-23.5; y[2]=100-x*6.7");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     expect_flt[0] = src_int[0] * 100.f - 23.5f;
     expect_flt[2] = 100.f - src_int[0] * 6.7f;
@@ -603,20 +609,20 @@ int run_tests()
         return 1;
 
     /* 26) Error check: separating sub-expressions with commas */
-    snprintf(str, 256, "foo=1,  y=y{-1}+foo");
+    set_expr_str("foo=1,  y=y{-1}+foo");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 27) Initialize filters */
-    snprintf(str, 256, "y=x+y{-1}; y{-1}=100");
+    set_expr_str("y=x+y{-1}; y{-1}=100");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0] * iterations + 100;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 28) Initialize filters + vector index */
-    snprintf(str, 256, "y=x+y{-1}; y[1]{-1}=100");
+    set_expr_str("y=x+y{-1}; y[1]{-1}=100");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = src_int[0] * iterations;
     expect_int[1] = src_int[1] * iterations + 100;
@@ -624,7 +630,7 @@ int run_tests()
         return 1;
 
     /* 29) Initialize filters + vector index */
-    snprintf(str, 256, "y=x+y{-1}; y{-1}=[100,101]");
+    set_expr_str("y=x+y{-1}; y{-1}=[100,101]");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = src_int[0] * iterations + 100;
     expect_int[1] = src_int[1] * iterations + 101;
@@ -632,7 +638,7 @@ int run_tests()
         return 1;
 
     /* 30) Initialize filters */
-    snprintf(str, 256, "y=x+y{-1}; y[0]{-1}=100; y[2]{-1}=200");
+    set_expr_str("y=x+y{-1}; y[0]{-1}=100; y[2]{-1}=200");
     setup_test(MPR_INT32, 3, MPR_INT32, 3);
     expect_int[0] = src_int[0] * iterations + 100;
     expect_int[1] = src_int[1] * iterations;
@@ -641,7 +647,7 @@ int run_tests()
         return 1;
 
     /* 31) Initialize filters */
-    snprintf(str, 256, "y=x+y{-1}-y{-2}; y{-1}=[100,101]; y{-2}=[102,103]");
+    set_expr_str("y=x+y{-1}-y{-2}; y{-1}=[100,101]; y{-2}=[102,103]");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     switch (iterations % 6) {
         case 0:
@@ -673,49 +679,49 @@ int run_tests()
         return 1;
 
     /* 32) Only initialize */
-    snprintf(str, 256, "y{-1}=100");
+    set_expr_str("y{-1}=100");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 33) Bad syntax */
-    snprintf(str, 256, " ");
+    set_expr_str(" ");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 34) Bad syntax */
-    snprintf(str, 256, " ");
+    set_expr_str(" ");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 35) Bad syntax */
-    snprintf(str, 256, "y");
+    set_expr_str("y");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 36) Bad syntax */
-    snprintf(str, 256, "y=");
+    set_expr_str("y=");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 37) Bad syntax */
-    snprintf(str, 256, "=x");
+    set_expr_str("=x");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 38) sin */
-    snprintf(str, 256, "sin(x)");
+    set_expr_str("sin(x)");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 39) Variable declaration */
-    snprintf(str, 256, "y=x+var; var=[3.5,0]");
+    set_expr_str("y=x+var; var=[3.5,0]");
     setup_test(MPR_INT32, 2, MPR_FLT, 2);
     expect_flt[0] = src_int[0] + 3.5f;
     expect_flt[1] = src_int[1];
@@ -723,7 +729,7 @@ int run_tests()
         return 1;
 
     /* 40) Variable declaration */
-    snprintf(str, 256, "ema=ema{-1}*0.9+x*0.1; y=ema*2; ema{-1}=90");
+    set_expr_str("ema=ema{-1}*0.9+x*0.1; y=ema*2; ema{-1}=90");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 90;
     for (i = 0; i < iterations; i++)
@@ -733,27 +739,27 @@ int run_tests()
         return 1;
 
     /* 41) Multiple variable declaration */
-    snprintf(str, 256, "a=1.1; b=2.2; c=3.3; y=x+a-b*c");
+    set_expr_str("a=1.1; b=2.2; c=3.3; y=x+a-b*c");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = (float)src_int[0] + 1.1 - 2.2 * 3.3;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 42) Malformed variable declaration */
-    snprintf(str, 256, "y=x + myvariable * 10");
+    set_expr_str("y=x + myvariable * 10");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 43) Vector functions mean() and sum() */
-    snprintf(str, 256, "y=x.mean()==(x.sum()/3)");
+    set_expr_str("y=x.mean()==(x.sum()/3)");
     setup_test(MPR_FLT, 3, MPR_INT32, 1);
     expect_int[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 44) Overloaded vector functions max() and min() */
-    snprintf(str, 256, "y=x.max()-x.min()*max(x[0],1)");
+    set_expr_str("y=x.max()-x.min()*max(x[0],1)");
     setup_test(MPR_FLT, 3, MPR_INT32, 1);
     expect_int[0] = (  ((src_flt[0] > src_flt[1]) ?
                         (src_flt[0] > src_flt[2] ? src_flt[0] : src_flt[2]) :
@@ -766,34 +772,34 @@ int run_tests()
         return 1;
 
     /* 45) Vector function: norm() */
-    snprintf(str, 256, "y=x.norm();");
+    set_expr_str("y=x.norm();");
     setup_test(MPR_INT32, 2, MPR_FLT, 1);
     expect_flt[0] = sqrtf(powf((float)src_int[0], 2) + powf((float)src_int[1], 2));
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 46) Optimization: operations by zero */
-    snprintf(str, 256, "y=0*sin(x)*200+1.1");
+    set_expr_str("y=0*sin(x)*200+1.1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 1.1;
     if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
     /* 47) Optimization: operations by one */
-    snprintf(str, 256, "y=x*1");
+    set_expr_str("y=x*1");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = (float)src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 2, 1, iterations))
         return 1;
 
     /* 48) Error check: division by zero */
-    snprintf(str, 256, "y=x/0");
+    set_expr_str("y=x/0");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 49) Multiple Inputs */
-    snprintf(str, 256, "y=x+x$1[1:2]+x$2");
+    set_expr_str("y=x+x$1[1:2]+x$2");
     setup_test_multisource(3, types, lens, MPR_FLT, 2);
     expect_flt[0] = (float)((double)src_int[0] + (double)src_flt[1] + src_dbl[0]);
     expect_flt[1] = (float)((double)src_int[1] + (double)src_flt[2] + src_dbl[1]);
@@ -801,7 +807,7 @@ int run_tests()
         return 1;
 
     /* 50) Functions with memory: ema() */
-    snprintf(str, 256, "y=x-ema(x,0.1)+2");
+    set_expr_str("y=x-ema(x,0.1)+2");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 0;
     for (i = 0; i < iterations; i++)
@@ -811,7 +817,7 @@ int run_tests()
         return 1;
 
     /* 51) Functions with memory: schmitt() */
-    snprintf(str, 256, "y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
+    set_expr_str("y=y{-1}+(schmitt(y{-1},20,80)?-1:1)");
     setup_test(MPR_INT32, 3, MPR_FLT, 3);
     if (iterations < 80) {
         expect_flt[0] = expect_flt[1] = expect_flt[2] = iterations;
@@ -826,7 +832,7 @@ int run_tests()
         return 1;
 
     /* 52) Multiple output assignment */
-    snprintf(str, 256, "y=x-10000; y=max(min(y,1),0)");
+    set_expr_str("y=x-10000; y=max(min(y,1),0)");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = src_flt[0] - 10000;
     expect_flt[0] = expect_flt[0] < 0 ? 0 : expect_flt[0];
@@ -835,7 +841,7 @@ int run_tests()
         return 1;
 
     /* 53) Access timetags */
-    snprintf(str, 256, "y=t_x");
+    set_expr_str("y=t_x");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     if (dst_dbl[0] != mpr_time_as_dbl(time_in))
@@ -844,7 +850,7 @@ int run_tests()
         eprintf("... OK\n");
 
     /* 54) Access timetags from past samples */
-    snprintf(str, 256, "y=t_x-t_y{-1}");
+    set_expr_str("y=t_x-t_y{-1}");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     /* results may vary depending on machine but we can perform a sanity check */
@@ -920,7 +926,7 @@ int run_tests()
     /* 59) Manipulate timetag directly. This functionality may be used in the
      *     future to schedule delays, however it currently will not affect
      *     message timing. Disabled for now. */
-    snprintf(str, 256, "y=x[0]{0}; t_y=t_x+10");
+    set_expr_str("y=x[0]{0}; t_y=t_x+10");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
@@ -935,13 +941,13 @@ int run_tests()
  */
 
     /* 60) Faulty timetag syntax */
-    snprintf(str, 256, "y=t_x-y;");
+    set_expr_str("y=t_x-y;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
     /* 61) Instance management */
-    snprintf(str, 256, "%s", "count{-1}=0;alive=count>=5;y=x;count=(count+1)%10;");
+    set_expr_str("count{-1}=0;alive=count>=5;y=x;count=(count+1)%10;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
@@ -952,14 +958,14 @@ int run_tests()
     }
 
     /* 62) Filter unchanged values */
-    snprintf(str, 256, "muted=(x==x{-1});y=x;");
+    set_expr_str("muted=(x==x{-1});y=x;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, 1))
         return 1;
 
     /* 63) Buddy logic */
-    snprintf(str, 256, "alive=(t_x$0>t_y{-1})&&(t_x$1>t_y{-1});y=x$0+x$1[1:2];");
+    set_expr_str("alive=(t_x$0>t_y{-1})&&(t_x$1>t_y{-1});y=x$0+x$1[1:2];");
     /* types[] and lens[] are already defined */
     setup_test_multisource(2, types, lens, MPR_FLT, 2);
     expect_flt[0] = src_int[0] + src_flt[1];
@@ -968,38 +974,38 @@ int run_tests()
         return 1;
 
     /* 64) Variable delays */
-    snprintf(str, 256, "y=x{abs(x%%10)-10,10}");
+    set_expr_str("y=x{abs(x%10)-10,10}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
     /* 65) Variable delay with missing maximum */
-    snprintf(str, 256, "y=x{abs(x%%10)-10}");
+    set_expr_str("y=x{abs(x%10)-10}");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
         return 1;
 
     /* 66) Calling delay() function explicity */
-    snprintf(str, 256, "y=delay(x, abs(x%%10)-10), 10)");
+    set_expr_str("y=delay(x, abs(x%10)-10), 10)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
         return 1;
 
     /* 67) Fractional delays */
-    snprintf(str, 256, "ratio{-1}=0;y=x{-10+ratio, 10};ratio=(ratio+0.01)%%5;");
+    set_expr_str("ratio{-1}=0;y=x{-10+ratio, 10};ratio=(ratio+0.01)%5;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
     /* 68) Pooled instance functions: any() and all() */
-    snprintf(str, 256, "y=(x-1).instance.any() + (x+1).instance.all();");
+    set_expr_str("y=(x-1).instance.any() + (x+1).instance.all();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 2;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 69) Pooled instance functions: sum(), count() and mean() */
-    snprintf(str, 256, "y=(x.instance.sum()/x.instance.count())==x.instance.mean();");
+    set_expr_str("y=(x.instance.sum()/x.instance.count())==x.instance.mean();");
     setup_test(MPR_INT32, 3, MPR_INT32, 3);
     expect_int[0] = 1;
     expect_int[1] = 1;
@@ -1008,14 +1014,14 @@ int run_tests()
         return 1;
 
     /* 70) Pooled instance functions: max(), min(), and size() */
-    snprintf(str, 256, "y=(x.instance.max()-x.instance.min())==x.instance.size();");
+    set_expr_str("y=(x.instance.max()-x.instance.min())==x.instance.size();");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 71) Pooled instance function: center() */
-    snprintf(str, 256, "y=x.instance.center()==(x.instance.max()+x.instance.min())*0.5;");
+    set_expr_str("y=x.instance.center()==(x.instance.max()+x.instance.min())*0.5;");
     setup_test(MPR_INT32, 2, MPR_INT32, 2);
     expect_int[0] = 1;
     expect_int[1] = 1;
@@ -1023,19 +1029,19 @@ int run_tests()
         return 1;
 
     /* 72) Pooled instance mean length of centered vectors */
-    snprintf(str, 256, "m=x.instance.mean(); y=(x-m).norm().instance.mean()");
+    set_expr_str("m=x.instance.mean(); y=(x-m).norm().instance.mean()");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
 
     /* 73) Pooled instance mean linear displacement */
-    snprintf(str, 256, "y=(x-x{-1}).instance.mean()");
+    set_expr_str("y=(x-x{-1}).instance.mean()");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations-1))
         return 1;
 
     /* 74) Dot product of two vectors */
-    snprintf(str, 256, "y=dot(x, x$1);");
+    set_expr_str("y=dot(x, x$1);");
     lens[0] = 3;
     setup_test_multisource(2, types, lens, MPR_FLT, 1);
     expect_flt[0] = src_int[0] * src_flt[0] + src_int[1] * src_flt[1] + src_int[2] * src_flt[2];
@@ -1043,31 +1049,31 @@ int run_tests()
         return 1;
 
     /* 75) 2D Vector angle */
-    snprintf(str, 256, "y=angle([-1,-1], [1,0]);");
+    set_expr_str("y=angle([-1,-1], [1,0]);");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = M_PI * 0.75f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 76) Pooled instance mean angular displacement */
-    snprintf(str, 256, "c0{-1}=x.instance.center();"
-                       "c1=x.instance.center();"
-                       "y=angle(x{-1}-c0,x-c1).instance.mean();"
-                       "c0=c1;");
+    set_expr_str("c0{-1}=x.instance.center();"
+                 "c1=x.instance.center();"
+                 "y=angle(x{-1}-c0,x-c1).instance.mean();"
+                 "c0=c1;");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = 0.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations-1))
         return 1;
 
     /* 77) Integer divide-by-zero */
-    snprintf(str, 256, "foo=1; y=x/foo; foo=!foo;");
+    set_expr_str("foo=1; y=x/foo; foo=!foo;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     /* we expect only half of the evaluation attempts to succeed (i.e. when 'foo' == 1) */
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, (iterations + 1) / 2))
         return 1;
 
     /* 78) Optimization: Vector squashing (10 tokens instead of 12) */
-    snprintf(str, 256, "y=x*[3,3,x[1]]+[x[0],1,1];");
+    set_expr_str("y=x*[3,3,x[1]]+[x[0],1,1];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = src_flt[0] * 3.0f + src_flt[0];
     expect_flt[1] = src_flt[1] * 3.0f + 1.0f;
@@ -1076,7 +1082,7 @@ int run_tests()
         return 1;
 
     /* 79) Wrapping vectors, vector variables (6 tokens instead of 11) */
-    snprintf(str, 256, "y=x*[3,3,3]+[1.23,4.56];");
+    set_expr_str("y=x*[3,3,3]+[1.23,4.56];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
     expect_flt[0] = src_flt[0] * 3.0f + 1.23f;
     expect_flt[1] = src_flt[1] * 3.0f + 4.56f;
@@ -1085,7 +1091,7 @@ int run_tests()
         return 1;
 
     /* 80) Just instance count */
-    snprintf(str, 256, "y=x.instance.count();");
+    set_expr_str("y=x.instance.count();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = 1;
     expect_flt[1] = 1;
@@ -1093,7 +1099,7 @@ int run_tests()
         return 1;
 
     /* 81) instance.reduce() */
-    snprintf(str, 256, "y=x.instance.reduce(a, b -> a[1:2] + b);");
+    set_expr_str("y=x.instance.reduce(a, b -> a[1:2] + b);");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
     expect_flt[0] = src_flt[1];
     expect_flt[1] = src_flt[2];
@@ -1101,7 +1107,7 @@ int run_tests()
         return 1;
 
     /* 82) Reducing a constant - syntax error */
-    snprintf(str, 256, "y=(1*0).instance.mean();");
+    set_expr_str("y=(1*0).instance.mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = 1;
     expect_flt[1] = 1;
@@ -1109,7 +1115,7 @@ int run_tests()
         return 1;
 
     /* 83) Reducing a user variable */
-    snprintf(str, 256, "n=(x-100);y=n.vector.sum();");
+    set_expr_str("n=(x-100);y=n.vector.sum();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] - 100 + src_flt[1] - 100 + src_flt[2] - 100;
     expect_flt[1] = expect_flt[0];
@@ -1117,7 +1123,7 @@ int run_tests()
         return 1;
 
     /* 84) History mean() - windowed running mean */
-    snprintf(str, 256, "y=x.history(5).mean();");
+    set_expr_str("y=x.history(5).mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = expect_flt[1] = 0.f;
     for (i = 0; i < iterations && i < 5; i++) {
@@ -1130,7 +1136,7 @@ int run_tests()
         return 1;
 
     /* 85) Reducing a user variable over history */
-    snprintf(str, 256, "n=(x-100);y=n.history(5).mean();");
+    set_expr_str("n=(x-100);y=n.history(5).mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] - 100;
     expect_flt[1] = src_flt[1] - 100;
@@ -1138,7 +1144,7 @@ int run_tests()
         return 1;
 
     /* 86) history.reduce() with accumulator initialisation */
-    snprintf(str, 256, "y=x.history(5).reduce(x, a = 100 -> x + a);");
+    set_expr_str("y=x.history(5).reduce(x, a = 100 -> x + a);");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = expect_flt[1] = 100;
     for (i = 0; i < iterations && i < 5; i++) {
@@ -1149,7 +1155,7 @@ int run_tests()
         return 1;
 
     /* 87) vector.mean() */
-    snprintf(str, 256, "y=x.vector.mean();");
+    set_expr_str("y=x.vector.mean();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = (src_flt[0] + src_flt[1] + src_flt[2]) / 3;
     expect_flt[1] = expect_flt[0];
@@ -1157,7 +1163,7 @@ int run_tests()
         return 1;
 
     /* 88) vector.reduce() */
-    snprintf(str, 256, "y=x.vector.reduce(x,a -> x+a);");
+    set_expr_str("y=x.vector.reduce(x,a -> x+a);");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[0] + src_flt[1] + src_flt[2];
     expect_flt[1] = expect_flt[0];
@@ -1165,7 +1171,7 @@ int run_tests()
         return 1;
 
     /* 89) signal.mean() */
-    snprintf(str, 256, "y=x.signal.mean();");
+    set_expr_str("y=x.signal.mean();");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1179,7 +1185,7 @@ int run_tests()
         return 1;
 
     /* 90) signal.reduce() */
-    snprintf(str, 256, "y=x.signal.reduce(x,a->x+a);");
+    set_expr_str("y=x.signal.reduce(x,a->x+a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1193,7 +1199,7 @@ int run_tests()
         return 1;
 
     /* 91) nested reduce(): sum of last 3 samples of all input signals with extra input reference */
-    snprintf(str, 256, "y=(x+1).signal.reduce(a,b->b+a.history(3).reduce(c,d->c+d)+a);");
+    set_expr_str("y=(x+1).signal.reduce(a,b->b+a.history(3).reduce(c,d->c+d)+a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1206,7 +1212,7 @@ int run_tests()
         return 1;
 
     /* 92) mean() nested with reduce() using sequential dot syntax - not currently allowed */
-    snprintf(str, 256, "y=x.vector.reduce(x, a -> x + a).signal.mean();");
+    set_expr_str("y=x.vector.reduce(x, a -> x + a).signal.mean();");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1218,7 +1224,7 @@ int run_tests()
         return 1;
 
     /* 93) vector.reduce() on specific signal */
-    snprintf(str, 256, "y=x$1.vector.reduce(x,a -> x+a);");
+    set_expr_str("y=x$1.vector.reduce(x,a -> x+a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1231,7 +1237,7 @@ int run_tests()
         return 1;
 
     /* 94) instance.count() on specific signal */
-    snprintf(str, 256, "y=x$1.instance.count();");
+    set_expr_str("y=x$1.instance.count();");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1244,7 +1250,7 @@ int run_tests()
         return 1;
 
     /* 95) vector.reduce() with vector subset */
-    snprintf(str, 256, "y=x[1:2].vector.reduce(x,a -> x+a);");
+    set_expr_str("y=x[1:2].vector.reduce(x,a -> x+a);");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     expect_flt[0] = src_flt[1] + src_flt[2];
     expect_flt[1] = expect_flt[0];
@@ -1252,7 +1258,7 @@ int run_tests()
         return 1;
 
     /* 96) signal reduce() nested with instance count() */
-    snprintf(str, 256, "y=x.signal.reduce(x, a -> x.instance.count() + a);");
+    set_expr_str("y=x.signal.reduce(x, a -> x.instance.count() + a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1265,7 +1271,7 @@ int run_tests()
         return 1;
 
     /* 97) signal reduce() nested with instance mean() */
-    snprintf(str, 256, "y=x.signal.reduce(x, a -> x.instance.mean() + a);");
+    set_expr_str("y=x.signal.reduce(x, a -> x.instance.mean() + a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1278,7 +1284,7 @@ int run_tests()
         return 1;
 
     /* 98) nested reduce() of same type */
-    snprintf(str, 256, "y=x.signal.reduce(a, b -> a.signal.reduce(c, d -> c + d) + b);");
+    set_expr_str("y=x.signal.reduce(a, b -> a.signal.reduce(c, d -> c + d) + b);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1291,7 +1297,7 @@ int run_tests()
 
     /* 99) nested reduce(): sum of all vector elements of all input signals */
     /* TODO: need to modify tokens to allow variable vector length (per signal) */
-    snprintf(str, 256, "y=x.signal.reduce(a, b -> a.vector.reduce(c, d -> c + d) + b);");
+    set_expr_str("y=x.signal.reduce(a, b -> a.vector.reduce(c, d -> c + d) + b);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1306,7 +1312,7 @@ int run_tests()
         return 1;
 
     /* 100) reduce() nested with mean() */
-    snprintf(str, 256, "y=x.signal.reduce(x, aLongerName -> x.vector.mean() + aLongerName);");
+    set_expr_str("y=x.signal.reduce(x, aLongerName -> x.vector.mean() + aLongerName);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1321,7 +1327,7 @@ int run_tests()
         return 1;
 
     /* 101) reduce() nested with mean(), accum ref before input ref */
-    snprintf(str, 256, "y=x.signal.reduce(x, a -> a - x.vector.mean());");
+    set_expr_str("y=x.signal.reduce(x, a -> a - x.vector.mean());");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     types[2] = MPR_DBL;
@@ -1336,7 +1342,7 @@ int run_tests()
         return 1;
 
     /* 102) misplaced commas */
-    snprintf(str, 256, "y=(0.00417,0.00719*x$0+0.0025*x$1+0,0)*[990,750]/2");
+    set_expr_str("y=(0.00417,0.00719*x$0+0.0025*x$1+0,0)*[990,750]/2");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
     lens[0] = 2;
