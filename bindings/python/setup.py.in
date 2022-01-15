@@ -14,4 +14,6 @@ setup (name = 'libmapper',
        description = """A library for mapping controllers and synthesizers.""",
        license = "GNU LGPL version 2.1 or later",
        py_modules = ["libmapper"],
-       )
+       packages = ["libmapper"],
+       package_data = {"libmapper": ["libmapper.@SO_EXT@"]},
+)

@@ -1,7 +1,18 @@
+__all__ = [
+
+    '__version__', 'Device', 'Location', 'Direction', 'Operator', 'Property',
+    'Protocol', 'Status', 'Stealing', 'Type', 'Time', 'Object', 'List', 'InstanceId',
+    'Signal', 'SignalInstance', 'Map', 'Graph'
+
+]
+
 from ctypes import *
 from enum import IntFlag, Enum
 import weakref, sys
 import platform
+import os
+
+__version__ = '@PACKAGE_VERSION@'
 
 # need different library extensions for Linux, Windows, MacOS
 if platform.uname()[0] == "Windows":
@@ -10,7 +21,10 @@ elif platform.uname()[0] == "Linux":
     name = "libmapper.so"
 else:
     name = "libmapper.dylib"
-mpr = cdll.LoadLibrary(name)
+try:
+    mpr = cdll.LoadLibrary(os.path.join(os.path.dirname(__file__), name))
+except IOError:
+    mpr = cdll.LoadLibrary(name)
 
 # configuration of Py_IncRef and Py_DecRef
 _c_inc_ref = pythonapi.Py_IncRef

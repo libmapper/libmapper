@@ -193,6 +193,7 @@ if test x$enable_python = xyes; then
      3*) PY3=" -py3"; AC_SUBST(PY3)
      esac
      python_explain="($(basename $PYTHON)$PY3)"
+     AC_CONFIG_LINKS([bindings/python/libmapper/__init__.py:bindings/python/libmapper/__init__.py])
    else
      enable_python=no
      python_explain="(python not found)"
@@ -291,8 +292,8 @@ if test x$enable_audio = xyes; then
     RTAUDIO_CFLAGS="-D__MACOSX_CORE__ -D__LITTLE_ENDIAN__"
     RTAUDIO_LIBS="-framework CoreAudio -framework CoreFoundation"
     audio_explain="(CoreAudio)"
-    echo yes
-  else
+  echo yes
+    else
     echo no
   fi
 
@@ -304,6 +305,17 @@ fi
 
 AC_SUBST(RTAUDIO_CFLAGS)
 AC_SUBST(RTAUDIO_LIBS)
+
+# Library filename extension
+if test x$is_windows = xyes; then
+  SO_EXT=dll
+else
+  case "$(uname -s)" in
+    *arwin*) SO_EXT=dylib;;
+    *) SO_EXT=so;;
+  esac
+fi
+AC_SUBST(SO_EXT)
 
 # Doxygen
 if test x$enable_docs = xyes; then
@@ -379,6 +391,7 @@ AC_CONFIG_FILES([
     bindings/csharp/Makefile
     bindings/python/Makefile
     bindings/python/setup.py
+    bindings/python/libmapper/mapper.py
     examples/Makefile
     examples/pwm_synth/Makefile
     extra/Makefile

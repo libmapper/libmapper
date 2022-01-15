@@ -14,7 +14,7 @@ uninstall-hook:
 	cat @top_builddir@/bindings/python/installed_files.log \
 	  | awk '{print "$(DESTDIR)"$$1}' | xargs rm -vf
 
-EXTRA_DIST = libmapper.py test.py testcallbacks.py testconvergent.py testinstance.py \
+EXTRA_DIST = libmapper/__init__.py test.py testcallbacks.py testconvergent.py testinstance.py \
              testmapfromstr.py testreverse.py testvector.py tkgui.py
 
 test_all_ordered = test testcallbacks testconvergent testinstance testmapfromstr testreverse testvector
