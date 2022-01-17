@@ -34,7 +34,7 @@ jobs:
           libmapper*.tar.gz
           ./wheelhouse/*.whl
 
-  MacOS:
+  MacOS-Latest:
     runs-on: macOS-latest
     steps:
     - uses: actions/checkout@v2
@@ -58,7 +58,32 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         path: ./wheelhouse/*.whl
-  
+
+  MacOS-10:
+    runs-on: macOS-10.15
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: install dependencies
+      run: brew install autoconf-archive automake
+    - name: install liblo
+      run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-shared --disable-tests --disable-tools --disable-examples CFLAGS=-fPIC || (cat config.log; false)) && make install && find inst && cd ..
+    - name: autogen
+      run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+    - name: make
+      run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
+    - name: make tests
+      run: cd test && make tests
+    - name: python wheels
+      run:
+        cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
+        && pip3 wheel bindings/python -w ./wheelhouse
+        && unzip -t wheelhouse/*.whl
+    - uses: actions/upload-artifact@v2
+      with:
+        path: ./wheelhouse/*.whl
+
   MinGW:
     runs-on: ubuntu-latest
     steps:
