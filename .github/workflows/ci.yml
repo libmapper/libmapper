@@ -55,7 +55,6 @@ jobs:
         cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
         && pip3 wheel bindings/python -w ./wheelhouse
         && unzip -t wheelhouse/*.whl
-        && mv -v wheelhouse/*.whl $(echo wheelhouse/*.whl | sed -e s/-any./-$(python3 -c "import distutils.util; print(distutils.util.get_platform().replace('-','_').replace('.','_'))")./)
     - uses: actions/upload-artifact@v2
       with:
         path: ./wheelhouse/*.whl
