@@ -640,8 +640,8 @@ MPR_INLINE static int mpr_type_get_size(mpr_type type)
 
 /**** Values ****/
 
-void mpr_value_realloc(mpr_value val, int vec_len, mpr_type type,
-                       int mem_len, int num_inst, int is_output);
+void mpr_value_realloc(mpr_value val, unsigned int vec_len, mpr_type type,
+                       unsigned int mem_len, unsigned int num_inst, int is_output);
 
 void mpr_value_reset_inst(mpr_value v, int idx);
 

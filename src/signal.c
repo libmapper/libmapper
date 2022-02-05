@@ -229,7 +229,6 @@ void mpr_sig_free(mpr_sig sig)
         mpr_net_use_subscribers(net, ldev, dir);
         mpr_sig_send_removed(lsig);
     }
-    free(lsig->updated_inst);
     mpr_graph_remove_sig(sig->obj.graph, sig, MPR_OBJ_REM);
     mpr_obj_increment_version((mpr_obj)ldev);
 }
@@ -252,6 +251,7 @@ void mpr_sig_free_internal(mpr_sig sig)
             free(lsig->inst[i]);
         }
         free(lsig->inst);
+        free(lsig->updated_inst);
         FUNC_IF(free, lsig->vec_known);
     }
 
@@ -351,7 +351,8 @@ mpr_id mpr_sig_get_oldest_inst_id(mpr_sig sig)
 {
     int idx;
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    RETURN_ARG_UNLESS(sig && sig->is_local && sig->ephemeral, lsig->idmaps[0].map->LID);
+    RETURN_ARG_UNLESS(sig && sig->is_local, 0);
+    RETURN_ARG_UNLESS(sig->ephemeral, lsig->idmaps[0].map->LID);
     idx = _oldest_inst((mpr_local_sig)sig);
     return (idx >= 0) ? lsig->idmaps[idx].map->LID : 0;
 }
@@ -384,7 +385,8 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig)
 {
     int idx;
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    RETURN_ARG_UNLESS(sig && sig->is_local && sig->ephemeral, lsig->idmaps[0].map->LID);
+    RETURN_ARG_UNLESS(sig && sig->is_local, 0);
+    RETURN_ARG_UNLESS(sig->ephemeral, lsig->idmaps[0].map->LID);
     idx = _newest_inst((mpr_local_sig)sig);
     return (idx >= 0) ? lsig->idmaps[idx].map->LID : 0;
 }

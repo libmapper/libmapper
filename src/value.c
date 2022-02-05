@@ -12,7 +12,8 @@
 
 MPR_INLINE static int _min(int a, int b) { return a < b ? a : b; }
 
-void mpr_value_realloc(mpr_value v, int vlen, mpr_type type, int mlen, int num_inst, int is_input)
+void mpr_value_realloc(mpr_value v, unsigned int vlen, mpr_type type, unsigned int mlen,
+                       unsigned int num_inst, int is_input)
 {
     int i, samp_size;
     mpr_value_buffer_t *b, tmp;
