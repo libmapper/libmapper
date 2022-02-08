@@ -150,8 +150,9 @@ function make_bundles()
     mkdir -v $APP/Contents
     mkdir -v $APP/Contents/MacOS
     mkdir -v $APP/Contents/Resources
-    cp -v libmapper-$LIBMAPPER_VERSION/src/.libs/libmapper.*.dylib $APP/Contents/MacOS/libmapper.dylib
-    cp -v libmapper-$LIBMAPPER_VERSION/bindings/python/libmapper.py $APP/Contents/MacOS/
+    cp -v libmapper-$LIBMAPPER_VERSION/src/.libs/libmapper.*.dylib $APP/Contents/MacOS/libmapper/libmapper.dylib
+    cp -v libmapper-$LIBMAPPER_VERSION/bindings/python/mapper.py $APP/Contents/MacOS/
+    cp -v libmapper-$LIBMAPPER_VERSION/bindings/python/__init__.py $APP/Contents/MacOS/libmapper/
     cp -v libmapper-$LIBMAPPER_VERSION/bindings/python/tkgui.py $APP/Contents/MacOS/
     echo 'APPL????' >$APP/Contents/PkgInfo
     info_plist $APP/Contents/Info.plist libmapper_Slider_Example tkgui.py
