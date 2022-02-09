@@ -36,18 +36,81 @@ jobs:
 
   MacOS-Latest:
     runs-on: macOS-latest
+    env:
+      CC: clang
+      CXX: clang++
     steps:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
     - name: install dependencies
       run: brew install autoconf-archive automake
-    - name: install liblo
-      run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-shared --disable-tests --disable-tools --disable-examples CFLAGS=-fPIC || (cat config.log; false)) && make install && find inst && cd ..
-    - name: autogen
-      run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
-    - name: make
-      run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
+    - name: download liblo
+      run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz
+    - name: liblo make arm64
+      run:
+        cd ./liblo-0.31
+        && pwd
+        && (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -fPIC" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin" --build=x86_64-apple-darwin19.6.0 --host=aarch64-apple-darwin --enable-static --prefix=$PWD/inst --disable-shared --disable-tests --disable-tools --disable-examples || (cat config.log; false))
+        && make install
+        && mv ./inst/lib/liblo.a ./inst/lib/liblo.a.arm64
+        && cd ..
+    - name: liblo make x86_64
+      run:
+        cd ./liblo-0.31
+        && pwd
+        && make clean
+        && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-shared --disable-tests --disable-tools --disable-examples CFLAGS=-fPIC || (cat config.log; false))
+        && make install
+        && mv ./inst/lib/liblo.a ./inst/lib/liblo.a.x86_64
+        && cd ..
+    - name: liblo universal binary
+      run: cd ./liblo-0.31/inst/lib && lipo -create -output ./liblo.a ./liblo.a.arm64 ./liblo.a.x86_64 && lipo -info ./liblo.a && rm ./liblo.a.* && cd ../../..
+    - name: libmapper autogen arm64
+      run:
+        pwd
+        && mkdir $PWD/inst
+        && (./autogen.sh CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin" --build=x86_64-apple-darwin19.6.0 --host=aarch64-apple-darwin --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+    - name: libmapper make arm64 part 1
+      continue-on-error: true
+      run:
+        make install
+    - name: libmapper make arm64 part 2
+      run:
+        cd ./src/.libs
+        && clang -dynamiclib -Wl,-undefined -Wl,dynamic_lookup -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -o libmapper.9.dylib libmapper_la-device.o libmapper_la-expression.o libmapper_la-graph.o libmapper_la-link.o libmapper_la-list.o libmapper_la-map.o libmapper_la-network.o libmapper_la-object.o libmapper_la-properties.o libmapper_la-router.o libmapper_la-signal.o libmapper_la-slot.o libmapper_la-table.o libmapper_la-time.o libmapper_la-value.o -L/Users/runner/work/libmapper/libmapper/liblo-0.31/inst/lib /Users/runner/work/libmapper/libmapper/liblo-0.31/inst/lib/liblo.a -lz -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -install_name /Users/runner/work/libmapper/libmapper/inst/lib/libmapper.9.dylib -compatibility_version 10 -current_version 10.0 -Wl,-single_module
+        && cd ../..
+        && mv ./src/.libs/libmapper.9.dylib ./inst/lib/libmapper.9.dylib.arm64
+        && file ./inst/lib/libmapper.9.dylib.arm64
+        && mv ./inst/lib/libmapper.a ./inst/lib/libmapper.a.arm64
+        && lipo -info ./inst/lib/libmapper.a.arm64
+    - name: libmapper autogen x86_64
+      run:
+        make clean
+        && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+    - name: libmapper make x86_64
+      run:
+        make
+        && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false))
+        && make install
+        && mv ./inst/lib/libmapper.9.dylib ./inst/lib/libmapper.9.dylib.x86_64
+        && file ./inst/lib/libmapper.9.dylib.x86_64
+        && mv ./inst/lib/libmapper.a ./inst/lib/libmapper.a.x86_64
+        && lipo -info ./inst/lib/libmapper.a.x86_64
+    - name: libmapper universal binary
+      run:
+        pwd
+        && find inst
+        && cd ./inst/lib
+        && lipo -create -output ./libmapper.a ./libmapper.a.arm64 ./libmapper.a.x86_64
+        && lipo -info ./libmapper.a
+        && rm ./libmapper.a.*
+        && file ./libmapper.9.dylib.arm64
+        && file ./libmapper.9.dylib.x86_64
+        && lipo -create -output ./libmapper.9.dylib ./libmapper.9.dylib.arm64 ./libmapper.9.dylib.x86_64
+        && file ./libmapper.9.dylib
+        && rm ./libmapper.9.dylib.*
+        && cd ../..
     - name: make tests
       run: cd test && make tests
     - name: python wheels
