@@ -12,10 +12,11 @@ if not exist zlib\ (
 :: Download liblo and build
 if not exist liblo\ (
   echo Downloading and building liblo in build/ folder...
-  powershell -Command "Invoke-WebRequest https://github.com/bboettcher3/liblo/archive/refs/heads/master.zip -OutFile liblo.zip"
+  powershell -Command "Invoke-WebRequest https://github.com/radarsat1/liblo/archive/refs/heads/master.zip -OutFile liblo.zip"
   powershell -Command "Expand-Archive liblo.zip liblo"
   del liblo.zip
   cd liblo\liblo-master\cmake\
+  powershell -Command "(gc config-msvc.h.in) -replace '#define HAVE_UNISTD_H', '//#define HAVE_UNISTD_H' | Out-File -encoding ASCII config-msvc.h.in"
   mkdir build
   cd build\
   powershell -Command "cmake .."
