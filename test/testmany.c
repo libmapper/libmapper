@@ -1,5 +1,4 @@
 #include <mapper/mapper.h>
-#include "../src/mapper_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -9,8 +8,10 @@
 #include <math.h>
 #include <lo/lo.h>
 #ifdef WIN32
+#include "../src/mapper_internal.h"
 #include <io.h>
 #else
+#include <sys/time.h>
 #include <unistd.h>
 #endif
 #include <signal.h>
