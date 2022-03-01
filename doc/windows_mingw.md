@@ -1,4 +1,4 @@
-# Cross-compiling libmapper for Microsoft Windows using MinGW
+# Cross-compiling libmapper for Microsoft Windows using MinGW (DEPRACATED)
 
 Since libmapper uses open source tools for its build system, the
 following instructions must be followed to set up a development
