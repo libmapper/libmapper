@@ -1,13 +1,18 @@
 #include <mapper/mapper.h>
+#include "../src/mapper_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
-#include <sys/time.h>
+
 #include <math.h>
 #include <lo/lo.h>
+#ifdef WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <signal.h>
 
 int verbose = 1;

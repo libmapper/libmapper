@@ -4,9 +4,13 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
-#include <sys/time.h>
+
 #include <string.h>
+#ifdef WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <assert.h>
 
 #define MAX_STR_LEN 256

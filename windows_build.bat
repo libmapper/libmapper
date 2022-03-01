@@ -28,7 +28,10 @@ echo "Building libmapper..."
 cd /D "%~dp0"
 cd build\
 powershell -Command "cmake .."
-powershell -Command "cmake --build . --target all_build
+powershell -Command "cmake --build . --target all_build"
+:: Build test programs
+:: powershell -Command "cp ./Debug/libmapper.dll ../test/"
+
 echo Done! dll's for liblo and zlib are located in the build/ folder
 echo build/Debug/ contains the libmapper dll
 pause

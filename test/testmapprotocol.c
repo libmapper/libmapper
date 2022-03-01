@@ -4,7 +4,11 @@
 #include <math.h>
 #include <string.h>
 #include <signal.h>
+#ifdef WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <stdlib.h>
 
 int verbose = 1;
