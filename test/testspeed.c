@@ -10,6 +10,7 @@
 #ifdef WIN32
 #include <io.h>
 #else
+#include <sys/time.h>
 #include <unistd.h>
 #endif
 #include <signal.h>
