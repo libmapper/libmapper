@@ -45,6 +45,22 @@ mpr_value inh_p[SRC_ARRAY_LEN];
 mpr_type src_types[SRC_ARRAY_LEN], dst_type;
 int src_lens[SRC_ARRAY_LEN], n_sources, dst_len;
 
+#ifdef WIN32
+#include <windows.h>
+void usleep(__int64 usec) 
+{ 
+    HANDLE timer; 
+    LARGE_INTEGER ft; 
+
+    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+
+    timer = CreateWaitableTimer(NULL, TRUE, NULL); 
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0); 
+    WaitForSingleObject(timer, INFINITE); 
+    CloseHandle(timer); 
+}
+#endif
+
 static void eprintf(const char *format, ...)
 {
     va_list args;

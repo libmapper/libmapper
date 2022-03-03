@@ -1,3 +1,6 @@
+#ifdef WIN32
+#include "../src/mapper_internal.h"
+#endif
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,7 +11,6 @@
 #include <math.h>
 #include <lo/lo.h>
 #ifdef WIN32
-#include "../src/mapper_internal.h"
 #include <io.h>
 #else
 #include <sys/time.h>
