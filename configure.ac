@@ -265,6 +265,7 @@ if test x$enable_jni = xyes; then
        JNI=jni
        AC_SUBST(JNIFLAGS)
        AC_SUBST(JNI)
+       AC_CONFIG_LINKS([jni/TestInstances/TestInstances.pde:jni/TestInstances/TestInstances.pde])
      fi
    fi
 fi

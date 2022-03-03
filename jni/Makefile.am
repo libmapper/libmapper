@@ -80,11 +80,13 @@ libmapper.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 
 # For processing test sketch
 TestInstances/code/libmapperjni.so: $(lib_LTLIBRARIES)
+	[ -d TestInstances ] || mkdir -v TestInstances
 	[ -d TestInstances/code ]	|| mkdir -v TestInstances/code
 	cd TestInstances/code; ls -l; [ -L libmapperjni.so ] || [ -f libmapperjni.so ] || ln -v -s ../../.libs/libmapperjni.so .
 
 # For processing test sketch
 TestInstances/code/libmapper.jar: libmapper.jar
+	[ -d TestInstances ] || mkdir -v TestInstances
 	[ -d TestInstances/code ]	|| mkdir -v TestInstances/code
 	cd TestInstances/code; ls -l; [ -L libmapperjni.so ] || [ -f libmapperjni.so ] || ln -v -s ../../libmapper.jar
 
