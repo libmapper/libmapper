@@ -15,11 +15,7 @@ int bs = 15;
 int count = 0;
 
 mapper.Device dev = new mapper.Device("TestInstances");
-
-mapper.Signal sig_x_in = null;
-mapper.Signal sig_y_in = null;
-mapper.Signal sig_x_out = null;
-mapper.Signal sig_y_out = null;
+mapper.Signal sigPos = null;
 
 void setup() 
 {
@@ -28,43 +24,36 @@ void setup()
   ellipseMode(CENTER);
   textAlign(CENTER, CENTER);
   frameRate(10);
+  
+  mapper.signal.Listener listener = new mapper.signal.Listener() {
+    public void onEvent(Signal.Instance inst, mapper.signal.Event e, float[] v, Time time) {
+      //System.out.println("onEvent() for "
+      //                   + inst.properties().get("name") + " instance "
+      //                   + inst.id() + ": " + e.value());
+      switch (e) {
+        case UPDATE:
+          if (inst.id() < circles.length)
+            circles[(int)inst.id()].pos = v;
+          break;
+      }
+  }};
 
-  /* Note: null for the UpdateListener, since we are specifying
-   * this later per-instance. */
-  sig_x_in = dev.addInputSignal("x", 1, 'i', "pixels",
-                                new Value(0), new Value(width), null);
-  sig_y_in = dev.addInputSignal("y", 1, 'i', "pixels",
-                                new Value(0), new Value(height), null);
-
-  sig_x_out = dev.addOutputSignal("x", 1, 'i', "pixels",
-                                  new Value(0), new Value(width));
-  sig_y_out = dev.addOutputSignal("y", 1, 'i', "pixels",
-                                  new Value(0), new Value(height));
-
-  InstanceEventListener evin = new InstanceEventListener() {
-    public void onEvent(mapper.Signal sig, int instanceId, int event, Time time) {
-      sig_x_in.setInstanceCallback(instanceId, circles[instanceId-1].lx);
-      sig_y_in.setInstanceCallback(instanceId, circles[instanceId-1].ly);
-    };
-  };
-
-  sig_x_in.setInstanceEventCallback(evin, InstanceEventListener.IN_ALL);
-
-  sig_x_in.reserveInstances(circles.length);
-  sig_y_in.reserveInstances(circles.length);
-  sig_x_out.reserveInstances(circles.length);
-  sig_y_out.reserveInstances(circles.length);
+  sigPos = dev.addSignal(Direction.IN, "position", 2, Type.FLOAT, "pixels",
+                         new float[] {0, 0}, new float[] {width, height},
+                         circles.length, listener);
+  sigPos.properties().put(Property.EPHEMERAL, false);
 
   for (int i=0; i < circles.length; i++) {
-    circles[i] = new Circle(Math.random()*(width-bs*2)+bs,
-                            Math.random()*(height-bs*2)+bs,
-                            Math.random()*256);
+    circles[i] = new Circle(new float[] {(float)Math.random()*(width-bs*2)+bs,
+                            (float)Math.random()*(height-bs*2)+bs},
+                            (float)Math.random()*256);
+    sigPos.instance(circles[i].id);
   }
 
   while (!dev.ready())
     dev.poll(100);
 
-  frame.setTitle(dev.name());
+  surface.setTitle("" + dev.properties().get("name"));
 }
 
 void stop()
@@ -89,7 +78,7 @@ void draw()
 }
 
 void mousePressed() {
-  if(bover!=null) {
+  if (bover!=null) {
     locked = true;
     bover.pressed();
   } else {
@@ -98,7 +87,7 @@ void mousePressed() {
 }
 
 void mouseDragged() {
-  if(locked) {
+  if (locked) {
     bover.dragged();
   }
 }
@@ -109,41 +98,30 @@ void mouseReleased() {
 
 class Circle
 {
-  float bx;
-  float by;
-  float bdifx = 0.0;
-  float bdify = 0.0;
+  float[] pos;
+  float[] delta;
+  //float bx;
+  //float by;
+  //float bdifx = 0.0;
+  //float bdify = 0.0;
   float hue;
   int id = 0;
-  UpdateListener lx, ly;
+  boolean changed = false;
 
-  Circle(double _bx, double _by, double _hue) {
-    bx = (float)_bx;
-    by = (float)_by;
-    hue = (float)_hue;
+  Circle(float[] _pos, float _hue) {
+    pos = new float[] {_pos[0], _pos[1]};
+    delta = new float[] {0.0, 0.0};
+    hue = _hue;
     id = ++count;
-
-    /* Add listeners for our instance */
-    lx = new UpdateListener() {
-          void onUpdate(mapper.Signal sig, int instanceId, int[] v, Time t) {
-            if (v!=null)
-              bx = v[0];
-          }};
-
-    ly = new UpdateListener() {
-          void onUpdate(mapper.Signal sig, int instanceId, int[] v, Time t) {
-            if (v!=null)
-              by = v[0];
-          }};
-}
+  }
 
   boolean testMouse() {
     // Test if the cursor is over the circle
-    float dx = mouseX - bx;
-    float dy = mouseY - by;
-    if (Math.sqrt(dx*dx+dy*dy) < bs) {
+    float dx = mouseX - pos[0];
+    float dy = mouseY - pos[1];
+    if (Math.sqrt(dx * dx + dy * dy) < bs) {
       bover = this;
-      if(locked) {
+      if (locked) {
         stroke(hue, 256, 153);
         fill(hue, 256, 256);
       }
@@ -161,21 +139,19 @@ class Circle
 
   void pressed() {
     fill(hue, 256, 153);
-    bdifx = mouseX-bx;
-    bdify = mouseY-by;
+    delta[0] = mouseX - pos[0];
+    delta[1] = mouseY - pos[1];
   }
 
   void dragged() {
-    bx = mouseX-bdifx;
-    by = mouseY-bdify;
+    pos[0] = mouseX - delta[0];
+    pos[1] = mouseY - delta[1];
+    sigPos.instance(id).setValue(pos);
   }
 
   void display() {
-    ellipse(bx, by, bs*2, bs*2);
+    ellipse(pos[0], pos[1], bs * 2, bs * 2);
     fill(0, 0, 256);
-    text(""+id, bx, by);
-
-    sig_x_out.updateInstance(id, (int)bx);
-    sig_y_out.updateInstance(id, (int)by);
+    text("" + id, pos[0], pos[1]);
   }
 }
