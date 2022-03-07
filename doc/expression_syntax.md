@@ -131,7 +131,7 @@ generated output.
 * `hzToMidi(x)` — convert Hz value to MIDI note
 
 ### Filters
-* `ema(x,w)` – a cheap low-pass filter: calculate a running *exponential moving average* with input `x` and a weight `w` applied to the current sample.
+* `ema(x, w)` – a cheap low-pass filter: calculate a running *exponential moving average* with input `x` and a weight `w` applied to the current sample.
 
 <h2 id="vectors">Vectors</h2>
 
@@ -233,7 +233,15 @@ Any past values that are not explicitly initialized are given the value `0`.
 It is possible to define a variable delay argument instead of using a constant. In this case it is necessary to add a second *maximum delay size* argument to let libmapper know how much signal memory to allocate.
 
 <pre style="width:50%;margin:auto">
-y=y{x,100};
+y = y{x, 100};
+</pre>
+
+### Interpolation
+
+Using a fractional delay argument causes linear interpolation between samples:
+
+<pre style="width:50%;margin:auto">
+y = x + y{-1.5};
 </pre>
 
 <h2 id="user-defined-variables">User-Defined Variables</h2>
@@ -326,7 +334,7 @@ Convergent mapping—in which multiple source signals update a single destinatio
   </tr>
   </tr>
     <tr>
-    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x$</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically.</td>
+    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x$</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically. when a map is selected in the <a href="https://github.com/libmapper/webmapper">Webmapper</a> UI the individual sources are labeled with their index.</td>
     <td>
         <img style="display:block;margin:auto;padding:0px;" src="./images/full_convergent.png">
     </td>
