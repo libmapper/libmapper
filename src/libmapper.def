@@ -79,7 +79,8 @@ EXPORTS
     mpr_time_add                                @77
     mpr_time_add_dbl                            @78
     mpr_time_as_dbl                             @79
-    mpr_time_mul                                @80
-    mpr_time_set                                @81
-    mpr_time_set_dbl                            @82
-    mpr_time_sub                                @83
+    mpr_time_cmp                                @80
+    mpr_time_mul                                @81
+    mpr_time_set                                @82
+    mpr_time_set_dbl                            @83
+    mpr_time_sub                                @84
