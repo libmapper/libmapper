@@ -575,10 +575,11 @@ namespace mapper {
          *                  effect until it has been added to the graph using push(). */
         Map(int num_srcs, signal_type srcs[], int num_dsts, signal_type dsts[]) : Object(NULL)
         {
-            mpr_sig cast_src[num_srcs], cast_dst = dsts[0];
+            mpr_sig *cast_src = (mpr_sig*)malloc(sizeof(mpr_sig) * num_srcs), cast_dst = dsts[0];
             for (int i = 0; i < num_srcs; i++)
                 cast_src[i] = srcs[i];
             _obj = mpr_map_new(num_srcs, cast_src, 1, &cast_dst);
+            free(cast_src);
         }
 
         /*! Create a map between a set of Signals.
@@ -595,10 +596,11 @@ namespace mapper {
                 _obj = 0;
                 return;
             }
-            mpr_sig cast_src[N], cast_dst = dsts.data()[0];
+            mpr_sig *cast_src = (mpr_sig*)malloc(sizeof(mpr_sig) * N), cast_dst = dsts.data()[0];
             for (int i = 0; i < N; i++)
                 cast_src[i] = srcs.data()[i];
             _obj = mpr_map_new(N, cast_src, 1, &cast_dst);
+            free(cast_src);
         }
 
         /*! Create a map between a set of Signals.
@@ -614,10 +616,12 @@ namespace mapper {
                 return;
             }
             int num_srcs = srcs.size();
-            mpr_sig cast_src[num_srcs], cast_dst = dsts.data()[0];
+            mpr_sig *cast_src = (mpr_sig*)malloc(sizeof(mpr_sig) * num_srcs);
+            mpr_sig cast_dst = dsts.data()[0];
             for (int i = 0; i < num_srcs; i++)
                 cast_src[i] = srcs.data()[i];
             _obj = mpr_map_new(num_srcs, cast_src, 1, &cast_dst);
+            free(cast_src);
         }
 
         /*! Return C data structure mpr_map corresponding to this object.
