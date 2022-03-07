@@ -11,8 +11,15 @@ from enum import IntFlag, Enum
 import weakref, sys
 import platform
 import os
+import re
 
-__version__ = '@PACKAGE_VERSION@'
+if platform.uname()[0] == "Windows":
+    versionPattern = re.compile("(?<=\[LIBMAPPER_VERSION],\[)(.*?)(?=])")
+    for i, line in enumerate(open('../../../configure.ac')):
+        for match in re.finditer(pattern, line):
+            __version__ = match.group(0)
+else:
+    __version__ = '@PACKAGE_VERSION@'
 
 # need different library extensions for Linux, Windows, MacOS
 if platform.uname()[0] == "Windows":

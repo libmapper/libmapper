@@ -157,7 +157,7 @@ jobs:
       shell: pwsh
       run: .\windows_build.bat
     - name: Copy dlls to python dir
-      run: cp -v $PWD/build/Debug/libmapper.dll bindings/python/libmapper/libmapper.dll
+      run: cp -v $PWD/build/Debug/libmapper.dll bindings/python/libmapper/libmapper.dll && cp -v $PWD/build/liblo/liblo-master/cmake/build/Debug/liblo.dll bindings/python/libmapper/liblo.dll && cp -v $PWD/build/zlib/msvc2017_64/lib/zlib/zlib.dll bindings/python/libmapper/zlib.dll
     - name: Build python wheel
       run: pip install wheel && cd bindings/python && python setup.py bdist_wheel
     - uses: actions/upload-artifact@v2
