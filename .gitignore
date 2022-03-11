@@ -21,6 +21,7 @@ bindings/python/build/
 bindings/python/dist
 bindings/python/libmapper.egg-info
 bindings/python/setup.py
+bindings/python/libmapper/mapper.py
 compile
 config.guess
 config.log
