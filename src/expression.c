@@ -533,27 +533,36 @@ typedef double fn_dbl_arity3(double,double,double);
 typedef double fn_dbl_arity4(double,double,double,double);
 typedef void vfn_template(mpr_expr_val, uint8_t*, int, int);
 
+/* Const special flags */
 #define CONST_MINVAL    0x0001
 #define CONST_MAXVAL    0x0002
 #define CONST_PI        0x0003
 #define CONST_E         0x0004
 #define CONST_SPECIAL   0x0007
-#define CLEAR_STACK     0x0008
-#define TYPE_LOCKED     0x0010
-#define VAR_MUTED       0x0020
-#define USE_VAR_LEN     0x0020 /* reuse */
-#define VAR_DELAY       0x0040
+
+#define VAR_HIST_IDX    0x0001
+#define VAR_ARR_IDX     0x0002
+#define VAR_SIG_IDX     0x0004
+#define VAR_INST_IDX    0x0008
+#define CLEAR_STACK     0x0010
+#define TYPE_LOCKED     0x0020
+#define VAR_MUTED       0x0040
+#define USE_VAR_LEN     0x0040 /* reuse */
 #define VEC_LEN_LOCKED  0x0080
+
+#define VAR_IDXS (VAR_HIST_IDX | VAR_ARR_IDX | VAR_SIG_IDX | VAR_INST_IDX)
+#define NUM_VAR_IDXS(X) (  (X & VAR_HIST_IDX) ? 1 : 0 + (X & VAR_ARR_IDX) ? 1 : 0  \
+                         + (X & VAR_SIG_IDX) ? 1 : 0 + (X & VAR_INST_IDX) ? 1 : 0)
 
 enum toktype {
     TOK_UNKNOWN         = 0x0000000,
     TOK_LITERAL         = 0x0000001,
-    TOK_VLITERAL        = 0x0000002,
+    TOK_VLITERAL        = 0x0000002,    /* Vector literal */
     TOK_NEGATE          = 0x0000004,
-    TOK_FN              = 0x0000008,
-    TOK_VFN             = 0x0000010,
-    TOK_VFN_DOT         = 0x0000020,
-    TOK_RFN             = 0x0000040,
+    TOK_FN              = 0x0000008,    /* Function */
+    TOK_VFN             = 0x0000010,    /* Vector function */
+    TOK_VFN_DOT         = 0x0000020,    /* Dot vector function */
+    TOK_RFN             = 0x0000040,    /* Reduce function */
     TOK_OPEN_PAREN      = 0x0000080,
     TOK_MUTED           = 0x0000100,
     TOK_OPEN_SQUARE     = 0x0000200,
@@ -570,15 +579,15 @@ enum toktype {
     TOK_VECTORIZE       = 0x0100000,
     TOK_ASSIGN          = 0x0200000,
     TOK_ASSIGN_USE,
-    TOK_ASSIGN_CONST,
-    TOK_ASSIGN_TT,
-    TOK_TT              = 0x0400000,
-    TOK_COPY_FROM       = 0x0800000,
-    TOK_MOVE,
+    TOK_ASSIGN_CONST,                   /* Const assignment (does not require input) */
+    TOK_ASSIGN_TT,                      /* Assign to NTP timestamp */
+    TOK_TT              = 0x0400000,    /* NTP Timestamp */
+    TOK_COPY_FROM       = 0x0800000,    /* Copy from stack */
+    TOK_MOVE,                           /* Move stack */
     TOK_LAMBDA,
     TOK_LOOP_START,
     TOK_LOOP_END,
-    TOK_SP_ADD,
+    TOK_SP_ADD,                         /* Stack pointer offset */
     TOK_REDUCING,
     TOK_END             = 0x1000000
 };
@@ -657,6 +666,7 @@ struct control_type {
     mpr_type casttype;
     uint8_t vec_len;
     uint8_t flags;
+    /* end of generic_type */
     uint8_t cache_offset;
     uint8_t reduce_start;
     uint8_t reduce_stop;
@@ -791,7 +801,7 @@ static int tok_arity(mpr_token_t tok)
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
-        case TOK_ASSIGN_TT:     return tok.gen.flags & VAR_DELAY ? 1 : 0;
+        case TOK_ASSIGN_TT:     return NUM_VAR_IDXS(tok.gen.flags);
         case TOK_OP:            return op_tbl[tok.op.idx].arity;
         case TOK_FN:            return fn_tbl[tok.fn.idx].arity;
         case TOK_RFN:           return rfn_tbl[tok.fn.idx].arity;
@@ -1101,7 +1111,7 @@ void mpr_expr_free(mpr_expr expr)
 
 static void printtoken(mpr_token_t *t, mpr_var_t *vars)
 {
-    int i, len = 128, offset = 0, delay = t->gen.flags & VAR_DELAY;
+    int i, len = 128, offset = 0, delay = t->gen.flags & VAR_HIST_IDX;
     char s[128];
     char *dims[] = {"unknown", "history", "instance", 0, "signal", 0, 0, 0, "vector"};
     switch (t->toktype) {
@@ -1298,7 +1308,7 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
                             continue;
                         if (TOK_ASSIGN_CONST == stk[j].toktype && stk[j].var.idx != VAR_Y)
                             break;
-                        if (stk[j].gen.flags & VAR_DELAY)
+                        if (stk[j].gen.flags & VAR_HIST_IDX)
                             break;
                         for (j = 0; j < indent; j++)
                             printf(" ");
@@ -1343,7 +1353,7 @@ static mpr_type promote_token(mpr_token_t *stk, int sp, mpr_type type, int vec_l
     mpr_token_t *tok;
     /* don't promote type of history indices */
     if ((TOK_VAR == stk[sp+1].toktype || TOK_TT == stk[sp+1].toktype)
-        && (stk[sp+1].gen.flags & VAR_DELAY))
+        && (stk[sp+1].gen.flags & VAR_IDXS))
         return type;
 
     while (TOK_COPY_FROM == stk[sp].toktype) {
@@ -1635,7 +1645,7 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_TT:
         case TOK_ASSIGN_USE:
-            arity = stk[sp].gen.flags & VAR_DELAY ? 2 : 1;
+            arity = NUM_VAR_IDXS(stk[sp].gen.flags) + 1;
             can_precompute = 0;
             break;
         case TOK_LOOP_END:
@@ -1731,17 +1741,17 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                 --skip;
 
             switch (stk[i].toktype) {
-                case TOK_OP:         skip += op_tbl[stk[i].op.idx].arity;           break;
-                case TOK_FN:         skip += fn_tbl[stk[i].fn.idx].arity;           break;
+                case TOK_OP:         skip += op_tbl[stk[i].op.idx].arity;       break;
+                case TOK_FN:         skip += fn_tbl[stk[i].fn.idx].arity;       break;
                 case TOK_VFN:
                     skip += vfn_tbl[stk[i].fn.idx].arity;
                     if (VFN_MAXMIN == stk[i].fn.idx || VFN_SUMNUM == stk[i].fn.idx)
                         --skip; /* these functions have 2 outputs */
                     break;
-                case TOK_VECTORIZE:  skip += stk[i].fn.arity;                       break;
-                case TOK_ASSIGN_USE: ++skip;                                        break;
-                case TOK_VAR:        skip += stk[i].gen.flags & VAR_DELAY ? 1 : 0;  break;
-                default:                                                            break;
+                case TOK_VECTORIZE:  skip += stk[i].fn.arity;                   break;
+                case TOK_ASSIGN_USE: ++skip;                                    break;
+                case TOK_VAR:        skip += NUM_VAR_IDXS(stk[i].gen.flags);    break;
+                default:                                                        break;
             }
         }
 
@@ -1781,10 +1791,10 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
          * this time we will also touch sub-arguments */
         i = sp;
         switch (stk[sp].toktype) {
-            case TOK_VECTORIZE:  skip = stk[sp].fn.arity;                       depth = 0;   break;
-            case TOK_ASSIGN_USE: skip = 1;                                      depth = 0;   break;
-            case TOK_VAR:        skip = stk[sp].gen.flags & VAR_DELAY ? 1 : 0;  depth = 0;   break;
-            default:             skip = 0;                                  depth = arity;   break;
+            case TOK_VECTORIZE:  skip = stk[sp].fn.arity;                   depth = 0;      break;
+            case TOK_ASSIGN_USE: skip = 1;                                  depth = 0;      break;
+            case TOK_VAR:        skip = NUM_VAR_IDXS(stk[sp].gen.flags);    depth = 0;      break;
+            default:             skip = 0;                                  depth = arity;  break;
         }
         promote_token(stk, i, type, 0, 0);
         while (--i >= 0) {
@@ -1851,14 +1861,14 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                     ++skip;
                     ++depth;
                     break;
-                case TOK_VAR:
-                    if (stk[i].gen.flags & VAR_DELAY) {
-                        if (skip > 0)
-                            ++skip;
-                        else
-                            ++depth;
-                    }
+                case TOK_VAR: {
+                    int num = NUM_VAR_IDXS(stk[i].gen.flags);
+                    if (skip > 0)
+                        skip += num;
+                    else
+                        depth += num;
                     break;
+                }
                 default:
                     break;
             }
@@ -1944,7 +1954,7 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
             vars[stk[sp].var.idx].flags &= ~VAR_INSTANCED;
     }
 
-    if (!(stk[sp].gen.flags & VAR_DELAY))
+    if (!(stk[sp].gen.flags & VAR_IDXS))
         return 0;
 
     /* Need to move assignment statements to beginning of stack. */
@@ -1955,8 +1965,8 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
     }
 
     for (i = sp - expr_len; i > 0; i--) {
-        if (stk[i].toktype & TOK_ASSIGN && (stk[i].gen.flags & VAR_DELAY)) {
-            ++i;
+        if (stk[i].toktype & TOK_ASSIGN && (stk[i].gen.flags & VAR_IDXS)) {
+            i += NUM_VAR_IDXS(stk[i].gen.flags);
             break;
         }
     }
@@ -1992,7 +2002,7 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
             case TOK_LOOP_START:
             case TOK_LITERAL:
             case TOK_VAR:
-            case TOK_TT:                if (!(tok->gen.flags & VAR_DELAY)) ++sp; break;
+            case TOK_TT:                sp -= NUM_VAR_IDXS(tok->gen.flags) - 1; break;
             case TOK_OP:                sp -= op_tbl[tok->op.idx].arity - 1;    break;
             case TOK_FN:                sp -= fn_tbl[tok->fn.idx].arity - 1;    break;
             case TOK_VFN:               sp -= vfn_tbl[tok->fn.idx].arity - 1;   break;
@@ -2003,8 +2013,7 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
             case TOK_ASSIGN_USE:
             case TOK_ASSIGN_CONST:
             case TOK_ASSIGN_TT:
-                if (tok->gen.flags & VAR_DELAY)
-                    --sp;
+                sp -= NUM_VAR_IDXS(tok->gen.flags);
                 if (tok->toktype != TOK_ASSIGN_USE)
                     --sp;
                 break;
@@ -2573,7 +2582,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                 len += tok_arity(tok);
                                 if (tok.toktype != TOK_VAR)
                                     continue;
-                                {FAIL_IF(tok.gen.flags & VAR_DELAY,
+                                {FAIL_IF(tok.gen.flags & VAR_HIST_IDX,
                                          "History indexes not allowed within history reduce function.");}
                                 if (VAR_Y == tok.var.idx) {
                                     y_ref = 1;
@@ -3076,7 +3085,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                     oldest_in[out[out_idx].var.idx - VAR_X] = buffer_size;
                                 }
                                 /* TODO: disable non-const assignment to past values of output */
-                                out[out_idx].gen.flags |= VAR_DELAY;
+                                out[out_idx].gen.flags |= VAR_HIST_IDX;
                                 if (assigning)
                                     out[out_idx - 1].gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                                 POP_OPERATOR();
@@ -3359,7 +3368,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     int var = out[out_idx].var.idx;
                     if (var >= VAR_X)
                         {FAIL("Cannot assign to input variable 'x'.");}
-                    if (!(out[out_idx].gen.flags & VAR_DELAY)) {
+                    if (!(out[out_idx].gen.flags & VAR_HIST_IDX)) {
                         if (var == VAR_Y)
                             ++out_assigned;
                         else
@@ -3376,7 +3385,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     /* for now we will only allow assigning to output t_y */
                     FAIL_IF(out[out_idx].var.idx != VAR_Y, "Only output timetag is writable.");
                     /* disable writing to current timetag for now */
-                    FAIL_IF(!(out[out_idx].gen.flags & VAR_DELAY),
+                    FAIL_IF(!(out[out_idx].gen.flags & VAR_HIST_IDX),
                             "Only past samples of output timetag are writable.");
                     out[out_idx].toktype = TOK_ASSIGN_TT;
                     out[out_idx].gen.datatype = MPR_DBL;
@@ -3393,10 +3402,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     if (var >= VAR_X)
                         {FAIL("Cannot assign to input variable 'x'.");}
                     else if (var == VAR_Y) {
-                        if (!(out[out_idx].gen.flags & VAR_DELAY))
+                        if (!(out[out_idx].gen.flags & VAR_HIST_IDX))
                             ++out_assigned;
                     }
-                    else if (!(out[out_idx].gen.flags & VAR_DELAY))
+                    else if (!(out[out_idx].gen.flags & VAR_HIST_IDX))
                         vars[var].flags |= VAR_ASSIGNED;
                     while (out_idx >= 0) {
                         if (out[out_idx].toktype != TOK_VAR)
@@ -3699,7 +3708,7 @@ static const char *type_name(const mpr_type type)
         break;
 
 #define COPY_TO_STACK(VAL)                                                  \
-    if (!(tok->gen.flags & VAR_DELAY)) {                                    \
+    if (!(tok->gen.flags & VAR_HIST_IDX)) {                                 \
         ++dp;                                                               \
         assert(dp < expr_stk->size);                                        \
         sp += vlen;                                                         \
@@ -3867,7 +3876,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else
                 printf("loading variable vars.%d", tok->var.idx);
 
-            if (tok->gen.flags & VAR_DELAY) {
+            if (tok->gen.flags & VAR_HIST_IDX) {
                 switch (last_type) {
                     case MPR_INT32:
                         printf("{N=%d}", mlen ? stk[sp].i % mlen : stk[sp].i);
@@ -3909,7 +3918,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 int _inst_idx = expr->vars[tok->var.idx].flags & VAR_INSTANCED ? inst_idx : 0;
                 mpr_value v = *v_vars + tok->var.idx;
                 datatype = v->type;
-                if (!(tok->gen.flags & VAR_DELAY)) {
+                if (!(tok->gen.flags & VAR_HIST_IDX)) {
                     sp += vlen;
                     ++dp;
                     assert(dp < expr_stk->size);
@@ -3976,7 +3985,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             int hidx = 0;
             double weight = 0.0;
             double t_d;
-            if (!(tok->gen.flags & VAR_DELAY)) {
+            if (!(tok->gen.flags & VAR_HIST_IDX)) {
                 sp += vlen;
                 ++dp;
                 assert(dp < expr_stk->size);
@@ -3990,7 +3999,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else if (v_vars)
                 printf("loading timetag t_%s", expr->vars[tok->var.idx].name);
 
-            if (tok->gen.flags & VAR_DELAY) {
+            if (tok->gen.flags & VAR_HIST_IDX) {
                 switch (last_type) {
                     case MPR_INT32: printf("{N=%d}", stk[sp].i);    break;
                     case MPR_FLT:   printf("{N=%g}", stk[sp].f);    break;
@@ -3999,7 +4008,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 }
             }
 #endif
-            if (tok->gen.flags & VAR_DELAY) {
+            if (tok->gen.flags & VAR_HIST_IDX) {
                 switch (last_type) {
                     case MPR_INT32:
                         hidx = stk[sp].i;
@@ -4529,7 +4538,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         case TOK_ASSIGN_USE:
             can_advance = 0;
         case TOK_ASSIGN_CONST: {
-            int hidx = tok->gen.flags & VAR_DELAY;
+            int hidx = tok->gen.flags & VAR_HIST_IDX;
             if (hidx) {
                 /* TODO: disallow assignment interpolation & verify parser does this check also */
                 hidx = stk[sp - vlen].i;
@@ -4649,7 +4658,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         assign_done:
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
-            if (can_advance || tok->gen.flags & VAR_DELAY) {
+            if (can_advance || tok->gen.flags & VAR_HIST_IDX) {
 #if TRACE_EVAL
                 printf("moving expr offset to %ld\n", tok - expr->start + 1);
 #endif
@@ -4660,7 +4669,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 
             if (tok->gen.flags & CLEAR_STACK)
                 dp = -1;
-            else if (tok->gen.flags & VAR_DELAY) {
+            else if (tok->gen.flags & VAR_HIST_IDX) {
                 --dp;
                 assert(dp >= 0);
             }
@@ -4669,15 +4678,15 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         }
         case TOK_ASSIGN_TT: {
             int idx, hist;
-            if (tok->var.idx != VAR_Y || !(tok->gen.flags & VAR_DELAY))
+            if (tok->var.idx != VAR_Y || !(tok->gen.flags & VAR_HIST_IDX))
                 goto error;
 #if TRACE_EVAL
             printf("assigning timetag to t_y{%d}\n",
-                   tok->gen.flags & VAR_DELAY ? stk[sp - vlen].i : 0);
+                   tok->gen.flags & VAR_HIST_IDX ? stk[sp - vlen].i : 0);
 #endif
             if (!v_out)
                 return status;
-            hist = tok->gen.flags & VAR_DELAY;
+            hist = tok->gen.flags & VAR_HIST_IDX;
             idx = (b_out->pos + v_out->mlen + (hist ? stk[sp - vlen].i : 0)) % v_out->mlen;
             if (idx < 0)
                 idx = v_out->mlen + idx;
