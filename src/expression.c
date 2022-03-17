@@ -3714,7 +3714,7 @@ static const char *type_name(const mpr_type type)
         sp += vlen;                                                         \
     }                                                                       \
     else {                                                                  \
-        switch (last_type) {                                                \
+        switch (datatype[1]) {                                              \
             case MPR_INT32:                                                 \
                 hidx = stk[sp].i;                                           \
                 break;                                                      \
@@ -3765,7 +3765,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
     int status = 1 | EXPR_EVAL_DONE, cache = 0, vlen;
     int i, j, sp, dp = -1;
     uint8_t alive = 1, muted = 0, can_advance = 1, hist_offset = 0, sig_offset = 0, vec_offset = 0;
-    mpr_type datatype, last_type = 0;
+    mpr_type datatype[4] = {0, 0, 0, 0};
     mpr_value_buffer b_out;
     mpr_value x = NULL;
 
@@ -3824,7 +3824,9 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 
     while (tok < end) {
   repeat:
-        datatype = tok->gen.datatype;
+        /* shift datatypes */
+        memcpy(datatype + 1, datatype, sizeof(mpr_type) * 3);
+        datatype[0] = tok->gen.datatype;
         switch (tok->toktype) {
         case TOK_LITERAL:
         case TOK_VLITERAL:
@@ -3833,7 +3835,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             assert(dp < expr_stk->size);
             dims[dp] = tok->gen.vec_len;
                 /* TODO: remove vector building? */
-            switch (datatype) {
+            switch (datatype[0]) {
 #define TYPED_CASE(MTYPE, T)                                                    \
                 case MTYPE:                                                     \
                     if (TOK_LITERAL == tok->toktype) {                          \
@@ -3854,7 +3856,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
 #if TRACE_EVAL
             printf("loading constant ");
-            print_stack_vec(stk + sp, datatype, tok->gen.vec_len);
+            print_stack_vec(stk + sp, datatype[0], tok->gen.vec_len);
             printf("\n");
 #endif
             break;
@@ -3877,7 +3879,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 printf("loading variable vars.%d", tok->var.idx);
 
             if (tok->gen.flags & VAR_HIST_IDX) {
-                switch (last_type) {
+                switch (datatype[1]) {
                     case MPR_INT32:
                         printf("{N=%d}", mlen ? stk[sp].i % mlen : stk[sp].i);
                         break;
@@ -3900,7 +3902,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 void *a;
                 if (!v_out)
                     return status;
-                datatype = v_out->type;
+                datatype[0] = v_out->type;
                 COPY_TO_STACK(v_out);
             }
             else if (tok->var.idx >= VAR_X) {
@@ -3909,7 +3911,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 if (!v_in)
                     return status;
                 v = v_in[tok->var.idx - VAR_X + sig_offset];
-                datatype = v->type;
+                datatype[0] = v->type;
                 COPY_TO_STACK(v);
                 if (!cache)
                     status &= ~EXPR_EVAL_DONE;
@@ -3917,14 +3919,14 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else if (v_vars) {
                 int _inst_idx = expr->vars[tok->var.idx].flags & VAR_INSTANCED ? inst_idx : 0;
                 mpr_value v = *v_vars + tok->var.idx;
-                datatype = v->type;
+                datatype[0] = v->type;
                 if (!(tok->gen.flags & VAR_HIST_IDX)) {
                     sp += vlen;
                     ++dp;
                     assert(dp < expr_stk->size);
                 }
                 dims[dp] = tok->gen.vec_len;
-                switch (datatype) {
+                switch (datatype[0]) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                                      \
                     case MTYPE: {                                                       \
                         TYPE *vt = v->inst[_inst_idx].samps;                            \
@@ -3943,7 +3945,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else
                 goto error;
 #if TRACE_EVAL
-            print_stack_vec(stk + sp, datatype, tok->gen.vec_len);
+            print_stack_vec(stk + sp, datatype[0], tok->gen.vec_len);
             printf(" \n");
 #endif
             break;
@@ -3955,11 +3957,11 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dims[dp] = tok->gen.vec_len;
 #if TRACE_EVAL
             if (tok->var.idx == VAR_Y)
-                printf("loading y.count%c()", datatype);
+                printf("loading y.count%c()", datatype[0]);
             else if (tok->var.idx >= VAR_X)
-                printf("loading x%d.count%c()", tok->var.idx - VAR_X, datatype);
+                printf("loading x%d.count%c()", tok->var.idx - VAR_X, datatype[0]);
             else if (v_vars)
-                printf("loading vars[%d].count%c()", tok->var.idx, datatype);
+                printf("loading vars[%d].count%c()", tok->var.idx, datatype[0]);
 #endif
             if (tok->var.idx == VAR_Y)
                 stk[sp].i = v_out->num_active_inst;
@@ -3976,7 +3978,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 stk[sp + i].i = stk[sp].i;
 #if TRACE_EVAL
             printf(" = ");
-            print_stack_vec(stk + sp, datatype, dims[dp]);
+            print_stack_vec(stk + sp, datatype[0], dims[dp]);
             printf(" \n");
 #endif
             break;
@@ -4000,7 +4002,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 printf("loading timetag t_%s", expr->vars[tok->var.idx].name);
 
             if (tok->gen.flags & VAR_HIST_IDX) {
-                switch (last_type) {
+                switch (datatype[1]) {
                     case MPR_INT32: printf("{N=%d}", stk[sp].i);    break;
                     case MPR_FLT:   printf("{N=%g}", stk[sp].f);    break;
                     case MPR_DBL:   printf("{N=%g}", stk[sp].d);    break;
@@ -4009,7 +4011,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
 #endif
             if (tok->gen.flags & VAR_HIST_IDX) {
-                switch (last_type) {
+                switch (datatype[1]) {
                     case MPR_INT32:
                         hidx = stk[sp].i;
                         break;
@@ -4069,24 +4071,24 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 #if TRACE_EVAL
             if (OP_IF_THEN_ELSE == tok->op.idx || OP_IF_ELSE == tok->op.idx) {
                 printf("IF ");
-                print_stack_vec(stk + sp, datatype, dims[dp]);
+                print_stack_vec(stk + sp, datatype[0], dims[dp]);
                 printf(" THEN ");
                 if (OP_IF_ELSE == tok->op.idx) {
-                    print_stack_vec(stk + sp, datatype, dims[dp]);
+                    print_stack_vec(stk + sp, datatype[0], dims[dp]);
                     printf(" ELSE ");
-                    print_stack_vec(stk + sp + vlen, datatype, dims[dp + 1]);
+                    print_stack_vec(stk + sp + vlen, datatype[0], dims[dp + 1]);
                 }
                 else {
-                    print_stack_vec(stk + sp + vlen, datatype, dims[dp + 1]);
+                    print_stack_vec(stk + sp + vlen, datatype[0], dims[dp + 1]);
                     printf(" ELSE ");
-                    print_stack_vec(stk + sp + 2 * vlen, datatype, dims[dp + 2]);
+                    print_stack_vec(stk + sp + 2 * vlen, datatype[0], dims[dp + 2]);
                 }
             }
             else {
-                print_stack_vec(stk + sp, datatype, dims[dp]);
-                printf(" %s%c ", op_tbl[tok->op.idx].name, datatype);
+                print_stack_vec(stk + sp, datatype[0], dims[dp]);
+                printf(" %s%c ", op_tbl[tok->op.idx].name, datatype[0]);
                 if (2 == op_tbl[tok->op.idx].arity)
-                    print_stack_vec(stk + sp + vlen, datatype, dims[dp + 1]);
+                    print_stack_vec(stk + sp + vlen, datatype[0], dims[dp + 1]);
             }
 #endif
             /* first copy stk[sp] elements if necessary */
@@ -4101,7 +4103,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 diff -= mindiff;
             }
             rdim = dims[dp + 1];
-            switch (datatype) {
+            switch (datatype[0]) {
                 case MPR_INT32: {
                     switch (tok->op.idx) {
                         OP_CASES_META(i);
@@ -4172,7 +4174,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 
 #if TRACE_EVAL
             printf(" = ");
-            print_stack_vec(stk + sp, datatype, dims[dp]);
+            print_stack_vec(stk + sp, datatype[0], dims[dp]);
             printf(" \n");
 #endif
             break;
@@ -4184,9 +4186,9 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             assert(dp >= 0);
             sp = dp * vlen;
 #if TRACE_EVAL
-            printf("%s%c(", fn_tbl[tok->fn.idx].name, datatype);
+            printf("%s%c(", fn_tbl[tok->fn.idx].name, datatype[0]);
             for (i = 0; i < fn_tbl[tok->fn.idx].arity; i++) {
-                print_stack_vec(stk + sp + vlen, datatype, dims[dp + i]);
+                print_stack_vec(stk + sp + vlen, datatype[0], dims[dp + i]);
                 printf(", ");
             }
             printf("%s)", fn_tbl[tok->fn.idx].arity ? "\b\b" : "");
@@ -4205,7 +4207,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
             ldim = dims[dp];
             rdim = dims[dp + 1];
-            switch (datatype) {
+            switch (datatype[0]) {
 #define TYPED_CASE(MTYPE, FN, T)                                                        \
             case MTYPE:                                                                 \
                 switch (fn_tbl[tok->fn.idx].arity) {                                    \
@@ -4248,7 +4250,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
 #if TRACE_EVAL
             printf(" = ");
-            print_stack_vec(stk + sp, datatype, dims[dp]);
+            print_stack_vec(stk + sp, datatype[0], dims[dp]);
             printf(" \n");
 #endif
             break;
@@ -4274,14 +4276,14 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 sp = dp * vlen;
             }
 #if TRACE_EVAL
-            printf("%s%c(", vfn_tbl[tok->fn.idx].name, datatype);
+            printf("%s%c(", vfn_tbl[tok->fn.idx].name, datatype[0]);
             for (i = 0; i < vfn_tbl[tok->fn.idx].arity; i++) {
-                print_stack_vec(stk + sp + i * vlen, datatype, dims[dp + i]);
+                print_stack_vec(stk + sp + i * vlen, datatype[0], dims[dp + i]);
                 printf(", ");
             }
             printf("\b\b)");
 #endif
-            switch (datatype) {
+            switch (datatype[0]) {
 #define TYPED_CASE(MTYPE, FN)                                                       \
                 case MTYPE:                                                         \
                     (((vfn_template*)vfn_tbl[tok->fn.idx].FN)(stk, dims, dp, vlen));\
@@ -4303,13 +4305,13 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             printf(" = ");
             if (VFN_MAXMIN == tok->fn.idx || VFN_SUMNUM == tok->fn.idx) {
                 printf("[");
-                print_stack_vec(stk + sp, datatype, dims[dp]);
+                print_stack_vec(stk + sp, datatype[0], dims[dp]);
                 printf(", ");
-                print_stack_vec(stk + sp + vlen, datatype, dims[dp + 1]);
+                print_stack_vec(stk + sp + vlen, datatype[0], dims[dp + 1]);
                 printf("]\n");
             }
             else {
-                print_stack_vec(stk + sp, datatype, dims[dp]);
+                print_stack_vec(stk + sp, datatype[0], dims[dp]);
                 printf(" \n");
             }
 #endif
@@ -4495,7 +4497,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else
                 memcpy(&stk[sp], &stk[sp_from], tok->gen.vec_len * sizeof(mpr_expr_val_t));
 #if TRACE_EVAL
-            print_stack_vec(stk + sp, datatype, dims[dp]);
+            print_stack_vec(stk + sp, datatype[0], dims[dp]);
             printf(" \n");
 #endif
             break;
@@ -4512,7 +4514,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             memcpy(&stk[sp], &stk[sp_from], vlen * sizeof(mpr_expr_val_t));
             dims[dp] = dims[dp_from];
 #if TRACE_EVAL
-            print_stack_vec(stk + sp, datatype, dims[dp]);
+            print_stack_vec(stk + sp, datatype[0], dims[dp]);
             printf(" \n");
 #endif
             break;
@@ -4530,7 +4532,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dims[dp] = j;
 #if TRACE_EVAL
             printf("built %u-element vector: ", dims[dp]);
-            print_stack_vec(stk + sp, datatype, dims[dp]);
+            print_stack_vec(stk + sp, datatype[0], dims[dp]);
             printf(" \n");
 #endif
             break;
@@ -4549,13 +4551,13 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 #if TRACE_EVAL
             if (VAR_Y == tok->var.idx)
                 printf("assigning values to y{%d}[%u] (%s x %u)\n", hidx, tok->var.vec_idx,
-                       type_name(datatype), tok->gen.vec_len);
+                       type_name(datatype[0]), tok->gen.vec_len);
             else if (expr->vars[tok->var.idx].flags & VAR_SET_EXTERN)
                 printf("skipping assignment to %s{%d}[%u] (set externally)\n",
                        expr->vars[tok->var.idx].name, hidx, tok->var.vec_idx);
             else
                 printf("assigning values to %s{%d}[%u] (%s x %u)\n", expr->vars[tok->var.idx].name,
-                       hidx, tok->var.vec_idx, type_name(datatype), tok->gen.vec_len);
+                       hidx, tok->var.vec_idx, type_name(datatype[0]), tok->gen.vec_len);
 #endif
             if (tok->var.idx == VAR_Y) {
                 int idx;
@@ -4588,7 +4590,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 }
 
                 if (types)
-                    memset(types + tok->var.vec_idx, datatype, tok->gen.vec_len);
+                    memset(types + tok->var.vec_idx, datatype[0], tok->gen.vec_len);
                 /* Also copy time from input */
                 if (time) {
                     mpr_time *tvar = &b_out->times[idx];
@@ -4714,12 +4716,12 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         }
         if (tok->gen.casttype) {
 #if TRACE_EVAL
-            printf("casting sp=%d from %s (%c) to %s (%c)\n", dp, type_name(datatype),
-                   datatype, type_name(tok->gen.casttype), tok->gen.casttype);
-            print_stack_vec(stk + sp, datatype, dims[dp]);
+            printf("casting sp=%d from %s (%c) to %s (%c)\n", dp, type_name(datatype[0]),
+                   datatype[0], type_name(tok->gen.casttype), tok->gen.casttype);
+            print_stack_vec(stk + sp, datatype[0], dims[dp]);
 #endif
             /* need to cast to a different type */
-            switch (datatype) {
+            switch (datatype[0]) {
 #define TYPED_CASE(MTYPE0, T0, MTYPE1, TYPE1, T1, MTYPE2, TYPE2, T2)\
                 case MTYPE0:                                        \
                     switch (tok->gen.casttype) {                    \
@@ -4745,10 +4747,8 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             print_stack_vec(stk + sp, tok->gen.casttype, dims[dp]);
             printf("\n");
 #endif
-            last_type = tok->gen.casttype;
+            datatype[0] = tok->gen.casttype;
         }
-        else
-            last_type = datatype;
         ++tok;
     }
 
