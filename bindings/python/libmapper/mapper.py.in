@@ -807,18 +807,19 @@ class Signal(Object):
         return 'mpr.Signal:{}'.format(self[Property.NAME])
 
     def set_callback(self, callback, events=Event.ALL):
-        if callback:
-#            print("incrementing refcount for cb", callback)
-            _c_inc_ref(callback)
-
         data = mpr.mpr_obj_get_prop_as_ptr(self._obj, 0x0200, None) # MPR_PROP_DATA
         if data != None:
             cb = cast(data, py_sig_cb_type)
 #            print("decrementing refcount for cb", cb)
             _c_dec_ref(cb)
 
-        mpr.mpr_obj_set_prop.argtypes = [c_void_p, c_int, c_char_p, c_int, c_char, py_sig_cb_type, c_int]
-        mpr.mpr_obj_set_prop(self._obj, 0x0200, None, 1, Type.POINTER.value, py_sig_cb_type(callback), 0)
+        if callback:
+#            print("incrementing refcount for cb", callback)
+            _c_inc_ref(callback)
+
+        callback = py_sig_cb_type(callback)
+        _c_inc_ref(callback)
+        mpr.mpr_obj_set_prop(self._obj, 0x0200, None, 1, Type.POINTER.value, callback, 0)
 
         mpr.mpr_sig_set_cb.argtypes = [c_void_p, c_sig_cb_type, c_int]
         mpr.mpr_sig_set_cb.restype = None
