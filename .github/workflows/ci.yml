@@ -147,19 +147,28 @@ jobs:
       with:
         path: ./wheelhouse/*.whl
 
-  Windows-Latest:
-    runs-on: windows-latest
+  MinGW:
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
-    - name: Run windows bat build script on PowerShell
-      shell: pwsh
-      run: .\windows_build.bat
-    - name: Copy dlls to python dir
-      run: cp -v $PWD/build/Debug/libmapper.dll bindings/python/libmapper/libmapper.dll && cp -v $PWD/build/liblo/liblo-master/cmake/build/Debug/liblo.dll bindings/python/libmapper/liblo.dll && cp -v $PWD/build/zlib/msvc2017_64/lib/zlib/zlib.dll bindings/python/libmapper/zlib.dll
-    - name: Build python wheel
-      run: pip install wheel && cd bindings/python && python setup.py bdist_wheel
+    - name: install dependencies
+      run: sudo apt-get install g++-mingw-w64 autoconf-archive curl
+    - name: install liblo
+      run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host="x86_64-w64-mingw32" --prefix=$PWD/inst --disable-tests --disable-tools --disable-examples || (cat config.log; false)) && make install && find inst && cd ..
+    - name: install zlib
+      run: unset CC && unset CXX && curl -L -O http://www.zlib.net/zlib-1.2.11.tar.gz && tar -xzf zlib-1.2.11.tar.gz && cp -v zlib-1.2.11/crc32.c src/ && echo libmapper_la_SOURCES += crc32.c >>src/Makefile.am && echo libmapper_la_CFLAGS += -I\$\(top_srcdir\)/zlib-1.2.11 >>src/Makefile.am && sed -e 's,\(AC_CHECK_LIB(\[z\]\),dnl \1,' -i configure.ac && sed -e 's,\(\./\$\$i\),wine \1.exe,' -i test/Makefile.am
+    - name: autogen
+      run: pwd && mkdir $PWD/inst && (./autogen.sh --host="x86_64-w64-mingw32" --enable-static --disable-python --disable-jni --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
+    - name: make
+      run: make && make install && find inst
+    - name: python wheels
+      run:
+        cp -v $PWD/inst/bin/libmapper-*.dll bindings/python/libmapper/libmapper.dll
+        && pip3 wheel bindings/python -w ./wheelhouse
+        && unzip -t wheelhouse/*.whl
+        && mv -v wheelhouse/*.whl $(echo wheelhouse/*.whl | sed -e s/-any./-win32./)
     - uses: actions/upload-artifact@v2
       with:
-        path: ./bindings/python/dist/*.whl
+        path: ./wheelhouse/*.whl

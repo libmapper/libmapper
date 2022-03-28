@@ -9,15 +9,7 @@ import re
 import platform
 
 def ver():
-    if platform.uname()[0] == 'Windows':
-        # Parse version out of configure.ac
-        versionPattern = re.compile("(?<=\[LIBMAPPER_VERSION],\[)(.*?)(?=])")
-        for i, line in enumerate(open('../../configure.ac')):
-            for match in re.finditer(versionPattern, line):
-                version = match.group(0)
-                print("Found libmapper version: %s" % version)
-    else:
-        version = '@PACKAGE_VERSION@'
+    version = '@PACKAGE_VERSION@'
     match = re.compile(r'(\d+)\.(\d+)(\w*)(\d*)\.(\d+)\+?.*').match(version)
     if match:
         return '{0}.{1}{2}{3}.dev{4}'.format(*[g or "" for g in match.groups()])
@@ -42,10 +34,6 @@ try:
 except ImportError:
     bdist_wheel = None
 
-if platform.uname()[0] == 'Windows':
-    packages = ["libmapper.dll", "liblo.dll", "zlib.dll"]
-else:
-    packages = ["libmapper.@SO_EXT@"]
 setup (name         = 'libmapper',
        version      = ver(),
        author       = "libmapper.org",
@@ -54,8 +42,8 @@ setup (name         = 'libmapper',
        description  = """A library for mapping controllers and synthesizers.""",
        license      = "GNU LGPL version 2.1 or later",
        packages     = ["libmapper"],
-       package_data = {"libmapper": packages},
+       package_data = {"libmapper": ["libmapper.@SO_EXT@"]},
        cmdclass     = {
         'bdist_wheel': bdist_wheel,
-       },
+       } if platform.uname()[0] != 'Linux' else {},
 )
