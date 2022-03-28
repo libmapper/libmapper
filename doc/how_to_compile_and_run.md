@@ -185,22 +185,32 @@ Building on Windows
 
 ### Dependencies
 
+Cmake is required to generate visual studio solutions, and can be installed [here][cmake]. Add it to the environment path when prompted for terminal access later on.
+
+[cmake]: https://cmake.org/download/
+
+You'll also need Visual Studio 2017 or 2019, which you can grab [here][visual_studio]. Be sure to install the C++ developer tools when installing if you don't already have them.
+
+[visual_studio]: https://visualstudio.microsoft.com/vs/
+
+Once cmake is installed and added to the environment path, libmapper and its dependencies (zlib and liblo) can be built the easy way by double clicking 
+
+    build_windows.bat
+
+and checking the build/Debug folder to retrieve your libmapper dll. The liblo and zlib dlls can also be found in their respective subfolders in the build/ directory, and should be copied along with the libmapper dll to any directory using libmapper. Tests can be run in build/test/Debug to verify the correct functions, but be sure to copy the dlls (zlib, liblo, libmapper) to the same folder as the executables or add their paths to your PATH environment variable.
+
+If you want to manually build from source, follow the instructions below. If you ran the batch file above, you should be done!
+
+### Manual compilation
+
 libmapper depends on version 0.30 of liblo or later.
 Please clone the [LibLo repository][liblo] and consult its documentation to build for Windows.
 
 [liblo]: https://github.com/radarsat1/liblo
 
-Cmake is also required to generate visual studio solutions, and can be installed [here][cmake]. Add it to the environment path when prompted for terminal access later on.
-
-[cmake]: https://cmake.org/download/
-
 Zlib is required as well, which you can pick up [from nuget][zlib]. You can use the Visual Studio Tools->NuGet Package Manager Console to install it easily.
 
 [zlib]: https://www.nuget.org/packages/zlib-msvc14-x64/
-
-Finally, you'll need Visual Studio 2017 or 2019, which you can grab [here][visual_studio]. Be sure to install the C++ developer tools when installing if you don't already have them.
-
-[visual_studio]: https://visualstudio.microsoft.com/vs/
 
 ### Configuring
 

@@ -5,9 +5,14 @@
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
-#include <sys/time.h>
+
 #include <lo/lo.h>
+#ifdef WIN32
+#include <io.h>
+#else
+#include <sys/time.h>
 #include <unistd.h>
+#endif
 #include <signal.h>
 #include <string.h>
 

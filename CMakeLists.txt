@@ -3,38 +3,11 @@ cmake_minimum_required(VERSION 3.19)
 # Replace with your own global paths before building and modify build directories if different from below
 set(BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build")
 set(LIBMAPPER_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include")
-set(LIBLO_DIR "<your_liblo_root>")
+set(LIBLO_DIR "${BUILD_DIR}/liblo/liblo-master")
 set(LIBLO_BUILD_DIR "${LIBLO_DIR}/cmake/build/Debug")
-set(ZLIB_DIR "<your_zlib_root>")
-set(ZLIB_BUILD_DIR "${ZLIB_DIR}/build/native/lib_debug")
+set(ZLIB_DIR "${BUILD_DIR}/zlib/msvc2017_64")
+set(ZLIB_BUILD_DIR "${ZLIB_DIR}/lib/zlib")
 set(LIBLO_INCLUDES "${LIBLO_DIR}/cmake/build;${LIBLO_DIR}")
-
-if (WIN32)
-  # These must be prior to the "project" command
-  # https://stackoverflow.com/questions/14172856/compile-with-mt-instead-of-md-using-cmake
-
-  if (CMAKE_GENERATOR MATCHES "Visual Studio")
-    set(CMAKE_C_FLAGS_DEBUG            "/D_DEBUG /MTd /Zi /Ob0 /Od /RTC1")
-    set(CMAKE_C_FLAGS_MINSIZEREL       "/MT /O1 /Ob1 /D NDEBUG")
-    set(CMAKE_C_FLAGS_RELEASE          "/MT /O2 /Ob2 /D NDEBUG")
-    set(CMAKE_C_FLAGS_RELWITHDEBINFO   "/MT /Zi /O2 /Ob1 /D NDEBUG")
-
-    set(CMAKE_CXX_FLAGS_DEBUG          "/D_DEBUG /MTd /Zi /Ob0 /Od /RTC1")
-    set(CMAKE_CXX_FLAGS_MINSIZEREL     "/MT /O1 /Ob1 /D NDEBUG")
-    set(CMAKE_CXX_FLAGS_RELEASE        "/MT /O2 /Ob2 /D NDEBUG")
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MT /Zi /O2 /Ob1 /D NDEBUG")
-
-    add_compile_options(
-      $<$<CONFIG:>:/MT>
-      $<$<CONFIG:Debug>:/MTd>
-      $<$<CONFIG:Release>:/MT>
-      $<$<CONFIG:MinSizeRel>:/MT>
-      $<$<CONFIG:RelWithDebInfo>:/MT>
-    )   
-  else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static")
-  endif ()
-endif ()
 
 project(libmapper)
 
@@ -45,7 +18,7 @@ if (WIN32)
   set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/pdb/$<CONFIG>")
 
   set(Liblo_LIB ${LIBLO_BUILD_DIR}/liblo.lib)
-  set(Zlib_LIB ${ZLIB_BUILD_DIR}/zlibd.lib)
+  set(Zlib_LIB ${ZLIB_BUILD_DIR}/zlib.lib)
 
   mark_as_advanced(Liblo_LIB)
   mark_as_advanced(Zlib_LIB)
@@ -70,7 +43,7 @@ endif ()
 # Add file sources
 include_directories( 
   "${LIBLO_INCLUDES}"
-  "${ZLIB_DIR}/include"
+  "${ZLIB_DIR}/include/zlib"
   "${LIBMAPPER_INCLUDES}"
 )
 
@@ -120,4 +93,4 @@ if (WIN32)
   endif()
 endif ()
 
-
+add_subdirectory(test)

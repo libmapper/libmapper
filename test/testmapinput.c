@@ -4,7 +4,11 @@
 #include <math.h>
 #include <lo/lo.h>
 #include <stdlib.h>
+#ifdef WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <signal.h>
 #include <string.h>
 

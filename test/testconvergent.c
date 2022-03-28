@@ -4,7 +4,11 @@
 #include <stdarg.h>
 #include <math.h>
 #include <string.h>
+#ifdef WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <signal.h>
 
 int num_sources = 3;

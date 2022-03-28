@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <math.h>
+#ifdef WIN32
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 #include <signal.h>
 #include <string.h>
 
