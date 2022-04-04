@@ -29,14 +29,14 @@ cd /D "%~dp0"
 cd build\
 powershell -Command "cmake .."
 powershell -Command "cmake --build . --target all_build"
-:: Build test programs
-:: powershell -Command "cp ./Debug/libmapper.dll ../test/"
 
 :: Rename .py.in files to .py for Windows
 :: Reset active directory
 cd /D "%~dp0"
 powershell -Command "cp ./bindings/python/setup.py.in ./bindings/python/setup.py"
 powershell -Command "cp ./bindings/python/libmapper/mapper.py.in ./bindings/python/libmapper/mapper.py"
+cd bindings\python\
+powershell -Command "./get_version.ps1"
 
 echo Done! dll's for liblo and zlib are located in the build/ folder
 echo build/Debug/ contains the libmapper dll
