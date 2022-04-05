@@ -28,7 +28,7 @@ jobs:
     - name: python wheels
       run:
         pwd && make distclean && bindings/python/build_wheels.py
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         path: |
           libmapper*.tar.gz
@@ -118,7 +118,7 @@ jobs:
         cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
         && pip3 wheel bindings/python -w ./wheelhouse
         && unzip -t wheelhouse/*.whl
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         path: ./wheelhouse/*.whl
 
@@ -143,7 +143,7 @@ jobs:
         cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
         && pip3 wheel bindings/python -w ./wheelhouse
         && unzip -t wheelhouse/*.whl
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         path: ./wheelhouse/*.whl
 
@@ -160,6 +160,105 @@ jobs:
       run: cp -v $PWD/build/Debug/libmapper.dll bindings/python/libmapper/libmapper.dll && cp -v $PWD/build/liblo/liblo-master/cmake/build/Debug/liblo.dll bindings/python/libmapper/liblo.dll && cp -v $PWD/build/zlib/msvc2017_64/lib/zlib/zlib.dll bindings/python/libmapper/zlib.dll
     - name: Build python wheel
       run: pip install wheel && cd bindings/python && python setup.py bdist_wheel
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       with:
         path: ./bindings/python/dist/*.whl
+
+  Linux-check-wheel:
+    runs-on: ubuntu-latest
+    needs: Linux
+    steps:
+      - uses: actions/setup-python@v2
+      - name: download artifact
+        uses: actions/download-artifact@v2
+      - name: install wheel
+        run:
+          ls
+          && find artifact
+          && python3 -m pip install artifact/wheelhouse/libmapper*-py3-none-manylinux_2_24_x86_64.whl
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: run python tests
+        run:
+          mkdir testpython
+          && cd testpython
+          && cp ../bindings/python/test*.py .
+          && for i in test testcallbacks testconvergent testinstance testmapfromstr testreverse testvector; do echo running $i; if ! python ./$i.py; then exit 1; fi; done
+
+  MacOS-Latest-check-wheel:
+    runs-on: macOS-latest
+    needs: MacOS-Latest
+    steps:
+      - uses: actions/setup-python@v2
+      - name: download artifact
+        uses: actions/download-artifact@v2
+      - name: install wheel
+        run:
+          ls
+          && find artifact
+          && python3 -m pip install artifact/libmapper*-py3-none-macosx_10_15_x86_64.whl
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: run python tests
+        run:
+          mkdir testpython
+          && cd testpython
+          && cp ../bindings/python/test*.py .
+          && for i in test testcallbacks testconvergent testinstance testmapfromstr testreverse testvector; do echo running $i; if ! python ./$i.py; then exit 1; fi; done
+
+  MacOS-10-check-wheel:
+    runs-on: macOS-10.15
+    needs: MacOS-10
+    steps:
+      - uses: actions/setup-python@v2
+      - name: download artifact
+        uses: actions/download-artifact@v2
+      - name: install wheel
+        run:
+          ls
+          && find artifact
+          && python3 -m pip install artifact/libmapper*-py3-none-macosx_10_15_x86_64.whl
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: run python tests
+        run:
+          mkdir testpython
+          && cd testpython
+          && cp ../bindings/python/test*.py .
+          && for i in test testcallbacks testconvergent testinstance testmapfromstr testreverse testvector; do echo running $i; if ! python ./$i.py; then exit 1; fi; done
+
+  Windows-Latest-check-wheel:
+    runs-on: windows-latest
+    needs: Windows-Latest
+    steps:
+      - uses: actions/setup-python@v2
+      - name: download artifact
+        uses: actions/download-artifact@v2
+      - name: install wheel
+        run:
+          ls
+          && cd artifact
+          && ls
+          && python3 -m pip install libmapper-2.1-py3-none-win_amd64.whl
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: run python tests
+        run:
+          mkdir testpython
+          && cd testpython
+          && cp ../bindings/python/test*.py .
+          && python ./test.py
+          && python ./testcallbacks.py
+          && python ./testconvergent.py
+          && python ./testinstance.py
+          && python ./testmapfromstr.py
+          && python ./testreverse.py
+          && python ./testvector.py
