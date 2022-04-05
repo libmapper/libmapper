@@ -57,5 +57,5 @@ setup (name         = 'libmapper',
        package_data = {"libmapper": packages},
        cmdclass     = {
         'bdist_wheel': bdist_wheel,
-       },
+       } if platform.uname()[0] != 'Linux' else {},
 )
