@@ -61,7 +61,7 @@ while not src.ready or not dest.ready:
     src.poll()
     dest.poll(10)
 
-map = mpr.Map(outsig, insig).push()
+map = mpr.Map(outsig, insig).set_property(mpr.Property.EXPRESSION, "y=x").push()
 
 while not map.ready:
     src.poll(10)

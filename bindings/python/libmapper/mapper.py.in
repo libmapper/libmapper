@@ -78,6 +78,7 @@ class Operator(Enum):
 class Property(Enum):
     UNKNOWN          = 0x0000
     BUNDLE           = 0x0100
+    # DATA DELIBERATELY OMITTED
     DEVICE           = 0x0300
     DIRECTION        = 0x0400
     EPHEMERAL        = 0x0500
@@ -491,7 +492,7 @@ class Object:
         elif _type is Property:
             _idx.value = key_or_idx.value
         elif _type is int:
-            if key_or_idx == 0x0200:
+            if key_or_idx == 0x0200: # MPR_PROP_DATA
                 print("mpr.Object.set_property({}) : key 0x0200 (DATA) is protected".format(key_or_idx))
                 return self
             _idx.value = key_or_idx
@@ -568,7 +569,7 @@ class Object:
                                                byref(_type), byref(_val), byref(_pub))
         else:
             return None
-        if prop == 0 or prop == 0x0200:
+        if prop == 0 or prop == 0x0200: # MPR_PROP_DATA
             return None
         prop = Property(prop)
 
@@ -666,7 +667,6 @@ class Object:
             print("mpr.Object.get_property({}:{}) : can't handle prop type".format(prop, key_or_idx), _type)
             return None
 
-        # TODO: if key_or_idx is str we can reuse it instead of decoding
         if isinstance(key_or_idx, str):
             return val
         else:
@@ -819,7 +819,7 @@ class Signal(Object):
 
         callback = py_sig_cb_type(callback)
         _c_inc_ref(callback)
-        mpr.mpr_obj_set_prop(self._obj, 0x0200, None, 1, Type.POINTER.value, callback, 0)
+        mpr.mpr_obj_set_prop(self._obj, 0x0200, None, 1, Type.POINTER.value, callback, 0) # MPR_PROP_DATA
 
         mpr.mpr_sig_set_cb.argtypes = [c_void_p, c_sig_cb_type, c_int]
         mpr.mpr_sig_set_cb.restype = None
@@ -1197,7 +1197,7 @@ class Device(Object):
         return mpr.mpr_dev_poll(self._obj, timeout)
 
     def add_signal(self, dir, name, length=1, datatype=Type.FLOAT, unit=None, min=None, max=None,
-                   num_int=None, callback=None, events=Signal.Event.ALL):
+                   num_inst=None, callback=None, events=Signal.Event.ALL):
         mpr.mpr_sig_new.argtypes = [c_void_p, c_int, c_char_p, c_int, c_char, c_char_p, c_void_p,
                                     c_void_p, POINTER(c_int), c_void_p, c_int]
         mpr.mpr_sig_new.restype = c_void_p
@@ -1208,8 +1208,14 @@ class Device(Object):
         signal = Signal(ptr)
         if callback != None:
             signal.set_callback(callback, events)
-
-        # TODO: set min, max, unit, instances
+        if unit != None:
+            signal.set_property(Property.UNIT, unit)
+        if min != None:
+            signal.set_property(Property.MIN, min)
+        if max != None:
+            signal.set_property(Property.MAX, max)
+        if num_inst != None and isinstance(num_inst, int):
+            signal.reserve_instances(num_inst - 1)
         return signal
 
     def remove_signal(self, signal):

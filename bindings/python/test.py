@@ -12,7 +12,7 @@ def h(sig, event, id, val, time):
         print('exception')
 
 def setup(d):
-    sig = d.add_signal(mpr.Direction.INCOMING, "freq", 1, mpr.Type.INT32, "Hz", None, None, None, h)
+    sig = d.add_signal(mpr.Direction.INCOMING, "freq", 1, mpr.Type.INT32, "Hz", 0, 100, None, h)
 
     while not d.ready:
         d.poll(10)
