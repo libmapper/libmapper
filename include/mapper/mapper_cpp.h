@@ -1040,6 +1040,14 @@ namespace mapper {
             { mpr_sig_reserve_inst(_obj, num, ids, NULL); RETURN_SELF }
         Signal& reserve_instances(int num, Id *ids, void **data)
             { mpr_sig_reserve_inst(_obj, num, ids, data); RETURN_SELF }
+
+        Signal& reserve_instance()
+            { mpr_sig_reserve_inst(_obj, 1, NULL, NULL); RETURN_SELF }
+        Signal& reserve_instance(mpr_id id)
+            { mpr_sig_reserve_inst(_obj, 1, &id, NULL); RETURN_SELF }
+        Signal& reserve_instance(mpr_id id, void* data)
+            { mpr_sig_reserve_inst(_obj, 1, &id, &data); RETURN_SELF }
+
         Instance instance(int idx, mpr_status status) const
             { return Instance(_obj, mpr_sig_get_inst_id(_obj, idx, status)); }
         Signal& remove_instance(Instance instance)
