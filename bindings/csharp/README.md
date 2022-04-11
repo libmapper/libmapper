@@ -37,7 +37,7 @@ You may need to copy the libmapper dynamic library into the same directory (depe
 * add scripts for automatically building bindings
 * wrap remaining libmapper API
     * lists
-    * object properties
+    * [x] object properties
     * graphs
     * signal instances
 * interact with C# Events

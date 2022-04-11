@@ -32,6 +32,7 @@ public class TestCSharp
         Console.WriteLine("Device ready...");
 
         dev.setProperty("foo", 1000);
+        Console.WriteLine("property 'foo' = " + dev.getProperty("foo"));
 
         // Map map = new Map(outsig, insig);
         Map map = new Map("%y=%x*1000", insig, outsig);
