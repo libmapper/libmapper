@@ -3825,7 +3825,8 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
     while (tok < end) {
   repeat:
         /* shift datatypes */
-        memcpy(datatype, datatype + 1, sizeof(mpr_type) * 3);
+        for (i = 0; i < 3; i++)
+            datatype[i] = datatype[i+1];
         datatype[3] = tok->gen.datatype;
         switch (tok->toktype) {
         case TOK_LITERAL:
