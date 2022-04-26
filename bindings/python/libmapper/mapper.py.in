@@ -1183,10 +1183,15 @@ class Device(Object):
         else:
             print("mpr.Device: missing name in constructor")
 
-#    def __del__(self):
-#        print("Device.__del__()", self, self._obj)
-#        for s in self.signals():
-#            self.remove_signal(s)
+    def free(self):
+        if not self._obj:
+            return
+        for s in self.signals():
+            self.remove_signal(s)
+        mpr.mpr_dev_free.argtypes = [c_void_p]
+        mpr.mpr_dev_free.restype = None
+        mpr.mpr_dev_free(self._obj)
+        self._obj = None
 
     def __repr__(self):
         return 'mpr.Device:{}'.format(self[Property.NAME])

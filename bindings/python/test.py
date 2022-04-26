@@ -166,3 +166,6 @@ tt3 = tt1 + 0.5
 print('got tt: ', tt3.get_double())
 print(1.6 + tt1)
 print('current time:', mpr.Time().get_double())
+
+dev1.free()
+dev2.free()
