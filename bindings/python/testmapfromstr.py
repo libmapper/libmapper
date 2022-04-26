@@ -28,3 +28,6 @@ for i in range(100):
     outsig.set_value(i)
     dest.poll(10)
     src.poll(0)
+
+src.free()
+dest.free()

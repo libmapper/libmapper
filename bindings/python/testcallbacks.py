@@ -61,3 +61,6 @@ map.release()
 for i in range(100):
     src.poll(10)
     dst.poll(10)
+
+src.free()
+dst.free()

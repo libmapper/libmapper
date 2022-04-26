@@ -40,3 +40,7 @@ else:
             outsigs[j].set_value(j*50-i)
             srcs[j].poll(0)
         dest.poll(10)
+
+for j in range(3):
+    srcs[j].free()
+dest.free()

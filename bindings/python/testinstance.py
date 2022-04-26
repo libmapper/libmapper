@@ -80,3 +80,6 @@ for i in range(100):
     print_instance_values()
     dest.poll(100)
     src.poll(0)
+
+src.free()
+dest.free()

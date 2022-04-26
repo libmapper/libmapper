@@ -34,3 +34,6 @@ for i in range(100):
         outsig[mpr.Property.DIRECTION] = mpr.Direction.INCOMING;
     src.poll(10)
     dest.poll(10)
+
+src.free()
+dest.free()

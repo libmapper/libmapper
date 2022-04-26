@@ -27,3 +27,6 @@ for i in range(100):
     outsig.set_value([i, i+1, i+2, i+3, i+4, i+5, i+6, i+7, i+8, i+9])
     dest.poll(10)
     src.poll(0)
+
+src.free()
+dest.free()
