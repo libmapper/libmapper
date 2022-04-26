@@ -833,22 +833,26 @@ class Signal(Object):
         if value == None:
             mpr.mpr_sig_set_value(self._obj, self.id, 0, MPR_INT32, None)
         elif isinstance(value, list):
-            _type = type(value[0])
+            if any(not (isinstance(x, int) or isinstance(x, float)) for x in value):
+                print("mpr.Signal.set_value() accepts only scalars or lists of type float and int")
+                return self
             _len = len(value)
-            if _type is int:
-                int_array = (c_int * _len)()
-                int_array[:] = [ int(x) for x in value ]
-                mpr.mpr_sig_set_value(self._obj, self.id, _len, Type.INT32.value, int_array)
-            elif _type is float:
+            if any(isinstance(x, float) for x in value):
                 float_array = (c_float * _len)()
                 float_array[:] = [ float(x) for x in value ]
                 mpr.mpr_sig_set_value(self._obj, self.id, _len, Type.FLOAT.value, float_array)
+            else:
+                int_array = (c_int * _len)()
+                int_array[:] = [ int(x) for x in value ]
+                mpr.mpr_sig_set_value(self._obj, self.id, _len, Type.INT32.value, int_array)
         else:
             _type = type(value)
             if _type is int:
                 mpr.mpr_sig_set_value(self._obj, self.id, 1, Type.INT32.value, byref(c_int(int(value))))
             elif _type is float:
                 mpr.mpr_sig_set_value(self._obj, self.id, 1, Type.FLOAT.value, byref(c_float(float(value))))
+            else:
+                print("mpr.Signal.set_value() accepts only scalars or lists of type float and int")
         return self
 
     def get_value(self):
