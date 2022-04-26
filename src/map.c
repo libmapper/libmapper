@@ -551,7 +551,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
 /* TODO: merge with mpr_map_send()? */
 void mpr_map_receive(mpr_local_map m, mpr_time time)
 {
-    int i, j, status, type_size, map_manages_inst = 0;
+    int i, j, status, val_size, map_manages_inst = 0;
     mpr_local_slot src_slot, dst_slot;
     mpr_sig src_sig;
     mpr_local_sig dst_sig;
@@ -574,7 +574,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     dst_slot = m->dst;
     dst_sig = (mpr_local_sig)dst_slot->sig;
     idmaps = dst_sig->idmaps;
-    type_size = mpr_type_get_size(dst_sig->type);
+    val_size = mpr_type_get_size(dst_sig->type) * dst_sig->len;
 
     if (!src_sig->use_inst) {
         if (mpr_expr_get_manages_inst(m->expr)) {
@@ -639,7 +639,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
  */
 
             /* copy to signal value */
-            memcpy(si->val, result, type_size);
+            memcpy(si->val, result, val_size);
             memcpy(&si->time, &time, sizeof(mpr_time));
             si->has_val = 1;
 
