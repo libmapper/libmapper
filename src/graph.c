@@ -441,22 +441,6 @@ mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name)
     return 0;
 }
 
-static void _check_dev_status(mpr_graph g, uint32_t time_sec)
-{
-    mpr_list devs = mpr_list_from_data(g->devs);
-    time_sec -= TIMEOUT_SEC;
-    while (devs) {
-        mpr_dev dev = (mpr_dev)*devs;
-        devs = mpr_list_get_next(devs);
-        /* check if device has "checked in" recently – could be /sync ping or any sent metadata */
-        if (dev->synced.sec && (dev->synced.sec < time_sec)) {
-            /* remove subscription */
-            mpr_graph_subscribe(g, dev, 0, 0);
-            mpr_graph_remove_dev(g, dev, MPR_OBJ_EXP, 0);
-        }
-    }
-}
-
 /**** Signals ****/
 
 mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, mpr_msg msg)
@@ -783,17 +767,46 @@ void mpr_graph_print(mpr_graph g)
     printf("-------------------------------\n");
 }
 
-static void renew_subscriptions(mpr_graph g, uint32_t time_sec)
+/* TODO: consider throttling */
+void mpr_graph_housekeeping(mpr_graph g)
 {
+    mpr_list devs = mpr_list_from_data(g->devs);
+    mpr_subscription s;
+    mpr_time t;
+    mpr_time_set(&t, MPR_NOW);
+
+    /* check if any known devices have expired */
+    t.sec -= TIMEOUT_SEC;
+    while (devs) {
+        mpr_dev dev = (mpr_dev)*devs;
+        devs = mpr_list_get_next(devs);
+        /* check if device has "checked in" recently – could be /sync ping or any sent metadata */
+        if (!dev->is_local && dev->synced.sec && (dev->synced.sec < t.sec)) {
+            /* do nothing if device is linked to local device; will be handled in network.c */
+            int i, local_link = 0;
+            for (i = 0; i < dev->num_linked; i++) {
+                if (dev->linked[i] && dev->linked[i]->is_local) {
+                    local_link = 1;
+                    break;
+                }
+            }
+            if (!local_link) {
+                /* remove subscription */
+                mpr_graph_subscribe(g, dev, 0, 0);
+                mpr_graph_remove_dev(g, dev, MPR_OBJ_EXP, 0);
+            }
+        }
+    }
+
     /* check if any subscriptions need to be renewed */
-    mpr_subscription s = g->subscriptions;
+    s = g->subscriptions;
     while (s) {
-        if (s->lease_expiration_sec <= time_sec) {
+        if (s->lease_expiration_sec <= t.sec) {
             trace_graph("Automatically renewing subscription to %s for %d secs.\n",
                         mpr_dev_get_name(s->dev), AUTOSUB_INTERVAL);
             send_subscribe_msg(g, s->dev, s->flags, AUTOSUB_INTERVAL);
             /* leave 10-second buffer for subscription renewal */
-            s->lease_expiration_sec = (time_sec + AUTOSUB_INTERVAL - 10);
+            s->lease_expiration_sec = (t.sec + AUTOSUB_INTERVAL - 10);
         }
         s = s->next;
     }
@@ -803,13 +816,10 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
 {
     mpr_net n = &g->net;
     int count = 0, status[2], left_ms, elapsed, checked_admin = 0;
-    mpr_time t;
     double then;
 
     mpr_net_poll(n);
-    mpr_time_set(&t, MPR_NOW);
-    renew_subscriptions(g, t.sec);
-    _check_dev_status(g, t.sec);
+    mpr_graph_housekeeping(g);
 
     if (!block_ms) {
         if (lo_servers_recv_noblock(&n->servers[SERVER_ADMIN], status, 2, 0)) {
@@ -830,10 +840,8 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
 
         elapsed = (mpr_get_current_time() - then) * 1000;
         if ((elapsed - checked_admin) > 100) {
-            mpr_time_set(&t, MPR_NOW);
-            renew_subscriptions(g, t.sec);
             mpr_net_poll(n);
-            _check_dev_status(g, t.sec);
+            mpr_graph_housekeeping(g);
             checked_admin = elapsed;
         }
 

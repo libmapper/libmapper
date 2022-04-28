@@ -1059,7 +1059,7 @@ static int handler_logout(const char *path, const char *types, lo_arg **av,
             /* Check if we have any links to this device, if so remove them */
             if (remote && (lnk = mpr_dev_get_link_by_remote(dev, remote))) {
                 /* TODO: release maps, call local handlers and inform subscribers */
-                trace_dev(dev, "removing link to expired device '%s'.\n", remote->name);
+                trace_dev(dev, "removing link to removed device '%s'.\n", remote->name);
                 mpr_rtr_remove_link(net->rtr, lnk);
                 mpr_graph_remove_link(gph, lnk, MPR_OBJ_REM);
             }

@@ -210,6 +210,8 @@ void mpr_graph_call_cbs(mpr_graph g, mpr_obj o, mpr_type t, mpr_graph_evt e);
 
 void mpr_graph_cleanup(mpr_graph g);
 
+void mpr_graph_housekeeping(mpr_graph g);
+
 /***** Router *****/
 
 void mpr_rtr_remove_sig(mpr_rtr r, mpr_rtr_sig rs);
