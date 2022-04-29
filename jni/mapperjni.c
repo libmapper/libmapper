@@ -449,11 +449,13 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int l
     }
     switch (ctx->listener_type % SIG_CB_SCAL_INT_INST) {
         case SIG_CB_SCAL_INT: {
-            int ival;
-            switch (type) {
-                case MPR_INT32: ival = *(int*)val;              break;
-                case MPR_FLT:   ival = (int)*(float*)val;       break;
-                case MPR_DBL:   ival = (int)*(double*)val;      break;
+            int ival = 0;
+            if (val) {
+                switch (type) {
+                    case MPR_INT32: ival = *(int*)val;              break;
+                    case MPR_FLT:   ival = (int)*(float*)val;       break;
+                    case MPR_DBL:   ival = (int)*(double*)val;      break;
+                }
             }
             (*genv)->CallVoidMethod(genv, update_cb, mid, sig_ptr, eventobj, ival, jtime);
             if ((*genv)->ExceptionOccurred(genv)) {
@@ -464,11 +466,13 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int l
             break;
         }
         case SIG_CB_SCAL_FLT: {
-            float fval;
-            switch (type) {
-                case MPR_INT32: fval = (float)*(int*)val;       break;
-                case MPR_FLT:   fval = *(float*)val;            break;
-                case MPR_DBL:   fval = (float)*(double*)val;    break;
+            float fval = 0;
+            if (val) {
+                switch (type) {
+                    case MPR_INT32: fval = (float)*(int*)val;       break;
+                    case MPR_FLT:   fval = *(float*)val;            break;
+                    case MPR_DBL:   fval = (float)*(double*)val;    break;
+                }
             }
             (*genv)->CallVoidMethod(genv, update_cb, mid, sig_ptr, eventobj, fval, jtime);
             if ((*genv)->ExceptionOccurred(genv))
@@ -476,11 +480,13 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int l
             break;
         }
         case SIG_CB_SCAL_DBL: {
-            double dval;
-            switch (type) {
-                case MPR_INT32: dval = (double)*(int*)val;      break;
-                case MPR_FLT:   dval = (double)*(float*)val;    break;
-                case MPR_DBL:   dval = *(double*)val;           break;
+            double dval = 0;
+            if (val) {
+                switch (type) {
+                    case MPR_INT32: dval = (double)*(int*)val;      break;
+                    case MPR_FLT:   dval = (double)*(float*)val;    break;
+                    case MPR_DBL:   dval = *(double*)val;           break;
+                }
             }
             (*genv)->CallVoidMethod(genv, update_cb, mid, sig_ptr, eventobj, dval, jtime);
             if ((*genv)->ExceptionOccurred(genv))
@@ -488,6 +494,10 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int l
             break;
         }
         case SIG_CB_VECT_INT: {
+            if (!val) {
+                (*genv)->CallVoidMethod(genv, update_cb, mid, sig_ptr, eventobj, 0, jtime);
+                break;
+            }
             jintArray arr = (*genv)->NewIntArray(genv, len);
             if (!arr)
                 return;
@@ -515,6 +525,10 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int l
             break;
         }
         case SIG_CB_VECT_FLT: {
+            if (!val) {
+                (*genv)->CallVoidMethod(genv, update_cb, mid, sig_ptr, eventobj, 0, jtime);
+                break;
+            }
             jfloatArray arr = (*genv)->NewFloatArray(genv, len);
             if (!arr)
                 return;
@@ -544,6 +558,10 @@ static void java_signal_update_cb(mpr_sig sig, mpr_sig_evt evt, mpr_id id, int l
             break;
         }
         case SIG_CB_VECT_DBL: {
+            if (!val) {
+                (*genv)->CallVoidMethod(genv, update_cb, mid, sig_ptr, eventobj, 0, jtime);
+                break;
+            }
             jdoubleArray arr = (*genv)->NewDoubleArray(genv, len);
             if (!arr)
                 return;
@@ -1642,6 +1660,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Signal_00024Instance_mapperInstance
     else if (mpr_sig_get_num_inst(sig, MPR_STATUS_RESERVED)) {
         // retrieve id from a reserved signal instance
         id = mpr_sig_get_inst_id(sig, 0, MPR_STATUS_RESERVED);
+        mpr_sig_activate_inst(sig, id);
     }
     else {
         // try to steal an active instance
