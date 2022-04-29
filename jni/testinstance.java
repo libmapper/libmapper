@@ -25,10 +25,9 @@ class testinstance {
 
         Signal inp1 = dev1.addSignal(Direction.IN, "insig1", 1, Type.INT32, "Hz",
                                      2.0f, null, 10, new mapper.signal.Listener() {
-            public void onEvent(Signal.Instance inst, mapper.signal.Event e, int v, Time time) {
-                System.out.println("onEvent() for "
-                                   +inst.properties().get("name")+": "
-                                   +v+" at t="+time);
+            public void onEvent(Signal.Instance inst, mapper.signal.Event evt, int val, Time time) {
+                System.out.println(evt + " for " + inst.properties().get("name") + ": "
+                                   + val + " at t=" + time);
             }});
 
         System.out.println("Input signal name: "+inp1.properties().get("name"));
@@ -66,10 +65,9 @@ class testinstance {
 
         // Test instances
         out1.setListener(new mapper.signal.Listener() {
-            public void onEvent(Signal.Instance inst, mapper.signal.Event e, int v, Time time) {
-                System.out.println("onEvent() for "
-                                   + inst.properties().get("name") + " instance "
-                                   + inst.id() + ": " + e.value());
+            public void onEvent(Signal.Instance inst, mapper.signal.Event evt, int val, Time time) {
+                System.out.println("onEvent() for " + inst.properties().get("name")
+                                   + " instance " + inst.id() + ": " + evt);
 //                java.lang.Object userObject = inst.userReference();
 //                if (userObject != null) {
 //                    System.out.println("userObject.class = "+userObject.getClass());
@@ -94,16 +92,14 @@ class testinstance {
 //        System.out.println(inp1.properties().get("name") + " allocation mode: "
 //                           + inp1.getStealingMode());
 
-        System.out.println("Reserving 4 instances for signal "
-                           +out1.properties().get("name"));
+        System.out.println("Reserving 4 instances for signal " + out1.properties().get("name"));
         out1.reserveInstances(4);
 //        int[] foo = new int[]{1,2,3,4};
 //        Signal.Instance instance1 = out1.instance(foo);
         Signal.Instance instance1 = out1.instance();
         Signal.Instance instance2 = out1.instance();
 
-        System.out.println("Reserving 4 instances for signal "
-                           +inp1.properties().get("name"));
+        System.out.println("Reserving 4 instances for signal " + inp1.properties().get("name"));
         inp1.reserveInstances(4);
 
         while (i++ <= 100) {

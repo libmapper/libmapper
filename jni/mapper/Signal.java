@@ -62,7 +62,6 @@ public class Signal extends AbstractObject
         _setListener(l, Event.UPDATE.value());
         return this;
     }
-    public native Listener listener();
 
     private native void mapperSignalReserveInstances(long sig, int num, long[] ids);
     public Signal reserveInstances(int num) {
