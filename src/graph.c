@@ -171,7 +171,9 @@ void mpr_graph_cleanup(mpr_graph g)
 mpr_graph mpr_graph_new(int subscribe_flags)
 {
     mpr_tbl tbl;
-    mpr_graph g = (mpr_graph) calloc(1, sizeof(mpr_graph_t));
+    mpr_graph g;
+    RETURN_ARG_UNLESS(subscribe_flags <= MPR_OBJ, NULL);
+    g = (mpr_graph) calloc(1, sizeof(mpr_graph_t));
     RETURN_ARG_UNLESS(g, NULL);
 
     g->obj.type = MPR_GRAPH;
@@ -959,6 +961,7 @@ static mpr_subscription _get_subscription(mpr_graph g, mpr_dev d)
 
 void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
 {
+    RETURN_UNLESS(g && flags <= MPR_OBJ);
     if (!d) {
         _autosubscribe(g, flags);
         return;
