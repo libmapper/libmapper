@@ -242,29 +242,10 @@ void mpr_obj_print(mpr_obj o, int staged)
             printf("SIGNAL: ");
             mpr_prop_print(1, MPR_SIG, o);
             break;
-        case MPR_MAP: {
-            mpr_list l;
-            mpr_map m = (mpr_map)o;
+        case MPR_MAP:
             printf("MAP: ");
-            if (m->num_src > 1)
-                printf("[");
-            l = mpr_map_get_sigs(m, MPR_LOC_SRC);
-            while (l) {
-                mpr_prop_print(1, MPR_SIG, *l);
-                l = mpr_list_get_next(l);
-                printf("%s", l ? ", " : "");
-            }
-            if (m->num_src > 1)
-                printf("]");
-            printf(" -> ");
-            l = mpr_map_get_sigs(m, MPR_LOC_DST);
-            while (l) {
-                mpr_prop_print(1, MPR_SIG, *l);
-                l = mpr_list_get_next(l);
-                printf("%s", l ? ", " : "");
-            }
+            mpr_prop_print(1, MPR_MAP, o);
             break;
-        }
         default:
             trace("mpr_obj_print(): unknown object type %d.", o->type);
             return;

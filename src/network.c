@@ -1485,16 +1485,13 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
     if (i < ac && MPR_INT64 == types[++i]) {
         id = av[i]->i64;
         map = (mpr_map)mpr_graph_get_obj(net->graph, MPR_MAP, id);
-        trace_graph("%s map with id %"PR_MPR_ID"\n", map ? "found" : "couldn't find", id);
-        if (map) {
 #ifdef DEBUG
-            trace_graph("  %s", map->num_src > 1 ? "[" : "");
-            for (i = 0; i < map->num_src; i++)
-                printf("'%s:%s'%s, ", map->src[i]->sig->dev->name, map->src[i]->sig->name,
-                       map->src[i]->sig->is_local ? "*" : "");
-            printf("\b\b%s -> '%s:%s'%s\n", map->num_src > 1 ? "]" : "", map->dst->sig->dev->name,
-                   map->dst->sig->name, map->dst->sig->is_local ? "*" : "");
+        trace_graph("%s map with id %"PR_MPR_ID" ", map ? "found" : "couldn't find", id);
+        if (map)
+            mpr_prop_print(1, MPR_MAP, map);
+        printf("\n");
 #endif
+        if (map) {
             is_loc = mpr_obj_get_prop_as_int32((mpr_obj)map, MPR_PROP_IS_LOCAL, NULL);
             RETURN_ARG_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
             if (map->num_src < num_src && (flags & UPDATE)) {

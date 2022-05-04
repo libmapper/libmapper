@@ -377,7 +377,6 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
     int rc = 0, updated = 0;
 
     if (!dev) {
-        trace_graph("adding device '%s'.\n", name);
         dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, sizeof(*dev));
         dev->name = strdup(no_slash);
         dev->obj.id = crc32(0L, (const Bytef *)no_slash, strlen(no_slash));
@@ -386,13 +385,14 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
         dev->obj.graph = g;
         dev->is_local = 0;
         init_dev_prop_tbl(dev);
+        trace_graph("added device '%s'\n", name);
         rc = 1;
     }
 
     if (dev) {
         updated = mpr_dev_set_from_msg(dev, msg);
         if (!rc)
-            trace_graph("updated %d props for device '%s'.\n", updated, name);
+            trace_graph("updated %d props for device '%s%s'.\n", updated, name, dev->is_local ? "*" : "");
         mpr_time_set(&dev->synced, MPR_NOW);
 
         if (rc || updated)
@@ -461,7 +461,6 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
 
     if (!sig) {
         int num_inst = 1;
-        trace_graph("adding signal '%s:%s'.\n", dev_name, name);
         sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, sizeof(mpr_sig_t));
 
         /* also add device record if necessary */
@@ -471,12 +470,14 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
 
         mpr_sig_init(sig, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, &num_inst);
         rc = 1;
+        trace_graph("added signal '%s:%s'.\n", dev_name, name);
     }
 
     if (sig) {
         updated = mpr_sig_set_from_msg(sig, msg);
         if (!rc)
-            trace_graph("updated %d props for signal '%s:%s'.\n", updated, dev_name, name);
+            trace_graph("updated %d props for signal '%s:%s%s'.\n", updated, dev_name, name,
+                        sig->is_local ? "*" : "");
 
         if (rc || updated)
             mpr_graph_call_cbs(g, (mpr_obj)sig, MPR_SIG, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
@@ -612,12 +613,6 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
 
     if (!map) {
         mpr_sig *src_sigs, dst_sig;
-#ifdef DEBUG
-        trace_graph("adding map [");
-        for (i = 0; i < num_src; i++)
-            printf("%s, ", src_names[i]);
-        printf("\b\b] -> [%s].\n", dst_name);
-#endif
         /* add signals first in case signal handlers trigger map queries */
         dst_sig = add_sig_from_whole_name(g, dst_name);
         RETURN_ARG_UNLESS(dst_sig, 0);
@@ -644,6 +639,11 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         mpr_map_init(map);
         ++g->staged_maps;
         rc = 1;
+#ifdef DEBUG
+        trace_graph("added map ");
+        mpr_prop_print(1, MPR_MAP, map);
+        printf("\n");
+#endif
     }
     else {
         int changed = 0;
@@ -697,11 +697,9 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
     if (map) {
 #ifdef DEBUG
         if (!rc) {
-            trace_graph("updated %d props for map [", updated);
-            for (i = 0; i < map->num_src; i++) {
-                printf("%s:%s, ", map->src[i]->sig->dev->name, map->src[i]->sig->name);
-            }
-            printf("\b\b] -> [%s:%s]\n", map->dst->sig->dev->name, map->dst->sig->name);
+            trace_graph("updated %d props for map ", updated);
+            mpr_prop_print(1, MPR_MAP, map);
+            printf("\n");
         }
 #endif
         RETURN_ARG_UNLESS(map->status >= MPR_STATUS_ACTIVE, map);

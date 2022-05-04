@@ -629,8 +629,8 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
         case MPR_DEV:
             /* just print device name */
             if (1 == len) {
-                mpr_dev dev = (mpr_dev)val;
-                printf("'%s%s', ", mpr_dev_get_name(dev), dev->is_local ? "*" : "");
+                mpr_dev d = (mpr_dev)val;
+                printf("'%s%s', ", mpr_dev_get_name(d), d->is_local ? "*" : "");
             }
             else {
                 mpr_dev *dev = (mpr_dev*)val;
@@ -641,16 +641,31 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
         case MPR_SIG: {
             /* just print signal name */
             if (1 == len) {
-                mpr_sig sig = (mpr_sig)val;
-                printf("'%s:%s%s', ", mpr_dev_get_name(sig->dev), sig->name,
-                       sig->is_local ? "*" : "");
+                mpr_sig s = (mpr_sig)val;
+                printf("'%s:%s%s', ", mpr_dev_get_name(s->dev), s->name, s->is_local ? "*" : "");
             }
             else {
-                mpr_sig *sig = (mpr_sig*)val;
+                mpr_sig *s = (mpr_sig*)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s:%s%s', ", mpr_dev_get_name(sig[i]->dev), sig[i]->name,
-                           sig[i]->is_local ? "*" : "");
+                    printf("'%s:%s%s', ", mpr_dev_get_name(s[i]->dev), s[i]->name,
+                           s[i]->is_local ? "*" : "");
             }
+            break;
+        }
+        case MPR_MAP: {
+            /* just print signal names */
+            mpr_map m = (mpr_map)val;
+            if (1 != len)
+                break;
+            if (m->num_src > 1)
+                printf("[");
+            for (i = 0; i < m->num_src; i++)
+                mpr_prop_print(1, MPR_SIG, m->src[i]->sig);
+            if (m->num_src > 1)
+                printf("]");
+            printf(" -> ");
+            mpr_prop_print(1, MPR_SIG, m->dst->sig);
+            printf(", ");
             break;
         }
         case MPR_LIST: {
