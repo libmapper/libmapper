@@ -439,7 +439,7 @@ class List:
             mpr.mpr_list_get_size.argtypes = [c_void_p]
             mpr.mpr_list_get_size.restype = c_int
             index += mpr.mpr_list_get_size(self._list)
-        if index > 0:
+        if index >= 0:
             mpr.mpr_list_get_idx.argtypes = [c_void_p, c_uint]
             mpr.mpr_list_get_idx.restype = c_void_p
             ret = mpr.mpr_list_get_idx(self._list, index)
