@@ -1083,7 +1083,7 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **av,
                              int ac, lo_message msg, void *user)
 {
     mpr_local_dev dev = (mpr_local_dev)user;
-    int i, version = -1, flags = 0, timeout_seconds = 0;
+    int i, version = -1, flags = 0, timeout_seconds = -1;
 
 #ifdef DEBUG
     trace_dev(dev, "received /subscribe ");
@@ -1129,6 +1129,7 @@ static int handler_subscribe(const char *path, const char *types, lo_arg **av,
                 timeout_seconds = (int)av[i]->d;
             else
                 {trace_dev(dev, "error parsing subscription lease prop.\n");}
+            timeout_seconds = timeout_seconds >= 0 ? timeout_seconds : 0;
         }
     }
 

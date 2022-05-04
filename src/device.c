@@ -1294,36 +1294,38 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
     RETURN_UNLESS(ip && port);
     mpr_time_set(&t, MPR_NOW);
 
-    while (*s) {
-        const char *s_ip = lo_address_get_hostname((*s)->addr);
-        const char *s_port = lo_address_get_port((*s)->addr);
-        if (strcmp(ip, s_ip)==0 && strcmp(port, s_port)==0) {
-            /* subscriber already exists */
-            if (!flags || !timeout_sec) {
-                /* remove subscription */
-                mpr_subscriber temp = *s;
-                int prev_flags = temp->flags;
-                trace_dev(dev, "removing subscription from %s:%s\n", s_ip, s_port);
-                *s = temp->next;
-                FUNC_IF(lo_address_free, temp->addr);
-                free(temp);
-                RETURN_UNLESS(flags && (flags &= ~prev_flags));
+    if (timeout_sec >= 0) {
+        while (*s) {
+            const char *s_ip = lo_address_get_hostname((*s)->addr);
+            const char *s_port = lo_address_get_port((*s)->addr);
+            if (strcmp(ip, s_ip)==0 && strcmp(port, s_port)==0) {
+                /* subscriber already exists */
+                if (!flags || !timeout_sec) {
+                    /* remove subscription */
+                    mpr_subscriber temp = *s;
+                    int prev_flags = temp->flags;
+                    trace_dev(dev, "removing subscription from %s:%s\n", s_ip, s_port);
+                    *s = temp->next;
+                    FUNC_IF(lo_address_free, temp->addr);
+                    free(temp);
+                    RETURN_UNLESS(flags && (flags &= ~prev_flags));
+                }
+                else {
+                    /* reset timeout */
+                    int temp = flags;
+    #ifdef DEBUG
+                    trace_dev(dev, "renewing subscription from %s:%s for %d seconds with flags ",
+                              s_ip, s_port, timeout_sec);
+                    print_subscription_flags(flags);
+    #endif
+                    (*s)->lease_exp = t.sec + timeout_sec;
+                    flags &= ~(*s)->flags;
+                    (*s)->flags = temp;
+                }
+                break;
             }
-            else {
-                /* reset timeout */
-                int temp = flags;
-#ifdef DEBUG
-                trace_dev(dev, "renewing subscription from %s:%s for %d seconds with flags ",
-                          s_ip, s_port, timeout_sec);
-                print_subscription_flags(flags);
-#endif
-                (*s)->lease_exp = t.sec + timeout_sec;
-                flags &= ~(*s)->flags;
-                (*s)->flags = temp;
-            }
-            break;
+            s = &(*s)->next;
         }
-        s = &(*s)->next;
     }
 
     RETURN_UNLESS(flags);
