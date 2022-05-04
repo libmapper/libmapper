@@ -66,7 +66,7 @@ int setup_devs(const char *iface)
     float mnf2[] = {3.2, 2, 0}, mxf2[] = {-2, 13, 100};
     double mnd = 0, mxd = 10;
 
-    mpr_graph g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+    mpr_graph g = shared_graph ? mpr_graph_new(0) : 0;
     devices[0] = mpr_dev_new("testmapinput", g);
     devices[1] = mpr_dev_new("testmapinput", g);
     if (!devices[0] || !devices[1])

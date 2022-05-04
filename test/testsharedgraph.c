@@ -5,7 +5,7 @@
 
 int main()
 {
-    mpr_graph graph = mpr_graph_new(MPR_OBJ);
+    mpr_graph graph = mpr_graph_new(0);
     mpr_dev foo = mpr_dev_new("/foo", graph);
     mpr_dev bar = mpr_dev_new("/bar", graph);
     const int max_time = 10000;

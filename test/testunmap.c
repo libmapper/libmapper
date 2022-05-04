@@ -218,7 +218,7 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctrlc);
 
-    g = shared_graph ? mpr_graph_new(MPR_OBJ) : 0;
+    g = shared_graph ? mpr_graph_new(0) : 0;
 
     if (setup_dst(g, iface)) {
         eprintf("Error initializing destination.\n");
