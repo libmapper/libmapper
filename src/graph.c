@@ -157,7 +157,7 @@ void mpr_graph_cleanup(mpr_graph g)
             if (map->status <= MPR_STATUS_EXPIRED) {
                 if (map->is_local)
                     mpr_rtr_remove_map(g->net.rtr, (mpr_local_map)map);
-                mpr_graph_remove_map(g, map, MPR_OBJ_REM);
+                mpr_graph_remove_map(g, map, MPR_OBJ_EXP);
             }
             else {
                 --map->status;
