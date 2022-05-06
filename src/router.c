@@ -96,6 +96,7 @@ static void _update_map_count(mpr_rtr rtr)
         dev_maps_out += sig_maps_out;
         rs = rs->next;
     }
+    RETURN_UNLESS(dev);
     dev->num_maps_in = dev_maps_in;
     dev->num_maps_out = dev_maps_out;
 }
