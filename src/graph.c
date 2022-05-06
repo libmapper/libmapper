@@ -160,6 +160,8 @@ void mpr_graph_cleanup(mpr_graph g)
                 mpr_graph_remove_map(g, map, MPR_OBJ_EXP);
             }
             else {
+                /* Try pushing the map to the distributed graph */
+                mpr_obj_push((mpr_obj)map);
                 --map->status;
                 ++staged;
             }
