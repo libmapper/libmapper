@@ -670,15 +670,14 @@ class Object:
         if isinstance(key_or_idx, str):
             return val
         else:
-            return {string_at(_key).decode("utf-8") : val}
+            return (string_at(_key).decode("utf-8"), val)
 
     def get_properties(self):
         props = {}
         for i in range(self.num_properties):
             prop = self.get_property(i)
             if prop:
-
-                props.update(prop)
+                props.update({prop[0]: prop[1]})
         return props
 
     def __propgetter(self):

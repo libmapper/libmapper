@@ -37,18 +37,19 @@ def setup(d):
 
     print('device properties:', d.properties)
 
-    print('signal name', sig['name'])
-    print('signal direction', sig['direction'])
-    print('signal length', sig['length'])
-    print('signal type', sig['type'])
-    print('signal unit', sig['unit'])
-    print('signal minimum', sig['minimum'])
+    print('signal name:', sig['name'])
+    print('signal direction:', sig['direction'])
+    print('signal length:', sig['length'])
+    print('signal type:', sig['type'])
+    print('signal unit:', sig['unit'])
+    print('signal minimum:', sig['minimum'])
     sig['minimum'] = 34.0
-    print('signal minimum', sig['minimum'])
+    print('signal minimum:', sig['minimum'])
     sig['minimum'] = 12
-    print('signal minimum', sig['minimum'])
+    print('signal minimum:', sig['minimum'])
+    print('signal minimum as tuple:', sig[mpr.Property.MIN])
     sig['minimum'] = None
-    print('signal minimum', sig['minimum'])
+    print('signal minimum:', sig['minimum'])
 
     sig.properties['testInt'] = 3
 
