@@ -1225,6 +1225,7 @@ class Device(Object):
             signal.set_property(Property.MAX, max)
         if num_inst != None and isinstance(num_inst, int):
             signal.reserve_instances(num_inst - 1)
+            signal.set_property(Property.EPHEMERAL, True)
         return signal
 
     def remove_signal(self, signal):
