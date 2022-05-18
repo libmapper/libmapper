@@ -133,6 +133,11 @@ generated output.
 ### Filters
 * `ema(x, w)` – a cheap low-pass filter: calculate a running *exponential moving average* with input `x` and a weight `w` applied to the current sample.
 
+<h2 id="special-constants">Special Constants</h2>
+
+* `pi` – the ratio of a circle's circumference to its diameter, approximately equal to 3.14159
+* `e` – Euler's number or Napier's constant, approximately equal to 2.71828
+
 <h2 id="vectors">Vectors</h2>
 
 Individual elements of variable values can be accessed using the notation
