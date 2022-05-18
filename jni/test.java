@@ -123,9 +123,9 @@ class test {
         }
         System.out.println("Devices are ready.");
 
-        System.out.println("  "+dev1.properties().get("name"));
-        System.out.println("  "+dev1.properties().get("port"));
-        System.out.println("  "+dev1.properties().get("ordinal"));
+        System.out.println("  "+dev1.properties().getEntry("name"));
+        System.out.println("  "+dev1.properties().getEntry("port"));
+        System.out.println("  "+dev1.properties().getEntry("ordinal"));
         System.out.println("  interface="+dev1.graph().getInterface());
 
         mapper.Map map = new mapper.Map(out1, inp1);
@@ -194,5 +194,7 @@ class test {
         System.out.println();
         System.out.println("Number of maps from "
                            + out1.properties().get("name") + ": " + out1.maps().size());
+
+        dev1.removeSignal(inp1);
     }
 }

@@ -486,26 +486,30 @@ Any time there may be extra knowledge about a signal or device, it is a good
 idea to represent it by adding such properties, which can be of any
 OSC-compatible type.  (So, numbers and strings, etc.)
 
-The property interface is through the functions,
+The property interface is through the functions below. The `key` argument can be an `Integer` index, a `String`, or a `mapper.Property`.
 
 ~~~java
-<object>.setProperty(String key, Value value);
+// assuming an object named myObject...
+myObject.properties().put(Object key, Object value);
+myObject.properties().get(Object key);
+myObject.properties().getEntry(Object key);
+myObject.properties().remove(Object key)
 ~~~
 
-where the value can any OSC-compatible type. This function can be called for
-devices or signals.
+where the value can any OSC-compatible type. These functions can be called for
+any libmapper Object: Devices, Signals, Maps, and Graphs.
 
 For example, to store a `float vector` indicating the 2D position of a device
 `dev`, you can call it like this:
 
 ~~~java
-dev.setProperty("position", new Value(new float[] {12.5f, 40.f}));
+dev.properties().put("position", new Value(new float[] {12.5f, 40.f}));
 ~~~
 
 To specify a string property of a signal `sig`:
 
 ~~~java
-sig.setProperty("sensingMethod", new Value("resistive"));
+sig.properties().put("sensingMethod", new Value("resistive"));
 ~~~
 
 ### Reserved keys

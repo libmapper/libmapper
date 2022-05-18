@@ -7,7 +7,7 @@ import mapper.Property;
 public abstract class AbstractObject<T extends AbstractObject<T>>
 {
     /* constructor */
-    public AbstractObject(long obj) { _obj = obj; }
+    public AbstractObject(long obj) { _obj = obj; _owned = false; }
 
     /* self */
     abstract T self();
@@ -160,6 +160,7 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
 //    }
 
     protected long _obj;
+    protected boolean _owned;
     public boolean valid() {
         return _obj != 0;
     }

@@ -180,12 +180,12 @@ static mpr_sig get_inst_from_jobject(JNIEnv *env, jobject obj, mpr_id *id)
     return 0;
 }
 
-static mpr_graph get_graph_from_jobject(JNIEnv *env, jobject obj)
+static mpr_graph get_graph_from_jgraph(JNIEnv *env, jobject obj)
 {
     // TODO check graph here
     jclass cls = (*env)->GetObjectClass(env, obj);
     if (cls) {
-        jfieldID val = (*env)->GetFieldID(env, cls, "_graph", "J");
+        jfieldID val = (*env)->GetFieldID(env, cls, "_obj", "J");
         if (val) {
             jlong s = (*env)->GetLongField(env, obj, val);
             return (mpr_graph)ptr_jlong(s);
@@ -1068,7 +1068,7 @@ JNIEXPORT void JNICALL Java_mapper_Graph_mapperGraphFree
 JNIEXPORT jstring JNICALL Java_mapper_Graph_getInterface
   (JNIEnv *env, jobject obj)
 {
-    mpr_graph g = get_graph_from_jobject(env, obj);
+    mpr_graph g = get_graph_from_jgraph(env, obj);
     if (!g)
         return NULL;
     const char *iface = mpr_graph_get_interface(g);
@@ -1078,7 +1078,7 @@ JNIEXPORT jstring JNICALL Java_mapper_Graph_getInterface
 JNIEXPORT jobject JNICALL Java_mapper_Graph_setInterface
   (JNIEnv *env, jobject obj, jstring jiface)
 {
-    mpr_graph g = get_graph_from_jobject(env, obj);
+    mpr_graph g = get_graph_from_jgraph(env, obj);
     if (g) {
         const char *ciface = (*env)->GetStringUTFChars(env, jiface, 0);
         mpr_graph_set_interface(g, ciface);
@@ -1090,7 +1090,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Graph_setInterface
 JNIEXPORT jstring JNICALL Java_mapper_Graph_getAddress
   (JNIEnv *env, jobject obj)
 {
-    mpr_graph g = get_graph_from_jobject(env, obj);
+    mpr_graph g = get_graph_from_jgraph(env, obj);
     if (!g)
         return NULL;
     const char *address = mpr_graph_get_address(g);
@@ -1100,7 +1100,7 @@ JNIEXPORT jstring JNICALL Java_mapper_Graph_getAddress
 JNIEXPORT jobject JNICALL Java_mapper_Graph_setAddress
   (JNIEnv *env, jobject obj, jstring jgroup, jint port)
 {
-    mpr_graph g = get_graph_from_jobject(env, obj);
+    mpr_graph g = get_graph_from_jgraph(env, obj);
     if (g) {
         const char *cgroup = (*env)->GetStringUTFChars(env, jgroup, 0);
         mpr_graph_set_address(g, cgroup, port);
@@ -1114,7 +1114,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Graph_poll
 {
     genv = env;
     bailing = 0;
-    mpr_graph g = get_graph_from_jobject(env, obj);
+    mpr_graph g = get_graph_from_jgraph(env, obj);
     if (g)
         mpr_graph_poll(g, block_ms);
     return obj;
@@ -1132,7 +1132,7 @@ JNIEXPORT void JNICALL Java_mapper_Graph_mapperGraphSubscribe
 JNIEXPORT jobject JNICALL Java_mapper_Graph_unsubscribe
   (JNIEnv *env, jobject obj, jobject jdev)
 {
-    mpr_graph g = get_graph_from_jobject(env, obj);
+    mpr_graph g = get_graph_from_jgraph(env, obj);
     mpr_dev dev = (mpr_dev)get_mpr_obj_from_jobject(env, jdev);
     if (g && dev)
         mpr_graph_unsubscribe(g, dev);
@@ -1257,7 +1257,7 @@ JNIEXPORT jlong JNICALL Java_mapper_Graph_maps
 JNIEXPORT jlong JNICALL Java_mapper_Device_mapperDeviceNew
   (JNIEnv *env, jobject obj, jstring name, jobject jgraph)
 {
-    mpr_graph g = jgraph ? get_graph_from_jobject(env, jgraph) : 0;
+    mpr_graph g = jgraph ? get_graph_from_jgraph(env, jgraph) : 0;
     const char *cname = (*env)->GetStringUTFChars(env, name, 0);
     mpr_dev dev = mpr_dev_new(cname, g);
     (*env)->ReleaseStringUTFChars(env, name, cname);
@@ -1279,9 +1279,11 @@ JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceFree
         // do not call instance event callbacks
         mpr_sig_set_cb(temp, 0, 0);
         // check if we have active instances
-        int i, n = mpr_sig_get_num_inst(temp, MPR_STATUS_ALL);
+        int i, n = mpr_sig_get_num_inst(temp, MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED);
         for (i = 0; i < n; i++) {
-            mpr_id id = mpr_sig_get_inst_id(temp, i, MPR_STATUS_ALL);
+            mpr_id id = mpr_sig_get_inst_id(temp, i, MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED);
+            if (!id)
+                continue;
             inst_jni_context ictx = mpr_sig_get_inst_data(temp, id);
             if (!ictx)
                 continue;
@@ -1367,42 +1369,46 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_add_1signal
     return sigobj;
 }
 
-JNIEXPORT void JNICALL Java_mapper_Device_mapperDeviceRemoveSignal
-  (JNIEnv *env, jobject obj, jlong jdev, jobject jsig)
+JNIEXPORT void JNICALL Java_mapper_Device_remove_1signal
+  (JNIEnv *env, jobject obj, jlong jdev, jlong jsig)
 {
     mpr_dev dev = (mpr_dev) ptr_jlong(jdev);
     if (!dev || !is_local((mpr_obj)dev))
         return;
-    mpr_sig sig = (mpr_sig)get_mpr_obj_from_jobject(env, jsig);
-    if (sig) {
-        // do not call instance event callbacks
-        mpr_sig_set_cb(sig, 0, 0);
+    mpr_sig sig = (mpr_sig) ptr_jlong(jsig);
+    if (!sig || mpr_sig_get_dev(sig) != dev)
+        return;
 
-        // check if we have active instances
-        while (mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE)) {
-            mpr_id id = mpr_sig_get_inst_id(sig, 0, MPR_STATUS_ACTIVE);
-            if (!id)
-                continue;
-            inst_jni_context ictx;
-            ictx = mpr_sig_get_inst_data(sig, id);
-            if (!ictx)
-                continue;
-            if (ictx->inst)
-                (*env)->DeleteGlobalRef(env, ictx->inst);
-            if (ictx->user_ref)
-                (*env)->DeleteGlobalRef(env, ictx->user_ref);
-            free(ictx);
-        }
+    // do not call instance event callbacks
+    mpr_sig_set_cb(sig, 0, 0);
 
-        signal_jni_context ctx = (signal_jni_context)signal_user_data(sig);
+    // check if we have active instances
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED);
+    for (i = 0; i < n; i++) {
+        mpr_id id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED);
+        if (!id)
+            continue;
+        inst_jni_context ictx;
+        ictx = mpr_sig_get_inst_data(sig, id);
+        if (!ictx)
+            continue;
+        if (ictx->inst)
+            (*env)->DeleteGlobalRef(env, ictx->inst);
+        if (ictx->user_ref)
+            (*env)->DeleteGlobalRef(env, ictx->user_ref);
+        free(ictx);
+    }
+
+    signal_jni_context ctx = (signal_jni_context)signal_user_data(sig);
+    if (ctx) {
         if (ctx->signal)
             (*env)->DeleteGlobalRef(env, ctx->signal);
         if (ctx->listener)
             (*env)->DeleteGlobalRef(env, ctx->listener);
         free(ctx);
-
-        mpr_sig_free(sig);
     }
+
+    mpr_sig_free(sig);
 }
 
 JNIEXPORT jboolean JNICALL Java_mapper_Device_ready

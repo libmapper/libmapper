@@ -15,10 +15,12 @@ public class Device extends mapper.AbstractObject
     public Device(String name) {
         super(0);
         _obj = mapperDeviceNew(name, null);
+        _owned = true;
     }
     public Device(String name, Graph g) {
         super(0);
         _obj = mapperDeviceNew(name, g);
+        _owned = true;
     }
     public Device(long dev) {
         super(dev);
@@ -27,7 +29,7 @@ public class Device extends mapper.AbstractObject
     /* free */
     private native void mapperDeviceFree(long obj);
     public void free() {
-        if (_obj != 0)
+        if (_obj != 0 && _owned)
             mapperDeviceFree(_obj);
         _obj = 0;
     }
@@ -53,6 +55,8 @@ public class Device extends mapper.AbstractObject
                             String unit, java.lang.Object minimum,
                             java.lang.Object maximum, Integer numInstances,
                             mapper.signal.Listener l) {
+        if (!_owned)
+            return null;
         if (l == null)
             return add_signal(_obj, dir.value(), name, length, type.value(),
                               unit, minimum, maximum, numInstances, null, null);
@@ -75,7 +79,12 @@ public class Device extends mapper.AbstractObject
         return add_signal(_obj, dir.value(), name, length, type.value(),
                           null, null, null, null, null, null);
     }
-    public native Device removeSignal(Signal sig);
+    private native void remove_signal(long dev, long sig);
+    public Device removeSignal(Signal sig) {
+        remove_signal(_obj, sig._obj);
+        return this;
+    }
+
 
     /* property: ready */
     public native boolean ready();

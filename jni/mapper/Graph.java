@@ -7,41 +7,49 @@ import mapper.graph.*;
 import java.util.*;
 //import java.util.HashSet;
 
-public class Graph
+public class Graph extends mapper.AbstractObject
 {
     /* constructor */
     private native long mapperGraphNew(int flags);
     public Graph(Set<Type> types) {
+        super(0);
         int flags = 0;
         for (Type t : Type.values()) {
             if (types.contains(t))
                 flags |= t.value();
         }
-        _graph = mapperGraphNew(flags);
+        _obj = mapperGraphNew(flags);
         _owned = true;
     }
     public Graph(Type type) {
-        _graph = mapperGraphNew(type.value());
+        super(0);
+        _obj = mapperGraphNew(type.value());
         _listeners = new HashSet();
         _owned = true;
     }
     public Graph() {
-        _graph = mapperGraphNew(Type.OBJECT.value());
+        super(0);
+        _obj = mapperGraphNew(Type.OBJECT.value());
         _listeners = new HashSet();
         _owned = true;
     }
     public Graph(long graph) {
-        _graph = graph;
+        super(graph);
         _listeners = new HashSet();
-        _owned = false;
     }
 
     /* free */
     private native void mapperGraphFree(long graph);
     public void free() {
-        if (_graph != 0 && _owned)
-            mapperGraphFree(_graph);
-        _graph = 0;
+        if (_obj != 0 && _owned)
+            mapperGraphFree(_obj);
+        _obj = 0;
+    }
+
+    /* self */
+    @Override
+    public Graph self() {
+        return this;
     }
 
     /* interface */
@@ -60,7 +68,7 @@ public class Graph
     private native void mapperGraphSubscribe(long graph, mapper.Device dev,
                                              int flags, int timeout);
     public Graph subscribe(mapper.Device dev, Type type, int lease) {
-        mapperGraphSubscribe(_graph, dev, type.value(), lease);
+        mapperGraphSubscribe(_obj, dev, type.value(), lease);
         return this;
     }
     public Graph subscribe(mapper.Device dev, Type type) {
@@ -72,7 +80,7 @@ public class Graph
             if (types.contains(t))
                 flags |= t.value();
         }
-        mapperGraphSubscribe(_graph, dev, flags, lease);
+        mapperGraphSubscribe(_obj, dev, flags, lease);
         return this;
     }
     public Graph subscribe(mapper.Device dev, Set<Type> types) {
@@ -84,14 +92,14 @@ public class Graph
     // Listeners
     private native void addCallback(long graph, Listener l);
     public Graph addListener(Listener l) {
-        addCallback(_graph, l);
+        addCallback(_obj, l);
         _listeners.add(l);
         return this;
     }
 
     private native void removeCallback(long graph, Listener l);
     public Graph removeListener(Listener l) {
-        removeCallback(_graph, l);
+        removeCallback(_obj, l);
         _listeners.remove(l);
         return this;
     }
@@ -99,17 +107,17 @@ public class Graph
     // devices
     private native long devices(long graph);
     public mapper.List<mapper.Device> devices()
-        { return new mapper.List<mapper.Device>(devices(_graph)); }
+        { return new mapper.List<mapper.Device>(devices(_obj)); }
 
     // signals
     private native long signals(long graph);
     public mapper.List<mapper.Signal> signals()
-        { return new mapper.List<mapper.Signal>(signals(_graph)); }
+        { return new mapper.List<mapper.Signal>(signals(_obj)); }
 
     // maps
     private native long maps(long graph);
     public mapper.List<mapper.Map> maps()
-        { return new mapper.List<mapper.Map>(maps(_graph)); }
+        { return new mapper.List<mapper.Map>(maps(_obj)); }
 
     /* Note: this is _not_ guaranteed to run, the user should still call free()
      * explicitly when the graph is no longer needed. */
@@ -121,12 +129,7 @@ public class Graph
         }
     }
 
-    private long _graph;
-    private boolean _owned;
     private Set<Listener> _listeners;
-    public boolean valid() {
-        return _graph != 0;
-    }
 
     static {
         System.loadLibrary(NativeLib.name);
