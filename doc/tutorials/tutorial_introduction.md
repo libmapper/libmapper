@@ -29,10 +29,10 @@ Essentially, each device only needs to do a few things:
 
 Detailed tutorials are provided for using libmapper in the following programming languages and environments:
 
-  * [C](./tutorial_c.html)
-  * [C++](./tutorial_cpp.html)
-  * [Python](./tutorial_python.html)
-  * [Java](./tutorial_java.html)
-  * [Max/MSP](./tutorial_maxmsp_multiobj.html)
-  * [Puredata](./tutorial_pure_data.html)
+  * [C](./tutorial_c.md)
+  * [C++](./tutorial_cpp.md)
+  * [Python](./tutorial_python.md)
+  * [Java](./tutorial_java.md)
+  * [Max/MSP](http://libmapper.github.io/tutorials/maxmsp_multiobj.html)
+  * [Puredata](http://libmapper.github.io/tutorials/puredata.html)
   
