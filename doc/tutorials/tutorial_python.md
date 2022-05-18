@@ -482,11 +482,13 @@ The property interface is through the functions,
 
 ~~~python
 <object>.set_property(key, value)
+<object>.get_property(key, value)
+<object>.remove_property(key, value)
 ~~~
 
 where the `key` can be either a member of the Property enum class or a string
 specifying the name of the property, and the value can any OSC-compatible type.
-This function can be called for devices or signals.
+These functions can be called for any libmapper object, including Devices, Signals, Maps, and Graphs.
 
 For example, to store a `float` indicating the X position of a device `dev`, you
 can call it like this:
@@ -500,6 +502,42 @@ To specify a string property of a signal:
 ~~~python
 sig.set_property("sensingMethod", "resistive")
 ~~~
+
+In the case of `get_property()` the `key` can also be a numerical index, enabling sequential recovery of all of an objects properties along with their keys. In this case it may be easier to simply retrieve all metadata as a Python `dict`:
+
+~~~python
+# returns a dict containing all object properties
+<object>.properties()
+~~~
+
+The return type of `get_property()` function depends on how it was called:
+
+~~~python
+# if the property exists, returns the <value> associated with key 'min'
+# otherwise returns None
+obj.get_property('min')
+
+# if the property exists, returns the <value> associated with key Property.MIN
+# otherwise returns None
+obj.get_property(Property.MIN)
+
+# returns a tuple containing (<key>, <value>) for the 0th property
+obj.get_property(0)
+~~~
+
+### Objects as Associative Arrays
+
+Finally, you can also access object metadata by indexing the object itself as an associative array (`dict` in Python):
+
+~~~python
+# set object property 'foo' to the value 'bar'
+obj['foo'] = bar
+
+# print the object property 'foo'
+print(obj['foo'])
+~~~
+
+As before, retrieving a property using an index will return a tuple if the property exists.
 
 ### Reserved keys
 

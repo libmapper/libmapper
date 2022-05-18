@@ -47,9 +47,11 @@ def setup(d):
     print('signal minimum:', sig['minimum'])
     sig['minimum'] = 12
     print('signal minimum:', sig['minimum'])
-    print('signal minimum as tuple:', sig[mpr.Property.MIN])
+    print('signal minimum using Property Enum:', sig[mpr.Property.MIN])
     sig['minimum'] = None
     print('signal minimum:', sig['minimum'])
+
+    print('3rd property as a tuple:', sig[2])
 
     sig.properties['testInt'] = 3
 

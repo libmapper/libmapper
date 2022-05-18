@@ -667,10 +667,10 @@ class Object:
             print("mpr.Object.get_property({}:{}) : can't handle prop type".format(prop, key_or_idx), _type)
             return None
 
-        if isinstance(key_or_idx, str):
-            return val
-        else:
+        if isinstance(key_or_idx, int):
             return (string_at(_key).decode("utf-8"), val)
+        else:
+            return val
 
     def get_properties(self):
         props = {}
