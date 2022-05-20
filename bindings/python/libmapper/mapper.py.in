@@ -135,7 +135,7 @@ class Status(Enum):
     READY       = 0x3E
     ACTIVE      = 0X7E
     RESERVED    = 0X80
-    ALL         = 0xFF
+    ANY         = 0xFF
 
     def __repr__(self):
         return 'mpr.Status.' + self.name
@@ -890,13 +890,13 @@ class Signal(Object):
     def instance(self, id):
         return SignalInstance(self._obj, id)
 
-    def num_instances(self, status=Status.ALL):
+    def num_instances(self, status=Status.ANY):
         mpr.mpr_sig_get_num_inst.argtypes = [c_void_p, c_int]
         if not isinstance(status, Status):
             status = Status(status)
         return mpr.mpr_sig_get_num_inst(self._obj, status.value)
 
-    def instance_id(self, idx, status=Status.ALL):
+    def instance_id(self, idx, status=Status.ANY):
         mpr.mpr_sig_get_inst_id.argtypes = [c_void_p, c_int, c_int]
         mpr.mpr_sig_get_inst_id.restype = c_longlong # InstanceId
         if not isinstance(status, Status):

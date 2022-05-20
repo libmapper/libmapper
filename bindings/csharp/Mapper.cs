@@ -130,7 +130,8 @@ namespace Mapper
             Staged       = 0x02,
             Ready        = 0x3E,
             Active       = 0x7E,
-            Reserved     = 0x80
+            Reserved     = 0x80,
+            Any          = 0xFF
         }
 
         public class PropVal

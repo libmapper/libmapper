@@ -168,7 +168,7 @@ typedef enum {
     MPR_STATUS_READY        = 0x3E,
     MPR_STATUS_ACTIVE       = 0x7E, /* must exclude MPR_STATUS_RESERVED */
     MPR_STATUS_RESERVED     = 0x80,
-    MPR_STATUS_ALL          = 0xFF
+    MPR_STATUS_ANY          = 0xFF
 } mpr_status;
 
 #ifdef __cplusplus

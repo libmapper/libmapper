@@ -204,7 +204,7 @@ int setup_src(mpr_graph g, const char *iface)
                      MPR_INT32, &stl, 1);
 
     eprintf("Output signal added with %i instances.\n",
-            mpr_sig_get_num_inst(multisend, MPR_STATUS_ALL));
+            mpr_sig_get_num_inst(multisend, MPR_STATUS_ANY));
 
     return 0;
 
@@ -273,7 +273,7 @@ int setup_dst(mpr_graph g, const char *iface)
     }
 
     eprintf("Input signal added with %i instances.\n",
-            mpr_sig_get_num_inst(multirecv, MPR_STATUS_ALL));
+            mpr_sig_get_num_inst(multirecv, MPR_STATUS_ANY));
 
     return 0;
 
@@ -301,11 +301,11 @@ void wait_devs()
 
 void print_instance_ids(mpr_sig sig)
 {
-    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ANY);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i=0; i<n; i++) {
-        eprintf("%2i, ", (int)mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL));
+        eprintf("%2i, ", (int)mpr_sig_get_inst_id(sig, i, MPR_STATUS_ANY));
     }
     if (i)
         eprintf("\b\b ");
@@ -314,7 +314,7 @@ void print_instance_ids(mpr_sig sig)
 
 void print_instance_idx(mpr_sig sig)
 {
-    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ANY);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i = 0; i < n; i++) {
@@ -327,11 +327,11 @@ void print_instance_idx(mpr_sig sig)
 
 void print_instance_vals(mpr_sig sig)
 {
-    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ALL);
+    int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ANY);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("%s: [ ", name);
     for (i = 0; i < n; i++) {
-        mpr_id id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ALL);
+        mpr_id id = mpr_sig_get_inst_id(sig, i, MPR_STATUS_ANY);
         float *val = (float*)mpr_sig_get_value(sig, id, 0);
         if (val)
             printf("%2.0f, ", *val);
@@ -522,9 +522,9 @@ int run_test(test_config *config)
     mpr_dev_poll(dst, 100);
 
     /* remove any extra destination instances allocated by previous tests */
-    while (5 <= mpr_sig_get_num_inst(multirecv, MPR_STATUS_ALL)) {
+    while (5 <= mpr_sig_get_num_inst(multirecv, MPR_STATUS_ANY)) {
         eprintf("removing extra destination instance\n");
-        mpr_sig_remove_inst(multirecv, mpr_sig_get_inst_id(multirecv, 4, MPR_STATUS_ALL));
+        mpr_sig_remove_inst(multirecv, mpr_sig_get_inst_id(multirecv, 4, MPR_STATUS_ANY));
     }
 
     mpr_dev_poll(src, 100);
