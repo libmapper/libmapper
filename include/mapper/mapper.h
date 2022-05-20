@@ -407,7 +407,7 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig signal);
  *  \param signal       The signal to operate on.
  *  \param index        The numerical index of the instance to retrieve.  Should be between zero
  *                      and the number of instances.
- *  \param status       The status of the instances to searchl should be set to MPR_STATUS_ACTIVE,
+ *  \param status       The status of the instances to search should be set to MPR_STATUS_ACTIVE,
  *                      MPR_STATUS_RESERVED, or both (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED).
  *  \return             The instance identifier associated with the given index, or zero
  *                      if unsuccessful. */
@@ -427,7 +427,7 @@ void *mpr_sig_get_inst_data(mpr_sig signal, mpr_id instance);
 
 /*! Get the number of instances for a specific signal.
  *  \param signal       The signal to check.
- *  \param status       The status of the instances to searchl should be set to MPR_STATUS_ACTIVE,
+ *  \param status       The status of the instances to search should be set to MPR_STATUS_ACTIVE,
  *                      MPR_STATUS_RESERVED, or both (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED).
  *  \return             The number of allocated signal instances. */
 int mpr_sig_get_num_inst(mpr_sig signal, mpr_status status);
