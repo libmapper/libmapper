@@ -45,6 +45,65 @@ const char *signal_evt_strings[] = {
     "ALL"
 };
 
+const char *direction_strings[] = {
+    "UNDEFINED",
+    "IN",
+    "OUT",
+    "ANY",
+    "BOTH"
+};
+
+const char *location_strings[] = {
+    "UNDEFINED",
+    "SOURCE",
+    "DESTINATION",
+    "ANY"
+};
+
+const char *protocol_strings[] = {
+    "UNDEFINED",
+    "UDP",
+    "TCP"
+};
+
+const char *stealing_strings[] = {
+    "NONE",
+    "OLDEST",
+    "NEWEST"
+};
+
+const char *status_strings[] = {
+    "UNDEFINED",
+    "EXPIRED",
+    "STAGED",
+    "READY",
+    "ACTIVE",
+    "RESERVED",
+    "ANY"
+};
+
+const char *type_strings[] = {
+    "DEVICE",
+    "SIGNAL_IN",
+    "SIGNAL_OUT",
+    "SIGNAL",
+    "MAP_IN",
+    "MAP_OUT",
+    "MAP",
+    "OBJECT",
+    "LIST",
+    "BOOL",
+    "TYPE",
+    "DOUBLE",
+    "FLOAT",
+    "INT64",
+    "INT32",
+    "STRING",
+    "TIME",
+    "POINTER",
+    "NULL"
+};
+
 enum {
     SIG_CB_UNKNOWN = -1,
     SIG_CB_SCAL_INT = 0,
@@ -272,22 +331,119 @@ static jobject get_jobject_from_signal_evt(JNIEnv *env, mpr_sig_evt evt)
     }
     return obj;
 }
-static jobject build_value_object(JNIEnv *env, const int len, mpr_type type, const void *val)
+static jobject build_value_object(JNIEnv *env, mpr_prop prop, const int len,
+                                  mpr_type type, const void *val)
 {
     jmethodID mid;
     jclass cls = 0;
     jobject ret = 0;
 
-    if (len <= 0 || !val) {
+    if (MPR_PROP_UNKNOWN == prop || len <= 0 || !val) {
         // return empty Value
         return NULL;
     }
 
     switch (type) {
+        case MPR_TYPE:
+            if (1 != len) {
+                printf("ERROR: unhandled value type: %d[%d] ('%c')\n", type, len, type);
+                return NULL;
+            }
+            cls = (*env)->FindClass(env, "mapper/Type");
+            // remap status values to string index
+            int ival = (int)*(mpr_type*)val;
+            switch (ival) {
+                case MPR_DEV:       ival = 0;   break;
+                case MPR_SIG_IN:    ival = 1;   break;
+                case MPR_SIG_OUT:   ival = 2;   break;
+                case MPR_SIG:       ival = 3;   break;
+                case MPR_MAP_IN:    ival = 4;   break;
+                case MPR_MAP_OUT:   ival = 5;   break;
+                case MPR_MAP:       ival = 6;   break;
+                case MPR_OBJ:       ival = 7;   break;
+                case MPR_LIST:      ival = 8;   break;
+                case MPR_BOOL:      ival = 9;   break;
+                case MPR_TYPE:      ival = 10;  break;
+                case MPR_DBL:       ival = 11;  break;
+                case MPR_FLT:       ival = 12;  break;
+                case MPR_INT64:     ival = 13;  break;
+                case MPR_INT32:     ival = 14;  break;
+                case MPR_STR:       ival = 15;  break;
+                case MPR_TIME:      ival = 16;  break;
+                case MPR_PTR:       ival = 17;  break;
+                case MPR_NULL:      ival = 18;  break;
+                default:
+                    printf("error! invalid type\n");
+            }
+            jfieldID fid = (*env)->GetStaticFieldID(env, cls, type_strings[ival],
+                                                    "Lmapper/Type;");
+            return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
         case MPR_BOOL:
+            if (1 == len) {
+                cls = (*env)->FindClass(env, "java/lang/Boolean");
+                mid = (*env)->GetMethodID(env, cls, "<init>", "(Z)V");
+                jboolean bval = *(int*)val != 0;
+                if (mid)
+                    ret = (*env)->NewObject(env, cls, mid, bval);
+            }
+            else {
+                ret = (*env)->NewBooleanArray(env, len);
+                jboolean bvals[len];
+                for (int i = 0; i < len; i++)
+                    bvals[i] = ((int*)val)[i];
+                (*env)->SetBooleanArrayRegion(env, ret, 0, len, bvals);
+            }
+            break;
         case MPR_INT32: {
             if (1 == len) {
-                cls = (*env)->FindClass(env, "java/lang/Integer");
+                int ival = *(int*)val;
+                // handle some enums
+                switch (prop) {
+                    case MPR_PROP_DIR: {
+                        cls = (*env)->FindClass(env, "mapper/Direction");
+                        jfieldID fid = (*env)->GetStaticFieldID(env, cls, direction_strings[ival],
+                                                                "Lmapper/Direction;");
+                        return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
+                    }
+                    case MPR_PROP_PROCESS_LOC: {
+                        cls = (*env)->FindClass(env, "mapper/map/Location");
+                        jfieldID fid = (*env)->GetStaticFieldID(env, cls, location_strings[ival],
+                                                                "Lmapper/map/Location;");
+                        return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
+                    }
+                    case MPR_PROP_PROTOCOL: {
+                        cls = (*env)->FindClass(env, "mapper/map/Protocol");
+                        jfieldID fid = (*env)->GetStaticFieldID(env, cls, protocol_strings[ival],
+                                                                "Lmapper/map/Protocol;");
+                        return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
+                    }
+                    case MPR_PROP_STEAL_MODE: {
+                        cls = (*env)->FindClass(env, "mapper/signal/StealMode");
+                        jfieldID fid = (*env)->GetStaticFieldID(env, cls, protocol_strings[ival],
+                                                                "Lmapper/signal/StealMode;");
+                        return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
+                    }
+                    case MPR_PROP_STATUS: {
+                        cls = (*env)->FindClass(env, "mapper/Status");
+                        // remap status values to string index
+                        switch (ival) {
+                            case MPR_STATUS_UNDEFINED:  ival = 0;   break;
+                            case MPR_STATUS_EXPIRED:    ival = 1;   break;
+                            case MPR_STATUS_STAGED:     ival = 2;   break;
+                            case MPR_STATUS_READY:      ival = 3;   break;
+                            case MPR_STATUS_ACTIVE:     ival = 4;   break;
+                            case MPR_STATUS_RESERVED:   ival = 5;   break;
+                            case MPR_STATUS_ANY:        ival = 6;   break;
+                            default:
+                                printf("error! invalid object status\n");
+                        }
+                        jfieldID fid = (*env)->GetStaticFieldID(env, cls, status_strings[ival],
+                                                                "Lmapper/Status;");
+                        return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
+                    }
+                    default:
+                        cls = (*env)->FindClass(env, "java/lang/Integer");
+                }
                 mid = (*env)->GetMethodID(env, cls, "<init>", "(I)V");
                 if (mid)
                     ret = (*env)->NewObject(env, cls, mid, *((int *)val));
@@ -379,7 +535,7 @@ static jobject build_value_object(JNIEnv *env, const int len, mpr_type type, con
             break;
         }
         default:
-            printf("ERROR: unhandled value type: %d ('%c')\n", type, type);
+            printf("ERROR: unhandled value type: %d[%d] ('%c')\n", type, len, type);
             break;
     }
     return ret;
@@ -857,7 +1013,7 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1get
     else
         prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &len, &type, &val, 0);
 
-    jobject o = (MPR_PROP_UNKNOWN != prop) ? build_value_object(env, len, type, val) : NULL;
+    jobject o = build_value_object(env, prop, len, type, val);
     return o;
 }
 
@@ -885,7 +1041,7 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties_00024Entry_
         jkey = (*env)->NewStringUTF(env, (char *)ckey);
     }
 
-    jobject jval = (MPR_PROP_UNKNOWN != prop) ? build_value_object(env, len, type, val) : NULL;
+    jobject jval = build_value_object(env, prop, len, type, val);
 
     jfieldID fid = (*env)->GetFieldID(env, cls, "_id", "I");
     if (fid)
@@ -950,7 +1106,7 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1put
     else
         prop = mpr_obj_get_prop_by_idx(mobj, id, &ckey, &len, &type, &val, 0);
 
-    jobject ret = (MPR_PROP_UNKNOWN == prop) ? NULL : build_value_object(env, len, type, val);
+    jobject ret = build_value_object(env, prop, len, type, val);
 
 
     if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Boolean"))) {
@@ -1072,7 +1228,7 @@ JNIEXPORT jstring JNICALL Java_mapper_Graph_getInterface
     if (!g)
         return NULL;
     const char *iface = mpr_graph_get_interface(g);
-    return build_value_object(env, 1, MPR_STR, iface);
+    return build_value_object(env, MPR_PROP_EXTRA, 1, MPR_STR, iface);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Graph_setInterface
@@ -1094,7 +1250,7 @@ JNIEXPORT jstring JNICALL Java_mapper_Graph_getAddress
     if (!g)
         return NULL;
     const char *address = mpr_graph_get_address(g);
-    return build_value_object(env, 1, MPR_STR, address);
+    return build_value_object(env, MPR_PROP_EXTRA, 1, MPR_STR, address);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Graph_setAddress
@@ -1927,7 +2083,7 @@ JNIEXPORT jobject JNICALL Java_mapper_Signal_getValue
         len = signal_length(sig);
         val = mpr_sig_get_value(sig, id, NULL);
     }
-    return build_value_object(env, len, type, val);
+    return build_value_object(env, MPR_PROP_EXTRA, len, type, val);
 }
 
 JNIEXPORT jobject JNICALL Java_mapper_Signal_releaseInstance

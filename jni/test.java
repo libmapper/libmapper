@@ -116,12 +116,15 @@ class test {
         System.out.println("  minimum: " + out1.properties().get("minimum"));
         System.out.println("  maximum: " + out1.properties().get("maximum"));
 
+        System.out.println("  type: " + out1.properties().get("type"));
+
         System.out.println("Waiting for ready...");
         while (!dev1.ready() || !dev2.ready()) {
             dev1.poll(50);
             dev2.poll(50);
         }
         System.out.println("Devices are ready.");
+        System.out.println("  Status: "+dev1.properties().get(Property.STATUS));
 
         System.out.println("  "+dev1.properties().getEntry("name"));
         System.out.println("  "+dev1.properties().getEntry("port"));
@@ -138,6 +141,7 @@ class test {
             dev2.poll(50);
         }
         System.out.println("OK");
+        System.out.println("  "+map.properties().getEntry("protocol"));
 
         int i = 0;
 

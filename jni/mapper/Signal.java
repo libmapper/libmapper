@@ -87,7 +87,7 @@ public class Signal extends AbstractObject
     public native Instance oldestActiveInstance();
     public native Instance newestActiveInstance();
 
-    public native int numActiveInstances();
+    public native int numInstances(Status status);
     public native int numReservedInstances();
 
     /* set value */
