@@ -38,7 +38,7 @@ JCLASSESINTERNAL = mapper/Signal$$Instance.class mapper/AbstractObject$$Properti
 JJAVA = $(JCLASSES:%.class=%.java)
 
 BUILT_SOURCES = $(JHEADERS) test.class testinstance.class testreverse.class \
-    testspeed.class libmapper.jar TestInstances/code/libmapper.jar TestInstances/code/libmapperjni.so
+    testspeed.class libmapper.jar TestInstances/code/libmapper.jar TestInstances/code/libmapperjni.@SO_EXT@
 MOSTLYCLEANFILES = $(BUILT_SOURCES) $(JCLASSES) $(subst $$,\$$,$(JCLASSESINTERNAL)) \
     test*.class
 
@@ -81,16 +81,16 @@ libmapper.jar: $(JCLASSES) $(JCLASSESINTERNAL)
 	$(JAR) cvf $@ $(subst $$,\$$,$^)
 
 # For processing test sketch
-TestInstances/code/libmapperjni.so: $(lib_LTLIBRARIES)
+TestInstances/code/libmapperjni.@SO_EXT@: $(lib_LTLIBRARIES)
 	[ -d TestInstances ] || mkdir -v TestInstances
 	[ -d TestInstances/code ]	|| mkdir -v TestInstances/code
-	cd TestInstances/code; ls -l; [ -L libmapperjni.so ] || [ -f libmapperjni.so ] || ln -v -s ../../.libs/libmapperjni.so .
+	cd TestInstances/code; ls -l; [ -L libmapperjni.@SO_EXT@ ] || [ -f libmapperjni.@SO_EXT@ ] || ln -v -s ../../.libs/libmapperjni.@SO_EXT@ .
 
 # For processing test sketch
 TestInstances/code/libmapper.jar: libmapper.jar
 	[ -d TestInstances ] || mkdir -v TestInstances
 	[ -d TestInstances/code ]	|| mkdir -v TestInstances/code
-	cd TestInstances/code; ls -l; [ -L libmapperjni.so ] || [ -f libmapperjni.so ] || ln -v -s ../../libmapper.jar
+	cd TestInstances/code; ls -l; [ -L libmapperjni.@SO_EXT@ ] || [ -f libmapperjni.@SO_EXT@ ] || ln -v -s ../../libmapper.jar
 
 EXTRA_DIST = $(JJAVA) test.java testinstance.java testreverse.java testspeed.java \
              $(JHEADERS)
