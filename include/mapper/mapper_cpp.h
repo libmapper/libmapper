@@ -315,6 +315,8 @@ namespace mapper {
          *  \return             Self. */
         bool operator!=(Time& rhs)
             { return mpr_time_cmp(_time, rhs._time) != 0; }
+
+        friend std::ostream& operator<<(std::ostream& os, const mapper::Time& time);
     private:
         mpr_time _time;
     };
@@ -492,6 +494,15 @@ namespace mapper {
 
         mpr_obj _obj;
     public:
+        /*! The set of possible statuses for an Object. */
+        enum class Status
+        {
+            UNDEFINED   = MPR_STATUS_UNDEFINED, /*!< Object status is undefined. */
+            EXPIRED     = MPR_STATUS_EXPIRED,   /*!< Object record has expired. */
+            STAGED      = MPR_STATUS_STAGED,    /*!< Object has been staged. */
+            READY       = MPR_STATUS_READY,     /*!< Object is ready. */
+        };
+
         Object() { _obj = NULL; _owned = 0; _refcount_ptr = 0; }
         virtual ~Object() {}
         operator mpr_obj() const
@@ -1883,9 +1894,10 @@ namespace mapper {
 
         friend std::ostream& operator<<(std::ostream& os, const PropVal& p);
 
+        const char *key;
     protected:
         mpr_prop prop;
-        const char *key;
+
         mpr_type type;
         unsigned int len;
         const void *val;
@@ -2116,18 +2128,20 @@ namespace mapper {
         return p;
     }
 
-    inline PropVal Object::property(Property prop) const
+    inline PropVal Object::property(int idx) const
     {
         const char *key;
         mpr_type type;
         const void *val;
         int len, pub;
-        mpr_prop mprop = mpr_obj_get_prop_by_idx(_obj, static_cast<mpr_prop>(prop),
-                                                 &key, &len, &type, &val, &pub);
+        mpr_prop mprop = mpr_obj_get_prop_by_idx(_obj, idx, &key, &len, &type, &val, &pub);
         PropVal p(mprop, key, len, type, val, pub);
         p.parent = _obj;
         return p;
     }
+
+    inline PropVal Object::property(Property prop) const
+        { return property(static_cast<mpr_prop>(prop)); }
 
     template <typename T>
     inline PropVal Object::operator [] (const T prop) const
@@ -2193,6 +2207,82 @@ namespace mapper {
         return static_cast<Signal::Event>(static_cast<mpr_sig_evt>(l) | static_cast<mpr_sig_evt>(r));
     }
 
+    inline std::ostream& operator<<(std::ostream &os, const Direction& d)
+    {
+        switch (d) {
+            case Direction::INCOMING: os << "INCOMING"; break;
+            case Direction::OUTGOING: os << "OUTGOING"; break;
+            case Direction::ANY:      os << "ANY";      break;
+            case Direction::BOTH:     os << "BOTH";     break;
+        }
+        return os;
+    }
+
+    inline std::ostream& operator<<(std::ostream &os, const Map::Location& d)
+    {
+        switch (d) {
+            case Map::Location::SRC: os << "SRC"; break;
+            case Map::Location::DST: os << "DST"; break;
+            case Map::Location::ANY: os << "ANY"; break;
+        }
+        return os;
+    }
+
+    inline std::ostream& operator<<(std::ostream &os, const Map::Protocol& d)
+    {
+        switch (d) {
+            case Map::Protocol::UDP: os << "UDP"; break;
+            case Map::Protocol::TCP: os << "TCP"; break;
+        }
+        return os;
+    }
+
+    inline std::ostream& operator<<(std::ostream &os, const Object::Status& s)
+    {
+        switch (s) {
+            case Object::Status::UNDEFINED: os << "UNDEFINED";  break;
+            case Object::Status::EXPIRED:   os << "EXPIRED";    break;
+            case Object::Status::STAGED:    os << "STAGED";     break;
+            case Object::Status::READY:     os << "READY";      break;
+        }
+        return os;
+    }
+
+    inline std::ostream& operator<<(std::ostream &os, const Signal::Stealing& s)
+    {
+        switch (s) {
+            case Signal::Stealing::NONE:    os << "NONE";   break;
+            case Signal::Stealing::OLDEST:  os << "OLDEST"; break;
+            case Signal::Stealing::NEWEST:  os << "NEWEST"; break;
+        }
+        return os;
+    }
+
+    inline std::ostream& operator<<(std::ostream &os, const Type& s)
+    {
+        switch (s) {
+            case Type::DEVICE:      os << "DEVICE";     break;
+            case Type::SIGNAL_IN:   os << "SIGNAL_IN";  break;
+            case Type::SIGNAL_OUT:  os << "SIGNAL_OUT"; break;
+            case Type::SIGNAL:      os << "SIGNAL";     break;
+            case Type::MAP_IN:      os << "MAP_IN";     break;
+            case Type::MAP_OUT:     os << "MAP_OUT";    break;
+            case Type::MAP:         os << "MAP";        break;
+            case Type::OBJECT:      os << "OBJECT";     break;
+            case Type::LIST:        os << "LIST";       break;
+            case Type::BOOLEAN:     os << "BOOLEAN";    break;
+            case Type::TYPE:        os << "TYPE";       break;
+            case Type::DOUBLE:      os << "DOUBLE";     break;
+            case Type::FLOAT:       os << "FLOAT";      break;
+            case Type::INT64:       os << "INT64";      break;
+            case Type::INT32:       os << "INT32";      break;
+            case Type::STRING:      os << "STRING";     break;
+            case Type::TIME:        os << "TIME";       break;
+            case Type::POINTER:     os << "POINTER";    break;
+        }
+        return os;
+    }
+
     #define OSTREAM_TYPE(TYPE)                  \
     if (p.len == 1)                             \
         os << *(TYPE*)p.val;                    \
@@ -2208,7 +2298,28 @@ namespace mapper {
         if (p.len <= 0 || p.type == MPR_NULL)
             return os << "NULL";
         switch (p.type) {
-            case MPR_INT32:     OSTREAM_TYPE(int);      break;
+            case MPR_INT32:
+                // handle some Enums
+                switch (p.prop) {
+                    case MPR_PROP_DIR:
+                        os << Direction(*(int*)p.val);
+                        break;
+                    case MPR_PROP_PROCESS_LOC:
+                        os << Map::Location(*(int*)p.val);
+                        break;
+                    case MPR_PROP_PROTOCOL:
+                        os << Map::Protocol(*(int*)p.val);
+                        break;
+                    case MPR_PROP_STATUS:
+                        os << Object::Status(*(int*)p.val);
+                        break;
+                    case MPR_PROP_STEAL_MODE:
+                        os << Signal::Stealing(*(int*)p.val);
+                        break;
+                    default:
+                        OSTREAM_TYPE(int);
+                }
+                break;
             case MPR_INT64:     OSTREAM_TYPE(int64_t);  break;
             case MPR_FLT:       OSTREAM_TYPE(float);    break;
             case MPR_DBL:       OSTREAM_TYPE(double);   break;
@@ -2222,6 +2333,38 @@ namespace mapper {
                         os << ((const char**)p.val)[i] << ", ";
                     os << "\b\b]";
                 }
+                break;
+            case MPR_TIME:
+                os << Time(*(int64_t*)p.val);
+                break;
+            case MPR_TYPE:
+                os << Type(*(int*)p.val);
+                break;
+            case MPR_DEV:
+                os << Device((mpr_dev)p.val);
+                break;
+            case MPR_SIG:
+                os << Signal((mpr_sig)p.val);
+                break;
+            case MPR_MAP:
+                os << Map((mpr_map)p.val);
+                break;
+            case MPR_LIST:
+                if (p.val && *(mpr_list)p.val) {
+                    switch (mpr_obj_get_type(*(mpr_list)p.val)) {
+                        case MPR_DEV:
+                            os << "<mapper::List<mapper::Device>>";
+                            break;
+                        case MPR_SIG:
+                            os << "<mapper::List<mapper::Signal>>";
+                            break;
+                        case MPR_MAP:
+                            os << "<mapper::List<mapper::Map>>";
+                            break;
+                    }
+                }
+                else
+                    os << "<mapper::List<empty>>";
                 break;
             default:
                 os << "Property type not handled by ostream operator!";
@@ -2269,6 +2412,12 @@ namespace mapper {
             case MPR_MAP: os << Map(obj);    break;
             default:                                 break;
         }
+        return os;
+    }
+
+    inline std::ostream& operator<<(std::ostream& os, const Time& t)
+    {
+        os << "<mapper::Time " << t._time.sec << ":" << t._time.frac << ">";
         return os;
     }
 };

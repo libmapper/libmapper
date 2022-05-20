@@ -325,7 +325,19 @@ int main(int argc, char ** argv)
     dev.remove_property("foo");
     out << "foo: " << dev["foo"] << " (should be 0x0)" << std::endl;
 
+    out << "try printing all device properties:" << std::endl;
+    for (int i = 0; i < dev.num_props(); i++) {
+        PropVal p = dev[i];
+        out << "  {" << p.key << ": " << p << "}" << std::endl;
+    }
+
     out << "signal: " << sig << std::endl;
+
+    out << "try printing all signal properties:" << std::endl;
+    for (int i = 0; i < sig.num_props(); i++) {
+        PropVal p = sig[i];
+        out << "  {" << p.key << ": " << p << "}" << std::endl;
+    }
 
     List<Signal> qsig = dev.signals(Direction::INCOMING);
     qsig.begin();
