@@ -167,7 +167,7 @@ double random_dbl()
 
 int check_result(mpr_type *types, int len, const void *val, int pos, int check)
 {
-    int i, offset = pos * len, error = -1;
+    int i, error = -1;
     if (!val || !types || len < 1)
         return 1;
 
@@ -194,29 +194,20 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
                 eprintf("NULL, ");
                 break;
             case MPR_INT32:
-            {
-                int *pi = (int*)val;
-                eprintf("%d, ", pi[i + offset]);
-                if (check && pi[i + offset] != expect_int[i])
+                eprintf("%d, ", dst_int[i]);
+                if (check && dst_int[i] != expect_int[i])
                     error = i;
                 break;
-            }
             case MPR_FLT:
-            {
-                float *pf = (float*)val;
-                eprintf("%g, ", pf[i + offset]);
-                if (check && pf[i + offset] != expect_flt[i] && expect_flt[i] == expect_flt[i])
+                eprintf("%g, ", dst_flt[i]);
+                if (check && dst_flt[i] != expect_flt[i] && expect_flt[i] == expect_flt[i])
                     error = i;
                 break;
-            }
             case MPR_DBL:
-            {
-                double *pd = (double*)val;
-                eprintf("%g, ", pd[i + offset]);
-                if (check && pd[i + offset] != expect_dbl[i] && expect_dbl[i] == expect_dbl[i])
+                eprintf("%g, ", dst_dbl[i]);
+                if (check && dst_dbl[i] != expect_dbl[i] && expect_dbl[i] == expect_dbl[i])
                     error = i;
                 break;
-            }
             default:
                 eprintf("\nTYPE ERROR\n");
                 return 1;

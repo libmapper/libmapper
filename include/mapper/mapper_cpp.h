@@ -572,9 +572,9 @@ namespace mapper {
         PropVal property(Property prop) const;
 
         /*! Retrieve a Property by index.
-         *  \param prop     The index of the Property to retrieve.
+         *  \param idx      The index of the Property to retrieve.
          *  \return         The retrieved Property. */
-        PropVal property(int) const;
+        PropVal property(int idx) const;
 
         template <typename T>
         PropVal operator [] (T prop) const;
@@ -1615,12 +1615,7 @@ namespace mapper {
             orig._owned = 0;
             return *this;
         }
-        Graph(mpr_graph graph)
-        {
-            _obj = graph;
-            _owned = false;
-            _refcount_ptr = 0;
-        }
+        Graph(mpr_graph graph) : Object(graph) {}
         ~Graph()
             { maybe_free(); }
         operator mpr_graph() const
