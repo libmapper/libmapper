@@ -371,8 +371,8 @@ int expr_parser_build_stack(mpr_expr expr, const char *str,
                     newtok.lit.val.i = memory - 1;
                     estack_push(op, &newtok);
                 }
-                if (VFN_ANGLE == tok.fn.idx) {
-                    tok.gen.vec_len = 2;
+                if (vfn_tbl[tok.fn.idx].len) {
+                    tok.gen.vec_len = vfn_tbl[tok.fn.idx].len;
                     tok.gen.flags |= VEC_LEN_LOCKED;
                 }
                 else

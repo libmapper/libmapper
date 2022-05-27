@@ -86,9 +86,9 @@ MPR_INLINE static int _newest_val_idx(mpr_value *vals, int num_vals, int inst_id
     int i, newest_idx = 0;
     for (i = 1; i < num_vals; i++) {
 #if TRACE_EVAL
-        mpr_time_print(*mpr_value_get_time(vals[newest_idx], inst_idx, 0));
+        mpr_time_print(mpr_value_get_time(vals[newest_idx], inst_idx, 0));
         printf(" : ");
-        mpr_time_print(*mpr_value_get_time(vals[i], inst_idx, 0));
+        mpr_time_print(mpr_value_get_time(vals[i], inst_idx, 0));
         printf("\n");
 #endif
         if (mpr_time_cmp(mpr_value_get_time(vals[newest_idx], inst_idx, 0),
@@ -696,9 +696,8 @@ int mpr_expr_eval(mpr_expr expr, ebuffer buff, mpr_value *v_in, mpr_value *v_var
             if (vfn_tbl[tok->fn.idx].reduce) {
                 for (i = 1; i < tok->gen.vec_len; i++)
                     vals[sp + i].d = vals[sp].d;
-            }
-            if (vfn_tbl[tok->fn.idx].reduce)
                 SET_LEN(tok->gen.vec_len);
+            }
 #if TRACE_EVAL
             evalue_print(vals + sp, types[dp], lens[dp], dp);
             if (   VFN_MAXMIN == tok->fn.idx

@@ -29,7 +29,7 @@
 int verbose = 1;
 char str[MAX_STR_LEN];
 mpr_expr e;
-int iterations = 20000;
+int iterations = 20;//000;
 int expression_count = 1;
 int token_count = 0;
 int update_count;
@@ -1905,6 +1905,30 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_int[0] = 0;
     if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 145) quaternion multiplication */
+    set_expr_str("q1=[0.877583,0,0.479426,0];"
+                 "q2=[0.877583,0.479426,0,0];"
+                 "y=qmult(q1,q2);");
+    setup_test(MPR_FLT, 1, MPR_FLT, 4);
+    expect_flt[0] = 0.770151972771f;
+    expect_flt[1] = 0.420736140000f;
+    expect_flt[2] = 0.420736134052f;
+    expect_flt[3] = -0.229849368334f;
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 8, 1, iterations))
+        return 1;
+
+    /* 146) quaternion slerp */
+    set_expr_str("q1=[0.877583,0,0.479426,0];"
+                 "q2=[0.877583,0.479426,0,0];"
+                 "y=qslerp(q1,q2,0.5);");
+    setup_test(MPR_FLT, 1, MPR_FLT, 4);
+    expect_flt[0] = 0.932819902897f;
+    expect_flt[1] = 0.254800477000f;
+    expect_flt[2] = 0.254801571369f;
+    expect_flt[3] = 0.f;
+    if (parse_and_eval(PARSE_SUCCESS | EVAL_SUCCESS, 9, 1, iterations))
         return 1;
 
 //    /* 137) Signal count() */

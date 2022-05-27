@@ -174,6 +174,8 @@ MEDIAN_VFUNC(vmediand, double, d)
 
 #define powd pow
 #define sqrtd sqrt
+#define cosd cos
+#define sind sin
 #define acosd acos
 
 #define NORM_VFUNC(NAME, TYPE, T)                   \
@@ -296,12 +298,114 @@ REV_VFUNC(vrevi, int, i)
 REV_VFUNC(vrevf, float, f)
 REV_VFUNC(vrevd, double, d)
 
+/* Fast quaternion multiplication adapted from:
+ * http://www.j3d.org/matrix_faq/matrfaq_latest.html#Q53 */
+#define MULT_QFUNC(NAME, TYPE, T)                                   \
+static void NAME(evalue l, uint8_t *dim, int inc)                   \
+{                                                                   \
+    evalue r = l + inc;                                             \
+    TYPE ww = (l[3].T + l[1].T) * (r[1].T + r[2].T);                \
+    TYPE yy = (l[0].T - l[2].T) * (r[0].T + r[3].T);                \
+    TYPE zz = (l[0].T + l[2].T) * (r[0].T - r[3].T);                \
+    TYPE xx = ww + yy + zz;                                         \
+    TYPE qq = 0.5 * (xx + (l[3].T - l[1].T) * (r[1].T - r[2].T));   \
+    TYPE w = qq - ww + (l[3].T - l[2].T) * (r[2].T - r[3].T);       \
+    TYPE x = qq - xx + (l[1].T + l[0].T) * (r[1].T + r[0].T);       \
+    TYPE y = qq - yy + (l[0].T - l[1].T) * (r[2].T + r[3].T);       \
+    TYPE z = qq - zz + (l[3].T + l[2].T) * (r[0].T - r[1].T);       \
+    l[0].T = w;                                                     \
+    l[1].T = x;                                                     \
+    l[2].T = y;                                                     \
+    l[3].T = z;                                                     \
+}
+MULT_QFUNC(qmultf, float, f)
+MULT_QFUNC(qmultd, double, d)
+
+#define CONJ_QFUNC(NAME, TYPE, T)                   \
+static void NAME(evalue q, uint8_t *dim, int inc)   \
+{                                                   \
+    q[1].T *= -1;                                   \
+    q[2].T *= -1;                                   \
+    q[3].T *= -1;                                   \
+}
+CONJ_QFUNC(qconjf, float, f)
+CONJ_QFUNC(qconjd, double, d)
+
+#define qmagf(Q) (sqrt(Q[0].f * Q[0].f + Q[1].f * Q[1].f + Q[2].f * Q[2].f + Q[3].f * Q[3].f))
+#define qmagd(Q) (sqrt(Q[0].d * Q[0].d + Q[1].d * Q[1].d + Q[2].d * Q[2].d + Q[3].d * Q[3].d))
+#define qinvmagf(Q) (1. / qmagf(Q))
+#define qinvmagd(Q) (1. / qmagd(Q))
+
+#define INV_QFUNC(NAME, TYPE, T)                    \
+static void NAME(evalue q, uint8_t *dim, int inc)   \
+{                                                   \
+    TYPE m = qmag##T(q);                            \
+    if (m == 0)                                     \
+        return;                                     \
+    m = 1. / m;                                     \
+    q[0].T *= m;                                    \
+    m *= -1.;                                       \
+    q[1].T *= m;                                    \
+    q[2].T *= m;                                    \
+    q[3].T *= m;                                    \
+}
+INV_QFUNC(qinvf, float, f)
+INV_QFUNC(qinvd, double, d)
+
+#define SLERP_QFUNC(NAME, TYPE, T)                                                              \
+static void NAME(evalue l, uint8_t *dim, int inc)                                               \
+{                                                                                               \
+    evalue r = l + inc;                                                                         \
+    TYPE w = (r + inc)[0].T;                                                                    \
+    int i;                                                                                      \
+    TYPE dot = l[0].T * r[0].T + l[1].T * r[1].T + l[2].T * r[2].T + l[3].T * r[3].T;           \
+    if (dot < 0.) {                                                                             \
+        for (i = 0; i < 4; i++)                                                                 \
+            r[i].T *= -1.;                                                                      \
+        dot = l[0].T * r[0].T + l[1].T * r[1].T + l[2].T * r[2].T + l[3].T * r[3].T;            \
+    }                                                                                           \
+    if (dot > 0.9995) {                                                                         \
+        l[0].T += (r[0].T - l[0].T) * w;                                                        \
+        l[1].T += (r[1].T - l[1].T) * w;                                                        \
+        l[2].T += (r[2].T - l[2].T) * w;                                                        \
+        l[3].T += (r[3].T - l[3].T) * w;                                                        \
+        /* normalize */                                                                         \
+        TYPE m = qmag##T(l);                                                                    \
+        if (0 == m)                                                                             \
+            return;                                                                             \
+        m = 1. / m;                                                                             \
+        for (i = 0; i < 4; i++)                                                                 \
+            l[i].T *= m;                                                                        \
+        return;                                                                                 \
+    }                                                                                           \
+    else if (dot > 1)                                                                           \
+        dot = 1.;                                                                               \
+    else if (dot < -1)                                                                          \
+        dot = -1.;                                                                              \
+    TYPE theta0 = acos##T(dot);                                                                 \
+    /*TYPE theta = (0. < theta0 && theta0 < (M_PI * 0.5)) ? theta0 * w : (theta0 - M_PI) * w;*/ \
+    TYPE theta = theta0 * w;                                                                    \
+    TYPE o[4];                                                                                  \
+    for (i = 0; i < 4; i++)                                                                     \
+        o[i] = r[i].T - l[i].T * dot;                                                           \
+    /* normalize */                                                                             \
+    TYPE invmag = 1. / sqrt##T(o[0] * o[0] + o[1] * o[1] + o[2] * o[2] + o[3] * o[3]);          \
+    for (i = 0; i < 4; i++)                                                                     \
+        o[i] *= invmag;                                                                         \
+    TYPE costheta = cos##T(theta);                                                              \
+    TYPE sintheta = sin##T(theta);                                                              \
+    for (i = 0; i < 4; i++)                                                                     \
+       l[i].T = l[i].T * costheta + o[i] * sintheta;                                            \
+}
+SLERP_QFUNC(qslerpf, float, f)
+SLERP_QFUNC(qslerpd, double, d)
+
 /* The emd() function needs to read and write 2 variables (ema and ema of difference). Since this
  * is not possible with regular functions we will use a vector function here, even though each
  * vector element is processed separately. For convenience and reduced code we will also use vector
  * functions for ema and schmitt since they also require "memory". */
 
-#define EMA_VFUNC(NAME, TYPE, T)                    \
+#define EMA_VFUNC(NAME, TYPE, T)                         \
 static void NAME(evalue ema, uint8_t *dim, int inc)      \
 {                                                        \
     evalue new = ema + inc, weight = new + inc;          \
@@ -511,41 +615,51 @@ typedef enum {
     VFN_EMA,
     VFN_EMD,
     VFN_SCHMITT,
+    QFN_CONJ,
+    QFN_INV,
+    QFN_MUL,
+    QFN_SLERP,
     N_VFN
 } expr_vfn_t;
+
+#define FN_REDUCE 0x1
 
 static struct {
     const char *name;
     uint8_t arity;
     uint8_t memory;
-    uint8_t reduce; /* TODO: use bitflags */
-    uint8_t dot_notation;
+    uint8_t reduce;
+    uint8_t len;
     void (*fn_int)(evalue, uint8_t*, int);
     void (*fn_flt)(evalue, uint8_t*, int);
     void (*fn_dbl)(evalue, uint8_t*, int);
 } vfn_tbl[] = {
-    { "all",     1, 0, 1, 1, valli,    vallf,    valld    },
-    { "any",     1, 0, 1, 1, vanyi,    vanyf,    vanyd    },
-    { "center",  1, 0, 1, 1, 0,        vcenterf, vcenterd },
-    { "max",     1, 0, 1, 1, vmaxi,    vmaxf,    vmaxd    },
-    { "mean",    1, 0, 1, 1, 0,        vmeanf,   vmeand   },
-    { "min",     1, 0, 1, 1, vmini,    vminf,    vmind    },
-    { "sum",     1, 0, 1, 1, vsumi,    vsumf,    vsumd    },
-    { "product", 1, 0, 1, 1, vprodi,   vprodf,   vprodd   },
+    { "all",     1, 0, 1, 0, valli,    vallf,    valld    },
+    { "any",     1, 0, 1, 0, vanyi,    vanyf,    vanyd    },
+    { "center",  1, 0, 1, 0, 0,        vcenterf, vcenterd },
+    { "max",     1, 0, 1, 0, vmaxi,    vmaxf,    vmaxd    },
+    { "mean",    1, 0, 1, 0, 0,        vmeanf,   vmeand   },
+    { "min",     1, 0, 1, 0, vmini,    vminf,    vmind    },
+    { "sum",     1, 0, 1, 0, vsumi,    vsumf,    vsumd    },
+    { "product", 1, 0, 1, 0, vprodi,   vprodf,   vprodd   },
     { "concat",  3, 0, 0, 0, vconcati, vconcatf, vconcatd },
-    { "norm",    1, 0, 1, 1, 0,        vnormf,   vnormd   },
-    { "rev",     1, 0, 0, 1, vrevi,    vrevf,    vrevd    },
-    { "sort",    2, 0, 0, 1, vsorti,   vsortf,   vsortd   },
+    { "norm",    1, 0, 1, 0, 0,        vnormf,   vnormd   },
+    { "rev",     1, 0, 0, 0, vrevi,    vrevf,    vrevd    },
+    { "sort",    2, 0, 0, 0, vsorti,   vsortf,   vsortd   },
     { "maxmin",  3, 0, 0, 0, vmaxmini, vmaxminf, vmaxmind },
     { "sumnum",  3, 0, 0, 0, vsumnumi, vsumnumf, vsumnumd },
-    { "angle",   2, 0, 1, 0, 0,        vanglef,  vangled  },
+    { "angle",   2, 0, 1, 2, 0,        vanglef,  vangled  },
     { "dot",     2, 0, 1, 0, vdoti,    vdotf,    vdotd    },
-    { "index",   2, 0, 1, 1, vindexi,  vindexf,  vindexd  },
-    { "length",  1, 0, 1, 1, vleni,    vlenf,    vlend    },
-    { "median",  1, 0, 1, 1, vmediani, vmedianf, vmediand },
+    { "index",   2, 0, 1, 0, vindexi,  vindexf,  vindexd  },
+    { "length",  1, 0, 1, 0, vleni,    vlenf,    vlend    },
+    { "median",  1, 0, 1, 0, vmediani, vmedianf, vmediand },
     { "ema",     3, 1, 0, 0, 0,        vemaf,    vemad    },
     { "emd",     4, 2, 0, 0, 0,        vemdf,    vemdd    },
-    { "schmitt", 4, 1, 0, 0, vschmiti, vschmitf, vschmitd }
+    { "schmitt", 4, 1, 0, 0, vschmiti, vschmitf, vschmitd },
+    { "qconj",   1, 0, 0, 4, 0,        qconjf,   qconjd   },
+    { "qinv",    1, 0, 0, 4, 0,        qinvf,    qinvd    },
+    { "qmult",   2, 0, 0, 4, 0,        qmultf,   qmultd   },
+    { "qslerp",  3, 0, 0, 4, 0,        qslerpf,  qslerpd  },
 };
 
 typedef enum {
