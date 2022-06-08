@@ -677,13 +677,65 @@ void mpr_sig_update_timing_stats(mpr_local_sig lsig, float diff)
     }
 }
 
+static void _mpr_remote_sig_set_value(mpr_sig sig, int len, mpr_type type, const void *val)
+{
+    mpr_dev dev;
+    int port, i;
+    const char *host;
+    char port_str[10];
+    lo_message msg = NULL;
+    lo_address addr = NULL;
+    const void *coerced = val;
+
+    /* find destination IP and port */
+    dev = sig->dev;
+    host = mpr_obj_get_prop_as_str((mpr_obj)dev, MPR_PROP_HOST, NULL);
+    port = mpr_obj_get_prop_as_int32((mpr_obj)dev, MPR_PROP_PORT, NULL);
+    RETURN_UNLESS(host && port);
+
+    if (!(msg = lo_message_new()))
+        return;
+
+    if (type != sig->type || len != sig->len) {
+        coerced = alloca(mpr_type_get_size(sig->type) * sig->len);
+        set_coerced_val(len, type, val, sig->len, sig->type, (void*)coerced);
+    }
+    switch (sig->type) {
+        case MPR_INT32:
+            for (i = 0; i < sig->len; i++)
+                lo_message_add_int32(msg, ((int*)coerced)[i]);
+            break;
+        case MPR_FLT:
+            for (i = 0; i < sig->len; i++)
+                lo_message_add_float(msg, ((float*)coerced)[i]);
+            break;
+        case MPR_DBL:
+            for (i = 0; i < sig->len; i++)
+                lo_message_add_double(msg, ((double*)coerced)[i]);
+            break;
+    }
+
+    snprintf(port_str, 10, "%d", port);
+    if (!(addr = lo_address_new(host, port_str)))
+        goto done;
+    lo_send_message(addr, sig->path, msg);
+
+done:
+    FUNC_IF(lo_message_free, msg);
+    FUNC_IF(lo_address_free, addr);
+}
+
 void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const void *val)
 {
     mpr_time time;
     int idmap_idx;
     mpr_local_sig lsig = (mpr_local_sig)sig;
     mpr_sig_inst si;
-    RETURN_UNLESS(sig && sig->is_local);
+    RETURN_UNLESS(sig);
+    if (!sig->is_local) {
+        _mpr_remote_sig_set_value(sig, len, type, val);
+        return;
+    }
     if (!len || !val) {
         mpr_sig_release_inst(sig, id);
         return;

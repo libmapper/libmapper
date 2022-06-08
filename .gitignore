@@ -78,6 +78,7 @@ test/testparser
 test/testprops
 test/testrate
 test/testreverse
+test/testsetremote
 test/testsignalhierarchy
 test/testsignals
 test/testspeed
