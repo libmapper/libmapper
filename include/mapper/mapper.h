@@ -86,6 +86,18 @@ mpr_prop mpr_obj_get_prop_by_key(mpr_obj object, const char *key, int *length,
  *                      not exist or can't be cast to int. */
 int mpr_obj_get_prop_as_int32(mpr_obj object, mpr_prop property, const char *key);
 
+/*! Look up a property by symbolic identifier or name and return as an integer if possible. Since
+ *  the returned value cannot represent a missing property it is recommended that this function
+ *  only be used to recover properties that are guaranteed to exist and have a compatible type.
+ *  \param object       The object to check.
+ *  \param property     The symbolic identifier of the property to recover. Can be set to
+ *                      MPR_UNKNOWN or MPR_EXTRA to specify the property by name instead.
+ *  \param key          A string identifier (name) for the property. Only used if the 'property'
+ *                      argument is set to MPR_UNKNOWN or MPR_EXTRA.
+ *  \return             Value of the property cast to int64_t type, or zero if the property does
+ *                      not exist or can't be cast to int64_t. */
+int64_t mpr_obj_get_prop_as_int64(mpr_obj object, mpr_prop property, const char *key);
+
 /*! Look up a property by symbolic identifier or name and return as a float if possible. Since the
  *  returned value cannot represent a missing property it is recommended that this function only be
  *  used to recover properties that are guaranteed to exist and have a compatible type.

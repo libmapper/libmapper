@@ -68,6 +68,27 @@ int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
     }
 }
 
+int64_t mpr_obj_get_prop_as_int64(mpr_obj o, mpr_prop p, const char *s)
+{
+    mpr_tbl_record r;
+    void *v;
+    int64_t ret = 0;
+    RETURN_ARG_UNLESS(o, 0);
+    r = mpr_tbl_get(o->props.synced, p, s);
+    RETURN_ARG_UNLESS(r && r->val, 0);
+    v = (r->flags & INDIRECT) ? *r->val : r->val;
+    switch(r->type) {
+        case MPR_BOOL:
+        case MPR_INT32: ret = *(int*)v;         break;
+        case MPR_INT64: ret = *(int64_t*)v;     break;
+        case MPR_FLT:   ret = *(float*)v;       break;
+        case MPR_DBL:   ret = *(double*)v;      break;
+        case MPR_TYPE:  ret = *(mpr_type*)v;    break;
+        default:                                break;
+    }
+    return ret;
+}
+
 float mpr_obj_get_prop_as_flt(mpr_obj o, mpr_prop p, const char *s)
 {
     mpr_tbl_record r;
