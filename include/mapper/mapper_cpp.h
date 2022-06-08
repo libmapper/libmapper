@@ -1168,7 +1168,7 @@ namespace mapper {
             handler_data data = (handler_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
             if (data)
                 free(data);
-            if (h && events > Signal::Event::NONE) {
+            if (events > Signal::Event::NONE) {
                 data = (handler_data)malloc(sizeof(struct _handler_data));
                 _set_callback(data, h);
                 mpr_sig_set_cb(_obj, _generic_handler, static_cast<int>(events));
