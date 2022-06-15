@@ -153,9 +153,9 @@ jobs:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
-    - name: Run windows bat build script on PowerShell
+    - name: Run windows PowerShell build script
       shell: pwsh
-      run: .\windows_build.bat
+      run: .\windows_build.ps1
     - name: Copy dlls to python dir
       run: cp -v $PWD/build/Debug/libmapper.dll bindings/python/libmapper/libmapper.dll && cp -v $PWD/build/liblo/liblo-master/cmake/build/Debug/liblo.dll bindings/python/libmapper/liblo.dll && cp -v $PWD/build/zlib/msvc2017_64/lib/zlib/zlib.dll bindings/python/libmapper/zlib.dll
     - name: Build python wheel
