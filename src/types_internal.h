@@ -29,7 +29,7 @@
 
 /* Types defined here replace opaque prototypes in mapper.h, thus we cannot
  * include it here.  Instead we include some prototypes here. Typedefs cannot
- * be repeated, therefore they are refered to by struct name. */
+ * be repeated, therefore they are referred to by struct name. */
 
 typedef struct _mpr_expr *mpr_expr;
 typedef struct _mpr_expr_stack *mpr_expr_stack;

@@ -277,9 +277,9 @@ void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id inst, int len,
     RETURN_UNLESS(val || lsig->ephemeral)
 
     mpr_sig_update_timing_stats(lsig, diff);
-    h = (mpr_sig_handler*)lsig->handler;
-    if (h && (evt & lsig->event_flags))
-        h((mpr_sig)lsig, evt, lsig->use_inst ? inst : 0, len, lsig->type, val, *time);
+    RETURN_UNLESS(evt & lsig->event_flags);
+    RETURN_UNLESS((h = (mpr_sig_handler*)lsig->handler));
+    h((mpr_sig)lsig, evt, lsig->use_inst ? inst : 0, val ? len : 0, lsig->type, val, *time);
 }
 
 /**** Instances ****/

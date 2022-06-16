@@ -282,14 +282,16 @@ void mpr_dev_update_maps(mpr_dev device);
        or other properties.  Signals can be mapped by creating maps through a GUI. */
 
 /*! A signal handler function can be called whenever a signal value changes.
- *  \param signal       The signal that has been updated.
+ *  \param signal       The signal that has changed.
  *  \param event        The type of event that has occured, e.g. MPR_SIG_UPDATE when the value has
  *                      changed. Event types are listed in the enum mpr_sig_evt found in
  *                      mapper_constants.h
  *  \param instance     The identifier of the instance that has been changed, if applicable.
- *  \param length       The array length of the update value.
- *  \param type         The data type of the update value.
- *  \param value        A pointer to the value update.
+ *  \param length       The array length of the current value in the case of MPR_SIG_UPDATE events,
+ *                      or 0 for other events.
+ *  \param type         The data type of the signal.
+ *  \param value        A pointer to the current value in the case of MPR_SIG_UPDATE events, or
+ *                      NULL for other events.
  *  \param time         The timetag associated with this event. */
 typedef void mpr_sig_handler(mpr_sig signal, mpr_sig_evt event, mpr_id instance, int length,
                              mpr_type type, const void *value, mpr_time time);
