@@ -8,7 +8,7 @@ noinst_PROGRAMS = test testbundle testcalibrate testconvergent testcpp         \
                   testcustomtransport testexpression testgraph testinstance    \
                   testlinear testlocalmap testmany testmapfail testmapinput    \
                   testmapprotocol testmonitor testnetwork testparams testparser\
-                  testprops testrate testreverse testsetremote                 \
+                  testprops testrate testreverse testselfmap testsetremote     \
                   testsignalhierarchy testsignals testspeed testunmap testvector
 
 test_all_ordered = testparams testprops testgraph testparser testnetwork       \
@@ -16,7 +16,7 @@ test_all_ordered = testparams testprops testgraph testparser testnetwork       \
                    testinstance testreverse testvector testcustomtransport     \
                    testspeed testcpp testmapinput testconvergent testunmap     \
                    testmapfail testmapprotocol testcalibrate testlocalmap      \
-                   testsignalhierarchy testsetremote
+                   testsignalhierarchy testsetremote testselfmap
 else
 TEST_LDADD = $(top_builddir)/src/libmapper.la $(liblo_LIBS)
 noinst_PROGRAMS = test testbundle testcalibrate testconvergent testcpp         \
@@ -24,15 +24,16 @@ noinst_PROGRAMS = test testbundle testcalibrate testconvergent testcpp         \
                   testinterrupt testlinear testlocalmap testmany testmapfail   \
                   testmapinput testmapprotocol testmonitor testnetwork         \
                   testparams testparser testprops testrate testreverse         \
-                  testsetremote testsignalhierarchy testsignals testspeed      \
-                  testthread testunmap testvector
+                  testselfmap testsetremote testsignalhierarchy testsignals    \
+                  testspeed testthread testunmap testvector
 
 test_all_ordered = testparams testprops testgraph testparser testnetwork       \
                    testmany test testlinear testexpression testrate testbundle \
                    testinstance testreverse testvector testcustomtransport     \
                    testspeed testcpp testmapinput testconvergent testunmap     \
                    testmapfail testmapprotocol testcalibrate testlocalmap      \
-                   testthread testinterrupt testsignalhierarchy testsetremote
+                   testthread testinterrupt testsignalhierarchy testsetremote  \
+                   testselfmap
 endif
 
 test_CFLAGS = $(TEST_CFLAGS)
@@ -126,6 +127,10 @@ testrate_LDADD = $(TEST_LDADD)
 testreverse_CFLAGS = $(TEST_CFLAGS)
 testreverse_SOURCES = testreverse.c
 testreverse_LDADD = $(TEST_LDADD)
+
+testselfmap_CFLAGS = $(TEST_CFLAGS)
+testselfmap_SOURCES = testselfmap.c
+testselfmap_LDADD = $(TEST_LDADD)
 
 testsetremote_CFLAGS = $(TEST_CFLAGS)
 testsetremote_SOURCES = testsetremote.c
