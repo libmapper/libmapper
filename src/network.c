@@ -1460,8 +1460,7 @@ static int parse_sig_names(const char *types, lo_arg **av, int ac, int *src_idx,
 
 #define MPR_MAP_ERROR (mpr_map)-1
 
-static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
-                        mpr_loc loc, mpr_sig *sig_ptr, int flags)
+static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr_loc loc, int flags)
 {
     int i, is_loc = 0, src_idx, dst_idx, prop_idx, num_src;
     mpr_sig sig = 0;
@@ -1560,8 +1559,6 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av,
         }
         map = mpr_graph_add_map(net->graph, id, num_src, src_names, &av[dst_idx]->s);
     }
-    if (sig_ptr)
-        *sig_ptr = sig;
     return map;
 }
 
@@ -1575,13 +1572,12 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
     mpr_graph gph = (mpr_graph)user;
     mpr_net net = &gph->net;
     mpr_local_dev dev;
-    mpr_sig sig = 0;
     mpr_local_map map;
     mpr_msg props;
     int i;
 
     RETURN_ARG_UNLESS(net->num_devs, 0);
-    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_DST, &sig, ADD | UPDATE);
+    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_DST, ADD | UPDATE);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
 
 #ifdef DEBUG
@@ -1632,7 +1628,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
             continue;
         }
         mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
-        mpr_sig_send_state(sig, MSG_SIG);
+        mpr_sig_send_state(map->dst->sig, MSG_SIG);
         i = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : i, MSG_MAP_TO);
     }
     ++net->graph->staged_maps;
@@ -1651,7 +1647,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
     lo_message_pp(msg);
 #endif
 
-    mpr_local_map map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, 0, ADD | UPDATE);
+    mpr_local_map map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, ADD | UPDATE);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
     mpr_rtr_add_map(net->rtr, map);
 
@@ -1701,7 +1697,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     lo_message_pp(msg);
 #endif
 
-    map = find_map(net, types, ac, av, 0, 0, UPDATE);
+    map = find_map(net, types, ac, av, 0, UPDATE);
     RETURN_ARG_UNLESS(MPR_MAP_ERROR != map, 0);
     if (!map) {
         int store = 0, i = 0;
@@ -1717,7 +1713,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             }
         }
         if (store) {
-            map = find_map(net, types, ac, av, 0, 0, ADD);
+            map = find_map(net, types, ac, av, 0, ADD);
             rc = 1;
         }
         RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
@@ -1817,7 +1813,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     trace_net("received /map/modify ");
     lo_message_pp(msg);
 #endif
-    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, 0, FIND);
+    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
     RETURN_ARG_UNLESS(map->status >= MPR_STATUS_ACTIVE, 0);
 
@@ -1911,7 +1907,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     trace_net("received /unmap");
     lo_message_pp(msg);
 #endif
-    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, 0, FIND);
+    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND);
     /* TODO: make sure dev is actually involved in the map */
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
 
@@ -1976,7 +1972,7 @@ static int handler_unmapped(const char *path, const char *types, lo_arg **av,
     trace_graph("received /unmapped");
     lo_message_pp(msg);
 #endif
-    mpr_map map = find_map(&gph->net, types, ac, av, 0, 0, FIND);
+    mpr_map map = find_map(&gph->net, types, ac, av, 0, FIND);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
     mpr_graph_remove_map(gph, map, MPR_OBJ_REM);
     return 0;
