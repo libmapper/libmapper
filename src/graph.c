@@ -160,10 +160,26 @@ void mpr_graph_cleanup(mpr_graph g)
                 mpr_graph_remove_map(g, map, MPR_OBJ_EXP);
             }
             else {
-                /* Try pushing the map to the distributed graph */
-                mpr_obj_push((mpr_obj)map);
-                --map->status;
+                mpr_sig s = map->dst->sig;
+                int i, ready = 1;
                 ++staged;
+
+                if (s->is_local && !((mpr_local_dev)s->dev)->registered)
+                    continue;
+                for (i = 0; i < map->num_src; i++) {
+                    s = map->src[i]->sig;
+                    if (s->is_local && !((mpr_local_dev)s->dev)->registered) {
+                        ready = 0;
+                        break;
+                    }
+                }
+
+                if (ready) {
+                    /* Try pushing the map to the distributed graph */
+                    trace_graph("pushing staged map to network\n");
+                    mpr_obj_push((mpr_obj)map);
+                    --map->status;
+                }
             }
         }
     }

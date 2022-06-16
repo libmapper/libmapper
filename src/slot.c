@@ -15,7 +15,7 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned
     mpr_slot slot = (mpr_slot)calloc(1, size);
     slot->map = map;
     slot->sig = sig;
-    slot->is_local = is_local;
+    slot->is_local = is_local ? 1 : 0;
     slot->num_inst = 1;
     slot->dir = (is_src == sig->is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
     slot->causes_update = 1; /* default */

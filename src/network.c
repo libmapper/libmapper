@@ -1562,40 +1562,16 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
     return map;
 }
 
-
-/*! When the /map message is received by the destination device, send a /mapTo
- *  message to the source device.
- */
-static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
-                       lo_message msg, void *user)
+void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
 {
-    mpr_graph gph = (mpr_graph)user;
-    mpr_net net = &gph->net;
     mpr_local_dev dev;
-    mpr_local_map map;
-    mpr_msg props;
     int i;
 
-    RETURN_ARG_UNLESS(net->num_devs, 0);
-    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_DST, ADD | UPDATE);
-    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
-
-#ifdef DEBUG
-    trace_dev(map->dst->sig->dev, "received /map ");
-    lo_message_pp(msg);
-#endif
-
-    if (map->status >= MPR_STATUS_ACTIVE) {
-        /* Forward to handler_map_mod() and stop. */
-        handler_map_mod(path, types, av, ac, msg, user);
-        return 0;
-    }
     mpr_rtr_add_map(net->rtr, map);
     dev = (mpr_local_dev)map->dst->sig->dev;
 
-    props = mpr_msg_parse_props(ac, types, av);
-    mpr_map_set_from_msg((mpr_map)map, props, 1);
-    mpr_msg_free(props);
+    if (props)
+        mpr_map_set_from_msg((mpr_map)map, props, 1);
 
     if (map->is_local_only && map->expr) {
         trace_dev(dev, "map references only local signals... activating.\n");
@@ -1615,7 +1591,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
             mpr_net_use_subscribers(net, dev, MPR_MAP);
             mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
         }
-        return 0;
+        return;
     }
 
     for (i = 0; i < map->num_src; i++) {
@@ -1632,6 +1608,37 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
         i = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : i, MSG_MAP_TO);
     }
     ++net->graph->staged_maps;
+}
+
+
+/*! When the /map message is received by the destination device, send a /mapTo
+ *  message to the source device.
+ */
+static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
+                       lo_message msg, void *user)
+{
+    mpr_graph gph = (mpr_graph)user;
+    mpr_net net = &gph->net;
+    mpr_local_map map;
+    mpr_msg props;
+
+    RETURN_ARG_UNLESS(net->num_devs, 0);
+    map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_DST, ADD | UPDATE);
+    RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
+
+#ifdef DEBUG
+    trace_dev(map->dst->sig->dev, "received /map ");
+    lo_message_pp(msg);
+#endif
+
+    if (map->status >= MPR_STATUS_ACTIVE) {
+        /* Forward to handler_map_mod() and stop. */
+        handler_map_mod(path, types, av, ac, msg, user);
+        return 0;
+    }
+    props = mpr_msg_parse_props(ac, types, av);
+    mpr_net_handle_map(net, map, props);
+    mpr_msg_free(props);
     return 0;
 }
 

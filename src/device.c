@@ -268,6 +268,9 @@ void mpr_dev_on_registered(mpr_local_dev dev)
     dev->status = MPR_STATUS_READY;
 
     mpr_dev_get_name((mpr_dev)dev);
+
+    /* Check if we have any staged maps */
+    mpr_graph_cleanup(dev->obj.graph);
 }
 
 MPR_INLINE static int check_types(const mpr_type *types, int len, mpr_type type, int vector_len)

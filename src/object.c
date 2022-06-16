@@ -209,8 +209,8 @@ void mpr_obj_push(mpr_obj o)
     else if (o->type & MPR_SIG) {
         mpr_sig s = (mpr_sig)o;
         if (s->is_local) {
-            RETURN_UNLESS(((mpr_local_dev)s->dev)->registered)
             mpr_type type = ((s->dir == MPR_DIR_OUT) ? MPR_SIG_OUT : MPR_SIG_IN);
+            RETURN_UNLESS(((mpr_local_dev)s->dev)->registered)
             mpr_net_use_subscribers(n, (mpr_local_dev)s->dev, type);
             mpr_sig_send_state(s, MSG_SIG);
         }
@@ -227,6 +227,7 @@ void mpr_obj_push(mpr_obj o)
         else {
             int i;
             mpr_sig s = m->dst->sig;
+            /* Only proceed if all signals are registered (remote or registered local signals) */
             RETURN_UNLESS(!s->is_local || ((mpr_local_dev)s->dev)->registered);
             for (i = 0; i < m->num_src; i++) {
                 s = m->src[i]->sig;

@@ -115,8 +115,19 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     RETURN_ARG_UNLESS(src && *src && dst && *dst, 0);
     RETURN_ARG_UNLESS(num_src > 0 && num_src <= MAX_NUM_MAP_SRC, 0);
     for (i = 0; i < num_src; i++) {
-        TRACE_RETURN_UNLESS(src[i]->dev->name, NULL, "Cannot map from uninitialized device.\n");
         for (j = 0; j < num_dst; j++) {
+            if (src[i] == dst[j]) {
+                trace("Cannot connect signal '%s:%s' to itself.\n",
+                      mpr_dev_get_name(src[i]->dev), src[i]->name);
+                return 0;
+            }
+            if (!src[i]->dev->name || !dst[j]->dev->name) {
+                /* Only allow this if devices are the same or share a graph. */
+                if (src[i]->obj.graph == dst[j]->obj.graph)
+                    continue;
+                trace("Cannot create map between uninitialized devices unless they share a graph.");
+                return 0;
+            }
             if (   strcmp(src[i]->name, dst[j]->name)==0 && dst[j]->dev->name
                 && strcmp(src[i]->dev->name, dst[j]->dev->name)==0) {
                 trace("Cannot connect signal '%s:%s' to itself.\n",
@@ -160,7 +171,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         return 0;
     }
     if ((*dst)->is_local)
-        is_local = 1;
+        ++is_local;
 
     m = (mpr_map)mpr_list_add_item((void**)&g->maps,
                                    is_local ? sizeof(mpr_local_map_t) : sizeof(mpr_map_t));
@@ -171,9 +182,11 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     m->bundle = 1;
     m->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
     for (i = 0; i < num_src; i++) {
-        if (src[order[i]]->dev->obj.graph == g)
+        if (src[order[i]]->dev->obj.graph == g) {
             o = (mpr_obj)src[order[i]];
-        else if (!(o = mpr_graph_get_obj(g, MPR_SIG, src[order[i]]->obj.id))) {
+        }
+        else if (  !(o = mpr_graph_get_obj(g, MPR_SIG, src[order[i]]->obj.id))
+                 || (((mpr_sig)o)->dev != src[order[i]]->dev)) {
             mpr_dev dev;
             o = (mpr_obj)mpr_graph_add_sig(g, src[order[i]]->name, src[order[i]]->dev->name, 0);
             if (!o->id) {

@@ -102,6 +102,8 @@ void mpr_net_use_subscribers(mpr_net net, mpr_local_dev dev, int type);
 
 void mpr_net_add_msg(mpr_net n, const char *str, net_msg_t cmd, lo_message msg);
 
+void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props);
+
 void mpr_net_send(mpr_net n);
 
 void mpr_net_free_msgs(mpr_net n);
