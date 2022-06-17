@@ -1279,8 +1279,19 @@ int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
 {
     mpr_list l = mpr_dev_get_maps((mpr_dev)dev, dir);
     while (l) {
-        mpr_map_send_state((mpr_map)*l, -1, msg);
+        mpr_map m = (mpr_map)*l;
+        int i, ready = 1;
         l = mpr_list_get_next(l);
+        if (m->dst->sig->is_local && !((mpr_local_dev)m->dst->sig->dev)->registered)
+            continue;
+        for (i = 0; i < m->num_src; i++) {
+            if (m->src[i]->sig->is_local && !((mpr_local_dev)m->src[i]->sig->dev)->registered) {
+                ready = 0;
+                break;
+            }
+        }
+        if (ready)
+            mpr_map_send_state(m, -1, msg);
     }
     return 0;
 }
