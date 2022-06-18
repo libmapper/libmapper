@@ -2,38 +2,137 @@ if TESTS
 TEST_CFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 TEST_CXXFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 
+# note to maintainers: when adding tests to the backslash seperated lists below,
+# make sure to leave the last line as "test" to avoid merge/rebase conflicts
+
 if WINDOWS_DLL
-TEST_LDADD = $(top_builddir)/src/*.lo $(liblo_LIBS)
-noinst_PROGRAMS = test testbundle testcalibrate testconvergent testcpp         \
-                  testcustomtransport testexpression testgraph testinstance    \
-                  testlinear testlocalmap testmany testmapfail testmapinput    \
-                  testmapprotocol testmonitor testnetwork testparams testparser\
-                  testprops testrate testreverse testselfmap testsetremote     \
-                  testsignalhierarchy testsignals testspeed testunmap testvector
+    TEST_LDADD = $(top_builddir)/src/*.lo $(liblo_LIBS)
+    noinst_PROGRAMS = \
+        testbundle \
+        testcalibrate \
+        testconvergent \
+        testcpp \
+        testcustomtransport \
+        testexpression \
+        testgraph \
+        testinstance \
+        testlinear \
+        testlocalmap \
+        testmany \
+        testmapfail \
+        testmapinput \
+        testmapprotocol \
+        testmonitor \
+        testnetwork \
+        testparams \
+        testparser \
+        testprops \
+        testrate \
+        testreverse \
+        testselfmap \
+        testsetremote \
+        testsignalhierarchy \
+        testsignals \
+        testspeed \
+        testunmap \
+        testvector \
+        test
 
-test_all_ordered = testparams testprops testgraph testparser testnetwork       \
-                   testmany test testlinear testexpression testrate testbundle \
-                   testinstance testreverse testvector testcustomtransport     \
-                   testspeed testcpp testmapinput testconvergent testunmap     \
-                   testmapfail testmapprotocol testcalibrate testlocalmap      \
-                   testsignalhierarchy testsetremote testselfmap
+    test_all_ordered = \
+        testparams \
+        testprops \
+        testgraph \
+        testparser \
+        testnetwork \
+        testmany \
+        testlinear \
+        testexpression \
+        testrate \
+        testbundle \
+        testinstance \
+        testreverse \
+        testvector \
+        testcustomtransport \
+        testspeed \
+        testcpp \
+        testmapinput \
+        testconvergent \
+        testunmap \
+        testmapfail \
+        testmapprotocol \
+        testcalibrate \
+        testlocalmap \
+        testsignalhierarchy \
+        testsetremote \
+        testselfmap \
+        test
+
 else
-TEST_LDADD = $(top_builddir)/src/libmapper.la $(liblo_LIBS)
-noinst_PROGRAMS = test testbundle testcalibrate testconvergent testcpp         \
-                  testcustomtransport testexpression testgraph testinstance    \
-                  testinterrupt testlinear testlocalmap testmany testmapfail   \
-                  testmapinput testmapprotocol testmonitor testnetwork         \
-                  testparams testparser testprops testrate testreverse         \
-                  testselfmap testsetremote testsignalhierarchy testsignals    \
-                  testspeed testthread testunmap testvector
+    TEST_LDADD = $(top_builddir)/src/libmapper.la $(liblo_LIBS)
+    noinst_PROGRAMS = \
+        testbundle \
+        testcalibrate \
+        testconvergent \
+        testcpp \
+        testcustomtransport \
+        testexpression \
+        testgraph \
+        testinstance \
+        testinterrupt \
+        testlinear \
+        testlocalmap \
+        testmany \
+        testmapfail \
+        testmapinput \
+        testmapprotocol \
+        testmonitor \
+        testnetwork \
+        testparams \
+        testparser \
+        testprops \
+        testrate \
+        testreverse \
+        testselfmap \
+        testsetremote \
+        testsignalhierarchy \
+        testsignals \
+        testspeed \
+        testthread \
+        testunmap \
+        testvector \
+        test
 
-test_all_ordered = testparams testprops testgraph testparser testnetwork       \
-                   testmany test testlinear testexpression testrate testbundle \
-                   testinstance testreverse testvector testcustomtransport     \
-                   testspeed testcpp testmapinput testconvergent testunmap     \
-                   testmapfail testmapprotocol testcalibrate testlocalmap      \
-                   testthread testinterrupt testsignalhierarchy testsetremote  \
-                   testselfmap
+    test_all_ordered = \
+        testparams \
+        testprops \
+        testgraph \
+        testparser \
+        testnetwork \
+        testmany \
+        testlinear \
+        testexpression \
+        testrate \
+        testbundle \
+        testinstance \
+        testreverse \
+        testvector \
+        testcustomtransport \
+        testspeed \
+        testcpp \
+        testmapinput \
+        testconvergent \
+        testunmap \
+        testmapfail \
+        testmapprotocol \
+        testcalibrate \
+        testlocalmap \
+        testthread \
+        testinterrupt \
+        testsignalhierarchy \
+        testsetremote \
+        testselfmap \
+        test
+
 endif
 
 test_CFLAGS = $(TEST_CFLAGS)
