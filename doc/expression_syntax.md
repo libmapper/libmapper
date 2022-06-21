@@ -173,6 +173,7 @@ There are several special functions that operate across all elements of the vect
 
 * `angle(a, b)` – output the angle between vectors `a` and `b`
 * `dot(a, b)` – output the dot product of vectors `a` and `b`
+* `sort(x, d)` or `x.sort(d)` - output a sorted version of the vector. The output will be sorted in ascending order if `d` is positive or descending order if `d` is negative.
 
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 

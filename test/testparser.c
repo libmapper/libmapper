@@ -1363,6 +1363,20 @@ int run_tests()
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
+    /* 103) sort() */
+    set_expr_str("a=[4,2,3,1,5,0]; a = a.sort(1); y=a[0];");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = ((int)src_flt[0]) % 6;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 104) call sort() directly on array */
+    set_expr_str("a=[4,2,3,1,5,0].sort(1); y=a[0];");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = 0;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
     return 0;
 }
 

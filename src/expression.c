@@ -8,8 +8,6 @@
 #include <float.h>
 #include "mapper_internal.h"
 
-
-
 #define MAX_HIST_SIZE 100
 #define STACK_SIZE 64
 #define N_USER_VARS 16
@@ -173,6 +171,36 @@ EXTREMA_VFUNC(vmaxf, >, float, f)
 EXTREMA_VFUNC(vminf, <, float, f)
 EXTREMA_VFUNC(vmaxd, >, double, d)
 EXTREMA_VFUNC(vmind, <, double, d)
+
+#define INC_SORT_FUNC(TYPE, T)                              \
+int inc_sort_func##T (const void * a, const void * b) {     \
+    return ((*(mpr_expr_val)a).T - (*(mpr_expr_val)b).T);   \
+}
+INC_SORT_FUNC(int, i)
+INC_SORT_FUNC(float, f)
+INC_SORT_FUNC(double, d)
+
+#define DEC_SORT_FUNC(TYPE, T)                              \
+int dec_sort_func##T (const void * a, const void * b) {     \
+    return ((*(mpr_expr_val)b).T - (*(mpr_expr_val)a).T);   \
+}
+DEC_SORT_FUNC(int, i)
+DEC_SORT_FUNC(float, f)
+DEC_SORT_FUNC(double, d)
+
+#define SORT_VFUNC(NAME, TYPE, T)                                   \
+static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
+{                                                                   \
+    mpr_expr_val val = stk + idx * inc, dir = val + inc;            \
+    int len = dim[idx];                                             \
+    if (dir[0].T >= 0)                                              \
+        qsort(val, len, sizeof(mpr_expr_val_t), inc_sort_func##T);  \
+    else                                                            \
+        qsort(val, len, sizeof(mpr_expr_val_t), dec_sort_func##T);  \
+}
+SORT_VFUNC(vsorti, int, i)
+SORT_VFUNC(vsortf, float, f)
+SORT_VFUNC(vsortd, double, d)
 
 #define powd pow
 #define sqrtd sqrt
@@ -440,6 +468,7 @@ typedef enum {
     VFN_SUM,
     /* function names above this line are also found in rfn_table */
     VFN_NORM,
+    VFN_SORT,
     VFN_MAXMIN,
     VFN_SUMNUM,
     VFN_ANGLE,
@@ -464,6 +493,7 @@ static struct {
     { "min",    1, 1, 1, vmini,    vminf,    vmind    },
     { "sum",    1, 1, 1, vsumi,    vsumf,    vsumd    },
     { "norm",   1, 1, 1, 0,        vnormf,   vnormd   },
+    { "sort",   2, 0, 1, vsorti,   vsortf,   vsortd   },
     { "maxmin", 3, 0, 0, vmaxmini, vmaxminf, vmaxmind },
     { "sumnum", 3, 0, 0, vsumnumi, vsumnumf, vsumnumd },
     { "angle",  2, 1, 0, 0,        vanglef,  vangled  },
@@ -867,7 +897,7 @@ static int expr_lex(const char *str, int idx, mpr_token_t *tok)
             ++i;
             if ((tok->fn.idx = vfn_lookup(str+i, idx-i)) != VFN_UNKNOWN) {
                 tok->toktype = TOK_VFN_DOT;
-                return idx + 2;
+                return idx + ((vfn_tbl[tok->fn.idx].arity == 1) ? 2 : 1);
             }
             else if ((tok->fn.idx = rfn_lookup(str+i, idx-i)) != RFN_UNKNOWN) {
                 tok->toktype = TOK_RFN;
@@ -1881,9 +1911,10 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
     }
 
     if (!(stk[sp].gen.flags & VEC_LEN_LOCKED)) {
-        if (stk[sp].toktype != TOK_VFN)
+        if (stk[sp].toktype != TOK_VFN || VFN_SORT == stk[sp].fn.idx)
             stk[sp].gen.vec_len = vec_len;
     }
+
     /* if stack within bounds of arity was only constants, we're ok to compute */
     if (enable_optimize && can_precompute) {
         int len = precompute(eval_stk, &stk[sp - arity], arity + 1, vec_len);
@@ -2229,7 +2260,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
     int var_flags = 0;
     uint8_t reduce_types = 0;
     int allow_toktype = 0x2FFFFF;
-    int in_vec_len = 0;
+    int vec_len_ctx = 0;
 
     mpr_var_t vars[N_USER_VARS];
     temp_var_cache temp_vars = NULL;
@@ -2393,7 +2424,6 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     {FAIL_IF(slot >= n_ins, "Input slot index > number of sources.");}
                     tok.gen.datatype = in_types[slot];
                     tok.gen.vec_len = (TOK_VAR == tok.toktype) ? in_vec_lens[slot] : 1;
-                    in_vec_len = tok.gen.vec_len;
                     tok.gen.flags |= VEC_LEN_LOCKED;
                     is_const = 0;
                 }
@@ -2445,6 +2475,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     if (!assigning)
                         is_const = 0;
                 }
+                vec_len_ctx = tok.gen.vec_len;
                 tok.var.vec_idx = 0;
                 if (muted)
                     tok.gen.flags |= VAR_MUTED;
@@ -2530,9 +2561,17 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     tok.fn.arity = vfn_tbl[tok.fn.idx].arity;
                     tok.gen.vec_len = 1;
                     PUSH_TO_OPERATOR(tok);
-                    POP_OPERATOR_TO_OUTPUT();
-                    allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
-                                     | TOK_COMMA | TOK_COLON | TOK_SEMICOLON | TOK_RFN);
+                    if (tok.fn.arity > 1) {
+                        tok.toktype = TOK_OPEN_PAREN;
+                        tok.fn.arity = 2;
+                        PUSH_TO_OPERATOR(tok);
+                        allow_toktype = OBJECT_TOKENS;
+                    }
+                    else {
+                        POP_OPERATOR_TO_OUTPUT();
+                        allow_toktype |= (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
+                                          | TOK_COMMA | TOK_COLON | TOK_SEMICOLON | TOK_RFN);
+                    }
                     break;
                 }
                 /* omit break and continue to case TOK_RFN */
@@ -3248,11 +3287,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     int var_idx = out_idx;
                     GET_NEXT_TOKEN(tok);
                     {FAIL_IF(tok.toktype != TOK_LITERAL || tok.gen.datatype != MPR_INT32,
-                             "Non-integer vector index.");}
-                    if (out[out_idx].var.idx == VAR_Y)
-                        {FAIL_IF(tok.lit.val.i >= out_vec_len, "Index exceeds output vector length. (1)");}
-                    else
-                        {FAIL_IF(tok.lit.val.i >= in_vec_len, "Index exceeds input vector length. (1)");}
+                             "Non-integer vector index (1).");}
+                    /* TODO: use modulo instead of failing */
+                    {FAIL_IF(tok.lit.val.i < 0 || tok.lit.val.i >= vec_len_ctx,
+                             "Index exceeds vector length. (1)");}
                     while (var_idx >= 0 && out[var_idx].toktype != TOK_VAR)
                         --var_idx;
                     {FAIL_IF(var_idx < 0, "Error retrieving variable.");}
@@ -3264,13 +3302,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         /* index is range A:B */
                         GET_NEXT_TOKEN(tok);
                         {FAIL_IF(tok.toktype != TOK_LITERAL || tok.gen.datatype != MPR_INT32,
-                              "Malformed vector index.");}
-                        if (out[var_idx].var.idx == VAR_Y)
-                            {FAIL_IF(tok.lit.val.i >= out_vec_len,
-                                     "Index exceeds output vector length. (2)");}
-                        else
-                            {FAIL_IF(tok.lit.val.i >= in_vec_len,
-                                     "Index exceeds input vector length. (2)");}
+                                 "Non-integer vector index (2).");}
+                        /* TODO: use modulo instead of failing */
+                        {FAIL_IF(tok.lit.val.i < 0 || tok.lit.val.i >= vec_len_ctx,
+                                 "Index exceeds vector length. (2)");}
                         {FAIL_IF(tok.lit.val.i < out[var_idx].var.vec_idx, "Malformed vector index.");}
                         out[var_idx].var.vec_len = tok.lit.val.i - out[var_idx].var.vec_idx + 1;
                         GET_NEXT_TOKEN(tok);
@@ -3905,6 +3940,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     return status;
                 datatype[3] = v_out->type;
                 COPY_TO_STACK(v_out);
+                can_advance = 0;
             }
             else if (tok->var.idx >= VAR_X) {
                 mpr_value v;
@@ -3916,6 +3952,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 COPY_TO_STACK(v);
                 if (!cache)
                     status &= ~EXPR_EVAL_DONE;
+                can_advance = 0;
             }
             else if (v_vars) {
                 int _inst_idx = expr->vars[tok->var.idx].flags & VAR_INSTANCED ? inst_idx : 0;
@@ -4249,6 +4286,8 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             default:
                 goto error;
             }
+            if (tok->fn.idx > FN_DELAY)
+                can_advance = 0;
 #if TRACE_EVAL
             printf(" = ");
             print_stack_vec(stk + sp, datatype[3], dims[dp]);
@@ -4539,7 +4578,8 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             break;
         case TOK_ASSIGN:
         case TOK_ASSIGN_USE:
-            can_advance = 0;
+            if (VAR_Y == tok->var.idx)
+                can_advance = 0;
         case TOK_ASSIGN_CONST: {
             int hidx = tok->gen.flags & VAR_HIST_IDX;
             if (hidx) {
