@@ -37,4 +37,3 @@ cd bindings\python\
 
 Write-Host "Done! dll's for liblo and zlib are located in the build/ folder"
 Write-Host "build/Debug/ contains the libmapper dll"
-Pause
