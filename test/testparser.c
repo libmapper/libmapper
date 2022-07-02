@@ -47,17 +47,17 @@ int src_lens[SRC_ARRAY_LEN], n_sources, dst_len;
 
 #ifdef WIN32
 #include <windows.h>
-void usleep(__int64 usec) 
-{ 
-    HANDLE timer; 
-    LARGE_INTEGER ft; 
+void usleep(__int64 usec)
+{
+    HANDLE timer;
+    LARGE_INTEGER ft;
 
     ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
 
-    timer = CreateWaitableTimer(NULL, TRUE, NULL); 
-    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0); 
-    WaitForSingleObject(timer, INFINITE); 
-    CloseHandle(timer); 
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
 }
 #endif
 
@@ -551,9 +551,10 @@ int run_tests()
         return 1;
 
     /* 16) Vector index outside bounds */
-    set_expr_str("y=x[3]");
+    set_expr_str("y=x[-3]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+    expect_int[0] = src_int[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 17) Vector length mismatch */
@@ -1084,14 +1085,14 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, (iterations + 1) / 2))
         return 1;
 
-    /* 78) Optimization: Vector squashing (10 tokens instead of 12) */
-    set_expr_str("y=x*[3,3,x[1]]+[x[0],1,1];");
-    setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    expect_flt[0] = src_flt[0] * 3.0f + src_flt[0];
-    expect_flt[1] = src_flt[1] * 3.0f + 1.0f;
-    expect_flt[2] = src_flt[2] * src_flt[1] + 1.0f;
-    if (parse_and_eval(EXPECT_SUCCESS, 10, 1, iterations))
-        return 1;
+//    /* 78) Optimization: Vector squashing (10 tokens instead of 12) */
+//    set_expr_str("y=x*[3,3,x[1]]+[x[0],1,1];");
+//    setup_test(MPR_FLT, 3, MPR_FLT, 3);
+//    expect_flt[0] = src_flt[0] * 3.0f + src_flt[0];
+//    expect_flt[1] = src_flt[1] * 3.0f + 1.0f;
+//    expect_flt[2] = src_flt[2] * src_flt[1] + 1.0f;
+//    if (parse_and_eval(EXPECT_SUCCESS, 10, 1, iterations))
+//        return 1;
 
     /* 79) Wrapping vectors, vector variables (6 tokens instead of 11) */
     set_expr_str("y=x*[3,3,3]+[1.23,4.56];");
@@ -1111,7 +1112,7 @@ int run_tests()
         return 1;
 
     /* 81) instance.reduce() */
-    set_expr_str("y=x.instance.reduce(a, b -> a[1:2] + b);");
+    set_expr_str("y=x[1:2].instance.reduce(a, b -> a + b);");
     setup_test(MPR_FLT, 3, MPR_FLT, 1);
     expect_flt[0] = src_flt[1];
     expect_flt[1] = src_flt[2];
@@ -1364,9 +1365,9 @@ int run_tests()
         return 1;
 
     /* 103) sort() */
-    set_expr_str("a=[4,2,3,1,5,0]; a = a.sort(1); y=a[0];");
+    set_expr_str("a=[4,2,3,1,5,0]; a = a.sort(1); y=a[x];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    expect_flt[0] = ((int)src_flt[0]) % 6;
+    expect_flt[0] = (((int)src_flt[0]) % 6 + 6) % 6;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -1376,6 +1377,76 @@ int run_tests()
     expect_flt[0] = 0;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
+
+    /* 105) variable array index */
+    set_expr_str("a=[0,1,2,3,4,5]; y=a[x];");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = (((int)src_flt[0]) % 6 + 6) % 6;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 106) expression array index */
+    set_expr_str("a=[0,1,2,3,4,5]; y=a[sin(x)>0?0:1];");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = sin(src_flt[0]) > 0.f ? 0.f : 1.f;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 107) fractional array index */
+    set_expr_str("a=[0,1,2,3,4,5]; y=a[0.5];");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+        return 1;
+
+//    /* 108) variable signal index */
+//    set_expr_str("y=x$(x$1)");
+//    types[0] = MPR_FLT;
+//    types[1] = MPR_INT32;
+//    lens[0] = 1;
+//    lens[1] = 1;
+//    setup_test_multisource(2, types, lens, MPR_FLT, 1);
+//    expect_flt[0] = src_int[0] % 2 ? src_flt[0] : (float)src_int[0];
+//    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+//        return 1;
+//
+//    /* 109) expression signal index */
+//    set_expr_str("y=x$(sin(x)>0);");
+//    types[0] = MPR_FLT;
+//    types[1] = MPR_INT32;
+//    lens[0] = 1;
+//    lens[1] = 1;
+//    setup_test_multisource(2, types, lens, MPR_FLT, 1);
+//    expect_flt[0] = sin(src_flt[0]) > 0.f ? 0.f : 1.f;
+//    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+//        return 1;
+
+    /* 110) fractional signal index */
+    set_expr_str("y=x$0.5;");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 111) Indexing vectors by range with wrap-around */
+    set_expr_str("y=x[2:0]+100");
+    setup_test(MPR_DBL, 3, MPR_FLT, 2);
+    expect_flt[0] = (float)(src_dbl[2] + 100);
+    expect_flt[1] = (float)(src_dbl[0] + 100);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    // TODO: example using hist idx on user variable (read, write)
+    // TODO: example using variables for indexes (sig, hist, vec) (hist already done)
+    // TODO: example using expressions for indexes (sig, hist, vec)
+
+//
+//    /* 106) Convert active instances to vector */
+////    set_expr_str("a=x[0].instance.vectorize(16).sort(1); y=a;");
+//    set_expr_str("v=x[0].instance.reduce(a, b = [] -> b.append(a)); y=v;");
+//    setup_test(MPR_FLT, 3, MPR_FLT, 1);
+//    expect_flt[0] = src_flt[1];
+//    expect_flt[1] = src_flt[2];
+//    if (parse_and_eval(EXPECT_SUCCESS, 9, 1, iterations))
+//        return 1;
 
     return 0;
 }
