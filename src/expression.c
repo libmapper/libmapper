@@ -1550,8 +1550,8 @@ static int replace_special_constants(mpr_token_t *stk, int sp)
             case CONST_MINVAL:
                 switch (stk[sp].lit.datatype) {
                     case MPR_INT32: stk[sp].lit.val.i = INT_MIN;    break;
-                    case MPR_FLT:   stk[sp].lit.val.f = FLT_MIN;    break;
-                    case MPR_DBL:   stk[sp].lit.val.d = DBL_MIN;    break;
+                    case MPR_FLT:   stk[sp].lit.val.f = -FLT_MAX;   break;
+                    case MPR_DBL:   stk[sp].lit.val.d = -DBL_MAX;   break;
                     default:                                        goto error;
                 }
                 break;
