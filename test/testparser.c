@@ -52,7 +52,8 @@ void usleep(__int64 usec)
     HANDLE timer;
     LARGE_INTEGER ft;
 
-    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+    /* Convert to 100 nanosecond interval, negative value indicates relative time */
+    ft.QuadPart = -(10*usec);
 
     timer = CreateWaitableTimer(NULL, TRUE, NULL);
     SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
@@ -1396,27 +1397,27 @@ int run_tests()
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
-//    /* 108) variable signal index */
-//    set_expr_str("y=x$(x$1)");
-//    types[0] = MPR_FLT;
-//    types[1] = MPR_INT32;
-//    lens[0] = 1;
-//    lens[1] = 1;
-//    setup_test_multisource(2, types, lens, MPR_FLT, 1);
-//    expect_flt[0] = src_int[0] % 2 ? src_flt[0] : (float)src_int[0];
-//    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
-//        return 1;
-//
-//    /* 109) expression signal index */
-//    set_expr_str("y=x$(sin(x)>0);");
-//    types[0] = MPR_FLT;
-//    types[1] = MPR_INT32;
-//    lens[0] = 1;
-//    lens[1] = 1;
-//    setup_test_multisource(2, types, lens, MPR_FLT, 1);
-//    expect_flt[0] = sin(src_flt[0]) > 0.f ? 0.f : 1.f;
-//    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
-//        return 1;
+    /* 108) variable signal index */
+    set_expr_str("y=x$(x$1)");
+    types[0] = MPR_FLT;
+    types[1] = MPR_INT32;
+    lens[0] = 1;
+    lens[1] = 1;
+    setup_test_multisource(2, types, lens, MPR_FLT, 1);
+    expect_flt[0] = src_int[0] % 2 ? (float)src_int[0] : src_flt[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 109) expression signal index */
+    set_expr_str("y=x$(sin(x)>0);");
+    types[0] = MPR_FLT;
+    types[1] = MPR_INT32;
+    lens[0] = 1;
+    lens[1] = 1;
+    setup_test_multisource(2, types, lens, MPR_FLT, 1);
+    expect_flt[0] = (sin(src_flt[0]) > 0.f) ? (float)src_int[0] : src_flt[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
 
     /* 110) fractional signal index */
     set_expr_str("y=x$0.5;");
@@ -1432,19 +1433,12 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    // TODO: example using hist idx on user variable (read, write)
-    // TODO: example using variables for indexes (sig, hist, vec) (hist already done)
-    // TODO: example using expressions for indexes (sig, hist, vec)
-
-//
-//    /* 106) Convert active instances to vector */
-////    set_expr_str("a=x[0].instance.vectorize(16).sort(1); y=a;");
-//    set_expr_str("v=x[0].instance.reduce(a, b = [] -> b.append(a)); y=v;");
-//    setup_test(MPR_FLT, 3, MPR_FLT, 1);
-//    expect_flt[0] = src_flt[1];
-//    expect_flt[1] = src_flt[2];
-//    if (parse_and_eval(EXPECT_SUCCESS, 9, 1, iterations))
-//        return 1;
+    /* 112) Arpeggiator */
+    set_expr_str("i{-1}=0;p=[60,61,62,63,64];y=miditohz(p[i]);i=i+1;");
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
+    expect_flt[0] = 440.f * pow(2.0, (((iterations - 1) % 6) + 60.f - 69.f) / 12.f);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
 
     return 0;
 }
