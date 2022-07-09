@@ -1436,7 +1436,7 @@ int run_tests()
     /* 112) Arpeggiator */
     set_expr_str("i{-1}=0;p=[60,61,62,63,64];y=miditohz(p[i]);i=i+1;");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_flt[0] = 440.f * pow(2.0, (((iterations - 1) % 6) + 60.f - 69.f) / 12.f);
+    expect_flt[0] = 440.f * pow(2.0, (((iterations - 1) % 5) + 60.f - 69.f) / 12.f);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
