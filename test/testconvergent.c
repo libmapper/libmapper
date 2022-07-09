@@ -11,6 +11,8 @@
 #endif
 #include <signal.h>
 
+#define MAX_NUM_MAP_SRC 8
+
 int num_sources = 3;
 int verbose = 1;
 int terminate = 0;
@@ -310,6 +312,8 @@ int main(int argc, char **argv)
                             num_sources = atoi(argv[i]);
                             if (num_sources <= 0)
                                 num_sources = 1;
+                            else if (num_sources > MAX_NUM_MAP_SRC)
+                                num_sources = MAX_NUM_MAP_SRC;
                             j = 1;
                         }
                         else if (strcmp(argv[i], "--iface")==0 && argc>i+1) {

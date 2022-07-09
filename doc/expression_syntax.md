@@ -141,10 +141,11 @@ generated output.
 <h2 id="vectors">Vectors</h2>
 
 Individual elements of variable values can be accessed using the notation
-`<variable>[<index>]`. The index specifies the vector element, and
-obviously must be `>=0`. Expressions must match the vector lengths of the
-source and destination signals, and can be used to translate between
-signals with different vector lengths.
+`<variable>[<index>]` in which `index` specifies the vector element starting from zero. Overruns and underruns are not possible as the modulus will be used if the index is outside the range `<0,length-1>`. This means that negative indices may be used for indexing from the end of the vector.
+
+When assigning values to a vector, if the source is shorter than the assignee it will be repeated as necessary, e.g. if `myvar` has length 5 and the expression assigns `myvar=[1,2,3]` its value will now be `[1,2,3,1,2]`.
+
+Variables and expressions may also be used as indexes.
 
 ### Vector examples
 
@@ -155,6 +156,8 @@ signals with different vector lengths.
 * `y[0:2] = x` — apply update to elements `0-2` of the output vector
 * `[y[0], y[2]] = x` — apply update to output vector elements `y[0]` and `y[2]` but
 leave `y[1]` unchanged.
+* `y = x[i]; i = i + 1;` – use the user-defined variable `i` as an index.
+* `y = x[sin(x) * 5]` – use an expression to calculate an index.
 
 ### Vector reducing functions
 
@@ -173,6 +176,7 @@ There are several special functions that operate across all elements of the vect
 
 * `angle(a, b)` – output the angle between vectors `a` and `b`
 * `dot(a, b)` – output the dot product of vectors `a` and `b`
+* `sort(x, d)` or `x.sort(d)` - output a sorted version of the vector. The output will be sorted in ascending order if `d` is positive or descending order if `d` is negative.
 
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 
@@ -471,6 +475,8 @@ vector elements  | `x[n]`  | representation of signals that are naturally multid
 input signals    | `x$n`   | [convergent maps](#convergent-maps)
 signal history   | `x{-n}` | DSP (e.g. smoothing filters); [live looping](https://nime.pubpub.org/pub/2pqbusk7/release/1)
 signal instances | TBA     | representation of signals that are [naturally multiplex and/or ephemeral](https://ieeexplore.ieee.org/document/8259406), e.g. multitouch
+
+As mentioned in the section on vectors above, the index `n` can be a literal, a variable, or an expression. In the case of expression-type input signal indices parentheses must be used to indicate the scope of the index, e.g. `y=x$(sin(x)>0);`.
 
 <h2 id="reduce-functions">Reducing functions</h2>
 
