@@ -1,4 +1,3 @@
-#include "../src/mapper_internal.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -15,6 +14,8 @@
 #endif
 #include <signal.h>
 #include <math.h>
+
+#include <mapper/mapper.h>
 
 int verbose = 1;
 int terminate = 0;
@@ -49,6 +50,7 @@ static void seed_srand()
 {
     unsigned int s;
     double d;
+    mpr_time t;
 
 #ifndef WIN32
     FILE *f = fopen("/dev/urandom", "rb");
@@ -62,7 +64,8 @@ static void seed_srand()
     }
 #endif
 
-    d = mpr_get_current_time();
+    mpr_time_set(&t, MPR_NOW);
+    d = mpr_time_as_dbl(t);
     s = (unsigned int)((d - (unsigned long)d) * 100000);
     srand(s);
 }
