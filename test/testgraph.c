@@ -424,7 +424,7 @@ int main(int argc, char **argv)
 
     if (verbose) {
         eprintf("Dump:\n");
-        mpr_graph_print(graph);
+        mpr_obj_print((mpr_obj)graph, 0);
     }
 
     /*********/

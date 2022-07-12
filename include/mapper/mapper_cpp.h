@@ -1722,11 +1722,6 @@ namespace mapper {
             RETURN_SELF
         }
 
-        /*! Print a Graph to stdout.
-         *  \return         Self. */
-        const Graph& print() const
-            { mpr_graph_print(_obj); RETURN_SELF }
-
         /*! Return a List of all Devices.
          *  \return         A List of Devices. */
         List<Device> devices() const

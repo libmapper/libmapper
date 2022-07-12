@@ -268,19 +268,6 @@ mpr_list mpr_map_get_sigs(mpr_map m, mpr_loc l)
     return mpr_list_start(qry);
 }
 
-mpr_sig mpr_map_get_sig(mpr_map map, int idx, mpr_loc loc)
-{
-    RETURN_ARG_UNLESS(map && map->obj.graph->sigs, 0);
-    if (loc & MPR_LOC_SRC) {
-        int i;
-        for (i = 0; i < map->num_src; i++, idx--) {
-            if (0 == idx)
-                return map->src[i]->sig;
-        }
-    }
-    return ((loc & MPR_LOC_DST) && (0 == idx)) ? map->dst->sig : NULL;
-}
-
 int mpr_map_get_sig_idx(mpr_map m, mpr_sig s)
 {
     int i;

@@ -488,13 +488,6 @@ mpr_map mpr_map_new_from_str(const char *expression, ...);
  *  \param map          The map to destroy. */
 void mpr_map_release(mpr_map map);
 
-/*! Retrieve a connected signal for a specific map by index.
- *  \param map          The map to check.
- *  \param index        The index of the signal to return.
- *  \param endpoint     The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or MPR_LOC_ANY.
- *  \return             A signal, or NULL if not found. */
-mpr_sig mpr_map_get_sig(mpr_map map, int index, mpr_loc endpoint);
-
 /*! Retrieve a list of connected signals for a specific map.
  *  \param map          The map to check.
  *  \param endpoint     The map endpoint, must be MPR_LOC_SRC, MPR_LOC_DST, or MPR_LOC_ANY.
@@ -664,10 +657,6 @@ int mpr_graph_stop_polling(mpr_graph graph);
 /*! Free a graph.
  *  \param graph        The graph to free. */
 void mpr_graph_free(mpr_graph graph);
-
-/*! Print the contents of a graph.
- *  \param graph        The graph to print. */
-void mpr_graph_print(mpr_graph graph);
 
 /*! Subscribe to information about a specific device.
  *  \param graph        The graph to use.

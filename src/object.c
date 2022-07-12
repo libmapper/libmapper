@@ -256,6 +256,9 @@ void mpr_obj_print(mpr_obj o, int staged)
     RETURN_UNLESS(o && o->props.synced);
 
     switch (o->type) {
+        case MPR_GRAPH:
+            mpr_graph_print((mpr_graph)o);
+            break;
         case MPR_DEV:
             printf("DEVICE: ");
             mpr_prop_print(1, MPR_DEV, o);

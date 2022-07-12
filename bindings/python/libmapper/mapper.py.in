@@ -980,11 +980,6 @@ class Map(Object):
         mpr.mpr_map_release.restype = None
         mpr.mpr_map_release(self._obj)
 
-    def signal(self, index, location):
-        mpr.mpr_map_get_sig.argtypes = [c_void_p, c_int, c_int]
-        mpr.mpr_map_get_sig.restype = c_void_p
-        return Signal(mpr.mpr_map_get_sig(self._obj, index, location))
-
     def signals(self, location=Location.ANY):
         mpr.mpr_map_get_sigs.argtypes = [c_void_p, c_int]
         mpr.mpr_map_get_sigs.restype = c_void_p
@@ -1156,11 +1151,6 @@ class Graph(Object):
 
     def maps(self):
         return List(mpr.mpr_graph_get_list(self._obj, Type.MAP))
-
-    def print(self, staged=0):
-        mpr.mpr_graph_print.argtypes = [c_void_p]
-        mpr.mpr_graph_print(self._obj)
-        return self
 
 class Device(Object):
     def __init__(self, *args):
