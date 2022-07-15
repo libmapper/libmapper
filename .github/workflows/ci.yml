@@ -157,7 +157,7 @@ jobs:
       shell: pwsh
       run: .\windows_build.ps1
     - name: Build python wheel
-      run: .\windows_build_wheel.ps1
+      run: .\bindings\python\windows_build_wheel.ps1
     - uses: actions/upload-artifact@v3
       with:
         path: ./bindings/python/dist/*.whl
