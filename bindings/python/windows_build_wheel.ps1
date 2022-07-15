@@ -1,5 +1,9 @@
 cd $PSScriptRoot
 
+# Rename .py.in files to .py for Windows
+cp ./setup.py.in ./setup.py
+cp ./libmapper/mapper.py.in ./libmapper/mapper.py
+
 # Replace version env variable with actual version
 $versionString = git describe --tags
 $versionString = $versionString -replace '([0-9.]+)-([0-9]+)-([a-z0-9]+)', '$1.$2+$3'

@@ -27,14 +27,6 @@ cd "$($scriptDir)\build"
 cmake ..
 cmake --build . --target all_build
 
-# Rename .py.in files to .py for Windows
-# Reset active directory
-cd $scriptDir
-cp ./bindings/python/setup.py.in ./bindings/python/setup.py
-cp ./bindings/python/libmapper/mapper.py.in ./bindings/python/libmapper/mapper.py
-cd bindings/python/
-./get_version.ps1
-
 # Create dist directory for dlls and wheel
 cd $scriptDir
 if (!(Test-Path "$($scriptDir)\dist\")) {
