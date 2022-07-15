@@ -32,8 +32,19 @@ cmake --build . --target all_build
 cd $scriptDir
 cp ./bindings/python/setup.py.in ./bindings/python/setup.py
 cp ./bindings/python/libmapper/mapper.py.in ./bindings/python/libmapper/mapper.py
-cd bindings\python\
+cd bindings/python/
 ./get_version.ps1
 
-Write-Host "Done! dll's for liblo and zlib are located in the build/ folder"
-Write-Host "build/Debug/ contains the libmapper dll"
+# Create dist directory for dlls and wheel
+cd $scriptDir
+if (!(Test-Path "$($scriptDir)\dist\")) {
+  mkdir dist
+}
+# Copy dlls to /dist
+cp -v ./build/Debug/libmapper.dll ./dist/libmapper.dll
+cp -v ./build/liblo/liblo-master/cmake/build/Debug/liblo.dll ./dist/liblo.dll
+cp -v ./build/zlib/msvc2017_64/lib/zlib/zlib.dll ./dist/zlib.dll
+# Copy test files
+cp -v ./build/test/Debug/* ./dist/tests
+
+Write-Host "Done! dll's for liblo and zlib are located in the dist/ folder"
