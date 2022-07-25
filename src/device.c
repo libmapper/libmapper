@@ -1056,7 +1056,6 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     int portnum;
     char port[16], *pport = 0, *url, *host;
     mpr_net net = &dev->obj.graph->net;
-    mpr_list sigs;
     if (!net->servers[SERVER_UDP] && !net->servers[SERVER_TCP]) {
         while (!(net->servers[SERVER_UDP] = lo_server_new(pport, handler_error)))
             pport = 0;
@@ -1085,17 +1084,6 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     mpr_tbl_set(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, NON_MODIFIABLE);
     free(host);
     free(url);
-
-    /* add signal methods */
-    sigs = mpr_dev_get_sigs((mpr_dev)dev, MPR_DIR_ANY);
-    while (sigs) {
-        mpr_local_sig sig = (mpr_local_sig)*sigs;
-        sigs = mpr_list_get_next(sigs);
-        if (sig->handler) {
-            lo_server_add_method(net->servers[SERVER_UDP], sig->path, NULL, mpr_dev_handler, (void*)sig);
-            lo_server_add_method(net->servers[SERVER_TCP], sig->path, NULL, mpr_dev_handler, (void*)sig);
-        }
-    }
 }
 
 const char *mpr_dev_get_name(mpr_dev dev)
