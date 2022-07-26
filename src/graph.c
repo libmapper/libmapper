@@ -840,7 +840,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
     mpr_graph_housekeeping(g);
 
     if (!block_ms) {
-        if (lo_servers_recv_noblock(&n->servers[SERVER_ADMIN], status, 2, 0)) {
+        if (lo_servers_recv_noblock(n->servers, status, 2, 0)) {
             count = (status[0] > 0) + (status[1] > 0);
             n->msgs_recvd |= count;
         }
@@ -853,7 +853,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
         if (left_ms > 100)
             left_ms = 100;
 
-        if (lo_servers_recv_noblock(&n->servers[SERVER_ADMIN], status, 2, left_ms))
+        if (lo_servers_recv_noblock(n->servers, status, 2, left_ms))
             count += (status[0] > 0) + (status[1] > 0);
 
         elapsed = (mpr_get_current_time() - then) * 1000;

@@ -102,19 +102,17 @@ typedef struct _mpr_subscription {
     uint32_t lease_expiration_sec;
 } *mpr_subscription;
 
-#define SERVER_ADMIN    0
 #define SERVER_BUS      0   /* Multicast comms. */
 #define SERVER_MESH     1   /* Mesh comms. */
 
-#define SERVER_DEVICE   2
-#define SERVER_UDP      2
-#define SERVER_TCP      3
+#define SERVER_UDP      0
+#define SERVER_TCP      1
 
 /*! A structure that keeps information about network communications. */
 typedef struct _mpr_net {
     struct _mpr_graph *graph;
 
-    lo_server servers[4];
+    lo_server servers[2];
 
     struct {
         lo_address bus;             /*!< LibLo address for the multicast bus. */
@@ -542,6 +540,8 @@ struct _mpr_dev {
 
 struct _mpr_local_dev {
     MPR_DEV_STRUCT_ITEMS
+
+    lo_server servers[2];
 
     mpr_allocated_t ordinal_allocator;  /*!< A unique ordinal for this device instance. */
     int registered;                     /*!< Non-zero if this device has been registered. */

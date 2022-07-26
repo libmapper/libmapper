@@ -570,8 +570,6 @@ void mpr_net_free(mpr_net net)
     FUNC_IF(free, net->multicast.group);
     FUNC_IF(lo_server_free, net->servers[SERVER_BUS]);
     FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
-    FUNC_IF(lo_server_free, net->servers[SERVER_UDP]);
-    FUNC_IF(lo_server_free, net->servers[SERVER_TCP]);
     FUNC_IF(lo_address_free, net->addr.bus);
     FUNC_IF(free, net->addr.url);
     FUNC_IF(free, net->rtr);
