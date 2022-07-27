@@ -190,6 +190,8 @@ jobs:
   MacOS-Latest-check-wheel:
     runs-on: macOS-latest
     needs: MacOS-Latest
+    env:
+      SYSTEM_VERSION_COMPAT: 0
     steps:
       - uses: actions/setup-python@v2
       - name: download artifact
