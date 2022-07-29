@@ -480,10 +480,10 @@ As mentioned in the section on vectors above, the index `n` can be a literal, a 
 
 <h2 id="reduce-functions">Reducing functions</h2>
 
-There are several special functions that operate across all elements of a signal dimension. Use the table below and simply replace `<dim>` with the dimension name: *instance*, *history*, *signal*, or *vector*. 
+There are several special functions that operate across all elements of a signal dimension. Use the table below and simply replace `<dim>` with the dimension name: *instance*, *history*, *signal*, or *vector*. In the case of *vector* reduce the output will be a scalar, otherwise the output will have the same vector length as the expression being reduced.
 
-* `x.<dim>.any()` – output `1` if any element of `x` is non-zero, otherwise output `0` (for each vector element)
-* `x.<dim>.all()` – output `1` if all elements of `x` are non-zero, otherwise output `0` (for each vector element)
+* `x.<dim>.any()` – output `1` if any element of `x` is non-zero, otherwise output `0`
+* `x.<dim>.all()` – output `1` if all elements of `x` are non-zero, otherwise output `0`
 * `x.<dim>.count()` — output the number of elements of `x`, e.g. `x.instance.count()` to get the number of active instances.
 * `x.<dim>.sum()` – output the sum of the values of all elements of `x`
 * `x.<dim>.mean()` – output the mean of the values of all elements of `x`
@@ -511,16 +511,16 @@ In addition to the specialised reducing functions mentioned above, map expressio
 
 dimension        | syntax
 -----------------|---------------------------
-vector elements  | x.vector.reduce(a, b *[= initialValue]* -> ...)
-input signals    | x.signal.reduce(a, b *[= initialValue]* -> ...)
-signal instances | x.instance.reduce(a, b *[= initialValue]* -> ...)
-signal history   | x.history(*len*).reduce(a, b *[= initialValue]* -> ...)
+vector elements  | x.vector.reduce(*a*, *b [= initialValue]* -> ...)
+input signals    | x.signal.reduce(*a*, *b [= initialValue]* -> ...)
+signal instances | x.instance.reduce(*a*, *b [= initialValue]* -> ...)
+signal history   | x.history(*len*).reduce(*a*, *b [= initialValue]* -> ...)
 
-Note that the `history` type of reduce function requires an integer argument after `.history` specifying the number of samples to reduce. The `reduce()` function requires arguments specifying the `input` and `accumulator` variable names, followed by the arrow symbol `->` and an expression describing how to process each element. The `input` and `accumulator` variable names are user-defined, and have only local scope, i.e. if reduce functions are nested using the same variable names no variable collisions will occur. The `accumulator` variable can be initialised is needed; otherwise it will default to zero.
+Note that the `history` type of reduce function requires an integer argument after `.history` specifying the number of samples to reduce. The `reduce()` function requires arguments specifying the `input` and `accumulator` variable names, followed by the arrow symbol `->` and an expression describing how to process each element. The `input` and `accumulator` variable names are user-defined, and are lexically scoped, i.e. if reduce functions are nested using the same variable names no variable collisions will occur. The `accumulator` variable can be initialised is needed; otherwise it will default to zero.
 
 For example, the following expression will calculate the mean signal value over the last 10 samples:
 
-<pre style="width:50%;margin:auto">
+<pre style="width:60%;margin:auto">
 y = x.history(10).reduce(a, b -> a + b) / 10;
 </pre>
 
@@ -535,3 +535,13 @@ As mentioned above, reduce functions can be nested to reduce across multiple dim
 <pre style="margin:auto">
 y = x.signal.reduce(a, b -> a.vector.reduce(c, d -> c + d) + b);
 </pre>
+
+<h3 id="concat">Building vectors from instances, history, or signals</h3>
+
+In some scenarios it may be useful to convert the active instances, historic values, or multiple signal values into a vector before further processing. This can be accomplished using the `concat()` function applied to one of these dimensions, e.g.:
+
+* `x.history(5).concat(5)` – concatenate the last 5 historical values to form a vector.
+* `x.instance.concat(10)` – concatenate active instance values to form a vector with a maximum length of 10.
+* `x.signal.concat(4)` – concatenate input signal values (in a convergent map) to form a vector.
+
+Note that the `concat()` function requires an integer argument specifying the maximum length of the output vector. This is needed to preallocate memory needed by the expression evaluator.

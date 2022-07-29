@@ -83,14 +83,15 @@ EXTREMA_FUNC(mind, double, <)
 
 #define UNARY_FUNC(TYPE, NAME, SUFFIX, CALC)    \
     static TYPE NAME##SUFFIX(TYPE x) { return CALC; }
-#define FLOAT_OR_DOUBLE_UNARY_FUNC(NAME, CALC)  \
-    UNARY_FUNC(float, NAME, f, CALC)            \
-    UNARY_FUNC(double, NAME, d, CALC)
-FLOAT_OR_DOUBLE_UNARY_FUNC(midiToHz, 440. * pow(2.0, (x - 69) / 12.0))
-FLOAT_OR_DOUBLE_UNARY_FUNC(hzToMidi, 69. + 12. * log2(x / 440.))
-FLOAT_OR_DOUBLE_UNARY_FUNC(uniform, rand() / (RAND_MAX + 1.0) * x)
+UNARY_FUNC(float, hzToMidi, f, 69.f + 12.f * log2f(x / 440.f))
+UNARY_FUNC(double, hzToMidi, d, 69. + 12. * log2(x / 440.))
+UNARY_FUNC(float, midiToHz, f, 440.f * powf(2.f, (x - 69.f) / 12.f))
+UNARY_FUNC(double, midiToHz, d, 440. * pow(2., (x - 69.) / 12.));
+UNARY_FUNC(float, uniform, f, (float)rand() / (RAND_MAX + 1.f) * x)
+UNARY_FUNC(double, uniform, d, (double)rand() / (RAND_MAX + 1.) * x)
 UNARY_FUNC(int, sign, i, x >= 0 ? 1 : -1)
-FLOAT_OR_DOUBLE_UNARY_FUNC(sign, x >= 0 ? 1.0 : -1.0)
+UNARY_FUNC(float, sign, f, x >= 0.f ? 1.f : -1.f)
+UNARY_FUNC(double, sign, d, x >= 0. ? 1. : -1.)
 
 #define TEST_VEC_TYPED(NAME, TYPE, OP, CMP, RET, T)                 \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
@@ -178,7 +179,7 @@ EXTREMA_VFUNC(vmind, <, double, d)
 
 #define INC_SORT_FUNC(TYPE, T)                              \
 int inc_sort_func##T (const void * a, const void * b) {     \
-    return ((*(mpr_expr_val)a).T - (*(mpr_expr_val)b).T);   \
+    return ((*(mpr_expr_val)a).T > (*(mpr_expr_val)b).T);   \
 }
 INC_SORT_FUNC(int, i)
 INC_SORT_FUNC(float, f)
@@ -186,21 +187,20 @@ INC_SORT_FUNC(double, d)
 
 #define DEC_SORT_FUNC(TYPE, T)                              \
 int dec_sort_func##T (const void * a, const void * b) {     \
-    return ((*(mpr_expr_val)b).T - (*(mpr_expr_val)a).T);   \
+    return ((*(mpr_expr_val)b).T > (*(mpr_expr_val)a).T);   \
 }
 DEC_SORT_FUNC(int, i)
 DEC_SORT_FUNC(float, f)
 DEC_SORT_FUNC(double, d)
 
-#define SORT_VFUNC(NAME, TYPE, T)                                   \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    mpr_expr_val val = stk + idx * inc, dir = val + inc;            \
-    int len = dim[idx];                                             \
-    if (dir[0].T >= 0)                                              \
-        qsort(val, len, sizeof(mpr_expr_val_t), inc_sort_func##T);  \
-    else                                                            \
-        qsort(val, len, sizeof(mpr_expr_val_t), dec_sort_func##T);  \
+#define SORT_VFUNC(NAME, TYPE, T)                                       \
+static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)      \
+{                                                                       \
+    mpr_expr_val val = stk + idx * inc, dir = val + inc;                \
+    if (dir[0].T >= 0)                                                  \
+        qsort(val, dim[idx], sizeof(mpr_expr_val_t), inc_sort_func##T); \
+    else                                                                \
+        qsort(val, dim[idx], sizeof(mpr_expr_val_t), dec_sort_func##T); \
 }
 SORT_VFUNC(vsorti, int, i)
 SORT_VFUNC(vsortf, float, f)
@@ -286,6 +286,19 @@ static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 SUMNUM_VFUNC(vsumnumi, int, i)
 SUMNUM_VFUNC(vsumnumf, float, f)
 SUMNUM_VFUNC(vsumnumd, double, d)
+
+#define CONCAT_VFUNC(NAME, TYPE, T)                                     \
+static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)      \
+{                                                                       \
+    mpr_expr_val cat = stk+idx*inc, num = cat+inc, new = num+inc;       \
+    uint8_t i, j, newlen = dim[idx+2];                                  \
+    for (i = dim[idx], j = 0; j < newlen && i < (int)num[0].T; i++, j++)\
+        cat[i].T = new[j].T;                                            \
+    dim[idx] = i;                                                       \
+}
+CONCAT_VFUNC(vconcati, int, i)
+CONCAT_VFUNC(vconcatf, float, f)
+CONCAT_VFUNC(vconcatd, double, d)
 
 #define TYPED_EMA(TYPE, T)                              \
 static TYPE ema##T(TYPE memory, TYPE val, TYPE weight)  \
@@ -474,6 +487,7 @@ typedef enum {
     VFN_MEAN,
     VFN_MIN,
     VFN_SUM,
+    VFN_CONCAT,
     /* function names above this line are also found in rfn_table */
     VFN_NORM,
     VFN_SORT,
@@ -500,6 +514,7 @@ static struct {
     { "mean",   1, 1, 1, 0,        vmeanf,   vmeand   },
     { "min",    1, 1, 1, vmini,    vminf,    vmind    },
     { "sum",    1, 1, 1, vsumi,    vsumf,    vsumd    },
+    { "concat", 3, 0, 0, vconcati, vconcatf, vconcatd },
     { "norm",   1, 1, 1, 0,        vnormf,   vnormd   },
     { "sort",   2, 0, 1, vsorti,   vsortf,   vsortd   },
     { "maxmin", 3, 0, 0, vmaxmini, vmaxminf, vmaxmind },
@@ -517,6 +532,7 @@ typedef enum {
     RFN_MEAN,
     RFN_MIN,
     RFN_SUM,
+    RFN_CONCAT,
     /* function names above this line are also found in vfn_table */
     RFN_COUNT,
     RFN_SIZE,
@@ -543,6 +559,7 @@ static struct {
     { "mean",     3, OP_UNKNOWN,     VFN_SUMNUM  },
     { "min",      2, OP_UNKNOWN,     VFN_MIN     },
     { "sum",      2, OP_ADD,         VFN_UNKNOWN },
+    { "concat",   3, OP_UNKNOWN,     VFN_CONCAT  }, /* replaced during parsing */
     { "count",    0, OP_ADD,         VFN_UNKNOWN },
     { "size",     0, OP_UNKNOWN,     VFN_MAXMIN  },
     { "map",      1, OP_UNKNOWN,     VFN_UNKNOWN }, /* replaced during parsing */
@@ -1704,6 +1721,8 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                 can_precompute = 0;
             break;
         case TOK_VFN:
+            if (VFN_CONCAT == stk[sp].fn.idx)
+                return sp;
             arity = vfn_tbl[stk[sp].fn.idx].arity;
             break;
         case TOK_VECTORIZE:
@@ -1814,7 +1833,9 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                 case TOK_FN:         skip += fn_tbl[stk[i].fn.idx].arity;       break;
                 case TOK_VFN:
                     skip += vfn_tbl[stk[i].fn.idx].arity;
-                    if (VFN_MAXMIN == stk[i].fn.idx || VFN_SUMNUM == stk[i].fn.idx)
+                    if (   VFN_MAXMIN == stk[i].fn.idx
+                        || VFN_SUMNUM == stk[i].fn.idx
+                        || VFN_CONCAT == stk[i].fn.idx)
                         --skip; /* these functions have 2 outputs */
                     break;
                 case TOK_VECTORIZE:  skip += stk[i].fn.arity;                   break;
@@ -2124,13 +2145,16 @@ static int _eval_stack_size(mpr_token_t *token_stack, int token_stack_len)
     memcpy(out + out_idx, &x, sizeof(mpr_token_t));                 \
 }
 
-#define PUSH_INT_TO_OUTPUT(x)       \
-{                                   \
-    tok.toktype = TOK_LITERAL;      \
-    tok.lit.datatype = MPR_INT32;   \
-    tok.lit.val.i = x;              \
-    tok.lit.flags &= ~CONST_SPECIAL;\
-    PUSH_TO_OUTPUT(tok);            \
+#define PUSH_INT_TO_OUTPUT(x)   \
+{                               \
+    mpr_token_t t;              \
+    t.toktype = TOK_LITERAL;    \
+    t.gen.datatype = MPR_INT32; \
+    t.gen.casttype = 0;         \
+    t.gen.vec_len = 1;          \
+    t.gen.flags = 0;            \
+    t.lit.val.i = x;            \
+    PUSH_TO_OUTPUT(t);          \
 }
 
 #define POP_OUTPUT() ( out_idx-- )
@@ -2715,7 +2739,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                 else if (tok.var.idx >= VAR_X)
                                     x_ref = 1;
                             }
-                            if (y_ref) {
+                            /* TODO: reduce prefix could include BOTH x and y */
+                            if (y_ref && x_ref)
+                                {FAIL("mixed history reduce is ambiguous.");}
+                            else if (y_ref) {
                                 op[op_idx].con.reduce_start = lit_val;
                                 op[op_idx].con.reduce_stop = 1;
                             }
@@ -2785,7 +2812,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                          "Signal indexes not allowed within signal reduce function.");}
                                 if (VAR_X == tok.var.idx) {
                                     x_ref = 1;
-                                    /* upgrade vector length to maximum */
+                                    /* promote vector length */
                                     out[out_idx - i].var.vec_len = max_vec_len;
                                 }
                             }
@@ -3014,6 +3041,37 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                      | TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_TT);
                     break;
                 }
+                else if (RFN_CONCAT == rfn) {
+                    mpr_token_t newtok;
+                    GET_NEXT_TOKEN(newtok);
+                    {FAIL_IF(TOK_LITERAL != newtok.toktype || MPR_INT32 != newtok.gen.datatype,
+                             "concat() requires an integer argument");}
+                    {FAIL_IF(newtok.lit.val.i <= 1 || newtok.lit.val.i > 64,
+                             "concat() max size must be between 2 and 64.");}
+
+                    if (newtok.lit.val.i > max_vector)
+                        max_vector = newtok.lit.val.i;
+                    tok.gen.vec_len = 0;
+
+                    tok.gen.datatype = op[op_idx].gen.datatype;
+
+                    for (i = 0; i < sslen; i++) {
+                        if (TOK_VAR == op[op_idx - i].toktype)
+                            op[op_idx - i].gen.vec_len = 0;
+                    }
+
+                    /* Push token for building vector */
+                    PUSH_INT_TO_OUTPUT(0);
+                    out[out_idx].lit.vec_len = 0;
+                    out[out_idx].gen.flags |= VEC_LEN_LOCKED;
+
+                    /* Push token for maximum vector length */
+                    PUSH_INT_TO_OUTPUT(newtok.lit.val.i);
+
+                    GET_NEXT_TOKEN(newtok);
+                    {FAIL_IF(TOK_CLOSE_PAREN != newtok.toktype, "missing right parenthesis.");}
+                    tok.gen.flags |= VEC_LEN_LOCKED | TYPE_LOCKED;
+                }
 
                 switch (rfn) {
                     case RFN_CENTER:
@@ -3054,7 +3112,6 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 }
                 {FAIL_IF(op_idx < 0, "Malformed expression (11).");}
 
-                /* skip to after substack */
                 if (TOK_COPY_FROM == out[out_idx].toktype) {
                     /* TODO: simplified reduce functions do not need separate cache for input */
                 }
@@ -3084,7 +3141,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 /* copy type from last token */
                 newtok.gen.datatype = out[out_idx].gen.datatype;
 
-                if (RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn) {
+                if (RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn || RFN_CONCAT == rfn) {
                     tok.toktype = TOK_SP_ADD;
                     tok.lit.val.i = 1;
                     PUSH_TO_OUTPUT(tok);
@@ -3093,7 +3150,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 /* all instance reduce functions require these tokens */
                 memcpy(&tok, &newtok, sizeof(mpr_token_t));
                 tok.toktype = TOK_LOOP_END;
-                if (RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn) {
+                if (RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn || RFN_CONCAT == rfn) {
                     tok.con.branch_offset = 2 + sslen;
                     tok.con.cache_offset = 2;
                 }
@@ -3130,8 +3187,17 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     PUSH_TO_OPERATOR(tok);
                     POP_OPERATOR_TO_OUTPUT();
                 }
+                else if (RFN_CONCAT == rfn) {
+                    tok.toktype = TOK_SP_ADD;
+                    tok.lit.val.i = -1;
+                    PUSH_TO_OUTPUT(tok);
+                }
                 allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
                                  | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
+                if (RFN_CONCAT == rfn) {
+                    /* Allow chaining another dot function after concat() */
+                    allow_toktype |= TOK_VFN_DOT;
+                }
                 break;
             }
             case TOK_LAMBDA:
@@ -3977,6 +4043,10 @@ static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len, int dp
 {
     int i;
     printf("%d|", dp);
+    if (!vec_len) {
+        printf("[]%c\n", type);
+        return;
+    }
     if (vec_len > 1)
         printf("[");
     switch (type) {
@@ -4138,16 +4208,16 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             types[dp] = tok->gen.datatype;
                 /* TODO: remove vector building? */
             switch (types[dp]) {
-#define TYPED_CASE(MTYPE, T)                                                    \
-                case MTYPE:                                                     \
-                    if (TOK_LITERAL == tok->toktype) {                          \
-                        for (i = sp; i < sp + tok->gen.vec_len; i++)            \
-                            stk[i].T = tok->lit.val.T;                          \
-                    }                                                           \
-                    else {                                                      \
-                        for (i = sp, j = 0; i < sp + tok->gen.vec_len; i++, j++)\
-                            stk[i].T = tok->lit.val.T##p[j];                    \
-                    }                                                           \
+#define TYPED_CASE(MTYPE, T)                                            \
+                case MTYPE:                                             \
+                    if (TOK_LITERAL == tok->toktype) {                  \
+                        for (i = sp; i < sp + dims[dp]; i++)            \
+                            stk[i].T = tok->lit.val.T;                  \
+                    }                                                   \
+                    else {                                              \
+                        for (i = sp, j = 0; i < sp + dims[dp]; i++, j++)\
+                            stk[i].T = tok->lit.val.T##p[j];            \
+                    }                                                   \
                     break;
                 TYPED_CASE(MPR_INT32, i)
                 TYPED_CASE(MPR_FLT, f)
@@ -4157,7 +4227,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     goto error;
             }
 #if TRACE_EVAL
-            print_stack_vec(stk + sp, types[dp], tok->gen.vec_len, dp);
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
             break;
         case TOK_VAR: {
@@ -4259,22 +4329,22 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dp = idxp + 1;
             assert(dp >= 0 && dp < expr_stk->size);
             sp = dp * vlen;
-            dims[dp] = tok->gen.vec_len;
+            dims[dp] = tok->gen.vec_len ? tok->gen.vec_len : v->vlen;
             types[dp] = v->type;
 
             i = (b->pos + v->mlen + hidx) % v->mlen;
             if (i < 0)
                 i += v->mlen;
             switch (v->type) {
-#define COPY_TYPED(MTYPE, TYPE, T)                                          \
-                case MTYPE: {                                               \
-                    TYPE *a = (TYPE*)b->samps + i * v->vlen;                \
-                    for (i = 0, j = sp; i < tok->gen.vec_len; i++, j++) {   \
-                        int vec_idx = (i + vidx) % v->vlen;                 \
-                        if (vec_idx < 0) vec_idx += v->vlen;                \
-                        stk[j].T = a[vec_idx];                              \
-                    }                                                       \
-                    break;                                                  \
+#define COPY_TYPED(MTYPE, TYPE, T)                                  \
+                case MTYPE: {                                       \
+                    TYPE *a = (TYPE*)b->samps + i * v->vlen;        \
+                    for (i = 0, j = sp; i < dims[dp]; i++, j++) {   \
+                        int vec_idx = (i + vidx) % v->vlen;         \
+                        if (vec_idx < 0) vec_idx += v->vlen;        \
+                        stk[j].T = a[vec_idx];                      \
+                    }                                               \
+                    break;                                          \
                 }
                 COPY_TYPED(MPR_INT32, int, i)
                 COPY_TYPED(MPR_FLT, float, f)
@@ -4290,7 +4360,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 #define WEIGHTED_ADD(MTYPE, TYPE, T)                                                    \
                     case MTYPE: {                                                       \
                         TYPE *a = (TYPE*)b->samps + i * v->vlen;                        \
-                        for (i = 0, j = sp; i < tok->gen.vec_len; i++, j++) {           \
+                        for (i = 0, j = sp; i < dims[dp]; i++, j++) {                   \
                             int vec_idx = (i + vidx) % v->vlen;                         \
                             if (vec_idx < 0) vec_idx += v->vlen;                        \
                             stk[j].T = stk[j].T * weight + a[vec_idx] * (1 - weight);   \
@@ -4306,7 +4376,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 }
             }
 #if TRACE_EVAL
-            print_stack_vec(stk + sp, types[dp], tok->gen.vec_len, dp);
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
             break;
         }
@@ -4330,6 +4400,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 goto error;
             for (i = 1; i < tok->gen.vec_len; i++)
                 stk[sp + i].i = stk[sp].i;
+            can_advance = 0;
 #if TRACE_EVAL
             print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
@@ -4418,7 +4489,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             break;
         }
         case TOK_OP: {
-            int maxlen, diff;
+            int maxlen;
             unsigned int rdim;
             dp -= (op_tbl[tok->op.idx].arity - 1);
             assert(dp >= 0);
@@ -4427,12 +4498,14 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             maxlen = dims[dp];
             for (i = 1; i < op_tbl[tok->op.idx].arity; i++)
                 maxlen = _max(maxlen, dims[dp + i]);
-            diff = maxlen - dims[dp];
-            while (diff > 0) {
-                int mindiff = dims[dp] > diff ? diff : dims[dp];
-                memcpy(&stk[sp + dims[dp]], &stk[sp], mindiff * sizeof(mpr_expr_val_t));
-                dims[dp] += mindiff;
-                diff -= mindiff;
+            for (i = 0; i < op_tbl[tok->op.idx].arity; i++) {
+                int diff = maxlen - dims[dp];
+                while (diff > 0) {
+                    int mindiff = dims[dp] > diff ? diff : dims[dp];
+                    memcpy(&stk[sp + dims[dp]], &stk[sp], mindiff * sizeof(mpr_expr_val_t));
+                    dims[dp] += mindiff;
+                    diff -= mindiff;
+                }
             }
             rdim = dims[dp + 1];
             switch (types[dp]) {
@@ -4441,7 +4514,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                         OP_CASES_META(i);
                         case OP_DIVIDE:
                             /* Check for divide-by-zero */
-                            for (i = 0, j = 0; i < tok->gen.vec_len; i++, j = (j + 1) % rdim) {
+                            for (i = 0, j = 0; i < maxlen; i++, j = (j + 1) % rdim) {
                                 if (stk[sp + vlen + j].i)
                                     stk[sp + i].i /= stk[sp + vlen + j].i;
                                 else {
@@ -4479,7 +4552,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                         OP_CASES_META(f);
                         BINARY_OP_CASE(OP_DIVIDE, /, f);
                         case OP_MODULO:
-                            for (i = 0; i < tok->gen.vec_len; i++)
+                            for (i = 0; i < maxlen; i++)
                                 stk[sp + i].f = fmodf(stk[sp + i].f, stk[sp + vlen + i % rdim].f);
                             break;
                         default: goto error;
@@ -4491,7 +4564,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                         OP_CASES_META(d);
                         BINARY_OP_CASE(OP_DIVIDE, /, d);
                         case OP_MODULO:
-                            for (i = 0; i < tok->gen.vec_len; i++)
+                            for (i = 0; i < maxlen; i++)
                                 stk[sp + i].d = fmod(stk[sp + i].d, stk[sp + vlen + i % rdim].d);
                             break;
                         default: goto error;
@@ -4580,7 +4653,8 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dp -= (vfn_tbl[tok->fn.idx].arity - 1);
             assert(dp >= 0);
             sp = dp * vlen;
-            if (vfn_tbl[tok->fn.idx].arity > 1 || VFN_DOT == tok->fn.idx) {
+            if (VFN_CONCAT != tok->fn.idx
+                && (vfn_tbl[tok->fn.idx].arity > 1 || VFN_DOT == tok->fn.idx)) {
                 int maxdim = tok->gen.vec_len;
                 for (i = 0; i < vfn_tbl[tok->fn.idx].arity; i++)
                     maxdim = maxdim > dims[dp + i] ? maxdim : dims[dp + i];
@@ -4614,11 +4688,13 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 for (i = 1; i < tok->gen.vec_len; i++)
                     stk[sp + i].d = stk[sp].d;
             }
-            dims[dp] = tok->gen.vec_len;
-            types[dp] = tok->gen.datatype;
+            if (vfn_tbl[tok->fn.idx].reduce)
+                dims[dp] = tok->gen.vec_len;
 #if TRACE_EVAL
             print_stack_vec(stk + sp, types[dp], dims[dp], dp);
-            if (VFN_MAXMIN == tok->fn.idx || VFN_SUMNUM == tok->fn.idx) {
+            if (   VFN_MAXMIN == tok->fn.idx
+                || VFN_SUMNUM == tok->fn.idx
+                || VFN_CONCAT == tok->fn.idx) {
                 printf("\t\t\t\t\t");
                 print_stack_vec(stk + sp + vlen, types[dp + 1], dims[dp + 1], dp + 1);
             }
@@ -5060,10 +5136,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 TYPED_CASE(MPR_DBL, d, MPR_INT32, int, i, MPR_FLT, float, f)
 #undef TYPED_CASE
             }
-#if TRACE_EVAL
-            print_stack_vec(stk + sp, tok->gen.casttype, dims[dp], dp);
-#endif
             types[dp] = tok->gen.casttype;
+#if TRACE_EVAL
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
+#endif
         }
         ++tok;
     }

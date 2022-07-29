@@ -1131,7 +1131,7 @@ int run_tests()
     /* 83) Reducing a user variable */
     set_expr_str("n=(x-100);y=n.vector.sum();");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
-    expect_flt[0] = src_flt[0] - 100 + src_flt[1] - 100 + src_flt[2] - 100;
+    expect_flt[0] = src_flt[0] - 100.f + src_flt[1] - 100.f + src_flt[2] - 100.f;
     expect_flt[1] = expect_flt[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
@@ -1469,7 +1469,6 @@ int run_tests()
     lens[0] = 1;
     lens[1] = 1;
     setup_test_multisource(2, types, lens, MPR_FLT, 1);
-
     expect_flt[0] = sinf(src_flt[0] - 10.f);
     for (i = 0; i < 4; i++) {
         if (i < iterations)
@@ -1493,6 +1492,58 @@ int run_tests()
     setup_test(MPR_INT32, 2, MPR_FLT, 1);
     expect_flt[0] = src_int[1];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 117) Mixed input and output references in history reduce */
+    set_expr_str("y=(x-y).history(4).mean();");
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 118) Turn history into vector */
+    set_expr_str("a = x.history(5).concat(5).sort(1); y = a[2];");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = (iterations > 3) || (src_flt[0] < 0) ? src_flt[0] : 0.f;
+    if (parse_and_eval(EXPECT_SUCCESS, 13, 1, iterations))
+        return 1;
+
+    /* 119) Turn signals into vector */
+    set_expr_str("a = x.signal.concat(10).sort(-1); y = a[0];");
+    types[0] = MPR_FLT;
+    types[1] = MPR_INT32;
+    types[2] = MPR_DBL;
+    lens[0] = 1;
+    lens[1] = 2;
+    lens[2] = 3;
+    setup_test_multisource(3, types, lens, MPR_FLT, 1);
+    expect_flt[0] = src_flt[0];
+    for (i = 0; i < lens[1]; i++) {
+        if ((float)src_int[i] > expect_flt[0]) {
+            expect_flt[0] = (float)src_int[i];
+        }
+    }
+    for (i = 0; i < lens[2]; i++) {
+        if ((float)src_dbl[i] > expect_flt[0]) {
+            expect_flt[0] = (float)src_dbl[i];
+        }
+    }
+    if (parse_and_eval(EXPECT_SUCCESS, 13, 1, iterations))
+        return 1;
+
+    /* 120) Turn instances into vector and arpeggiate */
+    /* TODO: add timing */
+    /* TODO: ensure variable 'i' is not reset to zero for each new instance. */
+    set_expr_str("i{-1}=0;p=(x%128).instance.concat(10).sort(1);y=miditohz(p[i]);i=i+1;");
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
+    expect_flt[0] = 440.f * powf(2.f, (fmodf(src_int[0], 128.f) - 69.f) / 12.f);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 121) Count instances over time */
+    set_expr_str("y = y{-1} + x.instance.count();");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = iterations;
+    if (parse_and_eval(EXPECT_SUCCESS, 9, 1, iterations))
         return 1;
 
     return 0;
