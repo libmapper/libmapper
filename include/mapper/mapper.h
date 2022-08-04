@@ -644,12 +644,12 @@ const char *mpr_graph_get_address(mpr_graph graph);
  *  \return             The number of handled messages. */
 int mpr_graph_poll(mpr_graph graph, int block_ms);
 
-/*! Start automatically synchonizing a local graph copy in a separate thread.
+/*! Start automatically synchronizing a local graph copy in a separate thread.
  *  \param graph        The graph to update.
  *  \return             Zero if successful, less than zero otherwise. */
 int mpr_graph_start_polling(mpr_graph graph);
 
-/*! Stop automatically synchonizing a local graph copy in a separate thread.
+/*! Stop automatically synchronizing a local graph copy in a separate thread.
  *  \param graph        The graph to update.
  *  \return             Zero if successful, less than zero otherwise. */
 int mpr_graph_stop_polling(mpr_graph graph);

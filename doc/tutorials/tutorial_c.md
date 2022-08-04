@@ -314,7 +314,7 @@ void pw_handler (mpr_sig sig, mpr_int_evt evt, mpr_id inst, int length,
 {
     if (!length || !value)
         return;
-    Synth *s = (Synth*) mpr_obj_get_prop_ptr(sig, MPR_PROP_DATA, 0);
+    Synth *s = (Synth*) mpr_obj_get_prop_as_ptr(sig, MPR_PROP_DATA, 0);
     s->setPulseWidth(*(float*)v);
 }
 ~~~
