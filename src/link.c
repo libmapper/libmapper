@@ -129,11 +129,11 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
     b = &link->bundles[idx];
 
     if (!link->is_local_only) {
-        mpr_net n = &link->obj.graph->net;
+        mpr_local_dev ldev = (mpr_local_dev)link->devs[LOCAL_DEV];
         if ((lb = b->udp)) {
             b->udp = 0;
             if ((num = lo_bundle_count(lb))) {
-                lo_send_bundle_from(link->addr.udp, n->servers[SERVER_UDP], lb);
+                lo_send_bundle_from(link->addr.udp, ldev->servers[SERVER_UDP], lb);
             }
             lo_bundle_free_recursive(lb);
         }
@@ -141,7 +141,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
             b->tcp = 0;
             if ((tmp = lo_bundle_count(lb))) {
                 num += tmp;
-                lo_send_bundle_from(link->addr.tcp, n->servers[SERVER_TCP], lb);
+                lo_send_bundle_from(link->addr.tcp, ldev->servers[SERVER_TCP], lb);
             }
             lo_bundle_free_recursive(lb);
         }

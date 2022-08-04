@@ -188,6 +188,8 @@ jobs:
   MacOS-Latest-check-wheel:
     runs-on: macOS-latest
     needs: MacOS-Latest
+    env:
+      SYSTEM_VERSION_COMPAT: 0
     steps:
       - uses: actions/setup-python@v2
       - name: download artifact
@@ -196,7 +198,7 @@ jobs:
         run:
           ls
           && find artifact
-          && python3 -m pip install artifact/libmapper*-py3-none-macosx_10_15_x86_64.whl
+          && python3 -m pip install artifact/libmapper*-py3-none-macosx_11_0_x86_64.whl
       - name: checkout
         uses: actions/checkout@v2
         with:

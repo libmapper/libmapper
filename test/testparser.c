@@ -1435,10 +1435,63 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 112) Arpeggiator */
+    /* 112) Reduce with vector initialisation for accumulator */
+    set_expr_str("y = x.history(5).reduce(a, b = [1,2,3] -> a + b);");
+    setup_test(MPR_FLT, 3, MPR_FLT, 3);
+    expect_flt[0] = 1;
+    expect_flt[1] = 2;
+    expect_flt[2] = 3;
+    for (i = 0; i < iterations && i < 5; i++) {
+        expect_flt[0] += src_flt[0];
+        expect_flt[1] += src_flt[1];
+        expect_flt[2] += src_flt[2];
+    }
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 113) Reduce with function initialisation for accumulator */
+    set_expr_str("y = x$1.history(4).reduce(a, b = sin(x$0 - 10) -> a + b);");
+    types[0] = MPR_FLT;
+    types[1] = MPR_INT32;
+    lens[0] = 1;
+    lens[1] = 1;
+    setup_test_multisource(2, types, lens, MPR_FLT, 1);
+    expect_flt[0] = sin(src_flt[0] - 10.f);
+    for (i = 0; i < iterations && i < 4; i++)
+        expect_flt[0] += src_int[0];
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 114) Nested reduce with function initialisation for accumulator */
+    set_expr_str("y=x$1.history(4).reduce(a,b=sin(x$0-10)->a.vector.reduce(c,d=cos(b)->c-d)+b);");
+    types[0] = MPR_FLT;
+    types[1] = MPR_INT32;
+    lens[0] = 1;
+    lens[1] = 1;
+    setup_test_multisource(2, types, lens, MPR_FLT, 1);
+
+    expect_flt[0] = sinf(src_flt[0] - 10.f);
+    for (i = 0; i < 4; i++) {
+        if (i < iterations)
+            expect_flt[0] += (float)src_int[0] - cosf(expect_flt[0]);
+        else
+            expect_flt[0] += 0 - cosf(expect_flt[0]);
+    }
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 115) Arpeggiator */
+    /* TODO: add timing */
     set_expr_str("i{-1}=0;p=[60,61,62,63,64];y=miditohz(p[i]);i=i+1;");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 440.f * pow(2.0, (((iterations - 1) % 5) + 60.f - 69.f) / 12.f);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 116) Multiple variable indices */
+    set_expr_str("a=0; b=1; c=-1; y=x$(a)[b]{c,2};");
+    setup_test(MPR_INT32, 2, MPR_FLT, 1);
+    expect_flt[0] = src_int[1];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 

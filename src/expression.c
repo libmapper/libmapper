@@ -720,7 +720,7 @@ struct control_type {
     uint8_t vec_len;
     uint8_t flags;
     /* end of generic_type */
-    uint8_t cache_offset;
+    int8_t cache_offset;
     uint8_t reduce_start;
     uint8_t reduce_stop;
     uint8_t branch_offset;
@@ -1174,60 +1174,63 @@ void mpr_expr_free(mpr_expr expr)
 
 #ifdef TRACE_PARSE
 
-static void printtoken(mpr_token_t *t, mpr_var_t *vars)
+static void printtoken(mpr_token_t *t, mpr_var_t *vars, int show_locks)
 {
-    int i, len = 128, l = 0, offset = 0;
+    int i, len = 128, l = 0;
     char s[128];
     char *dims[] = {"unknown", "history", "instance", 0, "signal", 0, 0, 0, "vector"};
     switch (t->toktype) {
         case TOK_LITERAL:
+            l = snprintf(s, len, "LITERAL\t");
             switch (t->gen.flags & CONST_SPECIAL) {
-                case CONST_MAXVAL:  snprintf(s, len, "lit.max");                    break;
-                case CONST_MINVAL:  snprintf(s, len, "lit.min");                    break;
-                case CONST_PI:      snprintf(s, len, "lit.pi");                     break;
-                case CONST_E:       snprintf(s, len, "lit.e");                      break;
+                case CONST_MAXVAL:  snprintf(s + l, len - l, "max");                    break;
+                case CONST_MINVAL:  snprintf(s + l, len - l, "min");                    break;
+                case CONST_PI:      snprintf(s + l, len - l, "pi");                     break;
+                case CONST_E:       snprintf(s + l, len - l, "e");                      break;
                 default:
                     switch (t->gen.datatype) {
-                        case MPR_FLT:   snprintf(s, len, "lit.%g", t->lit.val.f);   break;
-                        case MPR_DBL:   snprintf(s, len, "lit.%g", t->lit.val.d);   break;
-                        case MPR_INT32: snprintf(s, len, "lit.%d", t->lit.val.i);   break;
-                    }                                                               break;
+                        case MPR_FLT:   snprintf(s + l, len - l, "%g", t->lit.val.f);   break;
+                        case MPR_DBL:   snprintf(s + l, len - l, "%g", t->lit.val.d);   break;
+                        case MPR_INT32: snprintf(s + l, len - l, "%d", t->lit.val.i);   break;
+                    }                                                                   break;
             }
-                                                                                    break;
+                                                                                        break;
         case TOK_VLITERAL:
-            offset = snprintf(s, len, "[");
+            l = snprintf(s, len, "VLITERAL\t[");
             switch (t->gen.datatype) {
                 case MPR_FLT:
                     for (i = 0; i < t->lit.vec_len; i++)
-                        offset += snprintf(s + offset, len - offset, "%g,", t->lit.val.fp[i]);
+                        l += snprintf(s + l, len - l, "%g,", t->lit.val.fp[i]);
                     break;
                 case MPR_DBL:
                     for (i = 0; i < t->lit.vec_len; i++)
-                        offset += snprintf(s + offset, len - offset, "%g,", t->lit.val.dp[i]);
+                        l += snprintf(s + l, len - l, "%g,", t->lit.val.dp[i]);
                     break;
                 case MPR_INT32:
                     for (i = 0; i < t->lit.vec_len; i++)
-                        offset += snprintf(s + offset, len - offset, "%d,", t->lit.val.ip[i]);
+                        l += snprintf(s + l, len - l, "%d,", t->lit.val.ip[i]);
                     break;
             }
-            --offset;
-            snprintf(s + offset, len - offset, "]");
+            --l;
+            snprintf(s + l, len - l, "]");
             break;
-        case TOK_OP:            snprintf(s, len, "op.%s", op_tbl[t->op.idx].name);  break;
-        case TOK_OPEN_CURLY:    snprintf(s, len, "{");                              break;
-        case TOK_OPEN_PAREN:    snprintf(s, len, "( arity %d", t->fn.arity);        break;
-        case TOK_OPEN_SQUARE:   snprintf(s, len, "[");                              break;
-        case TOK_CLOSE_CURLY:   snprintf(s, len, "}");                              break;
-        case TOK_CLOSE_PAREN:   snprintf(s, len, ")");                              break;
-        case TOK_CLOSE_SQUARE:  snprintf(s, len, "]");                              break;
+        case TOK_OP:            snprintf(s, len, "OP\t\t%s", op_tbl[t->op.idx].name);   break;
+        case TOK_OPEN_CURLY:    snprintf(s, len, "{\t");                                break;
+        case TOK_OPEN_PAREN:    snprintf(s, len, "(\t\tarity %d", t->fn.arity);         break;
+        case TOK_OPEN_SQUARE:   snprintf(s, len, "[");                                  break;
+        case TOK_CLOSE_CURLY:   snprintf(s, len, "}");                                  break;
+        case TOK_CLOSE_PAREN:   snprintf(s, len, ")");                                  break;
+        case TOK_CLOSE_SQUARE:  snprintf(s, len, "]");                                  break;
 
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
         case TOK_ASSIGN_TT:
-            l = snprintf(s, len, "ASSIGN_TO:");
+            l = snprintf(s, len, "ASSIGN\t");
         case TOK_VAR:
         case TOK_TT: {
+            if (TOK_VAR == t->toktype || TOK_TT == t->toktype)
+                l += snprintf(s + l, len - l, "LOAD\t");
             if (TOK_TT == t->toktype || TOK_ASSIGN_TT == t->toktype)
                 l += snprintf(s + l, len - l, "tt.");
             else
@@ -1263,77 +1266,76 @@ static void printtoken(mpr_token_t *t, mpr_var_t *vars)
                 l += snprintf(s + l, len - l, "/%u]", vars ? vars[t->var.idx].vec_len : 0);
 
             if (t->toktype & TOK_ASSIGN)
-                snprintf(s + l, len - l, " offset:%d", t->var.offset);
+                snprintf(s + l, len - l, "<%d>", t->var.offset);
             break;
         }
         case TOK_VAR_NUM_INST:
             if (t->var.idx == VAR_Y)
-                snprintf(s, len, "var.y.count()");
+                snprintf(s, len, "NUM_INST\tvar.y");
             else if (t->var.idx >= VAR_X)
-                snprintf(s, len, "var.x$%d.count()", t->var.idx - VAR_X);
+                snprintf(s, len, "NUM_INST\tvar.x$%d", t->var.idx - VAR_X);
             else
-                snprintf(s, len, "var.%s%s.count()", vars ? vars[t->var.idx].name : "?",
+                snprintf(s, len, "NUM_INST\tvar.%s%s", vars ? vars[t->var.idx].name : "?",
                          vars ? (vars[t->var.idx].flags & VAR_INSTANCED) ? ".N" : ".0" : ".?");
             break;
-        case TOK_FN:        snprintf(s, len, "fn.%s(arity %d)", fn_tbl[t->fn.idx].name, t->fn.arity); break;
-        case TOK_COMMA:     snprintf(s, len, ",");                              break;
-        case TOK_COLON:     snprintf(s, len, ":");                              break;
-        case TOK_VECTORIZE: snprintf(s, len, "VECT(%d)", t->fn.arity);          break;
-        case TOK_NEGATE:    snprintf(s, len, "-");                              break;
+        case TOK_FN:        snprintf(s, len, "FN\t\t%s()", fn_tbl[t->fn.idx].name); break;
+        case TOK_COMMA:     snprintf(s, len, ",");                                  break;
+        case TOK_COLON:     snprintf(s, len, ":");                                  break;
+        case TOK_VECTORIZE: snprintf(s, len, "VECT(%d)", t->fn.arity);              break;
+        case TOK_NEGATE:    snprintf(s, len, "-");                                  break;
         case TOK_VFN:
-        case TOK_VFN_DOT:   snprintf(s, len, "vfn.%s(arity %d)",
-                                     vfn_tbl[t->fn.idx].name, t->fn.arity);     break;
+        case TOK_VFN_DOT:   snprintf(s, len, "VFN\t%s()", vfn_tbl[t->fn.idx].name); break;
         case TOK_RFN:
             if (RFN_HISTORY == t->fn.idx)
-                snprintf(s, len, "rfn.history(%d:%d)", t->con.reduce_start, t->con.reduce_stop);
+                snprintf(s, len, "RFN\thistory(%d:%d)", t->con.reduce_start, t->con.reduce_stop);
             else if (RFN_VECTOR == t->fn.idx) {
                 if (t->con.flags & USE_VAR_LEN)
-                    snprintf(s, len, "rfn.vector(%d:len)", t->con.reduce_start);
+                    snprintf(s, len, "RFN\tvector(%d:len)", t->con.reduce_start);
                 else
-                    snprintf(s, len, "rfn.vector(%d:%d)", t->con.reduce_start, t->con.reduce_stop);
+                    snprintf(s, len, "RFN\tvector(%d:%d)", t->con.reduce_start, t->con.reduce_stop);
             }
             else
-                snprintf(s, len, "rfn.%s()", rfn_tbl[t->fn.idx].name);
+                snprintf(s, len, "RFN\t%s()", rfn_tbl[t->fn.idx].name);
             break;
         case TOK_LAMBDA:
             snprintf(s, len, "LAMBDA(%d)", t->fn.arity);                        break;
         case TOK_COPY_FROM:
-            snprintf(s, len, "COPY_FROM(-%d)", t->con.cache_offset);            break;
+            snprintf(s, len, "COPY\t%d", t->con.cache_offset * -1);             break;
         case TOK_MOVE:
-            snprintf(s, len, "MOVE(-%d)", t->con.cache_offset);                 break;
+            snprintf(s, len, "MOVE\t-%d", t->con.cache_offset);                 break;
         case TOK_LOOP_START:
-            snprintf(s, len, "<%s loop start>", dims[t->con.flags & REDUCE_TYPE_MASK]); break;
+            snprintf(s, len, "LOOP_START\t%s", dims[t->con.flags & REDUCE_TYPE_MASK]); break;
         case TOK_REDUCING:
             if (t->con.flags & USE_VAR_LEN)
-                snprintf(s, len, "<reducing %s[%d:len]>", dims[t->con.flags & REDUCE_TYPE_MASK],
+                snprintf(s, len, "REDUCE\t%s[%d:len]", dims[t->con.flags & REDUCE_TYPE_MASK],
                          t->con.reduce_start);
             else
-                snprintf(s, len, "<reducing %s[%d:%d]>", dims[t->con.flags & REDUCE_TYPE_MASK],
+                snprintf(s, len, "REDUCE\t%s[%d:%d]", dims[t->con.flags & REDUCE_TYPE_MASK],
                          t->con.reduce_start, t->con.reduce_stop);
             break;
         case TOK_LOOP_END:
             switch (t->con.flags & REDUCE_TYPE_MASK) {
                 case RT_HISTORY:
-                    snprintf(s, len, "<history[%d:%d] loop end, offsets=[%d,%d]>",
+                    snprintf(s, len, "LOOP_END\thistory[%d:%d]<%d,%d>",
                              -t->con.reduce_start, -t->con.reduce_stop, t->con.branch_offset,
                              t->con.cache_offset);
                     break;
                 case RT_VECTOR:
                     if (t->con.flags & USE_VAR_LEN)
-                        snprintf(s, len, "<vector[%d:len] loop end, offsets=[%d,%d]>",
+                        snprintf(s, len, "LOOP_END\tvector[%d:len]<%d,%d>",
                                  t->con.reduce_start, t->con.branch_offset, t->con.cache_offset);
                     else
-                        snprintf(s, len, "<vector[%d:%d] loop end, offsets=[%d,%d]>",
+                        snprintf(s, len, "LOOP_END\tvector[%d:%d]<%d,%d>",
                                  t->con.reduce_start, t->con.reduce_stop, t->con.branch_offset,
                                  t->con.cache_offset);
                     break;
                 default:
-                    snprintf(s, len, "<%s loop end, offsets=[-%d, -%d]>",
+                    snprintf(s, len, "LOOP_END\t%s<%d,%d>",
                              dims[t->con.flags & REDUCE_TYPE_MASK], t->con.branch_offset,
                              t->con.cache_offset);
             }
             break;
-        case TOK_SP_ADD:            snprintf(s, len, "<sp add %d>", t->lit.val.i);  break;
+        case TOK_SP_ADD:            snprintf(s, len, "SP_ADD\t%d", t->lit.val.i);   break;
         case TOK_SEMICOLON:         snprintf(s, len, "semicolon");                  break;
         case TOK_END:               printf("END\n");                                return;
         default:                    printf("(unknown token)\n");                    return;
@@ -1341,20 +1343,19 @@ static void printtoken(mpr_token_t *t, mpr_var_t *vars)
     printf("%s", s);
     /* indent */
     len = strlen(s);
-    for (i = len; i < 40; i++)
-        printf(" ");
-    printf("%c%u", t->gen.datatype, t->gen.vec_len);
-    if (t->gen.casttype)
-        printf("->%c", t->gen.casttype);
-    else
-        printf("   ");
-    if (t->gen.flags & VEC_LEN_LOCKED)
-        printf(" vec_lock");
-    if (t->gen.flags & TYPE_LOCKED)
-        printf(" type_lock");
-    if (TOK_ASSIGN & t->toktype && t->gen.flags & CLEAR_STACK)
-        printf(" clear");
-    printf("\n");
+    if (show_locks) {
+        printf("\r\t\t\t\t\t%c%u", t->gen.datatype, t->gen.vec_len);
+        if (t->gen.casttype)
+            printf("->%c", t->gen.casttype);
+        else
+            printf("   ");
+        if (t->gen.flags & VEC_LEN_LOCKED)
+            printf(" vec_lock");
+        if (t->gen.flags & TYPE_LOCKED)
+            printf(" type_lock");
+        if (TOK_ASSIGN & t->toktype && t->gen.flags & CLEAR_STACK)
+            printf(" clear");
+    }
 }
 
 static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars, int show_init_line)
@@ -1398,8 +1399,9 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
             if (i && !can_advance)
                 printf("  --- <INITIALISATION DONE> ---\n");
         }
-        printf("  %2d: ", i);
-        printtoken(&stk[i], vars);
+        printf(" %2d: ", i);
+        printtoken(&stk[i], vars, 1);
+        printf("\n");
     }
 }
 
@@ -1444,7 +1446,7 @@ static mpr_type promote_token(mpr_token_t *stk, int sp, mpr_type type, int vec_l
             else if (stk[sp].toktype <= TOK_MOVE)
                 offset += tok_arity(stk[sp]) - 1;
         }
-        assert(sp > 0);
+        assert(sp >= 0);
     }
     tok = &stk[sp];
 
@@ -1797,7 +1799,7 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                             if (vec_reduce <= 0 && stk[j].gen.vec_len > vec_len)
                                 vec_len = stk[j].gen.vec_len;
                         }
-                        assert(j > 0);
+                        assert(j >= 0);
                     }
                 } while (TOK_COPY_FROM == stk[j].toktype);
                 --depth;
@@ -1902,7 +1904,7 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                             offset += tok_arity(stk[j]) - 1;
                         promote_token(stk, j, type, 0, 0);
                     }
-                    assert(j > 0);
+                    assert(j >= 0);
                 }
             } while (TOK_COPY_FROM == stk[j].toktype);
 
@@ -2302,9 +2304,8 @@ typedef struct _temp_var_cache {
     const char *in_name;
     const char *accum_name;
     struct _temp_var_cache *next;
-    int scope_start;
-    uint8_t in_pos;
-    uint8_t accum_pos;
+    uint16_t scope_start;
+    uint8_t loop_start_pos;
 } temp_var_cache_t, *temp_var_cache;
 
 #define ASSIGN_MASK (TOK_VAR | TOK_OPEN_SQUARE | TOK_COMMA | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY \
@@ -2324,6 +2325,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
     /* TODO: use bitflags instead? */
     uint8_t assigning = 0, is_const = 1, out_assigned = 0, muted = 0, vectorizing = 0;
+    uint8_t lambda_allowed = 0;
     int var_flags = 0;
     uint8_t reduce_types = 0;
     int allow_toktype = 0x2FFFFF;
@@ -2370,11 +2372,22 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
         printf("lexing string '%s'\n", str + lex_idx);
 #endif
         GET_NEXT_TOKEN(tok);
-        if (!(tok.toktype & allow_toktype)) {
-            FAIL("Illegal token sequence. (2)");
+        /* TODO: streamline handling assigning and lambda_allowed flags */
+        if (TOK_LAMBDA == tok.toktype) {
+            if (!lambda_allowed) {
+    #if TRACE_PARSE
+                printf("Illegal token sequence (1): ");
+                printtoken(&tok, vars, 1);
+    #endif
+                goto error;
+            }
+        }
+        else if (!(tok.toktype & allow_toktype)) {
 #if TRACE_PARSE
-            printtoken(&tok, vars);
+            printf("Illegal token sequence: ");
+            printtoken(&tok, vars, 1);
 #endif
+            goto error;
         }
         switch (tok.toktype) {
             case TOK_OPEN_CURLY:
@@ -2419,11 +2432,13 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     var_cache_list = var_cache_list->next;
                 }
                 if (found_in) {
+                    int offset = -1;
 #if TRACE_PARSE
                     printf("found reference to local input variable '%s'\n", found_in->in_name);
 #endif
-                    int offset = -1;
-                    i = found_in->accum_pos + 1;
+                    {FAIL_IF(!found_in->loop_start_pos,
+                             "local input variable used before lambda token.");}
+                    i = found_in->loop_start_pos + 1;
                     while (i <= out_idx) {
                         if (out[i].toktype <= TOK_MOVE)
                             offset += 1 - tok_arity(out[i]);
@@ -2432,7 +2447,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     tok.toktype = TOK_COPY_FROM;
                     tok.con.cache_offset = offset;
 
-                    i = found_in->in_pos;
+                    i = out_idx - offset;
                     {FAIL_IF(i < 0, "Compilation error (1)");}
                     if (reduce_types & RT_VECTOR)
                         tok.con.vec_len = 1;
@@ -2454,16 +2469,14 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     break;
                 }
                 if (found_accum) {
+                    int pos = found_accum->loop_start_pos, stack_offset = 0;
 #if TRACE_PARSE
                     printf("found reference to local accumulator variable '%s'\n",
                            found_accum->accum_name);
 #endif
-                    int pos = found_accum->accum_pos, stack_offset = -1;
+                    {FAIL_IF(!found_accum->loop_start_pos,
+                             "local input variable used before lambda token.");}
                     while (pos <= out_idx) {
-                        if (TOK_COPY_FROM == out[pos].toktype
-                            && out[pos].con.cache_offset == stack_offset) {
-                            stack_offset = 0;
-                        }
                         if (TOK_SP_ADD == out[pos].toktype)
                             stack_offset += out[pos].lit.val.i;
                         else if (TOK_LOOP_START == out[pos].toktype
@@ -2675,7 +2688,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             /* TODO: allow variable + maximum instead e.g. history(n, 10) */
                             /* TODO: allow range instead e.g. history(-5:-2) */
                             GET_NEXT_TOKEN(tok);
-                            {FAIL_IF(tok.toktype != TOK_OPEN_PAREN, "missing parenthesis.");}
+                            {FAIL_IF(tok.toktype != TOK_OPEN_PAREN, "missing open parenthesis. (1)");}
                             GET_NEXT_TOKEN(tok);
                             {FAIL_IF(tok.toktype != TOK_LITERAL || tok.lit.datatype != MPR_INT32,
                                      "'history' must be followed by integer argument.");}
@@ -2721,13 +2734,13 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                     if (-op[op_idx].con.reduce_start < oldest_out)
                                         oldest_out = -op[op_idx].con.reduce_start;
                                 }
-                                else if (tok.var.idx <= VAR_X) {
+                                else if (tok.var.idx >= VAR_X) {
                                     if (-op[op_idx].con.reduce_start < oldest_in[out[out_idx].var.idx - VAR_X])
                                         oldest_in[out[out_idx].var.idx - VAR_X] = -op[op_idx].con.reduce_start;
                                 }
                             }
                             GET_NEXT_TOKEN(tok);
-                            {FAIL_IF(tok.toktype != TOK_CLOSE_PAREN, "missing parenthesis.");}
+                            {FAIL_IF(tok.toktype != TOK_CLOSE_PAREN, "missing close parenthesis. (1)");}
                             break;
                         }
                         case RT_INSTANCE: {
@@ -2877,12 +2890,26 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     idx -= out[idx].con.cache_offset + 1;
                     assert(idx > 0 && idx <= out_idx);
                 }
+
+                if (RFN_REDUCE == rfn) {
+                    reduce_types |= newtok.con.flags & REDUCE_TYPE_MASK;
+                    newtok.toktype = TOK_REDUCING;
+                    PUSH_TO_OPERATOR(newtok);
+                    tok.toktype = TOK_OPEN_PAREN;
+                    tok.fn.arity = 0;
+                    PUSH_TO_OPERATOR(tok);
+                }
+
                 if (TOK_COPY_FROM == out[out_idx].toktype && TOK_VAR != out[idx].toktype) {
                     /* make a new copy of this substack */
                     sslen = substack_len(out, idx);
                     {FAIL_IF(out_idx + sslen + pre > STACK_SIZE, "Stack size exceeded. (3)");}
-                    /* deliberately overwrite out[out_idx] */
-                    memcpy(&out[out_idx + pre], &out[idx - sslen + 1], sslen * sizeof(mpr_token_t));
+
+                    /* Copy destacked reduce input substack */
+                    for (i = 0; i < sslen; i++)
+                        PUSH_TO_OPERATOR(out[idx - i]);
+                    /* discard copy token at out[out_idx] */
+                    POP_OUTPUT();
                 }
                 else {
                     int ar = RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn ? 2 : 1;
@@ -2890,21 +2917,22 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         /* instance loops cache the starting instance idx */
                         ++ar;
                     }
-                    /* copy substack to after prefix */
-                    out_idx = out_idx - sslen + 1;
-                    memcpy(out + out_idx + pre, out + out_idx, sizeof(mpr_token_t) * sslen);
-                    /* adjust any copy tokens */
+
+                    /* Destack reduce input substack */
                     for (i = 0; i < sslen; i++) {
-                        if (TOK_COPY_FROM == out[out_idx + pre + i].toktype)
-                            out[out_idx + pre + i].con.cache_offset += ar;
+                        if (TOK_COPY_FROM == out[out_idx].toktype)
+                            out[out_idx].con.cache_offset += ar;
+                        POP_OUTPUT_TO_OPERATOR();
                     }
                 }
-                --out_idx;
 
                 /* all instance reduce functions require this token */
                 memcpy(&tok, &newtok, sizeof(mpr_token_t));
                 tok.toktype = TOK_LOOP_START;
-                PUSH_TO_OUTPUT(tok);
+                if (RFN_REDUCE == rfn)
+                    {PUSH_TO_OPERATOR(tok);}
+                else
+                    {PUSH_TO_OUTPUT(tok);}
 
                 if (RFN_REDUCE == rfn) {
                     temp_var_cache var_cache;
@@ -2912,7 +2940,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     int len;
                     {FAIL_IF(n_vars >= N_USER_VARS, "Maximum number of variables exceeded.");}
                     GET_NEXT_TOKEN(tok);
-                    {FAIL_IF(tok.toktype != TOK_OPEN_PAREN, "missing parenthesis.");}
+                    {FAIL_IF(tok.toktype != TOK_OPEN_PAREN, "missing open parenthesis. (3)");}
                     GET_NEXT_TOKEN(tok);
                     {FAIL_IF(tok.toktype != TOK_VAR, "'reduce()' requires variable arguments.");}
 
@@ -2942,34 +2970,6 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 #if TRACE_PARSE
                     printf("using name '%s' for reduce accumulator\n", accum_name);
 #endif
-                    GET_NEXT_TOKEN(tok);
-                    if (TOK_ASSIGN == tok.toktype) {
-                        /* assignment to local accumulator variable*/
-                        GET_NEXT_TOKEN(tok);
-                        /* TODO: allow vectorizer, variable, function tokens */
-                        if (TOK_LITERAL != tok.toktype) {
-                            free(in_name);
-                            free(accum_name);
-                            {FAIL("'reduce()' accumulator initialization only accepts constant.");}
-                        }
-                        PUSH_TO_OUTPUT(tok);
-                        GET_NEXT_TOKEN(tok);
-                    }
-
-                    if (TOK_LAMBDA != tok.toktype) {
-                        free(in_name);
-                        free(accum_name);
-                        {FAIL("'reduce()' missing lambda operator '->'.");}
-                    }
-
-                    if (TOK_LITERAL != out[out_idx].toktype) {
-                        /* default to zero for accumulator initialization */
-                        tok.toktype = TOK_LITERAL;
-                        tok.lit.datatype = MPR_INT32;
-                        tok.lit.vec_len = 1;
-                        tok.lit.val.i = 0;
-                        PUSH_TO_OUTPUT(tok);
-                    }
 
                     /* temporarily store variable names so we can look them up later */
                     var_cache = calloc(1, sizeof(temp_var_cache_t));
@@ -2979,18 +2979,39 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     var_cache->in_name = in_name;
                     var_cache->accum_name = accum_name;
                     var_cache->scope_start = lex_idx;
-                    var_cache->in_pos = out_idx + sslen;
-                    var_cache->accum_pos = out_idx;
+                    var_cache->loop_start_pos = 0;
 
-                    reduce_types |= newtok.con.flags & REDUCE_TYPE_MASK;
-                    newtok.toktype = TOK_REDUCING;
-                    PUSH_TO_OPERATOR(newtok);
-                    tok.toktype = TOK_OPEN_PAREN;
-                    PUSH_TO_OPERATOR(tok);
+                    GET_NEXT_TOKEN(tok);
+                    if (TOK_ASSIGN == tok.toktype) {
+                        allow_toktype = OBJECT_TOKENS;
+                        lambda_allowed = 1;
+                    }
+                    else if (TOK_LAMBDA == tok.toktype) {
+                        /* default to zero for accumulator initialization */
+                        tok.toktype = TOK_LITERAL;
+                        tok.lit.datatype = MPR_INT32;
+                        tok.lit.vec_len = 1;
+                        tok.lit.val.i = 0;
+                        PUSH_TO_OUTPUT(tok);
+
+                        /* Restack reduce input */
+                        ++sslen;
+                        for (i = 0; i < sslen; i++) {
+                            PUSH_TO_OUTPUT(op[op_idx]);
+                            POP_OPERATOR();
+                            if (TOK_LOOP_START == out[out_idx].toktype)
+                                var_cache->loop_start_pos = out_idx;
+                        }
+                        {FAIL_IF(op_idx < 0, "Malformed expression (11).");}
+                    }
+                    else {
+                        free(in_name);
+                        free(accum_name);
+                        {FAIL("'reduce()' missing lambda operator '->'.");}
+                    }
 
                     allow_toktype = (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_MUTED
                                      | TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_TT);
-                    out_idx += sslen;
                     break;
                 }
 
@@ -3026,12 +3047,16 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         break;
                 }
 
+                /* Restack reduce input */
+                for (i = 0; i < sslen; i++) {
+                    PUSH_TO_OUTPUT(op[op_idx]);
+                    POP_OPERATOR();
+                }
+                {FAIL_IF(op_idx < 0, "Malformed expression (11).");}
+
                 /* skip to after substack */
-                if (RFN_COUNT != rfn) {
-                    out_idx += sslen;
-                    if (TOK_COPY_FROM == out[out_idx].toktype) {
-                        /* TODO: simplified reduce functions do not need separate cache for input */
-                    }
+                if (TOK_COPY_FROM == out[out_idx].toktype) {
+                    /* TODO: simplified reduce functions do not need separate cache for input */
                 }
 
                 if (OP_UNKNOWN != rfn_tbl[rfn].op) {
@@ -3069,11 +3094,11 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 memcpy(&tok, &newtok, sizeof(mpr_token_t));
                 tok.toktype = TOK_LOOP_END;
                 if (RFN_CENTER == rfn || RFN_MEAN == rfn || RFN_SIZE == rfn) {
-                    tok.con.branch_offset = 3 + sslen;
+                    tok.con.branch_offset = 2 + sslen;
                     tok.con.cache_offset = 2;
                 }
                 else {
-                    tok.con.branch_offset = 2 + sslen;
+                    tok.con.branch_offset = 1 + sslen;
                     tok.con.cache_offset = 1;
                 }
                 PUSH_TO_OUTPUT(tok);
@@ -3109,6 +3134,21 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                                  | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
                 break;
             }
+            case TOK_LAMBDA:
+                /* Pop from operator stack to output until left parenthesis found. This should
+                 * finish stacking the accumulator initialization tokens and re-stack the reduce
+                 * function input stack */
+                while (op_idx >= 0 && op[op_idx].toktype != TOK_OPEN_PAREN) {
+                    POP_OPERATOR_TO_OUTPUT();
+                    if (TOK_LOOP_START == out[out_idx].toktype)
+                        temp_vars->loop_start_pos = out_idx;
+                }
+                {FAIL_IF(op_idx < 0, "Unmatched parentheses. (1)");}
+                /* Don't pop the left parenthesis yet */
+
+                lambda_allowed = 0;
+                allow_toktype = OBJECT_TOKENS;
+                break;
             case TOK_OPEN_PAREN:
                 if (TOK_FN == op[op_idx].toktype && fn_tbl[op[op_idx].fn.idx].memory)
                     tok.fn.arity = 2;
@@ -3381,15 +3421,20 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     /* remove the cached reduce variables */
                     temp_var_cache var_cache = temp_vars;
                     temp_vars = var_cache->next;
-                    cache_pos = var_cache->accum_pos - 1;
+
+                    cache_pos = var_cache->loop_start_pos;
                     {FAIL_IF(out[cache_pos].toktype != TOK_LOOP_START, "Compilation error (2)");}
+
                     free((char*)var_cache->in_name);
                     free((char*)var_cache->accum_name);
                     free(var_cache);
 
                     /* push move token to output */
                     tok.toktype = TOK_MOVE;
-                    tok.con.cache_offset = 2;
+                    if (out[cache_pos].con.flags & RT_INSTANCE)
+                        tok.con.cache_offset = 3;
+                    else
+                        tok.con.cache_offset = 2;
                     if (out[out_idx].gen.casttype)
                         tok.con.datatype = out[out_idx].gen.casttype;
                     else
@@ -3399,7 +3444,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     tok.toktype = TOK_LOOP_END;
                     tok.con.flags |= op[op_idx].con.flags;
                     tok.con.branch_offset = out_idx - cache_pos;
-                    tok.con.cache_offset = 1;
+                    tok.con.cache_offset = -1;
                     tok.con.reduce_start = op[op_idx].con.reduce_start;
                     tok.con.reduce_stop = op[op_idx].con.reduce_stop;
                     PUSH_TO_OUTPUT(tok);
@@ -3729,8 +3774,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 else
                     {FAIL("Malformed expression left of assignment.");}
                 assigning = 0;
-                allow_toktype = (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_MUTED | TOK_NEGATE
-                                 | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP | TOK_TT);
+                allow_toktype = OBJECT_TOKENS;
                 break;
             default:
                 {FAIL("Unknown token type.");}
@@ -3929,9 +3973,10 @@ void mpr_expr_var_updated(mpr_expr expr, int var_idx)
 }
 
 #if TRACE_EVAL
-static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len)
+static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len, int dp)
 {
     int i;
+    printf("%d|", dp);
     if (vec_len > 1)
         printf("[");
     switch (type) {
@@ -3948,21 +3993,9 @@ static void print_stack_vec(mpr_expr_val stk, mpr_type type, int vec_len)
             break;
     }
     if (vec_len > 1)
-        printf("\b\b]%c", type);
+        printf("\b\b]%c\n", type);
     else
-        printf("\b\b%c", type);
-}
-#endif
-
-#if TRACE_EVAL
-static const char *type_name(const mpr_type type)
-{
-    switch (type) {
-        case MPR_DBL:   return "double";
-        case MPR_FLT:   return "float";
-        case MPR_INT32: return "int";
-        default:        return 0;
-    }
+        printf("\b\b%c\n", type);
 }
 #endif
 
@@ -4023,7 +4056,9 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
     mpr_token_t *tok, *end;
     int status = 1 | EXPR_EVAL_DONE, cache = 0, vlen;
     int i, j, sp, dp = -1;
+    /* Note: signal, history, and vector reduce are currently limited to 256 items here */
     uint8_t alive = 1, muted = 0, can_advance = 1, hist_offset = 0, sig_offset = 0, vec_offset = 0;
+    uint8_t inst_count = 0;
     mpr_value_buffer b_out;
     mpr_value x = NULL;
 
@@ -4071,7 +4106,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
     }
 
     /* choose one input to represent active instances
-     * or now we will choose the input with the highest instance count
+     * for now we will choose the input with the highest instance count
      * TODO: consider alternatives */
     if (v_in) {
         x = v_in[0];
@@ -4081,8 +4116,18 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         }
     }
 
+#if TRACE_EVAL
+    printf("instruction\targuments\t\tresult\n");
+
+#endif
+
     while (tok < end) {
   repeat:
+#if TRACE_EVAL
+        printf(" %2ld: ", (tok - expr->start));
+        printtoken(tok, expr->vars, 0);
+        printf("\r\t\t\t\t\t");
+#endif
         switch (tok->toktype) {
         case TOK_LITERAL:
         case TOK_VLITERAL:
@@ -4112,9 +4157,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     goto error;
             }
 #if TRACE_EVAL
-            printf("loading constant %d|", dp);
-            print_stack_vec(stk + sp, types[dp], tok->gen.vec_len);
-            printf("\n");
+            print_stack_vec(stk + sp, types[dp], tok->gen.vec_len, dp);
 #endif
             break;
         case TOK_VAR: {
@@ -4126,7 +4169,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             if (tok->var.idx == VAR_Y) {
                 RETURN_ARG_UNLESS(v_out, status);
 #if TRACE_EVAL
-                printf("loading variable y");
+                printf("\n\t\tvar.y");
 #endif
                 v = v_out;
                 b = b_out;
@@ -4137,7 +4180,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 if (!(tok->gen.flags & VAR_SIG_IDX)) {
                     v = v_in[tok->var.idx - VAR_X + sig_offset];
 #if TRACE_EVAL
-                    printf("loading variable x$%d", tok->var.idx - VAR_X + sig_offset);
+                    printf("\n\t\tvar.x$%d", tok->var.idx - VAR_X + sig_offset);
 #endif
                 }
                 else {
@@ -4147,7 +4190,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                         if (sidx < 0)
                             sidx += expr->n_ins;
 #if TRACE_EVAL
-                        printf("loading variable x$(%d mod %d = %d)", stk[sp].i, expr->n_ins, sidx);
+                        printf("\n\t\tvar.x$(%d)", sidx);
 #endif
                         v = v_in[sidx];
                         --idxp;
@@ -4163,9 +4206,9 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else if (v_vars) {
 #if TRACE_EVAL
                 if (expr->vars)
-                    printf("loading variable %s", expr->vars[tok->var.idx].name);
+                    printf("\n\t\tvar.%s", expr->vars[tok->var.idx].name);
                 else
-                    printf("loading variable vars.%d", tok->var.idx);
+                    printf("\n\t\tvars.%d", tok->var.idx);
 #endif
                 v = *v_vars + tok->var.idx;
                 if (expr->vars[tok->var.idx].flags & VAR_INSTANCED)
@@ -4189,9 +4232,9 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
 #if TRACE_EVAL
             if (MPR_INT32 == types[idxp])
-                printf("{N=%d}", hidx);
+                printf("{%d}", hidx);
             else
-                printf("{N=%g}", hidx + weight);
+                printf("{%g}", hidx + weight);
 #endif
 
             if (tok->gen.flags & VAR_VEC_IDX) {
@@ -4205,7 +4248,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else
                 vidx = tok->var.vec_idx + vec_offset;
 #if TRACE_EVAL
-            printf("[N=%d]", vidx);
+            printf("[%d]\r\t\t\t\t\t", vidx);
 #endif
 
             /* STUB: instance indexing will go here */
@@ -4263,9 +4306,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 }
             }
 #if TRACE_EVAL
-            printf(" %d|", dp);
-            print_stack_vec(stk + sp, types[dp], tok->gen.vec_len);
-            printf(" \n");
+            print_stack_vec(stk + sp, types[dp], tok->gen.vec_len, dp);
 #endif
             break;
         }
@@ -4275,14 +4316,6 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             sp += vlen;
             dims[dp] = tok->gen.vec_len;
             types[dp] = MPR_INT32;
-#if TRACE_EVAL
-            if (tok->var.idx == VAR_Y)
-                printf("loading y.count()");
-            else if (tok->var.idx >= VAR_X)
-                printf("loading x%d.count()", tok->var.idx - VAR_X);
-            else if (v_vars)
-                printf("loading vars[%d].count()", tok->var.idx);
-#endif
             if (tok->var.idx == VAR_Y) {
                 RETURN_ARG_UNLESS(v_out, status);
                 stk[sp].i = v_out->num_active_inst;
@@ -4298,9 +4331,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             for (i = 1; i < tok->gen.vec_len; i++)
                 stk[sp + i].i = stk[sp].i;
 #if TRACE_EVAL
-            printf(" = ");
-            print_stack_vec(stk + sp, types[dp], dims[dp]);
-            printf(" \n");
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
             break;
         }
@@ -4317,11 +4348,11 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dims[dp] = tok->gen.vec_len;
 #if TRACE_EVAL
             if (tok->var.idx == VAR_Y)
-                printf("loading timetag t_y");
+                printf("\n\t\ttt.y");
             else if (tok->var.idx >= VAR_X)
-                printf("loading timetag t_x%d", tok->var.idx - VAR_X);
+                printf("\n\t\ttt.x%d", tok->var.idx - VAR_X);
             else if (v_vars)
-                printf("loading timetag t_%s", expr->vars[tok->var.idx].name);
+                printf("\n\t\ttt.%s", expr->vars[tok->var.idx].name);
 
             if (tok->gen.flags & VAR_HIST_IDX) {
                 switch (types[dp]) {
@@ -4331,6 +4362,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     default:                                        goto error;
                 }
             }
+            printf("\r\t\t\t\t\t");
 #endif
             if (tok->gen.flags & VAR_HIST_IDX) {
                 switch (types[dp]) {
@@ -4377,12 +4409,12 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
             else
                 goto error;
-#if TRACE_EVAL
-            printf(" as double %g\n", t_d);
-#endif
             for (i = sp; i < sp + tok->gen.vec_len; i++)
                 stk[i].d = t_d;
             types[dp] = tok->gen.datatype;
+#if TRACE_EVAL
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
+#endif
             break;
         }
         case TOK_OP: {
@@ -4391,32 +4423,6 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dp -= (op_tbl[tok->op.idx].arity - 1);
             assert(dp >= 0);
             sp = dp * vlen;
-#if TRACE_EVAL
-            if (OP_IF_THEN_ELSE == tok->op.idx || OP_IF_ELSE == tok->op.idx) {
-                printf("IF ");
-                print_stack_vec(stk + sp, types[dp], dims[dp]);
-                printf(" THEN ");
-                if (OP_IF_ELSE == tok->op.idx) {
-                    print_stack_vec(stk + sp, types[dp], dims[dp]);
-                    printf(" ELSE ");
-                    print_stack_vec(stk + sp + vlen, types[dp + 1], dims[dp + 1]);
-                }
-                else {
-                    print_stack_vec(stk + sp + vlen, types[dp], dims[dp + 1]);
-                    printf(" ELSE ");
-                    print_stack_vec(stk + sp + 2 * vlen, types[dp + 2], dims[dp + 2]);
-                }
-            }
-            else {
-                printf("%d|", dp);
-                print_stack_vec(stk + sp, types[dp], dims[dp]);
-                printf(" %s%c ", op_tbl[tok->op.idx].name, types[2]);
-                if (2 == op_tbl[tok->op.idx].arity) {
-                    printf("%d|", dp + 1);
-                    print_stack_vec(stk + sp + vlen, types[dp + 1], dims[dp + 1]);
-                }
-            }
-#endif
             /* first copy stk[sp] elements if necessary */
             maxlen = dims[dp];
             for (i = 1; i < op_tbl[tok->op.idx].arity; i++)
@@ -4497,10 +4503,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
             types[dp] = tok->gen.datatype;
 #if TRACE_EVAL
-            printf(" = ");
-            printf("%d|", dp);
-            print_stack_vec(stk + sp, types[dp], dims[dp]);
-            printf(" \n");
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
             break;
         }
@@ -4510,14 +4513,6 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dp -= (fn_tbl[tok->fn.idx].arity - 1);
             assert(dp >= 0);
             sp = dp * vlen;
-#if TRACE_EVAL
-            printf("%s%c(", fn_tbl[tok->fn.idx].name, types[dp]);
-            for (i = 0; i < fn_tbl[tok->fn.idx].arity; i++) {
-                print_stack_vec(stk + sp + vlen, types[dp + i], dims[dp + i]);
-                printf(", ");
-            }
-            printf("%s)", fn_tbl[tok->fn.idx].arity ? "\b\b" : "");
-#endif
             /* TODO: use preprocessor macro or inline func here */
             /* first copy stk[sp] elements if necessary */
             maxlen = dims[dp];
@@ -4577,9 +4572,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             if (tok->fn.idx > FN_DEL_IDX)
                 can_advance = 0;
 #if TRACE_EVAL
-            printf(" = ");
-            print_stack_vec(stk + sp, types[dp], dims[dp]);
-            printf(" \n");
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
             break;
         }
@@ -4604,15 +4597,6 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 sp = dp * vlen;
             }
             types[dp] = tok->gen.datatype;
-#if TRACE_EVAL
-            printf("%s%c(", vfn_tbl[tok->fn.idx].name, types[dp]);
-            for (i = 0; i < vfn_tbl[tok->fn.idx].arity; i++) {
-                printf("%d|", dp + i);
-                print_stack_vec(stk + sp + i * vlen, types[dp + 1], dims[dp + i]);
-                printf(", ");
-            }
-            printf("\b\b)");
-#endif
             switch (types[dp]) {
 #define TYPED_CASE(MTYPE, FN)                                                       \
                 case MTYPE:                                                         \
@@ -4633,27 +4617,31 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dims[dp] = tok->gen.vec_len;
             types[dp] = tok->gen.datatype;
 #if TRACE_EVAL
-            printf(" = ");
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
             if (VFN_MAXMIN == tok->fn.idx || VFN_SUMNUM == tok->fn.idx) {
-                printf("[");
-                printf("%d|", dp);
-                print_stack_vec(stk + sp, types[dp], dims[dp]);
-                printf(", ");
-                printf("%d|", dp + 1);
-                print_stack_vec(stk + sp + vlen, types[dp + 1], dims[dp + 1]);
-                printf("]\n");
-            }
-            else {
-                printf("%d|", dp);
-                print_stack_vec(stk + sp, types[dp], dims[dp]);
-                printf(" \n");
+                printf("\t\t\t\t\t");
+                print_stack_vec(stk + sp + vlen, types[dp + 1], dims[dp + 1], dp + 1);
             }
 #endif
             break;
         case TOK_LOOP_START:
 #if TRACE_EVAL
-            if (RT_INSTANCE & tok->con.flags)
-                printf("Caching instance idx %d on the eval stack.\n", inst_idx);
+            switch (tok->con.flags & REDUCE_TYPE_MASK) {
+                case RT_HISTORY:
+                    printf("History idx = -%d.\n", tok->con.reduce_start);
+                    break;
+                case RT_INSTANCE:
+                    printf("Instance idx = %d.\n", inst_idx);
+                    break;
+                case RT_SIGNAL:
+                    printf("Signal idx = 0.\n");
+                    break;
+                case RT_VECTOR:
+                    printf("Vector idx = 0.\n");
+                    break;
+                default:
+                    goto error;
+            }
 #endif
             switch (tok->con.flags & REDUCE_TYPE_MASK) {
                 case RT_HISTORY:
@@ -4667,6 +4655,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     sp += vlen;
                     stk[sp].i = inst_idx;
                     ++cache;
+#if TRACE_EVAL
+                    printf("Caching instance idx %d on the eval stack: ", inst_idx);
+                    print_stack_vec(stk + sp, MPR_INT32, 1, dp);
+#endif
                     if (x) {
                         /* find first active instance idx */
                         for (i = 0; i < x->num_inst; i++) {
@@ -4677,6 +4669,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                             return status;
                         inst_idx = i;
                     }
+                    inst_count = 0;
                     break;
                 case RT_VECTOR:
                     /* Set vector start index */
@@ -4685,32 +4678,14 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 default:
                     break;
             }
-#if TRACE_EVAL
-            switch (tok->con.flags & REDUCE_TYPE_MASK) {
-                case RT_HISTORY:
-                    printf("Starting history reduce loop at -%d.\n", tok->con.reduce_start);
-                    break;
-                case RT_INSTANCE:
-                    printf("Starting instance reduce loop with idx %d.\n", inst_idx);
-                    break;
-                case RT_SIGNAL:
-                    printf("Starting input signal reduce loop.\n");
-                    break;
-                case RT_VECTOR:
-                    printf("Starting vector reduce loop.\n");
-                    break;
-                default:
-                    goto error;
-            }
-#endif
             break;
         case TOK_SP_ADD:
-#if TRACE_EVAL
-            printf("Adding %d to eval stack pointer.\n", tok->lit.val.i);
-#endif
             dp += tok->lit.val.i;
             assert(dp < expr_stk->size);
             sp = dp * vlen;
+#if TRACE_EVAL
+            printf("\n");
+#endif
             break;
         case TOK_LOOP_END:
             switch (tok->con.flags & REDUCE_TYPE_MASK) {
@@ -4718,10 +4693,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     if (hist_offset > tok->con.reduce_stop) {
                         --hist_offset;
 #if TRACE_EVAL
-                        printf("Incrementing history idx to -%d and jumping -%d\n",
-                               hist_offset, tok->con.branch_offset);
+                        printf("History idx = -%d\n", hist_offset);
 #endif
                         tok -= tok->con.branch_offset;
+                        goto repeat;
                     }
                     else {
                         hist_offset = 0;
@@ -4737,43 +4712,50 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                             if (x->inst[i].full || x->inst[i].pos >= (expr->max_in_hist_size - 1))
                                 break;
                         }
+                        if (tok->con.reduce_stop)
+                            ++inst_count;
                     }
-                    if (x && i < x->num_inst) {
+                    if (x && i < x->num_inst && inst_count < tok->con.reduce_stop) {
 #if TRACE_EVAL
-                        printf("Incrementing instance idx to %d and jumping -%d\n",
-                               i, tok->con.branch_offset);
+                        printf("Instance idx = %d\n", i);
 #endif
                         inst_idx = i;
                         tok -= tok->con.branch_offset;
+                        goto repeat;
                     }
                     else {
+#if TRACE_EVAL
+                        printf("Instance loop done; restoring instance idx from offset %d: ",
+                               tok->con.cache_offset * -1);
+                        print_stack_vec(stk + sp - tok->con.cache_offset * vlen, MPR_INT32, 1,
+                                        dp - tok->con.cache_offset);
+#endif
                         inst_idx = stk[sp - tok->con.cache_offset * vlen].i;
                         if (x && inst_idx >= x->num_inst)
                             goto error;
-                        memcpy(stk + sp - tok->con.cache_offset * vlen,
-                               stk + sp - (tok->con.cache_offset - 1) * vlen,
-                               sizeof(mpr_expr_val_t) * vlen * tok->con.cache_offset);
-                        memcpy(dims + dp - tok->con.cache_offset, dims + dp - tok->con.cache_offset + 1,
-                               sizeof(uint8_t) * tok->con.cache_offset);
-                        memcpy(types + dp - tok->con.cache_offset, types + dp - tok->con.cache_offset + 1,
-                               sizeof(mpr_type) * tok->con.cache_offset);
-                        sp -= vlen;
-                        --dp;
-                        assert(dp >= 0);
+                        if (tok->con.cache_offset > 0) {
+                            memcpy(stk + sp - tok->con.cache_offset * vlen,
+                                   stk + sp - (tok->con.cache_offset - 1) * vlen,
+                                   sizeof(mpr_expr_val_t) * vlen * tok->con.cache_offset);
+                            memcpy(dims + dp - tok->con.cache_offset, dims + dp - tok->con.cache_offset + 1,
+                                   sizeof(uint8_t) * tok->con.cache_offset);
+                            memcpy(types + dp - tok->con.cache_offset, types + dp - tok->con.cache_offset + 1,
+                                   sizeof(mpr_type) * tok->con.cache_offset);
+                            sp -= vlen;
+                            --dp;
+                            assert(dp >= 0);
+                        }
                         --cache;
-#if TRACE_EVAL
-                        printf("Instance loop done; restored cached instance idx %d.\n", inst_idx);
-#endif
                     }
                     break;
                 case RT_SIGNAL:
                     ++sig_offset;
                     if (sig_offset < expr->n_ins) {
 #if TRACE_EVAL
-                        printf("Incrementing signal idx to %d and jumping -%d\n",
-                               sig_offset, tok->con.branch_offset);
+                        printf("Signal idx = %d\n", sig_offset);
 #endif
                         tok -= tok->con.branch_offset;
+                        goto repeat;
                     }
                     else {
                         sig_offset = 0;
@@ -4788,10 +4770,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     if (USE_VAR_LEN & tok->con.flags) {
                         if (vec_offset < v_in[sig_offset]->vlen) {
 #if TRACE_EVAL
-                            printf("Incrementing vector idx to %d of %d and jumping -%d\n",
-                                   vec_offset, v_in[sig_offset]->vlen, tok->con.branch_offset);
+                            printf("Vector idx = %d of %d\n", vec_offset, v_in[sig_offset]->vlen);
 #endif
                             tok -= tok->con.branch_offset;
+                            goto repeat;
                         }
                         else {
                             vec_offset = 0;
@@ -4803,10 +4785,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     }
                     if (vec_offset < tok->con.reduce_stop) {
 #if TRACE_EVAL
-                        printf("Incrementing vector idx to %d of %d and jumping -%d\n",
-                               vec_offset, tok->con.reduce_stop, tok->con.branch_offset);
+                        printf("Vector idx = %d of %d\n", vec_offset, tok->con.reduce_stop);
 #endif
                         tok -= tok->con.branch_offset;
+                        goto repeat;
                     }
                     else {
                         vec_offset = 0;
@@ -4826,9 +4808,6 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             ++dp;
             assert(dp < expr_stk->size);
             sp += vlen;
-#if TRACE_EVAL
-            printf("copying stk[%d] -> stk[%d]: ", dp_from, dp);
-#endif
             dims[dp] = tok->gen.vec_len;
             types[dp] = tok->gen.datatype;
             if (dims[dp] < dims[dp_from])
@@ -4836,8 +4815,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             else
                 memcpy(&stk[sp], &stk[sp_from], tok->gen.vec_len * sizeof(mpr_expr_val_t));
 #if TRACE_EVAL
-            print_stack_vec(stk + sp, types[dp], dims[dp]);
-            printf(" \n");
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
             break;
         }
@@ -4847,15 +4825,11 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dp -= tok->con.cache_offset;
             assert(dp >= 0 && dp < expr_stk->size && dp_from >= 0);
             sp = dp * vlen;
-#if TRACE_EVAL
-            printf("moving eval stack top from %d to %d: ", dp_from, dp);
-#endif
             memcpy(&stk[sp], &stk[sp_from], vlen * sizeof(mpr_expr_val_t));
             dims[dp] = dims[dp_from];
             types[dp] = types[dp_from];
 #if TRACE_EVAL
-            print_stack_vec(stk + sp, types[dp], dims[dp]);
-            printf(" \n");
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
             break;
         }
@@ -4872,9 +4846,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             dims[dp] = j;
             types[dp] = tok->gen.datatype;
 #if TRACE_EVAL
-            printf("built %u-element vector: ", dims[dp]);
-            print_stack_vec(stk + sp, types[dp], dims[dp]);
-            printf(" \n");
+            print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
             break;
         case TOK_ASSIGN:
@@ -4945,12 +4917,12 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
 #if TRACE_EVAL
             if (VAR_Y == tok->var.idx)
-                printf("assigning values to y");
+                printf("\n\t\tvar.y");
             else
-                printf("assigning values to %s", expr->vars[tok->var.idx].name);
+                printf("\n\t\tvar.%s", expr->vars[tok->var.idx].name);
             printf("{%s%d}", tok->gen.flags & VAR_HIST_IDX ? "N=" : "", hidx);
             printf("[%s%d]", tok->gen.flags & VAR_VEC_IDX ? "N=" : "", vidx);
-            printf(" (%s x %u)\n", type_name(types[dp]), tok->gen.vec_len);
+            printf(" (%c x %u)\n", types[dp], tok->gen.vec_len);
 #endif
             i = (b->pos + v->mlen + hidx) % v->mlen;
             if (i < 0)
@@ -4981,6 +4953,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
 
 #if TRACE_EVAL
+            printf("\n");
             mpr_value_print_hist(v, inst_idx % v->num_inst);
 #endif
 
@@ -5010,9 +4983,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         assign_done:
             /* If assignment was constant or history initialization, move expr
              * start token pointer so we don't evaluate this section again. */
+
             if (can_advance || tok->gen.flags & VAR_HIST_IDX) {
 #if TRACE_EVAL
-                printf("moving expr offset to %ld\n", tok - expr->start + 1);
+                printf("\n     move start\t%ld\n", tok - expr->start + 1);
 #endif
                 expr->offset = tok - expr->start + 1;
             }
@@ -5029,8 +5003,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             if (tok->var.idx != VAR_Y || !(tok->gen.flags & VAR_HIST_IDX))
                 goto error;
 #if TRACE_EVAL
-            printf("assigning timetag to t_y{%d}\n",
-                   tok->gen.flags & VAR_HIST_IDX ? stk[sp - vlen].i : 0);
+            printf("\n\t\ttt.y{%d}\n", tok->gen.flags & VAR_HIST_IDX ? stk[sp - vlen].i : 0);
 #endif
             if (!v_out)
                 return status;
@@ -5043,7 +5016,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
              * start token pointer so we don't evaluate this section again. */
             if (hist || can_advance) {
 #if TRACE_EVAL
-                printf("moving expr offset to %ld\n", tok - expr->start + 1);
+                printf("     move start\t%ld\n", tok - expr->start + 1);
 #endif
                 expr->offset = tok - expr->start + 1;
             }
@@ -5063,9 +5036,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
         if (tok->gen.casttype) {
             assert(dp >= 0);
 #if TRACE_EVAL
-            printf("casting sp=%d from %s (%c) to %s (%c)\n", dp, type_name(types[dp]),
-                   types[dp], type_name(tok->gen.casttype), tok->gen.casttype);
-            print_stack_vec(stk + sp, types[dp], dims[dp]);
+            printf("     cast\tstk[%d] %c->%c\t\t", dp, types[dp], tok->gen.casttype);
 #endif
             /* need to cast to a different type */
             switch (types[dp]) {
@@ -5090,9 +5061,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 #undef TYPED_CASE
             }
 #if TRACE_EVAL
-            printf(" -> ");
-            print_stack_vec(stk + sp, tok->gen.casttype, dims[dp]);
-            printf("\n");
+            print_stack_vec(stk + sp, tok->gen.casttype, dims[dp], dp);
 #endif
             types[dp] = tok->gen.casttype;
         }
