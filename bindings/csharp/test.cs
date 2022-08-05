@@ -18,7 +18,7 @@ public class TestCSharp
 
         Graph graph = new Graph();
         Console.WriteLine("created Graph");
-        graph.addCallback(graph_handler, (int)Mapper.Type.Signal | (int)Mapper.Type.Map);
+        graph.addCallback(graph_handler, Mapper.Type.Signal | Mapper.Type.Map);
 
         Device dev = new Device("CSmapper");
         Console.WriteLine("created Device CSmapper");
@@ -30,7 +30,8 @@ public class TestCSharp
         Console.WriteLine("created signal outsig");
 
         Signal insig = dev.addSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float)
-                          .setCallback((Action<Signal, Signal.Event, float>)sig_handler, (int)Mapper.Signal.Event.Update);
+                          .setCallback((Action<Signal, Signal.Event, float>)sig_handler,
+                                       Mapper.Signal.Event.Update);
         Console.WriteLine("created Signal insig");
 
         Console.Write("Waiting for device");

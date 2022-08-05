@@ -5,6 +5,7 @@ using System.Collections.Generic;
 
 namespace Mapper
 {
+    [Flags]
     public enum Type
     {
         Device    = 0x01,             //!< Devices only.
@@ -360,7 +361,7 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_graph_new(int flags);
-        public Graph(int flags) : base(mpr_graph_new(flags)) {}
+        public Graph(Type flags) : base(mpr_graph_new((int)flags)) {}
         public Graph() : base(mpr_graph_new((int)Type.Object)) {}
 
         // TODO: check if Graph is used by a Device
@@ -407,27 +408,17 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_graph_poll(IntPtr graph, int block_ms);
-        public int poll(int block_ms)
+        public int poll(int block_ms = 0)
             { return mpr_graph_poll(this._obj, block_ms); }
-        public int poll()
-            { return mpr_graph_poll(this._obj, 0); }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_subscribe(IntPtr graph, IntPtr dev, int types, int timeout);
-        public Graph subscribe(Device dev, int types, int timeout) {
-            mpr_graph_subscribe(this._obj, dev._obj, types, timeout);
+        public Graph subscribe(Device dev, Type types, int timeout = -1) {
+            mpr_graph_subscribe(this._obj, dev._obj, (int)types, timeout);
             return this;
         }
-        public Graph subscribe(Device dev, int types) {
-            mpr_graph_subscribe(this._obj, dev._obj, types, -1);
-            return this;
-        }
-        public Graph subscribe(int types, int timeout) {
-            mpr_graph_subscribe(this._obj, IntPtr.Zero, types, timeout);
-            return this;
-        }
-        public Graph subscribe(int types) {
-            mpr_graph_subscribe(this._obj, IntPtr.Zero, types, -1);
+        public Graph subscribe(Type types, int timeout = -1) {
+            mpr_graph_subscribe(this._obj, IntPtr.Zero, (int)types, timeout);
             return this;
         }
 
@@ -461,7 +452,7 @@ namespace Mapper
                     return;
             }
             handlers.ForEach(delegate(Handler h) {
-                if ((h._types & (int)type) != 0)
+                if ((h._types & type) != 0)
                     h._callback(o, e);
             });
         }
@@ -469,9 +460,9 @@ namespace Mapper
         protected class Handler
         {
             public Action<Object, Graph.Event> _callback;
-            public int _types;
+            public Type _types;
 
-            public Handler(Action<Object, Graph.Event> callback, int types)
+            public Handler(Action<Object, Graph.Event> callback, Type types)
             {
                 _callback = callback;
                 _types = types;
@@ -481,7 +472,7 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_add_cb(IntPtr graph, IntPtr handler, int events, IntPtr data);
-        public Graph addCallback(Action<Object, Graph.Event> cb, int types)
+        public Graph addCallback(Action<Object, Graph.Event> cb, Type types)
         {
             // TODO: check if handler is already registered
             if (handlers.Count == 0) {
@@ -520,6 +511,7 @@ namespace Mapper
     {
         private delegate void HandlerDelegate(IntPtr sig, int evt, UInt64 instance, int length,
                                               int type, IntPtr value, IntPtr time);
+        [Flags]
         public enum Event {
             NewInstance         = 0x01, //!< New instance has been created.
             UstreamRelease      = 0x02, //!< Instance was released upstream.
@@ -712,7 +704,7 @@ namespace Mapper
         // TODO: add vector or array handlers
         // TODO: add instance handlers
 
-        public Signal setCallback<T>(T handler, int events = 0)
+        public Signal setCallback<T>(T handler, Event events = 0)
         {
             dynamic temp = handler;
             int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
@@ -722,7 +714,7 @@ namespace Mapper
             }
             mpr_sig_set_cb(this._obj,
                            Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
-                           events);
+                           (int)events);
             return this;
         }
 

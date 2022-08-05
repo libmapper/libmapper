@@ -20,7 +20,7 @@ public class TestCSharp
 
         Signal insig = dev.addSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float, null, 3)
                           .setCallback((Action<Signal.Instance, Signal.Event, float>)handler,
-                                       (int)Mapper.Signal.Event.Update);
+                                       Mapper.Signal.Event.Update);
         Console.WriteLine("created signal insig");
 
         Console.Write("Waiting for device");
