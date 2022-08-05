@@ -170,5 +170,9 @@ print('got tt: ', tt3.get_double())
 print(1.6 + tt1)
 print('current time:', mpr.Time().get_double())
 
+g.print()
+
+g.remove_callback(graph_cb)
+
 dev1.free()
 dev2.free()
