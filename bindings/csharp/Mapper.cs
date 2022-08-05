@@ -290,7 +290,7 @@ namespace Mapper
                 case Property p:    _prop = (int)p; break;
                 case string s:      _key = s;       break;
                 default:
-                    Console.WriteLine("unknown property specifier in method setProperty().");
+                    Console.WriteLine("error: unknown property specifier in method setProperty().");
                     return this;
             }
 
@@ -530,12 +530,18 @@ namespace Mapper
 
         private enum HandlerType {
             None,
-            SingleInt,
-            SingleFloat,
-            SingleDouble,
-            InstanceInt,
-            InstanceFloat,
-            InstanceDouble
+            SingletonInt,
+            SingletonFloat,
+            SingletonDouble,
+            SingletonIntVector,
+            SingletonFloatVector,
+            SingletonDoubleVector,
+            InstancedInt,
+            InstancedFloat,
+            InstancedDouble,
+            InstancedIntVector,
+            InstancedFloatVector,
+            InstancedDoubleVector
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -609,54 +615,111 @@ namespace Mapper
 
         private void _handler(IntPtr sig, int evt, UInt64 inst, int length,
                               int type, IntPtr value, IntPtr time) {
+            Event e = (Event)evt;
             switch (this.handlerType) {
-                case HandlerType.SingleInt: {
-                    unsafe {
-                        int ivalue = 0;
-                        if (value != IntPtr.Zero)
-                                ivalue = *(int*)value;
-                        this.handlers.singleInt(new Signal(sig), (Event)evt, ivalue);
-                    }
-                    break;
-                }
-                case HandlerType.SingleFloat:
-                    unsafe {
-                        float fvalue = 0;
-                        if (value != IntPtr.Zero)
-                            fvalue = *(float*)value;
-                        this.handlers.singleFloat(new Signal(sig), (Event)evt, fvalue);
-                    }
-                    break;
-                case HandlerType.SingleDouble:
-                    unsafe {
-                        double dvalue = 0;
-                        if (value != IntPtr.Zero)
-                            dvalue = *(double*)value;
-                        this.handlers.singleDouble(new Signal(sig), (Event)evt, dvalue);
-                    }
-                    break;
-                case HandlerType.InstanceInt:
+                case HandlerType.SingletonInt: {
                     unsafe {
                         int ivalue = 0;
                         if (value != IntPtr.Zero)
                             ivalue = *(int*)value;
-                        this.handlers.instanceInt(new Signal.Instance(sig, inst), (Event)evt, ivalue);
+                        this.handlers.singletonInt(new Signal(sig), e, ivalue);
                     }
                     break;
-                case HandlerType.InstanceFloat:
+                }
+                case HandlerType.SingletonFloat:
                     unsafe {
                         float fvalue = 0;
                         if (value != IntPtr.Zero)
                             fvalue = *(float*)value;
-                        this.handlers.instanceFloat(new Signal.Instance(sig, inst), (Event)evt, fvalue);
+                        this.handlers.singletonFloat(new Signal(sig), e, fvalue);
                     }
                     break;
-                case HandlerType.InstanceDouble:
+                case HandlerType.SingletonDouble:
                     unsafe {
                         double dvalue = 0;
                         if (value != IntPtr.Zero)
                             dvalue = *(double*)value;
-                        this.handlers.instanceDouble(new Signal.Instance(sig, inst), (Event)evt, dvalue);
+                        this.handlers.singletonDouble(new Signal(sig), e, dvalue);
+                    }
+                    break;
+                case HandlerType.SingletonIntVector: {
+                    if (value == IntPtr.Zero)
+                        this.handlers.singletonIntVector(new Signal(sig), e, new int[0]);
+                    unsafe {
+                        int[] arr = new int[length];
+                        Marshal.Copy((IntPtr)value, arr, 0, length);
+                        this.handlers.singletonIntVector(new Signal(sig), e, arr);
+                    }
+                    break;
+                }
+                case HandlerType.SingletonFloatVector:
+                    if (value == IntPtr.Zero)
+                        this.handlers.singletonFloatVector(new Signal(sig), e, new float[0]);
+                    unsafe {
+                        float[] arr = new float[length];
+                        Marshal.Copy((IntPtr)value, arr, 0, length);
+                        this.handlers.singletonFloatVector(new Signal(sig), e, arr);
+                    }
+                    break;
+                case HandlerType.SingletonDoubleVector:
+                    if (value == IntPtr.Zero)
+                        this.handlers.singletonDoubleVector(new Signal(sig), e, new double[0]);
+                    unsafe {
+                        double[] arr = new double[length];
+                        Marshal.Copy((IntPtr)value, arr, 0, length);
+                        this.handlers.singletonDoubleVector(new Signal(sig), e, arr);
+                    }
+                    break;
+                case HandlerType.InstancedInt:
+                    unsafe {
+                        int ivalue = 0;
+                        if (value != IntPtr.Zero)
+                            ivalue = *(int*)value;
+                        this.handlers.instancedInt(new Signal.Instance(sig, inst), e, ivalue);
+                    }
+                    break;
+                case HandlerType.InstancedFloat:
+                    unsafe {
+                        float fvalue = 0;
+                        if (value != IntPtr.Zero)
+                            fvalue = *(float*)value;
+                        this.handlers.instancedFloat(new Signal.Instance(sig, inst), e, fvalue);
+                    }
+                    break;
+                case HandlerType.InstancedDouble:
+                    unsafe {
+                        double dvalue = 0;
+                        if (value != IntPtr.Zero)
+                            dvalue = *(double*)value;
+                        this.handlers.instancedDouble(new Signal.Instance(sig, inst), e, dvalue);
+                    }
+                    break;
+                case HandlerType.InstancedIntVector: {
+                    if (value == IntPtr.Zero)
+                        this.handlers.instancedIntVector(new Signal.Instance(sig, inst), e, new int[0]);
+                    unsafe {
+                        int[] arr = new int[length];
+                        Marshal.Copy((IntPtr)value, arr, 0, length);
+                        this.handlers.instancedIntVector(new Signal.Instance(sig, inst), e, arr);
+                    }
+                    break;
+                }
+                case HandlerType.InstancedFloatVector:
+                    if (value == IntPtr.Zero)
+                        this.handlers.instancedFloatVector(new Signal.Instance(sig, inst), e, new float[0]);
+                    unsafe {
+                        float[] arr = new float[length];
+                        Marshal.Copy((IntPtr)value, arr, 0, length);
+                        this.handlers.instancedFloatVector(new Signal.Instance(sig, inst), e, arr);
+                    }
+                    break;
+                case HandlerType.InstancedDoubleVector:
+                    if (value == IntPtr.Zero)
+                        this.handlers.instancedDoubleVector(new Signal.Instance(sig, inst), e, new double[0]);
+                    unsafe {
+                        double[] arr = new double[length];
+                        Marshal.Copy((IntPtr)value, arr, 0, length);
+                        this.handlers.instancedDoubleVector(new Signal.Instance(sig, inst), e, arr);
                     }
                     break;
                 default:
@@ -671,8 +734,17 @@ namespace Mapper
         {
             if (type != (int)Type.Int32)
                 return false;
-            handlerType = HandlerType.SingleInt;
-            handlers.singleInt = h;
+            handlerType = HandlerType.SingletonInt;
+            handlers.singletonInt = h;
+            return true;
+        }
+
+        private Boolean _setCallback(Action<Signal, Signal.Event, int[]> h, int type)
+        {
+            if (type != (int)Type.Int32)
+                return false;
+            handlerType = HandlerType.SingletonIntVector;
+            handlers.singletonIntVector = h;
             return true;
         }
 
@@ -680,8 +752,17 @@ namespace Mapper
         {
             if (type != (int)Type.Float)
                 return false;
-            handlerType = HandlerType.SingleFloat;
-            handlers.singleFloat = h;
+            handlerType = HandlerType.SingletonFloat;
+            handlers.singletonFloat = h;
+            return true;
+        }
+
+        private Boolean _setCallback(Action<Signal, Signal.Event, float[]> h, int type)
+        {
+            if (type != (int)Type.Float)
+                return false;
+            handlerType = HandlerType.SingletonFloatVector;
+            handlers.singletonFloatVector = h;
             return true;
         }
 
@@ -689,8 +770,17 @@ namespace Mapper
         {
             if (type != (int)Type.Double)
                 return false;
-            handlerType = HandlerType.SingleDouble;
-            handlers.singleDouble = h;
+            handlerType = HandlerType.SingletonDouble;
+            handlers.singletonDouble = h;
+            return true;
+        }
+
+        private Boolean _setCallback(Action<Signal, Signal.Event, double[]> h, int type)
+        {
+            if (type != (int)Type.Double)
+                return false;
+            handlerType = HandlerType.SingletonDoubleVector;
+            handlers.singletonDoubleVector = h;
             return true;
         }
 
@@ -698,8 +788,17 @@ namespace Mapper
         {
             if (type != (int)Type.Int32)
                 return false;
-            handlerType = HandlerType.InstanceInt;
-            handlers.instanceInt = h;
+            handlerType = HandlerType.InstancedInt;
+            handlers.instancedInt = h;
+            return true;
+        }
+
+        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, int[]> h, int type)
+        {
+            if (type != (int)Type.Int32)
+                return false;
+            handlerType = HandlerType.InstancedIntVector;
+            handlers.instancedIntVector = h;
             return true;
         }
 
@@ -707,8 +806,17 @@ namespace Mapper
         {
             if (type != (int)Type.Float)
                 return false;
-            handlerType = HandlerType.InstanceFloat;
-            handlers.instanceFloat = h;
+            handlerType = HandlerType.InstancedFloat;
+            handlers.instancedFloat = h;
+            return true;
+        }
+
+        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, float[]> h, int type)
+        {
+            if (type != (int)Type.Float)
+                return false;
+            handlerType = HandlerType.InstancedFloatVector;
+            handlers.instancedFloatVector = h;
             return true;
         }
 
@@ -716,13 +824,19 @@ namespace Mapper
         {
             if (type != (int)Type.Double)
                 return false;
-            handlerType = HandlerType.InstanceDouble;
-            handlers.instanceDouble = h;
+            handlerType = HandlerType.InstancedDouble;
+            handlers.instancedDouble = h;
             return true;
         }
 
-        // TODO: add vector or array handlers
-        // TODO: add instance handlers
+        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, double[]> h, int type)
+        {
+            if (type != (int)Type.Double)
+                return false;
+            handlerType = HandlerType.InstancedDoubleVector;
+            handlers.instancedDoubleVector = h;
+            return true;
+        }
 
         public Signal setCallback<T>(T handler, Event events = Event.All)
         {
@@ -751,17 +865,29 @@ namespace Mapper
         struct Handlers
         {
             [FieldOffset(0)]
-            internal Action<Signal, Signal.Event, int> singleInt;
+            internal Action<Signal, Signal.Event, int> singletonInt;
             [FieldOffset(0)]
-            internal Action<Signal, Signal.Event, float> singleFloat;
+            internal Action<Signal, Signal.Event, float> singletonFloat;
             [FieldOffset(0)]
-            internal Action<Signal, Signal.Event, double> singleDouble;
+            internal Action<Signal, Signal.Event, double> singletonDouble;
             [FieldOffset(0)]
-            internal Action<Signal.Instance, Signal.Event, int> instanceInt;
+            internal Action<Signal, Signal.Event, int[]> singletonIntVector;
             [FieldOffset(0)]
-            internal Action<Signal.Instance, Signal.Event, float> instanceFloat;
+            internal Action<Signal, Signal.Event, float[]> singletonFloatVector;
             [FieldOffset(0)]
-            internal Action<Signal.Instance, Signal.Event, double> instanceDouble;
+            internal Action<Signal, Signal.Event, double[]> singletonDoubleVector;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, int> instancedInt;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, float> instancedFloat;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, double> instancedDouble;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, int[]> instancedIntVector;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, float[]> instancedFloatVector;
+            [FieldOffset(0)]
+            internal Action<Signal.Instance, Signal.Event, double[]> instancedDoubleVector;
         }
         private Handlers handlers;
         private HandlerType handlerType = HandlerType.None;

@@ -31,12 +31,12 @@ public class TestCSharp
                                        Mapper.Signal.Event.Update);
         Console.WriteLine("created Signal insig");
 
-        Console.Write("Waiting for device");
+        Console.Write("Waiting for Device...");
         while (dev.getIsReady() == 0) {
             dev.poll(25);
             graph.poll();
         }
-        Console.WriteLine("Device ready...");
+        Console.WriteLine("ready!");
 
         dev.setProperty("foo", 1000);
         Console.WriteLine("property 'foo' = " + dev.getProperty("foo"));
@@ -54,6 +54,7 @@ public class TestCSharp
             dev.poll(25);
             graph.poll();
         }
+        Console.WriteLine("ready!");
 
         float sig_val = 0.0F;
         int counter = 0;
