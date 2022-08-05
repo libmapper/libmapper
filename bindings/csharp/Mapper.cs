@@ -54,6 +54,8 @@ namespace Mapper
 
     public class Time
     {
+        public Time(long time) { _time = time; }
+
         // TODO: port time implementation instead of using unsafe library calls
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         unsafe private static extern int mpr_time_set_dbl(void* obj, double sec);
@@ -136,26 +138,6 @@ namespace Mapper
             Any          = 0xFF
         }
 
-        public class PropVal
-        {
-            internal PropVal(int prop, string key, dynamic value)
-            {
-                _prop = prop;
-                _key = key;
-                _value = value;
-            }
-
-            public dynamic getValue()
-            {
-                return _value;
-            }
-
-            internal int _prop;
-            internal string _key;
-            internal int _publish = 0;
-            internal dynamic _value;
-        }
-
         protected Object() {}
         protected Object(IntPtr obj)
             { _obj = obj; }
@@ -170,52 +152,8 @@ namespace Mapper
         public int getNumProperties()
             { return mpr_obj_get_num_props(_obj); }
 
-        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        unsafe internal static extern int mpr_obj_get_prop_by_idx(IntPtr obj, int idx, ref char *key,
-                                                                  ref int len, ref int type,
-                                                                  ref void *value, ref int publish);
-
-        unsafe internal PropVal _getProperty<P>(P prop)
-        {
-            char *key = null;
-            int len = 0;
-            int type = 0;
-            void *val = null;
-            int pub = 0;
-            int idx;
-            switch (prop) {
-                case int i:
-                    idx = mpr_obj_get_prop_by_idx(this._obj, i, ref key, ref len,
-                                                  ref type, ref val, ref pub);
-                    break;
-                case Property p:
-                    idx = mpr_obj_get_prop_by_idx(this._obj, (int)p, ref key, ref len,
-                                                  ref type, ref val, ref pub);
-                    break;
-                default:
-                    Console.WriteLine("error: unhandled property type in getProperty().");
-                    return null;
-            }
-            Console.WriteLine("check3 len");
-            if (0 == idx || 0 == len)
-                return null;
-            Console.WriteLine("making new PropVal");
-            PropVal pv = new PropVal(idx, new string(key), buildValue(len, type, val));
-            Console.WriteLine("made new PropVal");
-            return pv;
-        }
-        public PropVal getProperty(int prop)
-        {
-            return _getProperty<int>(prop);
-        }
-        public PropVal getProperty(Property prop)
-        {
-            return _getProperty<Property>(prop);
-        }
-
         unsafe internal dynamic buildValue(int len, int type, void *value)
         {
-            Console.WriteLine("buildValue");
             if (0 == len)
                 return null;
             switch (type) {
@@ -224,7 +162,7 @@ namespace Mapper
                         return *(int*)value;
                     else {
                         int[] arr = new int[len];
-                        Marshal.Copy(new IntPtr(value), arr, 0, len);
+                        Marshal.Copy((IntPtr)value, arr, 0, len);
                         return arr;
                     }
                 case (int)Type.Float:
@@ -232,7 +170,7 @@ namespace Mapper
                         return *(float*)value;
                     else {
                         float[] arr = new float[len];
-                        Marshal.Copy(new IntPtr(value), arr, 0, len);
+                        Marshal.Copy((IntPtr)value, arr, 0, len);
                         return arr;
                     }
                 case (int)Type.Double:
@@ -240,16 +178,81 @@ namespace Mapper
                         return *(double*)value;
                     else {
                         double[] arr = new double[len];
-                        Marshal.Copy(new IntPtr(value), arr, 0, len);
+                        Marshal.Copy((IntPtr)value, arr, 0, len);
+                        return arr;
+                    }
+                case (int)Type.Boolean:
+                    if (1 == len)
+                        return *(int*)value == 1;
+                    else {
+                        bool[] arr = new bool[len];
+                        for (int i = 0; i < len; i++)
+                            arr[i] = ((int*)value)[i] == 1;
+                        return arr;
+                    }
+                case (int)Type.Int64:
+                    if (1 == len)
+                        return *(long*)value;
+                    else {
+                        long[] arr = new long[len];
+                        Marshal.Copy((IntPtr)value, arr, 0, len);
+                        return arr;
+                    }
+                case (int)Type.Time:
+                    if (1 == len)
+                        return new Time(*(long*)value);
+                    else {
+                        Time[] arr = new Time[len];
+                        for (int i = 0; i < len; i++)
+                            arr[0] = new Time(((long*)value)[i]);
                         return arr;
                     }
                 case (int)Type.String:
-                    Console.WriteLine("error: string array properties not currently supported by C# bindings.");
-                    return null;
+                    if (1 == len)
+                        return new String(Marshal.PtrToStringAnsi((IntPtr)value));
+                    else {
+                        String[] arr = new String[len];
+                        for (int i = 0; i < len; i++)
+                            arr[i] = new String(Marshal.PtrToStringAnsi((IntPtr)((char**)value)[i]));
+                        return arr;
+                    }
                 default:
                     Console.WriteLine("error: unhandled data type in Object.buildValue().");
                     return null;
             }
+        }
+
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        unsafe internal static extern int mpr_obj_get_prop_by_idx(IntPtr obj, int idx, ref char *key,
+                                                                  ref int len, ref int type,
+                                                                  ref void *value, ref int publish);
+
+        unsafe public (String, dynamic) getProperty(int prop)
+        {
+            char *key = null;
+            int len = 0;
+            int type = 0;
+            void *val = null;
+            int pub = 0;
+            int idx = mpr_obj_get_prop_by_idx(this._obj, prop, ref key, ref len,
+                                              ref type, ref val, ref pub);
+            if (0 == idx || 0 == len)
+                return (new String("unknown"), null);
+            return (new string(Marshal.PtrToStringAnsi((IntPtr)key)), buildValue(len, type, val));
+        }
+
+        unsafe public dynamic getProperty(Property prop)
+        {
+            char *key = null;
+            int len = 0;
+            int type = 0;
+            void *val = null;
+            int pub = 0;
+            int idx = mpr_obj_get_prop_by_idx(this._obj, (int)prop, ref key, ref len,
+                                              ref type, ref val, ref pub);
+            if (0 == idx || 0 == len)
+                return null;
+            return buildValue(len, type, val);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -259,14 +262,12 @@ namespace Mapper
                                                                   ref void *value, ref int publish);
         unsafe public dynamic getProperty(string key)
         {
-            Console.WriteLine("Object.getProperty(string)");
             int len = 0;
             int type = 0;
             void *val = null;
             int pub = 0;
             int idx;
             idx = mpr_obj_get_prop_by_key(this._obj, key, ref len, ref type, ref val, ref pub);
-            Console.WriteLine("check1, idx=" + idx + ", len=" + len);
             if (0 == idx || 0 == len)
                 return null;
             return buildValue(len, type, val);
@@ -513,8 +514,8 @@ namespace Mapper
                                               int type, IntPtr value, IntPtr time);
         [Flags]
         public enum Event {
-            NewInstance         = 0x01, //!< New instance has been created.
-            UstreamRelease      = 0x02, //!< Instance was released upstream.
+            New                 = 0x01, //!< New instance has been created.
+            UpstreamRelease     = 0x02, //!< Instance was released upstream.
             DownstreamRelease   = 0x04, //!< Instance was released downstream.
             Overflow            = 0x08, //!< No local instances left.
             Update              = 0x10, //!< Instance value has been updated.
@@ -590,6 +591,12 @@ namespace Mapper
                 return this;
             }
 
+            [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+            unsafe private static extern void mpr_sig_release_inst(IntPtr sig, UInt64 id);
+            public void release() {
+                mpr_sig_release_inst(this._obj, id);
+            }
+
             public readonly UInt64 id;
         }
 
@@ -603,44 +610,57 @@ namespace Mapper
         private void _handler(IntPtr sig, int evt, UInt64 inst, int length,
                               int type, IntPtr value, IntPtr time) {
             switch (this.handlerType) {
-                case HandlerType.SingleInt:
+                case HandlerType.SingleInt: {
                     unsafe {
-                        int ivalue = *(int*)value;
+                        int ivalue = 0;
+                        if (value != IntPtr.Zero)
+                                ivalue = *(int*)value;
                         this.handlers.singleInt(new Signal(sig), (Event)evt, ivalue);
                     }
                     break;
+                }
                 case HandlerType.SingleFloat:
                     unsafe {
-                        float fvalue = *(float*)value;
+                        float fvalue = 0;
+                        if (value != IntPtr.Zero)
+                            fvalue = *(float*)value;
                         this.handlers.singleFloat(new Signal(sig), (Event)evt, fvalue);
                     }
                     break;
                 case HandlerType.SingleDouble:
                     unsafe {
-                        double dvalue = *(double*)value;
+                        double dvalue = 0;
+                        if (value != IntPtr.Zero)
+                            dvalue = *(double*)value;
                         this.handlers.singleDouble(new Signal(sig), (Event)evt, dvalue);
                     }
                     break;
                 case HandlerType.InstanceInt:
                     unsafe {
-                        int ivalue = *(int*)value;
+                        int ivalue = 0;
+                        if (value != IntPtr.Zero)
+                            ivalue = *(int*)value;
                         this.handlers.instanceInt(new Signal.Instance(sig, inst), (Event)evt, ivalue);
                     }
                     break;
                 case HandlerType.InstanceFloat:
                     unsafe {
-                        float fvalue = *(float*)value;
+                        float fvalue = 0;
+                        if (value != IntPtr.Zero)
+                            fvalue = *(float*)value;
                         this.handlers.instanceFloat(new Signal.Instance(sig, inst), (Event)evt, fvalue);
                     }
                     break;
                 case HandlerType.InstanceDouble:
                     unsafe {
-                        double dvalue = *(double*)value;
+                        double dvalue = 0;
+                        if (value != IntPtr.Zero)
+                            dvalue = *(double*)value;
                         this.handlers.instanceDouble(new Signal.Instance(sig, inst), (Event)evt, dvalue);
                     }
                     break;
                 default:
-                break;
+                    break;
             }
         }
 
@@ -704,7 +724,7 @@ namespace Mapper
         // TODO: add vector or array handlers
         // TODO: add instance handlers
 
-        public Signal setCallback<T>(T handler, Event events = 0)
+        public Signal setCallback<T>(T handler, Event events = Event.All)
         {
             dynamic temp = handler;
             int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
@@ -867,9 +887,4 @@ namespace Mapper
             return this;
         }
     }
-
-    // [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-    // private static extern IntPtr mpr_get_version();
-    // public string getVersion()
-    //     { return System.Runtime.InteropServices.Marshal.PtrToStringAnsi(mpr_get_version()); }
 }

@@ -13,9 +13,6 @@ public class TestCSharp
     }
 
     public static void Main(string[] args) {
-        // string version = Mapper.getVersion();
-        // Console.WriteLine("mapper version = " + version);
-
         Graph graph = new Graph();
         Console.WriteLine("created Graph");
         graph.addCallback(graph_handler, Mapper.Type.Signal | Mapper.Type.Map);
@@ -43,6 +40,10 @@ public class TestCSharp
 
         dev.setProperty("foo", 1000);
         Console.WriteLine("property 'foo' = " + dev.getProperty("foo"));
+        Console.WriteLine("library version = " + dev.getProperty(Property.LibVersion));
+
+        for (int i = 0; i < dev.getNumProperties(); i++)
+            Console.WriteLine("property["+i+"] = " + dev.getProperty(i));
 
         // Map map = new Map(outsig, insig);
         Map map = new Map("%y=%x*1000", insig, outsig);
