@@ -407,7 +407,7 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     }
     else
         net->multicast.group = strdup(group ? group : "224.0.1.3");
-    if (!net->multicast.port)
+    if (port || !net->multicast.port)
         net->multicast.port = port ? port : 7570;
     snprintf(port_str, 10, "%d", net->multicast.port);
 
