@@ -31,7 +31,8 @@ namespace Mapper
         Null      = 'N'   /* 0x4E */  //!< NULL value.
     }
 
-    public enum Operator {
+    public enum Operator
+    {
         DoesNotExist            = 0x01, //!< Property does not exist.
         IsEqual                 = 0x02, //!< Property value == query value.
         Exists                  = 0x03, //!< Property exists for this entity.
@@ -44,7 +45,8 @@ namespace Mapper
         Any                     = 0x20  //!< Applies to any element of value
     }
 
-    public enum Direction {
+    public enum Direction
+    {
         Incoming    = 0x01, //!< Signal is an input
         Outgoing    = 0x02, //!< Signal is an output
         Any         = 0x03, //!< Either incoming or outgoing
@@ -69,23 +71,30 @@ namespace Mapper
         }
         internal timeStruct data;
 
-        public Time(long ntp) { data.ntp = ntp; }
-        public Time(Time time) { data.ntp = time.data.ntp; }
-        public Time() { data.sec = 0; data.frac = 1; }
-        public Time(double seconds) { this.setDouble(seconds); }
+        public Time(long ntp)
+            { data.ntp = ntp; }
+        public Time(Time time)
+            { data.ntp = time.data.ntp; }
+        public Time()
+            { data.sec = 0; data.frac = 1; }
+        public Time(double seconds)
+            { this.SetDouble(seconds); }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         unsafe private static extern int mpr_time_set(IntPtr l, long r);
-        unsafe public Time set(Time time)
+        unsafe public Time Set(Time time)
         {
-            fixed (void* t = &data) {
+            fixed (void* t = &data)
+            {
                 mpr_time_set((IntPtr)t, time.data.ntp);
             }
             return this;
         }
 
-        public Time setDouble(Double seconds) {
-            if (seconds > 0.0) {
+        public Time SetDouble(Double seconds)
+        {
+            if (seconds > 0.0)
+            {
                 data.sec = (UInt32)Math.Floor(seconds);
                 seconds -= data.sec;
                 data.frac = (UInt32) (((double)seconds) * 4294967296.0);
@@ -97,13 +106,16 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         unsafe private static extern double mpr_time_as_dbl(IntPtr t);
-        unsafe private static double as_dbl(Time time) {
-            fixed (void *t = &time.data) {
+        unsafe private static double as_dbl(Time time)
+        {
+            fixed (void *t = &time.data)
+            {
                 return mpr_time_as_dbl((IntPtr)t);
             }
         }
 
-        public Time add(Time addend) {
+        public Time Add(Time addend)
+        {
             data.sec += addend.data.sec;
             data.frac += addend.data.frac;
             if (data.frac < addend.data.frac) /* overflow */
@@ -111,8 +123,10 @@ namespace Mapper
             return this;
         }
 
-        public Time subtract(Time subtrahend) {
-            if (data.sec > subtrahend.data.sec) {
+        public Time Subtract(Time subtrahend)
+        {
+            if (data.sec > subtrahend.data.sec)
+            {
                 data.sec -= subtrahend.data.sec;
                 if (data.frac < subtrahend.data.frac) /* overflow */
                     --data.sec;
@@ -123,8 +137,10 @@ namespace Mapper
             return this;
         }
 
-        public Time multiply(double multiplicand) {
-            if (multiplicand > 0.0) {
+        public Time Multiply(double multiplicand)
+        {
+            if (multiplicand > 0.0)
+            {
                 multiplicand *= Time.as_dbl(this);
                 data.sec = (UInt32) Math.Floor(multiplicand);
                 multiplicand -= data.sec;
@@ -140,36 +156,29 @@ namespace Mapper
         public static explicit operator Time(double d) => new Time(d);
 
         /* Overload some arithmetic operators */
-        public static Time operator +(Time a, Time b)
-            => new Time(a).add(b);
+        public static Time operator +(Time a, Time b) => new Time(a).Add(b);
 
-        public static Time operator -(Time a, Time b)
-            => new Time(a).subtract(b);
+        public static Time operator -(Time a, Time b) => new Time(a).Subtract(b);
 
-        public static Time operator *(Time a, double b)
-            => new Time(a).multiply(b);
+        public static Time operator *(Time a, double b) => new Time(a).Multiply(b);
 
-        public static bool operator ==(Time a, Time b)
-            => a.data.ntp == b.data.ntp;
-        public static bool operator !=(Time a, Time b)
-            => a.data.ntp != b.data.ntp;
-        public static bool operator >(Time a, Time b)
-            => a.data.ntp > b.data.ntp;
-        public static bool operator <(Time a, Time b)
-            => a.data.ntp < b.data.ntp;
-        public static bool operator >=(Time a, Time b)
-            => a.data.ntp >= b.data.ntp;
-        public static bool operator <=(Time a, Time b)
-            => a.data.ntp <= b.data.ntp;
+        public static bool operator ==(Time a, Time b) => a.data.ntp == b.data.ntp;
+        public static bool operator !=(Time a, Time b) => a.data.ntp != b.data.ntp;
+        public static bool operator >(Time a, Time b) => a.data.ntp > b.data.ntp;
+        public static bool operator <(Time a, Time b) => a.data.ntp < b.data.ntp;
+        public static bool operator >=(Time a, Time b) => a.data.ntp >= b.data.ntp;
+        public static bool operator <=(Time a, Time b) => a.data.ntp <= b.data.ntp;
 
-        public override bool Equals(object o) {
+        public override bool Equals(object o)
+        {
             if (o == null)
                 return false;
             var second = o as Time;
             return second != null && data.ntp == second.data.ntp;
         }
 
-        public override int GetHashCode() {
+        public override int GetHashCode()
+        {
             return (int)(data.sec ^ data.frac);
         }
 
@@ -220,7 +229,8 @@ namespace Mapper
 
     public abstract class Object
     {
-        public enum Status {
+        public enum Status
+        {
             Expired      = 0x01,
             Staged       = 0x02,
             Ready        = 0x3E,
@@ -229,34 +239,40 @@ namespace Mapper
             Any          = 0xFF
         }
 
-        public Object() {
+        public Object()
+        {
             _obj = IntPtr.Zero;
             _owned  = false;
         }
-        protected Object(IntPtr obj) {
+
+        protected Object(IntPtr obj)
+        {
             _obj = obj;
             _owned  = false;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         protected static extern int mpr_obj_get_type(IntPtr obj);
-        public Type getType()
+        public new Type GetType()
             { return (Type) mpr_obj_get_type(_obj); }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_obj_get_num_props(IntPtr obj);
-        public int getNumProperties()
+        public int GetNumProperties()
             { return mpr_obj_get_num_props(_obj); }
 
-        unsafe internal dynamic buildValue(int len, int type, void *value, int property)
+        unsafe internal dynamic BuildValue(int len, int type, void *value, int property)
         {
             if (0 == len)
                 return null;
-            switch (type) {
+            switch (type)
+            {
                 case (int)Type.Int32:
-                    if (1 == len) {
+                    if (1 == len)
+                    {
                         int i = *(int*)value;
-                        switch (property) {
+                        switch (property)
+                        {
                             case (int)Property.Direction:
                                 return (Direction)i;
                             case (int)Property.ProcessingLocation:
@@ -273,7 +289,8 @@ namespace Mapper
                                 return i;
                         }
                     }
-                    else {
+                    else
+                    {
                         int[] arr = new int[len];
                         Marshal.Copy((IntPtr)value, arr, 0, len);
                         return arr;
@@ -281,7 +298,8 @@ namespace Mapper
                 case (int)Type.Float:
                     if (1 == len)
                         return *(float*)value;
-                    else {
+                    else
+                    {
                         float[] arr = new float[len];
                         Marshal.Copy((IntPtr)value, arr, 0, len);
                         return arr;
@@ -289,7 +307,8 @@ namespace Mapper
                 case (int)Type.Double:
                     if (1 == len)
                         return *(double*)value;
-                    else {
+                    else
+                    {
                         double[] arr = new double[len];
                         Marshal.Copy((IntPtr)value, arr, 0, len);
                         return arr;
@@ -297,7 +316,8 @@ namespace Mapper
                 case (int)Type.Boolean:
                     if (1 == len)
                         return *(int*)value != 0;
-                    else {
+                    else
+                    {
                         bool[] arr = new bool[len];
                         for (int i = 0; i < len; i++)
                             arr[i] = ((int*)value)[i] != 0;
@@ -306,7 +326,8 @@ namespace Mapper
                 case (int)Type.Int64:
                     if (1 == len)
                         return *(long*)value;
-                    else {
+                    else
+                    {
                         long[] arr = new long[len];
                         Marshal.Copy((IntPtr)value, arr, 0, len);
                         return arr;
@@ -314,7 +335,8 @@ namespace Mapper
                 case (int)Type.Time:
                     if (1 == len)
                         return new Time(*(long*)value);
-                    else {
+                    else
+                    {
                         Time[] arr = new Time[len];
                         for (int i = 0; i < len; i++)
                             arr[0] = new Time(((long*)value)[i]);
@@ -323,7 +345,8 @@ namespace Mapper
                 case (int)Type.String:
                     if (1 == len)
                         return new String(Marshal.PtrToStringAnsi((IntPtr)value));
-                    else {
+                    else
+                    {
                         String[] arr = new String[len];
                         for (int i = 0; i < len; i++)
                             arr[i] = new String(Marshal.PtrToStringAnsi((IntPtr)((char**)value)[i]));
@@ -336,8 +359,10 @@ namespace Mapper
                 case (int)Type.Signal:
                     return new Signal((IntPtr)value);
                 case (int)Type.List:
-                    if (1 == len) {
-                        switch (property) {
+                    if (1 == len)
+                    {
+                        switch (property)
+                        {
                             case (int)Property.Device:
                             case (int)Property.Linked:
                             case (int)Property.Scope:
@@ -349,12 +374,13 @@ namespace Mapper
                                 return null;
                         }
                     }
-                    else {
+                    else
+                    {
                         Console.WriteLine("error: arrays of List are not supported.");
                         return null;
                     }
                 default:
-                    Console.WriteLine("error: unhandled data type in Object.buildValue().");
+                    Console.WriteLine("error: unhandled data type in Object.BuildValue().");
                     return null;
             }
         }
@@ -366,7 +392,7 @@ namespace Mapper
                                                                   ref int len, ref int type,
                                                                   ref void *value, ref int publish);
 
-        unsafe public (String, dynamic) getProperty(int index)
+        unsafe public (String, dynamic) GetProperty(int index)
         {
             char *key = null;
             int len = 0;
@@ -377,10 +403,10 @@ namespace Mapper
                                               ref type, ref val, ref pub);
             if (0 == idx || 0 == len)
                 return (new String("unknown"), null);
-            return (new string(Marshal.PtrToStringAnsi((IntPtr)key)), buildValue(len, type, val, idx));
+            return (new string(Marshal.PtrToStringAnsi((IntPtr)key)), BuildValue(len, type, val, idx));
         }
 
-        unsafe public dynamic getProperty(Property property)
+        unsafe public dynamic GetProperty(Property property)
         {
             char *key = null;
             int len = 0;
@@ -391,7 +417,7 @@ namespace Mapper
                                               ref type, ref val, ref pub);
             if (0 == idx || 0 == len)
                 return null;
-            return buildValue(len, type, val, idx);
+            return BuildValue(len, type, val, idx);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -399,7 +425,7 @@ namespace Mapper
                                                                   [MarshalAs(UnmanagedType.LPStr)] string key,
                                                                   ref int len, ref int type,
                                                                   ref void *value, ref int publish);
-        unsafe public dynamic getProperty(string key)
+        unsafe public dynamic GetProperty(string key)
         {
             int len = 0;
             int type = 0;
@@ -409,7 +435,7 @@ namespace Mapper
             idx = mpr_obj_get_prop_by_key(this._obj, key, ref len, ref type, ref val, ref pub);
             if (0 == idx || 0 == len)
                 return null;
-            return buildValue(len, type, val, idx);
+            return BuildValue(len, type, val, idx);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -420,20 +446,22 @@ namespace Mapper
         unsafe internal static extern
         int mpr_obj_set_prop(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string key,
                              int len, int type, void* value, int publish);
-        unsafe public Object setProperty<P, T>(P property, T value)
+        unsafe public Object SetProperty<P, T>(P property, T value)
         {
             int _prop = 0;
             string _key = null;
 
-            switch (property) {
+            switch (property)
+            {
                 case Property p:    _prop = (int)p; break;
                 case string s:      _key = s;       break;
                 default:
-                    Console.WriteLine("error: unknown property specifier in method setProperty().");
+                    Console.WriteLine("error: unknown property specifier in method SetProperty().");
                     return this;
             }
 
-            switch (value) {
+            switch (value)
+            {
                 case int i:
                     mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Int32, (void*)&i, 1);
                     break;
@@ -444,25 +472,28 @@ namespace Mapper
                     mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Double, (void*)&d, 1);
                     break;
                 case int[] i:
-                    fixed(int *temp = &i[0]) {
+                    fixed(int *temp = &i[0])
+                    {
                         IntPtr intPtr = new IntPtr((void*)temp);
                         mpr_obj_set_prop(_obj, _prop, _key, i.Length, (int)Type.Int32, (void*)intPtr, 1);
                     }
                     break;
                 case float[] f:
-                    fixed(float *temp = &f[0]) {
+                    fixed(float *temp = &f[0])
+                    {
                         IntPtr intPtr = new IntPtr((void*)temp);
                         mpr_obj_set_prop(_obj, _prop, _key, f.Length, (int)Type.Float, (void*)intPtr, 1);
                     }
                     break;
                 case double[] d:
-                    fixed(double *temp = &d[0]) {
+                    fixed(double *temp = &d[0])
+                    {
                         IntPtr intPtr = new IntPtr((void*)temp);
                         mpr_obj_set_prop(_obj, _prop, _key, d.Length, (int)Type.Double, (void*)intPtr, 1);
                     }
                     break;
                 default:
-                    Console.WriteLine("error: unhandled type in setProperty().");
+                    Console.WriteLine("error: unhandled type in SetProperty().");
                     break;
             }
             return this;
@@ -471,15 +502,17 @@ namespace Mapper
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_obj_remove_prop(IntPtr obj, int prop,
                                                       [MarshalAs(UnmanagedType.LPStr)] string key);
-        public bool removeProperty<P>(P property) {
+        public bool RemoveProperty<P>(P property)
+        {
             int _prop = 0;
             string _key = null;
 
-            switch (property) {
+            switch (property)
+            {
                 case Property p:    _prop = (int)p; break;
                 case string s:      _key = s;       break;
                 default:
-                    Console.WriteLine("error: unknown property specifier in method setProperty().");
+                    Console.WriteLine("error: unknown property specifier in method SetProperty().");
                     return false;
             }
             return 0 != mpr_obj_remove_prop(this._obj, _prop, _key);
@@ -487,7 +520,7 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_obj_push(IntPtr obj);
-        public Object push()
+        public Object Push()
         {
             mpr_obj_push(_obj);
             return this;
@@ -495,7 +528,7 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_obj_get_graph(IntPtr obj);
-        public Graph graph()
+        public Graph GetGraph()
         {
             return new Graph(mpr_obj_get_graph(_obj));
         }
@@ -507,33 +540,57 @@ namespace Mapper
     public abstract class _List {
         protected Type _type;
         private IntPtr _list;
+        private bool _started;
 
-        public _List() { _type = Type.Null; _list = IntPtr.Zero; }
-        public _List(IntPtr list, Type type) { _type = type; _list = list; }
+        public _List()
+        {
+            _type = Type.Null;
+            _list = IntPtr.Zero;
+            _started = false;
+        }
+
+        public _List(IntPtr list, Type type)
+        {
+            _type = type;
+            _list = list;
+            _started = false;
+        }
+
+        /* copy constructor */
+        public _List(_List original)
+        {
+            _list = mpr_list_get_cpy(original._list);
+            _type = original._type;
+            _started = false;
+        }
 
         // TODO: probably need refcounting to check if we should free the underlying mpr_list
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_list_free(IntPtr list);
-        public void free() {
-            Console.WriteLine("calling _List::free()");
+        public void Free()
+        {
             mpr_list_free(_list);
             _list = IntPtr.Zero;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_list_get_size(IntPtr list);
-        public int Count() {
+        public int Count()
+        {
             return mpr_list_get_size(_list);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_list_get_idx(IntPtr list, int index);
-        public IntPtr get_idx(int index) {
+        public IntPtr GetIdx(int index)
+        {
             return mpr_list_get_idx(_list, index);
         }
-        public IntPtr deref() {
+
+        public IntPtr Deref()
+        {
             unsafe {
-                return new IntPtr(*(void**)_list);
+                return new IntPtr(_list != IntPtr.Zero ? *(void**)_list : null);
             }
         }
 
@@ -542,38 +599,51 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_list_get_union(IntPtr list1, IntPtr list2);
-        public _List join(_List rhs) {
+        public _List Join(_List rhs)
+        {
             _list = mpr_list_get_union(_list, mpr_list_get_cpy(rhs._list));
             return this;
         }
-        public static IntPtr get_union(_List a, _List b) {
+
+        public static IntPtr Union(_List a, _List b)
+        {
             return mpr_list_get_union(mpr_list_get_cpy(a._list), mpr_list_get_cpy(b._list));
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_list_get_isect(IntPtr list1, IntPtr list2);
-        public _List intersect(_List rhs) {
+        public _List Intersect(_List rhs)
+        {
             _list = mpr_list_get_isect(_list, mpr_list_get_cpy(rhs._list));
             return this;
         }
-        public static IntPtr get_isect(_List a, _List b) {
+        public static IntPtr Intersection(_List a, _List b)
+        {
             return mpr_list_get_isect(mpr_list_get_cpy(a._list), mpr_list_get_cpy(b._list));
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_list_get_diff(IntPtr list1, IntPtr list2);
-        public _List subtract(_List rhs) {
+        public _List Subtract(_List rhs)
+        {
             _list = mpr_list_get_diff(_list, mpr_list_get_cpy(rhs._list));
             return this;
         }
-        public static IntPtr get_diff(_List a, _List b) {
+        public static IntPtr Difference(_List a, _List b)
+        {
             return mpr_list_get_diff(mpr_list_get_cpy(a._list), mpr_list_get_cpy(b._list));
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_list_get_next(IntPtr list);
-        public bool get_next() {
-            _list = mpr_list_get_next(_list);
+        public bool GetNext()
+        {
+            if (_started)
+            {
+                _list = mpr_list_get_next(_list);
+            }
+            else
+                _started = true;
             return _list != IntPtr.Zero;
         }
 
@@ -585,45 +655,58 @@ namespace Mapper
     {
         internal List(IntPtr list, Type type) : base(list, type) {}
 
-        public T this[int index] {
-            get { T t = new T(); t._obj = this.get_idx(index); return t; }
+        public T this[int index]
+        {
+            get { T t = new T(); t._obj = this.GetIdx(index); return t; }
         }
 
         /* Overload some arithmetic operators */
         public static List<T> operator +(List<T> a, List<T> b)
-            => new List<T>( get_union(a, b), a._type );
+            => new List<T>( Union(a, b), a._type );
 
         public static List<T> operator *(List<T> a, List<T> b)
-            => new List<T>( get_isect(a, b), a._type );
+            => new List<T>( Intersection(a, b), a._type );
 
         public static List<T> operator -(List<T> a, List<T> b)
-            => new List<T>( get_diff(a, b), a._type );
+            => new List<T>( Difference(a, b), a._type );
 
         /* Methods for enumeration */
-        public IEnumerator GetEnumerator() {
+        public IEnumerator GetEnumerator()
+        {
             return (IEnumerator)this;
         }
 
-        public void Reset() {
+        public void Reset()
+        {
             // TODO: throw NotSupportedException;
         }
 
-        public bool MoveNext() {
-            return this.get_next();
+        public bool MoveNext()
+        {
+            return this.GetNext();
         }
 
-        void IDisposable.Dispose() {
-            this.free();
-            // Dispose(true);
-            // GC.SuppressFinalize(this);
+        void IDisposable.Dispose()
+        {
+            this.Free();
         }
 
-        public T Current {
-            get { T t = new T(); t._obj = this.deref(); return t; }
+        public T Current
+        {
+            get
+            {
+                T t = new T();
+                t._obj = this.Deref();
+                return t;
+            }
         }
 
-        object IEnumerator.Current {
-            get { return Current; }
+        object IEnumerator.Current
+        {
+            get
+            {
+                return Current;
+            }
         }
     }
 
@@ -631,7 +714,8 @@ namespace Mapper
     {
         private delegate void HandlerDelegate(IntPtr graph, IntPtr obj, int evt, IntPtr data);
 
-        public enum Event {
+        public enum Event
+        {
             New,            //!< New record has been added to the graph.
             Modified,       //!< The existing record has been modified.
             Removed,        //!< The existing record has been removed.
@@ -642,8 +726,10 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_graph_new(int flags);
-        public Graph(Type flags) : base(mpr_graph_new((int)flags)) { _owned = true; }
-        public Graph() : base(mpr_graph_new((int)Type.Object)) { _owned = true; }
+        public Graph(Type flags) : base(mpr_graph_new((int)flags))
+            { _owned = true; }
+        public Graph() : base(mpr_graph_new((int)Type.Object))
+            { _owned = true; }
 
         // TODO: check if Graph is used by a Device
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -651,22 +737,25 @@ namespace Mapper
         ~Graph()
             { if (_owned) mpr_graph_free(this._obj); }
 
-        public new Graph setProperty<P, T>(P property, T value) {
-            base.setProperty(property, value);
+        public new Graph SetProperty<P, T>(P property, T value)
+        {
+            base.SetProperty(property, value);
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_set_interface(IntPtr graph,
                                                            [MarshalAs(UnmanagedType.LPStr)] string iface);
-        public Graph setInterface(string iface) {
+        public Graph SetInterface(string iface)
+        {
             mpr_graph_set_interface(this._obj, iface);
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_graph_get_interface(IntPtr graph);
-        public string getInterface() {
+        public string GetInterface()
+        {
             IntPtr iface = mpr_graph_get_interface(this._obj);
             return Marshal.PtrToStringAnsi(iface);
         }
@@ -675,51 +764,59 @@ namespace Mapper
         private static extern void mpr_graph_set_address(IntPtr graph,
                                                          [MarshalAs(UnmanagedType.LPStr)] string group,
                                                          int port);
-        public Graph setAddress(string group, int port) {
+        public Graph SetAddress(string group, int port)
+        {
             mpr_graph_set_address(this._obj, group, port);
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_graph_get_address(IntPtr graph);
-        public string getAddress() {
+        public string GetAddress()
+        {
             IntPtr addr = mpr_graph_get_address(this._obj);
             return Marshal.PtrToStringAnsi(addr);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_graph_poll(IntPtr graph, int block_ms);
-        public int poll(int block_ms = 0)
+        public int Poll(int block_ms = 0)
             { return mpr_graph_poll(this._obj, block_ms); }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_subscribe(IntPtr graph, IntPtr dev, int types, int timeout);
-        public Graph subscribe(Device device, Type types, int timeout = -1) {
+        public Graph Subscribe(Device device, Type types, int timeout = -1)
+        {
             mpr_graph_subscribe(this._obj, device._obj, (int)types, timeout);
             return this;
         }
-        public Graph subscribe(Type types, int timeout = -1) {
+        public Graph Subscribe(Type types, int timeout = -1)
+        {
             mpr_graph_subscribe(this._obj, IntPtr.Zero, (int)types, timeout);
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_unsubscribe(IntPtr graph, IntPtr dev);
-        public Graph unsubscribe(Device device) {
+        public Graph Unsubscribe(Device device)
+        {
             mpr_graph_unsubscribe(this._obj, device._obj);
             return this;
         }
-        public Graph unsubscribe() {
+        public Graph Unsubscribe()
+        {
             mpr_graph_unsubscribe(this._obj, IntPtr.Zero);
             return this;
         }
 
-        private void _handler(IntPtr graph, IntPtr obj, int evt, IntPtr data) {
+        private void _handler(IntPtr graph, IntPtr obj, int evt, IntPtr data)
+        {
             Type type = (Type) mpr_obj_get_type(obj);
             // Event event = (Event) evt;
             Object o;
             Event e = (Event)evt;
-            switch (type) {
+            switch (type)
+            {
                 case Type.Device:
                     o = new Device(obj);
                     break;
@@ -732,7 +829,8 @@ namespace Mapper
                 default:
                     return;
             }
-            handlers.ForEach(delegate(Handler h) {
+            handlers.ForEach(delegate(Handler h)
+            {
                 if ((h._types & type) != 0)
                     h._callback(o, e);
             });
@@ -753,10 +851,11 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_add_cb(IntPtr graph, IntPtr handler, int events, IntPtr data);
-        public Graph addCallback(Action<Object, Graph.Event> callback, Type types)
+        public Graph AddCallback(Action<Object, Graph.Event> callback, Type types = Type.Object)
         {
             // TODO: check if handler is already registered
-            if (handlers.Count == 0) {
+            if (handlers.Count == 0)
+            {
                 mpr_graph_add_cb(this._obj,
                                  Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
                                  (int)Type.Object,
@@ -768,17 +867,20 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_graph_remove_cb(IntPtr graph, IntPtr cb, IntPtr data);
-        public Graph removeCallback(Action<Object, Graph.Event> callback)
+        public Graph RemoveCallback(Action<Object, Graph.Event> callback)
         {
             int i = -1, found = -1;
-            handlers.ForEach(delegate(Handler h) {
+            handlers.ForEach(delegate(Handler h)
+            {
                 if (h._callback == callback)
                     found = i;
                 ++i;
             });
-            if (i >= 0) {
+            if (i >= 0)
+            {
                 handlers.RemoveAt(found);
-                if (handlers.Count == 0) {
+                if (handlers.Count == 0)
+                {
                     mpr_graph_remove_cb(this._obj,
                                         Marshal.GetFunctionPointerForDelegate(new HandlerDelegate(_handler)),
                                         IntPtr.Zero);
@@ -789,13 +891,18 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_graph_get_list(IntPtr graph, int type);
-        public List<Device> devices() {
+        public List<Device> GetDevices()
+        {
             return new List<Device>(mpr_graph_get_list(this._obj, (int)Type.Device), Type.Device);
         }
-        public List<Signal> signals() {
+
+        public List<Signal> GetSignals()
+        {
             return new List<Signal>(mpr_graph_get_list(this._obj, (int)Type.Signal), Type.Signal);
         }
-        public List<Map> maps() {
+
+        public List<Map> GetMaps()
+        {
             return new List<Map>(mpr_graph_get_list(this._obj, (int)Type.Map), Type.Map);
         }
     }
@@ -805,7 +912,8 @@ namespace Mapper
         private delegate void HandlerDelegate(IntPtr sig, int evt, UInt64 instanceId, int length,
                                               int type, IntPtr value, IntPtr time);
         [Flags]
-        public enum Event {
+        public enum Event
+        {
             New                 = 0x01, //!< New instance has been created.
             UpstreamRelease     = 0x02, //!< Instance was released upstream.
             DownstreamRelease   = 0x04, //!< Instance was released downstream.
@@ -814,13 +922,15 @@ namespace Mapper
             All                 = 0x1F
         }
 
-        public enum Stealing {
+        public enum Stealing
+        {
             None,       //!< No stealing will take place.
             Oldest,     //!< Steal the oldest instance.
             Newest,     //!< Steal the newest instance.
         }
 
-        private enum HandlerType {
+        private enum HandlerType
+        {
             None,
             SingletonInt,
             SingletonFloat,
@@ -841,11 +951,13 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_sig_get_dev(IntPtr sig);
-        public Device getDevice() {
+        public Device GetDevice()
+        {
             return new Device(mpr_sig_get_dev(this._obj));
         }
 
-        public override string ToString() => $"Mapper.Signal:{this.getDevice().getProperty(Property.Name)}:{this.getProperty(Property.Name)}";
+        public override string ToString()
+            => $"Mapper.Signal:{this.GetDevice().GetProperty(Property.Name)}:{this.GetProperty(Property.Name)}";
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_sig_set_cb(IntPtr sig, IntPtr handler, int events);
@@ -855,114 +967,159 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         unsafe private static extern void mpr_sig_set_value(IntPtr sig, UInt64 id, int len, int type, void* val);
-        unsafe private void _setValue(int value, UInt64 instanceId) {
+        unsafe private void _SetValue(int value, UInt64 instanceId)
+        {
             mpr_sig_set_value(this._obj, instanceId, 1, (int)Type.Int32, (void*)&value);
         }
-        unsafe private void _setValue(float value, UInt64 instanceId) {
+        unsafe private void _SetValue(float value, UInt64 instanceId)
+        {
             mpr_sig_set_value(this._obj, instanceId, 1, (int)Type.Float, (void*)&value);
         }
-        unsafe private void _setValue(double value, UInt64 instanceId) {
+        unsafe private void _SetValue(double value, UInt64 instanceId)
+        {
             mpr_sig_set_value(this._obj, instanceId, 1, (int)Type.Double, (void*)&value);
         }
-        unsafe private void _setValue(int[] value, UInt64 instanceId) {
-            fixed(int* temp = &value[0]) {
+        unsafe private void _SetValue(int[] value, UInt64 instanceId)
+        {
+            fixed(int* temp = &value[0])
+            {
                 IntPtr intPtr = new IntPtr((void*)temp);
                 mpr_sig_set_value(this._obj, instanceId, value.Length, (int)Type.Int32, (void*)intPtr);
             }
         }
-        unsafe private void _setValue(float[] value, UInt64 instanceId) {
-            fixed(float* temp = &value[0]) {
+        unsafe private void _SetValue(float[] value, UInt64 instanceId)
+        {
+            fixed(float* temp = &value[0])
+            {
                 IntPtr intPtr = new IntPtr((void*)temp);
                 mpr_sig_set_value(this._obj, instanceId, value.Length, (int)Type.Float, (void*)intPtr);
             }
         }
-        unsafe private void _setValue(double[] value, UInt64 instanceId) {
-            fixed(double* temp = &value[0]) {
+        unsafe private void _SetValue(double[] value, UInt64 instanceId)
+        {
+            fixed(double* temp = &value[0])
+            {
                 IntPtr intPtr = new IntPtr((void*)temp);
                 mpr_sig_set_value(this._obj, instanceId, value.Length, (int)Type.Double, (void*)intPtr);
             }
         }
-        public Signal setValue<T>(T value) {
+
+        public Signal SetValue<T>(T value)
+        {
             dynamic temp = value;
-            _setValue(temp, 0);
+            _SetValue(temp, 0);
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         unsafe private static extern void* mpr_sig_get_value(IntPtr sig, UInt64 id, ref long time);
-        unsafe public (dynamic, Time) getValue(UInt64 instanceId = 0) {
+        unsafe public (dynamic, Time) GetValue(UInt64 instanceId = 0)
+        {
             int len = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Length, null);
             int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
             long time = 0;
             void *val = mpr_sig_get_value(this._obj, instanceId, ref time);
-            return (buildValue(len, type, val, 0), new Time(*(long*)time));
+            return (BuildValue(len, type, val, 0), new Time(*(long*)time));
         }
-        // unsafe public dynamic getValue(UInt64 instanceId = 0) {
+        // unsafe public dynamic GetValue(UInt64 instanceId = 0)
+        // {
         //     int len = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Length, null);
         //     int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
         //     void *val = mpr_sig_get_value(this._obj, instanceId, IntPtr.Zero);
-        //     return buildValue(len, type, val, 0);
+        //     return BuildValue(len, type, val, 0);
         // }
+
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        private static extern int mpr_sig_reserve_inst(IntPtr sig, int num, IntPtr ids, IntPtr data);
+        public Signal ReserveInstances(int number)
+        {
+            mpr_sig_reserve_inst(this._obj, number, IntPtr.Zero, IntPtr.Zero);
+            return this;
+        }
+        public Signal ReserveInstance()
+        {
+            mpr_sig_reserve_inst(this._obj, 1, IntPtr.Zero, IntPtr.Zero);
+            return this;
+        }
+
+        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
+        private static extern int mpr_sig_remove_inst(IntPtr sig, UInt64 id);
+        public Signal RemoveInstance(UInt64 instanceId)
+        {
+            mpr_sig_remove_inst(this._obj, instanceId);
+            return this;
+        }
 
         public class Instance : Signal
         {
-            internal Instance(IntPtr sig, UInt64 inst) : base(sig) {
+            internal Instance(IntPtr sig, UInt64 inst) : base(sig)
+            {
                 this.id = inst;
             }
 
-            public (dynamic, Time) getValue() {
-                return getValue(id);
+            public (dynamic, Time) GetValue()
+            {
+                return GetValue(id);
             }
 
-            public new Instance setValue<T>(T value) {
+            public new Instance SetValue<T>(T value)
+            {
                 dynamic temp = value;
-                _setValue(temp, id);
+                _SetValue(temp, id);
                 return this;
             }
 
             [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
             unsafe private static extern void mpr_sig_release_inst(IntPtr sig, UInt64 id);
-            public void release() {
+            public void Release()
+            {
                 mpr_sig_release_inst(this._obj, id);
             }
 
             public readonly UInt64 id;
         }
 
-        public Instance instance(UInt64 id) {
+        public Instance GetInstance(UInt64 id)
+        {
             return new Instance(this._obj, id);
         }
-        public Instance instance(int id) {
+        public Instance GetInstance(int id)
+        {
             return new Instance(this._obj, (UInt64)id);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern ulong mpr_sig_get_oldest_inst_id(IntPtr sig);
-        public Instance oldestInstance() {
+        public Instance GetOldestInstance()
+        {
             return new Instance(this._obj, mpr_sig_get_oldest_inst_id(this._obj));
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern ulong mpr_sig_get_newest_inst_id(IntPtr sig);
-        public Instance newestInstance() {
+        public Instance GetNewestInstance()
+        {
             return new Instance(this._obj, mpr_sig_get_newest_inst_id(this._obj));
         }
 
         private void _handler(IntPtr sig, int evt, UInt64 inst, int length,
-                              int type, IntPtr value, IntPtr time) {
+                              int type, IntPtr value, IntPtr time)
+        {
             Event e = (Event)evt;
-            switch (this.handlerType) {
-                case HandlerType.SingletonInt: {
-                    unsafe {
+            switch (this.handlerType)
+            {
+                case HandlerType.SingletonInt:
+                    unsafe
+                    {
                         int ivalue = 0;
                         if (value != IntPtr.Zero)
                             ivalue = *(int*)value;
                         this.handlers.singletonInt(new Signal(sig), e, ivalue);
                     }
                     break;
-                }
                 case HandlerType.SingletonFloat:
-                    unsafe {
+                    unsafe
+                    {
                         float fvalue = 0;
                         if (value != IntPtr.Zero)
                             fvalue = *(float*)value;
@@ -970,27 +1127,29 @@ namespace Mapper
                     }
                     break;
                 case HandlerType.SingletonDouble:
-                    unsafe {
+                    unsafe
+                    {
                         double dvalue = 0;
                         if (value != IntPtr.Zero)
                             dvalue = *(double*)value;
                         this.handlers.singletonDouble(new Signal(sig), e, dvalue);
                     }
                     break;
-                case HandlerType.SingletonIntVector: {
+                case HandlerType.SingletonIntVector:
                     if (value == IntPtr.Zero)
                         this.handlers.singletonIntVector(new Signal(sig), e, new int[0]);
-                    unsafe {
+                    unsafe
+                    {
                         int[] arr = new int[length];
                         Marshal.Copy((IntPtr)value, arr, 0, length);
                         this.handlers.singletonIntVector(new Signal(sig), e, arr);
                     }
                     break;
-                }
                 case HandlerType.SingletonFloatVector:
                     if (value == IntPtr.Zero)
                         this.handlers.singletonFloatVector(new Signal(sig), e, new float[0]);
-                    unsafe {
+                    unsafe
+                    {
                         float[] arr = new float[length];
                         Marshal.Copy((IntPtr)value, arr, 0, length);
                         this.handlers.singletonFloatVector(new Signal(sig), e, arr);
@@ -999,14 +1158,16 @@ namespace Mapper
                 case HandlerType.SingletonDoubleVector:
                     if (value == IntPtr.Zero)
                         this.handlers.singletonDoubleVector(new Signal(sig), e, new double[0]);
-                    unsafe {
+                    unsafe
+                    {
                         double[] arr = new double[length];
                         Marshal.Copy((IntPtr)value, arr, 0, length);
                         this.handlers.singletonDoubleVector(new Signal(sig), e, arr);
                     }
                     break;
                 case HandlerType.InstancedInt:
-                    unsafe {
+                    unsafe
+                    {
                         int ivalue = 0;
                         if (value != IntPtr.Zero)
                             ivalue = *(int*)value;
@@ -1014,7 +1175,8 @@ namespace Mapper
                     }
                     break;
                 case HandlerType.InstancedFloat:
-                    unsafe {
+                    unsafe
+                    {
                         float fvalue = 0;
                         if (value != IntPtr.Zero)
                             fvalue = *(float*)value;
@@ -1022,27 +1184,29 @@ namespace Mapper
                     }
                     break;
                 case HandlerType.InstancedDouble:
-                    unsafe {
+                    unsafe
+                    {
                         double dvalue = 0;
                         if (value != IntPtr.Zero)
                             dvalue = *(double*)value;
                         this.handlers.instancedDouble(new Signal.Instance(sig, inst), e, dvalue);
                     }
                     break;
-                case HandlerType.InstancedIntVector: {
+                case HandlerType.InstancedIntVector:
                     if (value == IntPtr.Zero)
                         this.handlers.instancedIntVector(new Signal.Instance(sig, inst), e, new int[0]);
-                    unsafe {
+                    unsafe
+                    {
                         int[] arr = new int[length];
                         Marshal.Copy((IntPtr)value, arr, 0, length);
                         this.handlers.instancedIntVector(new Signal.Instance(sig, inst), e, arr);
                     }
                     break;
-                }
                 case HandlerType.InstancedFloatVector:
                     if (value == IntPtr.Zero)
                         this.handlers.instancedFloatVector(new Signal.Instance(sig, inst), e, new float[0]);
-                    unsafe {
+                    unsafe
+                    {
                         float[] arr = new float[length];
                         Marshal.Copy((IntPtr)value, arr, 0, length);
                         this.handlers.instancedFloatVector(new Signal.Instance(sig, inst), e, arr);
@@ -1051,7 +1215,8 @@ namespace Mapper
                 case HandlerType.InstancedDoubleVector:
                     if (value == IntPtr.Zero)
                         this.handlers.instancedDoubleVector(new Signal.Instance(sig, inst), e, new double[0]);
-                    unsafe {
+                    unsafe
+                    {
                         double[] arr = new double[length];
                         Marshal.Copy((IntPtr)value, arr, 0, length);
                         this.handlers.instancedDoubleVector(new Signal.Instance(sig, inst), e, arr);
@@ -1065,7 +1230,7 @@ namespace Mapper
         ~Signal()
             {}
 
-        private Boolean _setCallback(Action<Signal, Signal.Event, int> h, int type)
+        private Boolean _SetCallback(Action<Signal, Signal.Event, int> h, int type)
         {
             if (type != (int)Type.Int32)
                 return false;
@@ -1074,7 +1239,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal, Signal.Event, int[]> h, int type)
+        private Boolean _SetCallback(Action<Signal, Signal.Event, int[]> h, int type)
         {
             if (type != (int)Type.Int32)
                 return false;
@@ -1083,7 +1248,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal, Signal.Event, float> h, int type)
+        private Boolean _SetCallback(Action<Signal, Signal.Event, float> h, int type)
         {
             if (type != (int)Type.Float)
                 return false;
@@ -1092,7 +1257,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal, Signal.Event, float[]> h, int type)
+        private Boolean _SetCallback(Action<Signal, Signal.Event, float[]> h, int type)
         {
             if (type != (int)Type.Float)
                 return false;
@@ -1101,7 +1266,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal, Signal.Event, double> h, int type)
+        private Boolean _SetCallback(Action<Signal, Signal.Event, double> h, int type)
         {
             if (type != (int)Type.Double)
                 return false;
@@ -1110,7 +1275,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal, Signal.Event, double[]> h, int type)
+        private Boolean _SetCallback(Action<Signal, Signal.Event, double[]> h, int type)
         {
             if (type != (int)Type.Double)
                 return false;
@@ -1119,7 +1284,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, int> h, int type)
+        private Boolean _SetCallback(Action<Signal.Instance, Signal.Event, int> h, int type)
         {
             if (type != (int)Type.Int32)
                 return false;
@@ -1128,7 +1293,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, int[]> h, int type)
+        private Boolean _SetCallback(Action<Signal.Instance, Signal.Event, int[]> h, int type)
         {
             if (type != (int)Type.Int32)
                 return false;
@@ -1137,7 +1302,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, float> h, int type)
+        private Boolean _SetCallback(Action<Signal.Instance, Signal.Event, float> h, int type)
         {
             if (type != (int)Type.Float)
                 return false;
@@ -1146,7 +1311,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, float[]> h, int type)
+        private Boolean _SetCallback(Action<Signal.Instance, Signal.Event, float[]> h, int type)
         {
             if (type != (int)Type.Float)
                 return false;
@@ -1155,7 +1320,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, double> h, int type)
+        private Boolean _SetCallback(Action<Signal.Instance, Signal.Event, double> h, int type)
         {
             if (type != (int)Type.Double)
                 return false;
@@ -1164,7 +1329,7 @@ namespace Mapper
             return true;
         }
 
-        private Boolean _setCallback(Action<Signal.Instance, Signal.Event, double[]> h, int type)
+        private Boolean _SetCallback(Action<Signal.Instance, Signal.Event, double[]> h, int type)
         {
             if (type != (int)Type.Double)
                 return false;
@@ -1173,11 +1338,12 @@ namespace Mapper
             return true;
         }
 
-        public Signal setCallback<T>(T handler, Event events = Event.All)
+        public Signal SetCallback<T>(T handler, Event events = Event.All)
         {
             dynamic temp = handler;
             int type = mpr_obj_get_prop_as_int32(this._obj, (int)Property.Type, null);
-            if (!_setCallback(temp, type)) {
+            if (!_SetCallback(temp, type))
+            {
                 Console.WriteLine("error: wrong data type in signal handler.");
                 return this;
             }
@@ -1187,18 +1353,22 @@ namespace Mapper
             return this;
         }
 
-        public new Signal setProperty<P, T>(P property, T value) {
-            base.setProperty(property, value);
+        public new Signal SetProperty<P, T>(P property, T value)
+        {
+            base.SetProperty(property, value);
             return this;
         }
-        public new Signal push() {
-            base.push();
+
+        public new Signal Push()
+        {
+            base.Push();
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_sig_get_maps(IntPtr sig, int dir);
-        public List<Map> maps(Direction direction = Direction.Any) {
+        public List<Map> GetMaps(Direction direction = Direction.Any)
+        {
             return new List<Map>(mpr_sig_get_maps(this._obj, (int)direction), Type.Map);
         }
 
@@ -1251,25 +1421,36 @@ namespace Mapper
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_dev_free(IntPtr dev);
         ~Device()
-            { if (this._owned) mpr_dev_free(this._obj); }
+        {
+            if (this._owned)
+                mpr_dev_free(this._obj);
+        }
 
-        public override string ToString() => $"Mapper.Device:{this.getProperty(Property.Name)}";
+        public override string ToString() => $"Mapper.Device:{this.GetProperty(Property.Name)}";
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_dev_get_is_ready(IntPtr dev);
-        public int getIsReady()
-            { return mpr_dev_get_is_ready(this._obj); }
+        public int GetIsReady()
+        {
+            return mpr_dev_get_is_ready(this._obj);
+        }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_dev_poll(IntPtr dev, int block_ms);
-        public int poll(int block_ms)
-            { return mpr_dev_poll(this._obj, block_ms); }
-        public int poll()
-            { return mpr_dev_poll(this._obj, 0); }
+        public int Poll(int block_ms)
+        {
+            return mpr_dev_poll(this._obj, block_ms);
+        }
+
+        public int Poll()
+        {
+            return mpr_dev_poll(this._obj, 0);
+        }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_dev_update_maps(IntPtr dev);
-        public Device updateMaps() {
+        public Device UpdateMaps()
+        {
             mpr_dev_update_maps(this._obj);
             return this;
         }
@@ -1281,12 +1462,14 @@ namespace Mapper
                                                  [MarshalAs(UnmanagedType.LPStr)] string unit,
                                                  IntPtr min, IntPtr max, IntPtr num_inst,
                                                  IntPtr handler, int events);
-        public Signal addSignal(Direction direction, string name, int length, Type type,
+        public Signal AddSignal(Direction direction, string name, int length, Type type,
                                 string unit = null, int numInstances = -1)
         {
             IntPtr instPtr = IntPtr.Zero;
-            if (numInstances != -1) {
-                unsafe {
+            if (numInstances != -1)
+            {
+                unsafe
+                {
                     instPtr = new IntPtr(&numInstances);
                 }
             }
@@ -1297,42 +1480,50 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_sig_free(IntPtr sig);
-        public Device removeSignal(Signal signal) {
+        public Device RemoveSignal(Signal signal)
+        {
             mpr_sig_free(signal._obj);
             signal._obj = IntPtr.Zero;
             return this;
         }
 
-        public new Device setProperty<P, T>(P property, T value) {
-            base.setProperty(property, value);
+        public new Device SetProperty<P, T>(P property, T value)
+        {
+            base.SetProperty(property, value);
             return this;
         }
-        public new Device push() {
-            base.push();
+
+        public new Device Push()
+        {
+            base.Push();
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_get_sigs(IntPtr dev, int dir);
-        public List<Signal> signals(Direction direction = Direction.Any) {
+        public List<Signal> GetSignals(Direction direction = Direction.Any)
+        {
             return new List<Signal>(mpr_dev_get_sigs(this._obj, (int) direction), Type.Signal);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_get_maps(IntPtr dev, int dir);
-        public List<Map> maps(Direction direction = Direction.Any) {
+        public List<Map> GetMaps(Direction direction = Direction.Any)
+        {
             return new List<Map>(mpr_dev_get_maps(this._obj, (int) direction), Type.Map);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern long mpr_dev_get_time(IntPtr dev);
-        public Time getTime() {
+        public Time GetTime()
+        {
             return new Time(mpr_dev_get_time(this._obj));
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern long mpr_dev_set_time(IntPtr dev, long time);
-        public Device setTime(Time time) {
+        public Device SetTime(Time time)
+        {
             mpr_dev_set_time(this._obj, time.data.ntp);
             return this;
         }
@@ -1340,7 +1531,8 @@ namespace Mapper
 
     public class Map : Object
     {
-        public enum Location {
+        public enum Location
+        {
             Source      = 0x01, //!< Source signal(s) for this map.
             Destination = 0x02, //!< Destination signal(s) for this map.
             Any         = 0x03  //!< Either source or destination signals.
@@ -1358,8 +1550,10 @@ namespace Mapper
         unsafe private static extern IntPtr mpr_map_new(int num_srcs, void* srcs, int num_dsts, void* dsts);
         unsafe public Map(Signal source, Signal destination)
         {
-            fixed (void* s = &source._obj) {
-                fixed (void* d = &destination._obj) {
+            fixed (void* s = &source._obj)
+            {
+                fixed (void* d = &destination._obj)
+                {
                     this._obj = mpr_map_new(1, s, 1, d);
                 }
             }
@@ -1377,7 +1571,8 @@ namespace Mapper
         public Map(string expression, params Signal[] signals)
         {
             IntPtr[] a = new IntPtr[10];
-            for (int i = 0; i < 10; i++) {
+            for (int i = 0; i < 10; i++)
+            {
                 if (i < signals.Length)
                     a[i] = signals[i]._obj;
                 else
@@ -1389,41 +1584,50 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_map_get_is_ready(IntPtr map);
-        public int getIsReady()
-            { return mpr_map_get_is_ready(this._obj); }
+        public int GetIsReady()
+        {
+            return mpr_map_get_is_ready(this._obj);
+        }
 
-        public new Map setProperty<P, T>(P property, T value) {
-            base.setProperty(property, value);
+        public new Map SetProperty<P, T>(P property, T value)
+        {
+            base.SetProperty(property, value);
             return this;
         }
-        public new Map push() {
-            base.push();
+
+        public new Map Push()
+        {
+            base.Push();
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_map_refresh(IntPtr map);
-        public Map refresh() {
+        public Map Refresh()
+        {
             mpr_map_refresh(this._obj);
             return this;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern void mpr_map_release(IntPtr map);
-        public void release() {
+        public void Release()
+        {
             mpr_map_release(this._obj);
             this._obj = IntPtr.Zero;
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_map_get_sigs(IntPtr map, int loc);
-        public List<Signal> signals(Location location = Location.Any) {
+        public List<Signal> GetSignals(Location location = Location.Any)
+        {
             return new List<Signal>(mpr_map_get_sigs(this._obj, (int)location), Type.Signal);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern int mpr_map_get_sig_idx(IntPtr map, IntPtr sig);
-        public int signalIndex(Signal signal) {
+        public int GetSignalIndex(Signal signal)
+        {
             return mpr_map_get_sig_idx(this._obj, signal._obj);
         }
     }
