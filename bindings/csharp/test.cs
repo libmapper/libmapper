@@ -36,7 +36,7 @@ public class TestCSharp
             dev.poll(25);
             graph.poll();
         }
-        Console.WriteLine("ready!");
+        Console.WriteLine("ready: " + dev);
 
         dev.setProperty("foo", 1000);
         Console.WriteLine("property 'foo' = " + dev.getProperty("foo"));
@@ -44,6 +44,10 @@ public class TestCSharp
 
         for (int i = 0; i < dev.getNumProperties(); i++)
             Console.WriteLine("property["+i+"] = " + dev.getProperty(i));
+
+        Console.WriteLine("Signals:");
+        Mapper.List<Signal> sigs = dev.signals();
+        foreach(Signal s in sigs) { Console.WriteLine("  " + s); };
 
         // Map map = new Map(outsig, insig);
         Map map = new Map("%y=%x*1000", insig, outsig);
@@ -68,5 +72,11 @@ public class TestCSharp
             Console.Write("Signal updated to ");
             Console.WriteLine(sig_val.ToString());
         }
+
+        Console.WriteLine("Testing Time class:");
+        Time t = new Time();
+        Console.WriteLine("  " + t);
+        t.setDouble(1234.5678);
+        Console.WriteLine("  " + t);
     }
 }
