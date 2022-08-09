@@ -4,7 +4,7 @@ using Mapper;
 
 public class TestVector
 {
-    private static void SignalHandler(Signal sig, Mapper.Signal.Event evt, float[] value)
+    private static void SignalHandler(Signal sig, Mapper.Signal.Event evt, float[] value, Time time)
     {
         Console.WriteLine("Signal received value [" + String.Join(",", value) + "]");
     }
@@ -20,7 +20,7 @@ public class TestVector
         Console.WriteLine("created signal outsig");
 
         Signal insig = dev.AddSignal(Direction.Incoming, "insig", 4, Mapper.Type.Float)
-                          .SetCallback((Action<Signal, Signal.Event, float[]>)SignalHandler,
+                          .SetCallback((Action<Signal, Signal.Event, float[], Time>)SignalHandler,
                                        Mapper.Signal.Event.Update);
         Console.WriteLine("created Signal insig");
 

@@ -35,7 +35,7 @@ parameters, such as specifying the name of the network interface to use.
 An example of creating a device:
 
 ~~~csharp
-Device dev = new Device("my_device");
+Device dev = new Device("myDevice");
 ~~~
 
 ### Polling the device
@@ -59,13 +59,13 @@ your application to behave.  It takes an optional number of milliseconds during
 which it should do some work before returning:
 
 ~~~csharp
-int dev.poll(int block_ms);
+int dev.Poll(int blockMs);
 ~~~
 
 An example of calling it with non-blocking behaviour:
 
 ~~~csharp
-dev.poll();
+dev.Poll();
 ~~~
 
 If your polling is in the middle of a processing function or in response to a
@@ -96,19 +96,19 @@ Now that we know how to create a device, poll it, and free it, we only need to
 know how to add signals in order to give our program some input/output
 functionality.  While libmapper enables arbitrary connections between _any_
 declared signals, we still find it helpful to distinguish between two type of
-signals: `inputs` and `outputs`. 
+signals: `Incoming` and `Outgoing`.
 
-- `outputs` signals are _sources_ of data, updated locally by their parent
+- `Outgoing` signals are _sources_ of data, updated locally by their parent
   device
-- `inputs` signals are _consumers_ of data and are **not** generally updated
+- `Incoming` signals are _consumers_ of data and are **not** generally updated
   locally by their parent device.
 
 This can become a bit confusing, since the "reverb" parameter of a sound
 synthesizer might be updated locally through user interaction with a GUI,
 however the normal use of this signal is as a _destination_ for control data
-streams so it should be defined as an `input` signal.  Note that this
+streams so it should be defined as an `Incoming` signal.  Note that this
 distinction is to help with GUI organization and user-understanding –
-_libmapper_ enables connections from input signals and to output signals if
+_libmapper_ enables connections from `Incoming` signals and to `Outgoing` signals if
 desired.
 
 ### Creating a signal
@@ -122,57 +122,51 @@ which is optional:
 * the signal's vector length
 * the signal's data type, one of `Type.Int32`, `Type.Float`, or `Type.Double`
 * the signal's unit (optional)
-* the signal's minimum value (optional, type and length should match previous args)
-* the signal's maximum value (optional, type and length should match previous args)
-* the signal's instance count (pass `NULL` for singleton signals)
-* a function to be called when the signal is updated (optional)
-* flags indicating which events should trigger a call to the function
+* the signal's instance count (omit for singleton signals)
 
 examples:
 
 ~~~csharp
-Mapper.Signal input = dev.addSignal(Direction.Incoming, "myInput", 1,
-                                    Mapper.Type.Float, "m/s", IntPtr.Zero,
-                                    IntPtr.Zero, IntPtr.Zero, h,
-                                    (int)Mapper.Signal.Event.Update);
+Signal input = dev.AddSignal(Direction.Incoming, "myInput", 1,
+                             Type.Float, "m/s");
 
 int min[4] = {1,2,3,4};
 int max[4] = {10,11,12,13};
-Mapper.Signal output = dev.addSignal(Direction.Outgoing, "myOutput", 4,
-                                     Mapper.Type.Int32, 0, min, max);
+Signal output = dev.AddSignal(Direction.Outgoing, "myOutput", 4,
+                              Type.Int32, 0, min, max);
 ~~~
 
 The only _required_ parameters here are the signal "length", its name, and data
 type.  Signals are assumed to be vectors of values, so for usual single-valued
 signals, a length of 1 should be specified.  Finally, supported types are
-currently `Type.Int32`, `Type.Float`, or `Type.Double`, for `int`, `float`, or `double`
-values, respectively.
+currently `Type.Int32`, `Type.Float`, or `Type.Double`, for `int`, `float`, or `double` values, respectively.
 
-The other parameters are not strictly required, but the more information you
-provide, the more _libmapper_ can do some things automatically.  For example, if
-`minimum` and `maximum` are provided, it will be possible to create
-linear-scaled connections very quickly.  If `unit` is provided, _libmapper_ will
-be able to similarly figure out a linear scaling based on unit conversion (from
-centimeters to inches for example). Currently automatic unit-based scaling is
-not a supported feature, but will be added in the future.  You can take
-advantage of this future development by simply providing unit information
-whenever it is available.  It is also helpful documentation for users.
+The more information you provide describing your signal, the more _libmapper_
+can do some things automatically.  For example, if `min` and `max` are
+provided, it will be possible to create linear-scaled connections very quickly.
+If `unit` is provided, _libmapper_ will be able to similarly figure out a linear
+scaling based on unit conversion (from centimeters to inches for example).
+Currently automatic unit-based scaling is not a supported feature, but will be
+added in the future.  You can take advantage of this future development by
+simply providing unit information whenever it is available.  It is also helpful
+documentation for users.
 
-Notice that optional values are provided as `void*` pointers.  This is because a
-signal can either be `int`, `float` or `double`, and your maximum and minimum
-values should correspond in type.  So you should pass in a `int*`, `float*` or
-`double*` by taking the address of a local variable.
+~~~csharp
+int[] min = {1,2,3,4}, max = {10,11,12,13};
+Signal outsig = dev.AddSignal(Direction.Outgoing, "outsig", 1, Type.Float)
+                   .SetProperty(Property.Min, min)
+                   .SetProperty(Property.Max, max);
+~~~
 
-Lastly, it is usually necessary to be informed when input signal values change.
-This is done by providing a function to be called whenever its value is modified
-by an incoming message.  It is passed in the `handler` parameter.
+Lastly, for `Incoming` signals it is usually necessary to be informed when the
+signal values change. This is done by providing a function to be called whenever
+its value is modified by an incoming message.  It is specified using the Signal method `SetCallback().
 
 An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
 ~~~csharp
-Mapper.Signal sig;
-sig = dev.addSignal(Mapper.Direction.Outgoing, "outA", 1, Mapper.Type.Int32);
+Signal sig = dev.AddSignal(Direction.Outgoing, "outA", 1, Type.Int32);
 ~~~
 
 An example of a `float` signal where some more information is provided:
@@ -180,44 +174,44 @@ An example of a `float` signal where some more information is provided:
 ~~~csharp
 float min = 0.0f;
 float max = 5.0f;
-Mapper.Signal sig;
-sig = dev.addSignal(Mapper.Direction.Outgoing, "sensor1", 1,
-                    Mapper.Type.Float, "V", min, max);
+Signal sig;
+sig = dev.AddSignal(Direction.Outgoing, "sensor1", 1, Type.Float, "V")
+         .SetProperty(Property.Min, min)
+         .SetProperty(Property.Max, max);
 ~~~
 
 So far we know how to create a device and to specify an output signal
 for it.  To recap, let's review the code so far:
 
 ~~~csharp
-Mapper.Device dev("test_sender");
-Mapper.Signal sig;
-float min = 0.0f;
-float max = 5.0f;
-sig = dev.addSignal(Mapper.Direction.Outgoing, "sensor1", 1,
-                    Mapper.Type.Float, "V", min, max);
-    
-while (!done) {
-    dev.poll(10);
-    ... do stuff ...
-    ... update signals ...
+using Mapper;
+
+public class Tutorial
+{
+    Device dev("testSender");
+    Signal sig = dev.AddSignal(Direction.Outgoing, "sensor1", 1, Type.Float, "V")
+                    .SetProperty(Property.Min, 0.0)
+                    .SetProperty(Property.Max, 5.0);
+
+    while (true) {
+        dev.Poll(10);
+        ... do stuff ...
+        ... update signals ...
+    }
 }
 ~~~
 
-It is possible to retrieve a device's signals at a later time using the function `dev.signals()`. This function returns an object of type `mapper.List`
+It is possible to retrieve a device's signals at a later time using the function `dev.GetSignals()`. This function returns an object of type `Mapper.List<Mapper.Signal>`
 which can be used to retrieve all of the signals belonging to a particular
 device:
 
 ~~~csharp
-Console.WriteLine("Signals belonging to " + dev.getProperty(Property.Name));
+Console.WriteLine("Signals belonging to " + dev);
 
-Mapper.List list = dev.signals(Direction.Incoming).begin();
-for (; list != list.end(); ++list) {
-    Console.WriteLine("signal: " + *list);
+List<Signal> list = dev.GetSignals(Direction.Incoming);
+foreach (Signal s in list) {
+    Console.WriteLine("signal: " + s);
 }
-
-// or more simply:
-for (Mapper.Signal sig : dev.signals())
-    Console.WriteLine("signal: " + sig);
 ~~~
 
 ### Updating signals
@@ -229,24 +223,21 @@ over a USB serial port, or it could just be a mouse-controlled GUI slider.
 However it's getting the data, it must provide it to _libmapper_ so that it will
 be sent to other devices if that signal is mapped.
 
-This is accomplished by the function `setValue()`, which is overloaded to
+This is accomplished by the function `SetValue()`, which is overloaded to
 accept a wide variety of argument types (scalars and arrays of int, float, or
-double). Check the API documentation for more information. The data passed to set_value() is not
-required to match the length and type of the signal itself—libmapper will perform
-type coercion if necessary. More than one 'sample' of signal update may be
-applied at once by e.g. updating a signal with length 5 using a 20-element
-array.
+double). Check the API documentation for more information. The data passed to `SetValue()` is not
+required to match the length and type of the signal itself—libmapper will perform type coercion if necessary.
 
-So in the "sensor 1" example, assuming in `doStuff()` we have some code which
+So in the "sensor1" example, assuming in `DoStuff()` we have some code which
 reads sensor 1's value into a float variable called `v1`, the loop becomes:
 
 ~~~csharp
-while (!done) {
-    dev.poll(50);
-    
+while (true) {
+    dev.Poll(50);
+
     // call a hypothetical user function that reads a sensor
-    float v1 = doStuff();
-    sig.setValue(v1);
+    float v1 = DoStuff();
+    sig.SetValue(v1);
 }
 ~~~
 
@@ -257,19 +248,18 @@ LED, or whatever else you want to do.
 
 ### Signal conditioning
 
-Most synthesizers of course will not know what to do with the value of sensor1
---it is an electrical property that has nothing to do with sound or music.  This
+Most synthesizers of course will not know what to do with the value of sensor1—it is an electrical property that has nothing to do with sound or music.  This
 is where _libmapper_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_ exposing the
 signal, or it can be performed as part of the mapping.  Since the end user can
-demand any mathematical operation be performed on the signal, he can perform
-whatever mappings between signals as he wishes.
+demand any mathematical operation be performed on the signal, they can perform
+whatever mappings between signals as they wish.
 
 As a developer, it is therefore your job to provide information that will be
 useful to the end user.
 
-For example, if sensor 1 is a position sensor, instead of publishing "voltage",
+For example, if sensor1 is a position sensor, instead of publishing "voltage",
 you could convert it to centimeters or meters based on the known dimensions of
 the sensor, and publish a "/sensor1/position" signal instead, providing the unit
 information as well.
@@ -295,49 +285,38 @@ be retrieved at any time by calling the function `value()` on your signal
 object, however for event-driven applications you may want to be informed of new
 values as they are received or generated.
 
-As mentioned above, the `addSignal()` function takes an optional
-`handler` argument.  This is a function that will be called whenever the
-value of that signal changes.  To create a receiver for a synthesizer parameter
-"pulse width" (given as a ratio between 0 and 1), specify a handler when calling
-`addSignal()`.  We'll imagine there is some C\# synthesizer implemented
-as a class `Synthesizer` which has functions `setPulseWidth()` which sets the
-pulse width in a thread-safe manner, and `startAudioInBackground()` which sets
+As mentioned above, the `SetCallback()` function can be used to specify a function that will be called whenever the value of that signal changes.
+To create a receiver for a synthesizer parameter
+"pulse width" (given as a ratio between 0 and 1).  We'll imagine there is some C\# synthesizer implemented
+as a class `Synthesizer` which has functions `SetPulseWidth()` which sets the
+pulse width in a thread-safe manner, and `StartAudioInBackground()` which sets
 up the audio thread.
 
 Create the handler function, which is fairly simple,
 
 ~~~csharp
-void pulsewidthHandler(Signal sig, mpr_id instance,
-                       void *value, int count,
-                       Mapper.Time time)
+private static void PulseWidthHandler(Signal s, Signal.Event e, float f, Time t)
 {
-    Synthesizer *s = (Synthesizer*) sig[];
-    s->setPulseWidth(*(float*)v);
+    synth.SetPulseWidth(f);
 }
 ~~~
 
-First, the pointer to the `Synthesizer` instance is extracted from the
-`user_data` pointer, then it is dereferenced to set the pulse width according to
-the value pointed to by `v`.
-
-Then `main()` will look like,
+Then `Main()` will look like,
 
 ~~~c++
-void main()
+public static void Main(string[] args)
 {
-    Synthesizer synth;
-    synth.startAudioInBackground();
-    
-    float min_pw = 0.0f;
-    float max_pw = 1.0f;
-    
-    Mapper.Device dev("synth");
-    
-    Mapper.Signal pulsewidth =
-        dev.addSignal(Mapper.Direction.Incoming, "pulsewidth", 1,
-                      Mapper.Type.Float, 0, min_pw, max_pw, 0,
-                      pulsewidth_handler, Mapper.Signal.Event.Update);
-    
+    synth = new Synthesizer();
+    synth.StartAudioInBackground();
+
+    Device dev = new Device("synth");
+
+    Signal pulseWidth = dev.AddSignal(Direction.Incoming, "pulsewidth",
+                                      1, Type.Float).
+                           .SetProperty(Property.Min, 0.0)
+                           .SetProperty(Property.Max, 1.0);
+                           .SetCallback((Action<Signal, Signal.Event, float, Time>)pulseWidthHandler, Signal.Event.Update);
+
     while (!done)
         dev.poll(50);
 }
@@ -381,38 +360,40 @@ All signals possess one instance by default. If you would like to reserve more
 instances you can use:
 
 ~~~c++
-sig.reserveInstances(int num)
-sig.reserveInstances(int num, mpr_id *ids)
-sig.reserveInstances(int num, mpr_id *ids, void **data)
+sig.ReserveInstances(int num)
 ~~~
 
 After reserving instances you can update a specific instance, for example:
 
 ~~~c++
-sig.instance(id).setValue(value)
+Signal.Instance i = sig.GetInstance(id);
+i.SetValue(value);
+
+// or more simply
+sig.GetInstance(id).SetValue(value)
 ~~~
 
 All of the arguments except one should be familiar from the documentation of
-`set_value()` presented earlier.  The `instance` argument does not have to be
+`SetValue()` presented earlier.  The `id` argument does not have to be
 considered as an array index - it can be any integer that is convenient for
 labelling your instance. _libmapper_ will internally create a map from your id
 label to one of the preallocated instance structures.
 
 ### Receiving instances
 
-You might have noticed earlier that the handler function called when a signal
-update is received has a argument called `instance`. Here is the function
-prototype again:
+For instanced signals it is necessary to modify our callback function slightly:
 
 ~~~csharp
-void handler(Mapper.Signal sig, Mapper.Signal.Event evt, mpr_id inst,
-             int len, mpr_type type, void *value, Mapper.Time time);
+void Handler(Signal.Instance inst, Signal.Event evt, float f, Time time)
+{
+    ...
+}
 ~~~
 
-Under normal usage, this argument will have a value (0 <= n <= num_instances)
-and can be used as an array index. Remember that you will need to reserve
-instances for your input signal using `sig.reserve_instances()` if you want to
-receive instance updates.
+The inner class `Signal.Instance` can be updated and read using the same functions as its parent. Remember – if you want to receive instance updates
+that you will need to reserve instances for your input signal using the
+`numInstances` argument in the signal constructor or by calling
+`sig.ReserveInstances()`.
 
 ### Instance Stealing
 
@@ -422,7 +403,7 @@ to set an action to take in case all allocated instances are in use and a
 previously unseen instance id is received. Use the function:
 
 ~~~csharp
-sig.setProperty(Mapper.Property.StealingMode, mode);
+sig.SetProperty(Property.Stealing, mode);
 ~~~
 
 The argument `mode` can have one of the following values:
@@ -434,26 +415,25 @@ The argument `mode` can have one of the following values:
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
-release (e.g. the sound with the lowest volume), you can create a `mpr_sig_handler` for the signal and write the method yourself:
+release (e.g. the sound with the lowest volume), you can create a handler for the signal and write the method yourself:
 
 ~~~csharp
-void my_handler(Mapper.Signal sig, Mapper.Signal.Event evt, UInt64 inst,
-                int len, Mapper.Type type, IntPtr val, IntPtr time)
+void MyHandler(Signal.Instance s, Signal.Event e, Float f, Time t)
 {
-    if (evt == Mapper.Signal.Event.Overflow) {
+    if (e == Signal.Event.Overflow) {
         // user code chooses which instance to release
-        mpr_id release_me = choose_instance_to_release(sig);
-    
-        sig.instance(release_me).release(time);
+        UInt64 releaseMe = ChooseInstanceToRelease(sig);
+
+        sig.GetInstance(releaseMe).Release();
     }
 }
 ~~~
 
 For this function to be called when instance stealing is necessary, we need to
-register it for `IN_OVERFLOW` events:
+register it for `Signal.Event.Overflow` events:
 
 ~~~csharp
-sig.setCallback(my_handler, Signal.Event.Overflow);
+sig.SetCallback(MyHandler, Signal.Event.Update | Signal.Event.Overflow);
 ~~~
 
 ## Publishing metadata
@@ -477,18 +457,18 @@ OSC-compatible type.  (So, numbers and strings, etc.)
 The property interface is through the functions,
 
 ~~~csharp
-void <object>.setProperty(<name>, <value>);
+void <object>.SetProperty(<name>, <value>);
 ~~~
 
 The `<value>` arguments can be a scalar, or array of type `int`,
-`float`, `double`, or `char*`.
+`float`, `double`, or `string`.
 
-For example, to store a `float` indicating the X position of a device, you can
+For example, to store a `float` indicating the position of a device, you can
 call it like this:
 
 ~~~csharp
-dev.setProperty("x", 12.5f);
-sig.setProperty("sensingMethod", "resistive");
+dev.SetProperty("position", [12.5, 5.6, 0.0]);
+sig.SetProperty("sensingMethod", "resistive");
 ~~~
 
 ### Reserved keys

@@ -9,7 +9,7 @@ public class Test
         Console.WriteLine("Graph received event " + obj + ": " + evt);
     }
 
-    private static void SignalHandler(Signal sig, Mapper.Signal.Event evt, float value)
+    private static void SignalHandler(Signal sig, Signal.Event evt, float value, Time time)
     {
         Console.WriteLine("Signal received value " + value);
     }
@@ -29,7 +29,7 @@ public class Test
         Console.WriteLine("created signal outsig");
 
         Signal insig = dev.AddSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float)
-                          .SetCallback((Action<Signal, Signal.Event, float>)SignalHandler,
+                          .SetCallback((Action<Signal, Signal.Event, float, Time>)SignalHandler,
                                        Mapper.Signal.Event.Update);
         Console.WriteLine("created Signal insig");
 

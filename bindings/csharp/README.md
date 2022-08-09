@@ -34,10 +34,5 @@ You may need to copy the libmapper dynamic library into the same directory (depe
 ## To Do
 
 * add handlers for specific types to avoid typecasts and allow compilation of tests without `/unsafe`
-* wrap remaining libmapper API
-    * lists
-    * [x] object properties
-    * [x] graphs
-    * signal instances
 * interact with C# Events
 * add more tests

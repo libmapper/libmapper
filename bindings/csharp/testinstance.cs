@@ -4,7 +4,7 @@ using Mapper;
 
 public class TestInstances
 {
-    private static void Handler(Signal.Instance inst, Mapper.Signal.Event evt, float value)
+    private static void Handler(Signal.Instance inst, Mapper.Signal.Event evt, float value, Time time)
     {
         Console.Write("handler: " + evt + " " + inst.GetProperty(Property.Name) + "." + inst.id);
         switch (evt)
@@ -27,7 +27,7 @@ public class TestInstances
         Console.WriteLine("created signal outsig");
 
         Signal insig = dev.AddSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float, null, 3)
-                          .SetCallback((Action<Signal.Instance, Signal.Event, float>)Handler);
+                          .SetCallback((Action<Signal.Instance, Signal.Event, float, Time>)Handler);
         Console.WriteLine("created signal insig");
 
         Console.Write("Waiting for Device...");
