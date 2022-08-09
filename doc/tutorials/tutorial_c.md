@@ -266,8 +266,8 @@ is where _libmapper_ really becomes useful.
 
 Scaling or other signal conditioning can be taken care of _before_ exposing the
 signal, or it can be performed as part of the mapping.  Since the end user can
-demand any mathematical operation be performed on the signal, he can perform
-whatever mappings between signals as he wishes.
+demand any mathematical operation be performed on the signal, they can perform
+whatever mappings between signals as they wish.
 
 As a developer, it is therefore your job to provide information that will be
 useful to the end user.
