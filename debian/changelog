@@ -1,3 +1,9 @@
+libmapper (2.1.150+g9f483827-1) focal; urgency=medium
+
+  * Update to most recent upstream main.
+
+ -- Christian Frisson <christian.frisson@gmail.com>  Thu, 18 Aug 2022 16:29:19 -0400
+
 libmapper (2.1.1+g953628d5-5) focal; urgency=medium
 
   * Install .egg-info files for discovery by pip install
