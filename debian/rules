@@ -17,6 +17,4 @@ PYTHON_DIR := usr/lib/python3/dist-packages
 	
 override_dh_install:
 	mkdir -p debian/python3-libmapper/$(PYTHON_DIR)
-	install -m 644 swig/libmapper.py debian/python3-libmapper/$(PYTHON_DIR)/
-	install -m 644 swig/_libmapper.*.so debian/python3-libmapper/$(PYTHON_DIR)/
 	dh_install
