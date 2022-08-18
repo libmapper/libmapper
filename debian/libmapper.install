@@ -1,2 +1,2 @@
 # You must remove unused comment lines for the released package.
-usr/lib/*/*.so.*
+usr/lib/*/*.so*
