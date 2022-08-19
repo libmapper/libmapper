@@ -11,6 +11,7 @@ export CLASSPATH=/usr/share/java/csv.jar:/usr/share/java/debug-disable.jar:/usr/
 	dh $@ --with autoreconf
 
 override_dh_autoreconf:
+	sed -i "s/AM_PATH_PYTHON(2.3/AM_PATH_PYTHON(3.6/g" configure.ac
 	dh_autoreconf ./autogen.sh
 
 PYTHON_DIR := usr/lib/python3/dist-packages
