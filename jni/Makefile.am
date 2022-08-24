@@ -7,6 +7,7 @@ libmapperjni_la_LIBADD = \
     $(top_builddir)/src/libmapper.la $(liblo_LIBS)
 
 JHEADERS = mapper_AbstractObject.h mapper_AbstractObject_Properties.h    \
+           mapper_AbstractObject_Properties_Entry.h                      \
            mapper_Graph.h                                                \
            mapper_Device.h                                               \
            mapper_List.h                                                 \
