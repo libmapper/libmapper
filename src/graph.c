@@ -422,7 +422,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
 /* Internal function called by /logout protocol handler */
 void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
 {
-    mpr_list maps;
+    mpr_list devs, maps;
     RETURN_UNLESS(d);
     _remove_by_qry(g, mpr_dev_get_maps(d, MPR_DIR_ANY), e);
 
@@ -431,6 +431,13 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
     while (maps) {
         mpr_map_remove_scope((mpr_map)*maps, d);
         maps = mpr_list_get_next(maps);
+    }
+
+    devs = mpr_graph_get_list(g, MPR_DEV);
+    while (devs) {
+        if ((mpr_dev)*devs != d)
+            mpr_dev_remove_link((mpr_dev)*devs, d);
+        devs = mpr_list_get_next(devs);
     }
 
     _remove_by_qry(g, mpr_dev_get_links(d, MPR_DIR_ANY), e);
