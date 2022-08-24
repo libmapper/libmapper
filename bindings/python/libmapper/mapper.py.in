@@ -645,20 +645,14 @@ class Object:
             else:
                 val = List(_val.value);
         elif _type == b'c':
-            _val = cast(_val, POINTER(c_char))
+            if prop != Property.TYPE:
+                print("mpr.Object.get_property({}:{}) : unhandled char type".format(prop, key_or_idx), val)
+                return None
+            _val = cast(_val, POINTER(c_byte))
             if _len == 1:
-                val = _val[0]
-                if val == b'f':
-                    val = Type.FLOAT
-                elif val == b'i':
-                    val = Type.INT32
-                elif val == b'd':
-                    val = Type.DOUBLE
-                else:
-                    print("mpr.Object.get_property({}:{}) : unhandled char type".format(prop, key_or_idx), val)
-                    val = Type.UNKNOWN
+                val = Type(_val[0])
             else:
-                val = [_val[i] for i in range(_len)]
+                val = [Type(_val[i]) for i in range(_len)]
         elif _type == b't':
             _val = cast(_val, POINTER(c_longlong))
             if _len == 1:
