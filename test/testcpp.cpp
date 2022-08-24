@@ -449,10 +449,16 @@ int main(int argc, char ** argv)
     Time t1(10, 200);
     Time t2(10, 300);
     if (t1 < t2)
-        out << "t1 is less than t2" << std::endl;
-    t1 += t2;
-    if (t1 >= t2)
-        out << "(t1 + t2) is greater then or equal to t2" << std::endl;
+        out << t1 << " is less than " << t2 << std::endl;
+    else {
+        out << "error:" << t1 << " is not less than " << t2 << std::endl;
+        result = 1;
+    }
+    Time t3 = t1 + t2;
+    if (t3 >= t2)
+        out << t3 << " is greater than or equal to " << t2 << std::endl;
+    else
+        out << "error: " << t3 << " is not greater than or equal to " << t2 << std::endl;
 
     printf("\r..................................................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
