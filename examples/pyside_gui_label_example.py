@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import sys, os
-from PySide2.QtCore import Qt, QBasicTimer
-from PySide2.QtWidgets import QApplication, QMainWindow, QSlider, QLabel
+from PySide6.QtCore import Qt, QBasicTimer
+from PySide6.QtWidgets import QApplication, QMainWindow, QSlider, QLabel
 try:
     import libmapper as mpr
 except:
@@ -70,7 +70,7 @@ def h(type, map, event):
             return
         if event == mpr.Graph.Event.NEW:
             dst = map.signals(mpr.Location.DESTINATION).next()
-            gui.setLabel(id, dst['name'])
+            gui.setLabel(id, dst.device()['name'] + ':' + dst['name'])
         elif event == mpr.Graph.Event.REMOVED or event == mpr.Graph.Event.EXPIRED:
             gui.setLabel(id, 'slider%i' %id)
     except Exception as e:
@@ -81,7 +81,7 @@ dev.graph().add_callback(h, mpr.Type.MAP)
 def remove_dev():
     print('called remove_dev')
     global dev
-    del dev
+    dev.free()
 
 import atexit
 atexit.register(remove_dev)
