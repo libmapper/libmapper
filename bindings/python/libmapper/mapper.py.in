@@ -26,12 +26,6 @@ try:
 except IOError:
     mpr = cdll.LoadLibrary(name)
 
-# configuration of Py_IncRef and Py_DecRef
-_c_inc_ref = pythonapi.Py_IncRef
-_c_inc_ref.argtypes = [py_object]
-_c_dec_ref = pythonapi.Py_DecRef
-_c_dec_ref.argtypes = [py_object]
-
 mpr.mpr_obj_get_prop_as_ptr.argtypes = [c_void_p, c_int, c_char_p]
 mpr.mpr_obj_get_prop_as_ptr.restype = c_void_p
 mpr.mpr_obj_get_prop_as_str.argtypes = [c_void_p, c_int, c_char_p]
@@ -804,10 +798,6 @@ class Signal(Object):
     def free(self):
         if not self[Property.IS_LOCAL]:
             return
-        data = mpr.mpr_obj_get_prop_as_ptr(self._obj, 0x0200, None) # MPR_PROP_DATA
-        if data != None:
-            cb = cast(data, py_sig_cb_type)
-            _c_dec_ref(cb)
 
         mpr.mpr_sig_free.argtypes = [c_void_p]
         mpr.mpr_sig_free.restype = None
@@ -815,19 +805,11 @@ class Signal(Object):
         self._obj = None
 
     def set_callback(self, callback, events=Event.ALL):
-        data = mpr.mpr_obj_get_prop_as_ptr(self._obj, 0x0200, None) # MPR_PROP_DATA
-        if data != None:
-            cb = cast(data, py_sig_cb_type)
-            _c_dec_ref(cb)
-
-        if not callback:
-            return
-
-        _c_inc_ref(callback)
-
-        callback = py_sig_cb_type(callback)
-        _c_inc_ref(callback)
-        mpr.mpr_obj_set_prop(self._obj, 0x0200, None, 1, Type.POINTER.value, callback, 0) # MPR_PROP_DATA
+        if callback:
+            self.callback = py_sig_cb_type(callback)
+        else:
+            self.callback = None
+        mpr.mpr_obj_set_prop(self._obj, 0x0200, None, 1, Type.POINTER.value, self.callback, 0) # MPR_PROP_DATA
 
         mpr.mpr_sig_set_cb.argtypes = [c_void_p, c_sig_cb_type, c_int]
         mpr.mpr_sig_set_cb.restype = None
@@ -1122,8 +1104,6 @@ class Graph(Object):
             if func not in graph_map_cbs:
                 graph_map_cbs.add(func)
                 updated = True
-        if updated:
-            _c_inc_ref(func)
         return self
 
     def remove_callback(self, func):
@@ -1137,8 +1117,6 @@ class Graph(Object):
         if func in graph_map_cbs:
             graph_map_cbs.remove(func)
             updated = True
-        if updated:
-            _c_dec_ref(func)
 
     def subscribe(self, device, flags, timeout=-1):
         mpr.mpr_graph_subscribe.argtypes = [c_void_p, c_void_p, c_int, c_int]
