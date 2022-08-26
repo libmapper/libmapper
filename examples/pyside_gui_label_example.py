@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 import sys, os
-from PySide6.QtCore import Qt, QBasicTimer
-from PySide6.QtWidgets import QApplication, QMainWindow, QSlider, QLabel
+from PySide6 import QtGui, QtWidgets, QtCore
 try:
     import libmapper as mpr
 except:
@@ -19,74 +18,188 @@ except:
         sys.exit(1)
 
 numsliders = 3
-dev = mpr.Device("pysideGUI")
-sigs = []
-for i in range(numsliders):
-    sigs.append(dev.add_signal(mpr.Direction.OUTGOING, 'slider%i' %i, 1, mpr.Type.FLOAT, None, 0, 1))
 
-class gui(QMainWindow):
+icon_path = os.getcwd() + '/icons/libmapper_logo_flat_black.png'
+
+class DragDropButton(QtWidgets.QPushButton):
     def __init__(self):
-        QMainWindow.__init__(self)
+        super(DragDropButton, self).__init__()
+
+        self.setStyleSheet(" background-color:transparent; border-style:none; border-width:1px;")
+        self.setIcon(QtGui.QIcon(icon_path))
+        self.setIconSize(QtCore.QSize(30, 30))
+
+    def mouseMoveEvent(self, e):
+        mimeData = QtCore.QMimeData()
+        mimeData.setText('libmapper://' + self.parent().get_sig_name())
+        drag = QtGui.QDrag(self)
+        drag.setMimeData(mimeData)
+
+        dropAction = drag.exec(QtCore.Qt.CopyAction | QtCore.Qt.LinkAction)
+
+class MappableSlider(QtWidgets.QWidget):
+    def __init__(self, dev, name):
+        super(MappableSlider, self).__init__()
+
+        self.setAcceptDrops(True)
+
+        grid = QtWidgets.QGridLayout()
+
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.slider.setRange(0, 100)
+
+        self.sig = dev.add_signal(mpr.Direction.INCOMING, name, 1, mpr.Type.FLOAT, None, 0, 1)
+        self.sig.set_callback(lambda x, e, i, v, t: self.set_position(v * 100), mpr.Signal.Event.UPDATE)
+
+        self.slider.sliderMoved.connect(lambda x: self.sig.set_value(x * 0.01))
+
+        self.label = QtWidgets.QLabel(name)
+
+        grid.addWidget(self.label, 0, 0)
+        grid.addWidget(self.slider, 1, 0)
+        button = DragDropButton()
+        grid.addWidget(button, 0, 1, 2, 1, QtCore.Qt.AlignmentFlag.AlignRight)
+
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 0)
+
+        self.setLayout(grid)
+
+    def set_name(self, name = None):
+        if not name:
+            # reset to default
+            name = self.sig[mpr.Property.NAME]
+        self.label.setText(name)
+
+    def set_position(self, pos):
+        self.slider.setSliderPosition(pos)
+
+    def get_sig_name(self):
+        return self.sig.device()[mpr.Property.NAME] + '/' + self.sig[mpr.Property.NAME]
+
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasFormat("text/plain"):
+            e.accept()
+
+    def dropEvent(self, e):
+        text = e.mimeData().text()
+
+        if text.startswith('libmapper://'):
+            e.setDropAction(QtCore.Qt.CopyAction)
+            e.accept()
+
+            names = text[12:].split('/')
+            if len(names) != 2:
+                return
+
+            graph = self.sig.device().graph()
+            d = graph.devices().filter(mpr.Property.NAME, names[0])
+            if not d:
+                print('error: could not find device', names[0])
+                return
+            s = d.next().signals().filter(mpr.Property.NAME, names[1])
+            if not s:
+                print('error: could not find signal', names)
+                return
+            s = s.next()
+            if s[mpr.Property.IS_LOCAL]:
+                print('error: plotting local signals is not allowed')
+                return
+            mpr.Map(s, self.sig).push()
+        else:
+            e.reject()
+
+class gui(QtWidgets.QMainWindow):
+    def __init__(self):
+        super(gui, self).__init__()
         self.setGeometry(300, 300, 300, 300)
-        self.setFixedSize(300, 300)
         self.setWindowTitle('libmapper device gui example')
-        blurb = QLabel('These sliders will be dynamically labeled with the name of destination signals to which they are connected.', self)
-        blurb.setGeometry(5, 0, 290, 50)
+        blurb = QtWidgets.QLabel('These sliders will be dynamically labeled with the name of destination signals to which they are connected. You can also use drag-and-drop mapping with compatible devices', self)
         blurb.setWordWrap(True)
 
+        grid = QtWidgets.QGridLayout()
+        grid.setSpacing(10)
+
+        grid.addWidget(blurb)
+
+        self.graph = mpr.Graph()
+        self.dev = mpr.Device('Sliders', self.graph)
         self.labels = []
         self.sliders = []
         for i in range(numsliders):
-            self.sliders.append(QSlider(Qt.Orientation.Horizontal, self))
-            self.sliders[i].setRange(0, 100)
-            self.sliders[i].setGeometry(5, 100+i*75, 290, 20)
-            self.labels.append(QLabel('slider%i' %i, self))
-            self.labels[i].setGeometry(5, 75+i*75, 290, 15)
+            name = 'slider%i' %i
+            slider = MappableSlider(self.dev, name)
+            self.sliders.append(slider)
+            grid.addWidget(slider)
 
-        self.sliders[0].valueChanged.connect(lambda x: sigs[0].set_value(x*0.01))
-        self.sliders[1].valueChanged.connect(lambda x: sigs[1].set_value(x*0.01))
-        self.sliders[2].valueChanged.connect(lambda x: sigs[2].set_value(x*0.01))
+        centralWidget = QtWidgets.QWidget()
+        centralWidget.setLayout(grid)
+        self.setCentralWidget(centralWidget)
 
-        self.timer = QBasicTimer()
+        self.dev.graph().add_callback(self.map_handler, mpr.Type.MAP)
+
+        self.timer = QtCore.QBasicTimer()
         self.timer.start(10, self)
-
-    def setLabel(self, index, label):
-        if index < 0 or index > numsliders:
-            return;
-        self.labels[index].setText(label)
 
     def timerEvent(self, event):
         if event.timerId() == self.timer.timerId():
-            dev.poll()
-
+            self.dev.poll()
         else:
             QtGui.QFrame.timerEvent(self, event)
 
-def h(type, map, event):
-    try:
-        src = map.signals(mpr.Location.SOURCE).next()
-        id = sigs.index(src)
-        if id < 0:
+    def find_slider(self, sig):
+        for slider in self.sliders:
+            if slider.sig == sig:
+                return slider
+        return None
+
+    def map_handler(self, type, map, event):
+        if not map[mpr.Property.IS_LOCAL]:
+            # ignore
+            print('ignoring remote map:', map)
             return
-        if event == mpr.Graph.Event.NEW:
-            dst = map.signals(mpr.Location.DESTINATION).next()
-            gui.setLabel(id, dst.device()['name'] + ':' + dst['name'])
-        elif event == mpr.Graph.Event.REMOVED or event == mpr.Graph.Event.EXPIRED:
-            gui.setLabel(id, 'slider%i' %id)
-    except Exception as e:
-        raise e
 
-dev.graph().add_callback(h, mpr.Type.MAP)
+        if event == mpr.Graph.Event.MODIFIED:
+            # only interested in new and removed events
+            return
 
-def remove_dev():
-    print('called remove_dev')
-    global dev
-    dev.free()
+        dst = map.signals(mpr.Location.DESTINATION).next()
+        if dst[mpr.Property.IS_LOCAL]:
+            # we are the destination
+            slider = self.find_slider(dst)
+            if not slider:
+                return
+            if event == mpr.Graph.Event.REMOVED or event == mpr.Graph.Event.EXPIRED:
+                slider.set_name()
+            elif event == mpr.Graph.Event.NEW:
+                src_names = []
+                for src in map.signals(mpr.Location.SOURCE):
+                    src_names.append(src.device()['name'] + ':' + src['name'])
+                label = '-> ' + ','.join(src_names)
+                slider.set_name(label)
+
+        else:
+            # we are (one of) the source(s)
+            for src in map.signals(mpr.Location.SOURCE):
+                slider = self.find_slider(src)
+                if not slider:
+                    continue
+                if event == mpr.Graph.Event.REMOVED or event == mpr.Graph.Event.EXPIRED:
+                    slider.set_name()
+                elif event == mpr.Graph.Event.NEW:
+                    dst = map.signals(mpr.Location.DESTINATION).next()
+                    label = dst.device()['name'] + ':' + dst['name'] + ' ->'
+                    slider.set_name(label)
+
+    def remove_dev(self):
+        print('called remove_dev')
+        self.dev.free()
+
+app = QtWidgets.QApplication(sys.argv)
+gui = gui()
 
 import atexit
-atexit.register(remove_dev)
+atexit.register(gui.remove_dev)
 
-app = QApplication(sys.argv)
-gui = gui()
 gui.show()
-sys.exit(app.exec_())
+sys.exit(app.exec())
