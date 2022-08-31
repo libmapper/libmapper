@@ -31,7 +31,7 @@ class DragDropButton(QtWidgets.QPushButton):
 
     def mouseMoveEvent(self, e):
         mimeData = QtCore.QMimeData()
-        mimeData.setText('libmapper://' + self.parent().get_sig_name())
+        mimeData.setText('libmapper://signal ' + self.parent().get_sig_name() + ' @id ' + self.parent().get_sig_id())
         drag = QtGui.QDrag(self)
         drag.setMimeData(mimeData)
 
@@ -77,6 +77,9 @@ class MappableSlider(QtWidgets.QWidget):
     def get_sig_name(self):
         return self.sig.device()[mpr.Property.NAME] + '/' + self.sig[mpr.Property.NAME]
 
+    def get_sig_id(self):
+        return str(self.sig[mpr.Property.ID])
+
     def dragEnterEvent(self, e):
         if e.mimeData().hasFormat("text/plain"):
             e.accept()
@@ -84,36 +87,53 @@ class MappableSlider(QtWidgets.QWidget):
     def dropEvent(self, e):
         text = e.mimeData().text()
 
-        if text.startswith('libmapper://'):
+        if text.startswith('libmapper://signal '):
             e.setDropAction(QtCore.Qt.CopyAction)
             e.accept()
 
-            names = text[12:].split('/')
+            graph = self.sig.graph()
+
+            # try extracting id first
+            text = text[19:].split(' @id ')
+            if len(text) == 2:
+                id = int(text[1])
+                print('id:', id)
+                s = graph.signals().filter(mpr.Property.ID, id)
+                if s:
+                    s = s.next()
+                    if s:
+                        print('found signal by id')
+                        mpr.Map(s, self.sig).push()
+                        return;
+                text = text[0]
+
+            # fall back to using device and signal names
+            names = text.split('/')
             if len(names) != 2:
+                print('error retrieving device and signal names')
                 return
 
-            graph = self.sig.device().graph()
             d = graph.devices().filter(mpr.Property.NAME, names[0])
             if not d:
-                print('error: could not find device', names[0])
+                print('error: could not find device with name', names[0])
                 return
             s = d.next().signals().filter(mpr.Property.NAME, names[1])
             if not s:
-                print('error: could not find signal', names)
+                print('error: could not find signal with name', names)
                 return
+            print('found signal by name')
             s = s.next()
-            if s[mpr.Property.IS_LOCAL]:
-                print('error: plotting local signals is not allowed')
-                return
             mpr.Map(s, self.sig).push()
-        else:
-            e.reject()
 
 class gui(QtWidgets.QMainWindow):
     def __init__(self):
         super(gui, self).__init__()
         self.setGeometry(300, 300, 300, 300)
-        self.setWindowTitle('libmapper device gui example')
+        self.setWindowTitle('registering device...')
+
+        self.ready = False
+        self.setEnabled(False)
+
         blurb = QtWidgets.QLabel('These sliders will be dynamically labeled with the name of destination signals to which they are connected. You can also use drag-and-drop mapping with compatible devices', self)
         blurb.setWordWrap(True)
 
@@ -144,6 +164,10 @@ class gui(QtWidgets.QMainWindow):
     def timerEvent(self, event):
         if event.timerId() == self.timer.timerId():
             self.dev.poll()
+            if not self.ready and self.dev.get_is_ready():
+                self.ready = True
+                self.setEnabled(True)
+                self.setWindowTitle(self.dev[mpr.Property.NAME])
         else:
             QtGui.QFrame.timerEvent(self, event)
 
@@ -156,7 +180,6 @@ class gui(QtWidgets.QMainWindow):
     def map_handler(self, type, map, event):
         if not map[mpr.Property.IS_LOCAL]:
             # ignore
-            print('ignoring remote map:', map)
             return
 
         if event == mpr.Graph.Event.MODIFIED:
