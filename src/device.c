@@ -529,6 +529,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 si->has_val = 1;
             if (si->has_val) {
                 memcpy(&si->time, &ts, sizeof(mpr_time));
+                unset_bitflag(sig->updated_inst, si->idx);
                 mpr_sig_call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, &ts, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
                 if (!(sig->dir & MPR_DIR_OUT) && !get_bitflag(sig->updated_inst, si->idx)) {

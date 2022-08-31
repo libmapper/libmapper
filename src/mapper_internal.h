@@ -757,6 +757,11 @@ MPR_INLINE static void set_bitflag(char *bytearray, int idx)
     bytearray[idx / 8] |= 1 << (idx % 8);
 }
 
+MPR_INLINE static void unset_bitflag(char *bytearray, int idx)
+{
+    bytearray[idx / 8] &= (0xFF ^ (1 << (idx % 8)));
+}
+
 MPR_INLINE static int get_bitflag(char *bytearray, int idx)
 {
     return bytearray[idx / 8] & 1 << (idx % 8);
