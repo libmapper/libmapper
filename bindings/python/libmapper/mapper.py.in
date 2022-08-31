@@ -385,9 +385,13 @@ class List:
         mpr.mpr_list_filter.restype = c_void_p
         _type = type(val)
         if _type is int:
-            self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.INT32, byref(val), op)
+            if key_or_idx == Property.ID or key_or_idx == 'id':
+                # use int64
+                self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.INT64, byref(c_longlong(val)), op)
+            else:
+                self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.INT32, byref(c_int(val)), op)
         elif _type is float:
-            self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.FLOAT, byref(val), op)
+            self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.FLOAT, byref(c_float(val)), op)
         elif _type is str:
             self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.STRING, c_char_p(val.encode('utf-8')), op)
         else:
@@ -838,9 +842,9 @@ class Signal(Object):
         else:
             _type = type(value)
             if _type is int:
-                mpr.mpr_sig_set_value(self._obj, self.id, 1, Type.INT32.value, byref(c_int(int(value))))
+                mpr.mpr_sig_set_value(self._obj, self.id, 1, Type.INT32.value, byref(c_int(value)))
             elif _type is float:
-                mpr.mpr_sig_set_value(self._obj, self.id, 1, Type.FLOAT.value, byref(c_float(float(value))))
+                mpr.mpr_sig_set_value(self._obj, self.id, 1, Type.FLOAT.value, byref(c_float(value)))
             else:
                 print("mpr.Signal.set_value() accepts only scalars or lists of type float and int")
         return self
