@@ -540,22 +540,10 @@ cast to the appropriate type.
 
 You can use any property name not already reserved by _libmapper_.
 
-#### Reserved keys for all objects
+Object | Reserved keys
+-------|--------------
+All    | `data`, `description`, `id`, `is_local`, `name`, `status`, `version`
+Device | `host`, `libversion`, `num_maps`, `num_maps_in`, `num_maps_out`, `num_sigs_in`, `num_sigs_out`, `ordinal`, `port`, `signal`, `synced`
+Signal | `device`, `direction`, `ephemeral`, `jitter`, `length`, `max`, `maximum`, `min`, `minimum`, `num_inst`, `num_maps`, `num_maps_in`, `num_maps_out`, `period`, `rate`, `steal`, `type`, `unit`
+Maps   | `bundle`, `expr`, `muted`, `num_destinations`, `num_sources`, `process_loc`, `protocol`, `scope`, `signal`, `slot`, `use_inst`
 
-`data`, `id`, `is_local`, `lib_version`, `version`
-
-#### Additional reserved keys for devices
-
-`linked`, `name`, `num_maps_in`, `num_maps_out`, `num_sigs_in`, `num_sigs_out`,
-`ordinal`, `status`, `synced`
-
-#### Additional reserved keys for signals
-
-`device`, `direction`, `jitter`, `length`, `max`, `maximum`, `min`, `minimum`,
-`name`, `num_inst`, `num_maps_in`, `num_maps_out`, `period`, `steal`, `type`,
-`unit`, `use_inst`
-
-#### Additional reserved keys for maps
-
-`expr`, `muted`, `num_sigs_in`, `process_loc`, `protocol`, `scope`, `status`,
-`use_inst`
