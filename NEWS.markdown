@@ -1,5 +1,43 @@
 # libmapper NEWS
 
+Version 2.2
+-----------
+
+Released 1 Sep 2022
+
+We are pleased to announce the release of version 2.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to proovide tools for creating and using systems for interactive control of media synthesis.
+
+In addition to the improvements detailed below, this release contains a large number of small improvements and fixes, including improvements to build and CI scripts, documentation, tutorials, and examples.
+
+## Core changes
+
+1. The enum value `MPR_STATUS_ALL` was renamed to `MPR_STATUS_ANY` to better reflect its use.
+2. The maximum admin-bus OSC bundle length was reduced to prevent dropped packets.
+3. A backup attempt to complete map handshaking was added before staged maps are cleaned up. This means that new maps will be pushed to the network even if `push()` is not called. It is still recommended to call `push()` on new maps to start the handshake protocol immediately.
+4. Devices sharing a graph now operate properly if they have identically-named signals. 
+5. The value of remote signals can now be set directly without using a map by calling `set_value()` as you would for a local signal. The update is sent as a change in metadata rather than over a map.
+* Two functions were removed from the public API:
+    1. `mpr_graph_print()`, which duplicated `mpr_obj_print()` since `mpr_graph` can be cast to `mpr_obj`
+    2. `mpr_map_get_sig()`, which was essentially a shortcut for `mpr_map_get_sigs()` -> `mpr_list_get_idx()`, and was inconsistent with other object getters in the API.
+
+## Expression engine
+
+This update enables the use of variable and/or subexpression indices for vector elements, historical samples, and input signals. It also enables  use of subexpressions for initializing reduce function accumulators, which previously were limited to literals.
+
+The new vector function `sort()` enables sorting vectors in either ascending or descending order. The new reduce function `concat()` acts to concatenate values from the specified reduce dimension (e.g. signal instances) into a new vector. Used together, these new functions allow the creation of simple arpeggiators within a map expression.
+
+## C# bindings
+
+Functional C# bindings for libmapper are now available in the `/bindings` directory. Please refer to the C# tutorial for more information.
+
+## Python bindings
+
+The Python bindings were switched from Swig to ctypes, and the Python libmapper API was modified to match the [PEP 8 style guide](https://peps.python.org/pep-0008/). As part of the update, various improvements have been made to the API and underlying implementation. Improvements were also made to scripts for packaging and distributing the Python bindings.
+
+## Java bindings
+
+The Java bindings for libmapper have been cleaned up and improved to match advances on other object-oriented bindings (Python, C++, C#). This should result in an API that is more consistent and easier to use.
+
 Version 2.1
 -----------
 
