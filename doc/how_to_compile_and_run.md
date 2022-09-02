@@ -189,17 +189,15 @@ Cmake is required to generate visual studio solutions, and can be installed [her
 
 [cmake]: https://cmake.org/download/
 
-You'll also need Visual Studio 2017 or 2019, which you can grab [here][visual_studio]. Be sure to install the C++ developer tools when installing if you don't already have them.
+You'll also need Visual Studio 2017 or 2019, which you can grab [here][visual_studio]. Be sure to install the MSVC C++ SDK when installing if you don't already have it.
 
 [visual_studio]: https://visualstudio.microsoft.com/vs/
 
-Once cmake is installed and added to the environment path, libmapper and its dependencies (zlib and liblo) can be built the easy way by double clicking 
+Once cmake is installed and added to the environment path, libmapper and its dependencies (zlib and liblo) can be built the easy way by running `windows_build.ps1` using powershell or "Run in powershell" form the right-click menu on the file. The libmapper, liblo and zlib dlls can be found in the dist/ directory. Tests can be run in dist/tests/ to verify the correct functions, but be sure to copy the dlls (zlib, liblo, libmapper) to the same folder as the executables or add their paths to your PATH environment variable.
 
-    build_windows.bat
+To build the python wheel, run the `windows_build_wheel.ps1` script from /bindings/python.
 
-and checking the build/Debug folder to retrieve your libmapper dll. The liblo and zlib dlls can also be found in their respective subfolders in the build/ directory, and should be copied along with the libmapper dll to any directory using libmapper. Tests can be run in build/test/Debug to verify the correct functions, but be sure to copy the dlls (zlib, liblo, libmapper) to the same folder as the executables or add their paths to your PATH environment variable.
-
-If you want to manually build from source, follow the instructions below. If you ran the batch file above, you should be done!
+If you want to manually build from source, follow the instructions below. If you ran the powershell file above, you should be done!
 
 ### Manual compilation
 
