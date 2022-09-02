@@ -79,19 +79,19 @@ This should build the individual object files from sources in src/, however the 
 
 ~~~ bash
 cd src
-clang -dynamiclib -Wl,-undefined -Wl,dynamic_lookup -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -o .libs/libmapper.9.dylib .libs/libmapper_la-device.o .libs/libmapper_la-expression.o .libs/libmapper_la-graph.o .libs/libmapper_la-link.o .libs/libmapper_la-list.o .libs/libmapper_la-map.o .libs/libmapper_la-network.o .libs/libmapper_la-object.o .libs/libmapper_la-properties.o .libs/libmapper_la-router.o .libs/libmapper_la-signal.o .libs/libmapper_la-slot.o .libs/libmapper_la-table.o .libs/libmapper_la-time.o .libs/libmapper_la-value.o   -L/usr/local/lib /usr/local/lib/liblo.dylib -lz  -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -install_name /usr/local/lib/libmapper.9.dylib -compatibility_version 10 -current_version 10.0 -Wl,-single_module
+clang -dynamiclib -Wl,-undefined -Wl,dynamic_lookup -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=arm64-apple-darwin -o .libs/libmapper.10.dylib .libs/libmapper_la-device.o .libs/libmapper_la-expression.o .libs/libmapper_la-graph.o .libs/libmapper_la-link.o .libs/libmapper_la-list.o .libs/libmapper_la-map.o .libs/libmapper_la-network.o .libs/libmapper_la-object.o .libs/libmapper_la-properties.o .libs/libmapper_la-router.o .libs/libmapper_la-signal.o .libs/libmapper_la-slot.o .libs/libmapper_la-table.o .libs/libmapper_la-time.o .libs/libmapper_la-value.o   -L/usr/local/lib /usr/local/lib/liblo.dylib -lz  -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk -install_name /usr/local/lib/libmapper.10.dylib -compatibility_version 10 -current_version 10.0 -Wl,-single_module
 ~~~
 
 let's check the architecture of the dylib using `file`:
 
 ~~~ bash
-file src/.libs/libmapper.9.dylib 
+file src/.libs/libmapper.10.dylib
 ~~~
 
 we should get the response:
 
 ~~~ bash
-src/.libs/libmapper.9.dylib: Mach-O 64-bit dynamically linked shared library arm64
+src/.libs/libmapper.10.dylib: Mach-O 64-bit dynamically linked shared library arm64
 ~~~
 
 if you chose to build a static version of the library you can check the architecture using:
