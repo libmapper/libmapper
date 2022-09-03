@@ -12,6 +12,14 @@ import weakref, sys
 import platform
 import os
 
+try:
+    import numpy as np
+    print('libmapper module loaded with numpy support')
+    NPARRAY_NAME = ('nparray').encode('utf-8')
+except:
+    np = None
+    print('libmapper module loaded without numpy support')
+
 __version__ = '@PACKAGE_VERSION@'
 
 # need different library extensions for Linux, Windows, MacOS
@@ -26,6 +34,8 @@ try:
 except IOError:
     mpr = cdll.LoadLibrary(name)
 
+mpr.mpr_obj_get_prop_as_int32.argtypes = [c_void_p, c_int, c_char_p]
+mpr.mpr_obj_get_prop_as_int32.restype = c_int
 mpr.mpr_obj_get_prop_as_ptr.argtypes = [c_void_p, c_int, c_char_p]
 mpr.mpr_obj_get_prop_as_ptr.restype = c_void_p
 mpr.mpr_obj_get_prop_as_str.argtypes = [c_void_p, c_int, c_char_p]
@@ -164,6 +174,9 @@ class Type(IntFlag):
     TIME       = 0x74
     POINTER    = 0x76
     NULL       = 0x4E
+    NP_DOUBLE  = 0x164
+    NP_FLOAT   = 0x166
+    NP_INT32   = 0x169
 
     def __repr__(self):
         return 'mpr.Type.' + self.name
@@ -479,7 +492,9 @@ class Object:
         return Graph(None, mpr.mpr_obj_get_graph(self._obj))
 
     def set_property(self, key_or_idx, val, publish=1):
-        if val is None:
+        if np and isinstance(val, np.ndarray):
+            val = val.flatten().tolist()
+        elif val is None:
             self.remove_property(key_or_idx)
             return
 
@@ -504,6 +519,8 @@ class Object:
         if _type is list:
             _len = len(val)
             _type = type(val[0])
+            if _len == 1:
+                val = val[0]
             # TODO: check if types are homogeneous
         if _type is str:
             _type = c_char(Type.STRING.value)
@@ -571,6 +588,11 @@ class Object:
             return None
         if prop == 0 or prop == 0x0200: # MPR_PROP_DATA
             return None
+        is_np_array = False
+        if np and (prop == 0x0E00 or prop == 0x0F00 or prop == 0x2400): # MAX, MIN, or TYPE
+            # check if obj is signal and has 'nparray' property
+            if isinstance(self, Signal) and mpr.mpr_obj_get_prop_as_int32(self._obj, 0x2800, NPARRAY_NAME):
+                is_np_array = True
         prop = Property(prop)
 
         _type = _type.value
@@ -608,6 +630,8 @@ class Object:
                     val = Stealing(val)
             else:
                 val = [_val[i] for i in range(_len)]
+            if is_np_array:
+                val = np.array(val)
         elif _type == b'h':
             _val = cast(_val, POINTER(c_longlong))
             if _len == 1:
@@ -620,12 +644,16 @@ class Object:
                 val = _val[0]
             else:
                 val = [_val[i] for i in range(_len)]
+            if is_np_array:
+                val = np.array(val)
         elif _type == b'd':
             _val = cast(_val, POINTER(c_double))
             if _len == 1:
                 val = _val[0]
             else:
                 val = [_val[i] for i in range(_len)]
+            if is_np_array:
+                val = np.array(val)
         elif _type == b'\x01': # device
             if _len != 1:
                 print("mpr.Object.get_property({}:{}) : can't handle device array type".format(prop, key_or_idx))
@@ -648,7 +676,15 @@ class Object:
                 return None
             _val = cast(_val, POINTER(c_byte))
             if _len == 1:
-                val = Type(_val[0])
+                val = _val[0]
+                if val == 102: # 'f'
+                    val = Type.NP_FLOAT if is_np_array else Type.FLOAT
+                elif val == 104: # 'i'
+                    val = Type.NP_INT32 if is_np_array else Type.INT32
+                elif val == 100: # 'd'
+                    val = Type.NP_DOUBLE if is_np_array else Type.DOUBLE
+                else:
+                    val = Type(val)
             else:
                 val = [Type(_val[i]) for i in range(_len)]
         elif _type == b't':
@@ -775,6 +811,9 @@ def signal_cb_py(_sig, _evt, _inst, _len, _type, _val, _time):
         print("sig_cb_py : unknown signal type", _type)
         return
 
+    if np and mpr.mpr_obj_get_prop_as_int32(_sig, 0x2800, NPARRAY_NAME):
+        val = np.array(val)
+
     # TODO: check if cb was registered with signal or instances
     cb(Signal(_sig), Signal.Event(_evt), _inst, val, Time(_time))
 
@@ -824,9 +863,12 @@ class Signal(Object):
         mpr.mpr_sig_set_value.argtypes = [c_void_p, c_longlong, c_int, c_char, c_void_p]
         mpr.mpr_sig_set_value.restype = None
 
-        if value == None:
+        if np and isinstance(value, np.ndarray):
+            value = value.flatten().tolist()
+        elif value is None:
             mpr.mpr_sig_set_value(self._obj, self.id, 0, MPR_INT32, None)
-        elif isinstance(value, list):
+            return self
+        if isinstance(value, list):
             if any(not (isinstance(x, int) or isinstance(x, float)) for x in value):
                 print("mpr.Signal.set_value() accepts only scalars or lists of type float and int")
                 return self
@@ -854,8 +896,6 @@ class Signal(Object):
         mpr.mpr_sig_get_value.restype = c_void_p
         _time = Time()
         _val = mpr.mpr_sig_get_value(self._obj, self.id, byref(_time.value))
-        mpr.mpr_obj_get_prop_as_int32.argtypes = [c_void_p, c_int, c_char_p]
-        mpr.mpr_obj_get_prop_as_int32.restype = c_int
         _type = mpr.mpr_obj_get_prop_as_int32(self._obj, Property.TYPE.value, None)
         _len = mpr.mpr_obj_get_prop_as_int32(self._obj, Property.LENGTH.value, None)
 
@@ -1196,19 +1236,24 @@ class Device(Object):
                                     c_void_p, POINTER(c_int), c_void_p, c_int]
         mpr.mpr_sig_new.restype = c_void_p
 
+        is_np_array = np and datatype > 0xFF
+        datatype &= 0xFF
+
         ptr = mpr.mpr_sig_new(self._obj, dir.value, name.encode('utf-8'), length,
                               datatype.value, None, None, None, None, None, Signal.Event.NONE)
 
         signal = Signal(ptr)
-        if callback != None:
+        if is_np_array:
+            mpr.mpr_obj_set_prop(ptr, 0, NPARRAY_NAME, 1, 0x62, byref(c_int(1)), 0)
+        if callback is not None:
             signal.set_callback(callback, events)
-        if unit != None:
+        if unit is not None:
             signal.set_property(Property.UNIT, unit)
-        if min != None:
+        if min is not None:
             signal.set_property(Property.MIN, min)
-        if max != None:
+        if max is not None:
             signal.set_property(Property.MAX, max)
-        if num_inst != None and isinstance(num_inst, int):
+        if num_inst is not None and isinstance(num_inst, int):
             signal.reserve_instances(num_inst - 1)
             signal.set_property(Property.EPHEMERAL, True)
         return signal
