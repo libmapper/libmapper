@@ -2,7 +2,12 @@
 
 from __future__ import print_function
 import sys, random, libmapper as mpr
-import numpy as np
+
+try:
+    import numpy23b as np
+except:
+    print('this test requires numpy, quitting now')
+    quit()
 
 def h(sig, event, id, val, time):
     print('  handler got', sig['name'], '=', type(val), val, 'at time', time.get_double())
