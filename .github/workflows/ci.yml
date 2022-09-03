@@ -183,7 +183,7 @@ jobs:
           mkdir testpython
           && cd testpython
           && cp ../bindings/python/test*.py .
-          && for i in test*.py; do echo running $i; if ! python ./$i.py; then exit 1; fi; done
+          && for i in test*.py; do echo running $i; if ! python $i; then exit 1; fi; done
 
   MacOS-Latest-check-wheel:
     runs-on: macOS-latest
@@ -208,7 +208,7 @@ jobs:
           mkdir testpython
           && cd testpython
           && cp ../bindings/python/test*.py .
-          && for i in test*.py; do echo running $i; if ! python ./$i.py; then exit 1; fi; done
+          && for i in test*.py; do echo running $i; if ! python $i; then exit 1; fi; done
 
   MacOS-10-check-wheel:
     runs-on: macOS-10.15
@@ -231,7 +231,7 @@ jobs:
           mkdir testpython
           && cd testpython
           && cp ../bindings/python/test*.py .
-          && for i in test*.py; do echo running $i; if ! python ./$i.py; then exit 1; fi; done
+          && for i in test*.py; do echo running $i; if ! python $i; then exit 1; fi; done
 
   Windows-Latest-check-wheel:
     runs-on: windows-latest
