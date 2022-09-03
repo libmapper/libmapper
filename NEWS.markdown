@@ -5,7 +5,7 @@ Version 2.2
 
 Released 1 Sep 2022
 
-We are pleased to announce the release of version 2.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to proovide tools for creating and using systems for interactive control of media synthesis.
+We are pleased to announce the release of version 2.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
 In addition to the improvements detailed below, this release contains a large number of small improvements and fixes, including improvements to build and CI scripts, documentation, tutorials, and examples.
 
