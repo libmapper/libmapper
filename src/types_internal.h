@@ -337,8 +337,6 @@ typedef struct _mpr_sig_idmap
     char *path;                 /*! OSC path.  Must start with '/'. */                  \
     char *name;                 /*! The name of this signal (path+1). */                \
     char *unit;                 /*!< The unit of this signal, or NULL for N/A. */       \
-    void *min;                  /*!< The minimum of this signal, or NULL for N/A. */    \
-    void *max;                  /*!< The maximum of this signal, or NULL for N/A. */    \
     float period;               /*!< Estimate of the update rate of this signal. */     \
     float jitter;               /*!< Estimate of the timing jitter of this signal. */   \
     int dir;                    /*!< DIR_OUTGOING / DIR_INCOMING / DIR_BOTH */          \

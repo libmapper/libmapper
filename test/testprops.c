@@ -438,7 +438,7 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking length: %d ... ", length);
-    if (length != 3) {
+    if (length != 1) {
         eprintf("ERROR (expected %d)\n", 1);
         result = 1;
         goto cleanup;
@@ -447,12 +447,10 @@ int main(int argc, char **argv)
         eprintf("OK\n");
 
     eprintf("\t checking value: '%f' ... ", *(float*)val);
-    for (i = 0; i < 3; i++) {
-        if (((float*)val)[i] != 35.0f) {
-            eprintf("ERROR (expected %f)\n", 35.0f);
-            result = 1;
-            goto cleanup;
-        }
+    if (*(float*)val != 35.0f) {
+        eprintf("ERROR (expected %f)\n", 35.0f);
+        result = 1;
+        goto cleanup;
     }
     eprintf("OK\n");
 

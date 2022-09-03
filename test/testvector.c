@@ -117,6 +117,9 @@ int setup_dst(mpr_graph g, const char *iface)
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", vec_len, MPR_FLT, NULL,
                           dMin, dMax, NULL, handler, MPR_SIG_UPDATE);
 
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_MIN, NULL, 1, MPR_FLT, dMin, 1);
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_MAX, NULL, 2, MPR_FLT, dMax, 1);
+
     eprintf("Input signal 'insig' registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
     eprintf("Number of inputs: %d\n", mpr_list_get_size(l));
@@ -280,10 +283,17 @@ int main(int argc, char **argv)
         do {
             sMax[i] = rand() % 100;
         } while (sMax[i] == sMin[i]);
-        dMin[i] = rand() % 100;
-        do {
-            dMax[i] = rand() % 100;
-        } while (dMax[i] == dMin[i]);
+        if (i == 0)
+            dMin[i] = rand() % 100;
+        else
+            dMin[i] = dMin[0];
+        if (i < 2) {
+            do {
+                dMax[i] = rand() % 100;
+            } while (dMax[i] == dMin[i]);
+        }
+        else
+            dMax[i] = dMax[i-2];
     }
 
     signal(SIGINT, ctrlc);

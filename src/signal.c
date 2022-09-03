@@ -98,7 +98,6 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     sig->type = type;
     sig->dir = dir ? dir : MPR_DIR_OUT;
     sig->unit = unit ? strdup(unit) : strdup("unknown");
-    sig->min = sig->max = 0;
     sig->ephemeral = 0;
 
     if (sig->is_local) {
@@ -145,8 +144,6 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     mpr_tbl_link(tbl, PROP(ID), 1, MPR_INT64, &sig->obj.id, rem_mod);
     mpr_tbl_link(tbl, PROP(JITTER), 1, MPR_FLT, &sig->jitter, NON_MODIFIABLE);
     mpr_tbl_link(tbl, PROP(LEN), 1, MPR_INT32, &sig->len, rem_mod);
-    mpr_tbl_link(tbl, PROP(MAX), sig->len, sig->type, &sig->max, MODIFIABLE | INDIRECT);
-    mpr_tbl_link(tbl, PROP(MIN), sig->len, sig->type, &sig->min, MODIFIABLE | INDIRECT);
     mpr_tbl_link(tbl, PROP(NAME), 1, MPR_STR, &sig->name, NON_MODIFIABLE | INDIRECT);
     mpr_tbl_link(tbl, PROP(NUM_INST), 1, MPR_INT32, &sig->num_inst, NON_MODIFIABLE);
     mpr_tbl_link(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &sig->num_maps_in, NON_MODIFIABLE);
@@ -158,25 +155,6 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     mpr_tbl_link(tbl, PROP(USE_INST), 1, MPR_BOOL, &sig->use_inst, NON_MODIFIABLE);
     mpr_tbl_link(tbl, PROP(VERSION), 1, MPR_INT32, &sig->obj.version, NON_MODIFIABLE);
 
-    if (min && max) {
-        /* make sure in the right order */
-#define TYPED_CASE(TYPE, CTYPE)                                     \
-case TYPE: {                                                        \
-    for (i = 0; i < len; i++) {                                     \
-        if (((CTYPE*)min)[i] > ((CTYPE*)max)[i]) {                  \
-            CTYPE tmp = ((CTYPE*)min)[i];                           \
-            ((CTYPE*)min)[i] = ((CTYPE*)max)[i];                    \
-            ((CTYPE*)max)[i] = tmp;                                 \
-        }                                                           \
-    }                                                               \
-    break;                                                          \
-}
-        switch (type) {
-            TYPED_CASE(MPR_INT32, int)
-            TYPED_CASE(MPR_FLT, float)
-            TYPED_CASE(MPR_DBL, double)
-        }
-    }
     if (min)
         mpr_tbl_set(tbl, PROP(MIN), NULL, len, type, min, LOCAL_MODIFY);
     if (max)
@@ -257,8 +235,6 @@ void mpr_sig_free_internal(mpr_sig sig)
 
     FUNC_IF(mpr_tbl_free, sig->obj.props.synced);
     FUNC_IF(mpr_tbl_free, sig->obj.props.staged);
-    FUNC_IF(free, sig->max);
-    FUNC_IF(free, sig->min);
     FUNC_IF(free, sig->path);
     FUNC_IF(free, sig->unit);
 }

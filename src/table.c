@@ -202,7 +202,8 @@ int mpr_tbl_remove(mpr_tbl t, mpr_prop prop, const char *key, int flags)
         mpr_tbl_record rec = mpr_tbl_get(t, prop, key);
         RETURN_ARG_UNLESS(rec && (rec->flags & MODIFIABLE) && rec->val, ret);
         prop = MASK_PROP_BITFLAGS(prop);
-        if (prop != MPR_PROP_EXTRA && prop != MPR_PROP_LINKED) {
+        if (   prop != MPR_PROP_EXTRA && prop != MPR_PROP_LINKED
+            && prop != MPR_PROP_MAX && prop != MPR_PROP_MIN) {
             /* set value to null rather than removing */
             if (rec->flags & INDIRECT) {
                 if (rec->val && *rec->val && rec->type != MPR_PTR) {

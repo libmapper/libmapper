@@ -922,6 +922,7 @@ static const char *_set_linear(mpr_local_map m, const char *e)
             offset += 6;
         }
         /* for now we will only allow one instance of 'linear' function macro */
+        /* TODO: enable multiple instances of the 'linear' function macro */
         if (num_inst != 1) {
             trace("found %d instances of the string 'linear'\n", num_inst);
             return NULL;
@@ -1031,17 +1032,25 @@ static const char *_set_linear(mpr_local_map m, const char *e)
             /* TODO: copy sections of expression after closing paren ')' */
         }
     }
-    else if (m->src[0]->sig->min && m->src[0]->sig->max && m->dst->sig->min && m->dst->sig->max) {
-        len = _snprint_var("sMin", expr, MAX_LEN, min_len, m->src[0]->sig->type,
-                           m->src[0]->sig->min);
-        len += _snprint_var("sMax", expr+len, MAX_LEN-len, min_len,
-                            m->src[0]->sig->type, m->src[0]->sig->max);
-        len += _snprint_var("dMin", expr+len, MAX_LEN-len, min_len,
-                            m->dst->sig->type, m->dst->sig->min);
-        len += _snprint_var("dMax", expr+len, MAX_LEN-len, min_len,
-                            m->dst->sig->type, m->dst->sig->max);
-    }
     else {
+        mpr_type val_type;
+        const void *val;
+        int cont = 1;
+#define print_extremum(SIG, PROPERTY, LABEL)                                            \
+        if (cont && mpr_obj_get_prop_by_idx((mpr_obj)SIG, PROPERTY, NULL, &val_len,     \
+                                            &val_type, &val, NULL))                     \
+            len += _snprint_var(LABEL, expr+len, MAX_LEN-len, val_len, val_type, val);  \
+        else                                                                            \
+            len = cont = 0;
+
+        print_extremum(m->src[0]->sig, MPR_PROP_MIN, "sMin");
+        print_extremum(m->src[0]->sig, MPR_PROP_MAX, "sMax");
+        print_extremum(m->dst->sig, MPR_PROP_MIN, "dMin");
+        print_extremum(m->dst->sig, MPR_PROP_MAX, "dMax");
+
+#undef print_extremum
+    }
+    if (!len) {
         /* try linear combination of inputs */
         if (1 == m->num_src) {
             if (m->dst->sig->len >= m->src[0]->sig->len)
