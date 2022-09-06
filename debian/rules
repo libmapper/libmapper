@@ -11,6 +11,8 @@ export CLASSPATH=/usr/share/java/csv.jar:/usr/share/java/debug-disable.jar:/usr/
 	dh $@ --with autoreconf
 
 override_dh_autoreconf:
+	if git remote -v | grep upstream ; then echo upstream git remote exists; else git remote add upstream https://github.com/libmapper/libmapper.git; fi
+	git fetch --all --tags
 	sed -i "s/AM_PATH_PYTHON(2.3/AM_PATH_PYTHON(3.6/g" configure.ac
 	dh_autoreconf ./autogen.sh
 
