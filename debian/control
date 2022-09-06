@@ -5,6 +5,7 @@ Maintainer: Christian Frisson <christian.frisson@gmail.com>
 Build-Depends: debhelper (>=11~),
                dh-autoreconf,
                dh-python,
+               git,
                javahelper,
                liblo-dev,
                libpython3-dev,
