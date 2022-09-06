@@ -1,3 +1,9 @@
+libmapper (2.2b.13+g46fb4402-1) focal; urgency=medium
+
+  * Update to most recent upstream main.
+
+ -- Christian Frisson <christian.frisson@gmail.com>  Tue, 06 Sep 2022 15:59:42 -0400
+
 libmapper (2.1.150+g9f483827-1) focal; urgency=medium
 
   * Update to most recent upstream main.
