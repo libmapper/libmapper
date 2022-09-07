@@ -5,7 +5,7 @@ Version 2.3
 
 Released 6 September 2022
 
-We are pleased to announce the release of version 2.2.1 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+We are pleased to announce the release of version 2.3 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
 This version introduces [numpy](https://numpy.org/) array-typed signals in the Python bindings, in addition to reduction in memory usage for signal extrema properties (min and max) and improvements to Windows-related build scripts and documentation.
 

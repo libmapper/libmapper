@@ -245,7 +245,7 @@ jobs:
           ls
           && cd artifact
           && ls
-          && python3 -m pip install libmapper-2.2-py3-none-win_amd64.whl
+          && python3 -m pip install libmapper-2.3-py3-none-win_amd64.whl
       - name: checkout
         uses: actions/checkout@v2
         with:
