@@ -98,14 +98,14 @@ int run_synth()
                          &bufferFrames, &tick, &options );
         synth.srate = 48000.0;
     }
-    catch ( RtAudioError &error ) {
+    catch ( RtAudioErrorType &error ) {
         try {
             dac->openStream( &parameters, NULL, format, 44100,
                              &bufferFrames, &tick, &options );
             synth.srate = 44100.0;
         }
-        catch ( RtAudioError &error ) {
-            error.printMessage();
+        catch ( RtAudioErrorType &error ) {
+            dac->getErrorText();
             goto cleanup;
         }
     }
@@ -113,8 +113,8 @@ int run_synth()
     try {
         dac->startStream();
     }
-    catch ( RtAudioError &error ) {
-        error.printMessage();
+    catch ( RtAudioErrorType &error ) {
+        dac->getErrorText();
         goto cleanup;
     }
 
@@ -135,8 +135,8 @@ void stop_synth()
     try {
         dac->closeStream();
     }
-    catch ( RtAudioError &error ) {
-        error.printMessage();
+    catch ( RtAudioErrorType &error ) {
+        dac->getErrorText();
     }
     delete dac;
     dac = 0;
