@@ -1,7 +1,7 @@
 Write-Host "Running all tests"
 Write-Host $pwd
-Get-ChildItem -Path $pwd\..\build\test\Debug
-Get-ChildItem -Path $pwd\..\build\test\Debug\*.exe | ForEach-Object -Process {
+Get-ChildItem -Path $pwd\..\build\test\Release
+Get-ChildItem -Path $pwd\..\build\test\Release\*.exe | ForEach-Object -Process {
     Write-Host "Running " $_.Fullname
     $proc = Start-Process $_.Fullname -ArgumentList "-t" -PassThru
     Write-Host "  started..."
