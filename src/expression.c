@@ -428,6 +428,45 @@ typedef enum {
     N_FN
 } expr_fn_t;
 
+/* Stub functions because Microsoft's Release-mode compiler doesn't allow to take the address of these. */
+static float flt_acos(float x) { return acosf(x); }
+static float flt_asin(float x) { return asinf(x); }
+static float flt_atan(float x) { return atanf(x); }
+static float flt_atan2(float x, float y) { return atan2f(x, y); }
+static float flt_ceil(float x) { return ceilf(x); }
+static float flt_cos(float x) { return cosf(x); }
+static float flt_cosh(float x) { return coshf(x); }
+static float flt_exp(float x) { return expf(x); }
+static float flt_floor(float x) { return floorf(x); }
+static float flt_log(float x) { return logf(x); }
+static float flt_log10(float x) { return log10f(x); }
+static float flt_log2(float x) { return log2f(x); }
+static float flt_pow(float x, float y) { return powf(x, y); }
+static float flt_sin(float x) { return sinf(x); }
+static float flt_sinh(float x) { return sinhf(x); }
+static float flt_sqrt(float x) { return sqrtf(x); }
+static float flt_tan(float x) { return tanf(x); }
+static float flt_tanh(float x) { return tanh(x); }
+
+static double dbl_acos(double x) { return acos(x); }
+static double dbl_asin(double x) { return asin(x); }
+static double dbl_atan(double x) { return atan(x); }
+static double dbl_atan2(double x, double y) { return atan2(x, y); }
+static double dbl_ceil(double x) { return ceil(x); }
+static double dbl_cos(double x) { return cos(x); }
+static double dbl_cosh(double x) { return cosh(x); }
+static double dbl_exp(double x) { return exp(x); }
+static double dbl_floor(double x) { return floor(x); }
+static double dbl_log(double x) { return log(x); }
+static double dbl_log10(double x) { return log10(x); }
+static double dbl_log2(double x) { return log2(x); }
+static double dbl_pow(double x, double y) { return pow(x, y); }
+static double dbl_sin(double x) { return sin(x); }
+static double dbl_sinh(double x) { return sinh(x); }
+static double dbl_sqrt(double x) { return sqrt(x); }
+static double dbl_tan(double x) { return tan(x); }
+static double dbl_tanh(double x) { return tanh(x); }
+
 static struct {
     const char *name;
     uint8_t arity;
@@ -437,39 +476,39 @@ static struct {
     void *fn_dbl;
 } fn_tbl[] = {
     { "abs",      1, 0, (void*)abs,   (void*)fabsf,     (void*)fabs      },
-    { "acos",     1, 0, 0,            (void*)acosf,     (void*)acos      },
+    { "acos",     1, 0, 0,            (void*)flt_acos,  (void*)dbl_acos  },
     { "acosh",    1, 0, 0,            (void*)acoshf,    (void*)acosh     },
-    { "asin",     1, 0, 0,            (void*)asinf,     (void*)asin      },
+    { "asin",     1, 0, 0,            (void*)flt_asin,  (void*)dbl_asin  },
     { "asinh",    1, 0, 0,            (void*)asinhf,    (void*)asinh     },
-    { "atan",     1, 0, 0,            (void*)atanf,     (void*)atan      },
-    { "atan2",    2, 0, 0,            (void*)atan2f,    (void*)atan2     },
+    { "atan",     1, 0, 0,            (void*)flt_atan,  (void*)dbl_atan  },
+    { "atan2",    2, 0, 0,            (void*)flt_atan2, (void*)dbl_atan2 },
     { "atanh",    1, 0, 0,            (void*)atanhf,    (void*)atanh     },
     { "cbrt",     1, 0, 0,            (void*)cbrtf,     (void*)cbrt      },
-    { "ceil",     1, 0, 0,            (void*)ceilf,     (void*)ceil      },
-    { "cos",      1, 0, 0,            (void*)cosf,      (void*)cos       },
-    { "cosh",     1, 0, 0,            (void*)coshf,     (void*)cosh      },
+    { "ceil",     1, 0, 0,            (void*)flt_ceil,  (void*)dbl_ceil  },
+    { "cos",      1, 0, 0,            (void*)flt_cos,   (void*)dbl_cos   },
+    { "cosh",     1, 0, 0,            (void*)flt_cosh,  (void*)dbl_cosh  },
     { "ema",      3, 1, 0,            (void*)emaf,      (void*)emad      },
-    { "exp",      1, 0, 0,            (void*)expf,      (void*)exp       },
+    { "exp",      1, 0, 0,            (void*)flt_exp,   (void*)dbl_exp   },
     { "exp2",     1, 0, 0,            (void*)exp2f,     (void*)exp2      },
-    { "floor",    1, 0, 0,            (void*)floorf,    (void*)floor     },
+    { "floor",    1, 0, 0,            (void*)flt_floor, (void*)dbl_floor },
     { "hypot",    2, 0, 0,            (void*)hypotf,    (void*)hypot     },
     { "hzToMidi", 1, 0, 0,            (void*)hzToMidif, (void*)hzToMidid },
-    { "log",      1, 0, 0,            (void*)logf,      (void*)log       },
-    { "log10",    1, 0, 0,            (void*)log10f,    (void*)log10     },
-    { "log2",     1, 0, 0,            (void*)log2f,     (void*)log2      },
+    { "log",      1, 0, 0,            (void*)flt_log,   (void*)dbl_log   },
+    { "log10",    1, 0, 0,            (void*)flt_log10, (void*)dbl_log10 },
+    { "log2",     1, 0, 0,            (void*)flt_log2,  (void*)dbl_log2  },
     { "logb",     1, 0, 0,            (void*)logbf,     (void*)logb      },
     { "max",      2, 0, (void*)maxi,  (void*)maxf,      (void*)maxd      },
     { "midiToHz", 1, 0, 0,            (void*)midiToHzf, (void*)midiToHzd },
     { "min",      2, 0, (void*)mini,  (void*)minf,      (void*)mind      },
-    { "pow",      2, 0, 0,            (void*)powf,      (void*)pow       },
+    { "pow",      2, 0, 0,            (void*)flt_pow,   (void*)dbl_pow   },
     { "round",    1, 0, 0,            (void*)roundf,    (void*)round     },
     { "schmitt",  4, 1, 0,            (void*)schmittf,  (void*)schmittd  },
     { "sign",     1, 0, (void*)signi, (void*)signf,     (void*)signd     },
-    { "sin",      1, 0, 0,            (void*)sinf,      (void*)sin       },
-    { "sinh",     1, 0, 0,            (void*)sinhf,     (void*)sinh      },
-    { "sqrt",     1, 0, 0,            (void*)sqrtf,     (void*)sqrt      },
-    { "tan",      1, 0, 0,            (void*)tanf,      (void*)tan       },
-    { "tanh",     1, 0, 0,            (void*)tanhf,     (void*)tanh      },
+    { "sin",      1, 0, 0,            (void*)flt_sin,   (void*)dbl_sin   },
+    { "sinh",     1, 0, 0,            (void*)flt_sinh,  (void*)dbl_sinh  },
+    { "sqrt",     1, 0, 0,            (void*)flt_sqrt,  (void*)dbl_sqrt  },
+    { "tan",      1, 0, 0,            (void*)flt_tan,   (void*)dbl_tan   },
+    { "tanh",     1, 0, 0,            (void*)flt_tanh,  (void*)dbl_tanh  },
     { "trunc",    1, 0, 0,            (void*)truncf,    (void*)trunc     },
     /* place functions which should never be precomputed below this point */
     { "delay",    1, 0, (void*)1,     0,                0                },

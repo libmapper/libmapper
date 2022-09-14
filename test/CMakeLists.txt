@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 
-set(Libmapper_LIB ${BUILD_DIR}/Debug/libmapper.lib)
+set(Libmapper_LIB ${BUILD_DIR}/Release/libmapper.lib)
 set(LIBMAPPER_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/../src)
 mark_as_advanced(Libmapper_LIB)
 
