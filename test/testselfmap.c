@@ -234,7 +234,7 @@ int main(int argc, char **argv)
     cleanup_dst();
     cleanup_src();
     if (g) mpr_graph_free(g);
-    printf("...................Test %s\x1B[0m.\n",
+    printf("\r..................................................Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }
