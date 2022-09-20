@@ -4,13 +4,15 @@ from __future__ import print_function
 import sys, random, libmapper as mpr
 
 try:
-    import numpy23b as np
+    import numpy as np
 except:
     print('this test requires numpy, quitting now')
     quit()
 
 def h(sig, event, id, val, time):
     print('  handler got', sig['name'], '=', type(val), val, 'at time', time.get_double())
+
+print('starting testnumpy.py')
 
 src = mpr.Device("py.testnumpy.src")
 outsig = src.add_signal(mpr.Direction.OUTGOING, "outsig", 10, mpr.Type.NP_INT32, None, 0, 1)
