@@ -303,7 +303,7 @@ private static void PulseWidthHandler(Signal s, Signal.Event e, float f, Time t)
 
 Then `Main()` will look like,
 
-~~~c++
+~~~csharp
 public static void Main(string[] args)
 {
     synth = new Synthesizer();

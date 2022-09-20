@@ -137,7 +137,7 @@ examples:
 
 ~~~python
 sig_in = dev.add_signal(mpr.Direction.INCOMING, "my_input", 1,
-                        mpr.Type.FLOAT, "m/s", -10, 10, h)
+                        mpr.Type.FLOAT, "m/s", -10, 10, None, h)
 
 sig_out = dev.add_signal(mpr.Direction.OUTGOING, "my_output", 4,
                          mpr.Type.INT32, None, 0, 1000)
@@ -316,7 +316,7 @@ def freq_handler(sig, event, id, val, timetag):
 
 dev = mpr.Device('pyo_example')
 dev.add_signal(mpr.Direction.INCOMING, 'frequency', 1, mpr.Type.FLOAT,
-               'Hz', 20, 2000, freq_handler)
+               'Hz', 20, 2000, None, freq_handler)
 
 while True:
     dev.poll( 100 )
@@ -337,7 +337,7 @@ sine = Sine(freq=200, mul=0.5).out()
 
 dev = mpr.Device('pyo_example')
 dev.add_signal(mpr.Direction.INCOMING, 'frequency', 1, mpr.Type.FLOAT, "Hz",
-               20, 2000, lambda s, e, i, f, t: sine.setFreq(f),
+               20, 2000, None, lambda s, e, i, f, t: sine.setFreq(f),
                mpr.Signal.Event.UPDATE)
 
 while True:
