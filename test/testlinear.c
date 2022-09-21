@@ -25,6 +25,7 @@ mpr_sig recvsig = 0;
 
 int sent = 0;
 int received = 0;
+int matched = 0;
 
 float M, B, expected;
 
@@ -80,9 +81,10 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
     if (value) {
         eprintf("handler: Got %f\n", (*(float*)value));
         if (fabs(*(float*)value - expected) < 0.0001)
-            received++;
+            matched++;
         else
             eprintf(" expected %f\n", expected);
+        received++;
     }
 }
 
@@ -182,7 +184,7 @@ void loop()
         i++;
 
         if (!verbose) {
-            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            printf("\r  Sent: %4i, Received: %4i, Matched: %4i   ", sent, received, matched);
             fflush(stdout);
         }
     }
@@ -285,7 +287,7 @@ int main(int argc, char **argv)
     cleanup_dst();
     cleanup_src();
     if (g) mpr_graph_free(g);
-    printf("...................Test %s\x1B[0m.\n",
+    printf("....Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

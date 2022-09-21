@@ -569,6 +569,7 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
     return 0;
 }
 
+/* Check if there is already a map from a local signal to any of a list of remote signals. */
 int mpr_rtr_loop_check(mpr_rtr rtr, mpr_local_sig sig, int num_remotes, const char **remotes)
 {
     int i, j;

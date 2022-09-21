@@ -469,11 +469,10 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         RETURN_ARG_UNLESS(map && MPR_LOC_DST == map->process_loc && sig->dir == MPR_DIR_IN, 0);
 
         /* Reset memory for corresponding source slot. */
-        /* TODO: make a function (reset) */
         mpr_value_reset_inst(&slot->val, inst_idx);
         return 0;
     }
-    else if (sig->dir == MPR_DIR_OUT)
+    else if (sig->dir == MPR_DIR_OUT && !sig->handler)
         return 0;
 
     /* Partial vector updates are not allowed in convergent maps since the slot value mirrors the
@@ -1335,7 +1334,7 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
 
     RETURN_UNLESS(flags);
 
-    if (!(*s) && timeout_sec) {
+    if (!(*s) && timeout_sec > 0) {
         /* add new subscriber */
 #ifdef DEBUG
         trace_dev(dev, "adding new subscription from %s:%s with flags ", ip, port);

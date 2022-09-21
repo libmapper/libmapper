@@ -1115,10 +1115,11 @@ abort:
 
 static int _set_expr(mpr_local_map m, const char *expr)
 {
-    int i, should_compile = 0;
+    int i, should_compile = 0, ret = 0;
     const char *new_expr = 0;
     RETURN_ARG_UNLESS(m->num_src > 0, 0);
 
+    /* deal with instances activated by the previous expression */
     if (m->idmap)
         mpr_dev_LID_decref(m->rtr->dev, 0, m->idmap);
 
@@ -1143,7 +1144,7 @@ static int _set_expr(mpr_local_map m, const char *expr)
     }
     if (!expr || strstr(expr, "linear"))
         expr = new_expr = _set_linear(m, expr);
-    RETURN_ARG_UNLESS(expr, 1);
+    RETURN_ARG_UNLESS(expr, -1);
 
     if (!_replace_expr_str(m, expr)) {
         mpr_time now;
@@ -1161,6 +1162,8 @@ static int _set_expr(mpr_local_map m, const char *expr)
             /* no previous expression, abort map */
             m->status = MPR_STATUS_EXPIRED;
         }
+        /* expression unchanged */
+        ret = 1;
         goto done;
     }
 
@@ -1183,7 +1186,7 @@ static int _set_expr(mpr_local_map m, const char *expr)
 done:
     if (new_expr)
         free((char*)new_expr);
-    return 0;
+    return ret;
 }
 
 static void _check_status(mpr_local_map m)
@@ -1312,7 +1315,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         }
                     }
                     if (should_compile) {
-                        if (_set_expr(lm, m->expr_str)) {
+                        if (-1 == _set_expr(lm, m->expr_str)) {
                             /* do not change process location */
                             break;
                         }
@@ -1347,12 +1350,14 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         }
                     }
                     if (should_compile) {
-                        if (_set_expr(lm, expr_str)) {
+                        int e = _set_expr(lm, expr_str);
+                        if (-1 == e) {
                             /* restore original process location */
                             lm->process_loc = orig_loc;
                             break;
                         }
-                        ++updated;
+                        else if (0 == e)
+                            ++updated;
                     }
                     else {
                         updated += mpr_tbl_set(tbl, PROP(EXPR), NULL, 1, MPR_STR,

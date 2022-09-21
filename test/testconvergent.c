@@ -30,6 +30,7 @@ mpr_map map = 0;
 
 int sent = 0;
 int received = 0;
+int matched = 0;
 
 float expected;
 
@@ -98,7 +99,10 @@ void handler(mpr_sig sig, mpr_sig_evt evt, mpr_id instance, int length,
     if (value) {
         int ok = (*(float*)value) == expected ? 1 : 0;
         eprintf("handler: Got %f ...%s\n", (*(float*)value), ok ? "OK" : "Error");
-        received += ok;
+        if (!ok)
+            printf("  (expected %f)\n", expected);
+        matched += ok;
+        ++received;
     }
     else {
         eprintf("handler: Got NULL\n");
@@ -185,7 +189,7 @@ int setup_maps()
 
             /* build expression string with combination function and buddy logic */
             mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
-                             "alive=(t_x$0>=t_y{-1})&&(t_x$1>=t_y{-1})&&(t_x$2>=t_y{-1});"
+                             "alive=(t_x$0>t_y{-1})&&(t_x$1>t_y{-1})&&(t_x$2>t_y{-1});"
                              "y=x$0+x$1+x$2;", 1);
             break;
         case 2:
@@ -250,12 +254,13 @@ void loop()
             mpr_dev_poll(srcs[j], 0);
         }
 
-        sent++;
         mpr_dev_poll(dst, period);
+
+        sent++;
         i++;
 
         if (!verbose) {
-            printf("\r  Sent: %4i, Received: %4i   ", sent, received);
+            printf("\r  Sent: %4i, Received: %4i, Matched: %4i   ", sent, received, matched);
             fflush(stdout);
         }
     }
@@ -362,10 +367,10 @@ int main(int argc, char **argv)
     else
         loop();
 
-    if (sent != received) {
-        eprintf("Not all sent messages were received.\n");
-        eprintf("Updated value %d time%s, but received %d of them.\n",
-                sent, sent == 1 ? "" : "s", received);
+    if (sent != received || sent != matched) {
+        eprintf("Mismatch between sent and received/matched messages.\n");
+        eprintf("Updated value %d time%s, but received %d and matched %d of them.\n",
+                sent, sent == 1 ? "" : "s", received, matched);
         result = 1;
     }
 
@@ -373,7 +378,7 @@ done:
     cleanup_dst();
     cleanup_src();
     if (g) mpr_graph_free(g);
-    printf("...................Test %s\x1B[0m.\n",
+    printf("....Test %s\x1B[0m.\n",
            result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

@@ -1145,6 +1145,11 @@ static int handler_sig(const char *path, const char *types, lo_arg **av, int ac,
     int devnamelen;
     mpr_msg props;
 
+#ifdef DEBUG
+    trace_graph("received /signal ");
+    lo_message_pp(msg);
+#endif
+
     RETURN_ARG_UNLESS(ac >= 2 && MPR_STR == types[0], 1);
     full_sig_name = &av[0]->s;
     devnamelen = mpr_parse_names(full_sig_name, &devnamep, &signamep);
@@ -1154,16 +1159,12 @@ static int handler_sig(const char *path, const char *types, lo_arg **av, int ac,
     devnamep[devnamelen] = 0;
 
 #ifdef DEBUG
-    trace_graph("received /signal %s:%s\n", devnamep, signamep);
+    trace_graph("  adding signal %s:%s\n", devnamep, signamep);
 #endif
 
     mpr_graph_add_sig(gph, signamep, devnamep, props);
     devnamep[devnamelen] = '/';
     mpr_msg_free(props);
-
-#ifdef DEBUG
-    lo_message_pp(msg);
-#endif
 
     return 0;
 }
@@ -1550,7 +1551,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
     printf("\b\b%s and dst name '%s'\n", num_src > 1 ? "]" : "", &av[dst_idx]->s);
 #endif
     if (!map && (flags & ADD)) {
-        /* safety check: make sure we don't have an outgoing map to src (loop) */
+        /* safety check: make sure we don't already have an outgoing map from sig -> src. */
         if (sig && mpr_rtr_loop_check(net->rtr, (mpr_local_sig)sig, num_src, src_names)) {
             trace("error in /map: potential loop detected.")
             return MPR_MAP_ERROR;
@@ -1602,7 +1603,6 @@ void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
             continue;
         }
         mpr_net_use_mesh(net, map->src[i]->link->addr.admin);
-        mpr_sig_send_state(map->dst->sig, MSG_SIG);
         i = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : i, MSG_MAP_TO);
     }
     ++net->graph->staged_maps;
@@ -1648,7 +1648,10 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
     mpr_graph gph = (mpr_graph)user;
     mpr_net net = &gph->net;
 #ifdef DEBUG
-    trace_net("received /map_to ");
+    if (net->num_devs == 1)
+        {trace_dev(net->devs[0], "received /mapTo ");}
+    else
+        trace_net("received /mapTo ");
     lo_message_pp(msg);
 #endif
 

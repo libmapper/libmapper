@@ -4460,7 +4460,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             if (tok->var.idx == VAR_Y)
                 printf("\n\t\ttt.y");
             else if (tok->var.idx >= VAR_X)
-                printf("\n\t\ttt.x%d", tok->var.idx - VAR_X);
+                printf("\n\t\ttt.x$%d", tok->var.idx - VAR_X);
             else if (v_vars)
                 printf("\n\t\ttt.%s", expr->vars[tok->var.idx].name);
 

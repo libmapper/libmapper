@@ -578,7 +578,7 @@ int run_test(test_config *config)
         id_map = &(*id_map)->next;
     }
     if (active_count > 1 || reserve_count > 5) {
-        printf("Error: src device using %d active and %d reserve id maps (should be 0 and <=10)\n",
+        printf("Error: src device using %d active and %d reserve id maps (should be <=1 and <=5)\n",
                active_count, reserve_count);
         id_map = &((mpr_local_dev)src)->idmaps.active[0];
         while (*id_map) {
@@ -601,7 +601,7 @@ int run_test(test_config *config)
         id_map = &(*id_map)->next;
     }
     if (active_count > 1 || reserve_count >= 10) {
-        printf("Error: dst device using %d active and %d reserve id maps (should be 0 and <10)\n",
+        printf("Error: dst device using %d active and %d reserve id maps (should be <=1 and <10)\n",
                active_count, reserve_count);
         id_map = &((mpr_local_dev)dst)->idmaps.active[0];
         while (*id_map) {
