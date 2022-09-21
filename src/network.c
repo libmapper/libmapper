@@ -1482,7 +1482,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
 
     if (i < ac && MPR_INT64 == types[++i]) {
         id = av[i]->i64;
-        map = (mpr_map)mpr_graph_get_obj(net->graph, MPR_MAP, id);
+        map = (mpr_map)mpr_graph_get_obj(net->graph, id, MPR_MAP);
 #ifdef DEBUG
         trace_graph("%s map with id %"PR_MPR_ID" ", map ? "found" : "couldn't find", id);
         if (map)
@@ -2001,7 +2001,7 @@ static int handler_ping(const char *path, const char *types, lo_arg **av,
     mpr_time_set(&now, MPR_NOW);
     then = lo_message_get_timestamp(msg);
 
-    remote = (mpr_dev)mpr_graph_get_obj(net->graph, MPR_DEV, av[0]->h);
+    remote = (mpr_dev)mpr_graph_get_obj(net->graph, av[0]->h, MPR_DEV);
     for (i = 0; i < net->num_devs; i++) {
         mpr_local_dev dev = net->devs[i];
         mpr_sync_clock clk;

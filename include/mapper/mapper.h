@@ -709,6 +709,13 @@ void *mpr_graph_remove_cb(mpr_graph graph, mpr_graph_handler *handler, const voi
  *  \return             A list of results.  Use mpr_list_get_next() to iterate. */
 mpr_list mpr_graph_get_list(mpr_graph graph, int types);
 
+/*! Retrieve a specific object from the graph by id.
+ *  \param graph        The graph to query.
+ *  \param type         The type of object to search for. Use MPR_OBJ if the type is not known.
+ *  \param id           Unique id identifying the object to find in the graph.
+ *  \return             The object matching the query, or zero if not found. */
+mpr_obj mpr_graph_get_obj(mpr_graph graph, mpr_id id, mpr_type type);
+
 /** @} */ /* end of group Graphs */
 
 /***** Time *****/

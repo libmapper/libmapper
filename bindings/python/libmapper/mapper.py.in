@@ -1188,6 +1188,11 @@ class Graph(Object):
     def maps(self):
         return List(mpr.mpr_graph_get_list(self._obj, Type.MAP))
 
+    def object(self, id, type=Type.OBJECT):
+        mpr.mpr_graph_get_obj.argtypes = [c_void_p, c_longlong, c_int]
+        mpr.mpr_graph_get_obj.restype = c_void_p
+        return Object(mpr.mpr_graph_get_obj(self._obj, id, type))
+
 class Device(Object):
     def __init__(self, *args):
         mpr.mpr_dev_new.argtypes = [c_char_p, c_void_p]

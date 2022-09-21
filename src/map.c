@@ -145,7 +145,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     maps = mpr_sig_get_maps(*dst, MPR_DIR_IN);
     if (maps) {
         for (i = 0; i < num_src; i++) {
-            o = mpr_graph_get_obj(g, MPR_SIG, src[i]->obj.id);
+            o = mpr_graph_get_obj(g, src[i]->obj.id, MPR_SIG);
             if (o) {
                 mpr_list temp = mpr_sig_get_maps((mpr_sig)o, MPR_DIR_OUT);
                 maps = mpr_list_get_isect(maps, temp);
@@ -185,7 +185,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         if (src[order[i]]->dev->obj.graph == g) {
             o = (mpr_obj)src[order[i]];
         }
-        else if (  !(o = mpr_graph_get_obj(g, MPR_SIG, src[order[i]]->obj.id))
+        else if (  !(o = mpr_graph_get_obj(g, src[order[i]]->obj.id, MPR_SIG))
                  || (((mpr_sig)o)->dev != src[order[i]]->dev)) {
             mpr_dev dev;
             o = (mpr_obj)mpr_graph_add_sig(g, src[order[i]]->name, src[order[i]]->dev->name, 0);

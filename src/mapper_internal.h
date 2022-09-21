@@ -188,13 +188,6 @@ int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg);
  *  \return             Information about the link, or zero if not found. */
 mpr_link mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote);
 
-/*! Look up information for a registered object using its unique id.
- *  \param g            The graph to query.
- *  \param type         The type of object to return.
- *  \param id           Unique id identifying the object to find in the graph.
- *  \return             Information about the object, or zero if not found. */
-mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_type type, mpr_id id);
-
 /*! Find information for a registered device.
  *  \param g            The graph to query.
  *  \param name         Name of the device to find in the graph.

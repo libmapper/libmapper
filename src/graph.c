@@ -296,14 +296,15 @@ static mpr_obj _obj_by_id(mpr_graph g, void *obj_list, mpr_id id)
     return NULL;
 }
 
-mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_type type, mpr_id id)
+mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_id id, mpr_type type)
 {
-    if (type & MPR_DEV)
-        return _obj_by_id(g, g->devs, id);
-    if (type & MPR_SIG)
-        return _obj_by_id(g, g->sigs, id);
-    if (type & MPR_MAP)
-        return _obj_by_id(g, g->maps, id);
+    mpr_obj o;
+    if ((type & MPR_DEV) && (o = _obj_by_id(g, g->devs, id)))
+        return o;
+    if ((type & MPR_SIG) && (o = _obj_by_id(g, g->sigs, id)))
+        return o;
+    if ((type & MPR_MAP) && (o = _obj_by_id(g, g->maps, id)))
+        return o;
     return 0;
 }
 
