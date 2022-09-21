@@ -56,11 +56,14 @@ for i in range(100):
     src.poll(10)
     dst.poll(10)
 
+print('removing map')
 map.release()
 
 for i in range(100):
+    outsig.set_value(i)
     src.poll(10)
     dst.poll(10)
 
+print('freeing devices')
 src.free()
 dst.free()
