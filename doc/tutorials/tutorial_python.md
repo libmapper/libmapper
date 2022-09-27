@@ -1,9 +1,10 @@
 # Getting started with libmapper and Python
 
-Since _libmapper_ uses GNU autoconf, getting started with the library is the
-same as any other library on Linux; use `./configure` and then `make` to compile
-it.  There is a directory named `libmapper` in `/bindings/python/` that you will
-need to copy into your project.
+The easiest way to install libmapper for Python is to use `pip`:
+
+~~~bash
+pip install libmapper
+~~~
 
 Once you have libmapper installed, it can be imported into your program:
 
