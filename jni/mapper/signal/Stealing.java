@@ -2,12 +2,12 @@
 package mapper.signal;
 
 /*! Describes the voice-stealing mode for instances. */
-public enum StealMode {
+public enum Stealing {
     NONE    (0),
     OLDEST  (1),
     NEWEST  (2);
 
-    StealMode(int value) {
+    Stealing(int value) {
         this._value = value;
     }
 

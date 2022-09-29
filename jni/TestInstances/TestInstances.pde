@@ -38,7 +38,7 @@ void setup()
       }
   }};
 
-  sigPos = dev.addSignal(Direction.IN, "position", 2, Type.FLOAT, "pixels",
+  sigPos = dev.addSignal(Direction.INCOMING, "position", 2, Type.FLOAT, "pixels",
                          new float[] {0, 0}, new float[] {width, height},
                          circles.length, listener);
   sigPos.properties().put(Property.EPHEMERAL, false);

@@ -38,7 +38,7 @@ public enum Property
     SIGNAL              (0x1F00),
     /* SLOT DELIBERATELY OMITTED */
     STATUS              (0x2100),
-    STEAL_MODE          (0x2200),
+    STEALING            (0x2200),
     SYNCED              (0x2300),
     TYPE                (0x2400),
     UNIT                (0x2500),

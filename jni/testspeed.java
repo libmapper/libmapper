@@ -6,8 +6,15 @@ import java.util.Arrays;
 class testspeed {
     public static boolean updated = true;
 
+    private static int i = 0;
+    public static int incCounter() {
+        i++;
+        return i;
+    }
+
     public static void main(String [] args) {
-        final Device dev = new Device("java.testspeed");
+        final Device dev1 = new Device("java.testspeed.send");
+        final Device dev2 = new Device("java.testspeed.recv");
 
         // This is how to ensure the device is freed when the program
         // exits, even on SIGINT.  The Device must be declared "final".
@@ -16,7 +23,8 @@ class testspeed {
                 @Override
                 public void run()
                     {
-                        dev.free();
+                        dev1.free();
+                        dev2.free();
                     }
             });
 
@@ -27,45 +35,46 @@ class testspeed {
             }
         };
 
-        Signal in = dev.addSignal(Direction.IN, "insig", 1, Type.FLOAT,
-                                  "Hz", null, null, null, new Listener() {
+        Signal out = dev1.addSignal(Direction.OUTGOING, "outsig", 1, Type.INT32,
+                                    "Hz", null, null, null, null);
+
+        Signal in = dev2.addSignal(Direction.INCOMING, "insig", 1, Type.FLOAT,
+                                   "Hz", null, null, null, new Listener() {
             public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
-                if (e == mapper.signal.Event.UPDATE)
-                    testspeed.updated = true;
+                if (e == mapper.signal.Event.UPDATE) {
+                    out.setValue(new int[] {incCounter()});
+                }
             }
         });
 
-        Signal out = dev.addSignal(Direction.OUT, "outsig", 1, Type.INT32,
-                                   "Hz", null, null, null, null);
-
         System.out.println("Waiting for ready...");
-        while (!dev.ready()) {
-            dev.poll(100);
+        while (!dev1.ready() || !dev2.ready()) {
+            dev1.poll(100);
+            dev2.poll(100);
         }
-        System.out.println("Device is ready.");
+        System.out.println("Devices are ready.");
 
         Map map = new Map(out, in);
         map.push();
+        System.out.println("Waiting for map");
         while (!map.ready()) {
-            System.out.println("waiting for map");
-            dev.poll(100);
+            dev1.poll(100);
+            dev2.poll(100);
         }
+        System.out.println("Map is ready.");
 
         Time time = new Time();
         double then = time.getDouble();
-        int i = 0;
+        out.setValue(new int[] {i});
         while (i < 10000) {
-            if (testspeed.updated) {
-                out.setValue(new int[] {i});
-                i++;
-                testspeed.updated = false;
-                if ((i % 1000) == 0)
-                    System.out.print(".");
-            }
-            dev.poll(1);
+            if ((i % 1000) == 0)
+                System.out.print('.');
+            dev1.poll();
+            dev2.poll();
         }
         double elapsed = time.now().getDouble() - then;
         System.out.println("Sent "+i+" messages in "+elapsed+" seconds.");
-        dev.free();
+        dev1.free();
+        dev2.free();
     }
 }

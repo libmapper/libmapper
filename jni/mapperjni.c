@@ -47,8 +47,8 @@ const char *signal_evt_strings[] = {
 
 const char *direction_strings[] = {
     "UNDEFINED",
-    "IN",
-    "OUT",
+    "INCOMING",
+    "OUTGOING",
     "ANY",
     "BOTH"
 };
@@ -418,9 +418,9 @@ static jobject build_value_object(JNIEnv *env, mpr_prop prop, const int len,
                         return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
                     }
                     case MPR_PROP_STEAL_MODE: {
-                        cls = (*env)->FindClass(env, "mapper/signal/StealMode");
-                        jfieldID fid = (*env)->GetStaticFieldID(env, cls, protocol_strings[ival],
-                                                                "Lmapper/signal/StealMode;");
+                        cls = (*env)->FindClass(env, "mapper/signal/Stealing");
+                        jfieldID fid = (*env)->GetStaticFieldID(env, cls, stealing_strings[ival],
+                                                                "Lmapper/signal/Stealing;");
                         return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
                     }
                     case MPR_PROP_STATUS: {

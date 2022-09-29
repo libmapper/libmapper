@@ -110,8 +110,8 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
                 value = ((mapper.map.Location)value).value();
             else if (value instanceof mapper.map.Protocol)
                 value = ((mapper.map.Protocol)value).value();
-            else if (value instanceof mapper.signal.StealMode)
-                value = ((mapper.signal.StealMode)value).value();
+            else if (value instanceof mapper.signal.Stealing)
+                value = ((mapper.signal.Stealing)value).value();
             else if (value instanceof mapper.Type)
                 value = ((mapper.Type)value).value();
 

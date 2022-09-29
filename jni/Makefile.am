@@ -28,7 +28,7 @@ JCLASSES = mapper/NativeLib.class                                        \
            mapper/Operator.class                                         \
            mapper/Property.class                                         \
            mapper/Signal.class mapper/signal/Event.class                 \
-           mapper/signal/Listener.class mapper/signal/StealMode.class    \
+           mapper/signal/Listener.class mapper/signal/Stealing.class     \
            mapper/Status.class                                           \
            mapper/Time.class                                             \
            mapper/Type.class
