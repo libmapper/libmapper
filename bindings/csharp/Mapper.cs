@@ -104,14 +104,9 @@ namespace Mapper
             return this;
         }
 
-        [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
-        unsafe private static extern double mpr_time_as_dbl(IntPtr t);
-        unsafe private static double as_dbl(Time time)
+        private static double as_dbl(Time time)
         {
-            fixed (void *t = &time.data)
-            {
-                return mpr_time_as_dbl((IntPtr)t);
-            }
+            return (double)time.data.sec + (double)time.data.frac * 0.00000000023283064365;
         }
 
         public Time Add(Time addend)
@@ -219,7 +214,7 @@ namespace Mapper
         Scope               = 0x1E00,
         Signal              = 0x1F00,
         Status              = 0x2100,
-        StealingMode        = 0x2200,
+        Stealing            = 0x2200,
         Synced              = 0x2300,
         Type                = 0x2400,
         Unit                = 0x2500,
@@ -281,7 +276,7 @@ namespace Mapper
                                 return (Map.Protocol)i;
                             case (int)Property.Status:
                                 return (Status)i;
-                            case (int)Property.StealingMode:
+                            case (int)Property.Stealing:
                                 return (Signal.Stealing)i;
                             case (int)Property.Type:
                                 return (Type)i;
