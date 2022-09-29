@@ -3,6 +3,8 @@
 from __future__ import print_function
 import sys, random, libmapper as mpr
 
+print('libmapper version:', mpr.__version__, 'with' if mpr.has_numpy() else 'without', 'numpy support')
+
 src = mpr.Device("py.testmapfromstr.src")
 outsig = src.add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32)
 

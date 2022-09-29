@@ -1,6 +1,6 @@
 __all__ = [
 
-    '__version__', 'Device', 'Location', 'Direction', 'Operator', 'Property',
+    '__version__', 'has_numpy', 'Device', 'Location', 'Direction', 'Operator', 'Property',
     'Protocol', 'Status', 'Stealing', 'Type', 'Time', 'Object', 'List', 'InstanceId',
     'Signal', 'SignalInstance', 'Map', 'Graph'
 
@@ -14,13 +14,14 @@ import os
 
 try:
     import numpy as np
-    print('libmapper module loaded with numpy support')
     NPARRAY_NAME = ('nparray').encode('utf-8')
 except:
     np = None
-    print('libmapper module loaded without numpy support')
 
 __version__ = '@PACKAGE_VERSION@'
+
+def has_numpy():
+    return np != None
 
 # need different library extensions for Linux, Windows, MacOS
 if platform.uname()[0] == "Windows":

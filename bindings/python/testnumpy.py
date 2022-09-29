@@ -3,6 +3,8 @@
 from __future__ import print_function
 import sys, random, libmapper as mpr
 
+print('libmapper version:', mpr.__version__, 'with' if mpr.has_numpy() else 'without', 'numpy support')
+
 try:
     import numpy as np
 except:
