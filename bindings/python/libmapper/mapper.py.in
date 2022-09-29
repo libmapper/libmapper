@@ -923,7 +923,7 @@ class Signal(Object):
             count = mpr.mpr_sig_reserve_inst(self._obj, _len, array, None)
         return self
 
-    def instance(self, id):
+    def Instance(self, id):
         return SignalInstance(self._obj, id)
 
     def num_instances(self, status=Status.ANY):

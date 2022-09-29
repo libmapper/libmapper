@@ -11,7 +11,7 @@ def h(sig, event, id, val, time):
             print('--> destination instance', id, 'got', val)
         elif event == mpr.Signal.Event.REL_UPSTRM:
             print('--> retiring destination instance', id)
-            sig.instance(id).release()
+            sig.Instance(id).release()
     except:
         print('--> exception!')
         print(sig, event, id, val)
@@ -36,13 +36,13 @@ def print_instance_values():
     count = outsig.num_instances(mpr.Status.ACTIVE)
     for i in range(count):
         phrase += ' '
-        phrase += str(outsig.instance(outsig.instance_id(i, mpr.Status.ACTIVE)).get_value()[0])
+        phrase += str(outsig.Instance(outsig.instance_id(i, mpr.Status.ACTIVE)).get_value()[0])
     phrase += ' ]   '
     phrase += 'active /insig: ['
     count = insig.num_instances(mpr.Status.ACTIVE)
     for i in range(count):
         phrase += '   '
-        phrase += str(insig.instance(insig.instance_id(i, mpr.Status.ACTIVE)).get_value()[0])
+        phrase += str(insig.Instance(insig.instance_id(i, mpr.Status.ACTIVE)).get_value()[0])
     phrase += ' ]'
     print(phrase)
 
@@ -74,10 +74,10 @@ for i in range(100):
     id = random.randint(0,5)
     if r == 0:
         print('--> retiring sender instance', id)
-        outsig.instance(id).release()
+        outsig.Instance(id).release()
     else:    
         print('--> sender instance', id, 'updated to', id)
-        outsig.instance(id).set_value(id)
+        outsig.Instance(id).set_value(id)
     print_instance_ids()
     print_instance_values()
     dest.poll(100)
