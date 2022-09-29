@@ -392,19 +392,25 @@ All signals possess one instance by default. If you would like to reserve more
 instances you can use:
 
 ~~~c++
-sig.reserve_instances(int num)
-sig.reserve_instances(int num, mapper::Id *ids)
-sig.reserve_instances(int num, mapper::Id *ids, void **data)
+Signal& reserve_instance();
+Signal& reserve_instance(mapper::Id *ids);
+Signal& reserve_instance(mapper::Id *ids, void **data);
+
+Signal& reserve_instances(int num);
+Signal& reserve_instances(int num, mapper::Id *ids);
+Signal& reserve_instances(int num, mapper::Id *ids, void **data);
 ~~~
 
 After reserving instances you can update a specific instance, for example:
 
 ~~~c++
-Signal::Instance si = sig.instance(id);
+sig.reserve_instance();
+
+Signal::Instance si = sig.instance(0);
 si.set_value(value);
 
 // or simply:
-sig.instance(id).set_value(value);
+sig.instance(0).set_value(value);
 ~~~
 
 The `instance` argument is of type `mapper::Id` does not have to be considered as
@@ -445,7 +451,7 @@ to set an action to take in case all allocated instances are in use and a
 previously unseen instance id is received. Use the function:
 
 ~~~c++
-sig.set_property(mapper::Property::STEAL_MODE, mapper::Map::Stealing type);
+sig.set_property(mapper::Property::STEALING, mapper::Signal::Stealing type);
 ~~~
 
 The argument `mode` can have one of the following values:

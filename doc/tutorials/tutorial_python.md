@@ -431,11 +431,11 @@ previously unseen instance id is received. Use the function:
 
 The argument `mode` can have one of the following values:
 
-* `mpr.STEALING.NONE` Default value, in which no stealing of instances will
+* `mpr.Stealing.NONE` Default value, in which no stealing of instances will
 occur;
-* `mpr.STEALING.OLDEST` Release the oldest active instance and reallocate its
+* `mpr.Stealing.OLDEST` Release the oldest active instance and reallocate its
   resources to the new instance;
-* `mpr.STEALING.NEWEST` Release the newest active instance and reallocate its
+* `mpr.Stealing.NEWEST` Release the newest active instance and reallocate its
   resources to the new instance;
 
 If you want to use another method for determining which active instance to
@@ -458,7 +458,7 @@ For this function to be called when instance stealing is necessary, we need to
 register it for `mpr.Signal.Event.INST_OFLW` events:
 
 ~~~python
-<sig>.set_cb(my_handler, mpr.Signal.Event.UPDATE | mpr.Signal.Event.INST_OFLW)
+<sig>.set_callback(my_handler, mpr.Signal.Event.UPDATE | mpr.Signal.Event.INST_OFLW)
 ~~~
 
 ## Publishing metadata

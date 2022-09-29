@@ -167,7 +167,7 @@ whenever it is available.  It is also helpful documentation for users.
 
 Lastly, it is usually necessary to be informed when input signal values change.
 This is done by providing a function to be called whenever its value is modified
-by an incoming message.  It is passed in the `UpdateListener` parameter.
+by an incoming message.  It is passed in the `Listener` parameter.
 
 An example of creating a "barebones" integer scalar output signal with no unit,
 minimum, or maximum information:
@@ -215,10 +215,10 @@ over a USB serial port, or it could just be a mouse-controlled GUI slider.
 However it's getting the data, it must provide it to _libmapper_ so that it will
 be sent to other devices if that signal is mapped.
 
-This is accomplished by the `update()` function:
+This is accomplished by the `setValue()` function:
 
 ~~~java
-<sig>.update(<value>)
+<sig>.setValue(<value>)
 ~~~
 
 So in the "sensor 1" example, assuming we have some code which reads sensor 1's
@@ -230,7 +230,7 @@ while (1) {
     
     // call a hypothetical function that reads a sensor
     v1 = read_sensor_1();
-    sensor1.update(v1);
+    sensor1.setValue(v1);
 }
 ~~~
 
@@ -276,22 +276,21 @@ Now that we know how to create a sender, it would be useful to also know how to
 receive signals, so that we can create a sender-receiver pair to test out the
 provided mapping functionality.
 
-As mentioned above, the `addInputSignal()` function takes an optional
-`UpdateListener`.  This is a function that will be called whenever the value of
-that signal changes.  To create a receiver for a synthesizer parameter "pulse
-width" (given as a ratio between 0 and 1), specify a handler when calling
-`addInputSignal()`.  We'll imagine there is some Java synthesizer implemented as
-a class `Synthesizer` which has functions `setPulseWidth()` which sets the pulse
-width in a thread-safe manner, and `startAudioInBackground()` which sets up the
-audio thread.
+As mentioned above, the `addSignal()` function takes an optional `Listener`.
+This is a function that will be called whenever the value of that signal changes.
+To create a receiver for a synthesizer parameter "pulse width" (given as a ratio
+between 0 and 1), specify a handler when calling `addSignal()`.  We'll imagine
+there is some Java synthesizer implemented as a class `Synthesizer` which has
+functions `setPulseWidth()` which sets the pulse width in a thread-safe manner,
+and `startAudioInBackground()` which sets up the audio thread.
 
 We need to create a handler function for _libmapper_ to update the synth:
 
 ~~~java
-UpdateListener freqHandler = new UpdateListener() {
-    public void onUpdate(Signal sig, float[] value, TimeTag tt) {
-        setPulseWidth(value);
-    }};
+mapper.signal.Listener freqHandler = new mapper.signal.Listener() {
+    public void onEvent(Signal sig, mapper.signal.Event e, float[] value, Time t) {
+    setPulseWidth(value);
+}};
 ~~~
 
 Then our program will look like this:
@@ -303,10 +302,10 @@ import mapper.signal.*;
 # Some synth stuff
 startAudioInBackground();
 
-UpdateListener freqHandler = new Listener() {
+mapper.signal.Listener freqHandler = new mapper.signal.Listener() {
     public void onEvent(Signal sig, mapper.signal.Event event, float value, Time t) {
-        setPulseWidth(value);
-    }};
+    setPulseWidth(value);
+}};
 
 final Device dev = new Device("mySynth");
 Signal pw = dev.addSignal(Direction.INCOMING, "pulseWidth", 1, Type.FLOAT,
@@ -319,8 +318,7 @@ while (1) {
 synth.stop()
 ~~~
 
-Alternately, we can declare the `UpdateListener` as part of the
-`addInputSignal()` function:
+Alternately, we can declare the `Listener` as part of the `addSignal()` function:
 
 ~~~java
 Signal pulseWidth = dev.addSignal(Direction.INCOMING, "pulseWidth", 1, 'f', "Hz",
@@ -333,19 +331,18 @@ Signal pulseWidth = dev.addSignal(Direction.INCOMING, "pulseWidth", 1, 'f', "Hz"
 
 ## Working with timetags
 
-_libmapper_ uses the `TimeTag` class to store 
+_libmapper_ uses the `Time` class to store
 [NTP timestamps](http://en.wikipedia.org/wiki/Network_Time_Protocol#NTP_timestamps)
 associated with signal updates.  For example, the handler function called when a
-signal update is received contains a `timetag` argument.  This argument
-indicates the time at which the source signal was _sampled_ (in the case of
-sensor signals) or _generated_ (in the case of sequenced or
-algorithimically-generated signals).
+signal update is received contains a `time` argument.  This argument indicates the
+time at which the source signal was _sampled_ (in the case of sensor signals) or
+_generated_ (in the case of sequenced or algorithimically-generated signals).
 
 _libmapper_ also provides helper functions for getting the current time:
 
 ~~~java
-TimeTag tt = new TimeTag();
-tt.now();
+Time time = new Time();
+time.now();
 ~~~
 
 ## Working with signal instances
@@ -400,8 +397,8 @@ Object o = inst.userReference();
 ### Receiving instances
 
 To receive updates to multiple instances of an input signal you will need to
-declare a `Listener` for the signal in question. Here is the
-listener prototype:
+declare a `Listener` for the signal in question. Here is a listener prototype
+with the Instance object pre-fetched:
 
 ~~~java
 new Listener(Signal.Instance inst, float value, Time t);
@@ -412,10 +409,10 @@ The listener can be added using the function `setListener()`:
 ~~~java
 <sig>.setListener(new mapper.signal.Listener() {
     public void onUpdate(Signal.Instance inst, float v, Time t) {
-        System.out.println("in onInstanceUpdate() for "
-                           +inst.signal().name()+" instance "
-                           +inst.id()+": "+inst.userReference()+", val= "
-                           +Arrays.toString(v));
+        System.out.println("in onUpdate() for "
+                           + inst.signal().name() + " instance "
+                           + inst.id() + ": " + inst.userReference()
+                           + ", val= " + Arrays.toString(v));
     }
 });
 ~~~
@@ -444,13 +441,12 @@ resources to the new instance;
 resources to the new instance;
 
 If you want to use another method for determining which active instance to
-release (e.g. the sound with the lowest volume), you can create an
-`InstanceEventListener` for the signal and write the method yourself:
+release (e.g. the sound with the lowest volume), you can create a `Listener`
+for the signal and write the method yourself:
 
 ~~~java
 signal.Listener myHandler = new signal.Listener() {
-    public void onEvent(Signal.Instance inst, mapper.signal.Event event,
-                        Time t) {
+    public void onEvent(Signal.Instance inst, mapper.signal.Event event, Time t) {
         System.out.println("onEvent() for "
                            + inst.signal().name() + " instance "
                            + inst.id() + ": " + event.value());

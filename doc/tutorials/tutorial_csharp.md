@@ -2,7 +2,7 @@
 
 Once you have libmapper installed, it can be imported into your program:
 
-~~~python
+~~~csharp
 using Mapper;
 ~~~
 
@@ -359,18 +359,18 @@ The important qualities of signal instances in _libmapper_ are:
 All signals possess one instance by default. If you would like to reserve more
 instances you can use:
 
-~~~c++
-sig.ReserveInstances(int num)
+~~~csharp
+sig.ReserveInstances(int num);
 ~~~
 
 After reserving instances you can update a specific instance, for example:
 
-~~~c++
+~~~csharp
 Signal.Instance i = sig.GetInstance(id);
 i.SetValue(value);
 
 // or more simply
-sig.GetInstance(id).SetValue(value)
+sig.GetInstance(id).SetValue(value);
 ~~~
 
 All of the arguments except one should be familiar from the documentation of
