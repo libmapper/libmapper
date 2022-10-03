@@ -2376,6 +2376,9 @@ typedef struct _temp_var_cache {
 #define OBJECT_TOKENS (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_MUTED | TOK_NEGATE \
                        | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_OP | TOK_TT)
 
+#define JOIN_TOKENS (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_COMMA \
+                     | TOK_COLON | TOK_SEMICOLON)
+
 /*! Use Dijkstra's shunting-yard algorithm to parse expression into RPN stack. */
 mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_ins,
                                const mpr_type *in_types, const int *in_vec_lens, mpr_type out_type,
@@ -2472,8 +2475,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
             case TOK_LITERAL:
                 /* push to output stack */
                 PUSH_TO_OUTPUT(tok);
-                allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
-                                 | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
+                allow_toktype = JOIN_TOKENS;
                 break;
             case TOK_VAR:
             case TOK_TT: {
@@ -2636,8 +2638,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 if (TOK_VAR == tok.toktype)
                     allow_toktype |= TOK_VFN_DOT | TOK_RFN;
                 if (tok.var.idx != VAR_Y || out_assigned > 1)
-                    allow_toktype |= (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
-                                      | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
+                    allow_toktype |= JOIN_TOKENS;
                 muted = 0;
                 break;
             }
@@ -2676,8 +2677,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     allow_toktype = TOK_OPEN_PAREN;
                 else {
                     POP_OPERATOR_TO_OUTPUT();
-                    allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
-                                     | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
+                    allow_toktype = JOIN_TOKENS;
                 }
                 if (tok.fn.idx >= FN_DEL_IDX)
                     is_const = 0;
@@ -2716,8 +2716,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     }
                     else {
                         POP_OPERATOR_TO_OUTPUT();
-                        allow_toktype |= (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
-                                          | TOK_COMMA | TOK_COLON | TOK_SEMICOLON | TOK_RFN);
+                        allow_toktype = JOIN_TOKENS | TOK_RFN;
                     }
                     break;
                 }
@@ -2934,8 +2933,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                             memcpy(&out[out_idx], &out[idx], sizeof(mpr_token_t));
                         out[out_idx].toktype = TOK_VAR_NUM_INST;
                         out[out_idx].gen.datatype = MPR_INT32;
-                        allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_COMMA
-                                         | TOK_COLON | TOK_SEMICOLON);
+                        allow_toktype = JOIN_TOKENS;
                         break;
                     }
                 }
@@ -3049,6 +3047,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
                     GET_NEXT_TOKEN(tok);
                     if (TOK_ASSIGN == tok.toktype) {
+                        /* expression contains accumulator variable initialization */
                         allow_toktype = OBJECT_TOKENS;
                         lambda_allowed = 1;
                     }
@@ -3075,9 +3074,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         free(accum_name);
                         {FAIL("'reduce()' missing lambda operator '->'.");}
                     }
-
-                    allow_toktype = (TOK_VAR | TOK_LITERAL | TOK_FN | TOK_VFN | TOK_MUTED
-                                     | TOK_NEGATE | TOK_OPEN_PAREN | TOK_OPEN_SQUARE | TOK_TT);
+                    allow_toktype = OBJECT_TOKENS;
                     break;
                 }
                 else if (RFN_CONCAT == rfn) {
@@ -3231,8 +3228,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     tok.lit.val.i = -1;
                     PUSH_TO_OUTPUT(tok);
                 }
-                allow_toktype = (TOK_OP | TOK_CLOSE_PAREN | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY
-                                 | TOK_COMMA | TOK_COLON | TOK_SEMICOLON);
+                allow_toktype = JOIN_TOKENS;
                 if (RFN_CONCAT == rfn) {
                     /* Allow chaining another dot function after concat() */
                     allow_toktype |= TOK_VFN_DOT;
@@ -3298,8 +3294,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 /* remove left parenthesis from operator stack */
                 POP_OPERATOR();
 
-                allow_toktype = (TOK_OP | TOK_COLON | TOK_SEMICOLON | TOK_COMMA | TOK_CLOSE_PAREN
-                                 | TOK_CLOSE_SQUARE | TOK_CLOSE_CURLY | TOK_VFN_DOT | TOK_RFN);
+                allow_toktype = JOIN_TOKENS | TOK_VFN_DOT | TOK_RFN;
                 if (assigning)
                     allow_toktype |= (TOK_ASSIGN | TOK_ASSIGN_TT);
 
@@ -3618,10 +3613,9 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     {FAIL_IF(tok.toktype != TOK_CLOSE_SQUARE, "Unmatched bracket.");}
                     /* vector index set */
                     var_flags &= ~VAR_VEC_IDX;
-                    allow_toktype = (TOK_OP | TOK_COMMA | TOK_CLOSE_PAREN | TOK_CLOSE_CURLY
-                                     | TOK_CLOSE_SQUARE | TOK_COLON | TOK_SEMICOLON
-                                     | TOK_VFN_DOT | TOK_RFN | (var_flags & ~VAR_IDXS)
-                                     | (assigning ? TOK_ASSIGN | TOK_ASSIGN_TT : 0));
+                    allow_toktype = (JOIN_TOKENS | TOK_VFN_DOT | TOK_RFN | (var_flags & ~VAR_IDXS));
+                    if (assigning)
+                        allow_toktype |= TOK_ASSIGN | TOK_ASSIGN_TT;
                     break;
                 }
                 op[op_idx].op.idx = OP_IF_THEN_ELSE;
@@ -3679,7 +3673,9 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     POP_OPERATOR_TO_OUTPUT();
                 }
                 PUSH_TO_OPERATOR(tok);
-                allow_toktype = OBJECT_TOKENS;
+                allow_toktype = OBJECT_TOKENS & ~TOK_OP;
+                if (op_tbl[tok.op.idx].arity <= 1)
+                    allow_toktype &= ~TOK_NEGATE;
                 break;
             case TOK_DOLLAR:
                 {FAIL_IF(TOK_VAR != out[out_idx].toktype, "Signal index on non-variable type.");}
@@ -3793,7 +3789,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 tok.toktype = TOK_OP;
                 tok.op.idx = OP_MULTIPLY;
                 PUSH_TO_OPERATOR(tok);
-                allow_toktype = TOK_LITERAL | TOK_VAR | TOK_TT | TOK_FN;
+                allow_toktype = OBJECT_TOKENS & ~TOK_NEGATE;
                 break;
             case TOK_ASSIGN:
                 var_flags = 0;

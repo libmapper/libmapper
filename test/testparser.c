@@ -1546,6 +1546,18 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 9, 1, iterations))
         return 1;
 
+    /* 122) Reduce without lambda operator */
+    set_expr_str("y=x.history(5).reduce(x, a = 100, x + a);");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 123) Reduce with extra lambda operator */
+    set_expr_str("y=x.history(5).reduce(x, a = 100 -> x + a -> x + 1);");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+        return 1;
+
     return 0;
 }
 
