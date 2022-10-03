@@ -1232,173 +1232,170 @@ void mpr_expr_free(mpr_expr expr)
 
 static void printtoken(mpr_token_t *t, mpr_var_t *vars, int show_locks)
 {
-    int i, len = 128, l = 0;
+    int i, d = 0, l = 128;
     char s[128];
     char *dims[] = {"unknown", "history", "instance", 0, "signal", 0, 0, 0, "vector"};
     switch (t->toktype) {
         case TOK_LITERAL:
-            l = snprintf(s, len, "LITERAL\t");
+            d = snprintf(s, l, "LITERAL\t");
             switch (t->gen.flags & CONST_SPECIAL) {
-                case CONST_MAXVAL:  snprintf(s + l, len - l, "max");                    break;
-                case CONST_MINVAL:  snprintf(s + l, len - l, "min");                    break;
-                case CONST_PI:      snprintf(s + l, len - l, "pi");                     break;
-                case CONST_E:       snprintf(s + l, len - l, "e");                      break;
+                case CONST_MAXVAL:  snprintf(s + d, l - d, "max");                  break;
+                case CONST_MINVAL:  snprintf(s + d, l - d, "min");                  break;
+                case CONST_PI:      snprintf(s + d, l - d, "pi");                   break;
+                case CONST_E:       snprintf(s + d, l - d, "e");                    break;
                 default:
                     switch (t->gen.datatype) {
-                        case MPR_FLT:   snprintf(s + l, len - l, "%g", t->lit.val.f);   break;
-                        case MPR_DBL:   snprintf(s + l, len - l, "%g", t->lit.val.d);   break;
-                        case MPR_INT32: snprintf(s + l, len - l, "%d", t->lit.val.i);   break;
-                    }                                                                   break;
+                        case MPR_FLT:   snprintf(s + d, l - d, "%g", t->lit.val.f); break;
+                        case MPR_DBL:   snprintf(s + d, l - d, "%g", t->lit.val.d); break;
+                        case MPR_INT32: snprintf(s + d, l - d, "%d", t->lit.val.i); break;
+                    }                                                               break;
             }
-                                                                                        break;
+                                                                                    break;
         case TOK_VLITERAL:
-            l = snprintf(s, len, "VLITERAL\t[");
+            d = snprintf(s, l, "VLITERAL\t[");
             switch (t->gen.datatype) {
                 case MPR_FLT:
                     for (i = 0; i < t->lit.vec_len; i++)
-                        l += snprintf(s + l, len - l, "%g,", t->lit.val.fp[i]);
+                        d += snprintf(s + d, l - d, "%g,", t->lit.val.fp[i]);
                     break;
                 case MPR_DBL:
                     for (i = 0; i < t->lit.vec_len; i++)
-                        l += snprintf(s + l, len - l, "%g,", t->lit.val.dp[i]);
+                        d += snprintf(s + d, l - d, "%g,", t->lit.val.dp[i]);
                     break;
                 case MPR_INT32:
                     for (i = 0; i < t->lit.vec_len; i++)
-                        l += snprintf(s + l, len - l, "%d,", t->lit.val.ip[i]);
+                        d += snprintf(s + d, l - d, "%d,", t->lit.val.ip[i]);
                     break;
             }
-            --l;
-            snprintf(s + l, len - l, "]");
+            --d;
+            snprintf(s + d, l - d, "]");
             break;
-        case TOK_OP:            snprintf(s, len, "OP\t\t%s", op_tbl[t->op.idx].name);   break;
-        case TOK_OPEN_CURLY:    snprintf(s, len, "{\t");                                break;
-        case TOK_OPEN_PAREN:    snprintf(s, len, "(\t\tarity %d", t->fn.arity);         break;
-        case TOK_OPEN_SQUARE:   snprintf(s, len, "[");                                  break;
-        case TOK_CLOSE_CURLY:   snprintf(s, len, "}");                                  break;
-        case TOK_CLOSE_PAREN:   snprintf(s, len, ")");                                  break;
-        case TOK_CLOSE_SQUARE:  snprintf(s, len, "]");                                  break;
+        case TOK_OP:            snprintf(s, l, "OP\t\t%s", op_tbl[t->op.idx].name); break;
+        case TOK_OPEN_CURLY:    snprintf(s, l, "{\t");                              break;
+        case TOK_OPEN_PAREN:    snprintf(s, l, "(\t\tarity %d", t->fn.arity);       break;
+        case TOK_OPEN_SQUARE:   snprintf(s, l, "[");                                break;
+        case TOK_CLOSE_CURLY:   snprintf(s, l, "}");                                break;
+        case TOK_CLOSE_PAREN:   snprintf(s, l, ")");                                break;
+        case TOK_CLOSE_SQUARE:  snprintf(s, l, "]");                                break;
 
         case TOK_ASSIGN:
         case TOK_ASSIGN_CONST:
         case TOK_ASSIGN_USE:
         case TOK_ASSIGN_TT:
-            l = snprintf(s, len, "ASSIGN\t");
+            d = snprintf(s, l, "ASSIGN\t");
         case TOK_VAR:
         case TOK_TT: {
             if (TOK_VAR == t->toktype || TOK_TT == t->toktype)
-                l += snprintf(s + l, len - l, "LOAD\t");
+                d += snprintf(s + d, l - d, "LOAD\t");
             if (TOK_TT == t->toktype || TOK_ASSIGN_TT == t->toktype)
-                l += snprintf(s + l, len - l, "tt.");
+                d += snprintf(s + d, l - d, "tt.");
             else
-                l += snprintf(s + l, len - l, "var.");
+                d += snprintf(s + d, l - d, "var.");
 
 
             if (t->var.idx == VAR_Y)
-                l += snprintf(s + l, len - l, "y");
+                d += snprintf(s + d, l - d, "y");
             else if (t->var.idx >= VAR_X) {
-                l += snprintf(s + l, len - l, "x");
+                d += snprintf(s + d, l - d, "x");
                 if (t->gen.flags & VAR_SIG_IDX)
-                    l += snprintf(s + l, len - l, "$N");
+                    d += snprintf(s + d, l - d, "$N");
                 else
-                    l += snprintf(s + l, len - l, "$%d", t->var.idx - VAR_X);
+                    d += snprintf(s + d, l - d, "$%d", t->var.idx - VAR_X);
             }
             else
-                l += snprintf(s + l, len - l, "%s%s", vars ? vars[t->var.idx].name : "?",
+                d += snprintf(s + d, l - d, "%s%s", vars ? vars[t->var.idx].name : "?",
                               vars ? (vars[t->var.idx].flags & VAR_INSTANCED) ? ".N" : ".0" : ".?");
 
             if (t->gen.flags & VAR_HIST_IDX)
-                l += snprintf(s + l, len - l, "{N}");
+                d += snprintf(s + d, l - d, "{N}");
 
             if (TOK_TT == t->toktype)
                 break;
 
             if (t->gen.flags & VAR_VEC_IDX)
-                l += snprintf(s + l, len - l, "[N");
+                d += snprintf(s + d, l - d, "[N");
             else
-                l += snprintf(s + l, len - l, "[%u", t->var.vec_idx);
+                d += snprintf(s + d, l - d, "[%u", t->var.vec_idx);
             if (t->var.idx >= VAR_Y)
-                l += snprintf(s + l, len - l, "]");
+                d += snprintf(s + d, l - d, "]");
             else
-                l += snprintf(s + l, len - l, "/%u]", vars ? vars[t->var.idx].vec_len : 0);
+                d += snprintf(s + d, l - d, "/%u]", vars ? vars[t->var.idx].vec_len : 0);
 
             if (t->toktype & TOK_ASSIGN)
-                snprintf(s + l, len - l, "<%d>", t->var.offset);
+                snprintf(s + d, l - d, "<%d>", t->var.offset);
             break;
         }
         case TOK_VAR_NUM_INST:
             if (t->var.idx == VAR_Y)
-                snprintf(s, len, "NUM_INST\tvar.y");
+                snprintf(s, l, "NUM_INST\tvar.y");
             else if (t->var.idx >= VAR_X)
-                snprintf(s, len, "NUM_INST\tvar.x$%d", t->var.idx - VAR_X);
+                snprintf(s, l, "NUM_INST\tvar.x$%d", t->var.idx - VAR_X);
             else
-                snprintf(s, len, "NUM_INST\tvar.%s%s", vars ? vars[t->var.idx].name : "?",
+                snprintf(s, l, "NUM_INST\tvar.%s%s", vars ? vars[t->var.idx].name : "?",
                          vars ? (vars[t->var.idx].flags & VAR_INSTANCED) ? ".N" : ".0" : ".?");
             break;
-        case TOK_FN:        snprintf(s, len, "FN\t\t%s()", fn_tbl[t->fn.idx].name); break;
-        case TOK_COMMA:     snprintf(s, len, ",");                                  break;
-        case TOK_COLON:     snprintf(s, len, ":");                                  break;
-        case TOK_VECTORIZE: snprintf(s, len, "VECT(%d)", t->fn.arity);              break;
-        case TOK_NEGATE:    snprintf(s, len, "-");                                  break;
+        case TOK_FN:        snprintf(s, l, "FN\t\t%s()", fn_tbl[t->fn.idx].name);   break;
+        case TOK_COMMA:     snprintf(s, l, ",");                                    break;
+        case TOK_COLON:     snprintf(s, l, ":");                                    break;
+        case TOK_VECTORIZE: snprintf(s, l, "VECT(%d)", t->fn.arity);                break;
+        case TOK_NEGATE:    snprintf(s, l, "-");                                    break;
         case TOK_VFN:
-        case TOK_VFN_DOT:   snprintf(s, len, "VFN\t%s()", vfn_tbl[t->fn.idx].name); break;
+        case TOK_VFN_DOT:   snprintf(s, l, "VFN\t%s()", vfn_tbl[t->fn.idx].name);   break;
         case TOK_RFN:
             if (RFN_HISTORY == t->fn.idx)
-                snprintf(s, len, "RFN\thistory(%d:%d)", t->con.reduce_start, t->con.reduce_stop);
+                snprintf(s, l, "RFN\thistory(%d:%d)", t->con.reduce_start, t->con.reduce_stop);
             else if (RFN_VECTOR == t->fn.idx) {
                 if (t->con.flags & USE_VAR_LEN)
-                    snprintf(s, len, "RFN\tvector(%d:len)", t->con.reduce_start);
+                    snprintf(s, l, "RFN\tvector(%d:len)", t->con.reduce_start);
                 else
-                    snprintf(s, len, "RFN\tvector(%d:%d)", t->con.reduce_start, t->con.reduce_stop);
+                    snprintf(s, l, "RFN\tvector(%d:%d)", t->con.reduce_start, t->con.reduce_stop);
             }
             else
-                snprintf(s, len, "RFN\t%s()", rfn_tbl[t->fn.idx].name);
+                snprintf(s, l, "RFN\t%s()", rfn_tbl[t->fn.idx].name);
             break;
         case TOK_LAMBDA:
-            snprintf(s, len, "LAMBDA(%d)", t->fn.arity);                        break;
+            snprintf(s, l, "LAMBDA");                                               break;
         case TOK_COPY_FROM:
-            snprintf(s, len, "COPY\t%d", t->con.cache_offset * -1);             break;
+            snprintf(s, l, "COPY\t%d", t->con.cache_offset * -1);                   break;
         case TOK_MOVE:
-            snprintf(s, len, "MOVE\t-%d", t->con.cache_offset);                 break;
+            snprintf(s, l, "MOVE\t-%d", t->con.cache_offset);                       break;
         case TOK_LOOP_START:
-            snprintf(s, len, "LOOP_START\t%s", dims[t->con.flags & REDUCE_TYPE_MASK]); break;
+            snprintf(s, l, "LOOP_START\t%s", dims[t->con.flags & REDUCE_TYPE_MASK]); break;
         case TOK_REDUCING:
             if (t->con.flags & USE_VAR_LEN)
-                snprintf(s, len, "REDUCE\t%s[%d:len]", dims[t->con.flags & REDUCE_TYPE_MASK],
+                snprintf(s, l, "REDUCE\t%s[%d:len]", dims[t->con.flags & REDUCE_TYPE_MASK],
                          t->con.reduce_start);
             else
-                snprintf(s, len, "REDUCE\t%s[%d:%d]", dims[t->con.flags & REDUCE_TYPE_MASK],
+                snprintf(s, l, "REDUCE\t%s[%d:%d]", dims[t->con.flags & REDUCE_TYPE_MASK],
                          t->con.reduce_start, t->con.reduce_stop);
             break;
         case TOK_LOOP_END:
             switch (t->con.flags & REDUCE_TYPE_MASK) {
                 case RT_HISTORY:
-                    snprintf(s, len, "LOOP_END\thistory[%d:%d]<%d,%d>",
-                             -t->con.reduce_start, -t->con.reduce_stop, t->con.branch_offset,
-                             t->con.cache_offset);
+                    snprintf(s, l, "LOOP_END\thistory[%d:%d]<%d,%d>", -t->con.reduce_start,
+                             -t->con.reduce_stop, t->con.branch_offset, t->con.cache_offset);
                     break;
                 case RT_VECTOR:
                     if (t->con.flags & USE_VAR_LEN)
-                        snprintf(s, len, "LOOP_END\tvector[%d:len]<%d,%d>",
-                                 t->con.reduce_start, t->con.branch_offset, t->con.cache_offset);
+                        snprintf(s, l, "LOOP_END\tvector[%d:len]<%d,%d>", t->con.reduce_start,
+                                 t->con.branch_offset, t->con.cache_offset);
                     else
-                        snprintf(s, len, "LOOP_END\tvector[%d:%d]<%d,%d>",
-                                 t->con.reduce_start, t->con.reduce_stop, t->con.branch_offset,
-                                 t->con.cache_offset);
+                        snprintf(s, l, "LOOP_END\tvector[%d:%d]<%d,%d>", t->con.reduce_start,
+                                 t->con.reduce_stop, t->con.branch_offset, t->con.cache_offset);
                     break;
                 default:
-                    snprintf(s, len, "LOOP_END\t%s<%d,%d>",
-                             dims[t->con.flags & REDUCE_TYPE_MASK], t->con.branch_offset,
-                             t->con.cache_offset);
+                    snprintf(s, l, "LOOP_END\t%s<%d,%d>", dims[t->con.flags & REDUCE_TYPE_MASK],
+                             t->con.branch_offset, t->con.cache_offset);
             }
             break;
-        case TOK_SP_ADD:            snprintf(s, len, "SP_ADD\t%d", t->lit.val.i);   break;
-        case TOK_SEMICOLON:         snprintf(s, len, "semicolon");                  break;
+        case TOK_SP_ADD:            snprintf(s, l, "SP_ADD\t%d", t->lit.val.i);     break;
+        case TOK_SEMICOLON:         snprintf(s, l, "semicolon");                    break;
         case TOK_END:               printf("END\n");                                return;
         default:                    printf("(unknown token)\n");                    return;
     }
     printf("%s", s);
     /* indent */
-    len = strlen(s);
+    l = strlen(s);
     if (show_locks) {
         printf("\r\t\t\t\t\t%c%u", t->gen.datatype, t->gen.vec_len);
         if (t->gen.casttype)
