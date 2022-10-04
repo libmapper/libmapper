@@ -897,15 +897,18 @@ class Signal(Object):
         mpr.mpr_sig_get_value.restype = c_void_p
         _time = Time()
         _val = mpr.mpr_sig_get_value(self._obj, self.id, byref(_time.value))
-        _type = mpr.mpr_obj_get_prop_as_int32(self._obj, Property.TYPE.value, None)
-        _len = mpr.mpr_obj_get_prop_as_int32(self._obj, Property.LENGTH.value, None)
+        if _val == None:
+            return None
 
+        _type = mpr.mpr_obj_get_prop_as_int32(self._obj, Property.TYPE.value, None)
         if _type == Type.INT32.value:
             _val = cast(_val, POINTER(c_int))
         if _type == Type.FLOAT.value:
             _val = cast(_val, POINTER(c_float))
         if _type == Type.DOUBLE.value:
             _val = cast(_val, POINTER(c_double))
+
+        _len = mpr.mpr_obj_get_prop_as_int32(self._obj, Property.LENGTH.value, None)
         if _len == 1:
             return [_val[0], _time]
         else:
