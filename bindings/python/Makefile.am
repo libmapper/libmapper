@@ -17,7 +17,7 @@ uninstall-hook:
 EXTRA_DIST = libmapper/__init__.py test.py testcallbacks.py testconvergent.py testinstance.py \
              testmapfromstr.py testnumpy.py testrefcount.py testreverse.py testvector.py tkgui.py
 
-test_all_ordered = test testcallbacks testconvergent testinstance testmapfromstr testnumpy testrefcount testreverse testvector
+test_all_ordered = test testcallbacks testconvergent testinstance testmapfromstr testnumpy testreverse testvector
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! python ./$$i.py; then exit 1; fi; done
