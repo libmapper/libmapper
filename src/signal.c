@@ -672,7 +672,7 @@ static void _mpr_remote_sig_set_value(mpr_sig sig, int len, mpr_type type, const
     if (!(msg = lo_message_new()))
         return;
 
-    if (type != sig->type || len != sig->len) {
+    if (type != sig->type || len < sig->len) {
         coerced = alloca(mpr_type_get_size(sig->type) * sig->len);
         set_coerced_val(len, type, val, sig->len, sig->type, (void*)coerced);
     }
@@ -722,13 +722,6 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
 #endif
         return;
     }
-    if (len && (len != lsig->len)) {
-#ifdef DEBUG
-        trace("called update on signal '%s' with value length %d (should be %d)\n",
-              lsig->name, len, lsig->len);
-#endif
-        return;
-    }
     if (type != MPR_INT32) {
         /* check for NaN */
         int i;
@@ -751,7 +744,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     memcpy(&si->time, &time, sizeof(mpr_time));
 
     /* update value */
-    if (type != lsig->type)
+    if (type != lsig->type || len < lsig->len)
         set_coerced_val(lsig->len, type, val, lsig->len, lsig->type, si->val);
     else
         memcpy(si->val, (void*)val, mpr_sig_get_vector_bytes(sig));
