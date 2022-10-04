@@ -1,29 +1,29 @@
-# Mediapipe + libmapper
+# MediaPipe + libmapper
 
-[Mediapipe](https://mediapipe.dev/) is an open-source project that is maintained by a team of engineers at Google research. Mediapipe offers several pre-built solutions for creating applications that implement real-time machine learning models for perceptual tasks. Some of mediapipe's solutions include:
+[MediaPipe](https://mediapipe.dev/) is an open-source project that is maintained by a team of engineers at Google research. MediaPipe offers several pre-built solutions for creating applications that implement real-time machine learning models for perceptual tasks. Some of MediaPipe's solutions include:
 
 - Hand Tracking
 - Face Mesh
 - Pose Detection
 - 3D Object Detection
   
-And many more! You can find a complete list of mediapipe solutions [here](https://google.github.io/mediapipe/solutions/solutions).
+And many more! You can find a complete list of MediaPipe solutions [here](https://google.github.io/mediapipe/solutions/solutions).
 
-In this tutorial, you will create a simple libmapper network that establishes a connection between the **Mediapipe Hands** solution (acting as a producer of data) and another libmapper enabled process (acting as a consumer of data).
+In this tutorial, you will create a simple libmapper network that establishes a connection between the **MediaPipe Hands** solution (acting as a producer of data) and another libmapper enabled process (acting as a consumer of data).
 
 _Note: This tutorial is confirmed to work on unix-based systems only, but other operating systems may also be supported._
 
 ## Data Producer
 
-This section will provide a walk through for creating a *libmapper* device that exposes the hand-tracking landmarks as estimated by the mediapipe model. This process will be created using the `mediapipe` package from PyPi ([link](https://pypi.org/project/mediapipe/)). To install this package, run the following command:
+This section will provide a walk through for creating a *libmapper* device that exposes the hand-tracking landmarks as estimated by the MediaPipe model. This process will be created using the `mediapipe` package from PyPi ([link](https://pypi.org/project/mediapipe/)). To install this package, run the following command:
 
 ```bash
 pip install mediapipe
 ```
 
-### Mediapipe sample project
+### MediaPipe sample project
 
-The mediapipe team has a well defined python project that utilizes their package. The source code for that project after removing the unnecessary code for static images is as follows:
+The MediaPipe team has a well defined python project that utilizes their package. The source code for that project after removing the unnecessary code for static images is as follows:
 
 ```python
 import cv2
@@ -86,7 +86,7 @@ index_tip = dev.add_signal(mpr.Direction.OUTGOING, "index_tip",
 
 ### Poll device and update signal
 
-The next step is to poll the libmapper device in **the main video loop** and update the signal with the estimated values produced by mediapipe. These steps are as follows:
+The next step is to poll the libmapper device in **the main video loop** and update the signal with the estimated values produced by MediaPipe. These steps are as follows:
 
 ```python
 # Non-blocking poll, as we will use the framerate from the hand-tracking logic.
@@ -97,11 +97,11 @@ index_tip.set_value([hand_landmarks.landmark[8].x,
                      hand_landmarks.landmark[8].y])
 ```
 
-#### Mediapipe Landmarks
+#### MediaPipe Landmarks
 
 The landmarks for each estimated joint is shown in the following figure.
 
-![Mediapipe Landmarks](./images/landmarks_model.jpg)
+![MediaPipe Landmarks](./images/landmarks_model.jpg)
 
 ### Final Source Code
 
@@ -306,7 +306,7 @@ Here is a quick video demonstrating this process.
 
 ## Convergent Map Example
 
-Now that we have seen a simple example of 1:1 mapping from mediapipe to another libmapper device, we can explore using convergent maps and libmapper expressions to set up more sophisticated examples.
+Now that we have seen a simple example of 1:1 mapping from MediaPipe to another libmapper device, we can explore using convergent maps and libmapper expressions to set up more sophisticated examples.
 
 ### Update Python Script
 
@@ -328,7 +328,7 @@ index_tip.set_value([hand_landmarks.landmark[4].x,
 ...
 ```
 
-While this will work for a single hand, to use the PONG example effectively we need to track two hands with mediapipe. This can be achieved using the multi-handed tracker provided by mediapipe hands. The full code to accomplish this is as follows:
+While this will work for a single hand, to use the PONG example effectively we need to track two hands with MediaPipe. This can be achieved using the multi-handed tracker provided by MediaPipe Hands. The full code to accomplish this is as follows:
 
 ```python
 #!/usr/bin/python3
@@ -365,7 +365,7 @@ while cap.isOpened():
     if not success:
         break
 
-    # Poll the mediapipe devices to ensure that the signals are being updated properly
+    # Poll the MediaPipe devices to ensure that the signals are being updated properly
     hand_dev.poll()
 
     # Flip the image horizontally for a later selfie-view display, and convert
@@ -489,7 +489,7 @@ The godot scene should be similar to the following image:
 
 ### Running Godot Pong
 
-The result of `./umapper -a` while the godot scene (as well as the mediapipe script) is running is again as follows:
+The result of `./umapper -a` while the godot scene (as well as the MediaPipe script) is running is again as follows:
 
 ```bash
 Devices:
@@ -565,8 +565,8 @@ Here is a quick video demonstrating the Pong example with convergent maps in lib
 https://user-images.githubusercontent.com/15327742/124510292-dd7b7800-dda9-11eb-81c3-4ec629e3a537.mp4
 
 
-## Other Mediapipe Integrations
+## Other MediaPipe Integrations
 
-While this tutorial focused specifically on the **Mediapipe: Hands** solution, the same principles can be applied to create libmapper devices that integrate with other Mediapipe projects. Set up signals to transmit data and use the `set_value()` function to extract landmarks to send across the network.
+While this tutorial focused specifically on the **MediaPipe Hands** solution, the same principles can be applied to create libmapper devices that integrate with other MediaPipe projects. Set up signals to transmit data and use the `set_value()` function to extract landmarks to send across the network.
 
 We look forward to seeing what other interesting use-cases are implemented with the help of libmapper!
