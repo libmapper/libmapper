@@ -3,6 +3,7 @@
 from __future__ import print_function
 import sys, libmapper as mpr
 
+print('starting test.py')
 print('libmapper version:', mpr.__version__, 'with' if mpr.has_numpy() else 'without', 'numpy support')
 
 start = mpr.Time()
