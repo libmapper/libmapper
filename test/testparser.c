@@ -551,7 +551,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 16) Vector index outside bounds */
+    /* 16) Negative vector index */
     set_expr_str("y=x[-3]");
     setup_test(MPR_INT32, 3, MPR_INT32, 1);
     expect_int[0] = src_int[0];
@@ -1212,7 +1212,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 91) nested reduce(): sum of last 3 samples of all input signals with extra input reference */
+    /* 91) Nested reduce(): sum of last 3 samples of all input signals with extra input reference */
     set_expr_str("y=(x+1).signal.reduce(a,b->b+a.history(3).reduce(c,d->c+d)+a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1271,7 +1271,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 96) signal reduce() nested with instance count() */
+    /* 96) signal.reduce() nested with instance count() */
     set_expr_str("y=x.signal.reduce(x, a -> x.instance.count() + a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1284,7 +1284,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 97) signal reduce() nested with instance mean() */
+    /* 97) signal.reduce() nested with instance mean() */
     set_expr_str("y=x.signal.reduce(x, a -> x.instance.mean() + a);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1297,7 +1297,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 98) nested reduce() of same type */
+    /* 98) Nested reduce() of same type */
     set_expr_str("y=x.signal.reduce(a, b -> a.signal.reduce(c, d -> c + d) + b);");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1309,7 +1309,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 99) nested reduce(): sum of all vector elements of all input signals */
+    /* 99) Nested reduce(): sum of all vector elements of all input signals */
     /* TODO: need to modify tokens to allow variable vector length (per signal) */
     set_expr_str("y=x.signal.reduce(a, b -> a.vector.reduce(c, d -> c + d) + b);");
     types[0] = MPR_INT32;
@@ -1355,7 +1355,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 102) misplaced commas */
+    /* 102) Misplaced commas */
     set_expr_str("y=(0.00417,0.00719*x$0+0.0025*x$1+0,0)*[990,750]/2");
     types[0] = MPR_INT32;
     types[1] = MPR_FLT;
@@ -1366,40 +1366,41 @@ int run_tests()
         return 1;
 
     /* 103) sort() */
-    set_expr_str("a=[4,2,3,1,5,0]; a = a.sort(1); y=a[x];");
+    set_expr_str("a=[4,2,3,1,5,0]; a = a.sort(1); y=a[round(x)];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    expect_flt[0] = (((int)src_flt[0]) % 6 + 6) % 6;
+    expect_flt[0] = (((int)round(src_flt[0])) % 6 + 6) % 6;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 104) call sort() directly on array */
+    /* 104) Call sort() directly on vector */
     set_expr_str("a=[4,2,3,1,5,0].sort(1); y=a[0];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = 0;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 105) variable array index */
+    /* 105) Variable vector index */
     set_expr_str("a=[0,1,2,3,4,5]; y=a[x];");
-    setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    expect_flt[0] = (((int)src_flt[0]) % 6 + 6) % 6;
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
+    expect_flt[0] = ((src_int[0]) % 6 + 6) % 6;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 106) expression array index */
+    /* 106) Expression vector index */
     set_expr_str("a=[0,1,2,3,4,5]; y=a[sin(x)>0?0:1];");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = sin(src_flt[0]) > 0.f ? 0.f : 1.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 107) fractional array index */
-    set_expr_str("a=[0,1,2,3,4,5]; y=a[0.5];");
-    setup_test(MPR_FLT, 1, MPR_FLT, 1);
-    if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+    /* 107) Fractional vector index */
+    set_expr_str("y=x[1.5];");
+    setup_test(MPR_FLT, 3, MPR_FLT, 1);
+    expect_flt[0] = (src_flt[1] + src_flt[2]) * 0.5;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 108) variable signal index */
+    /* 108) Variable signal index */
     set_expr_str("y=x$(x$1)");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1410,7 +1411,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 109) expression signal index */
+    /* 109) Expression signal index */
     set_expr_str("y=x$(sin(x)>0);");
     types[0] = MPR_FLT;
     types[1] = MPR_INT32;
@@ -1421,7 +1422,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 110) fractional signal index */
+    /* 110) Fractional signal index */
     set_expr_str("y=x$0.5;");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
@@ -1556,6 +1557,28 @@ int run_tests()
     set_expr_str("y=x.history(5).reduce(x, a = 100 -> x + a -> x + 1);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
+        return 1;
+
+    /* 124) Fractional indices for both vector and history */
+    set_expr_str("y=x[0.3]{-0.25};");
+    setup_test(MPR_FLT, 2, MPR_FLT, 1);
+    expect_flt[0] = src_flt[0] * 0.7f + src_flt[1] * 0.3f;
+    expect_flt[0] = expect_flt[0] * 0.25f + expect_flt[0] * 0.75f;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 125) Fractional indices for both history and vector */
+    set_expr_str("y=x{-1.75}[0.6];");
+    setup_test(MPR_FLT, 2, MPR_FLT, 1);
+    expect_flt[0] = src_flt[0] * (1.f - 0.6f) + src_flt[1] * 0.6f;
+    expect_flt[0] = expect_flt[0] * 0.75f + expect_flt[0] * 0.25f;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 126) Fractional vector index with non-integer length */
+    set_expr_str("y=x[0.2:1.1];");
+    setup_test(MPR_FLT, 3, MPR_FLT, 2);
+    if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
         return 1;
 
     return 0;
