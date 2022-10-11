@@ -6,7 +6,7 @@ jobs:
   Linux:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: install dependencies
@@ -40,7 +40,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: install dependencies
@@ -125,7 +125,7 @@ jobs:
   MacOS-10:
     runs-on: macOS-10.15
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: install dependencies
@@ -150,7 +150,7 @@ jobs:
   Windows-Latest:
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - name: Run windows PowerShell build script
@@ -175,7 +175,7 @@ jobs:
           && find artifact
           && python3 -m pip install artifact/wheelhouse/libmapper*-py3-none-manylinux_2_24_x86_64.whl
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: run python tests
@@ -200,7 +200,7 @@ jobs:
           && find artifact
           && python3 -m pip install artifact/libmapper*-py3-none-macosx_11_0_x86_64.whl
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: run python tests
@@ -223,7 +223,7 @@ jobs:
           && find artifact
           && python3 -m pip install artifact/libmapper*-py3-none-macosx_10_15_x86_64.whl
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: run python tests
@@ -247,7 +247,7 @@ jobs:
           && ls
           && python3 -m pip install libmapper-2.3-py3-none-win_amd64.whl
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: run python tests
@@ -260,7 +260,5 @@ jobs:
           && python ./testconvergent.py
           && python ./testinstance.py
           && python ./testmapfromstr.py
-          && python ./testnumpy.py
-          && python ./testrefcount.py
           && python ./testreverse.py
           && python ./testvector.py
