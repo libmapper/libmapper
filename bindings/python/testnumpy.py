@@ -45,6 +45,7 @@ for i in range(100):
     dest.poll(10)
     src.poll(0)
 
+print('freeing devices')
 src.free()
 dest.free()
-
+print('done')

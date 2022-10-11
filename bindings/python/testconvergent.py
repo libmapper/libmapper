@@ -19,10 +19,10 @@ dest = mpr.Device("py.testconvergent.dst")
 insig = dest.add_signal(mpr.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT, None, None, None, None, h)
 
 while not srcs[0].ready or not srcs[1].ready or not srcs[2].ready or not dest.ready:
-    srcs[2].poll(10)
-    srcs[0].poll(10)
-    srcs[1].poll(10)
-    dest.poll(10)
+    srcs[0].poll(100)
+    srcs[1].poll(100)
+    srcs[2].poll(100)
+    dest.poll(100)
 
 map = mpr.Map(outsigs, insig)
 if not map:
@@ -43,6 +43,8 @@ else:
             srcs[j].poll(0)
         dest.poll(10)
 
+print('freeing devices')
 for j in range(3):
     srcs[j].free()
 dest.free()
+print('done')

@@ -176,5 +176,7 @@ g.print()
 
 g.remove_callback(graph_cb)
 
+print('freeing devices')
 dev1.free()
 dev2.free()
+print('done')

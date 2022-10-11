@@ -69,3 +69,4 @@ for i in range(100):
 print('freeing devices')
 src.free()
 dst.free()
+print('done')
