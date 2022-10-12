@@ -167,6 +167,8 @@ jobs:
     needs: Linux
     steps:
       - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - name: download artifact
         uses: actions/download-artifact@v3
       - name: install wheel
@@ -192,6 +194,8 @@ jobs:
       SYSTEM_VERSION_COMPAT: 0
     steps:
       - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - name: download artifact
         uses: actions/download-artifact@v3
       - name: install wheel
@@ -215,6 +219,8 @@ jobs:
     needs: MacOS-10
     steps:
       - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - name: download artifact
         uses: actions/download-artifact@v3
       - name: install wheel
@@ -238,6 +244,8 @@ jobs:
     needs: Windows-Latest
     steps:
       - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
       - name: download artifact
         uses: actions/download-artifact@v3
       - name: install wheel
