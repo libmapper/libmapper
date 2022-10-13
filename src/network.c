@@ -1834,6 +1834,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
         loc = MPR_LOC_DST;
     }
     else {
+        loc = map->process_loc;
         a = mpr_msg_get_prop(props, MPR_PROP_PROCESS_LOC);
         if (a)
             loc = mpr_loc_from_str(&(a->vals[0])->s);
