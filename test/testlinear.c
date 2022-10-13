@@ -276,10 +276,10 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (autoconnect && (!received || sent != received)) {
-        eprintf("Not all sent messages were received.\n");
-        eprintf("Updated value %d time%s and received %d of them.\n",
-                sent, sent == 1 ? "" : "s", received);
+    if (autoconnect && (!received || sent != matched)) {
+        eprintf("Mismatch between sent and received/matched messages.\n");
+        eprintf("Updated value %d time%s, but received %d and matched %d of them.\n",
+                sent, sent == 1 ? "" : "s", received, matched);
         result = 1;
     }
 

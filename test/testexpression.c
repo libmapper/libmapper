@@ -26,9 +26,10 @@ mpr_map map = 0;
 
 int sent = 0;
 int received = 0;
-int addend = 0;
+int matched = 0;
+int addend[2] = {1, 2};
 
-float expected_val;
+float expected_val[2];
 double expected_time;
 
 static void eprintf(const char *format, ...)
@@ -79,14 +80,15 @@ void cleanup_src()
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
-    if (!value)
+    if (!value || length != 2)
         return;
-    eprintf("handler: Got value %f, time %f\n", (*(float*)value),
-            mpr_time_as_dbl(t));
-    if (*(float*)value != expected_val)
-        eprintf("  error: expected value %f\n", expected_val);
+    float *fvalue = (float*)value;
+    eprintf("handler: Got value [%f, %f], time %f\n", fvalue[0], fvalue[1], mpr_time_as_dbl(t));
+    if (fvalue[0] != expected_val[0] || fvalue[1] != expected_val[1])
+        eprintf("  error: expected value [%f, %f]\n", expected_val[0], expected_val[1]);
     else
-        received++;
+        ++matched;
+    ++received;
 }
 
 int setup_dst(mpr_graph g, const char *iface)
@@ -102,8 +104,10 @@ int setup_dst(mpr_graph g, const char *iface)
     eprintf("destination created using interface %s.\n",
             mpr_graph_get_interface(mpr_obj_get_graph(dst)));
 
-    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
-                          &mn, &mx, NULL, handler, MPR_SIG_UPDATE);
+    recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 2, MPR_FLT, NULL,
+                          NULL, NULL, NULL, handler, MPR_SIG_UPDATE);
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_MIN, NULL, 1, MPR_FLT, &mn, 0);
+    mpr_obj_set_prop((mpr_obj)recvsig, MPR_PROP_MAX, NULL, 1, MPR_FLT, &mx, 0);
 
     eprintf("Input signal 'insig' registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
@@ -128,7 +132,7 @@ void cleanup_dst()
 int setup_maps()
 {
     map = mpr_map_new(1, &sendsig, 1, &recvsig);
-    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=0;y=x*10+foo", 1);
+    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=[1,2];y=x*10+foo", 1);
     mpr_obj_push(map);
 
     /* wait until mapping has been established */
@@ -156,7 +160,8 @@ void loop()
     eprintf("Polling device..\n");
     while ((!terminate || i < 50) && !done) {
         float val = i * 1.0f;
-        expected_val = val * 10 + addend;
+        expected_val[0] = val * 10 + addend[0];
+        expected_val[1] = val * 10 + addend[1];
         t = mpr_dev_get_time(src);
         expected_time = mpr_time_as_dbl(t);
         eprintf("Updating output signal to %f at time %f\n", (i * 1.0f),
@@ -261,8 +266,9 @@ int main(int argc, char **argv)
     loop();
 
     eprintf("Modifying expression variable");
-    addend = 1000;
-    mpr_obj_set_prop(map, MPR_PROP_EXTRA, "var@foo", 1, MPR_INT32, &addend, 1);
+    addend[0] = 1000;
+    addend[1] = 234;
+    mpr_obj_set_prop(map, MPR_PROP_EXTRA, "var@foo", 2, MPR_INT32, addend, 1);
     mpr_obj_push(map);
     /* wait for change to take effect */
     mpr_dev_poll(dst, 100);
@@ -271,8 +277,8 @@ int main(int argc, char **argv)
     loop();
 
     eprintf("Modifying expression to check that variable is overwritten");
-    addend = 20;
-    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=20;y=x*10+foo", 1);
+    addend[0] = addend[1] = 20;
+    mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, "foo=[20,20];y=x*10+foo", 1);
     mpr_obj_push(map);
     /* wait for change to take effect */
     mpr_dev_poll(dst, 100);
@@ -280,10 +286,10 @@ int main(int argc, char **argv)
 
     loop();
 
-    if (sent != received) {
-        eprintf("Not all sent messages were received.\n");
-        eprintf("Updated value %d time%s, but received %d of them.\n",
-                sent, sent == 1 ? "" : "s", received);
+    if (autoconnect && (!received || sent != matched)) {
+        eprintf("Mismatch between sent and received/matched messages.\n");
+        eprintf("Updated value %d time%s, but received %d and matched %d of them.\n",
+                sent, sent == 1 ? "" : "s", received, matched);
         result = 1;
     }
 
