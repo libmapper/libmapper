@@ -4532,6 +4532,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             for (i = sp; i < sp + tok->gen.vec_len; i++)
                 stk[i].d = t_d;
             types[dp] = tok->gen.datatype;
+            can_advance = 0;
 #if TRACE_EVAL
             print_stack_vec(stk + sp, types[dp], dims[dp], dp);
 #endif
