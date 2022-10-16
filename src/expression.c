@@ -2569,13 +2569,13 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     {FAIL_IF(slot >= n_ins, "Input slot index > number of sources.");}
                     tok.gen.datatype = in_types[slot];
                     tok.gen.vec_len = (TOK_VAR == tok.toktype) ? in_vec_lens[slot] : 1;
-                    tok.gen.flags |= VEC_LEN_LOCKED;
+                    tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                     is_const = 0;
                 }
                 else if (tok.var.idx == VAR_Y) {
                     tok.gen.datatype = out_type;
                     tok.gen.vec_len = (TOK_VAR == tok.toktype) ? out_vec_len : 1;
-                    tok.gen.flags |= VEC_LEN_LOCKED;
+                    tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
                 }
                 else {
                     i = find_var_by_name(vars, n_vars, varname, len);
@@ -2600,18 +2600,17 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         tok.var.idx = n_vars;
                         tok.var.datatype = var_type;
                         /* special case: 'alive' tracks instance lifetime */
-                        if (strcmp(vars[n_vars].name, "alive")==0) {
-                            inst_ctl = n_vars;
-                            is_const = 0;
-                            tok.gen.vec_len = 1;
-                            tok.gen.flags |= VEC_LEN_LOCKED;
-                            tok.gen.datatype = MPR_INT32;
-                        }
-                        else if (strcmp(vars[n_vars].name, "muted")==0) {
-                            mute_ctl = n_vars;
-                            tok.gen.vec_len = 1;
-                            tok.gen.flags |= VEC_LEN_LOCKED;
-                            tok.gen.datatype = MPR_INT32;
+                        if (   strcmp(vars[n_vars].name, "alive")==0
+                            || strcmp(vars[n_vars].name, "muted")==0) {
+                            vars[n_vars].vec_len = tok.gen.vec_len = 1;
+                            vars[n_vars].datatype = tok.gen.datatype = MPR_INT32;
+                            tok.gen.flags |= (TYPE_LOCKED | VEC_LEN_LOCKED);
+                            if (vars[n_vars].name[0] == 'a') {
+                                inst_ctl = n_vars;
+                                is_const = 0;
+                            }
+                            else
+                                mute_ctl = n_vars;
                         }
                         else
                             tok.gen.vec_len = 0;
@@ -3784,14 +3783,16 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     if (var >= VAR_X)
                         {FAIL("Cannot assign to input variable 'x'.");}
                     if (out[out_idx].gen.flags & VAR_HIST_IDX) {
-                        /* unlike variable lookup, history index must be integer for assignment */
+                        /* unlike variable lookup, history assignment index must be an integer */
                         i = out_idx - 1;
                         if (out[out_idx].gen.flags & VAR_SIG_IDX)
                             i -= substack_len(out, out_idx - 1);
                         if (MPR_INT32 != out[i].gen.datatype)
                             out[i].gen.casttype = MPR_INT32;
+                        if (VAR_Y != var)
+                            vars[var].flags |= VAR_ASSIGNED;
                     }
-                    else if (var == VAR_Y)
+                    else if (VAR_Y == var)
                         ++out_assigned;
                     else
                         vars[var].flags |= VAR_ASSIGNED;
@@ -3808,10 +3809,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                     /* assignment to timetag */
                     /* for now we will only allow assigning to output t_y */
                     /* TODO: enable writing timetags on user-defined variables */
-                    FAIL_IF(out[out_idx].var.idx != VAR_Y, "Only output timetag is writable.");
+                    {FAIL_IF(out[out_idx].var.idx != VAR_Y, "Only output timetag is writable.");}
                     /* disable writing to current timetag for now */
-                    FAIL_IF(!(out[out_idx].gen.flags & VAR_HIST_IDX),
-                            "Only past samples of output timetag are writable.");
+                    {FAIL_IF(!(out[out_idx].gen.flags & VAR_HIST_IDX),
+                             "Only past samples of output timetag are writable.");}
                     out[out_idx].toktype = TOK_ASSIGN_TT;
                     out[out_idx].gen.datatype = MPR_DBL;
                     POP_OUTPUT_TO_OPERATOR();

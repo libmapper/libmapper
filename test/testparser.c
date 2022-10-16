@@ -743,7 +743,7 @@ int run_tests()
         return 1;
 
     /* 40) Variable declaration */
-    set_expr_str("ema=ema{-1}*0.9+x*0.1; y=ema*2; ema{-1}=90");
+    set_expr_str("ema=ema*0.9+x*0.1; y=ema*2; ema{-1}=90");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 90;
     for (i = 0; i < iterations; i++)
@@ -868,10 +868,8 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     /* results may vary depending on machine but we can perform a sanity check */
-    if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.001) {
-        eprintf("... error: expected value between %g and %g\n", 0.0, 0.001);
-        printf("%g < %g... %d\n", dst_dbl[0], 0.0, dst_dbl[0] < 0.0);
-        printf("%g > %g... %d\n", dst_dbl[0], 0.0001, dst_dbl[0] > 0.001);
+    if (dst_dbl[0] < 0.0 || dst_dbl[0] > 0.1) {
+        eprintf("... error: expected value between %g and %g\n", 0.0, 0.1);
         return 1;
     }
     else
@@ -887,8 +885,8 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     /* results may vary depending on machine but we can perform a sanity check */
-    if (dst_dbl[0] < 0. || dst_dbl[0] > 0.001) {
-        eprintf("... error: expected value between %g and %g\n", 0.0, 0.001);
+    if (dst_dbl[0] < 0. || dst_dbl[0] > 0.003) {
+        eprintf("... error: expected value between %g and %g\n", 0.0, 0.003);
         return 1;
     }
     else
@@ -900,15 +898,13 @@ int run_tests()
     snprintf(str, 256,
              "t_y{-1}=t_x;"
              "interval=t_x-t_y{-1};"
-             "sr=sr{-1}*0.9+interval*0.1;"
+             "sr=sr*0.9+interval*0.1;"
              "y=y{-1}*0.9+abs(interval-sr)*0.1;");
     setup_test(MPR_INT32, 1, MPR_DBL, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
     /* results may vary depending on machine but we can perform a sanity check */
-    if (dst_dbl[0] < 0. || dst_dbl[0] > 0.0001) {
-        eprintf("... error: expected value between %g and %g\n", 0.0, 0.0001);
-        printf("%g < %g... %d\n", dst_dbl[0], 0.0, dst_dbl[0] < 0.0);
-        printf("%g > %g... %d\n", dst_dbl[0], 0.0001, dst_dbl[0] > 0.0001);
+    if (dst_dbl[0] < 0. || dst_dbl[0] > 0.002) {
+        eprintf("... error: expected value between %g and %g\n", 0.0, 0.002);
         return 1;
     }
     else
