@@ -802,7 +802,6 @@ typedef union _token {
 typedef struct _var {
     char *name;
     mpr_type datatype;
-    mpr_type casttype;
     uint8_t vec_len;
     uint8_t flags;
 } mpr_var_t, *mpr_var;
@@ -1290,22 +1289,23 @@ static void printtoken(mpr_token_t *t, mpr_var_t *vars, int show_locks)
             if (TOK_VAR == t->toktype || TOK_TT == t->toktype)
                 d += snprintf(s + d, l - d, "LOAD\t");
             if (TOK_TT == t->toktype || TOK_ASSIGN_TT == t->toktype)
-                d += snprintf(s + d, l - d, "tt.");
+                d += snprintf(s + d, l - d, "tt");
             else
-                d += snprintf(s + d, l - d, "var.");
+                d += snprintf(s + d, l - d, "var");
 
 
             if (t->var.idx == VAR_Y)
-                d += snprintf(s + d, l - d, "y");
+                d += snprintf(s + d, l - d, ".y");
             else if (t->var.idx >= VAR_X) {
-                d += snprintf(s + d, l - d, "x");
+                d += snprintf(s + d, l - d, ".x");
                 if (t->gen.flags & VAR_SIG_IDX)
                     d += snprintf(s + d, l - d, "$N");
                 else
                     d += snprintf(s + d, l - d, "$%d", t->var.idx - VAR_X);
             }
             else
-                d += snprintf(s + d, l - d, "%s%s", vars ? vars[t->var.idx].name : "?",
+                d += snprintf(s + d, l - d, "%c.%s%s", vars ? vars[t->var.idx].datatype : '?',
+                              vars ? vars[t->var.idx].name : "?",
                               vars ? (vars[t->var.idx].flags & VAR_INSTANCED) ? ".N" : ".0" : ".?");
 
             if (t->gen.flags & VAR_HIST_IDX)
@@ -1451,12 +1451,17 @@ static void printstack(const char *s, mpr_token_t *stk, int sp, mpr_var_t *vars,
                 default:
                     break;
             }
+            printf(" %2d: ", i);
+            printtoken(&stk[i], vars, 1);
+            printf("\n");
             if (i && !can_advance)
                 printf("  --- <INITIALISATION DONE> ---\n");
         }
-        printf(" %2d: ", i);
-        printtoken(&stk[i], vars, 1);
-        printf("\n");
+        else {
+            printf(" %2d: ", i);
+            printtoken(&stk[i], vars, 1);
+            printf("\n");
+        }
     }
 }
 
@@ -2441,10 +2446,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
         /* TODO: streamline handling assigning and lambda_allowed flags */
         if (TOK_LAMBDA == tok.toktype) {
             if (!lambda_allowed) {
-    #if TRACE_PARSE
+#if TRACE_PARSE
                 printf("Illegal token sequence (1): ");
                 printtoken(&tok, vars, 1);
-    #endif
+#endif
                 goto error;
             }
         }
@@ -3617,9 +3622,14 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         for (i = 0; i < num_idx && temp > 0; i++)
                             temp -= substack_len(out, temp);
                         vars[var_idx].vec_len = out[temp].gen.vec_len;
+                        if (   !(vars[var_idx].flags & TYPE_LOCKED)
+                            && vars[var_idx].datatype > out[temp].gen.datatype) {
+                            vars[var_idx].datatype = out[temp].gen.datatype;
+                        }
                     }
                     /* update and lock vector length of assigned variable */
                     op[op_idx].gen.vec_len = vars[var_idx].vec_len;
+                    op[op_idx].gen.datatype = vars[var_idx].datatype;
                     op[op_idx].gen.flags |= VEC_LEN_LOCKED;
                     if (is_const)
                         vars[var_idx].flags &= ~VAR_INSTANCED;
@@ -4340,7 +4350,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     --vidx;
                     vwt *= -1;
                 }
-                else
+                else if (vwt)
                     vwt = 1 - vwt;
                 --idxp;
             }
@@ -4348,7 +4358,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 vidx = tok->var.vec_idx + vec_offset;
 #if TRACE_EVAL
             if (vwt)
-                printf("[%g]\r\t\t\t\t\t", vidx + vwt);
+                printf("[%g]\r\t\t\t\t\t", vidx + 1 - vwt);
             else
                 printf("[%d]\r\t\t\t\t\t", vidx);
 #endif
