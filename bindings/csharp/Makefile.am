@@ -25,7 +25,7 @@ MOSTLYCLEANFILES = *.dll *.exe *.dylib
 
 EXTRA_DIST = Mapper.cs README.md test.cs testinstance.cs testmonitor.cs testvector.cs
 
-test_all_ordered = test.exe testinstance.exe testmonitor.exe testvector.exe
+test_all_ordered = test.exe testinstance.exe testvector.exe
 
 tests: all
 	for i in $(test_all_ordered); do echo Running $$i; if ! mono $$i; then exit 1; fi; done
