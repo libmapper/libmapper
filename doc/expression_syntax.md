@@ -145,7 +145,7 @@ Individual elements of variable values can be accessed using the notation
 
 When assigning values to a vector, if the source is shorter than the assignee it will be repeated as necessary, e.g. if `myvar` has length 5 and the expression assigns `myvar=[1,2,3]` its value will now be `[1,2,3,1,2]`.
 
-Variables and expressions may also be used as indexes.
+Variables and expressions may also be used as indexes. A fractional index will result in linear interpolation between the neighbouring elements.
 
 ### Vector examples
 
