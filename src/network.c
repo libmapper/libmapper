@@ -28,6 +28,17 @@
 
 #include "mapper_internal.h"
 #include "types_internal.h"
+
+#include "device.h"
+#include "graph.h"
+#include "link.h"
+#include "list.h"
+#include "map.h"
+#include "network.h"
+#include "mpr_signal.h"
+#include "router.h" /* TODO: this shouldn't be necessary, use map or device interface instead */
+#include "table.h"
+
 #include "config.h"
 #include <mapper/mapper.h>
 

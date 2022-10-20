@@ -10,6 +10,17 @@
 #endif
 #include "mapper_internal.h"
 
+#include "device.h"
+#include "graph.h"
+#include "link.h"
+#include "list.h"
+#include "map.h"
+#include "network.h"
+#include "mpr_signal.h"
+#include "router.h"
+#include "slot.h"
+#include "table.h"
+
 #ifdef HAVE_LIBPTHREAD
 #include <pthread.h>
 static void* graph_thread_func(void *data);

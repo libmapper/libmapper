@@ -7,6 +7,14 @@
 
 #include "mapper_internal.h"
 #include "types_internal.h"
+
+#include "device.h"
+#include "graph.h"
+#include "link.h"
+#include "list.h"
+#include "network.h"
+#include "table.h"
+
 #include <mapper/mapper.h>
 
 mpr_link mpr_link_new(mpr_local_dev local_dev, mpr_dev remote_dev)

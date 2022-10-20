@@ -2,7 +2,11 @@
 #include <stdarg.h>
 #include <string.h>
 #include <lo/lo_lowlevel.h>
+
 #include "../src/mapper_internal.h"
+
+#include "../src/graph.h"
+#include "../src/map.h"
 
 int verbose = 1;
 

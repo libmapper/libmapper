@@ -7,6 +7,15 @@
 
 #include "mapper_internal.h"
 #include "types_internal.h"
+
+#include "device.h"
+#include "graph.h"
+#include "list.h"
+#include "network.h"
+#include "mpr_signal.h"
+#include "router.h"
+#include "table.h"
+
 #include <mapper/mapper.h>
 
 #define MAX_INST 128

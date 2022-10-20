@@ -6,6 +6,15 @@
 #include "mapper_internal.h"
 #include "types_internal.h"
 
+#include "device.h"
+#include "graph.h"
+#include "list.h"
+#include "map.h"
+#include "network.h"
+#include "mpr_signal.h"
+#include "slot.h"
+#include "table.h"
+
 mpr_graph mpr_obj_get_graph(mpr_obj o)
 {
     return o ? o->graph : 0;

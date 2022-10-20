@@ -7,6 +7,9 @@
 #include "types_internal.h"
 #include "mapper_internal.h"
 
+#include "device.h"
+#include "list.h"
+
 #ifdef DEBUG
 #define TRACING 0 /* Set non-zero to see parsed properties. */
 #else

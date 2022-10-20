@@ -1,5 +1,16 @@
 
 noinst_HEADERS = mapper_internal.h \
+    device.h \
+    expression.h \
+    graph.h \
+    link.h \
+    list.h \
+    map.h \
+    mpr_signal.h \
+    network.h \
+    router.h \
+    slot.h \
+    table.h \
     types_internal.h
 EXTRA_DIST = libmapper.def
 

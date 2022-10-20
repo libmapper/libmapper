@@ -5,6 +5,10 @@
 #include <stddef.h>
 #include <limits.h>
 
+#include "expression.h"
+#include "slot.h"
+#include "table.h"
+
 #include "mapper_internal.h"
 #include "types_internal.h"
 #include <mapper/mapper.h>

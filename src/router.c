@@ -6,6 +6,16 @@
 
 #include "mapper_internal.h"
 #include "types_internal.h"
+
+#include "device.h"
+#include "expression.h"
+#include "link.h"
+#include "map.h"
+#include "network.h"
+#include "mpr_signal.h"
+#include "router.h"
+#include "slot.h"
+
 #include <mapper/mapper.h>
 
 #ifdef _MSC_VER

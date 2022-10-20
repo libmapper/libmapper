@@ -1,4 +1,5 @@
 #include "../src/mapper_internal.h"
+#include "../src/expression.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
