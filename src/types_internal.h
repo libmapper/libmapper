@@ -578,9 +578,6 @@ struct _mpr_local_dev {
 #define PROP_TO_INDEX(prop) ((prop & 0x3F00) >> 8)
 #define INDEX_TO_PROP(idx) (idx << 8)
 
-/* Maximum number of "extra" properties for a signal, device, or map. */
-#define NUM_EXTRA_PROPS 20
-
 /*! Queriable representation of a parameterized message parsed from an incoming
  *  OSC message. Does not contain a copy of data, so only valid for the duration
  *  of the message handler. Also allows for a constant number of "extra"

@@ -12,6 +12,7 @@
 #include "map.h"
 #include "network.h"
 #include "mpr_signal.h"
+#include "property.h"
 #include "slot.h"
 #include "table.h"
 

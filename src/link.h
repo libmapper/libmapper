@@ -2,6 +2,8 @@
 #ifndef __MAPPER_LINK_H__
 #define __MAPPER_LINK_H__
 
+#define MPR_LINK 0x20
+
 mpr_link mpr_link_new(mpr_local_dev local_dev, mpr_dev remote_dev);
 
 /*! Return the list of maps associated with a given link.

@@ -7,7 +7,10 @@ noinst_HEADERS = mapper_internal.h \
     list.h \
     map.h \
     mpr_signal.h \
+    mpr_time.h \
     network.h \
+    object.h \
+    property.h \
     router.h \
     slot.h \
     table.h \
@@ -28,7 +31,7 @@ libmapper_la_SOURCES = device.c \
     map.c \
     network.c \
     object.c \
-    properties.c \
+    property.c \
     router.c \
     signal.c \
     slot.c \

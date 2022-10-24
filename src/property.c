@@ -9,6 +9,7 @@
 
 #include "device.h"
 #include "list.h"
+#include "property.h"
 
 #ifdef DEBUG
 #define TRACING 0 /* Set non-zero to see parsed properties. */

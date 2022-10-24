@@ -7,6 +7,7 @@
 
 #include "list.h"
 #include "map.h"
+#include "property.h"
 
 /* we will sort so that indexed records come before keyed records */
 static int compare_rec(const void *l, const void *r)

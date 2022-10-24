@@ -16,6 +16,8 @@
 #include "map.h"
 #include "network.h"
 #include "mpr_signal.h"
+#include "mpr_time.h"
+#include "property.h"
 #include "router.h"
 #include "slot.h"
 #include "table.h"

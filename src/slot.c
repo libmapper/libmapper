@@ -6,6 +6,7 @@
 #include <limits.h>
 
 #include "expression.h"
+#include "property.h"
 #include "slot.h"
 #include "table.h"
 

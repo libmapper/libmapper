@@ -67,11 +67,6 @@ if (!(a)) { trace_net(__VA_ARGS__); return ret; }
 void print_subscription_flags(int flags);
 #endif
 
-/**** Objects ****/
-void mpr_obj_increment_version(mpr_obj obj);
-
-#define MPR_LINK 0x20
-
 /**** Messages ****/
 /*! Parse the device and signal names from an OSC path. */
 int mpr_parse_names(const char *string, char **devnameptr, char **signameptr);
@@ -98,29 +93,6 @@ int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
                     int dst_len, mpr_type dst_type, void *dst_val);
 
 int match_pattern(const char* s, const char* p);
-
-/**** Time ****/
-
-/*! Get the current time. */
-double mpr_get_current_time(void);
-
-/*! Return the difference in seconds between two mpr_times.
- *  \param minuend      The minuend.
- *  \param subtrahend   The subtrahend.
- *  \return             The difference a-b in seconds. */
-double mpr_time_get_diff(mpr_time minuend, mpr_time subtrahend);
-
-/**** Properties ****/
-
-/*! Helper for printing typed values.
- *  \param len          The vector length of the value.
- *  \param type         The value type.
- *  \param val          A pointer to the property value to print. */
-void mpr_prop_print(int len, mpr_type type, const void *val);
-
-mpr_prop mpr_prop_from_str(const char *str);
-
-const char *mpr_prop_as_str(mpr_prop prop, int skip_slash);
 
 /**** Types ****/
 
