@@ -208,7 +208,7 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
                     error = i;
                 break;
             case MPR_DBL:
-                eprintf("%g : %a, ", dst_dbl[i], dst_dbl[i]);
+                eprintf("%g, ", dst_dbl[i]);
                 if (check && dst_dbl[i] != expect_dbl[i] && expect_dbl[i] == expect_dbl[i])
                     error = i;
                 break;
@@ -1593,23 +1593,23 @@ int run_tests()
         return 1;
     if (dst_dbl[1] < 0.1) {
         double d = ((double)src_flt[0] * dst_dbl[1] / 0.1);
-        if (fabs(dst_dbl[0] - d) > 0.00001) {
-            eprintf("... error at index 0 (expected %g : %a) (1)\n", d, d);
+        if (fabs(dst_dbl[0] - d) > fabs(d * 0.0000001)) {
+            eprintf("... error at index 0 (expected %g) (1)\n", d);
             return 1;
         }
     }
     else if (dst_dbl[1] < 0.11) {
         double c = (dst_dbl[1] - 0.1) / 0.01;
         double d = ((double)src_flt[0]) * (1.0 - 0.1 * c);
-        if (fabs(dst_dbl[0] - d) > 0.00001) {
-            eprintf("... error at index 0 (expected %g : %a) (2)\n", d, d);
+        if (fabs(dst_dbl[0] - d) > fabs(d * 0.0000001)) {
+            eprintf("... error at index 0 (expected %g) (2)\n", d);
             return 1;
         }
     }
     else {
         double d = (double)src_flt[0] * (double)0.9f;
         if (dst_dbl[0] != d) {
-            eprintf("... error at index 0 (expected %g : %a) (3)\n", d, d);
+            eprintf("... error at index 0 (expected %g) (3)\n", d);
             return 1;
         }
     }
