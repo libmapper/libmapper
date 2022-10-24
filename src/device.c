@@ -18,6 +18,7 @@
 #include "mapper_internal.h"
 #include "types_internal.h"
 
+#include "bitflags.h"
 #include "device.h"
 #include "graph.h"
 #include "expression.h"
@@ -27,8 +28,12 @@
 #include "network.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
+#include "mpr_type.h"
+#include "path.h"
 #include "router.h"
 #include "table.h"
+
+#include "util/mpr_debug.h"
 
 #include "config.h"
 #include <mapper/mapper.h>
@@ -516,7 +521,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 /* TODO: jitter mitigation etc. */
                 mpr_value_set_samp(&slot->val, inst_idx, argv[0], dev->time);
                 if (slot->causes_update) {
-                    set_bitflag(map->updated_inst, inst_idx);
+                    mpr_bitflags_set(map->updated_inst, inst_idx);
                     map->updated = 1;
                     dev->receiving = 1;
                 }
@@ -535,16 +540,16 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
                 if (types[i] == MPR_NULL)
                     continue;
                 memcpy((char*)si->val + i * size, argv[i], size);
-                set_bitflag(si->has_val_flags, i);
+                mpr_bitflags_set(si->has_val_flags, i);
             }
-            if (!compare_bitflags(si->has_val_flags, sig->vec_known, sig->len))
+            if (!mpr_bitflags_compare(si->has_val_flags, sig->vec_known, sig->len))
                 si->has_val = 1;
             if (si->has_val) {
                 memcpy(&si->time, &ts, sizeof(mpr_time));
-                unset_bitflag(sig->updated_inst, si->idx);
+                mpr_bitflags_unset(sig->updated_inst, si->idx);
                 mpr_sig_call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, &ts, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
-                if (!(sig->dir & MPR_DIR_OUT) && !get_bitflag(sig->updated_inst, si->idx)) {
+                if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
                     mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);
                     /* TODO: ensure update is propagated within this poll cycle */
                 }
@@ -609,7 +614,7 @@ mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
     sigs = mpr_list_from_data(dev->obj.graph->sigs);
     while (sigs) {
         mpr_sig sig = (mpr_sig)*sigs;
-        if ((sig->dev == dev) && strcmp(sig->name, skip_slash(sig_name))==0)
+        if ((sig->dev == dev) && strcmp(sig->name, mpr_path_skip_slash(sig_name))==0)
             return sig;
         sigs = mpr_list_get_next(sigs);
     }

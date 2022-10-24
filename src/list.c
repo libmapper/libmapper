@@ -6,6 +6,8 @@
 #include <stddef.h>
 
 #include "mapper_internal.h"
+#include "path.h"
+#include "property.h"
 
 /*   Note on the trick used here: Presuming that we can have lists as the result
  * of a search query, we need to be able to return a linked list composed of
@@ -464,10 +466,10 @@ static int compare_val(mpr_op op, int len, mpr_type type, const void *v1, const 
     switch (type) {
         case MPR_STR:
             if (1 == len)
-                comp = match_pattern((const char*)v1, (const char*)v2);
+                comp = mpr_path_match((const char*)v1, (const char*)v2);
             else {
                 for (i = 0; i < len; i++) {
-                    comp += match_pattern(((const char**)v1)[i], ((const char**)v2)[i]);
+                    comp += mpr_path_match(((const char**)v1)[i], ((const char**)v2)[i]);
                     diff += abs(comp);
                 }
             }

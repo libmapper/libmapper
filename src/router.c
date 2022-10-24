@@ -7,6 +7,7 @@
 #include "mapper_internal.h"
 #include "types_internal.h"
 
+#include "bitflags.h"
 #include "device.h"
 #include "expression.h"
 #include "link.h"
@@ -253,7 +254,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
             if ((all || sig->use_inst) && !idmaps[idmap_idx].inst)
                 continue;
             inst_idx = idmaps[idmap_idx].inst->idx;
-            set_bitflag(map->updated_inst, inst_idx);
+            mpr_bitflags_set(map->updated_inst, inst_idx);
             map->updated = 1;
             if (!all)
                 break;

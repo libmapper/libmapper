@@ -34,9 +34,11 @@
 #include "link.h"
 #include "list.h"
 #include "map.h"
-#include "network.h"
+#include "message.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
+#include "network.h"
+#include "path.h"
 #include "property.h"
 #include "router.h" /* TODO: this shouldn't be necessary, use map or device interface instead */
 #include "table.h"
@@ -1165,7 +1167,7 @@ static int handler_sig(const char *path, const char *types, lo_arg **av, int ac,
 
     RETURN_ARG_UNLESS(ac >= 2 && MPR_STR == types[0], 1);
     full_sig_name = &av[0]->s;
-    devnamelen = mpr_parse_names(full_sig_name, &devnamep, &signamep);
+    devnamelen = mpr_path_parse(full_sig_name, &devnamep, &signamep);
     RETURN_ARG_UNLESS(devnamep && signamep, 0);
 
     props = mpr_msg_parse_props(ac-1, &types[1], &av[1]);
@@ -1252,7 +1254,7 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
 
     RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 1);
     full_sig_name = &av[0]->s;
-    devnamelen = mpr_parse_names(full_sig_name, &devnamep, &signamep);
+    devnamelen = mpr_path_parse(full_sig_name, &devnamep, &signamep);
     RETURN_ARG_UNLESS(devnamep && signamep && devnamelen < 1024, 0);
 
     strncpy(devname, devnamep, devnamelen);

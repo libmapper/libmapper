@@ -7,6 +7,7 @@
 
 #include "../src/graph.h"
 #include "../src/map.h"
+#include "../src/message.h"
 
 int verbose = 1;
 

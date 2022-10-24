@@ -3,8 +3,10 @@
 #include <string.h>
 #include <stdarg.h>
 #include <lo/lo_lowlevel.h>
-#include "../src/types_internal.h"
+
 #include "../src/mapper_internal.h"
+
+#include "../src/message.h"
 
 int verbose = 1;
 

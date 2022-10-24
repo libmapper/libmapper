@@ -10,6 +10,7 @@
 #include <unistd.h>
 #endif
 #include <signal.h>
+#include <string.h>
 
 #define num_inputs 100
 #define num_outputs 100

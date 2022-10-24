@@ -7,6 +7,8 @@
 
 #include "list.h"
 #include "map.h"
+#include "message.h"
+#include "path.h"
 #include "property.h"
 
 /* we will sort so that indexed records come before keyed records */
@@ -22,7 +24,7 @@ static int compare_rec(const void *l, const void *r)
             ++str_l;
         if (str_r[0] == '@')
             ++str_r;
-        return match_pattern(str_l, str_r);
+        return mpr_path_match(str_l, str_r);
     }
     if (idx_l == MPR_PROP_EXTRA)
         return 1;

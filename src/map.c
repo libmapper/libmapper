@@ -8,15 +8,18 @@
 #include "mapper_internal.h"
 #include "types_internal.h"
 
+#include "bitflags.h"
 #include "device.h"
 #include "graph.h"
 #include "expression.h"
 #include "link.h"
 #include "list.h"
 #include "map.h"
-#include "network.h"
+#include "message.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
+#include "network.h"
+#include "path.h"
 #include "property.h"
 #include "router.h"
 #include "slot.h"
@@ -420,7 +423,7 @@ static int _update_scope(mpr_map m, mpr_msg_atom a)
         while (i < m->num_scopes) {
             int found = 0;
             for (j = 0; j < num; j++) {
-                name = skip_slash(&scope_list[j]->s);
+                name = mpr_path_skip_slash(&scope_list[j]->s);
                 if (!m->scopes[i]) {
                     if (strcmp(name, "all") == 0) {
                         found = 1;
@@ -502,7 +505,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
 
     for (i = 0; i < m->num_inst; i++) {
         /* Check if this instance has been updated */
-        if (!get_bitflag(m->updated_inst, i))
+        if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         /* TODO: Check if this instance has enough history to process the expression */
         status = mpr_expr_eval(dev->expr_stack, m->expr, src_vals, &m->vars,
@@ -558,7 +561,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         if ((status & EXPR_EVAL_DONE) && !m->use_inst)
             break;
     }
-    clear_bitflags(m->updated_inst, m->num_inst);
+    mpr_bitflags_clear(m->updated_inst, m->num_inst);
     m->updated = 0;
 }
 
@@ -605,7 +608,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         mpr_sig_inst si;
         float diff;
 
-        if (!get_bitflag(m->updated_inst, i))
+        if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         status = mpr_expr_eval(m->rtr->dev->expr_stack, m->expr, src_vals,
                                &m->vars, &dst_slot->val, &time, types, i);
@@ -662,9 +665,9 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
                                  dst_sig->len, si->val, &time, diff);
             /* Pass this update downstream if signal is an input and was not updated in handler. */
             if (   !(dst_sig->dir & MPR_DIR_OUT)
-                && !get_bitflag(dst_sig->updated_inst, si->idx)) {
+                && !mpr_bitflags_get(dst_sig->updated_inst, si->idx)) {
                 /* mark instance as updated */
-                set_bitflag(dst_sig->updated_inst, si->idx);
+                mpr_bitflags_set(dst_sig->updated_inst, si->idx);
                 ((mpr_local_dev)dst_sig->dev)->sending = dst_sig->updated = 1;
                 mpr_rtr_process_sig(m->rtr, dst_sig, i, si->val, time);
             }
@@ -681,7 +684,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         if ((status & EXPR_EVAL_DONE) && !m->use_inst)
             break;
     }
-    clear_bitflags(m->updated_inst, m->num_inst);
+    mpr_bitflags_clear(m->updated_inst, m->num_inst);
     m->updated = 0;
 }
 
@@ -1207,7 +1210,7 @@ done:
 static void _check_status(mpr_local_map m)
 {
     int i, mask = ~METADATA_OK;
-    RETURN_UNLESS(!bitmatch(m->status, MPR_STATUS_READY));
+    RETURN_UNLESS((m->status & MPR_STATUS_READY) != MPR_STATUS_READY);
     m->status |= METADATA_OK;
     if (m->dst->sig->len)
         m->dst->status |= MPR_STATUS_LENGTH_KNOWN;
@@ -1347,7 +1350,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
             case PROP(EXPR): {
                 const char *expr_str = &a->vals[0]->s;
                 mpr_loc orig_loc = m->process_loc;
-                if (m->is_local && bitmatch(m->status, MPR_STATUS_READY)) {
+                if (m->is_local && (m->status & MPR_STATUS_READY) == MPR_STATUS_READY) {
                     mpr_local_map lm = (mpr_local_map)m;
                     if (!lm->is_local_only && strstr(expr_str, "y{-"))
                         lm->process_loc = MPR_LOC_DST;

@@ -8,6 +8,7 @@
 #include "mapper_internal.h"
 #include "types_internal.h"
 
+#include "bitflags.h"
 #include "device.h"
 #include "graph.h"
 #include "list.h"
@@ -15,6 +16,7 @@
 #include "mpr_signal.h"
 #include "mpr_time.h"
 #include "object.h"
+#include "path.h"
 #include "router.h"
 #include "table.h"
 
@@ -100,7 +102,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     mpr_tbl tbl;
     RETURN_UNLESS(name);
 
-    name = skip_slash(name);
+    name = mpr_path_skip_slash(name);
     str_len = strlen(name)+2;
     sig->path = malloc(str_len);
     snprintf(sig->path, str_len, "/%s", name);
@@ -116,7 +118,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
         sig->num_inst = 0;
         lsig->vec_known = calloc(1, len / 8 + 1);
         for (i = 0; i < len; i++)
-            set_bitflag(lsig->vec_known, i);
+            mpr_bitflags_set(lsig->vec_known, i);
         lsig->updated_inst = 0;
         if (num_inst) {
             mpr_sig_reserve_inst((mpr_sig)lsig, *num_inst, 0, 0);
@@ -762,7 +764,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     si->has_val = 1;
 
     /* mark instance as updated */
-    set_bitflag(lsig->updated_inst, si->idx);
+    mpr_bitflags_set(lsig->updated_inst, si->idx);
     ((mpr_local_dev)lsig->dev)->sending = lsig->updated = 1;
 
     mpr_rtr_process_sig(lsig->obj.graph->net.rtr, lsig, idmap_idx, si->has_val ? si->val : 0, si->time);
@@ -783,7 +785,7 @@ void mpr_sig_release_inst_internal(mpr_local_sig lsig, int idmap_idx)
     RETURN_UNLESS(smap->inst);
 
     /* mark instance as updated */
-    set_bitflag(lsig->updated_inst, smap->inst->idx);
+    mpr_bitflags_set(lsig->updated_inst, smap->inst->idx);
     ((mpr_local_dev)lsig->dev)->sending = lsig->updated = 1;
 
     mpr_rtr_process_sig(lsig->obj.graph->net.rtr, lsig, idmap_idx, 0, smap->inst->time);

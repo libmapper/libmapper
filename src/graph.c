@@ -18,6 +18,7 @@
 #include "network.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
+#include "path.h"
 #include "property.h"
 #include "router.h"
 #include "slot.h"
@@ -404,7 +405,7 @@ static void _remove_by_qry(mpr_graph g, mpr_list l, mpr_graph_evt e)
 
 mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg)
 {
-    const char *no_slash = skip_slash(name);
+    const char *no_slash = mpr_path_skip_slash(name);
     mpr_dev dev = mpr_graph_get_dev_by_name(g, no_slash);
     int rc = 0, updated = 0;
 
@@ -471,7 +472,7 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e, int quiet)
 
 mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name)
 {
-    const char *no_slash = skip_slash(name);
+    const char *no_slash = mpr_path_skip_slash(name);
     mpr_list devs = mpr_list_from_data(g->devs);
     while (devs) {
         mpr_dev dev = (mpr_dev)*devs;
@@ -594,7 +595,7 @@ static int _compare_slot_names(const void *l, const void *r)
 static mpr_sig add_sig_from_whole_name(mpr_graph g, const char* name)
 {
     char *devnamep, *signame, devname[256];
-    int devnamelen = mpr_parse_names(name, &devnamep, &signame);
+    int devnamelen = mpr_path_parse(name, &devnamep, &signame);
     if (!devnamelen || devnamelen >= 256) {
         trace_graph("error extracting device name\n");
         return 0;
@@ -1088,7 +1089,7 @@ int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
 {
     mpr_dev dev;
     char *devnamep, *signame, devname[256];
-    int devnamelen = mpr_parse_names(name, &devnamep, &signame);
+    int devnamelen = mpr_path_parse(name, &devnamep, &signame);
     if (!devnamelen || devnamelen >= 256) {
         trace_graph("error extracting device name\n");
         return 0;

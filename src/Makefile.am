@@ -1,20 +1,26 @@
 
 noinst_HEADERS = mapper_internal.h \
+    bitflags.h \
     device.h \
     expression.h \
     graph.h \
     link.h \
     list.h \
     map.h \
+    message.h \
     mpr_signal.h \
     mpr_time.h \
+    mpr_type.h \
     network.h \
     object.h \
+    path.h \
     property.h \
     router.h \
     slot.h \
     table.h \
-    types_internal.h
+    types_internal.h \
+    util/mpr_debug.h \
+    util/mpr_inline.h
 EXTRA_DIST = libmapper.def
 
 if WINDOWS_DLL
@@ -31,6 +37,7 @@ libmapper_la_SOURCES = device.c \
     map.c \
     network.c \
     object.c \
+    path.c \
     property.c \
     router.c \
     signal.c \
