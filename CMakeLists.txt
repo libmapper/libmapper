@@ -52,6 +52,8 @@ file(GLOB PROJECT_SRC
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.def"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/util/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/util/*.h"
 )
 add_library( 
   ${PROJECT_NAME} 
