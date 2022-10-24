@@ -2,6 +2,9 @@
 #ifndef __MAPPER_DEVICE_H__
 #define __MAPPER_DEVICE_H__
 
+#include "types_internal.h"
+#include "util/mpr_inline.h"
+
 /**** Debug macros ****/
 
 /*! Debug tracer */

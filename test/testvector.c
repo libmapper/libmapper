@@ -1,4 +1,4 @@
-#include "../src/mapper_internal.h"
+#include "../src/types_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,5 +1,5 @@
 #ifdef WIN32
-#include "../src/mapper_internal.h"
+#include "../src/types_internal.h"
 #endif
 #include <mapper/mapper.h>
 #include <stdio.h>

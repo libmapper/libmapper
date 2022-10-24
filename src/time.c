@@ -43,7 +43,6 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 #include <sys/time.h>
 #endif
 
-#include "mapper_internal.h"
 #include "types_internal.h"
 #include <mapper/mapper.h>
 

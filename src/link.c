@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <limits.h>
 
-#include "mapper_internal.h"
 #include "types_internal.h"
 
 #include "device.h"
@@ -14,6 +13,7 @@
 #include "list.h"
 #include "network.h"
 #include "table.h"
+#include "util/mpr_debug.h"
 
 #include <mapper/mapper.h>
 

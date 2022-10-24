@@ -7,11 +7,14 @@
 
 #include "expression.h"
 #include "message.h"
+#include "mpr_type.h"
 #include "property.h"
 #include "slot.h"
 #include "table.h"
+#include "value.h"
 
-#include "mapper_internal.h"
+#include "util/mpr_debug.h"
+
 #include "types_internal.h"
 #include <mapper/mapper.h>
 

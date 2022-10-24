@@ -3,6 +3,7 @@
 #define __MAPPER_TYPE_H__
 
 #include "util/mpr_debug.h"
+#include "util/mpr_inline.h"
 
 /*! Helper to find size of signal value types. */
 MPR_INLINE static int mpr_type_get_size(mpr_type type)

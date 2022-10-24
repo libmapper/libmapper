@@ -2,6 +2,8 @@
 #ifndef __MAPPER_SIGNAL_H__
 #define __MAPPER_SIGNAL_H__
 
+#include "mpr_type.h"
+
 #define MPR_MAX_VECTOR_LEN 128
 
 /*! Initialize an already-allocated mpr_sig structure. */

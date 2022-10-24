@@ -12,8 +12,4 @@ mpr_prop mpr_prop_from_str(const char *str);
 
 const char *mpr_prop_as_str(mpr_prop prop, int skip_slash);
 
-/*! Helper for setting property value from different lo_arg types. */
-int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
-                    int dst_len, mpr_type dst_type, void *dst_val);
-
 #endif /* __MAPPER_PROPERTY_H__ */

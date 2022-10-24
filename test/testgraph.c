@@ -3,11 +3,11 @@
 #include <string.h>
 #include <lo/lo_lowlevel.h>
 
-#include "../src/mapper_internal.h"
-
+#include "../src/types_internal.h"
 #include "../src/graph.h"
 #include "../src/map.h"
 #include "../src/message.h"
+#include <mapper/mapper.h>
 
 int verbose = 1;
 

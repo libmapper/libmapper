@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <assert.h>
 
-#include "mapper_internal.h"
 #include "types_internal.h"
 
 #include "bitflags.h"
@@ -19,6 +18,7 @@
 #include "path.h"
 #include "router.h"
 #include "table.h"
+#include "util/mpr_set_coerced.h"
 
 #include <mapper/mapper.h>
 
@@ -687,7 +687,7 @@ static void _mpr_remote_sig_set_value(mpr_sig sig, int len, mpr_type type, const
 
     if (type != sig->type || len < sig->len) {
         coerced = alloca(mpr_type_get_size(sig->type) * sig->len);
-        set_coerced_val(len, type, val, sig->len, sig->type, (void*)coerced);
+        mpr_set_coerced(len, type, val, sig->len, sig->type, (void*)coerced);
     }
     switch (sig->type) {
         case MPR_INT32:
@@ -758,7 +758,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
 
     /* update value */
     if (type != lsig->type || len < lsig->len)
-        set_coerced_val(lsig->len, type, val, lsig->len, lsig->type, si->val);
+        mpr_set_coerced(lsig->len, type, val, lsig->len, lsig->type, si->val);
     else
         memcpy(si->val, (void*)val, mpr_sig_get_vector_bytes(sig));
     si->has_val = 1;

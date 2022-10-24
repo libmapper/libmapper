@@ -1,17 +1,11 @@
 
-#ifndef __MAPPER_INTERNAL_H__
-#define __MAPPER_INTERNAL_H__
+#ifndef __MAPPER_VALUE_H__
+#define __MAPPER_VALUE_H__
 
 #include "types_internal.h"
 #include "util/mpr_inline.h"
 #include "mpr_type.h"
 #include <mapper/mapper.h>
-
-/*! Helper for setting property value from different lo_arg types. */
-int set_coerced_val(int src_len, mpr_type src_type, const void *src_val,
-                    int dst_len, mpr_type dst_type, void *dst_val);
-
-/**** Values ****/
 
 void mpr_value_realloc(mpr_value val, unsigned int vec_len, mpr_type type,
                        unsigned int mem_len, unsigned int num_inst, int is_output);
@@ -61,4 +55,4 @@ void mpr_value_print(mpr_value v, int inst_idx);
 void mpr_value_print_hist(mpr_value v, int inst_idx);
 #endif
 
-#endif /* __MAPPER_INTERNAL_H__ */
+#endif /* __MAPPER_VALUE_H__ */

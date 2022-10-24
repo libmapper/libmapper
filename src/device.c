@@ -15,7 +15,6 @@
 
 #include <stddef.h>
 
-#include "mapper_internal.h"
 #include "types_internal.h"
 
 #include "bitflags.h"
@@ -32,6 +31,7 @@
 #include "path.h"
 #include "router.h"
 #include "table.h"
+#include "value.h"
 
 #include "util/mpr_debug.h"
 

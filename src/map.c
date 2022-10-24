@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <limits.h>
 
-#include "mapper_internal.h"
 #include "types_internal.h"
 
 #include "bitflags.h"
@@ -24,6 +23,7 @@
 #include "router.h"
 #include "slot.h"
 #include "table.h"
+#include "value.h"
 
 #include <mapper/mapper.h>
 

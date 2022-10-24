@@ -3,13 +3,17 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mapper_internal.h"
+#include "types_internal.h"
 
 #include "list.h"
 #include "map.h"
 #include "message.h"
+#include "mpr_type.h"
 #include "path.h"
 #include "property.h"
+#include "util/mpr_debug.h"
+#include "util/mpr_set_coerced.h"
+#include <mapper/mapper.h>
 
 /* we will sort so that indexed records come before keyed records */
 static int compare_rec(const void *l, const void *r)
@@ -349,7 +353,7 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
         rec->prop &= ~PROP_REMOVE;
         if ((rec->flags & INDIRECT) && (type != rec->type || len != rec->len)) {
             void *coerced = malloc(mpr_type_get_size(rec->type) * rec->len);
-            set_coerced_val(len, type, val, rec->len, rec->type, coerced);
+            mpr_set_coerced(len, type, val, rec->len, rec->type, coerced);
             updated = t->dirty = update_elements(rec, rec->len, rec->type, coerced);
             free(coerced);
         }

@@ -6,7 +6,7 @@
 #include <limits.h>
 #include <assert.h>
 
-#include "mapper_internal.h"
+#include "value.h"
 #include "types_internal.h"
 #include <mapper/mapper.h>
 

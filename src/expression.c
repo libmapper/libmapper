@@ -6,9 +6,9 @@
 #include <string.h>
 #include <limits.h>
 #include <float.h>
-#include "mapper_internal.h"
 
 #include "expression.h"
+#include "value.h"
 
 #define MAX_HIST_SIZE 100
 #define STACK_SIZE 64

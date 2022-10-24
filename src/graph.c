@@ -8,8 +8,8 @@
 #else
 
 #endif
-#include "mapper_internal.h"
 
+#include "types_internal.h"
 #include "device.h"
 #include "graph.h"
 #include "link.h"
@@ -23,6 +23,8 @@
 #include "router.h"
 #include "slot.h"
 #include "table.h"
+
+#include <mapper/mapper.h>
 
 #ifdef HAVE_LIBPTHREAD
 #include <pthread.h>

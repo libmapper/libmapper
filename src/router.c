@@ -4,7 +4,6 @@
 
 #include <lo/lo.h>
 
-#include "mapper_internal.h"
 #include "types_internal.h"
 
 #include "bitflags.h"
@@ -16,6 +15,7 @@
 #include "mpr_signal.h"
 #include "router.h"
 #include "slot.h"
+#include "value.h"
 
 #include <mapper/mapper.h>
 

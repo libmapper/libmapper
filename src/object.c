@@ -3,7 +3,6 @@
 #include <string.h>
 #include <assert.h>
 
-#include "mapper_internal.h"
 #include "types_internal.h"
 
 #include "device.h"
@@ -15,6 +14,7 @@
 #include "property.h"
 #include "slot.h"
 #include "table.h"
+#include <mapper/mapper.h>
 
 mpr_graph mpr_obj_get_graph(mpr_obj o)
 {

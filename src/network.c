@@ -26,7 +26,6 @@
  #endif
 #endif
 
-#include "mapper_internal.h"
 #include "types_internal.h"
 
 #include "device.h"
@@ -42,6 +41,8 @@
 #include "property.h"
 #include "router.h" /* TODO: this shouldn't be necessary, use map or device interface instead */
 #include "table.h"
+#include "util/mpr_debug.h"
+#include "util/mpr_inline.h"
 
 #include "config.h"
 #include <mapper/mapper.h>
