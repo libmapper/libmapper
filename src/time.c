@@ -8,20 +8,21 @@
 #include "time.h"
 
 #include <Windows.h>
-#include <stdint.h> // portable: uint64_t   MSVC: __int64 
+#include <stdint.h> /* portable: uint64_t   MSVC: __int64 */
 #define HAVE_GETTIMEOFDAY
 
-// MSVC defines this in winsock2.h!?
-//typedef struct timeval {
-//	long tv_sec;
-//	long tv_usec;
-//} timeval;
+/* MSVC defines this in winsock2.h!? */
+/*  typedef struct timeval {
+        long tv_sec;
+        long tv_usec;
+    } timeval;
+ */
 
 int gettimeofday(struct timeval * tp, struct timezone * tzp)
 {
-	// Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
-	// This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
-	// until 00:00:00 January 1, 1970 
+	/* Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing
+     * zero's. This magic number is the number of 100 nanosecond intervals since January 1, 1601
+     * (UTC) until 00:00:00 January 1, 1970 */
 	static const uint64_t EPOCH = ((uint64_t)116444736000000000ULL);
 
 	SYSTEMTIME  system_time;
