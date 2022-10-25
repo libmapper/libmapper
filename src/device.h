@@ -27,6 +27,56 @@
 #define trace_dev(...) {};
 #endif /* __GNUC__ */
 
+#define MPR_DEV_STRUCT_ITEMS                                            \
+    mpr_obj_t obj;      /* always first */                              \
+    mpr_dev *linked;                                                    \
+    char *prefix;       /*!< The identifier (prefix) for this device. */\
+    char *name;         /*!< The full name for this device, or zero. */ \
+    mpr_time synced;    /*!< Timestamp of last sync. */                 \
+    int ordinal;                                                        \
+    int num_inputs;     /*!< Number of associated input signals. */     \
+    int num_outputs;    /*!< Number of associated output signals. */    \
+    int num_maps_in;    /*!< Number of associated incoming maps. */     \
+    int num_maps_out;   /*!< Number of associated outgoing maps. */     \
+    int num_linked;     /*!< Number of linked devices. */               \
+    int status;                                                         \
+    uint8_t subscribed;                                                 \
+    int is_local;
+
+/*! A record that keeps information about a device. */
+struct _mpr_dev {
+    MPR_DEV_STRUCT_ITEMS
+};
+
+struct _mpr_local_dev {
+    MPR_DEV_STRUCT_ITEMS
+
+    lo_server servers[2];
+
+    mpr_allocated_t ordinal_allocator;  /*!< A unique ordinal for this device instance. */
+    int registered;                     /*!< Non-zero if this device has been registered. */
+
+    int n_output_callbacks;
+
+    mpr_subscriber subscribers;         /*!< Linked-list of subscribed peers. */
+
+    struct {
+        struct _mpr_id_map **active;    /*!< The list of active instance id maps. */
+        struct _mpr_id_map *reserve;    /*!< The list of reserve instance id maps. */
+    } idmaps;
+
+    mpr_expr_stack expr_stack;
+    mpr_thread_data thread_data;
+
+    mpr_time time;
+    int num_sig_groups;
+    uint8_t time_is_stale;
+    uint8_t polling;
+    uint8_t bundle_idx;
+    uint8_t sending;
+    uint8_t receiving;
+};
+
 int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg msg);
 
 void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address address, int flags,

@@ -1,4 +1,5 @@
-#include "../src/types_internal.h"
+#include "../src/device.h"
+#include "../src/graph.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdarg.h>

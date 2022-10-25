@@ -34,6 +34,8 @@
 typedef struct _mpr_expr *mpr_expr;
 typedef struct _mpr_expr_stack *mpr_expr_stack;
 
+typedef struct _mpr_graph *mpr_graph;
+
 /* Forward declarations for this file. */
 
 struct _mpr_obj;
@@ -246,30 +248,6 @@ typedef struct _mpr_obj
     int version;                    /*!< Version number. */
     mpr_type type;                  /*!< Object type. */
 } mpr_obj_t, *mpr_obj;
-
-typedef struct _mpr_graph {
-    mpr_obj_t obj;                  /* always first */
-    mpr_net_t net;
-    mpr_list devs;                  /*!< List of devices. */
-    mpr_list sigs;                  /*!< List of signals. */
-    mpr_list maps;                  /*!< List of maps. */
-    mpr_list links;                 /*!< List of links. */
-    fptr_list callbacks;            /*!< List of object record callbacks. */
-
-    /*! Linked-list of autorenewing device subscriptions. */
-    mpr_subscription subscriptions;
-
-    mpr_thread_data thread_data;
-
-    /*! Flags indicating whether information on signals and mappings should
-     *  be automatically subscribed to when a new device is seen.*/
-    int autosub;
-
-    int own;
-    int staged_maps;
-
-    uint32_t resource_counter;
-} mpr_graph_t, *mpr_graph;
 
 /**** Signal ****/
 
@@ -512,58 +490,6 @@ typedef struct _mpr_id_map {
     int LID_refcount;
     int GID_refcount;
 } mpr_id_map_t, *mpr_id_map;
-
-/**** Device ****/
-
-#define MPR_DEV_STRUCT_ITEMS                                            \
-    mpr_obj_t obj;      /* always first */                              \
-    mpr_dev *linked;                                                    \
-    char *prefix;       /*!< The identifier (prefix) for this device. */\
-    char *name;         /*!< The full name for this device, or zero. */ \
-    mpr_time synced;    /*!< Timestamp of last sync. */                 \
-    int ordinal;                                                        \
-    int num_inputs;     /*!< Number of associated input signals. */     \
-    int num_outputs;    /*!< Number of associated output signals. */    \
-    int num_maps_in;    /*!< Number of associated incoming maps. */     \
-    int num_maps_out;   /*!< Number of associated outgoing maps. */     \
-    int num_linked;     /*!< Number of linked devices. */               \
-    int status;                                                         \
-    uint8_t subscribed;                                                 \
-    int is_local;
-
-/*! A record that keeps information about a device. */
-struct _mpr_dev {
-    MPR_DEV_STRUCT_ITEMS
-};
-
-struct _mpr_local_dev {
-    MPR_DEV_STRUCT_ITEMS
-
-    lo_server servers[2];
-
-    mpr_allocated_t ordinal_allocator;  /*!< A unique ordinal for this device instance. */
-    int registered;                     /*!< Non-zero if this device has been registered. */
-
-    int n_output_callbacks;
-
-    mpr_subscriber subscribers;         /*!< Linked-list of subscribed peers. */
-
-    struct {
-        struct _mpr_id_map **active;    /*!< The list of active instance id maps. */
-        struct _mpr_id_map *reserve;    /*!< The list of reserve instance id maps. */
-    } idmaps;
-
-    mpr_expr_stack expr_stack;
-    mpr_thread_data thread_data;
-
-    mpr_time time;
-    int num_sig_groups;
-    uint8_t time_is_stale;
-    uint8_t polling;
-    uint8_t bundle_idx;
-    uint8_t sending;
-    uint8_t receiving;
-};
 
 /**** Messages ****/
 /* For property indexes, bits 1–8 are used for numberical index, bits 9–14 are

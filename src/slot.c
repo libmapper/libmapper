@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <limits.h>
 
+#include "device.h"
 #include "expression.h"
 #include "message.h"
 #include "mpr_type.h"
@@ -15,7 +16,6 @@
 
 #include "util/mpr_debug.h"
 
-#include "types_internal.h"
 #include <mapper/mapper.h>
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned char is_src)

@@ -2,6 +2,32 @@
 #ifndef __MAPPER_GRAPH_H__
 #define __MAPPER_GRAPH_H__
 
+#include "types_internal.h"
+
+typedef struct _mpr_graph {
+    mpr_obj_t obj;                  /* always first */
+    mpr_net_t net;
+    mpr_list devs;                  /*!< List of devices. */
+    mpr_list sigs;                  /*!< List of signals. */
+    mpr_list maps;                  /*!< List of maps. */
+    mpr_list links;                 /*!< List of links. */
+    fptr_list callbacks;            /*!< List of object record callbacks. */
+
+    /*! Linked-list of autorenewing device subscriptions. */
+    mpr_subscription subscriptions;
+
+    mpr_thread_data thread_data;
+
+    /*! Flags indicating whether information on signals and mappings should
+     *  be automatically subscribed to when a new device is seen.*/
+    int autosub;
+
+    int own;
+    int staged_maps;
+
+    uint32_t resource_counter;
+} mpr_graph_t, *mpr_graph;
+
 /*! Find information for a registered device.
  *  \param g            The graph to query.
  *  \param name         Name of the device to find in the graph.
