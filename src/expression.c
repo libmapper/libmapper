@@ -10,6 +10,10 @@
 #include "expression.h"
 #include "value.h"
 
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
+
 #define MAX_HIST_SIZE 100
 #define STACK_SIZE 64
 #define N_USER_VARS 16

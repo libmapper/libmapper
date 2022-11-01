@@ -22,6 +22,10 @@
 
 #include <mapper/mapper.h>
 
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
+
 #define MAX_INST 128
 #define BUFFSIZE 512
 

@@ -26,6 +26,10 @@
 
 #include <mapper/mapper.h>
 
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
+
 #ifdef HAVE_LIBPTHREAD
 #include <pthread.h>
 static void* graph_thread_func(void *data);

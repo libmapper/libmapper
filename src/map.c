@@ -27,6 +27,10 @@
 
 #include <mapper/mapper.h>
 
+#ifdef _MSC_VER
+#include <malloc.h>
+#endif
+
 #define MAX_LEN 1024
 #define MPR_STATUS_LENGTH_KNOWN 0x04
 #define MPR_STATUS_TYPE_KNOWN   0x08
