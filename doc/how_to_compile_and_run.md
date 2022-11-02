@@ -252,6 +252,15 @@ core libmapper library.
 
 ### Architecture issues
 
+#### Windows
+
+Windows Firewall may block libmapper's OSC multicast messages when on 
+a Public network, which can be avoided by either marking any of your
+Public networks as Private with the 'Network profile' property or by turning
+off the firewall completely (at your own risk).
+
+#### MacOS
+
 We have found that in some cases, especially on MacOS, there are
 programs that do not use the computer's native architecture.  For
 example, Processing.org and Cycling 74's Max/MSP prior to v8 are 32-bit
