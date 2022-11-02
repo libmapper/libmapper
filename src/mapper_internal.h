@@ -41,7 +41,7 @@ if (!(a)) { trace_net(__VA_ARGS__); return ret; }
 /**** Debug macros ****/
 
 /*! Debug tracer */
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(WIN32)
 #ifdef DEBUG
 #include <stdio.h>
 #include <assert.h>

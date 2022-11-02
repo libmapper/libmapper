@@ -23,6 +23,9 @@ if (WIN32)
   mark_as_advanced(Liblo_LIB)
   mark_as_advanced(Zlib_LIB)
 
+  set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -DDEBUG")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
+
   add_definitions(
     -DWIN_VERSION
     -D_USE_MATH_DEFINES
