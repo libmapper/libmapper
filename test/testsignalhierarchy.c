@@ -16,6 +16,7 @@
 #include <math.h>
 
 #include <mapper/mapper.h>
+#include "../src/mpr_time.h"
 
 int verbose = 1;
 int terminate = 0;
@@ -35,14 +36,6 @@ static void eprintf(const char *format, ...)
     va_start(args, format);
     vprintf(format, args);
     va_end(args);
-}
-
-/*! Internal function to get the current time. */
-static double current_time()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
 /*! A helper function to seed the random number generator. */
@@ -220,7 +213,7 @@ void segv(int sig) {
 
 int main(int argc, char *argv[])
 {
-    double now = current_time();
+    double now = mpr_get_current_time();
     int i, j, result = 0;
     char *iface = 0;
 
@@ -277,7 +270,7 @@ int main(int argc, char *argv[])
     }
 
     wait_local_devs(&done);
-    now = current_time() - now;
+    now = mpr_get_current_time() - now;
     eprintf("Allocated %d devices in %f seconds.\n", num_devs, now);
 
     if (!terminate)

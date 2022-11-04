@@ -1,4 +1,5 @@
 #include <mapper/mapper.h>
+#include "../src/mpr_time.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -58,14 +59,6 @@ static void eprintf(const char *format, ...)
     va_start(args, format);
     vprintf(format, args);
     va_end(args);
-}
-
-/*! Internal function to get the current time. */
-static double current_time()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
 /*! Creation of a local source. */
@@ -207,7 +200,7 @@ void switch_modes()
     int i;
     eprintf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
-    times[mode*numTrials+trial] = current_time() - times[mode*numTrials+trial];
+    times[mode*numTrials+trial] = mpr_get_current_time() - times[mode*numTrials+trial];
     if (++trial >= numTrials) {
         eprintf("SWITCHING MODES...\n");
         trial = 0;
@@ -231,7 +224,7 @@ void switch_modes()
             break;
     }
 
-    times[mode*numTrials+trial] = current_time();
+    times[mode*numTrials+trial] = mpr_get_current_time();
 }
 
 void print_results()
@@ -328,7 +321,7 @@ int main(int argc, char **argv)
 
     /* start things off */
     eprintf("STARTING TEST...\n");
-    times[0] = current_time();
+    times[0] = mpr_get_current_time();
     mpr_sig_set_value(sendsig, counter, 1, MPR_FLT, &value);
     while (!done) {
         mpr_dev_poll(src, 0);

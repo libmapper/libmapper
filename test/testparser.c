@@ -1,5 +1,6 @@
 #include "../src/value.h"
 #include "../src/expression.h"
+#include "../src/mpr_time.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,14 +72,6 @@ static void eprintf(const char *format, ...)
     va_start(args, format);
     vprintf(format, args);
     va_end(args);
-}
-
-/*! Internal function to get the current time. */
-static double current_time()
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double) tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
 typedef struct _var {
@@ -351,7 +344,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     token_count += e->n_tokens;
 
     update_count = 0;
-    then = current_time();
+    then = mpr_get_current_time();
 
     eprintf("Try evaluation once... ");
     status = mpr_expr_eval(eval_stk, e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
@@ -392,7 +385,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         /* sleep here stops compiler from optimizing loop away */
         usleep(1);
     }
-    now = current_time();
+    now = mpr_get_current_time();
     total_elapsed_time += now-then;
 
     if (0 == result)
