@@ -8,7 +8,7 @@
 /**** Debug macros ****/
 
 /*! Debug tracer */
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(WIN32)
 #ifdef DEBUG
 #define trace_dev(DEV, ...)                                                         \
 {                                                                                   \
