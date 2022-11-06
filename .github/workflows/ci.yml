@@ -123,31 +123,6 @@ jobs:
       with:
         path: ./wheelhouse/*.whl
 
-  MacOS-10:
-    runs-on: macOS-10.15
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-    - name: install dependencies
-      run: brew install autoconf-archive automake
-    - name: install liblo
-      run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz && cd liblo-0.31 && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-shared --disable-tests --disable-tools --disable-examples CFLAGS=-fPIC || (cat config.log; false)) && make install && find inst && cd ..
-    - name: autogen
-      run: pwd && mkdir $PWD/inst && (./autogen.sh --enable-static --prefix=$PWD/inst PKG_CONFIG_PATH=$PWD/liblo-0.31/inst/lib/pkgconfig || (cat config.log; false))
-    - name: make
-      run: make && (make check || (for i in src/*.log; do echo === $i ===; cat $i; done; false)) && make install && find inst
-    - name: make tests
-      run: cd test && make tests
-    - name: python wheels
-      run:
-        cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
-        && pip3 wheel bindings/python -w ./wheelhouse
-        && unzip -t wheelhouse/*.whl
-    - uses: actions/upload-artifact@v3
-      with:
-        path: ./wheelhouse/*.whl
-
   Windows-Latest:
     runs-on: windows-latest
     steps:
@@ -169,7 +144,7 @@ jobs:
     steps:
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: download artifact
         uses: actions/download-artifact@v3
       - name: install wheel
@@ -196,39 +171,14 @@ jobs:
     steps:
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: download artifact
         uses: actions/download-artifact@v3
       - name: install wheel
         run:
           ls
           && find artifact
-          && python3 -m pip install artifact/libmapper*-py3-none-macosx_11_0_universal2.whl
-      - name: checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: run python tests
-        run:
-          mkdir testpython
-          && cd testpython
-          && cp ../bindings/python/test*.py .
-          && for i in test*.py; do echo running $i; if ! python $i; then exit 1; fi; done
-
-  MacOS-10-check-wheel:
-    runs-on: macOS-10.15
-    needs: MacOS-10
-    steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: download artifact
-        uses: actions/download-artifact@v3
-      - name: install wheel
-        run:
-          ls
-          && find artifact
-          && python3 -m pip install artifact/libmapper*-py3-none-macosx_10_15_x86_64.whl
+          && python3 -m pip install artifact/libmapper*-py3-none-macosx_12_universal2.whl
       - name: checkout
         uses: actions/checkout@v3
         with:
@@ -246,7 +196,7 @@ jobs:
     steps:
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: download artifact
         uses: actions/download-artifact@v3
       - name: install wheel
