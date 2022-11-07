@@ -392,14 +392,12 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
     }
 }
 
-void mpr_net_add_graph_methods(mpr_net net)
+static void mpr_net_add_graph_methods(mpr_net net, lo_server server)
 {
     /* add graph methods */
     int i;
     for (i = 0; i < NUM_GRAPH_HANDLERS; i++) {
-        lo_server_add_method((net)->servers[SERVER_BUS], net_msg_strings[graph_handlers[i].str_idx],
-                             graph_handlers[i].types, graph_handlers[i].h, net->graph);
-        lo_server_add_method((net)->servers[SERVER_MESH], net_msg_strings[graph_handlers[i].str_idx],
+        lo_server_add_method(server, net_msg_strings[graph_handlers[i].str_idx],
                              graph_handlers[i].types, graph_handlers[i].h, net->graph);
     }
     return;
@@ -408,6 +406,8 @@ void mpr_net_add_graph_methods(mpr_net net)
 void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 {
     int i;
+    lo_address temp_addr1, temp_addr2;
+    lo_server temp_server1, temp_server2;
 
     /* Default standard ip and port is group 224.0.1.3, port 7570 */
     char port_str[10], *s_port = port_str;
@@ -432,45 +432,56 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
         get_iface_addr(iface, &net->iface.addr, &net->iface.name);
     trace_net("found interface: %s\n", net->iface.name ? net->iface.name : "none");
 
-    /* Remove existing structures if necessary */
-    FUNC_IF(lo_address_free, net->addr.bus);
-    FUNC_IF(lo_server_free, net->servers[SERVER_BUS]);
-    FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
-
     /* Open address */
-    net->addr.bus = lo_address_new(net->multicast.group, s_port);
-    if (!net->addr.bus) {
+    temp_addr1 = lo_address_new(net->multicast.group, s_port);
+    if (!temp_addr1) {
         trace_net("problem allocating bus address.\n");
         return;
     }
 
     /* Set TTL for packet to 1 -> local subnet */
-    lo_address_set_ttl(net->addr.bus, 1);
+    lo_address_set_ttl(temp_addr1, 1);
 
     /* Specify the interface to use for multicasting */
-    lo_address_set_iface(net->addr.bus, net->iface.name, 0);
+    lo_address_set_iface(temp_addr1, net->iface.name, 0);
+
+    /* Swap and free old address structure if necessary */
+    temp_addr2 = net->addr.bus;
+    net->addr.bus = temp_addr1;
+    FUNC_IF(lo_address_free, temp_addr2);
 
     /* Open server for multicast */
-    net->servers[SERVER_BUS] = lo_server_new_multicast_iface(net->multicast.group, s_port,
-                                                             net->iface.name, 0, handler_error);
+    temp_server1 = lo_server_new_multicast_iface(net->multicast.group, s_port,
+                                                 net->iface.name, 0, handler_error);
 
-    if (!net->servers[SERVER_BUS]) {
+    if (!temp_server1) {
         lo_address_free(net->addr.bus);
         trace_net("problem allocating bus server.\n");
         return;
     }
-    else
-        trace_net("bus connected to %s:%s\n", net->multicast.group, s_port);
+    trace_net("bus connected to %s:%s\n", net->multicast.group, s_port);
+
+    /* Disable liblo message queueing and add methods. */
+    lo_server_enable_queue(temp_server1, 0, 1);
+    mpr_net_add_graph_methods(net, temp_server1);
+
+    /* Swap and free old server structure if necessary */
+    temp_server2 = net->servers[SERVER_BUS];
+    net->servers[SERVER_BUS] = temp_server1;
+    FUNC_IF(lo_server_free, temp_server2);
 
     /* Also open address/server for mesh-style communications */
     /* TODO: use TCP instead? */
-    while (!(net->servers[SERVER_MESH] = lo_server_new(0, handler_error))) {}
+    while (!(temp_server1 = lo_server_new(0, handler_error))) {}
 
-    /* Disable liblo message queueing. */
-    lo_server_enable_queue((net)->servers[SERVER_BUS], 0, 1);
-    lo_server_enable_queue((net)->servers[SERVER_MESH], 0, 1);
+    /* Disable liblo message queueing and add methods. */
+    lo_server_enable_queue(temp_server1, 0, 1);
+    mpr_net_add_graph_methods(net, temp_server1);
 
-    mpr_net_add_graph_methods(net);
+    /* Swap and free old server structure if necessary */
+    temp_server2 = net->servers[SERVER_MESH];
+    net->servers[SERVER_MESH] = temp_server1;
+    FUNC_IF(lo_server_free, temp_server2);
 
     for (i = 0; i < net->num_devs; i++)
         mpr_net_add_dev(net, net->devs[i]);
