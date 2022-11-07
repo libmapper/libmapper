@@ -485,6 +485,8 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 
     for (i = 0; i < net->num_devs; i++)
         mpr_net_add_dev(net, net->devs[i]);
+
+    net->updated = 1;
 }
 
 const char *mpr_get_version()

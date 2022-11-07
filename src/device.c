@@ -779,6 +779,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
 
     memcpy(servers, net->servers, sizeof(lo_server) * 2);
     memcpy(servers + 2, ldev->servers, sizeof(lo_server) * 2);
+    net->updated = 0;
 
     if (!block_ms) {
         if (lo_servers_recv_noblock(servers, status, 4, 0)) {
@@ -791,6 +792,11 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
         double then = mpr_get_current_time();
         int left_ms = block_ms, elapsed, checked_admin = 0;
         while (left_ms > 0) {
+            if (net->updated) {
+                memcpy(servers, net->servers, sizeof(lo_server) * 2);
+                memcpy(servers + 2, ldev->servers, sizeof(lo_server) * 2);
+                net->updated = 0;
+            }
             /* set timeout to a maximum of 100ms */
             if (left_ms > 100)
                 left_ms = 100;
