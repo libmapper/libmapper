@@ -35,6 +35,12 @@ try:
 except IOError:
     mpr = cdll.LoadLibrary(name)
 
+# configuration of Py_IncRef and Py_DecRef
+_c_inc_ref = pythonapi.Py_IncRef
+_c_inc_ref.argtypes = [py_object]
+_c_dec_ref = pythonapi.Py_DecRef
+_c_dec_ref.argtypes = [py_object]
+
 mpr.mpr_obj_get_prop_as_int32.argtypes = [c_void_p, c_int, c_char_p]
 mpr.mpr_obj_get_prop_as_int32.restype = c_int
 mpr.mpr_obj_get_prop_as_ptr.argtypes = [c_void_p, c_int, c_char_p]
@@ -843,14 +849,24 @@ class Signal(Object):
         if not self[Property.IS_LOCAL]:
             return
 
+        data = mpr.mpr_obj_get_prop_as_ptr(self._obj, 0x0200, None) # MPR_PROP_DATA
+        if data != None:
+            cb = cast(data, py_sig_cb_type)
+            _c_dec_ref(cb)
+
         mpr.mpr_sig_free.argtypes = [c_void_p]
         mpr.mpr_sig_free.restype = None
         mpr.mpr_sig_free(self._obj)
         self._obj = None
 
     def set_callback(self, callback, events=Event.ALL):
+        data = mpr.mpr_obj_get_prop_as_ptr(self._obj, 0x0200, None) # MPR_PROP_DATA
+        if data != None:
+            cb = cast(data, py_sig_cb_type)
+            _c_dec_ref(cb)
         if callback:
             self.callback = py_sig_cb_type(callback)
+            _c_inc_ref(self.callback)
         else:
             self.callback = None
         mpr.mpr_obj_set_prop(self._obj, 0x0200, None, 1, Type.POINTER.value, self.callback, 0) # MPR_PROP_DATA
