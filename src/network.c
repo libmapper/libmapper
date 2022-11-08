@@ -485,8 +485,6 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 
     for (i = 0; i < net->num_devs; i++)
         mpr_net_add_dev(net, net->devs[i]);
-
-    net->updated = 1;
 }
 
 const char *mpr_get_version()
@@ -633,6 +631,8 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
 {
     int i, found = 0;
     RETURN_UNLESS(dev);
+
+    memcpy(dev->servers + 2, net->servers, sizeof(lo_server) * 2);
 
     /* Check if device was already added. */
     for (i = 0; i < net->num_devs; i++) {

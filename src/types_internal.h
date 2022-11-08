@@ -146,7 +146,6 @@ typedef struct _mpr_net {
     uint32_t next_bus_ping;
     uint32_t next_sub_ping;
     uint8_t generic_dev_methods_added;
-    uint8_t updated;
 } mpr_net_t, *mpr_net;
 
 /**** Messages ****/

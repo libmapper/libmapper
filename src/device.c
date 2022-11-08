@@ -756,7 +756,6 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     int admin_count = 0, device_count = 0, status[4];
     mpr_local_dev ldev = (mpr_local_dev)dev;
     mpr_net net;
-    lo_server servers[4];
     RETURN_ARG_UNLESS(dev && dev->is_local, 0);
     net = &dev->obj.graph->net;
     mpr_net_poll(net);
@@ -777,12 +776,8 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     _process_outgoing_maps(ldev);
     ldev->polling = 0;
 
-    memcpy(servers, net->servers, sizeof(lo_server) * 2);
-    memcpy(servers + 2, ldev->servers, sizeof(lo_server) * 2);
-    net->updated = 0;
-
     if (!block_ms) {
-        if (lo_servers_recv_noblock(servers, status, 4, 0)) {
+        if (lo_servers_recv_noblock(ldev->servers, status, 4, 0)) {
             admin_count = (status[0] > 0) + (status[1] > 0);
             device_count = (status[2] > 0) + (status[3] > 0);
             net->msgs_recvd |= admin_count;
@@ -792,16 +787,11 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
         double then = mpr_get_current_time();
         int left_ms = block_ms, elapsed, checked_admin = 0;
         while (left_ms > 0) {
-            if (net->updated) {
-                memcpy(servers, net->servers, sizeof(lo_server) * 2);
-                memcpy(servers + 2, ldev->servers, sizeof(lo_server) * 2);
-                net->updated = 0;
-            }
             /* set timeout to a maximum of 100ms */
             if (left_ms > 100)
                 left_ms = 100;
             ldev->polling = 1;
-            if (lo_servers_recv_noblock(servers, status, 4, left_ms)) {
+            if (lo_servers_recv_noblock(ldev->servers, status, 4, left_ms)) {
                 admin_count += (status[0] > 0) + (status[1] > 0);
                 device_count += (status[2] > 0) + (status[3] > 0);
             }
@@ -1110,6 +1100,8 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     mpr_tbl_set(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, NON_MODIFIABLE);
     free(host);
     free(url);
+
+    memcpy(dev->servers + 2, dev->obj.graph->net.servers, sizeof(lo_server) * 2);
 }
 
 const char *mpr_dev_get_name(mpr_dev dev)
