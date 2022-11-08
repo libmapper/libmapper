@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-import sys, random, libmapper as mpr
+import random, libmapper as mpr
 
 print('starting testinstance.py')
 print('libmapper version:', mpr.__version__, 'with' if mpr.has_numpy() else 'without', 'numpy support')
