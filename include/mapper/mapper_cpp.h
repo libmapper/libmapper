@@ -990,6 +990,7 @@ namespace mapper {
             INST_EVT
         };
         typedef struct _handler_data {
+            void* ptr;
             union {
                 void (*standard)(Signal&&, Signal::Event, Id, int, Type, const void*, Time&&);
                 void (*simple)(Signal&&, int, Type, const void*, Time&&);
@@ -1012,66 +1013,69 @@ namespace mapper {
             if (!data)
                 return;
             switch (data->type) {
-                case STANDARD: {
-                    data->handler.standard(Signal(sig), Signal::Event(evt), inst, len, Type(type),
-                                           val, Time(time));
+                case STANDARD:
+                    data->handler.standard(reinterpret_cast<Signal*>(data->ptr), Signal::Event(evt),
+                                           inst, len, Type(type), val, Time(time));
                     break;
-                }
-                case SIMPLE: {
-                    data->handler.simple(Signal(sig), len, Type(type), val, Time(time));
+                case SIMPLE:
+                    data->handler.simple(reinterpret_cast<Signal*>(data->ptr),
+                                         len, Type(type), val, Time(time));
                     break;
-                }
                 case INST:
-                    data->handler.inst(Signal::Instance(sig, inst), Signal::Event(evt), len,
-                                       Type(type), val, Time(time));
+                    data->handler.inst(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
+                                       Signal::Event(evt), len, Type(type), val, Time(time));
                     break;
                 case SIG_INT:
                     if (val)
-                        data->handler.sig_int(Signal(sig), *(int*)val, Time(time));
+                        data->handler.sig_int(reinterpret_cast<Signal*>(data->ptr),
+                                              *(int*)val, Time(time));
                     break;
                 case SIG_FLT:
                     if (val)
-                        data->handler.sig_flt(Signal(sig), *(float*)val, Time(time));
+                        data->handler.sig_flt(reinterpret_cast<Signal*>(data->ptr),
+                                              *(float*)val, Time(time));
                     break;
                 case SIG_DBL:
                     if (val)
-                        data->handler.sig_dbl(Signal(sig), *(double*)val, Time(time));
+                        data->handler.sig_dbl(reinterpret_cast<Signal*>(data->ptr),
+                                              *(double*)val, Time(time));
                     break;
                 case INST_INT:
-                    data->handler.inst_int(Signal::Instance(sig, inst), Signal::Event(evt),
-                                           val ? *(int*)val : 0, Time(time));
+                    data->handler.inst_int(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
+                                           Signal::Event(evt), val ? *(int*)val : 0, Time(time));
                     break;
                 case INST_FLT:
-                    data->handler.inst_flt(Signal::Instance(sig, inst), Signal::Event(evt),
-                                           val ? *(float*)val : 0, Time(time));
+                    data->handler.inst_flt(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
+                                           Signal::Event(evt), val ? *(float*)val : 0, Time(time));
                     break;
                 case INST_DBL:
-                    data->handler.inst_dbl(Signal::Instance(sig, inst), Signal::Event(evt),
-                                           val ? *(double*)val : 0, Time(time));
+                    data->handler.inst_dbl(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
+                                           Signal::Event(evt), val ? *(double*)val : 0, Time(time));
                 case INST_EVT:
-                    data->handler.inst_evt(Signal::Instance(sig, inst), Signal::Event(evt),
-                                           Time(time));
+                    data->handler.inst_evt(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
+                                           Signal::Event(evt), Time(time));
                     break;
                 default:
                     return;
             }
         }
         void _set_callback(handler_data data,
-                           void (*h)(Signal&&, Signal::Event, Id, int,
-                                     Type, const void*, Time&&))
+                           void (*h)(Signal&&, Signal::Event, Id, int, Type, const void*, Time&&))
         {
+            data->ptr = *this;
             data->type = STANDARD;
             data->handler.standard = h;
         }
         void _set_callback(handler_data data, void (*h)(Signal&&, int, Type, const void*, Time&&))
         {
+            data->ptr = *this;
             data->type = SIMPLE;
             data->handler.simple = h;
         }
         void _set_callback(handler_data data,
-                           void (*h)(Signal::Instance&&, Signal::Event, int,
-                                     Type, const void*, Time&&))
+                           void (*h)(Signal::Instance&&, Signal::Event, int, Type, const void*, Time&&))
         {
+            data->ptr = *this;
             data->type = INST;
             data->handler.inst = h;
         }
@@ -1083,6 +1087,7 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
+            data->ptr = *this;
             data->type = SIG_INT;
             data->handler.sig_int = h;
         }
@@ -1094,6 +1099,7 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
+            data->ptr = *this;
             data->type = SIG_FLT;
             data->handler.sig_flt = h;
         }
@@ -1105,10 +1111,12 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
+            data->ptr = *this;
             data->type = SIG_DBL;
             data->handler.sig_dbl = h;
         }
-        void _set_callback(handler_data data, void (*h)(Signal::Instance&&, Signal::Event, int, Time&&))
+        void _set_callback(handler_data data,
+                           void (*h)(Signal::Instance&&, Signal::Event, int, Time&&))
         {
             if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_INT32
                 || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
@@ -1116,10 +1124,12 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
+            data->ptr = *this;
             data->type = INST_INT;
             data->handler.inst_int = h;
         }
-        void _set_callback(handler_data data, void (*h)(Signal::Instance&&, Signal::Event, float, Time&&))
+        void _set_callback(handler_data data,
+                           void (*h)(Signal::Instance&&, Signal::Event, float, Time&&))
         {
             if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_FLT
                 || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
@@ -1127,10 +1137,12 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
+            data->ptr = *this;
             data->type = INST_FLT;
             data->handler.inst_flt = h;
         }
-        void _set_callback(handler_data data, void (*h)(Signal::Instance&&, Signal::Event, double, Time&&))
+        void _set_callback(handler_data data,
+                           void (*h)(Signal::Instance&&, Signal::Event, double, Time&&))
         {
             if (mpr_obj_get_prop_as_int32(_obj, MPR_PROP_TYPE, NULL) != MPR_DBL
                 || mpr_obj_get_prop_as_int32(_obj, MPR_PROP_LEN, NULL) != 1) {
@@ -1138,11 +1150,14 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
+            data->ptr = *this;
             data->type = INST_DBL;
             data->handler.inst_dbl = h;
         }
-        void _set_callback(handler_data data, void (*h)(Signal::Instance&&, Signal::Event, Time&&))
+        void _set_callback(handler_data data,
+                           void (*h)(Signal::Instance&&, Signal::Event, Time&&))
         {
+            data->ptr = *this;
             data->type = INST_EVT;
             data->handler.inst_evt = h;
         }
