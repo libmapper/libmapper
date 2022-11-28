@@ -915,13 +915,14 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
         return 1;
 
-    /* 58) Expression for limiting rate with smoothed output */
+    /* 58) Expression for limiting rate with smoothed output.
+     * Leaving the initial y{-1} initialized to 0 simply means the first update will cause output */
     snprintf(str, 256,
-             "t_y{-1}=t_x;"
+             "count{-1}=1;"
              "alive=(t_x-t_y{-1})>0.1;"
-             "agg=!alive*agg+x;"
-             "samps=alive?1:samps+1;"
-             "y=agg/samps;");
+             "y=(accum+x)/count;"
+             "accum=!alive*accum+x;"
+             "count=alive?1:count+1;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_dbl[0] = (double)src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))

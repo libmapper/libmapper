@@ -442,30 +442,32 @@ Also we can calculate a moving average of the sample period:
 y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
 </pre>
 
-Of course the first value for `(t_x-t_y{-1})` will be very large since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of out expression:
+Of course the first value for `(t_x-t_y{-1})` will be very large since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of our expression:
 
 <pre style="width:50%;margin:auto">
 t_y{-1} = t_x;
 y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
 </pre>
 
-Here's a more complex example with 4 sub-expressions in which the rate is limited but incoming samples are averaged instead of discarding them:
+Here's a more complex example with 4 sub-expressions in which the rate is limited but skipped samples are averaged instead of discarding them:
 
 <pre style="width:50%;margin:auto">
+count{-1} = 1;
 alive = (t_x - t_y{-1}) > 0.1;
-y = B / C;
-B = !alive * B + x;
-C = alive ? 1 : C + 1;
+y = (accum + x) / count;
+accum = !alive * accum + x;
+count = alive ? 1 : count + 1;
 </pre>
 
 Explanation:
 
-order | step           | expression clause         | description
------ | -------------- | ------------------------- | -----------
-1 | check elapsed time | <code>alive = (t<sub>x</sub> - t<sub>y</sub>{-1}) > 0.1</code> | Set `alive` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
-2 | conditional output | `y = B / C`               | Output the average `B/C` (if `alive` is true)
-3 | update accumulator | `B = !alive * B + x`      | reset accumulator `B` to 0 if `alive` is true, add `x`
-4 | update count       | `C = alive ? 1 : C + 1`   | increment `C`, reset if `alive` is true
+order | step           | expression clause       | description
+----- | -------------- | ----------------------- | -----------
+0 | initialization     | `count{-1}=1`           | set the initial value of `count` to 1 to avoid divide by zero.
+1 | check elapsed time | <code>alive=(t<sub>x</sub>-t<sub>y</sub>{-1})>0.1</code> | Set `alive` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
+2 | conditional output | `y=(accum+x)/count`     | output the average of collected samples (if `alive` is true)
+3 | update accumulator | `accum=!alive*accum+x`  | reset accumulator to 0 if `alive` is true; add `x`
+4 | update count       | `count=alive?1:count+1` | increment `count`, reset if `alive` is true
 
 <h2 id="instances">Instances</h2>
 
