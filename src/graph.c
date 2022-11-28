@@ -1110,9 +1110,9 @@ int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
     return 0;
 }
 
-void mpr_graph_set_interface(mpr_graph g, const char *iface)
+int mpr_graph_set_interface(mpr_graph g, const char *iface)
 {
-    mpr_net_init(&g->net, iface, 0, 0);
+    return mpr_net_init(&g->net, iface, 0, 0);
 }
 
 const char *mpr_graph_get_interface(mpr_graph g)
@@ -1120,9 +1120,9 @@ const char *mpr_graph_get_interface(mpr_graph g)
     return g->net.iface.name;
 }
 
-void mpr_graph_set_address(mpr_graph g, const char *group, int port)
+int mpr_graph_set_address(mpr_graph g, const char *group, int port)
 {
-    mpr_net_init(&g->net, g->net.iface.name, group, port);
+    return mpr_net_init(&g->net, g->net.iface.name, group, port);
 }
 
 const char *mpr_graph_get_address(mpr_graph g)

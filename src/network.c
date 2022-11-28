@@ -403,7 +403,7 @@ static void mpr_net_add_graph_methods(mpr_net net, lo_server server)
     return;
 }
 
-void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
+int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 {
     int i;
     lo_address temp_addr1, temp_addr2;
@@ -436,7 +436,7 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     temp_addr1 = lo_address_new(net->multicast.group, s_port);
     if (!temp_addr1) {
         trace_net("problem allocating bus address.\n");
-        return;
+        return 1;
     }
 
     /* Set TTL for packet to 1 -> local subnet */
@@ -455,9 +455,8 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
                                                  net->iface.name, 0, handler_error);
 
     if (!temp_server1) {
-        lo_address_free(net->addr.bus);
         trace_net("problem allocating bus server.\n");
-        return;
+        return 2;
     }
     trace_net("bus connected to %s:%s\n", net->multicast.group, s_port);
 
@@ -485,6 +484,8 @@ void mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 
     for (i = 0; i < net->num_devs; i++)
         mpr_net_add_dev(net, net->devs[i]);
+
+    return 0;
 }
 
 const char *mpr_get_version()
