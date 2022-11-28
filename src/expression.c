@@ -122,6 +122,16 @@ TEST_VEC_TYPED(vanyi, int, !=, 0, 1, i)
 TEST_VEC_TYPED(vanyf, float, !=, 0.f, 1, f)
 TEST_VEC_TYPED(vanyd, double, !=, 0., 1, d)
 
+#define LEN_VFUNC(NAME, TYPE, T)                                    \
+static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
+{                                                                   \
+    mpr_expr_val val = stk + idx * inc;                             \
+    val[0].T = dim[idx];                                            \
+}
+LEN_VFUNC(vleni, int, i)
+LEN_VFUNC(vlenf, float, f)
+LEN_VFUNC(vlend, double, d)
+
 #define SUM_VFUNC(NAME, TYPE, T)                                    \
 static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 {                                                                   \
@@ -244,6 +254,23 @@ static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
 DOT_VFUNC(vdoti, int, i)
 DOT_VFUNC(vdotf, float, f)
 DOT_VFUNC(vdotd, double, d)
+
+#define INDEX_VFUNC(NAME, TYPE, T)                                  \
+static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
+{                                                                   \
+    mpr_expr_val a = stk + idx * inc, b = a + inc;                  \
+    int i, len = dim[idx];                                          \
+    for (i = 0; i < len; i++) {                                     \
+        if (a[i].T == b[0].T) {                                     \
+            a[0].T = (TYPE)i;                                       \
+            return;                                                 \
+        }                                                           \
+    }                                                               \
+    a[0].T = (TYPE)-1;                                              \
+}
+INDEX_VFUNC(vindexi, int, i)
+INDEX_VFUNC(vindexf, float, f)
+INDEX_VFUNC(vindexd, double, d)
 
 /* TODO: should we handle multidimensional angles as well? Problem with sign...
  * should probably have separate function for signed and unsigned: angle vs. rotation */
@@ -542,6 +569,8 @@ typedef enum {
     VFN_SUMNUM,
     VFN_ANGLE,
     VFN_DOT,
+    VFN_INDEX,
+    VFN_LENGTH,
     N_VFN
 } expr_vfn_t;
 
@@ -567,7 +596,9 @@ static struct {
     { "maxmin", 3, 0, 0, vmaxmini, vmaxminf, vmaxmind },
     { "sumnum", 3, 0, 0, vsumnumi, vsumnumf, vsumnumd },
     { "angle",  2, 1, 0, 0,        vanglef,  vangled  },
-    { "dot",    2, 1, 0, vdoti,    vdotf,    vdotd    }
+    { "dot",    2, 1, 0, vdoti,    vdotf,    vdotd    },
+    { "index",  2, 1, 1, vindexi,  vindexf,  vindexd  },
+    { "length", 1, 1, 1, vleni,    vlenf,    vlend    }
 };
 
 typedef enum {
@@ -1613,7 +1644,7 @@ static mpr_type promote_token(mpr_token_t *stk, int sp, mpr_type type, int vec_l
         return type;
     }
     else {
-        if (MPR_INT32 == tok->gen.datatype || MPR_DBL == type) {
+        if (!(tok->gen.flags & TYPE_LOCKED) && (MPR_INT32 == tok->gen.datatype || MPR_DBL == type)) {
             tok->gen.datatype = type;
             return type;
         }
@@ -1770,7 +1801,7 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                 can_precompute = 0;
             break;
         case TOK_VFN:
-            if (VFN_CONCAT == stk[sp].fn.idx)
+            if (VFN_CONCAT == stk[sp].fn.idx || VFN_LENGTH == stk[sp].fn.idx)
                 return sp;
             arity = vfn_tbl[stk[sp].fn.idx].arity;
             break;
@@ -2054,12 +2085,10 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
                                      mpr_var_t *vars)
 {
     int i = sp, j, optimize = 1, expr_len = 0;
-    uint8_t vec_len = 0;
     int8_t var = stk[sp].var.idx;
 
     while (i >= 0 && (stk[i].toktype & TOK_ASSIGN) && (stk[i].var.idx == var)) {
         int num_var_idx = NUM_VAR_IDXS(stk[i].gen.flags);
-        vec_len += stk[i].gen.vec_len;
         --i;
         for (j = 0; j < num_var_idx; j++)
             i -= substack_len(stk, i - j);
@@ -3098,7 +3127,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         max_vector = newtok.lit.val.i;
                     tok.gen.vec_len = 0;
 
-                    tok.gen.datatype = op[op_idx].gen.datatype;
+                    if (op[op_idx].gen.casttype)
+                        tok.gen.datatype = op[op_idx].gen.casttype;
+                    else
+                        tok.gen.datatype = op[op_idx].gen.datatype;
 
                     for (i = 0; i < sslen; i++) {
                         if (TOK_VAR == op[op_idx - i].toktype)
@@ -3115,7 +3147,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
                     GET_NEXT_TOKEN(newtok);
                     {FAIL_IF(TOK_CLOSE_PAREN != newtok.toktype, "missing right parenthesis.");}
-                    tok.gen.flags |= VEC_LEN_LOCKED | TYPE_LOCKED;
+                    tok.gen.flags |= VEC_LEN_LOCKED;
                 }
 
                 switch (rfn) {

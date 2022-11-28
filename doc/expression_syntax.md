@@ -163,6 +163,7 @@ leave `y[1]` unchanged.
 
 There are several special functions that operate across all elements of the vector and output a scalar value:
 
+* `x.length()` – output the length of the vector `x`
 * `x.any()` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.all()` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.sum()` – output the sum of the elements in vector `x`
@@ -171,12 +172,13 @@ There are several special functions that operate across all elements of the vect
 * `x.min()` – output the minimum element in vector `x`
 * `x.center()` – output the midpoint between `x.min()` and `x.max()`
 * `x.norm()` – output the length of the vector `x`
+* `x.index(a)` – output the index of element `a` in the vector `x`, or `-1` if the element is not found
 
 ### Other vector functions
 
 * `angle(a, b)` – output the angle between vectors `a` and `b`
 * `dot(a, b)` – output the dot product of vectors `a` and `b`
-* `sort(x, d)` or `x.sort(d)` - output a sorted version of the vector. The output will be sorted in ascending order if `d` is positive or descending order if `d` is negative.
+* `sort(x, d)` or `x.sort(d)` – output a sorted version of the vector. The output will be sorted in ascending order if `d` is positive or descending order if `d` is negative.
 
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 
@@ -343,7 +345,7 @@ Convergent mapping—in which multiple source signals update a single destinatio
   </tr>
   </tr>
     <tr>
-    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x$</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically. when a map is selected in the <a href="https://github.com/libmapper/webmapper">Webmapper</a> UI the individual sources are labeled with their index.</td>
+    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x$</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically. When a map is selected in the <a href="https://github.com/libmapper/webmapper">Webmapper</a> UI the individual sources are labeled with their index.</td>
     <td>
         <img style="display:block;margin:auto;padding:0px;" src="./images/full_convergent.png">
     </td>
