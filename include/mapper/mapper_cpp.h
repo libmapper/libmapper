@@ -100,6 +100,7 @@ namespace mapper {
     enum class Property
     {
         //BUNDLE              = MPR_PROP_BUNDLE,
+        DATA                = MPR_PROP_DATA,        /*!< User data pointer. */
         DEVICE              = MPR_PROP_DEV,         /*!< Parent Device for a Signal object. */
         DIRECTION           = MPR_PROP_DIR,         /*!< Direction of a Signal (output or input). */
         EPHEMERAL           = MPR_PROP_EPHEM,       /*!< For Signals: whether Instances are ephemeral. */
@@ -149,6 +150,12 @@ namespace mapper {
         operator const char*() const { return _s; }
         const char *_s;
     };
+
+    // Struct for coordinating C++ object class instances with libmapper
+    typedef struct _object_data {
+        const void *user_data;
+        const void *handler_data;
+    } *object_data;
 
     /*! libmapper uses NTP timetags for communication and synchronization. */
     class Time
@@ -534,15 +541,31 @@ namespace mapper {
          *  \param prop    The Property to remove.
          *  \return        Self. */
         virtual Object& remove_property(Property prop)
-            { mpr_obj_remove_prop(_obj, static_cast<mpr_prop>(prop), NULL); RETURN_SELF }
+        {
+            if (MPR_PROP_DATA != static_cast<mpr_prop>(prop))
+                mpr_obj_remove_prop(_obj, static_cast<mpr_prop>(prop), NULL);
+            else {
+                object_data od = (object_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
+                if (od)
+                    od->user_data = NULL;
+            }
+            RETURN_SELF;
+        }
 
         /*! Remove a named Property from an Object.
          *  \param key     Name of the Property to remove.
          *  \return        Self. */
         virtual Object& remove_property(const str_type &key)
         {
-            if (key)
+            if (!key)
+                RETURN_SELF;
+            if (strcmp(key, "data"))
                 mpr_obj_remove_prop(_obj, MPR_PROP_UNKNOWN, key);
+            else {
+                object_data od = (object_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
+                if (od)
+                    od->user_data = NULL;
+            }
             RETURN_SELF;
         }
 
@@ -990,7 +1013,6 @@ namespace mapper {
             INST_EVT
         };
         typedef struct _handler_data {
-            void* ptr;
             union {
                 void (*standard)(Signal&&, Signal::Event, Id, int, Type, const void*, Time&&);
                 void (*simple)(Signal&&, int, Type, const void*, Time&&);
@@ -1009,51 +1031,47 @@ namespace mapper {
                                      mpr_type type, const void *val, mpr_time time)
         {
             // recover signal user_data
-            handler_data data = (handler_data)mpr_obj_get_prop_as_ptr(sig, MPR_PROP_DATA, NULL);
-            if (!data)
+            object_data od = (object_data)mpr_obj_get_prop_as_ptr(sig, MPR_PROP_DATA, NULL);
+            if (!od || !od->handler_data)
                 return;
-            switch (data->type) {
+            handler_data hd = (handler_data)od->handler_data;
+            switch (hd->type) {
                 case STANDARD:
-                    data->handler.standard(reinterpret_cast<Signal*>(data->ptr), Signal::Event(evt),
-                                           inst, len, Type(type), val, Time(time));
+                    hd->handler.standard(Signal(sig), Signal::Event(evt), inst, len,
+                                         Type(type), val, Time(time));
                     break;
                 case SIMPLE:
-                    data->handler.simple(reinterpret_cast<Signal*>(data->ptr),
-                                         len, Type(type), val, Time(time));
+                    hd->handler.simple(Signal(sig), len, Type(type), val, Time(time));
                     break;
                 case INST:
-                    data->handler.inst(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
-                                       Signal::Event(evt), len, Type(type), val, Time(time));
+                    hd->handler.inst(Instance(sig, inst), Signal::Event(evt), len,
+                                     Type(type), val, Time(time));
                     break;
                 case SIG_INT:
                     if (val)
-                        data->handler.sig_int(reinterpret_cast<Signal*>(data->ptr),
-                                              *(int*)val, Time(time));
+                        hd->handler.sig_int(Signal(sig), *(int*)val, Time(time));
                     break;
                 case SIG_FLT:
                     if (val)
-                        data->handler.sig_flt(reinterpret_cast<Signal*>(data->ptr),
-                                              *(float*)val, Time(time));
+                        hd->handler.sig_flt(Signal(sig), *(float*)val, Time(time));
                     break;
                 case SIG_DBL:
                     if (val)
-                        data->handler.sig_dbl(reinterpret_cast<Signal*>(data->ptr),
-                                              *(double*)val, Time(time));
+                        hd->handler.sig_dbl(Signal(sig), *(double*)val, Time(time));
                     break;
                 case INST_INT:
-                    data->handler.inst_int(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
-                                           Signal::Event(evt), val ? *(int*)val : 0, Time(time));
+                    hd->handler.inst_int(Instance(sig, inst), Signal::Event(evt),
+                                         val ? *(int*)val : 0, Time(time));
                     break;
                 case INST_FLT:
-                    data->handler.inst_flt(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
-                                           Signal::Event(evt), val ? *(float*)val : 0, Time(time));
+                    hd->handler.inst_flt(Instance(sig, inst), Signal::Event(evt),
+                                         val ? *(float*)val : 0, Time(time));
                     break;
                 case INST_DBL:
-                    data->handler.inst_dbl(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
-                                           Signal::Event(evt), val ? *(double*)val : 0, Time(time));
+                    hd->handler.inst_dbl(Instance(sig, inst), Signal::Event(evt),
+                                         val ? *(double*)val : 0, Time(time));
                 case INST_EVT:
-                    data->handler.inst_evt(Instance(reinterpret_cast<Signal*>(data->ptr), inst),
-                                           Signal::Event(evt), Time(time));
+                    hd->handler.inst_evt(Instance(sig, inst), Signal::Event(evt), Time(time));
                     break;
                 default:
                     return;
@@ -1062,20 +1080,17 @@ namespace mapper {
         void _set_callback(handler_data data,
                            void (*h)(Signal&&, Signal::Event, Id, int, Type, const void*, Time&&))
         {
-            data->ptr = *this;
             data->type = STANDARD;
             data->handler.standard = h;
         }
         void _set_callback(handler_data data, void (*h)(Signal&&, int, Type, const void*, Time&&))
         {
-            data->ptr = *this;
             data->type = SIMPLE;
             data->handler.simple = h;
         }
         void _set_callback(handler_data data,
                            void (*h)(Signal::Instance&&, Signal::Event, int, Type, const void*, Time&&))
         {
-            data->ptr = *this;
             data->type = INST;
             data->handler.inst = h;
         }
@@ -1087,7 +1102,6 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->ptr = *this;
             data->type = SIG_INT;
             data->handler.sig_int = h;
         }
@@ -1099,7 +1113,6 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->ptr = *this;
             data->type = SIG_FLT;
             data->handler.sig_flt = h;
         }
@@ -1111,7 +1124,6 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->ptr = *this;
             data->type = SIG_DBL;
             data->handler.sig_dbl = h;
         }
@@ -1124,7 +1136,6 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->ptr = *this;
             data->type = INST_INT;
             data->handler.inst_int = h;
         }
@@ -1137,7 +1148,6 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->ptr = *this;
             data->type = INST_FLT;
             data->handler.inst_flt = h;
         }
@@ -1150,14 +1160,12 @@ namespace mapper {
                 data->type = NONE;
                 return;
             }
-            data->ptr = *this;
             data->type = INST_DBL;
             data->handler.inst_dbl = h;
         }
         void _set_callback(handler_data data,
                            void (*h)(Signal::Instance&&, Signal::Event, Time&&))
         {
-            data->ptr = *this;
             data->type = INST_EVT;
             data->handler.inst_evt = h;
         }
@@ -1180,31 +1188,39 @@ namespace mapper {
         template <typename H>
         Signal& set_callback(H& h, Signal::Event events = Signal::Event::UPDATE)
         {
-            handler_data data = (handler_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
-            if (data)
-                free(data);
+            object_data od = (object_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
+            if (!od) {
+                od = (object_data)calloc(1, sizeof(struct _object_data));
+                mpr_obj_set_prop(_obj, MPR_PROP_DATA, NULL, 1, MPR_PTR, od, 0);
+            }
+            handler_data hd = (handler_data)od->handler_data;
+            if (hd)
+                free(hd);
             if (events > Signal::Event::NONE) {
-                data = (handler_data)malloc(sizeof(struct _handler_data));
-                _set_callback(data, h);
+                hd = (handler_data)malloc(sizeof(struct _handler_data));
+                _set_callback(hd, h);
                 mpr_sig_set_cb(_obj, _generic_handler, static_cast<int>(events));
-                mpr_obj_set_prop(_obj, MPR_PROP_DATA, NULL, 1, MPR_PTR, data, 0);
+                od->handler_data = hd;
             }
             else {
                 mpr_sig_set_cb(_obj, NULL, 0);
-                mpr_obj_remove_prop(_obj, MPR_PROP_DATA, NULL);
+                od->handler_data = NULL;
             }
-            RETURN_SELF
+            RETURN_SELF;
         }
 
         /*! Remove the callback from a Signal.
          *  \return         Self. */
         Signal& remove_callback()
         {
-            handler_data data = (handler_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
-            if (data) {
-                mpr_sig_set_cb(_obj, NULL, 0);
-                mpr_obj_remove_prop(_obj, MPR_PROP_DATA, NULL);
-                free(data);
+            mpr_sig_set_cb(_obj, NULL, 0);
+            object_data od = (object_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
+            if (!od)
+                RETURN_SELF;
+            handler_data hd = (handler_data)od->handler_data;
+            if (hd) {
+                od->handler_data = NULL;
+                free(hd);
             }
             RETURN_SELF
         }
@@ -1519,29 +1535,29 @@ namespace mapper {
         } *handler_data;
         static void _generic_handler(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
         {
-            handler_data data = (handler_data)user;
-            switch (data->type) {
+            handler_data hd = (handler_data)user;
+            switch (hd->type) {
                 case OBJECT:
                     switch (mpr_obj_get_type(o)) {
                         case MPR_DEV:
-                            data->handler.object(Graph(g), Device(o), Graph::Event(e));
+                            hd->handler.object(Graph(g), Device(o), Graph::Event(e));
                             break;
                         case MPR_SIG:
-                            data->handler.object(Graph(g), Signal(o), Graph::Event(e));
+                            hd->handler.object(Graph(g), Signal(o), Graph::Event(e));
                             break;
                         case MPR_MAP:
-                            data->handler.object(Graph(g), Map(o), Graph::Event(e));
+                            hd->handler.object(Graph(g), Map(o), Graph::Event(e));
                             break;
                     }
                     break;
                 case DEVICE:
-                    data->handler.device(Graph(g), Device(o), Graph::Event(e));
+                    hd->handler.device(Graph(g), Device(o), Graph::Event(e));
                     break;
                 case SIGNAL:
-                    data->handler.signal(Graph(g), Signal(o), Graph::Event(e));
+                    hd->handler.signal(Graph(g), Signal(o), Graph::Event(e));
                     break;
                 case MAP:
-                    data->handler.map(Graph(g), Map(o), Graph::Event(e));
+                    hd->handler.map(Graph(g), Map(o), Graph::Event(e));
                     break;
             }
         }
@@ -1955,8 +1971,18 @@ namespace mapper {
         }
         void maybe_update()
         {
-            if (parent)
+            if (!parent)
+                return;
+            if (MPR_PROP_DATA != prop && (!key || strcmp(key, "data")))
                 mpr_obj_set_prop(parent, prop, key, len, type, val, pub);
+            else {
+                object_data od = (object_data)mpr_obj_get_prop_as_ptr(parent, MPR_PROP_DATA, NULL);
+                if (!od) {
+                    od = (object_data)calloc(1, sizeof(struct _object_data));
+                    mpr_obj_set_prop(parent, MPR_PROP_DATA, NULL, 1, MPR_PTR, od, 0);
+                }
+                od->user_data = val;
+            }
         }
         void _set(int _len, mpr_type _type, const void *_val)
         {
@@ -2116,18 +2142,32 @@ namespace mapper {
     inline Object& Object::set_property(const Values... vals)
     {
         PropVal p(vals...);
-        if (p.prop != MPR_PROP_DATA && (!p.key || strcmp(p.key, "data")))
+        if (p.prop == MPR_PROP_DATA || (p.key && 0 == strcmp(p.key, "data"))) {
+            if (p.type != MPR_PTR || p.len != 1) {
+                printf("DATA property must be a pointer type\n");
+                RETURN_SELF;
+            }
+            object_data od = (object_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
+            if (!od) {
+                od = (object_data)calloc(1, sizeof(struct _object_data));
+                mpr_obj_set_prop(_obj, MPR_PROP_DATA, NULL, 1, MPR_PTR, od, 0);
+            }
+            od->user_data = p.val;
+        }
+        else
             mpr_obj_set_prop(_obj, p.prop, p.key, p.len, p.type, p.val, p.pub);
         RETURN_SELF;
     }
 
     inline PropVal Object::property(const str_type &key) const
     {
-        mpr_prop prop;
-        mpr_type type;
-        const void *val;
-        int len, pub;
+        mpr_prop prop = MPR_PROP_UNKNOWN;
+        mpr_type type = MPR_NULL;
+        const void *val = 0;
+        int len = 0, pub = 0;
         prop = mpr_obj_get_prop_by_key(_obj, key, &len, &type, &val, &pub);
+        if (0 == strcmp(key, "data") && val)
+            val = ((object_data)val)->user_data;
         PropVal p(prop, key, len, type, val, pub);
         p.parent = _obj;
         return p;
@@ -2140,6 +2180,8 @@ namespace mapper {
         const void *val;
         int len, pub;
         mpr_prop mprop = mpr_obj_get_prop_by_idx(_obj, idx, &key, &len, &type, &val, &pub);
+        if (MPR_PROP_DATA == mprop && val)
+            val = ((object_data)val)->user_data;
         PropVal p(mprop, key, len, type, val, pub);
         p.parent = _obj;
         return p;
@@ -2157,7 +2199,10 @@ namespace mapper {
     inline List<T>& List<T>::filter(P&& property, V&& value, Operator op)
     {
         PropVal p(property, value);
-        _list = mpr_list_filter(_list, p.prop, p.key, p.len, p.type, p.val, static_cast<mpr_op>(op));
+        if (MPR_PROP_DATA == p.prop)
+            printf("Filtering by DATA property is not allowed.");
+        else
+            _list = mpr_list_filter(_list, p.prop, p.key, p.len, p.type, p.val, static_cast<mpr_op>(op));
         RETURN_SELF;
     }
 
@@ -2166,12 +2211,28 @@ namespace mapper {
     inline List<T>& List<T>::set_property(const Values... vals)
     {
         PropVal p(vals...);
-        if (!p || p.prop == MPR_PROP_DATA || (p.key && !strcmp(p.key, "data")))
+        if (!p)
             RETURN_SELF;
         mpr_list cpy = mpr_list_get_cpy(_list);
-        while (cpy) {
-            mpr_obj_set_prop(*cpy, p.prop, p.key, p.len, p.type, p.val, p.pub);
-            cpy = mpr_list_get_next(cpy);
+        if (p.prop == MPR_PROP_DATA || (p.key && !strcmp(p.key, "data"))) {
+            if (MPR_PTR != p.type || 1 != p.len) {
+                printf("DATA property must be a pointer type.\n");
+                RETURN_SELF;
+            }
+            while (cpy) {
+                object_data od = (object_data)mpr_obj_get_prop_as_ptr(*cpy, MPR_PROP_DATA, NULL);
+                if (!od) {
+                    od = (object_data)calloc(1, sizeof(struct _object_data));
+                    mpr_obj_set_prop(*cpy, MPR_PROP_DATA, NULL, 1, MPR_PTR, od, 0);
+                }
+                od->user_data = p.val;
+            }
+        }
+        else {
+            while (cpy) {
+                mpr_obj_set_prop(*cpy, p.prop, p.key, p.len, p.type, p.val, p.pub);
+                cpy = mpr_list_get_next(cpy);
+            }
         }
         RETURN_SELF;
     }

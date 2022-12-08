@@ -39,6 +39,18 @@ private:
 };
 out_stream null_out;
 
+class Custom {
+public:
+    Custom(const char* str) {
+        extra = strdup(str);
+    }
+    ~Custom() {
+        if (extra)
+            free((void*)extra);
+    }
+    const char* extra;
+};
+
 void simple_handler(Signal&& sig, int length, Type type, const void *value, Time&& t)
 {
     ++received;
@@ -126,6 +138,13 @@ void standard_handler(Signal&& sig, Signal::Event event, Id instance, int length
             break;
     }
     std::cout << std::endl;
+
+    // also test recovering arbitrary use data
+    void *data = sig[Property::DATA];
+    if (data) {
+        const Custom *custom = reinterpret_cast<const Custom*>(data);
+        std::cout <<  "\t\t\t\t\t   |     recovered user_data: " << custom->extra << std::endl;
+    }
 }
 
 void instance_handler(Signal::Instance&& si, Signal::Event event, int length,
@@ -324,6 +343,12 @@ int main(int argc, char ** argv)
 
     dev.remove_property("foo");
     out << "foo: " << dev["foo"] << " (should be 0x0)" << std::endl;
+
+    // test 'data' property
+    Signal sig2 = dev.signals(Direction::INCOMING)[1];
+    Custom custom("Raspberry Beret");
+    out << "adding Custom object '" << custom.extra << "' to " << sig2 << std::endl;
+    sig2.set_property(Property::DATA, (void*)&custom);
 
     out << "try printing all device properties:" << std::endl;
     for (int i = 0; i < dev.num_props(); i++) {
