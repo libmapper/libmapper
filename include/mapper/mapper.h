@@ -297,7 +297,8 @@ typedef void mpr_sig_handler(mpr_sig signal, mpr_sig_evt event, mpr_id instance,
                              mpr_type type, const void *value, mpr_time time);
 
 /*! Allocate and initialize a signal.  Values and strings pointed to by this call will be copied.
- *  For minimum and maximum values, type must match 'type' (if type=MPR_INT32, then int*, etc).
+ *  For minimum and maximum values, type must match 'type' (if type=MPR_INT32, then int*, etc) and
+ *  length must match 'length' (i.e. a scalar if length=1, or an array of length 'length').
  *  \param parent           The object to add a signal to.
  *  \param direction    	The signal direction.
  *  \param name             The name of the signal.
@@ -306,7 +307,7 @@ typedef void mpr_sig_handler(mpr_sig signal, mpr_sig_evt event, mpr_id instance,
  *  \param unit             The unit of the signal, or 0 for none.
  *  \param minimum          Pointer to a minimum value, or 0 for none.
  *  \param maximum          Pointer to a maximum value, or 0 for none.
- *  \param num_instances    Pointer to the number of signal instances or 0 to indicate that
+ *  \param num_instances    Pointer to the number of signal instances, or 0 to indicate that
  *                          instances will not be used.
  *  \param handler          Function to be called when the value of the signal is updated.
  *  \param events           Bitflags for types of events we are interested in. Event types are
