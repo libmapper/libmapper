@@ -8,7 +8,7 @@ void mpr_net_remove_dev(mpr_net n, mpr_local_dev d);
 
 void mpr_net_poll(mpr_net n);
 
-void mpr_net_init(mpr_net n, const char *iface, const char *group, int port);
+int mpr_net_init(mpr_net n, const char *iface, const char *group, int port);
 
 void mpr_net_use_bus(mpr_net n);
 

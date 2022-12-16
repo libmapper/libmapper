@@ -915,13 +915,14 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
         return 1;
 
-    /* 58) Expression for limiting rate with smoothed output */
+    /* 58) Expression for limiting rate with smoothed output.
+     * Leaving the initial y{-1} initialized to 0 simply means the first update will cause output */
     snprintf(str, 256,
-             "t_y{-1}=t_x;"
+             "count{-1}=1;"
              "alive=(t_x-t_y{-1})>0.1;"
-             "agg=!alive*agg+x;"
-             "samps=alive?1:samps+1;"
-             "y=agg/samps;");
+             "y=(accum+x)/count;"
+             "accum=!alive*accum+x;"
+             "count=alive?1:count+1;");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     expect_dbl[0] = (double)src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
@@ -1521,35 +1522,42 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 13, 1, iterations))
         return 1;
 
-    /* 120) Turn instances into vector and arpeggiate */
+    /* 120) Turn instances into vector and return a function of vector size */
+    set_expr_str("y = x.instance.concat(5).length() * 10;");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = 10.f;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 121) Turn instances into vector and arpeggiate */
     /* TODO: add timing */
     /* TODO: ensure variable 'i' is not reset to zero for each new instance. */
     set_expr_str("i{-1}=0;p=(x%128).instance.concat(10).sort(1);y=miditohz(p[i]);i=i+1;");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_flt[0] = 440.f * powf(2.f, (fmodf(src_int[0], 128.f) - 69.f) / 12.f);
+    expect_flt[0] = 440.f * powf(2.f, (fmodf((float)src_int[0], 128.f) - 69.f) / 12.f);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 121) Count instances over time */
+    /* 122) Count instances over time */
     set_expr_str("y = y{-1} + x.instance.count();");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     expect_flt[0] = iterations;
     if (parse_and_eval(EXPECT_SUCCESS, 9, 1, iterations))
         return 1;
 
-    /* 122) Reduce without lambda operator */
+    /* 123) Reduce without lambda operator */
     set_expr_str("y=x.history(5).reduce(x, a = 100, x + a);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 123) Reduce with extra lambda operator */
+    /* 124) Reduce with extra lambda operator */
     set_expr_str("y=x.history(5).reduce(x, a = 100 -> x + a -> x + 1);");
     setup_test(MPR_FLT, 1, MPR_FLT, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 1, iterations))
         return 1;
 
-    /* 124) Fractional indices for both vector and history */
+    /* 125) Fractional indices for both vector and history */
     set_expr_str("y=x[0.3]{-0.25};");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = src_flt[0] * 0.7f + src_flt[1] * 0.3f;
@@ -1557,7 +1565,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 125) Fractional indices for both history and vector */
+    /* 126) Fractional indices for both history and vector */
     set_expr_str("y=x{-1.75}[0.6];");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
     expect_flt[0] = src_flt[0] * (1.f - 0.6f) + src_flt[1] * 0.6f;
@@ -1565,13 +1573,13 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
-    /* 126) Fractional vector index with non-integer length */
+    /* 127) Fractional vector index with non-integer length */
     set_expr_str("y=x[0.2:1.1];");
     setup_test(MPR_FLT, 3, MPR_FLT, 2);
     if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
         return 1;
 
-    /* 127) Multi-step linear envelope */
+    /* 128) Multi-step linear envelope */
     set_expr_str("tstart{-1}=t_x;"                          /* cache the instance start time */
                  "times=[0.1,0.01];"                        /* durations for our envelope */
                  "sumtimes=[0.1,0.11];"                     /* aggregated durations */
@@ -1606,6 +1614,13 @@ int run_tests()
             return 1;
         }
     }
+
+    /* 129) Find vector index by value */
+    set_expr_str("v=[60,61,62,63,64]; y=v.index(62) + index(v, 0);");
+    setup_test(MPR_FLT, 1, MPR_FLT, 1);
+    expect_flt[0] = 1;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
+        return 1;
 
     return 0;
 }

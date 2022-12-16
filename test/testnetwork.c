@@ -28,7 +28,7 @@ static void eprintf(const char *format, ...)
 
 int test_network()
 {
-    int error = 0, wait, len;
+    int error = 0, wait, len, port = 7777;
     mpr_type type;
     const void *val;
 
@@ -39,7 +39,11 @@ int test_network()
     }
 
     mpr_graph_set_interface(graph, "lo0");
-    mpr_graph_set_address(graph, "224.0.1.4", 7777);
+
+    eprintf("trying port %d... ", port);
+    while (mpr_graph_set_address(graph, "224.0.1.4", port)) {
+        eprintf("error!\ntrying port %d... ", ++port);
+    }
 
     eprintf("Graph structure initialized.\n");
 
@@ -95,7 +99,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testgraph.c: possible arguments "
+                        printf("testnetwork.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-h help\n");
                         return 1;

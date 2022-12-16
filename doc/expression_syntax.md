@@ -163,6 +163,7 @@ leave `y[1]` unchanged.
 
 There are several special functions that operate across all elements of the vector and output a scalar value:
 
+* `x.length()` – output the length of the vector `x`
 * `x.any()` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.all()` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.sum()` – output the sum of the elements in vector `x`
@@ -171,12 +172,13 @@ There are several special functions that operate across all elements of the vect
 * `x.min()` – output the minimum element in vector `x`
 * `x.center()` – output the midpoint between `x.min()` and `x.max()`
 * `x.norm()` – output the length of the vector `x`
+* `x.index(a)` – output the index of element `a` in the vector `x`, or `-1` if the element is not found
 
 ### Other vector functions
 
 * `angle(a, b)` – output the angle between vectors `a` and `b`
 * `dot(a, b)` – output the dot product of vectors `a` and `b`
-* `sort(x, d)` or `x.sort(d)` - output a sorted version of the vector. The output will be sorted in ascending order if `d` is positive or descending order if `d` is negative.
+* `sort(x, d)` or `x.sort(d)` – output a sorted version of the vector. The output will be sorted in ascending order if `d` is positive or descending order if `d` is negative.
 
 <h2 id="fir-and-iir-filters">FIR and IIR Filters</h2>
 
@@ -343,7 +345,7 @@ Convergent mapping—in which multiple source signals update a single destinatio
   </tr>
   </tr>
     <tr>
-    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x$</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically. when a map is selected in the <a href="https://github.com/libmapper/webmapper">Webmapper</a> UI the individual sources are labeled with their index.</td>
+    <td><strong>convergent maps</strong>: arbitrary combining functions can be defined by creating a single map with multiple sources. Libmapper will automatically reorder the sources alphabetically by name, and source values are referred to in the map expression by the string <code>x$</code>+<code>&lt;source index&gt;</code> as shown in the example to the right. When editing the expression it is crucial to use the correct signal indices which may have been reordered from the array provided to the map constructor; they can be retrieved using the function <code>mpr_map_get_sig_idx()</code> or you can use mpr_map_new_from_str() to have libmapper handle signal index lookup automatically. When a map is selected in the <a href="https://github.com/libmapper/webmapper">Webmapper</a> UI the individual sources are labeled with their index.</td>
     <td>
         <img style="display:block;margin:auto;padding:0px;" src="./images/full_convergent.png">
     </td>
@@ -440,30 +442,32 @@ Also we can calculate a moving average of the sample period:
 y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
 </pre>
 
-Of course the first value for `(t_x-t_y{-1})` will be very large since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of out expression:
+Of course the first value for `(t_x-t_y{-1})` will be very large since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of our expression:
 
 <pre style="width:50%;margin:auto">
 t_y{-1} = t_x;
 y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
 </pre>
 
-Here's a more complex example with 4 sub-expressions in which the rate is limited but incoming samples are averaged instead of discarding them:
+Here's a more complex example with 4 sub-expressions in which the rate is limited but skipped samples are averaged instead of discarding them:
 
 <pre style="width:50%;margin:auto">
+count{-1} = 1;
 alive = (t_x - t_y{-1}) > 0.1;
-y = B / C;
-B = !alive * B + x;
-C = alive ? 1 : C + 1;
+y = (accum + x) / count;
+accum = !alive * accum + x;
+count = alive ? 1 : count + 1;
 </pre>
 
 Explanation:
 
-order | step           | expression clause         | description
------ | -------------- | ------------------------- | -----------
-1 | check elapsed time | <code>alive = (t<sub>x</sub> - t<sub>y</sub>{-1}) > 0.1</code> | Set `alive` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
-2 | conditional output | `y = B / C`               | Output the average `B/C` (if `alive` is true)
-3 | update accumulator | `B = !alive * B + x`      | reset accumulator `B` to 0 if `alive` is true, add `x`
-4 | update count       | `C = alive ? 1 : C + 1`   | increment `C`, reset if `alive` is true
+order | step           | expression clause       | description
+----- | -------------- | ----------------------- | -----------
+0 | initialization     | `count{-1}=1`           | set the initial value of `count` to 1 to avoid divide by zero.
+1 | check elapsed time | <code>alive=(t<sub>x</sub>-t<sub>y</sub>{-1})>0.1</code> | Set `alive` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
+2 | conditional output | `y=(accum+x)/count`     | output the average of collected samples (if `alive` is true)
+3 | update accumulator | `accum=!alive*accum+x`  | reset accumulator to 0 if `alive` is true; add `x`
+4 | update count       | `count=alive?1:count+1` | increment `count`, reset if `alive` is true
 
 <h2 id="instances">Instances</h2>
 

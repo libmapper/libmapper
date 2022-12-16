@@ -101,82 +101,86 @@ UNARY_FUNC(int, sign, i, x >= 0 ? 1 : -1)
 UNARY_FUNC(float, sign, f, x >= 0.f ? 1.f : -1.f)
 UNARY_FUNC(double, sign, d, x >= 0. ? 1. : -1.)
 
-#define TEST_VEC_TYPED(NAME, TYPE, OP, CMP, RET, T)                 \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    register TYPE ret = 1 - RET;                                    \
-    mpr_expr_val val = stk + idx * inc;                             \
-    int i, len = dim[idx];                                          \
-    for (i = 0; i < len; i++) {                                     \
-        if (val[i].T OP CMP) {                                      \
-            ret = RET;                                              \
-            break;                                                  \
-        }                                                           \
-    }                                                               \
-    val[0].T = ret;                                                 \
+#define COMP_VFUNC(NAME, TYPE, OP, CMP, RET, T)             \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)   \
+{                                                           \
+    register TYPE ret = 1 - RET;                            \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++) {                             \
+        if (val[i].T OP CMP) {                              \
+            ret = RET;                                      \
+            break;                                          \
+        }                                                   \
+    }                                                       \
+    val[0].T = ret;                                         \
 }
-TEST_VEC_TYPED(valli, int, ==, 0, 0, i)
-TEST_VEC_TYPED(vallf, float, ==, 0.f, 0, f)
-TEST_VEC_TYPED(valld, double, ==, 0., 0, d)
-TEST_VEC_TYPED(vanyi, int, !=, 0, 1, i)
-TEST_VEC_TYPED(vanyf, float, !=, 0.f, 1, f)
-TEST_VEC_TYPED(vanyd, double, !=, 0., 1, d)
+COMP_VFUNC(valli, int, ==, 0, 0, i)
+COMP_VFUNC(vallf, float, ==, 0.f, 0, f)
+COMP_VFUNC(valld, double, ==, 0., 0, d)
+COMP_VFUNC(vanyi, int, !=, 0, 1, i)
+COMP_VFUNC(vanyf, float, !=, 0.f, 1, f)
+COMP_VFUNC(vanyd, double, !=, 0., 1, d)
 
-#define SUM_VFUNC(NAME, TYPE, T)                                    \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    register TYPE aggregate = 0;                                    \
-    mpr_expr_val val = stk + idx * inc;                             \
-    int i, len = dim[idx];                                          \
-    for (i = 0; i < len; i++)                                       \
-        aggregate += val[i].T;                                      \
-    val[0].T = aggregate;                                           \
+#define LEN_VFUNC(NAME, TYPE, T)                            \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)   \
+{                                                           \
+    val[0].T = dim[0];                                      \
+}
+LEN_VFUNC(vleni, int, i)
+LEN_VFUNC(vlenf, float, f)
+LEN_VFUNC(vlend, double, d)
+
+#define SUM_VFUNC(NAME, TYPE, T)                            \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)   \
+{                                                           \
+    register TYPE aggregate = 0;                            \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++)                               \
+        aggregate += val[i].T;                              \
+    val[0].T = aggregate;                                   \
 }
 SUM_VFUNC(vsumi, int, i)
 SUM_VFUNC(vsumf, float, f)
 SUM_VFUNC(vsumd, double, d)
 
-#define MEAN_VFUNC(NAME, TYPE, T)                                   \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    register TYPE mean = 0;                                         \
-    mpr_expr_val val = stk + idx * inc;                             \
-    int i, len = dim[idx];                                          \
-    for (i = 0; i < len; i++)                                       \
-        mean += val[i].T;                                           \
-    val[0].T = mean / len;                                          \
+#define MEAN_VFUNC(NAME, TYPE, T)                           \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)   \
+{                                                           \
+    register TYPE mean = 0;                                 \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++)                               \
+        mean += val[i].T;                                   \
+    val[0].T = mean / len;                                  \
 }
 MEAN_VFUNC(vmeanf, float, f)
 MEAN_VFUNC(vmeand, double, d)
 
-#define CENTER_VFUNC(NAME, TYPE, T)                                 \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    mpr_expr_val val = stk + idx * inc;                             \
-    register TYPE max = val[0].T, min = max;                        \
-    int i, len = dim[idx];                                          \
-    for (i = 0; i < len; i++) {                                     \
-        if (val[i].T > max)                                         \
-            max = val[i].T;                                         \
-        if (val[i].T < min)                                         \
-            min = val[i].T;                                         \
-    }                                                               \
-    val[0].T = (max + min) * 0.5;                                   \
+#define CENTER_VFUNC(NAME, TYPE, T)                         \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)   \
+{                                                           \
+    register TYPE max = val[0].T, min = max;                \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++) {                             \
+        if (val[i].T > max)                                 \
+            max = val[i].T;                                 \
+        if (val[i].T < min)                                 \
+            min = val[i].T;                                 \
+    }                                                       \
+    val[0].T = (max + min) * 0.5;                           \
 }
 CENTER_VFUNC(vcenterf, float, f)
 CENTER_VFUNC(vcenterd, double, d)
 
-#define EXTREMA_VFUNC(NAME, OP, TYPE, T)                            \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    mpr_expr_val val = stk + idx * inc;                             \
-    register TYPE extrema = val[0].T;                               \
-    int i, len = dim[idx];                                          \
-    for (i = 1; i < len; i++) {                                     \
-        if (val[i].T OP extrema)                                    \
-            extrema = val[i].T;                                     \
-    }                                                               \
-    val[0].T = extrema;                                             \
+#define EXTREMA_VFUNC(NAME, OP, TYPE, T)                    \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)   \
+{                                                           \
+    register TYPE extrema = val[0].T;                       \
+    int i, len = dim[0];                                    \
+    for (i = 1; i < len; i++) {                             \
+        if (val[i].T OP extrema)                            \
+            extrema = val[i].T;                             \
+    }                                                       \
+    val[0].T = extrema;                                     \
 }
 EXTREMA_VFUNC(vmaxi, >, int, i)
 EXTREMA_VFUNC(vmini, <, int, i)
@@ -202,13 +206,13 @@ DEC_SORT_FUNC(float, f)
 DEC_SORT_FUNC(double, d)
 
 #define SORT_VFUNC(NAME, TYPE, T)                                       \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)      \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)               \
 {                                                                       \
-    mpr_expr_val val = stk + idx * inc, dir = val + inc;                \
+    mpr_expr_val dir = val + inc;                                       \
     if (dir[0].T >= 0)                                                  \
-        qsort(val, dim[idx], sizeof(mpr_expr_val_t), inc_sort_func##T); \
+        qsort(val, dim[0], sizeof(mpr_expr_val_t), inc_sort_func##T);   \
     else                                                                \
-        qsort(val, dim[idx], sizeof(mpr_expr_val_t), dec_sort_func##T); \
+        qsort(val, dim[0], sizeof(mpr_expr_val_t), dec_sort_func##T);   \
 }
 SORT_VFUNC(vsorti, int, i)
 SORT_VFUNC(vsortf, float, f)
@@ -218,91 +222,107 @@ SORT_VFUNC(vsortd, double, d)
 #define sqrtd sqrt
 #define acosd acos
 
-#define NORM_VFUNC(NAME, TYPE, T)                                   \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    mpr_expr_val val = stk + idx * inc;                             \
-    register TYPE tmp = 0;                                          \
-    int i, len = dim[idx];                                          \
-    for (i = 0; i < len; i++)                                       \
-        tmp += pow##T(val[i].T, 2);                                 \
-    val[0].T = sqrt##T(tmp);                                        \
+#define NORM_VFUNC(NAME, TYPE, T)                           \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)   \
+{                                                           \
+    register TYPE tmp = 0;                                  \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++)                               \
+        tmp += pow##T(val[i].T, 2);                         \
+    val[0].T = sqrt##T(tmp);                                \
 }
 NORM_VFUNC(vnormf, float, f)
 NORM_VFUNC(vnormd, double, d)
 
-#define DOT_VFUNC(NAME, TYPE, T)                                    \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    register TYPE dot = 0;                                          \
-    mpr_expr_val a = stk + idx * inc, b = a + inc;                  \
-    int i, len = dim[idx];                                          \
-    for (i = 0; i < len; i++)                                       \
-        dot += a[i].T * b[i].T;                                     \
-    a[0].T = dot;                                                   \
+#define DOT_VFUNC(NAME, TYPE, T)                            \
+static void NAME(mpr_expr_val a, uint8_t *dim, int inc)     \
+{                                                           \
+    register TYPE dot = 0;                                  \
+    mpr_expr_val b = a + inc;                               \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++)                               \
+        dot += a[i].T * b[i].T;                             \
+    a[0].T = dot;                                           \
 }
 DOT_VFUNC(vdoti, int, i)
 DOT_VFUNC(vdotf, float, f)
 DOT_VFUNC(vdotd, double, d)
+
+#define INDEX_VFUNC(NAME, TYPE, T)                          \
+static void NAME(mpr_expr_val a, uint8_t *dim, int inc)     \
+{                                                           \
+    mpr_expr_val b = a + inc;                               \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++) {                             \
+        if (a[i].T == b[0].T) {                             \
+            a[0].T = (TYPE)i;                               \
+            return;                                         \
+        }                                                   \
+    }                                                       \
+    a[0].T = (TYPE)-1;                                      \
+}
+INDEX_VFUNC(vindexi, int, i)
+INDEX_VFUNC(vindexf, float, f)
+INDEX_VFUNC(vindexd, double, d)
 
 /* TODO: should we handle multidimensional angles as well? Problem with sign...
  * should probably have separate function for signed and unsigned: angle vs. rotation */
 /* TODO: quaternion functions */
 
 #define atan2d atan2
-#define ANGLE_VFUNC(NAME, TYPE, T)                                  \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    register TYPE theta;                                            \
-    mpr_expr_val a = stk + idx * inc, b = a + inc;                  \
-    theta = atan2##T(b[1].T, b[0].T) - atan2##T(a[1].T, a[0].T);    \
-    if (theta > M_PI)                                               \
-        theta -= 2 * M_PI;                                          \
-    else if (theta < -M_PI)                                         \
-        theta += 2 * M_PI;                                          \
-    a[0].T = theta;                                                 \
+#define ANGLE_VFUNC(NAME, TYPE, T)                              \
+static void NAME(mpr_expr_val a, uint8_t *dim, int inc)         \
+{                                                               \
+    register TYPE theta;                                        \
+    mpr_expr_val b = a + inc;                                   \
+    theta = atan2##T(b[1].T, b[0].T) - atan2##T(a[1].T, a[0].T);\
+    if (theta > M_PI)                                           \
+        theta -= 2 * M_PI;                                      \
+    else if (theta < -M_PI)                                     \
+        theta += 2 * M_PI;                                      \
+    a[0].T = theta;                                             \
 }
 ANGLE_VFUNC(vanglef, float, f)
 ANGLE_VFUNC(vangled, double, d)
 
-#define MAXMIN_VFUNC(NAME, TYPE, T)                                 \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    mpr_expr_val max = stk+idx*inc, min = max+inc, new = min+inc;   \
-    int i, len = dim[idx];                                          \
-    for (i = 0; i < len; i++) {                                     \
-        if (new[i].T > max[i].T)                                    \
-            max[i].T = new[i].T;                                    \
-        if (new[i].T < min[i].T)                                    \
-            min[i].T = new[i].T;                                    \
-    }                                                               \
+#define MAXMIN_VFUNC(NAME, TYPE, T)                         \
+static void NAME(mpr_expr_val max, uint8_t *dim, int inc)   \
+{                                                           \
+    mpr_expr_val min = max + inc, new = min + inc;          \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++) {                             \
+        if (new[i].T > max[i].T)                            \
+            max[i].T = new[i].T;                            \
+        if (new[i].T < min[i].T)                            \
+            min[i].T = new[i].T;                            \
+    }                                                       \
 }
 MAXMIN_VFUNC(vmaxmini, int, i)
 MAXMIN_VFUNC(vmaxminf, float, f)
 MAXMIN_VFUNC(vmaxmind, double, d)
 
-#define SUMNUM_VFUNC(NAME, TYPE, T)                                 \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)  \
-{                                                                   \
-    mpr_expr_val sum = stk+idx*inc, num = sum+inc, new = num+inc;   \
-    int i, len = dim[idx];                                          \
-    for (i = 0; i < len; i++) {                                     \
-        sum[i].T += new[i].T;                                       \
-        num[i].T += 1;                                              \
-    }                                                               \
+#define SUMNUM_VFUNC(NAME, TYPE, T)                         \
+static void NAME(mpr_expr_val sum, uint8_t *dim, int inc)   \
+{                                                           \
+    mpr_expr_val num = sum + inc, new = num + inc;          \
+    int i, len = dim[0];                                    \
+    for (i = 0; i < len; i++) {                             \
+        sum[i].T += new[i].T;                               \
+        num[i].T += 1;                                      \
+    }                                                       \
 }
 SUMNUM_VFUNC(vsumnumi, int, i)
 SUMNUM_VFUNC(vsumnumf, float, f)
 SUMNUM_VFUNC(vsumnumd, double, d)
 
 #define CONCAT_VFUNC(NAME, TYPE, T)                                     \
-static void NAME(mpr_expr_val stk, uint8_t *dim, int idx, int inc)      \
+static void NAME(mpr_expr_val cat, uint8_t *dim, int inc)               \
 {                                                                       \
-    mpr_expr_val cat = stk+idx*inc, num = cat+inc, new = num+inc;       \
-    uint8_t i, j, newlen = dim[idx+2];                                  \
-    for (i = dim[idx], j = 0; j < newlen && i < (int)num[0].T; i++, j++)\
+    mpr_expr_val num = cat + inc, new = num + inc;                      \
+    uint8_t i, j, newlen = dim[2];                                      \
+    for (i = dim[0], j = 0; j < newlen && i < (int)num[0].T; i++, j++)  \
         cat[i].T = new[j].T;                                            \
-    dim[idx] = i;                                                       \
+    dim[0] = i;                                                         \
 }
 CONCAT_VFUNC(vconcati, int, i)
 CONCAT_VFUNC(vconcatf, float, f)
@@ -542,6 +562,8 @@ typedef enum {
     VFN_SUMNUM,
     VFN_ANGLE,
     VFN_DOT,
+    VFN_INDEX,
+    VFN_LENGTH,
     N_VFN
 } expr_vfn_t;
 
@@ -550,9 +572,9 @@ static struct {
     uint8_t arity;
     uint8_t reduce; /* TODO: use bitflags */
     uint8_t dot_notation;
-    void (*fn_int)(mpr_expr_val, uint8_t*, int, int);
-    void (*fn_flt)(mpr_expr_val, uint8_t*, int, int);
-    void (*fn_dbl)(mpr_expr_val, uint8_t*, int, int);
+    void (*fn_int)(mpr_expr_val, uint8_t*, int);
+    void (*fn_flt)(mpr_expr_val, uint8_t*, int);
+    void (*fn_dbl)(mpr_expr_val, uint8_t*, int);
 } vfn_tbl[] = {
     { "all",    1, 1, 1, valli,    vallf,    valld    },
     { "any",    1, 1, 1, vanyi,    vanyf,    vanyd    },
@@ -567,7 +589,9 @@ static struct {
     { "maxmin", 3, 0, 0, vmaxmini, vmaxminf, vmaxmind },
     { "sumnum", 3, 0, 0, vsumnumi, vsumnumf, vsumnumd },
     { "angle",  2, 1, 0, 0,        vanglef,  vangled  },
-    { "dot",    2, 1, 0, vdoti,    vdotf,    vdotd    }
+    { "dot",    2, 1, 0, vdoti,    vdotf,    vdotd    },
+    { "index",  2, 1, 1, vindexi,  vindexf,  vindexd  },
+    { "length", 1, 1, 1, vleni,    vlenf,    vlend    }
 };
 
 typedef enum {
@@ -633,7 +657,7 @@ typedef double fn_dbl_arity1(double);
 typedef double fn_dbl_arity2(double,double);
 typedef double fn_dbl_arity3(double,double,double);
 typedef double fn_dbl_arity4(double,double,double,double);
-typedef void vfn_template(mpr_expr_val, uint8_t*, int, int);
+typedef void vfn_template(mpr_expr_val, uint8_t*, int);
 
 /* Const special flags */
 #define CONST_MINVAL    0x0001
@@ -1613,7 +1637,7 @@ static mpr_type promote_token(mpr_token_t *stk, int sp, mpr_type type, int vec_l
         return type;
     }
     else {
-        if (MPR_INT32 == tok->gen.datatype || MPR_DBL == type) {
+        if (!(tok->gen.flags & TYPE_LOCKED) && (MPR_INT32 == tok->gen.datatype || MPR_DBL == type)) {
             tok->gen.datatype = type;
             return type;
         }
@@ -1770,7 +1794,7 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                 can_precompute = 0;
             break;
         case TOK_VFN:
-            if (VFN_CONCAT == stk[sp].fn.idx)
+            if (VFN_CONCAT == stk[sp].fn.idx || VFN_LENGTH == stk[sp].fn.idx)
                 return sp;
             arity = vfn_tbl[stk[sp].fn.idx].arity;
             break;
@@ -2054,12 +2078,10 @@ static int check_assign_type_and_len(mpr_expr_stack eval_stk, mpr_token_t *stk, 
                                      mpr_var_t *vars)
 {
     int i = sp, j, optimize = 1, expr_len = 0;
-    uint8_t vec_len = 0;
     int8_t var = stk[sp].var.idx;
 
     while (i >= 0 && (stk[i].toktype & TOK_ASSIGN) && (stk[i].var.idx == var)) {
         int num_var_idx = NUM_VAR_IDXS(stk[i].gen.flags);
-        vec_len += stk[i].gen.vec_len;
         --i;
         for (j = 0; j < num_var_idx; j++)
             i -= substack_len(stk, i - j);
@@ -3098,7 +3120,10 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         max_vector = newtok.lit.val.i;
                     tok.gen.vec_len = 0;
 
-                    tok.gen.datatype = op[op_idx].gen.datatype;
+                    if (op[op_idx].gen.casttype)
+                        tok.gen.datatype = op[op_idx].gen.casttype;
+                    else
+                        tok.gen.datatype = op[op_idx].gen.datatype;
 
                     for (i = 0; i < sslen; i++) {
                         if (TOK_VAR == op[op_idx - i].toktype)
@@ -3115,7 +3140,7 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
 
                     GET_NEXT_TOKEN(newtok);
                     {FAIL_IF(TOK_CLOSE_PAREN != newtok.toktype, "missing right parenthesis.");}
-                    tok.gen.flags |= VEC_LEN_LOCKED | TYPE_LOCKED;
+                    tok.gen.flags |= VEC_LEN_LOCKED;
                 }
 
                 switch (rfn) {
@@ -4739,9 +4764,9 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
             }
             types[dp] = tok->gen.datatype;
             switch (types[dp]) {
-#define TYPED_CASE(MTYPE, FN)                                                       \
-                case MTYPE:                                                         \
-                    (((vfn_template*)vfn_tbl[tok->fn.idx].FN)(stk, dims, dp, vlen));\
+#define TYPED_CASE(MTYPE, FN)                                                               \
+                case MTYPE:                                                                 \
+                    (((vfn_template*)vfn_tbl[tok->fn.idx].FN)(stk + sp, dims + dp, vlen));  \
                     break;
                 TYPED_CASE(MPR_INT32, fn_int)
                 TYPED_CASE(MPR_FLT, fn_flt)

@@ -297,7 +297,8 @@ typedef void mpr_sig_handler(mpr_sig signal, mpr_sig_evt event, mpr_id instance,
                              mpr_type type, const void *value, mpr_time time);
 
 /*! Allocate and initialize a signal.  Values and strings pointed to by this call will be copied.
- *  For minimum and maximum values, type must match 'type' (if type=MPR_INT32, then int*, etc).
+ *  For minimum and maximum values, type must match 'type' (if type=MPR_INT32, then int*, etc) and
+ *  length must match 'length' (i.e. a scalar if length=1, or an array of length 'length').
  *  \param parent           The object to add a signal to.
  *  \param direction    	The signal direction.
  *  \param name             The name of the signal.
@@ -306,7 +307,7 @@ typedef void mpr_sig_handler(mpr_sig signal, mpr_sig_evt event, mpr_id instance,
  *  \param unit             The unit of the signal, or 0 for none.
  *  \param minimum          Pointer to a minimum value, or 0 for none.
  *  \param maximum          Pointer to a maximum value, or 0 for none.
- *  \param num_instances    Pointer to the number of signal instances or 0 to indicate that
+ *  \param num_instances    Pointer to the number of signal instances, or 0 to indicate that
  *                          instances will not be used.
  *  \param handler          Function to be called when the value of the signal is updated.
  *  \param events           Bitflags for types of events we are interested in. Event types are
@@ -617,8 +618,9 @@ mpr_graph mpr_graph_new(int autosubscribe_types);
 
 /*! Specify network interface to use.
  *  \param graph        The graph structure to use.
- *  \param iface        The name of the network interface to use. */
-void mpr_graph_set_interface(mpr_graph graph, const char *iface);
+ *  \param iface        The name of the network interface to use.
+ *  \return             Zero if successful, non-zero otherwise. */
+int mpr_graph_set_interface(mpr_graph graph, const char *iface);
 
 /*! Return a string indicating the name of the network interface in use.
  *  \param graph        The graph structure to query.
@@ -629,8 +631,9 @@ const char *mpr_graph_get_interface(mpr_graph graph);
  *  \param graph        The graph structure to query.
  *  \param group        A string specifying the multicast group for bus communication with the
  *                      distributed graph.
- *  \param port         The port to use for multicast communication. */
-void mpr_graph_set_address(mpr_graph graph, const char *group, int port);
+ *  \param port         The port to use for multicast communication.
+ *  \return             Zero if successful, non-zero otherwise. */
+int mpr_graph_set_address(mpr_graph graph, const char *group, int port);
 
 /*! Retrieve the multicast group currently in use.
  *  \param graph        The graph structure to query.
