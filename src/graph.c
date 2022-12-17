@@ -759,7 +759,8 @@ void mpr_graph_remove_map(mpr_graph g, mpr_map m, mpr_graph_evt e)
 {
     RETURN_UNLESS(m);
     mpr_list_remove_item((void**)&g->maps, m);
-    mpr_graph_call_cbs(g, (mpr_obj)m, MPR_MAP, e);
+    if (m->status >= MPR_STATUS_ACTIVE)
+        mpr_graph_call_cbs(g, (mpr_obj)m, MPR_MAP, e);
     mpr_map_free(m);
     mpr_list_free_item(m);
 }
