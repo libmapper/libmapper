@@ -209,9 +209,12 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
 
         if (AF_INET == sa->sin_family && ifap->ifa_flags & IFF_UP
             && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0) {
+            trace("checking network interface '%s' (pref: '%s')\n", ifap->ifa_name, pref);
             ifchosen = ifap;
-            if (pref && 0 == strcmp(ifap->ifa_name, pref))
+            if (pref && 0 == strcmp(ifap->ifa_name, pref)) {
+                trace("  preferred interface found!\n");
                 break;
+            }
             else if (ifap->ifa_flags & IFF_LOOPBACK)
                 iflo = ifap;
         }
@@ -219,8 +222,10 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
     }
 
     /* Default to loopback address in case user is working locally. */
-    if (!ifchosen)
+    if (!ifchosen) {
+        trace("defaulting to local loopback interface\n");
         ifchosen = iflo;
+    }
 
     if (ifchosen) {
         FUNC_IF(free, *iface);
