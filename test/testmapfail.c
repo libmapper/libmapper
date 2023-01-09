@@ -204,7 +204,7 @@ int main(int argc, char **argv)
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {
                             i++;
                             iface = argv[i];
-                            j = 1;
+                            j = len;
                         }
                         break;
                     default:
