@@ -116,6 +116,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     sig->dir = dir ? dir : MPR_DIR_OUT;
     sig->unit = unit ? strdup(unit) : strdup("unknown");
     sig->ephemeral = 0;
+    sig->steal_mode = MPR_STEAL_NONE;
 
     if (sig->is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
