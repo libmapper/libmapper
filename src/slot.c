@@ -26,7 +26,7 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned
     slot->sig = sig;
     slot->is_local = is_local ? 1 : 0;
     slot->num_inst = 1;
-    slot->dir = (is_src == sig->is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
+    slot->dir = (is_src == sig->obj.is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
     slot->causes_update = 1; /* default */
     return slot;
 }
@@ -85,7 +85,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     a = mpr_msg_get_prop(msg, MPR_PROP_NUM_INST | mask);
     if (a && MPR_INT32 == a->types[0]) {
         int num_inst = a->vals[0]->i;
-        if (slot->is_local && !slot->sig->is_local && ((mpr_local_map)slot->map)->expr) {
+        if (slot->is_local && !slot->sig->obj.is_local && ((mpr_local_map)slot->map)->expr) {
             mpr_local_map map = (mpr_local_map)slot->map;
             int hist_size = 0;
             if (map->dst == (mpr_local_slot)slot)
@@ -117,7 +117,7 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst)
         snprintf(temp, 32, "@src.%d", (int)slot->id);
     len = strlen(temp);
 
-    if (slot->sig->is_local) {
+    if (slot->sig->obj.is_local) {
         /* include length from associated signal */
         snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_LEN, 0));
         lo_message_add_string(msg, temp);
@@ -172,7 +172,7 @@ int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
 void mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size)
 {
     RETURN_UNLESS(num_inst && hist_size && slot->sig->type && slot->sig->len);
-    if (slot->sig->is_local)
+    if (slot->sig->obj.is_local)
         num_inst = slot->sig->num_inst;
 
     /* reallocate memory */

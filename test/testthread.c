@@ -228,9 +228,9 @@ void loop1()
 
 void loop2()
 {
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
     mpr_dev_start_polling(dst);
 
-    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
     while ((!terminate || sent < 100) && !done) {
         eprintf("Updating signal %s to %d\n", name, sent);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &sent);
@@ -333,10 +333,10 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    // update signals in another thread
+    /* update signals in another thread */
     loop1();
 
-    // poll device in another thread
+    /* poll device in another thread */
     loop2();
 
     if (autoconnect && (!received || sent > received)) {

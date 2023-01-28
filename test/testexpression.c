@@ -80,9 +80,10 @@ void cleanup_src()
 void handler(mpr_sig sig, mpr_sig_evt event, mpr_id instance, int length,
              mpr_type type, const void *value, mpr_time t)
 {
+    float *fvalue;
     if (!value || length != 2)
         return;
-    float *fvalue = (float*)value;
+    fvalue = (float*)value;
     eprintf("handler: Got value [%f, %f], time %f\n", fvalue[0], fvalue[1], mpr_time_as_dbl(t));
     if (fvalue[0] != expected_val[0] || fvalue[1] != expected_val[1])
         eprintf("  error: expected value [%f, %f]\n", expected_val[0], expected_val[1]);

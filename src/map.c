@@ -111,11 +111,11 @@ void mpr_map_init(mpr_map m)
     mpr_tbl_link(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, REMOTE_MODIFY);
     mpr_tbl_link(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, REMOTE_MODIFY);
 
-    if (m->dst->sig->is_local)
+    if (m->dst->sig->obj.is_local)
         is_local = 1;
     else {
         for (i = 0; i < m->num_src; i++) {
-            if (m->src[i]->sig->is_local) {
+            if (m->src[i]->sig->obj.is_local) {
                 is_local = 1;
                 break;
             }
@@ -157,7 +157,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
                 return 0;
             }
         }
-        is_local += src[i]->is_local;
+        is_local += src[i]->obj.is_local;
     }
     /* Only 1 destination supported for now */
     RETURN_ARG_UNLESS(1 == num_dst, 0);
@@ -192,7 +192,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         trace("error in mpr_map_new(): multiple use of source signal.\n");
         return 0;
     }
-    if ((*dst)->is_local)
+    if ((*dst)->obj.is_local)
         ++is_local;
 
     m = (mpr_map)mpr_list_add_item((void**)&g->maps,
@@ -200,7 +200,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     m->obj.type = MPR_MAP;
     m->obj.graph = g;
     m->num_src = num_src;
-    m->is_local = 0;
+    m->obj.is_local = 0;
     m->bundle = 1;
     m->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
     for (i = 0; i < num_src; i++) {
@@ -228,7 +228,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     m->dst->dir = MPR_DIR_IN;
 
     /* we need to give the map a temporary id – this may be overwritten later */
-    if ((*dst)->dev->is_local)
+    if ((*dst)->dev->obj.is_local)
         m->obj.id = mpr_dev_generate_unique_id((*dst)->dev);
 
     mpr_map_init(m);
@@ -248,7 +248,7 @@ void mpr_map_refresh(mpr_map m)
 {
     RETURN_UNLESS(m);
     mpr_net_use_bus(&m->obj.graph->net);
-    mpr_map_send_state(m, -1, m->is_local ? MSG_MAP_TO : MSG_MAP);
+    mpr_map_send_state(m, -1, m->obj.is_local ? MSG_MAP_TO : MSG_MAP);
 }
 
 void mpr_map_free(mpr_map m)
@@ -834,7 +834,7 @@ static int _replace_expr_str(mpr_local_map m, const char *expr_str)
     out_mem = mpr_expr_get_out_hist_size(expr);
     if (!m->is_local_only && (out_mem > 1 && MPR_LOC_SRC == m->process_loc)) {
         m->process_loc = MPR_LOC_DST;
-        if (!m->dst->sig->is_local) {
+        if (!m->dst->sig->obj.is_local) {
             /* copy expression string but do not execute it */
             mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, REMOTE_MODIFY);
             mpr_expr_free(expr);
@@ -1179,8 +1179,8 @@ static int _set_expr(mpr_local_map m, const char *expr)
                           &m->dst->val, &now, types, i);
     }
     else {
-        if (!m->expr && (   (MPR_LOC_DST == m->process_loc && m->dst->sig->is_local)
-                         || (MPR_LOC_SRC == m->process_loc && m->src[0]->sig->is_local))) {
+        if (!m->expr && (   (MPR_LOC_DST == m->process_loc && m->dst->sig->obj.is_local)
+                         || (MPR_LOC_SRC == m->process_loc && m->src[0]->sig->obj.is_local))) {
             /* no previous expression, abort map */
             m->status = MPR_STATUS_EXPIRED;
         }
@@ -1192,7 +1192,7 @@ static int _set_expr(mpr_local_map m, const char *expr)
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
     /* TODO: should call handler for all instances updated through this map. */
-    if (mpr_expr_get_num_input_slots(m->expr) <= 0 && !m->use_inst && m->dst->sig->is_local) {
+    if (mpr_expr_get_num_input_slots(m->expr) <= 0 && !m->use_inst && m->dst->sig->obj.is_local) {
         /* call handler if it exists */
         mpr_sig sig = m->dst->sig;
         mpr_sig_handler *h = (mpr_sig_handler *)((mpr_local_sig)sig)->handler;
@@ -1220,7 +1220,7 @@ static void _check_status(mpr_local_map m)
         m->dst->status |= MPR_STATUS_LENGTH_KNOWN;
     if (m->dst->sig->type)
         m->dst->status |= MPR_STATUS_TYPE_KNOWN;
-    if (m->dst->rsig || (m->dst->link && m->dst->link->addr.udp))
+    if (m->dst->rsig || mpr_link_get_is_ready(m->dst->link))
         m->dst->status |= MPR_STATUS_LINK_KNOWN;
     m->status &= (m->dst->status | mask);
 
@@ -1229,7 +1229,7 @@ static void _check_status(mpr_local_map m)
             m->src[i]->status |= MPR_STATUS_LENGTH_KNOWN;
         if (m->src[i]->sig->type)
             m->src[i]->status |= MPR_STATUS_TYPE_KNOWN;
-        if (m->src[i]->rsig || (m->src[i]->link && m->src[i]->link->addr.udp))
+        if (m->src[i]->rsig || mpr_link_get_is_ready(m->src[i]->link))
             m->src[i]->status |= MPR_STATUS_LINK_KNOWN;
         m->status &= (m->src[i]->status | mask);
     }
@@ -1247,13 +1247,13 @@ static void _check_status(mpr_local_map m)
             mpr_link last = 0, link;
             if (m->dst->link) {
                 mpr_link_add_map(m->dst->link, 0);
-                m->dst->link->obj.props.synced->dirty = 1;
+                ((mpr_obj)m->dst->link)->props.synced->dirty = 1;
             }
             for (i = 0; i < m->num_src; i++) {
                 link = m->src[i]->link;
                 if (link && link != last) {
                     mpr_link_add_map(m->src[i]->link, 1);
-                    m->src[i]->link->obj.props.synced->dirty = 1;
+                    ((mpr_obj)m->src[i]->link)->props.synced->dirty = 1;
                     last = link;
                 }
             }
@@ -1299,13 +1299,13 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 /* these properties will be set by signal args */
                 break;
             case PROP(STATUS):
-                if (m->is_local)
+                if (m->obj.is_local)
                     break;
                 updated += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
                 break;
             case PROP(PROCESS_LOC): {
                 mpr_loc loc;
-                if (m->is_local && ((mpr_local_map)m)->is_local_only)
+                if (m->obj.is_local && ((mpr_local_map)m)->is_local_only)
                     break;
                 loc = mpr_loc_from_str(&(a->vals[0])->s);
                 if (loc == m->process_loc)
@@ -1314,7 +1314,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     trace("map process location is undefined!\n");
                     break;
                 }
-                if (m->is_local) {
+                if (m->obj.is_local) {
                     mpr_local_map lm = (mpr_local_map)m;
                     if (MPR_LOC_ANY == loc) {
                         /* no effect */
@@ -1354,7 +1354,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
             case PROP(EXPR): {
                 const char *expr_str = &a->vals[0]->s;
                 mpr_loc orig_loc = m->process_loc;
-                if (m->is_local && (m->status & MPR_STATUS_READY) == MPR_STATUS_READY) {
+                if (m->obj.is_local && (m->status & MPR_STATUS_READY) == MPR_STATUS_READY) {
                     mpr_local_map lm = (mpr_local_map)m;
                     if (!lm->is_local_only && strstr(expr_str, "y{-"))
                         lm->process_loc = MPR_LOC_DST;
@@ -1396,7 +1396,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
                                            MPR_INT32, &loc, REMOTE_MODIFY);
                 }
-                if (!m->is_local) {
+                if (!m->obj.is_local) {
                     /* remove any cached expression variables from table */
                     mpr_tbl_remove(tbl, MPR_PROP_EXTRA, "var@*", REMOTE_MODIFY);
                 }
@@ -1426,7 +1426,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
             }
             case PROP(USE_INST): {
                 int use_inst = a->types[0] == 'T';
-                if (m->is_local && m->use_inst && !use_inst) {
+                if (m->obj.is_local && m->use_inst && !use_inst) {
                     /* TODO: release map instances */
                 }
                 updated += mpr_tbl_set(tbl, PROP(USE_INST), NULL, 1, MPR_BOOL,
@@ -1442,7 +1442,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     }
                 }
                 else if (strncmp(a->key, "var@", 4)==0) {
-                    if (m->is_local && ((mpr_local_map)m)->expr) {
+                    if (m->obj.is_local && ((mpr_local_map)m)->expr) {
                         mpr_local_map lm = (mpr_local_map)m;
                         const char *name;
                         int k = 0, l, var_len;
@@ -1488,7 +1488,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                             break;
                         }
                     }
-                    if (m->is_local)
+                    if (m->obj.is_local)
                         break;
                     /* otherwise continue to mpr_tbl_set_from_atom() below */
                 }
@@ -1502,7 +1502,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
         }
     }
 done:
-    if (m->is_local && m->status < MPR_STATUS_READY) {
+    if (m->obj.is_local && m->status < MPR_STATUS_READY) {
         /* check if mapping is now "ready" */
         _check_status((mpr_local_map)m);
     }
@@ -1597,7 +1597,7 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
         mpr_slot_add_props_to_msg(msg, m->dst, 1);
 
     /* add public expression variables */
-    if (m->is_local && ((mpr_local_map)m)->expr) {
+    if (m->obj.is_local && ((mpr_local_map)m)->expr) {
         mpr_local_map lm = (mpr_local_map)m;
         int j, k, l;
         char varname[32];

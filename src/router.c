@@ -11,8 +11,9 @@
 #include "expression.h"
 #include "link.h"
 #include "map.h"
-#include "network.h"
 #include "mpr_signal.h"
+#include "network.h"
+#include "object.h"
 #include "router.h"
 #include "slot.h"
 #include "value.h"
@@ -69,13 +70,13 @@ void mpr_rtr_num_inst_changed(mpr_rtr rtr, mpr_local_sig sig, int size)
 
         if (MPR_DIR_OUT == map->dst->dir) {
             /* Inform remote destination */
-            mpr_net_use_mesh(rtr->net, map->dst->link->addr.admin);
+            mpr_net_use_mesh(rtr->net, mpr_link_get_admin_addr(map->dst->link));
             mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
         }
         else {
             /* Inform remote sources */
             for (i = 0; i < map->num_src; i++) {
-                mpr_net_use_mesh(rtr->net, map->src[i]->link->addr.admin);
+                mpr_net_use_mesh(rtr->net, mpr_link_get_admin_addr(map->src[i]->link));
                 i = mpr_map_send_state((mpr_map)map, ((mpr_local_map)map)->one_src ? -1 : i,
                                        MSG_MAPPED);
             }
@@ -243,7 +244,8 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
         if (all) {
             /* find a source signal with more instances */
             for (j = 0; j < map->num_src; j++)
-                if (map->src[j]->sig->is_local && map->src[j]->num_inst > slot->num_inst)
+                if (   mpr_obj_get_is_local((mpr_obj)map->src[j]->sig)
+                    && map->src[j]->num_inst > slot->num_inst)
                     sig = (mpr_local_sig)map->src[j]->sig;
             idmap_idx = 0;
         }
@@ -328,32 +330,35 @@ static mpr_id _get_unused_map_id(mpr_local_dev dev, mpr_rtr rtr)
 
 static void _add_local_slot(mpr_rtr rtr, mpr_local_slot slot, int is_src, int *use_inst)
 {
-    slot->dir = (is_src ^ (slot->sig->is_local ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT;
-    if (slot->sig->is_local) {
+    int is_local = mpr_obj_get_is_local((mpr_obj)slot->sig);
+    slot->dir = (is_src ^ (is_local ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT;
+    if (is_local) {
         slot->rsig = _add_rtr_sig(rtr, (mpr_local_sig)slot->sig);
         _store_slot(slot->rsig, slot);
 
         if (slot->sig->use_inst)
             *use_inst = 1;
     }
-    if (!slot->sig->is_local || (is_src && slot->map->dst->sig->is_local))
+    if (!is_local || (is_src && mpr_obj_get_is_local((mpr_obj)slot->map->dst->sig)))
         slot->link = mpr_link_new(rtr->dev, slot->sig->dev);
 
     /* set some sensible defaults */
     slot->causes_update = 1;
 }
 
+/* The obj.is_local flag is used to keep track of whether the map has been added to the router.
+ * TODO: consider looking up map in router instead. */
 void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
 {
     int i, local_src = 0, local_dst, use_inst = 0, scope_count;
-    RETURN_UNLESS(!map->is_local);
+    RETURN_UNLESS(!mpr_obj_get_is_local((mpr_obj)map));
     for (i = 0; i < map->num_src; i++) {
-        if (map->src[i]->sig->is_local)
+        if (mpr_obj_get_is_local((mpr_obj)map->src[i]->sig))
             ++local_src;
     }
-    local_dst = map->dst->sig->is_local ? 1 : 0;
+    local_dst = mpr_obj_get_is_local((mpr_obj)map->dst->sig);
     map->rtr = rtr;
-    map->is_local = 1;
+    mpr_obj_set_is_local((mpr_obj)map, 1);
 
     /* TODO: configure number of instances available for each slot */
     map->num_inst = 0;

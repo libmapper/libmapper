@@ -9,6 +9,7 @@
 #include "device.h"
 #include "list.h"
 #include "mpr_type.h"
+#include "object.h"
 #include "property.h"
 #include "util/mpr_debug.h"
 #include <mapper/mapper.h>
@@ -488,25 +489,27 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             /* just print device name */
             if (1 == len) {
                 mpr_dev d = (mpr_dev)val;
-                printf("'%s%s', ", mpr_dev_get_name(d), d->is_local ? "*" : "");
+                printf("'%s%s', ", mpr_dev_get_name(d), mpr_obj_get_is_local((mpr_obj)d) ? "*" : "");
             }
             else {
-                mpr_dev *dev = (mpr_dev*)val;
+                mpr_dev *d = (mpr_dev*)val;
                 for (i = 0; i < len; i++)
-                    printf("'%s%s', ", mpr_dev_get_name(dev[i]), dev[i]->is_local ? "*" : "");
+                    printf("'%s%s', ", mpr_dev_get_name(d[i]),
+                           mpr_obj_get_is_local((mpr_obj)d[i]) ? "*" : "");
             }
             break;
         case MPR_SIG: {
             /* just print signal name */
             if (1 == len) {
                 mpr_sig s = (mpr_sig)val;
-                printf("'%s:%s%s', ", mpr_dev_get_name(s->dev), s->name, s->is_local ? "*" : "");
+                printf("'%s:%s%s', ", mpr_dev_get_name(s->dev), s->name,
+                       mpr_obj_get_is_local((mpr_obj)s) ? "*" : "");
             }
             else {
                 mpr_sig *s = (mpr_sig*)val;
                 for (i = 0; i < len; i++)
                     printf("'%s:%s%s', ", mpr_dev_get_name(s[i]->dev), s[i]->name,
-                           s[i]->is_local ? "*" : "");
+                           mpr_obj_get_is_local((mpr_obj)s[i]) ? "*" : "");
             }
             break;
         }

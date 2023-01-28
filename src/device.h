@@ -14,7 +14,7 @@
 {                                                                                   \
     if (!DEV)                                                                       \
         printf("\x1B[32m-- <device>\x1B[0m ");                                      \
-    else if (DEV->is_local && ((mpr_local_dev)DEV)->registered)                     \
+    else if (DEV->obj.is_local && ((mpr_local_dev)DEV)->registered)                 \
         printf("\x1B[32m-- <device '%s'>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV)); \
     else                                                                            \
         printf("\x1B[32m-- <device '%s.?'::%p>\x1B[0m ", DEV->prefix, DEV);         \
@@ -40,8 +40,7 @@
     int num_maps_out;   /*!< Number of associated outgoing maps. */     \
     int num_linked;     /*!< Number of linked devices. */               \
     int status;                                                         \
-    uint8_t subscribed;                                                 \
-    int is_local;
+    uint8_t subscribed;
 
 /*! A record that keeps information about a device. */
 struct _mpr_dev {

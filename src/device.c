@@ -76,12 +76,12 @@ static int cmp_qry_dev_sigs(const void *context_data, mpr_sig sig)
 
 void init_dev_prop_tbl(mpr_dev dev)
 {
-    int mod = dev->is_local ? NON_MODIFIABLE : MODIFIABLE;
+    int mod = dev->obj.is_local ? NON_MODIFIABLE : MODIFIABLE;
     mpr_tbl tbl;
     mpr_list qry;
 
     dev->obj.props.synced = mpr_tbl_new();
-    if (!dev->is_local)
+    if (!dev->obj.is_local)
         dev->obj.props.staged = mpr_tbl_new();
     tbl = dev->obj.props.synced;
 
@@ -97,7 +97,7 @@ void init_dev_prop_tbl(mpr_dev dev)
     mpr_tbl_link(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, mod);
     mpr_tbl_link(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, mod);
     mpr_tbl_link(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, mod);
-    if (!dev->is_local) {
+    if (!dev->obj.is_local) {
         qry = mpr_list_new_query((const void**)&dev->obj.graph->sigs, (void*)cmp_qry_dev_sigs,
                                  "hi", dev->obj.id, MPR_DIR_ANY);
         mpr_tbl_link(tbl, PROP(SIG), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
@@ -106,9 +106,9 @@ void init_dev_prop_tbl(mpr_dev dev)
     mpr_tbl_link(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, mod);
 
-    if (dev->is_local)
+    if (dev->obj.is_local)
         mpr_tbl_set(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, NON_MODIFIABLE);
-    mpr_tbl_set(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &dev->is_local,
+    mpr_tbl_set(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &dev->obj.is_local,
                 LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
 }
 
@@ -130,7 +130,7 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     dev = (mpr_local_dev)mpr_list_add_item((void**)&g->devs, sizeof(mpr_local_dev_t));
     dev->obj.type = MPR_DEV;
     dev->obj.graph = g;
-    dev->is_local = 1;
+    dev->obj.is_local = 1;
 
     init_dev_prop_tbl((mpr_dev)dev);
 
@@ -169,7 +169,7 @@ void mpr_dev_free(mpr_dev dev)
     mpr_local_dev ldev;
     mpr_list list;
     int i;
-    RETURN_UNLESS(dev && dev->is_local);
+    RETURN_UNLESS(dev && dev->obj.is_local);
     if (!dev->obj.graph) {
         free(dev);
         return;
@@ -206,7 +206,7 @@ void mpr_dev_free(mpr_dev dev)
     while (list) {
         mpr_local_sig sig = (mpr_local_sig)*list;
         list = mpr_list_get_next(list);
-        if (sig->is_local) {
+        if (sig->obj.is_local) {
             /* release active instances */
             for (i = 0; i < sig->idmap_len; i++) {
                 if (sig->idmaps[i].inst)
@@ -228,7 +228,7 @@ void mpr_dev_free(mpr_dev dev)
     }
 
     /* Release links to other devices */
-    list = mpr_dev_get_links(dev, MPR_DIR_ANY);
+    list = mpr_dev_get_links(dev, MPR_DIR_UNDEFINED);
     while (list) {
         mpr_link link = (mpr_link)*list;
         list = mpr_list_get_next(list);
@@ -584,7 +584,7 @@ mpr_id mpr_dev_get_unused_sig_id(mpr_local_dev dev)
 
 void mpr_dev_add_sig_methods(mpr_local_dev dev, mpr_local_sig sig)
 {
-    RETURN_UNLESS(sig && sig->is_local);
+    RETURN_UNLESS(sig && sig->obj.is_local);
     lo_server_add_method(dev->servers[SERVER_UDP], sig->path, NULL, mpr_dev_handler, (void*)sig);
     lo_server_add_method(dev->servers[SERVER_TCP], sig->path, NULL, mpr_dev_handler, (void*)sig);
     ++dev->n_output_callbacks;
@@ -592,7 +592,7 @@ void mpr_dev_add_sig_methods(mpr_local_dev dev, mpr_local_sig sig)
 
 void mpr_dev_remove_sig_methods(mpr_local_dev dev, mpr_local_sig sig)
 {
-    RETURN_UNLESS(sig && sig->is_local);
+    RETURN_UNLESS(sig && sig->obj.is_local);
     lo_server_del_method(dev->servers[SERVER_UDP], sig->path, NULL);
     lo_server_del_method(dev->servers[SERVER_TCP], sig->path, NULL);
     --dev->n_output_callbacks;
@@ -654,19 +654,17 @@ static int cmp_qry_dev_links(const void *context_data, mpr_link link)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
     mpr_dir dir = *(int*)((char*)context_data + sizeof(mpr_id));
-    if (link->devs[0]->obj.id == dev_id) {
-        switch (dir) {
-            case MPR_DIR_BOTH:  return link->num_maps[0] && link->num_maps[1];
-            case MPR_DIR_IN:    return link->num_maps[1];
-            case MPR_DIR_OUT:   return link->num_maps[0];
-            default:            return 1;
-        }
+    mpr_dev dev = mpr_link_get_dev(link, 0);
+    if (dev->obj.id == dev_id) {
+        return MPR_DIR_UNDEFINED == dir ? 1 : mpr_link_get_has_maps(link, dir);
     }
-    else if (link->devs[1]->obj.id == dev_id) {
+    dev = mpr_link_get_dev(link, 1);
+    if (dev->obj.id == dev_id) {
         switch (dir) {
-            case MPR_DIR_BOTH:  return link->num_maps[0] && link->num_maps[1];
-            case MPR_DIR_IN:    return link->num_maps[0];
-            case MPR_DIR_OUT:   return link->num_maps[1];
+            case MPR_DIR_ANY:
+            case MPR_DIR_BOTH:  return mpr_link_get_has_maps(link, dir);
+            case MPR_DIR_IN:    return mpr_link_get_has_maps(link, MPR_DIR_OUT);
+            case MPR_DIR_OUT:   return mpr_link_get_has_maps(link, MPR_DIR_IN);
             default:            return 1;
         }
     }
@@ -689,9 +687,9 @@ mpr_link mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote)
     links = mpr_list_from_data(dev->obj.graph->links);
     while (links) {
         mpr_link link = (mpr_link)*links;
-        if (link->devs[0] == (mpr_dev)dev && link->devs[1] == remote)
+        if (mpr_link_get_dev(link, 0) == (mpr_dev)dev && mpr_link_get_dev(link, 1) == remote)
             return link;
-        if (link->devs[1] == (mpr_dev)dev && link->devs[0] == remote)
+        if (mpr_link_get_dev(link, 1) == (mpr_dev)dev && mpr_link_get_dev(link, 0) == remote)
             return link;
         links = mpr_list_get_next(links);
     }
@@ -712,7 +710,7 @@ MPR_INLINE static void _process_incoming_maps(mpr_local_dev dev)
     while (maps) {
         mpr_local_map map = *(mpr_local_map*)maps;
         maps = mpr_list_get_next(maps);
-        if (map->is_local && map->updated && map->expr && !map->muted)
+        if (map->obj.is_local && map->updated && map->expr && !map->muted)
             mpr_map_receive(map, dev->time);
     }
 }
@@ -732,7 +730,7 @@ MPR_INLINE static int _process_outgoing_maps(mpr_local_dev dev)
     while (list) {
         mpr_local_map map = *(mpr_local_map*)list;
         list = mpr_list_get_next(list);
-        if (map->is_local && map->updated && map->expr && !map->muted)
+        if (map->obj.is_local && map->updated && map->expr && !map->muted)
             mpr_map_send(map, dev->time);
     }
     dev->sending = 0;
@@ -745,7 +743,7 @@ MPR_INLINE static int _process_outgoing_maps(mpr_local_dev dev)
 }
 
 void mpr_dev_update_maps(mpr_dev dev) {
-    RETURN_UNLESS(dev && dev->is_local);
+    RETURN_UNLESS(dev && dev->obj.is_local);
     ((mpr_local_dev)dev)->time_is_stale = 1;
     if (!((mpr_local_dev)dev)->polling)
         _process_outgoing_maps((mpr_local_dev)dev);
@@ -756,7 +754,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     int admin_count = 0, device_count = 0, status[4];
     mpr_local_dev ldev = (mpr_local_dev)dev;
     mpr_net net;
-    RETURN_ARG_UNLESS(dev && dev->is_local, 0);
+    RETURN_ARG_UNLESS(dev && dev->obj.is_local, 0);
     net = &dev->obj.graph->net;
     mpr_net_poll(net);
     mpr_graph_housekeeping(dev->obj.graph);
@@ -863,7 +861,7 @@ int mpr_dev_start_polling(mpr_dev dev)
 {
     mpr_thread_data td;
     int result = 0;
-    RETURN_ARG_UNLESS(dev && dev->is_local, 0);
+    RETURN_ARG_UNLESS(dev && dev->obj.is_local, 0);
     if (((mpr_local_dev)dev)->thread_data)
         return 0;
 
@@ -897,7 +895,7 @@ int mpr_dev_stop_polling(mpr_dev dev)
 {
     mpr_thread_data td;
     int result = 0;
-    RETURN_ARG_UNLESS(dev && dev->is_local, 0);
+    RETURN_ARG_UNLESS(dev && dev->obj.is_local, 0);
     td = ((mpr_local_dev)dev)->thread_data;
     if (!td || !td->is_active)
         return 0;
@@ -931,7 +929,7 @@ int mpr_dev_stop_polling(mpr_dev dev)
 
 mpr_time mpr_dev_get_time(mpr_dev dev)
 {
-    RETURN_ARG_UNLESS(dev && dev->is_local, MPR_NOW);
+    RETURN_ARG_UNLESS(dev && dev->obj.is_local, MPR_NOW);
     if (((mpr_local_dev)dev)->time_is_stale)
         mpr_dev_set_time(dev, MPR_NOW);
     return ((mpr_local_dev)dev)->time;
@@ -939,7 +937,7 @@ mpr_time mpr_dev_get_time(mpr_dev dev)
 
 void mpr_dev_set_time(mpr_dev dev, mpr_time time)
 {
-    RETURN_UNLESS(dev && dev->is_local
+    RETURN_UNLESS(dev && dev->obj.is_local
                   && memcmp(&time, &((mpr_local_dev)dev)->time, sizeof(mpr_time)));
     mpr_time_set(&((mpr_local_dev)dev)->time, time);
     ((mpr_local_dev)dev)->time_is_stale = 0;
@@ -1107,8 +1105,8 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
 const char *mpr_dev_get_name(mpr_dev dev)
 {
     unsigned int len;
-    RETURN_ARG_UNLESS(!dev->is_local || (   ((mpr_local_dev)dev)->registered
-                                         && ((mpr_local_dev)dev)->ordinal_allocator.locked), 0);
+    RETURN_ARG_UNLESS(!dev->obj.is_local || (   ((mpr_local_dev)dev)->registered
+                                             && ((mpr_local_dev)dev)->ordinal_allocator.locked), 0);
     if (dev->name)
         return dev->name;
     len = strlen(dev->prefix) + 6;
@@ -1128,7 +1126,7 @@ mpr_id mpr_dev_generate_unique_id(mpr_dev dev)
     mpr_id id;
     RETURN_ARG_UNLESS(dev, 0);
     id = ++dev->obj.graph->resource_counter;
-    if (dev->is_local && ((mpr_local_dev)dev)->registered)
+    if (dev->obj.is_local && ((mpr_local_dev)dev)->registered)
         id |= dev->obj.id;
     return id;
 }
@@ -1142,7 +1140,7 @@ void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd)
     lo_message_add_string(msg, mpr_dev_get_name((mpr_dev)dev));
 
     /* properties */
-    mpr_tbl_add_to_msg(dev->is_local ? dev->obj.props.synced : 0, dev->obj.props.staged, msg);
+    mpr_tbl_add_to_msg(dev->obj.is_local ? dev->obj.props.synced : 0, dev->obj.props.staged, msg);
 
     if (cmd == MSG_DEV_MOD) {
         char str[1024];
@@ -1260,7 +1258,7 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
         mpr_msg_atom a = &m->atoms[i];
         switch (MASK_PROP_BITFLAGS(a->prop)) {
             case PROP(LINKED):
-                if (!dev->is_local && mpr_type_get_is_str(a->types[0]))
+                if (!dev->obj.is_local && mpr_type_get_is_str(a->types[0]))
                     updated += mpr_dev_update_linked(dev, a);
                 break;
             default:
@@ -1288,10 +1286,10 @@ int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
         mpr_map m = (mpr_map)*l;
         int i, ready = 1;
         l = mpr_list_get_next(l);
-        if (m->dst->sig->is_local && !((mpr_local_dev)m->dst->sig->dev)->registered)
+        if (m->dst->sig->obj.is_local && !((mpr_local_dev)m->dst->sig->dev)->registered)
             continue;
         for (i = 0; i < m->num_src; i++) {
-            if (m->src[i]->sig->is_local && !((mpr_local_dev)m->src[i]->sig->dev)->registered) {
+            if (m->src[i]->sig->obj.is_local && !((mpr_local_dev)m->src[i]->sig->dev)->registered) {
                 ready = 0;
                 break;
             }

@@ -185,8 +185,8 @@ void loop()
         i++;
 
         if (i == 25) {
-            eprintf("setting sendsig direction to INPUT\n");
             int dir = MPR_DIR_IN;
+            eprintf("setting sendsig direction to INPUT\n");
             mpr_obj_set_prop(sendsig, MPR_PROP_DIR, NULL, 1, MPR_INT32, &dir, 1);
             mpr_obj_push(sendsig);
         }

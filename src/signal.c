@@ -11,9 +11,9 @@
 #include "device.h"
 #include "graph.h"
 #include "list.h"
-#include "network.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
+#include "network.h"
 #include "object.h"
 #include "path.h"
 #include "router.h"
@@ -62,7 +62,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     mpr_local_sig lsig;
 
     /* For now we only allow adding signals to devices. */
-    RETURN_ARG_UNLESS(dev && dev->is_local, 0);
+    RETURN_ARG_UNLESS(dev && dev->obj.is_local, 0);
     RETURN_ARG_UNLESS(name && !check_sig_length(len) && mpr_type_get_is_num(type), 0);
     TRACE_RETURN_UNLESS(name[strlen(name)-1] != '/', 0,
                         "trailing slash detected in signal name.\n");
@@ -79,7 +79,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     lsig->period = -1;
     lsig->handler = (void*)h;
     lsig->event_flags = events;
-    lsig->is_local = 1;
+    lsig->obj.is_local = 1;
     mpr_sig_init((mpr_sig)lsig, dir, name, len, type, unit, min, max, num_inst);
 
     if (dir == MPR_DIR_IN)
@@ -118,7 +118,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     sig->ephemeral = 0;
     sig->steal_mode = MPR_STEAL_NONE;
 
-    if (sig->is_local) {
+    if (sig->obj.is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
         sig->num_inst = 0;
         lsig->vec_known = calloc(1, len / 8 + 1);
@@ -149,8 +149,8 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     sig->obj.props.synced = mpr_tbl_new();
 
     tbl = sig->obj.props.synced;
-    loc_mod = sig->is_local ? MODIFIABLE : NON_MODIFIABLE;
-    rem_mod = sig->is_local ? NON_MODIFIABLE : MODIFIABLE;
+    loc_mod = sig->obj.is_local ? MODIFIABLE : NON_MODIFIABLE;
+    rem_mod = sig->obj.is_local ? NON_MODIFIABLE : MODIFIABLE;
 
     /* these properties need to be added in alphabetical order */
     mpr_tbl_link(tbl, PROP(DATA), 1, MPR_PTR, &sig->obj.data,
@@ -178,7 +178,8 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
     if (max)
         mpr_tbl_set(tbl, PROP(MAX), NULL, len, type, max, LOCAL_MODIFY);
 
-    mpr_tbl_set(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &sig->is_local, LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+    mpr_tbl_set(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &sig->obj.is_local,
+                LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
 }
 
 void mpr_sig_free(mpr_sig sig)
@@ -189,7 +190,7 @@ void mpr_sig_free(mpr_sig sig)
     mpr_local_sig lsig = (mpr_local_sig)sig;
     mpr_rtr rtr;
     mpr_rtr_sig rs;
-    RETURN_UNLESS(sig && sig->is_local);
+    RETURN_UNLESS(sig && sig->obj.is_local);
     ldev = (mpr_local_dev)sig->dev;
 
     /* release active instances */
@@ -233,7 +234,7 @@ void mpr_sig_free_internal(mpr_sig sig)
 {
     int i;
     RETURN_UNLESS(sig);
-    if (sig->is_local) {
+    if (sig->obj.is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
         /* Free instances */
         for (i = 0; i < lsig->idmap_len; i++) {
@@ -345,7 +346,7 @@ mpr_id mpr_sig_get_oldest_inst_id(mpr_sig sig)
 {
     int idx;
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    RETURN_ARG_UNLESS(sig && sig->is_local, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
     RETURN_ARG_UNLESS(sig->ephemeral, lsig->idmaps[0].map->LID);
     idx = _oldest_inst((mpr_local_sig)sig);
     return (idx >= 0) ? lsig->idmaps[idx].map->LID : 0;
@@ -379,7 +380,7 @@ mpr_id mpr_sig_get_newest_inst_id(mpr_sig sig)
 {
     int idx;
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    RETURN_ARG_UNLESS(sig && sig->is_local, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
     RETURN_ARG_UNLESS(sig->ephemeral, lsig->idmaps[0].map->LID);
     idx = _newest_inst((mpr_local_sig)sig);
     return (idx >= 0) ? lsig->idmaps[idx].map->LID : 0;
@@ -608,7 +609,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
 {
     int i = 0, count = 0, highest = -1, result, old_num = sig->num_inst;
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    RETURN_ARG_UNLESS(sig && sig->is_local && num, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local && num, 0);
     sig->use_inst = 1;
 
     if (lsig->num_inst == 1 && !lsig->inst[0]->id && !lsig->inst[0]->data) {
@@ -647,7 +648,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
 int mpr_sig_get_inst_is_active(mpr_sig sig, mpr_id id)
 {
     int idmap_idx;
-    RETURN_ARG_UNLESS(sig && sig->is_local, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
     RETURN_ARG_UNLESS(sig->ephemeral, 1);
 
     idmap_idx = mpr_sig_get_idmap_with_LID((mpr_local_sig)sig, id, 0, MPR_NOW, 0);
@@ -726,7 +727,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     mpr_local_sig lsig = (mpr_local_sig)sig;
     mpr_sig_inst si;
     RETURN_UNLESS(sig);
-    if (!sig->is_local) {
+    if (!sig->obj.is_local) {
         _mpr_remote_sig_set_value(sig, len, type, val);
         return;
     }
@@ -778,7 +779,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id)
 {
     int idmap_idx;
-    RETURN_UNLESS(sig && sig->is_local && sig->ephemeral);
+    RETURN_UNLESS(sig && sig->obj.is_local && sig->ephemeral);
     idmap_idx = mpr_sig_get_idmap_with_LID((mpr_local_sig)sig, id, RELEASED_REMOTELY, MPR_NOW, 0);
     if (idmap_idx >= 0)
         mpr_sig_release_inst_internal((mpr_local_sig)sig, idmap_idx);
@@ -816,7 +817,7 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
 {
     int i, remove_idx;
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    RETURN_UNLESS(sig && sig->is_local && sig->use_inst);
+    RETURN_UNLESS(sig && sig->obj.is_local && sig->use_inst);
     for (i = 0; i < lsig->num_inst; i++) {
         if (lsig->inst[i]->id == id)
             break;
@@ -854,7 +855,7 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
     mpr_local_sig lsig = (mpr_local_sig)sig;
     mpr_sig_inst si;
     mpr_time now;
-    RETURN_ARG_UNLESS(sig && sig->is_local, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
 
     if (!lsig->use_inst)
         si = lsig->idmaps[0].inst;
@@ -876,7 +877,7 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
 int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
 {
     int i, j;
-    RETURN_ARG_UNLESS(sig && sig->is_local, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
     RETURN_ARG_UNLESS(sig->ephemeral, sig->num_inst);
     if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED))
         return sig->num_inst;
@@ -892,7 +893,7 @@ mpr_id mpr_sig_get_inst_id(mpr_sig sig, int idx, mpr_status status)
 {
     int i, j;
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    RETURN_ARG_UNLESS(sig && sig->is_local && sig->use_inst, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local && sig->use_inst, 0);
     RETURN_ARG_UNLESS(idx >= 0 && idx < sig->num_inst, 0);
     if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED))
         return lsig->inst[idx]->id;
@@ -910,7 +911,7 @@ int mpr_sig_activate_inst(mpr_sig sig, mpr_id id)
 {
     int idmap_idx;
     mpr_time time;
-    RETURN_ARG_UNLESS(sig && sig->is_local && sig->use_inst, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local && sig->use_inst, 0);
     time = mpr_dev_get_time(sig->dev);
     idmap_idx = mpr_sig_get_idmap_with_LID((mpr_local_sig)sig, id, 0, time, 1);
     return idmap_idx >= 0;
@@ -919,7 +920,7 @@ int mpr_sig_activate_inst(mpr_sig sig, mpr_id id)
 void mpr_sig_set_inst_data(mpr_sig sig, mpr_id id, const void *data)
 {
     mpr_sig_inst si;
-    RETURN_UNLESS(sig && sig->is_local && sig->use_inst);
+    RETURN_UNLESS(sig && sig->obj.is_local && sig->use_inst);
     si = _find_inst_by_id((mpr_local_sig)sig, id);
     if (si)
         si->data = (void*)data;
@@ -928,7 +929,7 @@ void mpr_sig_set_inst_data(mpr_sig sig, mpr_id id, const void *data)
 void *mpr_sig_get_inst_data(mpr_sig sig, mpr_id id)
 {
     mpr_sig_inst si;
-    RETURN_ARG_UNLESS(sig && sig->is_local && sig->use_inst, 0);
+    RETURN_ARG_UNLESS(sig && sig->obj.is_local && sig->use_inst, 0);
     si = _find_inst_by_id((mpr_local_sig)sig, id);
     return si ? si->data : 0;
 }
@@ -938,7 +939,7 @@ void *mpr_sig_get_inst_data(mpr_sig sig, mpr_id id)
 void mpr_sig_set_cb(mpr_sig sig, mpr_sig_handler *h, int events)
 {
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    RETURN_UNLESS(sig && sig->is_local);
+    RETURN_UNLESS(sig && sig->obj.is_local);
     if (!lsig->handler && h && events) {
         /* Need to register a new liblo methods */
         mpr_dev_add_sig_methods((mpr_local_dev)sig->dev, lsig);
@@ -1046,7 +1047,7 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
         lo_message_add_string(msg, sig->name);
 
         /* properties */
-        mpr_tbl_add_to_msg(sig->is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
+        mpr_tbl_add_to_msg(sig->obj.is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
 
         snprintf(str, BUFFSIZE, "/%s/signal/modify", sig->dev->name);
         mpr_net_add_msg(&sig->obj.graph->net, str, 0, msg);
@@ -1058,7 +1059,7 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
         lo_message_add_string(msg, str);
 
         /* properties */
-        mpr_tbl_add_to_msg(sig->is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
+        mpr_tbl_add_to_msg(sig->obj.is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
         mpr_net_add_msg(&sig->obj.graph->net, 0, cmd, msg);
     }
 }
@@ -1082,7 +1083,7 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
 
     for (i = 0; i < msg->num_atoms; i++) {
         a = &msg->atoms[i];
-        if (sig->is_local && (MASK_PROP_BITFLAGS(a->prop) != PROP(EXTRA)))
+        if (sig->obj.is_local && (MASK_PROP_BITFLAGS(a->prop) != PROP(EXTRA)))
             continue;
         switch (a->prop) {
             case PROP(DIR): {

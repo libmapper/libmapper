@@ -40,14 +40,22 @@ typedef struct _mpr_graph *mpr_graph;
 
 struct _mpr_obj;
 typedef struct _mpr_obj **mpr_list;
+
 struct _mpr_dev;
 typedef struct _mpr_dev mpr_dev_t;
 typedef struct _mpr_dev *mpr_dev;
 typedef struct _mpr_local_dev mpr_local_dev_t;
 typedef struct _mpr_local_dev *mpr_local_dev;
+
+struct _mpr_link;
+typedef struct _mpr_link *mpr_link;
+
 struct _mpr_map;
+
 struct _mpr_allocated_t;
+
 struct _mpr_id_map;
+
 typedef int mpr_sig_group;
 
 /**** String tables ****/
@@ -245,6 +253,7 @@ typedef struct _mpr_obj
     mpr_id id;                      /*!< Unique id for this object. */
     void *data;                     /*!< User context pointer. */
     struct _mpr_dict props;         /*!< Properties associated with this signal. */
+    int is_local;
     int version;                    /*!< Version number. */
     mpr_type type;                  /*!< Object type. */
 } mpr_obj_t, *mpr_obj;
@@ -325,8 +334,7 @@ typedef struct _mpr_sig_idmap
     int num_maps_in;            /* TODO: use dynamic query instead? */                  \
     int num_maps_out;           /* TODO: use dynamic query instead? */                  \
     mpr_steal_type steal_mode;  /*!< Type of voice stealing to perform. */              \
-    mpr_type type;              /*!< The type of this signal. */                        \
-    int is_local;
+    mpr_type type;              /*!< The type of this signal. */
 
 /*! A record that describes properties of a signal. */
 typedef struct _mpr_sig
@@ -359,32 +367,7 @@ typedef struct _mpr_local_sig
 
 /**** Router ****/
 
-typedef struct _mpr_bundle {
-    lo_bundle udp;
-    lo_bundle tcp;
-} mpr_bundle_t, *mpr_bundle;
-
 #define NUM_BUNDLES 1
-#define LOCAL_DEV   0
-#define REMOTE_DEV  1
-
-typedef struct _mpr_link {
-    mpr_obj_t obj;                  /* always first */
-    mpr_dev devs[2];
-    int num_maps[2];
-
-    struct {
-        lo_address admin;               /*!< Network address of remote endpoint */
-        lo_address udp;                 /*!< Network address of remote endpoint */
-        lo_address tcp;                 /*!< Network address of remote endpoint */
-    } addr;
-
-    int is_local_only;
-
-    mpr_bundle_t bundles[NUM_BUNDLES];  /*!< Circular buffer to handle interrupts during poll() */
-
-    mpr_sync_clock_t clock;
-} mpr_link_t, *mpr_link;
 
 /**** Maps and Slots ****/
 
@@ -398,7 +381,7 @@ typedef struct _mpr_link {
     uint8_t num_inst;                                                           \
     char dir;                       /*!< DI_INCOMING or DI_OUTGOING */          \
     char causes_update;             /*!< 1 if causes update, 0 otherwise. */    \
-    char is_local;                                                              \
+    char is_local;
 
 typedef struct _mpr_slot {
     MPR_SLOT_STRUCT_ITEMS
@@ -427,7 +410,6 @@ typedef struct _mpr_local_slot {
     int status;                                                                 \
     int protocol;                   /*!< Data transport protocol. */            \
     int use_inst;                   /*!< 1 if using instances, 0 otherwise. */  \
-    int is_local;                                                               \
     int bundle;
 
 /*! A record that describes the properties of a mapping.
