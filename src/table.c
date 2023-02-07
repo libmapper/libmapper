@@ -452,26 +452,62 @@ static int update_elements_osc(mpr_tbl_record rec, unsigned int len,
  * parsed from a mpr_msg along with their type. */
 int mpr_tbl_set_from_atom(mpr_tbl t, mpr_msg_atom atom, int flags)
 {
-    int updated = 0;
-    mpr_tbl_record rec = mpr_tbl_get(t, atom->prop, atom->key);
+    int updated = 0, prop = mpr_msg_atom_get_prop(atom), len = mpr_msg_atom_get_len(atom);
+    const char *key = mpr_msg_atom_get_key(atom);
+    mpr_tbl_record rec;
 
-    if (atom->prop & PROP_REMOVE)
-        return mpr_tbl_remove(t, atom->prop, atom->key, flags);
+    if (prop & PROP_REMOVE)
+        return mpr_tbl_remove(t, prop, key, flags);
 
-    if (rec) {
-        if (atom->prop & PROP_REMOVE)
-            return mpr_tbl_remove(t, atom->prop, atom->key, flags);
-        updated = t->dirty = update_elements_osc(rec, atom->len, atom->types, atom->vals);
-    }
+    rec = mpr_tbl_get(t, prop, key);
+    if (rec)
+        updated = t->dirty = update_elements_osc(rec, len, mpr_msg_atom_get_types(atom),
+                                                 mpr_msg_atom_get_values(atom));
     else {
         /* Need to add a new entry. */
-        rec = mpr_tbl_add(t, atom->prop, atom->key, 0, atom->types[0], 0, flags | PROP_OWNED);
+        const mpr_type *types = mpr_msg_atom_get_types(atom);
+        rec = mpr_tbl_add(t, prop, key, 0, types[0], 0, flags | PROP_OWNED);
         rec->val = 0;
-        update_elements_osc(rec, atom->len, atom->types, atom->vals);
+        update_elements_osc(rec, len, types, mpr_msg_atom_get_values(atom));
         qsort(t->rec, t->count, sizeof(mpr_tbl_record_t), compare_rec);
         updated = t->dirty = 1;
     }
     return updated;
+}
+
+#define LO_MESSAGE_ADD_VEC(MSG, TYPE, CAST, VAL)    \
+for (i = 0; i < len; i++)                           \
+    lo_message_add_##TYPE(MSG, ((CAST*)VAL)[i]);    \
+
+/* helper for mpr_msg_varargs() */
+static void _add_typed_val(lo_message msg, int len, mpr_type type, const void *val)
+{
+    int i;
+    if (type && len < 1)
+        return;
+
+    switch (type) {
+        case MPR_STR:
+            if (len == 1)   lo_message_add_string(msg, (char*)val);
+            else            LO_MESSAGE_ADD_VEC(msg, string, char*, val);        break;
+        case MPR_FLT:       LO_MESSAGE_ADD_VEC(msg, float, float, val);         break;
+        case MPR_DBL:       LO_MESSAGE_ADD_VEC(msg, double, double, val);       break;
+        case MPR_INT32:     LO_MESSAGE_ADD_VEC(msg, int32, int, val);           break;
+        case MPR_INT64:     LO_MESSAGE_ADD_VEC(msg, int64, int64_t, val);       break;
+        case MPR_TIME:      LO_MESSAGE_ADD_VEC(msg, timetag, mpr_time, val);    break;
+        case MPR_TYPE:      LO_MESSAGE_ADD_VEC(msg, char, mpr_type, val);       break;
+        case 0:             lo_message_add_nil(msg);                            break;
+        case MPR_BOOL:
+            for (i = 0; i < len; i++) {
+                if (((int*)val)[i])
+                    lo_message_add_true(msg);
+                else
+                    lo_message_add_false(msg);
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
@@ -569,7 +605,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
             break;
         }
         default:
-            mpr_msg_add_typed_val(msg, rec->len, rec->type, indirect ? *rec->val : rec->val);
+            _add_typed_val(msg, rec->len, rec->type, indirect ? *rec->val : rec->val);
             break;
     }
   done:

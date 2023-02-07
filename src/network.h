@@ -2,6 +2,8 @@
 #ifndef __MAPPER_NETWORK_H__
 #define __MAPPER_NETWORK_H__
 
+#include "message.h"
+
 void mpr_net_add_dev(mpr_net n, mpr_local_dev d);
 
 void mpr_net_remove_dev(mpr_net n, mpr_local_dev d);
@@ -23,6 +25,10 @@ void mpr_net_send(mpr_net n);
 void mpr_net_free_msgs(mpr_net n);
 
 void mpr_net_free(mpr_net n);
+
+mpr_rtr mpr_net_get_rtr(mpr_net n);
+
+lo_server *mpr_net_get_servers(mpr_net n);
 
 #define NEW_LO_MSG(VARNAME, FAIL)                   \
 lo_message VARNAME = lo_message_new();              \

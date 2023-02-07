@@ -3,30 +3,11 @@
 #define __MAPPER_GRAPH_H__
 
 #include "types_internal.h"
+#include "list.h"
+#include "message.h"
+#include "object.h"
 
-typedef struct _mpr_graph {
-    mpr_obj_t obj;                  /* always first */
-    mpr_net_t net;
-    mpr_list devs;                  /*!< List of devices. */
-    mpr_list sigs;                  /*!< List of signals. */
-    mpr_list maps;                  /*!< List of maps. */
-    mpr_list links;                 /*!< List of links. */
-    fptr_list callbacks;            /*!< List of object record callbacks. */
-
-    /*! Linked-list of autorenewing device subscriptions. */
-    mpr_subscription subscriptions;
-
-    mpr_thread_data thread_data;
-
-    /*! Flags indicating whether information on signals and mappings should
-     *  be automatically subscribed to when a new device is seen.*/
-    int autosub;
-
-    int own;
-    int staged_maps;
-
-    uint32_t resource_counter;
-} mpr_graph_t, *mpr_graph;
+typedef struct _mpr_graph *mpr_graph;
 
 /*! Find information for a registered device.
  *  \param g            The graph to query.
@@ -47,14 +28,15 @@ void mpr_graph_cleanup(mpr_graph g);
 
 void mpr_graph_housekeeping(mpr_graph g);
 
-mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2);
+struct _mpr_link* mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2);
 
 /*! Add or update a device entry in the graph using parsed message parameters.
  *  \param g            The graph to operate on.
  *  \param dev_name     The name of the device.
  *  \param msg          The parsed message parameters containing new metadata.
+ *  \param force        1 to force addition of device, 0 to follow autosubscribe flags
  *  \return             Pointer to the device. */
-mpr_dev mpr_graph_add_dev(mpr_graph g, const char *dev_name, mpr_msg msg);
+mpr_dev mpr_graph_add_dev(mpr_graph g, const char *dev_name, mpr_msg msg, int force);
 
 /*! Add or update a signal entry in the graph using parsed message parameters.
  *  \param g            The graph to operate on.
@@ -81,7 +63,7 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev dev, mpr_graph_evt evt, int quiet
 void mpr_graph_remove_sig(mpr_graph g, mpr_sig sig, mpr_graph_evt evt);
 
 /*! Remove a link from the graph. */
-void mpr_graph_remove_link(mpr_graph g, mpr_link link, mpr_graph_evt evt);
+void mpr_graph_remove_link(mpr_graph g, struct _mpr_link* link, mpr_graph_evt evt);
 
 /*! Remove a map from the graph. */
 void mpr_graph_remove_map(mpr_graph g, mpr_map map, mpr_graph_evt evt);
@@ -90,8 +72,26 @@ void mpr_graph_remove_map(mpr_graph g, mpr_map map, mpr_graph_evt evt);
  *  compiled in debug mode. */
 void mpr_graph_print(mpr_graph g);
 
-int mpr_graph_subscribed_by_dev(mpr_graph g, const char *name);
-
 int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name);
+
+void mpr_graph_free_cbs(mpr_graph g);
+
+mpr_list mpr_graph_new_query(mpr_graph g, int obj_type, const void *func, const char *types, ...);
+
+void mpr_graph_set_owned(mpr_graph g, int own);
+
+mpr_net mpr_graph_get_net(mpr_graph g);
+
+int mpr_graph_get_owned(mpr_graph g);
+
+mpr_obj mpr_graph_add_list_item(mpr_graph g, int obj_type, size_t size);
+
+int mpr_graph_generate_unique_id(mpr_graph g);
+
+void mpr_graph_sync_dev(mpr_graph g, const char *name);
+
+void mpr_graph_inc_staged_maps(mpr_graph g);
+
+int mpr_graph_get_autosub(mpr_graph g);
 
 #endif /* __MAPPER_GRAPH_H__ */

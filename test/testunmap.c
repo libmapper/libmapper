@@ -1,4 +1,5 @@
 #include "../src/graph.h"
+#include "../src/link.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -143,8 +144,12 @@ void loop()
 {
     int i = 0;
     float dst_val, last_dst_val = -1;
+    mpr_list links;
     eprintf("Polling device..\n");
-    while ((!terminate || srcgraph->links || dstgraph->links) && !done) {
+    while ((   !terminate
+            || (links = mpr_graph_get_list(srcgraph, MPR_LINK))
+            || (links = mpr_graph_get_list(dstgraph, MPR_LINK)))
+           && !done) {
         eprintf("Updating signal %s to %d\n",
                 sendsig && sendsig->name ? sendsig->name : "", i);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i);
@@ -164,6 +169,7 @@ void loop()
             printf("\r  Sent: %4i, Received: %4i   ", sent, received);
             fflush(stdout);
         }
+        mpr_list_free(links);
     }
 }
 
@@ -177,6 +183,7 @@ int main(int argc, char **argv)
     int i, j, result = 0;
     char *iface = 0;
     mpr_graph g;
+    mpr_list links;
 
     /* process flags for -v verbose, -t terminate, -h help */
     for (i = 1; i < argc; i++) {
@@ -242,9 +249,11 @@ int main(int argc, char **argv)
 
     loop();
 
-    if ((srcgraph && srcgraph->links) || (dstgraph && dstgraph->links)) {
+    if (   (srcgraph && (links = mpr_graph_get_list(srcgraph, MPR_LINK)))
+        || (dstgraph && (links = mpr_graph_get_list(dstgraph, MPR_LINK)))) {
         eprintf("Link cleanup failed.\n");
         result = 1;
+        mpr_list_free(links);
     }
 
   done:

@@ -2,6 +2,8 @@
 #ifndef __MAPPER_TABLE_H__
 #define __MAPPER_TABLE_H__
 
+#include "message.h"
+
 /*! Create a new string table. */
 mpr_tbl mpr_tbl_new(void);
 

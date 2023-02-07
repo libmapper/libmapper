@@ -55,8 +55,8 @@ int test_network()
 
     eprintf("Device structure initialized.\n");
 
-    eprintf("Found interface %s has IP %s\n", graph->net.iface.name,
-           inet_ntoa(graph->net.iface.addr));
+    eprintf("Found interface %s has IP %s\n", mpr_graph_get_interface(graph),
+            mpr_graph_get_address(graph));
 
     while (!((mpr_local_dev)dev)->registered) {
         mpr_dev_poll(dev, 100);

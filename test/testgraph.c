@@ -88,7 +88,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mpr_graph_add_dev(graph, "testgraph.1", props);
+    mpr_graph_add_dev(graph, "testgraph.1", props, 1);
 
     mpr_msg_free(props);
     lo_message_free(lom);
@@ -115,7 +115,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mpr_graph_add_dev(graph, "testgraph__.2", props);
+    mpr_graph_add_dev(graph, "testgraph__.2", props, 1);
 
     mpr_msg_free(props);
     lo_message_free(lom);
@@ -138,7 +138,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mpr_graph_add_dev(graph, "testgraph.3", props);
+    mpr_graph_add_dev(graph, "testgraph.3", props, 1);
 
     mpr_msg_free(props);
     lo_message_free(lom);
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
         goto done;
     }
 
-    mpr_graph_add_dev(graph, "testgraph__.4", props);
+    mpr_graph_add_dev(graph, "testgraph__.4", props, 1);
 
     mpr_msg_free(props);
     lo_message_free(lom);

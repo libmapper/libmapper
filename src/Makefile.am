@@ -36,6 +36,7 @@ libmapper_la_SOURCES = device.c \
     link.c \
     list.c \
     map.c \
+    message.c \
     network.c \
     object.c \
     path.c \

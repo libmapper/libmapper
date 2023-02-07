@@ -13,6 +13,9 @@ void mpr_list_free_item(void *item);
 mpr_list mpr_list_new_query(const void **list, const void *func,
                             const mpr_type *types, ...);
 
+mpr_list vmpr_list_new_query(const void **list, const void *func,
+                             const mpr_type *types, va_list aq);
+
 mpr_list mpr_list_start(mpr_list list);
 
 #endif /* __MAPPER_LIST_H__ */

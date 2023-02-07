@@ -8,6 +8,9 @@
 #define LINK_LOCAL_DEV   0
 #define LINK_REMOTE_DEV  1
 
+struct _mpr_link;
+typedef struct _mpr_link *mpr_link;
+
 size_t mpr_link_get_struct_size_temporary();
 
 mpr_link mpr_link_new(mpr_local_dev local_dev, mpr_dev remote_dev);

@@ -202,7 +202,7 @@ void mpr_obj_push(mpr_obj o)
 {
     mpr_net n;
     RETURN_UNLESS(o);
-    n = &o->graph->net;
+    n = mpr_graph_get_net(o->graph);
 
     if (MPR_DEV == o->type) {
         mpr_dev d = (mpr_dev)o;
@@ -236,11 +236,11 @@ void mpr_obj_push(mpr_obj o)
             mpr_map_send_state(m, -1, MSG_MAP_MOD);
         else {
             int i;
-            mpr_sig s = m->dst->sig;
+            mpr_sig s = mpr_slot_get_sig(m->dst);
             /* Only proceed if all signals are registered (remote or registered local signals) */
             RETURN_UNLESS(!((mpr_obj)s)->is_local || ((mpr_local_dev)s->dev)->registered);
             for (i = 0; i < m->num_src; i++) {
-                s = m->src[i]->sig;
+                s = mpr_slot_get_sig(m->src[i]);
                 RETURN_UNLESS(!((mpr_obj)s)->is_local || ((mpr_local_dev)s->dev)->registered);
             }
             mpr_map_send_state(m, -1, MSG_MAP);

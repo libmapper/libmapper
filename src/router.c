@@ -35,6 +35,7 @@ static int _is_map_in_scope(mpr_local_map map, mpr_id id)
     return 0;
 }
 
+/* TODO: integrate router_sig struct with local_sig struct, eliminate this lookup */
 static mpr_rtr_sig _find_rtr_sig(mpr_rtr rtr, mpr_local_sig sig)
 {
     mpr_rtr_sig rs = rtr->sigs;
@@ -65,18 +66,18 @@ void mpr_rtr_num_inst_changed(mpr_rtr rtr, mpr_local_sig sig, int size)
         mpr_local_map map;
         if (!slot)
             continue;
-        map = slot->map;
+        map = (mpr_local_map)mpr_slot_get_map((mpr_slot)slot);
         mpr_map_alloc_values(map);
 
-        if (MPR_DIR_OUT == map->dst->dir) {
+        if (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)map->dst)) {
             /* Inform remote destination */
-            mpr_net_use_mesh(rtr->net, mpr_link_get_admin_addr(map->dst->link));
+            mpr_net_use_mesh(rtr->net, mpr_link_get_admin_addr(mpr_slot_get_link((mpr_slot)map->dst)));
             mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
         }
         else {
             /* Inform remote sources */
             for (i = 0; i < map->num_src; i++) {
-                mpr_net_use_mesh(rtr->net, mpr_link_get_admin_addr(map->src[i]->link));
+                mpr_net_use_mesh(rtr->net, mpr_link_get_admin_addr(mpr_slot_get_link((mpr_slot)map->src[i])));
                 i = mpr_map_send_state((mpr_map)map, ((mpr_local_map)map)->one_src ? -1 : i,
                                        MSG_MAPPED);
             }
@@ -95,11 +96,17 @@ static void _update_map_count(mpr_rtr rtr)
         if (!dev)
             dev = rs->sig->dev;
         for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i] || rs->slots[i]->map->status < MPR_STATUS_ACTIVE)
+            mpr_map map;
+            mpr_dir dir;
+            if (!rs->slots[i])
                 continue;
-            if (MPR_DIR_IN == rs->slots[i]->dir)
+            map = mpr_slot_get_map((mpr_slot)rs->slots[i]);
+            if (map->status < MPR_STATUS_ACTIVE)
+                continue;
+            dir = mpr_slot_get_dir((mpr_slot)rs->slots[i]);
+            if (MPR_DIR_IN == dir)
                 ++sig_maps_in;
-            else if (MPR_DIR_OUT == rs->slots[i]->dir)
+            else if (MPR_DIR_OUT == dir)
                 ++sig_maps_out;
         }
         rs->sig->num_maps_in = sig_maps_in;
@@ -149,7 +156,7 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
                 continue;
 
             slot = rs->slots[i];
-            map = slot->map;
+            map = (mpr_local_map)mpr_slot_get_map((mpr_slot)slot);
 
             if (map->status < MPR_STATUS_ACTIVE)
                 continue;
@@ -159,12 +166,14 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
 
             /* send release to upstream */
             for (j = 0; j < map->num_src; j++) {
+                mpr_sig slot_sig;
                 slot = map->src[j];
-                if (!slot->sig->use_inst)
+                slot_sig = mpr_slot_get_sig((mpr_slot)slot);
+                if (!slot_sig->use_inst)
                     continue;
 
                 /* reset associated input memory */
-                mpr_value_reset_inst(&slot->val, inst_idx);
+                mpr_slot_reset_inst(slot, inst_idx);
 
                 if (!in_scope)
                     continue;
@@ -172,9 +181,11 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
                 if (sig->idmaps[idmap_idx].status & RELEASED_REMOTELY)
                     continue;
 
-                if (slot->dir == MPR_DIR_IN) {
+                if (MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)slot)) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    mpr_link_add_msg(slot->link, slot->sig, msg, t, map->protocol, bundle_idx);
+                    /* mpr_slot_add_msg() ? */
+                    mpr_link_add_msg(mpr_slot_get_link((mpr_slot)slot), slot_sig, msg, t,
+                                     map->protocol, bundle_idx);
                 }
             }
 
@@ -182,15 +193,16 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
                 continue;
 
             /* reset associated output memory */
-            mpr_value_reset_inst(&dst_slot->val, inst_idx);
+            mpr_slot_reset_inst(dst_slot, inst_idx);
 
             /* send release to downstream */
-            if (slot->dir == MPR_DIR_OUT) {
+            if (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)slot)) {
                 msg = 0;
                 if (in_scope) {
                     msg = mpr_map_build_msg(map, slot, 0, 0, idmap);
-                    mpr_link_add_msg(dst_slot->link, dst_slot->sig, msg, t, map->protocol,
-                                     bundle_idx);
+                    mpr_link_add_msg(mpr_slot_get_link((mpr_slot)dst_slot),
+                                     mpr_slot_get_sig((mpr_slot)dst_slot),
+                                     msg, t, map->protocol, bundle_idx);
                 }
             }
         }
@@ -205,10 +217,10 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
             continue;
 
         slot = rs->slots[i];
-        if (MPR_DIR_IN == slot->dir)
+        if (MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)slot))
             continue;
 
-        map = slot->map;
+        map = (mpr_local_map)mpr_slot_get_map((mpr_slot)slot);
         if (map->status < MPR_STATUS_ACTIVE)
             continue;
 
@@ -226,7 +238,9 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
             char *types = alloca(sig->len * sizeof(char));
             memset(types, sig->type, sig->len);
             msg = mpr_map_build_msg(map, slot, val, types, sig->use_inst ? idmap : 0);
-            mpr_link_add_msg(map->dst->link, map->dst->sig, msg, t, map->protocol, bundle_idx);
+            mpr_link_add_msg(mpr_slot_get_link((mpr_slot)map->dst),
+                             mpr_slot_get_sig((mpr_slot)map->dst),
+                             msg, t, map->protocol, bundle_idx);
             continue;
         }
 
@@ -236,17 +250,19 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
         }
 
         /* copy input value */
-        mpr_value_set_samp(&slot->val, inst_idx, (void*)val, t);
+        mpr_slot_set_value(slot, inst_idx, (void*)val, t);
 
-        if (!slot->causes_update)
+        if (!mpr_slot_get_causes_update((mpr_slot)slot))
             continue;
 
         if (all) {
             /* find a source signal with more instances */
-            for (j = 0; j < map->num_src; j++)
-                if (   mpr_obj_get_is_local((mpr_obj)map->src[j]->sig)
-                    && map->src[j]->num_inst > slot->num_inst)
-                    sig = (mpr_local_sig)map->src[j]->sig;
+            for (j = 0; j < map->num_src; j++) {
+                mpr_sig src_sig = mpr_slot_get_sig((mpr_slot)map->src[j]);
+                if (   mpr_obj_get_is_local((mpr_obj)src_sig)
+                    && mpr_slot_get_num_inst((mpr_slot)map->src[j]) > mpr_slot_get_num_inst((mpr_slot)slot))
+                    sig = (mpr_local_sig)src_sig;
+            }
             idmap_idx = 0;
         }
 
@@ -315,9 +331,11 @@ static mpr_id _get_unused_map_id(mpr_local_dev dev, mpr_rtr rtr)
         rs = rtr->sigs;
         while (rs) {
             for (i = 0; i < rs->num_slots; i++) {
+                mpr_map map;
                 if (!rs->slots[i])
                     continue;
-                if (rs->slots[i]->map->obj.id == id) {
+                map = mpr_slot_get_map((mpr_slot)rs->slots[i]);
+                if (map->obj.id == id) {
                     done = 0;
                     break;
                 }
@@ -330,20 +348,24 @@ static mpr_id _get_unused_map_id(mpr_local_dev dev, mpr_rtr rtr)
 
 static void _add_local_slot(mpr_rtr rtr, mpr_local_slot slot, int is_src, int *use_inst)
 {
-    int is_local = mpr_obj_get_is_local((mpr_obj)slot->sig);
-    slot->dir = (is_src ^ (is_local ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT;
+    mpr_local_sig sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)slot);
+    mpr_map map = mpr_slot_get_map((mpr_slot)slot);
+    int is_local = mpr_obj_get_is_local((mpr_obj)sig);
+    mpr_slot_set_dir((mpr_slot)slot, (is_src ^ (is_local ? 1 : 0)) ? MPR_DIR_IN : MPR_DIR_OUT);
     if (is_local) {
-        slot->rsig = _add_rtr_sig(rtr, (mpr_local_sig)slot->sig);
-        _store_slot(slot->rsig, slot);
+        mpr_rtr_sig rs = _add_rtr_sig(rtr, sig);
+        mpr_slot_set_rtr_sig(slot, rs);
+        _store_slot(rs, slot);
 
-        if (slot->sig->use_inst)
+        if (sig->use_inst)
             *use_inst = 1;
     }
-    if (!is_local || (is_src && mpr_obj_get_is_local((mpr_obj)slot->map->dst->sig)))
-        slot->link = mpr_link_new(rtr->dev, slot->sig->dev);
+    if (   !is_local
+        || (is_src && mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig((mpr_slot)map->dst))))
+        mpr_slot_set_link((mpr_slot)slot, mpr_link_new(rtr->dev, (mpr_dev)sig->dev));
 
     /* set some sensible defaults */
-    slot->causes_update = 1;
+    mpr_slot_set_causes_update((mpr_slot)slot, 1);
 }
 
 /* The obj.is_local flag is used to keep track of whether the map has been added to the router.
@@ -353,10 +375,10 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
     int i, local_src = 0, local_dst, use_inst = 0, scope_count;
     RETURN_UNLESS(!mpr_obj_get_is_local((mpr_obj)map));
     for (i = 0; i < map->num_src; i++) {
-        if (mpr_obj_get_is_local((mpr_obj)map->src[i]->sig))
+        if (mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig((mpr_slot)map->src[i])))
             ++local_src;
     }
-    local_dst = mpr_obj_get_is_local((mpr_obj)map->dst->sig);
+    local_dst = mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig((mpr_slot)map->dst));
     map->rtr = rtr;
     mpr_obj_set_is_local((mpr_obj)map, 1);
 
@@ -378,13 +400,15 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
 
     /* assign indices to source slots */
     if (local_dst) {
-        for (i = 0; i < map->num_src; i++)
-            map->src[i]->id = map->dst->rsig->id_counter++;
+        for (i = 0; i < map->num_src; i++) {
+            mpr_rtr_sig rsig = mpr_slot_get_rtr_sig(map->dst);
+            mpr_slot_set_id((mpr_slot)map->src[i], rsig->id_counter++);
+        }
     }
     else {
         /* may be overwritten later by message */
         for (i = 0; i < map->num_src; i++)
-            map->src[i]->id = i;
+            mpr_slot_set_id((mpr_slot)map->src[i], i);
     }
 
     /* add scopes */
@@ -395,14 +419,15 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
     for (i = 0; i < map->num_src; i++) {
         /* check that scope has not already been added */
         int j, found = 0;
+        mpr_sig sig = mpr_slot_get_sig((mpr_slot)map->src[i]);
         for (j = 0; j < scope_count; j++) {
-            if (map->scopes[j] == map->src[i]->sig->dev) {
+            if (map->scopes[j] == sig->dev) {
                 found = 1;
                 break;
             }
         }
         if (!found) {
-            map->scopes[scope_count] = map->src[i]->sig->dev;
+            map->scopes[scope_count] = sig->dev;
             ++scope_count;
         }
     }
@@ -415,7 +440,7 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
     /* check if all sources belong to same remote device */
     map->one_src = 1;
     for (i = 1; i < map->num_src; i++) {
-        if (map->src[i]->link != map->src[0]->link) {
+        if (mpr_slot_get_link((mpr_slot)map->src[i]) != mpr_slot_get_link((mpr_slot)map->src[0])) {
             map->one_src = 0;
             break;
         }
@@ -427,7 +452,7 @@ void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map)
     if (local_dst && (local_src == map->num_src)) {
         /* all reference signals are local */
         map->is_local_only = 1;
-        map->dst->link = map->src[0]->link;
+        mpr_slot_set_link((mpr_slot)map->dst, mpr_slot_get_link((mpr_slot)map->src[0]));
     }
 
     _update_map_count(rtr);
@@ -452,13 +477,13 @@ void mpr_rtr_remove_link(mpr_rtr rtr, mpr_link link)
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i])
                 continue;
-            map = rs->slots[i]->map;
-            if (map->dst->link == link) {
+            map = (mpr_local_map)mpr_slot_get_map((mpr_slot)rs->slots[i]);
+            if (mpr_slot_get_link((mpr_slot)map->dst) == link) {
                 mpr_rtr_remove_map(rtr, map);
                 continue;
             }
             for (j = 0; j < map->num_src; j++) {
-                if (map->src[j]->link == link) {
+                if (mpr_slot_get_link((mpr_slot)map->src[j]) == link) {
                     mpr_rtr_remove_map(rtr, map);
                     break;
                 }
@@ -491,25 +516,27 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
 
     int i, j;
     mpr_time t;
+    mpr_link link;
+    mpr_rtr_sig rs = mpr_slot_get_rtr_sig(map->dst);
     RETURN_ARG_UNLESS(map, 1);
     mpr_time_set(&t, MPR_NOW);
 
     if (map->idmap) {
         /* release map-generated instances */
-        if (map->dst->rsig) {
+        if (rs) {
             lo_message msg = mpr_map_build_msg(map, 0, 0, 0, map->idmap);
             mpr_dev_bundle_start(t, NULL);
             mpr_dev_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
-                            lo_message_get_argc(msg), msg, (void*)map->dst->sig);
+                            lo_message_get_argc(msg), msg,
+                            (void*)mpr_slot_get_sig((mpr_slot)map->dst));
             lo_message_free(msg);
         }
-        if (map->dst->dir == MPR_DIR_OUT || map->is_local_only)
+        if (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)map->dst) || map->is_local_only)
             mpr_dev_LID_decref(rtr->dev, 0, map->idmap);
     }
 
     /* remove map and slots from rtr_sig lists if necessary */
-    if (map->dst->rsig) {
-        mpr_rtr_sig rs = map->dst->rsig;
+    if (rs) {
         /* release instances if necessary */
         /* TODO: determine whether instances were activated through this map */
         /* need to trigger "remote" release */
@@ -542,22 +569,22 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
             }
         }
     }
-    else if (map->dst->link) {
-        mpr_link_remove_map(map->dst->link, map);
-        _check_link(rtr, map->dst->link);
+    else if ((link = mpr_slot_get_link((mpr_slot)map->dst))) {
+        mpr_link_remove_map(link, map);
+        _check_link(rtr, link);
     }
     mpr_slot_free_value(map->dst);
     for (i = 0; i < map->num_src; i++) {
-        if (map->src[i]->rsig) {
-            mpr_rtr_sig rs = map->src[i]->rsig;
+        mpr_rtr_sig rs = mpr_slot_get_rtr_sig(map->src[i]);
+        if (rs) {
             for (j = 0; j < rs->num_slots; j++) {
                 if (rs->slots[j] == map->src[i])
                     rs->slots[j] = 0;
             }
         }
-        else if (map->src[i]->link) {
-            mpr_link_remove_map(map->src[i]->link, map);
-            _check_link(rtr, map->src[i]->link);
+        else if ((link = mpr_slot_get_link((mpr_slot)map->src[i]))) {
+            mpr_link_remove_map(link, map);
+            _check_link(rtr, link);
         }
         mpr_slot_free_value(map->src[i]);
     }
@@ -594,10 +621,10 @@ int mpr_rtr_loop_check(mpr_rtr rtr, mpr_local_sig sig, int num_remotes, const ch
     mpr_rtr_sig rs = _find_rtr_sig(rtr, sig);
     RETURN_ARG_UNLESS(rs, 0);
     for (i = 0; i < rs->num_slots; i++) {
-        if (!rs->slots[i] || rs->slots[i]->dir == MPR_DIR_IN)
+        if (!rs->slots[i] || MPR_DIR_IN == mpr_slot_get_dir((mpr_slot)rs->slots[i]))
             continue;
         slot = rs->slots[i];
-        map = slot->map;
+        map = (mpr_local_map)mpr_slot_get_map((mpr_slot)slot);
 
         /* check destination */
         for (j = 0; j < num_remotes; j++) {
@@ -619,12 +646,12 @@ mpr_local_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_local_sig sig, int slot_id)
         /* Check if signal direction matches the slot direction. This handles both 'incoming'
          * destination slots (for processing map updates) and outgoing source slots (for
          * processing 'downstream instance release' events). */
-        if (!rs->slots[i] || sig->dir != rs->slots[i]->dir)
+        if (!rs->slots[i] || sig->dir != mpr_slot_get_dir((mpr_slot)rs->slots[i]))
             continue;
-        map = rs->slots[i]->map;
+        map = (mpr_local_map)mpr_slot_get_map((mpr_slot)rs->slots[i]);
         /* check incoming slots for this map */
         for (j = 0; j < map->num_src; j++) {
-            if ((int)map->src[j]->id == slot_id)
+            if ((int)mpr_slot_get_id((mpr_slot)map->src[j]) == slot_id)
                 return map->src[j];
         }
     }

@@ -17,6 +17,7 @@
 #include "object.h"
 #include "path.h"
 #include "router.h"
+#include "slot.h"
 #include "table.h"
 #include "util/mpr_set_coerced.h"
 
@@ -72,7 +73,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     if ((lsig = (mpr_local_sig)mpr_dev_get_sig_by_name(dev, name)))
         return (mpr_sig)lsig;
 
-    lsig = (mpr_local_sig)mpr_list_add_item((void**)&g->sigs, sizeof(mpr_local_sig_t));
+    lsig = (mpr_local_sig)mpr_graph_add_list_item(g, MPR_SIG, sizeof(mpr_local_sig_t));
     lsig->dev = (mpr_local_dev)dev;
     lsig->obj.id = mpr_dev_get_unused_sig_id((mpr_local_dev)dev);
     lsig->obj.graph = g;
@@ -92,7 +93,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     mpr_dev_add_sig_methods((mpr_local_dev)dev, lsig);
     if (((mpr_local_dev)dev)->registered) {
         /* Notify subscribers */
-        mpr_net_use_subscribers(&g->net, (mpr_local_dev)dev,
+        mpr_net_use_subscribers(mpr_graph_get_net(g), (mpr_local_dev)dev,
                                 ((dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT));
         mpr_sig_send_state((mpr_sig)lsig, MSG_SIG);
     }
@@ -203,7 +204,7 @@ void mpr_sig_free(mpr_sig sig)
 
     /* release associated OSC methods */
     mpr_dev_remove_sig_methods(ldev, lsig);
-    net = &sig->obj.graph->net;
+    net = mpr_graph_get_net(sig->obj.graph);
     rtr = net->rtr;
     rs = rtr->sigs;
     while (rs && rs->sig != lsig)
@@ -214,7 +215,7 @@ void mpr_sig_free(mpr_sig sig)
         for (i = 0; i < rs->num_slots; i++) {
             if (!rs->slots[i])
                 continue;
-            map = (mpr_local_map)rs->slots[i]->map;
+            map = (mpr_local_map)mpr_slot_get_map((mpr_slot)rs->slots[i]);
             mpr_map_release((mpr_map)map);
             mpr_rtr_remove_map(rtr, map);
         }
@@ -629,7 +630,8 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
         ++count;
     }
     if (highest != -1)
-        mpr_rtr_num_inst_changed(lsig->obj.graph->net.rtr, lsig, highest + 1);
+        mpr_rtr_num_inst_changed(mpr_net_get_rtr(mpr_graph_get_net(lsig->obj.graph)),
+                                 lsig, highest + 1);
 
     if (old_num > 0 && (lsig->num_inst / 8) == (old_num / 8))
         return count;
@@ -773,7 +775,8 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     mpr_bitflags_set(lsig->updated_inst, si->idx);
     ((mpr_local_dev)lsig->dev)->sending = lsig->updated = 1;
 
-    mpr_rtr_process_sig(lsig->obj.graph->net.rtr, lsig, idmap_idx, si->has_val ? si->val : 0, si->time);
+    mpr_rtr_process_sig(mpr_net_get_rtr(mpr_graph_get_net(lsig->obj.graph)), lsig,
+                        idmap_idx, si->has_val ? si->val : 0, si->time);
 }
 
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id)
@@ -794,7 +797,8 @@ void mpr_sig_release_inst_internal(mpr_local_sig lsig, int idmap_idx)
     mpr_bitflags_set(lsig->updated_inst, smap->inst->idx);
     ((mpr_local_dev)lsig->dev)->sending = lsig->updated = 1;
 
-    mpr_rtr_process_sig(lsig->obj.graph->net.rtr, lsig, idmap_idx, 0, smap->inst->time);
+    mpr_rtr_process_sig(mpr_net_get_rtr(mpr_graph_get_net(lsig->obj.graph)),
+                        lsig, idmap_idx, 0, smap->inst->time);
 
     if (smap->map && mpr_dev_LID_decref((mpr_local_dev)lsig->dev, lsig->group, smap->map)) {
         smap->map = 0;
@@ -842,7 +846,7 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
     lsig->inst = realloc(lsig->inst, sizeof(mpr_sig_inst) * lsig->num_inst);
 
     /* Remove instance memory held by map slots */
-    mpr_rtr_remove_inst(lsig->obj.graph->net.rtr, lsig, remove_idx);
+    mpr_rtr_remove_inst(mpr_net_get_rtr(mpr_graph_get_net(lsig->obj.graph)), lsig, remove_idx);
 
     for (i = 0; i < lsig->num_inst; i++) {
         if (lsig->inst[i]->idx > remove_idx)
@@ -983,12 +987,12 @@ static int cmp_qry_sig_maps(const void *context_data, mpr_map map)
     if (!dir || (dir & MPR_DIR_OUT)) {
         int i;
         for (i = 0; i < map->num_src; i++) {
-            if (map->src[i]->sig == sig)
+            if (mpr_slot_get_sig(map->src[i]) == sig)
                 return 1;
         }
     }
     if (!dir || (dir & MPR_DIR_IN)) {
-        if (map->dst->sig == sig)
+        if (mpr_slot_get_sig(map->dst) == sig)
             return 1;
     }
     return 0;
@@ -997,9 +1001,8 @@ static int cmp_qry_sig_maps(const void *context_data, mpr_map map)
 mpr_list mpr_sig_get_maps(mpr_sig sig, mpr_dir dir)
 {
     mpr_list q;
-    RETURN_ARG_UNLESS(sig && sig->obj.graph->maps, 0);
-    q = mpr_list_new_query((const void**)&sig->obj.graph->maps, (void*)cmp_qry_sig_maps,
-                           "vi", &sig, dir);
+    RETURN_ARG_UNLESS(sig, 0);
+    q = mpr_graph_new_query(sig->obj.graph, MPR_MAP, (void*)cmp_qry_sig_maps, "vi", &sig, dir);
     return mpr_list_start(q);
 }
 
@@ -1039,9 +1042,11 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
 {
     char str[BUFFSIZE];
     lo_message msg;
+    mpr_net net;
     RETURN_UNLESS(sig);
     msg = lo_message_new();
     RETURN_UNLESS(msg);
+    net = mpr_graph_get_net(sig->obj.graph);
 
     if (cmd == MSG_SIG_MOD) {
         lo_message_add_string(msg, sig->name);
@@ -1050,9 +1055,9 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
         mpr_tbl_add_to_msg(sig->obj.is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
 
         snprintf(str, BUFFSIZE, "/%s/signal/modify", sig->dev->name);
-        mpr_net_add_msg(&sig->obj.graph->net, str, 0, msg);
+        mpr_net_add_msg(net, str, 0, msg);
         /* send immediately since path string is not cached */
-        mpr_net_send(&sig->obj.graph->net);
+        mpr_net_send(net);
     }
     else {
         RETURN_UNLESS(mpr_sig_full_name(sig, str, BUFFSIZE));
@@ -1060,7 +1065,7 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
 
         /* properties */
         mpr_tbl_add_to_msg(sig->obj.is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
-        mpr_net_add_msg(&sig->obj.graph->net, 0, cmd, msg);
+        mpr_net_add_msg(net, 0, cmd, msg);
     }
 }
 
@@ -1070,29 +1075,34 @@ void mpr_sig_send_removed(mpr_local_sig lsig)
     NEW_LO_MSG(msg, return);
     RETURN_UNLESS(mpr_sig_full_name((mpr_sig)lsig, sig_name, BUFFSIZE));
     lo_message_add_string(msg, sig_name);
-    mpr_net_add_msg(&lsig->obj.graph->net, 0, MSG_SIG_REM, msg);
+    mpr_net_add_msg(mpr_graph_get_net(lsig->obj.graph), 0, MSG_SIG_REM, msg);
 }
 
 /*! Update information about a signal record based on message properties. */
 int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
 {
     mpr_msg_atom a;
-    int i, updated = 0;
+    int i, updated = 0, prop;
     mpr_tbl tbl = sig->obj.props.synced;
+    const mpr_type *types;
+    lo_arg **vals;
     RETURN_ARG_UNLESS(msg, 0);
 
-    for (i = 0; i < msg->num_atoms; i++) {
-        a = &msg->atoms[i];
-        if (sig->obj.is_local && (MASK_PROP_BITFLAGS(a->prop) != PROP(EXTRA)))
+    for (i = 0; i < mpr_msg_get_num_atoms(msg); i++) {
+        a = mpr_msg_get_atom(msg, i);
+        prop = mpr_msg_atom_get_prop(a);
+        if (sig->obj.is_local && (MASK_PROP_BITFLAGS(prop) != PROP(EXTRA)))
             continue;
-        switch (a->prop) {
+        types = mpr_msg_atom_get_types(a);
+        vals = mpr_msg_atom_get_values(a);
+        switch (prop) {
             case PROP(DIR): {
                 int dir = 0;
-                if (!mpr_type_get_is_str(a->types[0]))
+                if (!mpr_type_get_is_str(types[0]))
                     break;
-                if (strcmp(&(*a->vals)->s, "output")==0)
+                if (strcmp(&(*vals)->s, "output")==0)
                     dir = MPR_DIR_OUT;
-                else if (strcmp(&(*a->vals)->s, "input")==0)
+                else if (strcmp(&(*vals)->s, "input")==0)
                     dir = MPR_DIR_IN;
                 else
                     break;
@@ -1100,22 +1110,22 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
                 break;
             }
             case PROP(ID):
-                if (a->types[0] == 'h') {
-                    if (sig->obj.id != (a->vals[0])->i64) {
-                        sig->obj.id = (a->vals[0])->i64;
+                if (types[0] == 'h') {
+                    if (sig->obj.id != (vals[0])->i64) {
+                        sig->obj.id = (vals[0])->i64;
                         ++updated;
                     }
                 }
                 break;
             case PROP(STEAL_MODE): {
                 int stl;
-                if (!mpr_type_get_is_str(a->types[0]))
+                if (!mpr_type_get_is_str(types[0]))
                     break;
-                if (strcmp(&(*a->vals)->s, "none")==0)
+                if (strcmp(&(*vals)->s, "none")==0)
                     stl = MPR_STEAL_NONE;
-                else if (strcmp(&(*a->vals)->s, "oldest")==0)
+                else if (strcmp(&(*vals)->s, "oldest")==0)
                     stl = MPR_STEAL_OLDEST;
-                else if (strcmp(&(*a->vals)->s, "newest")==0)
+                else if (strcmp(&(*vals)->s, "newest")==0)
                     stl = MPR_STEAL_NEWEST;
                 else
                     break;

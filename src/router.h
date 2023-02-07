@@ -2,6 +2,8 @@
 #ifndef __MAPPER_ROUTER_H__
 #define __MAPPER_ROUTER_H__
 
+#include "link.h"
+
 void mpr_rtr_remove_sig(mpr_rtr r, mpr_rtr_sig rs);
 
 void mpr_rtr_num_inst_changed(mpr_rtr r, mpr_local_sig sig, int size);

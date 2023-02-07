@@ -47,8 +47,8 @@ typedef struct _mpr_dev *mpr_dev;
 typedef struct _mpr_local_dev mpr_local_dev_t;
 typedef struct _mpr_local_dev *mpr_local_dev;
 
-struct _mpr_link;
-typedef struct _mpr_link *mpr_link;
+typedef struct _mpr_slot *mpr_slot;
+typedef struct _mpr_local_slot *mpr_local_slot;
 
 struct _mpr_map;
 
@@ -96,14 +96,6 @@ typedef struct _mpr_dict {
 } mpr_dict_t, *mpr_dict;
 
 /**** Graph ****/
-
-/*! A list of function and context pointers. */
-typedef struct _fptr_list {
-    void *f;
-    void *ctx;
-    struct _fptr_list *next;
-    int types;
-} *fptr_list;
 
 typedef struct _mpr_subscription {
     struct _mpr_subscription *next;
@@ -155,31 +147,6 @@ typedef struct _mpr_net {
     uint32_t next_sub_ping;
     uint8_t generic_dev_methods_added;
 } mpr_net_t, *mpr_net;
-
-/**** Messages ****/
-
-/*! Some useful strings for sending administrative messages. */
-typedef enum {
-    MSG_DEV,
-    MSG_DEV_MOD,
-    MSG_LOGOUT,
-    MSG_MAP,
-    MSG_MAP_TO,
-    MSG_MAPPED,
-    MSG_MAP_MOD,
-    MSG_NAME_PROBE,
-    MSG_NAME_REG,
-    MSG_PING,
-    MSG_SIG,
-    MSG_SIG_REM,
-    MSG_SIG_MOD,
-    MSG_SUBSCRIBE,
-    MSG_SYNC,
-    MSG_UNMAP,
-    MSG_UNMAPPED,
-    MSG_WHO,
-    NUM_MSG_STRINGS
-} net_msg_t;
 
 /*! Function to call when an allocated resource is locked. */
 typedef void mpr_resource_on_lock(struct _mpr_allocated_t *resource);
@@ -374,30 +341,6 @@ typedef struct _mpr_local_sig
 #define MAX_NUM_MAP_SRC     8       /* arbitrary */
 #define MAX_NUM_MAP_DST     8       /* arbitrary */
 
-#define MPR_SLOT_STRUCT_ITEMS                                                   \
-    mpr_sig sig;                    /*!< Pointer to parent signal */            \
-    mpr_link link;                                                              \
-    int id;                                                                     \
-    uint8_t num_inst;                                                           \
-    char dir;                       /*!< DI_INCOMING or DI_OUTGOING */          \
-    char causes_update;             /*!< 1 if causes update, 0 otherwise. */    \
-    char is_local;
-
-typedef struct _mpr_slot {
-    MPR_SLOT_STRUCT_ITEMS
-    struct _mpr_map *map;           /*!< Pointer to parent map */
-} mpr_slot_t, *mpr_slot;
-
-typedef struct _mpr_local_slot {
-    MPR_SLOT_STRUCT_ITEMS
-    struct _mpr_local_map *map;     /*!< Pointer to parent map */
-
-    /* each slot can point to local signal or a remote link structure */
-    struct _mpr_rtr_sig *rsig;      /*!< Parent signal if local */
-    mpr_value_t val;                /*!< Value histories for each signal instance. */
-    char status;
-} mpr_local_slot_t, *mpr_local_slot;
-
 #define MPR_MAP_STRUCT_ITEMS                                                    \
     mpr_obj_t obj;                  /* always first */                          \
     mpr_dev *scopes;                                                            \
@@ -411,6 +354,10 @@ typedef struct _mpr_local_slot {
     int protocol;                   /*!< Data transport protocol. */            \
     int use_inst;                   /*!< 1 if using instances, 0 otherwise. */  \
     int bundle;
+
+/* temporary: move to map.c */
+
+
 
 /*! A record that describes the properties of a mapping.
  *  @ingroup map */
@@ -472,39 +419,5 @@ typedef struct _mpr_id_map {
     int LID_refcount;
     int GID_refcount;
 } mpr_id_map_t, *mpr_id_map;
-
-/**** Messages ****/
-/* For property indexes, bits 1–8 are used for numberical index, bits 9–14 are
- * used for the mpr_prop enum. */
-#define PROP_ADD        0x04000
-#define PROP_REMOVE     0x08000
-#define DST_SLOT_PROP   0x10000
-#define SRC_SLOT_PROP_BIT_OFFSET    17
-#define SRC_SLOT_PROP(idx) ((idx + 1) << SRC_SLOT_PROP_BIT_OFFSET)
-#define SRC_SLOT(idx) ((idx >> SRC_SLOT_PROP_BIT_OFFSET) - 1)
-#define MASK_PROP_BITFLAGS(idx) (idx & 0x3F00)
-#define PROP_TO_INDEX(prop) ((prop & 0x3F00) >> 8)
-#define INDEX_TO_PROP(idx) (idx << 8)
-
-/*! Queriable representation of a parameterized message parsed from an incoming
- *  OSC message. Does not contain a copy of data, so only valid for the duration
- *  of the message handler. Also allows for a constant number of "extra"
- *  parameters; that is, unknown parameters that may be specified for a signal
- *  and used for metadata, which will be added to a general-purpose string table
- *  associated with the signal. */
-typedef struct _mpr_msg_atom
-{
-    const char *key;
-    lo_arg **vals;
-    const char *types;
-    int len;
-    int prop;
-} mpr_msg_atom_t, *mpr_msg_atom;
-
-typedef struct _mpr_msg
-{
-    mpr_msg_atom_t *atoms;
-    int num_atoms;
-} *mpr_msg;
 
 #endif /* __MPR_TYPES_H__ */

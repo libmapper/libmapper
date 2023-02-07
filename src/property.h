@@ -12,4 +12,8 @@ mpr_prop mpr_prop_from_str(const char *str);
 
 const char *mpr_prop_as_str(mpr_prop prop, int skip_slash);
 
+int mpr_prop_get_len(mpr_prop p);
+
+int mpr_prop_get_protocol_type(mpr_prop p);
+
 #endif /* __MAPPER_PROPERTY_H__ */

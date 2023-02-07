@@ -202,13 +202,14 @@ static void free_query_single_ctx(mpr_list_header_t *lh)
 }
 
 #define GET_TYPE_SIZE(TYPE) \
-va_arg(aq, TYPE);           \
+va_arg(aq_copy, TYPE);      \
 size += sizeof(TYPE);
 
-static int get_query_size(const char *types, va_list aq)
+static int get_query_size(const char *types, va_list *aq)
 {
     int i = 0, size = 0;
-    RETURN_ARG_UNLESS(types, 0);
+    va_list aq_copy;
+    va_copy(aq_copy, *aq);
     while (types[i]) {
         switch (types[i]) {
             case MPR_INT32:
@@ -222,15 +223,17 @@ static int get_query_size(const char *types, va_list aq)
                 GET_TYPE_SIZE(void*);
                 break;
             case MPR_STR: {
-                const char *val = va_arg(aq, const char*);
+                const char *val = va_arg(aq_copy, const char*);
                 size += (val ? strlen(val) : 0) + 1;
                 break;
             }
             default:
+                va_end(aq_copy);
                 return 0;
         }
         ++i;
     };
+    va_end(aq_copy);
     return size;
 }
 
@@ -243,19 +246,22 @@ static int get_query_size(const char *types, va_list aq)
 
 /* We need to be careful of memory alignment here - for now we will just ensure
  * that string arguments are always passed last. */
-static void **new_query_internal(const void **list, int size, const void *func,
-                                 const char *types, va_list aq)
+mpr_list vmpr_list_new_query(const void **list, const void *func, const char *types, va_list aq)
 {
     mpr_list_header_t *lh;
-    int offset = 0, i = 0;
+    int offset = 0, i = 0, size = 0;
     char *data;
-    RETURN_ARG_UNLESS(list && size && func && types, 0);
+    RETURN_ARG_UNLESS(list && func && types, 0);
+
+    size = get_query_size(types, (va_list*)&aq);
+
     lh = (mpr_list_header_t*)malloc(LIST_HEADER_SIZE);
     lh->next = (void*)mpr_list_query_continuation;
     lh->query_type = QUERY_DYNAMIC;
     lh->query_ctx = (query_info_t*)malloc(sizeof(query_info_t)+size);
 
     data = (char*)&lh->query_ctx->data;
+    i = 0;
     while (types[i]) {
         switch (types[i]) {
             case MPR_INT32:
@@ -293,18 +299,12 @@ static void **new_query_internal(const void **list, int size, const void *func,
     return &lh->self;
 }
 
-mpr_list mpr_list_new_query(const void **list, const void *func,
-                            const char *types, ...)
+mpr_list mpr_list_new_query(const void **list, const void *func, const char *types, ...)
 {
-    int size;
     va_list aq;
     mpr_list qry;
     va_start(aq, types);
-    size = get_query_size(types, aq);
-    va_end(aq);
-
-    va_start(aq, types);
-    qry = (mpr_list)new_query_internal(list, size, func, types, aq);
+    qry = (mpr_list)vmpr_list_new_query(list, func, types, aq);
     va_end(aq);
     return qry;
 }

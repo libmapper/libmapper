@@ -2,6 +2,8 @@
 #ifndef __MAPPER_MAP_H__
 #define __MAPPER_MAP_H__
 
+#include "message.h"
+
 void mpr_map_alloc_values(mpr_local_map map);
 
 /*! Process the signal instance value according to mapping properties.

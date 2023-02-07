@@ -13,6 +13,8 @@
 #include "list.h"
 #include "mpr_time.h"
 #include "network.h"
+#include "object.h"
+#include "slot.h"
 #include "table.h"
 #include "util/mpr_debug.h"
 
@@ -63,7 +65,7 @@ lo_address mpr_link_get_admin_addr(mpr_link link)
 
 void mpr_link_init(mpr_link link, mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 {
-    mpr_net net = &g->net;
+    mpr_net net = mpr_graph_get_net(g);
     lo_message msg;
     char cmd[256];
 
@@ -211,7 +213,9 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
         while (i < num) {
             lo_message m = lo_bundle_get_message(lb, i, &path);
             /* need to look up signal by path */
-            mpr_rtr_sig rs = link->obj.graph->net.rtr->sigs;
+            mpr_net net = mpr_graph_get_net(link->obj.graph);
+            mpr_rtr rtr = mpr_net_get_rtr(net);
+            mpr_rtr_sig rs = rtr->sigs;
             while (rs) {
                 if (0 == strcmp(path, rs->sig->path)) {
                     mpr_dev_handler(NULL, lo_message_get_types(m), lo_message_get_argv(m),
@@ -230,12 +234,15 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
 static int cmp_qry_link_maps(const void *context_data, mpr_map map)
 {
     mpr_id link_id = *(mpr_id*)context_data;
+    mpr_link link;
     int i;
     for (i = 0; i < map->num_src; i++) {
-        if (map->src[i]->link && map->src[i]->link->obj.id == link_id)
+        link = mpr_slot_get_link(map->src[i]);
+        if (link && link->obj.id == link_id)
             return 1;
     }
-    if (map->dst->link && map->dst->link->obj.id == link_id)
+    link = mpr_slot_get_link(map->dst);
+    if (link && link->obj.id == link_id)
         return 1;
     return 0;
 }
@@ -243,9 +250,10 @@ static int cmp_qry_link_maps(const void *context_data, mpr_map map)
 mpr_list mpr_link_get_maps(mpr_link link)
 {
     mpr_list q;
-    RETURN_ARG_UNLESS(link && link->devs[0]->obj.graph->maps, 0);
-    q = mpr_list_new_query((const void**)&link->devs[0]->obj.graph->maps,
-                           (void*)cmp_qry_link_maps, "h", link->obj.id);
+    RETURN_ARG_UNLESS(link, 0);
+    /* TODO: can we use link->obj.graph here? */
+    q = mpr_graph_new_query(link->devs[0]->obj.graph, MPR_MAP, (void*)cmp_qry_link_maps,
+                            "h", link->obj.id);
     return mpr_list_start(q);
 }
 
@@ -281,7 +289,8 @@ void mpr_link_remove_map(mpr_link link, mpr_local_map rem)
         list = mpr_list_get_next(list);
         if (map == rem)
             continue;
-        if (map->dst->sig->obj.is_local && map->dst->rsig)
+        if (   mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig((mpr_slot)map->dst))
+            && mpr_slot_get_rtr_sig(map->dst))
             ++in;
         else
             ++out;
@@ -299,7 +308,7 @@ void mpr_link_send(mpr_link link, net_msg_t cmd)
     lo_message_add_string(msg, link->devs[0]->name);
     lo_message_add_string(msg, "<->");
     lo_message_add_string(msg, link->devs[1]->name);
-    mpr_net_add_msg(&link->obj.graph->net, 0, cmd, msg);
+    mpr_net_add_msg(mpr_graph_get_net(link->obj.graph), 0, cmd, msg);
 }
 
 void mpr_link_update_clock(mpr_link link, mpr_time then, mpr_time now,
@@ -373,7 +382,7 @@ int mpr_link_housekeeping(mpr_link link, mpr_time now)
     /* Only send pings if this link has associated maps, ensuring empty
      * links are removed after the ping timeout. */
     if (mapped && mpr_obj_get_prop_as_str((mpr_obj)remote_dev, MPR_PROP_HOST, 0)) {
-        mpr_net net = &link->obj.graph->net;
+        mpr_net net = mpr_graph_get_net(link->obj.graph);
         NEW_LO_MSG(msg, ;);
         mpr_net_use_mesh(net, link->addr.admin);
         lo_message_add_int64(msg, local_dev->obj.id);

@@ -2,6 +2,7 @@
 #ifndef __MAPPER_DEVICE_H__
 #define __MAPPER_DEVICE_H__
 
+#include "message.h"
 #include "types_internal.h"
 #include "util/mpr_inline.h"
 
@@ -143,7 +144,7 @@ int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg);
  *  \param dev          Device record to query.
  *  \param remote       Remote device.
  *  \return             Information about the link, or zero if not found. */
-mpr_link mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote);
+struct _mpr_link* mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote);
 
 
 #endif /* __MAPPER_DEVICE_H__ */

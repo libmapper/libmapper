@@ -7,6 +7,7 @@
 
 #include "device.h"
 #include "expression.h"
+#include "link.h"
 #include "message.h"
 #include "mpr_type.h"
 #include "property.h"
@@ -18,7 +19,36 @@
 
 #include <mapper/mapper.h>
 
-mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned char is_src)
+#define MPR_STATUS_LENGTH_KNOWN 0x04
+#define MPR_STATUS_TYPE_KNOWN   0x08
+#define MPR_STATUS_LINK_KNOWN   0x10
+
+#define MPR_SLOT_STRUCT_ITEMS                                                   \
+    mpr_sig sig;                    /*!< Pointer to parent signal */            \
+    mpr_link link;                                                              \
+    int id;                                                                     \
+    uint8_t num_inst;                                                           \
+    char dir;                       /*!< DI_INCOMING or DI_OUTGOING */          \
+    char causes_update;             /*!< 1 if causes update, 0 otherwise. */    \
+    char is_local;
+
+typedef struct _mpr_slot {
+    MPR_SLOT_STRUCT_ITEMS
+    struct _mpr_map *map;           /*!< Pointer to parent map */
+} mpr_slot_t, *mpr_slot;
+
+typedef struct _mpr_local_slot {
+    MPR_SLOT_STRUCT_ITEMS
+    struct _mpr_local_map *map;     /*!< Pointer to parent map */
+
+    /* each slot can point to local signal or a remote link structure */
+    struct _mpr_rtr_sig *rsig;      /*!< Parent signal if local */
+    mpr_value_t val;                /*!< Value histories for each signal instance. */
+    char status;
+} mpr_local_slot_t, *mpr_local_slot;
+
+mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
+                      unsigned char is_local, unsigned char is_src)
 {
     size_t size = is_local ? sizeof(struct _mpr_local_slot) : sizeof(struct _mpr_slot);
     mpr_slot slot = (mpr_slot)calloc(1, size);
@@ -26,7 +56,10 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, unsigned char is_local, unsigned
     slot->sig = sig;
     slot->is_local = is_local ? 1 : 0;
     slot->num_inst = 1;
-    slot->dir = (is_src == sig->obj.is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
+    if (MPR_DIR_UNDEFINED == dir)
+        slot->dir = (is_src == sig->obj.is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
+    else
+        slot->dir = dir;
     slot->causes_update = 1; /* default */
     return slot;
 }
@@ -56,51 +89,59 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
 
     a = mpr_msg_get_prop(msg, MPR_PROP_LEN | mask);
     if (a) {
-        mpr_prop prop = a->prop;
-        a->prop &= ~mask;
+        mpr_prop prop = mpr_msg_atom_get_prop(a);
+        mpr_msg_atom_set_prop(a, prop * ~mask);
         if (mpr_tbl_set_from_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
             ++updated;
-        a->prop = prop;
+        mpr_msg_atom_set_prop(a, prop);
     }
     a = mpr_msg_get_prop(msg, MPR_PROP_TYPE | mask);
     if (a) {
-        mpr_prop prop = a->prop;
-        a->prop &= ~mask;
+        mpr_prop prop = mpr_msg_atom_get_prop(a);
+        mpr_msg_atom_set_prop(a, prop & ~mask);
         if (mpr_tbl_set_from_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
             ++updated;
-        a->prop = prop;
+        mpr_msg_atom_set_prop(a, prop);
     }
     RETURN_ARG_UNLESS(!slot->is_local, 0);
     a = mpr_msg_get_prop(msg, MPR_PROP_DIR | mask);
-    if (a && mpr_type_get_is_str(a->types[0])) {
-        int dir = 0;
-        if (strcmp(&(*a->vals)->s, "output")==0)
-            dir = MPR_DIR_OUT;
-        else if (strcmp(&(*a->vals)->s, "input")==0)
-            dir = MPR_DIR_IN;
-        if (dir)
-            updated += mpr_tbl_set(slot->sig->obj.props.synced, PROP(DIR), NULL, 1, MPR_INT32,
-                                   &dir, REMOTE_MODIFY);
+    if (a) {
+        const mpr_type *types = mpr_msg_atom_get_types(a);
+        if (mpr_type_get_is_str(types[0])) {
+            int dir = 0;
+            lo_arg **vals = mpr_msg_atom_get_values(a);
+            if (strcmp(&(*vals)->s, "output")==0)
+                dir = MPR_DIR_OUT;
+            else if (strcmp(&(*vals)->s, "input")==0)
+                dir = MPR_DIR_IN;
+            if (dir)
+                updated += mpr_tbl_set(slot->sig->obj.props.synced, PROP(DIR), NULL,
+                                       1, MPR_INT32, &dir, REMOTE_MODIFY);
+        }
     }
     a = mpr_msg_get_prop(msg, MPR_PROP_NUM_INST | mask);
-    if (a && MPR_INT32 == a->types[0]) {
-        int num_inst = a->vals[0]->i;
-        if (slot->is_local && !slot->sig->obj.is_local && ((mpr_local_map)slot->map)->expr) {
-            mpr_local_map map = (mpr_local_map)slot->map;
-            int hist_size = 0;
-            if (map->dst == (mpr_local_slot)slot)
-                hist_size = mpr_expr_get_out_hist_size(map->expr);
-            else {
-                int i;
-                for (i = 0; i < map->num_src; i++) {
-                    if (map->src[i] == (mpr_local_slot)slot)
-                        hist_size = mpr_expr_get_in_hist_size(map->expr, i);
+    if (a) {
+        const mpr_type *types = mpr_msg_atom_get_types(a);
+        if (MPR_INT32 == types[0]) {
+            lo_arg **vals = mpr_msg_atom_get_values(a);
+            int num_inst = vals[0]->i;
+            if (slot->is_local && !slot->sig->obj.is_local && ((mpr_local_map)slot->map)->expr) {
+                mpr_local_map map = (mpr_local_map)slot->map;
+                int hist_size = 0;
+                if (map->dst == (mpr_local_slot)slot)
+                    hist_size = mpr_expr_get_out_hist_size(map->expr);
+                else {
+                    int i;
+                    for (i = 0; i < map->num_src; i++) {
+                        if (map->src[i] == (mpr_local_slot)slot)
+                            hist_size = mpr_expr_get_in_hist_size(map->expr, i);
+                    }
                 }
+                mpr_slot_alloc_values((mpr_local_slot)slot, num_inst, hist_size);
             }
-            mpr_slot_alloc_values((mpr_local_slot)slot, num_inst, hist_size);
+            else
+                slot->num_inst = num_inst;
         }
-        else
-            slot->num_inst = num_inst;
     }
     return updated;
 }
@@ -187,4 +228,102 @@ void mpr_slot_remove_inst(mpr_local_slot slot, int idx)
     RETURN_UNLESS(slot && idx >= 0 && idx < slot->num_inst);
     /* TODO: remove slot->num_inst property */
     slot->num_inst = mpr_value_remove_inst(&slot->val, idx);
+}
+
+mpr_value mpr_slot_get_value(mpr_local_slot slot)
+{
+    return &slot->val;
+}
+
+int mpr_slot_set_value(mpr_local_slot slot, int inst_idx, void *value, mpr_time time)
+{
+    mpr_value_set_samp(&slot->val, inst_idx, value, time);
+    return slot->causes_update;
+}
+
+void mpr_slot_reset_inst(mpr_local_slot slot, int inst_idx)
+{
+    mpr_value_reset_inst(&slot->val, inst_idx);
+}
+
+mpr_link mpr_slot_get_link(mpr_slot slot)
+{
+    return slot->link;
+}
+
+void mpr_slot_set_link(mpr_slot slot, mpr_link link)
+{
+    slot->link = link;
+}
+
+mpr_map mpr_slot_get_map(mpr_slot slot)
+{
+    return slot->map;
+}
+
+mpr_sig mpr_slot_get_sig(mpr_slot slot)
+{
+    return slot->sig;
+}
+
+mpr_dir mpr_slot_get_dir(mpr_slot slot)
+{
+    return slot->dir;
+}
+
+void mpr_slot_set_dir(mpr_slot slot, mpr_dir dir)
+{
+    slot->dir = dir;
+}
+
+int mpr_slot_get_id(mpr_slot slot)
+{
+    return slot->id;
+}
+
+void mpr_slot_set_id(mpr_slot slot, int id)
+{
+    slot->id = id;
+}
+
+int mpr_slot_get_is_local(mpr_slot slot)
+{
+    return slot->is_local;
+}
+
+int mpr_slot_get_num_inst(mpr_slot slot)
+{
+    return slot->num_inst;
+}
+
+mpr_rtr_sig mpr_slot_get_rtr_sig(mpr_local_slot slot)
+{
+    return slot->rsig;
+}
+
+void mpr_slot_set_rtr_sig(mpr_local_slot slot, mpr_rtr_sig rsig)
+{
+    slot->rsig = rsig;
+}
+
+int mpr_slot_get_causes_update(mpr_slot slot)
+{
+    return slot->causes_update;
+}
+
+void mpr_slot_set_causes_update(mpr_slot slot, int causes_update)
+{
+    slot->causes_update = causes_update;
+}
+
+char mpr_slot_check_status(mpr_local_slot slot)
+{
+    mpr_sig sig = slot->sig;
+    if (sig->len)
+        slot->status |= MPR_STATUS_LENGTH_KNOWN;
+    if (sig->type)
+        slot->status |= MPR_STATUS_TYPE_KNOWN;
+    if (slot->rsig || mpr_link_get_is_ready(slot->link))
+        slot->status |= MPR_STATUS_LINK_KNOWN;
+    return slot->status;
 }
