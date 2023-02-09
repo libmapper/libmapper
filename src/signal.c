@@ -63,40 +63,26 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     mpr_local_sig lsig;
 
     /* For now we only allow adding signals to devices. */
-    RETURN_ARG_UNLESS(dev && dev->obj.is_local, 0);
+    RETURN_ARG_UNLESS(dev && mpr_obj_get_is_local((mpr_obj)dev), 0);
     RETURN_ARG_UNLESS(name && !check_sig_length(len) && mpr_type_get_is_num(type), 0);
     TRACE_RETURN_UNLESS(name[strlen(name)-1] != '/', 0,
                         "trailing slash detected in signal name.\n");
     TRACE_RETURN_UNLESS(dir == MPR_DIR_IN || dir == MPR_DIR_OUT, 0,
                         "signal direction must be either input or output.\n")
-    g = dev->obj.graph;
+    g = mpr_obj_get_graph((mpr_obj)dev);
     if ((lsig = (mpr_local_sig)mpr_dev_get_sig_by_name(dev, name)))
         return (mpr_sig)lsig;
 
     lsig = (mpr_local_sig)mpr_graph_add_list_item(g, MPR_SIG, sizeof(mpr_local_sig_t));
     lsig->dev = (mpr_local_dev)dev;
     lsig->obj.id = mpr_dev_get_unused_sig_id((mpr_local_dev)dev);
-    lsig->obj.graph = g;
     lsig->period = -1;
     lsig->handler = (void*)h;
     lsig->event_flags = events;
     lsig->obj.is_local = 1;
     mpr_sig_init((mpr_sig)lsig, dir, name, len, type, unit, min, max, num_inst);
 
-    if (dir == MPR_DIR_IN)
-        ++dev->num_inputs;
-    else
-        ++dev->num_outputs;
-
-    mpr_obj_increment_version((mpr_obj)dev);
-
-    mpr_dev_add_sig_methods((mpr_local_dev)dev, lsig);
-    if (((mpr_local_dev)dev)->registered) {
-        /* Notify subscribers */
-        mpr_net_use_subscribers(mpr_graph_get_net(g), (mpr_local_dev)dev,
-                                ((dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT));
-        mpr_sig_send_state((mpr_sig)lsig, MSG_SIG);
-    }
+    mpr_local_dev_add_sig((mpr_local_dev)dev, lsig, dir);
     return (mpr_sig)lsig;
 }
 
@@ -221,7 +207,7 @@ void mpr_sig_free(mpr_sig sig)
         }
         mpr_rtr_remove_sig(rtr, rs);
     }
-    if (ldev->registered) {
+    if (mpr_dev_get_is_registered((mpr_dev)ldev)) {
         /* Notify subscribers */
         int dir = (sig->dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT;
         mpr_net_use_subscribers(net, ldev, dir);
@@ -235,6 +221,7 @@ void mpr_sig_free_internal(mpr_sig sig)
 {
     int i;
     RETURN_UNLESS(sig);
+    mpr_dev_remove_sig(sig->dev, sig);
     if (sig->obj.is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
         /* Free instances */
@@ -253,8 +240,7 @@ void mpr_sig_free_internal(mpr_sig sig)
         FUNC_IF(free, lsig->vec_known);
     }
 
-    FUNC_IF(mpr_tbl_free, sig->obj.props.synced);
-    FUNC_IF(mpr_tbl_free, sig->obj.props.staged);
+    mpr_obj_free(&sig->obj);
     FUNC_IF(free, sig->path);
     FUNC_IF(free, sig->unit);
 }
@@ -303,7 +289,7 @@ static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
                 goto done;
             if (lsig->idmaps[j].inst != si)
                 continue;
-            if (map->GID >> 32 != lsig->dev->obj.id >> 32)
+            if (map->GID >> 32 != mpr_obj_get_id((mpr_obj)lsig->dev) >> 32)
                 continue;
             /* locally claimed instance, allow replacing idmap */
             mpr_dev_LID_decref((mpr_local_dev)lsig->dev, lsig->group, map);
@@ -773,7 +759,8 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
 
     /* mark instance as updated */
     mpr_bitflags_set(lsig->updated_inst, si->idx);
-    ((mpr_local_dev)lsig->dev)->sending = lsig->updated = 1;
+    lsig->updated = 1;
+    mpr_local_dev_set_sending(lsig->dev);
 
     mpr_rtr_process_sig(mpr_net_get_rtr(mpr_graph_get_net(lsig->obj.graph)), lsig,
                         idmap_idx, si->has_val ? si->val : 0, si->time);
@@ -795,7 +782,8 @@ void mpr_sig_release_inst_internal(mpr_local_sig lsig, int idmap_idx)
 
     /* mark instance as updated */
     mpr_bitflags_set(lsig->updated_inst, smap->inst->idx);
-    ((mpr_local_dev)lsig->dev)->sending = lsig->updated = 1;
+    lsig->updated = 1;
+    mpr_local_dev_set_sending(lsig->dev);
 
     mpr_rtr_process_sig(mpr_net_get_rtr(mpr_graph_get_net(lsig->obj.graph)),
                         lsig, idmap_idx, 0, smap->inst->time);
@@ -1000,10 +988,8 @@ static int cmp_qry_sig_maps(const void *context_data, mpr_map map)
 
 mpr_list mpr_sig_get_maps(mpr_sig sig, mpr_dir dir)
 {
-    mpr_list q;
     RETURN_ARG_UNLESS(sig, 0);
-    q = mpr_graph_new_query(sig->obj.graph, MPR_MAP, (void*)cmp_qry_sig_maps, "vi", &sig, dir);
-    return mpr_list_start(q);
+    return mpr_graph_new_query(sig->obj.graph, 1, MPR_MAP, (void*)cmp_qry_sig_maps, "vi", &sig, dir);
 }
 
 static int _init_and_add_idmap(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map map)
@@ -1054,7 +1040,7 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
         /* properties */
         mpr_tbl_add_to_msg(sig->obj.is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
 
-        snprintf(str, BUFFSIZE, "/%s/signal/modify", sig->dev->name);
+        snprintf(str, BUFFSIZE, "/%s/signal/modify", mpr_dev_get_name(sig->dev));
         mpr_net_add_msg(net, str, 0, msg);
         /* send immediately since path string is not cached */
         mpr_net_send(net);
@@ -1139,4 +1125,11 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
         }
     }
     return updated;
+}
+
+void mpr_local_sig_set_updated(mpr_local_sig sig, int inst_idx)
+{
+    mpr_bitflags_set(sig->updated_inst, inst_idx);
+    mpr_local_dev_set_sending(sig->dev);
+    sig->updated = 1;
 }

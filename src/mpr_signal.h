@@ -79,4 +79,6 @@ int mpr_sig_get_idmap_with_GID(mpr_local_sig sig, mpr_id GID, int flags, mpr_tim
 /*! Release a specific signal instance. */
 void mpr_sig_release_inst_internal(mpr_local_sig sig, int inst_idx);
 
+void mpr_local_sig_set_updated(mpr_local_sig sig, int inst_idx);
+
 #endif /* __MAPPER_SIGNAL_H__ */

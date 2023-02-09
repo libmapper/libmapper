@@ -58,7 +58,7 @@ int test_network()
     eprintf("Found interface %s has IP %s\n", mpr_graph_get_interface(graph),
             mpr_graph_get_address(graph));
 
-    while (!((mpr_local_dev)dev)->registered) {
+    while (!mpr_dev_get_is_ready(dev)) {
         mpr_dev_poll(dev, 100);
     }
 
@@ -68,7 +68,7 @@ int test_network()
         return 1;
     }
     eprintf("Using port %d.\n", *(int*)val);
-    eprintf("Allocated ordinal %d.\n", ((mpr_local_dev)dev)->ordinal_allocator.val);
+    eprintf("Using ordinal %d.\n", mpr_obj_get_prop_as_int32((mpr_obj)dev, MPR_PROP_ORDINAL, NULL));
 
     eprintf("Delaying for 5 seconds..\n");
     wait = 50;

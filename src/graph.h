@@ -76,7 +76,8 @@ int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name);
 
 void mpr_graph_free_cbs(mpr_graph g);
 
-mpr_list mpr_graph_new_query(mpr_graph g, int obj_type, const void *func, const char *types, ...);
+mpr_list mpr_graph_new_query(mpr_graph g, int allow_empty, int obj_type,
+                             const void *func, const char *types, ...);
 
 void mpr_graph_set_owned(mpr_graph g, int own);
 

@@ -6,20 +6,25 @@
 #include "types_internal.h"
 #include "util/mpr_inline.h"
 
+typedef enum {
+    SERVER_UDP = 0,
+    SERVER_TCP = 1
+} dev_server_t;
+
 /**** Debug macros ****/
 
 /*! Debug tracer */
 #if defined(__GNUC__) || defined(WIN32)
 #ifdef DEBUG
-#define trace_dev(DEV, ...)                                                         \
-{                                                                                   \
-    if (!DEV)                                                                       \
-        printf("\x1B[32m-- <device>\x1B[0m ");                                      \
-    else if (DEV->obj.is_local && ((mpr_local_dev)DEV)->registered)                 \
-        printf("\x1B[32m-- <device '%s'>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV)); \
-    else                                                                            \
-        printf("\x1B[32m-- <device '%s.?'::%p>\x1B[0m ", DEV->prefix, DEV);         \
-    printf(__VA_ARGS__);                                                            \
+#define trace_dev(DEV, ...)                                                                   \
+{                                                                                             \
+    if (!DEV)                                                                                 \
+        printf("\x1B[32m-- <device>\x1B[0m ");                                                \
+    else if (mpr_dev_get_is_registered((mpr_dev)DEV))                                         \
+        printf("\x1B[32m-- <device '%s'>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV));           \
+    else                                                                                      \
+        printf("\x1B[32m-- <device '%s?'::%p>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV), DEV); \
+    printf(__VA_ARGS__);                                                                      \
 }
 #else /* !DEBUG */
 #define trace_dev(...) {}
@@ -28,56 +33,12 @@
 #define trace_dev(...) {};
 #endif /* __GNUC__ */
 
-#define MPR_DEV_STRUCT_ITEMS                                            \
-    mpr_obj_t obj;      /* always first */                              \
-    mpr_dev *linked;                                                    \
-    char *prefix;       /*!< The identifier (prefix) for this device. */\
-    char *name;         /*!< The full name for this device, or zero. */ \
-    mpr_time synced;    /*!< Timestamp of last sync. */                 \
-    int ordinal;                                                        \
-    int num_inputs;     /*!< Number of associated input signals. */     \
-    int num_outputs;    /*!< Number of associated output signals. */    \
-    int num_maps_in;    /*!< Number of associated incoming maps. */     \
-    int num_maps_out;   /*!< Number of associated outgoing maps. */     \
-    int num_linked;     /*!< Number of linked devices. */               \
-    int status;                                                         \
-    uint8_t subscribed;
-
-/*! A record that keeps information about a device. */
-struct _mpr_dev {
-    MPR_DEV_STRUCT_ITEMS
-};
-
-struct _mpr_local_dev {
-    MPR_DEV_STRUCT_ITEMS
-
-    lo_server servers[4];
-
-    mpr_allocated_t ordinal_allocator;  /*!< A unique ordinal for this device instance. */
-    int registered;                     /*!< Non-zero if this device has been registered. */
-
-    int n_output_callbacks;
-
-    mpr_subscriber subscribers;         /*!< Linked-list of subscribed peers. */
-
-    struct {
-        struct _mpr_id_map **active;    /*!< The list of active instance id maps. */
-        struct _mpr_id_map *reserve;    /*!< The list of reserve instance id maps. */
-    } idmaps;
-
-    mpr_expr_stack expr_stack;
-    mpr_thread_data thread_data;
-
-    mpr_time time;
-    int num_sig_groups;
-    uint8_t time_is_stale;
-    uint8_t polling;
-    uint8_t bundle_idx;
-    uint8_t sending;
-    uint8_t receiving;
-};
+void mpr_dev_free_mem(mpr_dev dev);
 
 int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg msg);
+
+int mpr_dev_get_is_subscribed(mpr_dev dev);
+void mpr_dev_set_is_subscribed(mpr_dev dev, int subscribed);
 
 void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address address, int flags,
                                int timeout_seconds, int revision);
@@ -120,11 +81,13 @@ int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map map);
 
 int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map map);
 
-void init_dev_prop_tbl(mpr_dev dev);
+void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id);
 
 void mpr_dev_on_registered(mpr_local_dev dev);
 
 void mpr_dev_add_sig_methods(mpr_local_dev dev, mpr_local_sig sig);
+
+void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig);
 
 void mpr_dev_remove_sig_methods(mpr_local_dev dev, mpr_local_sig sig);
 
@@ -146,5 +109,54 @@ int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg);
  *  \return             Information about the link, or zero if not found. */
 struct _mpr_link* mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote);
 
+void mpr_dev_set_synced(mpr_dev dev, mpr_time time);
+
+int mpr_dev_has_local_link(mpr_dev dev);
+
+int mpr_dev_check_synced(mpr_dev dev, mpr_time time);
+
+size_t mpr_dev_get_struct_size();
+
+int mpr_dev_get_is_registered(mpr_dev dev);
+
+lo_server mpr_local_dev_get_server(mpr_local_dev dev, dev_server_t idx);
+
+int mpr_local_dev_get_bundle_idx(mpr_local_dev dev);
+
+mpr_expr_stack mpr_local_dev_get_expr_stack(mpr_local_dev dev);
+
+void mpr_local_dev_set_sending(mpr_local_dev dev);
+
+int mpr_local_dev_has_subscribers(mpr_local_dev dev);
+
+void mpr_local_dev_send_to_subscribers(mpr_local_dev dev, lo_bundle bundle, int msg_type,
+                                       lo_server from);
+
+void mpr_local_dev_handler_name(mpr_local_dev dev, const char *name,
+                                int temp_id, int random_id, int hint);
+
+void mpr_local_dev_probe_name(mpr_local_dev dev, mpr_net net);
+
+void mpr_local_dev_handler_name_probe(mpr_local_dev dev, char *name, int temp_id,
+                                     int random_id, mpr_id id);
+
+void mpr_local_dev_restart_registration(mpr_local_dev dev, int start_ordinal);
+
+int mpr_local_dev_check_registration(mpr_local_dev dev);
+
+void mpr_local_dev_handler_logout(mpr_local_dev dev, mpr_dev remote, const char *prefix_str,
+                                 int ordinal);
+
+void mpr_local_dev_copy_net_servers(mpr_local_dev dev, lo_server *servers);
+
+void mpr_dev_set_num_maps(mpr_dev dev, int num_maps_in, int num_maps_out);
+
+void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir);
+
+int mpr_local_dev_get_num_idmaps(mpr_local_dev dev, int active);
+
+#ifdef DEBUG
+void mpr_local_dev_print_idmaps(mpr_local_dev dev);
+#endif
 
 #endif /* __MAPPER_DEVICE_H__ */

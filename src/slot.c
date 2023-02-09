@@ -205,7 +205,7 @@ int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
     sig_name = strchr(full_name+1, '/');
     RETURN_ARG_UNLESS(sig_name, 1);
     len = sig_name - full_name;
-    dev_name = slot->sig->dev->name;
+    dev_name = mpr_dev_get_name(slot->sig->dev);
     return (strlen(dev_name) != len || strncmp(full_name, dev_name, len)
             || strcmp(sig_name+1, slot->sig->name)) ? 1 : 0;
 }

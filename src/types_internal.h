@@ -104,12 +104,6 @@ typedef struct _mpr_subscription {
     uint32_t lease_expiration_sec;
 } *mpr_subscription;
 
-#define SERVER_BUS      0   /* Multicast comms. */
-#define SERVER_MESH     1   /* Mesh comms. */
-
-#define SERVER_UDP      0
-#define SERVER_TCP      1
-
 /*! A structure that keeps information about network communications. */
 typedef struct _mpr_net {
     struct _mpr_graph *graph;
@@ -146,6 +140,7 @@ typedef struct _mpr_net {
     uint32_t next_bus_ping;
     uint32_t next_sub_ping;
     uint8_t generic_dev_methods_added;
+    uint8_t registered;
 } mpr_net_t, *mpr_net;
 
 /*! Function to call when an allocated resource is locked. */

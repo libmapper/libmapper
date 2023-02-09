@@ -137,6 +137,11 @@ void on_map(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *user)
     dstdev = mpr_sig_get_dev(dstsig);
     host = mpr_obj_get_prop_as_str((mpr_obj)dstdev, MPR_PROP_HOST, NULL);
 
+    if (!host) {
+        eprintf("error recovering destination host\n");
+        return;
+    }
+
     eprintf("Connecting with TCP to `%s' on port %d.\n", host, port);
 
     memset((char *) &addr, 0, sizeof(addr));

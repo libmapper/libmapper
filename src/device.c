@@ -1,5 +1,6 @@
 #include <lo/lo.h>
 #include <stdlib.h>
+#include <zlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -50,6 +51,55 @@ static unsigned __stdcall device_thread_func(void *data);
 
 extern const char* net_msg_strings[NUM_MSG_STRINGS];
 
+#define MPR_DEV_STRUCT_ITEMS                                            \
+    mpr_obj_t obj;      /* always first */                              \
+    mpr_dev *linked;                                                    \
+    char *name;         /*!< The full name for this device, or zero. */ \
+    mpr_time synced;    /*!< Timestamp of last sync. */                 \
+    int prefix_len;     /*!< Length of the prefix string. */            \
+    int ordinal;                                                        \
+    int num_inputs;     /*!< Number of associated input signals. */     \
+    int num_outputs;    /*!< Number of associated output signals. */    \
+    int num_maps_in;    /*!< Number of associated incoming maps. */     \
+    int num_maps_out;   /*!< Number of associated outgoing maps. */     \
+    int num_linked;     /*!< Number of linked devices. */               \
+    int status;                                                         \
+    uint8_t subscribed;
+
+/*! A record that keeps information about a device. */
+struct _mpr_dev {
+    MPR_DEV_STRUCT_ITEMS
+};
+
+struct _mpr_local_dev {
+    MPR_DEV_STRUCT_ITEMS
+
+    lo_server servers[4];
+
+    mpr_allocated_t ordinal_allocator;  /*!< A unique ordinal for this device instance. */
+    int registered;                     /*!< Non-zero if this device has been registered. */
+
+    int n_output_callbacks;
+
+    mpr_subscriber subscribers;         /*!< Linked-list of subscribed peers. */
+
+    struct {
+        struct _mpr_id_map **active;    /*!< The list of active instance id maps. */
+        struct _mpr_id_map *reserve;    /*!< The list of reserve instance id maps. */
+    } idmaps;
+
+    mpr_expr_stack expr_stack;
+    mpr_thread_data thread_data;
+
+    mpr_time time;
+    int num_sig_groups;
+    uint8_t time_is_stale;
+    uint8_t polling;
+    uint8_t bundle_idx;
+    uint8_t sending;
+    uint8_t receiving;
+};
+
 /* prototypes */
 static void mpr_dev_start_servers(mpr_local_dev dev);
 static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem);
@@ -57,7 +107,12 @@ MPR_INLINE static int _process_outgoing_maps(mpr_local_dev dev);
 
 mpr_time ts = {0,1};
 
-static int cmp_qry_linked(const void *ctx, mpr_dev dev)
+size_t mpr_dev_get_struct_size()
+{
+    return sizeof(mpr_dev_t);
+}
+
+static int _cmp_qry_linked(const void *ctx, mpr_dev dev)
 {
     int i;
     mpr_dev self = *(mpr_dev*)ctx;
@@ -68,18 +123,28 @@ static int cmp_qry_linked(const void *ctx, mpr_dev dev)
     return 0;
 }
 
-static int cmp_qry_dev_sigs(const void *context_data, mpr_sig sig)
+static int _cmp_qry_sigs(const void *context_data, mpr_sig sig)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
     int dir = *(int*)((char*)context_data + sizeof(mpr_id));
     return ((dir & sig->dir) && (dev_id == sig->dev->obj.id));
 }
 
-void init_dev_prop_tbl(mpr_dev dev)
+void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
 {
-    int mod = dev->obj.is_local ? NON_MODIFIABLE : MODIFIABLE;
+    int mod = is_local ? NON_MODIFIABLE : MODIFIABLE;
     mpr_tbl tbl;
     mpr_list qry;
+
+    mpr_obj_set_is_local(&dev->obj, is_local);
+    if (name) {
+        assert(!dev->name);
+        dev->name = strdup(name);
+    }
+    if (id) {
+        assert(!dev->obj.id);
+        dev->obj.id = id;
+    }
 
     dev->obj.props.synced = mpr_tbl_new();
     if (!dev->obj.is_local)
@@ -90,7 +155,7 @@ void init_dev_prop_tbl(mpr_dev dev)
     mpr_tbl_link(tbl, PROP(DATA), 1, MPR_PTR, &dev->obj.data,
                  LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, mod);
-    qry = mpr_graph_new_query(dev->obj.graph, MPR_DEV, (void*)cmp_qry_linked, "v", &dev);
+    qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_DEV, (void*)_cmp_qry_linked, "v", &dev);
     mpr_tbl_link(tbl, PROP(LINKED), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
     mpr_tbl_link(tbl, PROP(NAME), 1, MPR_STR, &dev->name, mod | INDIRECT | LOCAL_ACCESS_ONLY);
     mpr_tbl_link(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, mod);
@@ -99,7 +164,7 @@ void init_dev_prop_tbl(mpr_dev dev)
     mpr_tbl_link(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, mod);
     mpr_tbl_link(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, mod);
     if (!dev->obj.is_local) {
-        qry = mpr_graph_new_query(dev->obj.graph, MPR_SIG, (void*)cmp_qry_dev_sigs,
+        qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)_cmp_qry_sigs,
                                   "hi", dev->obj.id, MPR_DIR_ANY);
         mpr_tbl_link(tbl, PROP(SIG), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
     }
@@ -129,13 +194,12 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     }
 
     dev = (mpr_local_dev)mpr_graph_add_list_item(g, MPR_DEV, sizeof(mpr_local_dev_t));
-    dev->obj.type = MPR_DEV;
-    dev->obj.graph = g;
-    dev->obj.is_local = 1;
 
-    init_dev_prop_tbl((mpr_dev)dev);
+    mpr_dev_init((mpr_dev)dev, 1, NULL, 0);
 
-    dev->prefix = strdup(name_prefix);
+    dev->prefix_len = strlen(name_prefix);
+    dev->name = (char*)malloc(dev->prefix_len + 6);
+    sprintf(dev->name, "%s.0", name_prefix);
     mpr_dev_start_servers(dev);
 
     if (!dev->servers[SERVER_UDP] || !dev->servers[SERVER_TCP]) {
@@ -242,8 +306,6 @@ void mpr_dev_free(mpr_dev dev)
         free(map);
     }
 
-    FUNC_IF(free, dev->prefix);
-
     mpr_expr_stack_free(ldev->expr_stack);
 
     FUNC_IF(lo_server_free, ldev->servers[SERVER_UDP]);
@@ -254,9 +316,16 @@ void mpr_dev_free(mpr_dev dev)
         mpr_graph_free(gph);
 }
 
+void mpr_dev_free_mem(mpr_dev dev)
+{
+    FUNC_IF(free, dev->linked);
+    FUNC_IF(free, dev->name);
+}
+
 void mpr_dev_on_registered(mpr_local_dev dev)
 {
     int i;
+    char *name;
     mpr_list qry;
     /* Add unique device id to locally-activated signal instances. */
     mpr_list sigs = mpr_dev_get_sigs((mpr_dev)dev, MPR_DIR_ANY);
@@ -270,18 +339,29 @@ void mpr_dev_on_registered(mpr_local_dev dev)
         }
         sig->obj.id |= dev->obj.id;
     }
-    qry = mpr_graph_new_query(dev->obj.graph, MPR_SIG, (void*)cmp_qry_dev_sigs,
+    qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)_cmp_qry_sigs,
                               "hi", dev->obj.id, MPR_DIR_ANY);
     mpr_tbl_set(dev->obj.props.synced, PROP(SIG), NULL, 1, MPR_LIST, qry,
                 NON_MODIFIABLE | PROP_OWNED);
     dev->registered = 1;
     dev->ordinal = dev->ordinal_allocator.val;
+
+    snprintf(dev->name + dev->prefix_len + 1, dev->prefix_len + 6, "%d", dev->ordinal);
+    name = strdup(dev->name);
+    free(dev->name);
+    dev->name = name;
+
     dev->status = MPR_STATUS_READY;
 
     mpr_dev_get_name((mpr_dev)dev);
 
     /* Check if we have any staged maps */
     mpr_graph_cleanup(dev->obj.graph);
+}
+
+int mpr_dev_get_is_registered(mpr_dev dev)
+{
+    return !dev->obj.is_local || ((mpr_local_dev)dev)->registered;
 }
 
 MPR_INLINE static int check_types(const mpr_type *types, int len, mpr_type type, int vector_len)
@@ -590,13 +670,19 @@ void mpr_dev_remove_sig_methods(mpr_local_dev dev, mpr_local_sig sig)
     --dev->n_output_callbacks;
 }
 
+void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig)
+{
+    if (sig->dir & MPR_DIR_IN)
+        --dev->num_inputs;
+    if (sig->dir & MPR_DIR_OUT)
+        --dev->num_outputs;
+}
+
 mpr_list mpr_dev_get_sigs(mpr_dev dev, mpr_dir dir)
 {
-    mpr_list qry;
     RETURN_ARG_UNLESS(dev, 0);
-    qry = mpr_graph_new_query(dev->obj.graph, MPR_SIG, (void*)cmp_qry_dev_sigs,
-                              "hi", dev->obj.id, dir);
-    return mpr_list_start(qry);
+    return mpr_graph_new_query(dev->obj.graph, 1, MPR_SIG, (void*)_cmp_qry_sigs,
+                               "hi", dev->obj.id, dir);
 }
 
 mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
@@ -613,7 +699,7 @@ mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
     return 0;
 }
 
-static int cmp_qry_dev_maps(const void *context_data, mpr_map map)
+static int _cmp_qry_maps(const void *context_data, mpr_map map)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
     mpr_dir dir = *(int*)((char*)context_data + sizeof(mpr_id));
@@ -643,14 +729,12 @@ static int cmp_qry_dev_maps(const void *context_data, mpr_map map)
 
 mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir)
 {
-    mpr_list qry;
     RETURN_ARG_UNLESS(dev, 0);
-    qry = mpr_graph_new_query(dev->obj.graph, MPR_MAP, (void*)cmp_qry_dev_maps,
-                              "hi", dev->obj.id, dir);
-    return mpr_list_start(qry);
+    return mpr_graph_new_query(dev->obj.graph, 1, MPR_MAP, (void*)_cmp_qry_maps,
+                               "hi", dev->obj.id, dir);
 }
 
-static int cmp_qry_dev_links(const void *context_data, mpr_link link)
+static int _cmp_qry_links(const void *context_data, mpr_link link)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
     mpr_dir dir = *(int*)((char*)context_data + sizeof(mpr_id));
@@ -673,11 +757,9 @@ static int cmp_qry_dev_links(const void *context_data, mpr_link link)
 
 mpr_list mpr_dev_get_links(mpr_dev dev, mpr_dir dir)
 {
-    mpr_list qry;
     RETURN_ARG_UNLESS(dev, 0);
-    qry = mpr_graph_new_query(dev->obj.graph, MPR_LINK, (void*)cmp_qry_dev_links,
-                              "hi", dev->obj.id, dir);
-    return mpr_list_start(qry);
+    return mpr_graph_new_query(dev->obj.graph, 1, MPR_LINK, (void*)_cmp_qry_links,
+                               "hi", dev->obj.id, dir);
 }
 
 mpr_link mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote)
@@ -953,8 +1035,19 @@ void mpr_dev_reserve_idmap(mpr_local_dev dev)
     dev->idmaps.reserve = map;
 }
 
+int mpr_local_dev_get_num_idmaps(mpr_local_dev dev, int active)
+{
+    int count = 0;
+    mpr_id_map *id_map = active ? &(dev)->idmaps.active[0] : &(dev)->idmaps.reserve;
+    while (*id_map) {
+        ++count;
+        id_map = &(*id_map)->next;
+    }
+    return count;
+}
+
 #ifdef DEBUG
-static void print_idmaps(mpr_local_dev dev)
+void mpr_local_dev_print_idmaps(mpr_local_dev dev)
 {
     printf("ID MAPS for %s:\n", dev->name);
     mpr_id_map *map = &dev->idmaps.active[0];
@@ -982,7 +1075,7 @@ mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GI
     map->next = dev->idmaps.active[group];
     dev->idmaps.active[group] = map;
 #ifdef DEBUG
-    print_idmaps(dev);
+    mpr_local_dev_print_idmaps(dev);
 #endif
     return map;
 }
@@ -1002,7 +1095,7 @@ static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem)
         map = &(*map)->next;
     }
 #ifdef DEBUG
-    print_idmaps(dev);
+    mpr_local_dev_print_idmaps(dev);
 #endif
 }
 
@@ -1103,17 +1196,117 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
            sizeof(lo_server) * 2);
 }
 
+/*! Probe the network to see if a device's proposed name.ordinal is available. */
+void mpr_local_dev_probe_name(mpr_local_dev dev, mpr_net net)
+{
+    int i;
+
+    /* reset collisions and hints */
+    dev->ordinal_allocator.collision_count = 0;
+    dev->ordinal_allocator.count_time = mpr_get_current_time();
+    for (i = 0; i < 8; i++)
+        dev->ordinal_allocator.hints[i] = 0;
+
+    snprintf(dev->name + dev->prefix_len + 1, dev->prefix_len + 6, "%d", dev->ordinal_allocator.val);
+    trace_dev(dev, "probing name '%s'\n", dev->name);
+
+    /* Calculate an id from the name and store it in id.val */
+    mpr_obj_set_id(&dev->obj, (mpr_id) crc32(0L, (const Bytef *)dev->name, strlen(dev->name)) << 32);
+
+    mpr_net_send_name_probe(net, dev->name);
+}
+
+/* Extract the ordinal from a device name in the format: <name>.<ordinal> */
+static int extract_ordinal(char *name) {
+    int ordinal;
+    char *s = name;
+    RETURN_ARG_UNLESS(s = strrchr(s, '.'), -1);
+    ordinal = atoi(s+1);
+    *s = 0;
+    return ordinal;
+}
+
+void mpr_local_dev_handler_name(mpr_local_dev dev, const char *name,
+                                int temp_id, int random_id, int hint)
+{
+    mpr_net net = mpr_graph_get_net(mpr_obj_get_graph((mpr_obj)dev));
+    int ordinal, diff;
+
+#ifdef DEBUG
+    if (hint)
+        {trace_dev(dev, "received name %s %i %i\n", name, temp_id, hint);}
+    else
+        {trace_dev(dev, "received name %s\n", name);}
+#endif
+
+    if (dev->ordinal_allocator.locked) {
+        /* extract_ordinal function replaces '.' with NULL */
+        ordinal = extract_ordinal((char*)name);
+        RETURN_UNLESS(ordinal >= 0);
+
+        /* If device name matches */
+        if (strlen(name) == dev->prefix_len && 0 == strncmp(name, dev->name, dev->prefix_len)) {
+            /* if id is locked and registered id is within my block, store it */
+            diff = ordinal - dev->ordinal_allocator.val - 1;
+            if (diff >= 0 && diff < 8)
+                dev->ordinal_allocator.hints[diff] = -1;
+            if (hint) {
+                /* if suggested id is within my block, store timestamp */
+                diff = hint - dev->ordinal_allocator.val - 1;
+                if (diff >= 0 && diff < 8)
+                    dev->ordinal_allocator.hints[diff] = mpr_get_current_time();
+            }
+        }
+    }
+    else {
+        mpr_id id = (mpr_id) crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+        if (id == mpr_obj_get_id((mpr_obj)dev)) {
+            if (temp_id < random_id) {
+                /* Count ordinal collisions. */
+                ++dev->ordinal_allocator.collision_count;
+                dev->ordinal_allocator.count_time = mpr_get_current_time();
+            }
+            else if (temp_id == random_id && hint > 0 && hint != dev->ordinal_allocator.val) {
+                dev->ordinal_allocator.val = hint;
+                mpr_local_dev_probe_name(dev, net);
+            }
+        }
+    }
+}
+
+void mpr_local_dev_handler_name_probe(mpr_local_dev dev, char *name, int temp_id,
+                                     int random_id, mpr_id id)
+{
+    int i;
+    double current_time;
+    if (id != mpr_obj_get_id(&dev->obj))
+        return;
+
+    trace_dev(dev, "name probe match %s %i \n", name, temp_id);
+    current_time = mpr_get_current_time();
+    if (dev->ordinal_allocator.locked || temp_id > random_id) {
+        mpr_net net = mpr_graph_get_net(mpr_obj_get_graph(&dev->obj));
+        for (i = 0; i < 8; i++) {
+            if (   dev->ordinal_allocator.hints[i] >= 0
+                && (current_time - dev->ordinal_allocator.hints[i]) > 2.0) {
+                /* reserve suggested ordinal */
+                dev->ordinal_allocator.hints[i] = current_time;
+                break;
+            }
+        }
+        /* Send /registered message with an ordinal hint */
+        mpr_net_send_name_registered(net, name, temp_id, dev->ordinal_allocator.val + i + 1);
+    }
+    else {
+        dev->ordinal_allocator.collision_count += 1;
+        dev->ordinal_allocator.count_time = current_time;
+        if (temp_id == random_id)
+            dev->ordinal_allocator.online = 1;
+    }
+}
+
 const char *mpr_dev_get_name(mpr_dev dev)
 {
-    unsigned int len;
-    RETURN_ARG_UNLESS(!dev->obj.is_local || (   ((mpr_local_dev)dev)->registered
-                                             && ((mpr_local_dev)dev)->ordinal_allocator.locked), 0);
-    if (dev->name)
-        return dev->name;
-    len = strlen(dev->prefix) + 6;
-    dev->name = (char*)malloc(len);
-    dev->name[0] = 0;
-    snprintf(dev->name, len, "%s.%d", dev->prefix, ((mpr_local_dev)dev)->ordinal_allocator.val);
     return dev->name;
 }
 
@@ -1305,6 +1498,16 @@ int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
     return 0;
 }
 
+int mpr_dev_get_is_subscribed(mpr_dev dev)
+{
+    return dev->subscribed != 0;
+}
+
+void mpr_dev_set_is_subscribed(mpr_dev dev, int subscribed)
+{
+    dev->subscribed = (subscribed != 0);
+}
+
 /* Add/renew/remove a subscription. */
 void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
                                int timeout_sec, int revision)
@@ -1392,5 +1595,206 @@ void mpr_dev_manage_subscriber(mpr_local_dev dev, lo_address addr, int flags,
         mpr_net_use_mesh(net, addr);
         mpr_dev_send_maps(dev, dir, MSG_MAPPED);
         mpr_net_send(net);
+    }
+}
+
+int mpr_dev_check_synced(mpr_dev dev, mpr_time time)
+{
+    return !dev->synced.sec || (dev->synced.sec > time.sec);
+}
+
+void mpr_dev_set_synced(mpr_dev dev, mpr_time time)
+{
+    mpr_time_set(&dev->synced, time);
+}
+
+int mpr_dev_has_local_link(mpr_dev dev)
+{
+    int i;
+    for (i = 0; i < dev->num_linked; i++) {
+        if (dev->linked[i] && mpr_obj_get_is_local((mpr_obj)dev->linked[i]))
+            return 1;
+    }
+    return 0;
+}
+
+lo_server mpr_local_dev_get_server(mpr_local_dev dev, dev_server_t idx)
+{
+    return dev->servers[idx];
+}
+
+int mpr_local_dev_get_bundle_idx(mpr_local_dev dev)
+{
+    return dev->bundle_idx % NUM_BUNDLES;
+}
+
+mpr_expr_stack mpr_local_dev_get_expr_stack(mpr_local_dev dev)
+{
+    return dev->expr_stack;
+}
+
+void mpr_local_dev_set_sending(mpr_local_dev dev)
+{
+    dev->sending = 1;
+}
+
+int mpr_local_dev_has_subscribers(mpr_local_dev dev)
+{
+    return dev->subscribers != 0;
+}
+
+void mpr_local_dev_send_to_subscribers(mpr_local_dev dev, lo_bundle bundle,
+                                       int msg_type, lo_server from)
+{
+    mpr_subscriber *sub = &dev->subscribers;
+    mpr_time t;
+    if (*sub)
+        mpr_time_set(&t, MPR_NOW);
+    while (*sub) {
+        if ((*sub)->lease_exp < t.sec || !(*sub)->flags) {
+            /* subscription expired, remove from subscriber list */
+#ifdef DEBUG
+            char *addr = lo_address_get_url((*sub)->addr);
+            trace_dev(dev, "removing expired subscription from %s\n", addr);
+            free(addr);
+#endif
+            mpr_subscriber temp = *sub;
+            *sub = temp->next;
+            FUNC_IF(lo_address_free, temp->addr);
+            free(temp);
+            continue;
+        }
+        if ((*sub)->flags & msg_type)
+            lo_send_bundle_from((*sub)->addr, from, bundle);
+        sub = &(*sub)->next;
+    }
+}
+
+void mpr_local_dev_restart_registration(mpr_local_dev dev, int start_ordinal)
+{
+    dev->registered = 0;
+    dev->ordinal_allocator.val = start_ordinal;
+}
+
+/*! Algorithm for checking collisions and allocating resources. */
+static int check_collisions(mpr_net net, mpr_allocated resource)
+{
+    int i;
+    double current_time, timediff;
+    RETURN_ARG_UNLESS(!resource->locked, 0);
+    current_time = mpr_get_current_time();
+    timediff = current_time - resource->count_time;
+
+    if (!resource->online) {
+        if (timediff >= 5.0) {
+            /* reprobe with the same value */
+            resource->count_time = current_time;
+            return 1;
+        }
+        return 0;
+    }
+    else if (timediff >= 2.0 && resource->collision_count < 2) {
+        resource->locked = 1;
+        if (resource->on_lock)
+            resource->on_lock(resource);
+        return 2;
+    }
+    else if (timediff >= 0.5 && resource->collision_count > 1) {
+        for (i = 0; i < 8; i++) {
+            if (!resource->hints[i])
+                break;
+        }
+        resource->val += i + (rand() % net->num_devs);
+
+        /* Prepare for causing new resource collisions. */
+        resource->collision_count = 0;
+        resource->count_time = current_time;
+        for (i = 0; i < 8; i++)
+            resource->hints[i] = 0;
+
+        /* Indicate that we need to re-probe the new value. */
+        return 1;
+    }
+    return 0;
+}
+
+int mpr_local_dev_check_registration(mpr_local_dev dev)
+{
+    mpr_net net = mpr_graph_get_net(mpr_obj_get_graph(&dev->obj));
+    if (dev->registered)
+        return 1;
+
+    /* If the ordinal has changed, re-probe the new name. */
+    if (1 == check_collisions(net, &dev->ordinal_allocator))
+        mpr_local_dev_probe_name(dev, net);
+    else if (dev->ordinal_allocator.locked) {
+        /* If we are ready to register the device, add the message handlers. */
+        mpr_dev_on_registered(dev);
+
+        /* Send registered msg. */
+        mpr_net_send_name_registered(net, dev->name, -1, 0);
+
+        mpr_net_add_dev_methods(net, dev);
+        mpr_net_maybe_send_ping(net, 1);
+        trace_dev(dev, "registered.\n");
+
+        /* Send out any cached maps. */
+        mpr_net_use_bus(net);
+        mpr_dev_send_maps(dev, MPR_DIR_ANY, MSG_MAP);
+        mpr_net_send(net);
+        return 1;
+    }
+    return 0;
+}
+
+void mpr_local_dev_handler_logout(mpr_local_dev dev, mpr_dev remote, const char *prefix_str,
+                                 int ordinal)
+{
+    mpr_link lnk;
+    if (!dev->ordinal_allocator.locked)
+        return;
+    /* Check if we have any links to this device, if so remove them */
+    if (remote && (lnk = mpr_dev_get_link_by_remote(dev, remote))) {
+        /* TODO: release maps, call local handlers and inform subscribers */
+        mpr_graph gph = mpr_obj_get_graph((mpr_obj)dev);
+        mpr_net net = mpr_graph_get_net(gph);
+        trace_dev(dev, "removing link to removed device '%s'.\n", mpr_dev_get_name(remote));
+        mpr_rtr_remove_link(net->rtr, lnk);
+        mpr_graph_remove_link(gph, lnk, MPR_OBJ_REM);
+    }
+    if (0 == strncmp(prefix_str, dev->name, dev->prefix_len)) {
+        /* If device name matches and ordinal is within my block, free it */
+        int diff = ordinal - dev->ordinal_allocator.val - 1;
+        if (diff >= 0 && diff < 8)
+            dev->ordinal_allocator.hints[diff] = 0;
+    }
+}
+
+void mpr_local_dev_copy_net_servers(mpr_local_dev dev, lo_server *servers)
+{
+    memcpy(dev->servers + 2, servers, sizeof(lo_server) * 2);
+}
+
+void mpr_dev_set_num_maps(mpr_dev dev, int num_maps_in, int num_maps_out)
+{
+    dev->num_maps_in = num_maps_in;
+    dev->num_maps_out = num_maps_out;
+}
+
+void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir)
+{
+    if (dir == MPR_DIR_IN)
+        ++dev->num_inputs;
+    else
+        ++dev->num_outputs;
+
+    mpr_obj_increment_version((mpr_obj)dev);
+    mpr_dev_add_sig_methods(dev, sig);
+    if (dev->registered) {
+        /* Notify subscribers */
+        mpr_graph graph = mpr_obj_get_graph((mpr_obj)dev);
+        mpr_net_use_subscribers(mpr_graph_get_net(graph), dev,
+                                ((dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT));
+        mpr_sig_send_state((mpr_sig)sig, MSG_SIG);
     }
 }

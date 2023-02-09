@@ -3,8 +3,6 @@
 #include <string.h>
 #include <assert.h>
 
-#include "types_internal.h"
-
 #include "device.h"
 #include "graph.h"
 #include "list.h"
@@ -15,6 +13,18 @@
 #include "slot.h"
 #include "table.h"
 #include <mapper/mapper.h>
+
+void mpr_obj_init(mpr_obj o, mpr_graph g, mpr_type t)
+{
+    o->graph = g;
+    o->type = t;
+}
+
+void mpr_obj_free(mpr_obj o)
+{
+    FUNC_IF(mpr_tbl_free, o->props.staged);
+    FUNC_IF(mpr_tbl_free, o->props.synced);
+}
 
 mpr_graph mpr_obj_get_graph(mpr_obj o)
 {
@@ -207,7 +217,7 @@ void mpr_obj_push(mpr_obj o)
     if (MPR_DEV == o->type) {
         mpr_dev d = (mpr_dev)o;
         if (o->is_local) {
-            RETURN_UNLESS(((mpr_local_dev)d)->registered)
+            RETURN_UNLESS(mpr_dev_get_is_registered(d));
             mpr_net_use_subscribers(n, (mpr_local_dev)d, o->type);
             mpr_dev_send_state(d, MSG_DEV);
         }
@@ -220,7 +230,7 @@ void mpr_obj_push(mpr_obj o)
         mpr_sig s = (mpr_sig)o;
         if (o->is_local) {
             mpr_type type = ((s->dir == MPR_DIR_OUT) ? MPR_SIG_OUT : MPR_SIG_IN);
-            RETURN_UNLESS(((mpr_local_dev)s->dev)->registered)
+            RETURN_UNLESS(mpr_dev_get_is_registered(s->dev));
             mpr_net_use_subscribers(n, (mpr_local_dev)s->dev, type);
             mpr_sig_send_state(s, MSG_SIG);
         }
@@ -238,10 +248,10 @@ void mpr_obj_push(mpr_obj o)
             int i;
             mpr_sig s = mpr_slot_get_sig(m->dst);
             /* Only proceed if all signals are registered (remote or registered local signals) */
-            RETURN_UNLESS(!((mpr_obj)s)->is_local || ((mpr_local_dev)s->dev)->registered);
+            RETURN_UNLESS(mpr_dev_get_is_registered(s->dev));
             for (i = 0; i < m->num_src; i++) {
                 s = mpr_slot_get_sig(m->src[i]);
-                RETURN_UNLESS(!((mpr_obj)s)->is_local || ((mpr_local_dev)s->dev)->registered);
+                RETURN_UNLESS(mpr_dev_get_is_registered(s->dev));
             }
             mpr_map_send_state(m, -1, MSG_MAP);
         }
@@ -341,4 +351,35 @@ void mpr_obj_print(mpr_obj o, int staged)
         mpr_slot_print(map->dst, 1);
     }
     printf("\n");
+}
+
+mpr_id mpr_obj_get_id(mpr_obj o)
+{
+    return o->id;
+}
+
+void mpr_obj_set_id(mpr_obj o, mpr_id id)
+{
+    o->id = id;
+}
+
+int mpr_obj_get_version(mpr_obj o)
+{
+    return o->version;
+}
+
+void mpr_obj_set_version(mpr_obj o, int v)
+{
+    o->version = v;
+}
+
+/* TODO: more descriptive name */
+void mpr_obj_clear_empty(mpr_obj o)
+{
+    mpr_tbl_clear_empty(o->props.synced);
+}
+
+mpr_tbl mpr_obj_get_prop_tbl(mpr_obj obj)
+{
+    return obj->props.synced;
 }

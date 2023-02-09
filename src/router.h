@@ -10,8 +10,7 @@ void mpr_rtr_num_inst_changed(mpr_rtr r, mpr_local_sig sig, int size);
 
 void mpr_rtr_remove_inst(mpr_rtr rtr, mpr_local_sig sig, int idx);
 
-/*! For a given signal instance, calculate mapping outputs and forward to
- *  destinations. */
+/*! For a given signal instance, calculate mapping outputs and forward to destinations. */
 void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int inst_idx, const void *val, mpr_time t);
 
 void mpr_rtr_add_map(mpr_rtr rtr, mpr_local_map map);

@@ -29,7 +29,7 @@ static int _is_map_in_scope(mpr_local_map map, mpr_id id)
     int i;
     id &= 0xFFFFFFFF00000000; /* interested in device hash part only */
     for (i = 0; i < map->num_scopes; i++) {
-        if (map->scopes[i] == 0 || map->scopes[i]->obj.id == id)
+        if (map->scopes[i] == 0 || mpr_obj_get_id((mpr_obj)map->scopes[i]) == id)
             return 1;
     }
     return 0;
@@ -116,8 +116,7 @@ static void _update_map_count(mpr_rtr rtr)
         rs = rs->next;
     }
     RETURN_UNLESS(dev);
-    dev->num_maps_in = dev_maps_in;
-    dev->num_maps_out = dev_maps_out;
+    mpr_dev_set_num_maps((mpr_dev)dev, dev_maps_in, dev_maps_out);
 }
 
 void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const void *val, mpr_time t)
@@ -141,9 +140,9 @@ void mpr_rtr_process_sig(mpr_rtr rtr, mpr_local_sig sig, int idmap_idx, const vo
     RETURN_UNLESS(rs);
 
     inst_idx = sig->idmaps[idmap_idx].inst->idx;
-    bundle_idx = rtr->dev->bundle_idx % NUM_BUNDLES;
+    bundle_idx = mpr_local_dev_get_bundle_idx(rtr->dev);
     /* TODO: remove duplicate flag set */
-    rtr->dev->sending = 1; /* mark as updated */
+    mpr_local_dev_set_sending(rtr->dev); /* mark as updated */
     lock = &sig->locked;
     *lock = 1;
 

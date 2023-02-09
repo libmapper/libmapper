@@ -155,12 +155,13 @@ void wait_ready()
 void loop()
 {
     int i = 0;
-    mpr_list links;
+    mpr_list links = 0;
     eprintf("Polling device..\n");
     while ((   !terminate
             || (links = mpr_graph_get_list(srcgraph, MPR_LINK))
             || (links = mpr_graph_get_list(dstgraph, MPR_LINK)))
            && !done) {
+        mpr_list_free(links);
         eprintf("Updating signal %s to %d\n", sendsig->name, i);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i);
         sent++;
@@ -172,7 +173,6 @@ void loop()
             printf("\r  Sent: %4i, Received: %4i   ", sent, received);
             fflush(stdout);
         }
-        mpr_list_free(links);
     }
 }
 

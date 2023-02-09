@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <limits.h>
+#include <assert.h>
 
 #include "types_internal.h"
 
@@ -43,14 +44,14 @@ typedef struct _mpr_link {
     mpr_sync_clock_t clock;
 } mpr_link_t, *mpr_link;
 
-size_t mpr_link_get_struct_size_temporary()
+size_t mpr_link_get_struct_size()
 {
     return sizeof(mpr_link_t);
 }
 
 mpr_link mpr_link_new(mpr_local_dev local_dev, mpr_dev remote_dev)
 {
-    return mpr_graph_add_link(local_dev->obj.graph, (mpr_dev)local_dev, remote_dev);
+    return mpr_graph_add_link(mpr_obj_get_graph((mpr_obj)local_dev), (mpr_dev)local_dev, remote_dev);
 }
 
 int mpr_link_get_is_ready(mpr_link link)
@@ -69,12 +70,10 @@ void mpr_link_init(mpr_link link, mpr_graph g, mpr_dev dev1, mpr_dev dev2)
     lo_message msg;
     char cmd[256];
 
-    link->obj.type = MPR_LINK;
-    link->obj.graph = g;
     link->devs[LINK_LOCAL_DEV] = dev1;
     link->devs[LINK_REMOTE_DEV] = dev2;
-    link->obj.is_local = (dev1->obj.is_local || dev2->obj.is_local);
-    link->is_local_only = (dev1->obj.is_local && dev2->obj.is_local);
+    link->obj.is_local = mpr_obj_get_is_local((mpr_obj)dev1) || mpr_obj_get_is_local((mpr_obj)dev2);
+    link->is_local_only = mpr_obj_get_is_local((mpr_obj)dev1) && mpr_obj_get_is_local((mpr_obj)dev2);
 
     if (!link->obj.props.synced) {
         mpr_tbl t = link->obj.props.synced = mpr_tbl_new();
@@ -85,7 +84,7 @@ void mpr_link_init(mpr_link link, mpr_graph g, mpr_dev dev1, mpr_dev dev2)
     if (!link->obj.props.staged)
         link->obj.props.staged = mpr_tbl_new();
 
-    if (!link->obj.id && link->devs[LINK_LOCAL_DEV]->obj.is_local)
+    if (!link->obj.id && mpr_obj_get_is_local((mpr_obj)link->devs[LINK_LOCAL_DEV]))
         link->obj.id = mpr_dev_generate_unique_id(link->devs[LINK_LOCAL_DEV]);
 
     if (link->is_local_only) {
@@ -101,7 +100,7 @@ void mpr_link_init(mpr_link link, mpr_graph g, mpr_dev dev1, mpr_dev dev2)
         link->clock.rcvd.time.sec = t.sec + 10;
     }
     /* request missing metadata */
-    snprintf(cmd, 256, "/%s/subscribe", link->devs[LINK_REMOTE_DEV]->name); /* MSG_SUBSCRIBE */
+    snprintf(cmd, 256, "/%s/subscribe", mpr_dev_get_name(link->devs[LINK_REMOTE_DEV]));
 
     msg = lo_message_new();
     if (!msg) {
@@ -119,21 +118,21 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port, int data_
 {
     if (!link->is_local_only) {
         char str[16];
-        mpr_tbl_set(link->devs[LINK_REMOTE_DEV]->obj.props.synced, MPR_PROP_HOST, NULL, 1,
-                    MPR_STR, host, REMOTE_MODIFY);
-        mpr_tbl_set(link->devs[LINK_REMOTE_DEV]->obj.props.synced, MPR_PROP_PORT, NULL, 1,
-                    MPR_INT32, &data_port, REMOTE_MODIFY);
+        mpr_obj obj = (mpr_obj)link->devs[LINK_REMOTE_DEV];
+        mpr_tbl tbl = mpr_obj_get_prop_tbl(obj);
+        mpr_tbl_set(tbl, MPR_PROP_HOST, NULL, 1, MPR_STR, host, REMOTE_MODIFY);
+        mpr_tbl_set(tbl, MPR_PROP_PORT, NULL, 1, MPR_INT32, &data_port, REMOTE_MODIFY);
         sprintf(str, "%d", data_port);
         link->addr.udp = lo_address_new(host, str);
         link->addr.tcp = lo_address_new_with_proto(LO_TCP, host, str);
         sprintf(str, "%d", admin_port);
         link->addr.admin = lo_address_new(host, str);
         trace_dev(link->devs[LINK_LOCAL_DEV], "activated link to device '%s' at %s:%d\n",
-                  link->devs[LINK_REMOTE_DEV]->name, host, data_port);
+                  mpr_dev_get_name(link->devs[LINK_REMOTE_DEV]), host, data_port);
     }
     else {
         trace_dev(link->devs[LINK_LOCAL_DEV], "activating link to local device '%s'\n",
-                  link->devs[LINK_REMOTE_DEV]->name);
+                  mpr_dev_get_name(link->devs[LINK_REMOTE_DEV]));
     }
     memset(link->bundles, 0, sizeof(mpr_bundle_t) * NUM_BUNDLES);
     mpr_dev_add_link(link->devs[LINK_LOCAL_DEV], link->devs[LINK_REMOTE_DEV]);
@@ -142,9 +141,8 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port, int data_
 void mpr_link_free(mpr_link link)
 {
     int i;
-    FUNC_IF(mpr_tbl_free, link->obj.props.synced);
-    FUNC_IF(mpr_tbl_free, link->obj.props.staged);
-    if (!link->devs[LINK_LOCAL_DEV]->obj.is_local)
+    mpr_obj_free(&link->obj);
+    if (!mpr_obj_get_is_local((mpr_obj)link->devs[LINK_LOCAL_DEV]))
         return;
     FUNC_IF(lo_address_free, link->addr.admin);
     FUNC_IF(lo_address_free, link->addr.udp);
@@ -190,7 +188,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
         if ((lb = b->udp)) {
             b->udp = 0;
             if ((num = lo_bundle_count(lb))) {
-                lo_send_bundle_from(link->addr.udp, ldev->servers[SERVER_UDP], lb);
+                lo_send_bundle_from(link->addr.udp, mpr_local_dev_get_server(ldev, SERVER_UDP), lb);
             }
             lo_bundle_free_recursive(lb);
         }
@@ -198,7 +196,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
             b->tcp = 0;
             if ((tmp = lo_bundle_count(lb))) {
                 num += tmp;
-                lo_send_bundle_from(link->addr.tcp, ldev->servers[SERVER_TCP], lb);
+                lo_send_bundle_from(link->addr.tcp, mpr_local_dev_get_server(ldev, SERVER_TCP), lb);
             }
             lo_bundle_free_recursive(lb);
         }
@@ -231,7 +229,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
     return num;
 }
 
-static int cmp_qry_link_maps(const void *context_data, mpr_map map)
+static int cmp_qry_maps(const void *context_data, mpr_map map)
 {
     mpr_id link_id = *(mpr_id*)context_data;
     mpr_link link;
@@ -249,12 +247,12 @@ static int cmp_qry_link_maps(const void *context_data, mpr_map map)
 
 mpr_list mpr_link_get_maps(mpr_link link)
 {
-    mpr_list q;
+    /* TODO: remove this after verifying graphs are the same */
+    assert(link->obj.graph == mpr_obj_get_graph((mpr_obj)link->devs[0]));
+
     RETURN_ARG_UNLESS(link, 0);
     /* TODO: can we use link->obj.graph here? */
-    q = mpr_graph_new_query(link->devs[0]->obj.graph, MPR_MAP, (void*)cmp_qry_link_maps,
-                            "h", link->obj.id);
-    return mpr_list_start(q);
+    return mpr_graph_new_query(link->obj.graph, 1, MPR_MAP, (void*)cmp_qry_maps, "h", link->obj.id);
 }
 
 int mpr_link_get_has_maps(mpr_link link, mpr_dir dir)
@@ -282,7 +280,7 @@ void mpr_link_add_map(mpr_link link, int is_src)
 
 void mpr_link_remove_map(mpr_link link, mpr_local_map rem)
 {
-    int in = 0, out = 0, rev = link->devs[0]->obj.is_local ? 0 : 1;
+    int in = 0, out = 0, rev = mpr_obj_get_is_local((mpr_obj)link->devs[0]) ? 0 : 1;
     mpr_list list = mpr_link_get_maps(link);
     while (list) {
         mpr_local_map map = *(mpr_local_map*)list;
@@ -305,9 +303,9 @@ void mpr_link_remove_map(mpr_link link, mpr_local_map rem)
 void mpr_link_send(mpr_link link, net_msg_t cmd)
 {
     NEW_LO_MSG(msg, return);
-    lo_message_add_string(msg, link->devs[0]->name);
+    lo_message_add_string(msg, mpr_dev_get_name(link->devs[0]));
     lo_message_add_string(msg, "<->");
-    lo_message_add_string(msg, link->devs[1]->name);
+    lo_message_add_string(msg, mpr_dev_get_name(link->devs[1]));
     mpr_net_add_msg(mpr_graph_get_net(link->obj.graph), 0, cmd, msg);
 }
 
@@ -367,7 +365,7 @@ int mpr_link_housekeeping(mpr_link link, mpr_time now)
         if (clk->rcvd.msg_id > 0) {
             if (mapped)
                 trace_dev(local_dev, "Lost contact with linked device '%s' "
-                          "(%g seconds since sync).\n", remote_dev->name, elapsed);
+                          "(%g seconds since sync).\n", mpr_dev_get_name(remote_dev), elapsed);
             /* tentatively mark link as expired */
             clk->rcvd.msg_id = -1;
             clk->rcvd.time.sec = now.sec;
@@ -385,7 +383,7 @@ int mpr_link_housekeeping(mpr_link link, mpr_time now)
         mpr_net net = mpr_graph_get_net(link->obj.graph);
         NEW_LO_MSG(msg, ;);
         mpr_net_use_mesh(net, link->addr.admin);
-        lo_message_add_int64(msg, local_dev->obj.id);
+        lo_message_add_int64(msg, mpr_obj_get_id((mpr_obj)local_dev));
         if (++clk->sent.msg_id < 0)
             clk->sent.msg_id = 0;
         lo_message_add_int32(msg, clk->sent.msg_id);

@@ -30,6 +30,14 @@ mpr_rtr mpr_net_get_rtr(mpr_net n);
 
 lo_server *mpr_net_get_servers(mpr_net n);
 
+void mpr_net_send_name_probe(mpr_net net, const char *name);
+
+void mpr_net_send_name_registered(mpr_net net, const char *name, int id, int hint);
+
+void mpr_net_add_dev_methods(mpr_net net, mpr_local_dev dev);
+
+void mpr_net_maybe_send_ping(mpr_net net, int force);
+
 #define NEW_LO_MSG(VARNAME, FAIL)                   \
 lo_message VARNAME = lo_message_new();              \
 if (!VARNAME) {                                     \
