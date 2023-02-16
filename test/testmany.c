@@ -1,6 +1,3 @@
-#ifdef WIN32
-#include "../src/types_internal.h"
-#endif
 #include <mapper/mapper.h>
 #include "../src/mpr_time.h"
 #include <stdio.h>
