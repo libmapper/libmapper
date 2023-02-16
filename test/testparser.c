@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
+#include <mapper/mapper.h>
 
 #include <string.h>
 #ifdef WIN32

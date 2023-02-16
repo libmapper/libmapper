@@ -43,7 +43,6 @@ int gettimeofday(struct timeval * tp, struct timezone * tzp)
 #include <sys/time.h>
 #endif
 
-#include "types_internal.h"
 #include <mapper/mapper.h>
 
 static double multiplier = 0.00000000023283064365;

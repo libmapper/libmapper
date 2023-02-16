@@ -9,7 +9,6 @@
 #include <math.h>
 #include <ctype.h>
 
-
 #ifdef HAVE_GETIFADDRS
  #include <ifaddrs.h>
  #include <net/if.h>
@@ -25,8 +24,6 @@
   #define HAVE_LIBIPHLPAPI
  #endif
 #endif
-
-#include "types_internal.h"
 
 #include "device.h"
 #include "graph.h"

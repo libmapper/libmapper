@@ -29,6 +29,17 @@ typedef void *mpr_graph;
 /*! An internal structure defining a grouping of signals. */
 typedef int mpr_sig_group;
 
+#include <lo/lo.h>
+
+/*! A 64-bit data structure containing an NTP-compatible time tag, as used by OSC. */
+typedef lo_timetag mpr_time;
+#define MPR_NOW LO_TT_IMMEDIATE
+
+/*! This data structure must be large enough to hold a system pointer or a uin64_t */
+typedef uint64_t mpr_id;
+
+typedef char mpr_type;
+
 #ifdef __cplusplus
 }
 #endif

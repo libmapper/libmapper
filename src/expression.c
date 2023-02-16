@@ -7,8 +7,10 @@
 #include <limits.h>
 #include <float.h>
 
+#include "map.h"
 #include "expression.h"
 #include "value.h"
+#include <mapper/mapper.h>
 
 #ifdef _MSC_VER
 #include <malloc.h>

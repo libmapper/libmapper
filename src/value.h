@@ -1,11 +1,31 @@
 
-#ifndef __MAPPER_VALUE_H__
-#define __MAPPER_VALUE_H__
+#ifndef __MPR_VALUE_H__
+#define __MPR_VALUE_H__
 
-#include "types_internal.h"
 #include "util/mpr_inline.h"
 #include "mpr_type.h"
-#include <mapper/mapper.h>
+
+/*! A structure that stores the current and historical values of a signal. The
+ *  size of the history array is determined by the needs of mapping expressions.
+ *  @ingroup signals */
+
+typedef struct _mpr_value_buffer
+{
+    void *samps;                /*!< Value for each sample of stored history. */
+    mpr_time *times;            /*!< Time for each sample of stored history. */
+    int8_t pos;                 /*!< Current position in the circular buffer. */
+    uint8_t full;               /*!< Indicates whether complete buffer contains valid data. */
+} mpr_value_buffer_t, *mpr_value_buffer;
+
+typedef struct _mpr_value
+{
+    mpr_value_buffer inst;      /*!< Array of value histories for each signal instance. */
+    int vlen;                   /*!< Vector length. */
+    uint8_t num_inst;           /*!< Number of instances. */
+    uint8_t num_active_inst;    /*!< Number of active instances. */
+    mpr_type type;              /*!< The type of this signal. */
+    int16_t mlen;               /*!< History size of the buffer. */
+} mpr_value_t, *mpr_value;
 
 void mpr_value_realloc(mpr_value val, unsigned int vec_len, mpr_type type,
                        unsigned int mem_len, unsigned int num_inst, int is_output);
@@ -55,4 +75,4 @@ void mpr_value_print(mpr_value v, int inst_idx);
 void mpr_value_print_hist(mpr_value v, int inst_idx);
 #endif
 
-#endif /* __MAPPER_VALUE_H__ */
+#endif /* __MPR_VALUE_H__ */

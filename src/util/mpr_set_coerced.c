@@ -1,5 +1,4 @@
 #include <string.h>
-#include <mapper/mapper.h>
 #include "../mpr_type.h"
 
 /* Helper for setting property value from different data types */

@@ -16,8 +16,6 @@
 
 #include <stddef.h>
 
-#include "types_internal.h"
-
 #include "bitflags.h"
 #include "device.h"
 #include "graph.h"
@@ -30,9 +28,9 @@
 #include "mpr_time.h"
 #include "mpr_type.h"
 #include "path.h"
-#include "router.h"
 #include "slot.h"
 #include "table.h"
+#include "thread_data.h"
 #include "value.h"
 
 #include "util/mpr_debug.h"
@@ -69,7 +67,25 @@ extern const char* net_msg_strings[NUM_MSG_STRINGS];
 /*! A record that keeps information about a device. */
 struct _mpr_dev {
     MPR_DEV_STRUCT_ITEMS
-};
+} mpr_dev_t;
+
+typedef struct _mpr_subscriber {
+    struct _mpr_subscriber *next;
+    lo_address addr;
+    uint32_t lease_exp;
+    int flags;
+} *mpr_subscriber;
+
+/*! Allocated resources */
+typedef struct _mpr_allocated_t {
+    double count_time;          /*!< The last time collision count was updated. */
+    double hints[8];            /*!< Availability of a range of resource values. */
+    unsigned int val;           /*!< The resource to be allocated. */
+    int collision_count;        /*!< The number of collisions detected. */
+    uint8_t locked;             /*!< Whether or not the value has been locked (allocated). */
+    uint8_t online;             /*!< Whether or not we are connected to the
+                                 *   distributed allocation network. */
+} mpr_allocated_t, *mpr_allocated;
 
 struct _mpr_local_dev {
     MPR_DEV_STRUCT_ITEMS
@@ -98,7 +114,7 @@ struct _mpr_local_dev {
     uint8_t bundle_idx;
     uint8_t sending;
     uint8_t receiving;
-};
+} mpr_local_dev_t;
 
 /* prototypes */
 static void mpr_dev_start_servers(mpr_local_dev dev);
@@ -1695,8 +1711,6 @@ static int check_collisions(mpr_net net, mpr_allocated resource)
     }
     else if (timediff >= 2.0 && resource->collision_count < 2) {
         resource->locked = 1;
-        if (resource->on_lock)
-            resource->on_lock(resource);
         return 2;
     }
     else if (timediff >= 0.5 && resource->collision_count > 1) {

@@ -1,4 +1,3 @@
-#include "../src/types_internal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -16,6 +15,7 @@
   #define EINPROGRESS WSAEINPROGRESS
  #endif
 #else
+ #include <arpa/inet.h>
  #include <sys/ioctl.h>
  #include <unistd.h>
 #endif

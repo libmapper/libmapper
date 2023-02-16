@@ -1,8 +1,38 @@
 
-#ifndef __MAPPER_TABLE_H__
-#define __MAPPER_TABLE_H__
+#ifndef __MPR_TABLE_H__
+#define __MPR_TABLE_H__
 
 #include "message.h"
+
+/* bit flags for tracking permissions for modifying properties */
+#define NON_MODIFIABLE      0x00
+#define LOCAL_MODIFY        0x01
+#define REMOTE_MODIFY       0x02
+#define MODIFIABLE          0x03
+#define LOCAL_ACCESS_ONLY   0x04
+#define MUTABLE_TYPE        0x08
+#define MUTABLE_LENGTH      0x10
+#define INDIRECT            0x20
+#define PROP_OWNED          0x40
+#define PROP_DIRTY          0x80
+
+/*! Used to hold look-up table records. */
+typedef struct {
+    const char *key;
+    void **val;
+    int len;
+    mpr_prop prop;
+    mpr_type type;
+    char flags;
+} mpr_tbl_record_t, *mpr_tbl_record;
+
+/*! Used to hold look-up tables. */
+typedef struct _mpr_tbl {
+    mpr_tbl_record rec;
+    int count;
+    int alloced;
+    char dirty;
+} mpr_tbl_t, *mpr_tbl;
 
 /*! Create a new string table. */
 mpr_tbl mpr_tbl_new(void);
@@ -71,4 +101,4 @@ void mpr_tbl_add_to_msg(mpr_tbl tab, mpr_tbl updates, lo_message msg);
  *  removal to propagate to subscribed graph instances and peer devices. */
 void mpr_tbl_clear_empty(mpr_tbl tab);
 
-#endif /* __MAPPER_TABLE_H__ */
+#endif /* __MPR_TABLE_H__ */

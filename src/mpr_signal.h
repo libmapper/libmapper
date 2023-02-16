@@ -1,10 +1,89 @@
 
-#ifndef __MAPPER_SIGNAL_H__
-#define __MAPPER_SIGNAL_H__
+#ifndef __MPR_SIGNAL_H__
+#define __MPR_SIGNAL_H__
+#define __MPR_TYPES_H__
 
+typedef struct _mpr_sig *mpr_sig;
+typedef struct _mpr_local_sig *mpr_local_sig;
+typedef int mpr_sig_group;
+
+#include "object.h"
 #include "mpr_type.h"
+#include "time.h"
 
 #define MPR_MAX_VECTOR_LEN 128
+
+/*! A signal is defined as a vector of values, along with some metadata. */
+/* plan: remove idx? we shouldn't need it anymore */
+typedef struct _mpr_sig_inst
+{
+    mpr_id id;                  /*!< User-assignable instance id. */
+    void *data;                 /*!< User data of this instance. */
+    mpr_time created;           /*!< The instance's creation timestamp. */
+    char *has_val_flags;        /*!< Indicates which vector elements have a value. */
+
+    void *val;                  /*!< The current value of this signal instance. */
+    mpr_time time;              /*!< The time associated with the current value. */
+
+    uint8_t idx;                /*!< Index for accessing value history. */
+    uint8_t has_val;            /*!< Indicates whether this instance has a value. */
+    uint8_t active;             /*!< Status of this instance. */
+} mpr_sig_inst_t, *mpr_sig_inst;
+
+/* plan: remove inst, add map/slot resource index (is this the same for all source signals?) */
+typedef struct _mpr_sig_idmap
+{
+    struct _mpr_id_map *map;    /*!< Associated mpr_id_map. */
+    struct _mpr_sig_inst *inst; /*!< Signal instance. */
+    int status;                 /*!< Either 0 or a combination of UPDATED,
+                                 *   RELEASED_LOCALLY and RELEASED_REMOTELY. */
+} mpr_sig_idmap_t;
+
+#define MPR_SIG_STRUCT_ITEMS                                                            \
+    mpr_obj_t obj;              /* always first */                                      \
+    char *path;                 /*! OSC path.  Must start with '/'. */                  \
+    char *name;                 /*! The name of this signal (path+1). */                \
+    char *unit;                 /*!< The unit of this signal, or NULL for N/A. */       \
+    float period;               /*!< Estimate of the update rate of this signal. */     \
+    float jitter;               /*!< Estimate of the timing jitter of this signal. */   \
+    int dir;                    /*!< DIR_OUTGOING / DIR_INCOMING / DIR_BOTH */          \
+    int len;                    /*!< Length of the signal vector, or 1 for scalars. */  \
+    int use_inst;               /*!< 1 if signal uses instances, 0 otherwise. */        \
+    int num_inst;               /*!< Number of instances. */                            \
+    int ephemeral;              /*!< 1 if signal is ephemeral, 0 otherwise. */          \
+    int num_maps_in;            /* TODO: use dynamic query instead? */                  \
+    int num_maps_out;           /* TODO: use dynamic query instead? */                  \
+    mpr_steal_type steal_mode;  /*!< Type of voice stealing to perform. */              \
+    mpr_type type;              /*!< The type of this signal. */
+
+/*! A record that describes properties of a signal. */
+typedef struct _mpr_sig
+{
+    MPR_SIG_STRUCT_ITEMS
+    mpr_dev dev;
+} mpr_sig_t, *mpr_sig;
+
+typedef struct _mpr_local_sig
+{
+    MPR_SIG_STRUCT_ITEMS
+    mpr_local_dev dev;
+
+    struct _mpr_sig_idmap *idmaps;  /*!< ID maps and active instances. */
+    int idmap_len;
+    struct _mpr_sig_inst **inst;    /*!< Array of pointers to the signal insts. */
+    char *vec_known;                /*!< Bitflags when entire vector is known. */
+    char *updated_inst;             /*!< Bitflags to indicate updated instances. */
+
+    /*! An optional function to be called when the signal value changes or when
+     *  signal instance management events occur.. */
+    void *handler;
+    int event_flags;                /*! Flags for deciding when to call the
+                                     *  instance event handler. */
+
+    mpr_sig_group group;            /* TODO: replace with hierarchical instancing */
+    uint8_t locked;
+    uint8_t updated;                /* TODO: fold into updated_inst bitflags. */
+} mpr_local_sig_t, *mpr_local_sig;
 
 /*! Initialize an already-allocated mpr_sig structure. */
 void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
@@ -81,4 +160,4 @@ void mpr_sig_release_inst_internal(mpr_local_sig sig, int inst_idx);
 
 void mpr_local_sig_set_updated(mpr_local_sig sig, int inst_idx);
 
-#endif /* __MAPPER_SIGNAL_H__ */
+#endif /* __MPR_SIGNAL_H__ */

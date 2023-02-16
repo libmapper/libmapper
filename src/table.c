@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "types_internal.h"
-
 #include "list.h"
 #include "map.h"
 #include "message.h"

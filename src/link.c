@@ -6,8 +6,6 @@
 #include <limits.h>
 #include <assert.h>
 
-#include "types_internal.h"
-
 #include "device.h"
 #include "graph.h"
 #include "link.h"
@@ -26,6 +24,22 @@ typedef struct _mpr_bundle {
     lo_bundle tcp;
 } mpr_bundle_t, *mpr_bundle;
 
+/*! Clock and timing information. */
+typedef struct _mpr_sync_time_t {
+    lo_timetag time;
+    int msg_id;
+} mpr_sync_time_t;
+
+typedef struct _mpr_sync_clock_t {
+    double rate;
+    double offset;
+    double latency;
+    double jitter;
+    mpr_sync_time_t sent;
+    mpr_sync_time_t rcvd;
+    int new;
+} mpr_sync_clock_t, *mpr_sync_clock;
+
 typedef struct _mpr_link {
     mpr_obj_t obj;                  /* always first */
     mpr_dev devs[2];
@@ -42,7 +56,7 @@ typedef struct _mpr_link {
     mpr_bundle_t bundles[NUM_BUNDLES];  /*!< Circular buffer to handle interrupts during poll() */
 
     mpr_sync_clock_t clock;
-} mpr_link_t, *mpr_link;
+} mpr_link_t;
 
 size_t mpr_link_get_struct_size()
 {

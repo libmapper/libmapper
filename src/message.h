@@ -1,7 +1,8 @@
 
-#ifndef __MAPPER_MESSAGE_H__
-#define __MAPPER_MESSAGE_H__
+#ifndef __MPR_MESSAGE_H__
+#define __MPR_MESSAGE_H__
 
+#include "mpr_type.h"
 #include <mapper/mapper_constants.h>
 
 typedef struct _mpr_msg *mpr_msg;
@@ -74,4 +75,4 @@ const mpr_type *mpr_msg_atom_get_types(mpr_msg_atom a);
 
 lo_arg **mpr_msg_atom_get_values(mpr_msg_atom a);
 
-#endif /* __MAPPER_MESSAGE_H__ */
+#endif /* __MPR_MESSAGE_H__ */

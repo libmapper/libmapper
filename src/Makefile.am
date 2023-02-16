@@ -3,6 +3,7 @@ noinst_HEADERS = bitflags.h \
     device.h \
     expression.h \
     graph.h \
+    id_map.h \
     link.h \
     list.h \
     map.h \
@@ -17,7 +18,7 @@ noinst_HEADERS = bitflags.h \
     router.h \
     slot.h \
     table.h \
-    types_internal.h \
+    thread_data.h \
     value.h \
     util/mpr_debug.h \
     util/mpr_inline.h \

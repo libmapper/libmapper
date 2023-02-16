@@ -21,6 +21,7 @@
 #include "router.h"
 #include "slot.h"
 #include "table.h"
+#include "thread_data.h"
 
 #include <mapper/mapper.h>
 
@@ -48,6 +49,13 @@ typedef struct _fptr_list {
     int types;
 } *fptr_list;
 
+typedef struct _mpr_subscription {
+    struct _mpr_subscription *next;
+    mpr_dev dev;
+    int flags;
+    uint32_t lease_expiration_sec;
+} *mpr_subscription;
+
 typedef struct _mpr_graph {
     mpr_obj_t obj;                  /* always first */
     mpr_net_t net;
@@ -70,7 +78,7 @@ typedef struct _mpr_graph {
     int staged_maps;
 
     uint32_t resource_counter;
-} mpr_graph_t, *mpr_graph;
+} mpr_graph_t;
 
 static mpr_list *_get_list_internal(mpr_graph g, int obj_type)
 {

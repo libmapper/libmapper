@@ -1,6 +1,6 @@
 
-#ifndef __MPR_STRING_H__
-#define __MPR_STRING_H__
+#ifndef __MPR_PATH_H__
+#define __MPR_PATH_H__
 
 #include "util/mpr_inline.h"
 
@@ -15,4 +15,4 @@ MPR_INLINE static const char *mpr_path_skip_slash(const char *string)
     return string + (string && string[0]=='/');
 }
 
-#endif /* __MAPPER_STRING_H__ */
+#endif /* __MPR_PATH_H__ */

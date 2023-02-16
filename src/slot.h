@@ -1,6 +1,15 @@
 
-#ifndef __MAPPER_SLOT_H__
-#define __MAPPER_SLOT_H__
+#ifndef __MPR_SLOT_H__
+#define __MPR_SLOT_H__
+
+typedef struct _mpr_slot *mpr_slot;
+typedef struct _mpr_local_slot *mpr_local_slot;
+
+#include "map.h"
+#include "mpr_signal.h"
+#include "network.h"
+#include "router.h"
+#include "value.h"
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
                       unsigned char is_local, unsigned char is_src);
@@ -59,4 +68,4 @@ int mpr_slot_set_value(mpr_local_slot slot, int inst_idx, void *val, mpr_time ti
 
 void mpr_slot_reset_inst(mpr_local_slot slot, int inst_idx);
 
-#endif /* __MAPPER_SLOT_H__ */
+#endif /* __MPR_SLOT_H__ */

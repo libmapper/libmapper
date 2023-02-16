@@ -2,6 +2,17 @@
 #ifndef __MPR_DEBUG_H__
 #define __MPR_DEBUG_H__
 
+#include "config.h"
+
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#define PR_MPR_ID PRIu64
+#define PR_MPR_INT64 PRIi64
+#else
+#define PR_MPR_ID "llu"
+#define PR_MPR_INT64 "lld"
+#endif
+
 /**** Subscriptions ****/
 #ifdef DEBUG
 void print_subscription_flags(int flags);

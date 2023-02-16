@@ -1,13 +1,17 @@
 
-#ifndef __MAPPER_GRAPH_H__
-#define __MAPPER_GRAPH_H__
-
-#include "types_internal.h"
-#include "list.h"
-#include "message.h"
-#include "object.h"
+#ifndef __MPR_GRAPH_H__
+#define __MPR_GRAPH_H__
 
 typedef struct _mpr_graph *mpr_graph;
+
+#include "device.h"
+#include "list.h"
+#include "map.h"
+#include "message.h"
+#include "mpr_signal.h"
+#include "network.h"
+
+#define TIMEOUT_SEC 10  /* timeout after 10 seconds without ping */
 
 /*! Find information for a registered device.
  *  \param g            The graph to query.
@@ -95,4 +99,4 @@ void mpr_graph_inc_staged_maps(mpr_graph g);
 
 int mpr_graph_get_autosub(mpr_graph g);
 
-#endif /* __MAPPER_GRAPH_H__ */
+#endif /* __MPR_GRAPH_H__ */

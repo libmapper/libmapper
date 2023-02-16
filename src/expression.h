@@ -1,8 +1,18 @@
 
-#ifndef __MAPPER_EXPRESSION_H__
-#define __MAPPER_EXPRESSION_H__
+#ifndef __MPR_EXPRESSION_H__
+#define __MPR_EXPRESSION_H__
 
-#include "types_internal.h"
+typedef struct _mpr_expr *mpr_expr;
+typedef struct _mpr_expr_stack *mpr_expr_stack;
+
+#include "mpr_time.h"
+#include "value.h"
+
+#define EXPR_RELEASE_BEFORE_UPDATE 0x02
+#define EXPR_RELEASE_AFTER_UPDATE  0x04
+#define EXPR_MUTED_UPDATE          0x08
+#define EXPR_UPDATE                0x10
+#define EXPR_EVAL_DONE             0x20
 
 mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int num_in,
                                const mpr_type *in_types, const int *in_vec_lens,
@@ -60,4 +70,4 @@ mpr_expr_stack mpr_expr_stack_new();
 
 void mpr_expr_stack_free(mpr_expr_stack stk);
 
-#endif /* __MAPPER_ESPRESSION_H__ */
+#endif /* __MPR_ESPRESSION_H__ */

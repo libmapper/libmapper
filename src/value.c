@@ -7,7 +7,6 @@
 #include <assert.h>
 
 #include "value.h"
-#include "types_internal.h"
 #include <mapper/mapper.h>
 
 MPR_INLINE static int _min(int a, int b) { return a < b ? a : b; }

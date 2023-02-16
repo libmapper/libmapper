@@ -1,6 +1,6 @@
 
-#ifndef __MAPPER_INLINE_H__
-#define __MAPPER_INLINE_H__
+#ifndef __MPR_INLINE_H__
+#define __MPR_INLINE_H__
 
 #if defined(WIN32) || defined(_MSC_VER)
 #define MPR_INLINE __inline
@@ -8,4 +8,4 @@
 #define MPR_INLINE __inline
 #endif
 
-#endif /* __MAPPER_INLINE_H__ */
+#endif /* __MPR_INLINE_H__ */

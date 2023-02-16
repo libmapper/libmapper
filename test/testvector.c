@@ -1,4 +1,4 @@
-#include "../src/types_internal.h"
+#include "mpr_signal.h"
 #include <mapper/mapper.h>
 #include <stdio.h>
 #include <stdlib.h>

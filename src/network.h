@@ -1,8 +1,50 @@
 
-#ifndef __MAPPER_NETWORK_H__
-#define __MAPPER_NETWORK_H__
+#ifndef __MPR_NETWORK_H__
+#define __MPR_NETWORK_H__
+
+typedef struct _mpr_net *mpr_net;
 
 #include "message.h"
+#include "router.h"
+
+/*! A structure that keeps information about network communications. */
+typedef struct _mpr_net {
+    struct _mpr_graph *graph;
+
+    lo_server servers[2];
+
+    struct {
+        lo_address bus;             /*!< LibLo address for the multicast bus. */
+        lo_address dst;
+        struct _mpr_local_dev *dev;
+        char *url;
+    } addr;
+
+    struct {
+        char *name;                 /*!< The name of the network interface. */
+        struct in_addr addr;        /*!< The IP address of network interface. */
+    } iface;
+
+    struct _mpr_local_dev **devs;   /*!< Local devices managed by this network structure. */
+    lo_bundle bundle;               /*!< Bundle pointer for sending messages on the multicast bus. */
+
+    struct {
+        char *group;
+        int port;
+    } multicast;
+
+    struct _mpr_rtr *rtr;
+
+    int random_id;                  /*!< Random id for allocation speedup. */
+    int msgs_recvd;                 /*!< 1 if messages have been received on the
+                                     *   multicast bus/mesh. */
+    int msg_type;
+    int num_devs;
+    uint32_t next_bus_ping;
+    uint32_t next_sub_ping;
+    uint8_t generic_dev_methods_added;
+    uint8_t registered;
+} mpr_net_t, *mpr_net;
 
 void mpr_net_add_dev(mpr_net n, mpr_local_dev d);
 
@@ -45,4 +87,4 @@ if (!VARNAME) {                                     \
     FAIL;                                           \
 }
 
-#endif /* __MAPPER_NETWORK_H__ */
+#endif /* __MPR_NETWORK_H__ */

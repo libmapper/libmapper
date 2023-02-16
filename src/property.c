@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "types_internal.h"
-
 #include "device.h"
 #include "list.h"
 #include "object.h"

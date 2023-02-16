@@ -1,8 +1,36 @@
 
-#ifndef __MAPPER_OBJECT_H__
-#define __MAPPER_OBJECT_H__
+#ifndef __MPR_OBJECT_H__
+#define __MPR_OBJECT_H__
+#define __MPR_TYPES_H__
 
+#include <stdint.h> /* portable: uint64_t   MSVC: __int64 */
+
+typedef struct _mpr_obj *mpr_obj;
+
+/*! This data structure must be large enough to hold a system pointer or a uint64_t */
+typedef uint64_t mpr_id;
+
+typedef struct _mpr_dict {
+    struct _mpr_tbl *synced;
+    struct _mpr_tbl *staged;
+} mpr_dict_t, *mpr_dict;
+
+#include "mpr_type.h"
+
+typedef struct _mpr_obj
+{
+    struct _mpr_graph *graph;       /*!< Pointer back to the graph. */
+    mpr_id id;                      /*!< Unique id for this object. */
+    void *data;                     /*!< User context pointer. */
+    struct _mpr_dict props;         /*!< Properties associated with this signal. */
+    int is_local;
+    int version;                    /*!< Version number. */
+    mpr_type type;                  /*!< Object type. */
+} mpr_obj_t;
+
+#include "graph.h"
 #include "util/mpr_inline.h"
+#include "table.h"
 
 void mpr_obj_init(mpr_obj obj, mpr_graph graph, mpr_type type);
 
@@ -26,4 +54,4 @@ void mpr_obj_clear_empty(mpr_obj obj);
 
 mpr_tbl mpr_obj_get_prop_tbl(mpr_obj obj);
 
-#endif /* __MAPPER_OBJECT_H__ */
+#endif /* __MPR_OBJECT_H__ */

@@ -1,15 +1,20 @@
 
-#ifndef __MAPPER_LINK_H__
-#define __MAPPER_LINK_H__
+#ifndef __MPR_LINK_H__
+#define __MPR_LINK_H__
 
+typedef struct _mpr_link *mpr_link;
+
+#include "graph.h"
+#include "list.h"
+#include "map.h"
+#include "mpr_type.h"
+
+#define NUM_BUNDLES 1
 #define MPR_LINK 0x20
 
 /* TODO: replace this with something better */
 #define LINK_LOCAL_DEV   0
 #define LINK_REMOTE_DEV  1
-
-struct _mpr_link;
-typedef struct _mpr_link *mpr_link;
 
 size_t mpr_link_get_struct_size();
 
@@ -49,4 +54,4 @@ void mpr_link_update_clock(mpr_link link, mpr_time then, mpr_time now,
 
 int mpr_link_housekeeping(mpr_link link, mpr_time now);
 
-#endif /* __MAPPER_LINK_H__ */
+#endif /* __MPR_LINK_H__ */

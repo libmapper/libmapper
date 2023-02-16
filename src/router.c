@@ -4,8 +4,6 @@
 
 #include <lo/lo.h>
 
-#include "types_internal.h"
-
 #include "bitflags.h"
 #include "device.h"
 #include "expression.h"

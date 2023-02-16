@@ -5,8 +5,6 @@
 #include <stddef.h>
 #include <assert.h>
 
-#include "types_internal.h"
-
 #include "bitflags.h"
 #include "device.h"
 #include "graph.h"

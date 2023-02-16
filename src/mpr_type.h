@@ -1,9 +1,13 @@
 
-#ifndef __MAPPER_TYPE_H__
-#define __MAPPER_TYPE_H__
+#ifndef __MPR_TYPE_H__
+#define __MPR_TYPE_H__
 
+#include <mapper/mapper_constants.h>
+#include "mpr_time.h"
 #include "util/mpr_debug.h"
 #include "util/mpr_inline.h"
+
+typedef char mpr_type;
 
 /*! Helper to find size of signal value types. */
 MPR_INLINE static int mpr_type_get_size(mpr_type type)
@@ -57,4 +61,4 @@ MPR_INLINE static int mpr_type_get_is_ptr(mpr_type type)
     return MPR_PTR == type || MPR_STR == type;
 }
 
-#endif /* __MAPPER_TYPE_H__ */
+#endif /* __MPR_TYPE_H__ */

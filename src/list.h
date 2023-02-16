@@ -1,6 +1,11 @@
 
-#ifndef __MAPPER_LIST_H__
-#define __MAPPER_LIST_H__
+#ifndef __MPR_LIST_H__
+#define __MPR_LIST_H__
+#define __MPR_TYPES_H__
+
+typedef struct _mpr_obj **mpr_list;
+
+#include "mpr_type.h"
 
 void *mpr_list_from_data(const void *data);
 
@@ -18,4 +23,4 @@ mpr_list vmpr_list_new_query(const void **list, const void *func,
 
 mpr_list mpr_list_start(mpr_list list);
 
-#endif /* __MAPPER_LIST_H__ */
+#endif /* __MPR_LIST_H__ */

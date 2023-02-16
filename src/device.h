@@ -1,9 +1,19 @@
 
-#ifndef __MAPPER_DEVICE_H__
-#define __MAPPER_DEVICE_H__
+#ifndef __MPR_DEVICE_H__
+#define __MPR_DEVICE_H__
+#define __MPR_TYPES_H__
 
+typedef struct _mpr_dev *mpr_dev;
+typedef struct _mpr_local_dev *mpr_local_dev;
+
+#include "object.h"
+#include "expression.h"
+#include "list.h"
 #include "message.h"
-#include "types_internal.h"
+#include "mpr_signal.h"
+#include "mpr_time.h"
+#include "network.h"
+#include "id_map.h"
 #include "util/mpr_inline.h"
 
 typedef enum {
@@ -159,4 +169,4 @@ int mpr_local_dev_get_num_idmaps(mpr_local_dev dev, int active);
 void mpr_local_dev_print_idmaps(mpr_local_dev dev);
 #endif
 
-#endif /* __MAPPER_DEVICE_H__ */
+#endif /* __MPR_DEVICE_H__ */
