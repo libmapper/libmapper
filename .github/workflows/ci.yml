@@ -44,7 +44,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: install dependencies
-      run: brew install autoconf-archive automake
+      run: brew install autoconf-archive automake pkg-config
     - name: download liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz
     - name: liblo make arm64

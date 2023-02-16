@@ -54,7 +54,7 @@ AC_CHECK_FUNC([getifaddrs],[AC_DEFINE([HAVE_GETIFADDRS],[],[Define if getifaddrs
       is_windows=yes
     ],[])])
 AC_CHECK_FUNC([gettimeofday],[AC_DEFINE([HAVE_GETTIMEOFDAY],[],[Define if gettimeofday() is available.])],
-              [AC_ERROR([This is not a POSIX system!])])
+              [AC_MSG_ERROR([This is not a POSIX system!])])
 
 AC_CHECK_LIB([z], [gzread], , [AC_MSG_ERROR([zlib not found, see http://www.zlib.net])])
 
@@ -351,7 +351,7 @@ AS_IF([test x$with_liblo != xno],[
   AC_CHECK_FUNC([lo_bundle_count],
     [AC_DEFINE([HAVE_LIBLO_BUNDLE_COUNT],[],[Define to use lo_bundle_count function in liblo.])])
   AC_CHECK_FUNC([lo_servers_recv_noblock],
-    [AC_DEFINE([HAVE_LIBLO_SERVERS_RECV_NOBLOCK],[],[Define to use lo_servers_recv_noblock function in liblo.])],[AC_ERROR([liblo >= 0.30 required.])])
+    [AC_DEFINE([HAVE_LIBLO_SERVERS_RECV_NOBLOCK],[],[Define to use lo_servers_recv_noblock function in liblo.])],[AC_MSG_ERROR([liblo >= 0.30 required.])])
   LIBS="$tmpLIBS"
 ])
 
