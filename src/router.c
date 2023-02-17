@@ -550,7 +550,7 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
                 maps[i].status |= RELEASED_REMOTELY;
                 mpr_dev_GID_decref(rtr->dev, sig->group, maps[i].map);
                 if (sig->use_inst) {
-                    mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, maps[i].map->LID, 0, 0, &t, 0);
+                    mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, maps[i].map->LID, 0, 0, t, 0);
                 }
                 else {
                     mpr_dev_LID_decref(rtr->dev, sig->group, maps[i].map);

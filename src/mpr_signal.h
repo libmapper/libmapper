@@ -99,7 +99,7 @@ void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
 int mpr_sig_get_full_name(mpr_sig sig, char *name, int len);
 
 void mpr_sig_call_handler(mpr_local_sig sig, int evt, mpr_id inst, int len,
-                          const void *val, mpr_time *time, float diff);
+                          const void *val, mpr_time time, float diff);
 
 int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
 

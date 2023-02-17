@@ -650,7 +650,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
              * know if the local signal instance will actually be released. */
             int evt = MPR_SIG_REL_UPSTRM & dst_sig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(dst_sig, evt, idmap ? idmap->LID : 0, 0, 0, &time, diff);
+            mpr_sig_call_handler(dst_sig, evt, idmap ? idmap->LID : 0, 0, 0, time, diff);
         }
 
         if (status & EXPR_UPDATE) {
@@ -671,7 +671,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             si->has_val = 1;
 
             mpr_sig_call_handler(dst_sig, MPR_SIG_UPDATE, idmap ? idmap->LID : 0,
-                                 dst_sig->len, si->val, &time, diff);
+                                 dst_sig->len, si->val, time, diff);
             /* Pass this update downstream if signal is an input and was not updated in handler. */
             if (   !(dst_sig->dir & MPR_DIR_OUT)
                 && !mpr_bitflags_get(dst_sig->updated_inst, si->idx)) {
@@ -686,7 +686,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
              * know if the local signal instance will actually be released. */
             int evt = MPR_SIG_REL_UPSTRM & dst_sig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(dst_sig, evt, idmap ? idmap->LID : 0, 0, 0, &time, diff);
+            mpr_sig_call_handler(dst_sig, evt, idmap ? idmap->LID : 0, 0, 0, time, diff);
         }
 
         if ((status & EXPR_EVAL_DONE) && !m->use_inst)

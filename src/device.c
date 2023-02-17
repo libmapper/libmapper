@@ -569,9 +569,9 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
         /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
          * know if the local signal instance will actually be released. */
         if (sig->dir == MPR_DIR_IN)
-            mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, &ts, diff);
+            mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, ts, diff);
         else
-            mpr_sig_call_handler(sig, MPR_SIG_REL_DNSTRM, idmap->LID, 0, 0, &ts, diff);
+            mpr_sig_call_handler(sig, MPR_SIG_REL_DNSTRM, idmap->LID, 0, 0, ts, diff);
 
         RETURN_ARG_UNLESS(map && MPR_LOC_DST == map->process_loc && sig->dir == MPR_DIR_IN, 0);
 
@@ -635,7 +635,7 @@ int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc
             if (si->has_val) {
                 memcpy(&si->time, &ts, sizeof(mpr_time));
                 mpr_bitflags_unset(sig->updated_inst, si->idx);
-                mpr_sig_call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, &ts, diff);
+                mpr_sig_call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, ts, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
                 if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
                     mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);

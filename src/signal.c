@@ -244,7 +244,7 @@ void mpr_sig_free_internal(mpr_sig sig)
 }
 
 void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id inst, int len,
-                          const void *val, mpr_time *time, float diff)
+                          const void *val, mpr_time time, float diff)
 {
     mpr_sig_handler *h;
     /* abort if signal is already being processed - might be a local loop */
@@ -259,7 +259,7 @@ void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id inst, int len,
     mpr_sig_update_timing_stats(lsig, diff);
     RETURN_UNLESS(evt & lsig->event_flags);
     RETURN_UNLESS((h = (mpr_sig_handler*)lsig->handler));
-    h((mpr_sig)lsig, evt, lsig->use_inst ? inst : 0, val ? len : 0, lsig->type, val, *time);
+    h((mpr_sig)lsig, evt, lsig->use_inst ? inst : 0, val ? len : 0, lsig->type, val, time);
 }
 
 /**** Instances ****/
