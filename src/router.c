@@ -654,3 +654,58 @@ mpr_local_slot mpr_rtr_get_slot(mpr_rtr rtr, mpr_local_sig sig, int slot_id)
     }
     return NULL;
 }
+
+void mpr_rtr_check_links(mpr_rtr rtr, mpr_list links)
+{
+    mpr_rtr_sig sig = rtr->sigs;
+    while (sig) {
+        int i;
+        for (i = 0; i < sig->num_slots; i++) {
+            mpr_local_map map;
+            mpr_local_slot slot = sig->slots[i];
+            if (!slot)
+                continue;
+            map = (mpr_local_map)mpr_slot_get_map((mpr_slot)slot);
+            if (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)slot)) {
+                /* only send /mapTo once even if we have multiple local sources */
+                if (map->one_src && (slot != map->src[0]))
+                    continue;
+                mpr_list cpy = mpr_list_get_cpy(links);
+                while (cpy) {
+                    mpr_link link = (mpr_link)*cpy;
+                    cpy = mpr_list_get_next(cpy);
+                    if (   mpr_obj_get_is_local((mpr_obj)link)
+                        && mpr_slot_get_link((mpr_slot)map->dst) == link) {
+                        int j;
+                        mpr_net_use_mesh(rtr->net, mpr_link_get_admin_addr(link));
+                        for (j = 0; j < map->num_src; j++) {
+                            mpr_sig sig = mpr_slot_get_sig((mpr_slot)map->src[j]);
+                            if (!mpr_obj_get_is_local((mpr_obj)sig))
+                                continue;
+                            mpr_sig_send_state(sig, MSG_SIG);
+                        }
+                        mpr_map_send_state((mpr_map)map, -1, MSG_MAP_TO);
+                    }
+                }
+            }
+            else {
+                mpr_list cpy = mpr_list_get_cpy(links);
+                while (cpy) {
+                    int j;
+                    mpr_link link = (mpr_link)*cpy;
+                    cpy = mpr_list_get_next(cpy);
+                    if (!mpr_obj_get_is_local((mpr_obj)link))
+                        continue;
+                    for (j = 0; j < map->num_src; j++) {
+                        if (mpr_slot_get_link((mpr_slot)map->src[j]) != link)
+                            continue;
+                        mpr_net_use_mesh(rtr->net, mpr_link_get_admin_addr(link));
+                        mpr_sig_send_state(mpr_slot_get_sig((mpr_slot)map->dst), MSG_SIG);
+                        j = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : j, MSG_MAP_TO);
+                    }
+                }
+            }
+        }
+        sig = sig->next;
+    }
+}

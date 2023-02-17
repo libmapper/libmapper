@@ -854,53 +854,8 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
 
     /* check if we have maps waiting for this link */
     trace_net("checking for waiting maps.\n");
-    rs = net->rtr->sigs;
-    while (rs) {
-        for (i = 0; i < rs->num_slots; i++) {
-            mpr_local_map map;
-            if (!rs->slots[i])
-                continue;
-            map = (mpr_local_map)mpr_slot_get_map((mpr_slot)rs->slots[i]);
-            if (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)rs->slots[i])) {
-                /* only send /mapTo once even if we have multiple local sources */
-                if (map->one_src && (rs->slots[i] != map->src[0]))
-                    continue;
-                cpy = mpr_list_get_cpy(links);
-                while (cpy) {
-                    mpr_link link = (mpr_link)*cpy;
-                    cpy = mpr_list_get_next(cpy);
-                    if (   mpr_obj_get_is_local((mpr_obj)link)
-                        && mpr_slot_get_link((mpr_slot)map->dst) == link) {
-                        mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
-                        for (j = 0; j < map->num_src; j++) {
-                            mpr_sig sig = mpr_slot_get_sig((mpr_slot)map->src[j]);
-                            if (!mpr_obj_get_is_local((mpr_obj)sig))
-                                continue;
-                            mpr_sig_send_state(sig, MSG_SIG);
-                        }
-                        mpr_map_send_state((mpr_map)map, -1, MSG_MAP_TO);
-                    }
-                }
-            }
-            else {
-                cpy = mpr_list_get_cpy(links);
-                while (cpy) {
-                    mpr_link link = (mpr_link)*cpy;
-                    cpy = mpr_list_get_next(cpy);
-                    if (!mpr_obj_get_is_local((mpr_obj)link))
-                        continue;
-                    for (j = 0; j < map->num_src; j++) {
-                        if (mpr_slot_get_link((mpr_slot)map->src[j]) != link)
-                            continue;
-                        mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
-                        mpr_sig_send_state(mpr_slot_get_sig((mpr_slot)map->dst), MSG_SIG);
-                        j = mpr_map_send_state((mpr_map)map, map->one_src ? -1 : j, MSG_MAP_TO);
-                    }
-                }
-            }
-        }
-        rs = rs->next;
-    }
+    mpr_rtr_check_links(net->rtr, links);
+
 done:
     mpr_list_free(links);
     mpr_msg_free(props);
