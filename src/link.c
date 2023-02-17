@@ -7,9 +7,7 @@
 #include <assert.h>
 
 #include "device.h"
-#include "graph.h"
 #include "link.h"
-#include "list.h"
 #include "mpr_time.h"
 #include "network.h"
 #include "object.h"

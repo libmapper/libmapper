@@ -7,7 +7,6 @@ typedef struct _mpr_local_slot *mpr_local_slot;
 
 #include "map.h"
 #include "mpr_signal.h"
-#include "network.h"
 #include "router.h"
 #include "value.h"
 

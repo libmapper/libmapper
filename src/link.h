@@ -7,7 +7,6 @@ typedef struct _mpr_link *mpr_link;
 #include "graph.h"
 #include "list.h"
 #include "map.h"
-#include "mpr_type.h"
 
 #define NUM_BUNDLES 1
 #define MPR_LINK 0x20

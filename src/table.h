@@ -1,6 +1,7 @@
 
 #ifndef __MPR_TABLE_H__
 #define __MPR_TABLE_H__
+#define __MPR_TYPES_H__
 
 #include "message.h"
 

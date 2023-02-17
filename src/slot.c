@@ -13,7 +13,6 @@
 #include "property.h"
 #include "slot.h"
 #include "table.h"
-#include "value.h"
 
 #include "util/mpr_debug.h"
 

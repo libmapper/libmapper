@@ -18,7 +18,7 @@ typedef struct _mpr_local_map *mpr_local_map;
     mpr_obj_t obj;                  /* always first */                          \
     mpr_dev *scopes;                                                            \
     char *expr_str;                                                             \
-    struct _mpr_id_map *idmap;      /*!< Associated mpr_id_map. */              \
+    mpr_id_map idmap;               /*!< Associated mpr_id_map. */              \
     int muted;                      /*!< 1 to mute mapping, 0 to unmute */      \
     int num_scopes;                                                             \
     int num_src;                                                                \

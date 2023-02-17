@@ -6,7 +6,6 @@
 #include <stddef.h>
 
 #include <mapper/mapper.h>
-#include "mpr_type.h"
 #include "path.h"
 #include "property.h"
 #include "util/mpr_debug.h"

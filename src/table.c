@@ -4,13 +4,13 @@
 #include <string.h>
 
 #include "list.h"
-#include "map.h"
-#include "message.h"
 #include "mpr_type.h"
 #include "path.h"
 #include "property.h"
+#include "object.h"
 #include "util/mpr_debug.h"
 #include "util/mpr_set_coerced.h"
+#include "table.h"
 #include <mapper/mapper.h>
 
 /* we will sort so that indexed records come before keyed records */

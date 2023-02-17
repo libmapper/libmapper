@@ -4,14 +4,12 @@
 #include <assert.h>
 
 #include "device.h"
-#include "graph.h"
 #include "list.h"
 #include "map.h"
 #include "network.h"
 #include "mpr_signal.h"
 #include "property.h"
 #include "slot.h"
-#include "table.h"
 #include <mapper/mapper.h>
 
 void mpr_obj_init(mpr_obj o, mpr_graph g, mpr_type t)

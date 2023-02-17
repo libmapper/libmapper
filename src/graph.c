@@ -9,12 +9,8 @@
 
 #endif
 
-#include "device.h"
 #include "graph.h"
 #include "link.h"
-#include "map.h"
-#include "network.h"
-#include "mpr_signal.h"
 #include "mpr_time.h"
 #include "path.h"
 #include "property.h"

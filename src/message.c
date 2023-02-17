@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "message.h"
-#include "mpr_type.h"
 #include "property.h"
 #include "util/mpr_debug.h"
 #include "util/mpr_inline.h"

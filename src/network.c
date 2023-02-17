@@ -30,14 +30,12 @@
 #include "link.h"
 #include "list.h"
 #include "map.h"
-#include "message.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
 #include "network.h"
 #include "object.h"
 #include "path.h"
 #include "property.h"
-#include "router.h" /* TODO: this shouldn't be necessary, use map or device interface instead */
 #include "slot.h"
 #include "table.h"
 #include "util/mpr_debug.h"
@@ -765,13 +763,12 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     mpr_net net;
     mpr_dev remote;
     mpr_graph graph = (mpr_graph)user;
-    int i, j, data_port, found;
+    int data_port, found;
     mpr_msg props = 0;
     mpr_msg_atom atom;
     mpr_list links = 0, cpy;
     const char *name, *host, *admin_port;
     lo_address a;
-    mpr_rtr_sig rs;
 
     RETURN_ARG_UNLESS(ac && MPR_STR == types[0], 0);
     net = mpr_graph_get_net(graph);
