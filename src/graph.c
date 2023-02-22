@@ -271,9 +271,9 @@ mpr_graph mpr_graph_new(int subscribe_flags)
 
     /* TODO: consider whether graph objects should sync properties over the network. */
     tbl = g->obj.props.synced = mpr_tbl_new();
-    mpr_tbl_link(tbl, PROP(DATA), 1, MPR_PTR, &g->obj.data,
-                 LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_set(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, NON_MODIFIABLE);
+    mpr_tbl_link_value(tbl, PROP(DATA), 1, MPR_PTR, &g->obj.data,
+                       LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
+    mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, NON_MODIFIABLE);
     /* TODO: add object queries as properties. */
 
     return g;

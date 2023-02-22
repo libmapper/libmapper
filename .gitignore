@@ -71,6 +71,7 @@ test/testmany
 test/testmapfail
 test/testmapinput
 test/testmapprotocol
+test/testmapscope
 test/testmonitor
 test/testnetwork
 test/testparams

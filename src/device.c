@@ -163,30 +163,30 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
     tbl = dev->obj.props.synced;
 
     /* these properties need to be added in alphabetical order */
-    mpr_tbl_link(tbl, PROP(DATA), 1, MPR_PTR, &dev->obj.data,
-                 LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, mod);
+    mpr_tbl_link_value(tbl, PROP(DATA), 1, MPR_PTR, &dev->obj.data,
+                       LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link_value(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, mod);
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_DEV, (void*)_cmp_qry_linked, "v", &dev);
-    mpr_tbl_link(tbl, PROP(LINKED), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
-    mpr_tbl_link(tbl, PROP(NAME), 1, MPR_STR, &dev->name, mod | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, mod);
-    mpr_tbl_link(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &dev->num_maps_out, mod);
-    mpr_tbl_link(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, mod);
-    mpr_tbl_link(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, mod);
-    mpr_tbl_link(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, mod);
+    mpr_tbl_link_value(tbl, PROP(LINKED), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
+    mpr_tbl_link_value(tbl, PROP(NAME), 1, MPR_STR, &dev->name, mod | INDIRECT | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, mod);
+    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &dev->num_maps_out, mod);
+    mpr_tbl_link_value(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, mod);
+    mpr_tbl_link_value(tbl, PROP(NUM_SIGS_OUT), 1, MPR_INT32, &dev->num_outputs, mod);
+    mpr_tbl_link_value(tbl, PROP(ORDINAL), 1, MPR_INT32, &dev->ordinal, mod);
     if (!dev->obj.is_local) {
         qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)_cmp_qry_sigs,
                                   "hi", dev->obj.id, MPR_DIR_ANY);
-        mpr_tbl_link(tbl, PROP(SIG), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
+        mpr_tbl_link_value(tbl, PROP(SIG), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
     }
-    mpr_tbl_link(tbl, PROP(STATUS), 1, MPR_INT32, &dev->status, mod | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, mod);
+    mpr_tbl_link_value(tbl, PROP(STATUS), 1, MPR_INT32, &dev->status, mod | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link_value(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link_value(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, mod);
 
     if (dev->obj.is_local)
-        mpr_tbl_set(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, NON_MODIFIABLE);
-    mpr_tbl_set(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &dev->obj.is_local,
-                LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+        mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, NON_MODIFIABLE);
+    mpr_tbl_add_record(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &dev->obj.is_local,
+                       LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
 }
 
 /*! Allocate and initialize a device. This function is called to create a new
@@ -352,8 +352,8 @@ void mpr_dev_on_registered(mpr_local_dev dev)
     }
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)_cmp_qry_sigs,
                               "hi", dev->obj.id, MPR_DIR_ANY);
-    mpr_tbl_set(dev->obj.props.synced, PROP(SIG), NULL, 1, MPR_LIST, qry,
-                NON_MODIFIABLE | PROP_OWNED);
+    mpr_tbl_add_record(dev->obj.props.synced, PROP(SIG), NULL, 1, MPR_LIST, qry,
+                       NON_MODIFIABLE | PROP_OWNED);
     dev->registered = 1;
     dev->ordinal = dev->ordinal_allocator.val;
 
@@ -914,7 +914,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     _process_incoming_maps(ldev);
     ldev->polling = 0;
 
-    if (dev->obj.props.synced->dirty && mpr_dev_get_is_ready(dev) && ldev->subscribers) {
+    if (mpr_tbl_get_is_dirty(dev->obj.props.synced) && mpr_dev_get_is_ready(dev) && ldev->subscribers) {
         /* inform device subscribers of changed properties */
         mpr_net_use_subscribers(net, ldev, MPR_DEV);
         mpr_dev_send_state(dev, MSG_DEV);
@@ -1192,14 +1192,14 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     }
 
     portnum = lo_server_get_port(dev->servers[SERVER_UDP]);
-    mpr_tbl_set(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, NON_MODIFIABLE);
+    mpr_tbl_add_record(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, NON_MODIFIABLE);
 
     trace_dev(dev, "bound to UDP port %i\n", portnum);
     trace_dev(dev, "bound to TCP port %i\n", lo_server_get_port(dev->servers[SERVER_TCP]));
 
     url = lo_server_get_url(dev->servers[SERVER_UDP]);
     host = lo_url_get_hostname(url);
-    mpr_tbl_set(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, NON_MODIFIABLE);
+    mpr_tbl_add_record(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, NON_MODIFIABLE);
     free(host);
     free(url);
 
@@ -1356,7 +1356,7 @@ void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd)
     else
         mpr_net_add_msg(net, 0, cmd, msg);
 
-    dev->obj.props.synced->dirty = 0;
+    mpr_tbl_set_is_dirty(dev->obj.props.synced, 0);
 }
 
 int mpr_dev_add_link(mpr_dev dev, mpr_dev rem)
@@ -1398,7 +1398,7 @@ void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem)
             dev->linked[j-1] = dev->linked[j];
         --dev->num_linked;
         dev->linked = realloc(dev->linked, dev->num_linked * sizeof(mpr_dev));
-        dev->obj.props.synced->dirty = 1;
+        mpr_tbl_set_is_dirty(dev->obj.props.synced, 1);
         break;
     }
     for (i = 0; i < rem->num_linked; i++) {
@@ -1408,7 +1408,7 @@ void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem)
             rem->linked[j-1] = rem->linked[j];
         --rem->num_linked;
         rem->linked = realloc(rem->linked, rem->num_linked * sizeof(mpr_dev));
-        rem->obj.props.synced->dirty = 1;
+        mpr_tbl_set_is_dirty(rem->obj.props.synced, 1);
         break;
     }
 }
@@ -1469,7 +1469,7 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
                 break;
             }
             default:
-                updated += mpr_tbl_set_from_atom(dev->obj.props.synced, a, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record_from_msg_atom(dev->obj.props.synced, a, REMOTE_MODIFY);
                 break;
         }
     }

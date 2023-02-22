@@ -22,6 +22,7 @@ if WINDOWS_DLL
         testmapfail \
         testmapinput \
         testmapprotocol \
+        testmapscope \
         testmonitor \
         testnetwork \
         testparams \
@@ -60,6 +61,7 @@ if WINDOWS_DLL
         testunmap \
         testmapfail \
         testmapprotocol \
+        testmapscope \
         testcalibrate \
         testlocalmap \
         testsignalhierarchy \
@@ -85,6 +87,7 @@ else
         testmapfail \
         testmapinput \
         testmapprotocol \
+        testmapscope \
         testmonitor \
         testnetwork \
         testparams \
@@ -124,6 +127,7 @@ else
         testunmap \
         testmapfail \
         testmapprotocol \
+        testmapscope \
         testcalibrate \
         testlocalmap \
         testthread \
@@ -198,6 +202,10 @@ testmapfail_LDADD = $(TEST_LDADD)
 testmapprotocol_CFLAGS = $(TEST_CFLAGS)
 testmapprotocol_SOURCES = testmapprotocol.c
 testmapprotocol_LDADD = $(TEST_LDADD)
+
+testmapscope_CFLAGS = $(TEST_CFLAGS)
+testmapscope_SOURCES = testmapscope.c
+testmapscope_LDADD = $(TEST_LDADD)
 
 testmonitor_CXXFLAGS = $(TEST_CXXFLAGS)
 testmonitor_SOURCES = testmonitor.cpp

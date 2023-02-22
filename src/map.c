@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
@@ -90,19 +91,19 @@ void mpr_map_init(mpr_map m)
     m->obj.type = MPR_MAP;
 
     /* these properties need to be added in alphabetical order */
-    mpr_tbl_link(t, PROP(BUNDLE), 1, MPR_INT32, &m->bundle, MODIFIABLE);
-    mpr_tbl_link(t, PROP(DATA), 1, MPR_PTR, &m->obj.data,
-                 MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(t, PROP(EXPR), 1, MPR_STR, &m->expr_str, MODIFIABLE | INDIRECT);
-    mpr_tbl_link(t, PROP(ID), 1, MPR_INT64, &m->obj.id, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link(t, PROP(MUTED), 1, MPR_BOOL, &m->muted, MODIFIABLE);
-    mpr_tbl_link(t, PROP(NUM_SIGS_IN), 1, MPR_INT32, &m->num_src, NON_MODIFIABLE);
-    mpr_tbl_link(t, PROP(PROCESS_LOC), 1, MPR_INT32, &m->process_loc, MODIFIABLE);
-    mpr_tbl_link(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, REMOTE_MODIFY);
-    mpr_tbl_link(t, PROP(SCOPE), 1, MPR_LIST, q, NON_MODIFIABLE | PROP_OWNED);
-    mpr_tbl_link(t, PROP(STATUS), 1, MPR_INT32, &m->status, NON_MODIFIABLE);
-    mpr_tbl_link(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, REMOTE_MODIFY);
-    mpr_tbl_link(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, REMOTE_MODIFY);
+    mpr_tbl_link_value(t, PROP(BUNDLE), 1, MPR_INT32, &m->bundle, MODIFIABLE);
+    mpr_tbl_link_value(t, PROP(DATA), 1, MPR_PTR, &m->obj.data,
+                       MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link_value(t, PROP(EXPR), 1, MPR_STR, &m->expr_str, MODIFIABLE | INDIRECT);
+    mpr_tbl_link_value(t, PROP(ID), 1, MPR_INT64, &m->obj.id, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link_value(t, PROP(MUTED), 1, MPR_BOOL, &m->muted, MODIFIABLE);
+    mpr_tbl_link_value(t, PROP(NUM_SIGS_IN), 1, MPR_INT32, &m->num_src, NON_MODIFIABLE);
+    mpr_tbl_link_value(t, PROP(PROCESS_LOC), 1, MPR_INT32, &m->process_loc, MODIFIABLE);
+    mpr_tbl_link_value(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, REMOTE_MODIFY);
+    mpr_tbl_link_value(t, PROP(SCOPE), 1, MPR_LIST, q, NON_MODIFIABLE | PROP_OWNED);
+    mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->status, NON_MODIFIABLE);
+    mpr_tbl_link_value(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, REMOTE_MODIFY);
+    mpr_tbl_link_value(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, REMOTE_MODIFY);
 
     if (dst_sig->obj.is_local)
         is_local = 1;
@@ -115,8 +116,8 @@ void mpr_map_init(mpr_map m)
             }
         }
     }
-    mpr_tbl_set(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local,
-                LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+    mpr_tbl_add_record(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local,
+                       LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
     m->status = MPR_STATUS_STAGED;
 }
 
@@ -297,60 +298,46 @@ int mpr_map_get_is_ready(mpr_map m)
     return m ? (MPR_STATUS_ACTIVE == m->status) : 0;
 }
 
-/* Here we do not edit the "scope" property directly – instead we stage a the
- * change with device name arguments and send to the distrubuted graph. */
-void mpr_map_add_scope(mpr_map m, mpr_dev d)
+/* Here we do not edit the "scope" property directly – instead we stage the
+ * change with device name arguments and send to the distributed graph. */
+void stage_scope(mpr_map m, mpr_dev d, int flag)
 {
-    int i;
-    mpr_prop p = PROP(SCOPE) | PROP_ADD;
-    mpr_tbl_record r;
-    const char **names;
+    mpr_prop p = MPR_PROP_SCOPE | flag;
+    const void *val;
+    mpr_type type;
+    int len;
 
     RETURN_UNLESS(m);
-    r = mpr_tbl_get(m->obj.props.staged, p, NULL);
-    if (r && MPR_STR == r->type) {
-        names = alloca((r->len + 1) * sizeof(char*));
-        if (1 == r->len)
-            names[0] = (const char*)r->val;
-        for (i = 0; i < r->len; i++)
-            names[i] = ((const char**)r->val)[i];
-        names[r->len] = d ? mpr_dev_get_name(d) : "all";
-        mpr_tbl_set(m->obj.props.staged, p, NULL, r->len + 1, MPR_STR, names, REMOTE_MODIFY);
+
+    mpr_tbl_get_record_by_idx(m->obj.props.staged, p, NULL, &len, &type, &val, NULL);
+    if (0 == len) {
+        const char *name = mpr_dev_get_name(d);
+        mpr_tbl_add_record(m->obj.props.staged, p, NULL, 1, MPR_STR, name, 1);
+        return;
     }
-    else
-        mpr_tbl_set(m->obj.props.staged, p, NULL, 1, MPR_STR, mpr_dev_get_name(d), REMOTE_MODIFY);
+    else {
+        const char **new_val;
+        assert(MPR_STR == type);
+        new_val = (const char**)alloca((len + 1) * sizeof(char*));
+        if (1 == len)
+            new_val[0] = ((const char*)val);
+        else
+            memcpy(new_val, val, sizeof(char*) * len);
+        new_val[len] = d ? mpr_dev_get_name(d) : "all";
+        mpr_tbl_add_record(m->obj.props.staged, p, NULL, len + 1, MPR_STR, new_val, REMOTE_MODIFY);
+    }
 }
 
-/* Here we do not edit the "scope" property directly – instead we stage a the
- * change with device name arguments and send to the distrubuted graph. */
+void mpr_map_add_scope(mpr_map m, mpr_dev d)
+{
+    stage_scope(m, d, PROP_ADD);
+}
+
+/* Here we do not edit the "scope" property directly – instead we stage the
+ * change with device name arguments and send to the distributed graph. */
 void mpr_map_remove_scope(mpr_map m, mpr_dev d)
 {
-    mpr_prop p = PROP(SCOPE) | PROP_REMOVE;
-    mpr_tbl t;
-    mpr_tbl_record r;
-    const char **names;
-
-    RETURN_UNLESS(m && d);
-    t = m->obj.props.staged;
-    r = mpr_tbl_get(t, p, NULL);
-    if (r && MPR_STR == r->type) {
-        names = alloca(r->len * sizeof(char*));
-        if (1 == r->len) {
-            if (0 == strcmp((const char*)r->val, mpr_dev_get_name(d)))
-                mpr_tbl_remove(t, p, NULL, REMOTE_MODIFY);
-        }
-        else {
-            int i = 0, j = 0;
-            for (; i < r->len; i++) {
-                if (0 != strcmp(((const char**)r->val)[i], mpr_dev_get_name(d)))
-                    names[j++] = ((const char**)r->val)[i];
-            }
-            if (j != i)
-                mpr_tbl_set(t, p, NULL, j, MPR_STR, names, REMOTE_MODIFY);
-        }
-    }
-    else
-        mpr_tbl_set(t, p, NULL, 1, MPR_STR, mpr_dev_get_name(d), REMOTE_MODIFY);
+    stage_scope(m, d, PROP_REMOVE);
 }
 
 static int _add_scope(mpr_map m, const char *name)
@@ -413,31 +400,41 @@ static int _update_scope(mpr_map m, mpr_msg_atom a)
         if (1 == num && strcmp(&scope_list[0]->s, "none")==0)
             num = 0;
 
-        /* First remove old scopes that are missing */
-        while (i < m->num_scopes) {
-            int found = 0;
-            for (j = 0; j < num; j++) {
-                name = mpr_path_skip_slash(&scope_list[j]->s);
-                if (!m->scopes[i]) {
-                    if (strcmp(name, "all") == 0) {
+        if (mpr_msg_atom_get_prop(a) & PROP_ADD) {
+            for (i = 0; i < num; i++)
+                updated += _add_scope(m, &scope_list[i]->s);
+        }
+        else if (mpr_msg_atom_get_prop(a) & PROP_REMOVE) {
+            for (i = 0; i < num; i++)
+                updated += _remove_scope(m, &scope_list[i]->s);
+        }
+        else {
+            /* First remove old scopes that are missing */
+            while (i < m->num_scopes) {
+                int found = 0;
+                for (j = 0; j < num; j++) {
+                    name = mpr_path_skip_slash(&scope_list[j]->s);
+                    if (!m->scopes[i]) {
+                        if (strcmp(name, "all") == 0) {
+                            found = 1;
+                            break;
+                        }
+                        break;
+                    }
+                    if (strcmp(name, mpr_dev_get_name(m->scopes[i])) == 0) {
                         found = 1;
                         break;
                     }
-                    break;
                 }
-                if (strcmp(name, mpr_dev_get_name(m->scopes[i])) == 0) {
-                    found = 1;
-                    break;
-                }
+                if (!found && m->scopes[i])
+                    updated += _remove_scope(m, mpr_dev_get_name(m->scopes[i]));
+                else
+                    ++i;
             }
-            if (!found && m->scopes[i])
-                updated += _remove_scope(m, mpr_dev_get_name(m->scopes[i]));
-            else
-                ++i;
+            /* ...then add any new scopes */
+            for (i = 0; i < num; i++)
+                updated += _add_scope(m, &scope_list[i]->s);
         }
-        /* ...then add any new scopes */
-        for (i = 0; i < num; i++)
-            updated += _add_scope(m, &scope_list[i]->s);
     }
     return updated;
 }
@@ -848,7 +845,8 @@ static int _replace_expr_str(mpr_local_map m, const char *expr_str)
         m->process_loc = MPR_LOC_DST;
         if (!dst_sig->obj.is_local) {
             /* copy expression string but do not execute it */
-            mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, REMOTE_MODIFY);
+            mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str,
+                               REMOTE_MODIFY);
             mpr_expr_free(expr);
             return 1;
         }
@@ -858,8 +856,8 @@ static int _replace_expr_str(mpr_local_map m, const char *expr_str)
 
     if (m->expr_str == expr_str)
         return 0;
-    mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, REMOTE_MODIFY);
-    mpr_tbl_remove(m->obj.props.staged, PROP(EXPR), NULL, 0);
+    mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, REMOTE_MODIFY);
+    mpr_tbl_remove_record(m->obj.props.staged, PROP(EXPR), NULL, 0);
     return 0;
 }
 
@@ -1179,7 +1177,7 @@ static int _set_expr(mpr_local_map m, const char *expr)
 
     if (!should_compile) {
         if (expr)
-            mpr_tbl_set(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr, REMOTE_MODIFY);
+            mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr, REMOTE_MODIFY);
         goto done;
     }
     if (!expr || strstr(expr, "linear"))
@@ -1257,13 +1255,13 @@ static void _check_status(mpr_local_map m)
             mpr_link last = 0, link = mpr_slot_get_link((mpr_slot)m->dst);
             if (link) {
                 mpr_link_add_map(link, 0);
-                ((mpr_obj)link)->props.synced->dirty = 1;
+                mpr_tbl_set_is_dirty(((mpr_obj)link)->props.synced, 1);
             }
             for (i = 0; i < m->num_src; i++) {
                 link = mpr_slot_get_link((mpr_slot)m->src[i]);
                 if (link && link != last) {
                     mpr_link_add_map(link, 1);
-                    ((mpr_obj)link)->props.synced->dirty = 1;
+                    mpr_tbl_set_is_dirty(((mpr_obj)link)->props.synced, 1);
                     last = link;
                 }
             }
@@ -1314,7 +1312,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
             case PROP(STATUS):
                 if (m->obj.is_local)
                     break;
-                updated += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY);
                 break;
             case PROP(PROCESS_LOC): {
                 mpr_loc loc;
@@ -1356,12 +1354,12 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         }
                         ++updated;
                     }
-                    updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                           MPR_INT32, &loc, REMOTE_MODIFY);
+                    updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
+                                                  MPR_INT32, &loc, REMOTE_MODIFY);
                 }
                 else
-                    updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                           MPR_INT32, &loc, REMOTE_MODIFY);
+                    updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
+                                                  MPR_INT32, &loc, REMOTE_MODIFY);
                 break;
             }
             case PROP(EXPR): {
@@ -1395,23 +1393,23 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                             ++updated;
                     }
                     else {
-                        updated += mpr_tbl_set(tbl, PROP(EXPR), NULL, 1, MPR_STR,
-                                               expr_str, REMOTE_MODIFY);
+                        updated += mpr_tbl_add_record(tbl, PROP(EXPR), NULL, 1, MPR_STR,
+                                                      expr_str, REMOTE_MODIFY);
                     }
                 }
                 else {
-                    updated += mpr_tbl_set(tbl, PROP(EXPR), NULL, 1, MPR_STR,
-                                           expr_str, REMOTE_MODIFY);
+                    updated += mpr_tbl_add_record(tbl, PROP(EXPR), NULL, 1, MPR_STR,
+                                                  expr_str, REMOTE_MODIFY);
                 }
                 if (orig_loc != m->process_loc) {
                     mpr_loc loc = m->process_loc;
                     m->process_loc = orig_loc;
-                    updated += mpr_tbl_set(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                           MPR_INT32, &loc, REMOTE_MODIFY);
+                    updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
+                                                  MPR_INT32, &loc, REMOTE_MODIFY);
                 }
                 if (!m->obj.is_local) {
                     /* remove any cached expression variables from table */
-                    mpr_tbl_remove(tbl, MPR_PROP_EXTRA, "var@*", REMOTE_MODIFY);
+                    mpr_tbl_remove_record(tbl, MPR_PROP_EXTRA, "var@*", REMOTE_MODIFY);
                 }
                 break;
             }
@@ -1433,8 +1431,8 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 break;
             case PROP(PROTOCOL): {
                 mpr_proto pro = mpr_protocol_from_str(&(vals[0])->s);
-                updated += mpr_tbl_set(tbl, PROP(PROTOCOL), NULL, 1, MPR_INT32,
-                                       &pro, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record(tbl, PROP(PROTOCOL), NULL, 1, MPR_INT32,
+                                              &pro, REMOTE_MODIFY);
                 break;
             }
             case PROP(USE_INST): {
@@ -1442,8 +1440,8 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 if (m->obj.is_local && m->use_inst && !use_inst) {
                     /* TODO: release map instances */
                 }
-                updated += mpr_tbl_set(tbl, PROP(USE_INST), NULL, 1, MPR_BOOL,
-                                       &use_inst, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record(tbl, PROP(USE_INST), NULL, 1, MPR_BOOL,
+                                              &use_inst, REMOTE_MODIFY);
                 break;
             }
             case PROP(EXTRA): {
@@ -1504,13 +1502,13 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                     }
                     if (m->obj.is_local)
                         break;
-                    /* otherwise continue to mpr_tbl_set_from_atom() below */
+                    /* otherwise continue to mpr_tbl_add_record_from_msg_atom() below */
                 }
             }
             case PROP(ID):
             case PROP(MUTED):
             case PROP(VERSION):
-                updated += mpr_tbl_set_from_atom(tbl, a, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY);
                 break;
             default:
                 break;

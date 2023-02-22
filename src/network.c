@@ -872,7 +872,7 @@ static int handler_dev_mod(const char *path, const char *types, lo_arg **av,
     trace_dev(dev, "received /%s/modify + %d properties.\n", path, mpr_msg_get_num_atoms(props));
     if (mpr_dev_set_from_msg((mpr_dev)dev, props)) {
         inform_device_subscribers(mpr_graph_get_net(mpr_obj_get_graph((mpr_obj)dev)), dev);
-        mpr_obj_clear_empty((mpr_obj)dev);
+        mpr_obj_clear_empty_props((mpr_obj)dev);
     }
     mpr_msg_free(props);
     return 0;
@@ -1060,7 +1060,7 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
             mpr_net_use_subscribers(net, dev, dir);
             mpr_sig_send_state(sig, MSG_SIG);
         }
-        mpr_tbl_clear_empty(sig->obj.props.synced);
+        mpr_obj_clear_empty_props((mpr_obj)sig);
     }
     mpr_msg_free(props);
     return 0;
@@ -1582,7 +1582,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         }
         mpr_graph_call_cbs(gph, (mpr_obj)map, MPR_MAP, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
     }
-    mpr_tbl_clear_empty(map->obj.props.synced);
+    mpr_obj_clear_empty_props((mpr_obj)map);
     return 0;
 }
 
@@ -1690,7 +1690,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
 
 done:
     mpr_msg_free(props);
-    mpr_tbl_clear_empty(map->obj.props.synced);
+    mpr_obj_clear_empty_props((mpr_obj)map);
     return 0;
 }
 

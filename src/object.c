@@ -38,7 +38,7 @@ void mpr_obj_increment_version(mpr_obj o)
 {
     RETURN_UNLESS(o && o->props.staged);
     ++o->version;
-    o->props.synced->dirty = 1;
+    mpr_tbl_set_is_dirty(o->props.synced, 1);
 }
 
 int mpr_obj_get_num_props(mpr_obj o, int staged)
@@ -46,9 +46,9 @@ int mpr_obj_get_num_props(mpr_obj o, int staged)
     int len = 0;
     if (o) {
         if (o->props.synced)
-            len += mpr_tbl_get_size(o->props.synced);
+            len += mpr_tbl_get_num_records(o->props.synced);
         if (staged && o->props.staged)
-            len += mpr_tbl_get_size(o->props.staged);
+            len += mpr_tbl_get_num_records(o->props.staged);
     }
     return len;
 }
@@ -57,110 +57,139 @@ mpr_prop mpr_obj_get_prop_by_key(mpr_obj o, const char *s, int *l, mpr_type *t,
                                  const void **v, int *p)
 {
     RETURN_ARG_UNLESS(o && s, 0);
-    return mpr_tbl_get_prop_by_key(o->props.synced, s, l, t, v, p);
+    return mpr_tbl_get_record_by_key(o->props.synced, s, l, t, v, p);
 }
 
 mpr_prop mpr_obj_get_prop_by_idx(mpr_obj o, int p, const char **k, int *l,
                                  mpr_type *t, const void **v, int *pub)
 {
     RETURN_ARG_UNLESS(o, 0);
-    return mpr_tbl_get_prop_by_idx(o->props.synced, p, k, l, t, v, pub);
+    return mpr_tbl_get_record_by_idx(o->props.synced, p, k, l, t, v, pub);
 }
 
 int mpr_obj_get_prop_as_int32(mpr_obj o, mpr_prop p, const char *s)
 {
-    mpr_tbl_record r;
-    void *v;
+    const void *val;
+    mpr_type type;
+    int len;
     RETURN_ARG_UNLESS(o, 0);
-    r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_ARG_UNLESS(r && r->val, 0);
-    v = (r->flags & INDIRECT) ? *r->val : r->val;
-    switch(r->type) {
+    if (s)
+        p = mpr_tbl_get_record_by_key(o->props.synced, s, &len, &type, &val, NULL);
+    else
+        p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, &len, &type, &val, NULL);
+    RETURN_ARG_UNLESS(val, 0);
+
+    switch (type) {
         case MPR_BOOL:
-        case MPR_INT32: return *(int*)v;
-        case MPR_INT64: return (int)(*(int64_t*)v);
-        case MPR_FLT:   return (int)(*(float*)v);
-        case MPR_DBL:   return (int)(*(double*)v);
-        case MPR_TYPE:  return (int)(*(mpr_type*)v);
+        case MPR_INT32: return      *(int*)val;
+        case MPR_INT64: return (int)*(int64_t*)val;
+        case MPR_FLT:   return (int)*(float*)val;
+        case MPR_DBL:   return (int)*(double*)val;
+        case MPR_TYPE:  return (int)*(mpr_type*)val;
         default:        return 0;
     }
 }
 
 int64_t mpr_obj_get_prop_as_int64(mpr_obj o, mpr_prop p, const char *s)
 {
-    mpr_tbl_record r;
-    void *v;
-    int64_t ret = 0;
+    const void *val;
+    mpr_type type;
+    int len;
     RETURN_ARG_UNLESS(o, 0);
-    r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_ARG_UNLESS(r && r->val, 0);
-    v = (r->flags & INDIRECT) ? *r->val : r->val;
-    switch(r->type) {
+    if (s)
+        p = mpr_tbl_get_record_by_key(o->props.synced, s, &len, &type, &val, NULL);
+    else
+        p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, &len, &type, &val, NULL);
+    RETURN_ARG_UNLESS(val, 0);
+
+    switch (type) {
         case MPR_BOOL:
-        case MPR_INT32: ret = *(int*)v;         break;
-        case MPR_INT64: ret = *(int64_t*)v;     break;
-        case MPR_FLT:   ret = *(float*)v;       break;
-        case MPR_DBL:   ret = *(double*)v;      break;
-        case MPR_TYPE:  ret = *(mpr_type*)v;    break;
-        default:                                break;
+        case MPR_INT32: return (int64_t)*(int*)val;
+        case MPR_INT64: return          *(int64_t*)val;
+        case MPR_FLT:   return (int64_t)*(float*)val;
+        case MPR_DBL:   return (int64_t)*(double*)val;
+        case MPR_TYPE:  return (int64_t)*(mpr_type*)val;
+        default:        return 0;
     }
-    return ret;
 }
 
 float mpr_obj_get_prop_as_flt(mpr_obj o, mpr_prop p, const char *s)
 {
-    mpr_tbl_record r;
-    void *v;
+    const void *val;
+    mpr_type type;
+    int len;
     RETURN_ARG_UNLESS(o, 0);
-    r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_ARG_UNLESS(r && r->val, 0);
-    v = (r->flags & INDIRECT) ? *r->val : r->val;
-    switch(r->type) {
+    if (s)
+        p = mpr_tbl_get_record_by_key(o->props.synced, s, &len, &type, &val, NULL);
+    else
+        p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, &len, &type, &val, NULL);
+    RETURN_ARG_UNLESS(val, 0);
+
+    switch (type) {
         case MPR_BOOL:
-        case MPR_INT32: return (float)(*(int*)v);
-        case MPR_INT64: return (float)(*(int64_t*)v);
-        case MPR_FLT:   return *(float*)v;
-        case MPR_DBL:   return (float)(*(double*)v);
+        case MPR_INT32: return (float)*(int*)val;
+        case MPR_INT64: return (float)*(int64_t*)val;
+        case MPR_FLT:   return        *(float*)val;
+        case MPR_DBL:   return (float)*(double*)val;
+        case MPR_TYPE:  return (float)*(mpr_type*)val;
         default:        return 0;
     }
 }
 
 const char *mpr_obj_get_prop_as_str(mpr_obj o, mpr_prop p, const char *s)
 {
-    mpr_tbl_record r;
+    const void *val;
+    mpr_type type;
+    int len;
     RETURN_ARG_UNLESS(o, 0);
-    r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_ARG_UNLESS(r && r->val && MPR_STR == r->type && 1 == r->len, 0);
-    return r->flags & INDIRECT ? *r->val : r->val;
+    if (s)
+        p = mpr_tbl_get_record_by_key(o->props.synced, s, &len, &type, &val, NULL);
+    else
+        p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, &len, &type, &val, NULL);
+    RETURN_ARG_UNLESS(val && MPR_STR == type && 1 == len, 0);
+    return (const char*)val;
 }
 
 const void *mpr_obj_get_prop_as_ptr(mpr_obj o, mpr_prop p, const char *s)
 {
-    mpr_tbl_record r;
+    const void *val;
+    mpr_type type;
+    int len;
     RETURN_ARG_UNLESS(o, 0);
-    r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_ARG_UNLESS(r && r->val && MPR_PTR == r->type && 1 == r->len, 0);
-    return r->flags & INDIRECT ? *r->val : r->val;
+    if (s)
+        p = mpr_tbl_get_record_by_key(o->props.synced, s, &len, &type, &val, NULL);
+    else
+        p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, &len, &type, &val, NULL);
+    RETURN_ARG_UNLESS(val && MPR_PTR == type && 1 == len, 0);
+    return val;
 }
 
 mpr_obj mpr_obj_get_prop_as_obj(mpr_obj o, mpr_prop p, const char *s)
 {
-    mpr_tbl_record r;
+    const void *val;
+    mpr_type type;
+    int len;
     RETURN_ARG_UNLESS(o, 0);
-    r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_ARG_UNLESS(r && r->val && MPR_OBJ >= r->type && 1 == r->len, 0);
-    return r->flags & INDIRECT ? *r->val : r->val;
+    if (s)
+        p = mpr_tbl_get_record_by_key(o->props.synced, s, &len, &type, &val, NULL);
+    else
+        p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, &len, &type, &val, NULL);
+    RETURN_ARG_UNLESS(val && MPR_OBJ >= type && 1 == len, 0);
+    return (mpr_obj)val;
 }
 
 mpr_list mpr_obj_get_prop_as_list(mpr_obj o, mpr_prop p, const char *s)
 {
-    mpr_list l;
-    mpr_tbl_record r;
+    const void *val;
+    mpr_type type;
+    int len;
     RETURN_ARG_UNLESS(o, 0);
-    r = mpr_tbl_get(o->props.synced, p, s);
-    RETURN_ARG_UNLESS(r && r->val && MPR_LIST == r->type && 1 == r->len, 0);
-    l = r->flags & INDIRECT ? *r->val : r->val;
-    return l ? mpr_list_start(mpr_list_get_cpy(l)) : 0;
+    if (s)
+        p = mpr_tbl_get_record_by_key(o->props.synced, s, &len, &type, &val, NULL);
+    else
+        p = mpr_tbl_get_record_by_idx(o->props.synced, p, NULL, &len, &type, &val, NULL);
+    RETURN_ARG_UNLESS(val && MPR_LIST == type && 1 == len, 0);
+    return (mpr_list)val;
 }
 
 mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
@@ -180,7 +209,7 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
     flags = local ? LOCAL_MODIFY : REMOTE_MODIFY;
     if (!publish)
         flags |= LOCAL_ACCESS_ONLY;
-    updated = mpr_tbl_set(local ? o->props.synced : o->props.staged, p, s, len, type, val, flags);
+    updated = mpr_tbl_add_record(local ? o->props.synced : o->props.staged, p, s, len, type, val, flags);
     if (updated)
         mpr_obj_increment_version(o);
     return updated ? p : MPR_PROP_UNKNOWN;
@@ -196,9 +225,9 @@ int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
     if (MPR_PROP_UNKNOWN == p)
         p = mpr_prop_from_str(s);
     if (MPR_PROP_DATA == p || local)
-        updated = mpr_tbl_remove(o->props.synced, p, s, LOCAL_MODIFY);
+        updated = mpr_tbl_remove_record(o->props.synced, p, s, LOCAL_MODIFY);
     else if (MPR_PROP_EXTRA == p)
-        updated = mpr_tbl_set(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, REMOTE_MODIFY);
+        updated = mpr_tbl_add_record(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, REMOTE_MODIFY);
     else
         trace("Cannot remove static property [%d] '%s'\n", p, s ? s : mpr_prop_as_str(p, 1));
     if (updated)
@@ -296,7 +325,7 @@ void mpr_obj_print(mpr_obj o, int staged)
 
     num_props = mpr_obj_get_num_props(o, 0);
     for (i = 0; i < num_props; i++) {
-        p = mpr_tbl_get_prop_by_idx(o->props.synced, i, &key, &len, &type, &val, 0);
+        p = mpr_tbl_get_record_by_idx(o->props.synced, i, &key, &len, &type, &val, 0);
         die_unless(val != 0 || MPR_LIST == type, "returned zero value\n");
 
         /* already printed this */
@@ -335,9 +364,9 @@ void mpr_obj_print(mpr_obj o, int staged)
 
         /* check if staged values exist */
         if (MPR_PROP_EXTRA == p)
-            p = mpr_tbl_get_prop_by_key(o->props.staged, key, &len, &type, &val, 0);
+            p = mpr_tbl_get_record_by_key(o->props.staged, key, &len, &type, &val, 0);
         else
-            p = mpr_tbl_get_prop_by_idx(o->props.staged, p, NULL, &len, &type, &val, 0);
+            p = mpr_tbl_get_record_by_idx(o->props.staged, p, NULL, &len, &type, &val, 0);
         if (MPR_PROP_UNKNOWN != p) {
             printf(" (staged: ");
             mpr_prop_print(len, type, val);
@@ -375,9 +404,9 @@ void mpr_obj_set_version(mpr_obj o, int v)
 }
 
 /* TODO: more descriptive name */
-void mpr_obj_clear_empty(mpr_obj o)
+void mpr_obj_clear_empty_props(mpr_obj o)
 {
-    mpr_tbl_clear_empty(o->props.synced);
+    mpr_tbl_clear_empty_records(o->props.synced);
 }
 
 mpr_tbl mpr_obj_get_prop_tbl(mpr_obj obj)

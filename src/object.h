@@ -50,7 +50,7 @@ int mpr_obj_get_version(mpr_obj obj);
 
 void mpr_obj_set_version(mpr_obj obj, int val);
 
-void mpr_obj_clear_empty(mpr_obj obj);
+void mpr_obj_clear_empty_props(mpr_obj obj);
 
 mpr_tbl mpr_obj_get_prop_tbl(mpr_obj obj);
 

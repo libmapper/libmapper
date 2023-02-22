@@ -90,7 +90,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
         mpr_msg_atom_set_prop(a, prop * ~mask);
-        if (mpr_tbl_set_from_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
+        if (mpr_tbl_add_record_from_msg_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
@@ -98,7 +98,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
         mpr_msg_atom_set_prop(a, prop & ~mask);
-        if (mpr_tbl_set_from_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
+        if (mpr_tbl_add_record_from_msg_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
@@ -114,8 +114,8 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
             else if (strcmp(&(*vals)->s, "input")==0)
                 dir = MPR_DIR_IN;
             if (dir)
-                updated += mpr_tbl_set(slot->sig->obj.props.synced, PROP(DIR), NULL,
-                                       1, MPR_INT32, &dir, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record(slot->sig->obj.props.synced, PROP(DIR), NULL,
+                                              1, MPR_INT32, &dir, REMOTE_MODIFY);
         }
     }
     a = mpr_msg_get_prop(msg, MPR_PROP_NUM_INST | mask);
