@@ -41,7 +41,7 @@ int setup_src(mpr_graph g, const char *iface)
     int mn=0, mx=1;
     mpr_list l;
 
-    src = mpr_dev_new("testlinear.send", g);
+    src = mpr_dev_new("testselfmap.send", g);
     if (!src)
         goto error;
     if (iface)
@@ -86,7 +86,7 @@ int setup_dst(mpr_graph g, const char *iface)
     float mn=0, mx=1;
     mpr_list l;
 
-    dst = mpr_dev_new("testlinear.recv", g);
+    dst = mpr_dev_new("testselfmap.recv", g);
     if (!dst)
         goto error;
     if (iface)
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testlinear.c: possible arguments "
+                        printf("testselfmap.c: possible arguments "
                                "-f fast (execute quickly), "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "

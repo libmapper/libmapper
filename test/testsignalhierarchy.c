@@ -93,7 +93,7 @@ int setup_devs(const char *iface) {
     seed_srand();
 
 	for (i = 0; i < num_devs; i++) {
-		devices[i] = mpr_dev_new("testmany", g);
+		devices[i] = mpr_dev_new("testsignalhierarchy", g);
         if (!devices[i])
 			goto error;
         if (!g && iface)
@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testlinear.c: possible arguments "
+                        printf("testsignalhierarchy.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-h help, "

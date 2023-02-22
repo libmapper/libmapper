@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
             for (j = 1; j < len; j++) {
                 switch (argv[i][j]) {
                     case 'h':
-                        printf("testlinear.c: possible arguments "
+                        printf("testmany.c: possible arguments "
                                "-q quiet (suppress output), "
                                "-t terminate automatically, "
                                "-s share (use one mpr_graph only), "
