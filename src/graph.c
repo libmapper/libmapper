@@ -930,7 +930,6 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
     if (!block_ms) {
         if (lo_servers_recv_noblock(n->servers, status, 2, 0)) {
             count = (status[0] > 0) + (status[1] > 0);
-            n->msgs_recvd |= count;
         }
         return count;
     }
@@ -954,7 +953,6 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
         left_ms = block_ms - elapsed;
     }
 
-    n->msgs_recvd |= count;
     return count;
 }
 

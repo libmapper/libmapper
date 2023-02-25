@@ -20,6 +20,40 @@
 #include <malloc.h>
 #endif
 
+/*! The rtr_sig is a linked list containing a signal and a list of mapping
+ *  slots.  TODO: This should be replaced with a more efficient approach
+ *  such as a hash table or search tree. */
+typedef struct _mpr_rtr_sig {
+    struct _mpr_rtr_sig *next;      /*!< The next rtr_sig in the list. */
+    struct _mpr_local_sig *sig;     /*!< The associated signal. */
+    mpr_local_slot *slots;
+    int num_slots;
+    int id_counter;
+} mpr_rtr_sig_t;
+
+/*! The router structure. */
+typedef struct _mpr_rtr {
+    mpr_net net;
+    /* TODO: rtr should either be stored in local_dev or shared */
+    struct _mpr_local_dev *dev;     /*!< The device associated with this link. */
+    mpr_rtr_sig sigs;               /*!< The list of mappings for each signal. */
+    mpr_expr_stack expr_stack;
+} mpr_rtr_t;
+
+mpr_rtr mpr_rtr_new(mpr_net net)
+{
+    mpr_rtr rtr = (mpr_rtr) calloc(1, sizeof(mpr_rtr_t));
+    rtr->net = net;
+    rtr->expr_stack = mpr_expr_stack_new();
+    return rtr;
+}
+
+void mpr_rtr_free(mpr_rtr rtr)
+{
+    FUNC_IF(mpr_expr_stack_free, rtr->expr_stack);
+    free(rtr);
+}
+
 static int _is_map_in_scope(mpr_local_map map, mpr_id id)
 {
     int i;
@@ -488,20 +522,42 @@ void mpr_rtr_remove_link(mpr_rtr rtr, mpr_link link)
     }
 }
 
-void mpr_rtr_remove_sig(mpr_rtr rtr, mpr_rtr_sig rs)
+void mpr_rtr_remove_sig_internal(mpr_rtr rtr, mpr_rtr_sig rs)
 {
     if (rtr && rs) {
-        /* No maps remaining – we can remove the rtr_sig also */
-        mpr_rtr_sig *rstemp = &rtr->sigs;
-        while (*rstemp) {
-            if (*rstemp == rs) {
-                *rstemp = rs->next;
-                free(rs->slots);
-                free(rs);
-                break;
-            }
-            rstemp = &(*rstemp)->next;
+
+    }
+}
+
+void mpr_rtr_remove_sig(mpr_rtr rtr, mpr_local_sig sig)
+{
+    int i;
+    mpr_rtr_sig *rstemp, rs = rtr->sigs;
+
+    while (rs && rs->sig != sig)
+        rs = rs->next;
+    if (!rs)
+        return;
+
+    /* need to unmap */
+    for (i = 0; i < rs->num_slots; i++) {
+        mpr_local_map map;
+        if (!rs->slots[i])
+            continue;
+        map = (mpr_local_map)mpr_slot_get_map((mpr_slot)rs->slots[i]);
+        mpr_map_release((mpr_map)map);
+        mpr_rtr_remove_map(rtr, map);
+    }
+
+    rstemp = &rtr->sigs;
+    while (*rstemp) {
+        if (*rstemp == rs) {
+            *rstemp = rs->next;
+            free(rs->slots);
+            free(rs);
+            break;
         }
+        rstemp = &(*rstemp)->next;
     }
 }
 
@@ -520,10 +576,10 @@ int mpr_rtr_remove_map(mpr_rtr rtr, mpr_local_map map)
         /* release map-generated instances */
         if (rs) {
             lo_message msg = mpr_map_build_msg(map, 0, 0, 0, map->idmap);
-            mpr_dev_bundle_start(t, NULL);
-            mpr_dev_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
-                            lo_message_get_argc(msg), msg,
-                            (void*)mpr_slot_get_sig((mpr_slot)map->dst));
+            mpr_net_set_bundle_time(rtr->net, t);
+            mpr_sig_lo_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
+                               lo_message_get_argc(msg), msg,
+                               (void*)mpr_slot_get_sig((mpr_slot)map->dst));
             lo_message_free(msg);
         }
         if (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)map->dst) || map->is_local_only)
@@ -706,4 +762,29 @@ void mpr_rtr_check_links(mpr_rtr rtr, mpr_list links)
         }
         sig = sig->next;
     }
+}
+
+mpr_expr_stack mpr_rtr_get_expr_stack(mpr_rtr rtr)
+{
+    return rtr->expr_stack;
+}
+
+void mpr_rtr_call_local_handler(mpr_rtr rtr, const char *path, lo_message msg)
+{
+    /* need to look up signal by path */
+    mpr_rtr_sig rs = rtr->sigs;
+    while (rs) {
+        if (0 == strcmp(path, rs->sig->path)) {
+            mpr_sig_lo_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
+                               lo_message_get_argc(msg), msg, (void*)rs->sig);
+            break;
+        }
+        rs = rs->next;
+    }
+}
+
+/* temporary! */
+void mpr_rtr_add_dev(mpr_rtr rtr, mpr_local_dev dev)
+{
+    rtr->dev = dev;
 }

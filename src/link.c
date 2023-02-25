@@ -214,26 +214,17 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
         }
     }
     else if ((lb = b->udp)) {
+        mpr_net net = mpr_graph_get_net(link->obj.graph);
+        mpr_rtr rtr = mpr_net_get_rtr(net);
         const char *path;
         b->udp = 0;
         /* set out-of-band timestamp */
-        mpr_dev_bundle_start(lo_bundle_get_timestamp(lb), NULL);
+        mpr_net_set_bundle_time(net, lo_bundle_get_timestamp(lb));
         /* call handler directly instead of sending over the network */
         num = lo_bundle_count(lb);
         while (i < num) {
             lo_message m = lo_bundle_get_message(lb, i, &path);
-            /* need to look up signal by path */
-            mpr_net net = mpr_graph_get_net(link->obj.graph);
-            mpr_rtr rtr = mpr_net_get_rtr(net);
-            mpr_rtr_sig rs = rtr->sigs;
-            while (rs) {
-                if (0 == strcmp(path, rs->sig->path)) {
-                    mpr_dev_handler(NULL, lo_message_get_types(m), lo_message_get_argv(m),
-                                    lo_message_get_argc(m), m, (void*)rs->sig);
-                    break;
-                }
-                rs = rs->next;
-            }
+            mpr_rtr_call_local_handler(rtr, path, m);
             ++i;
         }
         lo_bundle_free_recursive(lb);

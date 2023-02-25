@@ -468,12 +468,11 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     mpr_value *src_vals, dst_val;
     char *types;
 
+    assert(m->obj.is_local);
+
     RETURN_UNLESS(   m->updated && m->expr
                   && MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->src[0])
                   && !m->muted);
-
-    dev = m->rtr->dev;
-    bundle_idx = mpr_local_dev_get_bundle_idx(dev);
 
     /* temporary solution: use most multitudinous source signal for idmap
      * permanent solution: move idmaps to map? */
@@ -489,6 +488,9 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         src_vals[i] = mpr_slot_get_value(m->src[i]);
     }
     idmaps = src_sig->idmaps;
+
+    dev = src_sig->dev;
+    bundle_idx = mpr_local_dev_get_bundle_idx(dev);
 
     dst_slot = m->dst;
     dst_sig = mpr_slot_get_sig((mpr_slot)dst_slot);
@@ -506,8 +508,8 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         /* TODO: Check if this instance has enough history to process the expression */
-        status = mpr_expr_eval(mpr_local_dev_get_expr_stack(dev), m->expr,
-                               src_vals, &m->vars, dst_val, &time, types, i);
+        status = mpr_expr_eval(mpr_rtr_get_expr_stack(m->rtr), m->expr, src_vals,
+                               &m->vars, dst_val, &time, types, i);
         if (!status)
             continue;
 
@@ -578,6 +580,10 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     mpr_id_map idmap = 0;
     char *types;
 
+    assert(m->obj.is_local);
+
+    RETURN_UNLESS(m->updated && m->expr && !m->muted);
+
     /* temporary solution: use most multitudinous source signal for idmap
      * permanent solution: move idmaps to map */
     src_slot = m->src[0];
@@ -613,8 +619,8 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
 
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
-        status = mpr_expr_eval(mpr_local_dev_get_expr_stack(m->rtr->dev), m->expr,
-                               src_vals, &m->vars, dst_val, &time, types, i);
+        status = mpr_expr_eval(mpr_rtr_get_expr_stack(m->rtr), m->expr, src_vals,
+                               &m->vars, dst_val, &time, types, i);
         if (!status)
             continue;
 
@@ -833,7 +839,7 @@ static int _replace_expr_str(mpr_local_map m, const char *expr_str)
         src_lens[i] = sig->len;
     }
     dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
-    expr = mpr_expr_new_from_str(mpr_local_dev_get_expr_stack(m->rtr->dev), expr_str, m->num_src,
+    expr = mpr_expr_new_from_str(mpr_rtr_get_expr_stack(m->rtr), expr_str, m->num_src,
                                  src_types, src_lens, dst_sig->type, dst_sig->len);
     RETURN_ARG_UNLESS(expr, 1);
 
@@ -1158,8 +1164,16 @@ static int _set_expr(mpr_local_map m, const char *expr)
     RETURN_ARG_UNLESS(m->num_src > 0, 0);
 
     /* deal with instances activated by the previous expression */
-    if (m->idmap)
-        mpr_dev_LID_decref(m->rtr->dev, 0, m->idmap);
+    if (m->idmap) {
+        mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->src[0]);
+        if (sig->obj.is_local)
+            mpr_dev_LID_decref((mpr_local_dev)sig->dev, 0, m->idmap);
+        if (!m->is_local_only) {
+            sig = mpr_slot_get_sig((mpr_slot)m->dst);
+            if (sig->obj.is_local)
+                mpr_dev_LID_decref((mpr_local_dev)sig->dev, 0, m->idmap);
+        }
+    }
 
     if (m->is_local_only)
         should_compile = 1;
@@ -1192,8 +1206,8 @@ static int _set_expr(mpr_local_map m, const char *expr)
         /* evaluate expression to intialise literals */
         mpr_time_set(&now, MPR_NOW);
         for (i = 0; i < m->num_inst; i++)
-            mpr_expr_eval(mpr_local_dev_get_expr_stack(m->rtr->dev), m->expr, 0,
-                          &m->vars, mpr_slot_get_value(m->dst), &now, types, i);
+            mpr_expr_eval(mpr_rtr_get_expr_stack(m->rtr), m->expr, 0, &m->vars,
+                          mpr_slot_get_value(m->dst), &now, types, i);
     }
     else {
         mpr_sig src_sig = mpr_slot_get_sig((mpr_slot)m->src[0]);
@@ -1585,7 +1599,7 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
 
     /* add other properties */
     staged = (MSG_MAP == cmd) || (MSG_MAP_MOD == cmd);
-    mpr_tbl_add_to_msg(0, staged ? m->obj.props.staged : m->obj.props.synced, msg);
+    mpr_obj_add_props_to_msg((mpr_obj)m, msg);
 
     /* add slot id */
     if (MPR_DIR_IN == dst_dir && m->status <= MPR_STATUS_READY && !staged) {

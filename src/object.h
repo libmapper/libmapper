@@ -54,4 +54,6 @@ void mpr_obj_clear_empty_props(mpr_obj obj);
 
 mpr_tbl mpr_obj_get_prop_tbl(mpr_obj obj);
 
+void mpr_obj_add_props_to_msg(mpr_obj obj, lo_message msg);
+
 #endif /* __MPR_OBJECT_H__ */

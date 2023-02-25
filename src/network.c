@@ -167,6 +167,17 @@ static void handler_error(int num, const char *msg, const char *where)
     trace_net("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
 }
 
+int mpr_net_bundle_start(lo_timetag t, void *data)
+{
+    mpr_time_set(&((mpr_net)data)->bundle_time, t);
+    return 0;
+}
+
+mpr_time mpr_net_get_bundle_time(mpr_net net)
+{
+    return net->bundle_time;
+}
+
 /*! Local function to get the IP address of a network interface. */
 static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
 {
@@ -569,7 +580,7 @@ void mpr_net_free(mpr_net net)
     FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
     FUNC_IF(lo_address_free, net->addr.bus);
     FUNC_IF(free, net->addr.url);
-    FUNC_IF(free, net->rtr);
+    FUNC_IF(mpr_rtr_free, net->rtr);
 }
 
 /*! Probe the network to see if a device's proposed name.ordinal is available. */
@@ -601,13 +612,12 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
     RETURN_UNLESS(dev);
 
     if (!net->rtr) {
-        /* TODO: port to mpr_rtr_new() */
-        net->rtr = (mpr_rtr)calloc(1, sizeof(mpr_rtr_t));
-        net->rtr->net = net;
+        net->rtr = mpr_rtr_new(net);
     }
     /* TODO: router should support more than one device?*/
+    /* TODO: store local devices in net or rtr but not both */
     /* TODO: port to mpr_rtr_add_dev() */
-    net->rtr->dev = dev;
+    mpr_rtr_add_dev(net->rtr, dev);
 
     mpr_local_dev_copy_net_servers(dev, net->servers);
 

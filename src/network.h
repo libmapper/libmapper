@@ -27,6 +27,7 @@ typedef struct _mpr_net {
 
     struct _mpr_local_dev **devs;   /*!< Local devices managed by this network structure. */
     lo_bundle bundle;               /*!< Bundle pointer for sending messages on the multicast bus. */
+    mpr_time bundle_time;
 
     struct {
         char *group;
@@ -36,8 +37,6 @@ typedef struct _mpr_net {
     struct _mpr_rtr *rtr;
 
     int random_id;                  /*!< Random id for allocation speedup. */
-    int msgs_recvd;                 /*!< 1 if messages have been received on the
-                                     *   multicast bus/mesh. */
     int msg_type;
     int num_devs;
     uint32_t next_bus_ping;
@@ -45,6 +44,16 @@ typedef struct _mpr_net {
     uint8_t generic_dev_methods_added;
     uint8_t registered;
 } mpr_net_t, *mpr_net;
+
+int mpr_net_bundle_start(lo_timetag t, void *data);
+
+mpr_time mpr_net_get_bundle_time(mpr_net net);
+
+
+MPR_INLINE static void mpr_net_set_bundle_time(mpr_net net, mpr_time time)
+{
+    mpr_net_bundle_start(time, net);
+}
 
 void mpr_net_add_dev(mpr_net n, mpr_local_dev d);
 

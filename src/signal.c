@@ -49,6 +49,285 @@ static mpr_sig_inst _find_inst_by_id(mpr_local_sig lsig, mpr_id id)
     return (sipp && *sipp) ? *sipp : 0;
 }
 
+/*! Helper to find the size in bytes of a signal's full vector. */
+MPR_INLINE static size_t get_vector_size(mpr_sig sig)
+{
+    return mpr_type_get_size(sig->type) * sig->len;
+}
+
+/*! Helper to check if a type character is valid. */
+MPR_INLINE static int check_sig_length(int length)
+{
+    return (length < 1 || length > MPR_MAX_VECTOR_LEN);
+}
+
+MPR_INLINE static int check_types(const mpr_type *types, int len, mpr_type type, int vector_len)
+{
+    int i, vals = 0;
+    RETURN_ARG_UNLESS(len >= vector_len, -1);
+    for (i = 0; i < len; i++) {
+        if (types[i] == type)
+            ++vals;
+        else if (types[i] != MPR_NULL)
+            return -1;
+    }
+    return vals;
+}
+
+/* Notes:
+ * - Incoming signal values may be scalars or vectors, but much match the
+ *   length of the target signal or mapping slot.
+ * - Vectors are of homogeneous type (MPR_INT32, MPR_FLT or MPR_DBL) however
+ *   individual elements may have no value (type MPR_NULL)
+ * - A vector consisting completely of nulls indicates a signal instance release
+ *   TODO: use more specific message for release?
+ * - Updates to a specific signal instance are indicated using the label
+ *   "@in" followed by a 64bit integer which uniquely identifies this
+ *   instance within the network of libmapper devices
+ * - Updates to specific "slots" of a convergent (i.e. multi-source) mapping
+ *   are indicated using the label "@sl" followed by a single integer slot #
+ * - Instance creation and release may also be triggered by expression
+ *   evaluation. Refer to the document "Using Instanced Signals with Libmapper"
+ *   for more information.
+ */
+int mpr_sig_lo_handler(const char *path, const char *types, lo_arg **argv, int argc,
+                       lo_message msg, void *data)
+{
+    mpr_local_sig sig = (mpr_local_sig)data;
+    mpr_local_dev dev;
+    mpr_sig_inst si;
+    mpr_net net = mpr_graph_get_net(sig->obj.graph);
+    mpr_rtr rtr = mpr_net_get_rtr(net);
+    int i, val_len = 0, vals, size, all;
+    int idmap_idx, inst_idx, slot_idx = -1, map_manages_inst = 0;
+    mpr_id GID = 0;
+    mpr_id_map idmap;
+    mpr_local_map map = 0;
+    mpr_local_slot slot = 0;
+    mpr_sig slot_sig = 0;
+    float diff;
+    mpr_time ts;
+
+    TRACE_RETURN_UNLESS(sig && (dev = sig->dev), 0,
+                        "error in mpr_sig_lo_handler, missing user data\n");
+    TRACE_RETURN_UNLESS(sig->num_inst, 0, "signal '%s' has no instances.\n", sig->name);
+    RETURN_ARG_UNLESS(argc, 0);
+
+    ts = mpr_net_get_bundle_time(net);
+
+    /* We need to consider that there may be properties appended to the msg
+     * check length and find properties if any */
+    while (val_len < argc && types[val_len] != MPR_STR)
+        ++val_len;
+    i = val_len;
+    while (i < argc) {
+        /* Parse any attached properties (instance ids, slot number) */
+        TRACE_RETURN_UNLESS(types[i] == MPR_STR, 0,
+                            "error in mpr_sig_lo_handler: unexpected argument type.\n")
+        if ((strcmp(&argv[i]->s, "@in") == 0) && argc >= i + 2) {
+            TRACE_RETURN_UNLESS(types[i+1] == MPR_INT64, 0,
+                                "error in mpr_sig_lo_handler: bad arguments for 'instance' prop.\n")
+            GID = argv[i+1]->i64;
+            i += 2;
+        }
+        else if ((strcmp(&argv[i]->s, "@sl") == 0) && argc >= i + 2) {
+            TRACE_RETURN_UNLESS(types[i+1] == MPR_INT32, 0,
+                                "error in mpr_sig_lo_handler: bad arguments for 'slot' prop.\n")
+            slot_idx = argv[i+1]->i32;
+            i += 2;
+        }
+        else {
+            trace("error in mpr_sig_lo_handler: unknown property name '%s'.\n", &argv[i]->s);
+            return 0;
+        }
+    }
+
+    if (slot_idx >= 0) {
+        /* retrieve mapping associated with this slot */
+        slot = mpr_rtr_get_slot(rtr, sig, slot_idx);
+        TRACE_RETURN_UNLESS(slot, 0, "error in mpr_sig_lo_handler: slot %d not found.\n", slot_idx);
+        slot_sig = mpr_slot_get_sig((mpr_slot)slot);
+        map = (mpr_local_map)mpr_slot_get_map((mpr_slot)slot);
+        TRACE_RETURN_UNLESS(map->status >= MPR_STATUS_READY, 0,
+                            "error in mpr_sig_lo_handler: map not yet ready.\n");
+        if (map->expr && !map->is_local_only) {
+            vals = check_types(types, val_len, slot_sig->type, slot_sig->len);
+            map_manages_inst = mpr_expr_get_manages_inst(map->expr);
+        }
+        else {
+            /* value has already been processed at source device */
+            map = 0;
+            vals = check_types(types, val_len, sig->type, sig->len);
+        }
+    }
+    else
+        vals = check_types(types, val_len, sig->type, sig->len);
+    RETURN_ARG_UNLESS(vals >= 0, 0);
+
+    /* TODO: optionally discard out-of-order messages
+     * requires timebase sync for many-to-one mappings or local updates
+     *    if (sig->discard_out_of_order && out_of_order(si->time, t))
+     *        return 0;
+     */
+
+    if (GID) {
+        idmap_idx = mpr_sig_get_idmap_with_GID(sig, GID, RELEASED_LOCALLY, ts, 0);
+        if (idmap_idx < 0) {
+            /* No instance found with this idmap – don't activate instance just to release it again */
+            RETURN_ARG_UNLESS(vals && sig->dir == MPR_DIR_IN, 0);
+
+            if (map_manages_inst && vals == slot_sig->len) {
+                /* special case: do a dry-run to check whether this map will
+                 * cause a release. If so, don't bother stealing an instance. */
+                /* TODO: move to e.g. mpr_map_dry_run(map, ...) */
+                mpr_value *src;
+                mpr_value_t v = {0, 0, 1, 0, 1};
+                mpr_value_buffer_t b = {0, 0, -1};
+                int slot_id = mpr_slot_get_id((mpr_slot)slot);
+                b.samps = argv[0];
+                v.inst = &b;
+                v.vlen = val_len;
+                v.type = slot_sig->type;
+                src = alloca(map->num_src * sizeof(mpr_value));
+                for (i = 0; i < map->num_src; i++)
+                    src[i] = (i == slot_id) ? &v : 0;
+                if (  mpr_expr_eval(mpr_rtr_get_expr_stack(rtr), map->expr, src, 0, 0, 0, 0, 0)
+                    & EXPR_RELEASE_BEFORE_UPDATE)
+                    return 0;
+            }
+
+            /* otherwise try to init reserved/stolen instance with device map */
+            idmap_idx = mpr_sig_get_idmap_with_GID(sig, GID, RELEASED_REMOTELY, ts, 1);
+            TRACE_RETURN_UNLESS(idmap_idx >= 0, 0,
+                                "no instances available for GUID %"PR_MPR_ID" (1)\n", GID);
+        }
+        else if (sig->idmaps[idmap_idx].status & RELEASED_LOCALLY) {
+            /* map was already released locally, we are only interested in release messages */
+            if (0 == vals) {
+                /* we can clear signal's reference to map */
+                idmap = sig->idmaps[idmap_idx].map;
+                sig->idmaps[idmap_idx].map = 0;
+                mpr_dev_GID_decref(dev, sig->group, idmap);
+            }
+            return 0;
+        }
+        TRACE_RETURN_UNLESS(sig->idmaps[idmap_idx].inst, 0,
+                            "error in mpr_sig_lo_handler: missing instance!\n");
+    }
+    else {
+        /* use the first available instance */
+        for (i = 0; i < sig->num_inst; i++) {
+            if (sig->inst[i]->active)
+                break;
+        }
+        if (i >= sig->num_inst)
+            i = 0;
+        idmap_idx = mpr_sig_get_idmap_with_LID(sig, sig->inst[i]->id, RELEASED_REMOTELY, ts, 1);
+        RETURN_ARG_UNLESS(idmap_idx >= 0, 0);
+    }
+    si = sig->idmaps[idmap_idx].inst;
+    inst_idx = si->idx;
+    diff = mpr_time_get_diff(ts, si->time);
+    idmap = sig->idmaps[idmap_idx].map;
+
+    size = mpr_type_get_size(map ? slot_sig->type : sig->type);
+    if (vals == 0) {
+        if (GID) {
+            /* TODO: mark SLOT status as remotely released rather than idmap? */
+            sig->idmaps[idmap_idx].status |= RELEASED_REMOTELY;
+            mpr_dev_GID_decref(dev, sig->group, idmap);
+            if (!sig->ephemeral) {
+                /* clear signal's reference to idmap */
+                mpr_dev_LID_decref(dev, sig->group, idmap);
+                sig->idmaps[idmap_idx].map = 0;
+                return 0;
+            }
+        }
+        RETURN_ARG_UNLESS(sig->ephemeral && (!map || map->use_inst), 0);
+
+        /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
+         * know if the local signal instance will actually be released. */
+        if (sig->dir == MPR_DIR_IN)
+            mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, idmap->LID, 0, 0, ts, diff);
+        else
+            mpr_sig_call_handler(sig, MPR_SIG_REL_DNSTRM, idmap->LID, 0, 0, ts, diff);
+
+        RETURN_ARG_UNLESS(map && MPR_LOC_DST == map->process_loc && sig->dir == MPR_DIR_IN, 0);
+
+        /* Reset memory for corresponding source slot. */
+        mpr_slot_reset_inst(slot, inst_idx);
+        return 0;
+    }
+    else if (sig->dir == MPR_DIR_OUT && !sig->handler)
+        return 0;
+
+    /* Partial vector updates are not allowed in convergent maps since the slot value mirrors the
+     * remote signal value. */
+    if (map && vals != slot_sig->len) {
+#ifdef DEBUG
+        trace_dev(dev, "error in mpr_dev_handler: partial vector update "
+                  "applied to convergent mapping slot.");
+#endif
+        return 0;
+    }
+
+    all = !GID;
+    if (map) {
+        /* Or if this signal slot is non-instanced but the map has other instanced
+         * sources we will need to update all of the map instances. */
+        all |= !map->use_inst || (map->num_src > 1 && map->num_inst > slot_sig->num_inst);
+    }
+    if (all)
+        idmap_idx = 0;
+
+    if (map) {
+        for (; idmap_idx < sig->idmap_len; idmap_idx++) {
+            /* check if map instance is active */
+            if ((si = sig->idmaps[idmap_idx].inst) && si->active) {
+                inst_idx = si->idx;
+                /* Setting to local timestamp here */
+                /* TODO: jitter mitigation etc. */
+                if (mpr_slot_set_value(slot, inst_idx, argv[0], mpr_dev_get_time((mpr_dev)dev))) {
+                    mpr_bitflags_set(map->updated_inst, inst_idx);
+                    map->updated = 1;
+                    mpr_local_dev_set_receiving(dev);
+                }
+            }
+            if (!all)
+                break;
+        }
+        return 0;
+    }
+
+    for (; idmap_idx < sig->idmap_len; idmap_idx++) {
+        /* check if instance is active */
+        if ((si = sig->idmaps[idmap_idx].inst) && si->active) {
+            idmap = sig->idmaps[idmap_idx].map;
+            for (i = 0; i < sig->len; i++) {
+                if (types[i] == MPR_NULL)
+                    continue;
+                memcpy((char*)si->val + i * size, argv[i], size);
+                mpr_bitflags_set(si->has_val_flags, i);
+            }
+            if (!mpr_bitflags_compare(si->has_val_flags, sig->vec_known, sig->len))
+                si->has_val = 1;
+            if (si->has_val) {
+                memcpy(&si->time, &ts, sizeof(mpr_time));
+                mpr_bitflags_unset(sig->updated_inst, si->idx);
+                mpr_sig_call_handler(sig, MPR_SIG_UPDATE, idmap->LID, sig->len, si->val, ts, diff);
+                /* Pass this update downstream if signal is an input and was not updated in handler. */
+                if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
+                    mpr_rtr_process_sig(rtr, sig, idmap_idx, si->val, ts);
+                    /* TODO: ensure update is propagated within this poll cycle */
+                }
+            }
+        }
+        if (!all)
+            break;
+    }
+    return 0;
+}
+
 /* Add a signal to a parent object. */
 mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
                     mpr_type type, const char *unit, const void *min,
@@ -78,6 +357,7 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
     lsig->obj.is_local = 1;
     mpr_sig_init((mpr_sig)lsig, dir, name, len, type, unit, min, max, num_inst);
 
+    mpr_local_dev_add_server_method((mpr_local_dev)dev, lsig->path, mpr_sig_lo_handler, lsig);
     mpr_local_dev_add_sig((mpr_local_dev)dev, lsig, dir);
     return (mpr_sig)lsig;
 }
@@ -171,8 +451,6 @@ void mpr_sig_free(mpr_sig sig)
     mpr_local_dev ldev;
     mpr_net net;
     mpr_local_sig lsig = (mpr_local_sig)sig;
-    mpr_rtr rtr;
-    mpr_rtr_sig rs;
     RETURN_UNLESS(sig && sig->obj.is_local);
     ldev = (mpr_local_dev)sig->dev;
 
@@ -185,24 +463,10 @@ void mpr_sig_free(mpr_sig sig)
     }
 
     /* release associated OSC methods */
-    mpr_dev_remove_sig_methods(ldev, lsig);
+    mpr_local_dev_remove_server_method(ldev, lsig->path);
     net = mpr_graph_get_net(sig->obj.graph);
-    rtr = net->rtr;
-    rs = rtr->sigs;
-    while (rs && rs->sig != lsig)
-        rs = rs->next;
-    if (rs) {
-        mpr_local_map map;
-        /* need to unmap */
-        for (i = 0; i < rs->num_slots; i++) {
-            if (!rs->slots[i])
-                continue;
-            map = (mpr_local_map)mpr_slot_get_map((mpr_slot)rs->slots[i]);
-            mpr_map_release((mpr_map)map);
-            mpr_rtr_remove_map(rtr, map);
-        }
-        mpr_rtr_remove_sig(rtr, rs);
-    }
+    mpr_rtr_remove_sig(net->rtr, lsig);
+
     if (mpr_dev_get_is_registered((mpr_dev)ldev)) {
         /* Notify subscribers */
         int dir = (sig->dir == MPR_DIR_IN) ? MPR_SIG_IN : MPR_SIG_OUT;
@@ -557,7 +821,7 @@ static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
     lsig->inst = realloc(lsig->inst, sizeof(mpr_sig_inst) * (lsig->num_inst + 1));
     lsig->inst[lsig->num_inst] = (mpr_sig_inst) calloc(1, sizeof(struct _mpr_sig_inst));
     si = lsig->inst[lsig->num_inst];
-    si->val = calloc(1, mpr_sig_get_vector_bytes((mpr_sig)lsig));
+    si->val = calloc(1, get_vector_size((mpr_sig)lsig));
     si->has_val_flags = calloc(1, lsig->len / 8 + 1);
     si->has_val = 0;
     si->active = 0;
@@ -750,7 +1014,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     if (type != lsig->type || len < lsig->len)
         mpr_set_coerced(lsig->len, type, val, lsig->len, lsig->type, si->val);
     else
-        memcpy(si->val, (void*)val, mpr_sig_get_vector_bytes(sig));
+        memcpy(si->val, (void*)val, get_vector_size(sig));
     si->has_val = 1;
 
     /* mark instance as updated */
@@ -865,8 +1129,8 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
 int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
 {
     int i, j;
-    RETURN_ARG_UNLESS(sig && sig->obj.is_local, 0);
-    RETURN_ARG_UNLESS(sig->ephemeral, sig->num_inst);
+    RETURN_ARG_UNLESS(sig, 0);
+    RETURN_ARG_UNLESS(sig->obj.is_local && sig->ephemeral, sig->num_inst);
     if ((status & (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED)) == (MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED))
         return sig->num_inst;
     status = status & MPR_STATUS_ACTIVE ? 1 : 0;
@@ -930,11 +1194,12 @@ void mpr_sig_set_cb(mpr_sig sig, mpr_sig_handler *h, int events)
     RETURN_UNLESS(sig && sig->obj.is_local);
     if (!lsig->handler && h && events) {
         /* Need to register a new liblo methods */
-        mpr_dev_add_sig_methods((mpr_local_dev)sig->dev, lsig);
+        mpr_local_dev_add_server_method((mpr_local_dev)sig->dev, lsig->path,
+                                        mpr_sig_lo_handler, (void*)lsig);
     }
     else if (lsig->handler && !(h || events)) {
         /* Need to remove liblo methods */
-        mpr_dev_remove_sig_methods((mpr_local_dev)sig->dev, lsig);
+        mpr_local_dev_remove_server_method((mpr_local_dev)sig->dev, lsig->path);
     }
     lsig->handler = (void*)h;
     lsig->event_flags = events;
@@ -1034,7 +1299,7 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
         lo_message_add_string(msg, sig->name);
 
         /* properties */
-        mpr_tbl_add_to_msg(sig->obj.is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
+        mpr_obj_add_props_to_msg((mpr_obj)sig, msg);
 
         snprintf(str, BUFFSIZE, "/%s/signal/modify", mpr_dev_get_name(sig->dev));
         mpr_net_add_msg(net, str, 0, msg);
@@ -1046,7 +1311,7 @@ void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd)
         lo_message_add_string(msg, str);
 
         /* properties */
-        mpr_tbl_add_to_msg(sig->obj.is_local ? sig->obj.props.synced : 0, sig->obj.props.staged, msg);
+        mpr_obj_add_props_to_msg((mpr_obj)sig, msg);
         mpr_net_add_msg(net, 0, cmd, msg);
     }
 }

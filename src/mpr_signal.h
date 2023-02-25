@@ -85,6 +85,9 @@ typedef struct _mpr_local_sig
     uint8_t updated;                /* TODO: fold into updated_inst bitflags. */
 } mpr_local_sig_t, *mpr_local_sig;
 
+int mpr_sig_lo_handler(const char *path, const char *types, lo_arg **argv, int argc,
+                       lo_message msg, void *data);
+
 /*! Initialize an already-allocated mpr_sig structure. */
 void mpr_sig_init(mpr_sig s, mpr_dir dir, const char *name, int len,
                   mpr_type type, const char *unit, const void *min,
@@ -113,18 +116,6 @@ void mpr_sig_free_internal(mpr_sig sig);
 void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd);
 
 void mpr_sig_send_removed(mpr_local_sig sig);
-
-/*! Helper to find the size in bytes of a signal's full vector. */
-MPR_INLINE static size_t mpr_sig_get_vector_bytes(mpr_sig sig)
-{
-    return mpr_type_get_size(sig->type) * sig->len;
-}
-
-/*! Helper to check if a type character is valid. */
-MPR_INLINE static int check_sig_length(int length)
-{
-    return (length < 1 || length > MPR_MAX_VECTOR_LEN);
-}
 
 /**** Instances ****/
 
@@ -159,5 +150,7 @@ int mpr_sig_get_idmap_with_GID(mpr_local_sig sig, mpr_id GID, int flags, mpr_tim
 void mpr_sig_release_inst_internal(mpr_local_sig sig, int inst_idx);
 
 void mpr_local_sig_set_updated(mpr_local_sig sig, int inst_idx);
+
+void mpr_sig_add_method(mpr_sig sig, lo_server server);
 
 #endif /* __MPR_SIGNAL_H__ */

@@ -72,11 +72,6 @@ mpr_id mpr_dev_get_unused_sig_id(mpr_local_dev dev);
 int mpr_dev_add_link(mpr_dev dev, mpr_dev rem);
 void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem);
 
-int mpr_dev_handler(const char *path, const char *types, lo_arg **argv, int argc,
-                    lo_message msg, void *data);
-
-int mpr_dev_bundle_start(lo_timetag t, void *data);
-
 MPR_INLINE static void mpr_dev_LID_incref(mpr_local_dev dev, mpr_id_map map)
 {
     ++map->LID_refcount;
@@ -95,17 +90,12 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id);
 
 void mpr_dev_on_registered(mpr_local_dev dev);
 
-void mpr_dev_add_sig_methods(mpr_local_dev dev, mpr_local_sig sig);
+void mpr_local_dev_add_server_method(mpr_local_dev dev, const char *path,
+                                     lo_method_handler h, void *data);
 
 void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig);
 
-void mpr_dev_remove_sig_methods(mpr_local_dev dev, mpr_local_sig sig);
-
-mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GID);
-
-mpr_id_map mpr_dev_get_idmap_by_LID(mpr_local_dev dev, int group, mpr_id LID);
-
-mpr_id_map mpr_dev_get_idmap_by_GID(mpr_local_dev dev, int group, mpr_id GID);
+void mpr_local_dev_remove_server_method(mpr_local_dev dev, const char *path);
 
 const char *mpr_dev_get_name(mpr_dev dev);
 
@@ -133,9 +123,9 @@ lo_server mpr_local_dev_get_server(mpr_local_dev dev, dev_server_t idx);
 
 int mpr_local_dev_get_bundle_idx(mpr_local_dev dev);
 
-mpr_expr_stack mpr_local_dev_get_expr_stack(mpr_local_dev dev);
-
 void mpr_local_dev_set_sending(mpr_local_dev dev);
+
+void mpr_local_dev_set_receiving(mpr_local_dev dev);
 
 int mpr_local_dev_has_subscribers(mpr_local_dev dev);
 
@@ -162,6 +152,12 @@ void mpr_local_dev_copy_net_servers(mpr_local_dev dev, lo_server *servers);
 void mpr_dev_set_num_maps(mpr_dev dev, int num_maps_in, int num_maps_out);
 
 void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir);
+
+mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GID);
+
+mpr_id_map mpr_dev_get_idmap_by_LID(mpr_local_dev dev, int group, mpr_id LID);
+
+mpr_id_map mpr_dev_get_idmap_by_GID(mpr_local_dev dev, int group, mpr_id GID);
 
 int mpr_local_dev_get_num_idmaps(mpr_local_dev dev, int active);
 
