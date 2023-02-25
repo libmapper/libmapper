@@ -555,35 +555,35 @@ int run_test(test_config *config)
 
     release_active_instances(multirecv);
 
-    if (((mpr_local_sig)multisend)->idmap_len > 8) {
+    if (((mpr_local_sig)multisend)->id_map_len > 8) {
         printf("Error: multisend using %d id maps (should be %d)\n",
-               ((mpr_local_sig)multisend)->idmap_len, 8);
+               ((mpr_local_sig)multisend)->id_map_len, 8);
         ++result;
     }
-    if (((mpr_local_sig)multirecv)->idmap_len > 8) {
+    if (((mpr_local_sig)multirecv)->id_map_len > 8) {
         printf("Error: multirecv using %d id maps (should be %d)\n",
-               ((mpr_local_sig)multirecv)->idmap_len, 8);
+               ((mpr_local_sig)multirecv)->id_map_len, 8);
         ++result;
     }
 
-    active_count = mpr_local_dev_get_num_idmaps((mpr_local_dev)src, 1);
-    reserve_count = mpr_local_dev_get_num_idmaps((mpr_local_dev)src, 0);
+    active_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)src, 1);
+    reserve_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)src, 0);
     if (active_count > 1 || reserve_count > 5) {
         printf("Error: src device using %d active and %d reserve id maps (should be <=1 and <=5)\n",
                active_count, reserve_count);
 #ifdef DEBUG
-        mpr_local_dev_print_idmaps((mpr_local_dev)src);
+        mpr_local_dev_print_id_maps((mpr_local_dev)src);
 #endif
         ++result;
     }
 
-    active_count = mpr_local_dev_get_num_idmaps((mpr_local_dev)dst, 1);
-    reserve_count = mpr_local_dev_get_num_idmaps((mpr_local_dev)dst, 0);
+    active_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)dst, 1);
+    reserve_count = mpr_local_dev_get_num_id_maps((mpr_local_dev)dst, 0);
     if (active_count > 1 || reserve_count >= 10) {
         printf("Error: dst device using %d active and %d reserve id maps (should be <=1 and <10)\n",
                active_count, reserve_count);
 #ifdef DEBUG
-        mpr_local_dev_print_idmaps((mpr_local_dev)dst);
+        mpr_local_dev_print_id_maps((mpr_local_dev)dst);
 #endif
         ++result;
     }

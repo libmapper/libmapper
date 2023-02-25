@@ -153,16 +153,16 @@ void mpr_dev_set_num_maps(mpr_dev dev, int num_maps_in, int num_maps_out);
 
 void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir);
 
-mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GID);
+mpr_id_map mpr_dev_add_id_map(mpr_local_dev dev, int group, mpr_id LID, mpr_id GID);
 
-mpr_id_map mpr_dev_get_idmap_by_LID(mpr_local_dev dev, int group, mpr_id LID);
+mpr_id_map mpr_dev_get_id_map_by_LID(mpr_local_dev dev, int group, mpr_id LID);
 
-mpr_id_map mpr_dev_get_idmap_by_GID(mpr_local_dev dev, int group, mpr_id GID);
+mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID);
 
-int mpr_local_dev_get_num_idmaps(mpr_local_dev dev, int active);
+int mpr_local_dev_get_num_id_maps(mpr_local_dev dev, int active);
 
 #ifdef DEBUG
-void mpr_local_dev_print_idmaps(mpr_local_dev dev);
+void mpr_local_dev_print_id_maps(mpr_local_dev dev);
 #endif
 
 #endif /* __MPR_DEVICE_H__ */

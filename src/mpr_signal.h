@@ -31,13 +31,13 @@ typedef struct _mpr_sig_inst
 } mpr_sig_inst_t, *mpr_sig_inst;
 
 /* plan: remove inst, add map/slot resource index (is this the same for all source signals?) */
-typedef struct _mpr_sig_idmap
+typedef struct _mpr_sig_id_map
 {
-    struct _mpr_id_map *map;    /*!< Associated mpr_id_map. */
+    struct _mpr_id_map *id_map; /*!< Associated mpr_id_map. */
     struct _mpr_sig_inst *inst; /*!< Signal instance. */
-    int status;                 /*!< Either 0 or a combination of UPDATED,
-                                 *   RELEASED_LOCALLY and RELEASED_REMOTELY. */
-} mpr_sig_idmap_t;
+    int status;                 /*!< Either 0 or a combination of `UPDATED`,
+                                 *   `RELEASED_LOCALLY` and `RELEASED_REMOTELY`. */
+} mpr_sig_id_map_t, *mpr_sig_id_map;
 
 #define MPR_SIG_STRUCT_ITEMS                                                            \
     mpr_obj_t obj;              /* always first */                                      \
@@ -46,7 +46,7 @@ typedef struct _mpr_sig_idmap
     char *unit;                 /*!< The unit of this signal, or NULL for N/A. */       \
     float period;               /*!< Estimate of the update rate of this signal. */     \
     float jitter;               /*!< Estimate of the timing jitter of this signal. */   \
-    int dir;                    /*!< DIR_OUTGOING / DIR_INCOMING / DIR_BOTH */          \
+    int dir;                    /*!< `DIR_OUTGOING` / `DIR_INCOMING` / `DIR_BOTH` */    \
     int len;                    /*!< Length of the signal vector, or 1 for scalars. */  \
     int use_inst;               /*!< 1 if signal uses instances, 0 otherwise. */        \
     int num_inst;               /*!< Number of instances. */                            \
@@ -68,8 +68,8 @@ typedef struct _mpr_local_sig
     MPR_SIG_STRUCT_ITEMS
     mpr_local_dev dev;
 
-    struct _mpr_sig_idmap *idmaps;  /*!< ID maps and active instances. */
-    int idmap_len;
+    struct _mpr_sig_id_map *id_maps; /*!< ID maps and active instances. */
+    int id_map_len;
     struct _mpr_sig_inst **inst;    /*!< Array of pointers to the signal insts. */
     char *vec_known;                /*!< Bitflags when entire vector is known. */
     char *updated_inst;             /*!< Bitflags to indicate updated instances. */
@@ -108,9 +108,9 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg);
 
 void mpr_sig_update_timing_stats(mpr_local_sig sig, float diff);
 
-/*! Free memory used by a mpr_sig. Call this only for signals that are not
- *  registered with a device. Registered signals will be freed by mpr_sig_free().
- *  \param s        The signal to free. */
+/*! Free memory used by a `mpr_sig`. Call this only for signals that are not
+ *  registered with a device. Registered signals will be freed by `mpr_sig_free()`.
+ *  \param sig      The signal to free. */
 void mpr_sig_free_internal(mpr_sig sig);
 
 void mpr_sig_send_state(mpr_sig sig, net_msg_t cmd);
@@ -121,7 +121,7 @@ void mpr_sig_send_removed(mpr_local_sig sig);
 
 /*! Fetch a reserved (preallocated) signal instance using an instance id,
  *  activating it if necessary.
- *  \param s        The signal owning the desired instance.
+ *  \param sig      The signal owning the desired instance.
  *  \param LID      The requested signal instance id.
  *  \param flags    Bitflags indicating if search should include released
  *                  instances.
@@ -131,11 +131,11 @@ void mpr_sig_send_removed(mpr_local_sig sig);
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
-int mpr_sig_get_idmap_with_LID(mpr_local_sig sig, mpr_id LID, int flags, mpr_time t, int activate);
+int mpr_sig_get_id_map_with_LID(mpr_local_sig sig, mpr_id LID, int flags, mpr_time t, int activate);
 
 /*! Fetch a reserved (preallocated) signal instance using instance id map,
  *  activating it if necessary.
- *  \param s        The signal owning the desired instance.
+ *  \param sig      The signal owning the desired instance.
  *  \param GID      Globally unique id of this instance.
  *  \param flags    Bitflags indicating if search should include released instances.
  *  \param t        Time associated with this action.
@@ -144,7 +144,7 @@ int mpr_sig_get_idmap_with_LID(mpr_local_sig sig, mpr_id LID, int flags, mpr_tim
  *                  instances were available and allocation of a new instance
  *                  was unsuccessful according to the selected allocation
  *                  strategy. */
-int mpr_sig_get_idmap_with_GID(mpr_local_sig sig, mpr_id GID, int flags, mpr_time t, int activate);
+int mpr_sig_get_id_map_with_GID(mpr_local_sig sig, mpr_id GID, int flags, mpr_time t, int activate);
 
 /*! Release a specific signal instance. */
 void mpr_sig_release_inst_internal(mpr_local_sig sig, int inst_idx);

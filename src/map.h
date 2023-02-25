@@ -41,7 +41,7 @@ typedef struct _mpr_local_map {
     mpr_local_slot dst;
 
     struct _mpr_rtr *rtr;
-    mpr_id_map idmap;               /*!< Associated mpr_id_map. */
+    mpr_id_map id_map;              /*!< Associated mpr_id_map. */
 
     mpr_expr expr;                  /*!< The mapping expression. */
     char *updated_inst;             /*!< Bitflags to indicate updated instances. */
@@ -66,7 +66,7 @@ void mpr_map_send(mpr_local_map map, mpr_time time);
 void mpr_map_receive(mpr_local_map map, mpr_time time);
 
 lo_message mpr_map_build_msg(mpr_local_map map, mpr_local_slot slot, const void *val,
-                             mpr_type *types, mpr_id_map idmap);
+                             mpr_type *types, mpr_id_map id_map);
 
 /*! Set a mapping's properties based on message parameters. */
 int mpr_map_set_from_msg(mpr_map map, mpr_msg msg, int override);

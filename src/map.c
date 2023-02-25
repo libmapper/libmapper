@@ -447,10 +447,10 @@ static int _update_scope(mpr_map m, mpr_msg_atom a)
  * 3) can bundle map output during iteration
  *
  * Plan of change:
- * 1) move idmaps to maps
- * 2) on release of local instance, can reuse instance resource and mark idmap as "to release"
- * 3) map should iterate through active idmaps instead of instances
- * 4) when it comes to "to release" idmap, send release and decref LID
+ * 1) move id_maps to maps
+ * 2) on release of local instance, can reuse instance resource and mark id_map as "to release"
+ * 3) map should iterate through active id_maps instead of instances
+ * 4) when it comes to "to release" id_map, send release and decref LID
  */
 
 /* only called for outgoing maps */
@@ -463,8 +463,8 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     mpr_local_slot src_slot, dst_slot;
     mpr_local_sig src_sig;
     mpr_sig dst_sig;
-    struct _mpr_sig_idmap *idmaps;
-    mpr_id_map idmap = 0;
+    struct _mpr_sig_id_map *sig_id_maps;
+    mpr_id_map id_map = 0;
     mpr_value *src_vals, dst_val;
     char *types;
 
@@ -474,8 +474,8 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
                   && MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)m->src[0])
                   && !m->muted);
 
-    /* temporary solution: use most multitudinous source signal for idmap
-     * permanent solution: move idmaps to map? */
+    /* temporary solution: use most multitudinous source signal for id_map
+     * permanent solution: move id_maps to map? */
     src_slot = m->src[0];
     src_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)src_slot);
     src_vals = alloca(m->num_src * sizeof(mpr_value));
@@ -487,7 +487,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         }
         src_vals[i] = mpr_slot_get_value(m->src[i]);
     }
-    idmaps = src_sig->idmaps;
+    sig_id_maps = src_sig->id_maps;
 
     dev = src_sig->dev;
     bundle_idx = mpr_local_dev_get_bundle_idx(dev);
@@ -498,7 +498,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
 
     if (m->use_inst && !src_sig->use_inst) {
         map_manages_inst = 1;
-        idmap = m->idmap;
+        id_map = m->id_map;
     }
 
     types = alloca(dst_sig->len * sizeof(char));
@@ -514,50 +514,50 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
             continue;
 
         if (src_sig->use_inst && !map_manages_inst) {
-            /* finding idmaps here will be a bit inefficient for now */
+            /* finding id_maps here will be a bit inefficient for now */
             /* TODO: optimize storage and lookup */
-            for (j = 0; j < src_sig->idmap_len; j++) {
-                if (idmaps[j].inst && idmaps[j].inst->idx == i) {
-                    idmap = idmaps[j].map;
+            for (j = 0; j < src_sig->id_map_len; j++) {
+                if (sig_id_maps[j].inst && sig_id_maps[j].inst->idx == i) {
+                    id_map = sig_id_maps[j].id_map;
                     break;
                 }
             }
-            if (j == src_sig->idmap_len) {
-                trace("error: couldn't find idmap for signal instance idx %d\n", i);
+            if (j == src_sig->id_map_len) {
+                trace("error: couldn't find id_map for signal instance idx %d\n", i);
                 continue;
             }
         }
 
         /* send instance release if dst is instanced and either src or map is also instanced. */
-        if (idmap && status & EXPR_RELEASE_BEFORE_UPDATE && m->use_inst) {
-            msg = mpr_map_build_msg(m, 0, 0, 0, idmap);
+        if (id_map && status & EXPR_RELEASE_BEFORE_UPDATE && m->use_inst) {
+            msg = mpr_map_build_msg(m, 0, 0, 0, id_map);
             mpr_link_add_msg(mpr_slot_get_link((mpr_slot)dst_slot), dst_sig, msg,
                              time, m->protocol, bundle_idx);
             if (map_manages_inst) {
-                mpr_dev_LID_decref(dev, 0, idmap);
-                idmap = m->idmap = 0;
+                mpr_dev_LID_decref(dev, 0, id_map);
+                id_map = m->id_map = 0;
             }
         }
         if (status & EXPR_UPDATE) {
             /* send instance update */
             mpr_value val = mpr_slot_get_value(dst_slot);
             void *result = mpr_value_get_samp(val, i);
-            if (map_manages_inst && !idmap) {
+            if (map_manages_inst && !id_map) {
                 /* create an id_map and store it in the map */
-                idmap = m->idmap = mpr_dev_add_idmap(dev, 0, 0, 0);
+                id_map = m->id_map = mpr_dev_add_id_map(dev, 0, 0, 0);
             }
-            msg = mpr_map_build_msg(m, src_slot, result, types, idmap);
+            msg = mpr_map_build_msg(m, src_slot, result, types, id_map);
             mpr_link_add_msg(mpr_slot_get_link((mpr_slot)dst_slot), dst_sig, msg,
                              *(mpr_time*)mpr_value_get_time(val, i), m->protocol, bundle_idx);
         }
         /* send instance release if dst is instanced and either src or map is also instanced. */
-        if (idmap && status & EXPR_RELEASE_AFTER_UPDATE && m->use_inst) {
-            msg = mpr_map_build_msg(m, 0, 0, 0, idmap);
+        if (id_map && status & EXPR_RELEASE_AFTER_UPDATE && m->use_inst) {
+            msg = mpr_map_build_msg(m, 0, 0, 0, id_map);
             mpr_link_add_msg(mpr_slot_get_link((mpr_slot)dst_slot), dst_sig, msg,
                              time, m->protocol, bundle_idx);
             if (map_manages_inst) {
-                mpr_dev_LID_decref(dev, 0, idmap);
-                idmap = m->idmap = 0;
+                mpr_dev_LID_decref(dev, 0, id_map);
+                id_map = m->id_map = 0;
             }
         }
         if ((status & EXPR_EVAL_DONE) && !m->use_inst)
@@ -576,16 +576,16 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     mpr_sig src_sig;
     mpr_local_sig dst_sig;
     mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
-    struct _mpr_sig_idmap *idmaps;
-    mpr_id_map idmap = 0;
+    struct _mpr_sig_id_map *sig_id_maps;
+    mpr_id_map id_map = 0;
     char *types;
 
     assert(m->obj.is_local);
 
     RETURN_UNLESS(m->updated && m->expr && !m->muted);
 
-    /* temporary solution: use most multitudinous source signal for idmap
-     * permanent solution: move idmaps to map */
+    /* temporary solution: use most multitudinous source signal for id_map
+     * permanent solution: move id_maps to map */
     src_slot = m->src[0];
     src_sig = mpr_slot_get_sig((mpr_slot)src_slot);
     for (i = 0; i < m->num_src; i++) {
@@ -600,16 +600,16 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     dst_slot = m->dst;
     dst_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)dst_slot);
     dst_val = mpr_slot_get_value(dst_slot);
-    idmaps = dst_sig->idmaps;
+    sig_id_maps = dst_sig->id_maps;
     val_size = mpr_type_get_size(dst_sig->type) * dst_sig->len;
 
     if (!src_sig->use_inst) {
         if (mpr_expr_get_manages_inst(m->expr)) {
             map_manages_inst = 1;
-            idmap = m->idmap;
+            id_map = m->id_map;
         }
         else
-            idmap = 0;
+            id_map = 0;
     }
     types = alloca(dst_sig->len * sizeof(char));
 
@@ -626,23 +626,23 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
 
         j = 0;
         if (dst_sig->use_inst && !map_manages_inst) {
-            /* finding idmaps here will be a bit inefficient for now */
+            /* finding id_maps here will be a bit inefficient for now */
             /* TODO: optimize storage and lookup */
-            for (j = 0; j < dst_sig->idmap_len; j++) {
-                if (idmaps[j].inst && idmaps[j].inst->idx == i) {
-                    idmap = idmaps[j].map;
+            for (j = 0; j < dst_sig->id_map_len; j++) {
+                if (sig_id_maps[j].inst && sig_id_maps[j].inst->idx == i) {
+                    id_map = sig_id_maps[j].id_map;
                     break;
                 }
             }
-            if (j == dst_sig->idmap_len) {
-                trace("error: couldn't find idmap for signal instance idx %d\n", i);
+            if (j == dst_sig->id_map_len) {
+                trace("error: couldn't find id_map for signal instance idx %d\n", i);
                 continue;
             }
         }
         else {
             
         }
-        si = idmaps[j].inst;
+        si = sig_id_maps[j].inst;
         diff = mpr_time_get_diff(time, si->time);
 
         if (status & EXPR_RELEASE_BEFORE_UPDATE) {
@@ -650,17 +650,17 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
              * know if the local signal instance will actually be released. */
             int evt = MPR_SIG_REL_UPSTRM & dst_sig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(dst_sig, evt, idmap ? idmap->LID : 0, 0, 0, time, diff);
+            mpr_sig_call_handler(dst_sig, evt, id_map ? id_map->LID : 0, 0, 0, time, diff);
         }
 
         if (status & EXPR_UPDATE) {
             void *result = mpr_value_get_samp(dst_val, i);
-            /* TODO: create new map->idmap */
+            /* TODO: create new map->id_map */
 /*
                 if (map_manages_inst) {
-                    if (!idmap) {
+                    if (!id_map) {
                         // create an id_map and store it in the map
-                        idmap = map->idmap = mpr_dev_add_idmap(sig->dev, sig->group, 0, 0);
+                        id_map = map->id_map = mpr_dev_add_id_map(sig->dev, sig->group, 0, 0);
                     }
                 }
  */
@@ -670,7 +670,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             memcpy(&si->time, &time, sizeof(mpr_time));
             si->has_val = 1;
 
-            mpr_sig_call_handler(dst_sig, MPR_SIG_UPDATE, idmap ? idmap->LID : 0,
+            mpr_sig_call_handler(dst_sig, MPR_SIG_UPDATE, id_map ? id_map->LID : 0,
                                  dst_sig->len, si->val, time, diff);
             /* Pass this update downstream if signal is an input and was not updated in handler. */
             if (   !(dst_sig->dir & MPR_DIR_OUT)
@@ -686,7 +686,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
              * know if the local signal instance will actually be released. */
             int evt = MPR_SIG_REL_UPSTRM & dst_sig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(dst_sig, evt, idmap ? idmap->LID : 0, 0, 0, time, diff);
+            mpr_sig_call_handler(dst_sig, evt, id_map ? id_map->LID : 0, 0, 0, time, diff);
         }
 
         if ((status & EXPR_EVAL_DONE) && !m->use_inst)
@@ -698,7 +698,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
 
 /*! Build a value update message for a given map. */
 lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *val,
-                             mpr_type *types, mpr_id_map idmap)
+                             mpr_type *types, mpr_id_map id_map)
 {
     int i, len = 0;
     NEW_LO_MSG(msg, return 0);
@@ -727,9 +727,9 @@ lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *v
         for (i = 0; i < len; i++)
             lo_message_add_nil(msg);
     }
-    if (m->use_inst && idmap) {
+    if (m->use_inst && id_map) {
         lo_message_add_string(msg, "@in");
-        lo_message_add_int64(msg, idmap->GID);
+        lo_message_add_int64(msg, id_map->GID);
     }
     if (slot) {
         /* add slot */
@@ -1164,14 +1164,14 @@ static int _set_expr(mpr_local_map m, const char *expr)
     RETURN_ARG_UNLESS(m->num_src > 0, 0);
 
     /* deal with instances activated by the previous expression */
-    if (m->idmap) {
+    if (m->id_map) {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->src[0]);
         if (sig->obj.is_local)
-            mpr_dev_LID_decref((mpr_local_dev)sig->dev, 0, m->idmap);
+            mpr_dev_LID_decref((mpr_local_dev)sig->dev, 0, m->id_map);
         if (!m->is_local_only) {
             sig = mpr_slot_get_sig((mpr_slot)m->dst);
             if (sig->obj.is_local)
-                mpr_dev_LID_decref((mpr_local_dev)sig->dev, 0, m->idmap);
+                mpr_dev_LID_decref((mpr_local_dev)sig->dev, 0, m->id_map);
         }
     }
 

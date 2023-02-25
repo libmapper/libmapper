@@ -97,7 +97,7 @@ struct _mpr_local_dev {
     struct {
         struct _mpr_id_map **active;    /*!< The list of active instance id maps. */
         struct _mpr_id_map *reserve;    /*!< The list of reserve instance id maps. */
-    } idmaps;
+    } id_maps;
 
     mpr_thread_data thread_data;
 
@@ -112,7 +112,7 @@ struct _mpr_local_dev {
 
 /* prototypes */
 static void mpr_dev_start_servers(mpr_local_dev dev);
-static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem);
+static void mpr_dev_remove_id_map(mpr_local_dev dev, int group, mpr_id_map rem);
 MPR_INLINE static int _process_outgoing_maps(mpr_local_dev dev);
 
 mpr_time ts = {0,1};
@@ -218,8 +218,8 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     }
 
     dev->ordinal_allocator.val = 1;
-    dev->idmaps.active = (mpr_id_map*) malloc(sizeof(mpr_id_map));
-    dev->idmaps.active[0] = 0;
+    dev->id_maps.active = (mpr_id_map*) malloc(sizeof(mpr_id_map));
+    dev->id_maps.active[0] = 0;
     dev->num_sig_groups = 1;
 
     mpr_net_add_dev(mpr_graph_get_net(g), dev);
@@ -270,8 +270,8 @@ void mpr_dev_free(mpr_dev dev)
         list = mpr_list_get_next(list);
         if (sig->obj.is_local) {
             /* release active instances */
-            for (i = 0; i < sig->idmap_len; i++) {
-                if (sig->idmaps[i].inst)
+            for (i = 0; i < sig->id_map_len; i++) {
+                if (sig->id_maps[i].inst)
                     mpr_sig_release_inst_internal(sig, i);
             }
         }
@@ -300,17 +300,17 @@ void mpr_dev_free(mpr_dev dev)
 
     /* Release device id maps */
     for (i = 0; i < ldev->num_sig_groups; i++) {
-        while (ldev->idmaps.active[i]) {
-            mpr_id_map id_map = ldev->idmaps.active[i];
-            ldev->idmaps.active[i] = id_map->next;
+        while (ldev->id_maps.active[i]) {
+            mpr_id_map id_map = ldev->id_maps.active[i];
+            ldev->id_maps.active[i] = id_map->next;
             free(id_map);
         }
     }
-    free(ldev->idmaps.active);
+    free(ldev->id_maps.active);
 
-    while (ldev->idmaps.reserve) {
-        mpr_id_map id_map = ldev->idmaps.reserve;
-        ldev->idmaps.reserve = id_map->next;
+    while (ldev->id_maps.reserve) {
+        mpr_id_map id_map = ldev->id_maps.reserve;
+        ldev->id_maps.reserve = id_map->next;
         free(id_map);
     }
 
@@ -338,10 +338,10 @@ void mpr_dev_on_registered(mpr_local_dev dev)
     while (sigs) {
         mpr_local_sig sig = (mpr_local_sig)*sigs;
         sigs = mpr_list_get_next(sigs);
-        for (i = 0; i < sig->idmap_len; i++) {
-            mpr_id_map idmap = sig->idmaps[i].map;
-            if (idmap && !(idmap->GID >> 32))
-                idmap->GID |= dev->obj.id;
+        for (i = 0; i < sig->id_map_len; i++) {
+            mpr_id_map id_map = sig->id_maps[i].id_map;
+            if (id_map && !(id_map->GID >> 32))
+                id_map->GID |= dev->obj.id;
         }
         sig->obj.id |= dev->obj.id;
     }
@@ -759,17 +759,17 @@ void mpr_dev_set_time(mpr_dev dev, mpr_time time)
         _process_outgoing_maps((mpr_local_dev)dev);
 }
 
-void mpr_dev_reserve_idmap(mpr_local_dev dev)
+void mpr_dev_reserve_id_map(mpr_local_dev dev)
 {
     mpr_id_map id_map = (mpr_id_map)calloc(1, sizeof(mpr_id_map_t));
-    id_map->next = dev->idmaps.reserve;
-    dev->idmaps.reserve = id_map;
+    id_map->next = dev->id_maps.reserve;
+    dev->id_maps.reserve = id_map;
 }
 
-int mpr_local_dev_get_num_idmaps(mpr_local_dev dev, int active)
+int mpr_local_dev_get_num_id_maps(mpr_local_dev dev, int active)
 {
     int count = 0;
-    mpr_id_map *id_map = active ? &(dev)->idmaps.active[0] : &(dev)->idmaps.reserve;
+    mpr_id_map *id_map = active ? &(dev)->id_maps.active[0] : &(dev)->id_maps.reserve;
     while (*id_map) {
         ++count;
         id_map = &(*id_map)->next;
@@ -778,10 +778,10 @@ int mpr_local_dev_get_num_idmaps(mpr_local_dev dev, int active)
 }
 
 #ifdef DEBUG
-void mpr_local_dev_print_idmaps(mpr_local_dev dev)
+void mpr_local_dev_print_id_maps(mpr_local_dev dev)
 {
     printf("ID MAPS for %s:\n", dev->name);
-    mpr_id_map *id_maps = &dev->idmaps.active[0];
+    mpr_id_map *id_maps = &dev->id_maps.active[0];
     while (*id_maps) {
         mpr_id_map id_map = *id_maps;
         printf("  %p: %"PR_MPR_ID" (%d) -> %"PR_MPR_ID" (%d)\n", id_map, id_map->LID,
@@ -791,43 +791,43 @@ void mpr_local_dev_print_idmaps(mpr_local_dev dev)
 }
 #endif
 
-mpr_id_map mpr_dev_add_idmap(mpr_local_dev dev, int group, mpr_id LID, mpr_id GID)
+mpr_id_map mpr_dev_add_id_map(mpr_local_dev dev, int group, mpr_id LID, mpr_id GID)
 {
     mpr_id_map id_map;
-    if (!dev->idmaps.reserve)
-        mpr_dev_reserve_idmap(dev);
-    id_map = dev->idmaps.reserve;
+    if (!dev->id_maps.reserve)
+        mpr_dev_reserve_id_map(dev);
+    id_map = dev->id_maps.reserve;
     id_map->LID = LID;
     id_map->GID = GID ? GID : mpr_dev_generate_unique_id((mpr_dev)dev);
-    trace_dev(dev, "mpr_dev_add_idmap(%s) %"PR_MPR_ID" -> %"PR_MPR_ID"\n", dev->name, LID,
+    trace_dev(dev, "mpr_dev_add_id_map(%s) %"PR_MPR_ID" -> %"PR_MPR_ID"\n", dev->name, LID,
               id_map->GID);
     id_map->LID_refcount = 1;
     id_map->GID_refcount = 0;
-    dev->idmaps.reserve = id_map->next;
-    id_map->next = dev->idmaps.active[group];
-    dev->idmaps.active[group] = id_map;
+    dev->id_maps.reserve = id_map->next;
+    id_map->next = dev->id_maps.active[group];
+    dev->id_maps.active[group] = id_map;
 #ifdef DEBUG
-    mpr_local_dev_print_idmaps(dev);
+    mpr_local_dev_print_id_maps(dev);
 #endif
     return id_map;
 }
 
-static void mpr_dev_remove_idmap(mpr_local_dev dev, int group, mpr_id_map rem)
+static void mpr_dev_remove_id_map(mpr_local_dev dev, int group, mpr_id_map rem)
 {
-    mpr_id_map *map = &dev->idmaps.active[group];
-    trace_dev(dev, "mpr_dev_remove_idmap(%s) %"PR_MPR_ID" -> %"PR_MPR_ID"\n",
+    mpr_id_map *map = &dev->id_maps.active[group];
+    trace_dev(dev, "mpr_dev_remove_id_map(%s) %"PR_MPR_ID" -> %"PR_MPR_ID"\n",
               dev->name, rem->LID, rem->GID);
     while (*map) {
         if ((*map) == rem) {
             *map = (*map)->next;
-            rem->next = dev->idmaps.reserve;
-            dev->idmaps.reserve = rem;
+            rem->next = dev->id_maps.reserve;
+            dev->id_maps.reserve = rem;
             break;
         }
         map = &(*map)->next;
     }
 #ifdef DEBUG
-    mpr_local_dev_print_idmaps(dev);
+    mpr_local_dev_print_id_maps(dev);
 #endif
 }
 
@@ -840,7 +840,7 @@ int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map id_map)
     if (id_map->LID_refcount <= 0) {
         id_map->LID_refcount = 0;
         if (id_map->GID_refcount <= 0) {
-            mpr_dev_remove_idmap(dev, group, id_map);
+            mpr_dev_remove_id_map(dev, group, id_map);
             return 1;
         }
     }
@@ -856,16 +856,16 @@ int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map id_map)
     if (id_map->GID_refcount <= 0) {
         id_map->GID_refcount = 0;
         if (id_map->LID_refcount <= 0) {
-            mpr_dev_remove_idmap(dev, group, id_map);
+            mpr_dev_remove_id_map(dev, group, id_map);
             return 1;
         }
     }
     return 0;
 }
 
-mpr_id_map mpr_dev_get_idmap_by_LID(mpr_local_dev dev, int group, mpr_id LID)
+mpr_id_map mpr_dev_get_id_map_by_LID(mpr_local_dev dev, int group, mpr_id LID)
 {
-    mpr_id_map id_map = dev->idmaps.active[group];
+    mpr_id_map id_map = dev->id_maps.active[group];
     while (id_map) {
         if (id_map->LID == LID)
             return id_map;
@@ -874,9 +874,9 @@ mpr_id_map mpr_dev_get_idmap_by_LID(mpr_local_dev dev, int group, mpr_id LID)
     return 0;
 }
 
-mpr_id_map mpr_dev_get_idmap_by_GID(mpr_local_dev dev, int group, mpr_id GID)
+mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID)
 {
-    mpr_id_map id_map = dev->idmaps.active[group];
+    mpr_id_map id_map = dev->id_maps.active[group];
     while (id_map) {
         if (id_map->GID == GID)
             return id_map;
