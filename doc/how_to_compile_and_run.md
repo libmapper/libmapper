@@ -94,7 +94,7 @@ test program, available in the test directory:
 
     ./test/test -t
 
-This program creates devices and signals and tests sending data between them using maps. The `-t` flag will cause the test program to automatically terminate after sending 200 messages, so omit it if you want to keep the test running indefinately.
+This program creates devices and signals and tests sending data between them using maps. The `-t` flag will cause the test program to automatically terminate after sending 200 messages, so omit it if you want to keep the test running indefinitely.
 
 Note that the programs in the test directory are _not_ examples of
 library usage, as they additionally test some internal functions in
