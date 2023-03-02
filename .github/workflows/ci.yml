@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   Linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v3
       with:
@@ -36,6 +37,7 @@ jobs:
 
   MacOS-Latest:
     runs-on: macOS-latest
+    timeout-minutes: 20
     env:
       CC: clang
       CXX: clang++
@@ -125,6 +127,7 @@ jobs:
 
   Windows-Latest:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v3
       with:
@@ -141,6 +144,7 @@ jobs:
   Linux-check-wheel:
     runs-on: ubuntu-latest
     needs: Linux
+    timeout-minutes: 20
     steps:
       - uses: actions/setup-python@v4
         with:
@@ -166,6 +170,7 @@ jobs:
   MacOS-Latest-check-wheel:
     runs-on: macOS-latest
     needs: MacOS-Latest
+    timeout-minutes: 20
     env:
       SYSTEM_VERSION_COMPAT: 0
     steps:
@@ -193,6 +198,7 @@ jobs:
   Windows-Latest-check-wheel:
     runs-on: windows-latest
     needs: Windows-Latest
+    timeout-minutes: 20
     steps:
       - uses: actions/setup-python@v4
         with:
