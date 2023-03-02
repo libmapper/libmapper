@@ -57,6 +57,32 @@ typedef struct _mpr_sig
     mpr_dev dev;
 } mpr_sig_t, *mpr_sig;
 
+/*! A signal is defined as a vector of values, along with some metadata. */
+/* plan: remove idx? we shouldn't need it anymore */
+typedef struct _mpr_sig_inst
+{
+    mpr_id id;                  /*!< User-assignable instance id. */
+    void *data;                 /*!< User data of this instance. */
+    mpr_time created;           /*!< The instance's creation timestamp. */
+    char *has_value_flags;      /*!< Indicates which vector elements have a value. */
+
+    void *value;                /*!< The current value of this signal instance. */
+    mpr_time time;              /*!< The time associated with the current value. */
+
+    uint8_t idx;                /*!< Index for accessing value history. */
+    uint8_t has_value;          /*!< Indicates whether this instance has a value. */
+    uint8_t active;             /*!< Status of this instance. */
+} mpr_sig_inst_t;
+
+/* plan: remove inst, add map/slot resource index (is this the same for all source signals?) */
+typedef struct _mpr_sig_id_map
+{
+    struct _mpr_id_map *id_map; /*!< Associated mpr_id_map. */
+    struct _mpr_sig_inst *inst; /*!< Signal instance. */
+    int status;                 /*!< Either 0 or a combination of `UPDATED`,
+                                 *   `RELEASED_LOCALLY` and `RELEASED_REMOTELY`. */
+} mpr_sig_id_map_t, *mpr_sig_id_map;
+
 typedef struct _mpr_local_sig
 {
     MPR_SIG_STRUCT_ITEMS
@@ -82,6 +108,12 @@ typedef struct _mpr_local_sig
 size_t mpr_sig_get_struct_size()
 {
     return sizeof(mpr_sig_t);
+}
+
+/*! Helper to find the size in bytes of a signal's full vector. */
+size_t get_value_size(mpr_local_sig sig)
+{
+    return mpr_type_get_size(sig->type) * sig->len;
 }
 
 static int _compare_inst_ids(const void *l, const void *r)
@@ -365,18 +397,18 @@ int mpr_sig_lo_handler(const char *path, const char *types, lo_arg **argv, int a
             for (i = 0; i < sig->len; i++) {
                 if (types[i] == MPR_NULL)
                     continue;
-                memcpy((char*)si->val + i * size, argv[i], size);
-                mpr_bitflags_set(si->has_val_flags, i);
+                memcpy((char*)si->value + i * size, argv[i], size);
+                mpr_bitflags_set(si->has_value_flags, i);
             }
-            if (!mpr_bitflags_compare(si->has_val_flags, sig->vec_known, sig->len))
-                si->has_val = 1;
-            if (si->has_val) {
+            if (!mpr_bitflags_compare(si->has_value_flags, sig->vec_known, sig->len))
+                si->has_value = 1;
+            if (si->has_value) {
                 memcpy(&si->time, &ts, sizeof(mpr_time));
                 mpr_bitflags_unset(sig->updated_inst, si->idx);
-                mpr_sig_call_handler(sig, MPR_SIG_UPDATE, id_map->LID, sig->len, si->val, ts, diff);
+                mpr_sig_call_handler(sig, MPR_SIG_UPDATE, id_map->LID, sig->len, si->value, ts, diff);
                 /* Pass this update downstream if signal is an input and was not updated in handler. */
                 if (!(sig->dir & MPR_DIR_OUT) && !mpr_bitflags_get(sig->updated_inst, si->idx)) {
-                    mpr_rtr_process_sig(rtr, sig, id_map_idx, si->val, ts);
+                    mpr_rtr_process_sig(rtr, sig, id_map_idx, si->value, ts);
                     /* TODO: ensure update is propagated within this poll cycle */
                 }
             }
@@ -549,8 +581,8 @@ void mpr_sig_free_internal(mpr_sig sig)
         }
         free(lsig->id_maps);
         for (i = 0; i < lsig->num_inst; i++) {
-            FUNC_IF(free, lsig->inst[i]->val);
-            FUNC_IF(free, lsig->inst[i]->has_val_flags);
+            FUNC_IF(free, lsig->inst[i]->value);
+            FUNC_IF(free, lsig->inst[i]->has_value_flags);
             free(lsig->inst[i]);
         }
         free(lsig->inst);
@@ -897,9 +929,9 @@ static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
     lsig->inst = realloc(lsig->inst, sizeof(mpr_sig_inst) * (lsig->num_inst + 1));
     lsig->inst[lsig->num_inst] = (mpr_sig_inst) calloc(1, sizeof(struct _mpr_sig_inst));
     si = lsig->inst[lsig->num_inst];
-    si->val = calloc(1, mpr_sig_get_value_size((mpr_sig)lsig));
-    si->has_val_flags = calloc(1, lsig->len / 8 + 1);
-    si->has_val = 0;
+    si->value = calloc(1, get_value_size(lsig));
+    si->has_value_flags = calloc(1, lsig->len / 8 + 1);
+    si->has_value = 0;
     si->active = 0;
 
     if (id)
@@ -1083,15 +1115,15 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     si = lsig->id_maps[id_map_idx].inst;
 
     /* update time */
-    mpr_sig_update_timing_stats(lsig, si->has_val ? mpr_time_get_diff(time, si->time) : 0);
+    mpr_sig_update_timing_stats(lsig, si->has_value ? mpr_time_get_diff(time, si->time) : 0);
     memcpy(&si->time, &time, sizeof(mpr_time));
 
     /* update value */
     if (type != lsig->type || len < lsig->len)
-        mpr_set_coerced(lsig->len, type, val, lsig->len, lsig->type, si->val);
+        mpr_set_coerced(lsig->len, type, val, lsig->len, lsig->type, si->value);
     else
-        memcpy(si->val, (void*)val, mpr_sig_get_value_size(sig));
-    si->has_val = 1;
+        memcpy(si->value, (void*)val, get_value_size(lsig));
+    si->has_value = 1;
 
     /* mark instance as updated */
     mpr_bitflags_set(lsig->updated_inst, si->idx);
@@ -1099,7 +1131,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     mpr_local_dev_set_sending(lsig->dev);
 
     mpr_rtr_process_sig(mpr_net_get_rtr(mpr_graph_get_net(lsig->obj.graph)), lsig,
-                        id_map_idx, si->has_val ? si->val : 0, si->time);
+                        id_map_idx, si->has_value ? si->value : 0, si->time);
 }
 
 void mpr_sig_release_inst(mpr_sig sig, mpr_id id)
@@ -1160,8 +1192,8 @@ void mpr_sig_remove_inst(mpr_sig sig, mpr_id id)
     remove_idx = lsig->inst[i]->idx;
 
     /* Free value and timetag memory held by instance */
-    FUNC_IF(free, lsig->inst[i]->val);
-    FUNC_IF(free, lsig->inst[i]->has_val_flags);
+    FUNC_IF(free, lsig->inst[i]->value);
+    FUNC_IF(free, lsig->inst[i]->has_value_flags);
     free(lsig->inst[i]);
 
     for (++i; i < lsig->num_inst; i++)
@@ -1192,14 +1224,14 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
         RETURN_ARG_UNLESS(id_map_idx >= 0, 0);
         si = lsig->id_maps[id_map_idx].inst;
     }
-    RETURN_ARG_UNLESS(si && si->has_val, 0)
+    RETURN_ARG_UNLESS(si && si->has_value, 0)
     if (time) {
         time->sec = si->time.sec;
         time->frac = si->time.frac;
     }
     mpr_time_set(&now, MPR_NOW);
     mpr_sig_update_timing_stats(lsig, mpr_time_get_diff(now, si->time));
-    return si->val;
+    return si->value;
 }
 
 int mpr_local_sig_get_num_inst(mpr_local_sig sig)
@@ -1339,7 +1371,7 @@ static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map 
     int i;
     if (!si->active) {
         si->active = 1;
-        si->has_val = 0;
+        si->has_value = 0;
         mpr_time_set(&si->created, MPR_NOW);
         mpr_time_set(&si->time, si->created);
     }
@@ -1532,12 +1564,6 @@ int mpr_sig_get_use_inst(mpr_sig sig)
     return sig->use_inst;
 }
 
-/*! Helper to find the size in bytes of a signal's full vector. */
-size_t mpr_sig_get_value_size(mpr_sig sig)
-{
-    return mpr_type_get_size(sig->type) * sig->len;
-}
-
 int mpr_sig_compare_names(mpr_sig l, mpr_sig r)
 {
     int res = strcmp(mpr_dev_get_name(l->dev), mpr_dev_get_name(r->dev));
@@ -1603,6 +1629,19 @@ void mpr_local_sig_release_map_inst(mpr_local_sig sig, mpr_time time)
 uint8_t mpr_sig_inst_get_idx(mpr_sig_inst si)
 {
     return si->idx;
+}
+
+mpr_time mpr_sig_inst_get_time(mpr_sig_inst si)
+{
+    return si->time;
+}
+
+void mpr_local_sig_set_inst_value(mpr_local_sig sig, mpr_sig_inst si, const void *value,
+                                  mpr_time time)
+{
+    memcpy(si->value, value, get_value_size(sig));
+    memcpy(&si->time, &time, sizeof(mpr_time));
+    si->has_value = 1;
 }
 
 mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig)

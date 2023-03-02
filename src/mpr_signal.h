@@ -5,6 +5,7 @@
 
 typedef struct _mpr_sig *mpr_sig;
 typedef struct _mpr_local_sig *mpr_local_sig;
+typedef struct _mpr_sig_inst *mpr_sig_inst;
 typedef int mpr_sig_group;
 
 #include "id_map.h"
@@ -13,32 +14,6 @@ typedef int mpr_sig_group;
 #include "time.h"
 
 #define MPR_MAX_VECTOR_LEN 128
-
-/*! A signal is defined as a vector of values, along with some metadata. */
-/* plan: remove idx? we shouldn't need it anymore */
-typedef struct _mpr_sig_inst
-{
-    mpr_id id;                  /*!< User-assignable instance id. */
-    void *data;                 /*!< User data of this instance. */
-    mpr_time created;           /*!< The instance's creation timestamp. */
-    char *has_val_flags;        /*!< Indicates which vector elements have a value. */
-
-    void *val;                  /*!< The current value of this signal instance. */
-    mpr_time time;              /*!< The time associated with the current value. */
-
-    uint8_t idx;                /*!< Index for accessing value history. */
-    uint8_t has_val;            /*!< Indicates whether this instance has a value. */
-    uint8_t active;             /*!< Status of this instance. */
-} mpr_sig_inst_t, *mpr_sig_inst;
-
-/* plan: remove inst, add map/slot resource index (is this the same for all source signals?) */
-typedef struct _mpr_sig_id_map
-{
-    struct _mpr_id_map *id_map; /*!< Associated mpr_id_map. */
-    struct _mpr_sig_inst *inst; /*!< Signal instance. */
-    int status;                 /*!< Either 0 or a combination of `UPDATED`,
-                                 *   `RELEASED_LOCALLY` and `RELEASED_REMOTELY`. */
-} mpr_sig_id_map_t, *mpr_sig_id_map;
 
 int mpr_sig_lo_handler(const char *path, const char *types, lo_arg **argv, int argc,
                        lo_message msg, void *data);
@@ -136,9 +111,6 @@ mpr_type mpr_sig_get_type(mpr_sig sig);
 
 int mpr_sig_get_use_inst(mpr_sig sig);
 
-/*! Helper to find the size in bytes of a signal's full vector. */
-size_t mpr_sig_get_value_size(mpr_sig sig);
-
 int mpr_sig_compare_names(mpr_sig l, mpr_sig r);
 
 void mpr_sig_copy_props(mpr_sig to, mpr_sig from);
@@ -150,6 +122,11 @@ void mpr_sig_set_num_maps(mpr_sig sig, int num_maps_in, int num_maps_out);
 void mpr_local_sig_release_map_inst(mpr_local_sig sig, mpr_time time);
 
 uint8_t mpr_sig_inst_get_idx(mpr_sig_inst si);
+
+mpr_time mpr_sig_inst_get_time(mpr_sig_inst si);
+
+void mpr_local_sig_set_inst_value(mpr_local_sig sig, mpr_sig_inst si, const void *value,
+                                  mpr_time time);
 
 /* only used by testinstance.c for printing instance indices */
 mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig);

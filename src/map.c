@@ -583,7 +583,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         else {
             si = mpr_local_sig_get_inst_by_id_map_idx(dst_sig, 0, NULL);
         }
-        diff = mpr_time_get_diff(time, si->time);
+        diff = mpr_time_get_diff(time, mpr_sig_inst_get_time(si));
 
         if (status & EXPR_RELEASE_BEFORE_UPDATE) {
             /* TODO: release map-tracked instance */
@@ -594,6 +594,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
 
         if (status & EXPR_UPDATE) {
             void *result = mpr_value_get_samp(dst_val, i);
+            int si_idx = mpr_sig_inst_get_idx(si);
             /* TODO: create new map->id_map */
 /*
                 if (map_manages_inst) {
@@ -604,19 +605,17 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
                 }
  */
 
-            /* copy to signal value */
-            memcpy(si->val, result, mpr_sig_get_value_size((mpr_sig)dst_sig));
-            memcpy(&si->time, &time, sizeof(mpr_time));
-            si->has_val = 1;
-
+            /* copy to signal value and call handler */
+            mpr_local_sig_set_inst_value(dst_sig, si, result, time);
             mpr_sig_call_handler(dst_sig, MPR_SIG_UPDATE, id_map ? id_map->LID : 0,
-                                 -1, si->val, time, diff);
+                                 -1, result, time, diff);
+
             /* Pass this update downstream if signal is an input and was not updated in handler. */
             if (   !(mpr_sig_get_dir((mpr_sig)dst_sig) & MPR_DIR_OUT)
-                && !mpr_local_sig_get_updated(dst_sig, si->idx)) {
+                && !mpr_local_sig_get_updated(dst_sig, si_idx)) {
                 /* mark instance as updated */
-                mpr_local_sig_set_updated(dst_sig, si->idx);
-                mpr_rtr_process_sig(m->rtr, dst_sig, i, si->val, time);
+                mpr_local_sig_set_updated(dst_sig, si_idx);
+                mpr_rtr_process_sig(m->rtr, dst_sig, i, result, time);
             }
         }
 
