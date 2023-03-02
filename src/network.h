@@ -43,7 +43,7 @@ typedef struct _mpr_net {
     uint32_t next_sub_ping;
     uint8_t generic_dev_methods_added;
     uint8_t registered;
-} mpr_net_t, *mpr_net;
+} mpr_net_t;
 
 int mpr_net_bundle_start(lo_timetag t, void *data);
 

@@ -22,13 +22,13 @@ typedef struct _mpr_msg_atom
     const mpr_type *types;
     int len;
     int prop;
-} mpr_msg_atom_t, *mpr_msg_atom;
+} mpr_msg_atom_t;
 
 typedef struct _mpr_msg
 {
     mpr_msg_atom_t *atoms;
     int num_atoms;
-} *mpr_msg;
+} mpr_msg_t;
 
 int mpr_msg_get_num_atoms(mpr_msg m)
 {

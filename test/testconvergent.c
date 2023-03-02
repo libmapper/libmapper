@@ -46,7 +46,8 @@ static void eprintf(const char *format, ...)
 
 int setup_srcs(mpr_graph g, const char *iface)
 {
-    int i, mni=0, mxi=1;
+    uint8_t i;
+    int min = 0, max = 1;
     char tmpname[16];
 
     if (g && iface) mpr_graph_set_interface(g, iface);
@@ -62,8 +63,8 @@ int setup_srcs(mpr_graph g, const char *iface)
         eprintf("sources[%d] created using interface %s.\n", i,
                 mpr_graph_get_interface(mpr_obj_get_graph(srcs[i])));
         snprintf(tmpname, 16, "sendsig%d", i);
-        sendsigs[i] = mpr_sig_new(srcs[i], MPR_DIR_OUT, tmpname, 1,
-                                  MPR_INT32, NULL, &mni, &mxi, NULL, NULL, 0);
+        sendsigs[i] = mpr_sig_new(srcs[i], MPR_DIR_OUT, tmpname, 1, MPR_INT32,
+                                  NULL, &min, &max, NULL, NULL, 0);
         if (!sendsigs[i])
             goto error;
         eprintf("source %d created.\n", i);

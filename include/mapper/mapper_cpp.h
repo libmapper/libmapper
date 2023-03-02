@@ -2490,13 +2490,13 @@ namespace mapper {
         return os;
     }
 
-    #define OSTREAM_TYPE(TYPE)                  \
+    #define OSTREAM_TYPE(TYPE, CAST)            \
     if (p.len == 1)                             \
-        os << *(TYPE*)&p.val.ptr;               \
+        os << p.val.TYPE;                       \
     else if (p.len > 1) {                       \
         os << "[";                              \
         for (unsigned int i = 0; i < p.len; i++)\
-            os << ((TYPE*)p.val.ptr)[i] << ", ";\
+            os << ((CAST*)p.val.ptr)[i] << ", ";\
         os << "\b\b]";                          \
     }
 
@@ -2514,16 +2514,16 @@ namespace mapper {
                         case MPR_PROP_PROTOCOL:    os << Map::Protocol(p.val.int32);    break;
                         case MPR_PROP_STATUS:      os << Object::Status(p.val.int32);   break;
                         case MPR_PROP_STEAL_MODE:  os << Signal::Stealing(p.val.int32); break;
-                        default:                   OSTREAM_TYPE(int);
+                        default:                   os << p.val.int32;
                     }
                 }
                 else
-                    OSTREAM_TYPE(int);
+                    OSTREAM_TYPE(int32, int);
                 break;
-            case MPR_INT64: OSTREAM_TYPE(int64_t); break;
-            case MPR_FLT:   OSTREAM_TYPE(float);   break;
-            case MPR_DBL:   OSTREAM_TYPE(double);  break;
-            case MPR_BOOL:  OSTREAM_TYPE(bool);    break;
+            case MPR_INT64: OSTREAM_TYPE(int64, int64_t); break;
+            case MPR_FLT:   OSTREAM_TYPE(flt,   float);   break;
+            case MPR_DBL:   OSTREAM_TYPE(dbl,   double);  break;
+            case MPR_BOOL:  OSTREAM_TYPE(int32, bool);    break;
             case MPR_STR:
                 if (p.len == 1)
                     os << p.val.str;

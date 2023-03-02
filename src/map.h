@@ -9,6 +9,7 @@ typedef struct _mpr_local_map *mpr_local_map;
 #include "expression.h"
 #include "id_map.h"
 #include "message.h"
+#include "mpr_signal.h"
 #include "slot.h"
 
 #define MAX_NUM_MAP_SRC     8       /* arbitrary */

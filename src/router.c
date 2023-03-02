@@ -694,10 +694,11 @@ void mpr_rtr_check_links(mpr_rtr rtr, mpr_list links)
                 continue;
             map = (mpr_local_map)mpr_slot_get_map((mpr_slot)slot);
             if (MPR_DIR_OUT == mpr_slot_get_dir((mpr_slot)slot)) {
+                mpr_list cpy;
                 /* only send /mapTo once even if we have multiple local sources */
                 if (map->one_src && (slot != map->src[0]))
                     continue;
-                mpr_list cpy = mpr_list_get_cpy(links);
+                cpy = mpr_list_get_cpy(links);
                 while (cpy) {
                     mpr_link link = (mpr_link)*cpy;
                     cpy = mpr_list_get_next(cpy);

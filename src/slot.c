@@ -10,6 +10,7 @@
 #include "link.h"
 #include "message.h"
 #include "mpr_type.h"
+#include "object.h"
 #include "property.h"
 #include "slot.h"
 #include "table.h"
@@ -34,7 +35,7 @@
 typedef struct _mpr_slot {
     MPR_SLOT_STRUCT_ITEMS
     struct _mpr_map *map;           /*!< Pointer to parent map */
-} mpr_slot_t, *mpr_slot;
+} mpr_slot_t;
 
 typedef struct _mpr_local_slot {
     MPR_SLOT_STRUCT_ITEMS
@@ -44,7 +45,7 @@ typedef struct _mpr_local_slot {
     struct _mpr_rtr_sig *rsig;      /*!< Parent signal if local */
     mpr_value_t val;                /*!< Value histories for each signal instance. */
     char status;
-} mpr_local_slot_t, *mpr_local_slot;
+} mpr_local_slot_t;
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
                       unsigned char is_local, unsigned char is_src)

@@ -55,7 +55,7 @@ typedef struct _mpr_sig
 {
     MPR_SIG_STRUCT_ITEMS
     mpr_dev dev;
-} mpr_sig_t, *mpr_sig;
+} mpr_sig_t;
 
 /*! A signal is defined as a vector of values, along with some metadata. */
 /* plan: remove idx? we shouldn't need it anymore */
@@ -103,7 +103,7 @@ typedef struct _mpr_local_sig
     mpr_sig_group group;            /* TODO: replace with hierarchical instancing */
     uint8_t locked;
     uint8_t updated;                /* TODO: fold into updated_inst bitflags. */
-} mpr_local_sig_t, *mpr_local_sig;
+} mpr_local_sig_t;
 
 size_t mpr_sig_get_struct_size()
 {

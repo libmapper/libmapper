@@ -2681,12 +2681,12 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                 tok.fn.arity = fn_tbl[tok.fn.idx].arity;
                 if (fn_tbl[tok.fn.idx].memory) {
                     /* add assignment token */
-                    char varname[6];
-                    int varidx = n_vars;
+                    char varname[7];
+                    uint8_t varidx = n_vars;
                     {FAIL_IF(n_vars >= N_USER_VARS, "Maximum number of variables exceeded.");}
                     do {
-                        snprintf(varname, 6, "var%d", varidx++);
-                    } while (find_var_by_name(vars, n_vars, varname, 6) >= 0);
+                        snprintf(varname, 7, "var%d", varidx++);
+                    } while (find_var_by_name(vars, n_vars, varname, 7) >= 0);
                     /* need to store new variable */
                     vars[n_vars].name = strdup(varname);
                     vars[n_vars].datatype = var_type;

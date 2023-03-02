@@ -4,6 +4,7 @@
 
 typedef struct _mpr_link *mpr_link;
 
+#include "device.h"
 #include "graph.h"
 #include "list.h"
 #include "map.h"

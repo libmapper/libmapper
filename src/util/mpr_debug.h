@@ -2,7 +2,7 @@
 #ifndef __MPR_DEBUG_H__
 #define __MPR_DEBUG_H__
 
-#include "config.h"
+#include "../config.h"
 
 #ifdef HAVE_INTTYPES_H
 #include <inttypes.h>

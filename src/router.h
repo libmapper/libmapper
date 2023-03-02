@@ -7,6 +7,7 @@ typedef struct _mpr_rtr_sig *mpr_rtr_sig;
 
 #include "link.h"
 #include "network.h"
+#include "slot.h"
 
 mpr_rtr mpr_rtr_new(mpr_net net);
 

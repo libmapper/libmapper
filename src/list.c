@@ -5,10 +5,11 @@
 #include <stdio.h>
 #include <stddef.h>
 
-#include <mapper/mapper.h>
+#include "object.h"
 #include "path.h"
 #include "property.h"
 #include "util/mpr_debug.h"
+#include <mapper/mapper.h>
 
 /*   Note on the trick used here: Presuming that we can have lists as the result
  * of a search query, we need to be able to return a linked list composed of
@@ -295,7 +296,7 @@ mpr_list vmpr_list_new_query(const void **list, const void *func, const char *ty
     lh->query_ctx->query_free = (query_free_func_t*)free_query_single_ctx;
     lh->start = (void**)list;
     lh->self = *lh->start;
-    return &lh->self;
+    return (mpr_list)&lh->self;
 }
 
 mpr_list mpr_list_new_query(const void **list, const void *func, const char *types, ...)

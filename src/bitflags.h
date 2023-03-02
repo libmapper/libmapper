@@ -2,6 +2,7 @@
 #ifndef __MPR_BITFLAGS_H__
 #define __MPR_BITFLAGS_H__
 
+#include <string.h>
 #include "util/mpr_inline.h"
 
 MPR_INLINE static void mpr_bitflags_set(char *bytearray, int idx)
