@@ -48,7 +48,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int len,
     name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
     eprintf("--> destination got %s", name);
     fval = (float*)val;
-    for (i = 0; i < sig->len; i++) {
+    for (i = 0; i < len; i++) {
         eprintf(" %f", fval[i]);
     }
     eprintf("\n");

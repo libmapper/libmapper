@@ -107,7 +107,7 @@ int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg);
  *  \param dev          Device record to query.
  *  \param remote       Remote device.
  *  \return             Information about the link, or zero if not found. */
-struct _mpr_link* mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote);
+mpr_link mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote);
 
 void mpr_dev_set_synced(mpr_dev dev, mpr_time time);
 

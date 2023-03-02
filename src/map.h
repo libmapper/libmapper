@@ -83,11 +83,17 @@ const char *mpr_steal_as_str(mpr_steal_type stl);
 
 int mpr_map_send_state(mpr_map map, int slot, net_msg_t cmd);
 
-void mpr_map_init(mpr_map map);
+void mpr_map_init(mpr_map map, int num_src, mpr_sig *src, mpr_sig dst, int is_local);
 
 void mpr_map_free(mpr_map map);
 
 /*! Prepare a lo_message for sending based on a map struct. */
 const char *mpr_map_prepare_msg(mpr_map map, lo_message msg, int slot_idx);
+
+void mpr_map_add_src(mpr_map map, mpr_sig sig, mpr_dir dir, int is_local);
+
+int mpr_map_compare(mpr_map l, mpr_map r);
+
+int mpr_map_compare_names(mpr_map map, int num_src, const char **srcs, const char *dst);
 
 #endif /* __MPR_MAP_H__ */

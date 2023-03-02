@@ -41,7 +41,7 @@ void mpr_link_free(mpr_link link);
 
 int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx);
 
-void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
+void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time t,
                       mpr_proto proto, int idx);
 
 int mpr_link_get_is_ready(mpr_link link);

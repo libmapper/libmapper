@@ -137,7 +137,8 @@ static int _cmp_qry_sigs(const void *context_data, mpr_sig sig)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
     int dir = *(int*)((char*)context_data + sizeof(mpr_id));
-    return ((dir & sig->dir) && (dev_id == sig->dev->obj.id));
+    mpr_dev dev = mpr_sig_get_dev(sig);
+    return ((dir & mpr_sig_get_dir(sig)) && (dev_id == dev->obj.id));
 }
 
 void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
@@ -204,7 +205,6 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     }
 
     dev = (mpr_local_dev)mpr_graph_add_list_item(g, MPR_DEV, sizeof(mpr_local_dev_t));
-
     mpr_dev_init((mpr_dev)dev, 1, NULL, 0);
 
     dev->prefix_len = strlen(name_prefix);
@@ -268,13 +268,6 @@ void mpr_dev_free(mpr_dev dev)
     while (list) {
         mpr_local_sig sig = (mpr_local_sig)*list;
         list = mpr_list_get_next(list);
-        if (sig->obj.is_local) {
-            /* release active instances */
-            for (i = 0; i < sig->id_map_len; i++) {
-                if (sig->id_maps[i].inst)
-                    mpr_sig_release_inst_internal(sig, i);
-            }
-        }
         mpr_sig_free((mpr_sig)sig);
     }
 
@@ -330,7 +323,6 @@ void mpr_dev_free_mem(mpr_dev dev)
 
 void mpr_dev_on_registered(mpr_local_dev dev)
 {
-    int i;
     char *name;
     mpr_list qry;
     /* Add unique device id to locally-activated signal instances. */
@@ -338,12 +330,7 @@ void mpr_dev_on_registered(mpr_local_dev dev)
     while (sigs) {
         mpr_local_sig sig = (mpr_local_sig)*sigs;
         sigs = mpr_list_get_next(sigs);
-        for (i = 0; i < sig->id_map_len; i++) {
-            mpr_id_map id_map = sig->id_maps[i].id_map;
-            if (id_map && !(id_map->GID >> 32))
-                id_map->GID |= dev->obj.id;
-        }
-        sig->obj.id |= dev->obj.id;
+        mpr_local_sig_set_dev_id(sig, dev->obj.id);
     }
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)_cmp_qry_sigs,
                               "hi", dev->obj.id, MPR_DIR_ANY);
@@ -408,9 +395,10 @@ void mpr_local_dev_remove_server_method(mpr_local_dev dev, const char *path)
 
 void mpr_dev_remove_sig(mpr_dev dev, mpr_sig sig)
 {
-    if (sig->dir & MPR_DIR_IN)
+    mpr_dir dir = mpr_sig_get_dir(sig);
+    if (dir & MPR_DIR_IN)
         --dev->num_inputs;
-    if (sig->dir & MPR_DIR_OUT)
+    if (dir & MPR_DIR_OUT)
         --dev->num_outputs;
 }
 
@@ -428,7 +416,8 @@ mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name)
     sigs = mpr_graph_get_list(dev->obj.graph, MPR_SIG);
     while (sigs) {
         mpr_sig sig = (mpr_sig)*sigs;
-        if ((sig->dev == dev) && strcmp(sig->name, mpr_path_skip_slash(sig_name))==0)
+        if (   mpr_sig_get_dev(sig) == dev
+            && strcmp(mpr_sig_get_name(sig), mpr_path_skip_slash(sig_name))==0)
             return sig;
         sigs = mpr_list_get_next(sigs);
     }
@@ -439,26 +428,30 @@ static int _cmp_qry_maps(const void *context_data, mpr_map map)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
     mpr_dir dir = *(int*)((char*)context_data + sizeof(mpr_id));
-    mpr_sig sig;
-    int i;
     if (dir == MPR_DIR_BOTH) {
-        sig = mpr_slot_get_sig(map->dst);
-        RETURN_ARG_UNLESS(sig->dev->obj.id == dev_id, 0);
+        mpr_sig sig = mpr_slot_get_sig(map->dst);
+        mpr_dev dev = mpr_sig_get_dev(sig);
+        int i;
+        RETURN_ARG_UNLESS(dev->obj.id == dev_id, 0);
         for (i = 0; i < map->num_src; i++) {
             sig = mpr_slot_get_sig(map->src[i]);
-            RETURN_ARG_UNLESS(sig->dev->obj.id == dev_id, 0);
+            dev = mpr_sig_get_dev(sig);
+            RETURN_ARG_UNLESS(dev->obj.id == dev_id, 0);
         }
         return 1;
     }
     if (dir & MPR_DIR_OUT) {
+        int i;
         for (i = 0; i < map->num_src; i++) {
-            sig = mpr_slot_get_sig(map->src[i]);
-            RETURN_ARG_UNLESS(sig->dev->obj.id != dev_id, 1);
+            mpr_sig sig = mpr_slot_get_sig(map->src[i]);
+            mpr_dev dev = mpr_sig_get_dev(sig);
+            RETURN_ARG_UNLESS(dev->obj.id != dev_id, 1);
         }
     }
     if (dir & MPR_DIR_IN) {
-        sig = mpr_slot_get_sig(map->dst);
-        RETURN_ARG_UNLESS(sig->dev->obj.id != dev_id, 1);
+        mpr_sig sig = mpr_slot_get_sig(map->dst);
+        mpr_dev dev = mpr_sig_get_dev(sig);
+        RETURN_ARG_UNLESS(dev->obj.id != dev_id, 1);
     }
     return 0;
 }
@@ -1217,12 +1210,14 @@ int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
         mpr_map m = (mpr_map)*l;
         int i, ready = 1;
         mpr_sig sig = mpr_slot_get_sig(m->dst);
+        mpr_dev dev = mpr_sig_get_dev(sig);
         l = mpr_list_get_next(l);
-        if (sig->obj.is_local && !((mpr_local_dev)sig->dev)->registered)
+        if (mpr_obj_get_is_local((mpr_obj)sig) && !((mpr_local_dev)dev)->registered)
             continue;
         for (i = 0; i < m->num_src; i++) {
             sig = mpr_slot_get_sig(m->src[i]);
-            if (sig->obj.is_local && !((mpr_local_dev)sig->dev)->registered) {
+            dev = mpr_sig_get_dev(sig);
+            if (mpr_obj_get_is_local((mpr_obj)sig) && !((mpr_local_dev)dev)->registered) {
                 ready = 0;
                 break;
             }
@@ -1516,6 +1511,7 @@ void mpr_dev_set_num_maps(mpr_dev dev, int num_maps_in, int num_maps_out)
 
 void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir)
 {
+    /* TODO: use & instead? */
     if (dir == MPR_DIR_IN)
         ++dev->num_inputs;
     else

@@ -126,7 +126,7 @@ int setup_maps()
         mpr_dev_poll(dst, 10);
     }
 
-    /* release the map */
+    /* For this test we will release the map immediately to check that it is cleaned up properly */
     mpr_map_release(map);
 
     return 0;
@@ -152,7 +152,7 @@ void loop()
            && !done) {
         mpr_list_free(links);
         eprintf("Updating signal %s to %d\n",
-                sendsig && sendsig->name ? sendsig->name : "", i);
+                sendsig ? mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL) : "", i);
         mpr_sig_set_value(sendsig, 0, 1, MPR_INT32, &i);
         sent++;
         mpr_dev_poll(src, 0);

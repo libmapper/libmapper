@@ -30,45 +30,9 @@
 #define MAX_LEN 1024
 #define METADATA_OK             0x1C
 
-MPR_INLINE static int mpr_max(int a, int b)
-{
-    return a > b ? a : b;
-}
+MPR_INLINE static int mpr_max(int a, int b) { return a > b ? a : b; }
 
-MPR_INLINE static int mpr_min(int a, int b)
-{
-    return a < b ? a : b;
-}
-
-static int _sort_sigs(int num, mpr_sig *s, unsigned char *o)
-{
-    int i, j, res1 = 1, res2 = 1, temp;
-    for (i = 0; i < num; i++)
-        o[i] = i;
-    for (i = 1; i < num; i++) {
-        j = i-1;
-        while (j >= 0) {
-            res1 = strcmp(mpr_dev_get_name(s[o[j]]->dev), mpr_dev_get_name(s[o[j+1]]->dev));
-            if (res1 < 0)
-                break;
-            else if (0 == res1) {
-                res2 = strcmp(s[o[j]]->name, s[o[j+1]]->name);
-                if (0 == res2) {
-                    /* abort: identical signal names */
-                    return 1;
-                }
-                else if (res2 < 0)
-                    break;
-            }
-            /* swap */
-            temp = o[j];
-            o[j] = o[j+1];
-            o[j+1] = temp;
-            j--;
-        }
-    }
-    return 0;
-}
+MPR_INLINE static int mpr_min(int a, int b) { return a < b ? a : b; }
 
 static int _cmp_qry_scopes(const void *ctx, mpr_dev d)
 {
@@ -81,14 +45,33 @@ static int _cmp_qry_scopes(const void *ctx, mpr_dev d)
     return 0;
 }
 
-void mpr_map_init(mpr_map m)
+void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_local)
 {
-    int i, is_local = 0;
+    int i;
+    mpr_graph g = m->obj.graph;
     mpr_tbl t = m->obj.props.synced = mpr_tbl_new();
     mpr_list q = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)_cmp_qry_scopes, "v", &m);
-    mpr_sig dst_sig = mpr_slot_get_sig(m->dst);
     m->obj.props.staged = mpr_tbl_new();
-    m->obj.type = MPR_MAP;
+
+    m->num_src = num_src;
+    m->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
+    for (i = 0; i < num_src; i++) {
+        mpr_sig sig;
+        if (mpr_obj_get_graph((mpr_obj)src[i]) == g) {
+            sig = src[i];
+        }
+        else if (  !(sig = (mpr_sig)mpr_graph_get_obj(g, mpr_obj_get_id((mpr_obj)src[i]), MPR_SIG))
+                 || (mpr_sig_get_dev(sig) != mpr_sig_get_dev(src[i]))) {
+            sig = mpr_graph_add_sig(g, mpr_sig_get_name(src[i]),
+                                    mpr_dev_get_name(mpr_sig_get_dev(src[i])), 0);
+            mpr_sig_copy_props(sig, src[i]);
+        }
+        m->src[i] = mpr_slot_new(m, sig, MPR_DIR_UNDEFINED, is_local, 1);
+        mpr_slot_set_id(m->src[i], i);
+    }
+
+    m->dst = mpr_slot_new(m, dst, mpr_obj_get_is_local((mpr_obj)dst) ? MPR_DIR_IN : MPR_DIR_UNDEFINED,
+                          is_local, 0);
 
     /* these properties need to be added in alphabetical order */
     mpr_tbl_link_value(t, PROP(BUNDLE), 1, MPR_INT32, &m->bundle, MODIFIABLE);
@@ -105,20 +88,14 @@ void mpr_map_init(mpr_map m)
     mpr_tbl_link_value(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, REMOTE_MODIFY);
     mpr_tbl_link_value(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, REMOTE_MODIFY);
 
-    if (dst_sig->obj.is_local)
-        is_local = 1;
-    else {
-        for (i = 0; i < m->num_src; i++) {
-            mpr_sig src_sig = mpr_slot_get_sig(m->src[i]);
-            if (src_sig->obj.is_local) {
-                is_local = 1;
-                break;
-            }
-        }
-    }
     mpr_tbl_add_record(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local,
                        LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
     m->status = MPR_STATUS_STAGED;
+}
+
+int _compare_sig_names(const void *l, const void *r)
+{
+    return mpr_sig_compare_names(*(mpr_sig*)l, *(mpr_sig*)r);
 }
 
 mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
@@ -126,43 +103,53 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     mpr_graph g;
     mpr_map m;
     mpr_obj o;
+    mpr_sig *src_sorted;
     mpr_list maps;
-    unsigned char i, j, is_local = 0, order[MAX_NUM_MAP_SRC];
+    unsigned char i, j, is_local = 0;
 
     RETURN_ARG_UNLESS(src && *src && dst && *dst, 0);
     RETURN_ARG_UNLESS(num_src > 0 && num_src <= MAX_NUM_MAP_SRC, 0);
     for (i = 0; i < num_src; i++) {
-        for (j = 0; j < num_dst; j++) {
-            if (src[i] == dst[j]) {
-                trace("Cannot connect signal '%s:%s' to itself.\n",
-                      mpr_dev_get_name(src[i]->dev), src[i]->name);
+        mpr_dev src_dev = mpr_sig_get_dev(src[i]);
+        /* check to make sure a src signal is not included more than once */
+        for (j = i + 1; j < num_src; j++) {
+            if (src[i] == src[j]) {
+                trace("error in mpr_map_new(): multiple use of source signal.\n");
                 return 0;
             }
-            if (!mpr_dev_get_name(src[i]->dev) || !mpr_dev_get_name(dst[j]->dev)) {
+        }
+        for (j = 0; j < num_dst; j++) {
+            mpr_dev dst_dev = mpr_sig_get_dev(dst[j]);
+            if (src[i] == dst[j]) {
+                trace("Cannot connect signal '%s:%s' to itself.\n",
+                      mpr_dev_get_name(src_dev), mpr_sig_get_name(src[i]));
+                return 0;
+            }
+            if (!mpr_dev_get_is_ready(src_dev) || !mpr_dev_get_is_ready(dst_dev)) {
                 /* Only allow this if devices are the same or share a graph. */
-                if (src[i]->obj.graph == dst[j]->obj.graph)
+                if (mpr_obj_get_graph((mpr_obj)src[i]) == mpr_obj_get_graph((mpr_obj)dst[j]))
                     continue;
                 trace("Cannot create map between uninitialized devices unless they share a graph.");
                 return 0;
             }
-            if (   strcmp(src[i]->name, dst[j]->name)==0 && mpr_dev_get_name(dst[j]->dev)
-                && strcmp(mpr_dev_get_name(src[i]->dev), mpr_dev_get_name(dst[j]->dev))==0) {
+            if (0 == mpr_sig_compare_names(src[i], dst[j])) {
                 trace("Cannot connect signal '%s:%s' to itself.\n",
-                      mpr_dev_get_name(src[i]->dev), src[i]->name);
+                      mpr_dev_get_name(src_dev), mpr_sig_get_name(src[i]));
                 return 0;
             }
         }
-        is_local += src[i]->obj.is_local;
+        is_local += mpr_obj_get_is_local((mpr_obj)src[i]);
     }
     /* Only 1 destination supported for now */
     RETURN_ARG_UNLESS(1 == num_dst, 0);
-    g = (*dst)->obj.graph;
+    is_local += mpr_obj_get_is_local((mpr_obj)*dst);
+    g = mpr_obj_get_graph((mpr_obj)*dst);
 
     /* check if record of map already exists */
     maps = mpr_sig_get_maps(*dst, MPR_DIR_IN);
     if (maps) {
         for (i = 0; i < num_src; i++) {
-            o = mpr_graph_get_obj(g, src[i]->obj.id, MPR_SIG);
+            o = mpr_graph_get_obj(g, mpr_obj_get_id((mpr_obj)src[i]), MPR_SIG);
             if (o) {
                 mpr_list temp = mpr_sig_get_maps((mpr_sig)o, MPR_DIR_OUT);
                 maps = mpr_list_get_isect(maps, temp);
@@ -183,49 +170,22 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
         }
     }
 
-    if (_sort_sigs(num_src, src, order)) {
-        trace("error in mpr_map_new(): multiple use of source signal.\n");
-        return 0;
-    }
-    if ((*dst)->obj.is_local)
-        ++is_local;
-
     m = (mpr_map)mpr_graph_add_list_item(g, MPR_MAP, is_local ? sizeof(mpr_local_map_t) : sizeof(mpr_map_t));
-    m->num_src = num_src;
     m->obj.is_local = 0;
     m->bundle = 1;
-    m->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
-    for (i = 0; i < num_src; i++) {
-        if (mpr_obj_get_graph((mpr_obj)src[order[i]]->dev) == g) {
-            o = (mpr_obj)src[order[i]];
-        }
-        else if (  !(o = mpr_graph_get_obj(g, src[order[i]]->obj.id, MPR_SIG))
-                 || (((mpr_sig)o)->dev != src[order[i]]->dev)) {
-            mpr_dev dev;
-            o = (mpr_obj)mpr_graph_add_sig(g, src[order[i]]->name,
-                                           mpr_dev_get_name(src[order[i]]->dev), 0);
-            if (!o->id) {
-                o->id = src[order[i]]->obj.id;
-                ((mpr_sig)o)->dir = src[order[i]]->dir;
-                ((mpr_sig)o)->len = src[order[i]]->len;
-                ((mpr_sig)o)->type = src[order[i]]->type;
-            }
-            dev = ((mpr_sig)o)->dev;
-            /* TODO: check this */
-            if (!mpr_obj_get_id((mpr_obj)dev))
-                mpr_obj_set_id((mpr_obj)dev, mpr_obj_get_id((mpr_obj)src[order[i]]->dev));
-        }
-        m->src[i] = mpr_slot_new(m, (mpr_sig)o, MPR_DIR_UNDEFINED, is_local, 1);
-        mpr_slot_set_id(m->src[i], i);
-    }
-    m->dst = mpr_slot_new(m, *dst, MPR_DIR_IN, is_local, 0);
+
+    /* Sort the source signals by name */
+    src_sorted = (mpr_sig*) malloc(num_src * sizeof(mpr_sig));
+    memcpy(src_sorted, src, num_src * sizeof(mpr_sig));
+    qsort(src_sorted, num_src, sizeof(mpr_sig), _compare_sig_names);
 
     /* we need to give the map a temporary id – this may be overwritten later */
-    if (mpr_obj_get_is_local((mpr_obj)(*dst)->dev))
-        m->obj.id = mpr_dev_generate_unique_id((*dst)->dev);
+    if (mpr_obj_get_is_local((mpr_obj)mpr_sig_get_dev(*dst)))
+        mpr_obj_set_id((mpr_obj)m, mpr_dev_generate_unique_id(mpr_sig_get_dev(*dst)));
 
-    mpr_map_init(m);
+    mpr_map_init(m, num_src, src_sorted, *dst, is_local);
     m->protocol = MPR_PROTO_UDP;
+    free(src_sorted);
     return m;
 }
 
@@ -279,15 +239,16 @@ mpr_list mpr_map_get_sigs(mpr_map m, mpr_loc l)
     return mpr_graph_new_query(m->obj.graph, 1, MPR_SIG, (void*)_cmp_qry_sigs, "vi", &m, l);
 }
 
-int mpr_map_get_sig_idx(mpr_map m, mpr_sig s)
+int mpr_map_get_sig_idx(mpr_map map, mpr_sig sig)
 {
     int i;
-    mpr_sig sig = mpr_slot_get_sig(m->dst);
-    if (sig->obj.id == s->obj.id)
+    mpr_id id = mpr_obj_get_id((mpr_obj)sig);
+    mpr_sig dst = mpr_slot_get_sig(map->dst);
+    if (mpr_obj_get_id((mpr_obj)dst) == id)
         return 0;
-    for (i = 0; i < m->num_src; i++) {
-        sig = mpr_slot_get_sig(m->src[i]);
-        if (sig->obj.id == s->obj.id)
+    for (i = 0; i < map->num_src; i++) {
+        mpr_sig src = mpr_slot_get_sig(map->src[i]);
+        if (mpr_obj_get_id((mpr_obj)src) == id)
             return i;
     }
     return -1;
@@ -456,14 +417,13 @@ static int _update_scope(mpr_map m, mpr_msg_atom a)
 /* only called for outgoing maps */
 void mpr_map_send(mpr_local_map m, mpr_time time)
 {
-    int i, j, status, map_manages_inst = 0;
+    int i, status, map_manages_inst = 0;
     lo_message msg;
     mpr_local_dev dev;
     uint8_t bundle_idx;
     mpr_local_slot src_slot, dst_slot;
     mpr_local_sig src_sig;
     mpr_sig dst_sig;
-    struct _mpr_sig_id_map *sig_id_maps;
     mpr_id_map id_map = 0;
     mpr_value *src_vals, dst_val;
     char *types;
@@ -481,27 +441,27 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     src_vals = alloca(m->num_src * sizeof(mpr_value));
     for (i = 0; i < m->num_src; i++) {
         mpr_local_sig comp = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)m->src[i]);
-        if (comp->num_inst > src_sig->num_inst) {
+        if (  mpr_sig_get_num_inst((mpr_sig)comp, MPR_STATUS_ANY)
+            > mpr_sig_get_num_inst((mpr_sig)src_sig, MPR_STATUS_ANY)) {
             src_slot = m->src[i];
             src_sig = comp;
         }
         src_vals[i] = mpr_slot_get_value(m->src[i]);
     }
-    sig_id_maps = src_sig->id_maps;
 
-    dev = src_sig->dev;
+    dev = (mpr_local_dev)mpr_sig_get_dev((mpr_sig)src_sig);
     bundle_idx = mpr_local_dev_get_bundle_idx(dev);
 
     dst_slot = m->dst;
     dst_sig = mpr_slot_get_sig((mpr_slot)dst_slot);
     dst_val = mpr_slot_get_value(dst_slot);
 
-    if (m->use_inst && !src_sig->use_inst) {
+    if (m->use_inst && !mpr_sig_get_use_inst((mpr_sig)src_sig)) {
         map_manages_inst = 1;
         id_map = m->id_map;
     }
 
-    types = alloca(dst_sig->len * sizeof(char));
+    types = alloca(mpr_sig_get_len(dst_sig) * sizeof(char));
 
     for (i = 0; i < m->num_inst; i++) {
         /* Check if this instance has been updated */
@@ -513,16 +473,9 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         if (!status)
             continue;
 
-        if (src_sig->use_inst && !map_manages_inst) {
-            /* finding id_maps here will be a bit inefficient for now */
-            /* TODO: optimize storage and lookup */
-            for (j = 0; j < src_sig->id_map_len; j++) {
-                if (sig_id_maps[j].inst && sig_id_maps[j].inst->idx == i) {
-                    id_map = sig_id_maps[j].id_map;
-                    break;
-                }
-            }
-            if (j == src_sig->id_map_len) {
+        if (mpr_sig_get_use_inst((mpr_sig)src_sig) && !map_manages_inst) {
+            mpr_local_sig_get_inst_by_idx(src_sig, i, &id_map);
+            if (!id_map) {
                 trace("error: couldn't find id_map for signal instance idx %d\n", i);
                 continue;
             }
@@ -531,8 +484,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         /* send instance release if dst is instanced and either src or map is also instanced. */
         if (id_map && status & EXPR_RELEASE_BEFORE_UPDATE && m->use_inst) {
             msg = mpr_map_build_msg(m, 0, 0, 0, id_map);
-            mpr_link_add_msg(mpr_slot_get_link((mpr_slot)dst_slot), dst_sig, msg,
-                             time, m->protocol, bundle_idx);
+            mpr_slot_send_msg(dst_slot, msg, time, m->protocol, bundle_idx);
             if (map_manages_inst) {
                 mpr_dev_LID_decref(dev, 0, id_map);
                 id_map = m->id_map = 0;
@@ -547,14 +499,13 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
                 id_map = m->id_map = mpr_dev_add_id_map(dev, 0, 0, 0);
             }
             msg = mpr_map_build_msg(m, src_slot, result, types, id_map);
-            mpr_link_add_msg(mpr_slot_get_link((mpr_slot)dst_slot), dst_sig, msg,
-                             *(mpr_time*)mpr_value_get_time(val, i), m->protocol, bundle_idx);
+            mpr_slot_send_msg(dst_slot, msg, *(mpr_time*)mpr_value_get_time(val, i),
+                              m->protocol, bundle_idx);
         }
         /* send instance release if dst is instanced and either src or map is also instanced. */
         if (id_map && status & EXPR_RELEASE_AFTER_UPDATE && m->use_inst) {
             msg = mpr_map_build_msg(m, 0, 0, 0, id_map);
-            mpr_link_add_msg(mpr_slot_get_link((mpr_slot)dst_slot), dst_sig, msg,
-                             time, m->protocol, bundle_idx);
+            mpr_slot_send_msg(dst_slot, msg, time, m->protocol, bundle_idx);
             if (map_manages_inst) {
                 mpr_dev_LID_decref(dev, 0, id_map);
                 id_map = m->id_map = 0;
@@ -571,12 +522,11 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
 /* TODO: merge with mpr_map_send()? */
 void mpr_map_receive(mpr_local_map m, mpr_time time)
 {
-    int i, j, status, val_size, map_manages_inst = 0;
+    int i, status, map_manages_inst = 0;
     mpr_local_slot src_slot, dst_slot;
     mpr_sig src_sig;
     mpr_local_sig dst_sig;
     mpr_value src_vals[MAX_NUM_MAP_SRC], dst_val;
-    struct _mpr_sig_id_map *sig_id_maps;
     mpr_id_map id_map = 0;
     char *types;
 
@@ -590,7 +540,8 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     src_sig = mpr_slot_get_sig((mpr_slot)src_slot);
     for (i = 0; i < m->num_src; i++) {
         mpr_sig comp = mpr_slot_get_sig((mpr_slot)m->src[i]);
-        if (comp->num_inst > src_sig->num_inst) {
+        if (  mpr_sig_get_num_inst(comp, MPR_STATUS_ANY)
+            > mpr_sig_get_num_inst(src_sig, MPR_STATUS_ANY)) {
             src_slot = m->src[i];
             src_sig = comp;
         }
@@ -600,10 +551,8 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     dst_slot = m->dst;
     dst_sig = (mpr_local_sig)mpr_slot_get_sig((mpr_slot)dst_slot);
     dst_val = mpr_slot_get_value(dst_slot);
-    sig_id_maps = dst_sig->id_maps;
-    val_size = mpr_type_get_size(dst_sig->type) * dst_sig->len;
 
-    if (!src_sig->use_inst) {
+    if (!mpr_sig_get_use_inst(src_sig)) {
         if (mpr_expr_get_manages_inst(m->expr)) {
             map_manages_inst = 1;
             id_map = m->id_map;
@@ -611,7 +560,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         else
             id_map = 0;
     }
-    types = alloca(dst_sig->len * sizeof(char));
+    types = alloca(mpr_sig_get_len((mpr_sig)dst_sig) * sizeof(char));
 
     for (i = 0; i < m->num_inst; i++) {
         mpr_sig_inst si;
@@ -624,33 +573,23 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         if (!status)
             continue;
 
-        j = 0;
-        if (dst_sig->use_inst && !map_manages_inst) {
-            /* finding id_maps here will be a bit inefficient for now */
-            /* TODO: optimize storage and lookup */
-            for (j = 0; j < dst_sig->id_map_len; j++) {
-                if (sig_id_maps[j].inst && sig_id_maps[j].inst->idx == i) {
-                    id_map = sig_id_maps[j].id_map;
-                    break;
-                }
-            }
-            if (j == dst_sig->id_map_len) {
+        if (mpr_sig_get_use_inst((mpr_sig)dst_sig) && !map_manages_inst) {
+            si = mpr_local_sig_get_inst_by_idx(dst_sig, i, &id_map);
+            if (!id_map) {
                 trace("error: couldn't find id_map for signal instance idx %d\n", i);
                 continue;
             }
         }
         else {
-            
+            si = mpr_local_sig_get_inst_by_id_map_idx(dst_sig, 0, NULL);
         }
-        si = sig_id_maps[j].inst;
         diff = mpr_time_get_diff(time, si->time);
 
         if (status & EXPR_RELEASE_BEFORE_UPDATE) {
             /* TODO: release map-tracked instance */
             /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
              * know if the local signal instance will actually be released. */
-            int evt = MPR_SIG_REL_UPSTRM & dst_sig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(dst_sig, evt, id_map ? id_map->LID : 0, 0, 0, time, diff);
+            mpr_sig_call_handler(dst_sig, MPR_SIG_REL_UPSTRM, id_map ? id_map->LID : 0, 0, 0, time, diff);
         }
 
         if (status & EXPR_UPDATE) {
@@ -666,15 +605,15 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
  */
 
             /* copy to signal value */
-            memcpy(si->val, result, val_size);
+            memcpy(si->val, result, mpr_sig_get_value_size((mpr_sig)dst_sig));
             memcpy(&si->time, &time, sizeof(mpr_time));
             si->has_val = 1;
 
             mpr_sig_call_handler(dst_sig, MPR_SIG_UPDATE, id_map ? id_map->LID : 0,
-                                 dst_sig->len, si->val, time, diff);
+                                 -1, si->val, time, diff);
             /* Pass this update downstream if signal is an input and was not updated in handler. */
-            if (   !(dst_sig->dir & MPR_DIR_OUT)
-                && !mpr_bitflags_get(dst_sig->updated_inst, si->idx)) {
+            if (   !(mpr_sig_get_dir((mpr_sig)dst_sig) & MPR_DIR_OUT)
+                && !mpr_local_sig_get_updated(dst_sig, si->idx)) {
                 /* mark instance as updated */
                 mpr_local_sig_set_updated(dst_sig, si->idx);
                 mpr_rtr_process_sig(m->rtr, dst_sig, i, si->val, time);
@@ -685,8 +624,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             /* TODO: release map-tracked instance */
             /* Try to release instance, but do not call mpr_rtr_process_sig() here, since we don't
              * know if the local signal instance will actually be released. */
-            int evt = MPR_SIG_REL_UPSTRM & dst_sig->event_flags ? MPR_SIG_REL_UPSTRM : MPR_SIG_UPDATE;
-            mpr_sig_call_handler(dst_sig, evt, id_map ? id_map->LID : 0, 0, 0, time, diff);
+            mpr_sig_call_handler(dst_sig, MPR_SIG_REL_UPSTRM, id_map ? id_map->LID : 0, 0, 0, time, diff);
         }
 
         if ((status & EXPR_EVAL_DONE) && !m->use_inst)
@@ -704,11 +642,11 @@ lo_message mpr_map_build_msg(mpr_local_map m, mpr_local_slot slot, const void *v
     NEW_LO_MSG(msg, return 0);
     if (MPR_LOC_SRC == m->process_loc) {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->dst);
-        len = sig->len;
+        len = mpr_sig_get_len(sig);
     }
     else if (slot) {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)slot);
-        len = sig->len;
+        len = mpr_sig_get_len(sig);
     }
 
     if (val && types) {
@@ -764,10 +702,10 @@ void mpr_map_alloc_values(mpr_local_map m)
         sig = mpr_slot_get_sig((mpr_slot)m->src[i]);
         hist_size = mpr_expr_get_in_hist_size(e, i);
         mpr_slot_alloc_values(m->src[i], mpr_slot_get_num_inst((mpr_slot)m->src[i]), hist_size);
-        num_inst = mpr_max(sig->num_inst, num_inst);
+        num_inst = mpr_max(mpr_sig_get_num_inst(sig, MPR_STATUS_ANY), num_inst);
     }
     sig = mpr_slot_get_sig((mpr_slot)m->dst);
-    num_inst = mpr_max(sig->num_inst, num_inst);
+    num_inst = mpr_max(mpr_sig_get_num_inst(sig, MPR_STATUS_ANY), num_inst);
     hist_size = mpr_expr_get_out_hist_size(e);
 
     /* If the dst slot is remote, we need to allocate enough dst slot and variable instances for
@@ -828,19 +766,19 @@ static int _replace_expr_str(mpr_local_map m, const char *expr_str)
 {
     int i, out_mem, src_lens[MAX_NUM_MAP_SRC];
     char src_types[MAX_NUM_MAP_SRC];
-    mpr_sig dst_sig;
+    mpr_sig dst;
     mpr_expr expr;
     if (m->expr && m->expr_str && strcmp(m->expr_str, expr_str)==0)
         return 1;
 
     for (i = 0; i < m->num_src; i++) {
-        mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->src[i]);
-        src_types[i] = sig->type;
-        src_lens[i] = sig->len;
+        mpr_sig src = mpr_slot_get_sig((mpr_slot)m->src[i]);
+        src_types[i] = mpr_sig_get_type(src);
+        src_lens[i] = mpr_sig_get_len(src);
     }
-    dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
-    expr = mpr_expr_new_from_str(mpr_rtr_get_expr_stack(m->rtr), expr_str, m->num_src,
-                                 src_types, src_lens, dst_sig->type, dst_sig->len);
+    dst = mpr_slot_get_sig((mpr_slot)m->dst);
+    expr = mpr_expr_new_from_str(mpr_rtr_get_expr_stack(m->rtr), expr_str, m->num_src, src_types,
+                                 src_lens, mpr_sig_get_type(dst), mpr_sig_get_len(dst));
     RETURN_ARG_UNLESS(expr, 1);
 
     /* expression update may force processing location to change
@@ -849,7 +787,7 @@ static int _replace_expr_str(mpr_local_map m, const char *expr_str)
     out_mem = mpr_expr_get_out_hist_size(expr);
     if (!m->is_local_only && (out_mem > 1 && MPR_LOC_SRC == m->process_loc)) {
         m->process_loc = MPR_LOC_DST;
-        if (!dst_sig->obj.is_local) {
+        if (!mpr_obj_get_is_local((mpr_obj)dst)) {
             /* copy expression string but do not execute it */
             mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str,
                                REMOTE_MODIFY);
@@ -950,9 +888,11 @@ static const char *_set_linear(mpr_local_map m, const char *e)
     char *var = "x";
 
     /* TODO: check for convergent maps */
-    mpr_sig src_sig_0 = mpr_slot_get_sig((mpr_slot)m->src[0]);
-    mpr_sig dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
-    int min_len = mpr_min(src_sig_0->len, dst_sig->len);
+    mpr_sig src_0 = mpr_slot_get_sig((mpr_slot)m->src[0]);
+    mpr_sig dst = mpr_slot_get_sig((mpr_slot)m->dst);
+    int dst_len = mpr_sig_get_len(dst);
+    int src_0_len = mpr_sig_get_len(src_0);
+    int min_len = mpr_min(src_0_len, dst_len);
 
     if (e) {
         /* how many instances of 'linear' appear in the expression string? */
@@ -1085,41 +1025,42 @@ static const char *_set_linear(mpr_local_map m, const char *e)
         else                                                                            \
             len = cont = 0;
 
-        print_extremum(src_sig_0, MPR_PROP_MIN, "sMin");
-        print_extremum(src_sig_0, MPR_PROP_MAX, "sMax");
-        print_extremum(dst_sig, MPR_PROP_MIN, "dMin");
-        print_extremum(dst_sig, MPR_PROP_MAX, "dMax");
+        print_extremum(src_0, MPR_PROP_MIN, "sMin");
+        print_extremum(src_0, MPR_PROP_MAX, "sMax");
+        print_extremum(dst, MPR_PROP_MIN, "dMin");
+        print_extremum(dst, MPR_PROP_MAX, "dMax");
 
 #undef print_extremum
     }
     if (!len) {
         /* try linear combination of inputs */
         if (1 == m->num_src) {
-            if (dst_sig->len >= src_sig_0->len)
+            if (dst_len >= src_0_len)
                 snprintf(expr, MAX_LEN, "y=x");
             else {
                 /* truncate source */
-                if (1 == dst_sig->len)
+                if (1 == dst_len)
                     snprintf(expr, MAX_LEN, "y=x[0]");
                 else
-                    snprintf(expr, MAX_LEN, "y=x[0:%i]", dst_sig->len-1);
+                    snprintf(expr, MAX_LEN, "y=x[0:%i]", dst_len-1);
             }
         }
         else {
             /* check vector lengths */
-            int i, j, dst_vec_len = dst_sig->len;
+            int i, j;
             len = snprintf(expr, MAX_LEN, "y=(");
             for (i = 0; i < m->num_src; i++) {
-                mpr_sig src_sig_i = mpr_slot_get_sig((mpr_slot)m->src[i]);
-                if (src_sig_i->len > dst_vec_len) {
-                    if (1 == dst_vec_len)
+                mpr_sig src_i = mpr_slot_get_sig((mpr_slot)m->src[i]);
+                int src_i_len = mpr_sig_get_len(src_i);
+                if (src_i_len > dst_len) {
+                    if (1 == dst_len)
                         len += snprintf(expr+len, MAX_LEN-len, "x$%d[0]+", i);
                     else
-                        len += snprintf(expr+len, MAX_LEN-len, "x$%d[0:%d]+", i, dst_vec_len-1);
+                        len += snprintf(expr+len, MAX_LEN-len, "x$%d[0:%d]+", i, dst_len-1);
                 }
-                else if (src_sig_i->len < dst_vec_len) {
+                else if (src_i_len < dst_len) {
                     len += snprintf(expr+len, MAX_LEN-len, "[x$%d,0", i);
-                    for (j = 1; j < dst_vec_len - src_sig_0->len; j++)
+                    for (j = 1; j < dst_len - src_0_len; j++)
                         len += snprintf(expr+len, MAX_LEN-len, ",0");
                     len += snprintf(expr+len, MAX_LEN-len, "]+");
                 }
@@ -1140,7 +1081,7 @@ static const char *_set_linear(mpr_local_map m, const char *e)
 
     len = strlen(expr);
 
-    if (dst_sig->len >= src_sig_0->len)
+    if (dst_len >= src_0_len)
         snprintf(expr+len, MAX_LEN-len, "y=m*%s+b;", var);
     else if (min_len == 1)
         snprintf(expr+len, MAX_LEN-len, "y=m*%s[0]+b;", var);
@@ -1166,12 +1107,12 @@ static int _set_expr(mpr_local_map m, const char *expr)
     /* deal with instances activated by the previous expression */
     if (m->id_map) {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->src[0]);
-        if (sig->obj.is_local)
-            mpr_dev_LID_decref((mpr_local_dev)sig->dev, 0, m->id_map);
+        if (mpr_obj_get_is_local((mpr_obj)sig))
+            mpr_dev_LID_decref((mpr_local_dev)mpr_sig_get_dev(sig), 0, m->id_map);
         if (!m->is_local_only) {
             sig = mpr_slot_get_sig((mpr_slot)m->dst);
-            if (sig->obj.is_local)
-                mpr_dev_LID_decref((mpr_local_dev)sig->dev, 0, m->id_map);
+            if (mpr_obj_get_is_local((mpr_obj)sig))
+                mpr_dev_LID_decref((mpr_local_dev)mpr_sig_get_dev(sig), 0, m->id_map);
         }
     }
 
@@ -1201,7 +1142,7 @@ static int _set_expr(mpr_local_map m, const char *expr)
     dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
     if (!_replace_expr_str(m, expr)) {
         mpr_time now;
-        char *types = alloca(dst_sig->len * sizeof(char));
+        char *types = alloca(mpr_sig_get_len(dst_sig) * sizeof(char));
         mpr_map_alloc_values(m);
         /* evaluate expression to intialise literals */
         mpr_time_set(&now, MPR_NOW);
@@ -1211,8 +1152,8 @@ static int _set_expr(mpr_local_map m, const char *expr)
     }
     else {
         mpr_sig src_sig = mpr_slot_get_sig((mpr_slot)m->src[0]);
-        if (!m->expr && (   (MPR_LOC_DST == m->process_loc && dst_sig->obj.is_local)
-                         || (MPR_LOC_SRC == m->process_loc && src_sig->obj.is_local))) {
+        if (!m->expr && (   (MPR_LOC_DST == m->process_loc && mpr_obj_get_is_local((mpr_obj)dst_sig))
+                         || (MPR_LOC_SRC == m->process_loc && mpr_obj_get_is_local((mpr_obj)src_sig)))) {
             /* no previous expression, abort map */
             m->status = MPR_STATUS_EXPIRED;
         }
@@ -1224,16 +1165,13 @@ static int _set_expr(mpr_local_map m, const char *expr)
     /* Special case: if we are the receiver and the new expression evaluates to
      * a constant we can update immediately. */
     /* TODO: should call handler for all instances updated through this map. */
-    if (mpr_expr_get_num_input_slots(m->expr) <= 0 && !m->use_inst && dst_sig->obj.is_local) {
+    if (   mpr_expr_get_num_input_slots(m->expr) <= 0 && !m->use_inst
+        && mpr_obj_get_is_local((mpr_obj)dst_sig)) {
         /* call handler if it exists */
-        mpr_sig_handler *h = (mpr_sig_handler *)((mpr_local_sig)dst_sig)->handler;
         mpr_time now;
         mpr_time_set(&now, MPR_NOW);
-        if (h) {
-            mpr_value val = mpr_slot_get_value(m->dst);
-            h(dst_sig, MPR_SIG_UPDATE, 0, dst_sig->len, dst_sig->type,
-              mpr_value_get_samp(val, 0), now);
-        }
+        mpr_sig_call_handler((mpr_local_sig)dst_sig, MPR_SIG_UPDATE, 0, -1,
+                             mpr_slot_get_value(m->dst), now, 0);
     }
 
     /* check whether each source slot causes computation */
@@ -1269,13 +1207,11 @@ static void _check_status(mpr_local_map m)
             mpr_link last = 0, link = mpr_slot_get_link((mpr_slot)m->dst);
             if (link) {
                 mpr_link_add_map(link, 0);
-                mpr_tbl_set_is_dirty(((mpr_obj)link)->props.synced, 1);
             }
             for (i = 0; i < m->num_src; i++) {
                 link = mpr_slot_get_link((mpr_slot)m->src[i]);
                 if (link && link != last) {
                     mpr_link_add_map(link, 1);
-                    mpr_tbl_set_is_dirty(((mpr_obj)link)->props.synced, 1);
                     last = link;
                 }
             }
@@ -1536,54 +1472,45 @@ done:
     return updated;
 }
 
-/* If the "slot_index" argument is >= 0, we can assume this message will be sent
+/* If the "slot_idx" argument is >= 0, we can assume this message will be sent
  * to a peer device rather than a session manager. */
-int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
+int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
 {
     lo_message msg;
-    char dst_name[256], src_names[1024];
-    int i, len = 0, result, staged;
+    char buffer[256];
+    int i, staged;
     mpr_link link;
-    mpr_sig sig = mpr_slot_get_sig(m->dst);
     mpr_dir dst_dir = mpr_slot_get_dir(m->dst);
 
     if (MSG_MAPPED == cmd && m->status < MPR_STATUS_READY)
-        return slot;
+        return slot_idx;
     msg = lo_message_new();
     if (!msg) {
         trace_net("couldn't allocate lo_message\n");
-        return slot;
+        return slot_idx;
     }
-    snprintf(dst_name, 256, "%s%s", mpr_dev_get_name(sig->dev), sig->path);
     if (MPR_DIR_IN == dst_dir) {
         /* add mapping destination */
-        lo_message_add_string(msg, dst_name);
+        mpr_sig_get_full_name(mpr_slot_get_sig(m->dst), buffer, 256);
+        lo_message_add_string(msg, buffer);
         lo_message_add_string(msg, "<-");
     }
 
     /* add mapping sources */
-
-    i = (slot >= 0) ? slot : 0;
+    i = (slot_idx >= 0) ? slot_idx : 0;
     link = mpr_slot_get_is_local(m->src[i]) ? mpr_slot_get_link(m->src[i]) : 0;
     for (; i < m->num_src; i++) {
-        if ((slot >= 0) && link && (link != mpr_slot_get_link(m->src[i])))
+        if ((slot_idx >= 0) && link && (link != mpr_slot_get_link(m->src[i])))
             break;
-        sig = mpr_slot_get_sig(m->src[i]);
-        result = snprintf(&src_names[len], 1024-len, "%s%s", mpr_dev_get_name(sig->dev), sig->path);
-        if (result < 0 || (len + result + 1) >= 1024) {
-            trace("Error encoding sources for combined /mapped msg");
-            lo_message_free(msg);
-            return slot;
-        }
-        /* TODO: doesn't liblo copy these? why are we storing them? */
-        lo_message_add_string(msg, &src_names[len]);
-        len += result + 1;
+        mpr_sig_get_full_name(mpr_slot_get_sig(m->src[i]), buffer, 256);
+        lo_message_add_string(msg, buffer);
     }
 
     if (MPR_DIR_OUT == dst_dir || !dst_dir) {
         /* add mapping destination */
+        mpr_sig_get_full_name(mpr_slot_get_sig(m->dst), buffer, 256);
         lo_message_add_string(msg, "->");
-        lo_message_add_string(msg, dst_name);
+        lo_message_add_string(msg, buffer);
     }
 
     /* Add unique id */
@@ -1604,20 +1531,20 @@ int mpr_map_send_state(mpr_map m, int slot, net_msg_t cmd)
     /* add slot id */
     if (MPR_DIR_IN == dst_dir && m->status <= MPR_STATUS_READY && !staged) {
         lo_message_add_string(msg, mpr_prop_as_str(PROP(SLOT), 0));
-        i = (slot >= 0) ? slot : 0;
+        i = (slot_idx >= 0) ? slot_idx : 0;
         link = mpr_slot_get_is_local(m->src[i]) ? mpr_slot_get_link(m->src[i]) : 0;
         for (; i < m->num_src; i++) {
-            if ((slot >= 0) && link && (link != mpr_slot_get_link(m->src[i])))
+            if ((slot_idx >= 0) && link && (link != mpr_slot_get_link(m->src[i])))
                 break;
             lo_message_add_int32(msg, mpr_slot_get_id(m->src[i]));
         }
     }
 
     /* source properties */
-    i = (slot >= 0) ? slot : 0;
+    i = (slot_idx >= 0) ? slot_idx : 0;
     link = mpr_slot_get_is_local(m->src[i]) ? mpr_slot_get_link(m->src[i]) : 0;
     for (; i < m->num_src; i++) {
-        if ((slot >= 0) && link && (link != mpr_slot_get_link(m->src[i])))
+        if ((slot_idx >= 0) && link && (link != mpr_slot_get_link(m->src[i])))
             break;
         if (MSG_MAPPED == cmd || (MPR_DIR_OUT == dst_dir))
             mpr_slot_add_props_to_msg(msg, m->src[i], 0);
@@ -1763,4 +1690,52 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
 error:
     va_end(aq);
     return NULL;
+}
+
+int _compare_slot_names(const void *l, const void *r)
+{
+    return mpr_slot_compare_names(*(mpr_slot*)l, *(mpr_slot*)r);
+}
+
+void mpr_map_add_src(mpr_map map, mpr_sig sig, mpr_dir dir, int is_local)
+{
+    int i;
+    ++map->num_src;
+    map->src = realloc(map->src, sizeof(mpr_slot) * map->num_src);
+    map->src[map->num_src - 1] = mpr_slot_new(map, sig, dir, is_local, 1);
+
+    /* slots should be in alphabetical order */
+    qsort(map->src, map->num_src, sizeof(mpr_slot), _compare_slot_names);
+
+    /* fix slot ids */
+    for (i = 0; i < map->num_src; i++)
+        mpr_slot_set_id(map->src[i], i);
+}
+
+int mpr_map_compare(mpr_map l, mpr_map r)
+{
+    int i;
+    if (   mpr_obj_get_id((mpr_obj)r) != 0
+        || l->num_src != r->num_src
+        || mpr_slot_get_sig(l->dst) != mpr_slot_get_sig(r->dst))
+        return 0;
+    for (i = 0; i < l->num_src; i++) {
+        if (mpr_slot_get_sig(l->src[i]) != mpr_slot_get_sig(r->src[i]))
+            return 0;
+    }
+    return 1;
+}
+
+int mpr_map_compare_names(mpr_map map, int num_src, const char **srcs, const char *dst)
+{
+    if (map->num_src != num_src || mpr_slot_match_full_name(map->dst, dst))
+        return 0;
+    else {
+        int i;
+        for (i = 0; i < num_src; i++) {
+            if (mpr_slot_match_full_name(map->src[i], srcs[i]))
+                return 0;
+        }
+    }
+    return 1;
 }

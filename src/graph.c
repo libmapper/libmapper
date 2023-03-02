@@ -561,10 +561,10 @@ mpr_dev mpr_graph_get_dev_by_name(mpr_graph g, const char *name)
     mpr_list devs = mpr_list_from_data(g->devs);
     while (devs) {
         mpr_dev dev = (mpr_dev)*devs;
-        devs = mpr_list_get_next(devs);
         name = mpr_dev_get_name(dev);
         if (name && (0 == strcmp(name, no_slash)))
             return dev;
+        devs = mpr_list_get_next(devs);
     }
     return 0;
 }
@@ -587,14 +587,9 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *name, const char *dev_name, m
 
     if (!sig) {
         int num_inst = 1;
-        sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, sizeof(mpr_sig_t));
+        sig = (mpr_sig)mpr_list_add_item((void**)&g->sigs, mpr_sig_get_struct_size());
         mpr_obj_init((mpr_obj)sig, g, MPR_SIG);
-
-        /* also add device record if necessary */
-        sig->dev = dev;
-        sig->obj.is_local = 0;
-
-        mpr_sig_init(sig, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, &num_inst);
+        mpr_sig_init(sig, dev, 0, MPR_DIR_UNDEFINED, name, 0, 0, 0, 0, 0, &num_inst);
         rc = 1;
         trace_graph("added signal '%s:%s'.\n", dev_name, name);
     }
@@ -655,16 +650,6 @@ void mpr_graph_remove_link(mpr_graph g, mpr_link l, mpr_graph_evt e)
 
 /**** Map records ****/
 
-static int _compare_slot_names(const void *l, const void *r)
-{
-    mpr_sig lsig = mpr_slot_get_sig(*(mpr_slot*)l);
-    mpr_sig rsig = mpr_slot_get_sig(*(mpr_slot*)r);
-    int result = strcmp(mpr_dev_get_name(lsig->dev), mpr_dev_get_name(rsig->dev));
-    if (0 == result)
-        return strcmp(lsig->name, rsig->name);
-    return result;
-}
-
 static mpr_sig add_sig_from_whole_name(mpr_graph g, const char* name)
 {
     char *devnamep, *signame, devname[256];
@@ -680,28 +665,14 @@ static mpr_sig add_sig_from_whole_name(mpr_graph g, const char* name)
 
 mpr_map mpr_graph_get_map_by_names(mpr_graph g, int num_src, const char **srcs, const char *dst)
 {
-    mpr_map map = 0;
     mpr_list maps = mpr_list_from_data(g->maps);
     while (maps) {
-        map = (mpr_map)*maps;
-        if (map->num_src != num_src)
-            map = 0;
-        else if (mpr_slot_match_full_name(map->dst, dst))
-            map = 0;
-        else {
-            int i;
-            for (i = 0; i < num_src; i++) {
-                if (mpr_slot_match_full_name(map->src[i], srcs[i])) {
-                    map = 0;
-                    break;
-                }
-            }
-        }
-        if (map)
-            break;
+        mpr_map map = (mpr_map)*maps;
+        if (mpr_map_compare_names(map, num_src, srcs, dst))
+            return map;
         maps = mpr_list_get_next(maps);
     }
-    return map;
+    return 0;
 }
 
 mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_names,
@@ -733,7 +704,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         for (i = 0; i < num_src; i++) {
             src_sigs[i] = add_sig_from_whole_name(g, src_names[i]);
             RETURN_ARG_UNLESS(src_sigs[i], 0);
-            mpr_graph_add_link(g, dst_sig->dev, src_sigs[i]->dev);
+            mpr_graph_add_link(g, mpr_sig_get_dev(dst_sig), mpr_sig_get_dev(src_sigs[i]));
             is_local += mpr_obj_get_is_local((mpr_obj)src_sigs[i]);
         }
         is_local += mpr_obj_get_is_local((mpr_obj)dst_sig);
@@ -741,14 +712,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         map = (mpr_map)mpr_list_add_item((void**)&g->maps,
                                          is_local ? sizeof(mpr_local_map_t) : sizeof(mpr_map_t));
         mpr_obj_init((mpr_obj)map, g, MPR_MAP);
-        map->obj.id = id;
-        map->num_src = num_src;
-        map->obj.is_local = 0;
-        map->src = (mpr_slot*)malloc(sizeof(mpr_slot) * num_src);
-        for (i = 0; i < num_src; i++)
-            map->src[i] = mpr_slot_new(map, src_sigs[i], MPR_DIR_UNDEFINED, is_local, 1);
-        map->dst = mpr_slot_new(map, dst_sig, MPR_DIR_UNDEFINED, is_local, 0);
-        mpr_map_init(map);
+        mpr_map_init(map, num_src, src_sigs, dst_sig, is_local);
+        mpr_obj_set_id((mpr_obj)map, id);
         ++g->staged_maps;
         rc = 1;
 #ifdef DEBUG
@@ -771,34 +736,17 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
             }
             if (j == map->num_src) {
                 ++changed;
-                ++map->num_src;
-                map->src = realloc(map->src, sizeof(mpr_slot) * map->num_src);
-                map->src[j] = mpr_slot_new(map, src_sig, MPR_DIR_UNDEFINED, is_local, 1);
+                mpr_map_add_src(map, src_sig, MPR_DIR_UNDEFINED, is_local);
                 ++updated;
             }
         }
         if (changed) {
-            mpr_list maps;
-            /* slots should be in alphabetical order */
-            qsort(map->src, map->num_src, sizeof(mpr_slot), _compare_slot_names);
-            /* fix slot ids */
-            for (i = 0; i < num_src; i++)
-                mpr_slot_set_id(map->src[i], i);
             /* check again if this mirrors a staged map */
-            maps = mpr_list_from_data(g->maps);
+            mpr_list maps = mpr_list_from_data(g->maps);
             while (maps) {
                 mpr_map map2 = (mpr_map)*maps;
                 maps = mpr_list_get_next(maps);
-                if (map2->obj.id != 0 || map->num_src != map2->num_src
-                    || mpr_slot_get_sig(map->dst) != mpr_slot_get_sig(map2->dst))
-                    continue;
-                for (i = 0; i < map->num_src; i++) {
-                    if (mpr_slot_get_sig(map->src[i]) != mpr_slot_get_sig(map2->src[i])) {
-                        map2 = NULL;
-                        break;
-                    }
-                }
-                if (map2) {
+                if (mpr_map_compare(map, map2)) {
                     mpr_graph_remove_map(g, map2, 0);
                     break;
                 }
@@ -952,7 +900,6 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
 
         left_ms = block_ms - elapsed;
     }
-
     return count;
 }
 
@@ -1208,7 +1155,6 @@ void mpr_graph_sync_dev(mpr_graph g, const char *name)
         RETURN_UNLESS(!mpr_obj_get_is_local((mpr_obj)dev));
         trace_graph("updating sync record for device '%s'\n", name);
         mpr_dev_set_synced(dev, MPR_NOW);
-
         if (!mpr_dev_get_is_subscribed(dev) && g->autosub) {
             trace_graph("autosubscribing to device '%s'.\n", name);
             mpr_graph_subscribe(g, dev, g->autosub, -1);

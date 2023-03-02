@@ -168,7 +168,7 @@ void mpr_link_free(mpr_link link)
 
 /* note on memory handling of mpr_link_add_msg():
  * message: will be owned, will be freed when done */
-void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
+void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time t,
                       mpr_proto proto, int idx)
 {
     lo_bundle *b;
@@ -180,7 +180,7 @@ void mpr_link_add_msg(mpr_link link, mpr_sig dst, lo_message msg, mpr_time t,
     b = (proto == MPR_PROTO_UDP) ? &link->bundles[idx].udp : &link->bundles[idx].tcp;
     if (!(*b))
         *b = lo_bundle_new(t);
-    lo_bundle_add_message(*b, dst->path, msg);
+    lo_bundle_add_message(*b, path, msg);
 }
 
 /* TODO: pass in bundle index as argument */
@@ -279,6 +279,7 @@ void mpr_link_add_map(mpr_link link, int is_src)
     ++link->num_maps[is_src];
     if (link->is_local_only)
         link->clock.rcvd.time.sec = 0;
+    mpr_tbl_set_is_dirty(link->obj.props.synced, 1);
 }
 
 void mpr_link_remove_map(mpr_link link, mpr_local_map rem)

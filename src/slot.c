@@ -56,7 +56,7 @@ mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
     slot->is_local = is_local ? 1 : 0;
     slot->num_inst = 1;
     if (MPR_DIR_UNDEFINED == dir)
-        slot->dir = (is_src == sig->obj.is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
+        slot->dir = (is_src == mpr_obj_get_is_local((mpr_obj)sig)) ? MPR_DIR_OUT : MPR_DIR_IN;
     else
         slot->dir = dir;
     slot->causes_update = 1; /* default */
@@ -83,14 +83,16 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
 {
     int updated = 0, mask;
     mpr_msg_atom a;
+    mpr_tbl tbl;
     RETURN_ARG_UNLESS(slot && (!slot->is_local || !((mpr_local_slot)slot)->rsig), 0);
     mask = slot_mask(slot);
 
+    tbl = mpr_obj_get_prop_tbl((mpr_obj)slot->sig);
     a = mpr_msg_get_prop(msg, MPR_PROP_LEN | mask);
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
         mpr_msg_atom_set_prop(a, prop * ~mask);
-        if (mpr_tbl_add_record_from_msg_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
+        if (mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY))
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
@@ -98,7 +100,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
         mpr_msg_atom_set_prop(a, prop & ~mask);
-        if (mpr_tbl_add_record_from_msg_atom(slot->sig->obj.props.synced, a, REMOTE_MODIFY))
+        if (mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY))
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
@@ -114,8 +116,8 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
             else if (strcmp(&(*vals)->s, "input")==0)
                 dir = MPR_DIR_IN;
             if (dir)
-                updated += mpr_tbl_add_record(slot->sig->obj.props.synced, PROP(DIR), NULL,
-                                              1, MPR_INT32, &dir, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir,
+                                              REMOTE_MODIFY);
         }
     }
     a = mpr_msg_get_prop(msg, MPR_PROP_NUM_INST | mask);
@@ -124,7 +126,8 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
         if (MPR_INT32 == types[0]) {
             lo_arg **vals = mpr_msg_atom_get_values(a);
             int num_inst = vals[0]->i;
-            if (slot->is_local && !slot->sig->obj.is_local && ((mpr_local_map)slot->map)->expr) {
+            if (slot->is_local && !mpr_obj_get_is_local((mpr_obj)slot->sig)
+                && ((mpr_local_map)slot->map)->expr) {
                 mpr_local_map map = (mpr_local_map)slot->map;
                 int hist_size = 0;
                 if (map->dst == (mpr_local_slot)slot)
@@ -157,21 +160,21 @@ void mpr_slot_add_props_to_msg(lo_message msg, mpr_slot slot, int is_dst)
         snprintf(temp, 32, "@src.%d", (int)slot->id);
     len = strlen(temp);
 
-    if (slot->sig->obj.is_local) {
+    if (mpr_obj_get_is_local((mpr_obj)slot->sig)) {
         /* include length from associated signal */
         snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_LEN, 0));
         lo_message_add_string(msg, temp);
-        lo_message_add_int32(msg, slot->sig->len);
+        lo_message_add_int32(msg, mpr_sig_get_len(slot->sig));
 
         /* include type from associated signal */
         snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_TYPE, 0));
         lo_message_add_string(msg, temp);
-        lo_message_add_char(msg, slot->sig->type);
+        lo_message_add_char(msg, mpr_sig_get_type(slot->sig));
 
         /* include direction from associated signal */
         snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_DIR, 0));
         lo_message_add_string(msg, temp);
-        lo_message_add_string(msg, slot->sig->dir == MPR_DIR_OUT ? "output" : "input");
+        lo_message_add_string(msg, mpr_sig_get_dir(slot->sig) == MPR_DIR_OUT ? "output" : "input");
 
         /* include num_inst property */
         snprintf(temp+len, 32-len, "%s", mpr_prop_as_str(MPR_PROP_NUM_INST, 0));
@@ -190,8 +193,8 @@ void mpr_slot_print(mpr_slot slot, int is_dst)
     else
         snprintf(temp, 16, "@src.%d", (int)slot->id);
 
-    printf(", %s%s=%d", temp, mpr_prop_as_str(MPR_PROP_LEN, 0), slot->sig->type);
-    printf(", %s%s=%c", temp, mpr_prop_as_str(MPR_PROP_TYPE, 0), slot->sig->type);
+    printf(", %s%s=%d", temp, mpr_prop_as_str(MPR_PROP_LEN, 0), mpr_sig_get_len(slot->sig));
+    printf(", %s%s=%c", temp, mpr_prop_as_str(MPR_PROP_TYPE, 0), mpr_sig_get_type(slot->sig));
     printf(", %s%s=%d", temp, mpr_prop_as_str(MPR_PROP_NUM_INST, 0), slot->num_inst);
 }
 
@@ -204,20 +207,21 @@ int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
     sig_name = strchr(full_name+1, '/');
     RETURN_ARG_UNLESS(sig_name, 1);
     len = sig_name - full_name;
-    dev_name = mpr_dev_get_name(slot->sig->dev);
+    dev_name = mpr_dev_get_name(mpr_sig_get_dev(slot->sig));
     return (strlen(dev_name) != len || strncmp(full_name, dev_name, len)
-            || strcmp(sig_name+1, slot->sig->name)) ? 1 : 0;
+            || strcmp(sig_name+1, mpr_sig_get_name(slot->sig))) ? 1 : 0;
 }
 
 void mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size)
 {
-    RETURN_UNLESS(num_inst && hist_size && slot->sig->type && slot->sig->len);
-    if (slot->sig->obj.is_local)
-        num_inst = slot->sig->num_inst;
+    int len = mpr_sig_get_len(slot->sig);
+    mpr_type type = mpr_sig_get_type(slot->sig);
+    RETURN_UNLESS(num_inst && hist_size && type && len);
+    if (mpr_obj_get_is_local((mpr_obj)slot->sig))
+        num_inst = mpr_local_sig_get_num_inst((mpr_local_sig)slot->sig);
 
     /* reallocate memory */
-    mpr_value_realloc(&slot->val, slot->sig->len, slot->sig->type,
-                      hist_size, num_inst, slot == slot->map->dst);
+    mpr_value_realloc(&slot->val, len, type, hist_size, num_inst, slot == slot->map->dst);
 
     slot->num_inst = num_inst;
 }
@@ -318,11 +322,28 @@ void mpr_slot_set_causes_update(mpr_slot slot, int causes_update)
 char mpr_slot_check_status(mpr_local_slot slot)
 {
     mpr_sig sig = slot->sig;
-    if (sig->len)
+    if (mpr_sig_get_len(sig))
         slot->status |= MPR_STATUS_LENGTH_KNOWN;
-    if (sig->type)
+    if (mpr_sig_get_type(sig))
         slot->status |= MPR_STATUS_TYPE_KNOWN;
     if (slot->rsig || mpr_link_get_is_ready(slot->link))
         slot->status |= MPR_STATUS_LINK_KNOWN;
     return slot->status;
+}
+
+void mpr_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto,
+                       int bundle_idx)
+{
+    mpr_link_add_msg(slot->link, mpr_sig_get_path((mpr_sig)slot->sig), msg, time, proto, bundle_idx);
+}
+
+int mpr_slot_compare_names(const void *l, const void *r)
+{
+    mpr_sig lsig = (*(mpr_slot*)l)->sig;
+    mpr_sig rsig = (*(mpr_slot*)r)->sig;
+    int result = strcmp(mpr_dev_get_name(mpr_sig_get_dev(lsig)),
+                        mpr_dev_get_name(mpr_sig_get_dev(rsig)));
+    if (0 == result)
+        return strcmp(mpr_sig_get_name(lsig), mpr_sig_get_name(rsig));
+    return result;
 }

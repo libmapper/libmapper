@@ -184,6 +184,7 @@ void loop()
 {
     int i = 0, j = 0;
     float *v = malloc(vec_len * sizeof(float));
+    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsig, MPR_PROP_NAME, NULL);
 
     eprintf("Polling device..\n");
     while ((!terminate || i < 50) && !done) {
@@ -191,7 +192,7 @@ void loop()
             v[j] = (float)(i + j);
             expected[j] = v[j] * M[j] + B[j];
         }
-        eprintf("Updating signal %s to [", sendsig->name);
+        eprintf("Updating signal %s to [", name);
         for (j = 0; j < vec_len; j++)
             eprintf("%f, ", v[j]);
         eprintf("\b\b]\n");

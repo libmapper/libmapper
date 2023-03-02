@@ -33,6 +33,57 @@
 /* Function prototypes */
 static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map id_map);
 
+#define MPR_SIG_STRUCT_ITEMS                                                            \
+    mpr_obj_t obj;              /* always first */                                      \
+    char *path;                 /*! OSC path.  Must start with '/'. */                  \
+    char *name;                 /*! The name of this signal (path+1). */                \
+    char *unit;                 /*!< The unit of this signal, or NULL for N/A. */       \
+    float period;               /*!< Estimate of the update rate of this signal. */     \
+    float jitter;               /*!< Estimate of the timing jitter of this signal. */   \
+    int dir;                    /*!< `DIR_OUTGOING` / `DIR_INCOMING` / `DIR_BOTH` */    \
+    int len;                    /*!< Length of the signal vector, or 1 for scalars. */  \
+    int use_inst;               /*!< 1 if signal uses instances, 0 otherwise. */        \
+    int num_inst;               /*!< Number of instances. */                            \
+    int ephemeral;              /*!< 1 if signal is ephemeral, 0 otherwise. */          \
+    int num_maps_in;            /* TODO: use dynamic query instead? */                  \
+    int num_maps_out;           /* TODO: use dynamic query instead? */                  \
+    mpr_steal_type steal_mode;  /*!< Type of voice stealing to perform. */              \
+    mpr_type type;              /*!< The type of this signal. */
+
+/*! A record that describes properties of a signal. */
+typedef struct _mpr_sig
+{
+    MPR_SIG_STRUCT_ITEMS
+    mpr_dev dev;
+} mpr_sig_t, *mpr_sig;
+
+typedef struct _mpr_local_sig
+{
+    MPR_SIG_STRUCT_ITEMS
+    mpr_local_dev dev;
+
+    mpr_sig_id_map id_maps;         /*!< ID maps and active instances. */
+    int num_id_maps;
+    mpr_sig_inst *inst;             /*!< Array of pointers to the signal insts. */
+    char *vec_known;                /*!< Bitflags when entire vector is known. */
+    char *updated_inst;             /*!< Bitflags to indicate updated instances. */
+
+    /*! An optional function to be called when the signal value changes or when
+     *  signal instance management events occur.. */
+    void *handler;
+    int event_flags;                /*! Flags for deciding when to call the
+                                     *  instance event handler. */
+
+    mpr_sig_group group;            /* TODO: replace with hierarchical instancing */
+    uint8_t locked;
+    uint8_t updated;                /* TODO: fold into updated_inst bitflags. */
+} mpr_local_sig_t, *mpr_local_sig;
+
+size_t mpr_sig_get_struct_size()
+{
+    return sizeof(mpr_sig_t);
+}
+
 static int _compare_inst_ids(const void *l, const void *r)
 {
     return (*(mpr_sig_inst*)l)->id - (*(mpr_sig_inst*)r)->id;
@@ -49,10 +100,18 @@ static mpr_sig_inst _find_inst_by_id(mpr_local_sig lsig, mpr_id id)
     return (sipp && *sipp) ? *sipp : 0;
 }
 
-/*! Helper to find the size in bytes of a signal's full vector. */
-MPR_INLINE static size_t get_vector_size(mpr_sig sig)
+int mpr_local_sig_get_id_map_status(mpr_local_sig sig, int id_map_idx)
 {
-    return mpr_type_get_size(sig->type) * sig->len;
+    return sig->id_maps[id_map_idx].status;
+}
+
+mpr_sig_inst mpr_local_sig_get_inst_by_id_map_idx(mpr_local_sig sig, int id_map_idx,
+                                                  mpr_id_map *id_map)
+{
+    mpr_sig_id_map sig_id_map = &sig->id_maps[id_map_idx];
+    if (id_map)
+        *id_map = sig_id_map->id_map;
+    return sig_id_map->inst;
 }
 
 /*! Helper to check if a type character is valid. */
@@ -281,7 +340,7 @@ int mpr_sig_lo_handler(const char *path, const char *types, lo_arg **argv, int a
         id_map_idx = 0;
 
     if (map) {
-        for (; id_map_idx < sig->id_map_len; id_map_idx++) {
+        for (; id_map_idx < sig->num_id_maps; id_map_idx++) {
             /* check if map instance is active */
             if ((si = sig->id_maps[id_map_idx].inst) && si->active) {
                 inst_idx = si->idx;
@@ -299,7 +358,7 @@ int mpr_sig_lo_handler(const char *path, const char *types, lo_arg **argv, int a
         return 0;
     }
 
-    for (; id_map_idx < sig->id_map_len; id_map_idx++) {
+    for (; id_map_idx < sig->num_id_maps; id_map_idx++) {
         /* check if instance is active */
         if ((si = sig->id_maps[id_map_idx].inst) && si->active) {
             id_map = sig->id_maps[id_map_idx].id_map;
@@ -349,31 +408,32 @@ mpr_sig mpr_sig_new(mpr_dev dev, mpr_dir dir, const char *name, int len,
         return (mpr_sig)lsig;
 
     lsig = (mpr_local_sig)mpr_graph_add_list_item(g, MPR_SIG, sizeof(mpr_local_sig_t));
-    lsig->dev = (mpr_local_dev)dev;
     lsig->obj.id = mpr_dev_get_unused_sig_id((mpr_local_dev)dev);
     lsig->period = -1;
     lsig->handler = (void*)h;
     lsig->event_flags = events;
-    lsig->obj.is_local = 1;
-    mpr_sig_init((mpr_sig)lsig, dir, name, len, type, unit, min, max, num_inst);
+    mpr_sig_init((mpr_sig)lsig, dev, 1, dir, name, len, type, unit, min, max, num_inst);
 
     mpr_local_dev_add_server_method((mpr_local_dev)dev, lsig->path, mpr_sig_lo_handler, lsig);
     mpr_local_dev_add_sig((mpr_local_dev)dev, lsig, dir);
     return (mpr_sig)lsig;
 }
 
-void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type type,
-                  const char *unit, const void *min, const void *max, int *num_inst)
+void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const char *name, int len,
+                  mpr_type type, const char *unit, const void *min, const void *max, int *num_inst)
 {
     int i, str_len, loc_mod, rem_mod;
     mpr_tbl tbl;
     RETURN_UNLESS(name);
+
+    sig->dev = dev;
 
     name = mpr_path_skip_slash(name);
     str_len = strlen(name)+2;
     sig->path = malloc(str_len);
     snprintf(sig->path, str_len, "/%s", name);
     sig->name = (char*)sig->path+1;
+    sig->obj.is_local = is_local;
     sig->len = len;
     sig->type = type;
     sig->dir = dir ? dir : MPR_DIR_OUT;
@@ -399,7 +459,7 @@ void mpr_sig_init(mpr_sig sig, mpr_dir dir, const char *name, int len, mpr_type 
         }
 
         /* Reserve one instance id map */
-        lsig->id_map_len = 1;
+        lsig->num_id_maps = 1;
         lsig->id_maps = calloc(1, sizeof(struct _mpr_sig_id_map));
     }
     else {
@@ -455,11 +515,9 @@ void mpr_sig_free(mpr_sig sig)
     ldev = (mpr_local_dev)sig->dev;
 
     /* release active instances */
-    for (i = 0; i < lsig->id_map_len; i++) {
-        if (lsig->id_maps[i].id_map) {
-            mpr_dev_LID_decref(ldev, lsig->group, lsig->id_maps[i].id_map);
-            lsig->id_maps[i].id_map = NULL;
-        }
+    for (i = 0; i < lsig->num_id_maps; i++) {
+        if (lsig->id_maps[i].inst)
+            mpr_sig_release_inst_internal(lsig, i);
     }
 
     /* release associated OSC methods */
@@ -485,7 +543,7 @@ void mpr_sig_free_internal(mpr_sig sig)
     if (sig->obj.is_local) {
         mpr_local_sig lsig = (mpr_local_sig)sig;
         /* Free instances */
-        for (i = 0; i < lsig->id_map_len; i++) {
+        for (i = 0; i < lsig->num_id_maps; i++) {
             if (lsig->id_maps[i].inst)
                 mpr_sig_release_inst_internal(lsig, i);
         }
@@ -519,8 +577,12 @@ void mpr_sig_call_handler(mpr_local_sig lsig, int evt, mpr_id inst, int len,
     RETURN_UNLESS(val || lsig->ephemeral)
 
     mpr_sig_update_timing_stats(lsig, diff);
+    if (MPR_SIG_REL_UPSTRM == evt && !(MPR_SIG_REL_UPSTRM & lsig->event_flags))
+        evt = MPR_SIG_UPDATE;
     RETURN_UNLESS(evt & lsig->event_flags);
     RETURN_UNLESS((h = (mpr_sig_handler*)lsig->handler));
+    if (-1 == len)
+        len = lsig->len;
     h((mpr_sig)lsig, evt, lsig->use_inst ? inst : 0, val ? len : 0, lsig->type, val, time);
 }
 
@@ -543,7 +605,7 @@ static mpr_sig_inst _reserved_inst(mpr_local_sig lsig, mpr_id *id)
 
     for (i = 0; i < lsig->num_inst; i++) {
         si = lsig->inst[i];
-        for (j = 0; j < lsig->id_map_len; j++) {
+        for (j = 0; j < lsig->num_id_maps; j++) {
             mpr_id_map id_map = lsig->id_maps[j].id_map;
             if (!id_map)
                 goto done;
@@ -569,16 +631,16 @@ int _oldest_inst(mpr_local_sig lsig)
 {
     int i, oldest;
     mpr_sig_inst si;
-    for (i = 0; i < lsig->id_map_len; i++) {
+    for (i = 0; i < lsig->num_id_maps; i++) {
         if (lsig->id_maps[i].inst)
             break;
     }
-    if (i == lsig->id_map_len) {
+    if (i == lsig->num_id_maps) {
         /* no active instances to steal! */
         return -1;
     }
     oldest = i;
-    for (i = oldest+1; i < lsig->id_map_len; i++) {
+    for (i = oldest+1; i < lsig->num_id_maps; i++) {
         if (!(si = lsig->id_maps[i].inst))
             continue;
         if ((si->created.sec < lsig->id_maps[oldest].inst->created.sec) ||
@@ -603,16 +665,16 @@ int _newest_inst(mpr_local_sig lsig)
 {
     int i, newest;
     mpr_sig_inst si;
-    for (i = 0; i < lsig->id_map_len; i++) {
+    for (i = 0; i < lsig->num_id_maps; i++) {
         if (lsig->id_maps[i].inst)
             break;
     }
-    if (i == lsig->id_map_len) {
+    if (i == lsig->num_id_maps) {
         /* no active instances to steal! */
         return -1;
     }
     newest = i;
-    for (i = newest + 1; i < lsig->id_map_len; i++) {
+    for (i = newest + 1; i < lsig->num_id_maps; i++) {
         if (!(si = lsig->id_maps[i].inst))
             continue;
         if ((si->created.sec > lsig->id_maps[newest].inst->created.sec) ||
@@ -642,7 +704,7 @@ int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags, mpr_t
     if (!lsig->use_inst)
         LID = MPR_DEFAULT_INST;
     h = (mpr_sig_handler*)lsig->handler;
-    for (i = 0; i < lsig->id_map_len; i++) {
+    for (i = 0; i < lsig->num_id_maps; i++) {
         mpr_sig_id_map sig_id_map = &lsig->id_maps[i];
         if (sig_id_map->inst && sig_id_map->id_map && sig_id_map->id_map->LID == LID)
             return (sig_id_map->status & ~flags) ? -1 : i;
@@ -714,7 +776,7 @@ int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags, mpr_t
     mpr_id_map id_map;
     int i;
     h = (mpr_sig_handler*)lsig->handler;
-    for (i = 0; i < lsig->id_map_len; i++) {
+    for (i = 0; i < lsig->num_id_maps; i++) {
         mpr_sig_id_map sig_id_map = &lsig->id_maps[i];
         if (sig_id_map->id_map && sig_id_map->id_map->GID == GID)
             return (sig_id_map->status & ~flags) ? -1 : i;
@@ -805,6 +867,22 @@ int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags, mpr_t
     return -1;
 }
 
+/* finding id_maps here will be a bit inefficient for now */
+/* TODO: optimize storage and lookup */
+mpr_sig_inst mpr_local_sig_get_inst_by_idx(mpr_local_sig sig, int inst_idx, mpr_id_map *id_map)
+{
+    int i;
+    for (i = 0; i < sig->num_id_maps; i++) {
+        mpr_sig_id_map sig_id_map = &sig->id_maps[i];
+        if (sig_id_map->inst && sig_id_map->inst->idx == inst_idx) {
+            if (id_map)
+                *id_map = sig_id_map->id_map;
+            return sig_id_map->inst;
+        }
+    }
+    return 0;
+}
+
 static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
 {
     int i, cont;
@@ -819,7 +897,7 @@ static int _reserve_inst(mpr_local_sig lsig, mpr_id *id, void *data)
     lsig->inst = realloc(lsig->inst, sizeof(mpr_sig_inst) * (lsig->num_inst + 1));
     lsig->inst[lsig->num_inst] = (mpr_sig_inst) calloc(1, sizeof(struct _mpr_sig_inst));
     si = lsig->inst[lsig->num_inst];
-    si->val = calloc(1, get_vector_size((mpr_sig)lsig));
+    si->val = calloc(1, mpr_sig_get_value_size((mpr_sig)lsig));
     si->has_val_flags = calloc(1, lsig->len / 8 + 1);
     si->has_val = 0;
     si->active = 0;
@@ -1012,7 +1090,7 @@ void mpr_sig_set_value(mpr_sig sig, mpr_id id, int len, mpr_type type, const voi
     if (type != lsig->type || len < lsig->len)
         mpr_set_coerced(lsig->len, type, val, lsig->len, lsig->type, si->val);
     else
-        memcpy(si->val, (void*)val, get_vector_size(sig));
+        memcpy(si->val, (void*)val, mpr_sig_get_value_size(sig));
     si->has_val = 1;
 
     /* mark instance as updated */
@@ -1122,6 +1200,11 @@ const void *mpr_sig_get_value(mpr_sig sig, mpr_id id, mpr_time *time)
     mpr_time_set(&now, MPR_NOW);
     mpr_sig_update_timing_stats(lsig, mpr_time_get_diff(now, si->time));
     return si->val;
+}
+
+int mpr_local_sig_get_num_inst(mpr_local_sig sig)
+{
+    return sig->num_inst;
 }
 
 int mpr_sig_get_num_inst(mpr_sig sig, mpr_status status)
@@ -1262,20 +1345,20 @@ static int _init_and_add_id_map(mpr_local_sig lsig, mpr_sig_inst si, mpr_id_map 
     }
 
     /* find unused signal map */
-    for (i = 0; i < lsig->id_map_len; i++) {
+    for (i = 0; i < lsig->num_id_maps; i++) {
         if (!lsig->id_maps[i].id_map)
             break;
     }
-    if (i == lsig->id_map_len) {
+    if (i == lsig->num_id_maps) {
         /* need more memory */
-        if (lsig->id_map_len >= MAX_INST) {
+        if (lsig->num_id_maps >= MAX_INST) {
             /* Arbitrary limit to number of tracked id_maps */
             /* TODO: add checks for this return value */
             return -1;
         }
-        lsig->id_map_len = lsig->id_map_len ? lsig->id_map_len * 2 : 1;
-        lsig->id_maps = realloc(lsig->id_maps, (lsig->id_map_len * sizeof(struct _mpr_sig_id_map)));
-        memset(lsig->id_maps + i, 0, ((lsig->id_map_len - i) * sizeof(struct _mpr_sig_id_map)));
+        lsig->num_id_maps = lsig->num_id_maps ? lsig->num_id_maps * 2 : 1;
+        lsig->id_maps = realloc(lsig->id_maps, (lsig->num_id_maps * sizeof(struct _mpr_sig_id_map)));
+        memset(lsig->id_maps + i, 0, ((lsig->num_id_maps - i) * sizeof(struct _mpr_sig_id_map)));
     }
     lsig->id_maps[i].id_map = id_map;
     lsig->id_maps[i].inst = si;
@@ -1386,9 +1469,143 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
     return updated;
 }
 
+int mpr_local_sig_get_updated(mpr_local_sig sig, int inst_idx)
+{
+    return mpr_bitflags_get(sig->updated_inst, inst_idx);
+}
+
 void mpr_local_sig_set_updated(mpr_local_sig sig, int inst_idx)
 {
     mpr_bitflags_set(sig->updated_inst, inst_idx);
     mpr_local_dev_set_sending(sig->dev);
     sig->updated = 1;
+}
+
+void mpr_local_sig_set_dev_id(mpr_local_sig sig, mpr_id id)
+{
+    int i;
+    for (i = 0; i < sig->num_id_maps; i++) {
+        mpr_id_map id_map = sig->id_maps[i].id_map;
+        if (id_map && !(id_map->GID >> 32))
+            id_map->GID |= id;
+    }
+    sig->obj.id |= id;
+}
+
+mpr_dir mpr_sig_get_dir(mpr_sig sig)
+{
+    return sig->dir;
+}
+
+int mpr_sig_get_len(mpr_sig sig)
+{
+    return sig->len;
+}
+
+const char *mpr_sig_get_name(mpr_sig sig)
+{
+    return sig->name;
+}
+
+const char *mpr_sig_get_path(mpr_sig sig)
+{
+    return sig->path;
+}
+
+int mpr_sig_get_full_name(mpr_sig sig, char *name, int len)
+{
+    return snprintf(name, len, "%s/%s", mpr_dev_get_name(sig->dev), sig->name);
+}
+
+int mpr_local_sig_get_num_id_maps(mpr_local_sig sig)
+{
+    return sig->num_id_maps;
+}
+
+mpr_type mpr_sig_get_type(mpr_sig sig)
+{
+    return sig->type;
+}
+
+int mpr_sig_get_use_inst(mpr_sig sig)
+{
+    return sig->use_inst;
+}
+
+/*! Helper to find the size in bytes of a signal's full vector. */
+size_t mpr_sig_get_value_size(mpr_sig sig)
+{
+    return mpr_type_get_size(sig->type) * sig->len;
+}
+
+int mpr_sig_compare_names(mpr_sig l, mpr_sig r)
+{
+    int res = strcmp(mpr_dev_get_name(l->dev), mpr_dev_get_name(r->dev));
+    if (0 == res)
+        res = strcmp(l->name, r->name);
+    return res;
+}
+
+void mpr_sig_copy_props(mpr_sig to, mpr_sig from)
+{
+    mpr_dev dev = to->dev;
+    if (!to->obj.id) {
+        to->obj.id = from->obj.id;
+        to->dir = from->dir;
+        to->len = from->len;
+        to->type = from->type;
+    }
+
+    /* TODO: check this */
+    if (!mpr_obj_get_id((mpr_obj)dev))
+        mpr_obj_set_id((mpr_obj)dev, mpr_obj_get_id((mpr_obj)from->dev));
+}
+
+uint8_t *mpr_local_sig_get_lock(mpr_local_sig sig)
+{
+    return &sig->locked;
+}
+
+void mpr_sig_set_num_maps(mpr_sig sig, int num_maps_in, int num_maps_out)
+{
+    sig->num_maps_in = num_maps_in;
+    sig->num_maps_out = num_maps_out;
+}
+
+void mpr_local_sig_release_map_inst(mpr_local_sig sig, mpr_time time)
+{
+    /* release instances if necessary */
+    /* TODO: determine whether instances were activated through this map */
+    /* need to trigger "remote" release */
+    int i;
+    for (i = 0; i < sig->num_id_maps; i++) {
+        mpr_sig_id_map sig_id_map = &sig->id_maps[i];
+        if (!sig_id_map->id_map)
+            continue;
+        if (sig_id_map->status & RELEASED_LOCALLY) {
+            mpr_dev_GID_decref(sig->dev, sig->group, sig_id_map->id_map);
+            sig_id_map->id_map = 0;
+        }
+        else {
+            sig_id_map->status |= RELEASED_REMOTELY;
+            mpr_dev_GID_decref(sig->dev, sig->group, sig_id_map->id_map);
+            if (mpr_sig_get_use_inst((mpr_sig)sig)) {
+                mpr_sig_call_handler(sig, MPR_SIG_REL_UPSTRM, sig_id_map->id_map->LID, 0, 0, time, 0);
+            }
+            else {
+                mpr_dev_LID_decref(sig->dev, sig->group, sig_id_map->id_map);
+                sig_id_map->id_map = 0;
+            }
+        }
+    }
+}
+
+uint8_t mpr_sig_inst_get_idx(mpr_sig_inst si)
+{
+    return si->idx;
+}
+
+mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig)
+{
+    return sig->inst;
 }

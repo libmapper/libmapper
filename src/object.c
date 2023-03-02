@@ -256,9 +256,10 @@ void mpr_obj_push(mpr_obj o)
     else if (o->type & MPR_SIG) {
         mpr_sig s = (mpr_sig)o;
         if (o->is_local) {
-            mpr_type type = ((s->dir == MPR_DIR_OUT) ? MPR_SIG_OUT : MPR_SIG_IN);
-            RETURN_UNLESS(mpr_dev_get_is_registered(s->dev));
-            mpr_net_use_subscribers(n, (mpr_local_dev)s->dev, type);
+            mpr_type type = ((MPR_DIR_OUT == mpr_sig_get_dir(s)) ? MPR_SIG_OUT : MPR_SIG_IN);
+            mpr_dev d = mpr_sig_get_dev(s);
+            RETURN_UNLESS(mpr_dev_get_is_registered(d));
+            mpr_net_use_subscribers(n, (mpr_local_dev)d, type);
             mpr_sig_send_state(s, MSG_SIG);
         }
         else {
@@ -274,11 +275,13 @@ void mpr_obj_push(mpr_obj o)
         else {
             int i;
             mpr_sig s = mpr_slot_get_sig(m->dst);
+            mpr_dev d = mpr_sig_get_dev(s);
             /* Only proceed if all signals are registered (remote or registered local signals) */
-            RETURN_UNLESS(mpr_dev_get_is_registered(s->dev));
+            RETURN_UNLESS(mpr_dev_get_is_registered(d));
             for (i = 0; i < m->num_src; i++) {
                 s = mpr_slot_get_sig(m->src[i]);
-                RETURN_UNLESS(mpr_dev_get_is_registered(s->dev));
+                d = mpr_sig_get_dev(s);
+                RETURN_UNLESS(mpr_dev_get_is_registered(d));
             }
             mpr_map_send_state(m, -1, MSG_MAP);
         }

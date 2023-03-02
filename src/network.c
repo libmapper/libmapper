@@ -1060,12 +1060,11 @@ static int handler_sig_mod(const char *path, const char *types, lo_arg **av,
     TRACE_DEV_RETURN_UNLESS(sig, 0, "no signal found with name '%s'.\n", &av[0]->s);
 
     props = mpr_msg_parse_props(ac-1, &types[1], &av[1]);
-    trace_dev(dev, "received %s '%s' + %d properties.\n", path, sig->name,
-              mpr_msg_get_num_atoms(props));
+    trace_dev(dev, "received %s + %d properties.\n", path, mpr_msg_get_num_atoms(props));
 
     if (mpr_sig_set_from_msg(sig, props)) {
         if (mpr_local_dev_has_subscribers(dev)) {
-            int dir = (MPR_DIR_IN == sig->dir) ? MPR_SIG_IN : MPR_SIG_OUT;
+            int dir = (MPR_DIR_IN == mpr_sig_get_dir(sig)) ? MPR_SIG_IN : MPR_SIG_OUT;
             trace_dev(dev, "informing subscribers (SIGNAL)\n");
             mpr_net_use_subscribers(net, dev, dir);
             mpr_sig_send_state(sig, MSG_SIG);
@@ -1339,7 +1338,7 @@ static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
 
     mpr_rtr_add_map(net->rtr, map);
     sig = mpr_slot_get_sig((mpr_slot)map->dst);
-    dev = (mpr_local_dev)sig->dev;
+    dev = (mpr_local_dev)mpr_sig_get_dev(sig);
 
     if (props)
         mpr_map_set_from_msg((mpr_map)map, props, 1);
@@ -1409,7 +1408,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
 #ifdef DEBUG
     {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)map->dst);
-        trace_dev(sig->dev, "received /map ");
+        trace_dev(mpr_sig_get_dev(sig), "received /map ");
         lo_message_pp(msg);
     }
 #endif
@@ -1548,7 +1547,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             for (i = 0; i < map->num_src; i++) {
                 sig = mpr_slot_get_sig(map->src[i]);
                 if (mpr_obj_get_is_local((mpr_obj)sig)) {
-                    mpr_local_dev dev = (mpr_local_dev)sig->dev;
+                    mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
                     inform_device_subscribers(net, dev);
                     trace_dev(dev, "informing subscribers (SIGNAL)\n");
                     mpr_net_use_subscribers(net, dev, MPR_SIG);
@@ -1557,7 +1556,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             }
             sig = mpr_slot_get_sig(map->dst);
             if (mpr_obj_get_is_local((mpr_obj)sig)) {
-                mpr_local_dev dev = (mpr_local_dev)sig->dev;
+                mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
                 inform_device_subscribers(net, dev);
                 trace_dev(dev, "informing subscribers (SIGNAL)\n");
                 mpr_net_use_subscribers(net, dev, MPR_SIG);
@@ -1572,7 +1571,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             for (i = 0; i < map->num_src; i++) {
                 sig = mpr_slot_get_sig(map->src[i]);
                 if (mpr_obj_get_is_local((mpr_obj)sig)) {
-                    mpr_local_dev dev = (mpr_local_dev)sig->dev;
+                    mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
                     if (mpr_local_dev_has_subscribers(dev)) {
                         trace_dev(dev, "informing subscribers (MAPPED)\n")
                         mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
@@ -1582,7 +1581,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
             }
             sig = mpr_slot_get_sig(map->dst);
             if (mpr_obj_get_is_local((mpr_obj)sig)) {
-                mpr_local_dev dev = (mpr_local_dev)sig->dev;
+                mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
                 if (mpr_local_dev_has_subscribers(dev)) {
                     trace_dev(dev, "informing subscribers (MAPPED)\n")
                     mpr_net_use_subscribers(net, dev, MPR_MAP_IN);
@@ -1678,7 +1677,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
         for (i = 0; i < map->num_src; i++) {
             if (mpr_slot_get_rtr_sig(map->src[i])) {
                 mpr_sig sig = mpr_slot_get_sig((mpr_slot)map->src[i]);
-                mpr_local_dev dev = (mpr_local_dev)sig->dev;
+                mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
                 if (mpr_local_dev_has_subscribers(dev)) {
                     trace_dev(dev, "informing subscribers (MAPPED)\n")
                     mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
@@ -1688,7 +1687,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
         }
         if (mpr_slot_get_rtr_sig(map->dst)) {
             mpr_sig sig = mpr_slot_get_sig((mpr_slot)map->dst);
-            mpr_local_dev dev = (mpr_local_dev)sig->dev;
+            mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
             if (mpr_local_dev_has_subscribers(dev)) {
                 trace_dev(dev, "informing subscribers (MAPPED)\n")
                 mpr_net_use_subscribers(net, dev, MPR_MAP_IN);
@@ -1750,7 +1749,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     for (i = 0; i < map->num_src; i++) {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)map->src[i]);
         if (mpr_obj_get_is_local((mpr_obj)sig)) {
-            mpr_local_dev dev = (mpr_local_dev)sig->dev;
+            mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
             inform_device_subscribers(net, dev);
 
             trace_dev(dev, "informing subscribers (SIGNAL)\n");
@@ -1764,7 +1763,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     }
     sig = mpr_slot_get_sig((mpr_slot)map->dst);
     if (mpr_obj_get_is_local((mpr_obj)sig)) {
-        mpr_local_dev dev = (mpr_local_dev)sig->dev;
+        mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
         inform_device_subscribers(net, dev);
 
         trace_dev(dev, "informing subscribers (SIGNAL)\n");

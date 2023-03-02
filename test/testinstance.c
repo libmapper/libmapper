@@ -316,9 +316,10 @@ void print_instance_idx(mpr_sig sig)
 {
     int i, n = mpr_sig_get_num_inst(sig, MPR_STATUS_ANY);
     const char *name = mpr_obj_get_prop_as_str((mpr_obj)sig, MPR_PROP_NAME, NULL);
+    mpr_sig_inst *si = mpr_local_sig_get_insts((mpr_local_sig)sig);
     eprintf("%s: [ ", name);
     for (i = 0; i < n; i++) {
-        eprintf("%2i, ", ((mpr_local_sig)sig)->inst[i]->idx);
+        eprintf("%2i, ", mpr_sig_inst_get_idx(si[i]));
     }
     if (i)
         eprintf("\b\b ");
@@ -555,14 +556,14 @@ int run_test(test_config *config)
 
     release_active_instances(multirecv);
 
-    if (((mpr_local_sig)multisend)->id_map_len > 8) {
+    if (mpr_local_sig_get_num_id_maps((mpr_local_sig)multisend) > 8) {
         printf("Error: multisend using %d id maps (should be %d)\n",
-               ((mpr_local_sig)multisend)->id_map_len, 8);
+               mpr_local_sig_get_num_id_maps((mpr_local_sig)multisend), 8);
         ++result;
     }
-    if (((mpr_local_sig)multirecv)->id_map_len > 8) {
+    if (mpr_local_sig_get_num_id_maps((mpr_local_sig)multirecv) > 8) {
         printf("Error: multirecv using %d id maps (should be %d)\n",
-               ((mpr_local_sig)multirecv)->id_map_len, 8);
+               mpr_local_sig_get_num_id_maps((mpr_local_sig)multirecv), 8);
         ++result;
     }
 
