@@ -3,60 +3,20 @@
 #define __MPR_MAP_H__
 #define __MPR_TYPES_H__
 
+#define MAX_NUM_MAP_SRC     8       /* arbitrary */
+#define MAX_NUM_MAP_DST     8       /* arbitrary */
+
 typedef struct _mpr_map *mpr_map;
 typedef struct _mpr_local_map *mpr_local_map;
 
 #include "expression.h"
 #include "id_map.h"
+#include "link.h"
 #include "message.h"
 #include "mpr_signal.h"
 #include "slot.h"
 
-#define MAX_NUM_MAP_SRC     8       /* arbitrary */
-#define MAX_NUM_MAP_DST     8       /* arbitrary */
-
-#define MPR_MAP_STRUCT_ITEMS                                                    \
-    mpr_obj_t obj;                  /* always first */                          \
-    mpr_dev *scopes;                                                            \
-    char *expr_str;                                                             \
-    int muted;                      /*!< 1 to mute mapping, 0 to unmute */      \
-    int num_scopes;                                                             \
-    int num_src;                                                                \
-    mpr_loc process_loc;                                                        \
-    int status;                                                                 \
-    int protocol;                   /*!< Data transport protocol. */            \
-    int use_inst;                   /*!< 1 if using instances, 0 otherwise. */  \
-    int bundle;
-
-/*! A record that describes the properties of a mapping.
- *  @ingroup map */
-typedef struct _mpr_map {
-    MPR_MAP_STRUCT_ITEMS
-    mpr_slot *src;
-    mpr_slot dst;
-} mpr_map_t;
-
-typedef struct _mpr_local_map {
-    MPR_MAP_STRUCT_ITEMS
-    mpr_local_slot *src;
-    mpr_local_slot dst;
-
-    struct _mpr_rtr *rtr;
-    mpr_id_map id_map;              /*!< Associated mpr_id_map. */
-
-    mpr_expr expr;                  /*!< The mapping expression. */
-    char *updated_inst;             /*!< Bitflags to indicate updated instances. */
-    mpr_value_t *vars;              /*!< User variables values. */
-    const char **var_names;         /*!< User variables names. */
-    int num_vars;                   /*!< Number of user variables. */
-    int num_inst;                   /*!< Number of local instances. */
-
-    uint8_t is_local_only;
-    uint8_t one_src;
-    uint8_t updated;
-} mpr_local_map_t;
-
-void mpr_map_alloc_values(mpr_local_map map);
+void mpr_map_alloc_values(mpr_local_map map, int quiet);
 
 /*! Process the signal instance value according to mapping properties.
  *  The result of this operation should be sent to the destination.
@@ -88,13 +48,60 @@ void mpr_map_init(mpr_map map, int num_src, mpr_sig *src, mpr_sig dst, int is_lo
 
 void mpr_map_free(mpr_map map);
 
-/*! Prepare a lo_message for sending based on a map struct. */
-const char *mpr_map_prepare_msg(mpr_map map, lo_message msg, int slot_idx);
-
 void mpr_map_add_src(mpr_map map, mpr_sig sig, mpr_dir dir, int is_local);
 
 int mpr_map_compare(mpr_map l, mpr_map r);
 
 int mpr_map_compare_names(mpr_map map, int num_src, const char **srcs, const char *dst);
+
+int mpr_map_get_has_dev(mpr_map map, mpr_id dev_id, mpr_dir dir);
+
+int mpr_map_get_has_link_id(mpr_map map, mpr_id link_id);
+
+int mpr_map_get_has_sig(mpr_map map, mpr_sig sig, mpr_dir dir);
+
+int mpr_map_get_status(mpr_map map);
+
+void mpr_map_set_status(mpr_map map, int status);
+
+mpr_sig mpr_map_get_dst_sig(mpr_map map);
+
+mpr_slot mpr_map_get_dst_slot(mpr_map map);
+
+mpr_expr mpr_local_map_get_expr(mpr_local_map map);
+
+const char *mpr_map_get_expr_str(mpr_map map);
+
+int mpr_local_map_get_has_scope(mpr_local_map map, mpr_id id);
+
+int mpr_local_map_get_is_one_src(mpr_local_map map);
+
+int mpr_map_get_locality(mpr_map map);
+
+int mpr_local_map_get_num_inst(mpr_local_map map);
+
+int mpr_map_get_num_src(mpr_map map);
+
+mpr_loc mpr_map_get_process_loc(mpr_map map);
+
+mpr_proto mpr_map_get_protocol(mpr_map map);
+
+mpr_sig mpr_map_get_src_sig(mpr_map map, int idx);
+
+mpr_slot mpr_map_get_src_slot(mpr_map map, int idx);
+
+mpr_slot mpr_map_get_src_slot_by_id(mpr_map map, int id);
+
+size_t mpr_map_get_struct_size(int is_local);
+
+void mpr_local_map_set_updated(mpr_local_map map, int inst_idx);
+
+void mpr_map_status_decr(mpr_map map);
+
+int mpr_map_get_use_inst(mpr_map map);
+
+int mpr_map_waiting(mpr_map map);
+
+void mpr_map_remove_scope_internal(mpr_map map, mpr_dev dev);
 
 #endif /* __MPR_MAP_H__ */

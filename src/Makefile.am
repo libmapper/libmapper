@@ -15,7 +15,6 @@ noinst_HEADERS = bitflags.h \
     object.h \
     path.h \
     property.h \
-    router.h \
     slot.h \
     table.h \
     thread_data.h \
@@ -42,7 +41,6 @@ libmapper_la_SOURCES = device.c \
     object.c \
     path.c \
     property.c \
-    router.c \
     signal.c \
     slot.c \
     table.c \

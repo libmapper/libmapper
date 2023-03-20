@@ -95,7 +95,8 @@ typedef enum {
     MPR_LOC_UNDEFINED   = 0x00, /*!< Not yet defined */
     MPR_LOC_SRC         = 0x01, /*!< Source signal(s) for this map. */
     MPR_LOC_DST         = 0x02, /*!< Destination signal(s) for this map. */
-    MPR_LOC_ANY         = 0x03  /*!< Either source or destination signals. */
+    MPR_LOC_ANY         = 0x03, /*!< Either source or destination signals. */
+    MPR_LOC_BOTH        = 0x07  /*!< Both source and destination signals. */
 } mpr_loc;
 
 /*! Describes the possible network protocol for map communication
@@ -114,7 +115,7 @@ typedef enum {
     MPR_DIR_IN          = 0x01, /*!< Signal is an input */
     MPR_DIR_OUT         = 0x02, /*!< Signal is an output */
     MPR_DIR_ANY         = 0x03, /*!< Either incoming or outgoing */
-    MPR_DIR_BOTH        = 0x04  /*!< Both directions apply.  Currently signals
+    MPR_DIR_BOTH        = 0x07  /*!< Both directions apply.  Currently signals
                                  *   cannot be both inputs and outputs, so this
                                  *   value is only used for querying device maps
                                  *   that touch only local signals. */

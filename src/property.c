@@ -275,16 +275,17 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
         case MPR_MAP: {
             /* just print signal names */
             mpr_map m = (mpr_map)val;
+            int num_src = mpr_map_get_num_src(m);
             if (1 != len)
                 break;
-            if (m->num_src > 1)
+            if (num_src > 1)
                 printf("[");
-            for (i = 0; i < m->num_src; i++)
-                mpr_prop_print(1, MPR_SIG, mpr_slot_get_sig(m->src[i]));
-            if (m->num_src > 1)
+            for (i = 0; i < num_src; i++)
+                mpr_prop_print(1, MPR_SIG, mpr_map_get_src_sig(m, i));
+            if (num_src > 1)
                 printf("]");
             printf(" -> ");
-            mpr_prop_print(1, MPR_SIG, mpr_slot_get_sig(m->dst));
+            mpr_prop_print(1, MPR_SIG, mpr_map_get_dst_sig(m));
             printf(", ");
             break;
         }

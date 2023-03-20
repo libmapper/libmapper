@@ -8,6 +8,7 @@ typedef struct _mpr_local_dev *mpr_local_dev;
 
 #include "object.h"
 #include "expression.h"
+#include "link.h"
 #include "list.h"
 #include "message.h"
 #include "mpr_signal.h"
@@ -72,19 +73,19 @@ mpr_id mpr_dev_get_unused_sig_id(mpr_local_dev dev);
 int mpr_dev_add_link(mpr_dev dev, mpr_dev rem);
 void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem);
 
-MPR_INLINE static void mpr_dev_LID_incref(mpr_local_dev dev, mpr_id_map map)
+MPR_INLINE static void mpr_dev_LID_incref(mpr_local_dev dev, mpr_id_map id_map)
 {
-    ++map->LID_refcount;
+    ++id_map->LID_refcount;
 }
 
-MPR_INLINE static void mpr_dev_GID_incref(mpr_local_dev dev, mpr_id_map map)
+MPR_INLINE static void mpr_dev_GID_incref(mpr_local_dev dev, mpr_id_map id_map)
 {
-    ++map->GID_refcount;
+    ++id_map->GID_refcount;
 }
 
-int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map map);
+int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map id_map);
 
-int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map map);
+int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map id_map);
 
 void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id);
 
@@ -101,13 +102,11 @@ const char *mpr_dev_get_name(mpr_dev dev);
 
 void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd);
 
-int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg);
-
 /*! Find information for a registered link.
  *  \param dev          Device record to query.
  *  \param remote       Remote device.
  *  \return             Information about the link, or zero if not found. */
-mpr_link mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote);
+mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote);
 
 void mpr_dev_set_synced(mpr_dev dev, mpr_time time);
 

@@ -31,7 +31,7 @@ mpr_dev mpr_link_get_dev(mpr_link link, int idx);
 
 void mpr_link_add_map(mpr_link link, int is_src);
 
-void mpr_link_remove_map(mpr_link link, mpr_local_map rem);
+void mpr_link_remove_map(mpr_link link, mpr_map rem);
 
 void mpr_link_init(mpr_link link, mpr_graph graph, mpr_dev dev1, mpr_dev dev2);
 
@@ -53,5 +53,7 @@ void mpr_link_update_clock(mpr_link link, mpr_time then, mpr_time now,
                            int msg_id, int sent_id, double elapsed_remote);
 
 int mpr_link_housekeeping(mpr_link link, mpr_time now);
+
+int mpr_link_get_dev_dir(mpr_link link, mpr_dev dev);
 
 #endif /* __MPR_LINK_H__ */

@@ -252,7 +252,8 @@ void mpr_dev_free(mpr_dev dev)
     mpr_net_remove_dev(net, ldev);
 
     /* remove local graph handlers here so they are not called when child objects are freed */
-    if (!mpr_graph_get_owned(gph))
+    /* CHANGE: if graph is not owned then its callbacks _should_ be called when device is removed. */
+    if (mpr_graph_get_owned(gph))
         mpr_graph_free_cbs(gph);
 
     /* remove subscribers */
@@ -283,11 +284,11 @@ void mpr_dev_free(mpr_dev dev)
     }
 
     /* Release links to other devices */
+    _process_outgoing_maps(ldev);
     list = mpr_dev_get_links(dev, MPR_DIR_UNDEFINED);
     while (list) {
         mpr_link link = (mpr_link)*list;
         list = mpr_list_get_next(list);
-        _process_outgoing_maps(ldev);
         mpr_graph_remove_link(gph, link, MPR_OBJ_REM);
     }
 
@@ -310,7 +311,7 @@ void mpr_dev_free(mpr_dev dev)
     FUNC_IF(lo_server_free, ldev->servers[SERVER_UDP]);
     FUNC_IF(lo_server_free, ldev->servers[SERVER_TCP]);
 
-    mpr_graph_remove_dev(gph, dev, MPR_OBJ_REM, 1);
+    mpr_graph_remove_dev(gph, dev, MPR_OBJ_REM);
     if (!mpr_graph_get_owned(gph))
         mpr_graph_free(gph);
 }
@@ -428,32 +429,7 @@ static int _cmp_qry_maps(const void *context_data, mpr_map map)
 {
     mpr_id dev_id = *(mpr_id*)context_data;
     mpr_dir dir = *(int*)((char*)context_data + sizeof(mpr_id));
-    if (dir == MPR_DIR_BOTH) {
-        mpr_sig sig = mpr_slot_get_sig(map->dst);
-        mpr_dev dev = mpr_sig_get_dev(sig);
-        int i;
-        RETURN_ARG_UNLESS(dev->obj.id == dev_id, 0);
-        for (i = 0; i < map->num_src; i++) {
-            sig = mpr_slot_get_sig(map->src[i]);
-            dev = mpr_sig_get_dev(sig);
-            RETURN_ARG_UNLESS(dev->obj.id == dev_id, 0);
-        }
-        return 1;
-    }
-    if (dir & MPR_DIR_OUT) {
-        int i;
-        for (i = 0; i < map->num_src; i++) {
-            mpr_sig sig = mpr_slot_get_sig(map->src[i]);
-            mpr_dev dev = mpr_sig_get_dev(sig);
-            RETURN_ARG_UNLESS(dev->obj.id != dev_id, 1);
-        }
-    }
-    if (dir & MPR_DIR_IN) {
-        mpr_sig sig = mpr_slot_get_sig(map->dst);
-        mpr_dev dev = mpr_sig_get_dev(sig);
-        RETURN_ARG_UNLESS(dev->obj.id != dev_id, 1);
-    }
-    return 0;
+    return mpr_map_get_has_dev(map, dev_id, dir);
 }
 
 mpr_list mpr_dev_get_maps(mpr_dev dev, mpr_dir dir)
@@ -491,7 +467,7 @@ mpr_list mpr_dev_get_links(mpr_dev dev, mpr_dir dir)
                                "hi", dev->obj.id, dir);
 }
 
-mpr_link mpr_dev_get_link_by_remote(mpr_local_dev dev, mpr_dev remote)
+mpr_link mpr_dev_get_link_by_remote(mpr_dev dev, mpr_dev remote)
 {
     mpr_list links;
     RETURN_ARG_UNLESS(dev, 0);
@@ -540,7 +516,7 @@ MPR_INLINE static int _process_outgoing_maps(mpr_local_dev dev)
     while (list) {
         mpr_local_map map = *(mpr_local_map*)list;
         list = mpr_list_get_next(list);
-        if (map->obj.is_local && map->updated && map->expr && !map->muted)
+        if (mpr_obj_get_is_local((mpr_obj)map))
             mpr_map_send(map, dev->time);
     }
     dev->sending = 0;
@@ -635,6 +611,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
         mpr_dev_send_state(dev, MSG_DEV);
     }
 
+    ldev->time_is_stale = 1;
     return admin_count + device_count;
 }
 
@@ -881,7 +858,7 @@ mpr_id_map mpr_dev_get_id_map_by_GID(mpr_local_dev dev, int group, mpr_id GID)
 /* Internal LibLo error handler */
 static void handler_error(int num, const char *msg, const char *where)
 {
-    trace_net("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
+    trace("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
 }
 
 static void mpr_dev_start_servers(mpr_local_dev dev)
@@ -1205,25 +1182,10 @@ static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir)
 
 int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
 {
-    mpr_list l = mpr_dev_get_maps((mpr_dev)dev, dir);
-    while (l) {
-        mpr_map m = (mpr_map)*l;
-        int i, ready = 1;
-        mpr_sig sig = mpr_slot_get_sig(m->dst);
-        mpr_dev dev = mpr_sig_get_dev(sig);
-        l = mpr_list_get_next(l);
-        if (mpr_obj_get_is_local((mpr_obj)sig) && !((mpr_local_dev)dev)->registered)
-            continue;
-        for (i = 0; i < m->num_src; i++) {
-            sig = mpr_slot_get_sig(m->src[i]);
-            dev = mpr_sig_get_dev(sig);
-            if (mpr_obj_get_is_local((mpr_obj)sig) && !((mpr_local_dev)dev)->registered) {
-                ready = 0;
-                break;
-            }
-        }
-        if (ready)
-            mpr_map_send_state(m, -1, msg);
+    mpr_list maps = mpr_dev_get_maps((mpr_dev)dev, dir);
+    while (maps) {
+        mpr_map_send_state((mpr_map)*maps, -1, msg);
+        maps = mpr_list_get_next(maps);
     }
     return 0;
 }
@@ -1482,12 +1444,10 @@ void mpr_local_dev_handler_logout(mpr_local_dev dev, mpr_dev remote, const char 
     if (!dev->ordinal_allocator.locked)
         return;
     /* Check if we have any links to this device, if so remove them */
-    if (remote && (lnk = mpr_dev_get_link_by_remote(dev, remote))) {
+    if (remote && (lnk = mpr_dev_get_link_by_remote((mpr_dev)dev, remote))) {
         /* TODO: release maps, call local handlers and inform subscribers */
         mpr_graph gph = mpr_obj_get_graph((mpr_obj)dev);
-        mpr_net net = mpr_graph_get_net(gph);
         trace_dev(dev, "removing link to removed device '%s'.\n", mpr_dev_get_name(remote));
-        mpr_rtr_remove_link(net->rtr, lnk);
         mpr_graph_remove_link(gph, lnk, MPR_OBJ_REM);
     }
     if (0 == strncmp(prefix_str, dev->name, dev->prefix_len)) {

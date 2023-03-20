@@ -5,7 +5,6 @@
 typedef struct _mpr_net *mpr_net;
 
 #include "message.h"
-#include "router.h"
 
 /*! A structure that keeps information about network communications. */
 typedef struct _mpr_net {
@@ -33,8 +32,6 @@ typedef struct _mpr_net {
         char *group;
         int port;
     } multicast;
-
-    struct _mpr_rtr *rtr;
 
     int random_id;                  /*!< Random id for allocation speedup. */
     int msg_type;
@@ -77,8 +74,6 @@ void mpr_net_free_msgs(mpr_net n);
 
 void mpr_net_free(mpr_net n);
 
-mpr_rtr mpr_net_get_rtr(mpr_net n);
-
 lo_server *mpr_net_get_servers(mpr_net n);
 
 void mpr_net_send_name_probe(mpr_net net, const char *name);
@@ -89,11 +84,11 @@ void mpr_net_add_dev_methods(mpr_net net, mpr_local_dev dev);
 
 void mpr_net_maybe_send_ping(mpr_net net, int force);
 
-#define NEW_LO_MSG(VARNAME, FAIL)                   \
-lo_message VARNAME = lo_message_new();              \
-if (!VARNAME) {                                     \
-    trace_net("couldn't allocate lo_message\n");    \
-    FAIL;                                           \
+#define NEW_LO_MSG(VARNAME, FAIL)           \
+lo_message VARNAME = lo_message_new();      \
+if (!VARNAME) {                             \
+    trace("couldn't allocate lo_message\n");\
+    FAIL;                                   \
 }
 
 #endif /* __MPR_NETWORK_H__ */

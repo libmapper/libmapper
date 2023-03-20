@@ -285,9 +285,8 @@ int main(int argc, char **argv)
     loop();
 
     if ((sent - 25) != received) {
-        eprintf("Not all sent messages were received.\n");
-        eprintf("Updated value %d time%s, but received %d of them.\n",
-                sent, sent == 1 ? "" : "s", received);
+        eprintf("Updated value %d time%s, but received %d of them (should be %d).\n",
+                sent, sent == 1 ? "" : "s", received, sent - 25);
         result = 1;
     }
 

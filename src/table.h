@@ -18,7 +18,7 @@ typedef struct _mpr_tbl_record *mpr_tbl_record;
 #define MUTABLE_LENGTH      0x10
 #define INDIRECT            0x20
 #define PROP_OWNED          0x40
-#define PROP_DIRTY          0x80
+#define PROP_SET            0x80
 
 /*! Create a new string table. */
 mpr_tbl mpr_tbl_new(void);
@@ -94,6 +94,14 @@ int mpr_tbl_add_record(mpr_tbl tbl, int prop, const char *key, int len,
 void mpr_tbl_link_value(mpr_tbl tbl, mpr_prop prop, int length, mpr_type type,
                         void *val, int flags);
 
+/*! Sync an existing value with a table but do not mark is as updated.
+ *  Records added using this method must
+ *  be added in alphabetical order since `table_sort()` will not be called.
+ *  Key and value will not be copied by the table, and will not be freed when
+ *  the table is cleared or deleted. */
+void mpr_tbl_link_value_no_default(mpr_tbl t, mpr_prop prop, int len,
+                                   mpr_type type, void *val, int flags);
+
 /*! Add a typed OSC argument from a `mpr_msg` to a string table.
  *  \param tbl      Table to update.
  *  \param atom     Message atom containing pointers to message key and value.
@@ -117,5 +125,7 @@ void mpr_tbl_clear_empty_records(mpr_tbl tbl);
 int mpr_tbl_get_is_dirty(mpr_tbl tbl);
 
 void mpr_tbl_set_is_dirty(mpr_tbl tbl, int is_dirty);
+
+int mpr_tbl_get_prop_is_set(mpr_tbl tbl, mpr_prop prop);
 
 #endif /* __MPR_TABLE_H__ */

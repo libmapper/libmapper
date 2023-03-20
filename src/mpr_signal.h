@@ -11,12 +11,13 @@ typedef int mpr_sig_group;
 #include "id_map.h"
 #include "object.h"
 #include "mpr_type.h"
+#include "slot.h"
 #include "time.h"
 
 #define MPR_MAX_VECTOR_LEN 128
 
-int mpr_sig_lo_handler(const char *path, const char *types, lo_arg **argv, int argc,
-                       lo_message msg, void *data);
+int mpr_sig_osc_handler(const char *path, const char *types, lo_arg **argv, int argc,
+                        lo_message msg, void *data);
 
 /*! Initialize an already-allocated mpr_sig structure. */
 void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const char *name, int len,
@@ -72,8 +73,6 @@ mpr_sig_inst mpr_local_sig_get_inst_by_idx(mpr_local_sig sig, int inst_idx, mpr_
 mpr_sig_inst mpr_local_sig_get_inst_by_id_map_idx(mpr_local_sig sig, int id_map_idx,
                                                   mpr_id_map *id_map);
 
-int mpr_local_sig_get_id_map_status(mpr_local_sig sig, int id_map_idx);
-
 /*! Release a specific signal instance. */
 void mpr_sig_release_inst_internal(mpr_local_sig sig, int inst_idx);
 
@@ -115,8 +114,6 @@ int mpr_sig_compare_names(mpr_sig l, mpr_sig r);
 
 void mpr_sig_copy_props(mpr_sig to, mpr_sig from);
 
-uint8_t *mpr_local_sig_get_lock(mpr_local_sig sig);
-
 void mpr_sig_set_num_maps(mpr_sig sig, int num_maps_in, int num_maps_out);
 
 void mpr_local_sig_release_map_inst(mpr_local_sig sig, mpr_time time);
@@ -130,5 +127,11 @@ void mpr_local_sig_set_inst_value(mpr_local_sig sig, mpr_sig_inst si, const void
 
 /* only used by testinstance.c for printing instance indices */
 mpr_sig_inst *mpr_local_sig_get_insts(mpr_local_sig sig);
+
+int mpr_local_sig_check_outgoing(mpr_local_sig sig, int num_dst_sigs, const char **dst_sig_names);
+
+void mpr_local_sig_add_slot(mpr_local_sig sig, mpr_local_slot slot, mpr_dir dir);
+
+void mpr_local_sig_remove_slot(mpr_local_sig sig, mpr_local_slot slot, mpr_dir dir);
 
 #endif /* __MPR_SIGNAL_H__ */

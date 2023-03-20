@@ -125,19 +125,26 @@ void cleanup_dst()
     }
 }
 
-void set_map_protocol(mpr_proto proto)
+int set_map_protocol(mpr_proto proto)
 {
     int len;
     mpr_type type;
     const void *val;
 
+    if (shared_graph) {
+        eprintf("skipping protocol switch since map endpoints share a graph.\n");
+        return 0;
+    }
+    else
+        eprintf("setting map protocol to %s...\n", MPR_PROTO_UDP == proto ? "UDP" : "TCP");
+
     if (!map)
-        return;
+        return 1;
 
     if (!mpr_obj_set_prop((mpr_obj)map, MPR_PROP_PROTOCOL, NULL, 1, MPR_INT32,
                           &proto, 1)) {
         /* protocol not changed, exit */
-        return;
+        return 1;
     }
     mpr_obj_push((mpr_obj)map);
 
@@ -147,7 +154,9 @@ void set_map_protocol(mpr_proto proto)
         mpr_dev_poll(dst, 10);
         mpr_obj_get_prop_by_idx(map, MPR_PROP_PROTOCOL, NULL, &len, &type, &val, 0);
     }
-    while (1 != len || MPR_INT32 != type || *(int*)val != proto);
+    while (!done && (1 != len || MPR_INT32 != type || *(int*)val != proto));
+
+    return done;
 }
 
 int setup_map()
@@ -156,20 +165,22 @@ int setup_map()
     mpr_obj_push(map);
 
     /* wait until map is established */
-    while (!mpr_map_get_is_ready(map)) {
+    while (!done && !mpr_map_get_is_ready(map)) {
         mpr_dev_poll(dst, 10);
         mpr_dev_poll(src, 10);
     }
 
-    return 0;
+    return done;
 }
 
-void wait_ready()
+int wait_ready()
 {
-    while (!(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
+    while (!done && !(mpr_dev_get_is_ready(src) && mpr_dev_get_is_ready(dst))) {
         mpr_dev_poll(src, 10);
         mpr_dev_poll(dst, 10);
     }
+
+    return done;
 }
 
 void loop()
@@ -262,12 +273,16 @@ int main(int argc, char **argv)
     }
 
     if (setup_src(g, iface)) {
-        eprintf("Done initializing source.\n");
+        eprintf("Error initializing source.\n");
         result = 1;
         goto done;
     }
 
-    wait_ready();
+    if (wait_ready()) {
+        eprintf("Error waiting for device registration.\n");
+        result = 1;
+        goto done;
+    }
 
     if (setup_map()) {
         eprintf("Error initializing map.\n");
@@ -276,11 +291,19 @@ int main(int argc, char **argv)
     }
 
     do {
-        set_map_protocol(MPR_PROTO_UDP);
+        if (set_map_protocol(MPR_PROTO_UDP)) {
+            eprintf("Error setting map protocol. (1)\n");
+            result = 1;
+            goto done;
+        }
         eprintf("SENDING UDP\n");
         loop();
 
-        set_map_protocol(MPR_PROTO_TCP);
+        if (set_map_protocol(MPR_PROTO_TCP)) {
+            eprintf("Error setting map protocol. (2)\n");
+            result = 1;
+            goto done;
+        }
         eprintf("SENDING TCP\n");
         loop();
     } while (!terminate && !done);

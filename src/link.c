@@ -39,7 +39,7 @@ typedef struct _mpr_sync_clock_t {
 } mpr_sync_clock_t, *mpr_sync_clock;
 
 typedef struct _mpr_link {
-    mpr_obj_t obj;                  /* always first */
+    mpr_obj_t obj;                      /* always first */
     mpr_dev devs[2];
     int num_maps[2];
 
@@ -116,7 +116,7 @@ void mpr_link_init(mpr_link link, mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 
     msg = lo_message_new();
     if (!msg) {
-        trace_net("couldn't allocate lo_message\n");
+        trace("couldn't allocate lo_message\n");
         return;
     }
 
@@ -173,8 +173,6 @@ void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time 
 {
     lo_bundle *b;
     RETURN_UNLESS(msg);
-    if (link->devs[0] == link->devs[1])
-        proto = MPR_PROTO_UDP;
 
     /* add message to existing bundles */
     b = (proto == MPR_PROTO_UDP) ? &link->bundles[idx].udp : &link->bundles[idx].tcp;
@@ -213,21 +211,49 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
             lo_bundle_free_recursive(lb);
         }
     }
-    else if ((lb = b->udp)) {
+    else {
         mpr_net net = mpr_graph_get_net(link->obj.graph);
-        mpr_rtr rtr = mpr_net_get_rtr(net);
-        const char *path;
-        b->udp = 0;
-        /* set out-of-band timestamp */
-        mpr_net_set_bundle_time(net, lo_bundle_get_timestamp(lb));
-        /* call handler directly instead of sending over the network */
-        num = lo_bundle_count(lb);
-        while (i < num) {
-            lo_message m = lo_bundle_get_message(lb, i, &path);
-            mpr_rtr_call_local_handler(rtr, path, m);
-            ++i;
+        /* TODO: alias udp/tcp as array and use loop syntax here to reduce code duplication */
+        if ((lb = b->udp)) {
+            const char *path;
+            b->udp = 0;
+            /* set out-of-band timestamp */
+            mpr_net_set_bundle_time(net, lo_bundle_get_timestamp(lb));
+            /* call handler directly instead of sending over the network */
+            num = lo_bundle_count(lb);
+            while (i < num) {
+                /* find the signal matching the message path */
+                /* link stores the device endpoints, but we need to be sure we are using the correct
+                 * device for local-only links since they might both have signals named /<path> */
+                lo_message m = lo_bundle_get_message(lb, i, &path);
+                mpr_sig dst = mpr_dev_get_sig_by_name(link->devs[0], path+1);
+                if (dst)
+                    mpr_sig_osc_handler(NULL, lo_message_get_types(m), lo_message_get_argv(m),
+                                        lo_message_get_argc(m), m, dst);
+                ++i;
+            }
+            lo_bundle_free_recursive(lb);
         }
-        lo_bundle_free_recursive(lb);
+        if ((lb = b->tcp)) {
+            const char *path;
+            b->tcp = 0;
+            /* set out-of-band timestamp */
+            mpr_net_set_bundle_time(net, lo_bundle_get_timestamp(lb));
+            /* call handler directly instead of sending over the network */
+            num = lo_bundle_count(lb);
+            while (i < num) {
+                /* find the signal matching the message path */
+                /* link stores the device endpoints, but we need to be sure we are using the correct
+                 * device for local-only links since they might both have signals named /<path> */
+                lo_message m = lo_bundle_get_message(lb, i, &path);
+                mpr_sig dst = mpr_dev_get_sig_by_name(link->devs[1], path+1);
+                if (dst)
+                    mpr_sig_osc_handler(NULL, lo_message_get_types(m), lo_message_get_argv(m),
+                                        lo_message_get_argc(m), m, dst);
+                ++i;
+            }
+            lo_bundle_free_recursive(lb);
+        }
     }
     return num;
 }
@@ -235,17 +261,7 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
 static int cmp_qry_maps(const void *context_data, mpr_map map)
 {
     mpr_id link_id = *(mpr_id*)context_data;
-    mpr_link link;
-    int i;
-    for (i = 0; i < map->num_src; i++) {
-        link = mpr_slot_get_link(map->src[i]);
-        if (link && link->obj.id == link_id)
-            return 1;
-    }
-    link = mpr_slot_get_link(map->dst);
-    if (link && link->obj.id == link_id)
-        return 1;
-    return 0;
+    return mpr_map_get_has_link_id(map, link_id);
 }
 
 mpr_list mpr_link_get_maps(mpr_link link)
@@ -282,17 +298,17 @@ void mpr_link_add_map(mpr_link link, int is_src)
     mpr_tbl_set_is_dirty(link->obj.props.synced, 1);
 }
 
-void mpr_link_remove_map(mpr_link link, mpr_local_map rem)
+void mpr_link_remove_map(mpr_link link, mpr_map rem)
 {
+    /* Just update the map count; assume map to be removed has already be delisted from graph */
     int in = 0, out = 0, rev = mpr_obj_get_is_local((mpr_obj)link->devs[0]) ? 0 : 1;
     mpr_list list = mpr_link_get_maps(link);
     while (list) {
-        mpr_local_map map = *(mpr_local_map*)list;
+        mpr_map map = (mpr_map)*list;
+        mpr_slot slot;
         list = mpr_list_get_next(list);
-        if (map == rem)
-            continue;
-        if (   mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig((mpr_slot)map->dst))
-            && mpr_slot_get_rtr_sig(map->dst))
+        slot = mpr_map_get_dst_slot(map);
+        if (mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig(slot)))
             ++in;
         else
             ++out;
@@ -400,4 +416,9 @@ int mpr_link_housekeeping(mpr_link link, mpr_time now)
         mpr_net_send(net);
     }
     return 0;
+}
+
+int mpr_link_get_dev_dir(mpr_link link, mpr_dev dev)
+{
+    return dev == link->devs[1];
 }

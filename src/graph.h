@@ -32,7 +32,7 @@ void mpr_graph_cleanup(mpr_graph g);
 
 void mpr_graph_housekeeping(mpr_graph g);
 
-struct _mpr_link* mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2);
+mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2);
 
 /*! Add or update a device entry in the graph using parsed message parameters.
  *  \param g            The graph to operate on.
@@ -60,14 +60,16 @@ mpr_sig mpr_graph_add_sig(mpr_graph g, const char *sig_name,
 mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_names,
                           const char *dst_name);
 
+/* TODO: use mpr_graph_remove_obj() instead? */
+
 /*! Remove a device from the graph. */
-void mpr_graph_remove_dev(mpr_graph g, mpr_dev dev, mpr_graph_evt evt, int quiet);
+void mpr_graph_remove_dev(mpr_graph g, mpr_dev dev, mpr_graph_evt evt);
 
 /*! Remove a signal from the graph. */
 void mpr_graph_remove_sig(mpr_graph g, mpr_sig sig, mpr_graph_evt evt);
 
 /*! Remove a link from the graph. */
-void mpr_graph_remove_link(mpr_graph g, struct _mpr_link* link, mpr_graph_evt evt);
+void mpr_graph_remove_link(mpr_graph g, mpr_link link, mpr_graph_evt evt);
 
 /*! Remove a map from the graph. */
 void mpr_graph_remove_map(mpr_graph g, mpr_map map, mpr_graph_evt evt);
@@ -98,5 +100,7 @@ void mpr_graph_sync_dev(mpr_graph g, const char *name);
 void mpr_graph_inc_staged_maps(mpr_graph g);
 
 int mpr_graph_get_autosub(mpr_graph g);
+
+mpr_expr_stack mpr_graph_get_expr_stack(mpr_graph g);
 
 #endif /* __MPR_GRAPH_H__ */

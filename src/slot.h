@@ -7,17 +7,18 @@ typedef struct _mpr_local_slot *mpr_local_slot;
 
 #include "map.h"
 #include "mpr_signal.h"
-#include "router.h"
 #include "value.h"
 
-mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
-                      unsigned char is_local, unsigned char is_src);
+#define MPR_SLOT_STATUS_LENGTH_KNOWN 0x04
+#define MPR_SLOT_STATUS_TYPE_KNOWN   0x08
+#define MPR_SLOT_STATUS_LINK_KNOWN   0x10
+
+mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir, unsigned char is_local,
+                      unsigned char is_src);
 
 void mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size);
 
 void mpr_slot_free(mpr_slot slot);
-
-void mpr_slot_free_value(mpr_local_slot slot);
 
 int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg);
 
@@ -31,13 +32,11 @@ void mpr_slot_remove_inst(mpr_local_slot slot, int idx);
 
 char mpr_slot_check_status(mpr_local_slot slot);
 
-struct _mpr_link* mpr_slot_get_link(mpr_slot slot);
+mpr_link mpr_slot_get_link(mpr_slot slot);
 
-void mpr_slot_set_link(mpr_slot slot, struct _mpr_link* link);
+void mpr_local_slot_set_link(mpr_local_slot slot, mpr_link link);
 
 mpr_map mpr_slot_get_map(mpr_slot slot);
-
-mpr_sig mpr_slot_get_sig(mpr_slot slot);
 
 mpr_dir mpr_slot_get_dir(mpr_slot slot);
 
@@ -49,13 +48,15 @@ void mpr_slot_set_id(mpr_slot slot, int id);
 
 int mpr_slot_get_is_local(mpr_slot slot);
 
+mpr_local_sig mpr_slot_get_sig_if_local(mpr_slot slot);
+
 int mpr_slot_get_num_inst(mpr_slot slot);
 
-/* TODO: some calls to this function shouldn't need access to the mpr_rtr_sig type, rather they
+/* TODO: some calls to this function shouldn't need access to the mpr_local_sig type, rather they
  * just need to know if the slot has a local signal. */
-mpr_rtr_sig mpr_slot_get_rtr_sig(mpr_local_slot slot);
+mpr_sig mpr_slot_get_sig(mpr_slot slot);
 
-void mpr_slot_set_rtr_sig(mpr_local_slot slot, mpr_rtr_sig rsig);
+void mpr_slot_set_sig(mpr_local_slot slot, mpr_local_sig sig);
 
 int mpr_slot_get_causes_update(mpr_slot slot);
 
@@ -67,8 +68,8 @@ int mpr_slot_set_value(mpr_local_slot slot, int inst_idx, void *val, mpr_time ti
 
 void mpr_slot_reset_inst(mpr_local_slot slot, int inst_idx);
 
-void mpr_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto,
-                       int bundle_idx);
+void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto,
+                             int bundle_idx);
 
 int mpr_slot_compare_names(const void *l, const void *r);
 

@@ -135,9 +135,10 @@ void wait_ready(int iterations)
 void loop()
 {
     int i = 0;
-    const char *name = mpr_obj_get_prop_as_str((mpr_obj)sendsigs[0], MPR_PROP_NAME, NULL);
+    const char *devname = mpr_obj_get_prop_as_str((mpr_obj)devs[0], MPR_PROP_NAME, NULL);
+    const char *signame = mpr_obj_get_prop_as_str((mpr_obj)sendsigs[0], MPR_PROP_NAME, NULL);
     while ((!terminate || i < 50) && !done) {
-        eprintf("Updating signal %s to %d\n", name, i);
+        eprintf("Updating signal %s:%s to %d\n", devname, signame, i);
         mpr_sig_set_value(sendsigs[0], i % 10, 1, MPR_INT32, &i);
         sent[0]++;
         mpr_dev_poll(devs[0], 0);

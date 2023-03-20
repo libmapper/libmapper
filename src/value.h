@@ -52,7 +52,7 @@ MPR_INLINE static void* mpr_value_get_samp_hist(mpr_value v, int inst_idx, int h
     return (char*)b->samps + idx * v->vlen * mpr_type_get_size(v->type);
 }
 
-/*! Helper to find the pointer to the current time in a mpr_value_t. */
+/*! Helper to find the pointer to the current time in a `mpr_value_t`. */
 MPR_INLINE static mpr_time* mpr_value_get_time(mpr_value v, int idx)
 {
     mpr_value_buffer b = &v->inst[idx % v->num_inst];

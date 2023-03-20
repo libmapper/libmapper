@@ -45,22 +45,19 @@ void printexpr(const char*, mpr_expr);
 /*! Evaluate the given inputs using the compiled expression.
  *  \param stk          A preallocated expression eval stack.
  *  \param expr         The expression to use.
- *  \param srcs         An array of mpr_value structures for sources.
- *  \param expr_vars    An array of mpr_value structures for user variables.
- *  \param result       A mpr_value structure for the destination.
- *  \param t            A pointer to a timetag structure for storing the time
- *                      associated with the result.
- *  \param types        An array of mpr_type for storing the output type per
- *                      vector element
+ *  \param srcs         An array of `mpr_value` structures for sources.
+ *  \param expr_vars    An array of `mpr_value` structures for user variables.
+ *  \param result       A `mpr_value` structure for receiving the evaluation result.
+ *  \param time         The timestamp to associate with this evaluation.
+ *  \param types        An array of `mpr_type` for storing the output type per vector element
  *  \param inst_idx     Index of the instance being updated.
- *  \result             0 if the expression evaluation caused no change, or a
- *                      bitwise OR of MPR_SIG_UPDATE (if an update was
- *                      generated), MPR_SIG_REL_UPSTRM (if the expression
- *                      generated an instance release before the update), and
- *                      MPR_SIG_REL_DNSRTM (if the expression generated an
- *                      instance release after an update). */
+ *  \result             0 if the expression evaluation caused no change, or a bitflags consisting of
+ *                      `MPR_SIG_UPDATE` (if an update was generated), `MPR_SIG_REL_UPSTRM` (if the
+ *                      expression generated an instance release before the update), and
+ *                      `MPR_SIG_REL_DNSRTM` (if the expression generated an instance release after
+ *                      an update). */
 int mpr_expr_eval(mpr_expr_stack stk, mpr_expr expr, mpr_value *srcs, mpr_value *expr_vars,
-                  mpr_value result, mpr_time *t, mpr_type *types, int inst_idx);
+                  mpr_value result, mpr_time *time, mpr_type *types, int inst_idx);
 
 int mpr_expr_get_num_input_slots(mpr_expr expr);
 
@@ -70,4 +67,4 @@ mpr_expr_stack mpr_expr_stack_new();
 
 void mpr_expr_stack_free(mpr_expr_stack stk);
 
-#endif /* __MPR_ESPRESSION_H__ */
+#endif /* __MPR_EXPRESSION_H__ */

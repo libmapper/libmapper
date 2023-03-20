@@ -270,21 +270,10 @@ void mpr_obj_push(mpr_obj o)
     else if (o->type & MPR_MAP) {
         mpr_map m = (mpr_map)o;
         mpr_net_use_bus(n);
-        if (m->status >= MPR_STATUS_ACTIVE)
+        if (mpr_map_get_status(m) >= MPR_STATUS_ACTIVE)
             mpr_map_send_state(m, -1, MSG_MAP_MOD);
-        else {
-            int i;
-            mpr_sig s = mpr_slot_get_sig(m->dst);
-            mpr_dev d = mpr_sig_get_dev(s);
-            /* Only proceed if all signals are registered (remote or registered local signals) */
-            RETURN_UNLESS(mpr_dev_get_is_registered(d));
-            for (i = 0; i < m->num_src; i++) {
-                s = mpr_slot_get_sig(m->src[i]);
-                d = mpr_sig_get_dev(s);
-                RETURN_UNLESS(mpr_dev_get_is_registered(d));
-            }
+        else if (!mpr_map_waiting(m))
             mpr_map_send_state(m, -1, MSG_MAP);
-        }
     }
     else {
         trace("mpr_obj_push(): unknown object type %d\n", o->type);
@@ -379,9 +368,9 @@ void mpr_obj_print(mpr_obj o, int staged)
     if (MPR_MAP == o->type) {
         /* also print slot props */
         mpr_map map = (mpr_map)o;
-        for (i = 0; i < map->num_src; i++)
-            mpr_slot_print(map->src[i], 0);
-        mpr_slot_print(map->dst, 1);
+        for (i = 0; i < mpr_map_get_num_src(map); i++)
+            mpr_slot_print(mpr_map_get_src_slot(map, i), 0);
+        mpr_slot_print(mpr_map_get_dst_slot(map), 1);
     }
     printf("\n");
 }

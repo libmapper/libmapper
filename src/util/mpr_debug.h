@@ -44,7 +44,11 @@ if (!(a)) { trace_net(__VA_ARGS__); return ret; }
 #include <assert.h>
 #define trace(...) { printf("-- " __VA_ARGS__); }
 #define trace_graph(...)  { printf("\x1B[31m-- <graph>\x1B[0m " __VA_ARGS__);}
-#define trace_net(...)  { printf("\x1B[33m-- <network>\x1B[0m  " __VA_ARGS__);}
+#define trace_net(NET)                                                \
+{                                                                     \
+    printf("\x1B[33m-- <network.%p>\x1B[0m received %s ", NET, path); \
+    lo_message_pp(msg);                                               \
+}
 #define die_unless(a, ...) { if (!(a)) { printf("-- " __VA_ARGS__); assert(a); } }
 #else /* !DEBUG */
 #define trace(...) {}

@@ -354,6 +354,7 @@ static int update_elements(mpr_tbl_record rec, unsigned int len, mpr_type type, 
         rec->val = new_val;
     rec->len = len;
     rec->type = type;
+    rec->flags |= PROP_SET;
     return updated != 0;
 }
 
@@ -402,6 +403,12 @@ int mpr_tbl_add_record(mpr_tbl t, int prop, const char *key, int len,
 }
 
 void mpr_tbl_link_value(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val, int flags)
+{
+    add_record_internal(t, prop, NULL, len, type, val, flags | PROP_SET);
+}
+
+void mpr_tbl_link_value_no_default(mpr_tbl t, mpr_prop prop, int len, mpr_type type, void *val,
+                                   int flags)
 {
     add_record_internal(t, prop, NULL, len, type, val, flags);
 }
@@ -535,6 +542,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
     void *val;
     mpr_list list = NULL;
     RETURN_UNLESS(!(rec->flags & LOCAL_ACCESS_ONLY));
+    RETURN_UNLESS(rec->flags & PROP_SET);
 
     indirect = rec->flags & INDIRECT;
     masked = MASK_PROP_BITFLAGS(rec->prop);
@@ -659,6 +667,12 @@ int mpr_tbl_get_is_dirty(mpr_tbl tbl)
 void mpr_tbl_set_is_dirty(mpr_tbl tbl, int dirty)
 {
     tbl->dirty = dirty;
+}
+
+int mpr_tbl_get_prop_is_set(mpr_tbl tbl, mpr_prop prop)
+{
+    mpr_tbl_record rec = mpr_tbl_get_record(tbl, prop, NULL);
+    return rec && (rec->flags & PROP_SET);
 }
 
 #ifdef DEBUG

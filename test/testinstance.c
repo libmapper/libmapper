@@ -70,96 +70,93 @@ typedef struct _test_config {
     oflw_action     oflw_action;
     const char      *expr;
     float           count_multiplier;
+    float           count_multiplier_shared;
     float           count_epsilon;
 } test_config;
+
+#define EXPR1 "alive=n>=5;y=x;n=(n+1)%10;"
 
 /* TODO: test received values */
 /* TODO: these should work with count_epsilon=0.0 */
 test_config test_configs[] = {
     /* singleton ––> singleton; shouldn't make a difference if map is instanced */
-    {  1, SINGLETON, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 1., 0. },
-    {  2, SINGLETON, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1., 0. },
+    {  1, SINGLETON, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL,  1.0,  1.0,  0.0 },
+    {  2, SINGLETON, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL,  1.0,  1.0,  0.0 },
 
     /* singleton ==> singleton; shouldn't make a difference if map is instanced */
-    {  3, SINGLETON, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1., 0. },
-    {  4, SINGLETON, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL, 1., 0. },
+    {  3, SINGLETON, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL,  1.0,  1.0,  0.0 },
+    {  4, SINGLETON, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL,  1.0,  1.0,  0.0 },
 
     /* singleton ––> instanced; control all active instances */
-    {  5, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 3., 0. },
-    {  6, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3., 0. },
+    {  5, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL,  3.0,  3.0,  0.0 },
+    {  6, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL,  3.0,  3.0,  0.0 },
 
     /* singleton ==> instanced; control a single instance (default) */
     /* TODO: check that instance is released on map_free() */
-    {  7, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1., 0. },
-    {  8, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 1., 0. },
+    {  7, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL,  1.0,  1.0,  0.0 },
+    {  8, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL,  1.0,  1.0,  0.0 },
 
     /* instanced ––> singleton; any source instance updates destination */
-    {  9, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 5., 0. },
+    {  9, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL,  5.0,  5.0,  0.0 },
     /* ... but when processing @dst only the last instance update will trigger handler */
-    /* Shared graph case will change the count_multiplier value to 5. */
-    { 10, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1., 0. },
+    { 10, INSTANCED, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL,  1.0,  5.0,  0.0 },
 
     /* instanced ==> singleton; one src instance updates dst (default) */
     /* CHECK: if controlling instance is released, move to next updated inst */
-    { 11, INSTANCED, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1., 0. },
-    { 12, INSTANCED, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL, 1., 0. },
+    { 11, INSTANCED, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL,  1.0,  1.0,  0.0 },
+    { 12, INSTANCED, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL,  1.0,  1.0,  0.0 },
 
     /* instanced ––> instanced; any src instance updates all dst instances */
     /* source signal does not know about active destination instances */
-    { 13, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15., 0. },
-    /* Shared graph case will change the count_multiplier value to 15. */
-    { 14, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3., 0. },
+    { 13, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15.0, 15.0,  0.0 },
+    { 14, INSTANCED, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL,  3.0, 15.0,  0.0 },
 
     /* instanced ==> instanced; no stealing */
-    { 15, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 4., 0. },
-    { 16, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 4., 0. },
+    { 15, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL,  4.0,  4.0,  0.0 },
+    { 16, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL,  4.0,  4.0,  0.0 },
 
     /* instanced ==> instanced; steal newest instance */
-    /* Shared graph case will change the count_multiplier value to 5. */
-    { 17, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NEW, NULL, 4.25, 0. },
-    /* Shared graph case will change the count_multiplier value to 5. */
-    { 18, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NEW, NULL, 4., 0. },
+    { 17, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NEW,  NULL,  4.25, 4.25, 0.0 },
+    /* TODO: verify that shared_graph version is behaving properly */
+    { 18, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NEW,  NULL,  4.0,  4.25, 0.0 },
 
     /* instanced ==> instanced; steal oldest instance */
-    { 19, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, OLD, NULL, 4.6, 0. },
-    /* Shared graph case will change the count_multiplier value to 4.6. */
-    { 20, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, OLD, NULL, 4.0, 0. },
+    { 19, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, OLD,  NULL,  4.6,  4.6,  0.0 },
+    { 20, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, OLD,  NULL,  4.0,  4.6,  0.0 },
 
     /* instanced ==> instanced; add instances if needed */
-    { 21, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, ADD, NULL, 5., 0. },
-    { 22, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, ADD, NULL, 5., 0. },
+    { 21, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, ADD,  NULL,  5.0,  5.0,  0.0 },
+    { 22, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, ADD,  NULL,  5.0,  5.0,  0.0 },
 
     /* mixed ––> singleton */
     /* for src processing the update count is additive since the destination has only one instance */
-    { 23, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL, 5.0, 0. },
+    { 23, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_SRC, NONE, NULL,  5.0,  5.0,  0.0 },
     /* TODO: we should default to dst processing for this configuration */
-    /* Shared graph case will change the count_multiplier value to 5. */
-    { 24, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL, 1.0, 0. },
+    { 24, MIXED_SIG, SINGLETON, SINGLETON, MPR_LOC_DST, NONE, NULL,  1.0,  5.0,  0.0 },
 
     /* mixed ==> singleton */
     /* for src processing we expect one update per iteration */
-    { 25, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL, 1.0, 0. },
+    { 25, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_SRC, NONE, NULL,  1.0,  1.0,  0.0 },
     /* for dst processing we expect one update per iteration */
-    { 26, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL, 1.0, 0. },
+    { 26, MIXED_SIG, SINGLETON, INSTANCED, MPR_LOC_DST, NONE, NULL,  1.0,  1.0,  0.0 },
 
     /* mixed ––> instanced */
     /* for src processing the update count is multiplicative: 5 src x 3 dst */
-    { 27, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15.0, 0. },
+    { 27, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, NULL, 15.0, 15.0,  0.0 },
     /* each active instance should receive 1 update per iteration */
-    /* Shared graph case will change the count_multiplier value to 15. */
-    { 28, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL, 3.0, 0. },
+    { 28, MIXED_SIG, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, NULL,  3.0, 15.0,  0.0 },
 
     /* mixed ==> instanced */
-    { 29, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL, 4.0, 0. },
-    { 30, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL, 4.0, 0. },
+    { 29, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, NULL,  4.0,  4.0,  0.0 },
+    { 30, MIXED_SIG, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL,  4.0,  4.0,  0.0 },
 
     /* singleton ––> instanced; in-map instance management */
-    { 31, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, "alive=n>=5;y=x;n=(n+1)%10;", 1.5, 0. },
-    { 32, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, "alive=n>=5;y=x;n=(n+1)%10;", 1.5, 0. },
+    { 31, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_SRC, NONE, EXPR1, 1.5,  1.5,  0.0 },
+    { 32, SINGLETON, INSTANCED, SINGLETON, MPR_LOC_DST, NONE, EXPR1, 1.5,  1.5,  0.0 },
 
     /* singleton ==> instanced; in-map instance management */
-    { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, "alive=n>=5;y=x;n=(n+1)%10;", 0.5, 0. },
-    { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=n>=5;y=x;n=(n+1)%10;", 0.5, 0. },
+    { 33, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_SRC, NONE, EXPR1, 0.5,  0.5,  0.0 },
+    { 34, SINGLETON, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, EXPR1, 0.5,  0.5,  0.0 },
 
     /* work in progress:
      * instanced ––> instanced; in-map instance management (late start, early release, ad hoc)
@@ -232,7 +229,7 @@ void handler(mpr_sig sig, mpr_sig_evt e, mpr_id inst, int len, mpr_type type,
         mpr_sig_reserve_inst(sig, 1, 0, 0);
     }
     else if (e & MPR_SIG_REL_UPSTRM) {
-        eprintf("UPSTREAM RELEASE!! RELEASING LOCAL INSTANCE.\n");
+        eprintf("--> destination %s instance %i got upstream release\n", name, (int)inst);
         mpr_sig_release_inst(sig, inst);
     }
     else if (val) {
@@ -540,9 +537,15 @@ int run_test(test_config *config)
 
     loop(config->src_type, config->dst_type);
 
-    compare_count = ((float)iterations * config->count_multiplier);
+    if (shared_graph)
+        compare_count = ((float)iterations * config->count_multiplier_shared);
+    else
+        compare_count = ((float)iterations * config->count_multiplier);
 
     release_active_instances(multisend);
+
+    mpr_dev_poll(src, 100);
+    mpr_dev_poll(dst, 100);
 
     /* Warning: assuming that map has not been released by a peer process is not safe! Do not do
      * this in non-test code. */
@@ -620,7 +623,7 @@ int run_test(test_config *config)
 
 int main(int argc, char **argv)
 {
-    int i, j, k, result = 0;
+    int i, j, result = 0;
     char *iface = 0;
     mpr_graph g;
 
@@ -651,24 +654,6 @@ int main(int argc, char **argv)
                         break;
                     case 's':
                         shared_graph = 1;
-                        for (k = 0; k < sizeof(test_configs) / sizeof(test_configs[0]); k++) {
-                            switch (test_configs[k].test_id) {
-                                case 10:
-                                case 17:
-                                    /* TODO: check if this behaviour is correct */
-                                case 18:
-                                case 24:
-                                    test_configs[k].count_multiplier = 5;
-                                    break;
-                                case 14:
-                                case 28:
-                                    test_configs[k].count_multiplier = 15;
-                                    break;
-                                case 20:
-                                    test_configs[k].count_multiplier = 4.6;
-                                    break;
-                            }
-                        }
                         break;
                     case '-':
                         if (strcmp(argv[i], "--iface")==0 && argc>i+1) {

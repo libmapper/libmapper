@@ -139,7 +139,7 @@ int setup_maps()
         dMax = rand() % 100;
     } while (dMax == dMin);
 
-    snprintf(expr, 128, "y=linear(x,%f,%f,%f,%f)", sMin, sMax, dMin, dMax);
+    snprintf(expr, 128, "y=linear(x,%g,%g,%g,%g)", sMin, sMax, dMin, dMax);
     mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
     mpr_obj_push(map);
 
