@@ -346,10 +346,10 @@ void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time,
     mpr_link_add_msg(slot->link, mpr_sig_get_path((mpr_sig)slot->sig), msg, time, proto, bundle_idx);
 }
 
-int mpr_slot_compare_names(const void *l, const void *r)
+int mpr_slot_compare_names(mpr_slot l, mpr_slot r)
 {
-    mpr_sig lsig = (*(mpr_slot*)l)->sig;
-    mpr_sig rsig = (*(mpr_slot*)r)->sig;
+    mpr_sig lsig = l->sig;
+    mpr_sig rsig = r->sig;
     int result = strcmp(mpr_dev_get_name(mpr_sig_get_dev(lsig)),
                         mpr_dev_get_name(mpr_sig_get_dev(rsig)));
     if (0 == result)

@@ -540,7 +540,7 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e)
         maps = mpr_list_get_next(maps);
     }
 
-    _remove_by_qry(g, mpr_dev_get_links(d, MPR_DIR_ANY), e);
+    _remove_by_qry(g, mpr_dev_get_links(d, MPR_DIR_UNDEFINED), e);
     _remove_by_qry(g, mpr_dev_get_sigs(d, MPR_DIR_ANY), e);
 
     mpr_list_remove_item((void**)&g->devs, d);
