@@ -172,14 +172,11 @@ bandwidth of that particular central node.  In libmapper's case, if 50 nodes
 subscribe to a particular signal, it will be repeated that many times by the
 originating node.  Dealing with centralized-vs-decentralized efficiency issues
 by automatically optimizing decisions on how messages are distributed and where
-routing takes place is not impossible, but represents non-trivial work--for
-example, in libmapper the concept of a "router" is actually an independent node
-that a device sends messages to, which then translates and rebroadcasts; it just
-happens that the router is embedded in the sender because that was the most
-efficient place to have it in our scenario.  Optimizing of message-passing
-efficiency/network topology is not a near-term goal, but in the meantime it is
-entirely possible to use libmapper to explicitly create a centralized network
-if desired; this will simply imply more overhead in managing connections.
+routing takes place is not impossible, but represents non-trivial work.
+Optimizing of message-passing efficiency/network topology is not a near-term
+goal, but in the meantime it is entirely possible to use libmapper to explicitly
+create a centralized network if desired; this will simply imply more overhead in
+managing connections.
 
 Future plans
 ------------
