@@ -17,4 +17,6 @@ double mpr_get_current_time(void);
  *  \return             The difference a-b in seconds. */
 double mpr_time_get_diff(mpr_time minuend, mpr_time subtrahend);
 
+void mpr_time_print(mpr_time t);
+
 #endif /* __MPR_TIME_H__ */

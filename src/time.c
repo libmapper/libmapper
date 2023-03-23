@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdio.h>
+
 #ifdef _MSC_VER
 #include "time.h"
 
@@ -143,4 +145,9 @@ void mpr_time_set(mpr_time *l, mpr_time r)
 int mpr_time_cmp(mpr_time l, mpr_time r)
 {
     return l.sec == r.sec ? l.frac - r.frac : l.sec - r.sec;
+}
+
+void mpr_time_print(mpr_time t)
+{
+    printf("%08x.%08x", t.sec, t.frac);
 }
