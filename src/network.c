@@ -838,16 +838,17 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
         mpr_link link = (mpr_link)*cpy;
         cpy = mpr_list_get_next(cpy);
         if (mpr_obj_get_is_local((mpr_obj)link)) {
+            mpr_list maps;
             trace("  establishing link to %s.\n", name)
             mpr_link_connect(link, host, atoi(admin_port), data_port);
 
             /* check if we have maps waiting for this link */
             trace("  checking for waiting maps.\n");
-            mpr_list maps = mpr_link_get_maps(link);
+            maps = mpr_link_get_maps(link);
             while (maps) {
                 mpr_map map = (mpr_map)*maps;
-                maps = mpr_list_get_next(maps);
                 mpr_loc locality = mpr_map_get_locality(map);
+                maps = mpr_list_get_next(maps);
                 if (locality & MPR_LOC_SRC) {
                     int i;
                     mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));

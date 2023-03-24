@@ -359,9 +359,9 @@ void mpr_map_free(mpr_map map)
 
         if (lmap->id_map) {
             /* release map-generated instances */
+            lo_message msg = mpr_map_build_msg(lmap, 0, 0, 0, lmap->id_map);
             mpr_time time;
             mpr_time_set(&time, MPR_NOW);
-            lo_message msg = mpr_map_build_msg(lmap, 0, 0, 0, lmap->id_map);
             if (lmap->locality & MPR_LOC_DST) {
                 mpr_net_set_bundle_time(mpr_graph_get_net(lmap->obj.graph), time);
                 mpr_sig_osc_handler(NULL, lo_message_get_types(msg), lo_message_get_argv(msg),
@@ -1362,10 +1362,10 @@ done:
 
 static void _check_status(mpr_local_map map)
 {
-    trace("checking map status\n");
     int i, mask = ~METADATA_OK;
     RETURN_UNLESS((map->status & MPR_STATUS_READY) != MPR_STATUS_READY);
 
+    trace("checking map status\n");
     map->status |= METADATA_OK;
     for (i = 0; i < map->num_src; i++) {
         trace("  src[%d]: ", i);
@@ -1588,9 +1588,10 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 }
                 break;
             case PROP(PROTOCOL): {
+                mpr_proto pro;
                 if (mpr_obj_get_is_local((mpr_obj)m) && MPR_LOC_BOTH == ((mpr_local_map)m)->locality)
                     break;
-                mpr_proto pro = mpr_protocol_from_str(&(vals[0])->s);
+                pro = mpr_protocol_from_str(&(vals[0])->s);
                 updated += mpr_tbl_add_record(tbl, PROP(PROTOCOL), NULL, 1, MPR_INT32,
                                               &pro, REMOTE_MODIFY);
                 break;
