@@ -57,6 +57,42 @@ extern const char* prop_msg_strings[MPR_PROP_EXTRA+1];
 #define UPDATE 1
 #define ADD 2
 
+/*! A structure that keeps information about network communications. */
+typedef struct _mpr_net {
+    mpr_graph graph;
+
+    lo_server servers[2];
+
+    struct {
+        lo_address bus;             /*!< LibLo address for the multicast bus. */
+        lo_address dst;
+        struct _mpr_local_dev *dev;
+        char *url;
+    } addr;
+
+    struct {
+        char *name;                 /*!< The name of the network interface. */
+        struct in_addr addr;        /*!< The IP address of network interface. */
+    } iface;
+
+    struct _mpr_local_dev **devs;   /*!< Local devices managed by this network structure. */
+    lo_bundle bundle;               /*!< Bundle pointer for sending messages on the multicast bus. */
+    mpr_time bundle_time;
+
+    struct {
+        char *group;
+        int port;
+    } multicast;
+
+    int random_id;                  /*!< Random id for allocation speedup. */
+    int msg_type;
+    int num_devs;
+    uint32_t next_bus_ping;
+    uint32_t next_sub_ping;
+    uint8_t generic_dev_methods_added;
+    uint8_t registered;
+} mpr_net_t;
+
 static int is_alphabetical(int num, lo_arg **names)
 {
     int i;
@@ -345,6 +381,53 @@ void mpr_net_add_dev_methods(mpr_net net, mpr_local_dev dev)
     }
 }
 
+/*! Add an uninitialized device to this network. */
+void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
+{
+    int i, found = 0;
+    RETURN_UNLESS(dev);
+
+    mpr_local_dev_copy_net_servers(dev, net->servers);
+
+    /* Check if device was already added. */
+    for (i = 0; i < net->num_devs; i++) {
+        if (net->devs[i] == dev) {
+            found = 1;
+            break;
+        }
+    }
+    if (found) {
+        /* reset registered flag */
+        mpr_local_dev_restart_registration(dev, i);
+    }
+    else {
+        /* Initialize data structures */
+        net->devs = realloc(net->devs, (net->num_devs + 1) * sizeof(mpr_local_dev));
+        net->devs[net->num_devs] = dev;
+        ++net->num_devs;
+        mpr_local_dev_restart_registration(dev, net->num_devs);
+        net->registered = 0;
+    }
+
+    if (1 == net->num_devs) {
+        /* Seed the random number generator. */
+        seed_srand();
+
+        /* Choose a random ID for allocation speedup */
+        net->random_id = rand();
+
+        /* Add allocation methods for bus communications. Further methods are added
+         * when the device is registered. */
+        lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_PROBE], "si",
+                             handler_name_probe, net);
+        lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_REG], NULL,
+                             handler_name, net);
+    }
+
+    /* Probe potential name. */
+    mpr_local_dev_probe_name(dev, net);
+}
+
 void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
 {
     int i, j;
@@ -392,6 +475,11 @@ void mpr_net_remove_dev(mpr_net net, mpr_local_dev dev)
     }
 }
 
+int mpr_net_get_num_devs(mpr_net net)
+{
+    return net->num_devs;
+}
+
 static void mpr_net_add_graph_methods(mpr_net net, lo_server server)
 {
     /* add graph methods */
@@ -401,6 +489,14 @@ static void mpr_net_add_graph_methods(mpr_net net, lo_server server)
                              graph_handlers[i].types, graph_handlers[i].h, net->graph);
     }
     return;
+}
+
+mpr_net mpr_net_new(mpr_graph g)
+{
+    mpr_net net = (mpr_net) calloc(1, sizeof(mpr_net_t));
+    net->graph = g;
+    mpr_net_init(net, 0, 0, 0);
+    return net;
 }
 
 int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
@@ -486,6 +582,18 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
         mpr_net_add_dev(net, net->devs[i]);
 
     return 0;
+}
+
+const char *mpr_net_get_interface(mpr_net net)
+{
+    return net->iface.name;
+}
+
+const char *mpr_net_get_address(mpr_net net)
+{
+    if (!net->addr.url)
+        net->addr.url = lo_address_get_url(net->addr.bus);
+    return net->addr.url;
 }
 
 const char *mpr_get_version()
@@ -580,6 +688,7 @@ void mpr_net_free(mpr_net net)
     FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
     FUNC_IF(lo_address_free, net->addr.bus);
     FUNC_IF(free, net->addr.url);
+    free(net);
 }
 
 /*! Probe the network to see if a device's proposed name.ordinal is available. */
@@ -602,53 +711,6 @@ void mpr_net_send_name_registered(mpr_net net, const char *name, int id, int hin
         lo_message_add_int32(msg, hint);
     }
     mpr_net_add_msg(net, NULL, MSG_NAME_REG, msg);
-}
-
-/*! Add an uninitialized device to this network. */
-void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
-{
-    int i, found = 0;
-    RETURN_UNLESS(dev);
-
-    mpr_local_dev_copy_net_servers(dev, net->servers);
-
-    /* Check if device was already added. */
-    for (i = 0; i < net->num_devs; i++) {
-        if (net->devs[i] == dev) {
-            found = 1;
-            break;
-        }
-    }
-    if (found) {
-        /* reset registered flag */
-        mpr_local_dev_restart_registration(dev, i);
-    }
-    else {
-        /* Initialize data structures */
-        net->devs = realloc(net->devs, (net->num_devs + 1) * sizeof(mpr_local_dev));
-        net->devs[net->num_devs] = dev;
-        ++net->num_devs;
-        mpr_local_dev_restart_registration(dev, net->num_devs);
-        net->registered = 0;
-    }
-
-    if (1 == net->num_devs) {
-        /* Seed the random number generator. */
-        seed_srand();
-
-        /* Choose a random ID for allocation speedup */
-        net->random_id = rand();
-
-        /* Add allocation methods for bus communications. Further methods are added
-         * when the device is registered. */
-        lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_PROBE], "si",
-                             handler_name_probe, net);
-        lo_server_add_method(net->servers[SERVER_BUS], net_msg_strings[MSG_NAME_REG], NULL,
-                             handler_name, net);
-    }
-
-    /* Probe potential name. */
-    mpr_local_dev_probe_name(dev, net);
 }
 
 static void _send_device_sync(mpr_net net, mpr_local_dev dev)

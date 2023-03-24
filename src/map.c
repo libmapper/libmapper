@@ -1591,7 +1591,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                 mpr_proto pro;
                 if (mpr_obj_get_is_local((mpr_obj)m) && MPR_LOC_BOTH == ((mpr_local_map)m)->locality)
                     break;
-                pro = mpr_protocol_from_str(&(vals[0])->s);
+                pro = mpr_proto_from_str(&(vals[0])->s);
                 updated += mpr_tbl_add_record(tbl, PROP(PROTOCOL), NULL, 1, MPR_INT32,
                                               &pro, REMOTE_MODIFY);
                 break;

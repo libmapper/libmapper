@@ -546,7 +546,7 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     mpr_graph_housekeeping(dev->obj.graph);
 
     if (!ldev->registered) {
-        if (lo_servers_recv_noblock(net->servers, status, 2, block_ms)) {
+        if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, block_ms)) {
             admin_count = (status[0] > 0) + (status[1] > 0);
         }
         ldev->bundle_idx = 1;
@@ -897,8 +897,7 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     free(host);
     free(url);
 
-    memcpy(dev->servers + 2, mpr_net_get_servers(net),
-           sizeof(lo_server) * 2);
+    memcpy(dev->servers + 2, mpr_net_get_servers(net), sizeof(lo_server) * 2);
 }
 
 /*! Probe the network to see if a device's proposed name.ordinal is available. */
@@ -1394,7 +1393,7 @@ static int check_collisions(mpr_net net, mpr_allocated resource)
             if (!resource->hints[i])
                 break;
         }
-        resource->val += i + (rand() % net->num_devs);
+        resource->val += i + (rand() % mpr_net_get_num_devs(net));
 
         /* Prepare for causing new resource collisions. */
         resource->collision_count = 0;

@@ -342,7 +342,7 @@ void mpr_obj_print(mpr_obj o, int staged)
                     printf("%s", mpr_loc_as_str(*(int*)val));
                     break;
                 case MPR_PROP_PROTOCOL:
-                    printf("%s", mpr_protocol_as_str(*(int*)val));
+                    printf("%s", mpr_proto_as_str(*(int*)val));
                     break;
                 default:
                     mpr_prop_print(len, type, val);

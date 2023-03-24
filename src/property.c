@@ -163,14 +163,14 @@ mpr_loc mpr_loc_from_str(const char *str)
     return MPR_LOC_UNDEFINED;
 }
 
-const char *mpr_protocol_as_str(mpr_proto p)
+const char *mpr_proto_as_str(mpr_proto p)
 {
     if (p <= 0 || p > MPR_NUM_PROTO)
         return "unknown";
     return mpr_protocol_strings[p];
 }
 
-mpr_proto mpr_protocol_from_str(const char *str)
+mpr_proto mpr_proto_from_str(const char *str)
 {
     int i;
     RETURN_ARG_UNLESS(str, MPR_PROTO_UNDEFINED);
@@ -181,7 +181,7 @@ mpr_proto mpr_protocol_from_str(const char *str)
     return MPR_PROTO_UNDEFINED;
 }
 
-const char *mpr_steal_as_str(mpr_steal_type stl)
+const char *mpr_steal_type_as_str(mpr_steal_type stl)
 {
     if (stl < MPR_STEAL_NONE || stl > MPR_STEAL_NEWEST)
         return "unknown";

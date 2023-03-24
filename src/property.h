@@ -18,4 +18,14 @@ int mpr_prop_get_len(mpr_prop p);
 
 int mpr_prop_get_protocol_type(mpr_prop p);
 
+const char *mpr_loc_as_str(mpr_loc loc);
+
+mpr_loc mpr_loc_from_str(const char *string);
+
+const char *mpr_proto_as_str(mpr_proto pro);
+
+mpr_proto mpr_proto_from_str(const char *string);
+
+const char *mpr_steal_type_as_str(mpr_steal_type stl);
+
 #endif /* __MPR_PROPERTY_H__ */

@@ -6,41 +6,7 @@ typedef struct _mpr_net *mpr_net;
 
 #include "message.h"
 
-/*! A structure that keeps information about network communications. */
-typedef struct _mpr_net {
-    struct _mpr_graph *graph;
-
-    lo_server servers[2];
-
-    struct {
-        lo_address bus;             /*!< LibLo address for the multicast bus. */
-        lo_address dst;
-        struct _mpr_local_dev *dev;
-        char *url;
-    } addr;
-
-    struct {
-        char *name;                 /*!< The name of the network interface. */
-        struct in_addr addr;        /*!< The IP address of network interface. */
-    } iface;
-
-    struct _mpr_local_dev **devs;   /*!< Local devices managed by this network structure. */
-    lo_bundle bundle;               /*!< Bundle pointer for sending messages on the multicast bus. */
-    mpr_time bundle_time;
-
-    struct {
-        char *group;
-        int port;
-    } multicast;
-
-    int random_id;                  /*!< Random id for allocation speedup. */
-    int msg_type;
-    int num_devs;
-    uint32_t next_bus_ping;
-    uint32_t next_sub_ping;
-    uint8_t generic_dev_methods_added;
-    uint8_t registered;
-} mpr_net_t;
+mpr_net mpr_net_new(mpr_graph g);
 
 int mpr_net_bundle_start(lo_timetag t, void *data);
 
@@ -55,6 +21,8 @@ MPR_INLINE static void mpr_net_set_bundle_time(mpr_net net, mpr_time time)
 void mpr_net_add_dev(mpr_net n, mpr_local_dev d);
 
 void mpr_net_remove_dev(mpr_net n, mpr_local_dev d);
+
+int mpr_net_get_num_devs(mpr_net net);
 
 void mpr_net_poll(mpr_net n);
 
@@ -83,6 +51,10 @@ void mpr_net_send_name_registered(mpr_net net, const char *name, int id, int hin
 void mpr_net_add_dev_methods(mpr_net net, mpr_local_dev dev);
 
 void mpr_net_maybe_send_ping(mpr_net net, int force);
+
+const char *mpr_net_get_interface(mpr_net net);
+
+const char *mpr_net_get_address(mpr_net net);
 
 #define NEW_LO_MSG(VARNAME, FAIL)           \
 lo_message VARNAME = lo_message_new();      \

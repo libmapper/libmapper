@@ -607,10 +607,10 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
             lo_message_add_string(msg, mpr_loc_as_str(*(int*)rec->val));
             break;
         case MPR_PROP_PROTOCOL:
-            lo_message_add_string(msg, mpr_protocol_as_str(*(int*)rec->val));
+            lo_message_add_string(msg, mpr_proto_as_str(*(int*)rec->val));
             break;
         case MPR_PROP_STEAL_MODE:
-            lo_message_add_string(msg, mpr_steal_as_str(*(int*)rec->val));
+            lo_message_add_string(msg, mpr_steal_type_as_str(*(int*)rec->val));
             break;
         case MPR_PROP_DEV:
         case MPR_PROP_SIG:

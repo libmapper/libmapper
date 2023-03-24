@@ -53,7 +53,7 @@ typedef struct _mpr_subscription {
 
 typedef struct _mpr_graph {
     mpr_obj_t obj;                  /* always first */
-    mpr_net_t net;
+    mpr_net net;
     mpr_list devs;                  /*!< List of devices. */
     mpr_list sigs;                  /*!< List of signals. */
     mpr_list maps;                  /*!< List of maps. */
@@ -128,7 +128,7 @@ static void _on_dev_autosub(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void 
 static void set_net_dst(mpr_graph g, mpr_dev d)
 {
     /* TODO: look up device info, maybe send directly */
-    mpr_net_use_bus(&g->net);
+    mpr_net_use_bus(g->net);
 }
 
 static void send_subscribe_msg(mpr_graph g, mpr_dev d, int flags, int timeout)
@@ -166,8 +166,8 @@ static void send_subscribe_msg(mpr_graph g, mpr_dev d, int flags, int timeout)
     lo_message_add_string(msg, "@version");
     lo_message_add_int32(msg, mpr_obj_get_version((mpr_obj)d));
 
-    mpr_net_add_msg(&g->net, cmd, 0, msg);
-    mpr_net_send(&g->net);
+    mpr_net_add_msg(g->net, cmd, 0, msg);
+    mpr_net_send(g->net);
 }
 
 static void _autosubscribe(mpr_graph g, int flags)
@@ -191,8 +191,8 @@ static void _autosubscribe(mpr_graph g, int flags)
         }
         if (msg) {
             trace_graph("pinging all devices.\n");
-            mpr_net_use_bus(&g->net);
-            mpr_net_add_msg(&g->net, 0, MSG_WHO, msg);
+            mpr_net_use_bus(g->net);
+            mpr_net_add_msg(g->net, 0, MSG_WHO, msg);
         }
         mpr_graph_add_cb(g, _on_dev_autosub, MPR_DEV, g);
     }
@@ -263,10 +263,9 @@ mpr_graph mpr_graph_new(int subscribe_flags)
     RETURN_ARG_UNLESS(g, NULL);
 
     mpr_obj_init((mpr_obj)g, g, MPR_GRAPH);
-    g->net.graph = g;
     g->obj.id = 0;
     g->own = 1;
-    mpr_net_init(&g->net, 0, 0, 0);
+    g->net = mpr_net_new(g);
     if (subscribe_flags)
         _autosubscribe(g, subscribe_flags);
 
@@ -355,7 +354,7 @@ void mpr_graph_free(mpr_graph g)
     }
 
     FUNC_IF(mpr_expr_stack_free, g->expr_stack);
-    mpr_net_free(&g->net);
+    mpr_net_free(g->net);
     mpr_obj_free(&g->obj);
     free(g);
 }
@@ -865,15 +864,16 @@ void mpr_graph_housekeeping(mpr_graph g)
 
 int mpr_graph_poll(mpr_graph g, int block_ms)
 {
-    mpr_net n = &g->net;
+    mpr_net n = g->net;
     int count = 0, status[2], left_ms, elapsed, checked_admin = 0;
     double then;
+    lo_server *servers = mpr_net_get_servers(n);
 
     mpr_net_poll(n);
     mpr_graph_housekeeping(g);
 
     if (!block_ms) {
-        if (lo_servers_recv_noblock(n->servers, status, 2, 0)) {
+        if (lo_servers_recv_noblock(servers, status, 2, 0)) {
             count = (status[0] > 0) + (status[1] > 0);
         }
         return count;
@@ -885,7 +885,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
         if (left_ms > 100)
             left_ms = 100;
 
-        if (lo_servers_recv_noblock(n->servers, status, 2, left_ms))
+        if (lo_servers_recv_noblock(servers, status, 2, left_ms))
             count += (status[0] > 0) + (status[1] > 0);
 
         elapsed = (mpr_get_current_time() - then) * 1000;
@@ -1093,24 +1093,22 @@ int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
 
 int mpr_graph_set_interface(mpr_graph g, const char *iface)
 {
-    return mpr_net_init(&g->net, iface, 0, 0);
+    return mpr_net_init(g->net, iface, 0, 0);
 }
 
 const char *mpr_graph_get_interface(mpr_graph g)
 {
-    return g->net.iface.name;
+    return mpr_net_get_interface(g->net);
 }
 
 int mpr_graph_set_address(mpr_graph g, const char *group, int port)
 {
-    return mpr_net_init(&g->net, g->net.iface.name, group, port);
+    return mpr_net_init(g->net, NULL, group, port);
 }
 
 const char *mpr_graph_get_address(mpr_graph g)
 {
-    if (!g->net.addr.url)
-        g->net.addr.url = lo_address_get_url(g->net.addr.bus);
-    return g->net.addr.url;
+    return mpr_net_get_address(g->net);
 }
 
 void mpr_graph_set_owned(mpr_graph g, int own)
@@ -1120,7 +1118,7 @@ void mpr_graph_set_owned(mpr_graph g, int own)
 
 mpr_net mpr_graph_get_net(mpr_graph g)
 {
-    return &g->net;
+    return g->net;
 }
 
 int mpr_graph_get_owned(mpr_graph g)
@@ -1165,9 +1163,9 @@ void mpr_graph_sync_dev(mpr_graph g, const char *name)
         trace_graph("requesting metadata for device '%s'.\n", name);
         snprintf(cmd, 1024, "/%s/subscribe", name);
         lo_message_add_string(msg, "device");
-        mpr_net_use_bus(&g->net);
-        mpr_net_add_msg(&g->net, cmd, 0, msg);
-        mpr_net_send(&g->net);
+        mpr_net_use_bus(g->net);
+        mpr_net_add_msg(g->net, cmd, 0, msg);
+        mpr_net_send(g->net);
     }
     else
         trace_graph("ignoring sync from '%s' (autosubscribe = %d)\n", name, g->autosub);

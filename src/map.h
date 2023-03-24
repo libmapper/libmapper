@@ -32,16 +32,6 @@ lo_message mpr_map_build_msg(mpr_local_map map, mpr_local_slot slot, const void 
 /*! Set a mapping's properties based on message parameters. */
 int mpr_map_set_from_msg(mpr_map map, mpr_msg msg, int override);
 
-const char *mpr_loc_as_str(mpr_loc loc);
-
-mpr_loc mpr_loc_from_str(const char *string);
-
-const char *mpr_protocol_as_str(mpr_proto pro);
-
-mpr_proto mpr_protocol_from_str(const char *string);
-
-const char *mpr_steal_as_str(mpr_steal_type stl);
-
 int mpr_map_send_state(mpr_map map, int slot, net_msg_t cmd);
 
 void mpr_map_init(mpr_map map, int num_src, mpr_sig *src, mpr_sig dst, int is_local);
