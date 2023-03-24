@@ -23,6 +23,7 @@ while not srcs[0].ready or not srcs[1].ready or not srcs[2].ready or not dest.re
     srcs[1].poll(100)
     srcs[2].poll(100)
     dest.poll(100)
+    print("  registered: [",srcs[0].ready,",",srcs[1].ready,",",srcs[2].ready,"]->[",srcs[0].ready,"]")
 
 map = mpr.Map(outsigs, insig)
 if not map:
