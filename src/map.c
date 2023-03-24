@@ -779,9 +779,6 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
     types = alloca(mpr_sig_get_len((mpr_sig)dst_sig) * sizeof(char));
 
     for (i = 0; i < m->num_inst; i++) {
-        mpr_sig_inst si;
-        float diff;
-
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
         status = mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr, src_vals,
@@ -789,48 +786,7 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
         if (!status)
             continue;
 
-        if (mpr_sig_get_use_inst((mpr_sig)dst_sig) && !map_manages_inst) {
-            si = mpr_local_sig_get_inst_by_idx(dst_sig, i, &id_map);
-            if (!id_map) {
-                trace("error: couldn't find id_map for signal instance idx %d\n", i);
-                continue;
-            }
-        }
-        else {
-            si = mpr_local_sig_get_inst_by_id_map_idx(dst_sig, 0, NULL);
-        }
-        diff = mpr_time_get_diff(time, mpr_sig_inst_get_time(si));
-
-        /* TODO: move all of this to signal.c mpr_sig_remote_update() */
-        if (status & EXPR_RELEASE_BEFORE_UPDATE) {
-            /* TODO: release map-tracked instance */
-            /* Try to release instance, but do not call process_sig() here, since we don't
-             * know if the local signal instance will actually be released. */
-            mpr_sig_call_handler(dst_sig, MPR_SIG_REL_UPSTRM, id_map ? id_map->LID : 0, 0, 0, time, diff);
-        }
-
-        if (status & EXPR_UPDATE) {
-            void *result = mpr_value_get_samp(dst_val, i);
-            /* TODO: create new map->id_map */
-/*
-                if (map_manages_inst) {
-                    if (!id_map) {
-                        // create an id_map and store it in the map
-                        id_map = map->id_map = mpr_dev_add_id_map(sig->dev, sig->group, 0, 0);
-                    }
-                }
- */
-
-            /* copy to signal value and call handler */
-            mpr_local_sig_set_inst_value(dst_sig, si, result, time);
-        }
-
-        if (status & EXPR_RELEASE_AFTER_UPDATE) {
-            /* TODO: release map-tracked instance */
-            /* Try to release instance, but do not call process_sig() here, since we don't
-             * know if the local signal instance will actually be released. */
-            mpr_sig_call_handler(dst_sig, MPR_SIG_REL_UPSTRM, id_map ? id_map->LID : 0, 0, 0, time, diff);
-        }
+        mpr_local_sig_set_inst_value(dst_sig, dst_val, i, id_map, status, map_manages_inst, time);
 
         if ((status & EXPR_EVAL_DONE) && !m->use_inst)
             break;
