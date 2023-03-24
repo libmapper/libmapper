@@ -119,7 +119,7 @@ void mpr_local_map_init(mpr_local_map map)
         mpr_id id;
         do {
             id = mpr_dev_generate_unique_id(dst_dev);
-        } while (!mpr_graph_get_obj(map->obj.graph, id, MPR_MAP));
+        } while (mpr_graph_get_obj(map->obj.graph, id, MPR_MAP));
         mpr_obj_set_id((mpr_obj)map, id);
     }
 
