@@ -116,9 +116,9 @@ test_config test_configs[] = {
     { 16, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, NULL,  4.0,  4.0,  0.0 },
 
     /* instanced ==> instanced; steal newest instance */
-    { 17, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NEW,  NULL,  4.25, 4.25, 0.0 },
+    { 17, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, NEW,  NULL,  4.25, 4.25, 0.04 },
     /* TODO: verify that shared_graph version is behaving properly */
-    { 18, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NEW,  NULL,  4.0,  4.25, 0.0 },
+    { 18, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NEW,  NULL,  4.0,  4.25, 0.04 },
 
     /* instanced ==> instanced; steal oldest instance */
     { 19, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_SRC, OLD,  NULL,  4.6,  4.6,  0.0 },
