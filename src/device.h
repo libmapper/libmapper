@@ -6,16 +6,14 @@
 typedef struct _mpr_dev *mpr_dev;
 typedef struct _mpr_local_dev *mpr_local_dev;
 
-#include "object.h"
-#include "expression.h"
+#include "id.h"
+#include "id_map.h"
 #include "link.h"
 #include "list.h"
 #include "message.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
 #include "network.h"
-#include "id_map.h"
-#include "util/mpr_inline.h"
 
 typedef enum {
     SERVER_UDP = 0,
@@ -32,7 +30,7 @@ typedef enum {
     if (!DEV)                                                                                 \
         printf("\x1B[32m-- <device>\x1B[0m ");                                                \
     else if (mpr_dev_get_is_registered((mpr_dev)DEV))                                         \
-        printf("\x1B[32m-- <device '%s'>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV));           \
+        printf("\x1B[32m-- <device '%s'*>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV));          \
     else                                                                                      \
         printf("\x1B[32m-- <device '%s?'::%p>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV), DEV); \
     printf(__VA_ARGS__);                                                                      \
@@ -73,23 +71,11 @@ mpr_id mpr_dev_get_unused_sig_id(mpr_local_dev dev);
 int mpr_dev_add_link(mpr_dev dev, mpr_dev rem);
 void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem);
 
-MPR_INLINE static void mpr_dev_LID_incref(mpr_local_dev dev, mpr_id_map id_map)
-{
-    ++id_map->LID_refcount;
-}
-
-MPR_INLINE static void mpr_dev_GID_incref(mpr_local_dev dev, mpr_id_map id_map)
-{
-    ++id_map->GID_refcount;
-}
-
 int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map id_map);
 
 int mpr_dev_GID_decref(mpr_local_dev dev, int group, mpr_id_map id_map);
 
 void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id);
-
-void mpr_dev_on_registered(mpr_local_dev dev);
 
 void mpr_local_dev_add_server_method(mpr_local_dev dev, const char *path,
                                      lo_method_handler h, void *data);
@@ -137,18 +123,11 @@ void mpr_local_dev_handler_name(mpr_local_dev dev, const char *name,
 void mpr_local_dev_probe_name(mpr_local_dev dev, mpr_net net);
 
 void mpr_local_dev_handler_name_probe(mpr_local_dev dev, char *name, int temp_id,
-                                     int random_id, mpr_id id);
+                                      int random_id, mpr_id id);
 
 void mpr_local_dev_restart_registration(mpr_local_dev dev, int start_ordinal);
 
-int mpr_local_dev_check_registration(mpr_local_dev dev);
-
-void mpr_local_dev_handler_logout(mpr_local_dev dev, mpr_dev remote, const char *prefix_str,
-                                 int ordinal);
-
-void mpr_local_dev_copy_net_servers(mpr_local_dev dev, lo_server *servers);
-
-void mpr_dev_set_num_maps(mpr_dev dev, int num_maps_in, int num_maps_out);
+void mpr_local_dev_handler_logout(mpr_local_dev dev, mpr_dev remote, const char *prefix, int ordinal);
 
 void mpr_local_dev_add_sig(mpr_local_dev dev, mpr_local_sig sig, mpr_dir dir);
 

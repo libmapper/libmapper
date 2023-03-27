@@ -3,6 +3,7 @@ noinst_HEADERS = bitflags.h \
     device.h \
     expression.h \
     graph.h \
+    id.h \
     id_map.h \
     link.h \
     list.h \

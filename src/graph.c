@@ -305,40 +305,41 @@ void mpr_graph_free(mpr_graph g)
     /* Remove all non-local maps */
     list = mpr_list_from_data(g->maps);
     while (list) {
-        mpr_map map = (mpr_map)*list;
+        mpr_obj map = *list;
         list = mpr_list_get_next(list);
-        if (!mpr_obj_get_is_local((mpr_obj)map)) {
-            mpr_graph_remove_map(g, map, MPR_OBJ_REM);
+        if (!map->is_local) {
+            mpr_graph_remove_map(g, (mpr_map)map, MPR_OBJ_REM);
         }
     }
 
     /* Remove all non-local links */
     list = mpr_list_from_data(g->links);
     while (list) {
-        mpr_link link = (mpr_link)*list;
+        mpr_obj link = *list;
         list = mpr_list_get_next(list);
-        if (!((mpr_obj)link)->is_local)
-            mpr_graph_remove_link(g, link, MPR_OBJ_REM);
+        if (!link->is_local)
+            mpr_graph_remove_link(g, (mpr_link)link, MPR_OBJ_REM);
     }
 
     /* Remove all non-local devices and signals from the graph except for
      * those referenced by local maps. */
     list = mpr_list_from_data(g->devs);
     while (list) {
-        mpr_dev dev = (mpr_dev)*list;
+        mpr_obj dev = *list;
         int no_local_dev_maps = 1;
         mpr_list sigs;
         list = mpr_list_get_next(list);
-        if (mpr_obj_get_is_local((mpr_obj)dev))
+        if (dev->is_local)
             continue;
 
-        sigs = mpr_dev_get_sigs(dev, MPR_DIR_ANY);
+        sigs = mpr_dev_get_sigs((mpr_dev)dev, MPR_DIR_ANY);
         while (sigs) {
             int no_local_sig_maps = 1;
-            mpr_sig sig = (mpr_sig)*sigs;
-            mpr_list maps = mpr_sig_get_maps(sig, MPR_DIR_ANY);
+            mpr_obj sig = *sigs;
+            mpr_list maps = mpr_sig_get_maps((mpr_sig)sig, MPR_DIR_ANY);
             while (maps) {
-                if (mpr_obj_get_is_local((mpr_obj)*maps)) {
+                mpr_obj map = *maps;
+                if (map->is_local) {
                     no_local_dev_maps = no_local_sig_maps = 0;
                     mpr_list_free(maps);
                     break;
@@ -347,10 +348,10 @@ void mpr_graph_free(mpr_graph g)
             }
             sigs = mpr_list_get_next(sigs);
             if (no_local_sig_maps)
-                mpr_graph_remove_sig(g, sig, MPR_OBJ_REM);
+                mpr_graph_remove_sig(g, (mpr_sig)sig, MPR_OBJ_REM);
         }
         if (no_local_dev_maps)
-            mpr_graph_remove_dev(g, dev, MPR_OBJ_REM);
+            mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_OBJ_REM);
     }
 
     FUNC_IF(mpr_expr_stack_free, g->expr_stack);
@@ -835,15 +836,15 @@ void mpr_graph_housekeeping(mpr_graph g)
     /* check if any known devices have expired */
     t.sec -= TIMEOUT_SEC;
     while (devs) {
-        mpr_dev dev = (mpr_dev)*devs;
+        mpr_obj dev = *devs;
         devs = mpr_list_get_next(devs);
         /* check if device has "checked in" recently – could be /sync ping or any sent metadata */
-        if (!mpr_obj_get_is_local((mpr_obj)dev) && !mpr_dev_check_synced(dev, t)) {
+        if (!dev->is_local && !mpr_dev_check_synced((mpr_dev)dev, t)) {
             /* do nothing if device is linked to local device; will be handled in network.c */
-            if (!mpr_dev_has_local_link(dev)) {
+            if (!mpr_dev_has_local_link((mpr_dev)dev)) {
                 /* remove subscription */
-                mpr_graph_subscribe(g, dev, 0, 0);
-                mpr_graph_remove_dev(g, dev, MPR_OBJ_EXP);
+                mpr_graph_subscribe(g, (mpr_dev)dev, 0, 0);
+                mpr_graph_remove_dev(g, (mpr_dev)dev, MPR_OBJ_EXP);
             }
         }
     }
@@ -869,7 +870,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
     double then;
     lo_server *servers = mpr_net_get_servers(n);
 
-    mpr_net_poll(n);
+    mpr_net_poll(n, 0);
     mpr_graph_housekeeping(g);
 
     if (!block_ms) {
@@ -890,7 +891,7 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
 
         elapsed = (mpr_get_current_time() - then) * 1000;
         if ((elapsed - checked_admin) > 100) {
-            mpr_net_poll(n);
+            mpr_net_poll(n, 0);
             mpr_graph_housekeeping(g);
             checked_admin = elapsed;
         }

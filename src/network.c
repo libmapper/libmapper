@@ -387,8 +387,6 @@ void mpr_net_add_dev(mpr_net net, mpr_local_dev dev)
     int i, found = 0;
     RETURN_UNLESS(dev);
 
-    mpr_local_dev_copy_net_servers(dev, net->servers);
-
     /* Check if device was already added. */
     for (i = 0; i < net->num_devs; i++) {
         if (net->devs[i] == dev) {
@@ -701,18 +699,6 @@ void mpr_net_send_name_probe(mpr_net net, const char *name)
     mpr_net_add_msg(net, 0, MSG_NAME_PROBE, msg);
 }
 
-void mpr_net_send_name_registered(mpr_net net, const char *name, int id, int hint)
-{
-    NEW_LO_MSG(msg, return);
-    mpr_net_use_bus(net);
-    lo_message_add_string(msg, name);
-    if (id >= 0) {
-        lo_message_add_int32(msg, id);
-        lo_message_add_int32(msg, hint);
-    }
-    mpr_net_add_msg(net, NULL, MSG_NAME_REG, msg);
-}
-
 static void _send_device_sync(mpr_net net, mpr_local_dev dev)
 {
     NEW_LO_MSG(msg, return);
@@ -777,7 +763,7 @@ void mpr_net_maybe_send_ping(mpr_net net, int force)
 
 /*! This is the main function to be called once in a while from a program so
  *  that the libmapper bus can be automatically managed. */
-void mpr_net_poll(mpr_net net)
+void mpr_net_poll(mpr_net net, int force_ping)
 {
     int i, num_devs = net->num_devs, registered = 0;
 
@@ -791,13 +777,13 @@ void mpr_net_poll(mpr_net net)
 
     if (net->registered < num_devs) {
         for (i = 0; i < net->num_devs; i++)
-            registered += mpr_local_dev_check_registration(net->devs[i]);
+            registered += mpr_dev_get_is_registered((mpr_dev)net->devs[i]);
         net->registered = registered;
     }
 
     if (net->registered) {
         /* Send out clock sync messages occasionally */
-        mpr_net_maybe_send_ping(net, 0);
+        mpr_net_maybe_send_ping(net, force_ping);
     }
     return;
 }
@@ -1327,8 +1313,8 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
         printf("\n");
 #endif
         if (map) {
-            is_loc = mpr_obj_get_prop_as_int32((mpr_obj)map, MPR_PROP_IS_LOCAL, NULL);
-            RETURN_ARG_UNLESS(!loc || is_loc, MPR_MAP_ERROR);
+            int locality = mpr_map_get_locality(map);
+            RETURN_ARG_UNLESS(!loc || (locality & loc), MPR_MAP_ERROR);
             if (mpr_map_get_num_src(map) < num_src && (flags & UPDATE)) {
                 trace_graph("adding additional sources to map.\n");
                 /* add additional sources */
@@ -1784,8 +1770,8 @@ done:
 static int handler_unmap(const char *path, const char *types, lo_arg **av,
                          int ac, lo_message msg, void *user)
 {
-    mpr_graph gph = (mpr_graph)user;
-    mpr_net net = mpr_graph_get_net(gph);
+    mpr_graph graph = (mpr_graph)user;
+    mpr_net net = mpr_graph_get_net(graph);
     mpr_local_map map;
     mpr_slot slot;
     mpr_sig sig;
@@ -1854,7 +1840,7 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     }
 
     /* The mapping is removed. */
-    mpr_graph_remove_map(net->graph, (mpr_map)map, MPR_OBJ_REM);
+    mpr_graph_remove_map(graph, (mpr_map)map, MPR_OBJ_REM);
     return 0;
 }
 
@@ -1862,21 +1848,22 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
 static int handler_unmapped(const char *path, const char *types, lo_arg **av,
                             int ac, lo_message msg, void *user)
 {
-    mpr_graph gph = (mpr_graph)user;
+    mpr_graph graph = (mpr_graph)user;
+    mpr_net net = mpr_graph_get_net(graph);
     mpr_map map;
 
-    trace_net(mpr_graph_get_net(gph));
-    map = find_map(mpr_graph_get_net(gph), types, ac, av, 0, FIND);
+    trace_net(net);
+    map = find_map(net, types, ac, av, 0, FIND);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != map, 0);
-    mpr_graph_remove_map(gph, map, MPR_OBJ_REM);
+    mpr_graph_remove_map(graph, map, MPR_OBJ_REM);
     return 0;
 }
 
 static int handler_ping(const char *path, const char *types, lo_arg **av,
                         int ac, lo_message msg, void *user)
 {
-    mpr_graph gph = (mpr_graph)user;
-    mpr_net net = mpr_graph_get_net(gph);
+    mpr_graph graph = (mpr_graph)user;
+    mpr_net net = mpr_graph_get_net(graph);
     mpr_dev remote_dev;
     mpr_time now;
     lo_timetag then;
@@ -1887,15 +1874,15 @@ static int handler_ping(const char *path, const char *types, lo_arg **av,
 
     mpr_time_set(&now, MPR_NOW);
     then = lo_message_get_timestamp(msg);
-    remote_dev = (mpr_dev)mpr_graph_get_obj(net->graph, av[0]->h, MPR_DEV);
+    remote_dev = (mpr_dev)mpr_graph_get_obj(graph, av[0]->h, MPR_DEV);
     RETURN_ARG_UNLESS(remote_dev, 0);
     for (i = 0; i < net->num_devs; i++) {
         mpr_local_dev dev = net->devs[i];
-        mpr_link lnk = mpr_dev_get_link_by_remote((mpr_dev)dev, remote_dev);
-        if (!lnk)
+        mpr_link link = mpr_dev_get_link_by_remote((mpr_dev)dev, remote_dev);
+        if (!link)
             continue;
         trace_dev(dev, "ping received from device '%s'\n", mpr_dev_get_name(remote_dev));
-        mpr_link_update_clock(lnk, then, now, av[1]->i, av[2]->i, av[3]->d);
+        mpr_link_update_clock(link, then, now, av[1]->i, av[2]->i, av[3]->d);
     }
     return 0;
 }

@@ -30,7 +30,7 @@
 #define METADATA_OK             0x1C
 
 #define MPR_MAP_STRUCT_ITEMS                                                    \
-    mpr_obj_t obj;                  /* Must be first */                         \
+    mpr_obj_t obj;                  /* Must be first for type punning */        \
     mpr_dev *scopes;                                                            \
     char *expr_str;                                                             \
     int muted;                      /*!< 1 to mute mapping, 0 to unmute */      \
@@ -96,7 +96,7 @@ void mpr_local_map_init(mpr_local_map map)
     for (i = 0; i < map->num_src; i++) {
         mpr_sig src_sig = mpr_slot_get_sig((mpr_slot)map->src[i]);
         mpr_dev src_dev = mpr_sig_get_dev(src_sig);
-        if (mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig((mpr_slot)map->src[i]))) {
+        if (mpr_obj_get_is_local((mpr_obj)src_sig)) {
             mpr_link link = mpr_link_new((mpr_local_dev)src_dev, dst_dev);
             mpr_local_slot_set_link(map->src[i], link);
             mpr_local_slot_set_link(map->dst, link);

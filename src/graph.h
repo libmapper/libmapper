@@ -8,6 +8,7 @@ typedef struct _mpr_graph *mpr_graph;
 #include "list.h"
 #include "map.h"
 #include "message.h"
+#include "object.h"
 #include "mpr_signal.h"
 #include "network.h"
 

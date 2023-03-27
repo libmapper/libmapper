@@ -4,6 +4,7 @@
 
 typedef struct _mpr_net *mpr_net;
 
+#include "graph.h"
 #include "message.h"
 
 mpr_net mpr_net_new(mpr_graph g);
@@ -24,7 +25,7 @@ void mpr_net_remove_dev(mpr_net n, mpr_local_dev d);
 
 int mpr_net_get_num_devs(mpr_net net);
 
-void mpr_net_poll(mpr_net n);
+void mpr_net_poll(mpr_net n, int force_ping);
 
 int mpr_net_init(mpr_net n, const char *iface, const char *group, int port);
 
@@ -46,11 +47,7 @@ lo_server *mpr_net_get_servers(mpr_net n);
 
 void mpr_net_send_name_probe(mpr_net net, const char *name);
 
-void mpr_net_send_name_registered(mpr_net net, const char *name, int id, int hint);
-
 void mpr_net_add_dev_methods(mpr_net net, mpr_local_dev dev);
-
-void mpr_net_maybe_send_ping(mpr_net net, int force);
 
 const char *mpr_net_get_interface(mpr_net net);
 

@@ -374,39 +374,3 @@ void mpr_obj_print(mpr_obj o, int staged)
     }
     printf("\n");
 }
-
-mpr_id mpr_obj_get_id(mpr_obj o)
-{
-    return o->id;
-}
-
-void mpr_obj_set_id(mpr_obj o, mpr_id id)
-{
-    o->id = id;
-}
-
-int mpr_obj_get_version(mpr_obj o)
-{
-    return o->version;
-}
-
-void mpr_obj_set_version(mpr_obj o, int v)
-{
-    o->version = v;
-}
-
-/* TODO: more descriptive name */
-void mpr_obj_clear_empty_props(mpr_obj o)
-{
-    mpr_tbl_clear_empty_records(o->props.synced);
-}
-
-mpr_tbl mpr_obj_get_prop_tbl(mpr_obj obj)
-{
-    return obj->props.synced;
-}
-
-void mpr_obj_add_props_to_msg(mpr_obj obj, lo_message msg)
-{
-    mpr_tbl_add_to_msg(obj->is_local ? obj->props.synced : 0, obj->props.staged, msg);
-}

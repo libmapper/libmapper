@@ -39,7 +39,7 @@ typedef struct _mpr_sync_clock_t {
 } mpr_sync_clock_t, *mpr_sync_clock;
 
 typedef struct _mpr_link {
-    mpr_obj_t obj;                      /* always first */
+    mpr_obj_t obj;                      /* always first for type punning */
     mpr_dev devs[2];
     int num_maps[2];
 
@@ -130,8 +130,7 @@ void mpr_link_connect(mpr_link link, const char *host, int admin_port, int data_
 {
     if (!link->is_local_only) {
         char str[16];
-        mpr_obj obj = (mpr_obj)link->devs[LINK_REMOTE_DEV];
-        mpr_tbl tbl = mpr_obj_get_prop_tbl(obj);
+        mpr_tbl tbl = mpr_obj_get_prop_tbl((mpr_obj)link->devs[LINK_REMOTE_DEV]);
         mpr_tbl_add_record(tbl, MPR_PROP_HOST, NULL, 1, MPR_STR, host, REMOTE_MODIFY);
         mpr_tbl_add_record(tbl, MPR_PROP_PORT, NULL, 1, MPR_INT32, &data_port, REMOTE_MODIFY);
         sprintf(str, "%d", data_port);

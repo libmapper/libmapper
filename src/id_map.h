@@ -3,6 +3,7 @@
 #define __MPR_ID_MAP_H__
 
 #include <stdint.h>
+#include "util/mpr_inline.h"
 
 /*! Bit flags for indicating instance id_map status. */
 #define UPDATED           0x01
@@ -19,5 +20,15 @@ typedef struct _mpr_id_map {
     int LID_refcount;
     int GID_refcount;
 } mpr_id_map_t, *mpr_id_map;
+
+MPR_INLINE static void mpr_id_map_incref_local(mpr_id_map id_map)
+{
+    ++id_map->LID_refcount;
+}
+
+MPR_INLINE static void mpr_id_map_incref_global(mpr_id_map id_map)
+{
+    ++id_map->GID_refcount;
+}
 
 #endif /* __MPR_ID_MAP_H__ */

@@ -290,7 +290,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
             for (j = 0; j < mpr_map_get_num_src((mpr_map)map); j++) {
                 mpr_slot src_slot2 = mpr_map_get_src_slot((mpr_map)map, j);
                 mpr_sig src_sig = mpr_slot_get_sig(src_slot2);
-                if (   mpr_obj_get_is_local((mpr_obj)src_sig)
+                if (   src_sig->obj.is_local
                     && mpr_slot_get_num_inst(src_slot2) > mpr_slot_get_num_inst((mpr_slot)src_slot))
                     sig = (mpr_local_sig)src_sig;
             }
@@ -944,7 +944,7 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
             id_map = mpr_dev_add_id_map((mpr_local_dev)lsig->dev, lsig->group, LID, 0);
         }
         else
-            mpr_dev_LID_incref((mpr_local_dev)lsig->dev, id_map);
+            mpr_id_map_incref_local(id_map);
 
         /* store pointer to device map in a new signal map */
         i = _init_and_add_id_map(lsig, si, id_map);
@@ -982,7 +982,7 @@ static int mpr_sig_get_id_map_with_LID(mpr_local_sig lsig, mpr_id LID, int flags
             id_map = mpr_dev_add_id_map((mpr_local_dev)lsig->dev, lsig->group, LID, 0);
         }
         else
-            mpr_dev_LID_incref((mpr_local_dev)lsig->dev, id_map);
+            mpr_id_map_incref_local(id_map);
         i = _init_and_add_id_map(lsig, si, id_map);
         if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
             h((mpr_sig)lsig, MPR_SIG_INST_NEW, LID, 0, lsig->type, NULL, t);
@@ -1038,8 +1038,8 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
     else if ((si = _find_inst_by_id(lsig, id_map->LID)) || (si = _reserved_inst(lsig, &id_map->LID))) {
         if (!si->active) {
             i = _init_and_add_id_map(lsig, si, id_map);
-            mpr_dev_LID_incref((mpr_local_dev)lsig->dev, id_map);
-            mpr_dev_GID_incref((mpr_local_dev)lsig->dev, id_map);
+            mpr_id_map_incref_local(id_map);
+            mpr_id_map_incref_global(id_map);
             if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
                 h((mpr_sig)lsig, MPR_SIG_INST_NEW, si->id, 0, lsig->type, NULL, t);
             return i;
@@ -1092,8 +1092,8 @@ static int mpr_sig_get_id_map_with_GID(mpr_local_sig lsig, mpr_id GID, int flags
         TRACE_RETURN_UNLESS(si && !si->active, -1, "Signal %s has no instance %"
                             PR_MPR_ID" available.", lsig->name, id_map->LID);
         i = _init_and_add_id_map(lsig, si, id_map);
-        mpr_dev_LID_incref((mpr_local_dev)lsig->dev, id_map);
-        mpr_dev_GID_incref((mpr_local_dev)lsig->dev, id_map);
+        mpr_id_map_incref_local(id_map);
+        mpr_id_map_incref_global(id_map);
         if (h && lsig->ephemeral && (lsig->event_flags & MPR_SIG_INST_NEW))
             h((mpr_sig)lsig, MPR_SIG_INST_NEW, si->id, 0, lsig->type, NULL, t);
         return i;
