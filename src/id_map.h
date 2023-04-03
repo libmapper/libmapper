@@ -21,14 +21,24 @@ typedef struct _mpr_id_map {
     int GID_refcount;
 } mpr_id_map_t, *mpr_id_map;
 
-MPR_INLINE static void mpr_id_map_incref_local(mpr_id_map id_map)
+MPR_INLINE static void mpr_id_map_inc_local_refcount(mpr_id_map id_map)
 {
     ++id_map->LID_refcount;
 }
 
-MPR_INLINE static void mpr_id_map_incref_global(mpr_id_map id_map)
+MPR_INLINE static void mpr_id_map_inc_global_refcount(mpr_id_map id_map)
 {
     ++id_map->GID_refcount;
+}
+
+MPR_INLINE static int mpr_id_map_get_local_refcount(mpr_id_map id_map)
+{
+    return id_map->GID_refcount;
+}
+
+MPR_INLINE static int mpr_id_map_get_global_refcount(mpr_id_map id_map)
+{
+    return id_map->GID_refcount;
 }
 
 #endif /* __MPR_ID_MAP_H__ */

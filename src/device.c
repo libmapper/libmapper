@@ -149,6 +149,7 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
     mpr_list qry;
 
     dev->obj.is_local = is_local;
+    dev->status = MPR_STATUS_STAGED;
     if (name) {
         assert(!dev->name);
         dev->name = strdup(name);
@@ -224,8 +225,6 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     dev->num_sig_groups = 1;
 
     mpr_net_add_dev(mpr_graph_get_net(g), dev);
-
-    dev->status = MPR_STATUS_STAGED;
     return (mpr_dev)dev;
 }
 

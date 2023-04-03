@@ -72,12 +72,22 @@ const static_prop_t static_props[] = {
                                            * represent a specific property name) */
 };
 
+const char* mpr_dir_strings[] =
+{
+    NULL,           /* MPR_DIR_UNDEFINED */
+    "input",        /* MPR_DIR_IN */
+    "output",       /* MPR_DIR_OUT */
+    "any",          /* MPR_DIR_ANY */
+    "both",         /* MPR_DIR_BOTH */
+};
+
 const char* mpr_loc_strings[] =
 {
     NULL,           /* MPR_LOC_UNDEFINED */
     "src",          /* MPR_LOC_SRC */
     "dst",          /* MPR_LOC_DST */
     "any",          /* MPR_LOC_ANY */
+    "both",         /* MPR_LOC_ANY */
 };
 
 const char* mpr_protocol_strings[] =
@@ -145,21 +155,57 @@ mpr_prop mpr_prop_from_str(const char *string)
     return MPR_PROP_EXTRA;
 }
 
+const char *mpr_dir_as_str(mpr_dir dir)
+{
+    switch (dir) {
+        case MPR_DIR_IN:
+        case MPR_DIR_OUT:
+        case MPR_DIR_ANY:
+            return mpr_dir_strings[dir];
+        case MPR_DIR_BOTH:
+            return mpr_dir_strings[4];
+        default:
+            return "unknown";
+    }
+}
+
+mpr_dir mpr_dir_from_str(const char *str)
+{
+    int i;
+    RETURN_ARG_UNLESS(str, MPR_DIR_UNDEFINED);
+    for (i = MPR_DIR_UNDEFINED + 1; i < 3; i++) {
+        if (strcmp(str, mpr_dir_strings[i]) == 0)
+            return i;
+    }
+    if (strcmp(str, mpr_dir_strings[4]) == 0)
+        return MPR_DIR_BOTH;
+    return MPR_DIR_UNDEFINED;
+}
+
 const char *mpr_loc_as_str(mpr_loc loc)
 {
-    if (loc <= 0 || loc > MPR_LOC_ANY)
-        return "unknown";
-    return mpr_loc_strings[loc];
+    switch (loc) {
+        case MPR_LOC_SRC:
+        case MPR_LOC_DST:
+        case MPR_LOC_ANY:
+            return mpr_loc_strings[loc];
+        case MPR_LOC_BOTH:
+            return mpr_loc_strings[4];
+        default:
+            return "unknown";
+    }
 }
 
 mpr_loc mpr_loc_from_str(const char *str)
 {
     int i;
     RETURN_ARG_UNLESS(str, MPR_LOC_UNDEFINED);
-    for (i = MPR_LOC_UNDEFINED+1; i < 3; i++) {
-        if (strcmp(str, mpr_loc_strings[i])==0)
+    for (i = MPR_LOC_UNDEFINED + 1; i < 3; i++) {
+        if (strcmp(str, mpr_loc_strings[i]) == 0)
             return i;
     }
+    if (strcmp(str, mpr_loc_strings[4]) == 0)
+        return MPR_LOC_BOTH;
     return MPR_LOC_UNDEFINED;
 }
 

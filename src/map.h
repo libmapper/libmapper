@@ -30,7 +30,9 @@ lo_message mpr_map_build_msg(mpr_local_map map, mpr_local_slot slot, const void 
                              mpr_type *types, mpr_id_map id_map);
 
 /*! Set a mapping's properties based on message parameters. */
-int mpr_map_set_from_msg(mpr_map map, mpr_msg msg, int override);
+int mpr_map_set_from_msg(mpr_map map, mpr_msg msg);
+
+int mpr_local_map_update_status(mpr_local_map map);
 
 int mpr_map_send_state(mpr_map map, int slot, net_msg_t cmd);
 
@@ -89,8 +91,6 @@ void mpr_local_map_set_updated(mpr_local_map map, int inst_idx);
 void mpr_map_status_decr(mpr_map map);
 
 int mpr_map_get_use_inst(mpr_map map);
-
-int mpr_map_waiting(mpr_map map);
 
 void mpr_map_remove_scope_internal(mpr_map map, mpr_dev dev);
 

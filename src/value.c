@@ -15,7 +15,11 @@ void mpr_value_realloc(mpr_value v, unsigned int vlen, mpr_type type, unsigned i
 {
     int i, samp_size;
     mpr_value_buffer_t *b, tmp;
-    RETURN_UNLESS(v && mlen && num_inst >= v->num_inst);
+    RETURN_UNLESS(v);
+    if (vlen <= 0)
+        vlen = v->vlen;
+    if (mlen <= 0)
+        mlen = v->mlen;
     samp_size = vlen * mpr_type_get_size(type);
 
     if (!v->inst || num_inst > v->num_inst) {
@@ -191,14 +195,24 @@ static void _value_print(mpr_value v, int inst_idx, int hist_idx) {
         printf("\b\b @%p -> %p\n", v->inst[inst_idx].samps, s);
 }
 
-void mpr_value_print(mpr_value v, int inst_idx) {
-    RETURN_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0);
+int mpr_value_print_inst(mpr_value v, int inst_idx) {
+    RETURN_ARG_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0, 1);
     _value_print(v, inst_idx, v->inst[inst_idx].pos);
+    return 0;
 }
 
-void mpr_value_print_hist(mpr_value v, int inst_idx) {
+void mpr_value_print(mpr_value v) {
+    int i;
+    for (i = 0; i < v->num_inst; i++) {
+        printf("%d:\t", i);
+        if (mpr_value_print_inst(v, i))
+            printf("no value\n");
+    }
+}
+
+int mpr_value_print_inst_hist(mpr_value v, int inst_idx) {
     int i, hidx;
-    RETURN_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0);
+    RETURN_ARG_UNLESS(inst_idx < v->num_inst && v->inst[inst_idx].pos >= 0, 1);
 
     /* if history is full, print from pos+1 -> pos, else print from 0 -> pos */
     hidx = v->inst[inst_idx].pos * -1;
@@ -209,6 +223,7 @@ void mpr_value_print_hist(mpr_value v, int inst_idx) {
         if (hidx > 0)
             hidx -= v->mlen;
     };
+    return 0;
 }
 
 #endif

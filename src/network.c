@@ -224,7 +224,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
     struct in_addr zero;
     struct ifaddrs *ifaphead;
     struct ifaddrs *ifap;
-    struct ifaddrs *iflo=0, *ifchosen=0;
+    struct ifaddrs *iflo = 0, *ifchosen = 0;
     RETURN_ARG_UNLESS(0 == getifaddrs(&ifaphead), 1);
     *(unsigned int *)&zero = inet_addr("0.0.0.0");
     ifap = ifaphead;
@@ -239,7 +239,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
          * data-sending port, not the libmapper bus port. */
 
         if (AF_INET == sa->sin_family && ifap->ifa_flags & IFF_UP
-            && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr))!=0) {
+            && memcmp(&sa->sin_addr, &zero, sizeof(struct in_addr)) != 0) {
             trace("checking network interface '%s' (pref: '%s')\n",
                   ifap->ifa_name, pref ? pref : "NULL");
             ifchosen = ifap;
@@ -276,19 +276,19 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
     /* TODO consider "pref" as well */
 
     /* Start with recommended 15k buffer for GetAdaptersAddresses. */
-    ULONG size = 15*1024/2;
+    ULONG size = 15 * 1024 / 2;
     int tries = 3;
-    PIP_ADAPTER_ADDRESSES paa = malloc(size*2);
-    DWORD rc = ERROR_SUCCESS-1;
-    while (rc!=ERROR_SUCCESS && paa && tries-- > 0) {
+    PIP_ADAPTER_ADDRESSES paa = malloc(size * 2);
+    DWORD rc = ERROR_SUCCESS - 1;
+    while (rc != ERROR_SUCCESS && paa && tries-- > 0) {
         size *= 2;
         paa = realloc(paa, size);
         rc = GetAdaptersAddresses(AF_INET, 0, 0, paa, &size);
     }
     RETURN_ARG_UNLESS(ERROR_SUCCESS == rc, 2);
 
-    PIP_ADAPTER_ADDRESSES loaa=0, aa = paa;
-    PIP_ADAPTER_UNICAST_ADDRESS lopua=0;
+    PIP_ADAPTER_ADDRESSES loaa = 0, aa = paa;
+    PIP_ADAPTER_UNICAST_ADDRESS lopua = 0;
     while (aa && ERROR_SUCCESS == rc) {
         PIP_ADAPTER_UNICAST_ADDRESS pua = aa->FirstUnicastAddress;
         /* Skip adapters that are not "Up". */
@@ -300,8 +300,8 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
             else {
                 /* Skip addresses starting with 0.X.X.X or 169.X.X.X. */
                 sa = (struct sockaddr_in *) pua->Address.lpSockaddr;
-                unsigned char prefix = sa->sin_addr.s_addr&0xFF;
-                if (prefix!=0xA9 && prefix!=0) {
+                unsigned char prefix = sa->sin_addr.s_addr & 0xFF;
+                if (prefix != 0xA9 && prefix != 0) {
                     FUNC_IF(free, *iface);
                     *iface = strdup(aa->AdapterName);
                     *addr = sa->sin_addr;
@@ -748,15 +748,16 @@ void mpr_net_maybe_send_ping(mpr_net net, int force)
         list = mpr_list_get_next(list);
         if (mpr_link_housekeeping(link, now)) {
             int mapped = mpr_link_get_has_maps(link, MPR_DIR_ANY);
-#ifdef DEBUG
             mpr_dev local_dev = mpr_link_get_dev(link, LINK_LOCAL_DEV);
+#ifdef DEBUG
             mpr_dev remote_dev = mpr_link_get_dev(link, LINK_REMOTE_DEV);
             trace_dev(local_dev, "Removing link to %sdevice '%s'\n", mapped ? "unresponsive " : "",
                       mpr_dev_get_name(remote_dev));
 #endif
             /* remove related data structures */
-            /* TODO: inform subscribers. */
             mpr_graph_remove_link(gph, link, mapped ? MPR_OBJ_EXP : MPR_OBJ_REM);
+            mpr_net_use_subscribers(net, (mpr_local_dev)local_dev, MPR_DEV);
+            mpr_dev_send_state(local_dev, MPR_DEV);
         }
     }
 }
@@ -813,7 +814,6 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     mpr_graph graph = (mpr_graph)user;
     int data_port;
     mpr_msg props = 0;
-    mpr_msg_atom atom;
     mpr_list links = 0, cpy;
     const char *name, *host, *admin_port;
     lo_address a;
@@ -840,7 +840,7 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
         goto done;
     }
     else {
-        cpy = mpr_list_get_cpy(links);
+        mpr_list cpy = mpr_list_get_cpy(links);
         while (cpy) {
             mpr_link link = (mpr_link)*cpy;
             if (!mpr_link_get_admin_addr(link))
@@ -869,16 +869,10 @@ static int handler_dev(const char *path, const char *types, lo_arg **av, int ac,
     }
 
     /* Retrieve the port */
-    if (!props)
-        props = mpr_msg_parse_props(ac-1, &types[1], &av[1]);
-    atom = mpr_msg_get_prop(props, MPR_PROP_PORT);
-    if (!atom || mpr_msg_atom_get_len(atom) != 1 || *(mpr_msg_atom_get_types(atom)) != MPR_INT32) {
+    data_port = mpr_msg_get_prop_as_int32(props, MPR_PROP_PORT);
+    if (!data_port) {
         trace("  can't perform /linkTo, port unknown\n");
         goto done;
-    }
-    else {
-        lo_arg **vals = mpr_msg_atom_get_values(atom);
-        data_port = (vals[0])->i;
     }
 
     cpy = mpr_list_get_cpy(links);
@@ -1145,7 +1139,7 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
     RETURN_ARG_UNLESS(devnamep && signamep && devnamelen < 1024, 0);
 
     strncpy(devname, devnamep, devnamelen);
-    devname[devnamelen]=0;
+    devname[devnamelen] = 0;
 
     trace_graph("received /signal/removed %s:%s\n", devname, signamep);
 
@@ -1154,11 +1148,6 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
         mpr_graph_remove_sig(gph, mpr_dev_get_sig_by_name(dev, signamep), MPR_OBJ_REM);
     return 0;
 }
-
-/* TODO: check and clear this comment */
-/* hander_name and handler_name_probe are actually device callbacks,
- * but because all devices need to receive these messages on the same OSC
- * address, we have to dispatch manually */
 
 /*! Repond to name collisions during allocation, help suggest IDs once allocated. */
 static int handler_name(const char *path, const char *types, lo_arg **av,
@@ -1386,15 +1375,11 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
 
 static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
 {
-    mpr_local_dev dev;
-    mpr_sig sig;
+    mpr_sig sig = mpr_map_get_dst_sig((mpr_map)map);
+    mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
     int i;
 
-    sig = mpr_map_get_dst_sig((mpr_map)map);
-    dev = (mpr_local_dev)mpr_sig_get_dev(sig);
-
-    if (props)
-        mpr_map_set_from_msg((mpr_map)map, props, 1);
+    mpr_map_set_from_msg((mpr_map)map, props);
 
     if (MPR_LOC_BOTH == mpr_map_get_locality((mpr_map)map) && mpr_local_map_get_expr(map)) {
         trace_dev(dev, "map references only local signals... activating.\n");
@@ -1438,8 +1423,6 @@ static void mpr_net_handle_map(mpr_net net, mpr_local_map map, mpr_msg props)
 
         i = mpr_map_send_state((mpr_map)map, i, MSG_MAP_TO);
     }
-    /* TODO: refactor */
-    mpr_graph_inc_staged_maps(net->graph);
 }
 
 
@@ -1467,7 +1450,7 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
     }
 #endif
 
-    if (mpr_map_get_status((mpr_map)map) >= MPR_STATUS_ACTIVE) {
+    if (mpr_map_get_status((mpr_map)map) == MPR_STATUS_ACTIVE) {
         /* Forward to handler_map_mod() and stop. */
         handler_map_mod(path, types, av, ac, msg, user);
         return 0;
@@ -1493,7 +1476,7 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
     if (mpr_map_get_status((mpr_map)map) < MPR_STATUS_ACTIVE) {
         /* Set map properties. */
         mpr_msg props = mpr_msg_parse_props(ac, types, av);
-        mpr_map_set_from_msg((mpr_map)map, props, 1);
+        mpr_map_set_from_msg((mpr_map)map, props);
         mpr_msg_free(props);
     }
 
@@ -1521,7 +1504,6 @@ static int handler_map_to(const char *path, const char *types, lo_arg **av,
             }
         }
     }
-    mpr_graph_inc_staged_maps(net->graph);
     return 0;
 }
 
@@ -1533,8 +1515,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     mpr_graph gph = (mpr_graph)user;
     mpr_net net = mpr_graph_get_net(gph);
     mpr_map map;
-    mpr_msg props;
-    int i, rc = 0, updated;
+    int i, rc = 0, updated = 0;
 
     trace_net(net);
     map = find_map(net, types, ac, av, 0, UPDATE);
@@ -1562,19 +1543,26 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         /* no need to update since all properties are local */
         return 0;
     }
-    props = mpr_msg_parse_props(ac, types, av);
 
-    /* TODO: if this endpoint is map admin, do not allow overwriting props */
-    updated = mpr_map_set_from_msg(map, props, 0);
-    mpr_msg_free(props);
+    if (!(mpr_map_get_process_loc(map) & mpr_map_get_locality(map))) {
+        mpr_msg props = mpr_msg_parse_props(ac, types, av);
+        updated = mpr_map_set_from_msg(map, props);
 #ifdef DEBUG
-    trace("  updated %d properties for %s map. (1)\n", updated,
-          mpr_obj_get_is_local((mpr_obj)map) ? "local" : "remote");
+        trace("  updated %d properties for %s map. (1)\n", updated,
+              mpr_obj_get_is_local((mpr_obj)map) ? "local" : "remote");
 #endif
+        mpr_msg_free(props);
+    }
+    else {
+        /* Call mpr_map_set_from_msg() anyway to check map status. */
+        /* TODO: refactor for clarity */
+        mpr_map_set_from_msg(map, 0);
+    }
+
     if (mpr_obj_get_is_local((mpr_obj)map)) {
         int status = mpr_map_get_status(map);
         RETURN_ARG_UNLESS(status >= MPR_STATUS_READY, 0);
-        if (MPR_STATUS_READY == status) {
+        if (MPR_STATUS_ACTIVE > status) {
             int num_src = mpr_map_get_num_src(map);
             mpr_sig sig;
             mpr_slot slot = mpr_map_get_dst_slot(map);
@@ -1595,7 +1583,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
                 }
             }
 
-            /* TODO: don't send same data multiple times */
             for (i = 0; i < num_src; i++) {
                 sig = mpr_map_get_src_sig(map, i);
                 if (mpr_obj_get_is_local((mpr_obj)sig)) {
@@ -1619,7 +1606,6 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     if (rc || updated) {
         if (mpr_obj_get_is_local((mpr_obj)map)) {
             mpr_sig sig;
-            /* TODO: don't send same data multiple times */
             int num_src = mpr_map_get_num_src(map);
             for (i = 0; i < num_src; i++) {
                 sig = mpr_map_get_src_sig(map, i);
@@ -1655,9 +1641,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     mpr_graph gph = (mpr_graph)user;
     mpr_net net = mpr_graph_get_net(gph);
     mpr_local_map map;
-    mpr_sig sig;
     mpr_msg props;
-    mpr_msg_atom a;
     mpr_loc loc = MPR_LOC_UNDEFINED;
     int i, updated;
 
@@ -1666,7 +1650,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
 
     map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND);
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
-    RETURN_ARG_UNLESS(mpr_map_get_status((mpr_map)map) >= MPR_STATUS_ACTIVE, 0);
+    RETURN_ARG_UNLESS(mpr_map_get_status((mpr_map)map) == MPR_STATUS_ACTIVE, 0);
 
     props = mpr_msg_parse_props(ac, types, av);
     TRACE_RETURN_UNLESS(props, 0, "  ignoring /map/modify, no properties.\n");
@@ -1678,39 +1662,25 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
         loc = MPR_LOC_DST;
     }
     else {
+        const char *str;
         loc = mpr_map_get_process_loc((mpr_map)map);
-        a = mpr_msg_get_prop(props, MPR_PROP_PROCESS_LOC);
-        if (a) {
-            lo_arg **vals = mpr_msg_atom_get_values(a);
-            loc = mpr_loc_from_str(&(vals[0])->s);
+        if ((str = mpr_msg_get_prop_as_str(props, MPR_PROP_PROCESS_LOC))) {
+            loc = mpr_loc_from_str(str);
         }
-        if ((a = mpr_msg_get_prop(props, MPR_PROP_EXPR))) {
-            lo_arg **vals = mpr_msg_atom_get_values(a);
-            if (strstr(&(vals[0])->s, "y{-"))
-                loc = MPR_LOC_DST;
-        }
-        else {
-            const char *expr_str = mpr_map_get_expr_str((mpr_map)map);
-            if (expr_str && strstr(expr_str, "y{-"))
+        if (   (str = mpr_msg_get_prop_as_str(props, MPR_PROP_EXPR))
+            || (str = mpr_map_get_expr_str((mpr_map)map))) {
+            if (strstr(str, "y{-"))
                 loc = MPR_LOC_DST;
         }
     }
 
     /* do not continue if we are not in charge of processing */
-    sig = mpr_map_get_dst_sig((mpr_map)map);
-    if (MPR_LOC_DST == loc && !mpr_obj_get_is_local((mpr_obj)sig)) {
-        trace(  "ignoring /map/modify, synced to remote destination.\n");
+    if (!(loc & mpr_map_get_locality((mpr_map)map))) {
+        trace(  "ignoring /map/modify, synced to remote peer.\n");
         goto done;
     }
-    else {
-        sig = mpr_map_get_src_sig((mpr_map)map, 0);
-        if (MPR_LOC_SRC == loc && !mpr_obj_get_is_local((mpr_obj)sig)) {
-            trace(  "ignoring /map/modify, synced to remote source.\n");
-            goto done;
-        }
-    }
 
-    updated = mpr_map_set_from_msg((mpr_map)map, props, 1);
+    updated = mpr_map_set_from_msg((mpr_map)map, props);
     if (updated) {
         int num_src = mpr_map_get_num_src((mpr_map)map);
         if (MPR_LOC_BOTH != mpr_map_get_locality((mpr_map)map)) {
@@ -1732,23 +1702,25 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
             }
         }
 
-        /* TODO: don't send same data multiple times */
-        for (i = 0; i < num_src; i++) {
-            mpr_slot slot = mpr_map_get_src_slot((mpr_map)map, i);
-            if (mpr_slot_get_sig_if_local(slot)) {
-                mpr_sig sig = mpr_slot_get_sig(slot);
-                mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
-                if (mpr_local_dev_has_subscribers(dev)) {
-                    trace_dev(dev, "informing subscribers (MAPPED)\n")
-                    mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
-                    mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+        if (MPR_LOC_SRC & mpr_map_get_locality((mpr_map)map)) {
+            mpr_local_dev dev = 0;
+            for (i = 0; i < num_src; i++) {
+                mpr_slot slot = mpr_map_get_src_slot((mpr_map)map, i);
+                mpr_sig sig = (mpr_sig)mpr_slot_get_sig_if_local(slot);
+                if (sig && dev != (mpr_local_dev)mpr_sig_get_dev(sig)) {
+                    dev = (mpr_local_dev)mpr_sig_get_dev(sig);
+                    if (mpr_local_dev_has_subscribers(dev)) {
+                        trace_dev(dev, "informing subscribers (MAPPED)\n")
+                        mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
+                        mpr_map_send_state((mpr_map)map, -1, MSG_MAPPED);
+                    }
                 }
             }
         }
-        {
+        if (MPR_LOC_DST & mpr_map_get_locality((mpr_map)map)) {
             mpr_slot slot = mpr_map_get_dst_slot((mpr_map)map);
-            if (mpr_slot_get_sig_if_local(slot)) {
-                mpr_sig sig = mpr_slot_get_sig(slot);
+            mpr_sig sig = (mpr_sig)mpr_slot_get_sig_if_local(slot);
+            if (sig) {
                 mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
                 if (mpr_local_dev_has_subscribers(dev)) {
                     trace_dev(dev, "informing subscribers (MAPPED)\n")
@@ -1774,69 +1746,66 @@ static int handler_unmap(const char *path, const char *types, lo_arg **av,
     mpr_net net = mpr_graph_get_net(graph);
     mpr_local_map map;
     mpr_slot slot;
+    lo_address addr;
     mpr_sig sig;
     int i, num_src;
 
     trace_net(net);
     map = (mpr_local_map)find_map(net, types, ac, av, MPR_LOC_ANY, FIND);
-    /* TODO: make sure dev is actually involved in the map */
     RETURN_ARG_UNLESS(map && MPR_MAP_ERROR != (mpr_map)map, 0);
 
     num_src = mpr_map_get_num_src((mpr_map)map);
 
     /* inform remote peer(s) */
-    /* TODO: abstract this to mpr_slot_get_mesh_addr, returns NULL if local */
     slot = mpr_map_get_dst_slot((mpr_map)map);
-    if (!mpr_slot_get_sig_if_local(slot)) {
-        mpr_link link = mpr_slot_get_link(slot);
-        lo_address addr;
-        if (link && (addr = mpr_link_get_admin_addr(link))) {
-            mpr_net_use_mesh(net, addr);
-            mpr_map_send_state((mpr_map)map, -1, MSG_UNMAP);
-        }
+    addr = mpr_slot_get_addr(slot);
+    /* if destination is remote this guarantees all sources are local */
+    if (addr) {
+        mpr_net_use_mesh(net, addr);
+        mpr_map_send_state((mpr_map)map, -1, MSG_UNMAP);
     }
     else {
         for (i = 0; i < num_src; i++) {
-            mpr_slot slot = mpr_map_get_src_slot((mpr_map)map, i);
-            mpr_link link;
-            lo_address addr;
-            if (   mpr_slot_get_sig_if_local(slot)
-                || !(link = mpr_slot_get_link(slot))
-                || !(addr = mpr_link_get_admin_addr(link)))
-                continue;
-            mpr_net_use_mesh(net, addr);
-            i = mpr_map_send_state((mpr_map)map, i, MSG_UNMAP);
+            slot = mpr_map_get_src_slot((mpr_map)map, i);
+            addr = mpr_slot_get_addr(slot);
+            if (addr) {
+                mpr_net_use_mesh(net, addr);
+                i = mpr_map_send_state((mpr_map)map, i, MSG_UNMAP);
+            }
         }
     }
 
-    /* TODO: don't send same data multiple times */
     for (i = 0; i < num_src; i++) {
         mpr_sig sig = mpr_map_get_src_sig((mpr_map)map, i);
+        mpr_local_dev dev = 0;
         if (mpr_obj_get_is_local((mpr_obj)sig)) {
-            mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
-            inform_device_subscribers(net, dev);
+            if (dev != (mpr_local_dev)mpr_sig_get_dev(sig)) {
+                dev = (mpr_local_dev)mpr_sig_get_dev(sig);
+                inform_device_subscribers(net, dev);
 
+                trace_dev(dev, "informing subscribers (UNMAPPED)\n")
+                mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
+                mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED);
+            }
             trace_dev(dev, "informing subscribers (SIGNAL)\n");
             mpr_net_use_subscribers(net, dev, MPR_SIG);
             mpr_sig_send_state(sig, MSG_SIG);
-
-            trace_dev(dev, "informing subscribers (UNMAPPED)\n")
-            mpr_net_use_subscribers(net, dev, MPR_MAP_OUT);
-            mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED);
         }
     }
     sig = mpr_map_get_dst_sig((mpr_map)map);
     if (mpr_obj_get_is_local((mpr_obj)sig)) {
         mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(sig);
-        inform_device_subscribers(net, dev);
-
         trace_dev(dev, "informing subscribers (SIGNAL)\n");
         mpr_net_use_subscribers(net, dev, MPR_SIG);
         mpr_sig_send_state(sig, MSG_SIG);
 
-        trace_dev(dev, "informing subscribers (UNMAPPED)\n")
-        mpr_net_use_subscribers(net, dev, MPR_MAP_IN);
-        mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED);
+        if (MPR_LOC_BOTH != mpr_map_get_locality((mpr_map)map)) {
+            inform_device_subscribers(net, dev);
+
+            trace_dev(dev, "informing subscribers (UNMAPPED)\n")
+            mpr_net_use_subscribers(net, dev, MPR_MAP_IN);
+            mpr_map_send_state((mpr_map)map, -1, MSG_UNMAPPED);
+        }
     }
 
     /* The mapping is removed. */

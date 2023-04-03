@@ -18,6 +18,10 @@ int mpr_prop_get_len(mpr_prop p);
 
 int mpr_prop_get_protocol_type(mpr_prop p);
 
+const char *mpr_dir_as_str(mpr_dir dir);
+
+mpr_dir mpr_dir_from_str(const char *string);
+
 const char *mpr_loc_as_str(mpr_loc loc);
 
 mpr_loc mpr_loc_from_str(const char *string);

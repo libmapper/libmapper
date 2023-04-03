@@ -75,4 +75,8 @@ const mpr_type *mpr_msg_atom_get_types(mpr_msg_atom a);
 
 lo_arg **mpr_msg_atom_get_values(mpr_msg_atom a);
 
+int mpr_msg_get_prop_as_int32(mpr_msg msg, int prop);
+
+const char *mpr_msg_get_prop_as_str(mpr_msg msg, int prop);
+
 #endif /* __MPR_MESSAGE_H__ */

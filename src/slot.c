@@ -21,7 +21,6 @@
 
 #define MPR_SLOT_STRUCT_ITEMS                                                   \
     mpr_sig sig;                    /*!< Pointer to parent signal */            \
-    mpr_link link;                                                              \
     int id;                                                                     \
     uint8_t num_inst;                                                           \
     char dir;                       /*!< `DI_INCOMING` or `DI_OUTGOING` */      \
@@ -30,30 +29,31 @@
 
 typedef struct _mpr_slot {
     MPR_SLOT_STRUCT_ITEMS
-    struct _mpr_map *map;           /*!< Pointer to parent map */
+    mpr_map map;                    /*!< Pointer to parent map */
 } mpr_slot_t;
 
 typedef struct _mpr_local_slot {
     MPR_SLOT_STRUCT_ITEMS
-    struct _mpr_local_map *map;     /*!< Pointer to parent map */
+    mpr_local_map map;              /*!< Pointer to parent map */
 
     /* TODO: use signal for holding memory of local slots for effiency */
     mpr_value_t val;                /*!< Value histories for each signal instance. */
-
-    char status;
+    mpr_link link;
 } mpr_local_slot_t;
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir,
                       unsigned char is_local, unsigned char is_src)
 {
     size_t size = is_local ? sizeof(struct _mpr_local_slot) : sizeof(struct _mpr_slot);
+    int sig_is_local = mpr_obj_get_is_local((mpr_obj)sig);
+    int num_inst= mpr_sig_get_num_inst_internal(sig);
     mpr_slot slot = (mpr_slot)calloc(1, size);
     slot->map = map;
     slot->sig = sig;
     slot->is_local = is_local ? 1 : 0;
-    slot->num_inst = 1;
+    slot->num_inst = num_inst > 1 ? num_inst : 1;
     if (MPR_DIR_UNDEFINED == dir)
-        slot->dir = (is_src == mpr_obj_get_is_local((mpr_obj)sig)) ? MPR_DIR_OUT : MPR_DIR_IN;
+        slot->dir = (is_src == sig_is_local) ? MPR_DIR_OUT : MPR_DIR_IN;
     else
         slot->dir = dir;
     slot->causes_update = 1; /* default */
@@ -83,8 +83,8 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     mpr_tbl tbl;
     RETURN_ARG_UNLESS(slot && !mpr_slot_get_sig_if_local(slot), 0);
     mask = slot_mask(slot);
-
     tbl = mpr_obj_get_prop_tbl((mpr_obj)slot->sig);
+
     a = mpr_msg_get_prop(msg, MPR_PROP_LEN | mask);
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
@@ -93,6 +93,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
+
     a = mpr_msg_get_prop(msg, MPR_PROP_TYPE | mask);
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
@@ -101,48 +102,23 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
-    RETURN_ARG_UNLESS(!slot->is_local, 0);
-    a = mpr_msg_get_prop(msg, MPR_PROP_DIR | mask);
-    if (a) {
-        const mpr_type *types = mpr_msg_atom_get_types(a);
-        if (mpr_type_get_is_str(types[0])) {
-            int dir = 0;
-            lo_arg **vals = mpr_msg_atom_get_values(a);
-            if (strcmp(&(*vals)->s, "output")==0)
-                dir = MPR_DIR_OUT;
-            else if (strcmp(&(*vals)->s, "input")==0)
-                dir = MPR_DIR_IN;
+
+    if (slot->is_local) {
+        const char *str;
+        int num_inst;
+        if ((str = mpr_msg_get_prop_as_str(msg, MPR_PROP_DIR | mask))) {
+            int dir = mpr_dir_from_str(str);
             if (dir)
-                updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir,
-                                              REMOTE_MODIFY);
+                updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32,
+                                              &dir, REMOTE_MODIFY);
         }
-    }
-    a = mpr_msg_get_prop(msg, MPR_PROP_NUM_INST | mask);
-    if (a) {
-        const mpr_type *types = mpr_msg_atom_get_types(a);
-        if (MPR_INT32 == types[0]) {
-            lo_arg **vals = mpr_msg_atom_get_values(a);
-            int num_inst = vals[0]->i;
-            mpr_expr expr;
-            if (slot->is_local && !mpr_obj_get_is_local((mpr_obj)slot->sig)
-                && (expr = mpr_local_map_get_expr((mpr_local_map)slot->map))) {
-                mpr_local_map map = (mpr_local_map)slot->map;
-                int hist_size = 0;
-                if (mpr_map_get_dst_slot((mpr_map)map) == slot)
-                    hist_size = mpr_expr_get_out_hist_size(expr);
-                else {
-                    int i, num_src = mpr_map_get_num_src((mpr_map)map);
-                    for (i = 0; i < num_src; i++) {
-                        if (mpr_map_get_src_slot((mpr_map)map, i) == slot) {
-                            hist_size = mpr_expr_get_in_hist_size(expr, i);
-                            break;
-                        }
-                    }
-                }
-                mpr_slot_alloc_values((mpr_local_slot)slot, num_inst, hist_size);
-            }
+        num_inst = mpr_msg_get_prop_as_int32(msg, MPR_PROP_NUM_INST | mask);
+        if (num_inst && num_inst != slot->num_inst) {
+            if (mpr_local_map_get_expr(((mpr_local_slot)slot)->map))
+                updated += mpr_slot_alloc_values((mpr_local_slot)slot, num_inst, 0);
             else
-                slot->num_inst = num_inst;
+                updated += mpr_tbl_add_record(tbl, PROP(NUM_INST), NULL, 1, MPR_INT32,
+                                              &num_inst, REMOTE_MODIFY);
         }
     }
     return updated;
@@ -212,19 +188,40 @@ int mpr_slot_match_full_name(mpr_slot slot, const char *full_name)
             || strcmp(sig_name+1, mpr_sig_get_name(slot->sig))) ? 1 : 0;
 }
 
-void mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size)
+int mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size)
 {
-    int len = mpr_sig_get_len(slot->sig);
+    int len = mpr_sig_get_len(slot->sig), updated = 0;
     mpr_type type = mpr_sig_get_type(slot->sig);
-    RETURN_UNLESS(num_inst && hist_size && type && len);
-    if (mpr_obj_get_is_local((mpr_obj)slot->sig))
-        num_inst = mpr_local_sig_get_num_inst((mpr_local_sig)slot->sig);
+    RETURN_ARG_UNLESS(type && len, 0);
 
-    /* reallocate memory */
-    mpr_value_realloc(&slot->val, len, type, hist_size, num_inst,
-                      slot == (mpr_local_slot)mpr_map_get_dst_slot((mpr_map)slot->map));
+#ifdef DEBUG
+    trace("(re)allocating value memory for slot ");
+    mpr_prop_print(1, MPR_SIG, slot->sig);
+    printf("\n");
+#endif
 
-    slot->num_inst = num_inst;
+    if (hist_size > 0 && hist_size != mpr_value_get_mlen(&slot->val)) {
+        trace("  updating slot hist_size to %d\n", hist_size);
+        updated = 1;
+    }
+
+    if (mpr_obj_get_is_local((mpr_obj)slot->sig)) {
+        num_inst = mpr_sig_get_num_inst_internal(slot->sig);
+    }
+    if (num_inst > 0 && num_inst != slot->num_inst) {
+        trace("  updating slot num_inst to %d\n", num_inst);
+        slot->num_inst = num_inst;
+        updated = 1;
+    }
+
+    if (updated) {
+        /* reallocate memory */
+        trace("  reallocating value memory with num_inst %d and hist_size %d\n",
+              slot->num_inst, hist_size);
+        mpr_value_realloc(&slot->val, len, type, hist_size, slot->num_inst,
+                          slot == (mpr_local_slot)mpr_map_get_dst_slot((mpr_map)slot->map));
+    }
+    return updated;
 }
 
 void mpr_slot_remove_inst(mpr_local_slot slot, int idx)
@@ -252,10 +249,9 @@ void mpr_slot_reset_inst(mpr_local_slot slot, int inst_idx)
 
 mpr_link mpr_slot_get_link(mpr_slot slot)
 {
-    return slot->link;
+    return slot->is_local ? ((mpr_local_slot)slot)->link : NULL;
 }
 
-/* TODO: consider moving link to local_slot structure */
 void mpr_local_slot_set_link(mpr_local_slot slot, mpr_link link)
 {
     slot->link = link;
@@ -321,23 +317,25 @@ void mpr_slot_set_causes_update(mpr_slot slot, int causes_update)
     slot->causes_update = causes_update;
 }
 
-char mpr_slot_check_status(mpr_local_slot slot)
+int mpr_slot_get_status(mpr_local_slot slot)
 {
+    char status = 0;
     mpr_sig sig = slot->sig;
-    if (mpr_sig_get_len(sig))
-        slot->status |= MPR_SLOT_STATUS_LENGTH_KNOWN;
-    if (mpr_sig_get_type(sig))
-        slot->status |= MPR_SLOT_STATUS_TYPE_KNOWN;
+    if (mpr_dev_get_is_registered(mpr_sig_get_dev(slot->sig)))
+        status |= MPR_SLOT_DEV_KNOWN;
+    if (mpr_sig_get_len(sig) && mpr_sig_get_type(sig))
+        status |= MPR_SLOT_SIG_KNOWN;
     if (mpr_obj_get_is_local((mpr_obj)slot->sig) || mpr_link_get_is_ready(slot->link))
-        slot->status |= MPR_SLOT_STATUS_LINK_KNOWN;
+        status |= MPR_SLOT_LINK_KNOWN;
 #ifdef DEBUG
-    printf(" loc: %s, len: %s, type: %s, link: %s\n",
-           mpr_obj_get_is_local((mpr_obj)slot->sig) ? "Y" : "N",
-           slot->status & MPR_SLOT_STATUS_LENGTH_KNOWN ? "Y" : "N",
-           slot->status & MPR_SLOT_STATUS_TYPE_KNOWN ? "Y" : "N",
-           slot->status & MPR_SLOT_STATUS_LINK_KNOWN ? "Y" : "N");
+    printf("sig: ");
+    mpr_prop_print(1, MPR_SIG, slot->sig);
+    printf(", dev: %s, sig: %s, link: %s\n",
+           status & MPR_SLOT_DEV_KNOWN ? "Y" : "N",
+           status & MPR_SLOT_SIG_KNOWN ? "Y" : "N",
+           status & MPR_SLOT_LINK_KNOWN ? "Y" : "N");
 #endif
-    return slot->status;
+    return status;
 }
 
 void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto,
@@ -355,4 +353,12 @@ int mpr_slot_compare_names(mpr_slot l, mpr_slot r)
     if (0 == result)
         return strcmp(mpr_sig_get_name(lsig), mpr_sig_get_name(rsig));
     return result;
+}
+
+lo_address mpr_slot_get_addr(mpr_slot slot)
+{
+    lo_address addr = NULL;
+    if (!mpr_obj_get_is_local((mpr_obj)slot->sig) && ((mpr_local_slot)slot)->link)
+        addr = mpr_link_get_admin_addr(((mpr_local_slot)slot)->link);
+    return addr;
 }

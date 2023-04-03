@@ -26,8 +26,21 @@
 #include <malloc.h>
 #endif
 
-#define MAX_LEN 1024
-#define METADATA_OK             0x1C
+#define MAX_LEN           1024
+#define MPR_STATUS_PUSHED 0x08
+#define METADATA_OK       (MPR_SLOT_DEV_KNOWN | MPR_SLOT_SIG_KNOWN | MPR_SLOT_LINK_KNOWN)
+
+/* Documentation of status bitflags
+ * 'reserved'          1000 0000 only used for signal instances
+ * 'active'            0111 1110 received 'mapped' from peer
+ * 'ready'             0011 0110 all metadata known, devices registered
+ * 'slot_link_known'   0010 0000
+ * 'slot_sig_known'    0001 0000
+ * 'waiting'           0000 1110 map pushed, waiting for sig & link
+ * 'slot_dev_known'    0000 0100
+ * 'staged'            0000 0010 waiting for registration of local devices
+ * 'expired'           0000 0001
+ */
 
 #define MPR_MAP_STRUCT_ITEMS                                                    \
     mpr_obj_t obj;                  /* Must be first for type punning */        \
@@ -167,10 +180,13 @@ void mpr_local_map_init(mpr_local_map map)
         /* TODO: revise this hackery */
         map->protocol = mpr_link_get_dev_dir(link, dev) ? MPR_PROTO_TCP : MPR_PROTO_UDP;
         map->locality = MPR_LOC_BOTH;
+        map->status |= MPR_STATUS_PUSHED;
     }
 
-    /* default to processing at source device unless heterogeneous sources */
+    /* Default to processing at source device unless the maps has heterogeneous sources. */
     map->process_loc = (MPR_LOC_BOTH == map->locality || map->one_src) ? MPR_LOC_SRC : MPR_LOC_DST;
+
+    /* Don't run mpr_local_map_update_status() here since user code may add props before push. */
 }
 
 void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_local)
@@ -212,6 +228,7 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
     mpr_tbl_link_value(t, PROP(PROCESS_LOC), 1, MPR_INT32, &m->process_loc, MODIFIABLE);
     mpr_tbl_link_value_no_default(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, REMOTE_MODIFY);
     mpr_tbl_link_value(t, PROP(SCOPE), 1, MPR_LIST, q, NON_MODIFIABLE | PROP_OWNED);
+    /* TODO: should we be sharing the status property? Try hiding it from protocol & interface */
     mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->status, NON_MODIFIABLE);
     mpr_tbl_link_value_no_default(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, REMOTE_MODIFY);
     mpr_tbl_link_value(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, REMOTE_MODIFY);
@@ -219,6 +236,7 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
     mpr_tbl_add_record(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local,
                        LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
     m->status = MPR_STATUS_STAGED;
+    m->protocol = MPR_PROTO_UDP;
 
     if (is_local)
         mpr_local_map_init((mpr_local_map)m);
@@ -303,7 +321,6 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     }
 
     m = (mpr_map)mpr_graph_add_list_item(g, MPR_MAP, is_local ? sizeof(mpr_local_map_t) : sizeof(mpr_map_t));
-    m->obj.is_local = 0;
     m->bundle = 1;
 
     /* Sort the source signals by name */
@@ -311,13 +328,13 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     memcpy(src_sorted, src, num_src * sizeof(mpr_sig));
     qsort(src_sorted, num_src, sizeof(mpr_sig), _compare_sig_names);
 
+    mpr_map_init(m, num_src, src_sorted, *dst, is_local);
+    free(src_sorted);
+
     /* we need to give the map a temporary id – this may be overwritten later */
     if (mpr_obj_get_is_local((mpr_obj)*dst))
         mpr_obj_set_id((mpr_obj)m, mpr_dev_generate_unique_id(mpr_sig_get_dev(*dst)));
 
-    mpr_map_init(m, num_src, src_sorted, *dst, is_local);
-    m->protocol = MPR_PROTO_UDP;
-    free(src_sorted);
     return m;
 }
 
@@ -777,7 +794,6 @@ void mpr_map_receive(mpr_local_map m, mpr_time time)
             id_map = 0;
     }
     types = alloca(mpr_sig_get_len((mpr_sig)dst_sig) * sizeof(char));
-
     for (i = 0; i < m->num_inst; i++) {
         if (!mpr_bitflags_get(m->updated_inst, i))
             continue;
@@ -862,7 +878,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
     for (i = 0; i < m->num_src; i++) {
         sig = mpr_slot_get_sig((mpr_slot)m->src[i]);
         hist_size = mpr_expr_get_in_hist_size(e, i);
-        mpr_slot_alloc_values(m->src[i], mpr_slot_get_num_inst((mpr_slot)m->src[i]), hist_size);
+        mpr_slot_alloc_values(m->src[i], 0, hist_size);
         num_inst = mpr_max(mpr_sig_get_num_inst(sig, MPR_STATUS_ANY), num_inst);
     }
     sig = mpr_slot_get_sig((mpr_slot)m->dst);
@@ -1076,6 +1092,9 @@ static const char *_set_linear(mpr_local_map m, const char *e)
         /* how many instances of 'linear' appear in the expression string? */
         int num_inst = 0;
         char *offset = (char*)e;
+
+        trace("generating linear expression from '%s'\n", e);
+
         while ((offset = strstr(offset, "linear"))) {
             ++num_inst;
             offset += 6;
@@ -1196,6 +1215,9 @@ static const char *_set_linear(mpr_local_map m, const char *e)
         mpr_type val_type;
         const void *val;
         int cont = 1;
+
+        trace("generating default linear expression\n");
+
 #define print_extremum(SIG, PROPERTY, LABEL)                                            \
         if (cont && mpr_obj_get_prop_by_idx((mpr_obj)SIG, PROPERTY, NULL, &val_len,     \
                                             &val_type, &val, NULL))                     \
@@ -1282,6 +1304,8 @@ static int _set_expr(mpr_local_map m, const char *expr)
     mpr_sig dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
     RETURN_ARG_UNLESS(m->num_src > 0, 0);
 
+    trace("setting map expression to '%s'\n", expr ? expr : "default");
+
     /* deal with instances activated by the previous expression */
     if (m->id_map) {
         mpr_sig sig = mpr_slot_get_sig((mpr_slot)m->src[0]);
@@ -1313,8 +1337,13 @@ static int _set_expr(mpr_local_map m, const char *expr)
             mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr, REMOTE_MODIFY);
         goto done;
     }
-    if (!expr || strstr(expr, "linear"))
+    if (!expr || strstr(expr, "linear")) {
         expr = new_expr = _set_linear(m, expr);
+#ifdef DEBUG
+        if (expr)
+            printf("  generated expression '%s'\n", expr);
+#endif
+    }
     RETURN_ARG_UNLESS(expr, -1);
 
     if (!_replace_expr_str(m, expr)) {
@@ -1360,28 +1389,28 @@ done:
     return ret;
 }
 
-static void _check_status(mpr_local_map map)
+int mpr_local_map_update_status(mpr_local_map map)
 {
-    int i, mask = ~METADATA_OK;
-    RETURN_UNLESS((map->status & MPR_STATUS_READY) != MPR_STATUS_READY);
+    int i, status = METADATA_OK;
+    RETURN_ARG_UNLESS((map->status & MPR_STATUS_READY) != MPR_STATUS_READY, map->status);
 
-    trace("checking map status\n");
-    map->status |= METADATA_OK;
+    trace("checking map status...\n");
+    trace("checking slots...\n");
     for (i = 0; i < map->num_src; i++) {
         trace("  src[%d]: ", i);
-        map->status &= (mpr_slot_check_status(map->src[i]) | mask);
+        status &= mpr_slot_get_status(map->src[i]);
     }
     trace("  dst:    ");
-    map->status &= (mpr_slot_check_status(map->dst) | mask);
+    status &= mpr_slot_get_status(map->dst);
+    map->status |= status;
 
-    if ((map->status & METADATA_OK) == METADATA_OK) {
+    if (map->status >= MPR_STATUS_READY) {
         mpr_tbl tbl = mpr_obj_get_prop_tbl((mpr_obj)map);
         mpr_sig sig;
         int use_inst;
 
-        trace("  map metadata OK, setting status to READY\n");
+        trace("  map metadata OK, status is now READY\n");
         mpr_map_alloc_values(map, 1);
-        map->status = MPR_STATUS_READY;
 
         /* update in/out counts for link */
         if (MPR_LOC_BOTH == map->locality) {
@@ -1424,11 +1453,11 @@ static void _check_status(mpr_local_map map)
         if (MPR_LOC_BOTH != map->locality && !mpr_tbl_get_prop_is_set(tbl, MPR_PROP_PROTOCOL))
             map->protocol = use_inst ? MPR_PROTO_TCP : MPR_PROTO_UDP;
     }
-    return;
+    return map->status;
 }
 
-/* if 'override' flag is not set, only remote properties can be set */
-int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
+/* TODO: consider renaming mpr_N_set_from_msg() to mpr_N_update() since this func also updates status */
+int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
 {
     int i, j, updated = 0, should_compile = 0;
     mpr_tbl tbl;
@@ -1504,18 +1533,18 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
                         }
                     }
                     if (should_compile) {
+                        mpr_loc orig = m->process_loc;
+                        m->process_loc = loc;
                         if (-1 == _set_expr(lm, m->expr_str)) {
                             /* do not change process location */
+                            m->process_loc = orig;
                             break;
                         }
                         ++updated;
                     }
-                    updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                                  MPR_INT32, &loc, REMOTE_MODIFY);
                 }
-                else
-                    updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                                  MPR_INT32, &loc, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
+                                              MPR_INT32, &loc, REMOTE_MODIFY);
                 break;
             }
             case PROP(EXPR): {
@@ -1678,7 +1707,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg, int override)
 done:
     if (m->obj.is_local && m->status < MPR_STATUS_READY) {
         /* check if mapping is now "ready" */
-        _check_status((mpr_local_map)m);
+        mpr_local_map_update_status((mpr_local_map)m);
     }
     return updated;
 }
@@ -1700,6 +1729,10 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
         trace("couldn't allocate lo_message\n");
         return slot_idx;
     }
+
+    /* Update status to indicate map has been pushed */
+    m->status |= MPR_STATUS_PUSHED;
+
     if (MPR_DIR_IN == dst_dir) {
         /* add mapping destination */
         mpr_sig_get_full_name(mpr_slot_get_sig(m->dst), buffer, 256);
@@ -1707,13 +1740,11 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
         lo_message_add_string(msg, "<-");
     }
 
-    /* TODO: verify that this works! */
     if (mpr_obj_get_is_local((mpr_obj)m) && ((mpr_local_map)m)->one_src)
         slot_idx = -1;
 
     /* add mapping sources */
     i = (slot_idx >= 0) ? slot_idx : 0;
-    /* TODO: need to check that this works (non-local slots should not have links? */
     link = mpr_slot_get_link(m->src[i]);
     for (; i < m->num_src; i++) {
         if ((slot_idx >= 0) && link && (link != mpr_slot_get_link(m->src[i])))
@@ -2127,20 +2158,5 @@ int mpr_map_get_use_inst(mpr_map map)
 
 void mpr_map_status_decr(mpr_map map)
 {
-    --map->status;
-}
-
-int mpr_map_waiting(mpr_map map)
-{
-    int i;
-    mpr_sig sig = mpr_slot_get_sig(map->dst);
-    mpr_dev dev = mpr_sig_get_dev(sig);
-    /* Only proceed if all signals are registered (remote or registered local signals) */
-    RETURN_ARG_UNLESS(mpr_dev_get_is_registered(dev), 1);
-    for (i = 0; i < map->num_src; i++) {
-        sig = mpr_slot_get_sig(map->src[i]);
-        dev = mpr_sig_get_dev(sig);
-        RETURN_ARG_UNLESS(mpr_dev_get_is_registered(dev), 1);
-    }
-    return 0;
+    map->status >>= 2;
 }

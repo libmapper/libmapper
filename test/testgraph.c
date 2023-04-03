@@ -322,7 +322,7 @@ int main(int argc, char **argv)
 
     src_sig_name = "testgraph.1/out2";
     map = mpr_graph_add_map(graph, id, 1, &src_sig_name, "testgraph__.2/in1");
-    mpr_map_set_from_msg(map, props, 0);
+    mpr_map_set_from_msg(map, props);
 
     mpr_msg_free(props);
     lo_message_free(lom);
@@ -349,7 +349,7 @@ int main(int argc, char **argv)
 
     src_sig_name = "testgraph__.2/out1";
     map = mpr_graph_add_map(graph, id, 1, &src_sig_name, "testgraph.1/in1");
-    mpr_map_set_from_msg(map, props, 0);
+    mpr_map_set_from_msg(map, props);
 
     mpr_msg_free(props);
     lo_message_free(lom);
@@ -384,7 +384,7 @@ int main(int argc, char **argv)
 
     src_sig_name = "testgraph.1/out1";
     map = mpr_graph_add_map(graph, id, 1, &src_sig_name, "testgraph__.2/in2");
-    mpr_map_set_from_msg(map, props, 0);
+    mpr_map_set_from_msg(map, props);
 
     mpr_msg_free(props);
     lo_message_free(lom);
@@ -419,7 +419,7 @@ int main(int argc, char **argv)
 
     src_sig_name = "testgraph.1/out1";
     mpr_graph_add_map(graph, id, 1, &src_sig_name, "testgraph__.2/in1");
-    mpr_map_set_from_msg(map, props, 0);
+    mpr_map_set_from_msg(map, props);
 
     mpr_msg_free(props);
     lo_message_free(lom);

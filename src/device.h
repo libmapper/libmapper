@@ -100,7 +100,7 @@ int mpr_dev_has_local_link(mpr_dev dev);
 
 int mpr_dev_check_synced(mpr_dev dev, mpr_time time);
 
-size_t mpr_dev_get_struct_size();
+size_t mpr_dev_get_struct_size(void);
 
 int mpr_dev_get_is_registered(mpr_dev dev);
 

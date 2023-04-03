@@ -16,7 +16,7 @@ typedef struct _mpr_link *mpr_link;
 #define LINK_LOCAL_DEV   0
 #define LINK_REMOTE_DEV  1
 
-size_t mpr_link_get_struct_size();
+size_t mpr_link_get_struct_size(void);
 
 mpr_link mpr_link_new(mpr_local_dev local_dev, mpr_dev remote_dev);
 

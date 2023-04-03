@@ -49,8 +49,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *dev_name, mpr_msg msg, int fo
  *  \param dev_name     The name of the device associated with this signal.
  *  \param msg          The parsed message parameters containing new metadata.
  *  \return             Pointer to the signal. */
-mpr_sig mpr_graph_add_sig(mpr_graph g, const char *sig_name,
-                          const char *dev_name, mpr_msg msg);
+mpr_sig mpr_graph_add_sig(mpr_graph g, const char *sig_name, const char *dev_name, mpr_msg msg);
 
 /*! Add or update a map entry in the graph using parsed message parameters.
  *  \param g            The graph to operate on.

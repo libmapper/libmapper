@@ -289,3 +289,25 @@ mpr_msg_atom mpr_msg_get_prop(mpr_msg msg, int prop)
     }
     return 0;
 }
+
+int mpr_msg_get_prop_as_int32(mpr_msg msg, int prop)
+{
+    int ret = 0;
+    mpr_msg_atom a = mpr_msg_get_prop(msg, prop);
+
+    if (a && 1 == a->len && MPR_INT32 == a->types[0])
+        ret = a->vals[0]->i;
+
+    return ret;
+}
+
+const char *mpr_msg_get_prop_as_str(mpr_msg msg, int prop)
+{
+    const char *ret = 0;
+    mpr_msg_atom a = mpr_msg_get_prop(msg, prop);
+
+    if (a && 1 == a->len && MPR_STR == a->types[0])
+        ret = &(a->vals[0])->s;
+
+    return ret;
+}

@@ -9,14 +9,14 @@ typedef struct _mpr_local_slot *mpr_local_slot;
 #include "mpr_signal.h"
 #include "value.h"
 
-#define MPR_SLOT_STATUS_LENGTH_KNOWN 0x04
-#define MPR_SLOT_STATUS_TYPE_KNOWN   0x08
-#define MPR_SLOT_STATUS_LINK_KNOWN   0x10
+#define MPR_SLOT_DEV_KNOWN  0x04 /* bitflag 0000 0100 */
+#define MPR_SLOT_SIG_KNOWN  0x10 /* bitflag 0001 0000 */
+#define MPR_SLOT_LINK_KNOWN 0x20 /* bitflag 0010 0000 */
 
 mpr_slot mpr_slot_new(mpr_map map, mpr_sig sig, mpr_dir dir, unsigned char is_local,
                       unsigned char is_src);
 
-void mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size);
+int mpr_slot_alloc_values(mpr_local_slot slot, int num_inst, int hist_size);
 
 void mpr_slot_free(mpr_slot slot);
 
@@ -30,7 +30,7 @@ int mpr_slot_match_full_name(mpr_slot slot, const char *full_name);
 
 void mpr_slot_remove_inst(mpr_local_slot slot, int idx);
 
-char mpr_slot_check_status(mpr_local_slot slot);
+int mpr_slot_get_status(mpr_local_slot slot);
 
 mpr_link mpr_slot_get_link(mpr_slot slot);
 
@@ -72,5 +72,7 @@ void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time,
                              int bundle_idx);
 
 int mpr_slot_compare_names(mpr_slot l, mpr_slot r);
+
+lo_address mpr_slot_get_addr(mpr_slot slot);
 
 #endif /* __MPR_SLOT_H__ */

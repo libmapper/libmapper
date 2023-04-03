@@ -204,7 +204,6 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
         p = mpr_prop_from_str(s);
     }
 
-    /* check if object represents local resource */
     local = o->props.staged ? 0 : 1;
     flags = local ? LOCAL_MODIFY : REMOTE_MODIFY;
     if (!publish)
@@ -269,11 +268,15 @@ void mpr_obj_push(mpr_obj o)
     }
     else if (o->type & MPR_MAP) {
         mpr_map m = (mpr_map)o;
+        int status = mpr_map_get_status(m);
         mpr_net_use_bus(n);
-        if (mpr_map_get_status(m) >= MPR_STATUS_ACTIVE)
+        if (status == MPR_STATUS_ACTIVE)
             mpr_map_send_state(m, -1, MSG_MAP_MOD);
-        else if (!mpr_map_waiting(m))
-            mpr_map_send_state(m, -1, MSG_MAP);
+        else if (o->is_local) {
+            status = mpr_local_map_update_status((mpr_local_map)m);
+            if (status & MPR_SLOT_DEV_KNOWN)
+                mpr_map_send_state(m, -1, MSG_MAP);
+        }
     }
     else {
         trace("mpr_obj_push(): unknown object type %d\n", o->type);

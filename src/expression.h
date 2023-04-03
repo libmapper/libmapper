@@ -63,7 +63,7 @@ int mpr_expr_get_num_input_slots(mpr_expr expr);
 
 void mpr_expr_free(mpr_expr expr);
 
-mpr_expr_stack mpr_expr_stack_new();
+mpr_expr_stack mpr_expr_stack_new(void);
 
 void mpr_expr_stack_free(mpr_expr_stack stk);
 

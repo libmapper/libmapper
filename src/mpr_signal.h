@@ -52,7 +52,7 @@ const char *mpr_sig_get_name(mpr_sig sig);
 
 const char *mpr_sig_get_path(mpr_sig sig);
 
-size_t mpr_sig_get_struct_size();
+size_t mpr_sig_get_struct_size(void);
 
 mpr_type mpr_sig_get_type(mpr_sig sig);
 
@@ -70,7 +70,7 @@ void mpr_local_sig_remove_slot(mpr_local_sig sig, mpr_local_slot slot, mpr_dir d
 
 mpr_sig_inst mpr_local_sig_get_inst_by_idx(mpr_local_sig sig, int inst_idx, mpr_id_map *id_map);
 
-int mpr_local_sig_get_num_inst(mpr_local_sig sig);
+int mpr_sig_get_num_inst_internal(mpr_sig sig);
 
 int mpr_sig_get_use_inst(mpr_sig sig);
 

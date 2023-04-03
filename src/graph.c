@@ -214,41 +214,38 @@ void mpr_graph_cleanup(mpr_graph g)
     mpr_list maps;
     if (!g->staged_maps)
         return;
+    trace_graph("checking %d staged maps\n", g->staged_maps);
     /* check for maps that were staged but never completed */
     maps = mpr_list_from_data(g->maps);
     while (maps) {
         mpr_map map = (mpr_map)*maps;
         int status = mpr_map_get_status(map);
         maps = mpr_list_get_next(maps);
-        if (status <= MPR_STATUS_STAGED) {
-            if (status <= MPR_STATUS_EXPIRED) {
-                mpr_graph_remove_map(g, map, MPR_OBJ_EXP);
-            }
-            else {
-                /* TODO: consider moving to e.g. mpr_map_check_devs() */
-                mpr_sig s = mpr_map_get_dst_sig(map);
-                mpr_dev d = mpr_sig_get_dev(s);
-                int i, ready = 1;
-                ++staged;
+        if (status > MPR_STATUS_READY || !mpr_obj_get_is_local((mpr_obj)map))
+            continue;
 
-                if (mpr_obj_get_is_local((mpr_obj)s) && !mpr_dev_get_is_registered(d))
-                    continue;
-                for (i = 0; i < mpr_map_get_num_src(map); i++) {
-                    s = mpr_map_get_src_sig(map, i);
-                    d = mpr_sig_get_dev(s);
-                    if (mpr_obj_get_is_local((mpr_obj)s) && !mpr_dev_get_is_registered(d)) {
-                        ready = 0;
-                        break;
-                    }
-                }
+#ifdef DEBUG
+        trace_graph("  checking map: ");
+        mpr_prop_print(1, MPR_MAP, map);
+        printf(", status=%d\n", status);
+#endif
 
-                if (ready) {
+        if (status <= MPR_STATUS_EXPIRED) {
+            trace_graph("  removing expired map\n");
+            mpr_graph_remove_map(g, map, MPR_OBJ_EXP);
+        }
+        else {
+            if (status < MPR_STATUS_WAITING) {
+                /* update map status */
+                status = mpr_local_map_update_status((mpr_local_map)map);
+                if (status & MPR_SLOT_DEV_KNOWN) {
                     /* Try pushing the map to the distributed graph */
-                    trace_graph("pushing staged map to network\n");
+                    trace_graph("  pushing staged map to network\n");
                     mpr_obj_push((mpr_obj)map);
-                    mpr_map_status_decr(map);
                 }
             }
+            mpr_map_status_decr(map);
+                ++staged;
         }
     }
     g->staged_maps = staged;
@@ -676,7 +673,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                           const char *dst_name)
 {
     mpr_map map = 0;
-    unsigned char rc = 0, updated = 0, i, j, is_local = 0;
+    unsigned char rc = 0, i, j, is_local = 0;
     if (num_src > MAX_NUM_MAP_SRC) {
         trace_graph("error: maximum mapping sources exceeded.\n");
         return 0;
@@ -734,7 +731,6 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
             if (j == num_src) {
                 ++changed;
                 mpr_map_add_src(map, src_sig, MPR_DIR_UNDEFINED, is_local);
-                ++updated;
             }
         }
         if (changed) {
@@ -751,18 +747,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         }
     }
 
-    if (map) {
-#ifdef DEBUG
-        if (!rc) {
-            trace_graph("updated %d props for map ", updated);
-            mpr_prop_print(1, MPR_MAP, map);
-            printf("\n");
-        }
-#endif
-        RETURN_ARG_UNLESS(mpr_map_get_status(map) >= MPR_STATUS_ACTIVE, map);
-        if (rc || updated)
-            mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, rc ? MPR_OBJ_NEW : MPR_OBJ_MOD);
-    }
+    if (map && rc && mpr_map_get_status(map) >= MPR_STATUS_ACTIVE)
+        mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, MPR_OBJ_NEW);
     return map;
 }
 

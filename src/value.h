@@ -70,9 +70,13 @@ MPR_INLINE static mpr_time* mpr_value_get_time_hist(mpr_value v, int inst_idx, i
 
 void mpr_value_free(mpr_value v);
 
+MPR_INLINE static int mpr_value_get_mlen(mpr_value v)
+    { return v->mlen; }
+
 #ifdef DEBUG
-void mpr_value_print(mpr_value v, int inst_idx);
-void mpr_value_print_hist(mpr_value v, int inst_idx);
+void mpr_value_print(mpr_value v);
+int mpr_value_print_inst(mpr_value v, int inst_idx);
+int mpr_value_print_inst_hist(mpr_value v, int inst_idx);
 #endif
 
 #endif /* __MPR_VALUE_H__ */
