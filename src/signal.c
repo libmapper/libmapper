@@ -1831,12 +1831,21 @@ int mpr_local_sig_check_outgoing(mpr_local_sig sig, int num_dst_sigs, const char
 /* TODO: track array size separately to reduce reallocations */
 void mpr_local_sig_add_slot(mpr_local_sig sig, mpr_local_slot slot, mpr_dir dir)
 {
+    int i;
     if (MPR_DIR_IN == dir) {
+        for (i = 0; i < sig->num_maps_in; i++) {
+            if (sig->slots_in[i] == slot)
+                return;
+        }
         ++sig->num_maps_in;
         sig->slots_in = realloc(sig->slots_in, sizeof(mpr_local_slot) * sig->num_maps_in);
         sig->slots_in[sig->num_maps_in - 1] = slot;
     }
     else if (MPR_DIR_OUT == dir) {
+        for (i = 0; i < sig->num_maps_out; i++) {
+            if (sig->slots_out[i] == slot)
+                return;
+        }
         ++sig->num_maps_out;
         sig->slots_out = realloc(sig->slots_out, sizeof(mpr_local_slot) * sig->num_maps_out);
         sig->slots_out[sig->num_maps_out - 1] = slot;
