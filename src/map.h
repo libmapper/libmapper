@@ -16,6 +16,8 @@ typedef struct _mpr_local_map *mpr_local_map;
 #include "mpr_signal.h"
 #include "slot.h"
 
+size_t mpr_map_get_struct_size(int is_local);
+
 void mpr_map_alloc_values(mpr_local_map map, int quiet);
 
 /*! Process the signal instance value according to mapping properties.
@@ -83,8 +85,6 @@ mpr_sig mpr_map_get_src_sig(mpr_map map, int idx);
 mpr_slot mpr_map_get_src_slot(mpr_map map, int idx);
 
 mpr_slot mpr_map_get_src_slot_by_id(mpr_map map, int id);
-
-size_t mpr_map_get_struct_size(int is_local);
 
 void mpr_local_map_set_updated(mpr_local_map map, int inst_idx);
 

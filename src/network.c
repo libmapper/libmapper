@@ -699,7 +699,7 @@ void mpr_net_send_name_probe(mpr_net net, const char *name)
     mpr_net_add_msg(net, 0, MSG_NAME_PROBE, msg);
 }
 
-static void _send_device_sync(mpr_net net, mpr_local_dev dev)
+static void send_device_sync(mpr_net net, mpr_local_dev dev)
 {
     NEW_LO_MSG(msg, return);
     lo_message_add_string(msg, mpr_dev_get_name((mpr_dev)dev));
@@ -726,7 +726,7 @@ void mpr_net_maybe_send_ping(mpr_net net, int force)
             mpr_local_dev dev = net->devs[i];
             if (mpr_local_dev_has_subscribers(dev)) {
                 mpr_net_use_subscribers(net, dev, MPR_DEV);
-                _send_device_sync(net, dev);
+                send_device_sync(net, dev);
             }
         }
     }
@@ -738,7 +738,7 @@ void mpr_net_maybe_send_ping(mpr_net net, int force)
     mpr_net_use_bus(net);
     for (i = 0; i < net->num_devs; i++) {
         if (mpr_dev_get_is_registered((mpr_dev)net->devs[i]))
-            _send_device_sync(net, net->devs[i]);
+            send_device_sync(net, net->devs[i]);
     }
 
     /* housekeeping #2: periodically check if our links are still active */

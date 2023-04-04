@@ -82,11 +82,16 @@ typedef struct _mpr_local_map {
     uint8_t updated;
 } mpr_local_map_t;
 
+size_t mpr_map_get_struct_size(int is_local)
+{
+    return is_local ? sizeof(mpr_local_map_t) : sizeof(mpr_map_t);
+}
+
 MPR_INLINE static int mpr_max(int a, int b) { return a > b ? a : b; }
 
 MPR_INLINE static int mpr_min(int a, int b) { return a < b ? a : b; }
 
-static int _cmp_qry_scopes(const void *ctx, mpr_dev d)
+static int cmp_qry_scopes(const void *ctx, mpr_dev d)
 {
     int i;
     mpr_map m = *(mpr_map*)ctx;
@@ -97,7 +102,7 @@ static int _cmp_qry_scopes(const void *ctx, mpr_dev d)
     return 0;
 }
 
-void mpr_local_map_init(mpr_local_map map)
+static void mpr_local_map_init(mpr_local_map map)
 {
     int i, scope_count, local_src = 0, local_dst = 0;
     mpr_sig dst_sig = mpr_slot_get_sig((mpr_slot)map->dst);
@@ -194,7 +199,7 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
     int i;
     mpr_graph g = m->obj.graph;
     mpr_tbl t = m->obj.props.synced = mpr_tbl_new();
-    mpr_list q = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)_cmp_qry_scopes, "v", &m);
+    mpr_list q = mpr_graph_new_query(m->obj.graph, 0, MPR_DEV, (void*)cmp_qry_scopes, "v", &m);
     m->obj.props.staged = mpr_tbl_new();
 
     m->num_src = num_src;
@@ -242,7 +247,7 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
         mpr_local_map_init((mpr_local_map)m);
 }
 
-int _compare_sig_names(const void *l, const void *r)
+static int compare_sig_names(const void *l, const void *r)
 {
     return mpr_sig_compare_names(*(mpr_sig*)l, *(mpr_sig*)r);
 }
@@ -326,7 +331,7 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     /* Sort the source signals by name */
     src_sorted = (mpr_sig*) malloc(num_src * sizeof(mpr_sig));
     memcpy(src_sorted, src, num_src * sizeof(mpr_sig));
-    qsort(src_sorted, num_src, sizeof(mpr_sig), _compare_sig_names);
+    qsort(src_sorted, num_src, sizeof(mpr_sig), compare_sig_names);
 
     mpr_map_init(m, num_src, src_sorted, *dst, is_local);
     free(src_sorted);
@@ -439,7 +444,7 @@ void mpr_map_free(mpr_map map)
     FUNC_IF(free, map->expr_str);
 }
 
-static int _cmp_qry_sigs(const void *ctx, mpr_sig s)
+static int cmp_qry_sigs(const void *ctx, mpr_sig s)
 {
     mpr_map m = *(mpr_map*)ctx;
     mpr_loc l = *(mpr_loc*)((char*)ctx + sizeof(mpr_map*));
@@ -456,7 +461,7 @@ static int _cmp_qry_sigs(const void *ctx, mpr_sig s)
 mpr_list mpr_map_get_sigs(mpr_map m, mpr_loc l)
 {
     RETURN_ARG_UNLESS(m, 0);
-    return mpr_graph_new_query(m->obj.graph, 1, MPR_SIG, (void*)_cmp_qry_sigs, "vi", &m, l);
+    return mpr_graph_new_query(m->obj.graph, 1, MPR_SIG, (void*)cmp_qry_sigs, "vi", &m, l);
 }
 
 int mpr_map_get_sig_idx(mpr_map map, mpr_sig sig)
@@ -481,7 +486,7 @@ int mpr_map_get_is_ready(mpr_map m)
 
 /* Here we do not edit the "scope" property directly – instead we stage the
  * change with device name arguments and send to the distributed graph. */
-void stage_scope(mpr_map m, mpr_dev d, int flag)
+static void stage_scope(mpr_map m, mpr_dev d, int flag)
 {
     mpr_prop p = MPR_PROP_SCOPE | flag;
     const void *val;
@@ -537,7 +542,7 @@ void mpr_map_remove_scope_internal(mpr_map map, mpr_dev dev)
     }
 }
 
-static int _add_scope(mpr_map m, const char *name)
+static int add_scope(mpr_map m, const char *name)
 {
     int i;
     mpr_dev d = 0;
@@ -564,7 +569,7 @@ static int _add_scope(mpr_map m, const char *name)
     return 1;
 }
 
-static int _remove_scope(mpr_map m, const char *name)
+static int remove_scope(mpr_map m, const char *name)
 {
     int i;
     RETURN_ARG_UNLESS(m && name, 0);
@@ -588,7 +593,7 @@ static int _remove_scope(mpr_map m, const char *name)
     return 1;
 }
 
-static int _update_scope(mpr_map m, mpr_msg_atom a)
+static int update_scope(mpr_map m, mpr_msg_atom a)
 {
     int i = 0, j, updated = 0, num = mpr_msg_atom_get_len(a);
     lo_arg **scope_list = mpr_msg_atom_get_values(a);
@@ -599,11 +604,11 @@ static int _update_scope(mpr_map m, mpr_msg_atom a)
 
         if (mpr_msg_atom_get_prop(a) & PROP_ADD) {
             for (i = 0; i < num; i++)
-                updated += _add_scope(m, &scope_list[i]->s);
+                updated += add_scope(m, &scope_list[i]->s);
         }
         else if (mpr_msg_atom_get_prop(a) & PROP_REMOVE) {
             for (i = 0; i < num; i++)
-                updated += _remove_scope(m, &scope_list[i]->s);
+                updated += remove_scope(m, &scope_list[i]->s);
         }
         else {
             /* First remove old scopes that are missing */
@@ -624,13 +629,13 @@ static int _update_scope(mpr_map m, mpr_msg_atom a)
                     }
                 }
                 if (!found && m->scopes[i])
-                    updated += _remove_scope(m, mpr_dev_get_name(m->scopes[i]));
+                    updated += remove_scope(m, mpr_dev_get_name(m->scopes[i]));
                 else
                     ++i;
             }
             /* ...then add any new scopes */
             for (i = 0; i < num; i++)
-                updated += _add_scope(m, &scope_list[i]->s);
+                updated += add_scope(m, &scope_list[i]->s);
         }
     }
     return updated;
@@ -956,7 +961,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
 
 /* Helper to replace a map's expression only if the given string
  * parses successfully. Returns 0 on success, non-zero on error. */
-static int _replace_expr_str(mpr_local_map m, const char *expr_str)
+static int replace_expr_str(mpr_local_map m, const char *expr_str)
 {
     int i, out_mem, src_lens[MAX_NUM_MAP_SRC];
     char src_types[MAX_NUM_MAP_SRC];
@@ -999,7 +1004,7 @@ static int _replace_expr_str(mpr_local_map m, const char *expr_str)
     return 0;
 }
 
-MPR_INLINE static int _trim_zeros(char *str, int len)
+MPR_INLINE static int trim_zeros(char *str, int len)
 {
     if (!strchr(str, '.'))
         return len;
@@ -1011,8 +1016,8 @@ MPR_INLINE static int _trim_zeros(char *str, int len)
     return len;
 }
 
-static int _snprint_var(const char *varname, char *str, int max_len, int vec_len,
-                        mpr_type type, const void *val)
+static int snprint_var(const char *varname, char *str, int max_len, int vec_len,
+                       mpr_type type, const void *val)
 {
     int i, str_len, var_len;
     RETURN_ARG_UNLESS(str, -1);
@@ -1025,21 +1030,21 @@ static int _snprint_var(const char *varname, char *str, int max_len, int vec_len
         case MPR_INT32:
             for (i = 0; i < vec_len; i++) {
                 var_len = snprintf(str+str_len, max_len-str_len, "%d", ((int*)val)[i]);
-                str_len += _trim_zeros(str+str_len, var_len);
+                str_len += trim_zeros(str+str_len, var_len);
                 str_len += snprintf(str+str_len, max_len-str_len, ",");
             }
             break;
         case MPR_FLT:
             for (i = 0; i < vec_len; i++) {
                 var_len = snprintf(str+str_len, max_len-str_len, "%g", ((float*)val)[i]);
-                str_len += _trim_zeros(str+str_len, var_len);
+                str_len += trim_zeros(str+str_len, var_len);
                 str_len += snprintf(str+str_len, max_len-str_len, ",");
             }
             break;
         case MPR_DBL:
             for (i = 0; i < vec_len; i++) {
                 var_len = snprintf(str+str_len, max_len-str_len, "%g", ((double*)val)[i]);
-                str_len += _trim_zeros(str+str_len, var_len);
+                str_len += trim_zeros(str+str_len, var_len);
                 str_len += snprintf(str+str_len, max_len-str_len, ",");
             }
             break;
@@ -1065,8 +1070,8 @@ for (j = 0; j < m->num_vars; j++) {                                 \
         trace("expr var '%s' is not yet initialised.\n", VARNAME);  \
         goto abort;                                                 \
     }                                                               \
-    len += _snprint_var(VARNAME, expr+len, MAX_LEN-len, ev[j].vlen, \
-                        ev[j].type, mpr_value_get_samp(&ev[j], k)); \
+    len += snprint_var(VARNAME, expr+len, MAX_LEN-len, ev[j].vlen,  \
+                       ev[j].type, mpr_value_get_samp(&ev[j], k));  \
     break;                                                          \
 }                                                                   \
 if (j == m->num_vars) {                                             \
@@ -1074,7 +1079,7 @@ if (j == m->num_vars) {                                             \
     goto abort;                                                     \
 }
 
-static const char *_set_linear(mpr_local_map m, const char *e)
+static const char *set_linear(mpr_local_map m, const char *e)
 {
     /* if e is NULL, try to fill in ranges from map signals */
     int i, j, k, len = 0, val_len;
@@ -1151,7 +1156,7 @@ static const char *_set_linear(mpr_local_map m, const char *e)
             }
             else {
                 val_len = snprintf(expr, MAX_LEN, "sMin=%s", args[1]);
-                len += _trim_zeros(expr, val_len);
+                len += trim_zeros(expr, val_len);
                 len += snprintf(expr + len, MAX_LEN - len, ";");
             }
 
@@ -1171,7 +1176,7 @@ static const char *_set_linear(mpr_local_map m, const char *e)
             }
             else {
                 val_len = snprintf(expr + len, MAX_LEN - len, "sMax=%s", args[2]);
-                len += _trim_zeros(expr + len, val_len);
+                len += trim_zeros(expr + len, val_len);
                 len += snprintf(expr + len, MAX_LEN - len, ";");
             }
 
@@ -1187,7 +1192,7 @@ static const char *_set_linear(mpr_local_map m, const char *e)
             }
             else {
                 val_len = snprintf(expr + len, MAX_LEN - len, "dMin=%s", args[3]);
-                len += _trim_zeros(expr + len, val_len);
+                len += trim_zeros(expr + len, val_len);
                 len += snprintf(expr + len, MAX_LEN - len, ";");
             }
 
@@ -1203,7 +1208,7 @@ static const char *_set_linear(mpr_local_map m, const char *e)
             }
             else {
                 val_len = snprintf(expr + len, MAX_LEN - len, "dMax=%s", args[4]);
-                len += _trim_zeros(expr + len, val_len);
+                len += trim_zeros(expr + len, val_len);
                 len += snprintf(expr + len, MAX_LEN - len, ";");
             }
 
@@ -1221,7 +1226,7 @@ static const char *_set_linear(mpr_local_map m, const char *e)
 #define print_extremum(SIG, PROPERTY, LABEL)                                            \
         if (cont && mpr_obj_get_prop_by_idx((mpr_obj)SIG, PROPERTY, NULL, &val_len,     \
                                             &val_type, &val, NULL))                     \
-            len += _snprint_var(LABEL, expr+len, MAX_LEN-len, val_len, val_type, val);  \
+            len += snprint_var(LABEL, expr+len, MAX_LEN-len, val_len, val_type, val);   \
         else                                                                            \
             len = cont = 0;
 
@@ -1297,7 +1302,7 @@ abort:
     return NULL;
 }
 
-static int _set_expr(mpr_local_map m, const char *expr)
+static int set_expr(mpr_local_map m, const char *expr)
 {
     int i, should_compile = 0, ret = 0;
     const char *new_expr = 0;
@@ -1338,7 +1343,7 @@ static int _set_expr(mpr_local_map m, const char *expr)
         goto done;
     }
     if (!expr || strstr(expr, "linear")) {
-        expr = new_expr = _set_linear(m, expr);
+        expr = new_expr = set_linear(m, expr);
 #ifdef DEBUG
         if (expr)
             printf("  generated expression '%s'\n", expr);
@@ -1346,7 +1351,7 @@ static int _set_expr(mpr_local_map m, const char *expr)
     }
     RETURN_ARG_UNLESS(expr, -1);
 
-    if (!_replace_expr_str(m, expr)) {
+    if (!replace_expr_str(m, expr)) {
         mpr_time now;
         char *types = alloca(mpr_sig_get_len(dst_sig) * sizeof(char));
         mpr_map_alloc_values(m, 1);
@@ -1431,7 +1436,7 @@ int mpr_local_map_update_status(mpr_local_map map)
                 }
             }
         }
-        _set_expr(map, map->expr_str);
+        set_expr(map, map->expr_str);
 
         /* add map to signals */
         sig = mpr_slot_get_sig((mpr_slot)map->dst);
@@ -1535,7 +1540,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                     if (should_compile) {
                         mpr_loc orig = m->process_loc;
                         m->process_loc = loc;
-                        if (-1 == _set_expr(lm, m->expr_str)) {
+                        if (-1 == set_expr(lm, m->expr_str)) {
                             /* do not change process location */
                             m->process_loc = orig;
                             break;
@@ -1570,7 +1575,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                         }
                     }
                     if (should_compile) {
-                        int e = _set_expr(lm, expr_str);
+                        int e = set_expr(lm, expr_str);
                         if (-1 == e) {
                             /* restore original process location */
                             lm->process_loc = orig_loc;
@@ -1602,18 +1607,18 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
             }
             case PROP(SCOPE):
                 if (types && mpr_type_get_is_str(types[0]))
-                    updated += _update_scope(m, a);
+                    updated += update_scope(m, a);
                 break;
             case PROP(SCOPE) | PROP_ADD:
                 for (j = 0; j < mpr_msg_atom_get_len(a); j++) {
                     if (types && MPR_STR == types[j])
-                        updated += _add_scope(m, &(vals[j])->s);
+                        updated += add_scope(m, &(vals[j])->s);
                 }
                 break;
             case PROP(SCOPE) | PROP_REMOVE:
                 for (j = 0; j < mpr_msg_atom_get_len(a); j++) {
                     if (types && MPR_STR == types[j])
-                        updated += _remove_scope(m, &(vals[j])->s);
+                        updated += remove_scope(m, &(vals[j])->s);
                 }
                 break;
             case PROP(PROTOCOL): {
@@ -1940,7 +1945,7 @@ error:
     return NULL;
 }
 
-int _compare_slot_names(const void *l, const void *r)
+static int compare_slot_names(const void *l, const void *r)
 {
     return mpr_slot_compare_names(*(mpr_slot*)l, *(mpr_slot*)r);
 }
@@ -1953,7 +1958,7 @@ void mpr_map_add_src(mpr_map map, mpr_sig sig, mpr_dir dir, int is_local)
     map->src[map->num_src - 1] = mpr_slot_new(map, sig, dir, is_local, 1);
 
     /* slots should be in alphabetical order */
-    qsort(map->src, map->num_src, sizeof(mpr_slot), _compare_slot_names);
+    qsort(map->src, map->num_src, sizeof(mpr_slot), compare_slot_names);
 
     /* fix slot ids */
     for (i = 0; i < map->num_src; i++)
@@ -2139,11 +2144,6 @@ int mpr_map_get_status(mpr_map map)
 void mpr_map_set_status(mpr_map map, int status)
 {
     map->status = status;
-}
-
-size_t mpr_map_get_struct_size(int is_local)
-{
-    return is_local ? sizeof(mpr_local_map_t) : sizeof(mpr_map_t);
 }
 
 void mpr_local_map_set_updated(mpr_local_map map, int inst_idx)
