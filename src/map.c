@@ -1709,6 +1709,7 @@ done:
         /* check if mapping is now "ready" */
         mpr_local_map_update_status((mpr_local_map)m);
     }
+    trace("updated %d map properties.\n", updated);
     return updated;
 }
 

@@ -43,7 +43,11 @@ if (!(a)) { trace_net(__VA_ARGS__); return ret; }
 #include <stdio.h>
 #include <assert.h>
 #define trace(...) { printf("-- " __VA_ARGS__); }
-#define trace_graph(...)  { printf("\x1B[31m-- <graph>\x1B[0m " __VA_ARGS__);}
+#define trace_graph(graph, ...)                     \
+{                                                   \
+    printf("\x1B[31m-- <graph.%p>\x1B[0m ", graph); \
+    printf(__VA_ARGS__);                            \
+}
 #define trace_net(NET)                                                \
 {                                                                     \
     printf("\x1B[33m-- <network.%p>\x1B[0m received %s ", NET, path); \

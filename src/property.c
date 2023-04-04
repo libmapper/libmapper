@@ -318,6 +318,15 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             }
             break;
         }
+        case MPR_LINK: {
+            mpr_link l = (mpr_link)val;
+            if (1 != len)
+                break;
+            mpr_prop_print(1, MPR_DEV, mpr_link_get_dev(l, 0));
+            printf(" <-> ");
+            mpr_prop_print(1, MPR_DEV, mpr_link_get_dev(l, 1));
+            break;
+        }
         case MPR_MAP: {
             /* just print signal names */
             mpr_map m = (mpr_map)val;
@@ -326,13 +335,15 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
                 break;
             if (num_src > 1)
                 printf("[");
-            for (i = 0; i < num_src; i++)
+            for (i = 0; i < num_src; i++) {
                 mpr_prop_print(1, MPR_SIG, mpr_map_get_src_sig(m, i));
+                printf(", ");
+            }
+            printf("\b\b");
             if (num_src > 1)
                 printf("]");
             printf(" -> ");
             mpr_prop_print(1, MPR_SIG, mpr_map_get_dst_sig(m));
-            printf(", ");
             break;
         }
         case MPR_LIST: {
