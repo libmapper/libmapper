@@ -6,7 +6,8 @@ public enum Status {
     UNDEFINED   (0x00),
     EXPIRED     (0x01),
     STAGED      (0x02),
-    READY       (0x3E),
+    WAITING     (0x0E),
+    READY       (0x36),
     ACTIVE      (0X7E),
     RESERVED    (0X80),
     ANY         (0xFF);

@@ -228,7 +228,8 @@ namespace Mapper
         {
             Expired      = 0x01,
             Staged       = 0x02,
-            Ready        = 0x3E,
+            Waiting      = 0x0E,
+            Ready        = 0x36,
             Active       = 0x7E,
             Reserved     = 0x80,
             Any          = 0xFF
