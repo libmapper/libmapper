@@ -732,7 +732,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
                 /* create an id_map and store it in the map */
                 id_map = m->id_map = mpr_dev_add_id_map(dev, 0, 0, 0);
             }
-            msg = mpr_map_build_msg(m, src_slot, result, types, id_map);
+            msg = mpr_map_build_msg(m, 0, result, types, id_map);
             mpr_local_slot_send_msg(m->dst, msg, *(mpr_time*)mpr_value_get_time(val, i),
                                     m->protocol, bundle_idx);
         }
