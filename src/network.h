@@ -4,7 +4,12 @@
 
 typedef struct _mpr_net *mpr_net;
 
+#include <lo/lo.h>
+
+#include "device.h"
 #include "graph.h"
+#include "mpr_time.h"
+#include "util/mpr_inline.h"
 
 mpr_net mpr_net_new(mpr_graph g);
 

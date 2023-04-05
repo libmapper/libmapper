@@ -6,7 +6,6 @@
 #include <limits.h>
 #include <assert.h>
 
-#include "device.h"
 #include "link.h"
 #include "mpr_time.h"
 #include "network.h"

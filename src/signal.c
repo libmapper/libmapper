@@ -3,7 +3,6 @@
 #include <string.h>
 #include <math.h>
 #include <stddef.h>
-#include <assert.h>
 
 #include "bitflags.h"
 #include "device.h"

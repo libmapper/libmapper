@@ -1,13 +1,9 @@
-#include <ctype.h>
 #include <string.h>
-#include <stdio.h>
-#include <assert.h>
 
 #include "device.h"
 #include "list.h"
 #include "object.h"
 #include "property.h"
-#include "slot.h"
 #include "util/mpr_debug.h"
 #include <mapper/mapper.h>
 

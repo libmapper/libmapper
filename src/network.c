@@ -24,21 +24,17 @@
  #endif
 #endif
 
-#include "device.h"
-#include "graph.h"
 #include "link.h"
 #include "list.h"
 #include "map.h"
 #include "message.h"
 #include "mpr_signal.h"
-#include "mpr_time.h"
 #include "network.h"
 #include "object.h"
 #include "path.h"
 #include "property.h"
 #include "slot.h"
 #include "util/mpr_debug.h"
-#include "util/mpr_inline.h"
 
 #include "config.h"
 #include <mapper/mapper.h>

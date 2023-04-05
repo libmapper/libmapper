@@ -12,7 +12,6 @@
 #include "link.h"
 #include "list.h"
 #include "map.h"
-#include "mpr_signal.h"
 #include "mpr_time.h"
 #include "network.h"
 #include "path.h"

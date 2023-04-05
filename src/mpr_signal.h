@@ -9,9 +9,9 @@ typedef struct _mpr_sig_inst *mpr_sig_inst;
 typedef int mpr_sig_group;
 
 #include "id_map.h"
+#include "mpr_time.h"
 #include "mpr_type.h"
 #include "slot.h"
-#include "time.h"
 #include "value.h"
 
 #define MPR_MAX_VECTOR_LEN 128
