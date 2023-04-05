@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <zlib.h>
 #ifndef _MSC_VER
 #include <sys/time.h>
 #else
@@ -514,7 +513,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg, int force)
     }
 
     if (!dev) {
-        mpr_id id = (mpr_id)crc32(0L, (const Bytef *)no_slash, strlen(no_slash)) << 32;
+        mpr_id id = mpr_id_from_str(no_slash);
         dev = (mpr_dev)mpr_list_add_item((void**)&g->devs, mpr_dev_get_struct_size());
         mpr_obj_init((mpr_obj)dev, g, MPR_DEV);
         mpr_dev_init(dev, 0, no_slash, id);

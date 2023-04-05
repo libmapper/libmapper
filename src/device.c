@@ -1,6 +1,5 @@
 #include <lo/lo.h>
 #include <stdlib.h>
-#include <zlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
@@ -910,7 +909,7 @@ void mpr_local_dev_probe_name(mpr_local_dev dev, mpr_net net)
     trace_dev(dev, "probing name '%s'\n", dev->name);
 
     /* Calculate an id from the name and store it in id.val */
-    dev->obj.id = (mpr_id) (crc32(0L, (const Bytef *)dev->name, strlen(dev->name)) << 32);
+    dev->obj.id = mpr_id_from_str(dev->name);
 
     mpr_net_send_name_probe(net, dev->name);
 }
@@ -958,7 +957,7 @@ void mpr_local_dev_handler_name(mpr_local_dev dev, const char *name,
         }
     }
     else {
-        mpr_id id = (mpr_id) crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+        mpr_id id = mpr_id_from_str(name);
         if (id == dev->obj.id) {
             if (temp_id < random_id) {
                 /* Count ordinal collisions. */

@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <zlib.h>
 #include <math.h>
 #include <ctype.h>
 
@@ -1177,7 +1176,7 @@ static int handler_name_probe(const char *path, const char *types, lo_arg **av,
     mpr_net net = (mpr_net)user;
     char *name = &av[0]->s;
     int i, temp_id = av[1]->i;
-    mpr_id id = (mpr_id) crc32(0L, (const Bytef *)name, strlen(name)) << 32;
+    mpr_id id = mpr_id_from_str(name);
 
     trace_net(net);
     for (i = 0; i < net->num_devs; i++)
