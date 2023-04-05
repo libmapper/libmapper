@@ -24,22 +24,23 @@ typedef enum {
 
 /*! Debug tracer */
 #if defined(__GNUC__) || defined(WIN32)
-#ifdef DEBUG
-#define trace_dev(DEV, ...)                                                                   \
-{                                                                                             \
-    if (!DEV)                                                                                 \
-        printf("\x1B[32m-- <device>\x1B[0m ");                                                \
-    else if (mpr_dev_get_is_registered((mpr_dev)DEV))                                         \
-        printf("\x1B[32m-- <device '%s'*>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV));          \
-    else                                                                                      \
-        printf("\x1B[32m-- <device '%s?'::%p>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV), DEV); \
-    printf(__VA_ARGS__);                                                                      \
-}
-#else /* !DEBUG */
-#define trace_dev(...) {}
-#endif /* DEBUG */
+    #ifdef DEBUG
+        #define trace_dev(DEV, ...)                                                          \
+        {                                                                                    \
+            if (!DEV)                                                                        \
+                printf("\x1B[32m-- <device>\x1B[0m ");                                       \
+            else if (mpr_dev_get_is_registered((mpr_dev)DEV))                                \
+                printf("\x1B[32m-- <device '%s'*>\x1B[0m ", mpr_dev_get_name((mpr_dev)DEV)); \
+            else                                                                             \
+                printf("\x1B[32m-- <device '%s?'::%p>\x1B[0m ",                              \
+                       mpr_dev_get_name((mpr_dev)DEV), DEV);                                 \
+            printf(__VA_ARGS__);                                                             \
+        }
+    #else /* !DEBUG */
+        #define trace_dev(...) {}
+    #endif /* DEBUG */
 #else /* !__GNUC__ */
-#define trace_dev(...) {};
+    #define trace_dev(...) {};
 #endif /* __GNUC__ */
 
 void mpr_dev_free_mem(mpr_dev dev);
@@ -68,8 +69,9 @@ mpr_sig mpr_dev_get_sig_by_name(mpr_dev dev, const char *sig_name);
 
 mpr_id mpr_dev_get_unused_sig_id(mpr_local_dev dev);
 
-int mpr_dev_add_link(mpr_dev dev, mpr_dev rem);
-void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem);
+int mpr_dev_add_link(mpr_dev dev1, mpr_dev dev2);
+
+void mpr_dev_remove_link(mpr_dev dev1, mpr_dev dev2);
 
 int mpr_dev_LID_decref(mpr_local_dev dev, int group, mpr_id_map id_map);
 

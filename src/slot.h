@@ -5,6 +5,7 @@
 typedef struct _mpr_slot *mpr_slot;
 typedef struct _mpr_local_slot *mpr_local_slot;
 
+#include "link.h"
 #include "map.h"
 #include "mpr_signal.h"
 #include "value.h"

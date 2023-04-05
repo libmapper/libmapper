@@ -11,7 +11,6 @@
 #include "mpr_time.h"
 #include "network.h"
 #include "object.h"
-#include "slot.h"
 #include "table.h"
 #include "util/mpr_debug.h"
 
@@ -24,7 +23,7 @@ typedef struct _mpr_bundle {
 
 /*! Clock and timing information. */
 typedef struct _mpr_sync_time_t {
-    lo_timetag time;
+    mpr_time time;
     int msg_id;
 } mpr_sync_time_t;
 
@@ -41,7 +40,8 @@ typedef struct _mpr_sync_clock_t {
 typedef struct _mpr_link {
     mpr_obj_t obj;                      /* always first for type punning */
     mpr_dev devs[2];
-    int num_maps[2];
+    mpr_map *maps;
+    int num_maps;
 
     struct {
         lo_address admin;               /*!< Network address of remote endpoint */
@@ -91,7 +91,7 @@ void mpr_link_init(mpr_link link, mpr_graph g, mpr_dev dev1, mpr_dev dev2)
         mpr_tbl t = link->obj.props.synced = mpr_tbl_new();
         mpr_tbl_link_value(t, MPR_PROP_DEV, 2, MPR_DEV, &link->devs, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
         mpr_tbl_link_value(t, MPR_PROP_ID, 1, MPR_INT64, &link->obj.id, NON_MODIFIABLE);
-        mpr_tbl_link_value(t, MPR_PROP_NUM_MAPS, 2, MPR_INT32, &link->num_maps, NON_MODIFIABLE | INDIRECT);
+        mpr_tbl_link_value(t, MPR_PROP_NUM_MAPS, 1, MPR_INT32, &link->num_maps, NON_MODIFIABLE | INDIRECT);
     }
     if (!link->obj.props.staged)
         link->obj.props.staged = mpr_tbl_new();
@@ -163,6 +163,7 @@ void mpr_link_free(mpr_link link)
         FUNC_IF(lo_bundle_free_recursive, link->bundles[i].tcp);
     }
     mpr_dev_remove_link(link->devs[LINK_LOCAL_DEV], link->devs[LINK_REMOTE_DEV]);
+    FUNC_IF(free, link->maps);
 }
 
 /* note on memory handling of mpr_link_add_msg():
@@ -275,13 +276,18 @@ mpr_list mpr_link_get_maps(mpr_link link)
 
 int mpr_link_get_has_maps(mpr_link link, mpr_dir dir)
 {
-    switch (dir) {
-        case MPR_DIR_IN:    return link->num_maps[0];
-        case MPR_DIR_OUT:   return link->num_maps[1];
-        case MPR_DIR_ANY:   return link->num_maps[0] || link->num_maps[1];
-        case MPR_DIR_BOTH:  return link->num_maps[0] && link->num_maps[1];
-        default:            return 0;
+    int i, count = 0;
+    for (i = 0; i < link->num_maps; i++) {
+        int locality = mpr_map_get_locality(link->maps[i]);
+        switch (dir) {
+            case MPR_DIR_IN:    count += (locality & MPR_LOC_DST) != 0; break;
+            case MPR_DIR_OUT:   count += (locality & MPR_LOC_SRC) != 0; break;
+            case MPR_DIR_ANY:   count += locality != 0;                 break;
+            case MPR_DIR_BOTH:  count += locality == MPR_LOC_BOTH;      break;
+            default:            return 0;
+        }
     }
+    return count;
 }
 
 mpr_dev mpr_link_get_dev(mpr_link link, int idx)
@@ -289,33 +295,64 @@ mpr_dev mpr_link_get_dev(mpr_link link, int idx)
     return link->devs[idx];
 }
 
-void mpr_link_add_map(mpr_link link, int is_src)
+static void send_ping(mpr_link link, mpr_time now)
 {
-    ++link->num_maps[is_src];
+    if (link->addr.admin) {
+        mpr_sync_clock clk = &link->clock;
+        mpr_net net = mpr_graph_get_net(link->obj.graph);
+        double elapsed = (clk->rcvd.time.sec ? mpr_time_get_diff(now, clk->rcvd.time) : 0);
+        NEW_LO_MSG(msg, ;);
+        mpr_net_use_mesh(net, link->addr.admin);
+        lo_message_add_int64(msg, mpr_obj_get_id((mpr_obj)link->devs[LINK_LOCAL_DEV]));
+        if (++clk->sent.msg_id < 0)
+            clk->sent.msg_id = 0;
+        lo_message_add_int32(msg, clk->sent.msg_id);
+        lo_message_add_int32(msg, clk->rcvd.msg_id);
+        lo_message_add_double(msg, elapsed);
+
+        /* need to send immediately */
+        mpr_net_add_msg(net, NULL, MSG_PING, msg);
+        mpr_time_set(&clk->sent.time, now);
+        mpr_net_send(net);
+    }
+}
+
+void mpr_link_add_map(mpr_link link, mpr_map map)
+{
+    int i;
+    for (i = 0; i < link->num_maps; i++) {
+        if (link->maps[i] == map)
+            return;
+    }
+    ++link->num_maps;
+    link->maps = realloc(link->maps, link->num_maps * sizeof(mpr_map));
+    link->maps[link->num_maps - 1] = map;
+
     if (link->is_local_only)
         link->clock.rcvd.time.sec = 0;
+    else {
+        mpr_time time;
+        mpr_time_set(&time, MPR_NOW);
+        send_ping(link, time);
+    }
     mpr_tbl_set_is_dirty(link->obj.props.synced, 1);
 }
 
-void mpr_link_remove_map(mpr_link link, mpr_map rem)
+void mpr_link_remove_map(mpr_link link, mpr_map map)
 {
-    /* Just update the map count; assume map to be removed has already be delisted from graph */
-    int in = 0, out = 0, rev = mpr_obj_get_is_local((mpr_obj)link->devs[0]) ? 0 : 1;
-    mpr_list list = mpr_link_get_maps(link);
-    while (list) {
-        mpr_map map = (mpr_map)*list;
-        mpr_slot slot;
-        list = mpr_list_get_next(list);
-        slot = mpr_map_get_dst_slot(map);
-        if (mpr_obj_get_is_local((mpr_obj)mpr_slot_get_sig(slot)))
-            ++in;
-        else
-            ++out;
+    int i;
+    for (i = 0; i < link->num_maps; i++) {
+        if (link->maps[i] == map)
+            break;
     }
-    link->num_maps[0] = rev ? out : in;
-    link->num_maps[1] = rev ? in : out;
+    if (i >= link->num_maps)
+        return;
+    for (; i > 0; i--)
+        link->maps[i - 1] = link->maps[i];
+    --link->num_maps;
+    link->maps = realloc(link->maps, link->num_maps * sizeof(mpr_map));
 
-    if (link->is_local_only && !in && !out)
+    if (link->is_local_only && !link->num_maps)
         mpr_time_set(&link->clock.rcvd.time, MPR_NOW);
 }
 
@@ -374,17 +411,14 @@ void mpr_link_update_clock(mpr_link link, mpr_time then, mpr_time now,
 
 int mpr_link_housekeeping(mpr_link link, mpr_time now)
 {
-    int mapped = mpr_link_get_has_maps(link, MPR_DIR_ANY);
     mpr_sync_clock clk = &link->clock;
     double elapsed = (clk->rcvd.time.sec ? mpr_time_get_diff(now, clk->rcvd.time) : 0);
-    mpr_dev local_dev = link->devs[LINK_LOCAL_DEV];
-    mpr_dev remote_dev = link->devs[LINK_REMOTE_DEV];
 
     if (elapsed > TIMEOUT_SEC) {
         if (clk->rcvd.msg_id > 0) {
-            if (mapped)
-                trace_dev(local_dev, "Lost contact with linked device '%s' "
-                          "(%g seconds since sync).\n", mpr_dev_get_name(remote_dev), elapsed);
+            trace_dev(link->devs[LINK_LOCAL_DEV],
+                      "Lost contact with device '%s' (%g seconds since sync).\n",
+                      mpr_dev_get_name(link->devs[LINK_REMOTE_DEV]), elapsed);
             /* tentatively mark link as expired */
             clk->rcvd.msg_id = -1;
             clk->rcvd.time.sec = now.sec;
@@ -393,27 +427,11 @@ int mpr_link_housekeeping(mpr_link link, mpr_time now)
             return 1;
     }
 
-    if (link->is_local_only)
-        return 0;
-
     /* Only send pings if this link has associated maps, ensuring empty
      * links are removed after the ping timeout. */
-    if (mapped && mpr_obj_get_prop_as_str((mpr_obj)remote_dev, MPR_PROP_HOST, 0)) {
-        mpr_net net = mpr_graph_get_net(link->obj.graph);
-        NEW_LO_MSG(msg, ;);
-        mpr_net_use_mesh(net, link->addr.admin);
-        lo_message_add_int64(msg, mpr_obj_get_id((mpr_obj)local_dev));
-        if (++clk->sent.msg_id < 0)
-            clk->sent.msg_id = 0;
-        lo_message_add_int32(msg, clk->sent.msg_id);
-        lo_message_add_int32(msg, clk->rcvd.msg_id);
-        lo_message_add_double(msg, elapsed);
+    if (!link->is_local_only && link->num_maps)
+        send_ping(link, now);
 
-        /* need to send immediately */
-        mpr_net_add_msg(net, NULL, MSG_PING, msg);
-        mpr_time_set(&clk->sent.time, now);
-        mpr_net_send(net);
-    }
     return 0;
 }
 

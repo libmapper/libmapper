@@ -30,6 +30,7 @@
 #include "link.h"
 #include "list.h"
 #include "map.h"
+#include "message.h"
 #include "mpr_signal.h"
 #include "mpr_time.h"
 #include "network.h"
@@ -37,7 +38,6 @@
 #include "path.h"
 #include "property.h"
 #include "slot.h"
-#include "table.h"
 #include "util/mpr_debug.h"
 #include "util/mpr_inline.h"
 

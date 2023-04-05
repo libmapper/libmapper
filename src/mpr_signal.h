@@ -12,6 +12,7 @@ typedef int mpr_sig_group;
 #include "mpr_type.h"
 #include "slot.h"
 #include "time.h"
+#include "value.h"
 
 #define MPR_MAX_VECTOR_LEN 128
 

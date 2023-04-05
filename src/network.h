@@ -5,7 +5,6 @@
 typedef struct _mpr_net *mpr_net;
 
 #include "graph.h"
-#include "message.h"
 
 mpr_net mpr_net_new(mpr_graph g);
 

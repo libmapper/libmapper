@@ -16,17 +16,12 @@
 
 #include <stddef.h>
 
-#include "bitflags.h"
 #include "device.h"
 #include "graph.h"
-#include "link.h"
 #include "map.h"
-#include "mpr_type.h"
 #include "path.h"
-#include "slot.h"
 #include "table.h"
 #include "thread_data.h"
-#include "value.h"
 
 #include "util/mpr_debug.h"
 
@@ -1064,56 +1059,56 @@ void mpr_dev_send_state(mpr_dev dev, net_msg_t cmd)
     mpr_tbl_set_is_dirty(dev->obj.props.synced, 0);
 }
 
-int mpr_dev_add_link(mpr_dev dev, mpr_dev rem)
+int mpr_dev_add_link(mpr_dev dev1, mpr_dev dev2)
 {
     int i, found = 0;
-    for (i = 0; i < dev->num_linked; i++) {
-        if (dev->linked[i] && dev->linked[i]->obj.id == rem->obj.id) {
+    for (i = 0; i < dev1->num_linked; i++) {
+        if (dev1->linked[i] && dev1->linked[i]->obj.id == dev2->obj.id) {
             found = 0x01;
             break;
         }
     }
     if (!found) {
-        i = ++dev->num_linked;
-        dev->linked = realloc(dev->linked, i * sizeof(mpr_dev));
-        dev->linked[i-1] = rem;
+        i = ++dev1->num_linked;
+        dev1->linked = realloc(dev1->linked, i * sizeof(mpr_dev));
+        dev1->linked[i-1] = dev2;
     }
 
-    for (i = 0; i < rem->num_linked; i++) {
-        if (rem->linked[i] && rem->linked[i]->obj.id == dev->obj.id) {
+    for (i = 0; i < dev2->num_linked; i++) {
+        if (dev2->linked[i] && dev2->linked[i]->obj.id == dev1->obj.id) {
             found |= 0x10;
             break;
         }
     }
     if (!(found & 0x10)) {
-        i = ++rem->num_linked;
-        rem->linked = realloc(rem->linked, i * sizeof(mpr_dev));
-        rem->linked[i-1] = dev;
+        i = ++dev2->num_linked;
+        dev2->linked = realloc(dev2->linked, i * sizeof(mpr_dev));
+        dev2->linked[i-1] = dev1;
     }
     return !found;
 }
 
-void mpr_dev_remove_link(mpr_dev dev, mpr_dev rem)
+void mpr_dev_remove_link(mpr_dev dev1, mpr_dev dev2)
 {
     int i, j;
-    for (i = 0; i < dev->num_linked; i++) {
-        if (!dev->linked[i] || dev->linked[i]->obj.id != rem->obj.id)
+    for (i = 0; i < dev1->num_linked; i++) {
+        if (!dev1->linked[i] || dev1->linked[i]->obj.id != dev2->obj.id)
             continue;
-        for (j = i+1; j < dev->num_linked; j++)
-            dev->linked[j-1] = dev->linked[j];
-        --dev->num_linked;
-        dev->linked = realloc(dev->linked, dev->num_linked * sizeof(mpr_dev));
-        mpr_tbl_set_is_dirty(dev->obj.props.synced, 1);
+        for (j = i+1; j < dev1->num_linked; j++)
+            dev1->linked[j-1] = dev1->linked[j];
+        --dev1->num_linked;
+        dev1->linked = realloc(dev1->linked, dev1->num_linked * sizeof(mpr_dev));
+        mpr_tbl_set_is_dirty(dev1->obj.props.synced, 1);
         break;
     }
-    for (i = 0; i < rem->num_linked; i++) {
-        if (!rem->linked[i] || rem->linked[i]->obj.id != dev->obj.id)
+    for (i = 0; i < dev2->num_linked; i++) {
+        if (!dev2->linked[i] || dev2->linked[i]->obj.id != dev1->obj.id)
             continue;
-        for (j = i+1; j < rem->num_linked; j++)
-            rem->linked[j-1] = rem->linked[j];
-        --rem->num_linked;
-        rem->linked = realloc(rem->linked, rem->num_linked * sizeof(mpr_dev));
-        mpr_tbl_set_is_dirty(rem->obj.props.synced, 1);
+        for (j = i+1; j < dev2->num_linked; j++)
+            dev2->linked[j-1] = dev2->linked[j];
+        --dev2->num_linked;
+        dev2->linked = realloc(dev2->linked, dev2->num_linked * sizeof(mpr_dev));
+        mpr_tbl_set_is_dirty(dev2->obj.props.synced, 1);
         break;
     }
 }
@@ -1191,7 +1186,7 @@ static int mpr_dev_send_sigs(mpr_local_dev dev, mpr_dir dir)
     return 0;
 }
 
-int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
+static int mpr_dev_send_maps(mpr_local_dev dev, mpr_dir dir, int msg)
 {
     mpr_list maps = mpr_dev_get_maps((mpr_dev)dev, dir);
     while (maps) {

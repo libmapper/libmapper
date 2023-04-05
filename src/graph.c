@@ -36,6 +36,21 @@ static unsigned __stdcall graph_thread_func(void *data);
 #define AUTOSUB_INTERVAL 60
 extern const char* net_msg_strings[NUM_MSG_STRINGS];
 
+/*! Debug tracer */
+#if defined(__GNUC__) || defined(WIN32)
+    #ifdef DEBUG
+        #define trace_graph(graph, ...)                     \
+        {                                                   \
+            printf("\x1B[31m-- <graph.%p>\x1B[0m ", graph); \
+            printf(__VA_ARGS__);                            \
+        }
+    #else /* !DEBUG */
+        #define trace_graph(...) {}
+    #endif /* DEBUG */
+#else /* !__GNUC__ */
+    #define trace_graph(...) {};
+#endif /* __GNUC__ */
+
 /*! A list of function and context pointers. */
 typedef struct _fptr_list {
     void *f;
@@ -77,7 +92,7 @@ typedef struct _mpr_graph {
     uint32_t resource_counter;
 } mpr_graph_t;
 
-static mpr_list *_get_list_internal(mpr_graph g, int obj_type)
+static mpr_list *get_list_internal(mpr_graph g, int obj_type)
 {
     switch (obj_type) {
         case MPR_DEV:  return &g->devs;
@@ -118,7 +133,7 @@ void print_subscription_flags(int flags)
 }
 #endif
 
-static void _on_dev_autosub(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *v)
+static void on_dev_autosubscribe(mpr_graph g, mpr_obj o, mpr_graph_evt e, const void *v)
 {
     /* New subscriptions are handled in network.c as response to "sync" msg */
     if (MPR_OBJ_REM == e)
@@ -170,7 +185,7 @@ static void send_subscribe_msg(mpr_graph g, mpr_dev d, int flags, int timeout)
     mpr_net_send(g->net);
 }
 
-static void _autosubscribe(mpr_graph g, int flags)
+static void autosubscribe(mpr_graph g, int flags)
 {
     if (!g->autosub && flags) {
         /* update flags for existing subscriptions */
@@ -194,10 +209,10 @@ static void _autosubscribe(mpr_graph g, int flags)
             mpr_net_use_bus(g->net);
             mpr_net_add_msg(g->net, 0, MSG_WHO, msg);
         }
-        mpr_graph_add_cb(g, _on_dev_autosub, MPR_DEV, g);
+        mpr_graph_add_cb(g, on_dev_autosubscribe, MPR_DEV, g);
     }
     else if (g->autosub && !flags) {
-        mpr_graph_remove_cb(g, _on_dev_autosub, g);
+        mpr_graph_remove_cb(g, on_dev_autosubscribe, g);
         while (g->subscriptions)
             mpr_graph_subscribe(g, g->subscriptions->dev, 0, 0);
     }
@@ -264,7 +279,7 @@ mpr_graph mpr_graph_new(int subscribe_flags)
     g->own = 1;
     g->net = mpr_net_new(g);
     if (subscribe_flags)
-        _autosubscribe(g, subscribe_flags);
+        autosubscribe(g, subscribe_flags);
 
     /* TODO: consider whether graph objects should sync properties over the network. */
     tbl = g->obj.props.synced = mpr_tbl_new();
@@ -359,7 +374,7 @@ void mpr_graph_free(mpr_graph g)
 
 /**** Generic records ****/
 
-static mpr_obj _obj_by_id(mpr_graph g, void *obj_list, mpr_id id)
+static mpr_obj get_obj_by_id(mpr_graph g, void *obj_list, mpr_id id)
 {
     mpr_list objs = mpr_list_from_data(obj_list);
     while (objs) {
@@ -373,11 +388,11 @@ static mpr_obj _obj_by_id(mpr_graph g, void *obj_list, mpr_id id)
 mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_id id, mpr_type type)
 {
     mpr_obj o;
-    if ((type & MPR_DEV) && (o = _obj_by_id(g, g->devs, id)))
+    if ((type & MPR_DEV) && (o = get_obj_by_id(g, g->devs, id)))
         return o;
-    if ((type & MPR_SIG) && (o = _obj_by_id(g, g->sigs, id)))
+    if ((type & MPR_SIG) && (o = get_obj_by_id(g, g->sigs, id)))
         return o;
-    if ((type & MPR_MAP) && (o = _obj_by_id(g, g->maps, id)))
+    if ((type & MPR_MAP) && (o = get_obj_by_id(g, g->maps, id)))
         return o;
     return 0;
 }
@@ -385,7 +400,7 @@ mpr_obj mpr_graph_get_obj(mpr_graph g, mpr_id id, mpr_type type)
 /* TODO: support queries over multiple object types. */
 mpr_list mpr_graph_get_list(mpr_graph g, int types)
 {
-    mpr_list *list = _get_list_internal(g, types);
+    mpr_list *list = get_list_internal(g, types);
     assert(list);
     return mpr_list_from_data(*list);
 }
@@ -393,7 +408,7 @@ mpr_list mpr_graph_get_list(mpr_graph g, int types)
 mpr_list mpr_graph_new_query(mpr_graph g, int start, int obj_type,
                              const void *func, const char *types, ...)
 {
-    mpr_list qry = 0, *list = _get_list_internal(g, obj_type);
+    mpr_list qry = 0, *list = get_list_internal(g, obj_type);
     va_list aq;
     RETURN_ARG_UNLESS(list && (!start || *list), 0);
     va_start(aq, types);
@@ -454,7 +469,7 @@ void *mpr_graph_remove_cb(mpr_graph g, mpr_graph_handler *h, const void *user)
     return ctx;
 }
 
-static void _remove_by_qry(mpr_graph g, mpr_list l, mpr_graph_evt e)
+static void remove_by_qry(mpr_graph g, mpr_list l, mpr_graph_evt e)
 {
     mpr_obj o;
     while (l) {
@@ -471,7 +486,7 @@ static void _remove_by_qry(mpr_graph g, mpr_list l, mpr_graph_evt e)
 
 /**** Device records ****/
 
-static mpr_subscription _get_subscription(mpr_graph g, mpr_dev d)
+static mpr_subscription get_subscription(mpr_graph g, mpr_dev d)
 {
     mpr_subscription s = g->subscriptions;
     while (s) {
@@ -490,7 +505,7 @@ mpr_dev mpr_graph_add_dev(mpr_graph g, const char *name, mpr_msg msg, int force)
 
     if (!force && !g->autosub) {
         if (dev) {
-            mpr_subscription s = _get_subscription(g, dev);
+            mpr_subscription s = get_subscription(g, dev);
             if (!s || !s->flags)
                 return dev;
         }
@@ -536,7 +551,7 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e)
 {
     mpr_list maps;
     RETURN_UNLESS(d);
-    _remove_by_qry(g, mpr_dev_get_maps(d, MPR_DIR_ANY), e);
+    remove_by_qry(g, mpr_dev_get_maps(d, MPR_DIR_ANY), e);
 
     /* remove matching maps scopes */
     maps = mpr_graph_get_list(g, MPR_MAP);
@@ -545,8 +560,8 @@ void mpr_graph_remove_dev(mpr_graph g, mpr_dev d, mpr_graph_evt e)
         maps = mpr_list_get_next(maps);
     }
 
-    _remove_by_qry(g, mpr_dev_get_links(d, MPR_DIR_UNDEFINED), e);
-    _remove_by_qry(g, mpr_dev_get_sigs(d, MPR_DIR_ANY), e);
+    remove_by_qry(g, mpr_dev_get_links(d, MPR_DIR_UNDEFINED), e);
+    remove_by_qry(g, mpr_dev_get_sigs(d, MPR_DIR_ANY), e);
 
     mpr_list_remove_item((void**)&g->devs, d);
     mpr_graph_call_cbs(g, (mpr_obj)d, MPR_DEV, e);
@@ -626,7 +641,7 @@ void mpr_graph_remove_sig(mpr_graph g, mpr_sig s, mpr_graph_evt e)
     RETURN_UNLESS(s);
 
     /* remove any stored maps using this signal */
-    _remove_by_qry(g, mpr_sig_get_maps(s, MPR_DIR_ANY), e);
+    remove_by_qry(g, mpr_sig_get_maps(s, MPR_DIR_ANY), e);
 
     mpr_list_remove_item((void**)&g->sigs, s);
     mpr_graph_call_cbs(g, (mpr_obj)s, MPR_SIG, e);
@@ -670,7 +685,7 @@ mpr_link mpr_graph_add_link(mpr_graph g, mpr_dev dev1, mpr_dev dev2)
 void mpr_graph_remove_link(mpr_graph g, mpr_link l, mpr_graph_evt e)
 {
     RETURN_UNLESS(l);
-    _remove_by_qry(g, mpr_link_get_maps(l), e);
+    remove_by_qry(g, mpr_link_get_maps(l), e);
     mpr_list_remove_item((void**)&g->links, l);
 
 #ifdef DEBUG
@@ -723,8 +738,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
     /* We could be part of larger "convergent" mapping, so we will retrieve
      * record by mapping id instead of names. */
     if (id) {
-        map = (mpr_map)_obj_by_id(g, g->maps, id);
-        if (!map && _obj_by_id(g, g->maps, 0)) {
+        map = (mpr_map)get_obj_by_id(g, g->maps, id);
+        if (!map && get_obj_by_id(g, g->maps, 0)) {
             /* may have staged map stored locally */
             map = mpr_graph_get_map_by_names(g, num_src, src_names, dst_name);
         }
@@ -1034,7 +1049,7 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
 {
     RETURN_UNLESS(g && flags <= MPR_OBJ);
     if (!d) {
-        _autosubscribe(g, flags);
+        autosubscribe(g, flags);
         return;
     }
     else if (mpr_obj_get_is_local((mpr_obj)d)) {
@@ -1066,7 +1081,7 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
 #endif
         /* special case: autorenew subscription lease */
         /* first check if subscription already exists */
-        mpr_subscription s = _get_subscription(g, d);
+        mpr_subscription s = get_subscription(g, d);
 
         if (!s) {
             /* store subscription record */
@@ -1104,7 +1119,7 @@ void mpr_graph_subscribe(mpr_graph g, mpr_dev d, int flags, int timeout)
 void mpr_graph_unsubscribe(mpr_graph g, mpr_dev d)
 {
     if (!d)
-        _autosubscribe(g, 0);
+        autosubscribe(g, 0);
     mpr_graph_subscribe(g, d, 0, 0);
 }
 
@@ -1121,7 +1136,7 @@ int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
     devname[devnamelen] = 0;
     dev = mpr_graph_get_dev_by_name(g, devname);
     if (dev) {
-        mpr_subscription s = _get_subscription(g, dev);
+        mpr_subscription s = get_subscription(g, dev);
         return s ? s->flags : 0;
     }
     return 0;
@@ -1164,7 +1179,7 @@ int mpr_graph_get_owned(mpr_graph g)
 
 mpr_obj mpr_graph_add_list_item(mpr_graph g, int obj_type, size_t size)
 {
-    mpr_list *list = _get_list_internal(g, obj_type);
+    mpr_list *list = get_list_internal(g, obj_type);
     mpr_obj obj;
     RETURN_ARG_UNLESS(list, 0);
     obj = mpr_list_add_item((void**)list, size);

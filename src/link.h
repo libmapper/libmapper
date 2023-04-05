@@ -29,9 +29,9 @@ int mpr_link_get_has_maps(mpr_link link, mpr_dir dir);
 
 mpr_dev mpr_link_get_dev(mpr_link link, int idx);
 
-void mpr_link_add_map(mpr_link link, int is_src);
+void mpr_link_add_map(mpr_link link, mpr_map map);
 
-void mpr_link_remove_map(mpr_link link, mpr_map rem);
+void mpr_link_remove_map(mpr_link link, mpr_map map);
 
 void mpr_link_init(mpr_link link, mpr_graph graph, mpr_dev dev1, mpr_dev dev2);
 

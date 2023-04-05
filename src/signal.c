@@ -13,7 +13,6 @@
 #include "network.h"
 #include "object.h"
 #include "path.h"
-#include "slot.h"
 #include "table.h"
 #include "util/mpr_set_coerced.h"
 

@@ -116,13 +116,17 @@ static void mpr_local_map_init(mpr_local_map map)
         mpr_dev src_dev = mpr_sig_get_dev(src_sig);
         if (mpr_obj_get_is_local((mpr_obj)src_sig)) {
             mpr_link link = mpr_link_new((mpr_local_dev)src_dev, dst_dev);
+            mpr_link_add_map(link, (mpr_map)map);
             mpr_local_slot_set_link(map->src[i], link);
             mpr_local_slot_set_link(map->dst, link);
             ++local_src;
             map->locality |= MPR_LOC_SRC;
         }
-        else
-            mpr_local_slot_set_link(map->src[i], mpr_link_new((mpr_local_dev)dst_dev, src_dev));
+        else {
+            mpr_link link = mpr_link_new((mpr_local_dev)dst_dev, src_dev);
+            mpr_link_add_map(link, (mpr_map)map);
+            mpr_local_slot_set_link(map->src[i], link);
+        }
     }
     if (mpr_slot_get_sig_if_local((mpr_slot)map->dst)) {
         local_dst = 1;
@@ -424,17 +428,21 @@ void mpr_map_free(mpr_map map)
         FUNC_IF(mpr_expr_free, lmap->expr);
     }
 
+    /* remove map from parent link */
     for (i = 0; i < map->num_src; i++) {
         link = mpr_slot_get_link(map->src[i]);
         if (link)
             mpr_link_remove_map(link, map);
-        mpr_slot_free(map->src[i]);
     }
-    free(map->src);
-
     link = mpr_slot_get_link(map->dst);
     if (link)
         mpr_link_remove_map(link, map);
+
+    /* free slots */
+    for (i = 0; i < map->num_src; i++) {
+        mpr_slot_free(map->src[i]);
+    }
+    free(map->src);
     mpr_slot_free(map->dst);
 
     if (map->num_scopes && map->scopes)
@@ -1416,26 +1424,6 @@ int mpr_local_map_update_status(mpr_local_map map)
 
         trace("  map metadata OK, status is now READY\n");
         mpr_map_alloc_values(map, 1);
-
-        /* update in/out counts for link */
-        if (MPR_LOC_BOTH == map->locality) {
-            mpr_link link = mpr_slot_get_link((mpr_slot)map->dst);
-            if (link)
-                mpr_link_add_map(link, 0);
-        }
-        else {
-            mpr_link last = 0, link = mpr_slot_get_link((mpr_slot)map->dst);
-            if (link) {
-                mpr_link_add_map(link, 0);
-            }
-            for (i = 0; i < map->num_src; i++) {
-                link = mpr_slot_get_link((mpr_slot)map->src[i]);
-                if (link && link != last) {
-                    mpr_link_add_map(link, 1);
-                    last = link;
-                }
-            }
-        }
         set_expr(map, map->expr_str);
 
         /* add map to signals */
