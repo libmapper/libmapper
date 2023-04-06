@@ -105,7 +105,7 @@ class MappableSlider(QtWidgets.QWidget):
                         print('found signal by id')
                         mpr.Map(s, self.sig).push()
                         return;
-                text = text[0]
+            text = text[0]
 
             # fall back to using device and signal names
             names = text.split('/')
