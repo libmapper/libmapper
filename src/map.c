@@ -1032,27 +1032,27 @@ static int snprint_var(const char *varname, char *str, int max_len, int vec_len,
     str_len = strlen(str);
 
     if (vec_len > 1)
-        str_len += snprintf(str+str_len, max_len-str_len, "[");
+        str_len += snprintf(str + str_len, max_len - str_len, "[");
     switch (type) {
         case MPR_INT32:
             for (i = 0; i < vec_len; i++) {
-                var_len = snprintf(str+str_len, max_len-str_len, "%d", ((int*)val)[i]);
-                str_len += trim_zeros(str+str_len, var_len);
-                str_len += snprintf(str+str_len, max_len-str_len, ",");
+                var_len = snprintf(str + str_len, max_len - str_len, "%d", ((int*)val)[i]);
+                str_len += trim_zeros(str + str_len, var_len);
+                str_len += snprintf(str + str_len, max_len - str_len, ",");
             }
             break;
         case MPR_FLT:
             for (i = 0; i < vec_len; i++) {
-                var_len = snprintf(str+str_len, max_len-str_len, "%g", ((float*)val)[i]);
-                str_len += trim_zeros(str+str_len, var_len);
-                str_len += snprintf(str+str_len, max_len-str_len, ",");
+                var_len = snprintf(str + str_len, max_len - str_len, "%g", ((float*)val)[i]);
+                str_len += trim_zeros(str + str_len, var_len);
+                str_len += snprintf(str + str_len, max_len - str_len, ",");
             }
             break;
         case MPR_DBL:
             for (i = 0; i < vec_len; i++) {
-                var_len = snprintf(str+str_len, max_len-str_len, "%g", ((double*)val)[i]);
-                str_len += trim_zeros(str+str_len, var_len);
-                str_len += snprintf(str+str_len, max_len-str_len, ",");
+                var_len = snprintf(str + str_len, max_len - str_len, "%g", ((double*)val)[i]);
+                str_len += trim_zeros(str + str_len, var_len);
+                str_len += snprintf(str + str_len, max_len - str_len, ",");
             }
             break;
         default:
@@ -1060,30 +1060,30 @@ static int snprint_var(const char *varname, char *str, int max_len, int vec_len,
     }
     --str_len;
     if (vec_len > 1)
-        str_len += snprintf(str+str_len, max_len-str_len, "];");
+        str_len += snprintf(str + str_len, max_len - str_len, "];");
     else
-        str_len += snprintf(str+str_len, max_len-str_len, ";");
+        str_len += snprintf(str + str_len, max_len - str_len, ";");
     return str_len;
 }
 
-#define INSERT_VAL(VARNAME)                                         \
-mpr_value_t *ev = m->vars;                                          \
-for (j = 0; j < m->num_vars; j++) {                                 \
-    /* TODO: handle multiple instances */                           \
-    k = 0;                                                          \
-    if (strcmp(VARNAME, mpr_expr_get_var_name(m->expr, j)))         \
-        continue;                                                   \
-    if (ev[j].inst[k].pos < 0) {                                    \
-        trace("expr var '%s' is not yet initialised.\n", VARNAME);  \
-        goto abort;                                                 \
-    }                                                               \
-    len += snprint_var(VARNAME, expr+len, MAX_LEN-len, ev[j].vlen,  \
-                       ev[j].type, mpr_value_get_samp(&ev[j], k));  \
-    break;                                                          \
-}                                                                   \
-if (j == m->num_vars) {                                             \
-    trace("expr var '%s' is not found.\n", VARNAME);                \
-    goto abort;                                                     \
+#define INSERT_VAL(VARNAME)                                             \
+mpr_value_t *ev = m->vars;                                              \
+for (j = 0; j < m->num_vars; j++) {                                     \
+    /* TODO: handle multiple instances */                               \
+    k = 0;                                                              \
+    if (strcmp(VARNAME, mpr_expr_get_var_name(m->expr, j)))             \
+        continue;                                                       \
+    if (ev[j].inst[k].pos < 0) {                                        \
+        trace("expr var '%s' is not yet initialised.\n", VARNAME);      \
+        goto abort;                                                     \
+    }                                                                   \
+    len += snprint_var(VARNAME, expr + len, MAX_LEN - len, ev[j].vlen,  \
+                       ev[j].type, mpr_value_get_samp(&ev[j], k));      \
+    break;                                                              \
+}                                                                       \
+if (j == m->num_vars) {                                                 \
+    trace("expr var '%s' is not found.\n", VARNAME);                    \
+    goto abort;                                                         \
 }
 
 static const char *set_linear(mpr_local_map m, const char *e)
@@ -1155,7 +1155,7 @@ static const char *set_linear(mpr_local_map m, const char *e)
                 /* try to load sMin variable from existing expression */
                 if (!m->expr) {
                     trace("can't retrieve previous expr variable\n");
-                    len += snprintf(expr + len, MAX_LEN-len, "sMin=0;");
+                    len += snprintf(expr + len, MAX_LEN - len, "sMin=0;");
                 }
                 else {
                     INSERT_VAL("sMin");
@@ -1191,7 +1191,7 @@ static const char *set_linear(mpr_local_map m, const char *e)
                 /* try to load dMin variable from existing expression */
                 if (!m->expr) {
                     trace("can't retrieve previous expr variable\n");
-                    len += snprintf(expr+len, MAX_LEN-len, "dMin=0;");
+                    len += snprintf(expr + len, MAX_LEN - len, "dMin=0;");
                 }
                 else {
                     INSERT_VAL("dMin");
@@ -1207,7 +1207,7 @@ static const char *set_linear(mpr_local_map m, const char *e)
                 /* try to load dMin variable from existing expression */
                 if (!m->expr) {
                     trace("can't retrieve previous expr variable\n");
-                    len += snprintf(expr+len, MAX_LEN-len, "dMax=1;");
+                    len += snprintf(expr + len, MAX_LEN - len, "dMax=1;");
                 }
                 else {
                     INSERT_VAL("dMax");
@@ -1230,11 +1230,11 @@ static const char *set_linear(mpr_local_map m, const char *e)
 
         trace("generating default linear expression\n");
 
-#define print_extremum(SIG, PROPERTY, LABEL)                                            \
-        if (cont && mpr_obj_get_prop_by_idx((mpr_obj)SIG, PROPERTY, NULL, &val_len,     \
-                                            &val_type, &val, NULL))                     \
-            len += snprint_var(LABEL, expr+len, MAX_LEN-len, val_len, val_type, val);   \
-        else                                                                            \
+#define print_extremum(SIG, PROPERTY, LABEL)                                                \
+        if (cont && mpr_obj_get_prop_by_idx((mpr_obj)SIG, PROPERTY, NULL, &val_len,         \
+                                            &val_type, &val, NULL))                         \
+            len += snprint_var(LABEL, expr + len, MAX_LEN - len, val_len, val_type, val);   \
+        else                                                                                \
             len = cont = 0;
 
         print_extremum(src_0, MPR_PROP_MIN, "sMin");
@@ -1254,7 +1254,7 @@ static const char *set_linear(mpr_local_map m, const char *e)
                 if (1 == dst_len)
                     snprintf(expr, MAX_LEN, "y=x[0]");
                 else
-                    snprintf(expr, MAX_LEN, "y=x[0:%i]", dst_len-1);
+                    snprintf(expr, MAX_LEN, "y=x[0:%i]", dst_len - 1);
             }
         }
         else {
@@ -1266,27 +1266,27 @@ static const char *set_linear(mpr_local_map m, const char *e)
                 int src_i_len = mpr_sig_get_len(src_i);
                 if (src_i_len > dst_len) {
                     if (1 == dst_len)
-                        len += snprintf(expr+len, MAX_LEN-len, "x$%d[0]+", i);
+                        len += snprintf(expr + len, MAX_LEN - len, "x$%d[0]+", i);
                     else
-                        len += snprintf(expr+len, MAX_LEN-len, "x$%d[0:%d]+", i, dst_len-1);
+                        len += snprintf(expr + len, MAX_LEN - len, "x$%d[0:%d]+", i, dst_len - 1);
                 }
                 else if (src_i_len < dst_len) {
-                    len += snprintf(expr+len, MAX_LEN-len, "[x$%d,0", i);
+                    len += snprintf(expr + len, MAX_LEN - len, "[x$%d,0", i);
                     for (j = 1; j < dst_len - src_0_len; j++)
-                        len += snprintf(expr+len, MAX_LEN-len, ",0");
-                    len += snprintf(expr+len, MAX_LEN-len, "]+");
+                        len += snprintf(expr + len, MAX_LEN - len, ",0");
+                    len += snprintf(expr + len, MAX_LEN - len, "]+");
                 }
                 else
-                    len += snprintf(expr+len, MAX_LEN-len, "x$%d+", i);
+                    len += snprintf(expr + len, MAX_LEN - len, "x$%d+", i);
             }
             --len;
-            snprintf(expr+len, MAX_LEN-len, ")/%d", m->num_src);
+            snprintf(expr + len, MAX_LEN - len, ")/%d", m->num_src);
         }
         FUNC_IF(free, (char*)e);
         return strdup(expr);
     }
 
-    snprintf(expr+len, MAX_LEN-len,
+    snprintf(expr+len, MAX_LEN - len,
              "sRange=sMax-sMin;"
              "m=sRange?((dMax-dMin)/sRange):0;"
              "b=sRange?(dMin*sMax-dMax*sMin)/sRange:dMin;");
@@ -1294,11 +1294,11 @@ static const char *set_linear(mpr_local_map m, const char *e)
     len = strlen(expr);
 
     if (dst_len >= src_0_len)
-        snprintf(expr+len, MAX_LEN-len, "y=m*%s+b;", var);
+        snprintf(expr + len, MAX_LEN - len, "y=m*%s+b;", var);
     else if (min_len == 1)
-        snprintf(expr+len, MAX_LEN-len, "y=m*%s[0]+b;", var);
+        snprintf(expr + len, MAX_LEN - len, "y=m*%s[0]+b;", var);
     else
-        snprintf(expr+len, MAX_LEN-len, "y=m*%s[0:%i]+b;", var, min_len-1);
+        snprintf(expr + len, MAX_LEN - len, "y=m*%s[0:%i]+b;", var, min_len - 1);
 
     trace("linear expression %s requires %d chars\n", expr, (int)strlen(expr));
     FUNC_IF(free, (char*)e);
