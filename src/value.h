@@ -13,18 +13,19 @@ typedef struct _mpr_value_buffer
 {
     void *samps;                /*!< Value for each sample of stored history. */
     mpr_time *times;            /*!< Time for each sample of stored history. */
-    int8_t pos;                 /*!< Current position in the circular buffer. */
+    int16_t pos;                /*!< Current position in the circular buffer. */
     uint8_t full;               /*!< Indicates whether complete buffer contains valid data. */
 } mpr_value_buffer_t, *mpr_value_buffer;
 
 typedef struct _mpr_value
 {
     mpr_value_buffer inst;      /*!< Array of value histories for each signal instance. */
-    int vlen;                   /*!< Vector length. */
+    uint8_t vlen;               /*!< Vector length. */
     uint8_t num_inst;           /*!< Number of instances. */
     uint8_t num_active_inst;    /*!< Number of active instances. */
     mpr_type type;              /*!< The type of this signal. */
-    int16_t mlen;               /*!< History size of the buffer. */
+    /* TODO: why not an unsigned type? */
+    uint16_t mlen;              /*!< History size of the buffer. */
 } mpr_value_t, *mpr_value;
 
 void mpr_value_realloc(mpr_value val, unsigned int vec_len, mpr_type type,
