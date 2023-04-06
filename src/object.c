@@ -276,6 +276,8 @@ void mpr_obj_push(mpr_obj o)
             if (status & MPR_SLOT_DEV_KNOWN)
                 mpr_map_send_state(m, -1, MSG_MAP);
         }
+        else
+            mpr_map_send_state(m, -1, MSG_MAP);
     }
     else {
         trace("mpr_obj_push(): unknown object type %d\n", o->type);
