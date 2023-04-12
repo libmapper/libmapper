@@ -51,7 +51,7 @@ class MappableSlider(QtWidgets.QWidget):
         self.sig = dev.add_signal(mpr.Direction.INCOMING, name, 1, mpr.Type.FLOAT, None, 0, 1)
         self.sig.set_callback(lambda x, e, i, v, t: self.set_position(v * 100), mpr.Signal.Event.UPDATE)
 
-        self.slider.sliderMoved.connect(lambda x: self.sig.set_value(x * 0.01))
+        self.slider.valueChanged.connect(lambda x: self.sig.set_value(x * 0.01))
 
         self.label = QtWidgets.QLabel(name)
 
