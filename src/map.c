@@ -73,7 +73,9 @@ typedef struct _mpr_local_map {
     char *updated_inst;             /*!< Bitflags to indicate updated instances. */
     mpr_value_t *vars;              /*!< User variables values. */
     const char **var_names;         /*!< User variables names. */
+    const char **old_var_names;     /*!< User variables names. */
     int num_vars;                   /*!< Number of user variables. */
+    int num_old_vars;               /*!< Number of user variables. */
     int num_inst;                   /*!< Number of local instances. */
 
     uint8_t locality;
@@ -134,6 +136,8 @@ static void mpr_local_map_init(mpr_local_map map)
 
     /* TODO: configure number of instances available for each slot */
     map->num_inst = 0;
+    map->num_old_vars = 0;
+    map->old_var_names = NULL;
 
     /* assign a unique id to this map if we are the destination */
     if (local_dst && !mpr_obj_get_id((mpr_obj)map)) {
@@ -423,6 +427,10 @@ void mpr_map_free(mpr_map map)
             free(lmap->vars);
             free(lmap->var_names);
         }
+        for (i = 0; i < lmap->num_old_vars; i++) {
+            FUNC_IF(free, (void*)lmap->old_var_names[i]);
+        }
+        FUNC_IF(free, lmap->old_var_names);
         FUNC_IF(free, lmap->updated_inst);
         FUNC_IF(mpr_expr_free, lmap->expr);
     }
@@ -930,9 +938,27 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
     }
 
     /* free old variables and replace with new */
-    for (i = 0; i < m->num_vars; i++) {
-        mpr_value_free(&m->vars[i]);
-        FUNC_IF(free, (void*)m->var_names[i]);
+    if (m->num_vars) {
+        if (m->old_var_names)
+            m->old_var_names = realloc(m->old_var_names, (m->num_old_vars + m->num_vars) * sizeof(char*));
+        else
+            m->old_var_names = malloc((m->num_old_vars + m->num_vars) * sizeof(char*));
+        for (i = 0; i < m->num_vars; i++) {
+            /* store obsolete variable names so they can be removed from the graph */
+            for (j = 0; j < num_vars; j++) {
+                if (0 == strcmp(m->var_names[i], var_names[j]))
+                    break;
+            }
+            if (j >= num_vars) {
+                m->old_var_names[m->num_old_vars + i] = m->var_names[i];
+            }
+            else {
+                FUNC_IF(free, (void*)m->var_names[i]);
+                m->old_var_names[m->num_old_vars + i] = 0;
+            }
+            mpr_value_free(&m->vars[i]);
+        }
+        m->num_old_vars += m->num_vars;
     }
     FUNC_IF(free, m->vars);
     FUNC_IF(free, m->var_names);
@@ -1833,9 +1859,31 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
                       mpr_expr_get_var_name(lm->expr, j));
             }
         }
+        if (lm->num_old_vars && lm->old_var_names) {
+            for (j = 0; j < lm->num_old_vars; j++) {
+                if (lm->old_var_names[j]) {
+                    snprintf(varname, 32, "-@var@%s", lm->old_var_names[j]);
+                    lo_message_add_string(msg, varname);
+                }
+            }
+        }
     }
     mpr_net_add_msg(mpr_graph_get_net(m->obj.graph), 0, cmd, msg);
     return i-1;
+}
+
+void mpr_map_clear_empty_props(mpr_local_map map)
+{
+    mpr_tbl_clear_empty_records(map->obj.props.synced);
+    if (map->old_var_names) {
+        int i;
+        for (i = 0; i < map->num_old_vars; i++) {
+            FUNC_IF(free, (void*)map->old_var_names[i]);
+        }
+        free(map->old_var_names);
+        map->old_var_names = NULL;
+    }
+    map->num_old_vars = 0;
 }
 
 mpr_map mpr_map_new_from_str(const char *expr, ...)

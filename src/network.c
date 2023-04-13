@@ -1723,7 +1723,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
 
 done:
     mpr_msg_free(props);
-    mpr_obj_clear_empty_props((mpr_obj)map);
+    mpr_map_clear_empty_props(map);
     return 0;
 }
 
