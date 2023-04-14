@@ -108,8 +108,6 @@ int mpr_dev_get_is_registered(mpr_dev dev);
 
 lo_server mpr_local_dev_get_server(mpr_local_dev dev, dev_server_t idx);
 
-int mpr_local_dev_get_bundle_idx(mpr_local_dev dev);
-
 void mpr_local_dev_set_sending(mpr_local_dev dev);
 
 void mpr_local_dev_set_receiving(mpr_local_dev dev);

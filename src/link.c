@@ -15,6 +15,8 @@
 
 #include <mapper/mapper.h>
 
+#define NUM_BUNDLES 2
+
 typedef struct _mpr_bundle {
     lo_bundle udp;
     lo_bundle tcp;
@@ -49,6 +51,7 @@ typedef struct _mpr_link {
     } addr;
 
     int is_local_only;
+    uint8_t bundle_idx;
 
     mpr_bundle_t bundles[NUM_BUNDLES];  /*!< Circular buffer to handle interrupts during poll() */
 
@@ -167,10 +170,10 @@ void mpr_link_free(mpr_link link)
 
 /* note on memory handling of mpr_link_add_msg():
  * message: will be owned, will be freed when done */
-void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time t,
-                      mpr_proto proto, int idx)
+void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time t, mpr_proto proto)
 {
     lo_bundle *b;
+    uint8_t idx = link->bundle_idx;
     RETURN_UNLESS(msg);
 
     /* add message to existing bundles */
@@ -183,14 +186,15 @@ void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time 
 /* TODO: pass in bundle index as argument */
 /* TODO: interrupt driven signal updates may not be followed by mpr_dev_process_outputs(); in the
  * case where the interrupt has interrupted mpr_dev_poll() these messages will not be dispatched. */
-int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx)
+int mpr_link_process_bundles(mpr_link link, mpr_time t)
 {
     int i = 0, num = 0, tmp;
-    mpr_bundle b;
+    uint8_t idx = link->bundle_idx;
+    mpr_bundle b = &link->bundles[idx];
     lo_bundle lb;
-    RETURN_ARG_UNLESS(link, 0);
 
-    b = &link->bundles[idx];
+    /* increment index for circular buffer of lo_bundles */
+    link->bundle_idx = (link->bundle_idx + 1) % NUM_BUNDLES;
 
     if (!link->is_local_only) {
         mpr_local_dev ldev = (mpr_local_dev)link->devs[LINK_LOCAL_DEV];

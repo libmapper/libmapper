@@ -9,7 +9,6 @@ typedef struct _mpr_link *mpr_link;
 #include "list.h"
 #include "map.h"
 
-#define NUM_BUNDLES 1
 #define MPR_LINK 0x20
 
 /* TODO: replace this with something better */
@@ -35,15 +34,13 @@ void mpr_link_remove_map(mpr_link link, mpr_map map);
 
 void mpr_link_init(mpr_link link, mpr_graph graph, mpr_dev dev1, mpr_dev dev2);
 
-void mpr_link_connect(mpr_link link, const char *host, int admin_port,
-                      int data_port);
+void mpr_link_connect(mpr_link link, const char *host, int admin_port, int data_port);
 
 void mpr_link_free(mpr_link link);
 
-int mpr_link_process_bundles(mpr_link link, mpr_time t, int idx);
+int mpr_link_process_bundles(mpr_link link, mpr_time t);
 
-void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time t,
-                      mpr_proto proto, int idx);
+void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time t, mpr_proto proto);
 
 int mpr_link_get_is_ready(mpr_link link);
 

@@ -174,7 +174,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
     mpr_sig_inst si;
     mpr_local_map map;
     int i, j, inst_idx;
-    uint8_t bundle_idx, *locked = &sig->locked;
+    uint8_t *locked = &sig->locked;
 
     /* abort if signal is already being processed - might be a local loop */
     if (*locked) {
@@ -184,7 +184,6 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
 
     si = mpr_local_sig_get_inst_by_id_map_idx(sig, id_map_idx, &id_map);
     inst_idx = mpr_sig_inst_get_idx(si);
-    bundle_idx = mpr_local_dev_get_bundle_idx(sig->dev);
     /* TODO: remove duplicate flag set */
     mpr_local_dev_set_sending(sig->dev); /* mark as updated */
 
@@ -214,8 +213,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
                 /* send release to upstream */
                 /* TODO: only send if source has already been released */
                 msg = mpr_map_build_msg(map, 0, 0, 0, id_map);
-                mpr_local_slot_send_msg(src_slot, msg, t, mpr_map_get_protocol((mpr_map)map),
-                                        bundle_idx);
+                mpr_local_slot_send_msg(src_slot, msg, t, mpr_map_get_protocol((mpr_map)map));
             }
         }
         for (i = 0; i < sig->num_maps_out; i++) {
@@ -235,8 +233,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
             if (mpr_local_map_get_has_scope(map, id_map->GID)) {
                 /* send release to downstream */
                 msg = mpr_map_build_msg(map, src_slot, 0, 0, id_map);
-                mpr_local_slot_send_msg(dst_slot, msg, t, mpr_map_get_protocol((mpr_map)map),
-                                        bundle_idx);
+                mpr_local_slot_send_msg(dst_slot, msg, t, mpr_map_get_protocol((mpr_map)map));
             }
         }
         *locked = 0;
@@ -271,7 +268,7 @@ static void process_maps(mpr_local_sig sig, int id_map_idx, const void *val, mpr
             msg = mpr_map_build_msg(map, src_slot, val, types,
                                     mpr_sig_get_use_inst((mpr_sig)sig) ? id_map : 0);
             mpr_local_slot_send_msg((mpr_local_slot)mpr_map_get_dst_slot((mpr_map)map), msg, t,
-                                    mpr_map_get_protocol((mpr_map)map), bundle_idx);
+                                    mpr_map_get_protocol((mpr_map)map));
             continue;
         }
 

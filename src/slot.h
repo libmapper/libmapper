@@ -69,8 +69,7 @@ int mpr_slot_set_value(mpr_local_slot slot, int inst_idx, void *val, mpr_time ti
 
 void mpr_slot_reset_inst(mpr_local_slot slot, int inst_idx);
 
-void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto,
-                             int bundle_idx);
+void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto);
 
 int mpr_slot_compare_names(mpr_slot l, mpr_slot r);
 

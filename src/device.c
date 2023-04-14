@@ -95,7 +95,6 @@ struct _mpr_local_dev {
     int num_sig_groups;
     uint8_t time_is_stale;
     uint8_t polling;
-    uint8_t bundle_idx;
     uint8_t sending;
     uint8_t receiving;
 } mpr_local_dev_t;
@@ -512,7 +511,7 @@ static int process_outgoing_maps(mpr_local_dev dev)
     dev->sending = 0;
     list = mpr_graph_get_list(graph, MPR_LINK);
     while (list) {
-        msgs += mpr_link_process_bundles((mpr_link)*list, dev->time, 0);
+        msgs += mpr_link_process_bundles((mpr_link)*list, dev->time);
         list = mpr_list_get_next(list);
     }
     return msgs ? 1 : 0;
@@ -539,7 +538,6 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
         if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, block_ms)) {
             admin_count = (status[0] > 0) + (status[1] > 0);
         }
-        ldev->bundle_idx = 1;
         return admin_count;
     }
 
@@ -1314,11 +1312,6 @@ int mpr_dev_has_local_link(mpr_dev dev)
 lo_server mpr_local_dev_get_server(mpr_local_dev dev, dev_server_t idx)
 {
     return dev->servers[idx];
-}
-
-int mpr_local_dev_get_bundle_idx(mpr_local_dev dev)
-{
-    return dev->bundle_idx % NUM_BUNDLES;
 }
 
 void mpr_local_dev_set_sending(mpr_local_dev dev)

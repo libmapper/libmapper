@@ -338,10 +338,9 @@ int mpr_slot_get_status(mpr_local_slot slot)
     return status;
 }
 
-void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto,
-                             int bundle_idx)
+void mpr_local_slot_send_msg(mpr_local_slot slot, lo_message msg, mpr_time time, mpr_proto proto)
 {
-    mpr_link_add_msg(slot->link, mpr_sig_get_path((mpr_sig)slot->sig), msg, time, proto, bundle_idx);
+    mpr_link_add_msg(slot->link, mpr_sig_get_path((mpr_sig)slot->sig), msg, time, proto);
 }
 
 int mpr_slot_compare_names(mpr_slot l, mpr_slot r)

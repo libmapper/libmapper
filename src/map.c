@@ -399,8 +399,7 @@ void mpr_map_free(mpr_map map)
             }
             else {
                 mpr_local_dev dev = (mpr_local_dev)mpr_sig_get_dev(mpr_slot_get_sig(map->src[0]));
-                mpr_local_slot_send_msg(lmap->dst, msg, time, MPR_PROTO_TCP,
-                                        mpr_local_dev_get_bundle_idx(dev));
+                mpr_local_slot_send_msg(lmap->dst, msg, time, MPR_PROTO_TCP);
                 mpr_local_dev_set_sending(dev);
             }
 
@@ -676,7 +675,6 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     int i, status, map_manages_inst = 0;
     lo_message msg;
     mpr_local_dev dev;
-    uint8_t bundle_idx;
     mpr_local_slot src_slot;
     mpr_local_sig src_sig;
     mpr_sig dst_sig;
@@ -705,7 +703,6 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
     }
 
     dev = (mpr_local_dev)mpr_sig_get_dev((mpr_sig)src_sig);
-    bundle_idx = mpr_local_dev_get_bundle_idx(dev);
 
     dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
     dst_val = mpr_slot_get_value(m->dst);
@@ -738,7 +735,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
         /* send instance release if dst is instanced and either src or map is also instanced. */
         if (id_map && status & EXPR_RELEASE_BEFORE_UPDATE && m->use_inst) {
             msg = mpr_map_build_msg(m, 0, 0, 0, id_map);
-            mpr_local_slot_send_msg(m->dst, msg, time, m->protocol, bundle_idx);
+            mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
             if (map_manages_inst) {
                 mpr_dev_LID_decref(dev, 0, id_map);
                 id_map = m->id_map = 0;
@@ -753,13 +750,12 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
                 id_map = m->id_map = mpr_dev_add_id_map(dev, 0, 0, 0);
             }
             msg = mpr_map_build_msg(m, 0, result, types, id_map);
-            mpr_local_slot_send_msg(m->dst, msg, *(mpr_time*)mpr_value_get_time(val, i),
-                                    m->protocol, bundle_idx);
+            mpr_local_slot_send_msg(m->dst, msg, *(mpr_time*)mpr_value_get_time(val, i), m->protocol);
         }
         /* send instance release if dst is instanced and either src or map is also instanced. */
         if (id_map && status & EXPR_RELEASE_AFTER_UPDATE && m->use_inst) {
             msg = mpr_map_build_msg(m, 0, 0, 0, id_map);
-            mpr_local_slot_send_msg(m->dst, msg, time, m->protocol, bundle_idx);
+            mpr_local_slot_send_msg(m->dst, msg, time, m->protocol);
             if (map_manages_inst) {
                 mpr_dev_LID_decref(dev, 0, id_map);
                 id_map = m->id_map = 0;
