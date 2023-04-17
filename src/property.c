@@ -245,7 +245,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
     switch (type) {
         case MPR_STR:
             if (len == 1)
-                printf("'%s'", (char*)val);
+                printf("'%s', ", (char*)val);
             else {
                 for (i = 0; i < len; i++)
                     printf("'%s', ", ((char**)val)[i]);
@@ -291,7 +291,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             /* just print device name */
             if (1 == len) {
                 mpr_dev d = (mpr_dev)val;
-                printf("'%s%s'", mpr_dev_get_name(d), mpr_obj_get_is_local((mpr_obj)d) ? "*" : "");
+                printf("'%s%s', ", mpr_dev_get_name(d), mpr_obj_get_is_local((mpr_obj)d) ? "*" : "");
             }
             else {
                 mpr_dev *d = (mpr_dev*)val;
@@ -304,7 +304,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
             /* just print signal name */
             if (1 == len) {
                 mpr_sig s = (mpr_sig)val;
-                printf("'%s:%s%s'", mpr_dev_get_name(mpr_sig_get_dev(s)), mpr_sig_get_name(s),
+                printf("'%s:%s%s', ", mpr_dev_get_name(mpr_sig_get_dev(s)), mpr_sig_get_name(s),
                        mpr_obj_get_is_local((mpr_obj)s) ? "*" : "");
             }
             else {
@@ -341,6 +341,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
                 printf("]");
             printf(" -> ");
             mpr_prop_print(1, MPR_SIG, mpr_map_get_dst_sig(m));
+            printf(", ");
             break;
         }
         case MPR_LIST: {
@@ -349,7 +350,8 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
                 printf("[], ");
                 break;
             }
-            printf("[");
+            if (len > 1)
+                printf("[");
             while (list) {
                 if (!*list)
                     printf("null");
@@ -358,7 +360,7 @@ void mpr_prop_print(int len, mpr_type type, const void *val)
                 printf(", ");
                 list = mpr_list_get_next(list);
             }
-            printf("\b\b]");
+            break;
         }
         default:
             break;
