@@ -9,16 +9,16 @@ typedef struct _mpr_tbl_record *mpr_tbl_record;
 #include "message.h"
 
 /* bit flags for tracking permissions for modifying properties */
-#define NON_MODIFIABLE      0x00
-#define LOCAL_MODIFY        0x01
-#define REMOTE_MODIFY       0x02
-#define MODIFIABLE          0x03
-#define LOCAL_ACCESS_ONLY   0x04
-#define MUTABLE_TYPE        0x08
-#define MUTABLE_LENGTH      0x10
-#define INDIRECT            0x20
-#define PROP_OWNED          0x40
-#define PROP_SET            0x80
+#define MOD_NONE        0x00
+#define MOD_LOCAL       0x01
+#define MOD_REMOTE      0x02
+#define MOD_ANY         0x03
+#define LOCAL_ACCESS    0x04
+#define MUTABLE_TYPE    0x08
+#define MUTABLE_LENGTH  0x10
+#define INDIRECT        0x20
+#define PROP_OWNED      0x40
+#define PROP_SET        0x80
 
 /*! Create a new string table. */
 mpr_tbl mpr_tbl_new(void);
@@ -82,7 +82,7 @@ int mpr_tbl_remove_record(mpr_tbl tbl, mpr_prop prop, const char *key, int flags
  *  \param type         OSC type of value to add.
  *  \param args         Value(s) to add
  *  \param len          Number of OSC argument in array
- *  \param flags        `LOCAL_MODIFY`, `REMOTE_MODIFY`, `NON_MODIFABLE`.
+ *  \param flags        `MOD_LOCAL`, `MOD_REMOTE`, `MOD_ANY`, or `MOD_NONE`.
  *  \return             The number of table values added or modified. */
 int mpr_tbl_add_record(mpr_tbl tbl, int prop, const char *key, int len,
                        mpr_type type, const void *args, int flags);

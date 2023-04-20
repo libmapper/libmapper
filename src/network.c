@@ -1505,7 +1505,9 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     mpr_graph gph = (mpr_graph)user;
     mpr_net net = mpr_graph_get_net(gph);
     mpr_map map;
-    int i, rc = 0, updated = 0;
+    mpr_msg props;
+    mpr_loc loc = MPR_LOC_UNDEFINED;
+    int rc = 0, updated = 0;
 
     trace_net(net);
     map = find_map(net, types, ac, av, 0, UPDATE);
@@ -1534,26 +1536,39 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
         return 0;
     }
 
-    if (!(mpr_map_get_process_loc(map) & mpr_map_get_locality(map))) {
-        mpr_msg props = mpr_msg_parse_props(ac, types, av);
+    props = mpr_msg_parse_props(ac, types, av);
+    if (props) {
+        const char *str;
+        if ((str = mpr_msg_get_prop_as_str(props, MPR_PROP_PROCESS_LOC))) {
+            loc = mpr_loc_from_str(str);
+        }
+        if (   (str = mpr_msg_get_prop_as_str(props, MPR_PROP_EXPR))
+            || (str = mpr_map_get_expr_str((mpr_map)map))) {
+            if (strstr(str, "y{-")) {
+                loc = MPR_LOC_DST;
+            }
+        }
+    }
+
+    if (!(loc & mpr_map_get_locality(map))) {
         updated = mpr_map_set_from_msg(map, props);
 #ifdef DEBUG
         trace("  updated %d properties for %s map. (1)\n", updated,
               mpr_obj_get_is_local((mpr_obj)map) ? "local" : "remote");
 #endif
-        mpr_msg_free(props);
     }
     else {
         /* Call mpr_map_set_from_msg() anyway to check map status. */
         /* TODO: refactor for clarity */
         mpr_map_set_from_msg(map, 0);
     }
+    mpr_msg_free(props);
 
     if (mpr_obj_get_is_local((mpr_obj)map)) {
         int status = mpr_map_get_status(map);
         RETURN_ARG_UNLESS(status >= MPR_STATUS_READY, 0);
         if (MPR_STATUS_ACTIVE > status) {
-            int num_src = mpr_map_get_num_src(map);
+            int i, num_src = mpr_map_get_num_src(map);
             mpr_sig sig;
             mpr_slot slot = mpr_map_get_dst_slot(map);
             mpr_map_set_status(map, MPR_STATUS_ACTIVE);
@@ -1596,7 +1611,7 @@ static int handler_mapped(const char *path, const char *types, lo_arg **av,
     if (rc || updated) {
         if (mpr_obj_get_is_local((mpr_obj)map)) {
             mpr_sig sig;
-            int num_src = mpr_map_get_num_src(map);
+            int i, num_src = mpr_map_get_num_src(map);
             for (i = 0; i < num_src; i++) {
                 sig = mpr_map_get_src_sig(map, i);
                 if (mpr_obj_get_is_local((mpr_obj)sig)) {

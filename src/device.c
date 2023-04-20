@@ -133,7 +133,7 @@ static int cmp_qry_sigs(const void *context_data, mpr_sig sig)
 
 void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
 {
-    int mod = is_local ? NON_MODIFIABLE : MODIFIABLE;
+    int mod = is_local ? MOD_NONE : MOD_ANY;
     mpr_tbl tbl;
     mpr_list qry;
 
@@ -155,11 +155,11 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
 
     /* these properties need to be added in alphabetical order */
     mpr_tbl_link_value(tbl, PROP(DATA), 1, MPR_PTR, &dev->obj.data,
-                       LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
+                       MOD_LOCAL | INDIRECT | LOCAL_ACCESS);
     mpr_tbl_link_value(tbl, PROP(ID), 1, MPR_INT64, &dev->obj.id, mod);
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_DEV, (void*)cmp_qry_linked, "v", &dev);
-    mpr_tbl_link_value(tbl, PROP(LINKED), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
-    mpr_tbl_link_value(tbl, PROP(NAME), 1, MPR_STR, &dev->name, mod | INDIRECT | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link_value(tbl, PROP(LINKED), 1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
+    mpr_tbl_link_value(tbl, PROP(NAME), 1, MPR_STR, &dev->name, mod | INDIRECT | LOCAL_ACCESS);
     mpr_tbl_link_value(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &dev->num_maps_in, mod);
     mpr_tbl_link_value(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &dev->num_maps_out, mod);
     mpr_tbl_link_value(tbl, PROP(NUM_SIGS_IN), 1, MPR_INT32, &dev->num_inputs, mod);
@@ -168,16 +168,15 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
     if (!is_local) {
         qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)cmp_qry_sigs,
                                   "hi", dev->obj.id, MPR_DIR_ANY);
-        mpr_tbl_link_value(tbl, PROP(SIG), 1, MPR_LIST, qry, NON_MODIFIABLE | PROP_OWNED);
+        mpr_tbl_link_value(tbl, PROP(SIG), 1, MPR_LIST, qry, MOD_NONE | PROP_OWNED);
     }
-    mpr_tbl_link_value(tbl, PROP(STATUS), 1, MPR_INT32, &dev->status, mod | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link_value(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS_ONLY);
+    mpr_tbl_link_value(tbl, PROP(STATUS), 1, MPR_INT32, &dev->status, mod | LOCAL_ACCESS);
+    mpr_tbl_link_value(tbl, PROP(SYNCED), 1, MPR_TIME, &dev->synced, mod | LOCAL_ACCESS);
     mpr_tbl_link_value(tbl, PROP(VERSION), 1, MPR_INT32, &dev->obj.version, mod);
 
     if (is_local)
-        mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, NON_MODIFIABLE);
-    mpr_tbl_add_record(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local,
-                       LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+        mpr_tbl_add_record(tbl, PROP(LIBVER), NULL, 1, MPR_STR, PACKAGE_VERSION, MOD_NONE);
+    mpr_tbl_add_record(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
 }
 
 /*! Allocate and initialize a device. This function is called to create a new
@@ -325,7 +324,7 @@ static void on_registered(mpr_local_dev dev)
     qry = mpr_graph_new_query(dev->obj.graph, 0, MPR_SIG, (void*)cmp_qry_sigs,
                               "hi", dev->obj.id, MPR_DIR_ANY);
     mpr_tbl_add_record(dev->obj.props.synced, PROP(SIG), NULL, 1, MPR_LIST, qry,
-                       NON_MODIFIABLE | PROP_OWNED);
+                       MOD_NONE | PROP_OWNED);
     dev->registered = 1;
     dev->ordinal = dev->ordinal_allocator.val;
 
@@ -874,14 +873,14 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     }
 
     portnum = lo_server_get_port(dev->servers[SERVER_UDP]);
-    mpr_tbl_add_record(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, NON_MODIFIABLE);
+    mpr_tbl_add_record(dev->obj.props.synced, PROP(PORT), NULL, 1, MPR_INT32, &portnum, MOD_NONE);
 
     trace_dev(dev, "bound to UDP port %i\n", portnum);
     trace_dev(dev, "bound to TCP port %i\n", lo_server_get_port(dev->servers[SERVER_TCP]));
 
     url = lo_server_get_url(dev->servers[SERVER_UDP]);
     host = lo_url_get_hostname(url);
-    mpr_tbl_add_record(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, NON_MODIFIABLE);
+    mpr_tbl_add_record(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, MOD_NONE);
     free(host);
     free(url);
 
@@ -1162,7 +1161,7 @@ int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg m)
                 break;
             }
             default:
-                updated += mpr_tbl_add_record_from_msg_atom(dev->obj.props.synced, a, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record_from_msg_atom(dev->obj.props.synced, a, MOD_REMOTE);
                 break;
         }
     }

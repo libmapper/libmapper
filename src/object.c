@@ -194,7 +194,8 @@ mpr_list mpr_obj_get_prop_as_list(mpr_obj o, mpr_prop p, const char *s)
 mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
                           mpr_type type, const void *val, int publish)
 {
-    int local, flags, updated;
+    int flags, updated;
+    mpr_tbl tbl;
     RETURN_ARG_UNLESS(o, 0);
     /* TODO: ensure ID property can't be changed by user code */
     if (MPR_PROP_UNKNOWN == p || !MASK_PROP_BITFLAGS(p)) {
@@ -203,11 +204,17 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
         p = mpr_prop_from_str(s);
     }
 
-    local = o->props.staged ? 0 : 1;
-    flags = local ? LOCAL_MODIFY : REMOTE_MODIFY;
+    if (!o->props.staged) {
+        tbl = o->props.synced;
+        flags = MOD_LOCAL;
+    }
+    else {
+        tbl = o->props.staged;
+        flags = MOD_REMOTE;
+    }
     if (!publish)
-        flags |= LOCAL_ACCESS_ONLY;
-    updated = mpr_tbl_add_record(local ? o->props.synced : o->props.staged, p, s, len, type, val, flags);
+        flags |= LOCAL_ACCESS;
+    updated = mpr_tbl_add_record(tbl, p, s, len, type, val, flags);
     if (updated)
         mpr_obj_increment_version(o);
     return updated ? p : MPR_PROP_UNKNOWN;
@@ -223,9 +230,9 @@ int mpr_obj_remove_prop(mpr_obj o, mpr_prop p, const char *s)
     if (MPR_PROP_UNKNOWN == p)
         p = mpr_prop_from_str(s);
     if (MPR_PROP_DATA == p || local)
-        updated = mpr_tbl_remove_record(o->props.synced, p, s, LOCAL_MODIFY);
+        updated = mpr_tbl_remove_record(o->props.synced, p, s, MOD_LOCAL);
     else if (MPR_PROP_EXTRA == p)
-        updated = mpr_tbl_add_record(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, REMOTE_MODIFY);
+        updated = mpr_tbl_add_record(o->props.staged, p | PROP_REMOVE, s, 0, 0, 0, MOD_REMOTE);
     else
         trace("Cannot remove static property [%d] '%s'\n", p, s ? s : mpr_prop_as_str(p, 1));
     if (updated)

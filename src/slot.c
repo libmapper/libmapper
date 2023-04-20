@@ -89,7 +89,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
         mpr_msg_atom_set_prop(a, prop * ~mask);
-        if (mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY))
+        if (mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE))
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
@@ -98,7 +98,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
     if (a) {
         mpr_prop prop = mpr_msg_atom_get_prop(a);
         mpr_msg_atom_set_prop(a, prop & ~mask);
-        if (mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY))
+        if (mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE))
             ++updated;
         mpr_msg_atom_set_prop(a, prop);
     }
@@ -109,8 +109,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
         if ((str = mpr_msg_get_prop_as_str(msg, MPR_PROP_DIR | mask))) {
             int dir = mpr_dir_from_str(str);
             if (dir)
-                updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32,
-                                              &dir, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir, MOD_REMOTE);
         }
         num_inst = mpr_msg_get_prop_as_int32(msg, MPR_PROP_NUM_INST | mask);
         if (num_inst && num_inst != slot->num_inst) {
@@ -118,7 +117,7 @@ int mpr_slot_set_from_msg(mpr_slot slot, mpr_msg msg)
                 updated += mpr_slot_alloc_values((mpr_local_slot)slot, num_inst, 0);
             else
                 updated += mpr_tbl_add_record(tbl, PROP(NUM_INST), NULL, 1, MPR_INT32,
-                                              &num_inst, REMOTE_MODIFY);
+                                              &num_inst, MOD_REMOTE);
         }
     }
     return updated;

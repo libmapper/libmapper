@@ -21,6 +21,7 @@ if WINDOWS_DLL
         testmany \
         testmapfail \
         testmapinput \
+        testmaplocation \
         testmapprotocol \
         testmapscope \
         testmonitor \
@@ -60,6 +61,7 @@ if WINDOWS_DLL
         testconvergent \
         testunmap \
         testmapfail \
+        testmaplocation \
         testmapprotocol \
         testmapscope \
         testcalibrate \
@@ -86,6 +88,7 @@ else
         testmany \
         testmapfail \
         testmapinput \
+        testmaplocation \
         testmapprotocol \
         testmapscope \
         testmonitor \
@@ -126,6 +129,7 @@ else
         testconvergent \
         testunmap \
         testmapfail \
+        testmaplocation \
         testmapprotocol \
         testmapscope \
         testcalibrate \
@@ -198,6 +202,10 @@ testmapinput_LDADD = $(TEST_LDADD)
 testmapfail_CFLAGS = $(TEST_CFLAGS)
 testmapfail_SOURCES = testmapfail.c
 testmapfail_LDADD = $(TEST_LDADD)
+
+testmaplocation_CFLAGS = $(TEST_CFLAGS)
+testmaplocation_SOURCES = testmaplocation.c
+testmaplocation_LDADD = $(TEST_LDADD)
 
 testmapprotocol_CFLAGS = $(TEST_CFLAGS)
 testmapprotocol_SOURCES = testmapprotocol.c

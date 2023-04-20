@@ -154,12 +154,12 @@ MPR_INLINE static int check_sig_length(int length)
     return (length < 1 || length > MPR_MAX_VECTOR_LEN);
 }
 
-MPR_INLINE static int check_types(const mpr_type *types, int len, mpr_type type, int vector_len)
+MPR_INLINE static int check_types(const mpr_type *types, int len, mpr_type sig_type, int sig_len)
 {
     int i, vals = 0;
-    RETURN_ARG_UNLESS(len >= vector_len, -1);
+    RETURN_ARG_UNLESS(len >= sig_len, -1);
     for (i = 0; i < len; i++) {
-        if (types[i] == type)
+        if (types[i] == sig_type)
             ++vals;
         else if (types[i] != MPR_NULL)
             return -1;
@@ -651,37 +651,36 @@ void mpr_sig_init(mpr_sig sig, mpr_dev dev, int is_local, mpr_dir dir, const cha
     sig->obj.props.synced = mpr_tbl_new();
 
     tbl = sig->obj.props.synced;
-    loc_mod = sig->obj.is_local ? MODIFIABLE : NON_MODIFIABLE;
-    rem_mod = sig->obj.is_local ? NON_MODIFIABLE : MODIFIABLE;
+    loc_mod = sig->obj.is_local ? MOD_ANY : MOD_NONE;
+    rem_mod = sig->obj.is_local ? MOD_NONE : MOD_ANY;
 
     /* these properties need to be added in alphabetical order */
     mpr_tbl_link_value(tbl, PROP(DATA), 1, MPR_PTR, &sig->obj.data,
-                       LOCAL_MODIFY | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link_value(tbl, PROP(DEV), 1, MPR_DEV, &sig->dev,
-                       NON_MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link_value(tbl, PROP(DIR), 1, MPR_INT32, &sig->dir, MODIFIABLE);
+                       MOD_LOCAL | INDIRECT | LOCAL_ACCESS);
+    mpr_tbl_link_value(tbl, PROP(DEV), 1, MPR_DEV, &sig->dev, MOD_NONE | INDIRECT | LOCAL_ACCESS);
+    mpr_tbl_link_value(tbl, PROP(DIR), 1, MPR_INT32, &sig->dir, MOD_ANY);
     mpr_tbl_link_value(tbl, PROP(EPHEM), 1, MPR_BOOL, &sig->ephemeral, loc_mod);
     mpr_tbl_link_value(tbl, PROP(ID), 1, MPR_INT64, &sig->obj.id, rem_mod);
-    mpr_tbl_link_value(tbl, PROP(JITTER), 1, MPR_FLT, &sig->jitter, NON_MODIFIABLE);
+    mpr_tbl_link_value(tbl, PROP(JITTER), 1, MPR_FLT, &sig->jitter, MOD_NONE);
     mpr_tbl_link_value(tbl, PROP(LEN), 1, MPR_INT32, &sig->len, rem_mod);
-    mpr_tbl_link_value(tbl, PROP(NAME), 1, MPR_STR, &sig->name, NON_MODIFIABLE | INDIRECT);
-    mpr_tbl_link_value(tbl, PROP(NUM_INST), 1, MPR_INT32, &sig->num_inst, NON_MODIFIABLE);
-    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &sig->num_maps_in, NON_MODIFIABLE);
-    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &sig->num_maps_out, NON_MODIFIABLE);
-    mpr_tbl_link_value(tbl, PROP(PERIOD), 1, MPR_FLT, &sig->period, NON_MODIFIABLE);
-    mpr_tbl_link_value(tbl, PROP(STEAL_MODE), 1, MPR_INT32, &sig->steal_mode, MODIFIABLE);
-    mpr_tbl_link_value(tbl, PROP(TYPE), 1, MPR_TYPE, &sig->type, NON_MODIFIABLE);
+    mpr_tbl_link_value(tbl, PROP(NAME), 1, MPR_STR, &sig->name, MOD_NONE | INDIRECT);
+    mpr_tbl_link_value(tbl, PROP(NUM_INST), 1, MPR_INT32, &sig->num_inst, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_IN), 1, MPR_INT32, &sig->num_maps_in, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(NUM_MAPS_OUT), 1, MPR_INT32, &sig->num_maps_out, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(PERIOD), 1, MPR_FLT, &sig->period, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(STEAL_MODE), 1, MPR_INT32, &sig->steal_mode, MOD_ANY);
+    mpr_tbl_link_value(tbl, PROP(TYPE), 1, MPR_TYPE, &sig->type, MOD_NONE);
     mpr_tbl_link_value(tbl, PROP(UNIT), 1, MPR_STR, &sig->unit, loc_mod | INDIRECT);
-    mpr_tbl_link_value(tbl, PROP(USE_INST), 1, MPR_BOOL, &sig->use_inst, NON_MODIFIABLE);
-    mpr_tbl_link_value(tbl, PROP(VERSION), 1, MPR_INT32, &sig->obj.version, NON_MODIFIABLE);
+    mpr_tbl_link_value(tbl, PROP(USE_INST), 1, MPR_BOOL, &sig->use_inst, MOD_NONE);
+    mpr_tbl_link_value(tbl, PROP(VERSION), 1, MPR_INT32, &sig->obj.version, MOD_NONE);
 
     if (min)
-        mpr_tbl_add_record(tbl, PROP(MIN), NULL, len, type, min, LOCAL_MODIFY);
+        mpr_tbl_add_record(tbl, PROP(MIN), NULL, len, type, min, MOD_LOCAL);
     if (max)
-        mpr_tbl_add_record(tbl, PROP(MAX), NULL, len, type, max, LOCAL_MODIFY);
+        mpr_tbl_add_record(tbl, PROP(MAX), NULL, len, type, max, MOD_LOCAL);
 
     mpr_tbl_add_record(tbl, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &sig->obj.is_local,
-                       LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+                       LOCAL_ACCESS | MOD_NONE);
 }
 
 void mpr_sig_free(mpr_sig sig)
@@ -1640,7 +1639,7 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
                     dir = MPR_DIR_IN;
                 else
                     break;
-                updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record(tbl, PROP(DIR), NULL, 1, MPR_INT32, &dir, MOD_REMOTE);
                 break;
             }
             case PROP(ID):
@@ -1664,11 +1663,11 @@ int mpr_sig_set_from_msg(mpr_sig sig, mpr_msg msg)
                 else
                     break;
                 updated += mpr_tbl_add_record(tbl, PROP(STEAL_MODE), NULL, 1,
-                                              MPR_INT32, &stl, REMOTE_MODIFY);
+                                              MPR_INT32, &stl, MOD_REMOTE);
                 break;
             }
             default:
-                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE);
                 break;
         }
     }

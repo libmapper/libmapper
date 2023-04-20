@@ -114,7 +114,7 @@ static mpr_tbl_record add_record_internal(mpr_tbl t, mpr_prop prop, const char *
     }
     rec = &t->rec[t->count-1];
     if (MPR_PROP_EXTRA == prop)
-        flags |= MODIFIABLE;
+        flags |= MOD_ANY;
     rec->key = key ? strdup(key) : 0;
     rec->prop = prop;
     rec->len = len;
@@ -169,7 +169,7 @@ mpr_prop mpr_tbl_get_record_by_key(mpr_tbl t, const char *key, int *len, mpr_typ
             *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
     }
     if (pub)
-        *pub = found ? rec->flags ^ LOCAL_ACCESS_ONLY : 0;
+        *pub = found ? rec->flags ^ LOCAL_ACCESS : 0;
 
     return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
@@ -215,7 +215,7 @@ mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl t, int prop, const char **key, int *l
             *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
     }
     if (pub)
-        *pub = found ? rec->flags ^ LOCAL_ACCESS_ONLY : 0;
+        *pub = found ? rec->flags ^ LOCAL_ACCESS : 0;
 
     return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
@@ -226,7 +226,7 @@ int mpr_tbl_remove_record(mpr_tbl t, mpr_prop prop, const char *key, int flags)
 
     do {
         mpr_tbl_record rec = mpr_tbl_get_record(t, prop, key);
-        RETURN_ARG_UNLESS(rec && (rec->flags & MODIFIABLE) && rec->val, ret);
+        RETURN_ARG_UNLESS(rec && (rec->flags & MOD_ANY) && rec->val, ret);
         prop = MASK_PROP_BITFLAGS(prop);
         if (   prop != MPR_PROP_EXTRA && prop != MPR_PROP_LINKED
             && prop != MPR_PROP_MAX && prop != MPR_PROP_MIN) {
@@ -364,7 +364,7 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
     int updated = 0;
     mpr_tbl_record rec = mpr_tbl_get_record(t, prop, key);
     if (rec) {
-        RETURN_ARG_UNLESS(rec->flags & MODIFIABLE, 0);
+        RETURN_ARG_UNLESS(rec->flags & MOD_ANY, 0);
         if (prop & PROP_REMOVE) {
             if (!val)
                 return mpr_tbl_remove_record(t, prop, key, flags);
@@ -397,7 +397,7 @@ int set_internal(mpr_tbl t, mpr_prop prop, const char *key, int len,
 int mpr_tbl_add_record(mpr_tbl t, int prop, const char *key, int len,
                        mpr_type type, const void *args, int flags)
 {
-    if (!args && !(flags & REMOTE_MODIFY))
+    if (!args && !(flags & MOD_REMOTE))
         return mpr_tbl_remove_record(t, prop, key, flags);
     return set_internal(t, prop, key, len, type, args, flags);
 }
@@ -541,7 +541,7 @@ static void mpr_record_add_to_msg(mpr_tbl_record rec, lo_message msg)
     int len = 0, indirect, masked;
     void *val;
     mpr_list list = NULL;
-    RETURN_UNLESS(!(rec->flags & LOCAL_ACCESS_ONLY));
+    RETURN_UNLESS(!(rec->flags & LOCAL_ACCESS));
     RETURN_UNLESS(rec->flags & PROP_SET);
 
     indirect = rec->flags & INDIRECT;

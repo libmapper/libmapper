@@ -230,23 +230,21 @@ void mpr_map_init(mpr_map m, int num_src, mpr_sig *src, mpr_sig dst, int is_loca
                           is_local, 0);
 
     /* these properties need to be added in alphabetical order */
-    mpr_tbl_link_value(t, PROP(BUNDLE), 1, MPR_INT32, &m->bundle, MODIFIABLE);
-    mpr_tbl_link_value(t, PROP(DATA), 1, MPR_PTR, &m->obj.data,
-                       MODIFIABLE | INDIRECT | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link_value(t, PROP(EXPR), 1, MPR_STR, &m->expr_str, MODIFIABLE | INDIRECT);
-    mpr_tbl_link_value(t, PROP(ID), 1, MPR_INT64, &m->obj.id, NON_MODIFIABLE | LOCAL_ACCESS_ONLY);
-    mpr_tbl_link_value(t, PROP(MUTED), 1, MPR_BOOL, &m->muted, MODIFIABLE);
-    mpr_tbl_link_value(t, PROP(NUM_SIGS_IN), 1, MPR_INT32, &m->num_src, NON_MODIFIABLE);
-    mpr_tbl_link_value(t, PROP(PROCESS_LOC), 1, MPR_INT32, &m->process_loc, MODIFIABLE);
-    mpr_tbl_link_value_no_default(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, REMOTE_MODIFY);
-    mpr_tbl_link_value(t, PROP(SCOPE), 1, MPR_LIST, q, NON_MODIFIABLE | PROP_OWNED);
+    mpr_tbl_link_value(t, PROP(BUNDLE), 1, MPR_INT32, &m->bundle, MOD_ANY);
+    mpr_tbl_link_value(t, PROP(DATA), 1, MPR_PTR, &m->obj.data, MOD_ANY | INDIRECT | LOCAL_ACCESS);
+    mpr_tbl_link_value(t, PROP(EXPR), 1, MPR_STR, &m->expr_str, MOD_ANY | INDIRECT);
+    mpr_tbl_link_value(t, PROP(ID), 1, MPR_INT64, &m->obj.id, MOD_NONE | LOCAL_ACCESS);
+    mpr_tbl_link_value(t, PROP(MUTED), 1, MPR_BOOL, &m->muted, MOD_ANY);
+    mpr_tbl_link_value(t, PROP(NUM_SIGS_IN), 1, MPR_INT32, &m->num_src, MOD_NONE);
+    mpr_tbl_link_value(t, PROP(PROCESS_LOC), 1, MPR_INT32, &m->process_loc, MOD_ANY);
+    mpr_tbl_link_value_no_default(t, PROP(PROTOCOL), 1, MPR_INT32, &m->protocol, MOD_REMOTE);
+    mpr_tbl_link_value(t, PROP(SCOPE), 1, MPR_LIST, q, MOD_NONE | PROP_OWNED);
     /* TODO: should we be sharing the status property? Try hiding it from protocol & interface */
-    mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->status, NON_MODIFIABLE);
-    mpr_tbl_link_value_no_default(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, REMOTE_MODIFY);
-    mpr_tbl_link_value(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, REMOTE_MODIFY);
+    mpr_tbl_link_value(t, PROP(STATUS), 1, MPR_INT32, &m->status, MOD_NONE);
+    mpr_tbl_link_value_no_default(t, PROP(USE_INST), 1, MPR_BOOL, &m->use_inst, MOD_REMOTE);
+    mpr_tbl_link_value(t, PROP(VERSION), 1, MPR_INT32, &m->obj.version, MOD_REMOTE);
 
-    mpr_tbl_add_record(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local,
-                       LOCAL_ACCESS_ONLY | NON_MODIFIABLE);
+    mpr_tbl_add_record(t, PROP(IS_LOCAL), NULL, 1, MPR_BOOL, &is_local, LOCAL_ACCESS | MOD_NONE);
     m->status = MPR_STATUS_STAGED;
     m->protocol = MPR_PROTO_UDP;
 
@@ -524,7 +522,7 @@ static void stage_scope(mpr_map m, mpr_dev d, int flag)
         else
             memcpy(new_val, val, sizeof(char*) * len);
         new_val[len] = d ? mpr_dev_get_name(d) : "all";
-        mpr_tbl_add_record(m->obj.props.staged, p, NULL, len + 1, MPR_STR, new_val, REMOTE_MODIFY);
+        mpr_tbl_add_record(m->obj.props.staged, p, NULL, len + 1, MPR_STR, new_val, MOD_REMOTE);
     }
 }
 
@@ -1018,7 +1016,7 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
         if (!mpr_obj_get_is_local((mpr_obj)dst)) {
             /* copy expression string but do not execute it */
             mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str,
-                               REMOTE_MODIFY);
+                               MOD_REMOTE);
             mpr_expr_free(expr);
             return 1;
         }
@@ -1028,7 +1026,7 @@ static int replace_expr_str(mpr_local_map m, const char *expr_str)
 
     if (m->expr_str == expr_str)
         return 0;
-    mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, REMOTE_MODIFY);
+    mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, MOD_REMOTE);
     mpr_tbl_remove_record(m->obj.props.staged, PROP(EXPR), NULL, 0);
     return 0;
 }
@@ -1308,7 +1306,7 @@ static const char *set_linear(mpr_local_map m, const char *e)
         return strdup(expr);
     }
 
-    snprintf(expr+len, MAX_LEN - len,
+    snprintf(expr + len, MAX_LEN - len,
              "sRange=sMax-sMin;"
              "m=sRange?((dMax-dMin)/sRange):0;"
              "b=sRange?(dMin*sMax-dMax*sMin)/sRange:dMin;");
@@ -1331,14 +1329,14 @@ abort:
     return NULL;
 }
 
-static int set_expr(mpr_local_map m, const char *expr)
+static int set_expr(mpr_local_map m, const char *expr_str)
 {
-    int i, should_compile = 0, ret = 0;
+    int i, ret = 0;
     const char *new_expr = 0;
     mpr_sig dst_sig = mpr_slot_get_sig((mpr_slot)m->dst);
     RETURN_ARG_UNLESS(m->num_src > 0, 0);
 
-    trace("setting map expression to '%s'\n", expr ? expr : "default");
+    trace("setting map expression to '%s'\n", expr_str ? expr_str : "default");
 
     /* deal with instances activated by the previous expression */
     if (m->id_map) {
@@ -1352,48 +1350,40 @@ static int set_expr(mpr_local_map m, const char *expr)
         }
     }
 
-    if (MPR_LOC_BOTH == m->locality)
-        should_compile = 1;
-    else if (MPR_LOC_DST == m->process_loc) {
-        /* check if destination is local */
-        if (mpr_obj_get_is_local((mpr_obj)dst_sig))
-            should_compile = 1;
-    }
-    else {
-        for (i = 0; i < m->num_src; i++) {
-            if (mpr_slot_get_sig_if_local((mpr_slot)m->src[i]))
-                should_compile = 1;
+    if (!(m->process_loc & m->locality)) {
+        /* don't need to compile */
+        if (expr_str)
+            mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr_str, MOD_REMOTE);
+        if (m->expr) {
+            trace("freeing unused expression\n");
+            mpr_expr_free(m->expr);
+            m->expr = NULL;
         }
-    }
-
-    if (!should_compile) {
-        if (expr)
-            mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL, 1, MPR_STR, expr, REMOTE_MODIFY);
         goto done;
     }
-    if (!expr || strstr(expr, "linear")) {
-        expr = new_expr = set_linear(m, expr);
+
+    if (!expr_str || strstr(expr_str, "linear")) {
+        expr_str = new_expr = set_linear(m, expr_str);
 #ifdef DEBUG
-        if (expr)
-            printf("  generated expression '%s'\n", expr);
+        if (expr_str)
+            trace("generated expression '%s'\n", expr_str);
 #endif
     }
-    RETURN_ARG_UNLESS(expr, -1);
+    RETURN_ARG_UNLESS(expr_str, -1);
 
-    if (!replace_expr_str(m, expr)) {
+    if (!replace_expr_str(m, expr_str)) {
         mpr_time now;
         char *types = alloca(mpr_sig_get_len(dst_sig) * sizeof(char));
         mpr_map_alloc_values(m, 1);
-        /* evaluate expression to intialise literals */
+
+        /* evaluate expression to initialise literals */
         mpr_time_set(&now, MPR_NOW);
         for (i = 0; i < m->num_inst; i++)
             mpr_expr_eval(mpr_graph_get_expr_stack(m->obj.graph), m->expr, 0, &m->vars,
                           mpr_slot_get_value(m->dst), &now, types, i);
     }
     else {
-        mpr_sig src_sig = mpr_slot_get_sig((mpr_slot)m->src[0]);
-        if (!m->expr && (   (MPR_LOC_DST == m->process_loc && mpr_obj_get_is_local((mpr_obj)dst_sig))
-                         || (MPR_LOC_SRC == m->process_loc && mpr_obj_get_is_local((mpr_obj)src_sig)))) {
+        if (!m->expr) {
             /* no previous expression, abort map */
             m->status = MPR_STATUS_EXPIRED;
         }
@@ -1470,18 +1460,70 @@ int mpr_local_map_update_status(mpr_local_map map)
     return map->status;
 }
 
+// TODO: currently we could send 2 modify messages (process at src; process at dst) at the same time
+// and they would just keep switching back and forth
+// need more deterministic way of doing map admin, e.g. always dst?
+    // move mapto handler to mesh only to avoid user spam?
+
+int mpr_local_map_set_from_msg(mpr_local_map m, mpr_msg msg)
+{
+    int updated = 0;
+    mpr_loc orig_loc = m->process_loc;
+    const char *expr_str = mpr_msg_get_prop_as_str(msg, PROP(EXPR));
+
+    if (MPR_LOC_BOTH == m->locality) {
+        m->process_loc = MPR_LOC_SRC;
+    }
+    else if (!m->one_src) {
+        /* Processing must take place at destination if map
+         * includes source signals from different devices. */
+        m->process_loc = MPR_LOC_DST;
+    }
+    else if (expr_str && strstr(expr_str, "y{-")) {
+        /* Processing must take place at destination if map expression uses destination history */
+        m->process_loc = MPR_LOC_DST;
+    }
+    else {
+        /* try to retrieve process location property from message */
+        const char *loc_str = mpr_msg_get_prop_as_str(msg, PROP(PROCESS_LOC));
+        if (loc_str)
+            m->process_loc = mpr_loc_from_str(loc_str);
+        /* processing location must be either SRC or DST */
+        if (m->process_loc != MPR_LOC_SRC && m->process_loc != MPR_LOC_DST)
+            m->process_loc = orig_loc;
+    }
+
+    if ((expr_str || m->process_loc != orig_loc) && m->status > MPR_STATUS_READY) {
+        int e = set_expr(m, expr_str);
+        if (-1 == e) {
+            /* restore original process location */
+            m->process_loc = orig_loc;
+        }
+        else if (0 == e)
+            ++updated;
+    }
+    else if (expr_str)
+        updated += mpr_tbl_add_record(m->obj.props.synced, PROP(EXPR), NULL,
+                                      1, MPR_STR, expr_str, MOD_REMOTE);
+
+    if (orig_loc != m->process_loc)
+        ++updated;
+
+    return updated;
+}
+
 /* TODO: consider renaming mpr_N_set_from_msg() to mpr_N_update() since this func also updates status */
 int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
 {
-    int i, j, updated = 0, should_compile = 0;
-    mpr_tbl tbl;
-    mpr_msg_atom a;
+    int i, j, updated = 0;
+    mpr_tbl tbl = m->obj.props.synced;
+
     if (!msg)
         goto done;
 
     if (MPR_DIR_OUT == mpr_slot_get_dir(m->dst)) {
         /* check if MPR_PROP_SLOT property is defined */
-        a = mpr_msg_get_prop(msg, PROP(SLOT));
+        mpr_msg_atom a = mpr_msg_get_prop(msg, PROP(SLOT));
         if (a && mpr_msg_atom_get_len(a) == m->num_src) {
             lo_arg **vals = mpr_msg_atom_get_values(a);
             for (i = 0; i < m->num_src; i++)
@@ -1496,121 +1538,38 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
     for (i = 0; i < m->num_src; i++)
         updated += mpr_slot_set_from_msg(m->src[i], msg);
 
-    tbl = m->obj.props.synced;
+    if (m->obj.is_local) {
+        /* need to handle some properties carefully since they impaxt expression hosting */
+        updated += mpr_local_map_set_from_msg((mpr_local_map)m, msg);
+    }
+
     for (i = 0; i < mpr_msg_get_num_atoms(msg); i++) {
-        const mpr_type *types;
-        lo_arg **vals;
-        a = mpr_msg_get_atom(msg, i);
-        types = mpr_msg_atom_get_types(a);
-        vals = mpr_msg_atom_get_values(a);
+        mpr_msg_atom a = mpr_msg_get_atom(msg, i);
+        const mpr_type *types = mpr_msg_atom_get_types(a);
+        lo_arg **vals = mpr_msg_atom_get_values(a);
+
         switch (MASK_PROP_BITFLAGS(mpr_msg_atom_get_prop(a))) {
             case PROP(NUM_SIGS_IN):
             case PROP(NUM_SIGS_OUT):
                 /* these properties will be set by signal args */
                 break;
             case PROP(STATUS):
-                if (m->obj.is_local)
-                    break;
-                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY);
+                if (!m->obj.is_local)
+                    updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE);
                 break;
             case PROP(PROCESS_LOC): {
-                mpr_loc loc;
-                if (m->obj.is_local && MPR_LOC_BOTH == ((mpr_local_map)m)->locality)
-                    break;
-                loc = mpr_loc_from_str(&(vals[0])->s);
-                if (loc == m->process_loc)
-                    break;
-                if (MPR_LOC_UNDEFINED == loc) {
-                    trace("map process location is undefined!\n");
-                    break;
+                if (!m->obj.is_local) {
+                    mpr_loc loc = mpr_loc_from_str(&(vals[0])->s);
+                    updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
+                                                  MPR_INT32, &loc, MOD_REMOTE);
                 }
-                if (m->obj.is_local) {
-                    mpr_local_map lm = (mpr_local_map)m;
-                    if (MPR_LOC_ANY == loc) {
-                        /* no effect */
-                        break;
-                    }
-                    if (!lm->one_src) {
-                        /* Processing must take place at destination if map
-                         * includes source signals from different devices. */
-                        loc = MPR_LOC_DST;
-                    }
-                    if (MPR_LOC_DST == loc) {
-                        /* check if destination is local */
-                        if (mpr_slot_get_sig_if_local((mpr_slot)lm->dst))
-                            should_compile = 1;
-                    }
-                    else {
-                        for (j = 0; j < m->num_src; j++) {
-                            if (mpr_slot_get_sig_if_local((mpr_slot)lm->src[j]))
-                                should_compile = 1;
-                        }
-                    }
-                    if (should_compile) {
-                        mpr_loc orig = m->process_loc;
-                        m->process_loc = loc;
-                        if (-1 == set_expr(lm, m->expr_str)) {
-                            /* do not change process location */
-                            m->process_loc = orig;
-                            break;
-                        }
-                        ++updated;
-                    }
-                }
-                updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                              MPR_INT32, &loc, REMOTE_MODIFY);
                 break;
             }
             case PROP(EXPR): {
-                const char *expr_str = &(vals[0])->s;
-                mpr_loc orig_loc = m->process_loc;
-                if (m->obj.is_local && (m->status & MPR_STATUS_READY) == MPR_STATUS_READY) {
-                    mpr_local_map lm = (mpr_local_map)m;
-                    if (MPR_LOC_BOTH == lm->locality)
-                        should_compile = 1;
-                    else {
-                        if (strstr(expr_str, "y{-"))
-                            lm->process_loc = MPR_LOC_DST;
-                        if (MPR_LOC_DST == lm->process_loc) {
-                            /* check if destination is local */
-                            if (mpr_slot_get_sig_if_local((mpr_slot)lm->dst))
-                                should_compile = 1;
-                        }
-                        else {
-                            for (j = 0; j < m->num_src; j++) {
-                                if (mpr_slot_get_sig_if_local((mpr_slot)lm->src[j]))
-                                    should_compile = 1;
-                            }
-                        }
-                    }
-                    if (should_compile) {
-                        int e = set_expr(lm, expr_str);
-                        if (-1 == e) {
-                            /* restore original process location */
-                            lm->process_loc = orig_loc;
-                            break;
-                        }
-                        else if (0 == e)
-                            ++updated;
-                    }
-                    else {
-                        updated += mpr_tbl_add_record(tbl, PROP(EXPR), NULL, 1, MPR_STR,
-                                                      expr_str, REMOTE_MODIFY);
-                    }
-                }
-                else {
-                    updated += mpr_tbl_add_record(tbl, PROP(EXPR), NULL, 1, MPR_STR,
-                                                  expr_str, REMOTE_MODIFY);
-                }
-                if (orig_loc != m->process_loc) {
-                    mpr_loc loc = m->process_loc;
-                    m->process_loc = orig_loc;
-                    updated += mpr_tbl_add_record(tbl, PROP(PROCESS_LOC), NULL, 1,
-                                                  MPR_INT32, &loc, REMOTE_MODIFY);
-                }
                 if (!m->obj.is_local) {
-                    /* remove any cached expression variables from table */
-                    mpr_tbl_remove_record(tbl, MPR_PROP_EXTRA, "var@*", REMOTE_MODIFY);
+                    const char *expr_str = &(vals[0])->s;
+                    updated += mpr_tbl_add_record(tbl, PROP(EXPR), NULL, 1, MPR_STR,
+                                                  expr_str, MOD_REMOTE);
                 }
                 break;
             }
@@ -1636,7 +1595,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                     break;
                 pro = mpr_proto_from_str(&(vals[0])->s);
                 updated += mpr_tbl_add_record(tbl, PROP(PROTOCOL), NULL, 1, MPR_INT32,
-                                              &pro, REMOTE_MODIFY);
+                                              &pro, MOD_REMOTE);
                 break;
             }
             case PROP(USE_INST): {
@@ -1645,7 +1604,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
                     /* TODO: release map instances */
                 }
                 updated += mpr_tbl_add_record(tbl, PROP(USE_INST), NULL, 1, MPR_BOOL,
-                                              &use_inst, REMOTE_MODIFY);
+                                              &use_inst, MOD_REMOTE);
                 break;
             }
             case PROP(EXTRA): {
@@ -1712,7 +1671,7 @@ int mpr_map_set_from_msg(mpr_map m, mpr_msg msg)
             case PROP(ID):
             case PROP(MUTED):
             case PROP(VERSION):
-                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, REMOTE_MODIFY);
+                updated += mpr_tbl_add_record_from_msg_atom(tbl, a, MOD_REMOTE);
                 break;
             default:
                 break;

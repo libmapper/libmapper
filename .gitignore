@@ -70,6 +70,7 @@ test/testlocalmap
 test/testmany
 test/testmapfail
 test/testmapinput
+test/testmaplocation
 test/testmapprotocol
 test/testmapscope
 test/testmonitor
