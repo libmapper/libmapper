@@ -183,14 +183,13 @@ void mpr_link_add_msg(mpr_link link, const char *path, lo_message msg, mpr_time 
     lo_bundle_add_message(*b, path, msg);
 }
 
-/* TODO: pass in bundle index as argument */
 /* TODO: interrupt driven signal updates may not be followed by mpr_dev_process_outputs(); in the
  * case where the interrupt has interrupted mpr_dev_poll() these messages will not be dispatched. */
 int mpr_link_process_bundles(mpr_link link, mpr_time t)
 {
-    int i = 0, num = 0, tmp;
+    int num_msg = 0;
     uint8_t idx = link->bundle_idx;
-    mpr_bundle b = &link->bundles[idx];
+    mpr_bundle mb = &link->bundles[idx];
     lo_bundle lb;
 
     /* increment index for circular buffer of lo_bundles */
@@ -198,17 +197,18 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t)
 
     if (!link->is_local_only) {
         mpr_local_dev ldev = (mpr_local_dev)link->devs[LINK_LOCAL_DEV];
-        if ((lb = b->udp)) {
-            b->udp = 0;
-            if ((num = lo_bundle_count(lb))) {
+        if ((lb = mb->udp)) {
+            mb->udp = 0;
+            if ((num_msg = lo_bundle_count(lb))) {
                 lo_send_bundle_from(link->addr.udp, mpr_local_dev_get_server(ldev, SERVER_UDP), lb);
             }
             lo_bundle_free_recursive(lb);
         }
-        if ((lb = b->tcp)) {
-            b->tcp = 0;
-            if ((tmp = lo_bundle_count(lb))) {
-                num += tmp;
+        if ((lb = mb->tcp)) {
+            mb->tcp = 0;
+            int count;
+            if ((count = lo_bundle_count(lb))) {
+                num_msg += count;
                 lo_send_bundle_from(link->addr.tcp, mpr_local_dev_get_server(ldev, SERVER_TCP), lb);
             }
             lo_bundle_free_recursive(lb);
@@ -216,49 +216,33 @@ int mpr_link_process_bundles(mpr_link link, mpr_time t)
     }
     else {
         mpr_net net = mpr_graph_get_net(link->obj.graph);
-        /* TODO: alias udp/tcp as array and use loop syntax here to reduce code duplication */
-        if ((lb = b->udp)) {
-            const char *path;
-            b->udp = 0;
-            /* set out-of-band timestamp */
-            mpr_net_set_bundle_time(net, lo_bundle_get_timestamp(lb));
-            /* call handler directly instead of sending over the network */
-            num = lo_bundle_count(lb);
-            while (i < num) {
-                /* find the signal matching the message path */
-                /* link stores the device endpoints, but we need to be sure we are using the correct
-                 * device for local-only links since they might both have signals named /<path> */
-                lo_message m = lo_bundle_get_message(lb, i, &path);
-                mpr_sig dst = mpr_dev_get_sig_by_name(link->devs[0], path+1);
-                if (dst)
-                    mpr_sig_osc_handler(NULL, lo_message_get_types(m), lo_message_get_argv(m),
-                                        lo_message_get_argc(m), m, dst);
-                ++i;
+        lo_bundle *lbs = (lo_bundle*)mb;
+        int i;
+        for (i = 0; i < 2; i++) {
+            if ((lb = lbs[i])) {
+                const char *path;
+                int j = 0, count;
+
+                lbs[i] = 0;
+                /* set out-of-band timestamp */
+                mpr_net_set_bundle_time(net, lo_bundle_get_timestamp(lb));
+                /* call handler directly instead of sending over the network */
+                count = lo_bundle_count(lb);
+                while (j < count) {
+                    /* Find the local signal matching the message path in the destination device. */
+                    lo_message m = lo_bundle_get_message(lb, j, &path);
+                    mpr_sig dst = mpr_dev_get_sig_by_name(link->devs[i], path + 1);
+                    if (dst)
+                        mpr_sig_osc_handler(NULL, lo_message_get_types(m), lo_message_get_argv(m),
+                                            lo_message_get_argc(m), m, dst);
+                    ++j;
+                }
+                lo_bundle_free_recursive(lb);
+                num_msg += count;
             }
-            lo_bundle_free_recursive(lb);
-        }
-        if ((lb = b->tcp)) {
-            const char *path;
-            b->tcp = 0;
-            /* set out-of-band timestamp */
-            mpr_net_set_bundle_time(net, lo_bundle_get_timestamp(lb));
-            /* call handler directly instead of sending over the network */
-            num = lo_bundle_count(lb);
-            while (i < num) {
-                /* find the signal matching the message path */
-                /* link stores the device endpoints, but we need to be sure we are using the correct
-                 * device for local-only links since they might both have signals named /<path> */
-                lo_message m = lo_bundle_get_message(lb, i, &path);
-                mpr_sig dst = mpr_dev_get_sig_by_name(link->devs[1], path+1);
-                if (dst)
-                    mpr_sig_osc_handler(NULL, lo_message_get_types(m), lo_message_get_argv(m),
-                                        lo_message_get_argc(m), m, dst);
-                ++i;
-            }
-            lo_bundle_free_recursive(lb);
         }
     }
-    return num;
+    return num_msg;
 }
 
 static int cmp_qry_maps(const void *context_data, mpr_map map)
