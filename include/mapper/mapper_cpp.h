@@ -516,7 +516,9 @@ namespace mapper {
             UNDEFINED   = MPR_STATUS_UNDEFINED, /*!< Object status is undefined. */
             EXPIRED     = MPR_STATUS_EXPIRED,   /*!< Object record has expired. */
             STAGED      = MPR_STATUS_STAGED,    /*!< Object has been staged. */
+            WAITING     = MPR_STATUS_WAITING,   /*!< Object is waiting for metadata. */
             READY       = MPR_STATUS_READY,     /*!< Object is ready. */
+            ACTIVE      = MPR_STATUS_ACTIVE,    /*!< Object is active. */
         };
 
         Object() { _obj = NULL; _owned = 0; _refcount_ptr = 0; }
@@ -2450,7 +2452,9 @@ namespace mapper {
             case Object::Status::UNDEFINED: os << "UNDEFINED";  break;
             case Object::Status::EXPIRED:   os << "EXPIRED";    break;
             case Object::Status::STAGED:    os << "STAGED";     break;
+            case Object::Status::WAITING:   os << "WAITING";    break;
             case Object::Status::READY:     os << "READY";      break;
+            case Object::Status::ACTIVE:    os << "ACTIVE";     break;
         }
         return os;
     }
