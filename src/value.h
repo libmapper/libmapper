@@ -24,7 +24,6 @@ typedef struct _mpr_value
     uint8_t num_inst;           /*!< Number of instances. */
     uint8_t num_active_inst;    /*!< Number of active instances. */
     mpr_type type;              /*!< The type of this signal. */
-    /* TODO: why not an unsigned type? */
     uint16_t mlen;              /*!< History size of the buffer. */
 } mpr_value_t, *mpr_value;
 

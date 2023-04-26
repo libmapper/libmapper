@@ -71,7 +71,7 @@ typedef struct _mpr_local_map {
 
     mpr_expr expr;                  /*!< The mapping expression. */
     char *updated_inst;             /*!< Bitflags to indicate updated instances. */
-    mpr_value_t *vars;              /*!< User variables values. */
+    mpr_value vars;                 /*!< User variables values. */
     const char **var_names;         /*!< User variables names. */
     const char **old_var_names;     /*!< User variables names. */
     int num_vars;                   /*!< Number of user variables. */
@@ -875,7 +875,7 @@ void mpr_map_alloc_values(mpr_local_map m, int quiet)
      * if not we are allocating variable memory when we don't need to */
     int i, j, hist_size, num_inst = 0, num_vars;
     mpr_expr e = m->expr;
-    mpr_value_t *vars;
+    mpr_value vars;
     const char **var_names;
     mpr_sig sig;
 
@@ -1087,7 +1087,7 @@ static int snprint_var(const char *varname, char *str, int max_len, int vec_len,
 }
 
 #define INSERT_VAL(VARNAME)                                             \
-mpr_value_t *ev = m->vars;                                              \
+mpr_value ev = m->vars;                                                 \
 for (j = 0; j < m->num_vars; j++) {                                     \
     /* TODO: handle multiple instances */                               \
     k = 0;                                                              \
