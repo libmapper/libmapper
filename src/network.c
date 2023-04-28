@@ -741,7 +741,7 @@ void mpr_net_maybe_send_ping(mpr_net net, int force)
     while (list) {
         mpr_link link = (mpr_link)*list;
         list = mpr_list_get_next(list);
-        if (mpr_link_housekeeping(link, now)) {
+        if (mpr_obj_get_is_local((mpr_obj)link) && mpr_link_housekeeping(link, now)) {
             int mapped = mpr_link_get_has_maps(link, MPR_DIR_ANY);
             mpr_dev local_dev = mpr_link_get_dev(link, LINK_LOCAL_DEV);
 #ifdef DEBUG
