@@ -2,7 +2,7 @@ if TESTS
 TEST_CFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 TEST_CXXFLAGS = -Wall -I$(top_srcdir)/include @liblo_CFLAGS@
 
-# note to maintainers: when adding tests to the backslash seperated lists below,
+# note to maintainers: when adding tests to the backslash separated lists below,
 # make sure to leave the last line as "test" to avoid merge/rebase conflicts
 
 if WINDOWS_DLL

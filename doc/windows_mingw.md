@@ -70,7 +70,7 @@ Edit your PKG_CONFIG_PATH:
 
 For libmapper, also add the following flags:
 
-    --disable-examples --disable-audio --disable-jni --disable-docs
+    --disable-examples --disable-audio --disable-java --disable-docs
 
 As you can see, we create an install target in `$HOME/.win` to hold
 the necessary headers and libraries for the Windows build.  We also

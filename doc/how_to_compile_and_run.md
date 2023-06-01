@@ -74,7 +74,7 @@ while it is running, we recommended enabling debug mode:
     ./configure --enable-debug
 
 Additionally, Java and Python bindings, and audio examples, may be
-disabled with options `--disable-jni`, `--disable-python`, and
+disabled with options `--disable-java`, `--disable-python`, and
 `--disable-audio` respectively.
 
 After `configure` runs successfully, the configuration options will be
@@ -174,10 +174,10 @@ for a GUI example which brings up a single, mappable slider.  Running
 multiple copies of `tkgui.py`, you can try mapping one to another to
 make sure libmapper is functional.
 
-Similarly, the Java bindings may be tested by `cd`'ing to the `jni`
+Similarly, the Java bindings may be tested by `cd`'ing to the `bindings/java`
 folder and running `test` with the correct class and library paths:
 
-    cd jni
+    cd bindings/java
     java -cp libmapper.jar -Djava.library.path=.libs test
 
 Building on Windows
@@ -293,18 +293,18 @@ performed for liblo.
 
 Processing.org is a Java-based IDE and set of libraries for developing
 visualizations and interactive art.  To use libmapper with Processing,
-you should place the JNI bindings into the appropriate locations.
+you should place the Java Native Interface (JNI) bindings into the appropriate locations.
 
 From the libmapper directory, create a directory called
 `libraries/libmapper/library` under your sketchbook directory:
 
     mkdir -p <sketchbook>/libraries/libmapper/library
 
-Now copy the JNI bindings to this directory, renaming the jar file to
+Now copy the Java bindings to this directory, renaming the jar file to
 match the name of the directory:
 
-    cp jni/.libs/libmapperjni.8.dylib <sketchbook>/libraries/libmapper/library/libmapperjni.dylib
-    cp jni/libmapper.jar <sketchbook>/libraries/libmapper/library/libmapper.jar
+    cp bindings/java/.libs/libmapperjni.8.dylib <sketchbook>/libraries/libmapper/library/libmapperjni.dylib
+    cp bindings/java/libmapper.jar <sketchbook>/libraries/libmapper/library/libmapper.jar
 
 Create a file `export.txt`:
 

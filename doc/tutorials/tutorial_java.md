@@ -5,6 +5,12 @@ same as any other library on Linux; use `./configure` and then `make` to compile
 it.  You'll need the `Java Developer Kit (JDK)`  available if you want to
 compile the Java bindings.
 
+When compiling the Java bindings on MacOS, you will probably need to pass the JDK path explicitly to autogen/configure. For example on one of our machines we use:
+
+~~~
+./autogen.sh --with-jdk-path=/Library/Java/JavaVirtualMachines/openjdk18/Contents/Home/
+~~~
+
 Once you have _libmapper_ installed, it can be imported into your program:
 
 ~~~java

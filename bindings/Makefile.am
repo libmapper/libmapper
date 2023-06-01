@@ -8,3 +8,7 @@ endif
 if HAVE_CSHARP
 SUBDIRS += csharp
 endif
+
+if HAVE_JAVA
+SUBDIRS += java
+endif

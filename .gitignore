@@ -39,11 +39,11 @@ doc/html/
 doc/latex/
 doc/libmapper.doxyfile
 examples/pwm_example
-jni/mapper/NativeLib.java
-jni/*.h
-jni/*.log
-jni/libmapper.jar
-jni/TestInstances/code/
+bindings/java/mapper/NativeLib.java
+bindings/java/*.h
+bindings/java/*.log
+bindings/java/libmapper.jar
+bindings/java/TestInstances/code/
 libmapper.tar.gz
 libmapper.pc
 m4/libtool.m4

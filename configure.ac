@@ -142,8 +142,8 @@ AC_ARG_ENABLE(python,
    [  --disable-python        don't build the Python bindings.],
    enable_python=$enableval=$enableval, enable_python=yes)
 
-AC_ARG_ENABLE(jni,
-   [  --disable-jni           don't build the Java JNI bindings.],
+AC_ARG_ENABLE(java,
+   [  --disable-java          don't build the Java JNI bindings.],
    enable_jni=$enableval, enable_jni=yes)
 
 AC_ARG_ENABLE(csharp,
@@ -262,10 +262,10 @@ if test x$enable_jni = xyes; then
        [enable_jni=no; jni_explain="(jni.h not found)"])
      CFLAGS="$CFLAGS_revert"
      if test x$enable_jni = xyes; then
-       JNI=jni
+       JNI=bindings/java
        AC_SUBST(JNIFLAGS)
        AC_SUBST(JNI)
-       AC_CONFIG_LINKS([jni/TestInstances/TestInstances.pde:jni/TestInstances/TestInstances.pde])
+       AC_CONFIG_LINKS([bindings/java/TestInstances/TestInstances.pde:bindings/java/TestInstances/TestInstances.pde])
      fi
    fi
 fi
@@ -376,8 +376,13 @@ AM_CONDITIONAL(TESTS, test "x$enable_tests" = xyes)
 AM_CONDITIONAL(HAVE_DOXYGEN, test "x$DOXYGEN" != x)
 AM_CONDITIONAL(HAVE_PYTHON, test "x$enable_python" = xyes)
 AM_CONDITIONAL(HAVE_CSHARP, test "x$enable_csharp" = xyes)
+AM_CONDITIONAL(HAVE_JAVA, test "x$enable_jni" = xyes)
 AM_CONDITIONAL(HAVE_AUDIO, test "x$enable_audio" = xyes)
 AM_CONDITIONAL(ENABLE_THREADS, test "x$enable_threads" = xyes)
+
+AM_COND_IF([HAVE_CSHARP], [AC_CONFIG_FILES(bindings/csharp/Makefile)])
+AM_COND_IF([HAVE_PYTHON], [AC_CONFIG_FILES(bindings/python/Makefile bindings/python/setup.py bindings/python/libmapper/mapper.py)])
+AM_COND_IF([HAVE_JAVA], [AC_CONFIG_FILES(bindings/java/Makefile bindings/java/mapper/NativeLib.java)])
 
 AC_CONFIG_FILES([
     Makefile
@@ -386,13 +391,7 @@ AC_CONFIG_FILES([
     test/Makefile
     doc/Makefile
     doc/libmapper.doxyfile
-    jni/Makefile
-    jni/mapper/NativeLib.java
     bindings/Makefile
-    bindings/csharp/Makefile
-    bindings/python/Makefile
-    bindings/python/setup.py
-    bindings/python/libmapper/mapper.py
     examples/Makefile
     examples/pwm_synth/Makefile
     extra/Makefile

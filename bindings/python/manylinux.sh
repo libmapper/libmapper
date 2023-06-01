@@ -38,7 +38,7 @@ echo === Building libmapper
 mkdir -p $TMP/libmapper
 cd $TMP/libmapper
 PKG_CONFIG_PATH=$INST/lib/pkgconfig $ROOT/configure \
-  --prefix=$INST --disable-tests --disable-audio --disable-jni \
+  --prefix=$INST --disable-tests --disable-audio --disable-java \
   --libdir=$TMP/libmapper/bindings/python/libmapper || bash -i
 make clean
 make install -j4
