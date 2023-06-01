@@ -1,5 +1,14 @@
 # libmapper NEWS
 
+Version 2.4
+-----------
+
+Released 1 June 2023
+
+We are pleased to announce the release of version 2.3 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This version focuses on bugfixes and internal refactoring to support development of new features in the future.
+
 Version 2.3
 -----------
 
