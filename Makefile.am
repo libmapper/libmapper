@@ -1,4 +1,4 @@
-SUBDIRS = src include test examples bindings @JNI@ @DOXYGEN@ extra
+SUBDIRS = src include test examples bindings @DOXYGEN@ extra
 
 EXTRA_DIST = libtool ltmain.sh autogen.sh libmapper.pc.in
 

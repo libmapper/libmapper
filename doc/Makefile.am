@@ -11,9 +11,9 @@ EXTRA_DIST=bela_installation.md expression_syntax.md how_to_compile_and_run.md \
            images/dest_value_reference.png images/full_convergent.png \
            images/naive_convergent.png images/partial_vector_updates.png \
            images/shared_instance_pools.png \
-           integration_examples/mediapipe_integration.md \
-           integration_examples/images/landmarks_model.jpg \
-           integration_examples/images/pong_scene.png \
+           integration_examples/MediaPipe/mediapipe_integration.md \
+           integration_examples/MediaPipe/images/landmarks_model.jpg \
+           integration_examples/MediaPipe/images/pong_scene.png \
            tutorials/tutorial_c.md tutorials/tutorial_cpp.md \
            tutorials/tutorial_csharp.md tutorials/tutorial_introduction.md \
            tutorials/tutorial_java.md tutorials/tutorial_python.md \

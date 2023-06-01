@@ -94,7 +94,7 @@ produced in the lab.  Instead, common communication is performed on a multicast
 UDP port, which all nodes listen on, and this is used to implement a
 collision-handling protocol that can assign a unique ID to each device that
 appears.  Actual signal data is sent directly from a sender device to the
-receiver's IP and UDP port.
+receiver using either UDP or TCP.
 
 Advantages of libmapper
 -----------------------
