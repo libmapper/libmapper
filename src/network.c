@@ -302,7 +302,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
                 unsigned char prefix = sa->sin_addr.s_addr & 0xFF;
                 if (prefix != 0xA9 && prefix != 0) {
                     if (*iface && !strcmp(*iface, aa->AdapterName)) {
-                        free(paa)
+                        free(paa);
                         return 1;
                     }
                     FUNC_IF(free, *iface);
