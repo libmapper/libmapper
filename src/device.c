@@ -848,6 +848,11 @@ static void handler_error(int num, const char *msg, const char *where)
     trace("[libmapper] liblo server error %d in path %s: %s\n", num, where, msg);
 }
 
+void mpr_dev_set_net_servers(mpr_local_dev dev, lo_server *servers)
+{
+    memcpy(dev->servers + 2, servers, sizeof(lo_server) * 2);
+}
+
 static void mpr_dev_start_servers(mpr_local_dev dev)
 {
     int portnum;
@@ -884,7 +889,7 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     free(host);
     free(url);
 
-    memcpy(dev->servers + 2, mpr_net_get_servers(net), sizeof(lo_server) * 2);
+    mpr_dev_set_net_servers(dev, mpr_net_get_servers(net));
 }
 
 /*! Probe the network to see if a device's proposed name.ordinal is available. */

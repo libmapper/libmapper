@@ -45,6 +45,8 @@ typedef enum {
 
 void mpr_dev_free_mem(mpr_dev dev);
 
+void mpr_dev_set_net_servers(mpr_local_dev dev, lo_server *servers);
+
 int mpr_dev_set_from_msg(mpr_dev dev, mpr_msg msg);
 
 int mpr_dev_get_is_subscribed(mpr_dev dev);

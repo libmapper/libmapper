@@ -255,6 +255,10 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
     }
 
     if (ifchosen) {
+        if (*iface && !strcmp(*iface, ifchosen->ifa_name)) {
+            freeifaddrs(ifaphead);
+            return 1;
+        }
         FUNC_IF(free, *iface);
         *iface = strdup(ifchosen->ifa_name);
         sa = (struct sockaddr_in *) ifchosen->ifa_addr;
@@ -297,6 +301,10 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
                 sa = (struct sockaddr_in *) pua->Address.lpSockaddr;
                 unsigned char prefix = sa->sin_addr.s_addr & 0xFF;
                 if (prefix != 0xA9 && prefix != 0) {
+                    if (*iface && !strcmp(*iface, aa->AdapterName)) {
+                        free(paa)
+                        return 1;
+                    }
                     FUNC_IF(free, *iface);
                     *iface = strdup(aa->AdapterName);
                     *addr = sa->sin_addr;
@@ -309,6 +317,10 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
     }
 
     if (loaa && lopua) {
+        if (*iface && !strcmp(*iface, loaa->AdapterName)) {
+            free(paa);
+            return 1;
+        }
         FUNC_IF(free, *iface);
         *iface = strdup(loaa->AdapterName);
         sa = (struct sockaddr_in *) lopua->Address.lpSockaddr;
@@ -494,7 +506,7 @@ mpr_net mpr_net_new(mpr_graph g)
 
 int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
 {
-    int i;
+    int i, updated = 0;
     lo_address temp_addr1, temp_addr2;
     lo_server temp_server1, temp_server2;
 
@@ -508,18 +520,27 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
         if (group && strcmp(group, net->multicast.group)) {
             free(net->multicast.group);
             net->multicast.group = strdup(group);
+            updated = 1;
         }
     }
-    else
+    else {
         net->multicast.group = strdup(group ? group : "224.0.1.3");
-    if (port || !net->multicast.port)
+        updated = 1;
+    }
+    if (!net->multicast.port || (port && port != net->multicast.port)) {
         net->multicast.port = port ? port : 7570;
+        updated = 1;
+    }
     snprintf(port_str, 10, "%d", net->multicast.port);
 
     /* Initialize interface information. */
-    if (!net->iface.name || (iface && strcmp(iface, net->iface.name)))
-        get_iface_addr(iface, &net->iface.addr, &net->iface.name);
+    if ((!net->iface.name || (iface && strcmp(iface, net->iface.name)))
+        && !get_iface_addr(iface, &net->iface.addr, &net->iface.name))
+        updated = 1;
     trace("found interface: %s\n", net->iface.name ? net->iface.name : "none");
+
+    if (!updated)
+        return 0;
 
     /* Open address */
     temp_addr1 = lo_address_new(net->multicast.group, s_port);
@@ -571,8 +592,10 @@ int mpr_net_init(mpr_net net, const char *iface, const char *group, int port)
     net->servers[SERVER_MESH] = temp_server1;
     FUNC_IF(lo_server_free, temp_server2);
 
-    for (i = 0; i < net->num_devs; i++)
+    for (i = 0; i < net->num_devs; i++) {
         mpr_net_add_dev(net, net->devs[i]);
+        mpr_dev_set_net_servers(net->devs[i], net->servers);
+    }
 
     return 0;
 }
