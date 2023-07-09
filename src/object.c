@@ -204,7 +204,7 @@ mpr_prop mpr_obj_set_prop(mpr_obj o, mpr_prop p, const char *s, int len,
         p = mpr_prop_from_str(s);
     }
 
-    if (!o->props.staged) {
+    if (!o->props.staged || !publish) {
         tbl = o->props.synced;
         flags = MOD_LOCAL;
     }
