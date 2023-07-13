@@ -411,6 +411,10 @@ class List:
                 self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.INT64, byref(c_longlong(val)), op)
             else:
                 self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.INT32, byref(c_int(val)), op)
+        elif _type is bool:
+            # convert value to int
+            val = val * 1
+            self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.INT32, byref(c_int(val)), op)
         elif _type is float:
             self._list = mpr.mpr_list_filter(self._list, idx, key, 1, Type.FLOAT, byref(c_float(val)), op)
         elif _type is str:
@@ -633,7 +637,12 @@ class Object:
                 elif prop == Property.PROTOCOL:
                     val = Protocol(val)
                 elif prop == Property.STATUS:
-                    val = Status(val)
+                    status = Status.UNDEFINED
+                    for name, member in Status.__members__.items():
+                        if member.value > val:
+                            break
+                        status = member
+                    val = status
                 elif prop == Property.STEALING:
                     val = Stealing(val)
             else:
