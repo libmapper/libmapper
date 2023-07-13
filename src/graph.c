@@ -728,7 +728,7 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                           const char *dst_name)
 {
     mpr_map map = 0;
-    unsigned char rc = 0, i, j, is_local = 0;
+    unsigned char i, j, is_local = 0;
     if (num_src > MAX_NUM_MAP_SRC) {
         trace_graph(g, "error: maximum mapping sources exceeded.\n");
         return 0;
@@ -763,12 +763,13 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         mpr_map_init(map, num_src, src_sigs, dst_sig, is_local);
         mpr_obj_set_id((mpr_obj)map, id);
         ++g->staged_maps;
-        rc = 1;
 #ifdef DEBUG
         trace_graph(g, "added map ");
         mpr_prop_print(1, MPR_MAP, map);
         printf("\n");
 #endif
+        if (mpr_map_get_status(map) >= MPR_STATUS_ACTIVE)
+            mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, MPR_OBJ_NEW);
     }
     else {
         int changed = 0;
@@ -800,11 +801,10 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
                     break;
                 }
             }
+            if (mpr_map_get_status(map) >= MPR_STATUS_ACTIVE)
+                mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, MPR_OBJ_MOD);
         }
     }
-
-    if (map && rc && mpr_map_get_status(map) >= MPR_STATUS_ACTIVE)
-        mpr_graph_call_cbs(g, (mpr_obj)map, MPR_MAP, MPR_OBJ_NEW);
     return map;
 }
 
