@@ -8,9 +8,9 @@ print('libmapper version:', mpr.__version__, 'with' if mpr.has_numpy() else 'wit
 def h(sig, event, id, val, time):
     print('  handler got', sig['name'], '=', val, 'at', time)
 
-srcs = [mpr.Device("py.testconvergent.src"),
-        mpr.Device("py.testconvergent.src"),
-        mpr.Device("py.testconvergent.src")]
+srcs = [mpr.Device("py.testconvergent.src1"),
+        mpr.Device("py.testconvergent.src2"),
+        mpr.Device("py.testconvergent.src3")]
 outsigs = [srcs[0].add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32),
            srcs[1].add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32),
            srcs[2].add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32)]
