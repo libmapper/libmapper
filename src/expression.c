@@ -5123,7 +5123,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
 
 #if TRACE_EVAL
             printf("\n");
-            mpr_value_print_hist(v, inst_idx % v->num_inst);
+            mpr_value_print_inst_hist(v, inst_idx % v->num_inst);
 #endif
 
             if (tok->var.idx == VAR_Y) {
