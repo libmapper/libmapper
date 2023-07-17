@@ -20,7 +20,7 @@ int shared_graph = 0;
 int autoconnect = 1;
 int done = 0;
 int period = 100;
-int config, num_configs = 3;
+int config, num_configs = 4;
 
 mpr_dev *srcs = 0;
 mpr_dev dst = 0;
@@ -149,6 +149,14 @@ void cleanup_dst()
 int setup_maps()
 {
     int i, j = 10;
+    mpr_graph g2 = NULL;
+
+    if (map) {
+        mpr_map_release(map);
+        for (i = 0; i < num_sources; i++)
+            mpr_dev_poll(srcs[i], 100);
+        mpr_dev_poll(dst, 100);
+    }
 
     switch (config) {
         case 0: {
@@ -180,6 +188,7 @@ int setup_maps()
             }
             mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR, expr, 1);
             free(expr);
+            mpr_obj_push(map);
             break;
         }
         case 1:
@@ -192,24 +201,75 @@ int setup_maps()
             mpr_obj_set_prop(map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
                              "alive=(t_x$0>t_y{-1})&&(t_x$1>t_y{-1})&&(t_x$2>t_y{-1});"
                              "y=x$0+x$1+x$2;", 1);
+            mpr_obj_push(map);
             break;
         case 2:
             /* create/modify map with format string and signal arguments */
-            map = mpr_map_new_from_str("%y=%x-_%x+_%x", recvsig, sendsigs[0],
-                                       sendsigs[1], sendsigs[2]);
+            if (!(map = mpr_map_new_from_str("%y=%x-_%x+_%x", recvsig, sendsigs[0],
+                                             sendsigs[1], sendsigs[2]))) {
+                eprintf("Failed to create map\n");
+                return 1;
+            }
+            mpr_obj_push(map);
             break;
-    }
+        case 3: {
+            /* create the map using a 3rd party graph */
+            g2 = mpr_graph_new(MPR_OBJ);
+            mpr_sig *sendsigs2 = calloc(1, sizeof(mpr_sig) * num_sources);
+            mpr_sig recvsig2;
 
-    mpr_obj_push(map);
+            eprintf("waiting for graph sync... ");
+            while (!done) {
+                int ready = 1;
+                mpr_id sig_id;
+
+                for (i = 0; i < num_sources; i++)
+                    mpr_dev_poll(srcs[i], 100);
+                mpr_dev_poll(dst, 100);
+                mpr_graph_poll(g2, 100);
+
+                /* Check if all signals are known to the graph */
+                sig_id = mpr_obj_get_prop_as_int64(recvsig, MPR_PROP_ID, NULL);
+                recvsig2 = mpr_graph_get_obj(g2, sig_id, MPR_SIG);
+                if (!recvsig2) {
+                    ready = 0;
+                }
+                else {
+                    for (i = 0; i < num_sources; i++) {
+                        sig_id = mpr_obj_get_prop_as_int64(sendsigs[i], MPR_PROP_ID, NULL);
+                        sendsigs2[i] = mpr_graph_get_obj(g2, sig_id, MPR_SIG);
+                        if (!sendsigs2[i]) {
+                            ready = 0;
+                            break;
+                        }
+                    }
+                }
+                if (ready)
+                    break;
+            }
+            eprintf("DONE!\n");
+            if (!(map = mpr_map_new_from_str("%y=%x+_%x+_%x", recvsig2, sendsigs2[0],
+                                             sendsigs2[1], sendsigs2[2]))) {
+                eprintf("Failed to create map\n");
+                return 1;
+            }
+            mpr_obj_push(map);
+            break;
+        }
+    }
 
     /* wait until mappings have been established */
     while (!done && (!mpr_map_get_is_ready(map) || j > 0)) {
         for (i = 0; i < num_sources; i++)
             mpr_dev_poll(srcs[i], 10);
         mpr_dev_poll(dst, 10);
+        if (g2)
+            mpr_graph_poll(g2, 10);
         --j;
     }
 
+    if (g2)
+        mpr_graph_free(g2);
     return 0;
 }
 
@@ -247,6 +307,8 @@ void loop()
             case 2:
                 expected = i;
                 break;
+            case 3:
+                expected = i * 3.f;
         }
 
         for (j = num_sources-1; j >= 0; j--) {

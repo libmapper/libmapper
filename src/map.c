@@ -341,10 +341,6 @@ mpr_map mpr_map_new(int num_src, mpr_sig *src, int num_dst, mpr_sig *dst)
     mpr_map_init(m, num_src, src_sorted, *dst, is_local);
     free(src_sorted);
 
-    /* we need to give the map a temporary id – this may be overwritten later */
-    if (mpr_obj_get_is_local((mpr_obj)*dst))
-        mpr_obj_set_id((mpr_obj)m, mpr_dev_generate_unique_id(mpr_sig_get_dev(*dst)));
-
     return m;
 }
 
@@ -1750,7 +1746,7 @@ int mpr_map_send_state(mpr_map m, int slot_idx, net_msg_t cmd)
     mpr_obj_add_props_to_msg((mpr_obj)m, msg);
 
     /* add slot id */
-    if (MPR_DIR_IN == dst_dir && m->status <= MPR_STATUS_READY && !staged) {
+    if (MPR_DIR_IN == dst_dir && ((m->status <= MPR_STATUS_READY && !staged) || MSG_MAP_TO == cmd)) {
         lo_message_add_string(msg, mpr_prop_as_str(PROP(SLOT), 0));
         i = (slot_idx >= 0) ? slot_idx : 0;
         link = mpr_slot_get_is_local(m->src[i]) ? mpr_slot_get_link(m->src[i]) : 0;

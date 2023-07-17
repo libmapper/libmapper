@@ -761,7 +761,8 @@ mpr_map mpr_graph_add_map(mpr_graph g, mpr_id id, int num_src, const char **src_
         map = (mpr_map)mpr_list_add_item((void**)&g->maps, mpr_map_get_struct_size(is_local));
         mpr_obj_init((mpr_obj)map, g, MPR_MAP);
         mpr_map_init(map, num_src, src_sigs, dst_sig, is_local);
-        mpr_obj_set_id((mpr_obj)map, id);
+        if (id && !mpr_obj_get_id((mpr_obj)map))
+            mpr_obj_set_id((mpr_obj)map, id);
         ++g->staged_maps;
 #ifdef DEBUG
         trace_graph(g, "added map ");
