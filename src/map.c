@@ -522,6 +522,8 @@ static void stage_scope(mpr_map m, mpr_dev d, int flag)
     }
 }
 
+/* Here we do not edit the "scope" property directly – instead we stage the
+ * change with device name arguments and send to the distributed graph. */
 void mpr_map_add_scope(mpr_map m, mpr_dev d)
 {
     stage_scope(m, d, PROP_ADD);

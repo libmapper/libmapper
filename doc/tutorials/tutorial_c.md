@@ -510,6 +510,8 @@ If the parent object (a device and a signal in this case) is *local* the propert
 change takes place immediately. If the object is *remote* the property change is only
 staged and must be pushed out to the network using the functions `mpr_obj_push()`.
 
+The `publish` argument is used to specify whether the object property should be pushed to the libmapper graph. If set to 0, the property will only be accessible locally.
+
 ### Reserved keys
 
 You can use any property name not already reserved by _libmapper_.

@@ -1,6 +1,6 @@
 # Blender + libmapper
 
-[Blender](https://www.blender.org/) is a free and open-source software tool for 3D computer graphics. Blender ships with built-in Python scripting capabilities which we will use to create a Blender-libmapper bridge in this tutorial. For more information about Python scripting in Blender refer to the [Python API Documentation](https://docs.blender.org/api/current/index.html#).
+[Blender](https://www.blender.org/) is a free and open-source software tool for 3D computer graphics. Blender ships with built-in Python scripting capabilities which we will use to create a Blender-libmapper bridge in this tutorial. For more information about Python scripting in Blender refer to the [Blender API Documentation](https://docs.blender.org/api/current/index.html#).
 
 ## Getting started
 
