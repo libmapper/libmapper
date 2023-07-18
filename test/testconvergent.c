@@ -220,7 +220,7 @@ int setup_maps()
 
             eprintf("waiting for graph sync... ");
             while (!done) {
-                int ready = 1;
+                int synced = 1;
                 mpr_id sig_id;
 
                 for (i = 0; i < num_sources; i++)
@@ -232,24 +232,28 @@ int setup_maps()
                 sig_id = mpr_obj_get_prop_as_int64(recvsig, MPR_PROP_ID, NULL);
                 recvsig2 = mpr_graph_get_obj(g2, sig_id, MPR_SIG);
                 if (!recvsig2) {
-                    ready = 0;
+                    synced = 0;
                 }
                 else {
                     for (i = 0; i < num_sources; i++) {
                         sig_id = mpr_obj_get_prop_as_int64(sendsigs[i], MPR_PROP_ID, NULL);
                         sendsigs2[i] = mpr_graph_get_obj(g2, sig_id, MPR_SIG);
                         if (!sendsigs2[i]) {
-                            ready = 0;
+                            synced = 0;
                             break;
                         }
                     }
                 }
-                if (ready)
+                if (synced)
                     break;
             }
-            eprintf("DONE!\n");
-            if (!(map = mpr_map_new_from_str("%y=%x+_%x+_%x", recvsig2, sendsigs2[0],
-                                             sendsigs2[1], sendsigs2[2]))) {
+            if (done)
+                return 1;
+            eprintf("synced!\n");
+            map = mpr_map_new_from_str("%y=%x+_%x+_%x", recvsig2, sendsigs2[0],
+                                       sendsigs2[1], sendsigs2[2]);
+            free(sendsigs2);
+            if (!map) {
                 eprintf("Failed to create map\n");
                 return 1;
             }
