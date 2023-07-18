@@ -97,6 +97,7 @@ struct _mpr_local_dev {
     uint8_t polling;
     uint8_t sending;
     uint8_t receiving;
+    uint8_t own_graph;
 } mpr_local_dev_t;
 
 /* prototypes */
@@ -181,15 +182,19 @@ void mpr_dev_init(mpr_dev dev, int is_local, const char *name, mpr_id id)
 
 /*! Allocate and initialize a device. This function is called to create a new
  *  mpr_dev, not to create a representation of remote devices. */
-mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
+mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph graph)
 {
     mpr_local_dev dev;
+    mpr_graph g;
     RETURN_ARG_UNLESS(name_prefix, 0);
     if (name_prefix[0] == '/')
         ++name_prefix;
     TRACE_RETURN_UNLESS(!strchr(name_prefix, '/'), NULL, "error: character '/' "
                         "is not permitted in device name.\n");
-    if (!g) {
+    if (graph) {
+        g = graph;
+    }
+    else {
         g = mpr_graph_new(0);
         mpr_graph_set_owned(g, 0);
     }
@@ -197,6 +202,7 @@ mpr_dev mpr_dev_new(const char *name_prefix, mpr_graph g)
     dev = (mpr_local_dev)mpr_graph_add_list_item(g, MPR_DEV, sizeof(mpr_local_dev_t));
     mpr_dev_init((mpr_dev)dev, 1, NULL, 0);
 
+    dev->own_graph = graph ? 0 : 1;
     dev->prefix_len = strlen(name_prefix);
     dev->name = (char*)malloc(dev->prefix_len + 6);
     sprintf(dev->name, "%s.0", name_prefix);
@@ -223,13 +229,14 @@ void mpr_dev_free(mpr_dev dev)
     mpr_net net;
     mpr_local_dev ldev;
     mpr_list list;
-    int i;
+    int i, own_graph;
     RETURN_UNLESS(dev && dev->obj.is_local);
     if (!(graph = dev->obj.graph)) {
         free(dev);
         return;
     }
     ldev = (mpr_local_dev)dev;
+    own_graph = ldev->own_graph;
     net = mpr_graph_get_net(graph);
 
     /* free any queued graph messages without sending */
@@ -240,7 +247,7 @@ void mpr_dev_free(mpr_dev dev)
 
     /* remove local graph handlers here so they are not called when child objects are freed */
     /* CHANGE: if graph is not owned then its callbacks _should_ be called when device is removed. */
-    if (mpr_graph_get_owned(graph))
+    if (own_graph)
         mpr_graph_free_cbs(graph);
 
     /* remove subscribers */
@@ -299,7 +306,7 @@ void mpr_dev_free(mpr_dev dev)
     FUNC_IF(lo_server_free, ldev->servers[SERVER_TCP]);
 
     mpr_graph_remove_dev(graph, dev, MPR_OBJ_REM);
-    if (!mpr_graph_get_owned(graph))
+    if (own_graph)
         mpr_graph_free(graph);
 }
 
