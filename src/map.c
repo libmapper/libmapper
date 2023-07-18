@@ -456,11 +456,11 @@ static int cmp_qry_sigs(const void *ctx, mpr_sig s)
 {
     mpr_map m = *(mpr_map*)ctx;
     mpr_loc l = *(mpr_loc*)((char*)ctx + sizeof(mpr_map*));
-    int i;
-    if (l & MPR_LOC_SRC) {
-        for (i = 0; i < m->num_src; i++) {
-            if (s == mpr_slot_get_sig(m->src[i]))
-                return 1;
+    int *idx = (int*)((char*)ctx + sizeof(mpr_map*) + sizeof(mpr_loc));
+    if (l & MPR_LOC_SRC && *idx < m->num_src) {
+        if (s == mpr_slot_get_sig(m->src[*idx])) {
+            ++(*idx);
+            return 2; /* Signal that list scanning should restart. */
         }
     }
     return (l & MPR_LOC_DST) ? (s == mpr_slot_get_sig(m->dst)) : 0;
@@ -469,7 +469,7 @@ static int cmp_qry_sigs(const void *ctx, mpr_sig s)
 mpr_list mpr_map_get_sigs(mpr_map m, mpr_loc l)
 {
     RETURN_ARG_UNLESS(m, 0);
-    return mpr_graph_new_query(m->obj.graph, 1, MPR_SIG, (void*)cmp_qry_sigs, "vi", &m, l);
+    return mpr_graph_new_query(m->obj.graph, 1, MPR_SIG, (void*)cmp_qry_sigs, "vii", &m, l, 0);
 }
 
 int mpr_map_get_sig_idx(mpr_map map, mpr_sig sig)

@@ -57,6 +57,7 @@ static int cmp_parallel_query(const void *ctx_data, const void *dev);
 /*! Contains some function pointers and data for handling query context. */
 typedef struct _query_info {
     unsigned int size;
+    unsigned int reset;
     query_compare_func_t *query_compare;
     query_free_func_t *query_free;
     int *data; /* stub */
@@ -168,10 +169,24 @@ void mpr_list_free_item(void *item)
 
 void **mpr_list_query_continuation(mpr_list_header_t *lh)
 {
-    void *item = mpr_list_header_by_data(lh->self)->next;
+    void *item;
+    if (lh->query_ctx->reset) {
+        item = mpr_list_header_by_data(*lh->start)->self;
+        lh->query_ctx->reset = 0;
+    }
+    else {
+        item = mpr_list_header_by_data(lh->self)->next;
+    }
     while (item) {
-        if (lh->query_ctx->query_compare(&lh->query_ctx->data, item))
+        int res = lh->query_ctx->query_compare(&lh->query_ctx->data, item);
+        if (res) {
+            if (2 == res) {
+                /* Mark list as reset */
+                trace("resetting list\n");
+                lh->query_ctx->reset = 1;
+            }
             break;
+        }
         item = mpr_list_get_next_internal(item);
     }
 
@@ -257,7 +272,7 @@ mpr_list vmpr_list_new_query(const void **list, const void *func, const char *ty
     lh = (mpr_list_header_t*)malloc(LIST_HEADER_SIZE);
     lh->next = (void*)mpr_list_query_continuation;
     lh->query_type = QUERY_DYNAMIC;
-    lh->query_ctx = (query_info_t*)malloc(sizeof(query_info_t)+size);
+    lh->query_ctx = (query_info_t*)malloc(sizeof(query_info_t) + size);
 
     data = (char*)&lh->query_ctx->data;
     i = 0;
@@ -291,6 +306,7 @@ mpr_list vmpr_list_new_query(const void **list, const void *func, const char *ty
     }
 
     lh->query_ctx->size = sizeof(query_info_t) + size;
+    lh->query_ctx->reset = 0;
     lh->query_ctx->query_compare = (query_compare_func_t*)func;
     lh->query_ctx->query_free = (query_free_func_t*)free_query_single_ctx;
     lh->start = (void**)list;
@@ -611,7 +627,7 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop p, const char *key, int len,
     filter = (mpr_list_header_t*)malloc(LIST_HEADER_SIZE);
     filter->next = (void*)mpr_list_query_continuation;
     filter->query_type = QUERY_DYNAMIC;
-    filter->query_ctx = (query_info_t*)malloc(sizeof(query_info_t)+size);
+    filter->query_ctx = (query_info_t*)malloc(sizeof(query_info_t) + size);
 
     data = (char*)&filter->query_ctx->data;
 
@@ -665,6 +681,7 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop p, const char *key, int len,
     }
 
     filter->query_ctx->size = sizeof(query_info_t) + size;
+    filter->query_ctx->reset = 0;
     filter->query_ctx->query_compare = (query_compare_func_t*)filter_by_prop;
     filter->query_ctx->query_free = (query_free_func_t*)free_query_single_ctx;
     filter->start = (void**)list;
