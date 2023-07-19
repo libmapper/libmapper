@@ -40,7 +40,7 @@ public class Test
         }
         Console.WriteLine("ready: " + dev);
 
-        dev.SetProperty("foo", 1000);
+        dev.SetProperty("foo", 1000, false);
         Console.WriteLine("property 'foo' = " + dev.GetProperty("foo"));
         Console.WriteLine("library version = " + dev.GetProperty(Property.LibVersion));
 

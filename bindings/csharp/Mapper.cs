@@ -372,7 +372,7 @@ namespace Mapper
                     }
                     else
                     {
-                        Console.WriteLine("error: arrays of List are not supported.");
+                        Console.WriteLine("error: arrays of List are not currently supported.");
                         return null;
                     }
                 default:
@@ -442,9 +442,9 @@ namespace Mapper
         unsafe internal static extern
         int mpr_obj_set_prop(IntPtr obj, int prop, [MarshalAs(UnmanagedType.LPStr)] string key,
                              int len, int type, void* value, int publish);
-        unsafe public Object SetProperty<P, T>(P property, T value)
+        unsafe public Object SetProperty<P, T>(P property, T value, bool publish)
         {
-            int _prop = 0;
+            int _prop = 0, _pub = Convert.ToInt32(publish);
             string _key = null;
 
             switch (property)
@@ -459,33 +459,39 @@ namespace Mapper
             switch (value)
             {
                 case int i:
-                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Int32, (void*)&i, 1);
+                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Int32, (void*)&i, _pub);
                     break;
                 case float f:
-                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Float, (void*)&f, 1);
+                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Float, (void*)&f, _pub);
                     break;
                 case double d:
-                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Double, (void*)&d, 1);
+                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Double, (void*)&d, _pub);
+                    break;
+                case bool b:
+                    {
+                        int i = Convert.ToInt32(b);
+                        mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Boolean, (void*)&i, _pub);
+                    }
                     break;
                 case int[] i:
                     fixed(int *temp = &i[0])
                     {
                         IntPtr intPtr = new IntPtr((void*)temp);
-                        mpr_obj_set_prop(_obj, _prop, _key, i.Length, (int)Type.Int32, (void*)intPtr, 1);
+                        mpr_obj_set_prop(_obj, _prop, _key, i.Length, (int)Type.Int32, (void*)intPtr, _pub);
                     }
                     break;
                 case float[] f:
                     fixed(float *temp = &f[0])
                     {
                         IntPtr intPtr = new IntPtr((void*)temp);
-                        mpr_obj_set_prop(_obj, _prop, _key, f.Length, (int)Type.Float, (void*)intPtr, 1);
+                        mpr_obj_set_prop(_obj, _prop, _key, f.Length, (int)Type.Float, (void*)intPtr, _pub);
                     }
                     break;
                 case double[] d:
                     fixed(double *temp = &d[0])
                     {
                         IntPtr intPtr = new IntPtr((void*)temp);
-                        mpr_obj_set_prop(_obj, _prop, _key, d.Length, (int)Type.Double, (void*)intPtr, 1);
+                        mpr_obj_set_prop(_obj, _prop, _key, d.Length, (int)Type.Double, (void*)intPtr, _pub);
                     }
                     break;
                 default:
@@ -493,6 +499,10 @@ namespace Mapper
                     break;
             }
             return this;
+        }
+        public Object SetProperty<P, T>(P property, T value)
+        {
+            return SetProperty(property, value, true);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
@@ -733,9 +743,15 @@ namespace Mapper
         ~Graph()
             { if (_owned) mpr_graph_free(this._obj); }
 
+        public new Graph SetProperty<P, T>(P property, T value, bool publish)
+        {
+            base.SetProperty(property, value, publish);
+            return this;
+        }
+
         public new Graph SetProperty<P, T>(P property, T value)
         {
-            base.SetProperty(property, value);
+            base.SetProperty(property, value, true);
             return this;
         }
 
@@ -1350,9 +1366,15 @@ namespace Mapper
             return this;
         }
 
+        public new Signal SetProperty<P, T>(P property, T value, bool publish)
+        {
+            base.SetProperty(property, value, publish);
+            return this;
+        }
+
         public new Signal SetProperty<P, T>(P property, T value)
         {
-            base.SetProperty(property, value);
+            base.SetProperty(property, value, true);
             return this;
         }
 
@@ -1484,9 +1506,15 @@ namespace Mapper
             return this;
         }
 
+        public new Device SetProperty<P, T>(P property, T value, bool publish)
+        {
+            base.SetProperty(property, value, publish);
+            return this;
+        }
+
         public new Device SetProperty<P, T>(P property, T value)
         {
-            base.SetProperty(property, value);
+            base.SetProperty(property, value, true);
             return this;
         }
 
@@ -1586,9 +1614,15 @@ namespace Mapper
             return mpr_map_get_is_ready(this._obj);
         }
 
+        public new Map SetProperty<P, T>(P property, T value, bool publish)
+        {
+            base.SetProperty(property, value, publish);
+            return this;
+        }
+
         public new Map SetProperty<P, T>(P property, T value)
         {
-            base.SetProperty(property, value);
+            base.SetProperty(property, value, true);
             return this;
         }
 
