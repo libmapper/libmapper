@@ -1,11 +1,39 @@
 # libmapper NEWS
 
+Version 2.4.2
+-------------
+
+Released 24 July 2023
+
+We are pleased to announce the release of version 2.4.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This version focuses on bugfixes, continuous integration, usability and language bindings for Python and C#.
+
+Bugfixes include:
+
+- Fix for potential crash when editing switching network interfaces
+Documentation updates.
+- Ensuring the graph handler is called when map sources are updated during construction of convergent maps.
+- Fixes for convergent map handshake when initiated by a 3rd-party (non-local) graph.
+- Fixes for graph ownership tracking in mpr_dev objects.
+
+Usability improvements include:
+
+- Private object properties are now applied immediately (rather than staging for `push`) since they will not be pushed to the graph anyway.
+- The `mpr_list` functionality was upgraded to support generating ordered query results. Calls to `mpr_map_get_sigs()` will now result in source signal lists with the same order (alphabetical) as used internally and in map expression syntax.
+
+Language bindings:
+
+- Python bindings: handle bool properties and non-standard status values.
+- Python bindings: test fixes, demo of cleanup on sigint.
+- C# bindings: added support for private object properties.
+
 Version 2.4
 -----------
 
 Released 1 June 2023
 
-We are pleased to announce the release of version 2.3 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+We are pleased to announce the release of version 2.4 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
 This version focuses on bugfixes and internal refactoring to support development of new features in the future.
 
