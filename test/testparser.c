@@ -470,8 +470,12 @@ int run_tests()
     set_expr_str("y=[-99.4, -x*1.1+x]");
     setup_test(MPR_INT32, 2, MPR_DBL, 3);
     expect_dbl[0] = -99.4f;
-    expect_dbl[1] = -((double)src_int[0]) * 1.1f + ((double)src_int[0]);
-    expect_dbl[2] = -((double)src_int[1]) * 1.1f + ((double)src_int[1]);
+    expect_dbl[1] = -((double)src_int[0]);
+    expect_dbl[1] *= 1.1f;
+    expect_dbl[1] += ((double)src_int[0]);
+    expect_dbl[2] = -((double)src_int[1]);
+    expect_dbl[2] *= 1.1f;
+    expect_dbl[2] += ((double)src_int[1]);
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -486,9 +490,12 @@ int run_tests()
     /* 8) Typical linear scaling expression with vectors */
     set_expr_str("y=x*[0.1,3.7,-.1112]+[2,1.3,9000]");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    expect_flt[0] = src_flt[0] * 0.1f + 2.f;
-    expect_flt[1] = src_flt[1] * 3.7f + 1.3f;
-    expect_flt[2] = src_flt[2] * -.1112f + 9000.f;
+    expect_flt[0] = src_flt[0] * 0.1f;
+    expect_flt[0] += 2.f;
+    expect_flt[1] = src_flt[1] * 3.7f;
+    expect_flt[1] += 1.3f;
+    expect_flt[2] = src_flt[2] * -0.1112f;
+    expect_flt[2] += 9000.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -612,8 +619,10 @@ int run_tests()
     /* 25) Multiple expressions */
     set_expr_str("y[0]=x*100-23.5; y[2]=100-x*6.7");
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
-    expect_flt[0] = src_int[0] * 100.f - 23.5f;
-    expect_flt[2] = 100.f - src_int[0] * 6.7f;
+    expect_flt[0] = src_int[0] * 100.f;
+    expect_flt[0] -= 23.5f;
+    expect_flt[2] = src_int[0] * 6.7f;
+    expect_flt[2] = 100.f - expect_flt[2];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -740,17 +749,23 @@ int run_tests()
     /* 40) Variable declaration */
     set_expr_str("ema=ema*0.9+x*0.1; y=ema*2; ema{-1}=90");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_flt[0] = 90;
-    for (i = 0; i < iterations; i++)
-        expect_flt[0] = expect_flt[0] * 0.9f + src_int[0] * 0.1f;
-    expect_flt[0] *= 2;
+    expect_flt[0] = 90.f;
+    for (i = 0; i < iterations; i++) {
+        float temp = src_int[0];
+        temp *= 0.1f;
+        expect_flt[0] *= 0.9f;
+        expect_flt[0] += temp;
+    }
+    expect_flt[0] *= 2.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 41) Multiple variable declaration */
     set_expr_str("a=1.1; b=2.2; c=3.3; y=x+a-b*c");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_flt[0] = (float)src_int[0] + 1.1 - 2.2 * 3.3;
+    expect_flt[0] = (float)src_int[0];
+    expect_flt[0] += 1.1;
+    expect_flt[0] -= 2.2 * 3.3;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -819,9 +834,10 @@ int run_tests()
     set_expr_str("y=x-ema(x,0.1)+2");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     expect_flt[0] = 0;
-    for (i = 0; i < iterations; i++)
-        expect_flt[0] = expect_flt[0] * 0.9f + src_int[0] * 0.1f;
-    expect_flt[0] = src_int[0] - expect_flt[0] + 2.f;
+    for (i = 0; i < iterations; i++) {
+        expect_flt[0] += ((float)src_int[0] - expect_flt[0]) * 0.1f;
+    }
+    expect_flt[0] = (float)src_int[0] - expect_flt[0] + 2.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -1050,7 +1066,9 @@ int run_tests()
     set_expr_str("y=dot(x, x$1);");
     lens[0] = 3;
     setup_test_multisource(2, types, lens, MPR_FLT, 1);
-    expect_flt[0] = src_int[0] * src_flt[0] + src_int[1] * src_flt[1] + src_int[2] * src_flt[2];
+    expect_flt[0] = src_int[0] * src_flt[0];
+    expect_flt[0] += src_int[1] * src_flt[1];
+    expect_flt[0] += src_int[2] * src_flt[2];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -1081,18 +1099,24 @@ int run_tests()
     /* 78) Optimization: Vector squashing (10 tokens instead of 12) */
     set_expr_str("y=x*[3,3,x[1]]+[x[0],1,1];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    expect_flt[0] = src_flt[0] * 3.0f + src_flt[0];
-    expect_flt[1] = src_flt[1] * 3.0f + 1.0f;
-    expect_flt[2] = src_flt[2] * src_flt[1] + 1.0f;
+    expect_flt[0] = src_flt[0] * 3.0f;
+    expect_flt[0] += src_flt[0];
+    expect_flt[1] = src_flt[1] * 3.0f;
+    expect_flt[1] += 1.0f;
+    expect_flt[2] = src_flt[2] * src_flt[1];
+    expect_flt[2] += 1.0f;
     if (parse_and_eval(EXPECT_SUCCESS, 10, 1, iterations))
         return 1;
 
     /* 79) Wrapping vectors, vector variables (6 tokens instead of 11) */
     set_expr_str("y=x*[3,3,3]+[1.23,4.56];");
     setup_test(MPR_FLT, 3, MPR_FLT, 3);
-    expect_flt[0] = src_flt[0] * 3.0f + 1.23f;
-    expect_flt[1] = src_flt[1] * 3.0f + 4.56f;
-    expect_flt[2] = src_flt[2] * 3.0f + 1.23f;
+    expect_flt[0] = src_flt[0] * 3.0f;
+    expect_flt[0] += 1.23f;
+    expect_flt[1] = src_flt[1] * 3.0f;
+    expect_flt[1] += 4.56f;
+    expect_flt[2] = src_flt[2] * 3.0f;
+    expect_flt[2] += 1.23f;
     if (parse_and_eval(EXPECT_SUCCESS, 6, 1, iterations))
         return 1;
 
@@ -1476,7 +1500,10 @@ int run_tests()
     /* TODO: add timing */
     set_expr_str("i{-1}=0;p=[60,61,62,63,64];y=miditohz(p[i]);i=i+1;");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
-    expect_flt[0] = 440.f * pow(2.0, (((iterations - 1) % 5) + 60.f - 69.f) / 12.f);
+    expect_flt[0] = ((iterations - 1) % 5) + 60.f - 69.f;
+    expect_flt[0] /= 12.f;
+    expect_flt[0] = pow(2.0, expect_flt[0]);
+    expect_flt[0] *= 440.f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
@@ -1561,16 +1588,20 @@ int run_tests()
     /* 125) Fractional indices for both vector and history */
     set_expr_str("y=x[0.3]{-0.25};");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
-    expect_flt[0] = src_flt[0] * 0.7f + src_flt[1] * 0.3f;
-    expect_flt[0] = expect_flt[0] * 0.25f + expect_flt[0] * 0.75f;
+    expect_flt[1] = src_flt[0] * 0.7f;
+    expect_flt[1] += src_flt[1] * 0.3f;
+    expect_flt[0] = expect_flt[1] * 0.25f;
+    expect_flt[0] += expect_flt[1] * 0.75f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 126) Fractional indices for both history and vector */
     set_expr_str("y=x{-1.75}[0.6];");
     setup_test(MPR_FLT, 2, MPR_FLT, 1);
-    expect_flt[0] = src_flt[0] * (1.f - 0.6f) + src_flt[1] * 0.6f;
-    expect_flt[0] = expect_flt[0] * 0.75f + expect_flt[0] * 0.25f;
+    expect_flt[1] = src_flt[0] * (1.f - 0.6f);
+    expect_flt[1] += src_flt[1] * 0.6f;
+    expect_flt[0] = expect_flt[1] * 0.75f;
+    expect_flt[0] += expect_flt[1] * 0.25f;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 

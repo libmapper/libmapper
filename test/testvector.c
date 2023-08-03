@@ -190,7 +190,15 @@ void loop()
     while ((!terminate || i < 50) && !done) {
         for (j = 0; j < vec_len; j++) {
             v[j] = (float)(i + j);
-            expected[j] = v[j] * M[j] + B[j];
+        }
+        for (j = 0; j < vec_len; j++) {
+            expected[j] = M[j];
+        }
+        for (j = 0; j < vec_len; j++) {
+            expected[j] *= v[j];
+        }
+        for (j = 0; j < vec_len; j++) {
+            expected[j] += B[j];
         }
         eprintf("Updating signal %s to [", name);
         for (j = 0; j < vec_len; j++)
