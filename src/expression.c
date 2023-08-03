@@ -331,7 +331,7 @@ CONCAT_VFUNC(vconcatd, double, d)
 
 #define TYPED_EMA(TYPE, T)                              \
 static TYPE ema##T(TYPE memory, TYPE val, TYPE weight)  \
-    { return val * weight + memory * (1 - weight); }
+    { return memory + (val - memory) * weight; }
 TYPED_EMA(float, f)
 TYPED_EMA(double, d)
 
