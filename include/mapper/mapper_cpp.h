@@ -162,26 +162,22 @@ namespace mapper {
     {
     public:
         /*! Allocate and initialize a Time object.
-         *  \param time         The mpr_time value to copy.
-         *  \return             Self. */
+         *  \param time         The mpr_time value to copy. */
         Time(mpr_time time)
             { _time.sec = time.sec; _time.frac = time.frac; }
 
         /*! Allocate and initialize a Time object.
          *  \param sec          Seconds since January 1, 1900 epoch.
-         *  \param frac         Fractions of a second.
-         *  \return             Self. */
+         *  \param frac         Fractions of a second. */
         Time(unsigned long int sec, unsigned long int frac)
             { _time.sec = sec; _time.frac = frac; }
 
         /*! Allocate and initialize a Time object.
-         *  \param seconds      Time to initialize.
-         *  \return             Self. */
+         *  \param seconds      Time to initialize. */
         Time(double seconds)
             { mpr_time_set_dbl(&_time, seconds); }
 
-        /*! Allocate and initialize a Time object to the current time.
-         *  \return             Self. */
+        /*! Allocate and initialize a Time object to the current time. */
         Time()
             { mpr_time_set(&_time, MPR_NOW); }
 
@@ -218,7 +214,6 @@ namespace mapper {
             { return &_time; }
 
         /*! Retrieve the value translated to a double.
-         *  \param frac         The value to set.
          *  \return             Self. */
         operator double() const
             { return mpr_time_as_dbl(_time); }
@@ -670,12 +665,12 @@ namespace mapper {
         Map(const Map& orig) : Object(orig._obj) {}
         Map(mpr_map map) : Object(map) {}
 
-        /*! Create a map between a pair of Signals.
+        /*! Create a Map between a pair of Signals. If a matching map already exists in the graph,
+         *  the new Map object will refer to the existing map, otherwise a new map will be created.
+         *  Changes to the Map will not take effect until it has been added to the distributed
+         *  graph using push().
          *  \param src  Source Signal.
-         *  \param dst  Destination Signal object.
-         *  \return     A new Map object – either loaded from the Graph (if the Map already exists)
-         *              or newly created. In the latter case the Map will not take effect until it
-         *              has been added to the distributed graph using push(). */
+         *  \param dst  Destination Signal object. */
         Map(signal_type src, signal_type dst) : Object(NULL)
         {
             mpr_sig cast_src = src, cast_dst = dst;
@@ -684,28 +679,26 @@ namespace mapper {
 
         /*! Create a map between a set of signals using an expression string containing embedded
          *  format specifiers that are replaced by mpr_sig values specified in subsequent additional
-         *  arguments.
+         *  arguments. If a matching map already exists in the graph, the new Map object will refer
+         *  to the existing map, otherwise a new map will be created. Changes to the Map will not
+         *  take effect until it has been added to the distributed graph using push().
          *  \param expression   A string specifying the map expression to use when mapping source to
          *                      destination signals. The format specifier "%x" is used to specify
          *                      source signals and the "%y" is used to specify the destination
          *                      signal.
          *  \param args         A sequence of additional Signal arguments, one for each format
-         *                      specifier in the format string
-         *  \return             A map data structure – either loaded from the graph and modified
-         *                      with the new expression (if the map already existed) or newly
-         *                      created. Changes to the map will not take effect until it has been
-         *                      added to the distributed graph using mpr_obj_push(). */
+         *                      specifier in the format string. */
         template<typename... Args>
         Map(const str_type &expression, Args ...args) : Map(1, expression, args...) {}
 
-        /*! Create a map between a set of Signals.
+        /*! Create a map between a set of Signals. If a matching map already exists in the graph,
+         *  the new Map object will refer to the existing map, otherwise a new map will be created.
+         *  Changes to the Map will not take effect until it has been added to the distributed
+         *  graph using push().
          *  \param num_srcs The number of source signals in this map.
          *  \param srcs     Array of source Signal objects.
          *  \param num_dsts The number of destination signals in this map, currently restricted to 1.
-         *  \param dsts     Array of destination Signal objects.
-         *  \return         A new Map object – either loaded from the Graph (if the Map already
-         *                  exists) or newly created. In the latter case the Map will not take
-         *                  effect until it has been added to the graph using push(). */
+         *  \param dsts     Array of destination Signal objects. */
         Map(int num_srcs, signal_type srcs[], int num_dsts, signal_type dsts[]) : Object(NULL)
         {
             mpr_sig *cast_src = (mpr_sig*)malloc(sizeof(mpr_sig) * num_srcs), cast_dst = dsts[0];
@@ -715,12 +708,12 @@ namespace mapper {
             free(cast_src);
         }
 
-        /*! Create a map between a set of Signals.
+        /*! Create a map between a set of Signals. If a matching map already exists in the graph,
+         *  the new Map object will refer to the existing map, otherwise a new map will be created.
+         *  Changes to the Map will not take effect until it has been added to the distributed
+         *  graph using push().
          *  \param srcs std::array of source Signal objects.
-         *  \param dsts std::array of destination Signal objects.
-         *  \return     A new Map object – either loaded from the Graph (if the Map already exists)
-         *              or newly created. In the latter case the Map will not take effect until it
-         *              has been added to the distributed graph using push(). */
+         *  \param dsts std::array of destination Signal objects. */
         template <size_t N, size_t M>
         Map(std::array<signal_type, N>& srcs,
             std::array<signal_type, M>& dsts) : Object(NULL)
@@ -736,12 +729,12 @@ namespace mapper {
             free(cast_src);
         }
 
-        /*! Create a map between a set of Signals.
+        /*! Create a map between a set of Signals. If a matching map already exists in the graph,
+         *  the new Map object will refer to the existing map, otherwise a new map will be created.
+         *  Changes to the Map will not take effect until it has been added to the distributed
+         *  graph using push().
          *  \param srcs std::vector of source Signal objects.
-         *  \param dsts std::vector of destination Signal objects.
-         *  \return     A new Map object – either loaded from the Graph (if the Map already exists)
-         *              or newly created. In the latter case the Map will not take effect until it
-         *              has been added to the distributed graph using push(). */
+         *  \param dsts std::vector of destination Signal objects. */
         Map(std::vector<signal_type>& srcs, std::vector<signal_type>& dsts) : Object(NULL)
         {
             if (!srcs.size() || (dsts.size() != 1)) {
@@ -1354,14 +1347,12 @@ namespace mapper {
         /*! Allocate and initialize a Device.
          *  \param name     A short descriptive string to identify the Device.
          *                  Must not contain spaces or the slash character '/'.
-         *  \param graph    A previously allocated Graph object to use.
-         *  \return         A newly allocated Device. */
+         *  \param graph    A previously allocated Graph object to use. */
         Device(const str_type &name, const Graph& graph);
 
         /*! Allocate and initialize a Device.
          *  \param name     A short descriptive string to identify the Device.
-         *                  Must not contain spaces or the slash character '/'.
-         *  \return         A newly allocated Device. */
+         *                  Must not contain spaces or the slash character '/'. */
         Device(const str_type &name) : Object(NULL)
         {
             _obj = mpr_dev_new(name, 0);
@@ -1615,8 +1606,7 @@ namespace mapper {
     public:
         /*! Create a peer in the libmapper distributed graph.
          *  \param types    Sets whether the graph should automatically subscribe to information
-         *                  about Signals and Maps when it encounters a previously-unseen Device.
-         *  \return         The new Graph. */
+         *                  about Signals and Maps when it encounters a previously-unseen Device. */
         Graph(Type types = Type::OBJECT)
         {
             _obj = mpr_graph_new(static_cast<mpr_type>(types));
