@@ -921,7 +921,6 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
     lo_server *servers = mpr_net_get_servers(n);
 
     mpr_net_poll(n, 0);
-    mpr_graph_housekeeping(g);
 
     if (!block_ms) {
         if (lo_servers_recv_noblock(servers, status, 2, 0)) {
@@ -942,7 +941,6 @@ int mpr_graph_poll(mpr_graph g, int block_ms)
         elapsed = (mpr_get_current_time() - then) * 1000;
         if ((elapsed - checked_admin) > 100) {
             mpr_net_poll(n, 0);
-            mpr_graph_housekeeping(g);
             checked_admin = elapsed;
         }
 

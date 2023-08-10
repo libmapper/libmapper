@@ -535,56 +535,73 @@ int mpr_dev_poll(mpr_dev dev, int block_ms)
     int admin_count = 0, device_count = 0, status[4];
     mpr_local_dev ldev = (mpr_local_dev)dev;
     mpr_net net;
+    double then;
+
     RETURN_ARG_UNLESS(dev && dev->obj.is_local, 0);
+
+    then = mpr_get_current_time();
     net = mpr_graph_get_net(dev->obj.graph);
     mpr_net_poll(net, !ldev->registered && check_registration(ldev));
-    mpr_graph_housekeeping(dev->obj.graph);
 
-    if (!ldev->registered) {
-        if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, block_ms)) {
-            admin_count = (status[0] > 0) + (status[1] > 0);
-        }
-        return admin_count;
+    if (ldev->registered) {
+        ldev->polling = 1;
+        ldev->time_is_stale = 1;
+        mpr_dev_get_time(dev);
+        process_outgoing_maps(ldev);
+        ldev->polling = 0;
     }
 
-    ldev->polling = 1;
-    ldev->time_is_stale = 1;
-    mpr_dev_get_time(dev);
-    process_outgoing_maps(ldev);
-    ldev->polling = 0;
-
     if (!block_ms) {
-        if (lo_servers_recv_noblock(ldev->servers, status, 4, 0)) {
-            admin_count = (status[0] > 0) + (status[1] > 0);
-            device_count = (status[2] > 0) + (status[3] > 0);
+        if (ldev->registered) {
+            if (lo_servers_recv_noblock(ldev->servers, status, 4, 0)) {
+                admin_count = (status[0] > 0) + (status[1] > 0);
+                device_count = (status[2] > 0) + (status[3] > 0);
+            }
+        }
+        else {
+            if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, 0)) {
+                admin_count = (status[0] > 0) + (status[1] > 0);
+            }
+            return admin_count;
         }
     }
     else {
-        double then = mpr_get_current_time();
-        int left_ms = block_ms, elapsed, checked_admin = 0;
+        int left_ms = block_ms, elapsed_ms, admin_elapsed_ms = 0;
         while (left_ms > 0) {
             /* set timeout to a maximum of 100ms */
             if (left_ms > 100)
                 left_ms = 100;
-            ldev->polling = 1;
-            if (lo_servers_recv_noblock(ldev->servers, status, 4, left_ms)) {
-                admin_count += (status[0] > 0) + (status[1] > 0);
-                device_count += (status[2] > 0) + (status[3] > 0);
-            }
-            /* check if any signal update bundles need to be sent */
-            process_incoming_maps(ldev);
-            process_outgoing_maps(ldev);
-            ldev->polling = 0;
+            if (ldev->registered) {
+                ldev->polling = 1;
+                if (lo_servers_recv_noblock(ldev->servers, status, 4, left_ms)) {
+                    admin_count += (status[0] > 0) + (status[1] > 0);
+                    device_count += (status[2] > 0) + (status[3] > 0);
+                }
 
-            elapsed = (mpr_get_current_time() - then) * 1000;
-            if ((elapsed - checked_admin) > 100) {
-                mpr_net_poll(net, 0);
-                mpr_graph_housekeeping(dev->obj.graph);
-                checked_admin = elapsed;
+                /* check if any signal update bundles need to be sent */
+                process_incoming_maps(ldev);
+                process_outgoing_maps(ldev);
+                ldev->polling = 0;
             }
-            left_ms = block_ms - elapsed;
+            else {
+                if (lo_servers_recv_noblock(ldev->servers + 2, status, 2, left_ms)) {
+                    admin_count = (status[0] > 0) + (status[1] > 0);
+                }
+            }
+
+            /* Only run mpr_net_poll() again if more than 100ms have elapsed. */
+            elapsed_ms = (mpr_get_current_time() - then) * 1000;
+            if ((elapsed_ms - admin_elapsed_ms) > 100) {
+                mpr_net_poll(net, 0);
+                admin_elapsed_ms = elapsed_ms;
+            }
+
+            left_ms = block_ms - elapsed_ms;
         }
     }
+
+    if (!ldev->registered)
+        return admin_count;
 
     /* When done, or if non-blocking, check for remaining messages up to a
      * proportion of the number of input signals. Arbitrarily choosing 1 for

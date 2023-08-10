@@ -789,21 +789,23 @@ void mpr_net_poll(mpr_net net, int force_ping)
     /* send out any cached messages */
     mpr_net_send(net);
 
-    if (!num_devs) {
+    if (num_devs) {
+        if (net->registered < num_devs) {
+            for (i = 0; i < net->num_devs; i++)
+                registered += mpr_dev_get_is_registered((mpr_dev)net->devs[i]);
+            net->registered = registered;
+        }
+
+        if (net->registered) {
+            /* Send out clock sync messages occasionally */
+            mpr_net_maybe_send_ping(net, force_ping);
+        }
+    }
+    else {
         mpr_net_maybe_send_ping(net, 0);
-        return;
     }
 
-    if (net->registered < num_devs) {
-        for (i = 0; i < net->num_devs; i++)
-            registered += mpr_dev_get_is_registered((mpr_dev)net->devs[i]);
-        net->registered = registered;
-    }
-
-    if (net->registered) {
-        /* Send out clock sync messages occasionally */
-        mpr_net_maybe_send_ping(net, force_ping);
-    }
+    mpr_graph_housekeeping(net->graph);
     return;
 }
 
