@@ -1008,15 +1008,13 @@ class Map(Object):
         self._obj = None
         if isinstance(args[0], str):
             expr = args[0].encode('utf-8')
-            sigs = (c_void_p * 10)() # initialized to NULL
+            sigs = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] # initialize to NULL
             for i in range(len(args) - 1):
                 if not isinstance(args[i+1], Signal):
                     print("mpr.Map() argument", i, "is not a mpr.Signal object")
                     return
-                sigs[i] = args[i+1]._obj
-            mpr.mpr_map_new_from_str.argtypes = [c_char_p, c_void_p, c_void_p, c_void_p, c_void_p,
-                                                 c_void_p, c_void_p, c_void_p, c_void_p, c_void_p,
-                                                 c_void_p]
+                sigs[i] = c_void_p(args[i+1]._obj)
+            mpr.mpr_map_new_from_str.argtypes = [c_char_p]
             mpr.mpr_map_new_from_str.restype = c_void_p
             self._obj = mpr.mpr_map_new_from_str(expr, sigs[0], sigs[1], sigs[2], sigs[3], sigs[4],
                                                  sigs[5], sigs[6], sigs[7], sigs[8], sigs[9])
