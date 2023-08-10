@@ -1858,20 +1858,20 @@ mpr_map mpr_map_new_from_str(const char *expr, ...)
             case 'y':
                 sig = va_arg(aq, void*);
                 if (!sig) {
-                    trace("Format string '%s' is missing output signal.\n", expr);
+                    trace("Format string '%s' is missing destination signal.\n", expr);
                     goto error;
                 }
                 if (!dst)
                     dst = sig;
                 else if (sig != dst) {
-                    trace("Format string '%s' references more than one output signal.\n", expr);
+                    trace("Format string '%s' references more than one destination signal.\n", expr);
                     goto error;
                 }
                 break;
             case 'x':
                 sig = va_arg(aq, void*);
                 if (!sig) {
-                    trace("Format string '%s' is missing input signal.\n", expr);
+                    trace("Format string '%s' is missing source signal.\n", expr);
                     goto error;
                 }
                 for (j = 0; j < num_src; j++) {
