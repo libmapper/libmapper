@@ -169,7 +169,7 @@ mpr_prop mpr_tbl_get_record_by_key(mpr_tbl t, const char *key, int *len, mpr_typ
             *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
     }
     if (pub)
-        *pub = found ? rec->flags ^ LOCAL_ACCESS : 0;
+        *pub = found && !(rec->flags & LOCAL_ACCESS);
 
     return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
@@ -215,7 +215,7 @@ mpr_prop mpr_tbl_get_record_by_idx(mpr_tbl t, int prop, const char **key, int *l
             *val = mpr_list_start(mpr_list_get_cpy((mpr_list)*val));
     }
     if (pub)
-        *pub = found ? rec->flags ^ LOCAL_ACCESS : 0;
+        *pub = found && !(rec->flags & LOCAL_ACCESS);
 
     return found ? MASK_PROP_BITFLAGS(rec->prop) : MPR_PROP_UNKNOWN;
 }
