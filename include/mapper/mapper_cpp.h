@@ -31,6 +31,9 @@ public:                                                                     \
     template <typename... Values>                                           \
     CLASS_NAME& set_property(const Values... vals)                          \
         { Object::set_property(vals...); RETURN_SELF }                      \
+    template <typename... Values>                                           \
+    CLASS_NAME& set_local_property(const Values... vals)                    \
+        { Object::set_local_property(vals...); RETURN_SELF }                \
     template <typename T>                                                   \
     CLASS_NAME& remove_property(const T prop)                               \
         { Object::remove_property(prop); RETURN_SELF }                      \
@@ -542,6 +545,12 @@ namespace mapper {
          *  \return         Self. */
         template <typename... Values>
         Object& set_property(const Values... vals);
+
+        /*! Set arbitrary properties for an Object but do not push them to the distributed Graph.
+         *  \param vals     The Properties to add or modify.
+         *  \return         Self. */
+        template <typename... Values>
+        Object& set_local_property(const Values... vals);
 
         /*! Remove a Property from an Object by symbolic identifier.
          *  \param prop    The Property to remove.
@@ -1804,7 +1813,7 @@ namespace mapper {
         {
             len = _len;
             type = _type;
-            pub = _pub;
+            publish = _pub;
             owned = false;
             if (len <= 0)
                 return;
@@ -1957,6 +1966,7 @@ namespace mapper {
         friend std::ostream& operator<<(std::ostream& os, const PropVal& p);
 
         const char *key;
+        bool publish;
     protected:
         mpr_prop prop;
 
@@ -1974,7 +1984,6 @@ namespace mapper {
             mpr_obj obj;
         } val;
         bool owned;
-        bool pub;
         friend class Graph;
         friend class Object;
         friend class List<Device>;
@@ -1992,7 +2001,7 @@ namespace mapper {
             val.ptr = 0;
             _set(_len, _type, _val);
             owned = true;
-            pub = _pub;
+            publish = _pub;
         }
         PropVal(Property _prop)
         {
@@ -2002,7 +2011,7 @@ namespace mapper {
             len = 0;
             val.ptr = 0;
             owned = true;
-            pub = true;
+            publish = true;
         }
         PropVal(const str_type&& _key)
         {
@@ -2012,7 +2021,7 @@ namespace mapper {
             len = 0;
             val.ptr = 0;
             owned = true;
-            pub = true;
+            publish = true;
         }
     private:
         /*! Helper to find size of signal value types. */
@@ -2059,7 +2068,7 @@ namespace mapper {
             if (!parent)
                 return;
             if (MPR_PROP_DATA != prop && (!key || strcmp(key, "data")))
-                mpr_obj_set_prop(parent, prop, key, len, type, pval, pub);
+                mpr_obj_set_prop(parent, prop, key, len, type, pval, publish);
             else {
                 object_data od = (object_data)mpr_obj_get_prop_as_ptr(parent, MPR_PROP_DATA, NULL);
                 if (!od) {
@@ -2100,7 +2109,7 @@ namespace mapper {
                 }
                 owned = true;
             }
-            pub = (MPR_PTR != type);
+            publish = (MPR_PTR != type);
             maybe_update();
         }
         void _set(unsigned int _len, bool _val[])
@@ -2282,7 +2291,30 @@ namespace mapper {
         }
         else
             mpr_obj_set_prop(_obj, p.prop, p.key, p.len, p.type,
-                             (p.len > 1) || (MPR_STR == p.type) ? p.val.ptr : &p.val.int32, p.pub);
+                             (p.len > 1) || (MPR_STR == p.type) ? p.val.ptr : &p.val.int32, p.publish);
+        RETURN_SELF;
+    }
+
+    template <typename... Values>
+    inline Object& Object::set_local_property(const Values... vals)
+    {
+        PropVal p(vals...);
+        p.publish = false;
+        if (p.prop == MPR_PROP_DATA || (p.key && 0 == strcmp(p.key, "data"))) {
+            if (p.type != MPR_PTR || p.len != 1) {
+                printf("DATA property must be a pointer type\n");
+                RETURN_SELF;
+            }
+            object_data od = (object_data)mpr_obj_get_prop_as_ptr(_obj, MPR_PROP_DATA, NULL);
+            if (!od) {
+                od = (object_data)calloc(1, sizeof(struct _object_data));
+                mpr_obj_set_prop(_obj, MPR_PROP_DATA, NULL, 1, MPR_PTR, od, 0);
+            }
+            od->user_data = p.val.ptr;
+        }
+        else
+            mpr_obj_set_prop(_obj, p.prop, p.key, p.len, p.type,
+                             (p.len > 1) || (MPR_STR == p.type) ? p.val.ptr : &p.val.int32, 0);
         RETURN_SELF;
     }
 
@@ -2363,7 +2395,7 @@ namespace mapper {
             while (cpy) {
                 mpr_obj_set_prop(*cpy, p.prop, p.key, p.len, p.type,
                                  (p.len > 1) || (MPR_STR == p.type) ? p.val.ptr : &p.val.int32,
-                                 p.pub);
+                                 p.publish);
                 cpy = mpr_list_get_next(cpy);
             }
         }

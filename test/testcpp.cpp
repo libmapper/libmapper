@@ -353,7 +353,7 @@ int main(int argc, char ** argv)
     out << "try printing all device properties:" << std::endl;
     for (int i = 0; i < dev.num_props(); i++) {
         PropVal p = dev[i];
-        out << "  {" << p.key << ": " << p << "}" << std::endl;
+        out << "  {" << p.key << ": " << p << "}\t" << (p.publish ? "public" : "local") << std::endl;
     }
 
     out << "signal: " << sig << std::endl;
@@ -361,9 +361,10 @@ int main(int argc, char ** argv)
     out << "try printing all signal properties:" << std::endl;
     for (int i = 0; i < sig.num_props(); i++) {
         PropVal p = sig[i];
-        out << "  {" << p.key << ": " << p << "}" << std::endl;
+        out << "  {" << p.key << ": " << p << "}\t" << (p.publish ? "public" : "local") << std::endl;
     }
 
+    out << "try printing all device signals:" << std::endl;
     List<Signal> qsig = dev.signals(Direction::INCOMING);
     qsig.begin();
     for (; qsig != qsig.end(); ++qsig) {
