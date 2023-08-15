@@ -1081,7 +1081,7 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties_00024Entry_
 
 // needs to return the previous value or null
 JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1put
-  (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring jkey, jobject jval)
+  (JNIEnv *env, jobject jobj, jlong ptr, jint id, jstring jkey, jobject jval, jboolean publish)
 {
     mpr_obj mobj = (mpr_obj) ptr_jlong(ptr);
 
@@ -1112,52 +1112,52 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1put
     if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Boolean"))) {
         mid = (*env)->GetMethodID(env, cls, "booleanValue", "()Z");
         int val = (JNI_TRUE == (*env)->CallBooleanMethod(env, jval, mid));
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_BOOL, &val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_BOOL, &val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Byte"))) {
         mid = (*env)->GetMethodID(env, cls, "byteValue", "()B");
         int val = (*env)->CallByteMethod(env, jval, mid);
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT32, &val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT32, &val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Character"))) {
         mid = (*env)->GetMethodID(env, cls, "charValue", "()C");
         int val = (*env)->CallCharMethod(env, jval, mid);
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT32, &val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT32, &val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Double"))) {
         mid = (*env)->GetMethodID(env, cls, "doubleValue", "()D");
         double val = (*env)->CallDoubleMethod(env, jval, mid);
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_DBL, &val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_DBL, &val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Float"))) {
         mid = (*env)->GetMethodID(env, cls, "floatValue", "()F");
         float val = (*env)->CallFloatMethod(env, jval, mid);
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_FLT, &val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_FLT, &val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Integer"))) {
         mid = (*env)->GetMethodID(env, cls, "intValue", "()I");
         int val = (*env)->CallIntMethod(env, jval, mid);
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT32, &val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT32, &val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Long"))) {
         mid = (*env)->GetMethodID(env, cls, "longValue", "()L");
         long val = (*env)->CallLongMethod(env, jval, mid);
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT64, &val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT64, &val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/Short"))) {
         mid = (*env)->GetMethodID(env, cls, "shortValue", "()D");
         int val = (*env)->CallShortMethod(env, jval, mid);
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT32, &val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_INT32, &val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "java/lang/String"))) {
         const char *val = (*env)->GetStringUTFChars(env, jval, 0);
-        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_STR, val, 1);
+        mpr_obj_set_prop(mobj, id, ckey, 1, MPR_STR, val, publish);
     }
     else if ((*env)->IsInstanceOf(env, jval, (*env)->FindClass(env, "[I"))) {
         int len = (*env)->GetArrayLength(env, jval);
         jint* vals = (*env)->GetIntArrayElements(env, jval, NULL);
         if (vals) {
-            mpr_obj_set_prop(mobj, id, ckey, len, MPR_INT32, vals, 1);
+            mpr_obj_set_prop(mobj, id, ckey, len, MPR_INT32, vals, publish);
             (*env)->ReleaseIntArrayElements(env, jval, vals, JNI_ABORT);
         }
     }
@@ -1165,7 +1165,7 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1put
         int len = (*env)->GetArrayLength(env, jval);
         jfloat* vals = (*env)->GetFloatArrayElements(env, jval, NULL);
         if (vals) {
-            mpr_obj_set_prop(mobj, id, ckey, len, MPR_FLT, vals, 1);
+            mpr_obj_set_prop(mobj, id, ckey, len, MPR_FLT, vals, publish);
             (*env)->ReleaseFloatArrayElements(env, jval, vals, JNI_ABORT);
         }
     }
@@ -1173,7 +1173,7 @@ JNIEXPORT jobject JNICALL Java_mapper_AbstractObject_00024Properties__1put
         int len = (*env)->GetArrayLength(env, jval);
         jdouble* vals = (*env)->GetDoubleArrayElements(env, jval, NULL);
         if (vals) {
-            mpr_obj_set_prop(mobj, id, ckey, len, MPR_DBL, vals, 1);
+            mpr_obj_set_prop(mobj, id, ckey, len, MPR_DBL, vals, publish);
             (*env)->ReleaseDoubleArrayElements(env, jval, vals, JNI_ABORT);
         }
     }
@@ -1516,11 +1516,11 @@ JNIEXPORT jobject JNICALL Java_mapper_Device_add_1signal
     }
     if (min) {
         Java_mapper_AbstractObject_00024Properties__1put(env, sigobj, jlong_ptr(sig),
-                                                         MPR_PROP_MIN, NULL, min);
+                                                         MPR_PROP_MIN, NULL, min, JNI_TRUE);
     }
     if (max) {
         Java_mapper_AbstractObject_00024Properties__1put(env, sigobj, jlong_ptr(sig),
-                                                         MPR_PROP_MAX, NULL, max);
+                                                         MPR_PROP_MAX, NULL, max, JNI_TRUE);
     }
     return sigobj;
 }

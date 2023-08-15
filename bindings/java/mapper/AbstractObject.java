@@ -100,8 +100,8 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
         public boolean isEmpty()
             { return false; }
 
-        private native Object _put(long obj, int idx, String key, Object value);
-        public Object put(Object key, Object value)
+        private native Object _put(long obj, int idx, String key, Object value, boolean publish);
+        public Object put(Object key, Object value, boolean publish)
         {
             // translate some enum objects to their int form
             if (value instanceof mapper.Direction)
@@ -116,14 +116,17 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
                 value = ((mapper.Type)value).value();
 
             if (key instanceof Integer)
-                return _put(_obj, (int)key, null, value);
+                return _put(_obj, (int)key, null, value, publish);
             else if (key instanceof String)
-                return _put(_obj, 0, (String)key, value);
+                return _put(_obj, 0, (String)key, value, publish);
             else if (key instanceof mapper.Property)
-                return _put(_obj, ((mapper.Property)key).value(), null, value);
+                return _put(_obj, ((mapper.Property)key).value(), null, value, publish);
             else
                 return null;
         }
+
+        public Object put(Object key, Object value)
+            { return put(key, value, true); }
 
         private native Object _remove(long obj, int idx, String key);
         public Object remove(Object key)
