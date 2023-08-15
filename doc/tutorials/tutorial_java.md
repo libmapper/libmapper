@@ -492,7 +492,7 @@ The property interface is through the functions below. The `key` argument can be
 
 ~~~java
 // assuming an object named myObject...
-myObject.properties().put(Object key, Object value);
+myObject.properties().put(Object key, Object value, boolean publish=true);
 myObject.properties().get(Object key);
 myObject.properties().getEntry(Object key);
 myObject.properties().remove(Object key)
@@ -501,17 +501,17 @@ myObject.properties().remove(Object key)
 where the value can any OSC-compatible type. These functions can be called for
 any libmapper Object: Devices, Signals, Maps, and Graphs.
 
-For example, to store a `float vector` indicating the 2D position of a device
-`dev`, you can call it like this:
+For example, to store a public (available to the network) `float vector` indicating the 2D position
+of a device `dev`, you can call it like this:
 
 ~~~java
 dev.properties().put("position", new Value(new float[] {12.5f, 40.f}));
 ~~~
 
-To specify a string property of a signal `sig`:
+To specify a local (non-public) string property of a signal `sig`:
 
 ~~~java
-sig.properties().put("sensingMethod", new Value("resistive"));
+sig.properties().put("sensingMethod", new Value("resistive"), false);
 ~~~
 
 ### Reserved keys

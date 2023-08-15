@@ -482,7 +482,7 @@ OSC-compatible type.  (So, numbers and strings, etc.)
 The property interface is through the functions,
 
 ~~~python
-<object>.set_property(key, value)
+<object>.set_property(key, value, publish=True)
 <object>.get_property(key, value)
 <object>.remove_property(key, value)
 ~~~
@@ -491,17 +491,17 @@ where the `key` can be either a member of the Property enum class or a string
 specifying the name of the property, and the value can any OSC-compatible type.
 These functions can be called for any libmapper object, including Devices, Signals, Maps, and Graphs.
 
-For example, to store a `float` indicating the X position of a device `dev`, you
+For example, to store a public `float` property indicating the X position of a device `dev`, you
 can call it like this:
 
 ~~~python
 dev.set_property("x", 12.5)
 ~~~
 
-To specify a string property of a signal:
+To specify a local (non-public) string property of a signal `sig`:
 
 ~~~python
-sig.set_property("sensingMethod", "resistive")
+sig.set_property("sensingMethod", "resistive", False)
 ~~~
 
 In the case of `get_property()` the `key` can also be a numerical index, enabling sequential recovery of all of an objects properties along with their keys. In this case it may be easier to simply retrieve all metadata as a Python `dict`:

@@ -346,7 +346,7 @@ void main()
     mapper::Signal pulsewidth =
         dev.add_signal(mapper::Direction::INCOMING, "pulsewidth", 1,
                        mapper::Type::FLOAT, 0, &min_pw, &max_pw)
-           .set_property("synthptr", &synth)
+           .set_local_property("synthptr", &synth)
            .set_callback(pulsewidth_handler);
     
     while (!done)
@@ -519,11 +519,19 @@ void <object>.set_property(Property, <value>);
 <object>[Property] = <value>;
 ~~~
 
+It is also possible to declare properties that are only available locally, i.e. they will not be
+synchronized with the distributed graph.
+
+~~~c++
+void <object>.set_local_property(<name>, <value>);
+void <object>.set_local_property(Property, <value>);
+~~~
+
 The `<value>` arguments can be a scalar, array or std::vector of type `int`,
 `float`, `double`, `char*`, or `void*`.
 
-For example, to store a `float` indicating the X position of a device, you can
-call it like this:
+For example, to store a public (available to the graph) `float` property indicating the X position
+of a device `dev`, you can call it like this:
 
 ~~~c++
 dev.set_property("x", 12.5f);

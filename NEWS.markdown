@@ -11,8 +11,7 @@ This version focuses on bugfixes, continuous integration, usability and language
 
 Bugfixes include:
 
-- Fix for potential crash when editing switching network interfaces
-Documentation updates.
+- Fix for potential crash when editing switching network interfaces.
 - Ensuring the graph handler is called when map sources are updated during construction of convergent maps.
 - Fixes for convergent map handshake when initiated by a 3rd-party (non-local) graph.
 - Fixes for graph ownership tracking in mpr_dev objects.
