@@ -285,7 +285,7 @@ void mpr_dev_update_maps(mpr_dev device);
 
 /*! A signal handler function can be called whenever a signal value changes.
  *  \param signal       The signal that has changed.
- *  \param event        The type of event that has occured, e.g. `MPR_SIG_UPDATE` when the value has
+ *  \param event        The type of event that has occurred, e.g. `MPR_SIG_UPDATE` when the value has
  *                      changed. Event types are listed in the enum `mpr_sig_evt` found in
  *                      `mapper_constants.h`
  *  \param instance     The identifier of the instance that has been changed, if applicable.
@@ -643,7 +643,7 @@ int mpr_graph_set_address(mpr_graph graph, const char *group, int port);
  *                      distributed graph. */
 const char *mpr_graph_get_address(mpr_graph graph);
 
-/*! Synchonize a local graph copy with the distributed graph.
+/*! Synchronize a local graph copy with the distributed graph.
  *  \param graph        The graph to update.
  *  \param block_ms     The number of milliseconds to block, or `0` for non-blocking behaviour.
  *  \return             The number of handled messages. */

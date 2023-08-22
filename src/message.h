@@ -31,7 +31,7 @@ typedef enum {
     NUM_MSG_STRINGS
 } net_msg_t;
 
-/* For property indexes, bits 1–8 are used for numberical index, bits 9–14 are
+/* For property indexes, bits 1–8 are used for numerical index, bits 9–14 are
  * used for the mpr_prop enum. */
 #define PROP_ADD        0x04000
 #define PROP_REMOVE     0x08000

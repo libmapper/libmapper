@@ -22,7 +22,7 @@ typedef struct {
     mpr_type protocol_type;
 } static_prop_t;
 
-/* Warning! This table needs to be kept synchonised with mpr_prop enum
+/* Warning! This table needs to be kept synchronised with mpr_prop enum
  * found in mpr_constants.h */
 const static_prop_t static_props[] = {
     { 0,                0, 0,         0 },         /* MPR_PROP_UNKNOWN */

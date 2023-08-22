@@ -1165,7 +1165,7 @@ static int handler_sig_removed(const char *path, const char *types, lo_arg **av,
     return 0;
 }
 
-/*! Repond to name collisions during allocation, help suggest IDs once allocated. */
+/*! Respond to name collisions during allocation, help suggest IDs once allocated. */
 static int handler_name(const char *path, const char *types, lo_arg **av,
                         int ac, lo_message msg, void *user)
 {

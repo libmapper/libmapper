@@ -404,7 +404,7 @@ AC_OUTPUT
 echo
 echo libmapper configured:
 echo --------------------------------------------------
-echo "building documention...     " $enable_docs $docs_explain
+echo "building documentation...   " $enable_docs $docs_explain
 echo "building tests...           " $enable_tests
 echo "threading support...        " $enable_threads $threads_explain
 echo "building Python bindings... " $enable_python $python_explain

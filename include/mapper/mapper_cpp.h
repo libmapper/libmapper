@@ -995,7 +995,7 @@ namespace mapper {
                 { return mpr_sig_get_value(_sig, _id, 0); }
 
             /*! Get the current value of this Instance.
-             *  \param time     A Time object to retrieve the time assicated with the current value.
+             *  \param time     A Time object to retrieve the time associated with the current value.
              *  \return         A pointer to the current value. */
             const void *value(Time time) const
                 { mpr_time *_time = time; return mpr_sig_get_value(_sig, _id, _time); }
@@ -1694,18 +1694,18 @@ namespace mapper {
         std::string address() const
             { return std::string(mpr_graph_get_address(_obj)); }
 
-        /*! Synchonize a Graph object with the distributed graph.
+        /*! Synchronize a Graph object with the distributed graph.
          *  \param block_ms     The number of milliseconds to block, or 0 for non-blocking behavior.
          *  \return             The number of handled messages. */
         int poll(int block_ms=0) const
             { return mpr_graph_poll(_obj, block_ms); }
 
-        /*! Start automatically synchonizing a Graph object in a separate thread.
+        /*! Start automatically synchronizing a Graph object in a separate thread.
          *  \return   Self. */
         Graph& start()
             { mpr_graph_start_polling(_obj); RETURN_SELF }
 
-        /*! Stop automatically synchonizing a Graph object in a separate thread.
+        /*! Stop automatically synchronizing a Graph object in a separate thread.
          *  \return   Self. */
         Graph& stop()
             { mpr_graph_stop_polling(_obj); RETURN_SELF }

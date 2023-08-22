@@ -88,7 +88,7 @@ Version 2.1
 
 Released 8 Nov 2021
 
-We are pleased to annouce the release of version 2.1 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+We are pleased to announce the release of version 2.1 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
 This release builds on the large scale changes introduced in version 2.0 while fixing bugs and improving memory use, testing, and documentation. Version 2.1 is also now compliant with the C90 standard (ISO/IEC 9899:1990). This change along with other modifications now enables CMake Visual Studio solution generation for quick compiling on Windows. Refer to the updated Windows build instructions for more information.
 
@@ -167,7 +167,7 @@ Version 2.0
 
 Released 5 November 2020
 
-We are pleased to annouce the release of version 2.0 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+We are pleased to announce the release of version 2.0 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
 This release includes large scale simplification and reorganisation of the libmapper C API, making it smaller, more consistent, and easier to use. In brief, this release:
 
@@ -253,7 +253,7 @@ This release includes improvements to signal instance stealing logic and adds ne
 
 ### Testing Suite
 
-`testquery.c` was removed since the signal update bunding functionality was removed in favour of a future configurable map property. `testselect.c` was removed due to API changes, internal use of `select()` for waiting on device servers, and planned future shared-graph functionality. `testdatabase.c` was renamed to `testgraph.c` for consistency with the data structure renaming described earlier.
+`testquery.c` was removed since the signal update bundling functionality was removed in favour of a future configurable map property. `testselect.c` was removed due to API changes, internal use of `select()` for waiting on device servers, and planned future shared-graph functionality. `testdatabase.c` was renamed to `testgraph.c` for consistency with the data structure renaming described earlier.
 
 Two new tests were added to the suite:
 
@@ -272,7 +272,7 @@ Version 1.2
 
 Released 4 March 2019
 
-We are pleased to annouce the release of version 1.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+We are pleased to announce the release of version 1.2 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
 Changes of note since the 1.1 release include
 
@@ -308,7 +308,7 @@ Changes of note since the 1.0 release include:
 * More informative debugging messages.
 * Improved handling of database subscriptions.
 * More efficient batch-sending of device, signal and map metadata.
-* Addition of a default signal direction property for database records, ensuring that the record can be retireved from the database while waiting for updated metadata.
+* Addition of a default signal direction property for database records, ensuring that the record can be retrieved from the database while waiting for updated metadata.
 * Added simple check for map feedback loops,.
 * Updated tests and tutorials.
 * Extension and simplification of the C++ headers, along with new API documentation.
@@ -660,7 +660,7 @@ They are summarized very briefly here:
   * _Null values._ An important change that users should be aware of
     is that the signal callback (whose signature has changed) can now
     be called with the `value` pointer being zero.  This indicates
-    that the mapper signal is actually non-existant, i.e. no value is
+    that the mapper signal is actually non-existent, i.e. no value is
     associated with the signal.  That is to say that "null" is now
     considered a valid state for a signal and is different from, for
     example, a value of zero.  User code can choose to ignore this
@@ -713,7 +713,7 @@ Bug fixes:
 - Set the multicasting interface to loopback as last resort, making it
   work on Linux if not connected to network.
 - Fix erroneous calculation of blocking time in mapper_monitor_poll.
-- Crash when non-existant signal receives /disconnect.
+- Crash when non-existent signal receives /disconnect.
 
 Initial release 0.1 
 -------------------

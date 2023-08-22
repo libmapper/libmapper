@@ -195,14 +195,14 @@ experiment with mapping.
 In the syntax for mathematical expressions, we include a method for indexing
 previous values to allow basic filter construction.  This is done by index, but
 we also implemented a syntax for accessing previous state according to time in
-seconds.  This feature is not yet useable, but in the future interpolation will
+seconds.  This feature is not yet usable, but in the future interpolation will
 be performed to allow referencing of time-accurate values.
 
 The explicit use of timing information may also be useful for certain mapping
 scenarios, such as "debouncing" signal updates or adding adaptive delays.  We
 are gradually working towards such functionality, developing a syntax for
 referring to timing data when configuring connection properties and implementing
-a lighweight synchronization scheme between linked devices that will permit
+a lightweight synchronization scheme between linked devices that will permit
 jitter mitigation and correct handling of delays when devices are running on
 separate computers.
 

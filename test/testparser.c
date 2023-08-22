@@ -1007,7 +1007,7 @@ int run_tests()
     if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))
         return 1;
 
-    /* 66) Calling delay() function explicity */
+    /* 66) Calling delay() function explicitly */
     set_expr_str("y=delay(x, abs(x%10)-10), 10)");
     setup_test(MPR_INT32, 1, MPR_INT32, 1);
     if (parse_and_eval(EXPECT_FAILURE, 0, 0, iterations))

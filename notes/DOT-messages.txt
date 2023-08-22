@@ -83,7 +83,7 @@ port_allocation - multicast group 224.0.1.3 port 7572
 					store <port> for reference
 					break
 				CASE: "/port/request <ID>"
-					choose an unsused port
+					choose an unused port
 					SEND: "/port/available <suggested_port> <ID>"
 					break
 			}

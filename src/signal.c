@@ -1176,7 +1176,7 @@ int mpr_sig_reserve_inst(mpr_sig sig, int num, mpr_id *ids, void **data)
     sig->use_inst = 1;
 
     if (lsig->num_inst == 1 && !lsig->inst[0]->id && !lsig->inst[0]->data) {
-        /* we will overwite the default instance first */
+        /* we will overwrite the default instance first */
         if (ids)
             lsig->inst[0]->id = ids[0];
         if (data)

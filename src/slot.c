@@ -36,7 +36,7 @@ typedef struct _mpr_local_slot {
     MPR_SLOT_STRUCT_ITEMS
     mpr_local_map map;              /*!< Pointer to parent map */
 
-    /* TODO: use signal for holding memory of local slots for effiency */
+    /* TODO: use signal for holding memory of local slots for efficiency */
     mpr_value_t val;                /*!< Value histories for each signal instance. */
     mpr_link link;
 } mpr_local_slot_t;
