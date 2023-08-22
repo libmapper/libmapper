@@ -1,7 +1,15 @@
 
-import libmapper as mpr
 import bpy
 from mathutils import Euler
+
+try:
+    import libmapper as mpr
+except:
+    print('installing libmapper using pip')
+    import sys
+    import subprocess
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'libmapper'])
+    import libmapper as mpr
 
 dev = None
 
@@ -11,8 +19,8 @@ bl_info = {
     "category": "Object",
 }
 
-def animation_play_cb(sig, evt, inst, val, time):
-    print('animation handler')
+def animation_play_cb(sig, evt, id, val, time):
+#    print('animation handler')
     is_playing = bpy.context.screen.is_animation_playing
     if val == 0:
         if is_playing:
@@ -21,8 +29,8 @@ def animation_play_cb(sig, evt, inst, val, time):
         # TODO: need to check if play direction is reversed!
         bpy.ops.screen.animation_play(reverse = (val < 0), sync = True)
 
-def location_cb(sig, evt, inst, val, time):
-    print('location handler')
+def location_cb(sig, evt, id, val, time):
+#    print('location handler:', sig)
     obj_name = sig[mpr.Property.NAME].split('/', 1)
     obj = bpy.data.objects[obj_name[0]]
     if obj is not None:
@@ -31,8 +39,8 @@ def location_cb(sig, evt, inst, val, time):
         print('could not find Blender object matching name', obj_name[0])
         sig.free()
 
-def rot_euler_cb(sig, evt, inst, val, time):
-    print('euler rotation handler')
+def rot_euler_cb(sig, evt, id, val, time):
+#    print('euler rotation handler:', sig)
     obj_name = sig[mpr.Property.NAME].split('/', 1)
     obj = bpy.data.objects[obj_name[0]]
     if obj is not None:
@@ -41,8 +49,8 @@ def rot_euler_cb(sig, evt, inst, val, time):
         print('could not find Blender object matching name', obj_name[0])
         sig.free()
 
-def rot_quat_cb(sig, evt, inst, val, time):
-    print('quat rotation handler')
+def rot_quat_cb(sig, evt, id, val, time):
+#    print('quat rotation handler:', sig)
     obj_name = sig[mpr.Property.NAME].split('/', 1)
     obj = bpy.data.objects[obj_name[0]]
     if obj is not None:
@@ -52,12 +60,15 @@ def rot_quat_cb(sig, evt, inst, val, time):
         print('could not find Blender object matching name', obj_name[0])
         sig.free()
 
-def scale_cb(sig, evt, inst, val, time):
-    print('scale handler')
+def scale_cb(sig, evt, id, val, time):
+#    print('scale handler:', sig)
     obj_name = sig[mpr.Property.NAME].split('/', 1)
     obj = bpy.data.objects[obj_name[0]]
     if obj is not None:
         obj.scale = val
+    else:
+        print('could not find Blender object matching name', obj_name[0])
+        sig.free()
 
 def libmapper_poll():
     global dev
@@ -65,21 +76,82 @@ def libmapper_poll():
         dev.poll()
     return 0.1
 
+def locationBoxUpdated(self, context):
+    global dev
+    if self.location == True:
+        print('location mapping enabled')
+        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/location", 3, mpr.Type.FLOAT,
+                       "meters", callback=location_cb, events=mpr.Signal.Event.UPDATE)
+    else:
+        print('location mapping disabled')
+        sig = dev.signals().filter(mpr.Property.NAME, context.object.name+"/location")
+        if sig:
+            sig = sig.next()
+            print('  freeing signal:', sig)
+            sig.free()
+
+def rotationBoxUpdated(self, context):
+    global dev
+    if self.rotation == True:
+        print('rotation mapping enabled')
+        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/rotation/euler", 3, mpr.Type.FLOAT,
+                       None, -180, 180, callback=rot_euler_cb, events=mpr.Signal.Event.UPDATE)
+#        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/rotation/axis", 3, mpr.Type.FLOAT,
+#                       None, -1, 1, None, rot_axis_cb)
+#        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/rotation/angle", 1, mpr.Type.FLOAT,
+#                       "degrees", 0, 180, None, rot_angle_cb)
+        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/rotation/quaternion",
+                       4, mpr.Type.FLOAT, None, -1, 1, callback=rot_quat_cb,
+                       events=mpr.Signal.Event.UPDATE)
+    else:
+        print('rotation mapping disabled')
+        sig = dev.signals().filter(mpr.Property.NAME, context.object.name+"/rotation/euler")
+        if sig:
+            sig.next().free()
+#        sig = dev.signals().filter(mpr.Property.NAME, context.object.name+"/rotation/axis")
+#        if sig:
+#            sig.next().free()
+#        sig = dev.signals().filter(mpr.Property.NAME, context.object.name+"/rotation/angle")
+#        if sig:
+#            sig.next().free()
+        sig = dev.signals().filter(mpr.Property.NAME, context.object.name+"/rotation/quaternion")
+        if sig:
+            sig = sig.next()
+            print('  freeing signal:', sig)
+            sig.free()
+
+def scaleBoxUpdated(self, context):
+    global dev
+    if self.scale == True:
+        print('scale mapping enabled')
+        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/scale", 3, mpr.Type.FLOAT,
+                       callback=scale_cb, events=mpr.Signal.Event.UPDATE)
+    else:
+        print('scale mapping disabled')
+        sig = dev.signals().filter(mpr.Property.NAME, context.object.name+"/scale")
+        if sig:
+            sig = sig.next()
+            print('  freeing signal:', sig)
+            sig.free()
+
 class MappingSettings(bpy.types.PropertyGroup):
     location : bpy.props.BoolProperty(
-        name="Enable or Disable",
-        description="Expose object location for signal mapping",
-        default = False
+        name = "Enable or Disable",
+        description = "Expose object location for signal mapping",
+        default = False,
+        update = locationBoxUpdated
         )
     rotation : bpy.props.BoolProperty(
         name="Enable or Disable",
         description="Expose object rotation for signal mapping",
-        default = False
+        default = False,
+        update = rotationBoxUpdated
         )
     scale : bpy.props.BoolProperty(
         name="Enable or Disable",
         description="Expose object scale for signal mapping",
-        default = False
+        default = False,
+        update = scaleBoxUpdated
         )
 
 class MappingPanel(bpy.types.Panel):
@@ -106,52 +178,7 @@ class MappingPanel(bpy.types.Panel):
             print("error: device not found in panel draw function!")
             return
 
-        # check property values
         # TODO: if the object is renamed we should probably also rename the signals
-        if (my_tool.location == True):
-            print('location mapping enabled')
-            dev.add_signal(mpr.Direction.INCOMING, obj.name+"/location", 3, mpr.Type.FLOAT,
-                           "meters", callback=location_cb, events=mpr.Signal.Event.UPDATE)
-        else:
-            print('location mapping disabled')
-            sig = dev.signals().filter(mpr.Property.NAME, obj.name+"/location")
-            if sig:
-                sig.next().free()
-        if (my_tool.rotation == True):
-            print('rotation mapping enabled')
-            sig_euler = dev.add_signal(mpr.Direction.INCOMING, obj.name+"/rotation/euler", 3,
-                                       mpr.Type.FLOAT, None, -180, 180, callback=rot_euler_cb,
-                                       events=mpr.Signal.Event.UPDATE)
-#                dev.add_signal(mpr.Direction.INCOMING, obj.name+"/rotation/axis", 3, mpr.Type.FLOAT,
-#                               None, -1, 1, None, rot_axis_cb)
-#                dev.add_signal(mpr.Direction.INCOMING, obj.name+"/rotation/angle", 1, mpr.Type.FLOAT,
-#                               "degrees", 0, 180, None, rot_angle_cb)
-            sig_quat = dev.add_signal(mpr.Direction.INCOMING, obj.name+"/rotation/quaternion",
-                                      4, mpr.Type.FLOAT, None, -1, 1, callback=rot_quat_cb,
-                                      events=mpr.Signal.Event.UPDATE)
-        else:
-            print('rotation mapping disabled')
-            sig = dev.signals().filter(mpr.Property.NAME, obj.name+"/rotation/euler")
-            if sig:
-                sig.next().free()
-#            sig = dev.signals().filter(mpr.Property.NAME, obj.name+"/rotation/axis")
-#            if sig:
-#                sig.next().free()
-#            sig = dev.signals().filter(mpr.Property.NAME, obj.name+"/rotation/angle")
-#            if sig:
-#                sig.next().free()
-            sig = dev.signals().filter(mpr.Property.NAME, obj.name+"/rotation/quaternion")
-            if sig:
-                sig.next().free()
-        if (my_tool.scale == True):
-            print('scale mapping enabled')
-            dev.add_signal(mpr.Direction.INCOMING, obj.name+"/scale", 3, mpr.Type.FLOAT,
-                           callback=scale_cb, events=mpr.Signal.Event.UPDATE)
-        else:
-            print('scale mapping disabled')
-            sig = dev.signals().filter(mpr.Property.NAME, obj.name+"/scale")
-            if sig:
-                sig.next().free()
 
 classes = (
     MappingSettings,
