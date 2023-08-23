@@ -1,5 +1,20 @@
 # libmapper NEWS
 
+Version 2.4.3
+-------------
+
+We are pleased to announce the release of version 2.4.3 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This version includes documentation improvements, expression engine optimisations, and the results of testing on macOS/arm64 with one related bugfix detailed below. Support for local (private) object properties was added to the C++ and Java bindings.
+
+A basic add-on for using libmapper within Blender scripting was also added to the `integration_examples` folder.
+
+Bigfixes include:
+
+- Fix for use of variadic functions by Python bindings on macOS/arm64
+- Revision of `mpr_dev_poll()` so that blocking calls return after the expected time when device is not yet registered
+- Fix for bug when returning `published` property of object properties
+
 Version 2.4.2
 -------------
 
