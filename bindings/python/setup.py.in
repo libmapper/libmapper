@@ -18,9 +18,12 @@ def ver():
                 print("Found libmapper version: %s" % version)
     else:
         version = '@PACKAGE_VERSION@'
-    match = re.compile(r'(\d+)\.(\d+)(\w*)(\d*)\.(\d+)\+?.*').match(version)
+    match = re.compile(r'(\d+)\.(\d+)\.(\d+)\.?(\d*)\+?.*').match(version)
     if match:
-        return '{0}.{1}{2}{3}.dev{4}'.format(*[g or "" for g in match.groups()])
+        if match.groups()[3]:
+            return '{0}.{1}.{2}.dev{3}'.format(*[g or "" for g in match.groups()])
+        else:
+            return '{0}.{1}.{2}'.format(*[g or "" for g in match.groups()])
     else:
         return version
 
