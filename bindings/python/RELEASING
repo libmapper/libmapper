@@ -1,0 +1,15 @@
+The libmapper python bindings are uploaded to https://pypi.org/project/libmapper/
+
+Contact one of the maintainers about getting access if you're continuing work on the project :)
+
+The python wheels contain the libmapper C library compiled for each platform, so we use GitHub Actions CI to build the wheels.
+
+Making a new release: 
+
+1. Bump the version in pyproject.toml to match the libmapper git tag
+    - The README.md will display on the PyPI package, so update it with any notable changes
+2. Download the GitHub Actions artifact and unzip it into the `bindings/python` folder
+3. From the `bindings/python` directory, run the script `build_pypi_dist.sh`. This will create a new temporary folder named `pypi` and prepare all of the files for distribution.
+4. Run `python3 -m twine upload pypi/dist/*`
+4. Enter __token__ for the username, and copy your PyPI token (unique to your account) for the password
+5. Visit https://pypi.org/project/libmapper/ to confirm the release looks good!

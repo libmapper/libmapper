@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "libmapper"
+version = "2.4.3"
+authors = [
+  { name="libmapper.org", email="dot_mapper@googlegroups.com" },
+]
+description = "A library for representing input and output signals on a network and allowing arbitrary 'mappings' to be dynamically created between them."
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/libmapper/libmapper"
+"Bug Tracker" = "https://github.com/libmapper/libmapper/issues"

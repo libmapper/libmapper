@@ -19,6 +19,7 @@ aclocal.m4
 autom4te.cache
 bindings/python/build/
 bindings/python/dist
+bindings/python/pypi
 bindings/python/libmapper.egg-info
 bindings/python/setup.py
 bindings/python/libmapper/mapper.py

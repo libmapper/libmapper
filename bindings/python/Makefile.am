@@ -1,5 +1,5 @@
 clean-local:
-	-@rm -vfr build __pycache__
+	-@rm -vfr build libmapper/__pycache__ pypi
 
 MOSTLYCLEANFILES = installed_files.log
 
