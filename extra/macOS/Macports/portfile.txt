@@ -4,7 +4,7 @@
 PortSystem          1.0
 
 name                libmapper
-version             2.0
+version             2.4.3
 categories          net audio
 platforms           darwin
 license             LGPL-2.1
@@ -14,33 +14,29 @@ long_description    libmapper is a library for discovering and \
                     connecting real-time control signals
 homepage            http://www.libmapper.org
 master_sites        https://github.com/malloch/libmapper/archive/
-distfiles           libmapper-1.1.tar.gz
+master_sites        https://github.com/libmapper/libmapper/releases/download/2.4.3/
+distfiles           libmapper-2.4.3.tar.gz
 
-checksums           rmd160  a4beff52bebb820f8457c39b5a9bcfa5ab385e6f \
-                    sha256  6d2554de8105580810f25b6bb3392960f09e7587317ab44c7b9d7f7e6c0e9302
+checksums           rmd160  c6f7dbc21fb561f71904a401860c75c4a34127ba \
+                    sha256  4870afceb8d0d2b987009dc572e72b314dd58a6805fc26e9c1ecb73e771f3092
+                    size    2234676
 
 depends_lib         port:liblo \
                     port:zlib
 
 configure.args      --disable-python \
-                    --disable-jni \
+                    --disable-java \
                     --disable-audio \
                     --disable-docs
 
-default_variants    +universal +docs
-
-variant universal {
-    configure.args_append  CFLAGS="-arch i386 -arch x86_64" \
-                           CXXFLAGS="-arch i386 -arch x86_64" \
-                           --disable-dependency-tracking
-}
+default_variants    +docs
 
 variant python requires python {
     configure.args_append  --enable-python
 }
 
 variant java requires java {
-    configure.args_append --enable-jni
+    configure.args_append --enable-java
 }
 
 variant docs requires doxygen {
