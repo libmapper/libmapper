@@ -121,7 +121,8 @@ jobs:
       run: cd test && make tests
     - name: python wheels
       run:
-        cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
+        mv bindings/python/pyproject.toml bindings/python/pyproject.toml.temp
+        && cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
         && pip3 install wheel
         && pip3 wheel bindings/python -w ./wheelhouse
         && unzip -t wheelhouse/*.whl
