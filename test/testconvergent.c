@@ -150,6 +150,7 @@ int setup_maps()
 {
     int i, j = 10;
     mpr_graph g2 = NULL;
+    mpr_list sigs1, sigs2;
 
     if (map) {
         mpr_map_release(map);
@@ -271,6 +272,26 @@ int setup_maps()
             mpr_graph_poll(g2, 10);
         --j;
     }
+
+    /* Check if mpr_list_get_idx returns the correct items of ordered list of map signals*/
+    sigs1 = mpr_map_get_sigs(map, MPR_LOC_SRC);
+    sigs2 = mpr_map_get_sigs(map, MPR_LOC_SRC);
+    for (i = 0; i < num_sources; i++) {
+        mpr_sig src1 = (mpr_sig)mpr_list_get_idx(sigs1, i);
+        mpr_sig src2 = *(mpr_sig*)sigs2;
+        eprintf("comparing src.%d '%s' : '%s'... %s\n", i,
+                mpr_obj_get_prop_as_str(src1, MPR_PROP_NAME, NULL),
+                mpr_obj_get_prop_as_str(src2, MPR_PROP_NAME, NULL),
+                src1 == src2 ? "OK" : "ERROR");
+        if (src1 != src2) {
+            mpr_list_free(sigs1);
+            mpr_list_free(sigs2);
+            return 1;
+        }
+        sigs2 = mpr_list_get_next(sigs2);
+    }
+    /* Need to free list sigs1 since it was not iterated. */
+    mpr_list_free(sigs1);
 
     if (g2)
         mpr_graph_free(g2);

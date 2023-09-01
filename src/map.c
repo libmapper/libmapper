@@ -469,7 +469,7 @@ static int cmp_qry_sigs(const void *ctx, mpr_sig s)
 mpr_list mpr_map_get_sigs(mpr_map m, mpr_loc l)
 {
     RETURN_ARG_UNLESS(m, 0);
-    return mpr_graph_new_query(m->obj.graph, 1, MPR_SIG, (void*)cmp_qry_sigs, "vii", &m, l, 0);
+    return mpr_graph_new_query(m->obj.graph, 1, MPR_SIG, (void*)cmp_qry_sigs, "vix", &m, l, 0);
 }
 
 int mpr_map_get_sig_idx(mpr_map map, mpr_sig sig)

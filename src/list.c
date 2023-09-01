@@ -57,7 +57,8 @@ static int cmp_parallel_query(const void *ctx_data, const void *dev);
 /*! Contains some function pointers and data for handling query context. */
 typedef struct _query_info {
     unsigned int size;
-    unsigned int reset;
+    int16_t index_offset;
+    uint16_t reset;
     query_compare_func_t *query_compare;
     query_free_func_t *query_free;
     int *data; /* stub */
@@ -73,7 +74,7 @@ static mpr_list_header_t* mpr_list_new_item(size_t size)
 
     /* make sure the compiler is doing what we think it's doing with
      * the size of mpr_list_header_t and location of data */
-    die_unless(LIST_HEADER_SIZE == sizeof(void*)*4 + sizeof(query_type_t),
+    die_unless(LIST_HEADER_SIZE == sizeof(void*) * 4 + sizeof(query_type_t),
                "unexpected size for mpr_list_header_t");
     die_unless(LIST_HEADER_SIZE == ((char*)&lh->data - (char*)lh),
                "unexpected offset for data in mpr_list_header_t");
@@ -182,7 +183,6 @@ void **mpr_list_query_continuation(mpr_list_header_t *lh)
         if (res) {
             if (2 == res) {
                 /* Mark list as reset */
-                trace("resetting list\n");
                 lh->query_ctx->reset = 1;
             }
             break;
@@ -226,6 +226,7 @@ static int get_query_size(const char *types, va_list *aq)
     va_copy(aq_copy, *aq);
     while (types[i]) {
         switch (types[i]) {
+            case 'x':      /* query index for ordered lists */
             case MPR_INT32:
             case MPR_TYPE: /* store as int to avoid alignment problems */
                 GET_TYPE_SIZE(int);
@@ -273,6 +274,7 @@ mpr_list vmpr_list_new_query(const void **list, const void *func, const char *ty
     lh->next = (void*)mpr_list_query_continuation;
     lh->query_type = QUERY_DYNAMIC;
     lh->query_ctx = (query_info_t*)malloc(sizeof(query_info_t) + size);
+    lh->query_ctx->index_offset = -1;
 
     data = (char*)&lh->query_ctx->data;
     i = 0;
@@ -297,6 +299,12 @@ mpr_list vmpr_list_new_query(const void **list, const void *func, const char *ty
                 offset += (val ? strlen(val) : 0) + 1;
                 break;
             }
+            case 'x':      /* query index for ordered lists */
+                if (-1 == lh->query_ctx->index_offset) {
+                    lh->query_ctx->index_offset = offset;
+                    break;
+                }
+                trace("error: only one query index permitted.\n")
             default:
                 free(lh->query_ctx);
                 free(lh);
@@ -330,12 +338,27 @@ mpr_list mpr_list_start(mpr_list list)
     RETURN_ARG_UNLESS(list, 0);
     lh = mpr_list_header_by_self(list);
     lh->self = *lh->start;
+
+    /* Reset query index to zero (if it exists). Used for ordered lists. */
+    if (lh->query_ctx->index_offset >= 0) {
+        int *idx = (int*)((char*)&lh->query_ctx->data + lh->query_ctx->index_offset);
+        *idx = 0;
+    }
+    lh->query_ctx->reset = 0;
     if (QUERY_DYNAMIC == lh->query_type) {
+        int res;
         if (!*list)
             return 0;
-        if (lh->query_ctx->query_compare(&lh->query_ctx->data, *list))
-            return (mpr_list)&lh->self;
-        return (mpr_list)mpr_list_query_continuation(lh);
+        res = lh->query_ctx->query_compare(&lh->query_ctx->data, *list);
+        switch (res) {
+            case 2:
+                /* Mark list as reset */
+                lh->query_ctx->reset = 1;
+            case 1:
+                return (mpr_list)&lh->self;
+            default:
+                return (mpr_list)mpr_list_query_continuation(lh);
+        }
     }
     else
         return (mpr_list)&lh->self;
@@ -408,6 +431,12 @@ static int cmp_parallel_query(const void *ctx_data, const void *list)
 
     int res1 = c1->query_compare(&c1->data, list);
     int res2 = c2->query_compare(&c2->data, list);
+
+    if (2 == res1)
+        c1->reset = 1;
+    if (2 == res2)
+        c2->reset = 1;
+
     switch (op) {
         case OP_UNION:          return res1 || res2;
         case OP_INTERSECTION:   return res1 && res2;
@@ -681,6 +710,7 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop p, const char *key, int len,
     }
 
     filter->query_ctx->size = sizeof(query_info_t) + size;
+    filter->query_ctx->index_offset = -1;
     filter->query_ctx->reset = 0;
     filter->query_ctx->query_compare = (query_compare_func_t*)filter_by_prop;
     filter->query_ctx->query_free = (query_free_func_t*)free_query_single_ctx;
