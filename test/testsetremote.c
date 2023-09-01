@@ -161,8 +161,8 @@ void loop()
         }
         expected = i;
         sent++;
-        mpr_dev_poll(dev, 0);
-        mpr_graph_poll(graph, period);
+        mpr_graph_poll(graph, 0);
+        mpr_dev_poll(dev, period);
         i++;
 
         if (!verbose) {
