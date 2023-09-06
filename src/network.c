@@ -1310,6 +1310,7 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
     }
 
     if (i < ac && MPR_INT64 == types[++i]) {
+        /* 'id' property found */
         id = av[i]->i64;
         map = (mpr_map)mpr_graph_get_obj(net->graph, id, MPR_MAP);
 #ifdef DEBUG
@@ -1329,8 +1330,18 @@ static mpr_map find_map(mpr_net net, const char *types, int ac, lo_arg **av, mpr
             }
             return map;
         }
-        else if (!flags)
+        else if (!(flags & ADD))
             return 0;
+        else {
+            for (i = 0; i < net->num_devs; i++) {
+                if ((id & 0xFFFFFFFF00000000) == mpr_obj_get_id((mpr_obj)net->devs[i])) {
+                    trace_dev(net->devs[i], "Ignoring unknown local map - possibly deleted.\n")
+                    break;
+                }
+            }
+            if (i < net->num_devs)
+                return 0;
+        }
     }
 
     /* try signal names instead */
