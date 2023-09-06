@@ -334,8 +334,8 @@ void mpr_link_remove_map(mpr_link link, mpr_map map)
     }
     if (i >= link->num_maps)
         return;
-    for (; i > 0; i--)
-        link->maps[i - 1] = link->maps[i];
+    for (; i < link->num_maps - 1; i++)
+        link->maps[i] = link->maps[i + 1];
     --link->num_maps;
     link->maps = realloc(link->maps, link->num_maps * sizeof(mpr_map));
 
