@@ -39,6 +39,16 @@ def setup(d):
 
     print('device properties:', d.properties)
 
+    if 'name' in sig:
+        print("signal has property 'name'")
+    else:
+        print("error: did not find 'name' property")
+
+    if 'dummy' in sig:
+        print("error: signal has property 'dummy'")
+    else:
+        print("did not find 'dummy' property (expected)")
+
     print('signal name:', sig['name'])
     print('signal direction:', sig['direction'])
     print('signal length:', sig['length'])

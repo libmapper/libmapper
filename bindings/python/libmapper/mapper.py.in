@@ -591,6 +591,8 @@ class Object:
                 _idx = c_int(key_or_idx.value)
             else:
                 _idx = c_int(key_or_idx)
+                if key_or_idx > self.num_properties:
+                    raise StopIteration
             _key = c_char_p()
             mpr.mpr_obj_get_prop_by_idx.argtypes = [c_void_p, c_int, c_void_p, c_void_p, c_void_p, c_void_p, c_void_p]
             mpr.mpr_obj_get_prop_by_idx.restype = c_int
@@ -761,6 +763,9 @@ class Object:
         else:
             print("mpr.Object.remove_property({}) : bad key or index type".format(key_or_idx))
         return self
+
+    def __contains__(self, key):
+        return self[key] is not None
 
     def __nonzero__(self):
         return False if self.this is None else True
