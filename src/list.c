@@ -585,7 +585,7 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
                     j = 0;
                 p1 = (1 == l1) ? (void*)v1 : ((void**)v1)[i];
                 p2 = ((void**)v2)[j];
-                comp = p1 - p2;
+                comp = (p1 > p2) - (p1 < p2);
                 if (comp == 0)
                     ++eq;
                 if (comp < 0)
