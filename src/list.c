@@ -499,32 +499,62 @@ mpr_list mpr_list_get_isect(mpr_list list1, mpr_list list2)
                                              "vvi", &lh1, &lh2, OP_INTERSECTION));
 }
 
-#define COMPARE_TYPE(TYPE)                      \
-for (i = 0; i < len; i++) {                     \
-    comp += ((TYPE*)v1)[i] > ((TYPE*)v2)[i];    \
-    comp -= ((TYPE*)v1)[i] < ((TYPE*)v2)[i];    \
-    diff += abs(comp);                          \
+#define COMPARE_TYPE(TYPE)                  \
+for (i = 0, j = 0; i < _l1; i++, j++) {     \
+    if (j >= _l2)                           \
+        j = 0;                              \
+    eq += ((TYPE*)v1)[i] == ((TYPE*)v2)[j]; \
+    gt += ((TYPE*)v1)[i] > ((TYPE*)v2)[j];  \
+    lt += ((TYPE*)v1)[i] < ((TYPE*)v2)[j];  \
 }
 
-static int compare_val(mpr_op op, int len, mpr_type type, const void *v1, const void *v2)
+static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1, const void *v2)
 {
-    int i, comp = 0, diff = 0;
+    uint8_t i, j, eq = 0, gt = 0, lt = 0, _l1 = l1, _l2 = l2;
+    register int ret;
+
+    if (op & (MPR_OP_ANY | MPR_OP_NONE)) {
+        _l2 = 1;
+    }
+    else {
+        /* Use minimum length */
+        _l1 = l1 < l2 ? l1 : l2;
+    }
+
     switch (type) {
-        case MPR_STR:
-            if (1 == len)
-                comp = mpr_path_match((const char*)v1, (const char*)v2);
-            else {
-                for (i = 0; i < len; i++) {
-                    comp += mpr_path_match(((const char**)v1)[i], ((const char**)v2)[i]);
-                    diff += abs(comp);
-                }
+        case MPR_STR: {
+            for (i = 0, j = 0; i < _l1; i++, j++) {
+                int comp;
+                const char *s1, *s2;
+                if (j >= _l2)
+                    j = 0;
+                s1 = (1 == l1) ? (const char*)v1 : ((const char**)v1)[i];
+                s2 = (1 == l2) ? (const char*)v2 : ((const char**)v2)[j];
+                comp = mpr_path_match(s1, s2);
+                if (comp == 0)
+                    ++eq;
+                if (comp < 0)
+                    ++lt;
+                if (comp > 0)
+                    ++gt;
             }
             break;
+        }
         case MPR_BOOL:
-            for (i = 0; i < len; i++) {
-                int j = ((int*)v1)[i] != 0, k = ((int*)v2)[i] != 0;
-                comp += j - k;
-                diff += abs(comp);
+            for (i = 0, j = 0; i < _l1; i++, j++) {
+                uint8_t b1, b2;
+                int comp;
+                if (j >= _l2)
+                    j = 0;
+                b1 = ((int*)v1)[i] != 0;
+                b2 = ((int*)v2)[j] != 0;
+                comp = b1 - b2;
+                if (comp == 0)
+                    ++eq;
+                if (comp < 0)
+                    ++lt;
+                if (comp > 0)
+                    ++gt;
             }
             break;
         case MPR_INT32:
@@ -547,27 +577,52 @@ static int compare_val(mpr_op op, int len, mpr_type type, const void *v1, const 
         case MPR_DEV:
         case MPR_SIG:
         case MPR_MAP:
-        case MPR_OBJ:
-            if (1 == len) {
-                v2 = *(void**)v2;
-                comp = ((void*)v1 > (void*)v2) - ((void*)v1 < (void*)v2);
-            }
-            else {
-                COMPARE_TYPE(void**);
+        case MPR_OBJ: {
+            for (i = 0, j = 0; i < _l1; i++, j++) {
+                int comp;
+                void *p1, *p2;
+                if (j >= _l2)
+                    j = 0;
+                p1 = (1 == l1) ? (void*)v1 : ((void**)v1)[i];
+                p2 = ((void**)v2)[j];
+                comp = p1 - p2;
+                if (comp == 0)
+                    ++eq;
+                if (comp < 0)
+                    ++lt;
+                if (comp > 0)
+                    ++gt;
             }
             break;
+        }
         default:
             return 0;
     }
-    switch (op) {
-        case MPR_OP_EQ:     return (0 == comp) && !diff;
-        case MPR_OP_GT:     return comp > 0;
-        case MPR_OP_GTE:    return comp >= 0;
-        case MPR_OP_LT:     return comp < 0;
-        case MPR_OP_LTE:    return comp <= 0;
-        case MPR_OP_NEQ:    return comp != 0 || diff;
-        default:            return 0;
+    if (op & (MPR_OP_ANY | MPR_OP_NONE)) {
+        switch (op & 0xF) {
+            case MPR_OP_EQ:     ret = eq;               break;
+            case MPR_OP_GT:     ret = gt != 0;          break;
+            case MPR_OP_GTE:    ret = (eq + gt) != 0;   break;
+            case MPR_OP_LT:     ret = lt != 0;          break;
+            case MPR_OP_LTE:    ret = (eq + lt) != 0;   break;
+            case MPR_OP_NEQ:    ret = (gt + lt) != 0;   break;
+            default:            ret = 0;                break;
+        }
+        if (op & MPR_OP_NONE)
+            ret = !ret;
     }
+    else {
+        switch (op & 0xF) {
+            case MPR_OP_EQ:     ret = (gt + lt) == 0;   break;
+            case MPR_OP_GT:     ret = (eq + gt) == 0;   break;
+            case MPR_OP_GTE:    ret = lt == 0;          break;
+            case MPR_OP_LT:     ret = (eq + gt) == 0;   break;
+            case MPR_OP_LTE:    ret = gt == 0;          break;
+            case MPR_OP_NEQ:    ret = eq == 0;          break;
+            default:            ret = 0;                break;
+        }
+    }
+    return ret;
 }
 
 static int filter_by_prop(const void *ctx, mpr_obj o)
@@ -614,7 +669,7 @@ static int filter_by_prop(const void *ctx, mpr_obj o)
     }
     else if (_type != type || (op < MPR_OP_ALL && _len != len))
         return 0;
-    return compare_val(op, len, type, _val, val);
+    return compare_val(op, type, _len, len, _val, val);
 }
 
 /* TODO: we need to cache the value to be compared incase is goes out of scope. */
