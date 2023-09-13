@@ -52,7 +52,7 @@ int mpr_path_match(const char* s, const char* p)
             str += strlen(tok);
         else
             return 1;
-            /* subsequent calls to strtok() need first argument to be NULL */
+        /* subsequent calls to strtok() need first argument to be NULL */
         pat = NULL;
     }
     return 0;

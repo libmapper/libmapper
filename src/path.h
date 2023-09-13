@@ -4,6 +4,7 @@
 
 #include "util/mpr_inline.h"
 
+/*! Compare two strings with support for wildcard characters in the second string */
 int mpr_path_match(const char* s, const char* p);
 
 /*! Parse the device and signal names from an OSC path. */
