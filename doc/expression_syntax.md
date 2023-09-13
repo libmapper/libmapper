@@ -163,7 +163,7 @@ leave `y[1]` unchanged.
 
 There are several special functions that operate across all elements of the vector and output a scalar value:
 
-* `x.length()` – output the length of the vector `x`
+* `x.length()` – output the dimensionality (number of elements) of the vector `x`
 * `x.any()` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.all()` — output `1` if **all** of the elements of vector `x` are non-zero, otherwise output `0`
 * `x.sum()` – output the sum of the elements in vector `x`
@@ -171,7 +171,7 @@ There are several special functions that operate across all elements of the vect
 * `x.max()` – output the maximum element in vector `x`
 * `x.min()` – output the minimum element in vector `x`
 * `x.center()` – output the midpoint between `x.min()` and `x.max()`
-* `x.norm()` – output the length of the vector `x`
+* `x.norm()` – output the magnitude of the vector `x`
 * `x.index(a)` – output the index of element `a` in the vector `x`, or `-1` if the element is not found
 
 ### Other vector functions
