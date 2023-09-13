@@ -70,7 +70,7 @@ class Location(IntFlag):
     def __repr__(self):
         return 'mpr.Location.' + self.name
 
-class Operator(Enum):
+class Operator(IntFlag):
     DOES_NOT_EXIST          = 0x01
     EQUAL                   = 0x02
     EXISTS                  = 0x03
