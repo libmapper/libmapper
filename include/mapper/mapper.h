@@ -572,33 +572,33 @@ mpr_list mpr_list_get_isect(mpr_list list1, mpr_list list2);
 mpr_list mpr_list_get_diff(mpr_list list1, mpr_list list2);
 
 /*! Get an indexed item in a list of objects.
- *  \param list         The previous object record pointer.
+ *  \param list         The object list to query.
  *  \param index        The index of the list element to retrieve.
  *  \return             A pointer to the object record, or zero if it doesn't exist. */
 mpr_obj mpr_list_get_idx(mpr_list list, unsigned int index);
 
 /*! Given an object list returned from a previous object query, get the next item.
- *  \param list         The previous object record pointer.
+ *  \param list         The object list to query.
  *  \return             A list of results.  Use `mpr_list_get_next()` to iterate. */
 mpr_list mpr_list_get_next(mpr_list list);
 
 /*! Copy a previously-constructed object list.
- *  \param list         The previous object record pointer.
- *  \return             A list of results.  Use `mpr_list_get_next()` to iterate. */
+ *  \param list         The object list to copy.
+ *  \return             A copy of the initial list.  Use `mpr_list_get_next()` to iterate. */
 mpr_list mpr_list_get_cpy(mpr_list list);
 
 /*! Given an object list returned from a previous object query,
  *  indicate that we are done iterating.
- *  \param list         The previous object record pointer. */
+ *  \param list         The object list to free. */
 void mpr_list_free(mpr_list list);
 
 /*! Return the number of objects in a previous object query list.
- *  \param list         The previous object record pointer.
+ *  \param list         The object list to query.
  *  \return             The number of objects in the list. */
 int mpr_list_get_size(mpr_list list);
 
 /*! Print an object list returned from a previous object query.
- *  \param list         The previous object record pointer. */
+ *  \param list         The object list to print. */
 void mpr_list_print(mpr_list list);
 
 /** @} */ /* end of group Lists */
