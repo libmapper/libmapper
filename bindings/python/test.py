@@ -130,6 +130,14 @@ for i in range(100):
         map['expr'] = 'y=y{-1}+x'
         map.push()
 
+        # test list.__contains__()
+        print('new map signal list',
+              'contains' if outsig in map.signals() else 'does not contain',
+              outsig)
+        print('new map source list',
+              'contains' if insig in map.signals(mpr.Location.SOURCE) else 'does not contain',
+              insig)
+
 #        # test creating multi-source map
 #        map = mpr.Map([sig1, sig2], sig3)
 #        map.expr = 'y=x0-x1'

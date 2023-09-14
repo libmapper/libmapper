@@ -346,6 +346,15 @@ class List:
             mpr.mpr_list_free(self._list)
             self._list = None
 
+    def __contains__(self, obj):
+        if self._list and obj and isinstance(obj, Object):
+            # use a copy
+            cpy = List(mpr.mpr_list_get_cpy(self._list))
+            for _obj in cpy:
+                if _obj == obj:
+                    return True
+        return False
+
     def __repr__(self):
         return 'mpr.List'
 
