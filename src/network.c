@@ -1476,13 +1476,30 @@ static int handler_map(const char *path, const char *types, lo_arg **av, int ac,
     }
 #endif
 
-    if (mpr_map_get_status((mpr_map)map) == MPR_STATUS_ACTIVE) {
-        /* Forward to handler_map_mod() and stop. */
-        handler_map_mod(path, types, av, ac, msg, user);
-        return 0;
-    }
     props = mpr_msg_parse_props(ac, types, av);
-    mpr_net_handle_map(net, map, props);
+    if (mpr_map_get_status((mpr_map)map) == MPR_STATUS_ACTIVE) {
+        mpr_loc loc = mpr_local_map_get_process_loc_from_msg(map, props);
+        if (MPR_LOC_DST == loc) {
+            /* Forward to local handler_map_mod(). */
+            trace("Map is already active! Forwarding map message to modify handler...\n");
+            handler_map_mod(path, types, av, ac, msg, user);
+        }
+        else {
+            /* Forward message to remote peer as /map/modify. */
+            int i, num_src = mpr_map_get_num_src((mpr_map)map);
+            trace("Map is already active! Forwarding map message to remote peer...\n");
+            for (i = 0; i < num_src; i++) {
+                mpr_slot slot = mpr_map_get_src_slot((mpr_map)map, i);
+                mpr_link link = mpr_slot_get_link(slot);
+                mpr_net_use_mesh(net, mpr_link_get_admin_addr(link));
+                mpr_net_add_msg(net, 0, MSG_MAP_MOD, msg);
+            }
+            mpr_net_send(net);
+        }
+    }
+    else {
+        mpr_net_handle_map(net, map, props);
+    }
     mpr_msg_free(props);
     return 0;
 }
@@ -1683,7 +1700,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     mpr_net net = mpr_graph_get_net(gph);
     mpr_local_map map;
     mpr_msg props;
-    mpr_loc loc = MPR_LOC_UNDEFINED;
+    mpr_loc locality = MPR_LOC_UNDEFINED;
     int i, updated;
 
     RETURN_ARG_UNLESS(ac >= 4, 0);
@@ -1696,27 +1713,9 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     props = mpr_msg_parse_props(ac, types, av);
     TRACE_RETURN_UNLESS(props, 0, "  ignoring /map/modify, no properties.\n");
 
-    /* TODO: better to push this logic to map.c */
-    if (!mpr_local_map_get_is_one_src(map)) {
-        /* if map has sources from different remote devices, processing must
-         * occur at the destination. */
-        loc = MPR_LOC_DST;
-    }
-    else {
-        const char *str;
-        loc = mpr_map_get_process_loc((mpr_map)map);
-        if ((str = mpr_msg_get_prop_as_str(props, MPR_PROP_PROCESS_LOC))) {
-            loc = mpr_loc_from_str(str);
-        }
-        if (   (str = mpr_msg_get_prop_as_str(props, MPR_PROP_EXPR))
-            || (str = mpr_map_get_expr_str((mpr_map)map))) {
-            if (strstr(str, "y{-"))
-                loc = MPR_LOC_DST;
-        }
-    }
-
     /* do not continue if we are not in charge of processing */
-    if (!(loc & mpr_map_get_locality((mpr_map)map))) {
+    locality = mpr_map_get_locality((mpr_map)map);
+    if (!(locality & mpr_local_map_get_process_loc_from_msg(map, props))) {
         trace(  "ignoring /map/modify, synced to remote peer.\n");
         goto done;
     }
@@ -1724,7 +1723,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
     updated = mpr_map_set_from_msg((mpr_map)map, props);
     if (updated) {
         int num_src = mpr_map_get_num_src((mpr_map)map);
-        if (MPR_LOC_BOTH != mpr_map_get_locality((mpr_map)map)) {
+        if (MPR_LOC_BOTH != locality) {
             /* Inform remote peer(s) of relevant changes */
             mpr_slot slot = mpr_map_get_dst_slot((mpr_map)map);
             if (!mpr_slot_get_sig_if_local(slot)) {
@@ -1743,7 +1742,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
             }
         }
 
-        if (MPR_LOC_SRC & mpr_map_get_locality((mpr_map)map)) {
+        if (MPR_LOC_SRC & locality) {
             mpr_local_dev dev = 0;
             for (i = 0; i < num_src; i++) {
                 mpr_slot slot = mpr_map_get_src_slot((mpr_map)map, i);
@@ -1758,7 +1757,7 @@ static int handler_map_mod(const char *path, const char *types, lo_arg **av,
                 }
             }
         }
-        if (MPR_LOC_DST & mpr_map_get_locality((mpr_map)map)) {
+        if (MPR_LOC_DST & locality) {
             mpr_slot slot = mpr_map_get_dst_slot((mpr_map)map);
             mpr_sig sig = (mpr_sig)mpr_slot_get_sig_if_local(slot);
             if (sig) {

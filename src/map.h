@@ -77,6 +77,8 @@ int mpr_map_get_num_src(mpr_map map);
 
 mpr_loc mpr_map_get_process_loc(mpr_map map);
 
+mpr_loc mpr_local_map_get_process_loc_from_msg(mpr_local_map map, mpr_msg msg);
+
 mpr_proto mpr_map_get_protocol(mpr_map map);
 
 mpr_sig mpr_map_get_src_sig(mpr_map map, int idx);

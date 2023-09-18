@@ -2094,6 +2094,28 @@ mpr_loc mpr_map_get_process_loc(mpr_map map)
     return map->process_loc;
 }
 
+mpr_loc mpr_local_map_get_process_loc_from_msg(mpr_local_map map, mpr_msg msg)
+{
+    mpr_loc loc = mpr_map_get_process_loc((mpr_map)map);
+    if (!mpr_local_map_get_is_one_src(map)) {
+        /* if map has sources from different remote devices, processing must
+         * occur at the destination. */
+        loc = MPR_LOC_DST;
+    }
+    else if (msg) {
+        const char *str;
+        if ((str = mpr_msg_get_prop_as_str(msg, MPR_PROP_PROCESS_LOC))) {
+            loc = mpr_loc_from_str(str);
+        }
+        if (   (str = mpr_msg_get_prop_as_str(msg, MPR_PROP_EXPR))
+            || (str = mpr_map_get_expr_str((mpr_map)map))) {
+            if (strstr(str, "y{-"))
+                loc = MPR_LOC_DST;
+        }
+    }
+    return loc;
+}
+
 mpr_proto mpr_map_get_protocol(mpr_map map)
 {
     if (mpr_obj_get_is_local((mpr_obj)map) && ((mpr_local_map)map)->locality == MPR_LOC_BOTH)
