@@ -1,5 +1,33 @@
 # libmapper NEWS
 
+Version 2.4.4
+-------------
+
+We are pleased to announce the release of version 2.4.3 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This version focuses on bug fixes, documentation improvements, and improvements to the Python bindings.
+
+Bugfixes and improvements include:
+
+- Fixed bug affecting retrieval-by-index for ordered mpr_lists (e.g. map source signals)
+- Fixed bug adjusting link num_maps property on map removal.
+- Fixed forwarding of received '/map' messages as 'map/modify' for existing maps in the case where the endpoints are on different devices and process location is MPR_LOC_SRC.
+
+Usability improvments include:
+
+- Revised list property filter to support `MPR_OP_ANY`/`MPR_OP_NONE` flags.
+- Added check for ignoring unknown local map ids during map handshaking.
+- Improvements to expression syntax documentation.
+- Documentation improvements.
+
+Improvements to the Python bindings include:
+
+- Various fixes for wheel-building CI
+- Added script and support files for building distribution for PyPI
+- Improvements to object property getters.
+- Converted Operator Enum to IntFlag to enable combinations with `MPR_OP_ANY`/`MPR_OP_NONE`.
+- added `__contains__()` method to Object Lists to enable e.g. `if key in list`.
+
 Version 2.4.3
 -------------
 
