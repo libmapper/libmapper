@@ -13,7 +13,7 @@ Bugfixes and improvements include:
 - Fixed bug adjusting link num_maps property on map removal.
 - Fixed forwarding of received '/map' messages as 'map/modify' for existing maps in the case where the endpoints are on different devices and process location is MPR_LOC_SRC.
 
-Usability improvments include:
+Usability improvements include:
 
 - Revised list property filter to support `MPR_OP_ANY`/`MPR_OP_NONE` flags.
 - Added check for ignoring unknown local map ids during map handshaking.
