@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "libmapper"
-version = "2.4.3"
+version = "2.4.4"
 authors = [
   { name="libmapper.org", email="dot_mapper@googlegroups.com" },
 ]
