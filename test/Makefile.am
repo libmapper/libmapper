@@ -17,6 +17,7 @@ if WINDOWS_DLL
         testgraph \
         testinstance \
         testlinear \
+        testlist \
         testlocalmap \
         testmany \
         testmapfail \
@@ -44,6 +45,7 @@ if WINDOWS_DLL
         testparams \
         testprops \
         testgraph \
+        testlist \
         testparser \
         testnetwork \
         testmany \
@@ -84,6 +86,7 @@ else
         testinstance \
         testinterrupt \
         testlinear \
+        testlist \
         testlocalmap \
         testmany \
         testmapfail \
@@ -112,6 +115,7 @@ else
         testparams \
         testprops \
         testgraph \
+        testlist \
         testparser \
         testnetwork \
         testmany \
@@ -186,6 +190,10 @@ testinterrupt_LDADD = $(TEST_LDADD)
 testlinear_CFLAGS = $(TEST_CFLAGS)
 testlinear_SOURCES = testlinear.c
 testlinear_LDADD = $(TEST_LDADD)
+
+testlist_CFLAGS = $(TEST_CFLAGS)
+testlist_SOURCES = testlist.c
+testlist_LDADD = $(TEST_LDADD)
 
 testlocalmap_CFLAGS = $(TEST_CFLAGS)
 testlocalmap_SOURCES = testlocalmap.c

@@ -637,7 +637,7 @@ static int filter_by_prop(const void *ctx, mpr_obj o)
     const void *val, *_val;
 
     if (MPR_PROP_UNKNOWN == p || MPR_PROP_EXTRA == p)
-        key =  (const char*)((char*)ctx + sizeof(int)*4);
+        key = (const char*)((char*)ctx + sizeof(int)*4);
     offset = sizeof(int) * 4 + (key ? strlen(key) + 1 : 0);
     val = (void*)((char*)ctx + offset);
     if (key && key[0])
@@ -680,8 +680,10 @@ mpr_list mpr_list_filter(mpr_list list, mpr_prop p, const char *key, int len,
     int i = 0, size, offset = 0, mask = MPR_OP_ALL | MPR_OP_ANY;
     char *data;
 
-    if (!list || !val || len <= 0 || op <= MPR_OP_UNDEFINED || (op | mask) > (MPR_OP_NEQ | mask))
+    if (!list || op <= MPR_OP_UNDEFINED || (op | mask) > (MPR_OP_NEQ | mask)
+        || ((!val || len <= 0) && op != MPR_OP_EX && op != MPR_OP_NEX)) {
         return list;
+    }
     if (len > 1) {
         trace("filters with value arrays are not currently supported.\n");
         return list;

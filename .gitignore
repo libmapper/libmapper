@@ -67,6 +67,7 @@ test/testgraph
 test/testinstance
 test/testinterrupt
 test/testlinear
+test/testlist
 test/testlocalmap
 test/testmany
 test/testmapfail
