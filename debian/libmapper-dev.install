@@ -1,0 +1,4 @@
+# You must remove unused comment lines for the released package.
+usr/include/mapper
+usr/lib/*/*.la
+usr/lib/*/pkgconfig
