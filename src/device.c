@@ -910,7 +910,6 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     url = lo_server_get_url(dev->servers[SERVER_UDP]);
     host = lo_url_get_hostname(url);
     mpr_tbl_add_record(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, MOD_NONE);
-    free(host);
     free(url);
 
     mpr_dev_set_net_servers(dev, mpr_net_get_servers(net));
