@@ -272,8 +272,7 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
 #else /* !HAVE_GETIFADDRS */
 
 #ifdef HAVE_LIBIPHLPAPI
-    /* TODO consider "pref" as well */
-
+    char namebuf[BUFSIZ];
     /* Start with recommended 15k buffer for GetAdaptersAddresses. */
     ULONG size = 15 * 1024 / 2;
     int tries = 3;
@@ -282,48 +281,62 @@ static int get_iface_addr(const char* pref, struct in_addr* addr, char **iface)
     while (rc != ERROR_SUCCESS && paa && tries-- > 0) {
         size *= 2;
         paa = realloc(paa, size);
-        rc = GetAdaptersAddresses(AF_INET, 0, 0, paa, &size);
+        if (paa)
+            rc = GetAdaptersAddresses(AF_INET, 0, 0, paa, &size);
     }
-    RETURN_ARG_UNLESS(ERROR_SUCCESS == rc, 2);
+    RETURN_ARG_UNLESS(paa && ERROR_SUCCESS == rc, 2);
 
-    PIP_ADAPTER_ADDRESSES loaa = 0, aa = paa;
-    PIP_ADAPTER_UNICAST_ADDRESS lopua = 0;
+    PIP_ADAPTER_ADDRESSES aa_lo = 0, aa_chosen = 0, aa = paa;
+    PIP_ADAPTER_UNICAST_ADDRESS ua_chosen = 0;
     while (aa && ERROR_SUCCESS == rc) {
         PIP_ADAPTER_UNICAST_ADDRESS pua = aa->FirstUnicastAddress;
         /* Skip adapters that are not "Up". */
         if (pua && IfOperStatusUp == aa->OperStatus) {
+            trace("checking network interface '%wS' (pref: '%s')\n",
+                  aa->FriendlyName, pref ? pref : "NULL");
             if (IF_TYPE_SOFTWARE_LOOPBACK == aa->IfType) {
-                loaa = aa;
-                lopua = pua;
+                aa_lo = aa;
             }
             else {
                 /* Skip addresses starting with 0.X.X.X or 169.X.X.X. */
                 sa = (struct sockaddr_in *) pua->Address.lpSockaddr;
                 unsigned char prefix = sa->sin_addr.s_addr & 0xFF;
                 if (prefix != 0xA9 && prefix != 0) {
-                    if (*iface && !strcmp(*iface, aa->AdapterName)) {
-                        free(paa);
-                        return 1;
-                    }
-                    FUNC_IF(free, *iface);
-                    *iface = strdup(aa->AdapterName);
-                    *addr = sa->sin_addr;
-                    free(paa);
-                    return 0;
+                    aa_chosen = aa;
+                }
+            }
+            if (pref) {
+                memset(namebuf, 0, BUFSIZ);
+                WideCharToMultiByte(CP_ACP, 0, aa->FriendlyName, wcslen(aa->FriendlyName),
+                                    namebuf, BUFSIZ, NULL, NULL);
+                if (0 == strcmp(pref, namebuf)) {
+                    trace("  preferred interface found!\n");
+                    aa_chosen = aa;
+                    break;
                 }
             }
         }
         aa = aa->Next;
     }
 
-    if (loaa && lopua) {
-        if (*iface && !strcmp(*iface, loaa->AdapterName)) {
+    /* Default to loopback address in case user is working locally. */
+    if (!aa_chosen) {
+        trace("defaulting to local loopback interface\n");
+        aa_chosen = aa_lo;
+    }
+
+    if (aa_chosen) {
+        PIP_ADAPTER_UNICAST_ADDRESS pua = aa_chosen->FirstUnicastAddress;
+        memset(namebuf, 0, BUFSIZ);
+        WideCharToMultiByte(CP_ACP, 0, aa_chosen->FriendlyName, wcslen(aa_chosen->FriendlyName),
+                            namebuf, BUFSIZ, NULL, NULL);
+        if (!pua || (*iface && !strcmp(*iface, namebuf))) {
             free(paa);
             return 1;
         }
         FUNC_IF(free, *iface);
-        *iface = strdup(loaa->AdapterName);
-        sa = (struct sockaddr_in *) lopua->Address.lpSockaddr;
+        *iface = strdup(namebuf);
+        sa = (struct sockaddr_in *) pua->Address.lpSockaddr;
         *addr = sa->sin_addr;
         free(paa);
         return 0;
@@ -703,7 +716,10 @@ void mpr_net_free(mpr_net net)
     FUNC_IF(lo_server_free, net->servers[SERVER_BUS]);
     FUNC_IF(lo_server_free, net->servers[SERVER_MESH]);
     FUNC_IF(lo_address_free, net->addr.bus);
+#ifndef WIN32
+    /* For some reason Windows thinks return of lo_address_get_url() should not be freed */
     FUNC_IF(free, net->addr.url);
+#endif /* WIN32 */
     free(net);
 }
 

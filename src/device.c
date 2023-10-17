@@ -910,7 +910,11 @@ static void mpr_dev_start_servers(mpr_local_dev dev)
     url = lo_server_get_url(dev->servers[SERVER_UDP]);
     host = lo_url_get_hostname(url);
     mpr_tbl_add_record(dev->obj.props.synced, PROP(HOST), NULL, 1, MPR_STR, host, MOD_NONE);
+
+#ifndef WIN32
+    /* For some reason Windows thinks return of lo_address_get_url() should not be freed */
     free(url);
+#endif /* WIN32 */
 
     mpr_dev_set_net_servers(dev, mpr_net_get_servers(net));
 }
@@ -1369,8 +1373,11 @@ void mpr_local_dev_send_to_subscribers(mpr_local_dev dev, lo_bundle bundle,
 #ifdef DEBUG
             char *addr = lo_address_get_url((*sub)->addr);
             trace_dev(dev, "removing expired subscription from %s\n", addr);
+#ifndef WIN32
+            /* For some reason Windows thinks return of lo_address_get_url() should not be freed */
             free(addr);
-#endif
+#endif /* WIN32 */
+#endif /* DEBUG */
             mpr_subscriber temp = *sub;
             *sub = temp->next;
             FUNC_IF(lo_address_free, temp->addr);
