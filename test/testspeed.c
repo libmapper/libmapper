@@ -16,6 +16,8 @@
 #include <signal.h>
 #include <string.h>
 
+#define NUM_INST 10
+
 int count = 0;
 
 int verbose = 1;
@@ -37,6 +39,7 @@ int received = 0;
 int done = 0;
 
 double times[100];
+float expected[NUM_INST];
 
 void switch_modes();
 void print_results();
@@ -64,6 +67,7 @@ static void eprintf(const char *format, ...)
 /*! Creation of a local source. */
 int setup_src(mpr_graph g, const char *iface)
 {
+    int num_inst = NUM_INST;
     mpr_list l;
     src = mpr_dev_new("testspeed-send", g);
     if (!src)
@@ -74,10 +78,9 @@ int setup_src(mpr_graph g, const char *iface)
             mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)src)));
 
     sendsig = mpr_sig_new(src, MPR_DIR_OUT, "outsig", 1, MPR_FLT, NULL,
-                          NULL, NULL, NULL, NULL, 0);
+                          NULL, NULL, &num_inst, NULL, 0);
     if (!sendsig)
         goto error;
-    mpr_sig_reserve_inst(sendsig, 10, 0, 0);
 
     eprintf("Output signal registered.\n");
     l = mpr_dev_get_sigs(src, MPR_DIR_OUT);
@@ -104,13 +107,21 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
              mpr_type type, const void *value, mpr_time t)
 {
     if (value) {
-        counter = (counter+1)%10;
+        if (inst < 0 || inst > NUM_INST - 1)
+            printf("error: inst out of bounds!\n");
+        else if (*(float*)value != expected[inst])
+            printf("error: value[%d] %g != %g\n", (int)inst, *(float*)value, expected[inst]);
         if (++received >= iterations)
             switch_modes();
-        if (use_inst)
+        if (use_inst) {
+            counter = (counter+1)%10;
+            ++expected[counter];
             mpr_sig_set_value(sendsig, counter, length, type, value);
-        else
+        }
+        else {
+            ++expected[0];
             mpr_sig_set_value(sendsig, 0, length, type, value);
+        }
         mpr_dev_update_maps(mpr_sig_get_dev(sig));
     }
     else {
@@ -122,6 +133,7 @@ void handler(mpr_sig sig, mpr_sig_evt event, mpr_id inst, int length,
 /*! Creation of a local destination. */
 int setup_dst(mpr_graph g, const char *iface)
 {
+    int num_inst = NUM_INST;
     mpr_list l;
     dst = mpr_dev_new("testspeed-recv", g);
     if (!dst)
@@ -132,10 +144,9 @@ int setup_dst(mpr_graph g, const char *iface)
             mpr_graph_get_interface(mpr_obj_get_graph((mpr_obj)dst)));
 
     recvsig = mpr_sig_new(dst, MPR_DIR_IN, "insig", 1, MPR_FLT, NULL,
-                          NULL, NULL, NULL, handler, MPR_SIG_UPDATE);
+                          NULL, NULL, &num_inst, handler, MPR_SIG_UPDATE);
     if (!recvsig)
         goto error;
-    mpr_sig_reserve_inst(recvsig, 10, 0, 0);
 
     eprintf("Input signal registered.\n");
     l = mpr_dev_get_sigs(dst, MPR_DIR_IN);
@@ -200,7 +211,7 @@ void switch_modes()
     int i;
     eprintf("MODE %i TRIAL %i COMPLETED...\n", mode, trial);
     received = 0;
-    times[mode*numTrials+trial] = mpr_get_current_time() - times[mode*numTrials+trial];
+    times[mode * numTrials + trial] = mpr_get_current_time() - times[mode * numTrials + trial];
     if (++trial >= numTrials) {
         eprintf("SWITCHING MODES...\n");
         trial = 0;
@@ -224,7 +235,7 @@ void switch_modes()
             break;
     }
 
-    times[mode*numTrials+trial] = mpr_get_current_time();
+    times[mode * numTrials + trial] = mpr_get_current_time();
 }
 
 void print_results()
@@ -318,6 +329,10 @@ int main(int argc, char **argv)
     wait_local_devs();
 
     map_sigs();
+
+    expected[0] = 2;
+    for (i = 1; i < NUM_INST; i++)
+        expected[i] = 1;
 
     /* start things off */
     eprintf("STARTING TEST...\n");
