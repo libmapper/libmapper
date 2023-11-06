@@ -1142,7 +1142,7 @@ int mpr_graph_subscribed_by_sig(mpr_graph g, const char *name)
 
 int mpr_graph_set_interface(mpr_graph g, const char *iface)
 {
-    return mpr_net_init(g->net, iface, 0, 0);
+    return iface && !mpr_net_init(g->net, iface, 0, 0) && !strcmp(iface, mpr_net_get_interface(g->net));
 }
 
 const char *mpr_graph_get_interface(mpr_graph g)
