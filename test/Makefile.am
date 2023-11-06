@@ -15,6 +15,7 @@ if WINDOWS_DLL
         testcustomtransport \
         testexpression \
         testgraph \
+        testsetiface \
         testinstance \
         testlinear \
         testlist \
@@ -45,6 +46,7 @@ if WINDOWS_DLL
         testparams \
         testprops \
         testgraph \
+        testsetiface \
         testlist \
         testparser \
         testnetwork \
@@ -83,6 +85,7 @@ else
         testcustomtransport \
         testexpression \
         testgraph \
+        testsetiface \
         testinstance \
         testinterrupt \
         testlinear \
@@ -115,6 +118,7 @@ else
         testparams \
         testprops \
         testgraph \
+        testsetiface \
         testlist \
         testparser \
         testnetwork \
@@ -178,6 +182,10 @@ testexpression_LDADD = $(TEST_LDADD)
 testgraph_CFLAGS = $(TEST_CFLAGS)
 testgraph_SOURCES = testgraph.c
 testgraph_LDADD = $(TEST_LDADD)
+
+testsetiface_CFLAGS = $(TEST_CFLAGS)
+testsetiface_SOURCES = testsetiface.c
+testsetiface_LDADD = $(TEST_LDADD)
 
 testinstance_CFLAGS = $(TEST_CFLAGS)
 testinstance_SOURCES = testinstance.c

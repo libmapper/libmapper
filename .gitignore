@@ -83,6 +83,7 @@ test/testprops
 test/testrate
 test/testreverse
 test/testselfmap
+test/testsetiface
 test/testsetremote
 test/testsignalhierarchy
 test/testsignals
