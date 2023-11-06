@@ -123,8 +123,10 @@ jobs:
       run:
         mv bindings/python/pyproject.toml bindings/python/pyproject.toml.temp
         && cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
-        && pip3 install wheel
-        && pip3 install packaging
+        && python3 -m pip install --upgrade setuptools
+        && python3 -m pip install wheel
+        && python3 -m pip install distutils
+        && python3 -m pip install packaging
         && pip3 wheel bindings/python -w ./wheelhouse
         && unzip -t wheelhouse/*.whl
     - uses: actions/upload-artifact@v3
