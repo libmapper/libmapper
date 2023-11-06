@@ -53,7 +53,6 @@ jobs:
       run:
         brew install autoconf-archive automake pkg-config
         && python3 -m pip install --upgrade setuptools
-        && python3 -m pip install distutils
         && python3 -m pip install packaging
     - name: download liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz
