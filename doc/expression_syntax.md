@@ -279,8 +279,8 @@ Just like the output variable `y` we can initialize past values of user-defined 
 User-declared variables will also be reported as map metadata, prefixed by the string `var@`. The variable `ema` from the example above would be reported as the map property `var@ema`. These metadata may be modified at runtime by editing the map property using a GUI or through the libmapper properties API:
 
 ~~~c
-// C API
-// establish a map between previously-declared signals 'src' and 'dst'
+/* C API */
+/* establish a map between previously-declared signals 'src' and 'dst' */
 mpr_map map = mpr_map_new(1, &src, 1, &dst);
 mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXPR, NULL, 1, MPR_STR,
                  "mix=0.1;y=y{-1}*mix+x*(1-mix);", 1);
@@ -288,10 +288,26 @@ mpr_obj_push((mpr_obj)map);
 
 ...
 
-// modify the variable "mix"
+/* modify the variable "mix" */
 float mix = 0.2;
 mpr_obj_set_prop((mpr_obj)map, MPR_PROP_EXTRA, "var@mix", 1, MPR_FLT, &mix, 1);
 mpr_obj_push((mpr_obj)map);
+~~~
+
+~~~C++
+// C++ API
+// establish a map between previously-declared signals 'src' and 'dst'
+mpr.Map map(src, dst);
+map[mpr.Property.EXPRESSION] = "mix=0.1;y=y{-1}*mix+x*(1-mix);";
+map.push();
+
+...
+
+// modify the variable "mix"
+map["var@mix"] = 0.2;
+map.push();
+
+//map.set_property("mix", 0.2).push();
 ~~~
 
 ~~~python
@@ -432,7 +448,7 @@ The timetag associated with a variable can be accessed using the syntax `t_<vari
 This functionality can be used along with in-map signal instancing to limit the output rate. The following example only outputs if more than 0.5 seconds has elapsed since the last output, otherwise discarding the input sample.
 
 <pre style="width:50%;margin:auto">
-alive = (t_x - t_y{-1}) > 0.5;
+muted = (t_x - t_y{-1}) <= 0.5;
 y = x;
 </pre>
 
@@ -453,10 +469,10 @@ Here's a more complex example with 4 sub-expressions in which the rate is limite
 
 <pre style="width:50%;margin:auto">
 count{-1} = 1;
-alive = (t_x - t_y{-1}) > 0.1;
+muted = (t_x - t_y{-1}) <= 0.1;
 y = (accum + x) / count;
-accum = !alive * accum + x;
-count = alive ? 1 : count + 1;
+accum = muted * accum + x;
+count = muted ? count + 1 : 1;
 </pre>
 
 Explanation:
@@ -464,14 +480,14 @@ Explanation:
 order | step           | expression clause       | description
 ----- | -------------- | ----------------------- | -----------
 0 | initialization     | `count{-1}=1`           | set the initial value of `count` to 1 to avoid divide by zero.
-1 | check elapsed time | <code>alive=(t<sub>x</sub>-t<sub>y</sub>{-1})>0.1</code> | Set `alive` to `1` (true) if more than `0.1` seconds have elapsed since the last output; or `0` otherwise.
-2 | conditional output | `y=(accum+x)/count`     | output the average of collected samples (if `alive` is true)
-3 | update accumulator | `accum=!alive*accum+x`  | reset accumulator to 0 if `alive` is true; add `x`
-4 | update count       | `count=alive?1:count+1` | increment `count`, reset if `alive` is true
+1 | check elapsed time | <code>muted=(t<sub>x</sub>-t<sub>y</sub>{-1})<0.1</code> | Set `muted` to `1` (true) if less than `0.1` seconds have elapsed since the last output; or `0` otherwise.
+2 | conditional output | `y=(accum+x)/count`     | output the average of collected samples (if `muted` is false)
+3 | update accumulator | `accum=muted*accum+x`  | reset accumulator to 0 if `muted` is false; add `x`
+4 | update count       | `count=muted?count+1:1` | increment `count`, reset if `muted` is false
 
 <h2 id="instances">Instances</h2>
 
-Input and output signals addressed by libmapper may be *instanced* meaning that there a multiple independent instances of the object or phenomenon represented by the signal. For example, a signal representing `/touch/position` on a multitouch display would have an instance corresponding to each active touch. This means that a signal value `x` can have up to four dimensions:
+Input and output signals addressed by libmapper may be *instanced* meaning that there are multiple independent copies of the object or phenomenon represented by the signal. For example, a signal representing `/touch/position` on a multitouch display would have an instance corresponding to each active touch. This means that a signal value `x` can have up to four dimensions:
 
 dimension        | syntax  | application
 -----------------|---------|-------------

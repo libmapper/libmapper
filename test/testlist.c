@@ -199,7 +199,7 @@ int main(int argc, char ** argv)
     cleanup_dev();
     if (graph)
         mpr_graph_free(graph);
-    printf("...................Test %s\x1B[0m.\n",
-           result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
+    printf("..................................................");
+    printf("Test %s\x1B[0m.\n", result ? "\x1B[31mFAILED" : "\x1B[32mPASSED");
     return result;
 }

@@ -17,12 +17,12 @@ Please consult the [LibLo project page][liblo] for details.
 
 The GNU configure step detects liblo using the "pkg-config" program.
 This is usually already installed in Linux systems, but on MacOS, we
-recommend installing it via [MacPorts][ports] or [HomeBrew][brew]. In
-the future libmapper packages for MacPorts and HomeBrew will be
-directly provided, but this is not yet the case.
+recommend installing it via [MacPorts][ports] or [HomeBrew][brew]. HomeBrew packages are also available for [liblo][brew-liblo] and [libmapper][brew-libmapper] if you prefer not to manually build from source; in the future they will also be made available for MacPorts.
 
 [ports]: http://www.macports.org
 [brew]: http://mxcl.github.com/homebrew
+[brew-liblo]: https://formulae.brew.sh/formula/liblo#default
+[brew-libmapper]: https://formulae.brew.sh/formula/libmapper#default
 
 You may wish to manually check that the correct version of liblo is
 detected, by running,
@@ -193,7 +193,7 @@ You'll also need Visual Studio 2017 or 2019, which you can grab [here][visual_st
 
 [visual_studio]: https://visualstudio.microsoft.com/vs/
 
-Once cmake is installed and added to the environment path, libmapper and its dependencies (zlib and liblo) can be built the easy way by running `windows_build.ps1` using powershell or "Run in powershell" form the right-click menu on the file. The libmapper, liblo and zlib dlls can be found in the dist/ directory. Tests can be run in dist/tests/ to verify the correct functions, but be sure to copy the dlls (zlib, liblo, libmapper) to the same folder as the executables or add their paths to your PATH environment variable.
+Once cmake is installed and added to the environment path, libmapper and its dependencies (zlib and liblo) can be built the easy way by running `windows_build.ps1` using powershell or "Run in powershell" frrm the right-click menu on the file. The libmapper, liblo and zlib dlls can be found in the dist/ directory. Tests can be run in dist/tests/ to verify the correct functions, but be sure to copy the dlls (zlib, liblo, libmapper) to the same folder as the executables or add their paths to your PATH environment variable.
 
 To build the python wheel, run the `windows_build_wheel.ps1` script from /bindings/python.
 
@@ -282,9 +282,9 @@ To do so, for both liblo and libmapper, you must perform the
 
 The `file` command should list both 32- and 64-bit architectures.
 
-    file src/.libs/libmapper.8.dylib
+    file src/.libs/libmapper.11.dylib
 
-(Of course, replace ".8" with the current libmapper version.)
+(Of course, replace ".11" with the current libmapper version.)
 
 Although we do not explicitly list them here, similar steps should be
 performed for liblo.
@@ -303,7 +303,7 @@ From the libmapper directory, create a directory called
 Now copy the Java bindings to this directory, renaming the jar file to
 match the name of the directory:
 
-    cp bindings/java/.libs/libmapperjni.8.dylib <sketchbook>/libraries/libmapper/library/libmapperjni.dylib
+    cp bindings/java/.libs/libmapperjni.11.dylib <sketchbook>/libraries/libmapper/library/libmapperjni.dylib
     cp bindings/java/libmapper.jar <sketchbook>/libraries/libmapper/library/libmapper.jar
 
 Create a file `export.txt`:
