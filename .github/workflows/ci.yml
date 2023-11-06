@@ -50,7 +50,11 @@ jobs:
       with:
         fetch-depth: 0
     - name: install dependencies
-      run: brew install autoconf-archive automake pkg-config
+      run:
+        brew install autoconf-archive automake pkg-config
+        && python3 -m pip install --upgrade setuptools
+        && python3 -m pip install distutils
+        && python3 -m pip install packaging
     - name: download liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz
     - name: liblo make arm64
@@ -123,10 +127,7 @@ jobs:
       run:
         mv bindings/python/pyproject.toml bindings/python/pyproject.toml.temp
         && cp -v $PWD/inst/lib/libmapper.*.dylib bindings/python/libmapper/libmapper.dylib
-        && python3 -m pip install --upgrade setuptools
         && python3 -m pip install wheel
-        && python3 -m pip install distutils
-        && python3 -m pip install packaging
         && pip3 wheel bindings/python -w ./wheelhouse
         && unzip -t wheelhouse/*.whl
     - uses: actions/upload-artifact@v3
