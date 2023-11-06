@@ -1,5 +1,26 @@
 # libmapper NEWS
 
+Version 2.4.5
+-------------
+
+We are pleased to announce the release of version 2.4.4 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This version focuses on support for network interface switching on Windows. There have also been several bug fixes and improvements to API documentation.
+
+Bug fixes include:
+
+- Switching network interfaces is now enabled on Windows. `mpr_graph_set_interface()`/`mpr_graph_get_interface()` now assume use of human-friendly network interface names on Windows.
+- `mpr_graph_set_interface()` now only returns success if the interface was actually changed. 
+- Fixes for memory handing of device hostname and url strings.
+- Valid length or value arguments are no longer required when filtering a list with the MPR_OP_EX or MPR_OP_NEX operators.
+
+Additional changes include:
+
+- API documentation improvements.
+- expression syntax documentation improvments.
+- added value-checking to `testspeed.c`
+- added two tests to the testing suite: `testlist.c` and `testsetiface.c`
+
 Version 2.4.4
 -------------
 
