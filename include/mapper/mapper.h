@@ -625,6 +625,7 @@ mpr_graph mpr_graph_new(int autosubscribe_types);
 int mpr_graph_set_interface(mpr_graph graph, const char *iface);
 
 /*! Return a string indicating the name of the network interface in use.
+ *  The returned value belongs to the graph and should not be modified or freed.
  *  \param graph        The graph structure to query.
  *  \return             A string containing the name of the network interface. */
 const char *mpr_graph_get_interface(mpr_graph graph);
@@ -638,6 +639,7 @@ const char *mpr_graph_get_interface(mpr_graph graph);
 int mpr_graph_set_address(mpr_graph graph, const char *group, int port);
 
 /*! Retrieve the multicast group currently in use.
+ *  The returned value belongs to the graph and should not be modified or freed.
  *  \param graph        The graph structure to query.
  *  \return             A string specifying the multicast URL for bus communication with the
  *                      distributed graph. */
