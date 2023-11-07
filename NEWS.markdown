@@ -3,7 +3,7 @@
 Version 2.4.5
 -------------
 
-We are pleased to announce the release of version 2.4.4 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+We are pleased to announce the release of version 2.4.5 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
 
 This version focuses on support for network interface switching on Windows. There have also been several bug fixes and improvements to API documentation.
 
