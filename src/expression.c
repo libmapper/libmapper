@@ -1938,6 +1938,8 @@ static int check_type(mpr_expr_stack eval_stk, mpr_token_t *stk, int sp, mpr_var
                     stk[i].toktype = TOK_LITERAL;
                     stk[i].gen.datatype = MPR_INT32;
                     stk[i].lit.val.i = optimize == GET_ZERO ? 0 : 1;
+                    /* clear locks and casttype */
+                    stk[i].gen.flags &= ~(VEC_LEN_LOCKED | TYPE_LOCKED);
                     stk[i].gen.casttype = 0;
                     return i;
                 }
@@ -3660,7 +3662,8 @@ mpr_expr mpr_expr_new_from_str(mpr_expr_stack eval_stk, const char *str, int n_i
                         }
                     }
                     /* update and lock vector length of assigned variable */
-                    op[op_idx].gen.vec_len = vars[var_idx].vec_len;
+                    if (!(op[op_idx].gen.flags & VEC_LEN_LOCKED))
+                        op[op_idx].gen.vec_len = vars[var_idx].vec_len;
                     op[op_idx].gen.datatype = vars[var_idx].datatype;
                     op[op_idx].gen.flags |= VEC_LEN_LOCKED;
                     if (is_const)
@@ -4345,6 +4348,7 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                     b = &v->inst[inst_idx % v->num_inst];
                 else
                     b = &v->inst[0];
+                can_advance = 0;
             }
             else
                 goto error;
@@ -5064,15 +5068,21 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 goto error;
 
             if (vidx) {
-                if (MPR_INT32 != types[idxp])
-                    goto error;
+                switch (types[idxp]) {
+                    case MPR_INT32: vidx = stk[sp + vlen].i;        break;
+                    case MPR_FLT:   vidx = (int)stk[sp + vlen].f;   break;
+                    case MPR_DBL:   vidx = (int)stk[sp + vlen].d;   break;
+                    default:
+                        printf("error: illegal type %d/'%c'\n", types[idxp], types[idxp]);
+                        goto error;
+                }
                 ++idxp;
-                vidx = stk[sp + vlen].i;
             }
             else
                 vidx = tok->var.vec_idx;
             while (vidx < 0)
                 vidx += v->vlen;
+            vidx = vidx % v->vlen;
             if (hidx) {
                 if (MPR_INT32 != types[idxp])
                     goto error;

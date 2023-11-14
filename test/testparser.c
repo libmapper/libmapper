@@ -33,9 +33,11 @@ int update_count;
 int src_int[SRC_ARRAY_LEN], dst_int[DST_ARRAY_LEN], expect_int[DST_ARRAY_LEN];
 float src_flt[SRC_ARRAY_LEN], dst_flt[DST_ARRAY_LEN], expect_flt[DST_ARRAY_LEN];
 double src_dbl[SRC_ARRAY_LEN], dst_dbl[DST_ARRAY_LEN], expect_dbl[DST_ARRAY_LEN];
+mpr_type expect_type[DST_ARRAY_LEN];
 double then, now;
 double total_elapsed_time = 0;
 mpr_type out_types[DST_ARRAY_LEN];
+mpr_type updated_types[DST_ARRAY_LEN];
 
 mpr_time time_in = {0, 0}, time_out = {0, 0};
 
@@ -190,20 +192,25 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
         switch (types[i]) {
             case MPR_NULL:
                 eprintf("NULL, ");
+                if (expect_type[i] != MPR_NULL)
+                    error = i;
                 break;
             case MPR_INT32:
                 eprintf("%d, ", dst_int[i]);
-                if (check && dst_int[i] != expect_int[i])
+                if (   (expect_type[i] != MPR_INT32)
+                    || (check && dst_int[i] != expect_int[i]))
                     error = i;
                 break;
             case MPR_FLT:
                 eprintf("%g, ", dst_flt[i]);
-                if (check && dst_flt[i] != expect_flt[i] && expect_flt[i] == expect_flt[i])
+                if (   (expect_type[i] != MPR_FLT)
+                    || (check && dst_flt[i] != expect_flt[i] && expect_flt[i] == expect_flt[i]))
                     error = i;
                 break;
             case MPR_DBL:
                 eprintf("%g, ", dst_dbl[i]);
-                if (check && dst_dbl[i] != expect_dbl[i] && expect_dbl[i] == expect_dbl[i])
+                if (   (expect_type[i] != MPR_DBL)
+                    || (check && dst_dbl[i] != expect_dbl[i] && expect_dbl[i] == expect_dbl[i]))
                     error = i;
                 break;
             default:
@@ -220,19 +227,21 @@ int check_result(mpr_type *types, int len, const void *val, int pos, int check)
         return 0;
     if (error >= 0) {
         eprintf("... error at index %d ", error);
-        switch (types[error]) {
-            case MPR_NULL:
-                eprintf("(expected NULL)\n");
-                break;
-            case MPR_INT32:
-                eprintf("(expected %d)\n", expect_int[error]);
-                break;
-            case MPR_FLT:
-                eprintf("(expected %g)\n", expect_flt[error]);
-                break;
-            case MPR_DBL:
-                eprintf("(expected %g)\n", expect_dbl[error]);
-                break;
+        if (types[error] != expect_type[error]) {
+            switch (expect_type[error]) {
+                case MPR_NULL:  eprintf("(expected NULL)\n");   break;
+                case MPR_INT32: eprintf("(expected int)\n");    break;
+                case MPR_FLT:   eprintf("(expected float)\n");  break;
+                case MPR_DBL:   eprintf("(expected double)\n"); break;
+            }
+        }
+        else {
+            switch (types[error]) {
+                case MPR_NULL:  eprintf("(expected NULL)\n");                   break;
+                case MPR_INT32: eprintf("(expected %d)\n", expect_int[error]);  break;
+                case MPR_FLT:   eprintf("(expected %g)\n", expect_flt[error]);  break;
+                case MPR_DBL:   eprintf("(expected %g)\n", expect_dbl[error]);  break;
+            }
         }
         return 1;
     }
@@ -256,6 +265,10 @@ void setup_test_multisource(int _n_sources, mpr_type *_src_types, int *_src_lens
     }
     dst_len = _dst_len;
     dst_type = _dst_type;
+
+    /* default expected types, can override in test before running parse_and_eval() */
+    for (i = 0; i < _dst_len; i++)
+        expect_type[i] = _dst_type;
 }
 
 void setup_test(mpr_type in_type, int in_len, mpr_type out_type, int out_len)
@@ -347,6 +360,10 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     update_count = 0;
     then = mpr_get_current_time();
 
+    for (i = 0; i < DST_ARRAY_LEN; i++) {
+        updated_types[i] = MPR_NULL;
+    }
+
     eprintf("Try evaluation once... ");
     status = mpr_expr_eval(eval_stk, e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
     if (!status) {
@@ -354,8 +371,10 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
         result = 1;
         goto free;
     }
-    else if (status & MPR_SIG_UPDATE)
+    else if (status & MPR_SIG_UPDATE) {
         ++update_count;
+        memcpy(&updated_types, out_types, sizeof(mpr_type) * DST_ARRAY_LEN);
+    }
     eprintf("OK\n");
 
     eprintf("Calculate expression %i more times... ", iterations-1);
@@ -381,8 +400,10 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
             }
         }
         status = mpr_expr_eval(eval_stk, e, inh_p, &user_vars_p, &outh, &time_in, out_types, 0);
-        if (status & MPR_SIG_UPDATE)
+        if (status & MPR_SIG_UPDATE) {
             ++update_count;
+            memcpy(&updated_types, out_types, sizeof(mpr_type) * DST_ARRAY_LEN);
+        }
         /* sleep here stops compiler from optimizing loop away */
         usleep(1);
     }
@@ -392,7 +413,7 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     if (0 == result)
         eprintf("OK\n");
 
-    if (check_result(out_types, outh.vlen, outh.inst[0].samps, outh.inst[0].pos, check))
+    if (check_result(updated_types, outh.vlen, outh.inst[0].samps, outh.inst[0].pos, check))
         result = 1;
 
     eprintf("Recv'd %d updates... ", update_count);
@@ -596,13 +617,16 @@ int run_tests()
     /* 22) Vector assignment */
     set_expr_str("y[1]=x[1]");
     setup_test(MPR_DBL, 3, MPR_INT32, 3);
+    expect_type[0] = MPR_NULL;
     expect_int[1] = (int)src_dbl[1];
+    expect_type[2] = MPR_NULL;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
 
     /* 23) Vector assignment */
     set_expr_str("y[1:2]=[x[1],10]");
     setup_test(MPR_DBL, 3, MPR_INT32, 3);
+    expect_type[0] = MPR_NULL;
     expect_int[1] = (int)src_dbl[1];
     expect_int[2] = 10;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
@@ -612,6 +636,7 @@ int run_tests()
     set_expr_str("[y[0],y[2]]=x[1:2]");
     setup_test(MPR_FLT, 3, MPR_DBL, 3);
     expect_dbl[0] = (double)src_flt[1];
+    expect_type[1] = MPR_NULL;
     expect_dbl[2] = (double)src_flt[2];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
         return 1;
@@ -621,6 +646,7 @@ int run_tests()
     setup_test(MPR_INT32, 1, MPR_FLT, 3);
     expect_flt[0] = src_int[0] * 100.f;
     expect_flt[0] -= 23.5f;
+    expect_type[1] = MPR_NULL;
     expect_flt[2] = src_int[0] * 6.7f;
     expect_flt[2] = 100.f - expect_flt[2];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
@@ -923,7 +949,7 @@ int run_tests()
 
     /* 57) Expression for limiting output rate */
     snprintf(str, 256,
-             "t_y{-1}=t_x;"
+//             "t_y{-1}=t_x;"
              "diff=t_x-t_y{-1};"
              "alive=diff>0.1;"
              "y=x;");
@@ -1653,6 +1679,32 @@ int run_tests()
     expect_flt[0] = 1;
     if (parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations))
         return 1;
+
+    /* 130) Check assignment vector length */
+    i = 0;
+    set_expr_str("y{-1}=[0,0,0]; y[0]=x;");
+    setup_test(MPR_FLT, 3, MPR_FLT, 3);
+    expect_flt[0] = src_flt[0];
+    expect_type[0] = MPR_FLT;
+    expect_type[1] = MPR_NULL;
+    expect_type[2] = MPR_NULL;
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 131) Concatenate source values over time */
+    set_expr_str("i{-1}=0; a{-1}=[0,0,0,0,0,0]; a[i]=i; i=i+1; muted=i%6; y=a;");
+    setup_test(MPR_FLT, 1, MPR_FLT, DST_ARRAY_LEN);
+    for (i = 0; i < DST_ARRAY_LEN; i++) {
+        expect_flt[i] = floor(iterations / 6) * 6 + i;
+        if (expect_flt[i] >= iterations)
+            expect_flt[i] -= 6;
+    }
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations / DST_ARRAY_LEN))
+        return 1;
+
+    /* 132) IDEA: map instance reduce to instanced destination */
+    // dst instance should be released when there are zero sources
+    // e.g. y = x.instance.mean()
 
     return 0;
 }

@@ -172,6 +172,7 @@ test_config test_configs[] = {
     { 36, INSTANCED, INSTANCED, INSTANCED, MPR_LOC_DST, NONE, "alive=n>=3;y=x;n=(n+1)%10;", 0.5, 0. },*/
 
     /* future work:
+     * in-map instance reduce ==> instanced dst (ensure dst release when all src are released)
      * src instance pooling (convergent maps)
      * dst instance pooling (divergent maps)
      * src & dst instance pooling (complex maps)
