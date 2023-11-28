@@ -8,12 +8,6 @@
 #include "util/mpr_debug.h"
 #include <mapper/mapper.h>
 
-#ifdef DEBUG
-#define TRACING 0 /* Set non-zero to see parsed properties. */
-#else
-#define TRACING 0
-#endif
-
 /* length = 0 indicates variable length. */
 typedef struct {
     const char *key;

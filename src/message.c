@@ -2,10 +2,17 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "message.h"
 #include "property.h"
 #include "util/mpr_debug.h"
 #include "util/mpr_inline.h"
+
+#ifdef DEBUG
+#define TRACING 0 /* Set non-zero to see parsed properties. */
+#else
+#define TRACING 0
+#endif
 
 /**** Messages ****/
 
