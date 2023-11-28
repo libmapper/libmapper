@@ -5,9 +5,9 @@ build-backend = "hatchling.build"
 [project]
 name = "libmapper"
 version = "2.4.5"
-license = "LGPL-2.1-or-later"
+license = { text = "LGPL-2.1-or-later" }
 authors = [
-  { name="libmapper.org", email="dot_mapper@googlegroups.com" },
+  { name = "libmapper.org", email = "dot_mapper@googlegroups.com" },
 ]
 description = "A library for representing input and output signals on a network and allowing arbitrary 'mappings' to be dynamically created between them."
 readme = "README.md"
