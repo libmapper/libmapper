@@ -219,6 +219,22 @@ SORT_VFUNC(vsorti, int, i)
 SORT_VFUNC(vsortf, float, f)
 SORT_VFUNC(vsortd, double, d)
 
+#define MEDIAN_VFUNC(NAME, TYPE, T)                                 \
+static void NAME(mpr_expr_val val, uint8_t *dim, int inc)           \
+{                                                                   \
+    register int idx = floor(dim[0] * 0.5);                         \
+    register double tmp;                                            \
+    qsort(val, dim[0], sizeof(mpr_expr_val_t), inc_sort_func##T);   \
+    tmp = (double)val[idx].T;                                       \
+    if (dim[0] > 2 && !(dim[0] % 2)) {                              \
+        tmp += val[--idx].T;                                        \
+        tmp *= 0.5;                                                 \
+    }                                                               \
+    val[0].T = (TYPE)tmp;                                           \
+}
+MEDIAN_VFUNC(vmedianf, float, f)
+MEDIAN_VFUNC(vmediand, double, d)
+
 #define powd pow
 #define sqrtd sqrt
 #define acosd acos
@@ -565,6 +581,7 @@ typedef enum {
     VFN_DOT,
     VFN_INDEX,
     VFN_LENGTH,
+    VFN_MEDIAN,
     N_VFN
 } expr_vfn_t;
 
@@ -592,7 +609,8 @@ static struct {
     { "angle",  2, 1, 0, 0,        vanglef,  vangled  },
     { "dot",    2, 1, 0, vdoti,    vdotf,    vdotd    },
     { "index",  2, 1, 1, vindexi,  vindexf,  vindexd  },
-    { "length", 1, 1, 1, vleni,    vlenf,    vlend    }
+    { "length", 1, 1, 1, vleni,    vlenf,    vlend    },
+    { "median", 1, 1, 1, 0,        vmedianf, vmediand }
 };
 
 typedef enum {
@@ -1746,6 +1764,11 @@ static int precompute(mpr_expr_stack eval_stk, mpr_token_t *stk, int len, int ve
     /* free token vector memory if necessary */
     free_stack_vliterals(stk, len - 1);
 
+    /* TODO: should we also do this for TOK_RFN? */
+    if (stk[len-1].toktype == TOK_VFN && vfn_tbl[stk[len-1].fn.idx].reduce) {
+        vec_len = 1;
+    }
+
     switch (v.type) {
 #define TYPED_CASE(MTYPE, TYPE, T)                                      \
         case MTYPE:                                                     \
@@ -1770,6 +1793,7 @@ static int precompute(mpr_expr_stack eval_stk, mpr_token_t *stk, int len, int ve
     }
     stk[0].gen.flags &= ~CONST_SPECIAL;
     stk[0].gen.datatype = v.type;
+    stk[0].gen.vec_len = vec_len;
     free(s);
     return len - 1;
 }

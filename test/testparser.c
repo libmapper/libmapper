@@ -913,7 +913,7 @@ int run_tests()
         eprintf("... OK\n");
 
     /* 55) Moving average of inter-sample period */
-    /* Tricky - we need to init y{-1}.tt to x.tt or the first calculated
+    /* Tricky - we need to init t_y{-1} to t_x or the first calculated
      * difference will be enormous! */
     snprintf(str, 256,
              "t_y{-1}=t_x;"
@@ -930,7 +930,7 @@ int run_tests()
         eprintf("... OK\n");
 
     /* 56) Moving average of inter-sample jitter */
-    /* Tricky - we need to init y{-1}.tt to x.tt or the first calculated
+    /* Tricky - we need to init t_y{-1} to t_x or the first calculated
      * difference will be enormous! */
     snprintf(str, 256,
              "t_y{-1}=t_x;"
@@ -1702,7 +1702,14 @@ int run_tests()
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations / DST_ARRAY_LEN))
         return 1;
 
-    /* 132) IDEA: map instance reduce to instanced destination */
+    /* 132) Vector median value (precomputed by the optimizer in this case) */
+    set_expr_str("y=[0,1,2,3,4,5].median();");
+    setup_test(MPR_FLT, 4, MPR_INT32, 2);
+    expect_int[0] = expect_int[1] = floor(2.5f);
+    if (parse_and_eval(EXPECT_SUCCESS, 0, 1, iterations))
+        return 1;
+
+    /* 133) IDEA: map instance reduce to instanced destination */
     // dst instance should be released when there are zero sources
     // e.g. y = x.instance.mean()
 
