@@ -660,7 +660,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     mpr_list_free(devlist);
 
     count=0;
@@ -754,7 +754,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*in*", MPR_OP_EQ);
     mpr_list_free(devlist);
 
@@ -794,7 +794,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*", MPR_OP_EQ);
     mpr_list_free(devlist);
 
@@ -834,7 +834,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*", MPR_OP_EQ);
     mpr_list_free(devlist);
 
@@ -912,7 +912,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "out1", MPR_OP_EQ);
     mpr_list_free(devlist);
     if (!siglist || !(sig = (mpr_sig)*siglist)) {
@@ -994,7 +994,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "in1", MPR_OP_EQ);
     mpr_list_free(devlist);
     if (!siglist || !(sig = (mpr_sig)*siglist)) {
@@ -1045,7 +1045,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "out1", MPR_OP_EQ);
     mpr_list_free(devlist);
     if (!siglist || !(sig = (mpr_sig)*siglist)) {
@@ -1065,7 +1065,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "in1", MPR_OP_EQ);
     mpr_list_free(devlist);
     if (!siglist || !(sig = (mpr_sig)*siglist)) {
@@ -1115,7 +1115,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     siglist = mpr_list_filter(siglist, MPR_PROP_NAME, NULL, 1, MPR_STR, "*out*", MPR_OP_EQ);
     mpr_list_free(devlist);
 
@@ -1135,7 +1135,7 @@ int main(int argc, char **argv)
         goto done;
     }
     siglist = mpr_graph_get_list(graph, MPR_SIG);
-    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+    siglist = mpr_list_filter(siglist, MPR_PROP_DEV, NULL, 1, MPR_PTR, dev, MPR_OP_EQ);
     maplist2 = 0;
     while (siglist) {
         maplist2= mpr_list_get_union(maplist2, mpr_sig_get_maps((mpr_sig)*siglist, MPR_DIR_IN));
@@ -1182,7 +1182,7 @@ int main(int argc, char **argv)
     }
 
     maplist = mpr_graph_get_list(graph, MPR_MAP);
-    maplist = mpr_list_filter(maplist, MPR_PROP_SCOPE, NULL, 1, MPR_DEV, dev, MPR_OP_ANY);
+    maplist = mpr_list_filter(maplist, MPR_PROP_SCOPE, NULL, 1, MPR_PTR, dev, MPR_OP_ANY);
     mpr_list_free(devlist);
 
     count=0;

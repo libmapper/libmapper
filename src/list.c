@@ -574,10 +574,6 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
             COMPARE_TYPE(uint64_t);
             break;
         case MPR_PTR:
-        case MPR_DEV:
-        case MPR_SIG:
-        case MPR_MAP:
-        case MPR_OBJ: {
             for (i = 0, j = 0; i < _l1; i++, j++) {
                 int comp;
                 void *p1, *p2;
@@ -594,7 +590,26 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
                     ++gt;
             }
             break;
-        }
+        case MPR_DEV:
+        case MPR_SIG:
+        case MPR_MAP:
+        case MPR_OBJ:
+            for (i = 0, j = 0; i < _l1; i++, j++) {
+                int comp;
+                mpr_id id1, id2;
+                if (j >= _l2)
+                    j = 0;
+                id1 = (1 == l1) ? mpr_obj_get_id((mpr_obj)v1) : mpr_obj_get_id((mpr_obj)((void**)v1)[i]);
+                id2 = mpr_obj_get_id((mpr_obj)((void**)v2)[j]);
+                comp = id1 - id2;
+                if (comp == 0)
+                    ++eq;
+                if (comp < 0)
+                    ++lt;
+                if (comp > 0)
+                    ++gt;
+            }
+            break;
         default:
             return 0;
     }
@@ -667,7 +682,8 @@ static int filter_by_prop(const void *ctx, mpr_obj o)
         }
         return MPR_OP_NONE == op;
     }
-    else if (_type != type || (op < MPR_OP_ALL && _len != len))
+    else if (   (op < MPR_OP_ALL && _len != len)
+             || (_type != type && (_type > MPR_OBJ || type != MPR_PTR)))
         return 0;
     return compare_val(op, type, _len, len, _val, val);
 }

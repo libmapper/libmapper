@@ -546,7 +546,13 @@ void mpr_map_remove_scope(mpr_map map, mpr_dev device);
  *  \param property     Symbolic identifier of the property to look for.
  *  \param key          The name of the property to search for.
  *  \param length       The value length.
- *  \param type         The value type.
+ *  \param type         The value type. Comparisons for object types (MPR_OBJ, MPR_DEV, etc.) are
+ *                      performed using the object id and therefore should only be used when
+ *                      filtering registered objects (e.g. remote objects stored in the graph or
+ *                      local objects that have completed registration). This means that duplicate
+ *                      representations of the same object stored in different graphs will be equal.
+ *                      If comparison of local object representations is desired use the MPR_PTR
+ *                      type instead.
  *  \param value        The value.
  *  \param op           The comparison operator.
  *  \return             A list of results.  Use `mpr_list_get_next()` to iterate. */

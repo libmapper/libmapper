@@ -104,14 +104,22 @@ int filter(mpr_graph graph, mpr_prop prop, const char *key, int len, mpr_type ty
     mpr_list list = mpr_graph_get_list(graph, MPR_SIG);
     int size;
 
+    /* also filter by device to exclude other libmapper-enabled programs that may be running */
+    list = mpr_list_filter(list, MPR_PROP_DEV, NULL, 1, MPR_DEV, dev, MPR_OP_EQ);
+
+    /* filter using function args */
     list = mpr_list_filter(list, prop, key, len, type, value, op);
     size = mpr_list_get_size(list);
 
     if (verbose) {
-        printf("found %d matching result%s\n", size, size == 1 ? "" : "s");
+        printf("found %d matching result%s... ", size, size == 1 ? "" : "s");
+        if (size != expected)
+            printf("ERROR! Expected %d\n", expected);
+        else
+            printf("OK\n");
         while (list) {
             printf("  ");
-            mpr_obj_print(*list, 0);
+            mpr_obj_print(*list, 1);
             printf("\n");
             list = mpr_list_get_next(list);
         }

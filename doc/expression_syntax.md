@@ -259,8 +259,7 @@ y = x + y{-1.5};
 
 Up to 8 additional variables can be declared as-needed in the expression. The variable
 names can be any string except for the reserved variable names `x` and `y`.  The values
-of these variables are stored per-instance (if assigned from an instanced signal) or per-signal with the map context and can be accessed in
-subsequent calls to the evaluator. In the following example, the user-defined variable
+of these variables are stored with the map context, either per-instance (if assigned from an instanced signal) or per-signal (if assigned from a singleton signal), and can be accessed in subsequent calls to the evaluator. In the following example, the user-defined variable
 `ema` is used to keep track of the `exponential moving average` of the input signal
 value `x`, *independent* of the output value `y` which is set to give the difference
 between the current sample and the moving average:
