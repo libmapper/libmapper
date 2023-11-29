@@ -155,8 +155,6 @@ void mpr_link_free(mpr_link link)
 {
     int i;
     mpr_obj_free(&link->obj);
-    if (!mpr_obj_get_is_local((mpr_obj)link->devs[LINK_LOCAL_DEV]))
-        return;
     FUNC_IF(lo_address_free, link->addr.admin);
     FUNC_IF(lo_address_free, link->addr.udp);
     FUNC_IF(lo_address_free, link->addr.tcp);

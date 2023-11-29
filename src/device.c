@@ -1042,7 +1042,7 @@ void mpr_local_dev_handler_name_probe(mpr_local_dev dev, char *name, int temp_id
 
 const char *mpr_dev_get_name(mpr_dev dev)
 {
-    return dev->name;
+    return dev ? dev->name : NULL;
 }
 
 int mpr_dev_get_is_ready(mpr_dev dev)
@@ -1465,7 +1465,7 @@ static int check_registration(mpr_local_dev dev)
 }
 
 void mpr_local_dev_handler_logout(mpr_local_dev dev, mpr_dev remote, const char *prefix_str,
-                                 int ordinal)
+                                  int ordinal)
 {
     mpr_link link;
     if (!dev->ordinal_allocator.locked)
