@@ -737,11 +737,11 @@ enum toktype {
     TOK_COLON           = 0x0080000,
     TOK_SEMICOLON       = 0x0100000,
     TOK_VECTORIZE       = 0x0200000,
-    TOK_ASSIGN          = 0x0400000,
+    TOK_TT              = 0x0400000,    /* NTP Timestamp */
+    TOK_ASSIGN          = 0x0800000,
     TOK_ASSIGN_USE,
     TOK_ASSIGN_CONST,                   /* Const assignment (does not require input) */
     TOK_ASSIGN_TT,                      /* Assign to NTP timestamp */
-    TOK_TT              = 0x0800000,    /* NTP Timestamp */
     TOK_COPY_FROM       = 0x1000000,    /* Copy from stack */
     TOK_MOVE,                           /* Move stack */
     TOK_LAMBDA,

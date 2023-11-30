@@ -893,10 +893,12 @@ int run_tests()
 
     /* 53) Access timetags */
     set_expr_str("y=t_x");
-    setup_test(MPR_INT32, 1, MPR_DBL, 1);
+    setup_test(MPR_INT32, 1, MPR_FLT, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    if (dst_dbl[0] != mpr_time_as_dbl(time_in))
+    if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
         eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
+        return 1;
+    }
     else
         eprintf("... OK\n");
 
