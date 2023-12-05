@@ -595,7 +595,7 @@ static int compare_val(mpr_op op, mpr_type type, int l1, int l2, const void *v1,
         case MPR_MAP:
         case MPR_OBJ:
             for (i = 0, j = 0; i < _l1; i++, j++) {
-                int comp;
+                mpr_id comp;
                 mpr_id id1, id2;
                 if (j >= _l2)
                     j = 0;
