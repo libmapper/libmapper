@@ -4,7 +4,7 @@
 PortSystem          1.0
 
 name                libmapper
-version             2.4.3
+version             2.4.4
 categories          net audio
 platforms           darwin
 license             LGPL-2.1
@@ -14,12 +14,12 @@ long_description    libmapper is a library for discovering and \
                     connecting real-time control signals
 homepage            http://www.libmapper.org
 master_sites        https://github.com/malloch/libmapper/archive/
-master_sites        https://github.com/libmapper/libmapper/releases/download/2.4.3/
-distfiles           libmapper-2.4.3.tar.gz
+master_sites        https://github.com/libmapper/libmapper/releases/download/2.4.4/
+distfiles           libmapper-2.4.4.tar.gz
 
-checksums           rmd160  c6f7dbc21fb561f71904a401860c75c4a34127ba \
-                    sha256  4870afceb8d0d2b987009dc572e72b314dd58a6805fc26e9c1ecb73e771f3092
-                    size    2234676
+checksums           rmd160  c5f8c5e5cfda60fa06fd97747c36903fdabf271f \
+                    sha256  2204f610f6a3eff4f66cb866101c3cda911a5e5a9fe04b518a0a99608a8473ff
+                    size    2244221
 
 depends_lib         port:liblo \
                     port:zlib
@@ -31,14 +31,23 @@ configure.args      --disable-python \
 
 default_variants    +docs
 
-variant python requires python {
-    configure.args_append  --enable-python
+variant python requires python description {Build Python support} {
+    configure.args-delete \
+        --disable-python
+    configure.args-append \
+        --enable-python
 }
 
-variant java requires java {
-    configure.args_append --enable-java
+variant java requires java description {Build Java support} {
+    configure.args-delete \
+        --disable-java
+    configure.args-append \
+        --enable-java
 }
 
-variant docs requires doxygen {
-    configure.args_append --enable-docs
+variant docs requires doxygen description {Build documentation} {
+    configure.args-delete \
+        --disable-docs
+    configure.args-append \
+        --enable-docs
 }
