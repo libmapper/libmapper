@@ -367,9 +367,42 @@ Convergent mapping—in which multiple source signals update a single destinatio
   </tr>
 </table>
 
+<h2 id="propagation-management">Propagation Management</h2>
+
+By default, convergent maps will trigger expression evaluation when *any* of the source signals are updated. For example, the convergent map `y=x$0+x$1` will output a new value whenever `x$0` *or* `x$1` are updated. Evaluation can be disabled for a source signal by inserting an underscore `_` symbol before the source name, e.g. `y=x$0+_x$1` will be evaluated only when the source `x$0` is updated, while updates to source `x$1` will be stored but will not trigger evaluation or propagation to the destination signal.
+
+If desired, the entire expression can be evaluated "silently" so that updates do not propagate to the destination. This is accomplished by manipulating a special variable named `muted`. For maps with singleton destination signals this has an identical effect to manipulating the `alive` variable, but for instanced destinations it enables filtering updates without releasing the associated instance.
+
+The example below implements a "change" filter in which only updates with different input values are sent to the destination:
+
+<pre style="width:50%;margin:auto">
+muted = (x == x{-1});
+y = x;
+</pre>
+
+Note that (as above) the value of the `muted` variable must be true (non-zero) **when y is assigned** in order to mute the update; the arbitrary example below will instead mute the next update following the condition `(x==x{-1})`:
+
+<pre style="width:50%;margin:auto">
+y = x;
+muted = (x == x{-1});
+</pre>
+
+<h2 id="instances">Instances</h2>
+
+Input and output signals addressed by libmapper may be *instanced* meaning that there are multiple independent copies of the object or phenomenon represented by the signal. For example, a signal representing `/touch/position` on a multitouch display would have an instance corresponding to each active touch. This means that a signal value `x` can have up to four dimensions:
+
+dimension        | syntax  | application
+-----------------|---------|-------------
+vector elements  | `x[n]`  | representation of signals that are naturally multidimensional, e.g. 3D position
+input signals    | `x$n`   | [convergent maps](#convergent-maps)
+signal history   | `x{-n}` | DSP (e.g. smoothing filters); [live looping](https://nime.pubpub.org/pub/2pqbusk7/release/1)
+signal instances | TBA     | representation of signals that are [naturally multiplex and/or ephemeral](https://ieeexplore.ieee.org/document/8259406), e.g. multitouch
+
+As mentioned in the section on vectors above, the index `n` can be a literal, a variable, or an expression. In the case of expression-type input signal indices parentheses must be used to indicate the scope of the index, e.g. `y=x$(sin(x)>0);`.
+
 <h3 id="instance-management">Instance Management</h3>
 
-Signal instancing can also be managed from within the map expression by manipulating a special variable named `alive` that represents the instance state. The use cases for in-map instancing can be complex, but here are some simple examples:
+Typically instancing is handled at the `signal` level and can be ignored while designing map expressions, however if desired instancing can also be managed from within the map expression by manipulating a special variable named `alive` that represents the instance state. The use cases for in-map instancing can be complex, but here are some simple examples:
 
 <table>
     <tr>
@@ -414,88 +447,6 @@ When mapping a singleton source signal to an instanced destination signal there 
 #### Modified instancing
 
 *currently undocumented*
-
-<h2 id="propagation-management">Propagation Management</h2>
-
-By default, convergent maps will trigger expression evaluation when *any* of the source signals are updated. For example, the convergent map `y=x$0+x$1` will output a new value whenever `x$0` *or* `x$1` are updated. Evaluation can be disabled for a source signal by inserting an underscore `_` symbol before the source name, e.g. `y=x$0+_x$1` will be evaluated only when the source `x$0` is updated, while updates to source `x$1` will be stored but will not trigger evaluation or propagation to the destination signal.
-
-If desired, the entire expression can be evaluated "silently" so that updates do not propagate to the destination. This is accomplished by manipulating a special variable named `muted`. For maps with singleton destination signals this has an identical effect to manipulating the `alive` variable, but for instanced destinations it enables filtering updates without releasing the associated instance.
-
-The example below implements a "change" filter in which only updates with different input values are sent to the destination:
-
-<pre style="width:50%;margin:auto">
-muted = (x == x{-1});
-y = x;
-</pre>
-
-Note that (as above) the value of the `muted` variable must be true (non-zero) **when y is assigned** in order to mute the update; the arbitrary example below will instead mute the next update following the condition `(x==x{-1})`:
-
-<pre style="width:50%;margin:auto">
-y = x;
-muted = (x == x{-1});
-</pre>
-
-<h2 id="timetags">Timetags</h2>
-
-The precise time at which a signal or variable is updated is always tracked by libmapper and communicated with the data value. In the future we plan to use this information in the background for discarding out-of-order packets and jitter mitigation, but it may also be useful in your expressions.
-
-The timetag associated with a variable can be accessed using the syntax `t_<variable_name>` – for example the time associated with the current sample of signal `x` is `t_x`, and the timetag associated with the last update of a hypothetical user-defined variable `foo` would be `t_foo`. This syntax can be used anywhere in your expressions:
-
-* `y = t_x` — output the timetag of the input instead of its value
-* `y = t_x - t_x{-1}` — output the time interval between subsequent updates
-
-This functionality can be used along with in-map signal instancing to limit the output rate. The following example only outputs if more than 0.5 seconds has elapsed since the last output, otherwise discarding the input sample.
-
-<pre style="width:50%;margin:auto">
-muted = (t_x - t_y{-1}) <= 0.5;
-y = x;
-</pre>
-
-Also we can calculate a moving average of the sample period:
-
-<pre style="width:50%;margin:auto">
-y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
-</pre>
-
-Of course the first value for `(t_x-t_y{-1})` will be very large since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of our expression:
-
-<pre style="width:50%;margin:auto">
-t_y{-1} = t_x;
-y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
-</pre>
-
-Here's a more complex example with 4 sub-expressions in which the rate is limited but skipped samples are averaged instead of discarding them:
-
-<pre style="width:50%;margin:auto">
-count{-1} = 1;
-muted = (t_x - t_y{-1}) <= 0.1;
-y = (accum + x) / count;
-accum = muted * accum + x;
-count = muted ? count + 1 : 1;
-</pre>
-
-Explanation:
-
-order | step           | expression clause       | description
------ | -------------- | ----------------------- | -----------
-0 | initialization     | `count{-1}=1`           | set the initial value of `count` to 1 to avoid divide by zero.
-1 | check elapsed time | <code>muted=(t<sub>x</sub>-t<sub>y</sub>{-1})<0.1</code> | Set `muted` to `1` (true) if less than `0.1` seconds have elapsed since the last output; or `0` otherwise.
-2 | conditional output | `y=(accum+x)/count`     | output the average of collected samples (if `muted` is false)
-3 | update accumulator | `accum=muted*accum+x`  | reset accumulator to 0 if `muted` is false; add `x`
-4 | update count       | `count=muted?count+1:1` | increment `count`, reset if `muted` is false
-
-<h2 id="instances">Instances</h2>
-
-Input and output signals addressed by libmapper may be *instanced* meaning that there are multiple independent copies of the object or phenomenon represented by the signal. For example, a signal representing `/touch/position` on a multitouch display would have an instance corresponding to each active touch. This means that a signal value `x` can have up to four dimensions:
-
-dimension        | syntax  | application
------------------|---------|-------------
-vector elements  | `x[n]`  | representation of signals that are naturally multidimensional, e.g. 3D position
-input signals    | `x$n`   | [convergent maps](#convergent-maps)
-signal history   | `x{-n}` | DSP (e.g. smoothing filters); [live looping](https://nime.pubpub.org/pub/2pqbusk7/release/1)
-signal instances | TBA     | representation of signals that are [naturally multiplex and/or ephemeral](https://ieeexplore.ieee.org/document/8259406), e.g. multitouch
-
-As mentioned in the section on vectors above, the index `n` can be a literal, a variable, or an expression. In the case of expression-type input signal indices parentheses must be used to indicate the scope of the index, e.g. `y=x$(sin(x)>0);`.
 
 <h2 id="reduce-functions">Reducing functions</h2>
 
@@ -564,3 +515,52 @@ In some scenarios it may be useful to convert the active instances, historic val
 * `x.signal.concat(4)` – concatenate input signal values (in a convergent map) to form a vector.
 
 Note that the `concat()` function requires an integer argument specifying the maximum length of the output vector. This is needed to preallocate memory needed by the expression evaluator.
+
+<h2 id="timetags">Timetags</h2>
+
+The precise time at which a signal or variable is updated is always tracked by libmapper and communicated with the data value. In the future we plan to use this information in the background for discarding out-of-order packets and jitter mitigation, but it may also be useful in your expressions.
+
+The timetag associated with a variable can be accessed using the syntax `t_<variable_name>` – for example the time associated with the current sample of signal `x` is `t_x`, and the timetag associated with the last update of a hypothetical user-defined variable `foo` would be `t_foo`. This syntax can be used anywhere in your expressions:
+
+* `y = t_x` — output the timetag of the input instead of its value
+* `y = t_x - t_x{-1}` — output the time interval between subsequent updates
+
+This functionality can be used along with in-map signal instancing to limit the output rate. The following example only outputs if more than 0.5 seconds has elapsed since the last output, otherwise discarding the input sample.
+
+<pre style="width:50%;margin:auto">
+muted = (t_x - t_y{-1}) <= 0.5;
+y = x;
+</pre>
+
+Also we can calculate a moving average of the sample period:
+
+<pre style="width:50%;margin:auto">
+y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
+</pre>
+
+Of course the first value for `(t_x-t_y{-1})` will be very large since the first value for `t_y{-1}` will be `0`. We can easily fix this by initializing the first value for `t_y{-1}` – remember from above that this part of the expression will only be called once so it will not adversely affect the efficiency of our expression:
+
+<pre style="width:50%;margin:auto">
+t_y{-1} = t_x;
+y = y{-1} * 0.9 + (t_x - t_y{-1}) * 0.1;
+</pre>
+
+Here's a more complex example with 4 sub-expressions in which the rate is limited but skipped samples are averaged instead of discarding them:
+
+<pre style="width:50%;margin:auto">
+count{-1} = 1;
+muted = (t_x - t_y{-1}) <= 0.1;
+y = (accum + x) / count;
+accum = muted * accum + x;
+count = muted ? count + 1 : 1;
+</pre>
+
+Explanation:
+
+order | step           | expression clause       | description
+----- | -------------- | ----------------------- | -----------
+0 | initialization     | `count{-1}=1`           | set the initial value of `count` to 1 to avoid divide by zero.
+1 | check elapsed time | <code>muted=(t<sub>x</sub>-t<sub>y</sub>{-1})<0.1</code> | Set `muted` to `1` (true) if less than `0.1` seconds have elapsed since the last output; or `0` otherwise.
+2 | conditional output | `y=(accum+x)/count`     | output the average of collected samples (if `muted` is false)
+3 | update accumulator | `accum=muted*accum+x`  | reset accumulator to 0 if `muted` is false; add `x`
+4 | update count       | `count=muted?count+1:1` | increment `count`, reset if `muted` is false
