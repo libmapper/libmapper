@@ -29,6 +29,7 @@ int iterations = 20000;
 int expression_count = 1;
 int token_count = 0;
 int update_count;
+int start_index = -1;
 
 int src_int[SRC_ARRAY_LEN], dst_int[DST_ARRAY_LEN], expect_int[DST_ARRAY_LEN];
 float src_flt[SRC_ARRAY_LEN], dst_flt[DST_ARRAY_LEN], expect_flt[DST_ARRAY_LEN];
@@ -284,6 +285,10 @@ int parse_and_eval(int expectation, int max_tokens, int check, int exp_updates)
     /* clear output arrays */
     int i, j, result = 0, mlen, status;
 
+    if (start_index >= 0 && expression_count != start_index) {
+        ++expression_count;
+        return 0;
+    }
     if (verbose) {
         printf("***************** Expression %d *****************\n", expression_count++);
         printf("Parsing string '%s'\n", str);
@@ -895,12 +900,14 @@ int run_tests()
     set_expr_str("y=t_x");
     setup_test(MPR_INT32, 1, MPR_FLT, 1);
     parse_and_eval(EXPECT_SUCCESS, 0, 0, iterations);
-    if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
-        eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
-        return 1;
+    if (start_index < 0 || start_index == 53) {
+        if (dst_flt[0] != (float)mpr_time_as_dbl(time_in)) {
+            eprintf("... error: expected %g\n", mpr_time_as_dbl(time_in));
+            return 1;
+        }
+        else
+            eprintf("... OK\n");
     }
-    else
-        eprintf("... OK\n");
 
     /* 54) Access timetags from past samples */
     set_expr_str("y=t_x-t_y{-1}");
@@ -911,7 +918,7 @@ int run_tests()
         eprintf("... error: expected value between %g and %g\n", 0.0, 0.1);
         return 1;
     }
-    else
+    else if (start_index < 0 || start_index == 54)
         eprintf("... OK\n");
 
     /* 55) Moving average of inter-sample period */
@@ -928,7 +935,7 @@ int run_tests()
         eprintf("... error: expected value between %g and %g\n", 0.0, 0.003);
         return 1;
     }
-    else
+    else if (start_index < 0 || start_index == 55)
         eprintf("... OK\n");
 
     /* 56) Moving average of inter-sample jitter */
@@ -946,7 +953,7 @@ int run_tests()
         eprintf("... error: expected value between %g and %g\n", 0.0, 0.002);
         return 1;
     }
-    else
+    else if (start_index < 0 || start_index == 56)
         eprintf("... OK\n");
 
     /* 57) Expression for limiting output rate */
@@ -1002,9 +1009,11 @@ int run_tests()
     expect_int[0] = src_int[0];
     if (parse_and_eval(EXPECT_SUCCESS, 0, 1, -1))
         return 1;
-    if (abs(iterations / 2 - update_count) > 4) {
-        eprintf("error: expected approximately %d updates\n", iterations / 2);
-        return 1;
+    if (start_index < 0 || start_index == 61) {
+        if (abs(iterations / 2 - update_count) > 4) {
+            eprintf("error: expected approximately %d updates\n", iterations / 2);
+            return 1;
+        }
     }
 
     /* 62) Filter unchanged values */
@@ -1731,12 +1740,17 @@ int main(int argc, char **argv)
                         eprintf("testparser.c: possible arguments "
                                 "-q quiet (suppress output), "
                                 "-h help, "
+                                "-i index (default all), "
                                 "--num_iterations <int> (default %d)\n",
                                 iterations);
                         return 1;
                         break;
                     case 'q':
                         verbose = 0;
+                        break;
+                    case 'i':
+                        if (++i < argc)
+                            start_index = atoi(argv[i]);
                         break;
                     case '-':
                         if (++j < len && strcmp(argv[i]+j, "num_iterations")==0)
