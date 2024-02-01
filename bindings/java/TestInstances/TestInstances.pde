@@ -17,8 +17,20 @@ int count = 0;
 mapper.Device dev = new mapper.Device("TestInstances");
 mapper.Signal sigPos = null;
 
+private void prepareExitHandler () {
+  Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+    public void run () {
+      System.out.println("SHUTDOWN HOOK");
+      // application exit code here
+      dev.free();
+    }
+  }));
+}
+
 void setup() 
 {
+  prepareExitHandler();
+
   size(300, 300);
   colorMode(HSB, 256, 256, 256);
   ellipseMode(CENTER);
