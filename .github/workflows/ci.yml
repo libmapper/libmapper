@@ -167,8 +167,8 @@ jobs:
       - name: install wheel
         run:
           ls
-          && find artifact
-          && python3 -m pip install artifact/wheelhouse/libmapper*-py3-none-manylinux_2_24_x86_64.whl
+          && find artifact_linux
+          && python3 -m pip install artifact_linux/wheelhouse/libmapper*-py3-none-manylinux_2_24_x86_64.whl
       - name: checkout
         uses: actions/checkout@v4
         with:
@@ -197,8 +197,8 @@ jobs:
       - name: install wheel
         run:
           ls
-          && find artifact
-          && python3 -m pip install artifact/libmapper*-py3-none-macosx_*_universal2.whl
+          && find artifact_macos
+          && python3 -m pip install artifact_macos/libmapper*-py3-none-macosx_*_universal2.whl
       - name: checkout
         uses: actions/checkout@v4
         with:
@@ -225,7 +225,7 @@ jobs:
       - name: install wheel
         run:
           ls
-          && cd artifact
+          && cd artifact_windows
           && ls
           && python3 -m pip install libmapper-2.4.5-py3-none-win_amd64.whl
       - name: checkout
