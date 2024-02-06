@@ -35,6 +35,7 @@ jobs:
         pwd && make distclean && bindings/python/build_wheels.py
     - uses: actions/upload-artifact@v4
       with:
+        name: artifact_linux
         path: |
           libmapper*.tar.gz
           ./wheelhouse/*.whl
@@ -131,6 +132,7 @@ jobs:
         && unzip -t wheelhouse/*.whl
     - uses: actions/upload-artifact@v4
       with:
+        name: artifact_macos
         path: ./wheelhouse/*.whl
 
   Windows-Latest:
@@ -147,6 +149,7 @@ jobs:
       run: .\bindings\python\windows_build_wheel.ps1
     - uses: actions/upload-artifact@v4
       with:
+        name: artifact_windows
         path: ./bindings/python/dist/*.whl
 
   Linux-check-wheel:
