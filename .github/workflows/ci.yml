@@ -162,6 +162,8 @@ jobs:
           python-version: '3.11'
       - name: download artifact
         uses: actions/download-artifact@v4
+        with:
+          name: artifact_linux
       - name: install wheel
         run:
           ls
@@ -190,6 +192,8 @@ jobs:
           python-version: '3.11'
       - name: download artifact
         uses: actions/download-artifact@v4
+        with:
+          name: artifact_macos
       - name: install wheel
         run:
           ls
@@ -216,6 +220,8 @@ jobs:
           python-version: '3.11'
       - name: download artifact
         uses: actions/download-artifact@v4
+        with:
+          name: artifact_windows
       - name: install wheel
         run:
           ls
