@@ -24,7 +24,7 @@ to get started with libmapper concepts.
 
 /*! @defgroup objects Objects
 
-     @{ Objects provide a generic representation of Devices, Signals, and Maps. */
+     @{ Objects provide a generic representation of Graphs, Devices, Signals, and Maps. */
 
 /*! Return the internal `mpr_graph` structure used by an object.
  *  \param object       The object to query.
@@ -179,7 +179,7 @@ mpr_prop mpr_obj_set_prop(mpr_obj object, mpr_prop property, const char *key, in
  *  \return             1 if property has been removed, `0` otherwise. */
 int mpr_obj_remove_prop(mpr_obj object, mpr_prop property, const char *key);
 
-/*! Push any property changes out to the distributed graph.
+/*! Push any staged property changes out to the distributed graph.
  *  \param object       The object to operate on. */
 void mpr_obj_push(mpr_obj object);
 
@@ -193,11 +193,9 @@ void mpr_obj_print(mpr_obj object, int staged);
 /*! @defgroup devices Devices
 
     @{ A device is an entity on the distributed graph which has input and/or output signals.
-       The `mpr_dev` is the primary interface through which a program uses libmapper.
-       A device must have a name, to which a unique ordinal is subsequently appended.
-       It can also be given other user-specified metadata.
-       Device signals can be connected, which is accomplished by requests from an external GUI
-       or session manager. */
+       The `mpr_dev` is the primary interface through which most programs use libmapper.
+       A device must have a name, to which a unique ordinal is automatically appended.
+       It can also be given other user-specified metadata. */
 
 /*! Allocate and initialize a device.
  *  \param name         A short descriptive string to identify the device. Must not contain spaces
@@ -207,7 +205,7 @@ void mpr_obj_print(mpr_obj object, int staged);
  *  \return             A newly allocated device.  Should be freed using `mpr_dev_free()`. */
 mpr_dev mpr_dev_new(const char *name, mpr_graph graph);
 
-/*! Free resources used by a device.
+/*! Remove a device from the graph and free its resources.
  *  \param device       The device to free. */
 void mpr_dev_free(mpr_dev device);
 
@@ -266,9 +264,9 @@ mpr_time mpr_dev_get_time(mpr_dev device);
  *                      the next occurrence `mpr_dev_set_time()` or `mpr_dev_poll()`. */
 void mpr_dev_set_time(mpr_dev device, mpr_time time);
 
-/*! Indicate that all signal values have been updated for a given timestep. This function can be
- *  omitted if `mpr_dev_poll()` is called each sampling timestep instead, however calling
- *  `mpr_dev_poll()` at a lower rate may be more performant.
+/*! Trigger map propagation for a given timestep. This function can be omitted if `mpr_dev_poll()`
+ *  is called each sampling timestep, however calling `mpr_dev_poll()` at a lower rate may be more
+ *  performant.
  *  \param device       The device to use. */
 void mpr_dev_update_maps(mpr_dev device);
 
@@ -279,9 +277,10 @@ void mpr_dev_update_maps(mpr_dev device);
 /*! @defgroup signals Signals
 
     @{ Signals define inputs or outputs for devices.  A signal consists of a scalar or vector value
-       of some integer or floating-point type.  A signal is created by adding an input or output to
-       a device.  It can optionally be provided with some metadata such as a signal's range, unit,
-       or other properties.  Signals can be mapped by creating maps through a GUI. */
+       of some integer or floating-point type.  A signal must be associated with a parent device.
+       It can optionally be provided with some metadata such as range, unit, or other properties.
+       Signals can be dynamically connected together in a dataflow graph by creating Maps using the
+       libmapper API or an external session manager. */
 
 /*! A signal handler function can be called whenever a signal value changes.
  *  \param signal       The signal that has changed.
@@ -306,14 +305,14 @@ typedef void mpr_sig_handler(mpr_sig signal, mpr_sig_evt event, mpr_id instance,
  *  \param name             The name of the signal.
  *  \param length           The length of the signal vector, or `1` for a scalar.
  *  \param type             The type of the signal value.
- *  \param unit             The unit of the signal, or `0` for none.
- *  \param minimum          Pointer to a minimum value, or `0` for none.
- *  \param maximum          Pointer to a maximum value, or `0` for none.
- *  \param num_instances    Pointer to the number of signal instances, or `0` to indicate that
+ *  \param unit             The unit of the signal, or `NULL` for none.
+ *  \param minimum          Pointer to a minimum value, or `NULL` for none.
+ *  \param maximum          Pointer to a maximum value, or `NULL` for none.
+ *  \param num_instances    Pointer to the number of signal instances, or `NULL` to indicate that
  *                          instances will not be used.
- *  \param handler          Function to be called when the value of the signal is updated.
- *  \param events           Bitflags for types of events we are interested in. Event types are
- *                          listed in the enum `mpr_sig_evt` found in `mapper_constants.h`
+ *  \param handler          Function to be called when the signal is updated, or `NULL` for none.
+ *  \param events           Bitflags for types of events that should trigger the handler. Event
+ *                          types are listed in the enum `mpr_sig_evt` found in `mapper_constants.h`
  *  \return                 The new signal. */
 mpr_sig mpr_sig_new(mpr_dev parent, mpr_dir direction, const char *name, int length, mpr_type type,
                     const char *unit, const void *minimum, const void *maximum, int *num_instances,
@@ -373,7 +372,7 @@ void mpr_sig_set_cb(mpr_sig signal, mpr_sig_handler *handler, int events);
        the position of a 'blob' in computer vision, and the signal's instances will
        describe the positions of actual detected blobs. */
 
-/*! Add new instances to the reserve list. Note that if instance ids are
+/*! Allocate new instances and add them to the reserve list. Note that if instance ids are
  *  specified, libmapper will not add multiple instances with the same id.
  *  \param signal       The signal to which the instances will be added.
  *  \param number       The number of instances to add.
@@ -446,7 +445,7 @@ void *mpr_sig_get_inst_data(mpr_sig signal, mpr_id instance);
  *  \param signal       The signal to check.
  *  \param status       The status of the instances to search should be set to `MPR_STATUS_ACTIVE`,
  *                      `MPR_STATUS_RESERVED`, or both (`MPR_STATUS_ACTIVE | MPR_STATUS_RESERVED`).
- *  \return             The number of allocated signal instances. */
+ *  \return             The number of allocated signal instances matching the specified status. */
 int mpr_sig_get_num_inst(mpr_sig signal, mpr_status status);
 
 /** @} */ /* end of group Instances */
@@ -603,7 +602,7 @@ void mpr_list_free(mpr_list list);
  *  \return             The number of objects in the list. */
 int mpr_list_get_size(mpr_list list);
 
-/*! Print an object list returned from a previous object query.
+/*! Print the contents of an object list returned from a previous object query.
  *  \param list         The object list to print. */
 void mpr_list_print(mpr_list list);
 
@@ -671,7 +670,7 @@ int mpr_graph_stop_polling(mpr_graph graph);
  *  \param graph        The graph to free. */
 void mpr_graph_free(mpr_graph graph);
 
-/*! Subscribe to information about a specific device.
+/*! Subscribe to receive information from remote objects.
  *  \param graph        The graph to use.
  *  \param device       The device of interest. If `NULL` the graph will automatically subscribe to
  *                      all discovered devices.
@@ -682,7 +681,7 @@ void mpr_graph_free(mpr_graph graph);
  *                      called again. */
 void mpr_graph_subscribe(mpr_graph graph, mpr_dev device, int types, int timeout);
 
-/*! Unsubscribe from information about a specific device.
+/*! Unsubscribe from information from remote objects.
  *  \param graph        The graph to use.
  *  \param device       The device of interest. If NULL the graph will
  *                      unsubscribe from all devices. */
@@ -697,8 +696,7 @@ void mpr_graph_unsubscribe(mpr_graph graph, mpr_dev device);
 typedef void mpr_graph_handler(mpr_graph graph, mpr_obj object, const mpr_graph_evt event,
                                const void *data);
 
-/*! Register a callback for when an object record is added or updated in the
- *  graph.
+/*! Register a callback for when an object record is added or updated in the graph.
  *  \param graph        The graph to query.
  *  \param handler      Callback function.
  *  \param types        Bitflags setting the type of information of interest.
@@ -707,7 +705,7 @@ typedef void mpr_graph_handler(mpr_graph graph, mpr_obj object, const mpr_graph_
  *  \return             One if a callback was added, otherwise zero. */
 int mpr_graph_add_cb(mpr_graph graph, mpr_graph_handler *handler, int types, const void *data);
 
-/*! Remove a device record callback from the graph service.
+/*! Remove an object record callback from the graph service.
  *  \param graph        The graph to query.
  *  \param handler      Callback function.
  *  \param data         The user context pointer that was originally specified

@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+/*! Describes the possible data types used by libmapper. */
 enum {
     MPR_DEV             = 0x01,             /*!< Devices only. */
     MPR_SIG_IN          = 0x02,             /*!< Input signals. */
@@ -99,7 +100,7 @@ typedef enum {
     MPR_LOC_BOTH        = 0x07  /*!< Both source and destination signals. */
 } mpr_loc;
 
-/*! Describes the possible network protocol for map communication
+/*! Describes the possible network protocol for map communication.
  *  @ingroup map */
 typedef enum {
     MPR_PROTO_UNDEFINED,        /*!< Not yet defined */
@@ -149,6 +150,8 @@ typedef enum {
     MPR_OBJ_EXP         /*!< The graph has lost contact with the remote entity. */
 } mpr_graph_evt;
 
+/*! Describes the possible statuses for a libmapper object.
+ *  @ingroup object */
 typedef enum {
     MPR_STATUS_UNDEFINED    = 0x00,
     MPR_STATUS_EXPIRED      = 0x01,
