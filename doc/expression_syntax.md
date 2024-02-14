@@ -145,7 +145,7 @@ Individual elements of variable values can be accessed using the notation
 
 When assigning values to a vector, if the source is shorter than the assignee it will be repeated as necessary, e.g. if `myvar` has length 5 and the expression assigns `myvar=[1,2,3]` its value will now be `[1,2,3,1,2]`.
 
-Variables and expressions may also be used as indexes. A fractional index will result in linear interpolation between the neighbouring elements.
+Variables and expressions may also be used as indexes. A fractional index will result in linear interpolation between the neighbouring elements. Since we use the index modulus it is possible to interpolate between the last and first elements of the vector.
 
 ### Vector examples
 
@@ -161,7 +161,7 @@ leave `y[1]` unchanged.
 
 ### Vector reducing functions
 
-There are several special functions that operate across all elements of the vector and output a scalar value:
+It is possible to call any of the [scalar functions](#function-list) listed above on a vector and the result will be calculated for each element. There are also a number of special functions that operate across all elements of the vector and output a scalar value:
 
 * `x.length()` – output the dimensionality (number of elements) of the vector `x`
 * `x.any()` — output `1` if **any** of the elements of vector `x` are non-zero, otherwise output `0`
