@@ -76,8 +76,8 @@ for i in range(100):
         print('--> retiring sender instance', id)
         outsig.Instance(id).release()
     else:    
-        print('--> sender instance', id, 'updated to', id)
-        outsig.Instance(id).set_value(id)
+        print('--> sender instance', id, 'updated to', r)
+        outsig.Instance(id).set_value(r)
     print_instance_ids()
     print_instance_values()
     dest.poll(100)
