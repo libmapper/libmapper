@@ -45,16 +45,6 @@ namespace Mapper
         Any                     = 0x20  //!< Applies to any element of value
     }
 
-    public enum Direction
-    {
-        Incoming    = 0x01, //!< Signal is an input
-        Outgoing    = 0x02, //!< Signal is an output
-        Any         = 0x03, //!< Either incoming or outgoing
-        Both        = 0x04  /*!< Both directions apply.  Currently signals cannot be both inputs
-                             *   and outputs, so this value is only used for querying device maps
-                             *   that touch only local signals. */
-    }
-
     public class Time
     {
         // internal long _time;
@@ -270,13 +260,13 @@ namespace Mapper
                         switch (property)
                         {
                             case (int)Property.Direction:
-                                return (Direction)i;
+                                return (Signal.Direction)i;
                             case (int)Property.ProcessingLocation:
                                 return (Map.Location)i;
                             case (int)Property.Protocol:
                                 return (Map.Protocol)i;
                             case (int)Property.Status:
-                                return (Status)i;
+                                return (Object.Status)i;
                             case (int)Property.Stealing:
                                 return (Signal.Stealing)i;
                             case (int)Property.Type:
@@ -472,6 +462,9 @@ namespace Mapper
                         int i = Convert.ToInt32(b);
                         mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.Boolean, (void*)&i, _pub);
                     }
+                    break;
+                case string s:
+                    mpr_obj_set_prop(_obj, _prop, _key, 1, (int)Type.String, (void*)Marshal.StringToHGlobalAnsi(s), _pub);
                     break;
                 case int[] i:
                     fixed(int *temp = &i[0])
@@ -923,6 +916,17 @@ namespace Mapper
     {
         private delegate void HandlerDelegate(IntPtr sig, int evt, UInt64 instanceId, int length,
                                               int type, IntPtr value, long time);
+
+        public enum Direction
+        {
+            Incoming    = 0x01, //!< Signal is an input
+            Outgoing    = 0x02, //!< Signal is an output
+            Any         = 0x03, //!< Either incoming or outgoing
+            Both        = 0x04  /*!< Both directions apply.  Currently signals cannot be both inputs
+                                 *   and outputs, so this value is only used for querying device maps
+                                 *   that touch only local signals. */
+        }
+
         [Flags]
         public enum Event
         {
@@ -1386,7 +1390,7 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_sig_get_maps(IntPtr sig, int dir);
-        public List<Map> GetMaps(Direction direction = Direction.Any)
+        public List<Map> GetMaps(Signal.Direction direction = Signal.Direction.Any)
         {
             return new List<Map>(mpr_sig_get_maps(this._obj, (int)direction), Type.Map);
         }
@@ -1481,7 +1485,7 @@ namespace Mapper
                                                  [MarshalAs(UnmanagedType.LPStr)] string unit,
                                                  IntPtr min, IntPtr max, IntPtr num_inst,
                                                  IntPtr handler, int events);
-        public Signal AddSignal(Direction direction, string name, int length, Type type,
+        public Signal AddSignal(Signal.Direction direction, string name, int length, Type type,
                                 string unit = null, int numInstances = -1)
         {
             IntPtr instPtr = IntPtr.Zero;
@@ -1526,14 +1530,14 @@ namespace Mapper
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_get_sigs(IntPtr dev, int dir);
-        public List<Signal> GetSignals(Direction direction = Direction.Any)
+        public List<Signal> GetSignals(Signal.Direction direction = Signal.Direction.Any)
         {
             return new List<Signal>(mpr_dev_get_sigs(this._obj, (int) direction), Type.Signal);
         }
 
         [DllImport("mapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.StdCall)]
         private static extern IntPtr mpr_dev_get_maps(IntPtr dev, int dir);
-        public List<Map> GetMaps(Direction direction = Direction.Any)
+        public List<Map> GetMaps(Signal.Direction direction = Signal.Direction.Any)
         {
             return new List<Map>(mpr_dev_get_maps(this._obj, (int) direction), Type.Map);
         }

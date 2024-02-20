@@ -11,12 +11,12 @@ def h(sig, event, id, val, time):
 srcs = [mpr.Device("py.testconvergent.src1"),
         mpr.Device("py.testconvergent.src2"),
         mpr.Device("py.testconvergent.src3")]
-outsigs = [srcs[0].add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32),
-           srcs[1].add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32),
-           srcs[2].add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32)]
+outsigs = [srcs[0].add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32),
+           srcs[1].add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32),
+           srcs[2].add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32)]
 
 dest = mpr.Device("py.testconvergent.dst")
-insig = dest.add_signal(mpr.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT, None, None, None, None, h)
+insig = dest.add_signal(mpr.Signal.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT, None, None, None, None, h)
 
 while not srcs[0].ready or not srcs[1].ready or not srcs[2].ready or not dest.ready:
     srcs[0].poll(100)

@@ -68,9 +68,9 @@ def dutyHandler(s, e, i, v, t):
 
 try:
     dev = mpr.Device("pyo_pwm_example")
-    freqSig = dev.add_signal(mpr.Direction.INCOMING, "frequency", 1, mpr.Type.FLOAT, "Hz", 0, 1000, numInst, freqHandler)
-    ampSig = dev.add_signal(mpr.Direction.INCOMING, "amplitude", 1, mpr.Type.FLOAT, "normalized", 0, 1, numInst, ampHandler)
-    dutySig = dev.add_signal(mpr.Direction.INCOMING, "duty", 1, mpr.Type.FLOAT, "normalized", 0, 1, numInst, dutyHandler)
+    freqSig = dev.add_signal(mpr.Signal.Direction.INCOMING, "frequency", 1, mpr.Type.FLOAT, "Hz", 0, 1000, numInst, freqHandler)
+    ampSig = dev.add_signal(mpr.Signal.Direction.INCOMING, "amplitude", 1, mpr.Type.FLOAT, "normalized", 0, 1, numInst, ampHandler)
+    dutySig = dev.add_signal(mpr.Signal.Direction.INCOMING, "duty", 1, mpr.Type.FLOAT, "normalized", 0, 1, numInst, dutyHandler)
 
     while True:
         dev.poll(5)

@@ -80,7 +80,7 @@ def locationBoxUpdated(self, context):
     global dev
     if self.location == True:
         print('location mapping enabled')
-        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/location", 3, mpr.Type.FLOAT,
+        dev.add_signal(mpr.Signal.Direction.INCOMING, context.object.name+"/location", 3, mpr.Type.FLOAT,
                        "meters", callback=location_cb, events=mpr.Signal.Event.UPDATE)
     else:
         print('location mapping disabled')
@@ -94,13 +94,13 @@ def rotationBoxUpdated(self, context):
     global dev
     if self.rotation == True:
         print('rotation mapping enabled')
-        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/rotation/euler", 3, mpr.Type.FLOAT,
+        dev.add_signal(mpr.Signal.Direction.INCOMING, context.object.name+"/rotation/euler", 3, mpr.Type.FLOAT,
                        None, -180, 180, callback=rot_euler_cb, events=mpr.Signal.Event.UPDATE)
-#        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/rotation/axis", 3, mpr.Type.FLOAT,
+#        dev.add_signal(mpr.Signal.Direction.INCOMING, context.object.name+"/rotation/axis", 3, mpr.Type.FLOAT,
 #                       None, -1, 1, None, rot_axis_cb)
-#        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/rotation/angle", 1, mpr.Type.FLOAT,
+#        dev.add_signal(mpr.Signal.Direction.INCOMING, context.object.name+"/rotation/angle", 1, mpr.Type.FLOAT,
 #                       "degrees", 0, 180, None, rot_angle_cb)
-        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/rotation/quaternion",
+        dev.add_signal(mpr.Signal.Direction.INCOMING, context.object.name+"/rotation/quaternion",
                        4, mpr.Type.FLOAT, None, -1, 1, callback=rot_quat_cb,
                        events=mpr.Signal.Event.UPDATE)
     else:
@@ -124,7 +124,7 @@ def scaleBoxUpdated(self, context):
     global dev
     if self.scale == True:
         print('scale mapping enabled')
-        dev.add_signal(mpr.Direction.INCOMING, context.object.name+"/scale", 3, mpr.Type.FLOAT,
+        dev.add_signal(mpr.Signal.Direction.INCOMING, context.object.name+"/scale", 3, mpr.Type.FLOAT,
                        callback=scale_cb, events=mpr.Signal.Event.UPDATE)
     else:
         print('scale mapping disabled')
@@ -197,7 +197,7 @@ def register():
     dev = mpr.Device('Blender')
 
     # add libmapper signal for Blender transport
-    dev.add_signal(mpr.Direction.INCOMING, 'animation/play', 1, mpr.Type.INT32, None, -1, 1, None,
+    dev.add_signal(mpr.Signal.Direction.INCOMING, 'animation/play', 1, mpr.Type.INT32, None, -1, 1, None,
                    animation_play_cb, events = mpr.Signal.Event.UPDATE)
 
     bpy.app.timers.register(libmapper_poll, persistent=True)

@@ -9,7 +9,7 @@ def h(sig, event, id, val, time):
     print('  handler got', sig['name'], '=', val, 'at time', time.get_double())
 
 src = mpr.Device('py.testrefcount.src')
-outsig = src.add_signal(mpr.Direction.OUTGOING, 'outsig', 10, mpr.Type.INT32, None, 0, 1)
+outsig = src.add_signal(mpr.Signal.Direction.OUTGOING, 'outsig', 10, mpr.Type.INT32, None, 0, 1)
 
 dest = mpr.Device('py.testrefcount.dst')
 
@@ -17,7 +17,7 @@ num_dst = 5
 
 for i in range(num_dst):
     # don't store references to input signals
-    dest.add_signal(mpr.Direction.INCOMING, 'insig%i' %i, 10, mpr.Type.FLOAT, None, 0, 1, None, h)
+    dest.add_signal(mpr.Signal.Direction.INCOMING, 'insig%i' %i, 10, mpr.Type.FLOAT, None, 0, 1, None, h)
 
 while not src.ready or not dest.ready:
     src.poll(10)

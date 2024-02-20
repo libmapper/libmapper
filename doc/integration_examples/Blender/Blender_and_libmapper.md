@@ -49,8 +49,8 @@ class MapperThread (threading.Thread):
         self.name = name
         
         self.dev = mpr.Device('Blender')
-        self.cube = self.dev.add_signal(mpr.Direction.INCOMING, 'cube/location',
-                                        3, mpr.Type.FLOAT)
+        self.cube = self.dev.add_signal(mpr.Signal.Direction.INCOMING,
+                                        'cube/location', 3, mpr.Type.FLOAT)
         self.cube.set_callback(self.callback)
     
     def callback(self, sig, evt, inst, val, time):

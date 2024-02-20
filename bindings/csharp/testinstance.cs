@@ -22,10 +22,10 @@ public class TestInstances
     {
         Device dev = new Device("csharp.testinstance");
 
-        Signal outsig = dev.AddSignal(Direction.Outgoing, "outsig", 1, Mapper.Type.Float, null, 3);
+        Signal outsig = dev.AddSignal(Signal.Direction.Outgoing, "outsig", 1, Mapper.Type.Float, null, 3);
         Console.WriteLine("created signal outsig");
 
-        Signal insig = dev.AddSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float, null, 3)
+        Signal insig = dev.AddSignal(Signal.Direction.Incoming, "insig", 1, Mapper.Type.Float, null, 3)
                           .SetCallback((Action<Signal.Instance, Signal.Event, float, Time>)Handler);
         Console.WriteLine("created signal insig");
 

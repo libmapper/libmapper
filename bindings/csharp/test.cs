@@ -22,12 +22,12 @@ public class Test
         Device dev = new Device("csharp.test");
 
         int[] min = {1,2,3,4}, max = {10,11,12,13};
-        Mapper.Signal outsig = dev.AddSignal(Direction.Outgoing, "outsig", 1, Mapper.Type.Float)
-                                  .SetProperty(Property.Min, min)
-                                  .SetProperty(Property.Max, max);
+        Signal outsig = dev.AddSignal(Signal.Direction.Outgoing, "outsig", 1, Mapper.Type.Float)
+                           .SetProperty(Property.Min, min)
+                           .SetProperty(Property.Max, max);
         Console.WriteLine("created signal outsig");
 
-        Signal insig = dev.AddSignal(Direction.Incoming, "insig", 1, Mapper.Type.Float)
+        Signal insig = dev.AddSignal(Signal.Direction.Incoming, "insig", 1, Mapper.Type.Float)
                           .SetCallback((Action<Signal, Signal.Event, float, Time>)SignalHandler,
                                        Mapper.Signal.Event.Update);
         Console.WriteLine("created Signal insig");
@@ -51,8 +51,11 @@ public class Test
         Mapper.List<Signal> sigs = dev.GetSignals();
         foreach(Signal s in sigs) { Console.WriteLine("  " + s); };
 
-        // Map map = new Map(outsig, insig);
-        Map map = new Map("%y=%x*1000", insig, outsig);
+        // This constructor doesn't work properly on Apple Silicon
+        // Map map = new Map("%y=%x*1000", insig, outsig);
+
+        // Use the simple constructor + property setter instead
+        Map map = new Map(outsig, insig).SetProperty(Property.Expression, "y=x*1000");
         map.Push();
 
         Console.Write("Waiting for Map...");

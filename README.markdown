@@ -55,12 +55,13 @@
 This library is a system for representing input and output signals on a network
 and allowing arbitrary "mappings" to be dynamically created between them.
 
-A "mapping", or "connection" associated with relational properties, consists of
-an [Open Sound Control](http://opensoundcontrol.org/) stream being established
-between source signals and a destination signal – the source is translated to
-the destination's expected format, with some mathematical expression used to
-condition the transmitted values as desired.  This can be used for example to
-connect a set of sensors to a synthesizer's input parameters.
+A "mapping" represents a data-streaming association between one or more source signals and a
+destination signal, in which data is transported using either shared memory or
+[Open Sound Control](http://opensoundcontrol.org/) streams over a network. In addition to traffic
+management, libmapper automatically handles address and datatype translation, and enables the use
+of arbitrary mathematical expression for conditioning, combining and transforming the source values
+as desired. This can be used for example to connect a set of sensors to a synthesizer's input
+parameters.
 
 To get started quickly with libmapper, be sure to read the tutorials, found in
 the "doc" folder in this distribution.

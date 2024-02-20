@@ -10,8 +10,8 @@ mp_face_mesh = mp.solutions.face_mesh
 
 dev = mpr.Device("head_pose")
 
-gaze_ratio_sig = dev.add_signal(mpr.Direction.OUTGOING, "gaze_ratio", 1, mpr.Type.FLOAT)
-mouth_size_sig = dev.add_signal(mpr.Direction.OUTGOING, "mouth_size", 2, mpr.Type.FLOAT)
+gaze_ratio_sig = dev.add_signal(mpr.Signal.Direction.OUTGOING, "gaze_ratio", 1, mpr.Type.FLOAT)
+mouth_size_sig = dev.add_signal(mpr.Signal.Direction.OUTGOING, "mouth_size", 2, mpr.Type.FLOAT)
 
 # Begin webcam input for head tracking:
 face_mesh = mp_face_mesh.FaceMesh(refine_landmarks=True)

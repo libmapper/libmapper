@@ -23,9 +23,9 @@ def device_h(type, device, event):
 def map_h(type, map, event):
     try:
         print(event.name, 'map:')
-        for s in map.signals(mpr.Location.SOURCE):
+        for s in map.signals(mpr.Map.Location.SOURCE):
             print("  src: ", s.device()['name'], ':', s['name'])
-        for s in map.signals(mpr.Location.DESTINATION):
+        for s in map.signals(mpr.Map.Location.DESTINATION):
             print("  dst: ", s.device()['name'], ':', s['name'])
     except:
         print('exception')
@@ -35,11 +35,11 @@ def map_h(type, map, event):
 src = mpr.Device("py.testcallbacks.src")
 src.graph().add_callback(device_h, mpr.Type.DEVICE)
 src.graph().add_callback(map_h, mpr.Type.MAP)
-outsig = src.add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.FLOAT, None, 0, 1000)
+outsig = src.add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 1, mpr.Type.FLOAT, None, 0, 1000)
 
 dst = mpr.Device("py.testcallbacks.dst")
 dst.graph().add_callback(map_h, mpr.Type.MAP)
-insig = dst.add_signal(mpr.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT, None, 0, 1, None, sig_h)
+insig = dst.add_signal(mpr.Signal.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT, None, 0, 1, None, sig_h)
 
 while not src.ready or not dst.ready:
     src.poll()

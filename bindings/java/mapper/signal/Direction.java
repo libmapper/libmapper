@@ -1,5 +1,5 @@
 
-package mapper;
+package mapper.signal;
 
 /*! Describes the directionality of map endpoints. */
 public enum Direction {

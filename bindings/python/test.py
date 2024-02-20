@@ -14,7 +14,7 @@ def h(sig, event, id, val, time):
         print('exception')
 
 def setup(d):
-    sig = d.add_signal(mpr.Direction.INCOMING, "freq", 1, mpr.Type.INT32, "Hz", 0, 100, None, h)
+    sig = d.add_signal(mpr.Signal.Direction.INCOMING, "freq", 1, mpr.Type.INT32, "Hz", 0, 100, None, h)
 
     while not d.ready:
         d.poll(10)
@@ -69,13 +69,13 @@ def setup(d):
 
     print('signal properties:', sig.properties)
 
-    sig = d.add_signal(mpr.Direction.INCOMING, "insig", 4, mpr.Type.INT32, None, None, None, None, h)
+    sig = d.add_signal(mpr.Signal.Direction.INCOMING, "insig", 4, mpr.Type.INT32, None, None, None, None, h)
     print('signal properties:', sig.properties)
-    sig = d.add_signal(mpr.Direction.OUTGOING, "outsig", 4, mpr.Type.FLOAT)
+    sig = d.add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 4, mpr.Type.FLOAT)
     print('signal properties:', sig.properties)
 
 #    # try adding a signal with the same name
-#    sig = d.add_signal(mpr.Direction.INCOMING, "outsig", 4, mpr.Type.FLOAT)
+#    sig = d.add_signal(mpr.Signal.Direction.INCOMING, "outsig", 4, mpr.Type.FLOAT)
 
     print('setup done!')
 
@@ -99,9 +99,9 @@ def graph_cb(type, object, event):
     if type is mpr.Type.DEVICE or type is mpr.Type.SIGNAL:
         print('  ', object['name'])
     elif type is mpr.Type.MAP:
-        for s in object.signals(mpr.Location.SOURCE):
+        for s in object.signals(mpr.Map.Location.SOURCE):
             print("  src: ", s.device()['name'], ':', s['name'])
-        for s in object.signals(mpr.Location.DESTINATION):
+        for s in object.signals(mpr.Map.Location.DESTINATION):
             print("  dst: ", s.device()['name'], ':', s['name'])
 
 g = mpr.Graph(mpr.Type.OBJECT)
@@ -135,7 +135,7 @@ for i in range(100):
               'contains' if outsig in map.signals() else 'does not contain',
               outsig)
         print('new map source list',
-              'contains' if insig in map.signals(mpr.Location.SOURCE) else 'does not contain',
+              'contains' if insig in map.signals(mpr.Map.Location.SOURCE) else 'does not contain',
               insig)
 
 #        # test creating multi-source map
@@ -167,9 +167,9 @@ maps = g.maps()
 nmaps = len(maps)
 print(nmaps, 'map:' if nmaps == 1 else 'maps:')
 for m in g.maps():
-    for s in m.signals(mpr.Location.SOURCE):
+    for s in m.signals(mpr.Map.Location.SOURCE):
         print("  src: ", s.device()['name'], ':', s['name'])
-    for s in m.signals(mpr.Location.DESTINATION):
+    for s in m.signals(mpr.Map.Location.DESTINATION):
         print("  dst: ", s.device()['name'], ':', s['name'])
 
 # combining queries

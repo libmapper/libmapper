@@ -400,9 +400,9 @@ static jobject build_value_object(JNIEnv *env, mpr_prop prop, const int len,
                 // handle some enums
                 switch (prop) {
                     case MPR_PROP_DIR: {
-                        cls = (*env)->FindClass(env, "mapper/Direction");
+                        cls = (*env)->FindClass(env, "mapper/signal/Direction");
                         jfieldID fid = (*env)->GetStaticFieldID(env, cls, direction_strings[ival],
-                                                                "Lmapper/Direction;");
+                                                                "Lmapper/signal/Direction;");
                         return fid ? (*env)->GetStaticObjectField(env, cls, fid) : NULL;
                     }
                     case MPR_PROP_PROCESS_LOC: {

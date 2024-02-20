@@ -19,16 +19,16 @@ JFLAGS = -source 1.8 -target 1.8
 JCLASSES = mapper/NativeLib.class                                        \
            mapper/AbstractObject.class                                   \
            mapper/Device.class                                           \
-           mapper/Direction.class                                        \
            mapper/Graph.class mapper/graph/Event.class                   \
            mapper/graph/Listener.class                                   \
            mapper/List.class                                             \
            mapper/Map.class mapper/map/Location.class                    \
-           mapper/map/Protocol.class                    		 \
+           mapper/map/Protocol.class                                     \
            mapper/Operator.class                                         \
            mapper/Property.class                                         \
-           mapper/Signal.class mapper/signal/Event.class                 \
-           mapper/signal/Listener.class mapper/signal/Stealing.class     \
+           mapper/Signal.class mapper/signal/Direction.class             \
+           mapper/signal/Event.class mapper/signal/Listener.class        \
+           mapper/signal/Stealing.class                                  \
            mapper/Status.class                                           \
            mapper/Time.class                                             \
            mapper/Type.class

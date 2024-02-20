@@ -80,7 +80,7 @@ dev = mpr.Device("hand_tracker")
 # add a libmapper signal to device defined above. This signal will
 # be transmitting a vector with len=2 to efficiently send x & y
 # position data.
-index_tip = dev.add_signal(mpr.Direction.OUTGOING, "index_tip",
+index_tip = dev.add_signal(mpr.Signal.Direction.OUTGOING, "index_tip",
                            2, mpr.Type.FLOAT)
 ```
 
@@ -119,7 +119,7 @@ mp_hands = mp.solutions.hands
 
 dev = mpr.Device("hand_tracker")
 
-index_tip = dev.add_signal(mpr.Direction.OUTGOING, "index_tip",
+index_tip = dev.add_signal(mpr.Signal.Direction.OUTGOING, "index_tip",
                            2, mpr.Type.FLOAT, None, None, None)
 
 # Begin webcam input for hand tracking:
@@ -217,7 +217,7 @@ dev = mpr.Device("consumer")
 
 
 # Initialize a libmapper signal
-sig = dev.add_signal(mpr.Direction.INCOMING, "input_signal", 1,
+sig = dev.add_signal(mpr.Signal.Direction.INCOMING, "input_signal", 1,
                      mpr.Type.FLOAT, None, None, None, None, handler)
 
 # Poll the Consumer device forever
@@ -315,7 +315,7 @@ In order to use convergent maps, we need to have more than one signal setup in o
 ```python
 ... # in the setup section
 
-thumb_tip = dev.add_signal(mpr.Direction.OUTGOING, "thumb_tip",
+thumb_tip = dev.add_signal(mpr.Signal.Direction.OUTGOING, "thumb_tip",
                            2, mpr.Type.FLOAT)
 
 
@@ -342,14 +342,14 @@ mp_hands = mp.solutions.hands
 
 hand_dev = mpr.Device("hand_tracker")
 
-one_index = hand_dev.add_signal(mpr.Direction.OUTGOING, "one_index",
-                                2, mpr.Type.FLOAT)
-one_thumb = hand_dev.add_signal(mpr.Direction.OUTGOING, "one_thumb",
-                                2, mpr.Type.FLOAT)
-two_index = hand_dev.add_signal(mpr.Direction.OUTGOING, "two_index",
-                                2, mpr.Type.FLOAT)
-two_thumb = hand_dev.add_signal(mpr.Direction.OUTGOING, "two_thumb",
-                                2, mpr.Type.FLOAT)
+one_index = hand_dev.add_signal(mpr.Signal.Direction.OUTGOING,
+                                "one_index", 2, mpr.Type.FLOAT)
+one_thumb = hand_dev.add_signal(mpr.Signal.Direction.OUTGOING,
+                                "one_thumb", 2, mpr.Type.FLOAT)
+two_index = hand_dev.add_signal(mpr.Signal.Direction.OUTGOING,
+                                "two_index", 2, mpr.Type.FLOAT)
+two_thumb = hand_dev.add_signal(mpr.Signal.Direction.OUTGOING,
+                                "two_thumb", 2, mpr.Type.FLOAT)
 
 # Begin webcam input for hand tracking:
 hands = mp_hands.Hands(min_detection_confidence=0.8,

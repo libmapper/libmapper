@@ -34,9 +34,9 @@ sig = DCBlock(Sig(value=Round(p), mul=[amp, amp])).out()
 
 try:
     dev = mpr.Device("pyo_pwm_example")
-    dev.add_signal(mpr.Direction.INCOMING, "frequency", 1, mpr.Type.FLOAT, "Hz", 0, 1000, None, lambda s,e,i,v,t: freq.setValue(v))
-    dev.add_signal(mpr.Direction.INCOMING, "amplitude", 1, mpr.Type.FLOAT, "normalized", 0, 1, None, lambda s,e,i,v,t: amp.setValue(v))
-    dev.add_signal(mpr.Direction.INCOMING, "duty", 1, mpr.Type.FLOAT, "normalized", 0, 1, None, lambda s,e,i,v,t: duty.setValue(v))
+    dev.add_signal(mpr.Signal.Direction.INCOMING, "frequency", 1, mpr.Type.FLOAT, "Hz", 0, 1000, None, lambda s,e,i,v,t: freq.setValue(v))
+    dev.add_signal(mpr.Signal.Direction.INCOMING, "amplitude", 1, mpr.Type.FLOAT, "normalized", 0, 1, None, lambda s,e,i,v,t: amp.setValue(v))
+    dev.add_signal(mpr.Signal.Direction.INCOMING, "duty", 1, mpr.Type.FLOAT, "normalized", 0, 1, None, lambda s,e,i,v,t: duty.setValue(v))
 
     while True:
         dev.poll(5)

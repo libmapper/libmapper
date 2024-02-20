@@ -23,7 +23,7 @@ class testinstance {
                     }
             });
 
-        Signal inp1 = dev1.addSignal(Direction.INCOMING, "insig1", 1, Type.INT32, "Hz",
+        Signal inp1 = dev1.addSignal(mapper.signal.Direction.INCOMING, "insig1", 1, Type.INT32, "Hz",
                                      2.0f, null, 10, new mapper.signal.Listener() {
             public void onEvent(Signal.Instance inst, mapper.signal.Event evt, int val, Time time) {
                 System.out.println(evt + " for " + inst.properties().get("name") + ": "
@@ -32,9 +32,9 @@ class testinstance {
 
         System.out.println("Input signal name: "+inp1.properties().get("name"));
 
-        Signal out1 = dev2.addSignal(Direction.OUTGOING, "outsig1", 1, Type.INT32,
+        Signal out1 = dev2.addSignal(mapper.signal.Direction.OUTGOING, "outsig1", 1, Type.INT32,
                                      "Hz", 0, 1, 10, null);
-        Signal out2 = dev2.addSignal(Direction.OUTGOING, "outsig2", 2, Type.FLOAT,
+        Signal out2 = dev2.addSignal(mapper.signal.Direction.OUTGOING, "outsig2", 2, Type.FLOAT,
                                      "Hz", 0.0f, 1.0f, 10, null);
 
         System.out.print("Waiting for ready... ");

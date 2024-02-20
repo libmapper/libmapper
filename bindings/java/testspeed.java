@@ -35,10 +35,10 @@ class testspeed {
             }
         };
 
-        Signal out = dev1.addSignal(Direction.OUTGOING, "outsig", 1, Type.INT32,
+        Signal out = dev1.addSignal(mapper.signal.Direction.OUTGOING, "outsig", 1, Type.INT32,
                                     "Hz", null, null, null, null);
 
-        Signal in = dev2.addSignal(Direction.INCOMING, "insig", 1, Type.FLOAT,
+        Signal in = dev2.addSignal(mapper.signal.Direction.INCOMING, "insig", 1, Type.FLOAT,
                                    "Hz", null, null, null, new Listener() {
             public void onEvent(Signal sig, mapper.signal.Event e, float v, Time time) {
                 if (e == mapper.signal.Event.UPDATE) {

@@ -137,10 +137,10 @@ for input signals there is an additional argument:
 examples:
 
 ~~~python
-sig_in = dev.add_signal(mpr.Direction.INCOMING, "my_input", 1,
+sig_in = dev.add_signal(mpr.Signal.Direction.INCOMING, "my_input", 1,
                         mpr.Type.FLOAT, "m/s", -10, 10, None, h)
 
-sig_out = dev.add_signal(mpr.Direction.OUTGOING, "my_output", 4,
+sig_out = dev.add_signal(mpr.Signal.Direction.OUTGOING, "my_output", 4,
                          mpr.Type.INT32, None, 0, 1000)
 ~~~
 
@@ -167,21 +167,22 @@ An example of creating a "barebones" `int` scalar output signal with no unit,
 minimum, or maximum information:
 
 ~~~python
-outA = dev.add_signal(mpr.Direction.OUTGOING, "outA", 1, mpr.Type.INT32,
-                      None, None, None)
+outA = dev.add_signal(mpr.Signal.Direction.OUTGOING, "outA", 1,
+                      mpr.Type.INT32, None, None, None)
 ~~~
 
 or omitting some arguments:
 
 ~~~python
-outA = dev.add_signal(mpr.Direction.OUTGOING, "outA", 1, mpr.Type.INT32)
+outA = dev.add_signal(mpr.Signal.Direction.OUTGOING, "outA", 1,
+                      mpr.Type.INT32)
 ~~~
 
 An example of a `float` signal where some more information is provided:
 
 ~~~python
-sensor1 = dev.add_signal(mpr.Direction.OUTGOING, "sensor1", 1, mpr.Type.FLOAT,
-                         "V", 0.0, 5.0)
+sensor1 = dev.add_signal(mpr.Signal.Direction.OUTGOING, "sensor1", 1,
+                         mpr.Type.FLOAT, "V", 0.0, 5.0)
 ~~~
 
 So far we know how to create a device and to specify an output signal for it.
@@ -191,8 +192,8 @@ To recap, let's review the code so far:
 import libmapper as mpr
 
 dev = mpr.Device("test_sender")
-sensor1 = dev.add_signal(mpr.Direction.OUTGOING, "sensor1", 1, mpr.Type.FLOAT,
-                         "V", 0.0, 5.0)
+sensor1 = dev.add_signal(mpr.Signal.Direction.OUTGOING, "sensor1", 1,
+                         mpr.Type.FLOAT, "V", 0.0, 5.0)
     
 while 1:
     dev.poll(50)
@@ -316,8 +317,8 @@ def freq_handler(sig, event, id, val, timetag):
         print(sig, val)
 
 dev = mpr.Device('pyo_example')
-dev.add_signal(mpr.Direction.INCOMING, 'frequency', 1, mpr.Type.FLOAT,
-               'Hz', 20, 2000, None, freq_handler)
+dev.add_signal(mpr.Signal.Direction.INCOMING, 'frequency', 1,
+               mpr.Type.FLOAT, 'Hz', 20, 2000, None, freq_handler)
 
 while True:
     dev.poll( 100 )
@@ -337,8 +338,9 @@ synth = Server().boot().start()
 sine = Sine(freq=200, mul=0.5).out()
 
 dev = mpr.Device('pyo_example')
-dev.add_signal(mpr.Direction.INCOMING, 'frequency', 1, mpr.Type.FLOAT, "Hz",
-               20, 2000, None, lambda s, e, i, f, t: sine.setFreq(f),
+dev.add_signal(mpr.Signal.Direction.INCOMING, 'frequency', 1,
+               mpr.Type.FLOAT, "Hz", 20, 2000, None,
+               lambda s, e, i, f, t: sine.setFreq(f),
                mpr.Signal.Event.UPDATE)
 
 while True:

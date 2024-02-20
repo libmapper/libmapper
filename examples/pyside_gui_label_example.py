@@ -48,7 +48,7 @@ class MappableSlider(QtWidgets.QWidget):
         self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.slider.setRange(0, 100)
 
-        self.sig = dev.add_signal(mpr.Direction.INCOMING, name, 1, mpr.Type.FLOAT, None, 0, 1)
+        self.sig = dev.add_signal(mpr.Signal.Direction.INCOMING, name, 1, mpr.Type.FLOAT, None, 0, 1)
         self.sig.set_callback(lambda x, e, i, v, t: self.set_position(v * 100), mpr.Signal.Event.UPDATE)
 
         self.slider.valueChanged.connect(lambda x: self.sig.set_value(x * 0.01))
@@ -186,7 +186,7 @@ class gui(QtWidgets.QMainWindow):
             # only interested in new and removed events
             return
 
-        dst = map.signals(mpr.Location.DESTINATION).next()
+        dst = map.signals(mpr.Map.Location.DESTINATION).next()
         if dst[mpr.Property.IS_LOCAL]:
             # we are the destination
             slider = self.find_slider(dst)
@@ -196,21 +196,21 @@ class gui(QtWidgets.QMainWindow):
                 slider.set_name()
             elif event == mpr.Graph.Event.NEW:
                 src_names = []
-                for src in map.signals(mpr.Location.SOURCE):
+                for src in map.signals(mpr.Map.Location.SOURCE):
                     src_names.append(src.device()['name'] + ':' + src['name'])
                 label = '-> ' + ','.join(src_names)
                 slider.set_name(label)
 
         else:
             # we are (one of) the source(s)
-            for src in map.signals(mpr.Location.SOURCE):
+            for src in map.signals(mpr.Map.Location.SOURCE):
                 slider = self.find_slider(src)
                 if not slider:
                     continue
                 if event == mpr.Graph.Event.REMOVED or event == mpr.Graph.Event.EXPIRED:
                     slider.set_name()
                 elif event == mpr.Graph.Event.NEW:
-                    dst = map.signals(mpr.Location.DESTINATION).next()
+                    dst = map.signals(mpr.Map.Location.DESTINATION).next()
                     label = dst.device()['name'] + ':' + dst['name'] + ' ->'
                     slider.set_name(label)
 

@@ -6,10 +6,10 @@ print('starting testmapfromstring.py')
 print('libmapper version:', mpr.__version__, 'with' if mpr.has_numpy() else 'without', 'numpy support')
 
 src = mpr.Device("py.testmapfromstr.src")
-outsig = src.add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32)
+outsig = src.add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32)
 
 dest = mpr.Device("py.testmapfromstr.dst")
-insig = dest.add_signal(mpr.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT,
+insig = dest.add_signal(mpr.Signal.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT,
                         None, None, None, None,
                         lambda s, e, i, v, t: print('signal', s['name'], 'got value',
                                                     v, 'at time', t.get_double()),

@@ -2,6 +2,7 @@
 package mapper;
 
 //import mapper.NativeLib;
+import mapper.signal.Direction;
 import mapper.signal.Listener;
 import mapper.Type;
 import mapper.Time;
@@ -51,10 +52,9 @@ public class Device extends mapper.AbstractObject
                                      java.lang.Object maximum,
                                      Integer numInstances,
                                      mapper.signal.Listener l, String methodSig);
-    public Signal addSignal(Direction dir, String name, int length, Type type,
-                            String unit, java.lang.Object minimum,
-                            java.lang.Object maximum, Integer numInstances,
-                            mapper.signal.Listener l) {
+    public Signal addSignal(mapper.signal.Direction dir, String name, int length, Type type,
+                            String unit, java.lang.Object minimum, java.lang.Object maximum,
+                            Integer numInstances, mapper.signal.Listener l) {
         if (!_owned)
             return null;
         if (l == null)
@@ -68,14 +68,13 @@ public class Device extends mapper.AbstractObject
                 continue;
             String methodName = method.toString();
             if (methodName.startsWith("public void "+instanceName[0]+".")) {
-                return add_signal(_obj, dir.value(), name, length, type.value(),
-                                  unit, minimum, maximum, numInstances, l,
-                                  methodName);
+                return add_signal(_obj, dir.value(), name, length, type.value(), unit,
+                                  minimum, maximum, numInstances, l, methodName);
             }
         }
         return null;
     }
-    public Signal addSignal(Direction dir, String name, int length, Type type) {
+    public Signal addSignal(mapper.signal.Direction dir, String name, int length, Type type) {
         return add_signal(_obj, dir.value(), name, length, type.value(),
                           null, null, null, null, null, null);
     }
@@ -95,8 +94,8 @@ public class Device extends mapper.AbstractObject
 
     /* retrieve associated signals */
     private native long signals(long dev, int dir);
-    public mapper.List<mapper.Signal> signals(Direction dir)
+    public mapper.List<mapper.Signal> signals(mapper.signal.Direction dir)
         { return new mapper.List<mapper.Signal>(signals(_obj, dir.value())); }
     public mapper.List<mapper.Signal> signals()
-        { return new mapper.List<mapper.Signal>(signals(_obj, Direction.ANY.value())); }
+        { return new mapper.List<mapper.Signal>(signals(_obj, mapper.signal.Direction.ANY.value())); }
 }

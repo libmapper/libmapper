@@ -12,9 +12,9 @@ def on_change(sig, event, id, value, timetag):
 
 dev = mpr.Device("tkgui")
 
-sig_in = dev.add_signal(mpr.Direction.INCOMING, "input", 1, mpr.Type.INT32,
+sig_in = dev.add_signal(mpr.Signal.Direction.INCOMING, "input", 1, mpr.Type.INT32,
                         None, 0, 100, None, on_change)
-sig_out = dev.add_signal(mpr.Direction.OUTGOING, "output", 1, mpr.Type.INT32,
+sig_out = dev.add_signal(mpr.Signal.Direction.OUTGOING, "output", 1, mpr.Type.INT32,
                         None, 0, 100)
 
 ui = tkinter.Tk()

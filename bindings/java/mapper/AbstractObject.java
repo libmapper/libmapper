@@ -104,8 +104,8 @@ public abstract class AbstractObject<T extends AbstractObject<T>>
         public Object put(Object key, Object value, boolean publish)
         {
             // translate some enum objects to their int form
-            if (value instanceof mapper.Direction)
-                value = ((mapper.Direction)value).value();
+            if (value instanceof mapper.signal.Direction)
+                value = ((mapper.signal.Direction)value).value();
             else if (value instanceof mapper.map.Location)
                 value = ((mapper.map.Location)value).value();
             else if (value instanceof mapper.map.Protocol)

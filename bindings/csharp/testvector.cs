@@ -13,12 +13,12 @@ public class TestVector
         Device dev = new Device("csharp.testvector");
 
         int[] min = {1,2,3,4}, max = {10,11,12,13};
-        Mapper.Signal outsig = dev.AddSignal(Direction.Outgoing, "outsig", 4, Mapper.Type.Float)
-                                  .SetProperty(Property.Min, min)
-                                  .SetProperty(Property.Max, max);
+        Signal outsig = dev.AddSignal(Signal.Direction.Outgoing, "outsig", 4, Mapper.Type.Float)
+                           .SetProperty(Property.Min, min)
+                           .SetProperty(Property.Max, max);
         Console.WriteLine("created signal outsig");
 
-        Signal insig = dev.AddSignal(Direction.Incoming, "insig", 4, Mapper.Type.Float)
+        Signal insig = dev.AddSignal(Signal.Direction.Incoming, "insig", 4, Mapper.Type.Float)
                           .SetCallback((Action<Signal, Signal.Event, float[], Time>)SignalHandler,
                                        Mapper.Signal.Event.Update);
         Console.WriteLine("created Signal insig");

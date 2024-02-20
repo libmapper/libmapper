@@ -6,10 +6,10 @@ print('starting testgetvalue.py')
 print('libmapper version:', mpr.__version__, 'with' if mpr.has_numpy() else 'without', 'numpy support')
 
 src = mpr.Device("py.testvector.src")
-outsig = src.add_signal(mpr.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32, None, 0, 1)
+outsig = src.add_signal(mpr.Signal.Direction.OUTGOING, "outsig", 1, mpr.Type.INT32, None, 0, 1)
 
 dest = mpr.Device("py.testvector.dst")
-insig = dest.add_signal(mpr.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT, None, 0, 1)
+insig = dest.add_signal(mpr.Signal.Direction.INCOMING, "insig", 1, mpr.Type.FLOAT, None, 0, 1)
 
 while not src.ready or not dest.ready:
     src.poll(10)

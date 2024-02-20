@@ -18,14 +18,16 @@ For more information please visit [libmapper.org](libmapper.org)
 
 __all__ = [
 
-    '__version__', 'has_numpy', 'Device', 'Location', 'Direction', 'Operator', 'Property',
-    'Protocol', 'Status', 'Stealing', 'Type', 'Time', 'Object', 'List', 'InstanceId',
-    'Signal', 'SignalInstance', 'Map', 'Graph'
+    '__version__', 'has_numpy', 'Device', 'Graph', 'List', 'Map',
+    'Object', 'Operator', 'Property', 'Signal', 'Time', 'Type',
+
+    # deprecated
+    'Direction', 'Location', 'Protocol', 'Status', 'Stealing'
 
 ]
 
 from ctypes import *
-from enum import IntFlag, Enum
+from enum import IntFlag, Enum, unique
 import weakref, sys
 import platform
 import os
@@ -71,27 +73,10 @@ mpr.mpr_obj_set_prop.restype = c_int
 
 SIG_HANDLER = CFUNCTYPE(None, c_void_p, c_int, c_longlong, c_int, c_char, c_void_p, c_void_p)
 
-class Direction(IntFlag):
-    """The set of possible directions for a signal."""
-    INCOMING   = 1
-    OUTGOING   = 2
-    ANY        = 3
-    BOTH       = 4
-
-    def __repr__(self):
-        return 'libmapper.Direction.' + self.name
-
-class Location(IntFlag):
-    """Describes the possible endpoints of a map."""
-    SOURCE      = 1
-    DESTINATION = 2
-    ANY         = 3
-
-    def __repr__(self):
-        return 'libmapper.Location.' + self.name
-
+@unique
 class Operator(IntFlag):
     """Possible operations for composing queries."""
+
     DOES_NOT_EXIST          = 0x01
     EQUAL                   = 0x02
     EXISTS                  = 0x03
@@ -107,11 +92,13 @@ class Operator(IntFlag):
     def __repr__(self):
         return 'libmapper.Operator.' + self.name
 
+@unique
 class Property(Enum):
     """Symbolic representation of recognized properties."""
+
     UNKNOWN          = 0x0000
     BUNDLE           = 0x0100
-    # DATA DELIBERATELY OMITTED
+    # 'DATA' DELIBERATELY OMITTED
     DEVICE           = 0x0300
     DIRECTION        = 0x0400
     EPHEMERAL        = 0x0500
@@ -154,39 +141,10 @@ class Property(Enum):
     def __repr__(self):
         return 'libmapper.Property.' + self.name
 
-class Protocol(Enum):
-    """Describes the possible network protocol for map communication."""
-    UDP = 1
-    TCP = 2
-
-    def __repr__(self):
-        return 'libmapper.Protocol.' + self.name
-
-class Status(Enum):
-    """Describes the possible statuses for a libmapper object."""
-    UNDEFINED   = 0x00
-    EXPIRED     = 0x01
-    STAGED      = 0x02
-    WAITING     = 0x0E
-    READY       = 0x36
-    ACTIVE      = 0X7E
-    RESERVED    = 0X80
-    ANY         = 0xFF
-
-    def __repr__(self):
-        return 'libmapper.Status.' + self.name
-
-class Stealing(Enum):
-    """Describes the voice-stealing mode for instances."""
-    NONE    = 0
-    OLDEST  = 1
-    NEWEST  = 2
-
-    def __repr__(self):
-        return 'libmapper.Stealing.' + self.name
-
+@unique
 class Type(IntFlag):
     """Describes the possible data types used by libmapper."""
+
     UNKNOWN    = 0x00
     DEVICE     = 0x01
     SIGNAL_IN  = 0x02
@@ -286,10 +244,12 @@ class Time:
 
     def get_double(self):
         """Get the time value as a double-precision floating point number."""
+
         return mpr.mpr_time_as_dbl(self.value)
 
     def __add__(self, addend):
-        """Add Time and another value.
+        """
+        Add Time and another value.
 
         Args:
             addend (float or libmapper.Time): the value to add.
@@ -297,6 +257,7 @@ class Time:
         Returns:
             a new Time object containing the result
         """
+
         result = Time(self)
         if isinstance(addend, Time):
             mpr.mpr_time_add(byref(result.value), addend.value)
@@ -307,7 +268,8 @@ class Time:
         return result
 
     def __iadd__(self, addend):
-        """Add to this timetag.
+        """
+        Add to this timetag.
 
         Args:
             addend (float or libmapper.Time): the value to add.
@@ -315,6 +277,7 @@ class Time:
         Returns:
             self
         """
+
         if isinstance(addend, int):
             mpr.mpr_time_add(byref(self.value), addend)
         elif isinstance(addend, float):
@@ -324,7 +287,8 @@ class Time:
         return self
 
     def __radd__(self, val):
-        """Add another value and a Time object.
+        """
+        Add another value and a Time object.
 
         Args:
             val (numeric): the left value to add.
@@ -332,10 +296,12 @@ class Time:
         Returns:
             the added value
         """
+
         return val + self.get_double()
 
     def __sub__(self, subtrahend):
-        """Subtract another value from a Time object.
+        """
+        Subtract another value from a Time object.
 
         Args:
             subtrahend (float or libmapper.Time): the value to subtract.
@@ -343,6 +309,7 @@ class Time:
         Returns:
             a new Time object containing the result
         """
+
         result = Time(self)
         if isinstance(subtrahend, Time):
             mpr.mpr_time_sub(byref(result.value), subtrahend.value)
@@ -351,7 +318,8 @@ class Time:
         return result
 
     def __isub__(self, subtrahend):
-        """Subtract from this Time object.
+        """
+        Subtract from this Time object.
 
         Args:
             subtrahend (float or libmapper.Time): the value to subtract.
@@ -359,6 +327,7 @@ class Time:
         Returns:
             self
         """
+
         if isinstance(subtrahend, Time):
             mpr.mpr_time_sub(byref(self.value), subtrahend)
         else:
@@ -366,7 +335,8 @@ class Time:
         return self
 
     def __rsub__(self, val):
-        """Subtract a Time object from another value.
+        """
+        Subtract a Time object from another value.
 
         Args:
             val (numeric): the value to subtract from.
@@ -374,10 +344,12 @@ class Time:
         Returns:
             the result
         """
+
         return val - self.get_double()
 
     def __mul__(self, multiplicand):
-        """Multiply Time using another value.
+        """
+        Multiply Time using another value.
 
         Args:
             multiplicand (float or libmapper.Time): the value to multiply.
@@ -385,12 +357,14 @@ class Time:
         Returns:
             a new Time object containing the result
         """
+
         result = Time(self)
         mpr.mpr_time_mul(byref(result.value), multiplicand)
         return result
 
     def __imul__(self, multiplicand):
-        """Multiply this Time object.
+        """
+        Multiply this Time object.
 
         Args:
             multiplicand (float or libmapper.Time): the value to multiply.
@@ -398,11 +372,13 @@ class Time:
         Returns:
             self
         """
+
         mpr.mpr_time_mul(byref(self.value), multiplicand)
         return self
 
     def __rmul__(self, val):
-        """Multiply another value by Time object.
+        """
+        Multiply another value by Time object.
 
         Args:
             val (numeric): the value to multiply.
@@ -410,10 +386,12 @@ class Time:
         Returns:
             the result
         """
+
         return val * self.get_double()
 
     def __div__(self, divisor):
-        """Divide Time by another value.
+        """
+        Divide Time by another value.
 
         Args:
             divisor (float or libmapper.Time): the divisor to use.
@@ -421,12 +399,14 @@ class Time:
         Returns:
             a new Time object containing the result
         """
+
         result = Time(self)
         mpr.mpr_time_mul(byref(result.value), 1/divisor)
         return result
 
     def __idiv__(self, divisor):
-        """Divide this Time object.
+        """
+        Divide this Time object.
 
         Args:
             divisor (float or libmapper.Time): the divisor to use.
@@ -434,11 +414,13 @@ class Time:
         Returns:
             self
         """
+
         mpr.mpr_time_mul(byref(self.value), 1/divisor)
         return self
 
     def __rdiv__(self, val):
-        """Divide another value by Time object.
+        """
+        Divide another value by Time object.
 
         Args:
             val (numeric): the value to divide.
@@ -446,10 +428,12 @@ class Time:
         Returns:
             the result
         """
+
         return val / self.get_double()
 
     def __lt__(self, rhs):
         """Comparison: less than"""
+
         if isinstance(rhs, Time):
             return self.get_double() < rhs.get_double()
         else:
@@ -457,6 +441,7 @@ class Time:
 
     def __le__(self, rhs):
         """Comparison: less than or equal"""
+
         if isinstance(rhs, Time):
             return self.get_double() <= rhs.get_double()
         else:
@@ -464,6 +449,7 @@ class Time:
 
     def __eq__(self, rhs):
         """Comparison: equal"""
+
         if isinstance(rhs, Time):
             return self.value.value == rhs.value.value
         else:
@@ -471,6 +457,7 @@ class Time:
 
     def __ge__(self, rhs):
         """Comparison: greater than or equal"""
+
         if isinstance(rhs, Time):
             return self.get_double() >= rhs.get_double()
         else:
@@ -478,6 +465,7 @@ class Time:
 
     def __gt__(self, rhs):
         """Comparison: greater than"""
+
         if isinstance(rhs, Time):
             return self.get_double() > rhs.get_double()
         else:
@@ -542,6 +530,7 @@ class List:
         Raises:
             StopIteration: if no more items in list
         """
+
         if self._list:
             # self._list is the address of result, need to dereference
             result = cast(self._list, POINTER(c_void_p)).contents.value
@@ -557,14 +546,15 @@ class List:
         Apply a property-based filter to this list.
 
         Args:
-            key_or_idx (str, int, or libmapper.Property): name, index, or symbolic identifier of the
-            property to filter.
+            key_or_idx (str, int, or libmapper.Property): name, index, or symbolic identifier of
+                the property to filter.
             val: value to compare with the property
             op (libmapper.Operator): operator to evaluate. Defaults to `Operator.EQUAL`.
 
         Returns:
             self
         """
+
         key, idx = c_char_p(), c_int()
         _type = type(key_or_idx)
         if _type is str:
@@ -618,6 +608,7 @@ class List:
         Returns:
             self
         """
+
         if not isinstance(rhs, List):
             return self
         if rhs._list is None:
@@ -639,6 +630,7 @@ class List:
         Returns:
             self
         """
+
         if not isinstance(rhs, List):
             return self
         if rhs._list is None:
@@ -660,6 +652,7 @@ class List:
         Returns:
             self
         """
+
         if not isinstance(rhs, List):
             return self
         if rhs._list is None:
@@ -684,6 +677,7 @@ class List:
         Raises:
             IndexError: if index is invalid
         """
+
         # python lists allow a negative index
         if index < 0:
             mpr.mpr_list_get_size.argtypes = [c_void_p]
@@ -700,10 +694,12 @@ class List:
 
     def __next__(self):
         """Get the next object in the list."""
+
         return self.next()
 
     def __len__(self):
         """Retrieve the number of objects in the list."""
+
         mpr.mpr_list_get_size.argtypes = [c_void_p]
         mpr.mpr_list_get_size.restype = c_int
         return mpr.mpr_list_get_size(self._list)
@@ -715,6 +711,7 @@ class List:
         Returns:
             self
         """
+
         mpr.mpr_list_print.argtypes = [c_void_p]
         mpr.mpr_list_print.restype = None
         mpr.mpr_list_print(self._list)
@@ -723,11 +720,28 @@ class List:
 class Object:
     """Objects provide a generic representation of Graphs, Devices, Signals, and Maps."""
 
+    @unique
+    class Status(Enum):
+        """Describes the possible statuses for a libmapper object."""
+
+        UNDEFINED   = 0x00
+        EXPIRED     = 0x01
+        STAGED      = 0x02
+        WAITING     = 0x0E
+        READY       = 0x36
+        ACTIVE      = 0X7E
+        RESERVED    = 0X80
+        ANY         = 0xFF
+
+        def __repr__(self):
+            return 'libmapper.Object.Status.' + self.name
+
     def __init__(self, ref):
         self._obj = ref
 
     def get_num_properties(self):
         """Get an object's number of properties."""
+
         mpr.mpr_obj_get_num_props.argtypes = [c_void_p]
         mpr.mpr_obj_get_num_props.restype = c_int
         return mpr.mpr_obj_get_num_props(self._obj)
@@ -735,6 +749,7 @@ class Object:
 
     def graph(self):
         """Retrieve the parent `Graph` object for an object."""
+
         mpr.mpr_obj_get_graph.argtypes = [c_void_p]
         mpr.mpr_obj_get_graph.restype = c_void_p
         return Graph(None, mpr.mpr_obj_get_graph(self._obj))
@@ -744,8 +759,8 @@ class Object:
         Set an object property.
 
         Args:
-            key_or_idx (str, int, or libmapper.Property): name, index, or symbolic identifier of the
-            property to set.
+            key_or_idx (str, int, or libmapper.Property): name, index, or symbolic identifier of
+                the property to set.
             val: a value or list of values to set
             publish (boolean): True if property should be public, False otherwise
 
@@ -809,7 +824,7 @@ class Object:
                 float_array = (c_float * _len)()
                 float_array[:] = [ float(x) for x in val ]
                 mpr.mpr_obj_set_prop(self._obj, _idx, _key, _len, _type, float_array, publish)
-        elif _type is Direction or _type is Location or _type is Protocol or _type is Stealing:
+        elif _type is Signal.Direction or _type is Map.Location or _type is Map.Protocol or _type is Signal.Stealing:
             _type = c_char(Type.INT32.value)
             if _len == 1:
                 mpr.mpr_obj_set_prop(self._obj, _idx, _key, _len, _type, byref(c_int(val.value)), publish)
@@ -834,14 +849,15 @@ class Object:
         Retrieve an object property.
 
         Args:
-            key_or_idx (str, int, or libmapper.Property): name, index, or symbolic identifier of the
-            property to get.
+            key_or_idx (str, int, or libmapper.Property): name, index, or symbolic identifier of
+                the property to get.
 
         Returns:
             If called with a string or symbolic identifier argument the value of the property will
             be returned. If called with an integer index both key and value will be returned. In
             either case `None` will be returned if the property does not exist.
         """
+
         _len, _type, _val, _pub = c_int(), c_char(), c_void_p(), c_int()
         if isinstance(key_or_idx, str):
             _key = key_or_idx.encode('utf-8')
@@ -895,20 +911,20 @@ class Object:
 
                 # translate some values into Enums
                 if prop == Property.DIRECTION:
-                    val = Direction(val)
+                    val = Signal.Direction(val)
                 elif prop == Property.PROCESS_LOCATION:
-                    val = Location(val)
+                    val = Map.Location(val)
                 elif prop == Property.PROTOCOL:
-                    val = Protocol(val)
+                    val = Map.Protocol(val)
                 elif prop == Property.STATUS:
-                    status = Status.UNDEFINED
-                    for name, member in Status.__members__.items():
+                    status = Object.Status.UNDEFINED
+                    for name, member in Object.Status.__members__.items():
                         if member.value > val:
                             break
                         status = member
                     val = status
                 elif prop == Property.STEALING:
-                    val = Stealing(val)
+                    val = Signal.Stealing(val)
             else:
                 val = [_val[i] for i in range(_len)]
             if is_np_array:
@@ -985,6 +1001,7 @@ class Object:
 
     def get_properties(self):
         """Get a dictionary specifying all object properties."""
+
         props = {}
         for i in range(self.num_properties):
             prop = self.get_property(i)
@@ -1009,8 +1026,9 @@ class Object:
 
         Args:
             props (list): List of property key-value pairs to set. See documentation for
-            `set_property` for more information on acceptable keys.
+                `set_property` for more information on acceptable keys.
         """
+
         [self.set_property(k, props[k]) for k in props]
         return self
 
@@ -1026,12 +1044,13 @@ class Object:
         Remove a property from a libmapper object.
 
         Args:
-            key_or_idx (str, int, or libmapper.Property): name, index, or symbolic identifier of the
-            property to remove.
+            key_or_idx (str, int, or libmapper.Property): name, index, or symbolic identifier of
+                the property to remove.
 
         Returns:
             self
         """
+
         mpr.mpr_obj_remove_prop.argtypes = [c_void_p, c_int, c_char_p]
         mpr.mpr_obj_remove_prop.restype = c_int
         if isinstance(key_or_idx, str):
@@ -1049,12 +1068,12 @@ class Object:
         Check whether a libmapper object contains the named property.
 
         Args:
-            key (str or libmapper.Property): name or symbolic identifier of the property to check
-            for.
+            key (str or libmapper.Property): name or symbolic identifier of the property to check for.
 
         Returns:
             True if the property exists, False otherwise.
         """
+
         return self[key] is not None
 
     def __nonzero__(self):
@@ -1062,6 +1081,7 @@ class Object:
 
     def __eq__(self, rhs):
         """Evaluate equality between libmapper objects by comparing object ids"""
+
         return rhs != None and self['id'] == rhs['id']
 
     def type(self):
@@ -1087,13 +1107,6 @@ class Object:
         if self._obj:
             mpr.mpr_obj_push(self._obj)
         return self
-
-class InstanceId(c_longlong):
-    def from_param(p):
-        return p
-    def __str__(self):
-        print(self.value);
-        return str(self.value)
 
 c_sig_cb_type = CFUNCTYPE(None, c_void_p, c_int, c_longlong, c_int, c_char, c_void_p, c_longlong)
 
@@ -1145,6 +1158,19 @@ class Signal(Object):
     dataflow graph by creating Maps using the libmapper API or an external session manager.
     """
 
+    @unique
+    class Direction(IntFlag):
+        """The set of possible directions for a signal."""
+
+        INCOMING   = 1
+        OUTGOING   = 2
+        ANY        = 3
+        BOTH       = 4
+
+        def __repr__(self):
+            return 'libmapper.Signal.Direction.' + self.name
+
+    @unique
     class Event(IntFlag):
         """The set of possible signal events, used to register and inform callbacks."""
 
@@ -1158,6 +1184,17 @@ class Signal(Object):
 
         def __repr__(self):
             return 'libmapper.Signal.Event.' + self.name
+
+    @unique
+    class Stealing(Enum):
+        """The set of possible instance-stealing modes."""
+
+        NONE    = 0
+        OLDEST  = 1
+        NEWEST  = 2
+
+        def __repr__(self):
+            return 'libmapper.Signal.Stealing.' + self.name
 
     def __init__(self, sigptr=None):
         self._obj = sigptr
@@ -1188,11 +1225,12 @@ class Signal(Object):
         Args:
             callback: a function to be called when the Signal is updated.
             events (bitflags: libmapper.Signal.Event): The type(s) of events that will trigger the
-            callback.
+                callback.
 
         Returns:
             self
         """
+
         data = mpr.mpr_obj_get_prop_as_ptr(self._obj, 0x0200, None) # MPR_PROP_DATA
         if data != None:
             cb = cast(data, py_sig_cb_type)
@@ -1219,6 +1257,7 @@ class Signal(Object):
         Returns:
             self
         """
+
         mpr.mpr_sig_set_value.argtypes = [c_void_p, c_longlong, c_int, c_char, c_void_p]
         mpr.mpr_sig_set_value.restype = None
 
@@ -1262,6 +1301,7 @@ class Signal(Object):
         Returns:
             The current value of the Signal, or `None` if the Signal/Instance has no value.
         """
+
         mpr.mpr_sig_get_value.argtypes = [c_void_p, c_longlong, c_void_p]
         mpr.mpr_sig_get_value.restype = c_void_p
         _time = Time()
@@ -1290,16 +1330,16 @@ class Signal(Object):
 
         Args:
             arg (int or list): An `int` it is interpreted as the number of new instances to
-            allocate. If a `list` is passed instead it is interpreted as a list of instance `ids`
-            for which instances should be allocated.
+                allocate. If a `list` is passed instead it is interpreted as a list of instance
+                `ids` for which instances should be allocated.
 
         Note:
-            If instance ids are specified, libmapper will not add multiple instances with the same
-            id.
+            If instance ids are specified, libmapper will not add multiple instances with the same id.
 
         Returns:
             self
         """
+
         mpr.mpr_sig_reserve_inst.argtypes = [c_void_p, c_int, c_void_p, c_void_p]
         if isinstance(arg, int):
             count = mpr.mpr_sig_reserve_inst(self._obj, arg, None, None)
@@ -1314,46 +1354,60 @@ class Signal(Object):
         """
         Allocate and/or access a specific Signal Instance
 
+        Signal Instances can be used to describe the multiplicity and/or ephemerality of phenomena
+        associated with Signals. A signal describes the phenomena, e.g. the position of a 'blob' in
+        computer vision, and the signal's instances will describe the positions of actual detected
+        blobs.
+
         Args:
             id: The identifier of the Instance to allocate/access.
         """
-        return SignalInstance(self._obj, id)
 
-    def num_instances(self, status=Status.ANY):
+        self.id = id
+        return self
+
+    def release(self):
+        """Release this signal instance."""
+
+        mpr.mpr_sig_release_inst.argtypes = [c_void_p, c_longlong]
+        mpr.mpr_sig_release_inst.restype = None
+        mpr.mpr_sig_release_inst(self._obj, self.id)
+
+    def num_instances(self, status=Object.Status.ANY):
         """
         Get the number of instances for this Signal.
 
         Args:
-            status (libmapper.Status): The status of the instances to search for. Should be set to
-            `libmapper.Status.ACTIVE`, `libmapper.Status.RESERVED`, or both
-            (`libmapper.Status.ACTIVE | libmapper.Status.RESERVED`).
+            status (libmapper.Object.Status): The status of the instances to search for. Should be
+                set to `ACTIVE`, `RESERVED`, or both (`ACTIVE | RESERVED`).
 
         Returns:
              The number of allocated signal instances matching the specified status.
         """
+
         mpr.mpr_sig_get_num_inst.argtypes = [c_void_p, c_int]
-        if not isinstance(status, Status):
-            status = Status(status)
+        if not isinstance(status, Object.Status):
+            status = Object.Status(status)
         return mpr.mpr_sig_get_num_inst(self._obj, status.value)
 
-    def instance_id(self, idx, status=Status.ANY):
+    def instance_id(self, idx, status=Object.Status.ANY):
         """
         Get a Signal Instance's identifier by its index.
 
         Args:
             idx (int): The numerical index of the instance to retrieve.  Should be between zero
-            and the number of instances.
-            status (libmapper.Status): The status of the instances to search for. Should be set to
-            `libmapper.Status.ACTIVE`, `libmapper.Status.RESERVED`, or both
-            (`libmapper.Status.ACTIVE | libmapper.Status.RESERVED`).
+                and the number of instances.
+            status (libmapper.Object.Status): The status of the instances to search for. Should be
+                set to `ACTIVE`, `RESERVED`, or both (`ACTIVE | RESERVED`).
 
         Returns:
             The instance identifier associated with the given index, or `0` if unsuccessful.
         """
+
         mpr.mpr_sig_get_inst_id.argtypes = [c_void_p, c_int, c_int]
-        mpr.mpr_sig_get_inst_id.restype = c_longlong # InstanceId
-        if not isinstance(status, Status):
-            status = Status(status)
+        mpr.mpr_sig_get_inst_id.restype = c_longlong
+        if not isinstance(status, Object.Status):
+            status = Object.Status(status)
         return mpr.mpr_sig_get_inst_id(self._obj, idx, status.value)
 
     def device(self):
@@ -1363,6 +1417,7 @@ class Signal(Object):
         Returns:
             The parent Device
         """
+
         mpr.mpr_sig_get_dev.argtypes = [c_void_p]
         mpr.mpr_sig_get_dev.restype = c_void_p
         device = mpr.mpr_sig_get_dev(self._obj)
@@ -1373,38 +1428,46 @@ class Signal(Object):
         Get the list of Maps for a given Signal.
 
         Args:
-            direction (libmapper.Direction): The direction of the Maps to return. Defaults to `ANY`.
+            direction (libmapper.Signal.Direction): The direction of the Maps to return.
+                Defaults to `ANY`.
 
         Returns:
             mpr.List
         """
+
         mpr.mpr_sig_get_maps.argtypes = [c_void_p, c_int]
         mpr.mpr_sig_get_maps.restype = c_void_p
         return List(mpr.mpr_sig_get_maps(self._obj, direction))
 
-class SignalInstance(Signal):
-    """
-    Signal Instances can be used to describe the multiplicity and/or ephemerality of phenomena
-    associated with Signals. A signal describes the phenomena, e.g. the position of a 'blob' in
-    computer vision, and the signal's instances will describe the positions of actual detected
-    blobs.
-    """
-
-    def __init__(self, sigptr, id):
-        self._obj = sigptr
-        self.id = id
-
-    def release(self):
-        """
-        Release this signal instance.
-        """
-        mpr.mpr_sig_release_inst.argtypes = [c_void_p, InstanceId]
-        mpr.mpr_sig_release_inst.restype = None
-        mpr.mpr_sig_release_inst(self._obj, self.id)
-
 py_sig_cb_type = CFUNCTYPE(None, py_object, py_object, c_longlong, py_object, py_object)
 
 class Map(Object):
+    """
+    Maps define dataflow connections between sets of signals. A map consists of one or more sources,
+    one destination, and properties which determine how the source data is processed.
+    """
+
+    @unique
+    class Location(IntFlag):
+        """Describes the possible endpoints of a map."""
+
+        SOURCE      = 1
+        DESTINATION = 2
+        ANY         = 3
+
+        def __repr__(self):
+            return 'libmapper.Map.Location.' + self.name
+
+    @unique
+    class Protocol(Enum):
+        """Describes the possible network protocol for map communication."""
+
+        UDP = 1
+        TCP = 2
+
+        def __repr__(self):
+            return 'libmapper.Map.Protocol.' + self.name
+
     def __init__(self, *args):
         """
         Create a map between a set of signals.
@@ -1430,6 +1493,7 @@ class Map(Object):
         Returns:
             The new Map object.
         """
+
         mpr.mpr_map_new.argtypes = [c_int, c_void_p, c_int, c_void_p]
         mpr.mpr_map_new.restype = c_void_p
 
@@ -1482,6 +1546,7 @@ class Map(Object):
         Note:
             After releasing a Map the object should no longer be used.
         """
+
         mpr.mpr_map_release.argtypes = [c_void_p]
         mpr.mpr_map_release.restype = None
         mpr.mpr_map_release(self._obj)
@@ -1491,13 +1556,13 @@ class Map(Object):
         Retrieve a list of connected signals for a specific map.
 
         Args:
-            location (libmapper.Location): The relative location of the map endpoint, must be
-            `libmapper.Location.SOURCE`, `libmapper.Location.DESTINATION`, or
-            `libmapper.Location.ANY`.
+            location (libmapper.Map.Location): The relative location of the map endpoint, must be
+                `SOURCE`, `DESTINATION`, or `ANY`.
 
         Returns:
             A `libmapper.List` of results.
         """
+
         mpr.mpr_map_get_sigs.argtypes = [c_void_p, c_int]
         mpr.mpr_map_get_sigs.restype = c_void_p
         return List(mpr.mpr_map_get_sigs(self._obj, location))
@@ -1512,6 +1577,7 @@ class Map(Object):
         Returns:
              The signal index, or `-1` if not found.
         """
+
         if not isinstance(signal, Signal):
             print("libmapper.Map.index() : bad argument type", type(signal))
             return None
@@ -1527,6 +1593,7 @@ class Map(Object):
         Returns:
             True if initialized, False otherwise.
         """
+
         mpr.mpr_map_get_is_ready.argtypes = [c_void_p]
         mpr.mpr_map_get_is_ready.restype = c_int
         return 0 != mpr.mpr_map_get_is_ready(self._obj)
@@ -1536,17 +1603,19 @@ class Map(Object):
         """
         Add a map scope
 
-        Note: Changes to remote maps will not take effect until synchronized with the distributed
-        graph using `push()`
+        Note:
+            Changes to remote maps will not take effect until synchronized with the distributed
+            graph using `push()`
 
         Args:
             device (libmapper.Device): Device to add as a scope for this map. After taking effect,
-            this setting will cause instance updates originating at this device to be propagated
-            across the map.
+                this setting will cause instance updates originating at this device to be propagated
+                across the map.
 
         Returns:
             self
         """
+
         if isinstance(device, Device):
             mpr.mpr_map_add_scope.argtypes = [c_void_p, c_void_p]
             mpr.mpr_map_add_scope.restype = None
@@ -1557,17 +1626,19 @@ class Map(Object):
         """
         Remove a map scope
 
-        Note: Changes to remote maps will not take effect until synchronized with the distributed
-        graph using `push()`
+        Note:
+            Changes to remote maps will not take effect until synchronized with the distributed
+            graph using `push()`
 
         Args:
             device (libmapper.Device): Device to remove as a scope for this map. After taking
-            effect, this setting will cause instance updates originating at this device to be
-            blocked from propagating across the map.
+                effect, this setting will cause instance updates originating at this device to be
+                blocked from propagating across the map.
 
         Returns:
             self
         """
+
         if isinstance(device, Device):
             mpr.mpr_map_remove_scope.argtypes = [c_void_p, c_void_p]
             mpr.mpr_map_remove_scope.restype = None
@@ -1606,6 +1677,7 @@ class Graph(Object):
     mpr.mpr_graph_get_list.argtypes = [c_void_p, c_int]
     mpr.mpr_graph_get_list.restype = c_void_p
 
+    @unique
     class Event(Enum):
         """The set of possible graph events, used to inform callbacks."""
         NEW      = 0
@@ -1622,12 +1694,13 @@ class Graph(Object):
 
         Args:
             subscribe_flags (bitflags: libmapper.Type): A combination of `libmapper.Type` values
-            controlling whether the graph should automatically subscribe to information about
-            devices, signals and/or maps when it encounters a previously-unseen device.
+                controlling whether the graph should automatically subscribe to information about
+                devices, signals and/or maps when it encounters a previously-unseen device.
 
         Returns:
             The new Graph object
         """
+
         if ptr != None:
             self._obj = ptr
         else:
@@ -1656,6 +1729,7 @@ class Graph(Object):
         Returns:
             True if successful, False otherwise.
         """
+
         mpr.mpr_graph_set_interface.argtypes = [c_void_p, c_char_p]
         if isinstance(iface, str):
             mpr.mpr_graph_set_interface(self._obj, iface.encode('utf-8'))
@@ -1668,6 +1742,7 @@ class Graph(Object):
         Returns:
              A string containing the name of the network interface.
         """
+
         mpr.mpr_graph_get_interface.argtypes = [c_void_p]
         mpr.mpr_graph_get_interface.restype = c_char_p
         iface = mpr.mpr_graph_get_interface(self._obj)
@@ -1685,6 +1760,7 @@ class Graph(Object):
         Returns:
             True if successful, False otherwise.
         """
+
         if isinstance(address, str) and isinstance(port, int):
             mpr.mpr_graph_set_address.argtypes = [c_void_p, c_char_p, c_int]
             mpr.mpr_graph_set_address.restype = c_int
@@ -1698,6 +1774,7 @@ class Graph(Object):
         Returns:
             A string specifying the current multicast address.
         """
+
         mpr.mpr_graph_get_address.argtypes = [c_void_p]
         mpr.mpr_graph_get_address.restype = c_char_p
         address = mpr.mpr_graph_get_address(self._obj)
@@ -1710,8 +1787,9 @@ class Graph(Object):
 
         Args:
             timeout (timeout): The number of milliseconds to block, or `0` for non-blocking
-            behaviour. Defaults to `0`.
+                behaviour. Defaults to `0`.
         """
+
         mpr.mpr_graph_poll.argtypes = [c_void_p, c_int]
         mpr.mpr_graph_poll(self._obj, timeout)
         return self
@@ -1721,14 +1799,15 @@ class Graph(Object):
         Register a callback for when an object record is added or updated in the graph.
 
         Args:
-            func:
+            func: a function to be called when object records are added, modified, or removed
             types (bitflags: libmapper.Type): Bitflags setting the type of information of interest.
-            Can be a combination of `libmapper.Type.DEVICE`, `libmapper.Type.SIGNAL`, and/or
-            `libmapper.Type.MAP`. Defaults to `libmapper.Type.OBJECT` (any object type).
+                Can be a combination of `DEVICE`, `SIGNAL`, and/or `MAP`. Defaults to `OBJECT`
+                (any object type).
 
         Returns:
             self
         """
+
         updated = False
         if types & Type.DEVICE:
             if func not in graph_dev_cbs:
@@ -1754,6 +1833,7 @@ class Graph(Object):
         Returns:
             self
         """
+
         updated = False
         if func in graph_dev_cbs:
             graph_dev_cbs.remove(func)
@@ -1773,15 +1853,15 @@ class Graph(Object):
         Args:
             device (libmapper.Device): The device to subscribe to, or `None` for any device.
             flags (bitflags: libmapper.Type): The type of information to subscribe to
-            (`libmapper.Type.DEVICE`, `libmapper.Type.SIGNAL`, `libmapper.Type.MAP`, or a
-            combination of these types).
+                (`DEVICE`, `SIGNAL`, `MAP`, or a combination of these types).
             timeout (int): The length in seconds for this subscription. If set to `-1`, the graph
-            will automatically renew the subscription until it is freed or this function is called
-            again. Defaults to `-1`.
+                will automatically renew the subscription until it is freed or this function is
+                called again. Defaults to `-1`.
 
         Returns:
             self
         """
+
         mpr.mpr_graph_subscribe.argtypes = [c_void_p, c_void_p, c_int, c_int]
         mpr.mpr_graph_subscribe.restype = None
         if device == None:
@@ -1796,11 +1876,12 @@ class Graph(Object):
 
         Args:
             device (libmapper.Device, optional): The device to unsubscribe from. If omitted of set
-            to `None` the graph will unsubscribe from all devices
+                to `None` the graph will unsubscribe from all devices
 
         Returns:
             self
         """
+
         mpr.mpr_graph_unsubscribe.argtypes = [c_void_p, c_void_p]
         mpr.mpr_graph_unsubscribe.restype = None
         if isinstance(device, Device):
@@ -1811,15 +1892,18 @@ class Graph(Object):
 
     def devices(self):
         """Retrieve a list of Devices from the Graph."""
+
         list = mpr.mpr_graph_get_list(self._obj, Type.DEVICE)
         return List(list)
 
     def signals(self):
         """Retrieve a list of Signals from the Graph."""
+
         return List(mpr.mpr_graph_get_list(self._obj, Type.SIGNAL))
 
     def maps(self):
         """Retrieve a list of Maps from the Graph."""
+
         return List(mpr.mpr_graph_get_list(self._obj, Type.MAP))
 
     def object(self, id, type=Type.OBJECT):
@@ -1833,6 +1917,7 @@ class Graph(Object):
         Returns:
             The object matching the query.
         """
+
         mpr.mpr_graph_get_obj.argtypes = [c_void_p, c_longlong, c_int]
         mpr.mpr_graph_get_obj.restype = c_void_p
         return Object(mpr.mpr_graph_get_obj(self._obj, id, type))
@@ -1851,10 +1936,11 @@ class Device(Object):
 
         Args:
             name (str): A short descriptive string to identify the Device. Must not contain spaces
-            or the slash character '/'.
+                or the slash character '/'.
             graph (libmapper.Graph, optional): A previously allocated Graph structure to use. If
-            omitted a new Graph strcuture will be allocated.
+                omitted a new Graph strcuture will be allocated.
         """
+
         mpr.mpr_dev_new.argtypes = [c_char_p, c_void_p]
         mpr.mpr_dev_new.restype = c_void_p
         self._obj = None
@@ -1879,6 +1965,7 @@ class Device(Object):
 
     def free(self):
         """Remove a Device from the graph and free its resources."""
+
         if not self._obj or not self[Property.IS_LOCAL]:
             return
         for s in self.signals():
@@ -1901,8 +1988,9 @@ class Device(Object):
 
         Args:
             timeout (int): Number of milliseconds to block waiting for messages, or `0` for
-            non-blocking behaviour. Defaults to `0`.
+                non-blocking behaviour. Defaults to `0`.
         """
+
         mpr.mpr_dev_poll.argtypes = [c_void_p, c_int]
         mpr.mpr_dev_poll.restype = c_int
         return mpr.mpr_dev_poll(self._obj, timeout)
@@ -1913,7 +2001,7 @@ class Device(Object):
         Create a new Signal and add it to this Device.
 
         Args:
-            dir (libmapper.Direction): The signal Direction.
+            dir (libmapper.Signal.Direction): The signal Direction.
             name (str): The name of the signal.
             length (int): The length of the signal vector, or `1` for a scalar. Defaults to `1`.
             datatype (libmapper.Type): The type of the signal value. Defaults to `FLOAT`.
@@ -1927,6 +2015,7 @@ class Device(Object):
         Returns:
             The new Signal.
         """
+
         mpr.mpr_sig_new.argtypes = [c_void_p, c_int, c_char_p, c_int, c_char, c_char_p, c_void_p,
                                     c_void_p, POINTER(c_int), c_void_p, c_int]
         mpr.mpr_sig_new.restype = c_void_p
@@ -1963,35 +2052,39 @@ class Device(Object):
         Returns:
             self
         """
+
         if isinstance(signal, Signal):
             signal.free()
         return self
 
-    def signals(self, direction=Direction.ANY):
+    def signals(self, direction=Signal.Direction.ANY):
         """
         Get the list of Signals for a given Device.
 
         Args:
-            direction (libmapper.Direction): The Direction of the Signals to return. Defaults to
-            `ANY`.
+            direction (libmapper.Signal.Direction): The Direction of the Signals to return.
+                Defaults to `ANY`.
 
         Returns:
             mpr.List
         """
+
         mpr.mpr_dev_get_sigs.argtypes = [c_void_p, c_int]
         mpr.mpr_dev_get_sigs.restype = c_void_p
         return List(mpr.mpr_dev_get_sigs(self._obj, direction))
 
-    def maps(self, direction=Direction.ANY):
+    def maps(self, direction=Signal.Direction.ANY):
         """
         Get the list of Maps for a given Device.
 
         Args:
-            direction (libmapper.Direction): The Direction of the Maps to return. Defaults to `ANY`.
+            direction (libmapper.Signal.Direction): The Direction of the Maps to return.
+                Defaults to `ANY`.
 
         Returns:
             mpr.List
         """
+
         mpr.mpr_dev_get_maps.argtypes = [c_void_p, c_int]
         mpr.mpr_dev_get_maps.restype = c_void_p
         return List(mpr.mpr_dev_get_maps(self._obj, direction))
@@ -2003,6 +2096,7 @@ class Device(Object):
         Returns:
             True if initialized, False otherwise.
         """
+
         mpr.mpr_dev_get_is_ready.argtypes = [c_void_p]
         mpr.mpr_dev_get_is_ready.restype = c_int
         return 0 != mpr.mpr_dev_get_is_ready(self._obj)
@@ -2015,6 +2109,7 @@ class Device(Object):
         Returns:
             libmapper.Time
         """
+
         mpr.mpr_dev_get_time.argtypes = [c_void_p]
         mpr.mpr_dev_get_time.restype = c_longlong
         return Time(mpr.mpr_dev_get_time(self._obj))
@@ -2034,6 +2129,7 @@ class Device(Object):
         Returns:
             self
         """
+
         mpr.mpr_dev_set_time.argtypes = [c_void_p, c_longlong]
         mpr.mpr_dev_set_time.restype = None
         if not isinstance(val, Time):
@@ -2042,7 +2138,8 @@ class Device(Object):
         return self
 
     def update_maps(self):
-        """Trigger map propagation for a given timestep.
+        """
+        Trigger map propagation for a given timestep.
 
         Note:
             This function can be omitted if `poll()` is called each timestep, however calling
@@ -2051,7 +2148,15 @@ class Device(Object):
         Returns:
             self
         """
+
         mpr.mpr_dev_update_maps.argtypes = [c_void_p]
         mpr.mpr_dev_update_maps.restype = None
         mpr.mpr_dev_update_maps(self._obj)
         return self
+
+# deprecated enums
+Direction = Signal.Direction
+Location = Map.Location
+Protocol = Map.Protocol
+Status = Object.Status
+Stealing = Signal.Stealing
