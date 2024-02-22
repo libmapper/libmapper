@@ -1,5 +1,42 @@
 # libmapper NEWS
 
+Version 2.4.6
+-------------
+
+We are pleased to announce the release of version 2.4.6 of libmapper, an open-source, cross-platform software library for declaring data signals on a shared network and enabling arbitrary connections to be made between them. The main focus of libmapper development is to provide tools for creating and using systems for interactive control of media synthesis.
+
+This release focuses on a bugfix for processing instance reduce functions, revision of the class structure for object-oriented language bindings (Python, Java, C#), and improvements to documentation.
+
+Changes include
+
+- Updated the class structure and documentation for object-oriented bindings (Python, Java, and C#) to improve consistency and clarity.
+- Added the `median()` function to the expression language
+- Enabled comparison by either object ids or memory locations when filtering lists.
+- Added of license metadata to `pyproject.toml`
+- Documentation:
+    - Rearranged sections in the expression syntax documentation to improve readability.
+    - Updated API documentation
+    - Updated expression syntax documentation.
+    - Added docstrings for Python bindings.
+    - Added MediaPipe face tracking example to doc/integration_examples
+    - Added exit handler with dev.free() to Java/Processing example.
+- Testing:
+    - Improved type checking in testparser.c
+    - Updated testlist to avoid false failures when other libmapper-enabled programs are running on the network.
+    - Added argument to testparser for running a specific test expression instead of the whole set.
+
+Bug fixes include:
+
+- Ensuring non-local links are removed from device records when links are removed from the graph.
+- Switched to 64-bit type for comparing mpr_ids when filtering lists.
+- Expression parser:
+    - Moved timetag token into enum range eligible for typecasting.
+- Expression evaluator:
+    - Fixed an instance reduce regression.
+    - Fixed typecasting and vector length tracking in expression engine
+- Python bindings:
+    - Fixed instance allocation count in signal constructor.
+
 Version 2.4.5
 -------------
 
