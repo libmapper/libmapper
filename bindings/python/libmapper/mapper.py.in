@@ -2038,7 +2038,7 @@ class Device(Object):
         if max is not None:
             signal.set_property(Property.MAX, max)
         if num_inst is not None and isinstance(num_inst, int):
-            signal.reserve_instances(num_inst - 1)
+            signal.reserve_instances(num_inst)
             signal.set_property(Property.EPHEMERAL, True)
         return signal
 
