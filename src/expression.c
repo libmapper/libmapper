@@ -4215,7 +4215,6 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
     int i, j, sp, dp = -1;
     /* Note: signal, history, and vector reduce are currently limited to 256 items here */
     uint8_t alive = 1, muted = 0, can_advance = 1, hist_offset = 0, sig_offset = 0, vec_offset = 0;
-    uint8_t inst_count = 0;
     mpr_value_buffer b_out;
     mpr_value x = NULL;
 
@@ -4357,6 +4356,10 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                 }
                 b = &v->inst[inst_idx % v->num_inst];
                 can_advance = 0;
+
+                /* If no instance idx is cached this means that this expression contains a
+                 * non-reducing reference to the variable x, and that mpr_expr_eval() should be
+                 * called again for each instance. Thus we remove the EVAL_DONE flag from status. */
                 if (!cache)
                     status &= ~EXPR_EVAL_DONE;
             }
@@ -4866,7 +4869,6 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                             return status;
                         inst_idx = i;
                     }
-                    inst_count = 0;
                     break;
                 case RT_VECTOR:
                     /* Set vector start index */
@@ -4909,10 +4911,8 @@ int mpr_expr_eval(mpr_expr_stack expr_stk, mpr_expr expr, mpr_value *v_in, mpr_v
                             if (x->inst[i].full || x->inst[i].pos >= (expr->max_in_hist_size - 1))
                                 break;
                         }
-                        if (tok->con.reduce_stop)
-                            ++inst_count;
                     }
-                    if (x && i < x->num_inst && inst_count < tok->con.reduce_stop) {
+                    if (x && i < x->num_inst) {
 #if TRACE_EVAL
                         printf("Instance idx = %d\n", i);
 #endif

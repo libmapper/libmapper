@@ -757,7 +757,7 @@ void mpr_map_send(mpr_local_map m, mpr_time time)
                 id_map = m->id_map = 0;
             }
         }
-        if ((status & EXPR_EVAL_DONE) && !m->use_inst)
+        if (status & EXPR_EVAL_DONE)
             break;
     }
     mpr_bitflags_clear(m->updated_inst, m->num_inst);
