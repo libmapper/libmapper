@@ -70,12 +70,17 @@ jobs:
         cd ./liblo-0.31
         && pwd
         && make clean
-        && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-shared --disable-tests --disable-tools --disable-examples CFLAGS=-fPIC || (cat config.log; false))
+        && (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -fPIC" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin" --build=x86_64-apple-darwin19.6.0 --host=x86_64-apple-darwin --enable-static --prefix=$PWD/inst --disable-shared --disable-tests --disable-tools --disable-examples || (cat config.log; false))
         && make install
         && mv ./inst/lib/liblo.a ./inst/lib/liblo.a.x86_64
         && cd ..
     - name: liblo universal binary
-      run: cd ./liblo-0.31/inst/lib && lipo -create -output ./liblo.a ./liblo.a.arm64 ./liblo.a.x86_64 && lipo -info ./liblo.a && rm ./liblo.a.* && cd ../../..
+      run:
+        cd ./liblo-0.31/inst/lib
+        && lipo -create -output ./liblo.a ./liblo.a.arm64 ./liblo.a.x86_64
+        && lipo -info ./liblo.a
+        && rm ./liblo.a.*
+        && cd ../../..
     - name: libmapper autogen arm64
       run:
         pwd
