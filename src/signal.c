@@ -1342,6 +1342,8 @@ static void mpr_sig_release_inst_internal(mpr_local_sig lsig, int id_map_idx)
     mpr_sig_id_map smap = &lsig->id_maps[id_map_idx];
     RETURN_UNLESS(smap->inst);
 
+    mpr_dev_get_time((mpr_dev)lsig->dev);
+
     /* mark instance as updated */
     mpr_local_sig_set_updated(lsig, smap->inst->idx);
 
