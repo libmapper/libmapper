@@ -40,8 +40,8 @@ jobs:
           libmapper*.tar.gz
           ./wheelhouse/*.whl
 
-  MacOS-Latest:
-    runs-on: macOS-latest
+  MacOS:
+    runs-on: macOS-13
     timeout-minutes: 20
     env:
       CC: clang
@@ -52,10 +52,9 @@ jobs:
         fetch-depth: 0
     - name: install dependencies
       run:
-        brew install autoconf-archive automake pkg-config libtool
-        && python3 -m pip install --upgrade --break-system-packages setuptools
-        && python3 -m pip install --break-system-packages packaging
-        && python3 -m pip install --break-system-packages distutils
+        brew install autoconf-archive automake pkg-config
+        && python3 -m pip install --upgrade setuptools
+        && python3 -m pip install packaging
     - name: download liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz
     - name: liblo make arm64
@@ -71,17 +70,12 @@ jobs:
         cd ./liblo-0.31
         && pwd
         && make clean
-        && (./configure CFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin -fPIC" CXXFLAGS="-isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk --target=x86_64-apple-darwin" --build=x86_64-apple-darwin19.6.0 --host=x86_64-apple-darwin --enable-static --prefix=$PWD/inst --disable-shared --disable-tests --disable-tools --disable-examples || (cat config.log; false))
+        && (./configure --host=$HOST --prefix=$PWD/inst --enable-static --disable-shared --disable-tests --disable-tools --disable-examples CFLAGS=-fPIC || (cat config.log; false))
         && make install
         && mv ./inst/lib/liblo.a ./inst/lib/liblo.a.x86_64
         && cd ..
     - name: liblo universal binary
-      run:
-        cd ./liblo-0.31/inst/lib
-        && lipo -create -output ./liblo.a ./liblo.a.arm64 ./liblo.a.x86_64
-        && lipo -info ./liblo.a
-        && rm ./liblo.a.*
-        && cd ../../..
+      run: cd ./liblo-0.31/inst/lib && lipo -create -output ./liblo.a ./liblo.a.arm64 ./liblo.a.x86_64 && lipo -info ./liblo.a && rm ./liblo.a.* && cd ../../..
     - name: libmapper autogen arm64
       run:
         pwd
@@ -185,9 +179,9 @@ jobs:
           && cp ../bindings/python/test*.py .
           && for i in test*.py; do echo running $i; if ! python3 $i; then exit 1; fi; done
 
-  MacOS-Latest-check-wheel:
-    runs-on: macOS-latest
-    needs: MacOS-Latest
+  MacOS-check-wheel:
+    runs-on: macOS-13
+    needs: MacOS
     timeout-minutes: 20
     env:
       SYSTEM_VERSION_COMPAT: 0
