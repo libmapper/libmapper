@@ -52,7 +52,7 @@ jobs:
         fetch-depth: 0
     - name: install dependencies
       run:
-        brew install autoconf-archive automake pkg-config
+        brew install autoconf-archive automake pkg-config libtool
         && python3 -m pip install --upgrade --break-system-packages setuptools
         && python3 -m pip install --break-system-packages packaging
     - name: download liblo
