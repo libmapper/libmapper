@@ -55,6 +55,7 @@ jobs:
         brew install autoconf-archive automake pkg-config libtool
         && python3 -m pip install --upgrade --break-system-packages setuptools
         && python3 -m pip install --break-system-packages packaging
+        && python3 -m pip install --break-system-packages distutils
     - name: download liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz
     - name: liblo make arm64
