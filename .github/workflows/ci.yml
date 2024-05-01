@@ -53,8 +53,8 @@ jobs:
     - name: install dependencies
       run:
         brew install autoconf-archive automake pkg-config
-        && python3 -m pip install --upgrade setuptools
-        && python3 -m pip install packaging
+        && python3 -m pip install --upgrade --break-system-packages setuptools
+        && python3 -m pip install --break-system-packages packaging
     - name: download liblo
       run: curl -L -O https://downloads.sourceforge.net/project/liblo/liblo/0.31/liblo-0.31.tar.gz && tar -xzf liblo-0.31.tar.gz
     - name: liblo make arm64
